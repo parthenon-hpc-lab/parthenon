@@ -339,7 +339,6 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
             CalcIndicesLoadSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
             CalcIndicesLoadSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
             boundary_info_h(b).var = var_cc.Get<4>();
-            boundary_info_h(b).target = BufferTarget::Same;
 
           } else if (nb.snb.level < mylevel) {
             const IndexShape &c_cellbounds = pmb->c_cellbounds;
@@ -354,12 +353,11 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
             //                                      sj, ej, sk, ek);
 
             boundary_info_h(b).var = coarse_buf.Get<4>();
-            boundary_info_h(b).target = BufferTarget::Restrict;
+            boundary_info_h(b).restrict = true;
 
           } else {
             CalcIndicesLoadToFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
             boundary_info_h(b).var = var_cc.Get<4>();
-            boundary_info_h(b).target = BufferTarget::Prolongate;
           }
           // on the same process fill the target buffer directly
           if (nb.snb.rank == parthenon::Globals::my_rank) {

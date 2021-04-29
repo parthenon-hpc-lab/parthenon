@@ -43,7 +43,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues3d",
         DevExecSpace(), scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).target == cell_centered_bvars::BufferTarget::Restrict) {
+          if (info(buf).restrict) {
             par_for_inner(
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
                 info(buf).sk, info(buf).ek, info(buf).sj, info(buf).ej,
@@ -68,7 +68,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
                   // KGF: add the off-centered quantities first to preserve FP
                   // symmetry
                   auto &coarse = info(buf).coarse;
-                  auto &fine = info(buf).var;
+                  auto &fine = info(buf).fine;
                   coarse(n, ck, cj, ci) =
                       (((fine(n, k, j, i) * vol000 +
                          fine(n, k, j + 1, i) * vol010) +
@@ -87,7 +87,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues2d",
         DevExecSpace(), scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).target == cell_centered_bvars::BufferTarget::Restrict) {
+          if (info(buf).restrict) {
             const int k = kb.s;
             par_for_inner(
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
@@ -106,7 +106,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
                   // KGF: add the off-centered quantities first to preserve FP
                   // symmetry
                   auto &coarse = info(buf).coarse;
-                  auto &fine = info(buf).var;
+                  auto &fine = info(buf).fine;
                   coarse(n, 0, cj, ci) = ((fine(n, 0, j, i) * vol00 +
                                            fine(n, 0, j + 1, i) * vol10) +
                                           (fine(n, 0, j, i + 1) * vol01 +
@@ -120,7 +120,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues1d",
         DevExecSpace(), scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).target == cell_centered_bvars::BufferTarget::Restrict) {
+          if (info(buf).restrict) {
             const int ck = ckb.s;
             const int cj = cjb.s;
             const int k = kb.s;
@@ -133,7 +133,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
                   const Real vol1 = info(buf).coords.Volume(k, j, i + 1);
                   Real tvol = vol0 + vol1;
                   auto &coarse = info(buf).coarse;
-                  auto &fine = info(buf).var;
+                  auto &fine = info(buf).fine;
                   coarse(n, ck, cj, ci) =
                       (fine(n, k, j, i) * vol0 + fine(n, k, j, i + 1) * vol1) /
                       tvol;

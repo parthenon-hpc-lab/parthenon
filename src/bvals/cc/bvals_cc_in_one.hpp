@@ -44,7 +44,6 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md);
 
-enum class BufferTarget { Same, Restrict, Prolongate };
 struct BndInfo {
   int si = 0;
   int ei = 0;
@@ -53,7 +52,7 @@ struct BndInfo {
   int sk = 0;
   int ek = 0;
   int Nv = 0;
-  BufferTarget target;
+  bool restrict = false;
   Coordinates_t coords, coarse_coords; // coords
   parthenon::BufArray1D<Real> buf;     // comm buffer
   parthenon::ParArray4D<Real> var;     // data variable used for comms
