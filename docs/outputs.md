@@ -1,12 +1,17 @@
 # Outputs
 
-Outputs from Parthenon are controled via ```<parthenon/output*>``` blocks, where ```*``` should be replaced by a unique integer for each block.
+Outputs from Parthenon are controled via `<parthenon/output*>` blocks, where `*` should be replaced by a unique integer for each block.
 
 To disable an output block without removing it from the intput file set the block's `dt < 0.0`.
 
 ## HDF5
 
-Parthenon allows users to select which fields are captured in the HDF5 (```.phdf```) dumps at runtime.  In the input file, include a ```<parthenon/output*>``` block, list of variables, and specify ```file_type = hdf5```.  A ```dt``` parameter controls the frequency of outputs for simulations involving evolution. A ```<parthenon/output*>``` block might look like
+Parthenon allows users to select which fields are captured in the HDF5 (`.phdf`) dumps at
+runtime.  In the input file, include a `<parthenon/output*>` block, list of variables, and
+specify `file_type = hdf5`.  A `dt` parameter controls the frequency of outputs for
+simulations involving evolution. If the optional parameter `single_precision_output` is set to
+`true`, all variable data will be written in single precision.
+A `<parthenon/output*>` block might look like
 ```
 <parthenon/output1>
 file_type = hdf5
@@ -19,11 +24,18 @@ This will produce an hdf5 (`.phdf`) output file every 1 units of
 simulation time containing the density, velocity, and energy of each
 cell.
 
+HDF5 and restart files write variable field data with inline compression by default. This is
+especially helpful when there are sparse variables allocated only in a few blocks, because all other
+blocks would write zeros of these variables, which can drastically increase output file size (and
+decrease I/O performance) without compression. To control the level of compression or to turn it off
+altogether, the CMake build option PARTHENON\_HDF5\_COMPRESSION\_LEVEL can be used. See the [build
+doc](building.md) for more details.
+
 ## Restart Files
 
-Parthenon allows users to output restart files for restarting a simulation.  The restart file captures the input file, so no input file is required to be specified.  Parameters for the input can be overriden in the usual way from teh command line.  At a future date we will allow for users the ability to extensively edit the parameters stored within the restart file. 
+Parthenon allows users to output restart files for restarting a simulation.  The restart file captures the input file, so no input file is required to be specified.  Parameters for the input can be overriden in the usual way from the command line.  At a future date we will allow for users the ability to extensively edit the parameters stored within the restart file.
 
-In the input file, include a ```<parthenon/output*>``` block and specify ```file_type = rst```.  A ```dt``` parameter controls the frequency of outputs for simulations involving evolution. A ```<parthenon/output*>``` block might look like
+In the input file, include a `<parthenon/output*>` block and specify `file_type = rst`.  A `dt` parameter controls the frequency of outputs for simulations involving evolution. A `<parthenon/output*>` block might look like
 ```
 <parthenon/output7>
 file_type = rst
@@ -32,13 +44,13 @@ dt = 1.0
 This will produce an hdf5 (`.rhdf`) output file every 1 units of
 simulation time that can be used for restarting the simulation.
 
-To use this restart file, simply specify the restart file with a ```-r <restart.rhdf>``` at the command line.  It is an error to specify an input file with the ```-i``` flag when using the restart option.
+To use this restart file, simply specify the restart file with a `-r <restart.rhdf>` at the command line.  It is an error to specify an input file with the `-i` flag when using the restart option.
 
-For physics developers: The fields to be output are automatically selected as all the variables that have either the ```Independent``` or ```Restart``` ```Metadata``` flags specifiec.  No other intervention is required by the developer.
+For physics developers: The fields to be output are automatically selected as all the variables that have either the `Independent` or `Restart` `Metadata` flags specified.  No other intervention is required by the developer.
 
 ## History Files
 
-In the input file, include a ```<parthenon/output*>``` block and specify ```file_type = hst```.  A ```dt``` parameter controls the frequency of outputs for simulations involving evolution. A ```<parthenon/output*>``` block might look like
+In the input file, include a `<parthenon/output*>` block and specify `file_type = hst`.  A `dt` parameter controls the frequency of outputs for simulations involving evolution. A `<parthenon/output*>` block might look like
 ```
 <parthenon/output8>
 file_type = hst
@@ -50,22 +62,22 @@ see the [interface doc](interface/state.md#history-output).
 
 ## Python scripts
 
-The ```scripts/python``` folder includes scripts that may be useful for visualizing or analyzing data in the ```.phdf``` files.  The ```phdf.py``` file defines a class to read in and query data.  The ```movie2d.py``` script shows an example of using this class, and also provides a convenient means of making movies of 2D simulations.  The script can be invoked as
+The `scripts/python` folder includes scripts that may be useful for visualizing or analyzing data in the `.phdf` files.  The `phdf.py` file defines a class to read in and query data.  The `movie2d.py` script shows an example of using this class, and also provides a convenient means of making movies of 2D simulations.  The script can be invoked as
 ```
 python3 /path/to/movie2d.py name_of_variable *.phdf
 ```
-which will produce a ```png``` image per dump suitable for encoding into a movie.
+which will produce a `png` image per dump suitable for encoding into a movie.
 
 ## Visualization software
 
-Both [ParaView](https://www.paraview.org/) and [VisIt](https://wci.llnl.gov/simulation/computer-codes/visit/) are capable of opening and visualizing Parthenon graphics dumps.  In both cases, the ```.xdmf``` files should be opened.  In ParaView, select the "XDMF Reader" when prompted.
+Both [ParaView](https://www.paraview.org/) and [VisIt](https://wci.llnl.gov/simulation/computer-codes/visit/) are capable of opening and visualizing Parthenon graphics dumps.  In both cases, the `.xdmf` files should be opened.  In ParaView, select the "XDMF Reader" when prompted.
 
-## Preparing outputs for ```yt```
+## Preparing outputs for `yt`
 
 Parthenon HDF5 outputs can be read with the python visualization library
 [yt](https://yt-project.org/) as certain variables are named when adding
-fields via ```StateDescriptor::AddField```. Variable names are added as a
-```std::vector<std::string>``` in the variable metadata. These labels are
+fields via `StateDescriptor::AddField`. Variable names are added as a
+`std::vector<std::string>` in the variable metadata. These labels are
 optional and are only used for output to HDF5. 4D variables are named with a
 list of names for each row while 3D variables are named with a single name.
 For example, the following configurations are acceptable:
@@ -108,20 +120,20 @@ pkg->AddField("pres", m);
 
 The `yt` frontend needs either the hydrodynamic conserved variables or
 primitive compute derived quantities. The conserved variables must have the
-names ```"Density"```, ```"MomentumDensity1"```, ```"MomentumDensity2"```,
-```"MomentumDensity3"```, ```"TotalEnergyDensity"``` while the primitive
-variables must have the names ```"Density"```, ```"Velocity1"```,
-```"Velocity2"```, ```"Velocity3"```, ```"Pressure"```. Either of these sets of
+names `"Density"`, `"MomentumDensity1"`, `"MomentumDensity2"`,
+`"MomentumDensity3"`, `"TotalEnergyDensity"` while the primitive
+variables must have the names `"Density"`, `"Velocity1"`,
+`"Velocity2"`, `"Velocity3"`, `"Pressure"`. Either of these sets of
 variables must be named and present in the output, with the primitive variables
 taking precedence over the conserved variables when computing derived
 quantities such as specific thermal energy. In the above example, including
-either ```"cons"``` or ```"dens"```, ```"vel"```, and ```"pres"``` in the  HDF5
-output would allow ```yt``` to read the data.
+either `"cons"` or `"dens"`, `"vel"`, and `"pres"` in the  HDF5
+output would allow `yt` to read the data.
 
-Additional parameters can also be packaged into the HDF5 file to help ```yt```
+Additional parameters can also be packaged into the HDF5 file to help `yt`
 interpret the data, namely adiabatic index and code unit information. These are
-identified by passing ```true``` as an optional boolean argument when adding
-parameters via ```StateDescriptor::AddParam```. For example, 
+identified by passing `true` as an optional boolean argument when adding
+parameters via `StateDescriptor::AddParam`. For example,
 ```c++
 pkg->AddParam<double>("CodeLength", 100,true);
 pkg->AddParam<double>("CodeMass", 1000,true);
@@ -131,27 +143,27 @@ pkg->AddParam<double>("AdibaticIndex", 5./3.,true);
 pkg->AddParam<int>("IntParam", 0,true);
 pkg->AddParam<std::string>("EquationOfState", "Adiabatic",true);
 ```
-adds the parameters ```CodeLength```, ```CodeMass```, ```CodeTime```,
-```AdiabaticIndex```, ```IntParam```, and ```EquationOfState``` to the HDF5
-output. Currently, only ```int```, ```float```, and ```std::string```
+adds the parameters `CodeLength`, `CodeMass`, `CodeTime`,
+`AdiabaticIndex`, `IntParam`, and `EquationOfState` to the HDF5
+output. Currently, only `int`, `float`, and `std::string`
 parameters can be included with the HDF5.
 
-Code units can be defined for ```yt``` by including the parameters
-```CodeLength```, ```CodeMass```, and ```CodeTime```, which specify the code
+Code units can be defined for `yt` by including the parameters
+`CodeLength`, `CodeMass`, and `CodeTime`, which specify the code
 units used by Parthenon in terms of centimeters, grams, and seconds by writing
-the parameters.  In the above example, these parameters dictate ```yt``` to
+the parameters.  In the above example, these parameters dictate `yt` to
 interpret code lengths in the data in units of 100 centimeters (or 1 meter per
 code unit), code masses in units of 1000 grams (or 1 kilogram per code units)
 and code times in units of seconds (or 1 second per code time).
-Alternatively, this unit information can also be supplied to the ```yt```
+Alternatively, this unit information can also be supplied to the `yt`
 frontend when loading the data. If code units are not defined in the HDF5 file
-or at load time, ```yt``` will assume that the data is in ```CGS```.
+or at load time, `yt` will assume that the data is in `CGS`.
 
 The adiabatic index can also be specified via the parameter
-```AdiabaticIndex```, defined at load time for ```yt```, or left as its default
-```5./3.```.
+`AdiabaticIndex`, defined at load time for `yt`, or left as its default
+`5./3.`.
 
-For example, the following methods are valid to load data with ```yt```
+For example, the following methods are valid to load data with `yt`
 ```python
 filename = "parthenon.out0.00000.phdf"
 
@@ -166,7 +178,7 @@ units_override = {"length_unit" : (100, "cm"),
 ds = yt.load(filename,units_override=units_override,gamma=5./3.)
 ```
 
-Currently, the ```yt``` frontend for Parthenon is hosted on the
-```athenapk-frontend``` [on this ```yt```
+Currently, the `yt` frontend for Parthenon is hosted on the
+`athenapk-frontend` [on this `yt`
 fork](https://github.com/forrestglines/yt/tree/athenapk-frontend). In the
-future, the Parthenon frontend will be included in the main ```yt``` repo.
+future, the Parthenon frontend will be included in the main `yt` repo.

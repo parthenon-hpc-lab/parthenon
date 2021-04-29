@@ -10,6 +10,7 @@ If you come across a disfunctional setup, please report it by open an issue or p
    | -------------------------------------: | :---------------- | :----- | :---------- |
    |           PARTHENON\_SINGLE\_PRECISION | OFF               | Option | Enable single precision mode if requested |
    |               PARTHENON\_DISABLE\_HDF5 | OFF               | Option | HDF5 is enabled by default if found, set this to True to disable HDF5 |
+   |    PARTHENON\_HDF5\_COMPRESSION\_LEVEL | 5                 | Int    | Compression level to use for HDF5 output files. Valid range is 0 - 9, 0 disables compression altogether |
    |                PARTHENON\_DISABLE\_MPI | OFF               | Option | MPI is enabled by default if found, set this to True to disable MPI |
    | PARTHENON\_ENABLE\_HOST\_COMM\_BUFFERS | OFF               | Option | MPI communication buffers are by default allocated on the execution device. This options forces allocation in memory accessible directly by the host. |
    |             PARTHENON\_DISABLE\_OPENMP | OFF               | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
