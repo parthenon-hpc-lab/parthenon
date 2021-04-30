@@ -2,6 +2,9 @@
 
 ## Current develop
 
+### Added (Timing information availaibility outside of Driver class)
+- [[PR 509]](https://github.com/lanl/parthenon/pull/509) Add `elapsed_main`, `elapsed_cycle`, and `elapsed_LBandAMR` functions to `Driver` as static functions to enable access to timing information in Visualization and Restart files.
+
 ### Added (new features/APIs/variables/...)
 - [[PR 479]](https://github.com/lanl/parthenon/pull/479) Add `Update` function to `Params` to update the value of an existing key.
 - [[PR 482]](https://github.com/lanl/parthenon/pull/482) Add support for package enrolled history outputs.
