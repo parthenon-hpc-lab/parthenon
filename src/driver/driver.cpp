@@ -26,6 +26,10 @@
 #include "utils/utils.hpp"
 
 namespace parthenon {
+// Declare class static variables
+Kokkos::Timer Driver::timer_main;
+Kokkos::Timer Driver::timer_cycle;
+Kokkos::Timer Driver::timer_LBandAMR;
 
 void Driver::PreExecute() {
   if (Globals::my_rank == 0) {
