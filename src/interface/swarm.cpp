@@ -41,9 +41,9 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.ib_s_ = ib.s;
   context.jb_s_ = jb.s;
   context.kb_s_ = kb.s;
-  context.dx1_ = (pmb->coords.x1f(ib.e + 1) - pmb->coords.x1f(ib.s))/(ib.e - ib.s);
-  context.dx2_ = (pmb->coords.x2f(jb.e + 1) - pmb->coords.x2f(jb.s))/(jb.e - jb.s);
-  context.dx3_ = (pmb->coords.x3f(kb.e + 1) - pmb->coords.x3f(kb.s))/(kb.e - kb.s);
+  context.dx1_ = (pmb->coords.x1f(ib.e + 1) - pmb->coords.x1f(ib.s))/(ib.e - ib.s + 1);
+  context.dx2_ = (pmb->coords.x2f(jb.e + 1) - pmb->coords.x2f(jb.s))/(jb.e - jb.s + 1);
+  context.dx3_ = (pmb->coords.x3f(kb.e + 1) - pmb->coords.x3f(kb.s))/(kb.e - kb.s + 1);
   context.x_min_ = pmb->coords.x1f(ib.s);
   context.y_min_ = pmb->coords.x2f(jb.s);
   context.z_min_ = pmb->coords.x3f(kb.s);
