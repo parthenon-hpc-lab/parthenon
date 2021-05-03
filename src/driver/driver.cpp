@@ -187,8 +187,7 @@ void EvolutionDriver::OutputCycleDiagnostics() {
                 << std::setprecision(dt_precision) << " time=" << tm.time
                 << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec_step="
                 << static_cast<double>(zonecycles) / time_cycle_step
-                << " wsec_total=" << wtime
-                << " wsec_step=" << time_cycle_step;
+                << " wsec_total=" << wtime << " wsec_step=" << time_cycle_step;
 
       // In principle load balancing based on a cost list can happens for non-AMR runs.
       // TODO(future me) fix this when this becomes important.
