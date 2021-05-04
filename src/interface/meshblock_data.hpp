@@ -228,8 +228,14 @@ class MeshBlockData {
   //
   // Queries related to CellVariable objects
   //
+  bool HasDenseVariable(const std::string &label) const {
+    return varMap_.count(label) > 0;
+  }
+
   const CellVariableVector<T> &GetCellVariableVector() const { return varVector_; }
+
   const MapToCellVars<T> &GetCellVariableMap() const { return varMap_; }
+
   CellVariable<T> &Get(const std::string &label) const {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
@@ -251,8 +257,18 @@ class MeshBlockData {
   //
   // Queries related to SparseVariable objects
   //
+  bool HasSparseVariable(const std::string &label) const {
+    return sparseMap_.count(label) > 0;
+  }
+
+  bool HasVariable(const std::string &label) const {
+    return HasDenseVariable(label) || HasSparseVariable(label);
+  }
+
   const SparseVector<T> &GetSparseVector() const { return sparseVector_; }
+
   const MapToSparse<T> &GetSparseMap() const { return sparseMap_; }
+
   SparseVariable<T> &GetSparseVariable(const std::string &label) {
     auto it = sparseMap_.find(label);
     if (it == sparseMap_.end()) {
@@ -285,6 +301,14 @@ class MeshBlockData {
     }
 
     return var(sparse_id);
+  }
+
+  bool IsSparseVariableIDExpanded(std::string const &label, const int sparse_id) const {
+    auto it = sparseMap_.find(label);
+    if (it == sparseMap_.end()) {
+      return false;
+    }
+    return it->second->Has(sparse_id);
   }
 
   //
