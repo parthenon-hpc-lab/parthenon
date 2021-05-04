@@ -96,6 +96,8 @@ parthenon-init-manual:
     - schedules
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup:
+  variables:
+    SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   extends: .gcc-mpi-cuda-python-performance-application
   stage: performance-application-setup
   allow_failure: false
