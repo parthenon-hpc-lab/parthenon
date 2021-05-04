@@ -4,6 +4,7 @@ variables:
   CMAKE_CXX_COMPILER: ${CI_PROJECT_DIR}/external/Kokkos/bin/nvcc_wrapper
   CMAKE_BUILD_TYPE: 'Release'
 stages:
+  - init
   - performance-application-setup
   - performance-target
   - performance-regression-build
@@ -86,11 +87,19 @@ stages:
 ########################################################################
 # Manual Jobs
 ########################################################################
+parthenon-init-manual:
+  script:
+    - echo "Initializing first job in pipeline"
+  stage: init
+  when: manual
+  except:
+    - schedules
+
 parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup:
   extends: .gcc-mpi-cuda-python-performance-application
   stage: performance-application-setup
   allow_failure: false
-  when: manual
+  needs: [parthenon-init-manual]
   except:
     - schedules
 
@@ -118,6 +127,14 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
 ########################################################################
 # Scheduled jobs
 ########################################################################
+parthenon-init-schedule:
+  script:
+    - echo "Initializing first job in pipeline"
+  stage: init
+  only:
+    - schedules
+    - develop
+
 parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
   extends: .gcc-mpi-cuda-python-performance-application
   stage: performance-application-setup
