@@ -88,7 +88,7 @@ stages:
 ########################################################################
 parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup:
   tags:
-    - darwin-slurm-shared
+    - eap
   extends: .gcc-mpi-cuda-python-performance-application
   stage: performance-application-setup
   allow_failure: false
@@ -98,7 +98,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup:
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
   tags:
-    - darwin-slurm-shared
+    - eap
   extends: .gcc-mpi-cuda-performance-regression-target-branch
   stage: performance-target
   needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup]
@@ -107,7 +107,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-build:
   tags:
-    - darwin-slurm-shared
+    - eap
   extends: .gcc-mpi-cuda-performance-regression-build
   stage: performance-regression-build
   needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch]
@@ -116,7 +116,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-build:
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
   tags:
-    - darwin-slurm-shared
+    - eap
   extends: .gcc-mpi-cuda-performance-regression-metrics
   stage: performance-regression
   needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-build]
@@ -128,7 +128,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
 ########################################################################
 parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
   tags:
-    - darwin-slurm-shared
+    - eap
   extends: .gcc-mpi-cuda-python-performance-application
   stage: performance-application-setup
   only:
@@ -137,7 +137,7 @@ parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
 
 parthenon-power9-gcc-mpi-cuda-perf-schedule-build:
   tags:
-    - darwin-slurm-shared
+    - eap
   extends: .gcc-mpi-cuda-performance-regression-build
   stage: performance-regression-build
   needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup]
@@ -147,7 +147,7 @@ parthenon-power9-gcc-mpi-cuda-perf-schedule-build:
 
 parthenon-power9-gcc-mpi-cuda-perf-schedule-metrics:
   tags:
-    - darwin-slurm-shared
+    - eap
   extends: .gcc-mpi-cuda-performance-regression-metrics
   stage: performance-regression
   needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-build]
