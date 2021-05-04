@@ -59,7 +59,7 @@ if [[ "${BUILD_TARGET}" == "ON" ]]; then
     cd build
 
     "${METRICS_APP}" -p "${GITHUB_APP_PEM}"  --status "pending" --status-context "Parthenon Metrics App" --status-description "Running tests for target branch ($target_branch)" --status-url "${CI_JOB_URL}"
-    ctest --output-on-failure -R performance
+    ctest --output-on-failure -R performance -E "SpaceInstances"
 
     "${METRICS_APP}" -p "${GITHUB_APP_PEM}" --branch "$target_branch" --target-branch "$target_branch" --analyze "${BUILD_DIR}/tst/regression/outputs" --create
   fi
@@ -79,6 +79,6 @@ else
   cd build
 
   "${METRICS_APP}" -p "${GITHUB_APP_PEM}"  --status "pending" --status-context "Parthenon Metrics App" --status-description "Running tests" --status-url "${CI_JOB_URL}"
-  ctest --output-on-failure
+  ctest --output-on-failure  -E "SpaceInstances"
 
 fi
