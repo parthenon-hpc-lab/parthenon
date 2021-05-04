@@ -34,19 +34,19 @@ def compare_analytic(filename,analytic_components,
         print("Couldn't find module to read Parthenon hdf5 files.")
         return False
 
-    file = phdf.phdf(filename)
+    datafile = phdf.phdf(filename)
 
     #Dictionary of component_name:component[grid_idx,k,j,i]
     file_components = {}
 
     #Get ready to match vector components of variables with component names
-    num_componentss = file.Info["NumVariables"]
-    component_names = file.Info["VariableNames"]
+    num_componentss = datafile.Info["NumVariables"]
+    component_names = datafile.Info["VariableNames"].astype(str)
     idx_component_name = 0
 
     #Read all data from the file
-    for var,num_components in zip(file.Info["DatasetNames"],num_componentss):
-        dataset = file.Get(var,flatten=False)
+    for var,num_components in zip(datafile.Info["DatasetNames"].astype(str),num_componentss):
+        dataset = datafile.Get(var,flatten=False)
 
         if num_components != 1:
             #Assign vector components to file_components with component_name
@@ -62,9 +62,9 @@ def compare_analytic(filename,analytic_components,
     #Generate location arrays for each grid
 
     #Location lists
-    locations_x = file.x
-    locations_y = file.y
-    locations_z = file.z
+    locations_x = datafile.x
+    locations_y = datafile.y
+    locations_z = datafile.z
 
     #loc[grid_idx,k,j,i]
     loc_shape = (locations_x.shape[0],
@@ -87,7 +87,7 @@ def compare_analytic(filename,analytic_components,
     for component in analytic_components.keys():
 
         #Compute the analytic component at X,Y,Z
-        analytic_component = analytic_components[component](X,Y,Z,file.Time)
+        analytic_component = analytic_components[component](X,Y,Z,datafile.Time)
 
         #Compute the error between the file and analytic component
         err = err_func(analytic_component,file_components[component])
