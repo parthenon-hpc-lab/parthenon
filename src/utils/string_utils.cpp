@@ -13,6 +13,8 @@
 
 #include "string_utils.hpp"
 
+#include <sstream>
+
 #include "error_checking.hpp"
 
 namespace parthenon {
@@ -41,24 +43,18 @@ std::string PackStrings(const std::vector<std::string> &strs, char delimiter) {
 }
 
 std::vector<std::string> UnpackStrings(const std::string &pack, char delimiter) {
+  if (pack[pack.size() - 1] != delimiter) {
+    std::stringstream msg;
+    msg << "### ERROR: Pack string does not end with delimiter" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+
   std::vector<std::string> unpack;
-  const char *curr = pack.data();
-  const char *const end = curr + pack.size();
+  std::stringstream stm(pack);
+  std::string token;
 
-  while (curr < end) {
-    const auto tab = strchr(curr, delimiter);
-    if (tab == nullptr) {
-      std::stringstream msg;
-      msg << "### ERROR: Pack string does not end with delimiter" << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-
-    if (tab == curr) {
-      unpack.push_back("");
-    } else {
-      unpack.push_back(std::string(curr, tab - curr));
-      curr = tab + 1;
-    }
+  while (std::getline(stm, token, delimiter)) {
+    unpack.emplace_back(token);
   }
 
   return unpack;

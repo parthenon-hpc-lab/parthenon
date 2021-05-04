@@ -107,7 +107,7 @@ struct VarInfo {
     VarInfo res;
 
     // unpack compact_labels
-    auto labels = string_utils::UnpackStrings(compact_labels, '\t');
+    const auto labels = string_utils::UnpackStrings(compact_labels, '\t');
 
     if (labels.size() == 0) {
       std::stringstream msg;
@@ -314,7 +314,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     dims[2] = nx2;
     dims[3] = nx1;
     dims[4] = 1;
-    for (auto &vinfo : var_list) {
+    for (const auto &vinfo : var_list) {
       const int vlen = vinfo.vlen;
       dims[4] = vlen;
       writeXdmfSlabVariableRef(xdmf, vinfo.label, hdfFile, ib, vlen, ndims, dims, dims321,
