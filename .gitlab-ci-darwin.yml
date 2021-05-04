@@ -46,6 +46,11 @@ stages:
     BUILD_TARGET_BRANCH: "OFF"
     SCRIPT_TO_RUN: "install_python_scripts.sh"
   script:
+    - |
+      if [ -d "{CI_PROJECT_DIR}/../parthenon.wiki" ];
+      then
+        rm -rf "{CI_PROJECT_DIR}/../parthenon.wiki"
+      fi
     - git fetch --all
     - *print-copy-executable
     - *run-script-with-check
