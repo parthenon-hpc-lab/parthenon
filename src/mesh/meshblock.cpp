@@ -43,7 +43,6 @@
 #include "mesh/meshblock_tree.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "reconstruct/reconstruction.hpp"
 #include "utils/buffer_utils.hpp"
 
 namespace parthenon {
@@ -139,11 +138,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   pbval->SetBoundaryFlags(boundary_flag);
   pbswarm = std::make_unique<BoundarySwarms>(shared_from_this(), input_bcs, pin);
   pbswarm->SetBoundaryFlags(boundary_flag);
-
-  // Reconstruction: constructor may implicitly depend on Coordinates, and PPM variable
-  // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is
-  // ok
-  precon = std::make_unique<Reconstruction>(shared_from_this(), pin);
 
   // Add field properties data
   // TOOD(JMM): Should packages be resolved for state descriptors in

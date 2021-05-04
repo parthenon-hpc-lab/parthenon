@@ -32,12 +32,9 @@ namespace parthenon {
 void ShowConfig() {
   // To match configure.py output: use 2 space indent for option, value output starts on
   // column 30
-  std::cout << "This Athena++ executable is configured with:" << std::endl;
+  std::cout << "This Parthenon library is configured with:" << std::endl;
   std::cout << "  Problem generator:          " << PROBLEM_GENERATOR << std::endl;
 
-  // configure.py output: +"Debug flags"
-  // configure.py output: +"Code coverage flags"
-  // configure.py output: +"Linker flags"
   if (SINGLE_PRECISION_ENABLED) {
     std::cout << "  Floating-point precision:   single" << std::endl;
   } else {
@@ -47,17 +44,6 @@ void ShowConfig() {
   std::cout << "  MPI parallelism:            ON" << std::endl;
 #else
   std::cout << "  MPI parallelism:            OFF" << std::endl;
-#endif
-#ifdef OPENMP_PARALLEL
-  std::cout << "  OpenMP parallelism:         ON" << std::endl;
-#else
-  std::cout << "  OpenMP parallelism:         OFF" << std::endl;
-#endif
-
-#ifdef FFT
-  std::cout << "  FFT:                        ON" << std::endl;
-#else
-  std::cout << "  FFT:                        OFF" << std::endl;
 #endif
 
 #ifdef HDF5OUTPUT
@@ -73,8 +59,6 @@ void ShowConfig() {
 
   std::cout << std::endl << "# Kokkos configuration" << std::endl;
   Kokkos::print_configuration(std::cout);
-
-  return;
 }
 
 } // namespace parthenon

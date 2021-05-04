@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.12)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.4.0 LANGUAGES C CXX)
+project(parthenon VERSION 0.5.0 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -30,6 +30,8 @@ include(CTest)
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "Allocate communication buffers on host" OFF)
+option(PARTHENON_ENABLE_INIT_PACKING "Use MeshBlockPack based buffer functions in \
+Mesh::Initialize. Does NOT support sparse variables." OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
@@ -63,9 +65,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 3 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 5 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=2445000a031aafc9a85a684aa7e82fb5ccda05530c5652ab432a8fb254642c7b18252ff55d8306b1120aba898713712b28b804eb30272b06278698046a6461cc"
+  "SHA512=bf5c56e760d44d0266df2f5a5230a834c9477b11d692fa72407672423f4b98cd1a1b7e416fb55ec61e7244fbaa3e8d2c838ad1af899c8487917dacd76c198979"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 

@@ -54,6 +54,11 @@ class StateDescriptor {
   }
 
   template <typename T>
+  void UpdateParam(const std::string &key, T value) {
+    params_.Update<T>(key, value);
+  }
+
+  template <typename T>
   const T &Param(const std::string &key) const {
     return params_.Get<T>(key);
   }
@@ -61,11 +66,16 @@ class StateDescriptor {
   // Set (if not set) and get simultaneously.
   // infers type correctly.
   template <typename T>
-  const T &Param(const std::string &key, T value) {
-    params_.Get(key, value);
+  const T &Param(const std::string &key, T value) const {
+    return params_.Get(key, value);
+  }
+
+  const std::type_index &ParamType(const std::string &key) const {
+    return params_.GetType(key);
   }
 
   Params &AllParams() { return params_; }
+
   // retrieve label
   const std::string &label() const { return label_; }
 

@@ -172,6 +172,7 @@ class MeshData {
   }
 
   void ClearCaches() {
+    block_data_.clear();
     varPackMap_.clear();
     varFluxPackMap_.clear();
     send_buffers_ = cell_centered_bvars::BufferCache_t{};

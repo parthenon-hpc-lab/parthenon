@@ -41,27 +41,11 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // initialize MPI
 #ifdef MPI_PARALLEL
-#ifdef OPENMP_PARALLEL
-  int mpiprv;
-  if (MPI_SUCCESS != MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mpiprv)) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
-              << "MPI Initialization failed." << std::endl;
-    return ParthenonStatus::error;
-  }
-  if (mpiprv != MPI_THREAD_MULTIPLE) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
-              << "MPI_THREAD_MULTIPLE must be supported for the hybrid parallelzation. "
-              << MPI_THREAD_MULTIPLE << " : " << mpiprv << std::endl;
-    // MPI_Finalize();
-    return ParthenonStatus::error;
-  }
-#else  // no OpenMP
   if (MPI_SUCCESS != MPI_Init(&argc, &argv)) {
     std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
               << "MPI Initialization failed." << std::endl;
     return ParthenonStatus::error;
   }
-#endif // OPENMP_PARALLEL
   // Get process id (rank) in MPI_COMM_WORLD
   if (MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank))) {
     std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
@@ -178,7 +162,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     }
   }
 
-  pmesh->Initialize(Restart(), pinput.get(), app_input.get());
+  pmesh->Initialize(!Restart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 }
