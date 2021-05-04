@@ -51,10 +51,6 @@ stages:
     - *run-script-with-check
     - git checkout ${CI_COMMIT_BRANCH}
     - git pull origin ${CI_COMMIT_BRANCH}
-  artifacts:
-    paths:
-      - ${CI_PROJECT_DIR}/../python_scripts
-    expire_in: 1 day
 
 .gcc-mpi-cuda-performance-regression-build:
   variables:
