@@ -580,6 +580,8 @@ class GitHubApp:
             g.execute(['git', 'remote', 'set-url', 'origin', wiki_remote])
             # Ensure local branches are synchronized with server
             g.execute(['git', 'fetch'])
+            # Will not overwrite files but will reset the index to match with the remote
+            g.execute(['git', 'reset','--mixed','origin/master'])
 
         return repo
 
