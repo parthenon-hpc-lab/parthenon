@@ -587,7 +587,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   nbtotal = rr.GetAttr<int32_t>("Info", "NumMeshBlocks");
   root_level = rr.GetAttr<int32_t>("Info", "RootLevel");
 
-  auto bc = rr.GetAttrVec<std::string>("Info", "BoundaryConditions");
+  const auto bc = rr.GetAttrVec<std::string>("Info", "BoundaryConditions");
   for (int i = 0; i < 6; i++) {
     block_bcs[i] = GetBoundaryFlag(bc[i]);
   }
@@ -613,7 +613,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
   EnrollBndryFncts_(app_in);
 
-  std::vector<Real> grid_dim = rr.GetAttrVec<Real>("Info", "RootGridDomain");
+  const auto grid_dim = rr.GetAttrVec<Real>("Info", "RootGridDomain");
   mesh_size.x1min = grid_dim[0];
   mesh_size.x1max = grid_dim[1];
   mesh_size.x1rat = grid_dim[2];
@@ -629,7 +629,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
 
-  auto blockSize = rr.GetAttrVec<int32_t>("Info", "MeshBlockSize");
+  const auto blockSize = rr.GetAttrVec<int32_t>("Info", "MeshBlockSize");
   block_size.nx1 = blockSize[0];
   block_size.nx2 = blockSize[1];
   block_size.nx3 = blockSize[2];
@@ -756,9 +756,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   int nb = nblist[Globals::my_rank];
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nb - 1;
-
-  // read in xmin from file
-  auto xmin = rr.ReadDataset<Real>("/Blocks/xmin");
 
   mesh_data.SetMeshPointer(this);
 

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,9 +11,13 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include <string>
+#include "string_utils.hpp"
 
-namespace trim_string {
+#include "error_checking.hpp"
+
+namespace parthenon {
+namespace string_utils {
+
 constexpr char WHITESPACE[] = " \n\r\t\f\v";
 
 std::string ltrim(const std::string &s) {
@@ -27,4 +31,38 @@ std::string rtrim(const std::string &s) {
 }
 
 std::string trim(const std::string &s) { return rtrim(ltrim(s)); }
-} // namespace trim_string
+
+std::string PackStrings(const std::vector<std::string> &strs, char delimiter) {
+  std::string pack;
+  for (const auto &s : strs) {
+    pack += s + delimiter;
+  }
+  return pack;
+}
+
+std::vector<std::string> UnpackStrings(const std::string &pack, char delimiter) {
+  std::vector<std::string> unpack;
+  const char *curr = pack.data();
+  const char *const end = curr + pack.size();
+
+  while (curr < end) {
+    const auto tab = strchr(curr, delimiter);
+    if (tab == nullptr) {
+      std::stringstream msg;
+      msg << "### ERROR: Pack string does not end with delimiter" << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+
+    if (tab == curr) {
+      unpack.push_back("");
+    } else {
+      unpack.push_back(std::string(curr, tab - curr));
+      curr = tab + 1;
+    }
+  }
+
+  return unpack;
+}
+
+} // namespace string_utils
+} // namespace parthenon
