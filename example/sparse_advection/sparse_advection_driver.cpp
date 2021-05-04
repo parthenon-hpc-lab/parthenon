@@ -16,14 +16,14 @@
 #include <vector>
 
 // Local Includes
-#include "sparse_advection_driver.hpp"
-#include "sparse_advection_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
 #include "refinement/refinement.hpp"
+#include "sparse_advection_driver.hpp"
+#include "sparse_advection_package.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -34,7 +34,8 @@ namespace sparse_advection_example {
 // that mostly means defining the MakeTaskList     *//
 // function.                                       *//
 // *************************************************//
-SparseAdvectionDriver::SparseAdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+SparseAdvectionDriver::SparseAdvectionDriver(ParameterInput *pin,
+                                             ApplicationInput *app_in, Mesh *pm)
     : MultiStageDriver(pin, app_in, pm) {
   // fail if these are not specified in the input file
   pin->CheckRequired("parthenon/mesh", "ix1_bc");
@@ -51,7 +52,8 @@ SparseAdvectionDriver::SparseAdvectionDriver(ParameterInput *pin, ApplicationInp
 }
 
 // See the advection.hpp declaration for a description of how this function gets called.
-TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const int stage) {
+TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
+                                                         const int stage) {
   using namespace parthenon::Update;
   TaskCollection tc;
   TaskID none(0);
@@ -121,53 +123,17 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks, co
                              mdudt.get(), beta * dt, mc1.get());
   }
 
-  const auto &buffer_send_pack =
-      blocks[0]->packages.Get("sparse_advection_package")->Param<bool>("buffer_send_pack");
-  if (buffer_send_pack) {
+  auto add_boundary_task = [&](const auto &func) {
     TaskRegion &tr = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; i++) {
       auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      tr[i].AddTask(none, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
+      tr[i].AddTask(none, func, mc1);
     }
-  } else {
-    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
-    for (int i = 0; i < blocks.size(); i++) {
-      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
-      tr[i].AddTask(none, &MeshBlockData<Real>::SendBoundaryBuffers, sc1.get());
-    }
-  }
+  };
 
-  const auto &buffer_recv_pack =
-      blocks[0]->packages.Get("sparse_advection_package")->Param<bool>("buffer_recv_pack");
-  if (buffer_recv_pack) {
-    TaskRegion &tr = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; i++) {
-      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      tr[i].AddTask(none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
-    }
-  } else {
-    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
-    for (int i = 0; i < blocks.size(); i++) {
-      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
-      tr[i].AddTask(none, &MeshBlockData<Real>::ReceiveBoundaryBuffers, sc1.get());
-    }
-  }
-
-  const auto &buffer_set_pack =
-      blocks[0]->packages.Get("sparse_advection_package")->Param<bool>("buffer_set_pack");
-  if (buffer_set_pack) {
-    TaskRegion &tr = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; i++) {
-      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      tr[i].AddTask(none, parthenon::cell_centered_bvars::SetBoundaries, mc1);
-    }
-  } else {
-    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
-    for (int i = 0; i < blocks.size(); i++) {
-      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
-      tr[i].AddTask(none, &MeshBlockData<Real>::SetBoundaries, sc1.get());
-    }
-  }
+  add_boundary_task(parthenon::cell_centered_bvars::SendBoundaryBuffers);
+  add_boundary_task(parthenon::cell_centered_bvars::ReceiveBoundaryBuffers);
+  add_boundary_task(parthenon::cell_centered_bvars::SetBoundaries);
 
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
@@ -188,22 +154,18 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks, co
     // set physical boundaries
     auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
 
-    // fill in derived fields
-    auto fill_derived = tl.AddTask(
-        set_bc, parthenon::Update::FillDerived<MeshBlockData<Real>>, sc1.get());
-
     // estimate next time step
     if (stage == integrator->nstages) {
-      auto new_dt =
-          tl.AddTask(fill_derived, EstimateTimestep<MeshBlockData<Real>>, sc1.get());
+      auto new_dt = tl.AddTask(set_bc, EstimateTimestep<MeshBlockData<Real>>, sc1.get());
 
       // Update refinement
       if (pmesh->adaptive) {
         auto tag_refine = tl.AddTask(
-            fill_derived, parthenon::Refinement::Tag<MeshBlockData<Real>>, sc1.get());
+            set_bc, parthenon::Refinement::Tag<MeshBlockData<Real>>, sc1.get());
       }
     }
   }
+
   return tc;
 }
 
