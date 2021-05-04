@@ -1,10 +1,8 @@
 variables:
-  SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   GIT_SUBMODULE_STRATEGY: recursive
   CMAKE_CXX_COMPILER: ${CI_PROJECT_DIR}/external/Kokkos/bin/nvcc_wrapper
   CMAKE_BUILD_TYPE: 'Release'
 stages:
-  - init
   - performance-application-setup
   - performance-target
   - performance-regression-build
@@ -87,25 +85,19 @@ stages:
 ########################################################################
 # Manual Jobs
 ########################################################################
-parthenon-init-manual:
-  script:
-    - echo "Initializing first job in pipeline"
-  stage: init
-  when: manual
-  except:
-    - schedules
-
 parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup:
   variables:
     SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   extends: .gcc-mpi-cuda-python-performance-application
   stage: performance-application-setup
   allow_failure: false
-  needs: [parthenon-init-manual]
+  when: manual
   except:
     - schedules
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
+  variables:
+    SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   extends: .gcc-mpi-cuda-performance-regression-target-branch
   stage: performance-target
   needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup]
@@ -113,6 +105,8 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
     - schedules
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-build:
+  variables:
+    SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   extends: .gcc-mpi-cuda-performance-regression-build
   stage: performance-regression-build
   needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch]
@@ -120,6 +114,8 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-build:
     - schedules
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
+  variables:
+    SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   extends: .gcc-mpi-cuda-performance-regression-metrics
   stage: performance-regression
   needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-build]
@@ -129,15 +125,9 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
 ########################################################################
 # Scheduled jobs
 ########################################################################
-parthenon-init-schedule:
-  script:
-    - echo "Initializing first job in pipeline"
-  stage: init
-  only:
-    - schedules
-    - develop
-
 parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
+  variables:
+    SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   extends: .gcc-mpi-cuda-python-performance-application
   stage: performance-application-setup
   only:
@@ -145,6 +135,8 @@ parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
     - develop
 
 parthenon-power9-gcc-mpi-cuda-perf-schedule-build:
+  variables:
+    SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   extends: .gcc-mpi-cuda-performance-regression-build
   stage: performance-regression-build
   needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup]
@@ -153,6 +145,8 @@ parthenon-power9-gcc-mpi-cuda-perf-schedule-build:
     - develop
 
 parthenon-power9-gcc-mpi-cuda-perf-schedule-metrics:
+  variables:
+    SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   extends: .gcc-mpi-cuda-performance-regression-metrics
   stage: performance-regression
   needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-build]
