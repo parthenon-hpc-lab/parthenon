@@ -33,6 +33,7 @@
 #include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_hdf5.hpp"
+#include "utils/string_utils.hpp"
 
 namespace parthenon {
 namespace HDF5 {
@@ -77,42 +78,6 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values
 
 } // namespace HDF5
 
-namespace {
-
-std::string PackStrings(const std::vector<std::string> &strs, char delimiter) {
-  std::string pack;
-  for (const auto &s : strs) {
-    pack += s + delimiter;
-  }
-  return pack;
-}
-
-std::vector<std::string> UnpackStrings(const std::string &pack, char delimiter) {
-  std::vector<std::string> unpack;
-  const char *curr = pack.data();
-  const char *const end = curr + pack.size();
-
-  while (curr < end) {
-    const auto tab = strchr(curr, delimiter);
-    if (tab == nullptr) {
-      std::stringstream msg;
-      msg << "### ERROR: Pack string does not end with delimiter" << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-
-    if (tab == curr) {
-      unpack.push_back("");
-    } else {
-      unpack.push_back(std::string(curr, tab - curr));
-      curr = tab + 1;
-    }
-  }
-
-  return unpack;
-}
-
-} // anonymous namespace
-
 using namespace HDF5;
 
 // Helper struct containing some information about a variable that we can easily
@@ -142,7 +107,7 @@ struct VarInfo {
     VarInfo res;
 
     // unpack compact_labels
-    auto labels = UnpackStrings(compact_labels, '\t');
+    const auto labels = string_utils::UnpackStrings(compact_labels, '\t');
 
     if (labels.size() == 0) {
       std::stringstream msg;
@@ -178,7 +143,7 @@ struct VarInfo {
     // pack labels as {label, component_label[0], component_label[1], ...}
     std::vector<std::string> labels = {label};
     labels.insert(labels.end(), component_labels.begin(), component_labels.end());
-    return PackStrings(labels, '\t');
+    return string_utils::PackStrings(labels, '\t');
   }
 
   int get_info_code() const {
@@ -349,7 +314,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     dims[2] = nx2;
     dims[3] = nx1;
     dims[4] = 1;
-    for (auto &vinfo : var_list) {
+    for (const auto &vinfo : var_list) {
       const int vlen = vinfo.vlen;
       dims[4] = vlen;
       writeXdmfSlabVariableRef(xdmf, vinfo.label, hdfFile, ib, vlen, ndims, dims, dims321,
@@ -763,7 +728,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       code_buffer.push_back(vi.get_info_code());
     }
 
-    std::string label_buffer = PackStrings(compact_labels, '\n');
+    std::string label_buffer = string_utils::PackStrings(compact_labels, '\n');
 
     // first we need to communicate the lengths of the label_buffer and vlen_buffer to
     // all ranks, 2 ints per rank: first int: label_buffer length, second int:
@@ -813,7 +778,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                                        code_offsets.data(), MPI_INT, MPI_COMM_WORLD));
 
     // unpack labels
-    auto all_compact_labels = UnpackStrings(
+    auto all_compact_labels = string_utils::UnpackStrings(
         std::string(all_labels_buffer.data(), all_labels_buffer.size()), '\n');
 
     if (all_compact_labels.size() != all_codes.size()) {

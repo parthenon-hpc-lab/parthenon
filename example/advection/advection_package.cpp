@@ -52,9 +52,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("derefine_tol", derefine_tol);
 
   auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
-  if (!((profile_str.compare("wave") == 0) ||
-        (profile_str.compare("smooth_gaussian") == 0) ||
-        (profile_str.compare("hard_sphere") == 0))) {
+  if (!((profile_str == "wave") || (profile_str == "smooth_gaussian") ||
+        (profile_str == "hard_sphere"))) {
     PARTHENON_FAIL(("Unknown profile in advection example: " + profile_str).c_str());
   }
   pkg->AddParam<>("profile", profile_str);

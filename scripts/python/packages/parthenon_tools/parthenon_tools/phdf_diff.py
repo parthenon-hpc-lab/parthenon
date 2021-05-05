@@ -76,7 +76,7 @@ def compare_attributes(dict0, dict1):
     intersect = keys0.intersection(keys1)
 
     # keys that only show up in one set
-    diff_keys = [k for k in union if (k not in keys0) or (k not in keys1)]
+    diff_keys = keys0.symmetric_difference(keys1)
 
     # now compare values of keys that are in both sets
     for k in intersect:

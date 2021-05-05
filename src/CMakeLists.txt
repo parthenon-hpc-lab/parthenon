@@ -206,8 +206,8 @@ add_library(parthenon
   utils/partition_stl_containers.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp
-  utils/trim_string.cpp
-  utils/trim_string.hpp
+  utils/string_utils.cpp
+  utils/string_utils.hpp
   utils/utils.hpp
 
   argument_parser.hpp

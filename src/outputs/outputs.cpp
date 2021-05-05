@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -92,7 +92,7 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
-#include "utils/trim_string.hpp"
+#include "utils/string_utils.hpp"
 
 namespace parthenon {
 
@@ -225,9 +225,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.cartesian_vector = false;
 
       // read single precision output option
-      bool is_hdf5_output = (op.file_type.compare("rst") == 0) ||
-                            (op.file_type.compare("ath5") == 0) ||
-                            (op.file_type.compare("hdf5") == 0);
+      const bool is_hdf5_output =
+          (op.file_type == "rst") || (op.file_type == "ath5") || (op.file_type == "hdf5");
 
       if (is_hdf5_output) {
         op.single_precision_output =
@@ -245,7 +244,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       // set output variable and optional data format string used in formatted writes
-      if (op.file_type.compare("hst") != 0 && op.file_type.compare("rst") != 0) {
+      if ((op.file_type != "hst") && (op.file_type != "rst")) {
         // op.variable = pin->GetString(op.block_name, "variable");
         op.variables = SetOutputVariables(pin, pib->block_name);
       }
@@ -254,15 +253,15 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
       // Construct new OutputType according to file format
       // NEW_OUTPUT_TYPES: Add block to construct new types here
-      if (op.file_type.compare("hst") == 0) {
+      if (op.file_type == "hst") {
         pnew_type = new HistoryOutput(op);
         num_hst_outputs++;
-      } else if (op.file_type.compare("tab") == 0) {
+      } else if (op.file_type == "tab") {
         pnew_type = new FormattedTableOutput(op);
-      } else if (op.file_type.compare("vtk") == 0) {
+      } else if (op.file_type == "vtk") {
         pnew_type = new VTKOutput(op);
       } else if (is_hdf5_output) {
-        bool restart = (op.file_type.compare("rst") == 0);
+        const bool restart = (op.file_type == "rst");
         if (restart) {
           num_rst_outputs++;
         }
@@ -308,7 +307,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   OutputType *pot = pfirst_type_;
   OutputType *prst = pot;
   while (pot != nullptr) {
-    if (pot->output_params.file_type.compare("rst") == 0) {
+    if (pot->output_params.file_type == "rst") {
       prst = pot;
       found = 1;
       if (pot->pnext_type == nullptr) found = 2;
@@ -361,10 +360,10 @@ std::vector<std::string> Outputs::SetOutputVariables(ParameterInput *pin,
   std::vector<std::string> variables;
   while ((pos = s.find(delimiter)) != std::string::npos) {
     token = s.substr(0, pos);
-    variables.push_back(trim_string::trim(token));
+    variables.push_back(string_utils::trim(token));
     s.erase(0, pos + delimiter.length());
   }
-  variables.push_back(trim_string::trim(s));
+  variables.push_back(string_utils::trim(s));
   return variables;
 }
 
