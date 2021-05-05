@@ -30,7 +30,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
     def Analyse(self, parameters):
 
-        sys.path.insert(1, parameters.parthenon_path + '/scripts/python')
+        sys.path.insert(1, parameters.parthenon_path + '/scripts/python/packages/parthenon_tools/parthenon_tools')
 
         try:
             from phdf_diff import compare
