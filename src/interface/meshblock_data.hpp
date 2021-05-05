@@ -293,22 +293,29 @@ class MeshBlockData {
     return GetSparseVariable(label).GetIndexMap();
   }
 
-  CellVariable<T> &ExpandSparseVariableID(std::string const &label, const int sparse_id) {
+  std::shared_ptr<CellVariable<T>> &AllocSparseID(std::string const &label,
+                                                  const int sparse_id) {
+    if (!HasSparseVariable(label)) {
+      PARTHENON_THROW("Tried to allocate sparse id for variable '" + label +
+                      "', but no such sparse variable exists");
+    }
+
     SparseVariable<T> &var = GetSparseVariable(label);
     auto const index = var.GetIndex(sparse_id);
     if (index < 0) {
-      var.Add(sparse_id);
+      // this sparse id does not exist yet, allocate it
+      var.AllocateSparseID(sparse_id, pmy_block);
     }
 
-    return var(sparse_id);
+    return var.Get(sparse_id);
   }
 
-  bool IsSparseVariableIDExpanded(std::string const &label, const int sparse_id) const {
+  bool IsSparseIDAllocated(std::string const &label, const int sparse_id) const {
     auto it = sparseMap_.find(label);
     if (it == sparseMap_.end()) {
       return false;
     }
-    return it->second->Has(sparse_id);
+    return it->second->HasSparseID(sparse_id);
   }
 
   //

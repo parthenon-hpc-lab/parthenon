@@ -54,7 +54,8 @@ class MeshBlockPack {
     return v_(block)(n)(k, j, i);
   }
 
-  KOKKOS_FORCEINLINE_FUNCTION bool IsExpanded(const int block, const int var) const {
+  KOKKOS_FORCEINLINE_FUNCTION bool IsSparseIDAllocated(const int block,
+                                                       const int var) const {
     return v_(block).GetDim(1) > var && v_(block)(var).is_allocated();
   }
 

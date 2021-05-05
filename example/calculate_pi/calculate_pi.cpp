@@ -41,7 +41,7 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
   ParArrayND<Real> v;
   const auto &radius = pmb->packages.Get("calculate_pi")->Param<Real>("radius");
 
-  // If we're using sparse variables, check if we need to expand the variable before
+  // If we're using sparse variables, check if we need to allocate the sparse id before
   bool const use_sparse = pmb->packages.Get("calculate_pi")->Param<bool>("use_sparse");
   if (use_sparse) {
     int const ndim = pmb->pmy_mesh->ndim;
@@ -65,11 +65,11 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
     }
 
     // If part of the block falls inside and other parts fall outside, then we need to
-    // expand the variable before computing on it. If it's wholly inside or outside, then
-    // there's no need for expansion.
+    // allocate the sparse id before computing on it. If it's wholly inside or outside,
+    // then there's no need for expansion.
 
-    // TODO(agaspar): Change this to only expand variables that fall on the radius.
-    // Currently we're expanding all variables that fall outside the circle at all. if
+    // TODO(agaspar): Change this to only allocate sparse ids that fall on the radius.
+    // Currently we're allocating all sparse ids that fall outside the circle at all. if
     // (!inside || !outside) {
     if (inside && !outside) {
       // std::cout << "Out: " << pmb->gid << std::endl;
@@ -78,7 +78,7 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
 
     // std::cout << "In: " << pmb->gid << std::endl;
 
-    rc->ExpandSparseVariableID("in_or_out", 0);
+    rc->AllocSparseID("in_or_out", 0);
     v = rc->GetSparseVariable("in_or_out").Get(0)->data;
   } else {
     v = rc->Get("in_or_out").data;
@@ -134,9 +134,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return package;
 }
 
-template <typename CheckExpanded>
+template <typename CheckAllocated>
 Real ComputeAreaInternal(MeshBlockPack<VariablePack<Real>> pack, ParArrayHost<Real> areas,
-                         CheckExpanded &&check_expanded) {
+                         CheckAllocated &&check_allocated) {
   const IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
@@ -147,8 +147,8 @@ Real ComputeAreaInternal(MeshBlockPack<VariablePack<Real>> pack, ParArrayHost<Re
       parthenon::DevExecSpace(), 0, pack.GetDim(5) - 1, 0, pack.GetDim(4) - 1, kb.s, kb.e,
       jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(int b, int v, int k, int j, int i, Real &larea) {
-        // Must check if in_or_out is expanded for sparse variables
-        if (check_expanded(b, v)) {
+        // Must check if in_or_out is allocated for sparse variables
+        if (check_allocated(b, v)) {
           larea += pack(b, v, k, j, i) * pack.coords(b).Area(parthenon::X3DIR, k, j, i);
         }
       },
@@ -166,13 +166,13 @@ TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> a
                                      std::vector<int>{0})
                  : md->PackVariables(std::vector<std::string>({"in_or_out"}));
 
-  areas(i) =
-      use_sparse
-          ? ComputeAreaInternal(
-                pack, areas,
-                KOKKOS_LAMBDA(int const b, int const v) { return pack.IsExpanded(b, v); })
-          : ComputeAreaInternal(
-                pack, areas, KOKKOS_LAMBDA(int, int) { return true; });
+  areas(i) = use_sparse ? ComputeAreaInternal(
+                              pack, areas,
+                              KOKKOS_LAMBDA(int const b, int const v) {
+                                return pack.IsSparseIDAllocated(b, v);
+                              })
+                        : ComputeAreaInternal(
+                              pack, areas, KOKKOS_LAMBDA(int, int) { return true; });
   return TaskStatus::complete;
 }
 

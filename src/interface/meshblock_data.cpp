@@ -67,17 +67,12 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata,
   // branch on kind of variable
   if (metadata.IsSet(Metadata::Sparse)) {
     // add a sparse variable
-    // SparseVariables are expanded later as needed
+    // Sparse ids are allocated later as needed
     if (sparseMap_.find(label) == sparseMap_.end()) {
       auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
+      printf("adding sparse variable with label: %s\n", label.c_str());
       Add(sv);
     }
-    // int varIndex = metadata.GetSparseId();
-    // sparseMap_[label]->Add(varIndex, arrDims);
-    // if (metadata.IsSet(Metadata::FillGhost)) {
-    //   auto &v = sparseMap_[label]->Get(varIndex);
-    //   v->allocateComms(pmy_block);
-    // }
   } else if (metadata.Where() == Metadata::Edge) {
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
@@ -546,7 +541,7 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
     if (!sparse_ids.empty()) {
       for (auto &sparse_id : sparse_ids) {
         result.expanded_names.push_back(sparse.label() + "_" + std::to_string(sparse_id));
-        if (sparse.Has(sparse_id)) {
+        if (sparse.HasSparseID(sparse_id)) {
           result.vars.push_back(sparse.Get(sparse_id));
         } else {
           // need to hold its space with something to make it uniform across blocks
@@ -677,6 +672,7 @@ void MeshBlockData<T>::SetupPersistentMPI() {
   for (auto &sv : sparseVector_) {
     if (sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
+      printf("SetupPersistentMPI: got %zu sparse vars\n", vvec.size());
       for (auto &v : vvec) {
         v->resetBoundary();
         v->vbvar->SetupPersistentMPI();

@@ -64,8 +64,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam("vy", std::vector<Real>{-speed, -speed, speed, speed});
 
   // add sparse field
-  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
-             std::vector<int>({1}));
+  Metadata m(
+      {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::Sparse},
+      std::vector<int>({1}));
   pkg->AddField("sparse", m);
 
   pkg->CheckRefinementBlock = CheckRefinement;

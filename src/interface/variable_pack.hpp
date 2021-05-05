@@ -69,7 +69,7 @@ class PackIndexMap {
   [[deprecated("Use PackIndexMap::get() instead")]] vpack_types::IndexPair &
   operator[](const std::string &key) {
     // this is too dangerous, we won't notice that we don't have a requested field if
-    // misspelled or sparse id not expanded
+    // misspelled or sparse id not allocated
 
     // if (!Has(key)) {
     //   map_.insert({key, vpack_types::IndexPair(0, -1)});

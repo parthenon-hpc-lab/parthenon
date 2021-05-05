@@ -315,7 +315,7 @@ void PostFill(MeshBlockData<Real> *rc) {
     const bool even = pmb->coords.GetXmin()[0] >= 0.0;
 
     // check that we have the sparse indices we want
-    rc->ExpandSparseVariableID("one_minus_sqrt_one_minus_advected_sq", even ? 12 : 37);
+    rc->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", even ? 12 : 37);
 
     // packing in principle unnecessary/convoluted here and just done for demonstration
     PackIndexMap imap;

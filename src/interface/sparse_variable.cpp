@@ -18,20 +18,21 @@
 namespace parthenon {
 
 template <typename T>
-void SparseVariable<T>::Add(int varIndex) {
+void SparseVariable<T>::AllocateSparseID(int sparse_id, std::weak_ptr<MeshBlock> wpmb) {
   // Now allocate depending on topology
   if ((metadata_.Where() == Metadata::Cell) || (metadata_.Where() == Metadata::Node) ||
       (metadata_.Where() == Metadata::None)) {
     // check if variable index already exists
-    if (varMap_.find(varIndex) != varMap_.end()) {
+    if (varMap_.find(sparse_id) != varMap_.end()) {
       PARTHENON_THROW("Duplicate index in create SparseVariable");
     }
 
     // create the variable and add to map
-    auto v = std::make_shared<CellVariable<T>>(label_, dims_, metadata_, varIndex);
-    varArray_.push_back(v);
-    indexMap_.push_back(varIndex);
-    varMap_[varIndex] = v;
+    auto v = std::make_shared<CellVariable<T>>(label_, dims_, metadata_, sparse_id);
+    Add(sparse_id, v);
+    if (metadata_.IsSet(Metadata::FillGhost)) {
+      v->allocateComms(wpmb);
+    }
   } else {
     PARTHENON_THROW("unsupported type in SparseVariable");
   }

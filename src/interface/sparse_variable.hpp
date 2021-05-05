@@ -39,31 +39,32 @@ using SparseMap = std::map<int, std::shared_ptr<CellVariable<T>>>;
 template <typename T>
 class SparseVariable {
  public:
-  SparseVariable() = default;
+  // SparseVariable() = default;
+
   // Copies src variable but only including chosen sparse ids.
-  SparseVariable(SparseVariable<T> &src, const std::vector<int> &sparse_ids)
+  SparseVariable(const SparseVariable<T> &src, const std::vector<int> &sparse_ids)
       : label_(src.label_), metadata_(src.metadata_), dims_(src.dims_) {
     for (int id : sparse_ids) {
-      auto var = src.varMap_[id];
-      Add(id, var);
+      if (src.varMap_.count(id) > 0) {
+        auto var = src.varMap_.at(id);
+        Add(id, var);
+      }
     }
   }
+
   SparseVariable(std::shared_ptr<SparseVariable<T>> src,
                  const std::vector<int> &sparse_ids)
-      : label_(src->label_), metadata_(src->metadata_), dims_(src->dims_) {
-    for (int id : sparse_ids) {
-      auto var = src->varMap_[id];
-      Add(id, var);
-    }
-  }
+      : SparseVariable(*src.get(), sparse_ids) {}
+
   SparseVariable(const std::string &label, const Metadata &m,
                  std::array<int, 6> const &dims)
       : label_(label), metadata_(m), dims_(dims) {}
 
-  std::shared_ptr<SparseVariable<T>> AllocateCopy() {
+  std::shared_ptr<SparseVariable<T>> AllocateCopy(const bool allocComms = false,
+                                                  std::weak_ptr<MeshBlock> wpmb = {}) {
     auto sv = std::make_shared<SparseVariable<T>>(label_, metadata_, dims_);
     for (auto &v : varMap_) {
-      sv->Add(v.first, v.second->AllocateCopy());
+      sv->Add(v.first, v.second->AllocateCopy(allocComms, wpmb));
     }
     return sv;
   }
@@ -74,31 +75,31 @@ class SparseVariable {
   /// create a new variable deep copy from variable 'theLabel' in input variable mv
   // void AddCopy(const std::string& theLabel, SparseVariable<T>& mv);
 
-  /// create a new variable
-  void Add(int sparse_index);
+  /// create a new sparse id variable
+  void AllocateSparseID(int sparse_index, std::weak_ptr<MeshBlock> wpmb);
 
   int GetDim(int const i) const { return dims_[i - 1]; }
 
   // accessors
-  inline CellVariable<T> &operator()(const int m) { return *(varMap_[m]); }
-  inline T &operator()(const int m, const int i) { return (*(varMap_[m]))(i); }
-  inline T &operator()(const int m, const int j, const int i) {
-    return (*(varMap_[m]))(j, i);
-  }
-  inline T &operator()(const int m, const int k, const int j, const int i) {
-    return (*(varMap_[m]))(k, j, i);
-  }
-  inline T &operator()(const int m, const int n, const int k, const int j, const int i) {
-    return (*(varMap_[m]))(n, k, j, i);
-  }
-  inline T &operator()(const int m, const int l, const int n, const int k, const int j,
-                       const int i) {
-    return (*(varMap_[m]))(l, n, k, j, i);
-  }
-  inline T &operator()(const int m, const int p, const int l, const int n, const int k,
-                       const int j, const int i) {
-    return (*(varMap_[m]))(p, l, n, k, j, i);
-  }
+  // inline CellVariable<T> &operator()(const int m) { return *(varMap_[m]); }
+  // inline T &operator()(const int m, const int i) { return (*(varMap_[m]))(i); }
+  // inline T &operator()(const int m, const int j, const int i) {
+  //   return (*(varMap_[m]))(j, i);
+  // }
+  // inline T &operator()(const int m, const int k, const int j, const int i) {
+  //   return (*(varMap_[m]))(k, j, i);
+  // }
+  // inline T &operator()(const int m, const int n, const int k, const int j, const int i) {
+  //   return (*(varMap_[m]))(n, k, j, i);
+  // }
+  // inline T &operator()(const int m, const int l, const int n, const int k, const int j,
+  //                      const int i) {
+  //   return (*(varMap_[m]))(l, n, k, j, i);
+  // }
+  // inline T &operator()(const int m, const int p, const int l, const int n, const int k,
+  //                      const int j, const int i) {
+  //   return (*(varMap_[m]))(p, l, n, k, j, i);
+  // }
 
   bool IsSet(const MetadataFlag flag) { return metadata_.IsSet(flag); }
 
@@ -108,22 +109,25 @@ class SparseVariable {
     return s;
   }
 
-  std::shared_ptr<CellVariable<T>> &Get(const int index) {
-    auto it = varMap_.find(index);
+  std::shared_ptr<CellVariable<T>> &Get(const int sparse_id) {
+    auto it = varMap_.find(sparse_id);
     if (it == varMap_.end()) {
-      throw std::invalid_argument("index " + std::to_string(index) +
+      throw std::invalid_argument("Sparse ID " + std::to_string(sparse_id) +
                                   "does not exist in SparseVariable");
     }
     return it->second;
   }
 
-  int GetIndex(int id) const {
-    auto it = std::find(indexMap_.begin(), indexMap_.end(), id);
-    if (it == indexMap_.end()) return -1; // indicate the id doesn't exist
+  int GetIndex(int sparse_id) const {
+    auto it = std::find(indexMap_.begin(), indexMap_.end(), sparse_id);
+    if (it == indexMap_.end()) return -1; // indicate the sparse_id doesn't exist
     return std::distance(indexMap_.begin(), it);
   }
 
-  bool Has(int id) const { return GetIndex(id) >= 0; }
+  bool HasSparseID(int sparse_id) const {
+    auto it = varMap_.find(sparse_id);
+    return it != varMap_.end();
+  }
 
   std::vector<int> &GetIndexMap() { return indexMap_; }
 
@@ -150,10 +154,10 @@ class SparseVariable {
   std::vector<int> indexMap_;
   std::array<int, 6> dims_;
 
-  void Add(int varIndex, std::shared_ptr<CellVariable<T>> cv) {
+  void Add(int sparse_id, std::shared_ptr<CellVariable<T>> cv) {
     varArray_.push_back(cv);
-    indexMap_.push_back(varIndex);
-    varMap_[varIndex] = cv;
+    indexMap_.push_back(sparse_id);
+    varMap_[sparse_id] = cv;
   }
 };
 

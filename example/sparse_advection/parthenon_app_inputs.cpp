@@ -49,7 +49,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   for (int i = 0; i < pkg->Param<int>("num_fields"); ++i) {
     // we initialize sparse id i only on one rank
     if ((i % Globals::nranks) == Globals::my_rank) {
-      // expand the sparse field on the blocks where we get non-zero values
+      // allocate the sparse field on the blocks where we get non-zero values
       bool any_nonzero = false;
       const Real x0 = pkg->Param<std::vector<Real>>("x0")[i];
       const Real y0 = pkg->Param<std::vector<Real>>("y0")[i];
@@ -66,7 +66,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       }
 
       if (any_nonzero) {
-        auto v = data->ExpandSparseVariableID("sparse", i).data;
+        auto v = data->AllocSparseID("sparse", i)->data;
         pmb->par_for(
             "SparseAdvection::ProblemGenerator", 0, 0, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
@@ -82,30 +82,30 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
 //========================================================================================
 //! \fn void Mesh::PostStepDiagnosticsInLoop(Mesh *mes, ParameterInput *pin, SimTime &tm)
-//  \brief Count the blocks on which sparse ids are expanded
+//  \brief Count the blocks on which sparse ids are allocated
 //========================================================================================
 
 void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &tm) {
   auto pkg = mesh->block_list[0]->packages.Get("sparse_advection_package");
   const auto n = pkg->Param<int>("num_fields");
 
-  std::vector<int> num_expanded(n, 0);
+  std::vector<int> num_allocated(n, 0);
 
   for (auto &pmb : mesh->block_list) {
     auto rc = pmb->meshblock_data.Get(); // get base container
     for (int i = 0; i < n; ++i) {
-      if (rc->IsSparseVariableIDExpanded("sparse", i)) {
-        num_expanded[i] += 1;
+      if (rc->IsSparseIDAllocated("sparse", i)) {
+        num_allocated[i] += 1;
       }
     }
   }
 
 #ifdef MPI_PARALLEL
   if (Globals::my_rank == 0) {
-    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, num_expanded.data(), 4, MPI_INT32_T,
+    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, num_allocated.data(), 4, MPI_INT32_T,
                                    MPI_SUM, 0, MPI_COMM_WORLD));
   } else {
-    PARTHENON_MPI_CHECK(MPI_Reduce(num_expanded.data(), num_expanded.data(), 4,
+    PARTHENON_MPI_CHECK(MPI_Reduce(num_allocated.data(), num_allocated.data(), 4,
                                    MPI_INT32_T, MPI_SUM, 0, MPI_COMM_WORLD));
   }
 #endif
@@ -114,7 +114,7 @@ void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &t
   if (Globals::my_rank == 0) {
     printf("Number of expansions: ");
     for (int i = 0; i < n; ++i) {
-      printf("%i: %i%s", i, num_expanded[i], i == n - 1 ? "" : ", ");
+      printf("%i: %i%s", i, num_allocated[i], i == n - 1 ? "" : ", ");
     }
     printf("\n");
   }

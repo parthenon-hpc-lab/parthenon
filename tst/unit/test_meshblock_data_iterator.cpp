@@ -286,9 +286,9 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we add sparse fields") {
       rc.Add("vsparse", Metadata({Metadata::Sparse}), scalar_block_size);
-      rc.ExpandSparseVariableID("vsparse", 1);
-      rc.ExpandSparseVariableID("vsparse", 13);
-      rc.ExpandSparseVariableID("vsparse", 42);
+      rc.AllocSparseID("vsparse", 1);
+      rc.AllocSparseID("vsparse", 13);
+      rc.AllocSparseID("vsparse", 42);
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
         auto v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
