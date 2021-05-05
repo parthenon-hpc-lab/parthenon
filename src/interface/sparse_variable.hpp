@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -89,7 +89,8 @@ class SparseVariable {
   // inline T &operator()(const int m, const int k, const int j, const int i) {
   //   return (*(varMap_[m]))(k, j, i);
   // }
-  // inline T &operator()(const int m, const int n, const int k, const int j, const int i) {
+  // inline T &operator()(const int m, const int n, const int k, const int j, const int i)
+  // {
   //   return (*(varMap_[m]))(n, k, j, i);
   // }
   // inline T &operator()(const int m, const int l, const int n, const int k, const int j,

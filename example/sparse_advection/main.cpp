@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,7 +23,8 @@ int main(int argc, char *argv[]) {
   // Redefine parthenon defaults
   pman.app_input->ProcessPackages = sparse_advection_example::ProcessPackages;
   pman.app_input->ProblemGenerator = sparse_advection_example::ProblemGenerator;
-  pman.app_input->PostStepDiagnosticsInLoop = sparse_advection_example::PostStepDiagnosticsInLoop;
+  pman.app_input->PostStepDiagnosticsInLoop =
+      sparse_advection_example::PostStepDiagnosticsInLoop;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);

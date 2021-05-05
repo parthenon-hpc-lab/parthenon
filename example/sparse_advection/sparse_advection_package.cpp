@@ -49,8 +49,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam("derefine_tol", derefine_tol);
 
   // we have 4 different fields (sparse indices)
-  pkg->AddParam("num_fields", int(4));
-  pkg->AddParam("init_size", Real(0.1));
+  pkg->AddParam("num_fields", static_cast<int>(4));
+  pkg->AddParam("init_size", static_cast<Real>(0.1));
 
   // set starting positions
   Real pos = 0.8;
