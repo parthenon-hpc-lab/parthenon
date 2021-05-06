@@ -369,23 +369,23 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
 
             for bad_idx in bad_idxs:
                 bad_idx = tuple(bad_idx)
-                if is_vec:
-                    data_str = f"f0: " + " ".join(f"{u:.4e}" for u in val0[bad_idx]) \
-                             + f"f1: " + " ".join(f"{u:.4e}" for u in val1[bad_idx]) \
-                             + f"err: " + " ".join(f"{u:.4e}" for u in err_val[bad_idx])
-                else:
-                    data_str = f"f0: {val0[bad_idx]:.4e}" \
-                             + f"f1: {val1[bad_idx]:.4e}" \
 
                 #Find the bad location
                 bad_loc = loc[:,bad_idx[0],bad_idx[1],bad_idx[2],bad_idx[3]]
 
 
                 #TODO(forrestglines): Check that the bkji and zyx reported are the correct order
-                print(f"   Diff in {var_name:20s} at "
-                        f"bkji: ({bad_idx[0]:4d},{bad_idx[1]:4d},{bad_idx[2]:4d},{bad_idx[3]:4d})"
-                        f"zyx: ({bad_loc[0]:4f},{bad_loc[1]:4f},{bad_loc[2]:4f}) "
-                        f"err_mag: {err_mag[bad_idx]:4f} " + data_str)
+                print(f"Diff in {var:20s}")
+                print(f"    bkji: ({bad_idx[0]:4d},{bad_idx[1]:4d},{bad_idx[2]:4d},{bad_idx[3]:4d})")
+                print(f"    zyx: ({bad_loc[0]:4f},{bad_loc[1]:4f},{bad_loc[2]:4f})")
+                print(f"    err_mag: {err_mag[bad_idx]:4f}")
+                if is_vec:
+                    print(f"    f0: " + " ".join(f"{u:.4e}" for u in val0[bad_idx]))
+                    print(f"    f1: " + " ".join(f"{u:.4e}" for u in val1[bad_idx]))
+                    print(f"    err: " + " ".join(f"{u:.4e}" for u in err_val[bad_idx]))
+                else:
+                    print(f"    f0: {val0[bad_idx]:.4e}")
+                    print(f"    f1: {val1[bad_idx]:.4e}")
         if not quiet:
             if var_no_diffs:
                 print(f"  {var:20s}: no diffs")
@@ -395,66 +395,6 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
       return(0)
     else:
       return(ERROR_DATA_DIFFER)
-
-        #for idx,v in enumerate(val0):
-        #    if f0.isGhost[idx%f0.CellsPerBlock]:
-        #        # only consider real cells
-        #        continue
-        #    [ib,bidx,iz,iy,ix] = f0.ToLocation(idx)
-
-        #    # find location in other file
-        #    [idx1, ib1, bidx1, iz1, iy1, ix1] = otherLocations[idx]
-
-        #    # compute error
-        #    if relative:
-        #        #Skip over 
-        #        nonzero_mask = (v!=0)
-        #        errVal = np.abs((v[nonzero_mask] - val1[idx1][nonzero_mask])/v[nonzero_mask])
-        #    else:
-        #        errVal = np.abs(v - val1[idx1])
-        #    errMag = np.linalg.norm(errVal)
-
-        #    # Note that we use norm / magnitude to compute error
-        #    if errMag > errMax:
-        #        errMax = errMag
-        #        errMaxPos = [f0.x[ib,ix], f0.y[ib,iy], f0.z[ib,iz]]
-
-        #    if np.linalg.norm(errVal) > tol:
-        #        same = False
-        #        no_diffs = False
-        #        if brief or quiet:
-        #            breakOut=True
-        #            break
-
-        #        if is_vec:
-        #            s='['
-        #            for xd in errVal:
-        #                if xd == 0.:
-        #                    s += ' 0.0'
-        #                else:
-        #                    s += ' %10.4g'%xd
-        #            s+= ']'
-        #        else:
-        #            s = '%10.4g'%errVal
-        #        if all:
-        #            print('  %20s: %6d: diff='%(var,idx),s.strip(),
-        #                  'at:f0:%d:%.4f,%.4f,%.4f'%(idx,
-        #                                             f0.x[ib,ix],
-        #                                             f0.y[ib,iy],
-        #                                             f0.z[ib,iz]),
-        #                  ':f1:%d:%.4f,%.4f,%.4f'%(idx1,f1.x[ib1,ix1],f1.y[ib1,iy1],f1.z[ib1,iz1]))
-        #if breakOut:
-        #    if not quiet: print("")
-        #    print('Files %s and %s are different'%(f0.file, f1.file))
-        #    if not quiet: print("")
-        #    break
-        #if not quiet:
-        #    if same:
-        #        print('  %20s: no diffs'%var)
-        #    else:
-        #        print('____%26s: MaxDiff=%10.4g at'%(var,errMax),errMaxPos)
-
-    
 
 if __name__ == "__main__":
     addPath()
