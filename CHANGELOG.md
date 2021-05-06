@@ -5,6 +5,7 @@
 ### Added (new features/APIs/variables/...)
 - [[PR 479]](https://github.com/lanl/parthenon/pull/479) Add `Update` function to `Params` to update the value of an existing key.
 - [[PR 482]](https://github.com/lanl/parthenon/pull/482) Add support for package enrolled history outputs.
+- [[PR 511]](https://github.com/lanl/parthenon/pull/511) Added relative compare in phdf_diff, sped up phdf_diff, analytic_compare.py
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 492]](https://github.com/lanl/parthenon/pull/492) Modify advection example to have an arbitrary number of dense variables and to disable fill derived for profiling.

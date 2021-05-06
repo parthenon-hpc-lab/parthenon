@@ -345,7 +345,7 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
             err_mag = np.linalg.norm(err_val,axis=-1) 
         else:
             #Just plain error for scalars
-            err_mag = err_mag
+            err_mag = err_val
         err_max = err_mag.max()
 
         #Check if the error of any block exceeds the tolerance
