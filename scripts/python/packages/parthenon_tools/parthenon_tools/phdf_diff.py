@@ -319,16 +319,9 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
             continue
 
         # Get values from file
-        if not quiet:
-            print(f"Loading {var} from {files[0]}")
         val0 = f0.Get(var,flatten=False)
-
-        if not quiet:
-            print(f"Loading {var} from {files[1]}")
         val1 = f1.Get(var,flatten=False)
 
-        if not quiet:
-            print(f"Comparing {var}")
         is_vec = np.prod(val0.shape) != f0.TotalCells
 
         #Determine arrangement of mesh blocks of f1 in terms of ordering in f0
@@ -346,14 +339,17 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
         else:
             err_val = np.abs(val0 - val1)
 
-        # Compute norm of error on every grid
-        block_err_mag = np.linalg.norm(
-                err_val.reshape((err_val.shape[0],np.prod(err_val.shape[1:]))),
-                axis=1) 
-        block_err_max = block_err_mag.max()
+        # Compute magnitude of error at every point
+        if is_vec:
+            #Norm every vector
+            err_mag = np.linalg.norm(err_val,axis=-1) 
+        else:
+            #Just plain error for scalars
+            err_mag = err_mag
+        err_max = err_mag.max()
 
         #Check if the error of any block exceeds the tolerance
-        if block_err_max > tol:
+        if err_max > tol:
             no_diffs = False
             var_no_diffs = False
 
@@ -362,37 +358,37 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
 
             if one:
                 #Print the maximum difference only
-                bad_idx = np.argmax(err_val)
-                bad_idx = np.array(np.unravel_index(bad_idx,err_val.shape))
+                bad_idx = np.argmax(err_mag)
+                bad_idx = np.array(np.unravel_index(bad_idx,err_mag.shape))
 
                 #Reshape for printing step
                 bad_idxs = bad_idx.reshape((1,*bad_idx.shape))
             else:
                 #Print all differences exceeding maximum
-                bad_idxs = np.argwhere(err_val > tol)
+                bad_idxs = np.argwhere(err_mag > tol)
 
             for bad_idx in bad_idxs:
                 bad_idx = tuple(bad_idx)
                 if is_vec:
-                    #Determine the xyz location, vector idx
-                    bad_vec_idx = bad_idx[-1]
-
-                    #Give the vector component a name
-                    var_name = str((var,bad_vec_idx))
+                    data_str = f"f0: " + " ".join(f"{u:.4e}" for u in val0[bad_idx]) \
+                             + f"f1: " + " ".join(f"{u:.4e}" for u in val1[bad_idx]) \
+                             + f"err: " + " ".join(f"{u:.4e}" for u in err_val[bad_idx])
                 else:
-                    #Use the var name
-                    var_name = var
+                    data_str = f"f0: {val0[bad_idx]:.4e}" \
+                             + f"f1: {val1[bad_idx]:.4e}" \
 
                 #Find the bad location
                 bad_loc = loc[:,bad_idx[0],bad_idx[1],bad_idx[2],bad_idx[3]]
 
                 print(f"   Diff in {var_name:20s} at "
-                        f"idx: ({bad_idx[0]:4d} {bad_idx[1]:4d} {bad_idx[2]:4d} {bad_idx[3]:4d}) "
-                        f"xyz: ({bad_loc[2]:4f} {bad_idx[1]:4f} {bad_idx[0]:4f}) "
-                        f"f0: {val0[bad_idx]:.10e} f1: {val1[bad_idx]:.10e} "
-                        f"err: {err_val[bad_idx]:.10e}")
-        if var_no_diffs and (not quiet):
-            print(f"  {var:20s}: no diffs")
+                        f"idx: ({bad_idx[0]:4d} {bad_idx[1]:4d} {bad_idx[2]:4d}"
+                        f"zyx: ({bad_loc[0]:4f} {bad_idx[1]:4f} {bad_idx[2]:4f}) "
+                        f"err_mag: {err_mag[bad_idx]:4f} " + data_str)
+        if not quiet:
+            if var_no_diffs:
+                print(f"  {var:20s}: no diffs")
+            else:
+                print(f"  {var:20s}: differs")
         if (not no_diffs) and one:
             break
     if no_diffs:
