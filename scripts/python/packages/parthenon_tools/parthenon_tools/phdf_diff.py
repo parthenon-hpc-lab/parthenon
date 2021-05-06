@@ -174,9 +174,9 @@ def compare_metadata( f0, f1, tol=1.0e-12):
                 val1 = val1[otherBlockIdx]
 
                 # Compute norm error, check against tolerance
-                errVal = np.abs(val0 - val1)
-                errMag = np.linalg.norm(errVal)
-                if(errMag > tol):
+                err_val = np.abs(val0 - val1)
+                err_mag = np.linalg.norm(err_val)
+                if(err_mag > tol):
                     no_meta_variables_diff = False
                     if not quiet: print("")
                     print(f'Metavariable {var}/{key} differs between {f0.file} and {f1.file}')
@@ -288,101 +288,177 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
 
     if not brief and not quiet:
         print('____Comparing on a per variable basis with tolerance %.16g'%tol)
-    breakOut = False
     oneTenth = f0.TotalCells//10
-    if not quiet: print('Mapping indices:')
     print('Tolerance = %g' % tol)
-    otherLocations = [None]*f0.TotalCells
-    for idx in range(f0.TotalCells):
-        if not quiet:
-            if idx%oneTenth == 0:
-                print('   Mapping %8d (of %d) '%(idx,f0.TotalCells))
 
-        if f0.isGhost[idx%f0.CellsPerBlock]:
-            # don't map ghost cells
-            continue
+    #Make loc array of locations matching the shape of val0,val1
+    #Useful for reporting locations of errors
+    locations_x = f0.x
+    locations_y = f0.y
+    locations_z = f0.z
 
-        otherLocations[idx] = f0.findIndexInOther(f1,idx)
-    if not quiet: print(f0.TotalCells,'cells mapped')
+    #loc[dim,grid_idx,k,j,i]
+    loc = np.empty((3,
+                    locations_x.shape[0],
+                    locations_z.shape[1],
+                    locations_y.shape[1],
+                    locations_x.shape[1]))
+
+    #Share every coordinate 
+    for grid_idx in range(loc.shape[1]):
+        loc[:,grid_idx] = np.meshgrid(
+                locations_z[grid_idx],
+                locations_y[grid_idx],
+                locations_x[grid_idx],
+                indexing="ij")
 
     for var in set(f0.Variables+f1.Variables):
+        var_no_diffs = True
+
         if var in ['Locations', 'VolumeLocations', 'LogicalLocations', 'Levels', 'Info', 'Params']:
             continue
 
-        #initialize info values
-        same = True
-        errMax = -1.0
-        maxPos=[0,0,0]
-
         # Get values from file
-        val0 = f0.Get(var)
-        val1 = f1.Get(var)
-        isVec = np.prod(val0.shape) != f0.TotalCells
-        for idx,v in enumerate(val0):
-            if f0.isGhost[idx%f0.CellsPerBlock]:
-                # only consider real cells
-                continue
-            [ib,bidx,iz,iy,ix] = f0.ToLocation(idx)
-
-            # find location in other file
-            [idx1, ib1, bidx1, iz1, iy1, ix1] = otherLocations[idx]
-
-            # compute error
-            if relative:
-                #Skip over 
-                nonzero_mask = (v!=0)
-                errVal = np.abs((v[nonzero_mask] - val1[idx1][nonzero_mask])/v[nonzero_mask])
-            else:
-                errVal = np.abs(v - val1[idx1])
-            errMag = np.linalg.norm(errVal)
-
-            # Note that we use norm / magnitude to compute error
-            if errMag > errMax:
-                errMax = errMag
-                errMaxPos = [f0.x[ib,ix], f0.y[ib,iy], f0.z[ib,iz]]
-
-            if np.linalg.norm(errVal) > tol:
-                same = False
-                no_diffs = False
-                if brief or quiet:
-                    breakOut=True
-                    break
-
-                if isVec:
-                    s='['
-                    for xd in errVal:
-                        if xd == 0.:
-                            s += ' 0.0'
-                        else:
-                            s += ' %10.4g'%xd
-                    s+= ']'
-                else:
-                    s = '%10.4g'%errVal
-                if all:
-                    print('  %20s: %6d: diff='%(var,idx),s.strip(),
-                          'at:f0:%d:%.4f,%.4f,%.4f'%(idx,
-                                                     f0.x[ib,ix],
-                                                     f0.y[ib,iy],
-                                                     f0.z[ib,iz]),
-                          ':f1:%d:%.4f,%.4f,%.4f'%(idx1,f1.x[ib1,ix1],f1.y[ib1,iy1],f1.z[ib1,iz1]))
-        if breakOut:
-            if not quiet: print("")
-            print('Files %s and %s are different'%(f0.file, f1.file))
-            if not quiet: print("")
-            break
         if not quiet:
-            if same:
-                print('  %20s: no diffs'%var)
-            else:
-                print('____%26s: MaxDiff=%10.4g at'%(var,errMax),errMaxPos)
+            print(f"Loading {var} from {files[0]}")
+        val0 = f0.Get(var,flatten=False)
 
-        if one and not same:
+        if not quiet:
+            print(f"Loading {var} from {files[1]}")
+        val1 = f1.Get(var,flatten=False)
+
+        if not quiet:
+            print(f"Comparing {var}")
+        is_vec = np.prod(val0.shape) != f0.TotalCells
+
+        #Determine arrangement of mesh blocks of f1 in terms of ordering in f0
+        otherBlockIdx = list(f0.findBlockIdxInOther(f1,i) for i in range(f0.NumBlocks))
+
+        #Rearrange val1 to match ordering of meshblocks in val0
+        val1 = val1[otherBlockIdx]
+        
+        # compute error at every point
+        if relative:
+            err_val = np.abs((val0-val1)/val0)
+            #Set error values where val0==0 to 0
+            #Numpy masked arrays would be more robust here, but they are very slow
+            err_val[val0==0] = 0
+        else:
+            err_val = np.abs(val0 - val1)
+
+        # Compute norm of error on every grid
+        block_err_mag = np.linalg.norm(
+                err_val.reshape((err_val.shape[0],np.prod(err_val.shape[1:]))),
+                axis=1) 
+        block_err_max = block_err_mag.max()
+
+        #Check if the error of any block exceeds the tolerance
+        if block_err_max > tol:
+            no_diffs = False
+            var_no_diffs = False
+
+            if quiet:
+                continue #Skip reporting the error
+
+            if one:
+                #Print the maximum difference only
+                bad_idx = np.argmax(err_val)
+                bad_idx = np.array(np.unravel_index(bad_idx,err_val.shape))
+
+                #Reshape for printing step
+                bad_idxs = bad_idx.reshape((1,*bad_idx.shape))
+            else:
+                #Print all differences exceeding maximum
+                bad_idxs = np.argwhere(err_val > tol)
+
+            for bad_idx in bad_idxs:
+                bad_idx = tuple(bad_idx)
+                if is_vec:
+                    #Determine the xyz location, vector idx
+                    bad_vec_idx = bad_idx[-1]
+
+                    #Give the vector component a name
+                    var_name = str((var,bad_vec_idx))
+                else:
+                    #Use the var name
+                    var_name = var
+
+                #Find the bad location
+                bad_loc = loc[:,bad_idx[0],bad_idx[1],bad_idx[2],bad_idx[3]]
+
+                print(f"   Diff in {var_name:20s} at "
+                        f"idx: ({bad_idx[0]:4d} {bad_idx[1]:4d} {bad_idx[2]:4d} {bad_idx[3]:4d}) "
+                        f"xyz: ({bad_loc[2]:4f} {bad_idx[1]:4f} {bad_idx[0]:4f}) "
+                        f"f0: {val0[bad_idx]:.10e} f1: {val1[bad_idx]:.10e} "
+                        f"err: {err_val[bad_idx]:.10e}")
+        if var_no_diffs and (not quiet):
+            print(f"  {var:20s}: no diffs")
+        if (not no_diffs) and one:
             break
-    
     if no_diffs:
       return(0)
     else:
       return(ERROR_DATA_DIFFER)
+
+        #for idx,v in enumerate(val0):
+        #    if f0.isGhost[idx%f0.CellsPerBlock]:
+        #        # only consider real cells
+        #        continue
+        #    [ib,bidx,iz,iy,ix] = f0.ToLocation(idx)
+
+        #    # find location in other file
+        #    [idx1, ib1, bidx1, iz1, iy1, ix1] = otherLocations[idx]
+
+        #    # compute error
+        #    if relative:
+        #        #Skip over 
+        #        nonzero_mask = (v!=0)
+        #        errVal = np.abs((v[nonzero_mask] - val1[idx1][nonzero_mask])/v[nonzero_mask])
+        #    else:
+        #        errVal = np.abs(v - val1[idx1])
+        #    errMag = np.linalg.norm(errVal)
+
+        #    # Note that we use norm / magnitude to compute error
+        #    if errMag > errMax:
+        #        errMax = errMag
+        #        errMaxPos = [f0.x[ib,ix], f0.y[ib,iy], f0.z[ib,iz]]
+
+        #    if np.linalg.norm(errVal) > tol:
+        #        same = False
+        #        no_diffs = False
+        #        if brief or quiet:
+        #            breakOut=True
+        #            break
+
+        #        if is_vec:
+        #            s='['
+        #            for xd in errVal:
+        #                if xd == 0.:
+        #                    s += ' 0.0'
+        #                else:
+        #                    s += ' %10.4g'%xd
+        #            s+= ']'
+        #        else:
+        #            s = '%10.4g'%errVal
+        #        if all:
+        #            print('  %20s: %6d: diff='%(var,idx),s.strip(),
+        #                  'at:f0:%d:%.4f,%.4f,%.4f'%(idx,
+        #                                             f0.x[ib,ix],
+        #                                             f0.y[ib,iy],
+        #                                             f0.z[ib,iz]),
+        #                  ':f1:%d:%.4f,%.4f,%.4f'%(idx1,f1.x[ib1,ix1],f1.y[ib1,iy1],f1.z[ib1,iz1]))
+        #if breakOut:
+        #    if not quiet: print("")
+        #    print('Files %s and %s are different'%(f0.file, f1.file))
+        #    if not quiet: print("")
+        #    break
+        #if not quiet:
+        #    if same:
+        #        print('  %20s: no diffs'%var)
+        #    else:
+        #        print('____%26s: MaxDiff=%10.4g at'%(var,errMax),errMaxPos)
+
+    
 
 if __name__ == "__main__":
     addPath()
