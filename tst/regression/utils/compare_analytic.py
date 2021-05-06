@@ -32,7 +32,7 @@ def linf_rel_err(gold,test):
 ################################################################################
 
 def compare_analytic(filename,analytic_components,
-        err_func=l2_err,tol=1e-12):
+        err_func=l2_err,tol=1e-12,quiet=False):
     """Compares data in filename to analytic gold data in analytic_components.
 
     Arguments:
@@ -49,6 +49,7 @@ def compare_analytic(filename,analytic_components,
     err_func=l2_err: Error function that accepts the analytic solution and data and
                      returns an error metric
     tol=1e-12: Tolerance of error metric. 
+    quiet: Set to true to supress printing errors exceeding tol
 
     Returns True if the error of all components is under the tolerance, otherwise
     returns False.
@@ -125,7 +126,8 @@ def compare_analytic(filename,analytic_components,
         err = err_func(analytic_component,file_components[component].ravel())
 
         if err > tol:
-            print(f"Component {component} in {filename} error {err} exceeds tolerance {tol}")
+            if not quiet:
+                print(f"Component {component} in {filename} error {err} exceeds tolerance {tol}")
             all_ok = False
 
     return all_ok

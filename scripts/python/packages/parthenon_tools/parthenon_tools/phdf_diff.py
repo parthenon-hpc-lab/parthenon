@@ -380,17 +380,17 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
                 #Find the bad location
                 bad_loc = loc[:,bad_idx[0],bad_idx[1],bad_idx[2],bad_idx[3]]
 
+
+                #TODO(forrestglines): Check that the bkji and zyx reported are the correct order
                 print(f"   Diff in {var_name:20s} at "
-                        f"idx: ({bad_idx[0]:4d} {bad_idx[1]:4d} {bad_idx[2]:4d}"
-                        f"zyx: ({bad_loc[0]:4f} {bad_idx[1]:4f} {bad_idx[2]:4f}) "
+                        f"bkji: ({bad_idx[0]:4d},{bad_idx[1]:4d},{bad_idx[2]:4d},{bad_idx[3]:4d})"
+                        f"zyx: ({bad_loc[0]:4f},{bad_loc[1]:4f},{bad_loc[2]:4f}) "
                         f"err_mag: {err_mag[bad_idx]:4f} " + data_str)
         if not quiet:
             if var_no_diffs:
                 print(f"  {var:20s}: no diffs")
             else:
                 print(f"  {var:20s}: differs")
-        if (not no_diffs) and one:
-            break
     if no_diffs:
       return(0)
     else:
