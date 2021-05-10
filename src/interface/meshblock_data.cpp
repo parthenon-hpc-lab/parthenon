@@ -672,7 +672,6 @@ void MeshBlockData<T>::SetupPersistentMPI() {
   for (auto &sv : sparseVector_) {
     if (sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
-      printf("SetupPersistentMPI: got %zu sparse vars\n", vvec.size());
       for (auto &v : vvec) {
         v->resetBoundary();
         v->vbvar->SetupPersistentMPI();
