@@ -45,10 +45,10 @@
 // define PARTHENON_ENABLE_INIT_PACKING or not at all
 #cmakedefine PARTHENON_ENABLE_INIT_PACKING
 
-// HDF5 output (HDF5OUTPUT or NO_HDF5OUTPUT)
-#define @HDF5_OPTION@
+// defne ENABLE_HDF5 or not at all
+#cmakedefine ENABLE_HDF5
 
-// HDF5 compression level (valid range: 0-9, 0 will turn off compression completely)
+// define PARTHENON_DISABLE_HDF5_COMPRESSION or not at all
 #cmakedefine PARTHENON_DISABLE_HDF5_COMPRESSION
 
 // Default loop patterns for MeshBlock par_for() wrappers,

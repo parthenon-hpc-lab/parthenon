@@ -19,7 +19,7 @@
 #include "config.hpp"
 
 // Only proceed if HDF5 output enabled
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
 
 #include <algorithm>
 #include <memory>
@@ -979,4 +979,4 @@ template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, S
 
 } // namespace parthenon
 
-#endif // ifdef HDF5OUTPUT
+#endif // ifdef ENABLE_HDF5

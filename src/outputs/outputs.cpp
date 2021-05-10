@@ -294,7 +294,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         if (restart) {
           num_rst_outputs++;
         }
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
         pnew_type = new PHDF5Output(op, restart);
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
@@ -303,7 +303,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
             << "You can disable this block without deleting it by setting a dt < 0."
             << std::endl;
         PARTHENON_FAIL(msg);
-#endif // ifdef HDF5OUTPUT
+#endif // ifdef ENABLE_HDF5
       } else {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Unrecognized file format = '" << op.file_type << "' in output block '"

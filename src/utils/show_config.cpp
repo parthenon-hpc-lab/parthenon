@@ -46,7 +46,7 @@ void ShowConfig() {
   std::cout << "  MPI parallelism:            OFF" << std::endl;
 #endif
 
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
   std::cout << "  HDF5 output:                ON" << std::endl;
 #else
   std::cout << "  HDF5 output:                OFF" << std::endl;

@@ -34,7 +34,7 @@
 }
 #endif
 
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
 [[noreturn]] void parthenon::ErrorChecking::fail_throws_hdf5(herr_t err,
                                                              char const *const expr,
                                                              char const *const filename,

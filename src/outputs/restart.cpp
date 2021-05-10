@@ -34,7 +34,7 @@ namespace parthenon {
 //! \fn void RestartReader::RestartReader(const std::string filename)
 //  \brief Opens the restart file and stores appropriate file handle in fh_
 RestartReader::RestartReader(const char *filename) : filename_(filename) {
-#ifndef HDF5OUTPUT
+#ifndef ENABLE_HDF5
   std::stringstream msg;
   msg << "### FATAL ERROR in Restart (Reader) constructor" << std::endl
       << "Executable not configured for HDF5 outputs, but HDF5 file format "

@@ -12,9 +12,9 @@
 #ifndef OUTPUTS_PARTHENON_HDF5_HPP_
 #define OUTPUTS_PARTHENON_HDF5_HPP_
 
-#ifndef HDF5OUTPUT
+#ifndef ENABLE_HDF5
 #error "parthenon_hdf5.hpp requires HDF5 output to be enabled"
-#endif // ifndef HDF5OUTPUT
+#endif // ifndef ENABLE_HDF5
 
 // Definitions common to parthenon restart and parthenon output for HDF5
 
