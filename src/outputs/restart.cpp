@@ -44,7 +44,7 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
   // Open the HDF file in read only mode
   fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
 
-  hasGhost = GetAttr<int32_t>("Info", "IncludesGhost");
+  hasGhost = GetAttr<int>("Info", "IncludesGhost");
 #endif
 }
 
