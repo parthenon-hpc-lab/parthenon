@@ -33,6 +33,9 @@
 namespace parthenon {
 namespace HDF5 {
 
+// Number of dimension of HDF5 field data sets (block x nx x ny x nz x num vars)
+static constexpr size_t H5_NDIM = 5;
+
 /**
  * @brief RAII handles for HDF5. Use the typedefs directly (e.g. `H5A`, `H5D`, etc.)
  *

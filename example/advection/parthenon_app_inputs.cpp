@@ -134,7 +134,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
                        pmb->coords.x3v(k) * pmb->coords.x3v(k);
             ref_val = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
           } else {
-            ref_val = 1e9; // use an artifically large error
+            ref_val = 1e9; // use an artificially large error
           }
 
           // Weight l1 error by cell volume

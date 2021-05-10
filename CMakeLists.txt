@@ -34,6 +34,7 @@ option(PARTHENON_ENABLE_INIT_PACKING "Use MeshBlockPack based buffer functions i
 Mesh::Initialize. Does NOT support sparse variables." OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
+option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
 this to True to enable linting in the default target" OFF)
 option(PARTHENON_COPYRIGHT_CHECK_DEFAULT "Copyright check is turned off by default, use the \
@@ -53,12 +54,6 @@ option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kern
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
-
-# HDF5 compression level option, value between 0 and 9
-set(PARTHENON_HDF5_COMPRESSION_LEVEL 5 CACHE STRING "Compression level for HDF5 output and restart files, valid range is 0-9, default is 5, set to 0 to turn off compression")
-if(NOT PARTHENON_HDF5_COMPRESSION_LEVEL MATCHES "^[0-9]$")
-  message(FATAL_ERROR "PARTHENON_HDF5_COMPRESSION_LEVEL must be a number between 0 and 9")
-endif()
 
 # Default to an external Kokkos package if the submodule is not populated
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt" AND NOT EXISTS "${Kokkos_ROOT}/CMakeLists.txt")
@@ -166,7 +161,7 @@ if (NOT PARTHENON_DISABLE_HDF5)
     "CMake with -DPARTHENON_DISABLE_MPI=ON or -DPARTHENON_DISABLE_HDF5=ON")
   endif()
 
-  if ((PARTHENON_HDF5_COMPRESSION_LEVEL GREATER 0) AND ENABLE_MPI)
+  if ((NOT PARTHENON_DISABLE_HDF5_COMPRESSION) AND ENABLE_MPI)
     # make sure we use an HDF5 version that doesn't have a known bug when used with compression and
     # parallel I/O. See:
     # https://forum.hdfgroup.org/t/crash-when-writing-parallel-compressed-chunks/6186
@@ -177,7 +172,7 @@ if (NOT PARTHENON_DISABLE_HDF5)
       message(FATAL_ERROR "This version of HDF5 has a known bug that will crash when trying to "
       "write compressed datasets with MPI parallel I/O. Please use HDF5 version 1.10.7 or later "
       "or turn off either HDF5 compression or MPI by rerunning CMake with "
-      "-DPARTHENON_HDF5_COMPRESSION_LEVEL=0 or -DPARTHENON_DISABLE_MPI=ON.\nNOTE: Using HDF5 "
+      "-DPARTHENON_DISABLE_HDF5_COMPRESSION=ON or -DPARTHENON_DISABLE_MPI=ON.\nNOTE: Using HDF5 "
       "without compression can result in much larger HDF5 output and restart files as well as "
       "degraded I/O performance.")
     endif()

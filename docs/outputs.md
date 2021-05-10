@@ -27,8 +27,9 @@ cell.
 HDF5 and restart files write variable field data with inline compression by default. This is
 especially helpful when there are sparse variables allocated only in a few blocks, because all other
 blocks would write zeros of these variables, which can drastically increase output file size (and
-decrease I/O performance) without compression. To control the level of compression or to turn it off
-altogether, the CMake build option `PARTHENON_HDF5_COMPRESSION_LEVEL` can be used. See the [build
+decrease I/O performance) without compression. The optional parameter `hdf5_compression_level` can
+be used to set the compression level (between 1 and 9, default is 5). Compression can be disabled
+altogether with the CMake build option `PARTHENON_DISABLE_HDF5_COMPRESSION`. See the [build
 doc](building.md) for more details.
 
 ## Restart Files

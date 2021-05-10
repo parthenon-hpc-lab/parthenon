@@ -223,6 +223,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     fid << prefix << "  "
         << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
         << vector_size << R"(">)" << std::endl;
+    // TODO(JL) 3 and 5 are literals here, careful if they change
     fid << prefix << "    "
         << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
         << " 0 0 0 " << i << " 1 1 1 1 1 1 " << dims321 << " " << vector_size
@@ -247,7 +248,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   }
   std::string filename_aux = hdfFile + ".xdmf";
   std::ofstream xdmf;
-  hsize_t dims[5] = {0, 0, 0, 0, 0};
+  hsize_t dims[H5_NDIM] = {0, 0, 0, 0, 0};
 
   // open file
   xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
@@ -277,7 +278,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   std::string dims321 =
       std::to_string(nx3) + " " + std::to_string(nx2) + " " + std::to_string(nx1);
 
-  int ndims = 5;
+  int ndims = H5_NDIM;
 
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
@@ -517,12 +518,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     my_offset += nblist[i];
   }
 
-  const std::array<hsize_t, 5> local_offset({my_offset, 0, 0, 0, 0});
+  const std::array<hsize_t, H5_NDIM> local_offset({my_offset, 0, 0, 0, 0});
 
   // these can vary by data set, except index 0 is always the same
-  std::array<hsize_t, 5> local_count(
+  std::array<hsize_t, H5_NDIM> local_count(
       {static_cast<hsize_t>(num_blocks_local), 1, 1, 1, 1});
-  std::array<hsize_t, 5> global_count(
+  std::array<hsize_t, H5_NDIM> global_count(
       {static_cast<hsize_t>(max_blocks_global), 1, 1, 1, 1});
 
   // for convenience
@@ -532,18 +533,18 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   H5P const pl_xfer = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
   H5P const pl_dcreate = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_CREATE));
-  {
-    const std::array<hsize_t, 5> chunk_size({1, static_cast<hsize_t>(nx3),
-                                             static_cast<hsize_t>(nx2),
-                                             static_cast<hsize_t>(nx1), 1});
 
-    PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, 5, chunk_size.data()));
-
-    if (HDF5_COMPRESSION_LEVEL > 0) {
-      PARTHENON_HDF5_CHECK(
-          H5Pset_deflate(pl_dcreate, std::min(9, HDF5_COMPRESSION_LEVEL)));
-    }
+#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
+  if (output_params.hdf5_compression_level > 0) {
+    // we need chunks to enable compression
+    const std::array<hsize_t, H5_NDIM> chunk_size({1, static_cast<hsize_t>(nx3),
+                                                   static_cast<hsize_t>(nx2),
+                                                   static_cast<hsize_t>(nx1), 1});
+    PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, H5_NDIM, chunk_size.data()));
+    PARTHENON_HDF5_CHECK(
+        H5Pset_deflate(pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
   }
+#endif
 
 #ifdef MPI_PARALLEL
   PARTHENON_HDF5_CHECK(H5Pset_dxpl_mpio(pl_xfer, H5FD_MPIO_COLLECTIVE));
@@ -590,7 +591,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                   p_glob_cnt, pl_xfer);
 
       // (LOC.)level, GID, LID, cnghost, gflag
-      n = 5;
+      n = 5; // this is NOT H5_NDIM
       std::vector<int> tmpID(num_blocks_local * n);
       local_count[1] = global_count[1] = n;
 
@@ -915,8 +916,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // variable, so we don't need to write a buffer of all 0's.
     if (found_any) {
       // write data to file
-      HDF5WriteND(file, var_name, tmpData.data(), 5, p_loc_offset, p_loc_cnt, p_glob_cnt,
-                  pl_xfer, pl_dcreate);
+      HDF5WriteND(file, var_name, tmpData.data(), H5_NDIM, p_loc_offset, p_loc_cnt,
+                  p_glob_cnt, pl_xfer, pl_dcreate);
     }
   }
 

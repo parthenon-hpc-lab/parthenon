@@ -49,7 +49,7 @@
 #define @HDF5_OPTION@
 
 // HDF5 compression level (valid range: 0-9, 0 will turn off compression completely)
-#define HDF5_COMPRESSION_LEVEL @PARTHENON_HDF5_COMPRESSION_LEVEL@
+#cmakedefine PARTHENON_DISABLE_HDF5_COMPRESSION
 
 // Default loop patterns for MeshBlock par_for() wrappers,
 // see kokkos_abstraction.hpp for available tags.
