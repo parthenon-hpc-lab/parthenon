@@ -93,19 +93,31 @@ struct VarInfo {
   static constexpr int sparse_flag = (1 << 20);
   static constexpr int vector_flag = (1 << 21);
 
-  std::string label;
-  std::vector<std::string> component_labels; // may be empty
-  int vlen;
-  bool is_sparse;
-  bool is_vector;
+  const std::string label;
+  const std::vector<std::string> component_labels; // may be empty
+  const int vlen;
+  const bool is_sparse;
+  const bool is_vector;
 
- private:
-  VarInfo() = default;
+  VarInfo() = delete;
 
- public:
+  VarInfo(const std::string &label, const std::vector<std::string> &component_labels,
+          int vlen, bool is_sparse, bool is_vector)
+      : label(label), component_labels(component_labels), vlen(vlen),
+        is_sparse(is_sparse), is_vector(is_vector) {
+    if ((vlen <= 0) || (vlen > max_vlen)) {
+      std::stringstream msg;
+      msg << "### ERROR: Got variable " << label << " with length " << vlen
+          << ". vlen must be between 0 and " << max_vlen << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+  }
+
+  explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
+      : VarInfo(var->label(), var->metadata().getComponentLabels(), var->GetDim(4),
+                var->IsSparse(), var->IsSet(Metadata::Vector)) {}
+
   static VarInfo Decode(const std::string &compact_labels, int info_code) {
-    VarInfo res;
-
     // unpack compact_labels
     const auto labels = string_utils::UnpackStrings(compact_labels, '\t');
 
@@ -115,27 +127,14 @@ struct VarInfo {
       PARTHENON_FAIL(msg);
     }
 
+    const int vlen = info_code & max_vlen;
+    const bool is_sparse = (info_code & sparse_flag) > 0;
+    const bool is_vector = (info_code & vector_flag) > 0;
+
     // first label in compact labe is the variable label, the rest are the component
     // labels
-    res.label = labels[0];
-    res.component_labels = std::vector<std::string>(labels.begin() + 1, labels.end());
-
-    res.vlen = info_code & max_vlen;
-    res.is_sparse = (info_code & sparse_flag) > 0;
-    res.is_vector = (info_code & vector_flag) > 0;
-
-    return res;
-  }
-
-  explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
-      : label(var->label()), vlen(var->GetDim(4)), is_sparse(var->IsSparse()),
-        is_vector(var->IsSet(Metadata::Vector)) {
-    if ((vlen <= 0) || (vlen > max_vlen)) {
-      std::stringstream msg;
-      msg << "### ERROR: Got variable " << label << " with length " << vlen
-          << ". vlen must be between 0 and " << max_vlen << std::endl;
-      PARTHENON_FAIL(msg);
-    }
+    return VarInfo(labels[0], std::vector<std::string>(labels.begin() + 1, labels.end()),
+                   vlen, is_sparse, is_vector);
   }
 
   // compactify label and component_labels into a single string for MPI communication
