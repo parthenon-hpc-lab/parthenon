@@ -131,7 +131,7 @@ struct VarInfo {
     const bool is_sparse = (info_code & sparse_flag) > 0;
     const bool is_vector = (info_code & vector_flag) > 0;
 
-    // first label in compact labe is the variable label, the rest are the component
+    // first label in compact label is the variable label, the rest are the component
     // labels
     return VarInfo(labels[0], std::vector<std::string>(labels.begin() + 1, labels.end()),
                    vlen, is_sparse, is_vector);
@@ -420,9 +420,17 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   hid_t const acc_file = H5P_DEFAULT;
 #endif // ifdef MPI_PARALLEL
 
-  // now open the file
-  H5F const file = H5F::FromHIDCheck(
-      H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, acc_file));
+  // now create the file
+  H5F file;
+  try {
+    file = H5F::FromHIDCheck(
+        H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, acc_file));
+  } catch (std::exception &ex) {
+    std::stringstream err;
+    err << "### ERROR: Failed to create HDF5 output file '" << filename
+        << "' with the following error:" << std::endl << ex.what() << std::endl;
+    PARTHENON_THROW(err)
+  }
 
   // -------------------------------------------------------------------------------- //
   //   WRITING ATTRIBUTES                                                             //
