@@ -97,7 +97,6 @@ class GitHubApp:
         self._name = name
         self._user = user
         self._repo_name = repo_name
-#        self._repo_path = path_to_repo
 
         self._log = logging.getLogger(self._repo_name)
         self._log.setLevel(logging.INFO)
