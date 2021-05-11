@@ -5,7 +5,7 @@ on:
 jobs:
   apply-formatting:
     name: Format C++ Code
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     if: startsWith(github.event.comment.body, '@par-hermes format')
     steps:
     - uses: AndrewGaspar/cpp-auto-formatter/command@v0.1
