@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
 #include <hdf5.h>
 
 #include "outputs/parthenon_hdf5.hpp"
@@ -45,7 +45,7 @@ class RestartReader {
   template <typename T>
   int ReadBlocks(const char *name, IndexRange range, std::vector<T> &dataVec,
                  const std::vector<size_t> &bsize, size_t vlen = 1) {
-#ifndef HDF5OUTPUT
+#ifndef ENABLE_HDF5
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else
     try {
@@ -88,7 +88,7 @@ class RestartReader {
   std::vector<T> ReadDataset(const char *name, size_t *count = nullptr) {
     // Returns entire 1D array.
     // status, never checked.  We should...
-#ifndef HDF5OUTPUT
+#ifndef ENABLE_HDF5
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else
     T *typepointer = nullptr;
@@ -126,7 +126,7 @@ class RestartReader {
 
   template <typename T>
   std::vector<T> GetAttrVec(const std::string &location, const std::string &name) {
-#ifndef HDF5OUTPUT
+#ifndef ENABLE_HDF5
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else
     // check if the location exists in the file
@@ -162,7 +162,7 @@ class RestartReader {
  private:
   const std::string filename_;
 
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
   // Currently all restarts are HDF5 files
   // when that changes, this will be revisited
   H5F fh_;

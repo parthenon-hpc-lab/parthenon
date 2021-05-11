@@ -243,6 +243,35 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
       }
 
+      if (is_hdf5_output) {
+        int default_compression_level = 5;
+#ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
+        default_compression_level = 0;
+#endif
+
+        op.hdf5_compression_level = pin->GetOrAddInteger(
+            op.block_name, "hdf5_compression_level", default_compression_level);
+
+#ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
+        if (op.hdf5_compression_level != 0) {
+          std::stringstream err;
+          err << "### ERROR: HDF5 compression requested for output block '"
+              << op.block_name << "', but HDF5 compression is disabled" << std::endl;
+          PARTHENON_THROW(err)
+        }
+#endif
+      } else {
+        op.hdf5_compression_level = 0;
+
+        if (pin->DoesParameterExist(op.block_name, "hdf5_compression_level")) {
+          std::stringstream warn;
+          warn << "### WARNING Output option hdf5_compression_level only applies to "
+                  "HDF5 outputs or restarts. Ignoring it for output block '"
+               << op.block_name << "'" << std::endl;
+          PARTHENON_WARN(warn);
+        }
+      }
+
       // set output variable and optional data format string used in formatted writes
       if ((op.file_type != "hst") && (op.file_type != "rst")) {
         // op.variable = pin->GetString(op.block_name, "variable");
@@ -265,7 +294,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         if (restart) {
           num_rst_outputs++;
         }
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
         pnew_type = new PHDF5Output(op, restart);
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
@@ -274,7 +303,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
             << "You can disable this block without deleting it by setting a dt < 0."
             << std::endl;
         PARTHENON_FAIL(msg);
-#endif // ifdef HDF5OUTPUT
+#endif // ifdef ENABLE_HDF5
       } else {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Unrecognized file format = '" << op.file_type << "' in output block '"

@@ -20,12 +20,6 @@ else ()
   set(MPI_OPTION NOT_MPI_PARALLEL)
 endif()
 
-if (ENABLE_HDF5)
-  set(HDF5_OPTION HDF5OUTPUT)
-else()
-  set(HDF5_OPTION NO_HDF5OUTPUT)
-endif()
-
 # The following lines determine the default loop pattern by setting the
 # default defines to the appropriate "tags" in the config.hpp file.
 # See `kokkos_abstraction.hpp` for available tags and what they translate to.

@@ -57,13 +57,14 @@ struct OutputParameters {
   int islice, jslice, kslice;
   Real x1_slice, x2_slice, x3_slice;
   bool single_precision_output;
+  int hdf5_compression_level;
   // TODO(felker): some of the parameters in this class are not initialized in constructor
   OutputParameters()
       : block_number(0), next_time(0.0), dt(-1.0), file_number(0), output_slicex1(false),
         output_slicex2(false), output_slicex3(false), output_sumx1(false),
         output_sumx2(false), output_sumx3(false), include_ghost_zones(false),
         cartesian_vector(false), islice(0), jslice(0), kslice(0),
-        single_precision_output(false) {}
+        single_precision_output(false), hdf5_compression_level(5) {}
 };
 
 //----------------------------------------------------------------------------------------
@@ -179,7 +180,7 @@ class VTKOutput : public OutputType {
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
 //----------------------------------------------------------------------------------------
 //! \class PHDF5Output
 //  \brief derived OutputType class for Athena HDF5 files or restart dumps
@@ -196,7 +197,7 @@ class PHDF5Output : public OutputType {
  private:
   const bool restart_; // true if we write a restart file, false for regular output files
 };
-#endif // ifdef HDF5OUTPUT
+#endif // ifdef ENABLE_HDF5
 
 //----------------------------------------------------------------------------------------
 //! \class Outputs

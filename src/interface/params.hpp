@@ -24,7 +24,7 @@
 
 #include "utils/error_checking.hpp"
 
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
 #include "outputs/parthenon_hdf5.hpp"
 #endif
 
@@ -112,13 +112,13 @@ class Params {
     std::cout << std::endl;
   }
 
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
 
  private:
   // will write all params with type T to the given HDF5 group as an attribute
   template <typename T>
-  void WriteToHDF5AllParamsOfTypeT(const std::string &prefix,
-                                   const HDF5::H5G &group) const {
+  void WriteToHDF5AllParamsOfType(const std::string &prefix,
+                                  const HDF5::H5G &group) const {
     for (const auto &p : myParams_) {
       const auto &key = p.first;
       const auto type = myTypes_.at(key);
@@ -130,25 +130,25 @@ class Params {
   }
 
   template <typename T>
-  void WriteToHDF5AllParamsOfTypeTOrVecT(const std::string &prefix,
-                                         const HDF5::H5G &group) const {
-    WriteToHDF5AllParamsOfTypeT<T>(prefix, group);
-    WriteToHDF5AllParamsOfTypeT<std::vector<T>>(prefix, group);
+  void WriteToHDF5AllParamsOfTypeOrVec(const std::string &prefix,
+                                       const HDF5::H5G &group) const {
+    WriteToHDF5AllParamsOfType<T>(prefix, group);
+    WriteToHDF5AllParamsOfType<std::vector<T>>(prefix, group);
   }
 
  public:
   void WriteAllToHDF5(const std::string &prefix, const HDF5::H5G &group) const {
-    WriteToHDF5AllParamsOfTypeTOrVecT<bool>(prefix, group);
-    WriteToHDF5AllParamsOfTypeTOrVecT<int32_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeTOrVecT<int64_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeTOrVecT<uint32_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeTOrVecT<uint64_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeTOrVecT<float>(prefix, group);
-    WriteToHDF5AllParamsOfTypeTOrVecT<double>(prefix, group);
-    WriteToHDF5AllParamsOfTypeTOrVecT<std::string>(prefix, group);
+    WriteToHDF5AllParamsOfTypeOrVec<bool>(prefix, group);
+    WriteToHDF5AllParamsOfTypeOrVec<int32_t>(prefix, group);
+    WriteToHDF5AllParamsOfTypeOrVec<int64_t>(prefix, group);
+    WriteToHDF5AllParamsOfTypeOrVec<uint32_t>(prefix, group);
+    WriteToHDF5AllParamsOfTypeOrVec<uint64_t>(prefix, group);
+    WriteToHDF5AllParamsOfTypeOrVec<float>(prefix, group);
+    WriteToHDF5AllParamsOfTypeOrVec<double>(prefix, group);
+    WriteToHDF5AllParamsOfTypeOrVec<std::string>(prefix, group);
   }
 
-#endif // ifdef HDF5OUTPUT
+#endif // ifdef ENABLE_HDF5
 
  private:
   // private first so that I can use the structs defined here

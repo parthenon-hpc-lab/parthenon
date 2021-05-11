@@ -582,10 +582,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // the file is already open and the pointer is set to after <par_end>
 
   // All ranks read HDF file
-  nbnew = rr.GetAttr<int32_t>("Info", "NBNew");
-  nbdel = rr.GetAttr<int32_t>("Info", "NBDel");
-  nbtotal = rr.GetAttr<int32_t>("Info", "NumMeshBlocks");
-  root_level = rr.GetAttr<int32_t>("Info", "RootLevel");
+  nbnew = rr.GetAttr<int>("Info", "NBNew");
+  nbdel = rr.GetAttr<int>("Info", "NBDel");
+  nbtotal = rr.GetAttr<int>("Info", "NumMeshBlocks");
+  root_level = rr.GetAttr<int>("Info", "RootLevel");
 
   const auto bc = rr.GetAttrVec<std::string>("Info", "BoundaryConditions");
   for (int i = 0; i < 6; i++) {
@@ -629,7 +629,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
 
-  const auto blockSize = rr.GetAttrVec<int32_t>("Info", "MeshBlockSize");
+  const auto blockSize = rr.GetAttrVec<int>("Info", "MeshBlockSize");
   block_size.nx1 = blockSize[0];
   block_size.nx2 = blockSize[1];
   block_size.nx3 = blockSize[2];
@@ -684,7 +684,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // Populate logical locations
   auto lx123 = rr.ReadDataset<int64_t>("/Blocks/loc.lx123");
   auto locLevelGidLidCnghostGflag =
-      rr.ReadDataset<int32_t>("/Blocks/loc.level-gid-lid-cnghost-gflag");
+      rr.ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
     loclist[i].lx1 = lx123[3 * i];
