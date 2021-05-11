@@ -155,7 +155,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     std::vector<std::string> advected_labels;
     advected_labels.reserve(vec_size);
     for (int j = 0; j < vec_size; ++j) {
-      advected_labels.push_back("Advected_" + std::to_string(var) + " _" +
+      advected_labels.push_back("Advected_" + std::to_string(var) + "_" +
                                 std::to_string(j));
     }
     if (var == 0) { // first var is always called just "advected"

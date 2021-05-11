@@ -428,7 +428,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   } catch (std::exception &ex) {
     std::stringstream err;
     err << "### ERROR: Failed to create HDF5 output file '" << filename
-        << "' with the following error:" << std::endl << ex.what() << std::endl;
+        << "' with the following error:" << std::endl
+        << ex.what() << std::endl;
     PARTHENON_THROW(err)
   }
 
