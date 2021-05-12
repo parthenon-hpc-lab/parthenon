@@ -119,9 +119,9 @@ class CellVariable {
   bool mpiStatus;
 
  private:
-  int sparse_id_ = InvalidSparseID;
   Metadata m_;
   std::string label_;
+  int sparse_id_ = InvalidSparseID;
 
   bool is_allocated_ = false;
   bool is_comms_allocated_ = false;
