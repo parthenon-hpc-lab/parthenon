@@ -41,6 +41,8 @@ class MeshData;
 /// Each State descriptor has a label, associated parameters, and
 /// metadata for all fields within that state.
 class StateDescriptor {
+  friend class FieldProvider;
+
  public:
   // copy constructor throw error
   StateDescriptor(const StateDescriptor &s) = delete;
@@ -92,8 +94,53 @@ class StateDescriptor {
                      const Metadata &m);
 
   // field addition / retrieval routines
+ private:
+  // internal function to add dense/sparse fields. Private because outside classes must
+  // use the public interface below
+  bool AddFieldImpl(const std::string &field_name, const Metadata &m);
+
+ public:
+  bool AddDenseField(const std::string &field_name, const Metadata &m) {
+    if (m.IsSet(Metadata::Sparse)) {
+      PARTHENON_THROW("Tried to add a sparse field with AddDenseField (or deprecated "
+                      "AddField), use AddSparseFields instead");
+    }
+
+    return AddFieldImpl(field_name, m);
+  }
+
   // add a field with associated metadata
-  bool AddField(const std::string &field_name, const Metadata &m);
+  [[deprecated("Use AddDenseField instead")]] bool AddField(const std::string &field_name,
+                                                            const Metadata &m) {
+    return AddDenseField(field_name, m);
+  }
+
+  // add a collection of sparse fields with the given sparse_ids (no data is allocated
+  // until a particular sparse_id is allocated on a particular block), the vector of
+  // metadata contains the metafor each variable corresponding to the sparse_ids in the
+  // same order
+  std::vector<bool> AddSparseFields(const std::string &base_name,
+                                    const std::vector<int> &sparse_ids,
+                                    const std::vector<Metadata> &ms) {
+    if (sparse_ids.size() != ms.size()) {
+      PARTHENON_FAIL("Different numbers of sparse ids and metadata in AddSparseFields");
+    }
+    std::vector<bool> results(sparse_ids.size());
+
+    for (size_t i = 0; i < sparse_ids.size(); ++i) {
+      results[i] = AddFieldImpl(base_name + "_" + std::to_string(sparse_ids[i]), ms[i]);
+    }
+
+    return results;
+  }
+
+  // as above, but use the same metadata for each sparse_id
+  std::vector<bool> AddSparseFields(const std::string &base_name,
+                                    const std::vector<int> &sparse_ids,
+                                    const Metadata &m) {
+    std::vector<Metadata> ms(sparse_ids.size(), m);
+    return AddSparseFields(base_name, sparse_ids, ms);
+  }
 
   // retrieve number of fields
   int size() const { return metadataMap_.size(); }

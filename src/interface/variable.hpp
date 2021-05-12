@@ -27,6 +27,7 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -43,15 +44,21 @@ namespace parthenon {
 
 class MeshBlock;
 
+static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
+
+inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
+  return base_name +
+         (sparse_id == InvalidSparseID ? "" : "_" + std::to_string(sparse_id));
+}
+
 template <typename T>
 class CellVariable {
  public:
   /// Initialize a 6D variable
   CellVariable<T>(const std::string &label, const std::array<int, 6> dims,
-                  const Metadata &metadata, int sparse_id = -1)
+                  const Metadata &metadata, int sparse_id = InvalidSparseID)
       : data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
-        mpiStatus(false), m_(metadata),
-        label_(label + (sparse_id >= 0 ? "_" + std::to_string(sparse_id) : "")),
+        mpiStatus(false), m_(metadata), label_(MakeVarLabel(label, sparse_id)),
         sparse_id_(sparse_id) {
     if (m_.getAssociated() == "") {
       m_.Associate(label);
@@ -79,14 +86,22 @@ class CellVariable {
   inline Metadata metadata() const { return m_; }
 
   /// Get Sparse ID (-1 if not sparse)
-  inline int GetSparseID() const { return sparse_id_; }
+  inline int GetSparseID() const { return IsSparse() ? sparse_id_ : InvalidSparseID; }
 
-  inline bool IsSparse() const { return sparse_id_ >= 0; }
+  inline bool IsSparse() const { return m_.IsSet(Metadata::Sparse); }
 
   inline std::string getAssociated() { return m_.getAssociated(); }
 
   /// return information string
   std::string info();
+
+  // allocate data
+  void allocate() {
+    if (!is_allocated_) {
+
+      is_allocated_ = true;
+    }
+  }
 
   /// allocate communication space based on info in MeshBlock
   void allocateComms(std::weak_ptr<MeshBlock> wpmb);
@@ -104,9 +119,12 @@ class CellVariable {
   bool mpiStatus;
 
  private:
-  int sparse_id_;
+  int sparse_id_ = InvalidSparseID;
   Metadata m_;
   std::string label_;
+
+  bool is_allocated_ = false;
+  bool is_comms_allocated_ = false;
 };
 
 ///

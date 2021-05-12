@@ -151,6 +151,7 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
     }
   }
 }
+
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
                                 const std::vector<MetadataFlag> &flags) {

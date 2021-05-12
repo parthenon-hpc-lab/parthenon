@@ -21,7 +21,6 @@
 #include <vector>
 
 #include "interface/data_collection.hpp"
-#include "interface/sparse_variable.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
@@ -54,9 +53,7 @@ class MeshBlockData {
 
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
-  // Optionally extract only some of the sparse ids of src variable.
-  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names,
-                   const std::vector<int> &sparse_ids = {});
+  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names);
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags);
 
   /// Returns shared pointer to a block
@@ -220,15 +217,11 @@ class MeshBlockData {
     faceVector_.push_back(var);
     faceMap_[var->label()] = var;
   }
-  void Add(std::shared_ptr<SparseVariable<T>> var) {
-    sparseVector_.push_back(var);
-    sparseMap_[var->label()] = var;
-  }
 
   //
   // Queries related to CellVariable objects
   //
-  bool HasDenseVariable(const std::string &label) const {
+  bool HasCellVariable(const std::string &label) const {
     return varMap_.count(label) > 0;
   }
 
@@ -254,45 +247,6 @@ class MeshBlockData {
     return -1;
   }
 
-  //
-  // Queries related to SparseVariable objects
-  //
-  bool HasSparseVariable(const std::string &label) const {
-    return sparseMap_.count(label) > 0;
-  }
-
-  bool HasVariable(const std::string &label) const {
-    return HasDenseVariable(label) || HasSparseVariable(label);
-  }
-
-  const SparseVector<T> &GetSparseVector() const { return sparseVector_; }
-
-  const MapToSparse<T> &GetSparseMap() const { return sparseMap_; }
-
-  SparseVariable<T> &GetSparseVariable(const std::string &label) {
-    auto it = sparseMap_.find(label);
-    if (it == sparseMap_.end()) {
-      PARTHENON_THROW("sparseMap_ does not have " + label);
-    }
-    return *(it->second);
-  }
-
-  SparseMap<T> &GetSparseMap(const std::string &label) {
-    return GetSparseVariable(label).GetMap();
-  }
-
-  CellVariableVector<T> &GetSparseVector(const std::string &label) {
-    return GetSparseVariable(label).GetVector();
-  }
-
-  std::shared_ptr<CellVariable<T>> &Get(const std::string &label, const int sparse_id) {
-    return GetSparseVariable(label).Get(sparse_id);
-  }
-
-  std::vector<int> &GetSparseIndexMap(const std::string &label) {
-    return GetSparseVariable(label).GetIndexMap();
-  }
-
   std::shared_ptr<CellVariable<T>> &AllocSparseID(std::string const &label,
                                                   const int sparse_id) {
     if (!HasSparseVariable(label)) {
@@ -310,12 +264,16 @@ class MeshBlockData {
     return var.Get(sparse_id);
   }
 
-  bool IsSparseIDAllocated(std::string const &label, const int sparse_id) const {
-    auto it = sparseMap_.find(label);
-    if (it == sparseMap_.end()) {
+  bool IsAllocated(std::string const &label) const {
+    auto it = varMap_.find(label);
+    if (it == varMap_.end()) {
       return false;
     }
-    return it->second->HasSparseID(sparse_id);
+    return it->second->IsAllocated();
+  }
+
+  bool IsAllocated(std::string const &base_name, const int sparse_id) const {
+    return IsAllocated(base_name + "_" + std::to_string(sparse_id));
   }
 
   //
@@ -354,12 +312,9 @@ class MeshBlockData {
   /// Gets an array of real variables from container.
   /// @param names is the variables we want
   /// @param indexCount a map of names to std::pair<index,count> for each name
-  /// @param sparse_ids if specified is list of sparse ids we are interested in.  Note
-  ///        that non-sparse variables specified are aliased in as is.
   int GetCellVariables(const std::vector<std::string> &names,
                        std::vector<CellVariable<T>> &vRet,
-                       std::map<std::string, std::pair<int, int>> &indexCount,
-                       const std::vector<int> &sparse_ids = {});
+                       std::map<std::string, std::pair<int, int>> &indexCount);
 
   /// Queries related to variable packs
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
@@ -382,12 +337,6 @@ class MeshBlockData {
                                              vpack_types::StringPair &key);
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
                                              vpack_types::StringPair &key);
-  VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids, PackIndexMap &vmap,
-                                const bool coarse = false);
-  VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids,
-                                const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
                                 const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
@@ -401,12 +350,6 @@ class MeshBlockData {
   // and also because the C++ compiler automatically typecasts initializer lists
   // to bool if you let it.
   VariablePack<T> PackVariables();
-  VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids, PackIndexMap &vmap,
-                                std::vector<std::string> &key, const bool coarse = false);
-  VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids,
-                                std::vector<std::string> &key, const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
                                 std::vector<std::string> &key, const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
@@ -457,16 +400,10 @@ class MeshBlockData {
     for (auto &v : faceMap_) {
       my_keys.push_back(v.first);
     }
-    for (auto &v : sparseMap_) {
-      my_keys.push_back(v.first);
-    }
     for (auto &v : cmp.GetCellVariableMap()) {
       cmp_keys.push_back(v.first);
     }
     for (auto &v : cmp.GetFaceMap()) {
-      cmp_keys.push_back(v.first);
-    }
-    for (auto &v : cmp.GetSparseMap()) {
       cmp_keys.push_back(v.first);
     }
     return (my_keys == cmp_keys);
@@ -474,7 +411,6 @@ class MeshBlockData {
 
   bool Contains(const std::string &name) const {
     if (varMap_.find(name) != varMap_.end()) return true;
-    if (sparseMap_.find(name) != sparseMap_.end()) return true;
     if (faceMap_.find(name) != faceMap_.end()) return true;
     return false;
   }
@@ -491,11 +427,9 @@ class MeshBlockData {
 
   CellVariableVector<T> varVector_; ///< the saved variable array
   FaceVector<T> faceVector_;        ///< the saved face arrays
-  SparseVector<T> sparseVector_;
 
   MapToCellVars<T> varMap_;
   MapToFace<T> faceMap_;
-  MapToSparse<T> sparseMap_;
 
   // variable packing
   MapToVariablePack<T> varPackMap_;
@@ -511,8 +445,7 @@ class MeshBlockData {
     std::vector<std::string> expanded_names;
   };
 
-  VariableListResult GetVariablesByName(const std::vector<std::string> &names,
-                                        const std::vector<int> &sparse_ids = {});
+  VariableListResult GetVariablesByName(const std::vector<std::string> &names);
   VariableListResult GetVariablesByFlag(const std::vector<MetadataFlag> &flags);
   VariableListResult GetAllVariables();
 

@@ -299,6 +299,7 @@ class Metadata {
   }
 
   bool operator==(const Metadata &b) const {
+    // TODO(JL) What about component_labels_ and associated_?
     return HasSameFlags(b) && (shape_ == b.shape_);
   }
 

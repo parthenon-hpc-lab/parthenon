@@ -123,14 +123,14 @@ class FieldProvider : public VariableProvider {
   explicit FieldProvider(std::shared_ptr<StateDescriptor> &sd) : state_(sd) {}
   void AddPrivate(const std::string &package, const std::string &var,
                   const Metadata &metadata) {
-    state_->AddField(package + "::" + var, metadata);
+    state_->AddFieldImpl(package + "::" + var, metadata);
   }
   void AddProvides(const std::string &package, const std::string &var,
                    const Metadata &metadata) {
-    state_->AddField(var, metadata);
+    state_->AddFieldImpl(var, metadata);
   }
   void AddOverridable(const std::string &var, Metadata &metadata) {
-    state_->AddField(var, metadata);
+    state_->AddFieldImpl(var, metadata);
   }
 
  private:
@@ -189,7 +189,7 @@ bool StateDescriptor::AddSwarmValue(const std::string &value_name,
   return true;
 }
 
-bool StateDescriptor::AddField(const std::string &field_name, const Metadata &m_in) {
+bool StateDescriptor::AddFieldImpl(const std::string &field_name, const Metadata &m_in) {
   Metadata m = m_in; // Force const correctness
 
   const std::string &assoc = m.getAssociated();
