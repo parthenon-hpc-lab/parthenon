@@ -166,26 +166,39 @@ class Metadata {
   PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
 
-  /// Default constructor override
   Metadata() = default;
 
-  /// returns a metadata with given bits, shape, component labels, and associated (if any)
+  // There are 3 optional arguments: shape, component_labels, and associated, so we'll
+  // need 8 constructors to provide all possible variants
+
+  // 4 constructors, this is the general constructor called by all other constructors, so
+  // we do some sanity checks here
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {1},
            const std::vector<std::string> component_labels = {},
            const std::string &associated = "")
       : shape_(shape), component_labels_(component_labels), associated_(associated) {
     SetMultiple(bits);
+
+    PARTHENON_REQUIRE_THROWS(shape_.size() > 0, "Shape must have at least rank 1");
+    if (IsMeshTied()) {
+      PARTHENON_REQUIRE_THROWS(
+          shape_.size() <= 3,
+          "Variables tied to mesh entities can only have a shape of rank <= 3");
+    }
   }
 
+  // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
            const std::string &associated)
       : Metadata(bits, shape, {}, associated) {}
 
+  // 2 constructors
   Metadata(const std::vector<MetadataFlag> &bits,
            const std::vector<std::string> component_labels,
            const std::string &associated = "")
       : Metadata(bits, {1}, component_labels, associated) {}
 
+  // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated)
       : Metadata(bits, {1}, {}, associated) {}
 
@@ -212,6 +225,8 @@ class Metadata {
     /// by default return Metadata::None
     return None;
   }
+
+  bool IsMeshTied() const { return Where() != None; }
 
   /// returns the type of the variable
   MetadataFlag Type() const {
@@ -316,8 +331,8 @@ class Metadata {
   /// the attribute flags that are set for the class
   std::vector<bool> bits_;
   std::vector<int> shape_ = {1};
-  std::vector<std::string> component_labels_;
-  std::string associated_;
+  std::vector<std::string> component_labels_ = {};
+  std::string associated_ = "";
 
   /*--------------------------------------------------------*/
   // Setters for the different attributes of metadata
