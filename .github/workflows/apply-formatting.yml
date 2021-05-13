@@ -13,7 +13,7 @@ jobs:
         botName: par-hermes
         clangFormatVersion: 8
         token: ${{ secrets.GITHUB_TOKEN }}                                                                                                                                
-    - uses: lgeiger/black-action@v1.0.1                                                                 
+    - uses: psf/black@stable                                                                 
       with:                                                                                             
         botName: par-hermes                                                                                                                                                                                                   
         token: ${{ secrets.GITHUB_TOKEN }}
