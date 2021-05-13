@@ -43,7 +43,7 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // Step 0. Apply necessary variable restrictions when ghost-ghost zone is on same lvl
   // Handled elsewhere now
-  //rc->RestrictBoundaries();
+  // rc->RestrictBoundaries();
 
   // Step 1. Apply physical boundaries on the coarse boundary,
   ApplyBoundaryConditionsOnCoarseOrFine(rc, true);
