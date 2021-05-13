@@ -9,8 +9,7 @@ jobs:
       with:
         clangFormatVersion: 8
         token: ${{ secrets.GITHUB_TOKEN }}
-    - uses: lgeiger/black-action@v1.0.1                                                                 
-      with:                                                                                                                                                                                                  
-        token: ${{ secrets.GITHUB_TOKEN }}
+    - uses: psf/black@stable                                                                 
+      with:
         options: "--check --verbose"
         src: "."
