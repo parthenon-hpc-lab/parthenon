@@ -72,11 +72,11 @@ CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wp
 
       // fluxes, coarse buffers, etc., are always a copy
       // Rely on reference counting and shallow copy of kokkos views
-      cv->comm_data_ = comm_data_; // views are reference counted
+      cv->flux_data_ = flux_data_; // reference counted
       for (int i = 1; i <= 3; i++) {
-        cv->flux[i] = flux[i];
+        cv->flux[i] = flux[i]; // these are subviews
       }
-      cv->coarse_s = coarse_s;
+      cv->coarse_s = coarse_s; // reference counted
     }
   }
   return cv;
@@ -91,14 +91,14 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise
   // the stride will mess up the types.
 
-  // Compute size of unified comm_data object and create it. A unified
-  // comm_data_ object reduces the number of memory allocations per
+  // Compute size of unified flux_data object and create it. A unified
+  // flux_data_ object reduces the number of memory allocations per
   // variable per meshblock from 5 to 3.
   int n_outer = 0;
   if (IsSet(Metadata::Independent)) {
     n_outer += (GetDim(1) > 1) + (GetDim(2) > 1) + (GetDim(3) > 1);
   }
-  comm_data_ = ParArray7D<T>(base_name + ".comm_data", n_outer, GetDim(6), GetDim(5),
+  flux_data_ = ParArray7D<T>(base_name + ".flux_data", n_outer, GetDim(6), GetDim(5),
                              GetDim(4), GetDim(3), GetDim(2), GetDim(1));
 
   // set up fluxes
@@ -107,7 +107,7 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
     for (int d = X1DIR; d <= X3DIR; ++d) {
       if (GetDim(d) > 1) {
         flux[d] = ParArrayND<T>(
-            Kokkos::subview(comm_data_, offset++, Kokkos::ALL(), Kokkos::ALL(),
+            Kokkos::subview(flux_data_, offset++, Kokkos::ALL(), Kokkos::ALL(),
                             Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()));
       }
     }
