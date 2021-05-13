@@ -17,3 +17,5 @@ jobs:
       with:                                                                                             
         botName: par-hermes                                                                                                                                                                                                   
         token: ${{ secrets.GITHUB_TOKEN }}
+        options: "--check --verbose"
+        src: "./src"
