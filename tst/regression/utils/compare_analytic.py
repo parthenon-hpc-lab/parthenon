@@ -67,8 +67,8 @@ def compare_analytic(filename,analytic_components,
     file_components = {}
 
     #Get ready to match vector components of variables with component names
-    num_componentss = datafile.Info["NumVariables"]
-    component_names = datafile.Info["VariableNames"].astype(str)
+    num_componentss = datafile.Info["NumComponents"]
+    component_names = datafile.Info["ComponentNames"].astype(str)
     idx_component_name = 0
 
     #Read all data from the file
