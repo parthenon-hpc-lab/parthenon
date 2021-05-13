@@ -26,7 +26,7 @@
 #include <config.hpp>
 
 #include <Kokkos_Core.hpp>
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
 #include <hdf5.h>
 #endif
 
@@ -59,7 +59,7 @@
   } while (false)
 #endif
 
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
 #define PARTHENON_HDF5_CHECK(expr)                                                       \
   ([&]() -> herr_t {                                                                     \
     herr_t const parthenon_hdf5_check_err = (expr);                                      \
@@ -200,7 +200,7 @@ inline void warn(std::stringstream const &message, const char *const filename,
                                   char const *const filename, int const linenumber);
 #endif
 
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
 [[noreturn]] void fail_throws_hdf5(herr_t err, char const *const expr,
                                    char const *const filename, int const linenumber);
 #endif

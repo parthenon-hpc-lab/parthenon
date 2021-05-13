@@ -12,8 +12,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 # =========================================================================================
 
+import logging
 import matplotlib.pyplot as plt
-
 
 class PerformanceMetricsPlotter():
 
@@ -37,6 +37,13 @@ class PerformanceMetricsPlotter():
         self._target_data_file_exists = target_data_file_exists
         self._target_meshblocks = target_meshblocks
         self._target_cycles = target_cycles
+
+        self._log = logging.getLogger("performance_plotter")
+        self._log.setLevel(logging.INFO)
+
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.INFO)
+        self._log.addHandler(ch)
 
     def _plotDataFromPreviousCommitsFromSameBranch(self, json_perf_data_parser, figure_path_name):
         # If running on same branch grab the data for the last
