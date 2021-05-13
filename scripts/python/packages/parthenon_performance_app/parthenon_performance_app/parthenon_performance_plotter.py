@@ -42,7 +42,8 @@ class PerformanceMetricsPlotter():
         # If running on same branch grab the data for the last
         # 5 commits stored in the file
         fig, p = plt.subplots(
-            2, 1, figsize=(4, 8), sharex=True)
+            2, 1, figsize=(6, 10), sharex=True)
+        fig.subplots_adjust(bottom=0.2)
         legend_temp = []
         for i in range(0, self._number_commits_to_plot):
             mesh_blocks_temp = json_perf_data_parser.getMeshBlocksAt(
@@ -73,8 +74,7 @@ class PerformanceMetricsPlotter():
         for i in range(2):
             p[i].grid()
 
-        p[0].legend(legend_temp)
-        p[1].legend(legend_temp)
+        p[1].legend(legend_temp,loc=9, bbox_to_anchor=(0.5,-0.2))
 
         p[0].set_ylabel("zone-cycles/s")
         p[1].set_ylabel("normalized overhead")
@@ -87,7 +87,7 @@ class PerformanceMetricsPlotter():
         # Get the data for the last commit in the development branch
         # Now we need to create the figure to update
         fig, p = plt.subplots(
-            2, 1, figsize=(4, 8), sharex=True)
+            2, 1, figsize=(5, 12), sharex=True)
 
         p[0].loglog(
             self._mesh_blocks, self._zone_cycles, label="$256^3$ Mesh")

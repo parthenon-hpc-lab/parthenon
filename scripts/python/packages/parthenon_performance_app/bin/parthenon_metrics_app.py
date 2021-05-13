@@ -180,7 +180,27 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
                     figure_urls.append(figure_url)
 
             elif test_dir == "advection_performance_mpi":
-                print("advection_performance_mpi regression test is not yet implemented")
+
+               figure_url, png_file, _ = \
+                    self._createFigureURLPathAndName(
+                        test_dir, current_branch, target_branch)
+
+                analyzer = AdvectionAnalyser(create_figures)
+                json_file_out = analyzer.analyse(regression_outputs,
+                                                 commit_sha,
+                                                 test_dir,
+                                                 target_branch,
+                                                 current_branch,
+                                                 self._parthenon_wiki_dir,
+                                                 png_file,
+                                                 number_commits_to_plot,
+                                                 now)
+
+                json_files_to_upload.append(json_file_out)
+
+                if create_figures:
+                    png_files_to_upload.append(png_file)
+                    figure_urls.append(figure_url)
 
         wiki_url = self._writeWikiPage(
             commit_sha, pr_wiki_page, figure_urls, now, wiki_file_name)
