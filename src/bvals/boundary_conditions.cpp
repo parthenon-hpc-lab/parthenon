@@ -34,7 +34,7 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // This hardcoded technique is also used to manually specify the coupling between
   // physical variables in:
-  // - 1: Apply the physical boundaries on the course level
+  // - 1: Apply the physical boundaries on the coarse level
   // - 2: ProlongateGhostCells to the fine
   // - 3: Apply boundaries on the fine
 
