@@ -32,25 +32,23 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
   if (!(rc->GetBlockPointer()->pmy_mesh->multilevel)) return TaskStatus::complete;
   Kokkos::Profiling::pushRegion("Task_ProlongateBoundaries");
 
-  // This hardcoded technique is also used to manually specify the coupling between
-  // physical variables in:
-  // - 1: Apply the physical boundaries on the coarse level
-  // - 2: ProlongateGhostCells to the fine
-  // - 3: Apply boundaries on the fine
+  // Impose physical boundaries on the coarse zones and prolongate to
+  // the fine as needed.
 
-  // downcast BoundaryVariable pointers to known derived class pointer types:
-  // RTTI via dynamic_case
+  // In principle, the coarse zones must be filled by restriction first.
+  // However, it is decoupled from the prolongation step because:
+  // (a) It is automatically handled during ghost zone communication
+  // (b) Restriction may be handled via meshblock packs, independently from whether
+  //     or not boundaries and prolongation are.
 
-  // For each finer neighbor, to prolongate a boundary we need to fill one more cell
-  // surrounding the boundary zone to calculate the slopes ("ghost-ghost zone"). 3x steps:
+  // Step 0. Apply necessary variable restrictions when ghost-ghost zone is on same lvl
+  // Handled elsewhere now
+  //rc->RestrictBoundaries();
 
-  // Step 1. Apply necessary variable restrictions when ghost-ghost zone is on same lvl
-  rc->RestrictBoundaries(); // Step 1: restrict physical boundaries
-
-  // Step 2. Re-apply physical boundaries on the coarse boundary,
+  // Step 1. Apply physical boundaries on the coarse boundary,
   ApplyBoundaryConditionsOnCoarseOrFine(rc, true);
 
-  // Step 3. Finally, the ghost-ghost zones are ready for prolongation:
+  // Step 2. Finally, the ghost-ghost zones are ready for prolongation:
   rc->ProlongateBoundaries();
 
   Kokkos::Profiling::popRegion(); // Task_ProlongateBoundaries
