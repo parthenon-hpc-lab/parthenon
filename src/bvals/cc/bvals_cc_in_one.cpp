@@ -15,6 +15,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <iostream> // debug
 #include <memory>
 #include <string>
 #include <vector>
@@ -286,6 +287,9 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
   IndexShape cellbounds = pmb->cellbounds;
   IndexShape c_cellbounds = pmb->c_cellbounds;
 
+  auto pmesh = md->GetMeshPointer();
+  bool multilevel = pmesh->multilevel;
+
   // now fill the buffer information
   int b = 0; // buffer index
   for (auto block = 0; block < md->NumBlocks(); block++) {
@@ -310,13 +314,17 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
           Nv = v->GetDim(4);
 
           boundary_info_h(b).coords = pmb->coords;
-          boundary_info_h(b).coarse_coords = pmb->pmr->GetCoarseCoords();
+          if (multilevel) {
+            boundary_info_h(b).coarse_coords = pmb->pmr->GetCoarseCoords();
+          }
 
           IndexDomain interior = IndexDomain::interior;
           auto &var_cc = v->data;
           boundary_info_h(b).fine =
               var_cc.Get<4>(); // TODO(JMM) in general should be a loop
-          boundary_info_h(b).coarse = v->vbvar->coarse_buf.Get<4>();
+          if (multilevel) {
+            boundary_info_h(b).coarse = v->vbvar->coarse_buf.Get<4>();
+          }
           if (nb.snb.level == mylevel) {
             const parthenon::IndexShape &cellbounds = pmb->cellbounds;
             CalcIndicesLoadSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
