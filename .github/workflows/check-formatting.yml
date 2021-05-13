@@ -12,3 +12,5 @@ jobs:
     - uses: lgeiger/black-action@v1.0.1                                                                 
       with:                                                                                                                                                                                                  
         token: ${{ secrets.GITHUB_TOKEN }}
+        options: "--check --verbose"
+        src: "./src"
