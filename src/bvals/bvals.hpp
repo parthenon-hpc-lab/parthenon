@@ -143,7 +143,7 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // communication (subset of Mesh::next_phys_id_)
   int bvars_next_phys_id_;
 
-  // ProlongateBoundaries() wraps the following S/AMR-operations (within nneighbor loop):
+  // ProlongateBoundaries() wraps the following S/AMR-operations (within neighbor loop):
   // (the next function is also called within 3x nested loops over nk,nj,ni)
   void RestrictGhostCellsOnSameLevel_(const NeighborBlock &nb, int nk, int nj, int ni);
   void ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei, int sj, int ej,
