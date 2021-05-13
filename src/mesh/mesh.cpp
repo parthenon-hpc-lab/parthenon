@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -582,14 +582,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // the file is already open and the pointer is set to after <par_end>
 
   // All ranks read HDF file
-  nbnew = rr.GetAttr<int>("Mesh", "nbnew");
-  nbdel = rr.GetAttr<int>("Mesh", "nbdel");
-  nbtotal = rr.GetAttr<int>("Mesh", "nbtotal");
-  root_level = rr.GetAttr<int32_t>("Mesh", "rootLevel");
+  nbnew = rr.GetAttr<int>("Info", "NBNew");
+  nbdel = rr.GetAttr<int>("Info", "NBDel");
+  nbtotal = rr.GetAttr<int>("Info", "NumMeshBlocks");
+  root_level = rr.GetAttr<int>("Info", "RootLevel");
 
-  auto bc = rr.ReadAttr1DReal("Mesh", "bc");
+  const auto bc = rr.GetAttrVec<std::string>("Info", "BoundaryConditions");
   for (int i = 0; i < 6; i++) {
-    block_bcs[i] = static_cast<BoundaryFlag>(bc[i]);
+    block_bcs[i] = GetBoundaryFlag(bc[i]);
   }
 
   // Allow for user overrides to default Parthenon functions
@@ -613,23 +613,23 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
   EnrollBndryFncts_(app_in);
 
-  std::vector<Real> bounds = rr.ReadAttr1DReal("Mesh", "bounds");
-  mesh_size.x1min = bounds[0];
-  mesh_size.x2min = bounds[1];
-  mesh_size.x3min = bounds[2];
-  mesh_size.x1max = bounds[3];
-  mesh_size.x2max = bounds[4];
-  mesh_size.x3max = bounds[5];
+  const auto grid_dim = rr.GetAttrVec<Real>("Info", "RootGridDomain");
+  mesh_size.x1min = grid_dim[0];
+  mesh_size.x1max = grid_dim[1];
+  mesh_size.x1rat = grid_dim[2];
 
-  auto ratios = rr.ReadAttr1DReal("Mesh", "ratios");
-  mesh_size.x1rat = ratios[0];
-  mesh_size.x2rat = ratios[1];
-  mesh_size.x3rat = ratios[2];
+  mesh_size.x2min = grid_dim[3];
+  mesh_size.x2max = grid_dim[4];
+  mesh_size.x2rat = grid_dim[5];
+
+  mesh_size.x3min = grid_dim[6];
+  mesh_size.x3max = grid_dim[7];
+  mesh_size.x3rat = grid_dim[8];
 
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
 
-  auto blockSize = rr.ReadAttr1DI32("Mesh", "blockSize");
+  const auto blockSize = rr.GetAttrVec<int>("Info", "MeshBlockSize");
   block_size.nx1 = blockSize[0];
   block_size.nx2 = blockSize[1];
   block_size.nx3 = blockSize[2];
@@ -667,7 +667,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // SMR / AMR
   if (adaptive) {
     // read from file or from input?  input for now.
-    //    max_level = rr.GetAttr<int32_t>("Mesh", "maxLevel");
+    //    max_level = rr.GetAttr<int>("Info", "MaxLevel");
     max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
     if (max_level > 63) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -684,7 +684,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // Populate logical locations
   auto lx123 = rr.ReadDataset<int64_t>("/Blocks/loc.lx123");
   auto locLevelGidLidCnghostGflag =
-      rr.ReadDataset<int32_t>("/Blocks/loc.level-gid-lid-cnghost-gflag");
+      rr.ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
     loclist[i].lx1 = lx123[3 * i];
@@ -756,9 +756,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   int nb = nblist[Globals::my_rank];
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nb - 1;
-
-  // read in xmin from file
-  auto xmin = rr.ReadDataset<double>("/Blocks/xmin");
 
   mesh_data.SetMeshPointer(this);
 
