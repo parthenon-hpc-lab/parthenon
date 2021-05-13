@@ -13,4 +13,4 @@ jobs:
       with:                                                                                                                                                                                                  
         token: ${{ secrets.GITHUB_TOKEN }}
         options: "--check --verbose"
-        src: "./src"
+        src: "."
