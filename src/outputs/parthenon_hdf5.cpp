@@ -934,17 +934,22 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // names of components within each dataset
   std::vector<std::string> component_names;
 
-  for (const auto &vi : all_unique_vars) {
-    const auto &component_labels = vi.component_labels;
+  for (const auto variable : output_params.variables) {
+    for (const auto &vi : all_unique_vars) {
+      if(vi.label == variable){
+        const auto &component_labels = vi.component_labels;
 
-    if (component_labels.size() > 0) {
-      num_components.push_back(component_labels.size());
-      for (const auto &label : component_labels) {
-        component_names.push_back(label);
+        if (component_labels.size() > 0) {
+          num_components.push_back(component_labels.size());
+          for (const auto &label : component_labels) {
+            component_names.push_back(label);
+          }
+        } else {
+          num_components.push_back(1);
+          component_names.push_back(vi.label);
+        }
+        break;
       }
-    } else {
-      num_components.push_back(1);
-      component_names.push_back(vi.label);
     }
   }
 
