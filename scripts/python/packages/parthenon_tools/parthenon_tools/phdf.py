@@ -429,6 +429,37 @@ class phdf:
 
         return component_data
 
+
+    def __GenLocMeshGrid(self,z,y,x,flatten):
+        """
+        Returns Z[grid_idx,k,j,i], Y[grid_idx,k,j,i], X[grid_idx,k,j,i] full
+        arrays of locations from 2D arrays z[grid_idx,k], y[grid_idx,j],
+        x[grid_idx,i]
+        """
+
+
+        #loc[grid_idx,k,j,i]
+        loc_shape = (x.shape[0],
+                     z.shape[1],
+                     y.shape[1],
+                     x.shape[1])
+
+        Z = np.empty(loc_shape)
+        Y = np.empty(loc_shape)
+        X = np.empty(loc_shape)
+
+        for grid_idx in range(loc_shape[0]):
+            Z[grid_idx],Y[grid_idx],X[grid_idx] = np.meshgrid(
+                    z[grid_idx],y[grid_idx],x[grid_idx],
+                    indexing="ij")
+
+        if flatten:
+            Z = Z.ravel()
+            Y = Y.ravel()
+            X = X.ravel()
+
+        return Z,Y,X
+
     def GetVolumeLocations(self,flatten=True):
         """
         Returns Z,Y,X arrays of volume centered locations in the dataset
@@ -440,34 +471,20 @@ class phdf:
         x directions respectively.
         """
 
-        #Location lists
-        locations_x = self.x
-        locations_y = self.y
-        locations_z = self.z
+        return self.__GenLocMeshGrid(self.z,self.y,self.x,flatten)
 
-        #loc[grid_idx,k,j,i]
-        loc_shape = (locations_x.shape[0],
-                     locations_z.shape[1],
-                     locations_y.shape[1],
-                     locations_x.shape[1])
+    def GetFaceLocations(self,flatten=True):
+        """
+        Returns Z,Y,X arrays of face centered locations in the dataset
 
-        Z = np.empty(loc_shape)
-        Y = np.empty(loc_shape)
-        X = np.empty(loc_shape)
+        Default is to return a flat array of length TotalCells.  However if
+        flatten is set to False, a 4D for each dimension is returned that has
+        dimensions [NumBlocks, Nz, Ny, Nx] where NumBlocks is the total number
+        of blocks, and Nz, Ny, and Nx are the number of cells in the z, y, and
+        x directions respectively.
+        """
 
-        for grid_idx in range(loc_shape[0]):
-            Z[grid_idx],Y[grid_idx],X[grid_idx] = np.meshgrid(
-                    locations_z[grid_idx],
-                    locations_y[grid_idx],
-                    locations_x[grid_idx],
-                    indexing="ij")
-
-        if flatten:
-            Z = Z.ravel()
-            Y = Y.ravel()
-            X = X.ravel()
-
-        return Z,Y,X
+        return self.__GenLocMeshGrid(self.zf,self.yf,self.xf,flatten)
 
     def __str__(self):
         return """
