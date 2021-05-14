@@ -94,7 +94,8 @@ class PerformanceMetricsPlotter():
         # Get the data for the last commit in the development branch
         # Now we need to create the figure to update
         fig, p = plt.subplots(
-            2, 1, figsize=(5, 12), sharex=True)
+            2, 1, figsize=(6, 10), sharex=True)
+        fig.subplots_adjust(bottom=0.2)
 
         p[0].loglog(
             self._mesh_blocks, self._zone_cycles, label="$256^3$ Mesh")
@@ -113,11 +114,9 @@ class PerformanceMetricsPlotter():
             p[i].grid()
 
         if self._target_data_file_exists:
-            p[0].legend([self._current_branch, self._target_branch])
-            p[1].legend([self._current_branch, self._target_branch])
+            p[1].legend([self._current_branch, self._target_branch],loc=9, bbox_to_anchor=(0.5,-0.2))
         else:
-            p[0].legend([self._current_branch])
-            p[1].legend([self._current_branch])
+            p[1].legend([self._current_branch],loc=9, bbox_to_anchor=(0.5,-0.2))
         p[0].set_ylabel("zone-cycles/s")
         p[1].set_ylabel("normalized overhead")
         p[1].set_xlabel("Meshblock size")
