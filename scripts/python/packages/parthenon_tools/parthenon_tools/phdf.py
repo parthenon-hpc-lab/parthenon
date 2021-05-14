@@ -176,15 +176,15 @@ class phdf:
         self.DatasetComponentsMap = {}
         #Construct a map of datasets to number contained components
         self.DatasetNumComponents = dict(zip(
-                info.attrs['OutputDatasetNames'].astype(str),
-                info.attrs['NumComponents']))
+                np.array(info.attrs['OutputDatasetNames']).ravel().astype(str),
+                np.array(info.attrs['NumComponents']).ravel()))
         #Construct a map of components to parent datasets,idx
         self.ComponentsDatasetMap = {}
         idx_i = 0
         for dataset,num_components in self.DatasetNumComponents.items():
             num_components = num_components.astype(int)
 
-            component_names = info.attrs['ComponentNames'].astype(str)[idx_i:idx_i+num_components]
+            component_names = np.array(info.attrs['ComponentNames']).ravel().astype(str)[idx_i:idx_i+num_components]
             component_indices = list(range(num_components))
             
             self.DatasetComponentsMap[dataset]= dict(zip(
