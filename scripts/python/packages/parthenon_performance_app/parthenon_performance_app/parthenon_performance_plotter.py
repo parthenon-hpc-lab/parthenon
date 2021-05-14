@@ -49,7 +49,7 @@ class PerformanceMetricsPlotter():
         # If running on same branch grab the data for the last
         # 5 commits stored in the file
         fig, p = plt.subplots(
-            2, 1, figsize=(6, 10), sharex=True)
+            2, 1, figsize=(5, 10), sharex=True)
         fig.subplots_adjust(bottom=0.2)
         legend_temp = []
         for i in range(0, self._number_commits_to_plot):
@@ -94,7 +94,7 @@ class PerformanceMetricsPlotter():
         # Get the data for the last commit in the development branch
         # Now we need to create the figure to update
         fig, p = plt.subplots(
-            2, 1, figsize=(6, 10), sharex=True)
+            2, 1, figsize=(5, 10), sharex=True)
         fig.subplots_adjust(bottom=0.2)
 
         p[0].loglog(

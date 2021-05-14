@@ -64,7 +64,7 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
                 now.strftime("%Y-%m-%d %H:%M:%S"))
             writer.write("Commit: %s\n\n" % commit_sha)
             for figure_url in figure_urls:
-                writer.write("![Image](" + figure_url + ")\n\n")
+                writer.write("![Image]({})\n\n".format(figure_url))
             wiki_url = "https://github.com/{usr_name}/{repo_name}/wiki/{file_name}"
             wiki_url = wiki_url.format(
                 usr_name=self._user,
@@ -83,12 +83,14 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
         the wiki page used to display the metrics on github
         """
         for json_upload in json_files_to_upload:
-            self.upload(json_upload, "master", use_wiki=True)
+            self.upload(json_upload, "master", use_wiki=True, wiki_state="mixed")
 
         for png_upload in png_files_to_upload:
-            self.upload(png_upload, self._default_image_branch, use_wiki=False)
+            self.upload(png_upload, self._default_image_branch, use_wiki=False, wiki_state="mixed")
 
-        self.upload(pr_wiki_page, "master", use_wiki=True)
+        # wiki_state soft prevents overwriting changes made to files that exist
+        # within the repo
+        self.upload(pr_wiki_page, "master", use_wiki=True, wiki_state="mixed")
 
     def getCurrentAndTargetBranch(self, branch):
         """
