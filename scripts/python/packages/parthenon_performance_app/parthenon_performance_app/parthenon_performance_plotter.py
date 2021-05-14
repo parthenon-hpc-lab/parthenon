@@ -101,12 +101,13 @@ class PerformanceMetricsPlotter():
         p[1].loglog(self._mesh_blocks,
                     self._zone_cycles[0] / self._zone_cycles)
         if self._target_data_file_exists:
-            p[0].loglog(
-                self._target_meshblocks,
-                self._target_cycles,
-                label="$256^3$ Mesh")
-            p[1].loglog(
-                self._target_meshblocks, self._zone_cycles[0] / self._target_cycles)
+            if self._target_meshblocks is not None and self._target_cycles is not None:
+                p[0].loglog(
+                    self._target_meshblocks,
+                    self._target_cycles,
+                    label="$256^3$ Mesh")
+                p[1].loglog(
+                    self._target_meshblocks, self._zone_cycles[0] / self._target_cycles)
 
         for i in range(2):
             p[i].grid()

@@ -95,6 +95,7 @@ class AdvectionAnalyser():
         json_perf_data_parser = PerformanceDataJsonParser()
         target_data_file_exists = False
         if os.path.isfile(json_file_compare):
+
             target_data_file_exists = True
             target_meshblocks, target_cycles = json_perf_data_parser.getMostRecentPerformanceData(
                 json_file_compare, target_branch, test_dir)
