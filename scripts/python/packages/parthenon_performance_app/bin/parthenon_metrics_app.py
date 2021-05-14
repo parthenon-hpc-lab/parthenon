@@ -180,8 +180,6 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
                 if create_figures:
                     png_files_to_upload.append(png_file)
                     figure_urls.append(figure_url)
-            else:
-                raise Exception("Test {} is missing analysis script.".format(test_dir))
 
         wiki_url = self._writeWikiPage(
             commit_sha, pr_wiki_page, figure_urls, now, wiki_file_name)
