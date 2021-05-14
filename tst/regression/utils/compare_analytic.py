@@ -64,56 +64,10 @@ def compare_analytic(filename,analytic_components,
     datafile = phdf.phdf(filename)
 
     #Dictionary of component_name:component[grid_idx,k,j,i]
-    file_components = {}
-
-    #Get ready to match vector components of variables with component names
-    num_componentss = datafile.Info["NumComponents"]
-    component_names = datafile.Info["ComponentNames"].astype(str)
-    idx_component_name = 0
-
-    #Read all data from the file
-    for var,num_components in zip(datafile.Info["DatasetNames"].astype(str),
-                                  num_componentss):
-        dataset = datafile.Get(var,flatten=False)
-
-        if num_components != 1:
-            #Assign vector components to file_components with component_name
-            for idx_component in range(num_components):
-                file_components[component_names[idx_component_name]] = \
-                        dataset[:,:,:,:,idx_component]
-                idx_component_name+=1
-        else:
-            #Assign dataset to file_components with component_name
-            file_components[component_names[idx_component_name]] = dataset
-            idx_component_name+=1
+    file_components = datafile.GetComponents(analytic_components.keys(),flatten=False)
 
     #Generate location arrays for each grid
-
-    #Location lists
-    locations_x = datafile.x
-    locations_y = datafile.y
-    locations_z = datafile.z
-
-    #loc[grid_idx,k,j,i]
-    loc_shape = (locations_x.shape[0],
-                 locations_z.shape[1],
-                 locations_y.shape[1],
-                 locations_x.shape[1])
-
-    X = np.empty(loc_shape)
-    Y = np.empty(loc_shape)
-    Z = np.empty(loc_shape)
-    for grid_idx in range(loc_shape[0]):
-        Z[grid_idx],Y[grid_idx],X[grid_idx] = np.meshgrid(
-                locations_z[grid_idx],
-                locations_y[grid_idx],
-                locations_x[grid_idx],
-                indexing="ij")
-
-    #Flatten the coordinate arrays, for simplicity
-    X = X.ravel()
-    Y = Y.ravel()
-    Z = Z.ravel()
+    Z,Y,X = datafile.GetVolumeLocations()
 
     #Check all components for which an analytic version exists
     all_ok = True

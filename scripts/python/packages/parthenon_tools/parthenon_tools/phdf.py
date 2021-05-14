@@ -78,99 +78,125 @@ class phdf:
         self.file = filename
         try:
             f = h.File(filename,'r')
-            # Read in the timestep attributes
-            info = f['Info']
-            self.fid=f
-            self.NumDims = info.attrs['NumDims']
-            try:
-                self.NCycle = info.attrs['NCycle']
-            except:
-                self.NCycle = -1
-            try:
-                self.Time = info.attrs['Time']
-            except:
-                self.Time = 0.0
-            try:
-                self.NGhost = info.attrs['NGhost']
-            except:
-                self.NGhost = -1
-            try:
-                self.IncludesGhost = info.attrs['IncludesGhost']
-            except:
-                self.IncludesGhost = 0
-            self.NumBlocks = info.attrs['NumMeshBlocks']
-            self.MeshBlockSize = info.attrs['MeshBlockSize']
-            try:
-                self.BlocksPerPE = info.attrs['BlocksPerPE']
-            except:
-                self.BlocksPerPE = np.array((1),self.NumBlocks)
-            self.Coordinates = info.attrs['Coordinates']
-            self.CellsPerBlock = np.prod(self.MeshBlockSize)
-            self.TotalCells = self.NumBlocks * self.CellsPerBlock
-
-            #Read in Params (older output files don't have this, so make it optional)
-            if "Params" in f:
-              self.Params = dict(f["Params"].attrs)
-            else:
-              self.Params = None
-
-            # Read in coordinates
-            def load_coord(coord_i):
-                coord_name = ["x","y","z"][coord_i]
-
-                tmp = f['/Locations/' + coord_name][:,:]
-                vol_loc = '/VolumeLocations/' + coord_name
-                if vol_loc in f:
-                    coord = f[vol_loc][:,:]
-                else:
-                    coord = np.zeros((self.NumBlocks,self.MeshBlockSize[coord_i]))
-                    for bId in range(self.NumBlocks):
-                        for cId in range(self.MeshBlockSize[coord_i]):
-                            coord[bId,cId] = 0.5*(tmp[bId,cId]+tmp[bId,cId+1])
-                coordf=tmp
-                return tmp,coord,coordf
-
-            tmpx, self.x, self.xf = load_coord(0)
-            tmpy, self.y, self.yf = load_coord(1)
-            tmpz, self.z, self.zf = load_coord(2)
-
-            # fill in self.offset and block bounds
-            self.offset = [0,0,0]
-            for i in range(3):
-                if self.MeshBlockSize[i] > 1:
-                    self.offset[i] = self.NGhost * self.IncludesGhost
-
-            # fill in self.BlockBounds
-            self.BlockBounds = [None]*self.NumBlocks
-            xo = self.NGhost*self.IncludesGhost
-            iOffsets = [
-                self.offset[0], self.MeshBlockSize[0]-self.offset[0],
-                self.offset[1], self.MeshBlockSize[1]-self.offset[1],
-                self.offset[2], self.MeshBlockSize[2]-self.offset[2]
-                ]
-            eps = 1e-8
-            for ib in range(self.NumBlocks):
-                self.BlockBounds[ib] = [
-                    tmpx[ib,iOffsets[0]]-eps, tmpx[ib,iOffsets[1]]+eps,
-                    tmpy[ib,iOffsets[2]]-eps, tmpy[ib,iOffsets[3]]+eps,
-                    tmpz[ib,iOffsets[4]]-eps, tmpz[ib,iOffsets[5]]+eps
-                    ]
-            #Save info
-            self.Info = dict(f["/Info"].attrs)
-
-            # generate self.offset, isGhost and BlockIdx arrays
-            self.GenAuxData()
-
-            self.TotalCellsReal =  self.NumBlocks*np.prod(self.MeshBlockSize-2*self.offset)
-
-            self.MaxLevel = info.attrs['MaxLevel']
-
-            self.Variables = [k for k in f.keys()]
-            self.varData = {k:None for k in self.Variables}
-
         except:
             raise FileNotFoundError(
                 errno.ENOENT, os.strerror(errno.ENOENT), filename)
+
+        # Read in the timestep attributes
+        info = f['Info']
+        self.fid=f
+        self.NumDims = info.attrs['NumDims']
+        try:
+            self.NCycle = info.attrs['NCycle']
+        except:
+            self.NCycle = -1
+        try:
+            self.Time = info.attrs['Time']
+        except:
+            self.Time = 0.0
+        try:
+            self.NGhost = info.attrs['NGhost']
+        except:
+            self.NGhost = -1
+        try:
+            self.IncludesGhost = info.attrs['IncludesGhost']
+        except:
+            self.IncludesGhost = 0
+        self.NumBlocks = info.attrs['NumMeshBlocks']
+        self.MeshBlockSize = info.attrs['MeshBlockSize']
+        try:
+            self.BlocksPerPE = info.attrs['BlocksPerPE']
+        except:
+            self.BlocksPerPE = np.array((1),self.NumBlocks)
+        self.Coordinates = info.attrs['Coordinates']
+        self.CellsPerBlock = np.prod(self.MeshBlockSize)
+        self.TotalCells = self.NumBlocks * self.CellsPerBlock
+
+        #Read in Params (older output files don't have this, so make it optional)
+        if "Params" in f:
+          self.Params = dict(f["Params"].attrs)
+        else:
+          self.Params = None
+
+        # Read in coordinates
+        def load_coord(coord_i):
+            coord_name = ["x","y","z"][coord_i]
+
+            tmp = f['/Locations/' + coord_name][:,:]
+            vol_loc = '/VolumeLocations/' + coord_name
+            if vol_loc in f:
+                coord = f[vol_loc][:,:]
+            else:
+                coord = np.zeros((self.NumBlocks,self.MeshBlockSize[coord_i]))
+                for bId in range(self.NumBlocks):
+                    for cId in range(self.MeshBlockSize[coord_i]):
+                        coord[bId,cId] = 0.5*(tmp[bId,cId]+tmp[bId,cId+1])
+            coordf=tmp
+            return tmp,coord,coordf
+
+        tmpx, self.x, self.xf = load_coord(0)
+        tmpy, self.y, self.yf = load_coord(1)
+        tmpz, self.z, self.zf = load_coord(2)
+
+        # fill in self.offset and block bounds
+        self.offset = [0,0,0]
+        for i in range(3):
+            if self.MeshBlockSize[i] > 1:
+                self.offset[i] = self.NGhost * self.IncludesGhost
+
+        # fill in self.BlockBounds
+        self.BlockBounds = [None]*self.NumBlocks
+        xo = self.NGhost*self.IncludesGhost
+        iOffsets = [
+            self.offset[0], self.MeshBlockSize[0]-self.offset[0],
+            self.offset[1], self.MeshBlockSize[1]-self.offset[1],
+            self.offset[2], self.MeshBlockSize[2]-self.offset[2]
+            ]
+        eps = 1e-8
+        for ib in range(self.NumBlocks):
+            self.BlockBounds[ib] = [
+                tmpx[ib,iOffsets[0]]-eps, tmpx[ib,iOffsets[1]]+eps,
+                tmpy[ib,iOffsets[2]]-eps, tmpy[ib,iOffsets[3]]+eps,
+                tmpz[ib,iOffsets[4]]-eps, tmpz[ib,iOffsets[5]]+eps
+                ]
+        #Save info
+        self.Info = dict(f["/Info"].attrs)
+
+        # generate self.offset, isGhost and BlockIdx arrays
+        self.GenAuxData()
+
+        self.TotalCellsReal =  self.NumBlocks*np.prod(self.MeshBlockSize-2*self.offset)
+
+        self.MaxLevel = info.attrs['MaxLevel']
+
+        self.Variables = [k for k in f.keys()]
+        self.varData = {k:None for k in self.Variables}
+
+        #Construct a map of datasets to contained components,idx
+        self.DatasetComponentsMap = {}
+        #Construct a map of datasets to number contained components
+        self.DatasetNumComponents = dict(zip(
+                info.attrs['OutputDatasetNames'].astype(str),
+                info.attrs['NumComponents']))
+        #Construct a map of components to parent datasets,idx
+        self.ComponentsDatasetMap = {}
+        idx_i = 0
+        for dataset,num_components in self.DatasetNumComponents.items():
+            num_components = num_components.astype(int)
+
+            component_names = info.attrs['ComponentNames'].astype(str)[idx_i:idx_i+num_components]
+            component_indices = list(range(num_components))
+            
+            self.DatasetComponentsMap[dataset]= dict(zip(
+                component_names,component_indices))
+
+            #Note: if a component is in multiple datasets, then this map
+            #will point to the last dataset that contains it
+            self.ComponentsDatasetMap.update( {name:(dataset,idx) 
+                for name,idx in zip(component_names,component_indices) } )
+
+            idx_i += num_components
+
 
     def GenAuxData(self):
         """
@@ -362,6 +388,86 @@ class phdf:
                 return self.varData[variable][:].reshape(self.TotalCells)
 
         return self.varData[variable][:]
+
+    def GetComponents(self,components,flatten=True):
+        """
+        Reads data for the named components from file.
+
+        Returns components as a dictionary of {component:component_data}
+
+        Throws an exception if the components do not exist in the file
+
+        Default is to return a flat array of length TotalCells.  However if
+        flatten is set to False, a 4D for each component array is returned that
+        has dimensions [NumBlocks, Nz, Ny, Nx] where NumBlocks is the total
+        number of blocks, and Nz, Ny, and Nx are the number of cells in the z,
+        y, and x directions respectively.
+        """
+
+        #Check if these components exist
+        missing_components = [component for component in components if not component in self.ComponentsDatasetMap.keys() ]
+        if( len(missing_components) > 0 ):
+            raise Exception(f"Components {missing_components} are missing from {self.file}")
+
+        #Determine which Datasets contain components
+        dataset_names = set(self.ComponentsDatasetMap[component][0] for component in components)
+
+        #Start a map of required components
+        component_data = {}
+
+        for dataset_name in dataset_names:
+            dataset = self.Get(dataset_name,flatten=flatten)
+
+            for component,idx in self.DatasetComponentsMap[dataset_name].items():
+                if component in components:
+                    if self.DatasetNumComponents[dataset_name]==1:
+                        #If dataset isn't a vector, just save dataset
+                        component_data[component] = dataset
+                    else:
+                        #Data is a vector, save only the component
+                        component_data[component] = dataset[...,idx]
+
+        return component_data
+
+    def GetVolumeLocations(self,flatten=True):
+        """
+        Returns Z,Y,X arrays of volume centered locations in the dataset
+
+        Default is to return a flat array of length TotalCells.  However if
+        flatten is set to False, a 4D for each dimension is returned that has
+        dimensions [NumBlocks, Nz, Ny, Nx] where NumBlocks is the total number
+        of blocks, and Nz, Ny, and Nx are the number of cells in the z, y, and
+        x directions respectively.
+        """
+
+        #Location lists
+        locations_x = self.x
+        locations_y = self.y
+        locations_z = self.z
+
+        #loc[grid_idx,k,j,i]
+        loc_shape = (locations_x.shape[0],
+                     locations_z.shape[1],
+                     locations_y.shape[1],
+                     locations_x.shape[1])
+
+        Z = np.empty(loc_shape)
+        Y = np.empty(loc_shape)
+        X = np.empty(loc_shape)
+
+        for grid_idx in range(loc_shape[0]):
+            Z[grid_idx],Y[grid_idx],X[grid_idx] = np.meshgrid(
+                    locations_z[grid_idx],
+                    locations_y[grid_idx],
+                    locations_x[grid_idx],
+                    indexing="ij")
+
+        if flatten:
+            Z = Z.ravel()
+            Y = Y.ravel()
+            X = X.ravel()
+
+        return Z,Y,X
 
     def __str__(self):
         return """
