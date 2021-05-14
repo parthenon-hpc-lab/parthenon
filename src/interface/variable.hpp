@@ -106,7 +106,7 @@ class CellVariable {
  private:
   Metadata m_;
   std::string label_;
-  ParArray7D<T> flux_data_; // unified par array for the fluxes and coarse buffer
+  ParArray7D<T> flux_data_; // unified par array for the fluxes
   int sparse_id_;
 };
 
