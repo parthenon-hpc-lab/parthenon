@@ -40,9 +40,9 @@ def compare_analytic(filename,analytic_components,
     analytic_components: Dictionary keying component names to analytic functions.
         Each analytic function in the dictionary takes the arguments:
 
-        def analytic_func(X,Y,Z,t)
+        def analytic_func(Z,Y,x,t)
 
-        where X,Y,Z comprise arrays of x,y,z coords to compute the analytic solution
+        where Z,Y,X comprise arrays of z,y,x coords to compute the analytic solution
         for a component at time t
 
     Keyword Arguments:
@@ -73,8 +73,8 @@ def compare_analytic(filename,analytic_components,
     all_ok = True
     for component in analytic_components.keys():
 
-        #Compute the analytic component at X,Y,Z
-        analytic_component = analytic_components[component](X,Y,Z,datafile.Time)
+        #Compute the analytic component at Z,Y,X
+        analytic_component = analytic_components[component](Z,Y,X,datafile.Time)
 
         #Compute the error between the file and analytic component
         err = err_func(analytic_component,file_components[component].ravel())
