@@ -58,14 +58,13 @@ class AdvectionAnalyser():
                 now
                 ):
 
-        if not os.path.isfile(
-                regression_outputs + "/advection_performance/performance_metrics.txt"):
+        metrics_file = regression_outputs + "/" + test_dir + "/performance_metrics.txt"
+
+        if not os.path.isfile(metrics_file):
             raise Exception(
                 "Cannot analyze advection_performance, missing performance metrics file: " +
-                regression_outputs +
-                "/advection_performance/performance_metrics.txt")
-        mesh_blocks, zone_cycles = self.readPerformanceMetricsTXT(
-            regression_outputs + "/advection_performance/performance_metrics.txt")
+                metrics_file)
+        mesh_blocks, zone_cycles = self.readPerformanceMetricsTXT(metrics_file)
         now = datetime.datetime.now()
 
         # Check if performance_metrics.json exists in wiki
