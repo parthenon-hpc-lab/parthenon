@@ -823,12 +823,13 @@ TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
 }
 
 template <typename T>
-void MeshBlockData<T>::RestrictBoundaries() {
+TaskStatus MeshBlockData<T>::RestrictBoundaries() {
   Kokkos::Profiling::pushRegion("RestrictBoundaries");
   // TODO(JMM): Change this upon refactor of BoundaryValues
   auto pmb = GetBlockPointer();
   pmb->pbval->RestrictBoundaries();
   Kokkos::Profiling::popRegion(); // RestrictBoundaries
+  return TaskStatus::complete;
 }
 
 template <typename T>

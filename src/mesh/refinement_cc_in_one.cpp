@@ -137,5 +137,66 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
   }
 }
 
+void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
+              IndexShape &c_cellbounds);
+TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
+  Kokkos::Profiling::pushRegion("Task_RestrictPhysicalBounds_MeshData");
+
+  auto info = md->GetRestrictBuffers();
+  bool cache_is_valid = info.is_allocated();
+  if (!cache_is_valid) {
+    info = ComputePhysicalRestrictBounds(md);
+    md->SetRestrictBuffers(info);
+  }
+
+  auto &rc = md->GetBlockData(0);
+  auto pmb = rc->GetBlockPointer();
+  IndexShape cellbounds = pmb->cellbounds;
+  IndexShape c_cellbounds = pmb->c_cellbounds;
+
+  Restrict(info, cellbounds, c_cellbounds);
+
+  Kokkos::Profiling::popRegion(); // Task_RestrictPhysicalBounds_MeshData
+  return TaskStatus::complete;
+}
+
+cell_centered_bvars::BufferCache_t ComputePhysicalRestrictBounds(MeshData<Real> *md) {
+  Kokkos::Profiling::pushRegion("ComputePhysicalRestrictBounds_MeshData");
+  int nbuffs = 0;
+  for (int block = 0; block < md->NumBlocks(); ++block) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
+    int nrestrictions = pmb->pbval->NumRestrictions();
+    for (auto &v : rc->GetCellVariableVector()) {
+      if (v->IsSet(parthenon::Metadata::FillGhost)) {
+        nbuffs += nrestrictions * (v->GetDim(6)) * (v->GetDim(5));
+      }
+    }
+  }
+
+  cell_centered_bvars::BufferCache_t info("physical restriction bounds", nbuffs);
+  auto info_h = Kokkos::create_mirror_view(info);
+  int idx = 0;
+  for (int block = 0; block < md->NumBlocks(); ++block) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
+    for (auto &v : rc->GetCellVariableVector()) {
+      if (v->IsSet(parthenon::Metadata::FillGhost)) {
+        for (int l = 0; l < v->GetDim(6); ++l) {
+          for (int m = 0; m < v->GetDim(5); ++m) {
+            ParArray4D<Real> fine = v->data.Get(l, m);
+            ParArray4D<Real> coarse = v->vbvar->coarse_buf.Get(l, m);
+            pmb->pbval->FillRestrictionMetadata(info_h, idx, fine, coarse, v->GetDim(4));
+          }
+        }
+      }
+    }
+  }
+  PARTHENON_DEBUG_REQUIRE(idx == nbuffs, "All buffers accounted for");
+  Kokkos::deep_copy(info, info_h);
+  Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBounds_MeshData
+  return info;
+}
+
 } // namespace cell_centered_refinement
 } // namespace parthenon

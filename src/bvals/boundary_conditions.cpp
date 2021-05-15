@@ -36,8 +36,10 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
   // the fine as needed.
 
   // In principle, the coarse zones must be filled by restriction first.
+  // This is true *even* for meshblocks adjacent to a neighbor at the same level.
   // However, it is decoupled from the prolongation step because:
-  // (a) It is automatically handled during ghost zone communication
+  // (a) For meshblocks next to a coarser block, it
+  //     is automatically handled during ghost zone communication
   // (b) Restriction may be handled via meshblock packs, independently from whether
   //     or not boundaries and prolongation are.
 

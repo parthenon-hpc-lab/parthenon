@@ -22,12 +22,16 @@
 
 #include "bvals/cc/bvals_cc_in_one.hpp" // for buffercache_t
 #include "coordinates/coordinates.hpp"  // for coordinates
-#include "mesh/domain.hpp"              // for IndexShape
+#include "interface/mesh_data.hpp"
+#include "mesh/domain.hpp" // for IndexShape
 
 namespace parthenon {
 namespace cell_centered_refinement {
 void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
               IndexShape &c_cellbounds);
+TaskStatus RestrictPhysicalBounds(MeshData<Real> *md);
+
+cell_centered_bvars::BufferCache_t ComputePhysicalRestrictBounds(MeshData<Real> *md);
 
 } // namespace cell_centered_refinement
 } // namespace parthenon

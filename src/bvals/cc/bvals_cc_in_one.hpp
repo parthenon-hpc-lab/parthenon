@@ -61,6 +61,7 @@ struct BndInfo {
 };
 
 using BufferCache_t = ParArray1D<BndInfo>;
+using BufferCacheHost_t = typename BufferCache_t::HostMirror;
 } // namespace cell_centered_bvars
 } // namespace parthenon
 

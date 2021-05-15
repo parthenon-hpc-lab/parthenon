@@ -23,6 +23,7 @@
 #include <cmath>
 #include <iterator>
 
+#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "fc/bvals_fc.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
@@ -53,6 +54,7 @@ void BoundaryValues::RestrictBoundaries() {
   int &mylevel = pmb->loc.level;
   for (int n = 0; n < nneighbor; n++) {
     NeighborBlock &nb = neighbor[n];
+
     if (nb.snb.level >= mylevel) continue;
 
     // fill the required ghost-ghost zone
@@ -70,6 +72,67 @@ void BoundaryValues::RestrictBoundaries() {
           // this neighbor block is on the same level
           // and needs to be restricted for prolongation
           RestrictGhostCellsOnSameLevel_(nb, nk, nj, ni);
+        }
+      }
+    }
+  }
+}
+
+int BoundaryValues::NumRestrictions() {
+  int nbuffs = 0;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  MeshRefinement *pmr = pmb->pmr.get();
+  int &mylevel = pmb->loc.level;
+  for (int n = 0; n < nneighbor; n++) {
+    NeighborBlock &nb = neighbor[n];
+    if (nb.snb.level >= mylevel) continue;
+
+    IndexRange bni, bnj, bnk;
+    ComputeRestrictionBounds_(nb, bni, bnj, bnk);
+
+    for (int nk = bnk.s; nk <= bnk.e; nk++) {
+      for (int nj = bnj.s; nj <= bnj.e; nj++) {
+        for (int ni = bni.s; ni <= bni.e; ni++) {
+          int ntype = std::abs(ni) + std::abs(nj) + std::abs(nk);
+          // skip myself or coarse levels; only the same level must be restricted
+          if (ntype == 0 || nblevel[nk + 1][nj + 1][ni + 1] != mylevel) continue;
+          nbuffs += 1;
+        }
+      }
+    }
+  }
+  return nbuffs;
+}
+
+void BoundaryValues::FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
+                                             int &idx, ParArray4D<Real> &fine,
+                                             ParArray4D<Real> &coarse, int Nv) {
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  MeshRefinement *pmr = pmb->pmr.get();
+  int &mylevel = pmb->loc.level;
+  for (int n = 0; n < nneighbor; n++) {
+    NeighborBlock &nb = neighbor[n];
+    if (nb.snb.level >= mylevel) continue;
+
+    IndexRange bni, bnj, bnk;
+    ComputeRestrictionBounds_(nb, bni, bnj, bnk);
+
+    for (int nk = bnk.s; nk <= bnk.e; nk++) {
+      for (int nj = bnj.s; nj <= bnj.e; nj++) {
+        for (int ni = bni.s; ni <= bni.e; ni++) {
+          int ntype = std::abs(ni) + std::abs(nj) + std::abs(nk);
+          // skip myself or coarse levels; only the same level must be restricted
+          if (ntype == 0 || nblevel[nk + 1][nj + 1][ni + 1] != mylevel) continue;
+          ComputeRestrictionIndices_(nb, nk, nj, ni, info(idx).si, info(idx).ei,
+                                     info(idx).sj, info(idx).ej, info(idx).sk,
+                                     info(idx).ek);
+          info(idx).coords = pmb->coords;
+          info(idx).coarse_coords = pmb->pmr->coarse_coords;
+          info(idx).fine = fine;
+          info(idx).coarse = coarse;
+          info(idx).restrict = true;
+          info(idx).Nv = Nv;
+          idx++;
         }
       }
     }
@@ -99,28 +162,8 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel_(const NeighborBlock &nb, int
   IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
   IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
 
-  auto CalcRestricedIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
-    if (n == 0) {
-      rs = b.s;
-      re = b.e;
-      if (ox == 1) {
-        rs = b.e;
-      } else if (ox == -1) {
-        re = b.s;
-      }
-    } else if (n == 1) {
-      rs = b.e + 1;
-      re = b.e + 1;
-    } else { //(n ==  - 1)
-      rs = b.s - 1;
-      re = b.s - 1;
-    }
-  };
-
   int ris, rie, rjs, rje, rks, rke;
-  CalcRestricedIndices(ris, rie, ni, nb.ni.ox1, cib);
-  CalcRestricedIndices(rjs, rje, nj, nb.ni.ox2, cjb);
-  CalcRestricedIndices(rks, rke, nk, nb.ni.ox3, ckb);
+  ComputeRestrictionIndices_(nb, nk, nj, ni, ris, rie, rjs, rje, rks, rke);
 
   for (auto cc_pair : pmr->pvars_cc_) {
     ParArrayND<Real> var_cc = std::get<0>(cc_pair);
@@ -230,6 +273,38 @@ void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int 
     // step 4. calculate the internal finer fields using the Toth & Roe method
     pmr->ProlongateInternalField((*var_fc), si, ei, sj, ej, sk, ek);
   }
+}
+
+void BoundaryValues::ComputeRestrictionIndices_(const NeighborBlock &nb, int nk, int nj,
+                                                int ni, int &ris, int &rie, int &rjs,
+                                                int &rje, int &rks, int &rke) {
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
+  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
+  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
+
+  auto CalcIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
+    if (n == 0) {
+      rs = b.s;
+      re = b.e;
+      if (ox == 1) {
+        rs = b.e;
+      } else if (ox == -1) {
+        re = b.s;
+      }
+    } else if (n == 1) {
+      rs = b.e + 1;
+      re = b.e + 1;
+    } else { //(n ==  - 1)
+      rs = b.s - 1;
+      re = b.s - 1;
+    }
+  };
+
+  CalcIndices(ris, rie, ni, nb.ni.ox1, cib);
+  CalcIndices(rjs, rje, nj, nb.ni.ox2, cjb);
+  CalcIndices(rks, rke, nk, nb.ni.ox3, ckb);
 }
 
 void BoundaryValues::ComputeRestrictionBounds_(const NeighborBlock &nb, IndexRange &ni,
