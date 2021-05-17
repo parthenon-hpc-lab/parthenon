@@ -117,7 +117,7 @@ class MeshData {
   }
 
   template <class... Args>
-  void Add(Args &&...args) {
+  void Add(Args &&... args) {
     for (const auto &pbd : block_data_) {
       pbd->Add(std::forward<Args>(args)...);
     }
@@ -133,7 +133,7 @@ class MeshData {
   }
 
   template <typename... Args>
-  void Copy(const std::shared_ptr<MeshData<T>> src, Args &&...args) {
+  void Copy(const std::shared_ptr<MeshData<T>> src, Args &&... args) {
     if (src.get() == nullptr) {
       PARTHENON_THROW("src points at null");
     }
@@ -150,7 +150,7 @@ class MeshData {
   }
 
   template <typename... Args>
-  auto PackVariables(Args &&...args) {
+  auto PackVariables(Args &&... args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data) {
       return meshblock_data->PackVariables(std::forward<Args>(args)...);
     };
@@ -161,7 +161,7 @@ class MeshData {
   }
 
   template <typename... Args>
-  auto PackVariablesAndFluxes(Args &&...args) {
+  auto PackVariablesAndFluxes(Args &&... args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data) {
       return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)...);
     };
