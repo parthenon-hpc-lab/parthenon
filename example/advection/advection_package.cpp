@@ -182,14 +182,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     field_name = "one_minus_sqrt_one_minus_advected_sq";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                   Metadata::Restart},
-                 12, // just picking a sparse_id out of a hat for demonstration
-                 std::vector<int>({num_vars}));
+                 std::vector<int>({num_vars}),
+                 12 // just picking a sparse_id out of a hat for demonstration
+    );
     pkg->AddField(field_name, m);
     // add another component
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                   Metadata::Restart},
-                 37, // just picking a sparse_id out of a hat for demonstration
-                 std::vector<int>({num_vars}));
+                 std::vector<int>({num_vars}),
+                 37 // just picking a sparse_id out of a hat for demonstration
+    );
     pkg->AddField(field_name, m);
   }
 
