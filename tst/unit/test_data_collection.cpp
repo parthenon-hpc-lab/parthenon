@@ -43,11 +43,11 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
     auto &mbd = d.Get();
     mbd->SetBlockPointer(pmb);
     std::vector<int> size(6, 1);
-    Metadata m_ind({Metadata::Independent});
-    Metadata m_one({Metadata::OneCopy});
-    mbd->Add("var1", m_ind, size);
-    mbd->Add("var2", m_one, size);
-    mbd->Add("var3", m_ind, size);
+    Metadata m_ind({Metadata::Independent}, size);
+    Metadata m_one({Metadata::OneCopy}, size);
+    mbd->Add("var1", m_ind);
+    mbd->Add("var2", m_one);
+    mbd->Add("var3", m_ind);
     auto &v1 = mbd->Get("var1").data;
     auto &v2 = mbd->Get("var2").data;
     auto &v3 = mbd->Get("var3").data;
