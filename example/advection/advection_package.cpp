@@ -163,7 +163,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     } else {
       field_name = field_name_base + "_" + std::to_string(var);
     }
-    m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost},
+    m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+                  Metadata::FillGhost},
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
   }
