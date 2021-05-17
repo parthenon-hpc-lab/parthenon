@@ -87,7 +87,7 @@ template <typename T>
 void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // set up fluxes
   std::string base_name = label();
-  if (HasFluxes()) {
+  if (IsSet(Metadata::WithFluxes)) {
     flux[X1DIR] = ParArrayND<T>(base_name + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
                                 GetDim(3), GetDim(2), GetDim(1));
     if (GetDim(2) > 1)
@@ -99,7 +99,7 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   }
 
   // Create the boundary object
-  if (HasBoundaryVars()) {
+  if (IsSet(Metadata::FillGhost)) {
     if (wpmb.expired()) return;
 
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
