@@ -87,7 +87,7 @@ template <typename T>
 void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // set up fluxes
   std::string base_name = label();
-  if (IsSet(Metadata::Independent)) {
+  if (HasFluxes()) {
     flux[X1DIR] = ParArrayND<T>(base_name + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
                                 GetDim(3), GetDim(2), GetDim(1));
     if (GetDim(2) > 1)
@@ -98,28 +98,30 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
                                   GetDim(3), GetDim(2), GetDim(1));
   }
 
-  if (wpmb.expired()) return;
-
-  std::shared_ptr<MeshBlock> pmb = wpmb.lock();
-
-  if (pmb->pmy_mesh->multilevel)
-    coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
-                             pmb->c_cellbounds.ncellsk(IndexDomain::entire),
-                             pmb->c_cellbounds.ncellsj(IndexDomain::entire),
-                             pmb->c_cellbounds.ncellsi(IndexDomain::entire));
-
   // Create the boundary object
-  vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
+  if (HasBoundaryVars()) {
+    if (wpmb.expired()) return;
 
-  // enroll CellCenteredBoundaryVariable object
-  vbvar->bvar_index = pmb->pbval->bvars.size();
-  // TODO(JMM): This means RestrictBoundaries()
-  // is called on EVERY stage, regardless of what
-  // stage needs it.
-  // The fix is to refactor BoundaryValues
-  // to expose calls at either the `Variable`
-  // or `MeshBlockData` and `MeshData` level.
-  pmb->pbval->bvars.push_back(vbvar);
+    std::shared_ptr<MeshBlock> pmb = wpmb.lock();
+
+    if (pmb->pmy_mesh->multilevel)
+      coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
+                               pmb->c_cellbounds.ncellsk(IndexDomain::entire),
+                               pmb->c_cellbounds.ncellsj(IndexDomain::entire),
+                               pmb->c_cellbounds.ncellsi(IndexDomain::entire));
+
+    vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
+
+    // enroll CellCenteredBoundaryVariable object
+    vbvar->bvar_index = pmb->pbval->bvars.size();
+    // TODO(JMM): This means RestrictBoundaries()
+    // is called on EVERY stage, regardless of what
+    // stage needs it.
+    // The fix is to refactor BoundaryValues
+    // to expose calls at either the `Variable`
+    // or `MeshBlockData` and `MeshData` level.
+    pmb->pbval->bvars.push_back(vbvar);
+  }
 
   mpiStatus = false;
 }
