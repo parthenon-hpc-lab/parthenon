@@ -7,6 +7,7 @@
 - [[PR 482]](https://github.com/lanl/parthenon/pull/482) Add support for package enrolled history outputs.
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 524]](https://github.com/lanl/parthenon/pull/524) Enforce `Metadata` flags constraints and add new `Metadata::WithFluxes` flag. Note: `Metadata::Independent` will be set automatically unless `Metadata::Derived` is set
 - [[PR 517]](https://github.com/lanl/parthenon/pull/517) Remove optional `dims` argument from `MeshBlockData::Add` and use the shape from the `Metadata` instead
 - [[PR 492]](https://github.com/lanl/parthenon/pull/492) Modify advection example to have an arbitrary number of dense variables and to disable fill derived for profiling.
 - [[PR 486]](https://github.com/lanl/parthenon/pull/486) Unify HDF5 output and restart file writing,
