@@ -73,11 +73,13 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     std::vector<int> scalar_shape{16, 16, 16};
     std::vector<int> vector_shape{16, 16, 16, 3};
 
-    Metadata m_in({Metadata::Independent, Metadata::FillGhost}, scalar_shape);
-    Metadata m_in_vector({Metadata::Independent, Metadata::FillGhost, Metadata::Vector},
+    Metadata m_in({Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost},
+                  scalar_shape);
+    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes,
+                          Metadata::FillGhost, Metadata::Vector},
                          vector_shape);
-    Metadata m_out({}, scalar_shape);
-    Metadata m_out_vector({}, vector_shape);
+    Metadata m_out({Metadata::Derived}, scalar_shape);
+    Metadata m_out_vector({Metadata::Derived}, vector_shape);
 
     // Make some variables
     rc.Add("v1", m_in);
@@ -253,7 +255,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we set fluxes of independent variables") {
-      auto vf = rc.PackVariablesAndFluxes({Metadata::Independent, Metadata::FillGhost});
+      auto vf = rc.PackVariablesAndFluxes(
+          {Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost});
       par_for(
           DEFAULT_LOOP_PATTERN, "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0,
           vf.GetDim(3) - 1, 0, vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,
@@ -290,11 +293,11 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we add sparse fields") {
       Metadata m_sparse;
-      m_sparse = Metadata({Metadata::Sparse}, scalar_shape, 1);
+      m_sparse = Metadata({Metadata::Derived, Metadata::Sparse}, scalar_shape, 1);
       rc.Add("vsparse", m_sparse);
-      m_sparse = Metadata({Metadata::Sparse}, 13);
+      m_sparse = Metadata({Metadata::Derived, Metadata::Sparse}, 13);
       rc.Add("vsparse", m_sparse);
-      m_sparse = Metadata({Metadata::Sparse}, 42);
+      m_sparse = Metadata({Metadata::Derived, Metadata::Sparse}, 42);
       rc.Add("vsparse", m_sparse);
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
@@ -363,7 +366,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we add a 2d variable") {
       std::vector<int> shape_2D{16, 16, 1};
-      Metadata m_in_2D({Metadata::Independent, Metadata::FillGhost}, shape_2D);
+      Metadata m_in_2D({Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost},
+                       shape_2D);
       rc.Add("v2d", m_in_2D);
       auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
       THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
@@ -390,7 +394,7 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
     MeshBlockData<Real> rc;
     std::vector<int> block_size{nside + 2 * nghost, nside + 2 * nghost,
                                 nside + 2 * nghost};
-    Metadata m({Metadata::Independent}, block_size);
+    Metadata m({Metadata::Independent, Metadata::WithFluxes}, block_size);
     rc.Add("var", m);
     auto &var = rc.Get("var");
 
