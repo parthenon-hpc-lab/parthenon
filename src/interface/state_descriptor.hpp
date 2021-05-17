@@ -25,6 +25,7 @@
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
 #include "interface/swarm.hpp"
+#include "interface/variable.hpp"
 #include "refinement/amr_criteria.hpp"
 #include "utils/error_checking.hpp"
 
@@ -35,6 +36,25 @@ template <typename T>
 class MeshBlockData;
 template <typename T>
 class MeshData;
+
+class StateDescriptor; // forward declaration
+
+class Packages_t {
+ public:
+  Packages_t() = default;
+  void Add(const std::shared_ptr<StateDescriptor> &package);
+
+  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
+    return packages_.at(name);
+  }
+
+  const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
+    return packages_;
+  }
+
+ private:
+  Dictionary<std::shared_ptr<StateDescriptor>> packages_;
+};
 
 /// The state metadata descriptor class.
 ///
@@ -49,6 +69,9 @@ class StateDescriptor {
 
   // Preferred constructor
   explicit StateDescriptor(std::string const &label) : label_(label) {}
+
+  static std::shared_ptr<StateDescriptor>
+  CreateResolvedStateDescriptor(Packages_t &packages);
 
   template <typename T>
   void AddParam(const std::string &key, T value) {
@@ -117,27 +140,34 @@ class StateDescriptor {
 
   // add a collection of sparse fields with the given sparse_ids (no data is allocated
   // until a particular sparse_id is allocated on a particular block), the vector of
-  // metadata contains the metafor each variable corresponding to the sparse_ids in the
-  // same order
-  std::vector<bool> AddSparseFields(const std::string &base_name,
-                                    const std::vector<int> &sparse_ids,
-                                    const std::vector<Metadata> &ms) {
+  // metadata contains the metadata for each variable corresponding to the sparse_ids in
+  // the same order
+  bool AddSparseFields(const std::string &base_name, const std::vector<int> &sparse_ids,
+                       const std::vector<Metadata> &ms) {
     if (sparse_ids.size() != ms.size()) {
       PARTHENON_FAIL("Different numbers of sparse ids and metadata in AddSparseFields");
     }
-    std::vector<bool> results(sparse_ids.size());
 
-    for (size_t i = 0; i < sparse_ids.size(); ++i) {
-      results[i] = AddFieldImpl(base_name + "_" + std::to_string(sparse_ids[i]), ms[i]);
+    if (sparse_ids.size() == 0) {
+      return false;
     }
 
-    return results;
+    if (sparseIdPool_.count(base_name) > 0) {
+      // this sparse variable has already been added
+      return false;
+    }
+
+    sparseIdPool_.insert({base_name, sparse_ids});
+    for (size_t i = 0; i < sparse_ids.size(); ++i) {
+      AddFieldImpl(MakeVarLabel(base_name, sparse_ids[i]), ms[i]);
+    }
+
+    return true;
   }
 
   // as above, but use the same metadata for each sparse_id
-  std::vector<bool> AddSparseFields(const std::string &base_name,
-                                    const std::vector<int> &sparse_ids,
-                                    const Metadata &m) {
+  bool AddSparseFields(const std::string &base_name, const std::vector<int> &sparse_ids,
+                       const Metadata &m) {
     std::vector<Metadata> ms(sparse_ids.size(), m);
     return AddSparseFields(base_name, sparse_ids, ms);
   }
@@ -170,12 +200,16 @@ class StateDescriptor {
   }
 
   const auto &AllFields() const { return metadataMap_; }
+  const auto &AllSparseIdPools() const { return sparseIdPool_; }
   const auto &AllSwarms() const { return swarmMetadataMap_; }
   const auto &AllSwarmValues(const std::string &swarm_name) const {
     return swarmValueMetadataMap_.at(swarm_name);
   }
   bool FieldPresent(const std::string &field_name) const {
     return metadataMap_.count(field_name) > 0;
+  }
+  bool SparseBaseNamePresent(const std::string &base_name) const {
+    return sparseIdPool_.count(base_name) > 0;
   }
   bool SwarmPresent(const std::string &swarm_name) const {
     return swarmMetadataMap_.count(swarm_name) > 0;
@@ -188,11 +222,24 @@ class StateDescriptor {
 
   // retrieve metadata for a specific field
   Metadata &FieldMetadata(const std::string &field_name) {
+    // TODO(JL) Do we want to add a default metadata for a non-existent field_name?
     return metadataMap_[field_name];
+  }
+
+  const auto &SparseIdPool(const std::string &base_name) const {
+    static const std::vector<int> empty_pool;
+
+    const auto itr = sparseIdPool_.find(base_name);
+    if (itr == sparseIdPool_.end()) {
+      return empty_pool;
+    } else {
+      return itr->second;
+    }
   }
 
   // retrieve metadata for a specific swarm
   Metadata &SwarmMetadata(const std::string &swarm_name) {
+    // TODO(JL) Do we want to add a default metadata for a non-existent swarm_name?
     return swarmMetadataMap_[swarm_name];
   }
 
@@ -273,33 +320,19 @@ class StateDescriptor {
   Params params_;
   const std::string label_;
 
+  // for each variable label (full label for sparse variables) hold metadata
   Dictionary<Metadata> metadataMap_;
+
+  // for each sparse base name hold pool of possible sparse ids
+  Dictionary<std::vector<int>> sparseIdPool_;
+
   Dictionary<Metadata> swarmMetadataMap_;
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 };
 
-class Packages_t {
- public:
-  Packages_t() = default;
-  void Add(const std::shared_ptr<StateDescriptor> &package) {
-    const auto &name = package->label();
-    PARTHENON_REQUIRE_THROWS(packages_.count(name) == 0,
-                             "Package name " + name + " must be unique.");
-    packages_[name] = package;
-    return;
-  }
-  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
-    return packages_.at(name);
-  }
-  const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
-    return packages_;
-  }
-
- private:
-  Dictionary<std::shared_ptr<StateDescriptor>> packages_;
-};
-
-std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages);
+std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
+  return StateDescriptor::CreateResolvedStateDescriptor(packages);
+}
 
 } // namespace parthenon
 

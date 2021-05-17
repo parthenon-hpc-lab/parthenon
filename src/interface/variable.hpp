@@ -55,22 +55,19 @@ template <typename T>
 class CellVariable {
  public:
   /// Initialize a 6D variable
-  CellVariable<T>(const std::string &label, const std::array<int, 6> dims,
-                  const Metadata &metadata, int sparse_id = InvalidSparseID)
-      : data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
-        mpiStatus(false), m_(metadata), label_(MakeVarLabel(label, sparse_id)),
-        sparse_id_(sparse_id) {
+  CellVariable<T>(const std::string &base_name, const Metadata &metadata,
+                  int sparse_id = InvalidSparseID)
+      : m_(metadata), base_name_(base_name), sparse_id_(sparse_id) {
     if (m_.getAssociated() == "") {
-      m_.Associate(label);
+      m_.Associate(label());
     }
   }
 
   // make a new CellVariable based on an existing one
-  std::shared_ptr<CellVariable<T>> AllocateCopy(const bool allocComms = false,
-                                                std::weak_ptr<MeshBlock> wpmb = {});
+  std::shared_ptr<CellVariable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb,
+                                                const bool allocComms = false);
 
   // accessors
-
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
     return data(std::forward<Args>(args)...);
@@ -79,8 +76,12 @@ class CellVariable {
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const { return data.GetDim(i); }
 
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto NumComponents() const { return GetDim(6) * GetDim(5) * GetDim(4); }
+
   ///< retrieve label for variable
-  inline const std::string label() const { return label_; }
+  inline const auto label() const { return MakeVarLabel(base_name_, sparse_id_); }
+  inline const auto base_name() const { return base_name_; }
 
   ///< retrieve metadata for variable
   inline Metadata metadata() const { return m_; }
@@ -95,16 +96,10 @@ class CellVariable {
   /// return information string
   std::string info();
 
+  bool IsAllocated() const { return is_allocated_; }
+
   // allocate data
-  void allocate() {
-    if (!is_allocated_) {
-
-      is_allocated_ = true;
-    }
-  }
-
-  /// allocate communication space based on info in MeshBlock
-  void allocateComms(std::weak_ptr<MeshBlock> wpmb);
+  void Allocate(std::weak_ptr<MeshBlock> wpmb);
 
   /// Repoint vbvar's var_cc array at the current variable
   inline void resetBoundary() { vbvar->var_cc = data; }
@@ -116,15 +111,20 @@ class CellVariable {
   ParArrayND<T> coarse_s; // used for sending coarse boundary calculation
   // used in case of cell boundary communication
   std::shared_ptr<CellCenteredBoundaryVariable> vbvar;
-  bool mpiStatus;
+  bool mpiStatus = false;
 
  private:
+  // allocate data only
+  void AllocateData(std::weak_ptr<MeshBlock> wpmb);
+
+  /// allocate communication space based on info in MeshBlock
+  void AllocateComms(std::weak_ptr<MeshBlock> wpmb);
+
   Metadata m_;
-  std::string label_;
+  std::string base_name_;
   int sparse_id_ = InvalidSparseID;
 
   bool is_allocated_ = false;
-  bool is_comms_allocated_ = false;
 };
 
 ///

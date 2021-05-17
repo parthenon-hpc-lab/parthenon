@@ -16,12 +16,17 @@
 #include <cstdlib>
 #include <memory>
 #include <sstream>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "bvals/cc/bvals_cc.hpp"
+#include "interface/metadata.hpp"
+#include "interface/variable.hpp"
+#include "interface/variable_pack.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -42,17 +47,9 @@ void MeshBlockData<T>::Add(const std::vector<std::string> &labelArray,
 /// @param metadata the metadata associated with the variable
 template <typename T>
 void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
-  auto arrDims = calcArrDims_(metadata);
-
   // branch on kind of variable
-  if (metadata.IsSet(Metadata::Sparse)) {
-    // add a sparse variable
-    // Sparse ids are allocated later as needed
-    if (sparseMap_.find(label) == sparseMap_.end()) {
-      auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
-      printf("adding sparse variable with label: %s\n", label.c_str());
-      Add(sv);
-    }
+  if (metadata.Where() == Metadata::Node) {
+    PARTHENON_THROW("Node variables are not implemented yet");
   } else if (metadata.Where() == Metadata::Edge) {
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
@@ -70,13 +67,14 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
       std::exit(1);
     }
     // add a face variable
-    auto pfv = std::make_shared<FaceVariable<T>>(label, arrDims, metadata);
+    auto pfv = std::make_shared<FaceVariable<T>>(label, metadata);
     Add(pfv);
   } else {
-    auto sv = std::make_shared<CellVariable<T>>(label, arrDims, metadata);
+    auto sv = std::make_shared<CellVariable<T>>(label, metadata);
     Add(sv);
-    if (metadata.IsSet(Metadata::FillGhost)) {
-      sv->allocateComms(pmy_block);
+
+    if (!sv->IsSparse()) {
+      sv->Allocate(pmy_block);
     }
   }
 }
@@ -86,11 +84,12 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
 // Optionally extract only some of the sparse ids of src variable.
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
-                                const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids) {
+                                const std::vector<std::string> &names) {
+  SetBlockPointer(src);
+
   auto var_map = src.GetCellVariableMap();
-  auto sparse_map = src.GetSparseMap();
   auto face_map = src.GetFaceMap();
+
   for (std::string name : names) {
     bool found = false;
     auto v = var_map.find(name);
@@ -98,22 +97,7 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
       Add(v->second);
       found = true;
     }
-    auto sv = sparse_map.find(name);
-    if (sv != sparse_map.end()) {
-      if (found) {
-        std::stringstream msg;
-        msg << "MeshBlockData: " << name << " found more than once!" << std::endl;
-        PARTHENON_THROW(msg);
-      }
-      found = true;
-      std::shared_ptr<SparseVariable<T>> newvar;
-      if (sparse_ids.size() > 0) {
-        newvar = std::make_shared<SparseVariable<T>>(sv->second, sparse_ids);
-      } else {
-        newvar = sv->second;
-      }
-      Add(newvar);
-    }
+
     auto fv = face_map.find(name);
     if (fv != face_map.end()) {
       if (found) {
@@ -124,9 +108,10 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
       found = true;
       Add(fv->second);
     }
+
     if (!found) {
       std::stringstream msg;
-      msg << "MeshBlockData: " << name << " found more than once!" << std::endl;
+      msg << "MeshBlockData: " << name << " not found!" << std::endl;
       PARTHENON_THROW(msg);
     }
   }
@@ -135,9 +120,11 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
                                 const std::vector<MetadataFlag> &flags) {
+  SetBlockPointer(src);
+
   auto var_map = src.GetCellVariableMap();
-  auto sparse_map = src.GetSparseMap();
   auto face_map = src.GetFaceMap();
+
   for (auto &it : var_map) {
     auto n = it.first;
     auto v = it.second;
@@ -145,13 +132,7 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
       Add(v);
     }
   }
-  for (auto &it : sparse_map) {
-    auto n = it.first;
-    auto v = it.second;
-    if (v->metadata().AnyFlagsSet(flags)) {
-      Add(v);
-    }
-  }
+
   for (auto &it : face_map) {
     auto n = it.first;
     auto v = it.second;
@@ -163,16 +144,17 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
 
 // provides a container that has a single sparse slice
 template <typename T>
-std::shared_ptr<MeshBlockData<T>> MeshBlockData<T>::SparseSlice(int id) {
+std::shared_ptr<MeshBlockData<T>> MeshBlockData<T>::SparseSlice(int sparse_id) {
   auto c = std::make_shared<MeshBlockData<T>>();
 
   // copy in private data
-  c->pmy_block = pmy_block;
+  c.SetBlockPointer(GetBlockPointer());
 
-  // Note that all standard arrays get added
-  // add standard arrays
+  // Note that all dense variables get added
   for (auto v : varVector_) {
-    c->Add(v);
+    if (!v->IsSparse() || (v->SparseID() == sparse_id)) {
+      c->Add(v);
+    }
   }
   // for (auto v : s->_edgeVector) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
@@ -180,15 +162,6 @@ std::shared_ptr<MeshBlockData<T>> MeshBlockData<T>::SparseSlice(int id) {
   // }
   for (auto v : faceVector_) {
     c->Add(v);
-  }
-
-  // Now copy in the specific arrays
-  for (auto v : sparseVector_) {
-    int index = v->GetIndex(id);
-    if (index >= 0) {
-      auto &vmat = v->Get(id);
-      c->Add(vmat);
-    }
   }
 
   return c;
@@ -200,371 +173,192 @@ std::shared_ptr<MeshBlockData<T>> MeshBlockData<T>::SparseSlice(int id) {
 /// This is a helper function that queries the cache for the given pack.
 /// The strings are the keys and the lists are the values.
 /// Inputs:
-/// var_names = vector of names of variables to pack
-/// flx_names = vector of names of flux variables to pack
-/// vars = forward list of shared pointers of vars to pack
-/// fvars = forward list of shared pointers of fluxes to pack
+/// variables = forward list of shared pointers of vars to pack
+/// fluxes = forward list of shared pointers of fluxes to pack
 /// Outputs:
-/// vmap = std::map from names to std::pairs of indices
+/// keys_out = pair of list of variable labels used to identify this variable-flux pack
+/// vmap_out = std::map from names to std::pairs of indices
 ///        indices are the locations in the outer Kokkos::view of the pack
 ///        indices represent inclusive bounds for, e.g., a sparse or tensor-valued
 ///        variable.
 template <typename T>
-PackVariablesAndFluxesResult<T>
-MeshBlockData<T>::PackListedVariablesAndFluxes(VariableListResult &&variables,
-                                               VariableListResult &&fluxes) {
-  PackVariablesAndFluxesResult<T> result;
-  result.key = std::make_pair(std::move(variables.expanded_names),
-                              std::move(fluxes.expanded_names));
-  auto kvpair = varFluxPackMap_.find(result.key);
-  if (kvpair == varFluxPackMap_.end()) {
-    result.pack = MakeFluxPack(variables.vars, fluxes.vars, &result.vmap);
-    FluxPackIndxPair<T> value;
-    value.pack = result.pack;
-    value.map = result.vmap;
-    varFluxPackMap_[result.key] = value;
-    return result;
+VariableFluxPack<T> MeshBlockData<T>::PackListedVariablesAndFluxes(
+    const VarLabelList &var_list, const VarLabelList &flux_list,
+    vpack_types::StringPair *keys_out, PackIndexMap *vmap_out) {
+
+  vpack_types::StringPair keys =
+      std::make_pair(std::move(var_list.labels()), std::move(flux_list.labels()));
+
+  auto itr = varFluxPackMap_.find(keys);
+  if (itr == varFluxPackMap_.end()) {
+    FluxPackIndexPair<T> new_item;
+    new_item.pack = MakeFluxPack(var_list.vars(), flux_list.vars(), &new_item.map);
+    itr = varFluxPackMap_.insert({keys, new_item}).first;
   }
 
-  result.vmap = kvpair->second.map;
-  result.pack = kvpair->second.pack;
-  return result;
-}
+  if (keys_out != nullptr) {
+    *keys_out = std::move(keys);
+  }
+  if (vmap_out != nullptr) {
+    *vmap_out = itr->second.map;
+  }
 
-template <typename T>
-VariableFluxPack<T> MeshBlockData<T>::PackVariablesAndFluxes(
-    const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
-    PackIndexMap &vmap, vpack_types::StringPair &key) {
-  // expanded names expands sparse variables to varname_idx, where idx is the sparse index
-  // this is required since not all sparse indices of a variable are necessarily
-  // included in a pack.
-  auto result = PackListedVariablesAndFluxes(GetVariablesByName(var_names),
-                                             GetVariablesByName(flx_names));
-  key = std::move(result.key);
-  vmap = std::move(result.vmap);
-  return std::move(result.pack);
-}
-
-/* Names interfaces */
-template <typename T>
-VariableFluxPack<T>
-MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
-                                         const std::vector<std::string> &flx_names,
-                                         PackIndexMap &vmap) {
-  vpack_types::StringPair key;
-  return PackVariablesAndFluxes(var_names, flx_names, vmap, key);
-}
-template <typename T>
-VariableFluxPack<T>
-MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
-                                         const std::vector<std::string> &flx_names,
-                                         vpack_types::StringPair &key) {
-  PackIndexMap vmap;
-  return PackVariablesAndFluxes(var_names, flx_names, vmap, key);
-}
-template <typename T>
-VariableFluxPack<T>
-MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
-                                         const std::vector<std::string> &flx_names) {
-  PackIndexMap vmap;
-  vpack_types::StringPair key;
-  return PackVariablesAndFluxes(var_names, flx_names, vmap, key);
-}
-
-/* Metadata interfaces */
-template <typename T>
-VariableFluxPack<T>
-MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                                         PackIndexMap &vmap,
-                                         vpack_types::StringPair &key) {
-  auto variables = GetVariablesByFlag(flags);
-  auto result = PackListedVariablesAndFluxes(VariableListResult(variables),
-                                             VariableListResult(variables));
-
-  vmap = std::move(result.vmap);
-  key = std::move(result.key);
-  return std::move(result.pack);
-}
-template <typename T>
-VariableFluxPack<T>
-MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                                         PackIndexMap &vmap) {
-  vpack_types::StringPair key;
-  return PackVariablesAndFluxes(flags, vmap, key);
-}
-template <typename T>
-VariableFluxPack<T>
-MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                                         vpack_types::StringPair &key) {
-  PackIndexMap vmap;
-  return PackVariablesAndFluxes(flags, vmap, key);
-}
-template <typename T>
-VariableFluxPack<T>
-MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags) {
-  PackIndexMap vmap;
-  vpack_types::StringPair key;
-  return PackVariablesAndFluxes(flags, vmap, key);
+  return itr->second.pack;
 }
 
 /// This is a helper function that queries the cache for the given pack.
-/// The strings are the keys and the lists are the values.
+/// The strings are the key and the lists are the values.
 /// Inputs:
-/// var_names = vector of names of variables to pack
 /// vars = forward list of shared pointers of vars to pack
+/// coarse = whether to use coarse pack map or not
 /// Outputs:
-/// vmap = std::map from names to std::pairs of indices
+/// key_out = list of variable labels used to identify this variable pack
+/// vmap_out = std::map from names to std::pairs of indices
 ///        indices are the locations in the outer Kokkos::view of the pack
 ///        indices represent inclusive bounds for, e.g., a sparse or tensor-valued
 ///        variable.
 template <typename T>
-PackVariablesResult<T>
-MeshBlockData<T>::PackListedVariables(VariableListResult &&variables, const bool coarse) {
-  PackVariablesResult<T> result;
-  result.key = std::move(variables.expanded_names);
-
+VariablePack<T> MeshBlockData<T>::PackListedVariables(const VarLabelList &var_list,
+                                                      bool coarse,
+                                                      std::vector<std::string> *key_out,
+                                                      PackIndexMap *vmap_out) {
+  const auto &key = var_list.labels();
   auto &packmap = coarse ? coarseVarPackMap_ : varPackMap_;
-  auto kvpair = packmap.find(result.key);
-  if (kvpair == packmap.end()) {
-    result.pack = MakePack<T>(std::move(variables.vars), &result.vmap, coarse);
-    PackIndxPair<T> value;
-    value.pack = result.pack;
-    value.map = result.vmap;
-    packmap[result.key] = value;
-    return result;
+
+  auto itr = packmap.find(key);
+  if (itr == packmap.end()) {
+    PackIndexPair<T> new_item;
+    new_item.pack = MakePack<T>(var_list.vars(), coarse, &new_item.map);
+    itr = packmap.insert({key, new_item}).first;
   }
 
-  result.vmap = (kvpair->second).map;
-  result.pack = (kvpair->second).pack;
-  return result;
+  if (key_out != nullptr) {
+    *key_out = std::move(key);
+  }
+  if (vmap_out != nullptr) {
+    *vmap_out = itr->second.map;
+  }
+
+  return itr->second.pack;
 }
 
 /***********************************/
-/* Names and sparse ids interfaces */
+/* PACK VARIABLES INTERFACE        */
 /***********************************/
+
+/// Variables and fluxes by Name
 template <typename T>
-VariablePack<T>
-MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids, PackIndexMap &vmap,
-                                std::vector<std::string> &key, const bool coarse) {
-  auto pack_result = PackListedVariables(GetVariablesByName(names, sparse_ids), coarse);
-  key = std::move(pack_result.key);
-  vmap = std::move(pack_result.vmap);
-  return std::move(pack_result.pack);
+VariableFluxPack<T> MeshBlockData<T>::PackVariablesAndFluxes(
+    const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
+    const std::vector<int> &sparse_ids, PackIndexMap *vmap_out,
+    vpack_types::StringPair *keys_out) {
+  return PackListedVariablesAndFluxes(GetVariablesByName(var_names, sparse_ids),
+                                      GetVariablesByName(flx_names, sparse_ids), keys_out,
+                                      vmap_out);
 }
+
+/// Variables and fluxes by Metadata Flags
+template <typename T>
+VariableFluxPack<T> MeshBlockData<T>::PackVariablesAndFluxes(
+    const std::vector<MetadataFlag> &flags, const std::vector<int> &sparse_ids,
+    PackIndexMap *vmap_out, vpack_types::StringPair *keys_out) {
+  return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, sparse_ids),
+                                      GetVariablesByFlag(flags, sparse_ids), keys_out,
+                                      vmap_out);
+}
+
+/// All variables and fluxes by Metadata Flags
+template <typename T>
+VariableFluxPack<T>
+MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<int> &sparse_ids,
+                                         PackIndexMap *vmap_out,
+                                         vpack_types::StringPair *keys_out) {
+  return PackListedVariablesAndFluxes(GetAllVariables(sparse_ids),
+                                      GetAllVariables(sparse_ids), keys_out, vmap_out);
+}
+
+/// Variables by Name
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
                                                 const std::vector<int> &sparse_ids,
-                                                PackIndexMap &vmap, const bool coarse) {
-  std::vector<std::string> key;
-  return PackVariables(names, sparse_ids, vmap, key, coarse);
+                                                bool coarse, PackIndexMap *vmap_out,
+                                                std::vector<std::string> *key_out) {
+  return PackListedVariables(GetVariablesByName(names, sparse_ids), coarse, key_out,
+                             vmap_out);
 }
+
+/// Variables by Metadata Flags
 template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
                                                 const std::vector<int> &sparse_ids,
-                                                std::vector<std::string> &key,
-                                                const bool coarse) {
-  PackIndexMap vmap;
-  return PackVariables(names, sparse_ids, vmap, key, coarse);
-}
-template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
-                                                const std::vector<int> &sparse_ids,
-                                                const bool coarse) {
-  PackIndexMap vmap;
-  std::vector<std::string> key;
-  return PackVariables(names, sparse_ids, vmap, key, coarse);
+                                                bool coarse, PackIndexMap *vmap_out,
+                                                std::vector<std::string> *key_out) {
+  return PackListedVariables(GetVariablesByFlag(flags, sparse_ids), coarse, key_out,
+                             vmap_out);
 }
 
-/********************/
-/* Names interfaces */
-/********************/
+/// All variables
 template <typename T>
-VariablePack<T>
-MeshBlockData<T>::PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
-                                std::vector<std::string> &key, const bool coarse) {
-  return PackVariables(names, {}, vmap, key, coarse);
-}
-template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
-                                                PackIndexMap &vmap, const bool coarse) {
-  std::vector<std::string> key;
-  return PackVariables(names, {}, vmap, key, coarse);
-}
-template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
-                                                std::vector<std::string> &key,
-                                                const bool coarse) {
-  PackIndexMap vmap;
-  return PackVariables(names, {}, vmap, key, coarse);
-}
-template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
-                                                const bool coarse) {
-  PackIndexMap vmap;
-  std::vector<std::string> key;
-  return PackVariables(names, {}, vmap, key, coarse);
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<int> &sparse_ids,
+                                                bool coarse, PackIndexMap *vmap_out,
+                                                std::vector<std::string> *key_out) {
+  return PackListedVariables(GetAllVariables(sparse_ids), coarse, key_out, vmap_out);
 }
 
-/*****************************/
-/* Metadata flags interfaces */
-/*****************************/
+// Get variables with the given names. The given name could either be a full variable
+// label or a sparse base name. Optionally only extract sparse fields with a sparse id in
+// the given set of sparse ids
 template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
-                                                PackIndexMap &vmap,
-                                                std::vector<std::string> &key,
-                                                const bool coarse) {
-  auto result = PackListedVariables(GetVariablesByFlag(flags), coarse);
-  vmap = std::move(result.vmap);
-  key = std::move(result.key);
-  return std::move(result.pack);
-}
-template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
-                                                PackIndexMap &vmap, const bool coarse) {
-  std::vector<std::string> key;
-  return PackVariables(flags, vmap, key, coarse);
-}
-template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
-                                                std::vector<std::string> &key,
-                                                const bool coarse) {
-  PackIndexMap vmap;
-  return PackVariables(flags, vmap, key, coarse);
-}
-template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
-                                                const bool coarse) {
-  PackIndexMap vmap;
-  std::vector<std::string> key;
-  return PackVariables(flags, vmap, key, coarse);
-}
-
-/*********************************/
-/* Include everything interfaces */
-/*********************************/
-template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(PackIndexMap &vmap,
-                                                std::vector<std::string> &key,
-                                                const bool coarse) {
-  auto result = PackListedVariables(GetAllVariables(), coarse);
-  vmap = std::move(result.vmap);
-  key = std::move(result.key);
-  return std::move(result.pack);
-}
-template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(PackIndexMap &vmap, const bool coarse) {
-  std::vector<std::string> key;
-  return PackVariables(vmap, key, coarse);
-}
-template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables() {
-  PackIndexMap vmap;
-  std::vector<std::string> key;
-  return PackVariables(vmap, key, false);
-}
-
-// From a given container, extract all variables and all fields in sparse variables
-// into a single linked list of variables. The sparse fields are then named
-// variable_index.
-// The names of the non-sparse variables and the sparse fields are then
-// packed into the std::vector "expanded_names," which is used as the key for
-// the pack cache.
-template <typename T>
-typename MeshBlockData<T>::VariableListResult MeshBlockData<T>::GetAllVariables() {
-  VariableListResult result;
-
-  for (auto &v : varVector_) {
-    result.vars.push_back(v);
-  }
-  for (auto &sv : sparseVector_) {
-    for (auto &v : sv->GetVector()) {
-      result.vars.push_back(v);
-    }
-  }
-
-  // Copy the expanded names into a flat list to be used as a cache-lookup key later.
-  result.expanded_names.reserve(result.vars.size());
-  for (auto &v : result.vars) {
-    result.expanded_names.push_back(v->label());
-  }
-  return result;
-}
-// These versions do the same as above, but instead of adding the full container,
-// they add a subset of the container... specified by either variable names
-// or by metadata flags. In the case of names, the list can optionally only contain
-// some subset of the sparse ids in a sparse variable.
-//
-// TODO(JL) We probably need a better interface here. Right now, the set of sparse_ids
-// will apply to EACH sparse variable, so it wouldn't be possible to just select
-// sparse_a_1 and sparse_b_2 if both sparse variables have indices 1 and 2 (we'd get both
-// indices of both sparse variables)
-template <typename T>
-typename MeshBlockData<T>::VariableListResult
+typename MeshBlockData<T>::VarLabelList
 MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
                                      const std::vector<int> &sparse_ids) {
-  VariableListResult result;
+  typename MeshBlockData<T>::VarLabelList var_list;
+  std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
   for (const auto &name : names) {
-    auto it = varMap_.find(name);
-    if (it != varMap_.end()) {
-      result.vars.push_back(it->second);
-      result.expanded_names.push_back(result.vars.back()->label());
-      continue;
-    }
-
-    auto sit = sparseMap_.find(name);
-    if (sit == sparseMap_.end()) {
-      continue;
-    }
-
-    SparseVariable<T> &sparse = *sit->second;
-    if (!sparse_ids.empty()) {
-      for (auto &sparse_id : sparse_ids) {
-        result.expanded_names.push_back(sparse.label() + "_" + std::to_string(sparse_id));
-        if (sparse.HasSparseID(sparse_id)) {
-          result.vars.push_back(sparse.Get(sparse_id));
-        } else {
-          // need to hold its space with something to make it uniform across blocks
-          result.vars.push_back(nullptr);
-        }
-      }
+    const auto itr = varMap_.find(name);
+    if (itr != varMap_.end()) {
+      const auto &v = itr->second;
+      // this name exists, add it
+      var_list.Add(v, sparse_ids_set);
     } else {
-      for (auto &sv : sparse.GetVector()) {
-        result.vars.push_back(sv);
+      // check if this is a sparse base name, if so we get its pool of sparse_ids,
+      // otherwise we get an empty pool
+      const auto &sparse_pool = GetBlockPointer()->resolved_packages->SparseIdPool(name);
+
+      // add all sparse ids of the pool
+      for (const auto id : sparse_pool) {
+        // this variable must exist, if it doesn't something is very wrong
+        const auto &v = varMap_.at(MakeVarLabel(name, id));
+        var_list.Add(v, sparse_ids_set);
       }
     }
   }
 
-  return result;
+  return var_list;
 }
 
+// From a given container, extract all variables whose Metadata matchs the all of the
+// given flags (if the list of flags is empty, extract all variables), optionally only
+// extracting sparse fields with an index from the given list of sparse indices
 template <typename T>
-typename MeshBlockData<T>::VariableListResult
-MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags) {
-  VariableListResult result;
+typename MeshBlockData<T>::VarLabelList
+MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
+                                     const std::vector<int> &sparse_ids) {
+  typename MeshBlockData<T>::VarLabelList var_list;
+  std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
-  for (auto &vpair : varMap_) {
-    auto &var = vpair.second;
-    if (var->metadata().AllFlagsSet(flags)) {
-      result.vars.push_back(var);
-    }
-  }
-  for (auto &vpair : sparseMap_) {
-    auto &svar = vpair.second;
-    if (svar->metadata().AllFlagsSet(flags)) {
-      auto &varvec = svar->GetVector();
-      for (auto &var : varvec) {
-        result.vars.push_back(var);
-      }
+  // let's use varMap_ here instead of varVector_ because iterating over either has O(N)
+  // complexity but with varMap_ we get a sorted list
+  for (const auto &pair : varMap_) {
+    const auto &v = pair.second;
+    // add this variable to the list if the Metadata flags match or no flags are specified
+    if (flags.empty() || v->metadata().AllFlagsSet(flags)) {
+      var_list.Add(v, sparse_ids_set);
     }
   }
 
-  for (auto &v : result.vars) {
-    result.expanded_names.push_back(v->label());
-  }
-
-  return result;
+  return var_list;
 }
 
 template <typename T>
@@ -843,43 +637,6 @@ void MeshBlockData<T>::Print() {
   for (auto v : sparseVector_) {
     std::cout << " sparse:" << v->info() << std::endl;
   }
-}
-
-template <typename T>
-std::array<int, 6> MeshBlockData<T>::calcArrDims_(const Metadata &metadata) {
-  std::array<int, 6> arrDims;
-
-  const auto &shape = metadata.Shape();
-  const int N = shape.size();
-
-  if (metadata.Where() == Metadata::Cell || metadata.Where() == Metadata::Face ||
-      metadata.Where() == Metadata::Edge || metadata.Where() == Metadata::Node) {
-    // Let the FaceVariable, EdgeVariable, and NodeVariable
-    // classes add the +1's where needed.  They all expect
-    // these dimensions to be the number of cells in each
-    // direction, NOT the size of the arrays
-    assert(N >= 1 && N <= 3);
-    const IndexDomain entire = IndexDomain::entire;
-    std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-    arrDims[0] = pmb->cellbounds.ncellsi(entire);
-    arrDims[1] = pmb->cellbounds.ncellsj(entire);
-    arrDims[2] = pmb->cellbounds.ncellsk(entire);
-    for (int i = 0; i < N; i++)
-      arrDims[i + 3] = shape[i];
-    for (int i = N; i < 3; i++)
-      arrDims[i + 3] = 1;
-  } else {
-    // This variable is not necessarily tied to any specific
-    // mesh element, so dims will be used as the actual array
-    // size in each dimension
-    assert(N >= 1 && N <= 6);
-    for (int i = 0; i < N; i++)
-      arrDims[i] = shape[i];
-    for (int i = N; i < 6; i++)
-      arrDims[i] = 1;
-  }
-
-  return arrDims;
 }
 
 template class MeshBlockData<double>;

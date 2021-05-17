@@ -80,7 +80,6 @@ class MeshBlockData {
             const std::vector<std::string> &names) {
     SetBlockPointer(src);
     for (const auto &name : names) {
-      bool found = false;
       const auto &vMap = src->GetCellVariableMap();
       auto vit = vMap.find(name);
       if (vit != vMap.end()) {
@@ -88,22 +87,9 @@ class MeshBlockData {
         if (v->IsSet(Metadata::OneCopy)) {
           Add(v);
         } else {
-          Add(v->AllocateCopy());
+          Add(v->AllocateCopy(pmy_block));
         }
-        found = true;
-      }
-      const auto &sMap = src->GetSparseMap();
-      auto sit = sMap.find(name);
-      if (sit != sMap.end()) {
-        auto &v = sit->second;
-        if (v->IsSet(Metadata::OneCopy)) {
-          Add(v);
-        } else {
-          Add(v->AllocateCopy());
-        }
-        found = true;
-      }
-      if (!found) {
+      } else {
         PARTHENON_THROW("MeshBlockData::Copy did not find " + name);
       }
     }
@@ -117,7 +103,7 @@ class MeshBlockData {
         Add(v);
       } else {
         // allocate new storage
-        Add(v->AllocateCopy());
+        Add(v->AllocateCopy(pmy_block));
       }
     }
 
@@ -126,15 +112,6 @@ class MeshBlockData {
         Add(v);
       } else {
         throw std::runtime_error("Non-oneCopy face variables are not yet supported");
-      }
-    }
-
-    for (auto v : src->GetSparseVector()) {
-      if (v->IsSet(Metadata::OneCopy)) {
-        // copy the shared pointer
-        Add(v);
-      } else {
-        Add(v->AllocateCopy());
       }
     }
   }
@@ -183,6 +160,7 @@ class MeshBlockData {
     varVector_.push_back(var);
     varMap_[var->label()] = var;
   }
+
   void Add(std::shared_ptr<FaceVariable<T>> var) {
     faceVector_.push_back(var);
     faceMap_[var->label()] = var;
@@ -199,15 +177,16 @@ class MeshBlockData {
 
   const MapToCellVars<T> &GetCellVariableMap() const { return varMap_; }
 
-  CellVariable<T> &Get(const std::string &label) const {
+  std::shared_ptr<CellVariable<T>> &GetCellVarPtr(const std::string &label) const {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
       PARTHENON_THROW(std::string("\n") + std::string(label) +
                       std::string(" array not found in Get()\n"));
     }
-    return *(it->second);
+    return it->second;
   }
 
+  CellVariable<T> &Get(const std::string &label) const { return *GetCellVarPtr(label); }
   CellVariable<T> &Get(const int index) const { return *(varVector_[index]); }
 
   int Index(const std::string &label) {
@@ -217,21 +196,24 @@ class MeshBlockData {
     return -1;
   }
 
-  std::shared_ptr<CellVariable<T>> &AllocSparseID(std::string const &label,
-                                                  const int sparse_id) {
-    if (!HasSparseVariable(label)) {
-      PARTHENON_THROW("Tried to allocate sparse id for variable '" + label +
+  std::shared_ptr<CellVariable<T>> &AllocateSparse(std::string const &label) {
+    if (!HasCellVariable(label)) {
+      PARTHENON_THROW("Tried to allocate sparse variable '" + label +
                       "', but no such sparse variable exists");
     }
 
-    SparseVariable<T> &var = GetSparseVariable(label);
-    auto const index = var.GetIndex(sparse_id);
-    if (index < 0) {
-      // this sparse id does not exist yet, allocate it
-      var.AllocateSparseID(sparse_id, pmy_block);
-    }
+    auto &var = GetCellVarPtr(label);
+    PARTHENON_REQUIRE_THROWS(var.IsSparse(),
+                             "Tried to allocate non-sparse variable " + label);
 
-    return var.Get(sparse_id);
+    var->Allocate(pmy_block);
+
+    return var;
+  }
+
+  std::shared_ptr<CellVariable<T>> &AllocSparseID(std::string const &base_name,
+                                                  const int sparse_id) {
+    return AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 
   bool IsAllocated(std::string const &label) const {
@@ -243,7 +225,7 @@ class MeshBlockData {
   }
 
   bool IsAllocated(std::string const &base_name, const int sparse_id) const {
-    return IsAllocated(base_name + "_" + std::to_string(sparse_id));
+    return IsAllocated(MakeVarLabel(base_name, sparse_id));
   }
 
   //
@@ -287,50 +269,102 @@ class MeshBlockData {
                        std::map<std::string, std::pair<int, int>> &indexCount);
 
   /// Queries related to variable packs
+  /// For all of these functions, vmap and key are optional output parameters, they will
+  /// be set if not null.
+  /// sparse_ids is an optional set of sparse ids to be included, all dense variables are
+  /// always included (if they match name or flags), but sparse variables are only
+  /// included if sparse_ids is not empty and contains the sparse id of the sparse
+  /// variable
+
+  /// Pack variables and fluxes by separate variables and fluxes names
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                                              const std::vector<std::string> &flx_names,
-                                             PackIndexMap &vmap);
-  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
-                                             const std::vector<std::string> &flx_names);
+                                             const std::vector<int> &sparse_ids = {},
+                                             PackIndexMap *vmap_out = nullptr,
+                                             vpack_types::StringPair *keys_out = nullptr);
+
+  VariableFluxPack<T>
+  PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                         const std::vector<std::string> &flx_names,
+                         PackIndexMap *vmap_out = nullptr,
+                         vpack_types::StringPair *keys_out = nullptr) {
+    return PackVariablesAndFluxes(var_names, flx_names, {}, vmap_out, keys_out);
+  }
+
+  /// Pack variables and fluxes by same variables and fluxes names
+  VariableFluxPack<T> PackVariablesAndFluxes(
+      const std::vector<std::string> &names, const std::vector<int> &sparse_ids = {},
+      PackIndexMap *vmap_out = nullptr, vpack_types::StringPair *keys_out = nullptr) {
+    return PackVariablesAndFluxes(names, names, sparse_ids, vmap_out, keys_out);
+  }
+
+  VariableFluxPack<T>
+  PackVariablesAndFluxes(const std::vector<std::string> &names,
+                         PackIndexMap *vmap_out = nullptr,
+                         vpack_types::StringPair *keys_out = nullptr) {
+    return PackVariablesAndFluxes(names, {}, vmap_out, keys_out);
+  }
+
+  /// Pack variables and fluxes by Metadata flags
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                                             PackIndexMap &vmap);
-  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags);
-  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
-                                             const std::vector<std::string> &flx_names,
-                                             PackIndexMap &vmap,
-                                             vpack_types::StringPair &key);
-  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
-                                             const std::vector<std::string> &flx_names,
-                                             vpack_types::StringPair &key);
-  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                                             PackIndexMap &vmap,
-                                             vpack_types::StringPair &key);
-  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                                             vpack_types::StringPair &key);
-  VariablePack<T> PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
-                                const bool coarse = false);
+                                             const std::vector<int> &sparse_ids = {},
+                                             PackIndexMap *vmap_out = nullptr,
+                                             vpack_types::StringPair *keys_out = nullptr);
+
+  VariableFluxPack<T>
+  PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                         PackIndexMap *vmap_out = nullptr,
+                         vpack_types::StringPair *keys_out = nullptr) {
+    return PackVariablesAndFluxes(flags, {}, vmap_out, keys_out);
+  }
+
+  /// Pack all variables and fluxes
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<int> &sparse_ids,
+                                             PackIndexMap *vmap_out = nullptr,
+                                             vpack_types::StringPair *keys_out = nullptr);
+
+  VariableFluxPack<T>
+  PackVariablesAndFluxes(PackIndexMap *vmap_out = nullptr,
+                         vpack_types::StringPair *keys_out = nullptr) {
+    return PackVariablesAndFluxes({}, vmap_out, keys_out);
+  }
+
+  /// Pack variables by name
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                const bool coarse = false);
-  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
-                                PackIndexMap &vmap, const bool coarse = false);
-  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
-                                const bool coarse = false);
-  VariablePack<T> PackVariables(PackIndexMap &vmap, const bool coarse = false);
-  // no coarse flag because you need to be able to specify non one-copy variables
-  // and also because the C++ compiler automatically typecasts initializer lists
-  // to bool if you let it.
-  VariablePack<T> PackVariables();
-  VariablePack<T> PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
-                                std::vector<std::string> &key, const bool coarse = false);
+                                const std::vector<int> &sparse_ids = {},
+                                bool coarse = false, PackIndexMap *vmap_out = nullptr,
+                                std::vector<std::string> *key_out = nullptr);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                std::vector<std::string> &key, const bool coarse = false);
+                                bool coarse = false, PackIndexMap *vmap_out = nullptr,
+                                std::vector<std::string> *key_out = nullptr) {
+    return PackVariables(names, {}, coarse, vmap_out, key_out);
+  }
+
+  /// Pack variables by Metadata flags
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
-                                PackIndexMap &vmap, std::vector<std::string> &key,
-                                const bool coarse = false);
+                                const std::vector<int> &sparse_ids = {},
+                                bool coarse = false, PackIndexMap *vmap_out = nullptr,
+                                std::vector<std::string> *key_out = nullptr);
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
-                                std::vector<std::string> &key, const bool coarse = false);
-  VariablePack<T> PackVariables(PackIndexMap &vmap, std::vector<std::string> &key,
-                                const bool coarse = false);
+                                bool coarse = false, PackIndexMap *vmap_out = nullptr,
+                                std::vector<std::string> *key_out = nullptr) {
+    return PackVariables(flags, {}, coarse, vmap_out, key_out);
+  }
+
+  /// Pack all variables
+  VariablePack<T> PackVariables(const std::vector<int> &sparse_ids, bool coarse = false,
+                                PackIndexMap *vmap_out = nullptr,
+                                std::vector<std::string> *key_out = nullptr);
+  VariablePack<T> PackVariables(bool coarse = false, PackIndexMap *vmap_out = nullptr,
+                                std::vector<std::string> *key_out = nullptr) {
+    return PackVariables({}, coarse, vmap_out, key_out);
+  }
+
+  // TODO(JL) I don't quite understand this
+  // // no coarse flag because you need to be able to specify non one-copy variables
+  // // and also because the C++ compiler automatically typecasts initializer lists
+  // // to bool if you let it.
+  // VariablePack<T> PackVariables();
 
   /// Remove a variable from the container or throw exception if not
   /// found.
@@ -392,7 +426,7 @@ class MeshBlockData {
   }
 
  private:
-  int debug = 0;
+  int debug = 0; // TODO(JL) Do we still need this?
   std::weak_ptr<MeshBlock> pmy_block;
 
   CellVariableVector<T> varVector_; ///< the saved variable array
@@ -406,25 +440,26 @@ class MeshBlockData {
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
 
-  std::array<int, 6> calcArrDims_(const Metadata &metadata);
+  using VarLabelList = VarListWithLabels<T>;
 
-  // helper functions for VariablePack
-  struct VariableListResult {
-    vpack_types::VarList<T> vars;
-    std::vector<std::string> expanded_names;
-  };
-
-  VariableListResult GetVariablesByName(const std::vector<std::string> &names);
-  VariableListResult GetVariablesByFlag(const std::vector<MetadataFlag> &flags);
-  VariableListResult GetAllVariables();
+  // key is an output variable and may be nullptr
+  VarLabelList GetVariablesByName(const std::vector<std::string> &names,
+                                  const std::vector<int> &sparse_ids);
+  VarLabelList GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
+                                  const std::vector<int> &sparse_ids);
+  VarLabelList GetAllVariables(const std::vector<int> &sparse_ids) {
+    return GetVariablesByFlag({}, sparse_ids);
+  }
 
   // These helper functions are private scope because they assume that
   // the names include the components of sparse variables.
-  PackVariablesAndFluxesResult<T>
-  PackListedVariablesAndFluxes(VariableListResult &&variables,
-                               VariableListResult &&fluxes);
-  PackVariablesResult<T> PackListedVariables(VariableListResult &&variables,
-                                             const bool coarse = false);
+  VariableFluxPack<T> PackListedVariablesAndFluxes(const VarLabelList &var_list,
+                                                   const VarLabelList &flux_list,
+                                                   vpack_types::StringPair *keys_out,
+                                                   PackIndexMap *vmap_out);
+  VariablePack<T> PackListedVariables(const VarLabelList &var_list, bool coarse,
+                                      std::vector<std::string> *key_out,
+                                      PackIndexMap *vmap_out);
 };
 
 using MeshBlockDataCollection = DataCollection<MeshBlockData<Real>>;

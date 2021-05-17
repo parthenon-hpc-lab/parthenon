@@ -19,6 +19,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -48,10 +49,7 @@ std::string CellVariable<T>::info() {
 // copy constructor
 template <typename T>
 std::shared_ptr<CellVariable<T>>
-CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wpmb) {
-  std::array<int, 6> dims = {GetDim(1), GetDim(2), GetDim(3),
-                             GetDim(4), GetDim(5), GetDim(6)};
-
+CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb, const bool allocComms) {
   // copy the Metadata and set the SharedComms flag if appropriate
   Metadata m = m_;
   if (IsSet(Metadata::FillGhost) && !allocComms) {
@@ -59,11 +57,15 @@ CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wp
   }
 
   // make the new CellVariable
-  auto cv = std::make_shared<CellVariable<T>>(label(), dims, m);
+  auto cv = std::make_shared<CellVariable<T>>(label_, m, sparse_id_);
+
+  if (is_allocated_) {
+    cv->AllocateData(wpmb);
+  }
 
   if (IsSet(Metadata::FillGhost)) {
     if (allocComms) {
-      cv->allocateComms(wpmb);
+      cv->AllocateComms(wpmb);
     } else {
       // set data pointer for the boundary communication
       // Note that vbvar->var_cc will be set when stage is selected
@@ -78,23 +80,48 @@ CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wp
       cv->coarse_s = coarse_s;
     }
   }
+
   return cv;
+}
+
+template <typename T>
+void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
+  AllocateData(wpmb);
+
+  if (m_.IsSet(Metadata::FillGhost)) {
+    AllocateComms(wpmb);
+  }
+}
+
+template <typename T>
+void CellVariable<T>::AllocateData(std::weak_ptr<MeshBlock> wpmb) {
+  if (is_allocated_) {
+    return;
+  }
+
+  if (wpmb.expired()) return;
+
+  const auto dims = m_.GetArrayDims(wpmb.lock()->cellbounds);
+  data = ParArrayND<T>(label_, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]);
+  is_allocated_ = true;
 }
 
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
-void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
+void CellVariable<T>::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
+  PARTHENON_REQUIRE_THROWS(is_allocated_,
+                           "Tried to allocate comms for un-allocated variable " + label_);
+
   // set up fluxes
-  std::string base_name = label();
   if (IsSet(Metadata::Independent)) {
-    flux[X1DIR] = ParArrayND<T>(base_name + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
+    flux[X1DIR] = ParArrayND<T>(label_ + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
                                 GetDim(3), GetDim(2), GetDim(1));
     if (GetDim(2) > 1)
-      flux[X2DIR] = ParArrayND<T>(base_name + ".fluxX2", GetDim(6), GetDim(5), GetDim(4),
+      flux[X2DIR] = ParArrayND<T>(label_ + ".fluxX2", GetDim(6), GetDim(5), GetDim(4),
                                   GetDim(3), GetDim(2), GetDim(1));
     if (GetDim(3) > 1)
-      flux[X3DIR] = ParArrayND<T>(base_name + ".fluxX3", GetDim(6), GetDim(5), GetDim(4),
+      flux[X3DIR] = ParArrayND<T>(label_ + ".fluxX3", GetDim(6), GetDim(5), GetDim(4),
                                   GetDim(3), GetDim(2), GetDim(1));
   }
 
@@ -103,7 +130,7 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
   if (pmb->pmy_mesh->multilevel)
-    coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
+    coarse_s = ParArrayND<T>(label_ + ".coarse", GetDim(6), GetDim(5), GetDim(4),
                              pmb->c_cellbounds.ncellsk(IndexDomain::entire),
                              pmb->c_cellbounds.ncellsj(IndexDomain::entire),
                              pmb->c_cellbounds.ncellsi(IndexDomain::entire));

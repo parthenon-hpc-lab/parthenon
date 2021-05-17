@@ -22,8 +22,17 @@
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
+
+void Packages_t::Add(const std::shared_ptr<StateDescriptor> &package) {
+  const auto &name = package->label();
+  PARTHENON_REQUIRE_THROWS(packages_.count(name) == 0,
+                           "Package name " + name + " must be unique.");
+  packages_[name] = package;
+  return;
+}
 
 class VariableProvider {
  public:
@@ -270,7 +279,8 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
 // Takes all packages and combines them into a single state descriptor
 // containing all variables with conflicts resolved.  Note the new
 // state descriptor DOES not have any of its function pointers set.
-std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
+std::shared_ptr<StateDescriptor>
+StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   auto state = std::make_shared<StateDescriptor>("parthenon::resolved_state");
 
   // The workhorse data structure. Uses sets to cache which variables
@@ -284,12 +294,33 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
   // Add private/provides variables. Check for conflicts among those.
   // Track dependent and overridable variables.
   for (auto &pair : packages.AllPackages()) {
-    auto &name = pair.first;
+    const auto &name = pair.first;
     auto &package = pair.second;
     package->ValidateMetadata(); // set unset flags
     // sort
     var_tracker.CategorizeCollection(name, package->AllFields(), &field_provider);
     swarm_tracker.CategorizeCollection(name, package->AllSwarms(), &swarm_provider);
+
+    // add sparse ID pools
+    for (const auto &pool_itr : package->AllSparseIdPools()) {
+      const auto &base_name = pool_itr.first;
+
+      const auto itm = state->sparseIdPool_.find(base_name);
+      if (itm != state->sparseIdPool_.end()) {
+        // we already have this sparse base name in the resolved state, check if the pool
+        // of sparse ids is the same, if they are the same, move on
+        if (itm->second != pool_itr.second) {
+          std::stringstream err;
+          err << "Package '" << name << "' tried to add a sparse ID pool '" << base_name
+              << "' to the resolved state, but a different pool of this name already "
+                 "exists";
+          PARTHENON_THROW(err);
+        }
+      } else {
+        // add this pool to the resolved state
+        state->sparseIdPool_.insert(pool_itr);
+      }
+    }
   }
 
   // check that dependent variables are provided somewhere
