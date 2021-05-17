@@ -225,20 +225,6 @@ bool StateDescriptor::FlagsPresent(std::vector<MetadataFlag> const &flags,
   return false;
 }
 
-void StateDescriptor::ValidateMetadata() {
-  auto set_default_provides = [](Metadata &m) {
-    if (m.Role() == Metadata::None) m.Set(Metadata::Provides);
-  };
-
-  for (auto &pair : metadataMap_)
-    set_default_provides(pair.second);
-
-  for (auto &pair : swarmMetadataMap_)
-    set_default_provides(pair.second);
-
-  // TODO(JL): What about swarmValueMetadataMap_?
-}
-
 std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
   os << "# Package: " << sd.label() << "\n"
      << "# ---------------------------------------------------\n"
@@ -296,7 +282,6 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   for (auto &pair : packages.AllPackages()) {
     const auto &name = pair.first;
     auto &package = pair.second;
-    package->ValidateMetadata(); // set unset flags
     // sort
     var_tracker.CategorizeCollection(name, package->AllFields(), &field_provider);
     swarm_tracker.CategorizeCollection(name, package->AllSwarms(), &swarm_provider);

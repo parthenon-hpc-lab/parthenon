@@ -86,6 +86,9 @@ class CellVariable {
   ///< retrieve metadata for variable
   inline Metadata metadata() const { return m_; }
 
+  inline bool HasFluxes() const { return m_.IsSet(Metadata::WithFluxes); }
+  inline bool HasBoundaryVars() const { return m_.IsSet(Metadata::FillGhost); }
+
   /// Get Sparse ID (-1 if not sparse)
   inline int GetSparseID() const { return IsSparse() ? sparse_id_ : InvalidSparseID; }
 

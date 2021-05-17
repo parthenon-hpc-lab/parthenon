@@ -110,43 +110,46 @@ void CellVariable<T>::AllocateData(std::weak_ptr<MeshBlock> wpmb) {
 /// Initialize a 6D variable
 template <typename T>
 void CellVariable<T>::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
-  PARTHENON_REQUIRE_THROWS(is_allocated_,
-                           "Tried to allocate comms for un-allocated variable " + label_);
+  PARTHENON_REQUIRE_THROWS(
+      is_allocated_, "Tried to allocate comms for un-allocated variable " + label());
 
   // set up fluxes
-  if (IsSet(Metadata::Independent)) {
-    flux[X1DIR] = ParArrayND<T>(label_ + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
+  std::string base_name = label();
+  if (HasFluxes()) {
+    flux[X1DIR] = ParArrayND<T>(base_name + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
                                 GetDim(3), GetDim(2), GetDim(1));
     if (GetDim(2) > 1)
-      flux[X2DIR] = ParArrayND<T>(label_ + ".fluxX2", GetDim(6), GetDim(5), GetDim(4),
+      flux[X2DIR] = ParArrayND<T>(base_name + ".fluxX2", GetDim(6), GetDim(5), GetDim(4),
                                   GetDim(3), GetDim(2), GetDim(1));
     if (GetDim(3) > 1)
-      flux[X3DIR] = ParArrayND<T>(label_ + ".fluxX3", GetDim(6), GetDim(5), GetDim(4),
+      flux[X3DIR] = ParArrayND<T>(base_name + ".fluxX3", GetDim(6), GetDim(5), GetDim(4),
                                   GetDim(3), GetDim(2), GetDim(1));
   }
 
-  if (wpmb.expired()) return;
-
-  std::shared_ptr<MeshBlock> pmb = wpmb.lock();
-
-  if (pmb->pmy_mesh->multilevel)
-    coarse_s = ParArrayND<T>(label_ + ".coarse", GetDim(6), GetDim(5), GetDim(4),
-                             pmb->c_cellbounds.ncellsk(IndexDomain::entire),
-                             pmb->c_cellbounds.ncellsj(IndexDomain::entire),
-                             pmb->c_cellbounds.ncellsi(IndexDomain::entire));
-
   // Create the boundary object
-  vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
+  if (HasBoundaryVars()) {
+    if (wpmb.expired()) return;
 
-  // enroll CellCenteredBoundaryVariable object
-  vbvar->bvar_index = pmb->pbval->bvars.size();
-  // TODO(JMM): This means RestrictBoundaries()
-  // is called on EVERY stage, regardless of what
-  // stage needs it.
-  // The fix is to refactor BoundaryValues
-  // to expose calls at either the `Variable`
-  // or `MeshBlockData` and `MeshData` level.
-  pmb->pbval->bvars.push_back(vbvar);
+    std::shared_ptr<MeshBlock> pmb = wpmb.lock();
+
+    if (pmb->pmy_mesh->multilevel)
+      coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
+                               pmb->c_cellbounds.ncellsk(IndexDomain::entire),
+                               pmb->c_cellbounds.ncellsj(IndexDomain::entire),
+                               pmb->c_cellbounds.ncellsi(IndexDomain::entire));
+
+    vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
+
+    // enroll CellCenteredBoundaryVariable object
+    vbvar->bvar_index = pmb->pbval->bvars.size();
+    // TODO(JMM): This means RestrictBoundaries()
+    // is called on EVERY stage, regardless of what
+    // stage needs it.
+    // The fix is to refactor BoundaryValues
+    // to expose calls at either the `Variable`
+    // or `MeshBlockData` and `MeshData` level.
+    pmb->pbval->bvars.push_back(vbvar);
+  }
 
   mpiStatus = false;
 }
