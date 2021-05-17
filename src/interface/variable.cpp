@@ -91,25 +91,19 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise
   // the stride will mess up the types.
 
-  // Compute size of unified flux_data object and create it. A unified
-  // flux_data_ object reduces the number of memory allocations per
-  // variable per meshblock from 5 to 3.
-  int n_outer = 0;
   if (IsSet(Metadata::Independent)) {
-    n_outer += (GetDim(1) > 1) + (GetDim(2) > 1) + (GetDim(3) > 1);
-  }
-  flux_data_ = ParArray7D<T>(base_name + ".flux_data", n_outer, GetDim(6), GetDim(5),
-                             GetDim(4), GetDim(3), GetDim(2), GetDim(1));
-
-  // set up fluxes
-  int offset = 0;
-  if (IsSet(Metadata::Independent)) {
-    for (int d = X1DIR; d <= X3DIR; ++d) {
-      if (GetDim(d) > 1) {
-        flux[d] = ParArrayND<T>(
-            Kokkos::subview(flux_data_, offset++, Kokkos::ALL(), Kokkos::ALL(),
-                            Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()));
-      }
+    // Compute size of unified flux_data object and create it. A unified
+    // flux_data_ object reduces the number of memory allocations per
+    // variable per meshblock from 5 to 3.
+    int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
+    // allocate fluxes
+    flux_data_ = ParArray7D<T>(base_name + ".flux_data", n_outer, GetDim(6), GetDim(5),
+                               GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+    // set up fluxes
+    for (int d = X1DIR; d <= n_outer; ++d) {
+      flux[d] = ParArrayND<T>(Kokkos::subview(flux_data_, d - 1, Kokkos::ALL(),
+                                              Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
+                                              Kokkos::ALL(), Kokkos::ALL()));
     }
   }
 
