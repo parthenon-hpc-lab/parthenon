@@ -57,28 +57,26 @@ CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb, const bool allocCom
   }
 
   // make the new CellVariable
-  auto cv = std::make_shared<CellVariable<T>>(label_, m, sparse_id_);
+  auto cv = std::make_shared<CellVariable<T>>(label(), m, sparse_id_);
 
   if (is_allocated_) {
     cv->AllocateData(wpmb);
   }
 
-  if (IsSet(Metadata::FillGhost)) {
-    if (allocComms) {
-      cv->AllocateComms(wpmb);
-    } else {
-      // set data pointer for the boundary communication
-      // Note that vbvar->var_cc will be set when stage is selected
-      cv->vbvar = vbvar;
+  if (allocComms) {
+    cv->AllocateComms(wpmb);
+  } else {
+    // set data pointer for the boundary communication
+    // Note that vbvar->var_cc will be set when stage is selected
+    cv->vbvar = vbvar;
 
-      // fluxes, etc are always a copy
-      for (int i = 1; i <= 3; i++) {
-        cv->flux[i] = flux[i];
-      }
-
-      // These members are pointers,      // point at same memory as src
-      cv->coarse_s = coarse_s;
+    // fluxes, etc are always a copy
+    for (int i = 1; i <= 3; i++) {
+      cv->flux[i] = flux[i];
     }
+
+    // These members are pointers,      // point at same memory as src
+    cv->coarse_s = coarse_s;
   }
 
   return cv;
@@ -87,10 +85,7 @@ CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb, const bool allocCom
 template <typename T>
 void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
   AllocateData(wpmb);
-
-  if (m_.IsSet(Metadata::FillGhost)) {
-    AllocateComms(wpmb);
-  }
+  AllocateComms(wpmb);
 }
 
 template <typename T>
@@ -102,7 +97,7 @@ void CellVariable<T>::AllocateData(std::weak_ptr<MeshBlock> wpmb) {
   if (wpmb.expired()) return;
 
   const auto dims = m_.GetArrayDims(wpmb.lock()->cellbounds);
-  data = ParArrayND<T>(label_, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]);
+  data = ParArrayND<T>(label(), dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]);
   is_allocated_ = true;
 }
 

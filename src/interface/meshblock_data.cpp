@@ -373,14 +373,7 @@ TaskStatus MeshBlockData<T>::SendFluxCorrection() {
       v->vbvar->SendFluxCorrection();
     }
   }
-  for (auto &sv : sparseVector_) {
-    if (sv->HasFluxes() && sv->HasBoundaryVars()) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        v->vbvar->SendFluxCorrection();
-      }
-    }
-  }
+
   Kokkos::Profiling::popRegion(); // Task_SendFluxCorrection
   return TaskStatus::complete;
 }
@@ -391,19 +384,13 @@ TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
   int success = 0, total = 0;
   for (auto &v : varVector_) {
     if (v->HasFluxes() && v->HasBoundaryVars()) {
-      if (v->vbvar->ReceiveFluxCorrection()) success++;
+      if (v->vbvar->ReceiveFluxCorrection()) {
+        success++;
+      }
       total++;
     }
   }
-  for (auto &sv : sparseVector_) {
-    if (sv->HasFluxes() && sv->HasBoundaryVars()) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        if (v->vbvar->ReceiveFluxCorrection()) success++;
-        total++;
-      }
-    }
-  }
+
   Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrection
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
@@ -420,15 +407,6 @@ TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
       v->vbvar->SendBoundaryBuffers();
     }
   }
-  for (auto &sv : sparseVector_) {
-    if (sv->HasBoundaryVars()) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        v->resetBoundary();
-        v->vbvar->SendBoundaryBuffers();
-      }
-    }
-  }
 
   Kokkos::Profiling::popRegion(); // Task_SendBoundaryBuffers_MeshBlockData
   return TaskStatus::complete;
@@ -443,16 +421,6 @@ void MeshBlockData<T>::SetupPersistentMPI() {
       v->vbvar->SetupPersistentMPI();
     }
   }
-  for (auto &sv : sparseVector_) {
-    if (sv->HasBoundaryVars()) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        v->resetBoundary();
-        v->vbvar->SetupPersistentMPI();
-      }
-    }
-  }
-  return;
 }
 
 template <typename T>
