@@ -53,11 +53,8 @@ CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wp
   std::array<int, 6> dims = {GetDim(1), GetDim(2), GetDim(3),
                              GetDim(4), GetDim(5), GetDim(6)};
 
-  // copy the Metadata and set the SharedComms flag if appropriate
+  // copy the Metadata
   Metadata m = m_;
-  if (IsSet(Metadata::FillGhost) && !allocComms) {
-    m.Set(Metadata::SharedComms);
-  }
 
   // make the new CellVariable
   auto cv = std::make_shared<CellVariable<T>>(label(), dims, m);
