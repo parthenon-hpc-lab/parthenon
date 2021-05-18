@@ -166,25 +166,25 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
                   Metadata::FillGhost},
                  std::vector<int>({vec_size}), advected_labels);
-    pkg->AddField(field_name, m);
+    pkg->AddDenseField(field_name, m);
   }
   if (fill_derived) {
     field_name = "one_minus_advected";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
                  std::vector<int>({num_vars}));
-    pkg->AddField(field_name, m);
+    pkg->AddDenseField(field_name, m);
 
     field_name = "one_minus_advected_sq";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
                  std::vector<int>({num_vars}));
-    pkg->AddField(field_name, m);
+    pkg->AddDenseField(field_name, m);
 
     // for fun make this last one a multi-component field using SparseVariable
     field_name = "one_minus_sqrt_one_minus_advected_sq";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                   Metadata::Restart},
                  std::vector<int>({num_vars}));
-    pkg->AddField(field_name, m);
+    pkg->AddSparseFields(field_name, {12, 37}, m);
   }
 
   // List (vector) of HistoryOutputVar that will all be enrolled as output variables
@@ -267,7 +267,7 @@ void PreFill(MeshBlockData<Real> *rc) {
     // packing in principle unnecessary/convoluted here and just done for demonstration
     PackIndexMap imap;
     std::vector<std::string> vars({"advected", "one_minus_advected"});
-    const auto &v = rc->PackVariables(vars, imap);
+    const auto &v = rc->PackVariables(vars, false, &imap);
     const int in = imap.get("advected").first;
     const int out = imap.get("one_minus_advected").first;
     const auto num_vars = rc->Get("advected").data.GetDim(4);
@@ -290,7 +290,7 @@ void SquareIt(MeshBlockData<Real> *rc) {
   // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
-  auto v = rc->PackVariables(vars, imap);
+  auto v = rc->PackVariables(vars, false, &imap);
   const int in = imap.get("one_minus_advected").first;
   const int out = imap.get("one_minus_advected_sq").first;
   const auto num_vars = rc->Get("advected").data.GetDim(4);
@@ -321,7 +321,7 @@ void PostFill(MeshBlockData<Real> *rc) {
     PackIndexMap imap;
     std::vector<std::string> vars(
         {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
-    auto v = rc->PackVariables(vars, {even ? 12 : 37}, imap);
+    auto v = rc->PackVariables(vars, {even ? 12 : 37}, false, &imap);
     const int in = imap.get("one_minus_advected_sq").first;
     const int out =
         imap.get("one_minus_sqrt_one_minus_advected_sq", even ? 12 : 37).first;

@@ -56,6 +56,27 @@ class Packages_t {
   Dictionary<std::shared_ptr<StateDescriptor>> packages_;
 };
 
+/// VarID uniquely identifies a variable by its base name and sparse id
+struct VarID {
+  std::string base_name;
+  int sparse_id;
+
+  explicit VarID(const std::string base_name, int sparse_id = InvalidSparseID)
+      : base_name(base_name), sparse_id(sparse_id) {}
+
+  std::string label() const { return MakeVarLabel(base_name, sparse_id); }
+
+  bool operator==(const VarID &other) const {
+    return (base_name == other.base_name) && (sparse_id == other.sparse_id);
+  }
+};
+
+struct VarIDHasher {
+  auto operator()(const VarID &vid) const {
+    return std::hash<std::string>{}(vid.label());
+  }
+};
+
 /// The state metadata descriptor class.
 ///
 /// Each State descriptor has a label, associated parameters, and
@@ -120,7 +141,7 @@ class StateDescriptor {
  private:
   // internal function to add dense/sparse fields. Private because outside classes must
   // use the public interface below
-  bool AddFieldImpl(const std::string &field_name, const Metadata &m);
+  bool AddFieldImpl(const VarID &vid, const Metadata &m);
 
  public:
   bool AddDenseField(const std::string &field_name, const Metadata &m) {
@@ -129,7 +150,7 @@ class StateDescriptor {
                       "AddField), use AddSparseFields instead");
     }
 
-    return AddFieldImpl(field_name, m);
+    return AddFieldImpl(VarID(field_name), m);
   }
 
   // add a field with associated metadata
@@ -159,7 +180,7 @@ class StateDescriptor {
 
     sparseIdPool_.insert({base_name, sparse_ids});
     for (size_t i = 0; i < sparse_ids.size(); ++i) {
-      AddFieldImpl(MakeVarLabel(base_name, sparse_ids[i]), ms[i]);
+      AddFieldImpl(VarID(base_name, sparse_ids[i]), ms[i]);
     }
 
     return true;
@@ -180,7 +201,7 @@ class StateDescriptor {
     std::vector<std::string> names;
     names.reserve(metadataMap_.size());
     for (auto &x : metadataMap_) {
-      names.push_back(x.first);
+      names.push_back(x.first.label());
     }
     return names;
   }
@@ -201,8 +222,8 @@ class StateDescriptor {
   const auto &AllSwarmValues(const std::string &swarm_name) const {
     return swarmValueMetadataMap_.at(swarm_name);
   }
-  bool FieldPresent(const std::string &field_name) const {
-    return metadataMap_.count(field_name) > 0;
+  bool FieldPresent(const std::string &base_name, int sparse_id = InvalidSparseID) const {
+    return metadataMap_.count(VarID(base_name, sparse_id)) > 0;
   }
   bool SparseBaseNamePresent(const std::string &base_name) const {
     return sparseIdPool_.count(base_name) > 0;
@@ -217,9 +238,9 @@ class StateDescriptor {
   }
 
   // retrieve metadata for a specific field
-  Metadata &FieldMetadata(const std::string &field_name) {
+  Metadata &FieldMetadata(const std::string &base_name, int sparse_id = InvalidSparseID) {
     // TODO(JL) Do we want to add a default metadata for a non-existent field_name?
-    return metadataMap_[field_name];
+    return metadataMap_[VarID(base_name, sparse_id)];
   }
 
   const auto &SparseIdPool(const std::string &base_name) const {
@@ -314,7 +335,7 @@ class StateDescriptor {
   const std::string label_;
 
   // for each variable label (full label for sparse variables) hold metadata
-  Dictionary<Metadata> metadataMap_;
+  std::unordered_map<VarID, Metadata, VarIDHasher> metadataMap_;
 
   // for each sparse base name hold pool of possible sparse ids
   Dictionary<std::vector<int>> sparseIdPool_;
@@ -323,7 +344,7 @@ class StateDescriptor {
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 };
 
-std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
+inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
   return StateDescriptor::CreateResolvedStateDescriptor(packages);
 }
 

@@ -9,7 +9,15 @@ The `Metadata` class provides a means of defining self-describing variables with
 # StateDescriptor
 
 The `StateDescriptor` class is intended to be used to inform Parthenon about the needs of an application and store relevant parameters that control application-specific behavior at runtime.  The class provides several useful features and functions.
-* `bool AddField(const std::string& field_name, Metadata& m)` provides the means to add new variables to a Parthenon-based application with associated `Metadata`.  This function does not allocate any storage or create any of the objects below, it simply adds the name and `Metadata` to a list so that those objects can be populated at the appropriate time.
+* `bool AddDenseField(const std::string& field_name, Metadata& m)` provides the means to add new
+  dense variables to a Parthenon-based application with associated `Metadata`.  This function does
+  not allocate any storage or create any of the objects below, it simply adds the name and
+  `Metadata` to a list so that those objects can be populated at the appropriate time.
+* `bool AddSparseFields(const std::string &base_name, const std::vector<int> &sparse_ids, const std::vector<Metadata> &ms)`
+  adds a collection of sparse variables where `sparse_ids` is the pool of possible sparse IDs
+  and each sparse ID has a different metadata given by `ms`. Note that unlike dense variables, which
+  are allocated on each block, sparse variables are not allocated until the user explicitly
+  allocates them on specific blocks.
 * `void AddParam<T>(const std::string& key, T& value)` adds a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`.
 * `void UpdateParam<T>(const std::string& key, T& value)`updates a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`. A parameter of the same type must exist.
 * `const T& Param(const std::string& key)` provides the getter to access parameters previously added by `AddParam`.

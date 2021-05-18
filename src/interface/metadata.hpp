@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -291,14 +291,6 @@ class Metadata {
       }
     }
 
-    // Sparse
-    if (IsSet(Sparse) != (sparse_id_ != -1)) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Mismatch between sparse flag and sparse ID");
-      }
-    }
-
     return valid;
   }
 
@@ -358,7 +350,7 @@ class Metadata {
   /*--------------------------------------------------------*/
 
   // get the dims of the 6D array
-  std::array<int, 6> GetArrayDims(const IndexShape &cellbounds) {
+  std::array<int, 6> GetArrayDims(const IndexShape &cellbounds) const {
     std::array<int, 6> arrDims;
 
     const auto &shape = Shape();

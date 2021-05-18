@@ -143,7 +143,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   for (int i = 0; i < properties.size(); i++) {
     StateDescriptor &state = properties[i]->State();
     for (auto const &q : state.AllFields()) {
-      real_container->Add(q.first, q.second);
+      real_container->Add(q.first.label(), q.second, q.first.sparse_id);
     }
   }
   // Add physics data, including dense, sparse, and swarm variables.
@@ -151,7 +151,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   resolved_packages = ResolvePackages(packages);
   auto &pkg = resolved_packages;
   for (auto const &q : pkg->AllFields()) {
-    real_container->Add(q.first, q.second);
+    real_container->Add(q.first.label(), q.second, q.first.sparse_id);
   }
   for (auto const &q : pkg->AllSwarms()) {
     swarm_container->Add(q.first, q.second);

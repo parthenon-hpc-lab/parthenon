@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -283,7 +283,8 @@ TEST_CASE("Catch2 Container Iterator Performance",
 
       WHEN("The view of views is implemented with names and indices.") {
         PackIndexMap imap;
-        auto vsub = container.PackVariables({"v0", "v1", "v2", "v3", "v4", "v5"}, imap);
+        auto vsub =
+            container.PackVariables({"v0", "v1", "v2", "v3", "v4", "v5"}, false, &imap);
         auto init_view_of_views = createLambdaInitViewOfViews(vsub);
         performance_test_wrapper("View of views", init_view_of_views, [&]() {
           par_for(

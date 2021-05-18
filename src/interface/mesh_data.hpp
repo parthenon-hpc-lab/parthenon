@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -155,7 +155,9 @@ class MeshData {
       return meshblock_data->PackVariables(std::forward<Args>(args)...);
     };
     std::vector<std::string> key;
-    auto vpack = block_data_[0]->PackVariables(std::forward<Args>(args)..., key);
+    // TODO(JL) This is fragile
+    auto vpack =
+        block_data_[0]->PackVariables(std::forward<Args>(args)..., false, nullptr, &key);
     return pack_on_mesh_impl::PackOnMesh<VariablePack<T>>(key, varPackMap_, block_data_,
                                                           pack_function);
   }
@@ -166,7 +168,9 @@ class MeshData {
       return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)...);
     };
     vpack_types::StringPair key;
-    auto vpack = block_data_[0]->PackVariablesAndFluxes(std::forward<Args>(args)..., key);
+    // TODO(JL) This is fragile
+    auto vpack = block_data_[0]->PackVariablesAndFluxes(std::forward<Args>(args)...,
+                                                        nullptr, &key);
     return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>>(key, varFluxPackMap_,
                                                               block_data_, pack_function);
   }

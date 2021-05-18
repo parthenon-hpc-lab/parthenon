@@ -79,7 +79,7 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
     // std::cout << "In: " << pmb->gid << std::endl;
 
     rc->AllocSparseID("in_or_out", 0);
-    v = rc->GetSparseVariable("in_or_out").Get(0)->data;
+    v = rc->Get("in_or_out", 0).data;
   } else {
     v = rc->Get("in_or_out").data;
   }
@@ -122,7 +122,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   if (use_sparse) {
     m.Set(Metadata::Sparse);
   }
-  package->AddField(field_name, m);
+  package->AddSparseFields(field_name, {0}, m);
 
   // All the package FillDerived and CheckRefinement functions are called by parthenon
   package->FillDerivedBlock = SetInOrOut;

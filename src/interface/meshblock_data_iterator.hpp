@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -39,7 +39,6 @@ class MeshBlockDataIterator {
   void MakeList(const std::shared_ptr<MeshBlockData<T>> &c,
                 const std::vector<std::string> &names) {
     auto var_map = c->GetCellVariableMap();
-    auto sparse_map = c->GetSparseMap();
     // reverse iterator to end up with a list in the same order as requested
     for (const auto &name : names) {
       bool found = false;
@@ -47,19 +46,6 @@ class MeshBlockDataIterator {
       if (v != var_map.end()) {
         vars.push_back(v->second);
         found = true;
-      }
-      auto sv = sparse_map.find(name);
-      if (sv != sparse_map.end()) {
-        if (found) {
-          // that's weird, found the name in both???
-          std::cerr << name << " found in both var_map and sparse_map in PackVariables"
-                    << std::endl;
-          std::exit(1);
-        }
-        found = true;
-        for (const auto &svar : sv->second->GetVector()) {
-          vars.push_back(svar);
-        }
       }
       /*if (!found) {
         std::cerr << name << " not found in var_map or sparse_map in PackVariables"
@@ -76,10 +62,6 @@ class MeshBlockDataIterator {
   MeshBlockDataIterator<T>(const std::shared_ptr<MeshBlockData<T>> &c,
                            const std::vector<MetadataFlag> &flags, bool matchAny = false)
       : allVars_(c->GetCellVariableVector()) {
-    for (auto &svar : c->GetSparseVector()) {
-      CellVariableVector<T> &svec = svar->GetVector();
-      allVars_.insert(allVars_.end(), svec.begin(), svec.end());
-    }
     // faces not active yet    allFaceVars_ = c.faceVars();
     // edges not active yet    allEdgeVars_ = c.edgeVars();
     resetVars(flags, matchAny); // fill subset based on mask vector

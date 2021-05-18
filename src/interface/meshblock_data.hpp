@@ -76,6 +76,7 @@ class MeshBlockData {
     return GetBlockPointer()->cellbounds.GetBoundsK(domain);
   }
 
+  // TODO(JL) combine this with copy constructors
   void Copy(const std::shared_ptr<MeshBlockData<T>> &src,
             const std::vector<std::string> &names) {
     SetBlockPointer(src);
@@ -129,7 +130,10 @@ class MeshBlockData {
   /// Set the pointer to the mesh block for this container
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
   void SetBlockPointer(const std::shared_ptr<MeshBlockData<T>> &other) {
-    pmy_block = other->GetBlockPointer();
+    SetBlockPointer(*other);
+  }
+  void SetBlockPointer(const MeshBlockData<T> &other) {
+    pmy_block = other.GetBlockPointer();
   }
 
   ///
@@ -142,19 +146,20 @@ class MeshBlockData {
   /// @param label the name of the variable
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::string &label, const Metadata &metadata);
+  void Add(const std::string &label, const Metadata &metadata,
+           int sparse_id = InvalidSparseID);
 
-  ///
-  /// Allocate and add a variable<T> to the container
-  ///
-  /// This function will eventually look at the metadata flags to
-  /// identify the size of the first dimension based on the
-  /// topological location.  Dimensions will be taken from the metadata.
-  ///
-  /// @param labelVector the array of names of variables
-  /// @param metadata the metadata associated with the variable
-  ///
-  void Add(const std::vector<std::string> &labelVector, const Metadata &metadata);
+  // ///
+  // /// Allocate and add a variable<T> to the container
+  // ///
+  // /// This function will eventually look at the metadata flags to
+  // /// identify the size of the first dimension based on the
+  // /// topological location.  Dimensions will be taken from the metadata.
+  // ///
+  // /// @param labelVector the array of names of variables
+  // /// @param metadata the metadata associated with the variable
+  // ///
+  // void Add(const std::vector<std::string> &labelVector, const Metadata &metadata);
 
   void Add(std::shared_ptr<CellVariable<T>> var) {
     varVector_.push_back(var);
@@ -177,7 +182,7 @@ class MeshBlockData {
 
   const MapToCellVars<T> &GetCellVariableMap() const { return varMap_; }
 
-  std::shared_ptr<CellVariable<T>> &GetCellVarPtr(const std::string &label) const {
+  std::shared_ptr<CellVariable<T>> GetCellVarPtr(const std::string &label) const {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
       PARTHENON_THROW(std::string("\n") + std::string(label) +
@@ -186,7 +191,10 @@ class MeshBlockData {
     return it->second;
   }
 
-  CellVariable<T> &Get(const std::string &label) const { return *GetCellVarPtr(label); }
+  CellVariable<T> &Get(const std::string &base_name,
+                       int sparse_id = InvalidSparseID) const {
+    return *GetCellVarPtr(MakeVarLabel(base_name, sparse_id));
+  }
   CellVariable<T> &Get(const int index) const { return *(varVector_[index]); }
 
   int Index(const std::string &label) {
@@ -196,14 +204,14 @@ class MeshBlockData {
     return -1;
   }
 
-  std::shared_ptr<CellVariable<T>> &AllocateSparse(std::string const &label) {
+  std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label) {
     if (!HasCellVariable(label)) {
       PARTHENON_THROW("Tried to allocate sparse variable '" + label +
                       "', but no such sparse variable exists");
     }
 
-    auto &var = GetCellVarPtr(label);
-    PARTHENON_REQUIRE_THROWS(var.IsSparse(),
+    auto var = GetCellVarPtr(label);
+    PARTHENON_REQUIRE_THROWS(var->IsSparse(),
                              "Tried to allocate non-sparse variable " + label);
 
     var->Allocate(pmy_block);
@@ -211,21 +219,17 @@ class MeshBlockData {
     return var;
   }
 
-  std::shared_ptr<CellVariable<T>> &AllocSparseID(std::string const &base_name,
-                                                  const int sparse_id) {
+  std::shared_ptr<CellVariable<T>> AllocSparseID(std::string const &base_name,
+                                                 const int sparse_id) {
     return AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 
-  bool IsAllocated(std::string const &label) const {
-    auto it = varMap_.find(label);
+  bool IsAllocated(std::string const &base_name, int sparse_id = InvalidSparseID) const {
+    auto it = varMap_.find(MakeVarLabel(base_name, sparse_id));
     if (it == varMap_.end()) {
       return false;
     }
     return it->second->IsAllocated();
-  }
-
-  bool IsAllocated(std::string const &base_name, const int sparse_id) const {
-    return IsAllocated(MakeVarLabel(base_name, sparse_id));
   }
 
   //
@@ -279,7 +283,7 @@ class MeshBlockData {
   /// Pack variables and fluxes by separate variables and fluxes names
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                                              const std::vector<std::string> &flx_names,
-                                             const std::vector<int> &sparse_ids = {},
+                                             const std::vector<int> &sparse_ids,
                                              PackIndexMap *vmap_out = nullptr,
                                              vpack_types::StringPair *keys_out = nullptr);
 
@@ -293,7 +297,7 @@ class MeshBlockData {
 
   /// Pack variables and fluxes by same variables and fluxes names
   VariableFluxPack<T> PackVariablesAndFluxes(
-      const std::vector<std::string> &names, const std::vector<int> &sparse_ids = {},
+      const std::vector<std::string> &names, const std::vector<int> &sparse_ids,
       PackIndexMap *vmap_out = nullptr, vpack_types::StringPair *keys_out = nullptr) {
     return PackVariablesAndFluxes(names, names, sparse_ids, vmap_out, keys_out);
   }
@@ -302,12 +306,12 @@ class MeshBlockData {
   PackVariablesAndFluxes(const std::vector<std::string> &names,
                          PackIndexMap *vmap_out = nullptr,
                          vpack_types::StringPair *keys_out = nullptr) {
-    return PackVariablesAndFluxes(names, {}, vmap_out, keys_out);
+    return PackVariablesAndFluxes(names, names, {}, vmap_out, keys_out);
   }
 
   /// Pack variables and fluxes by Metadata flags
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                                             const std::vector<int> &sparse_ids = {},
+                                             const std::vector<int> &sparse_ids,
                                              PackIndexMap *vmap_out = nullptr,
                                              vpack_types::StringPair *keys_out = nullptr);
 
@@ -326,13 +330,13 @@ class MeshBlockData {
   VariableFluxPack<T>
   PackVariablesAndFluxes(PackIndexMap *vmap_out = nullptr,
                          vpack_types::StringPair *keys_out = nullptr) {
-    return PackVariablesAndFluxes({}, vmap_out, keys_out);
+    return PackVariablesAndFluxes(std::vector<int>{}, vmap_out, keys_out);
   }
 
   /// Pack variables by name
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids = {},
-                                bool coarse = false, PackIndexMap *vmap_out = nullptr,
+                                const std::vector<int> &sparse_ids, bool coarse = false,
+                                PackIndexMap *vmap_out = nullptr,
                                 std::vector<std::string> *key_out = nullptr);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
                                 bool coarse = false, PackIndexMap *vmap_out = nullptr,
@@ -342,8 +346,8 @@ class MeshBlockData {
 
   /// Pack variables by Metadata flags
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
-                                const std::vector<int> &sparse_ids = {},
-                                bool coarse = false, PackIndexMap *vmap_out = nullptr,
+                                const std::vector<int> &sparse_ids, bool coarse = false,
+                                PackIndexMap *vmap_out = nullptr,
                                 std::vector<std::string> *key_out = nullptr);
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
                                 bool coarse = false, PackIndexMap *vmap_out = nullptr,
@@ -357,7 +361,7 @@ class MeshBlockData {
                                 std::vector<std::string> *key_out = nullptr);
   VariablePack<T> PackVariables(bool coarse = false, PackIndexMap *vmap_out = nullptr,
                                 std::vector<std::string> *key_out = nullptr) {
-    return PackVariables({}, coarse, vmap_out, key_out);
+    return PackVariables(std::vector<int>{}, coarse, vmap_out, key_out);
   }
 
   // TODO(JL) I don't quite understand this

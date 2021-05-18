@@ -36,38 +36,38 @@ void Packages_t::Add(const std::shared_ptr<StateDescriptor> &package) {
 
 class VariableProvider {
  public:
-  virtual void AddPrivate(const std::string &package, const std::string &var,
+  virtual void AddPrivate(const std::string &package, const VarID &vid,
                           const Metadata &metadata) = 0;
-  virtual void AddProvides(const std::string &package, const std::string &var,
+  virtual void AddProvides(const std::string &package, const VarID &vid,
                            const Metadata &metadata) = 0;
-  virtual void AddOverridable(const std::string &var, Metadata &metadata) = 0;
+  virtual void AddOverridable(const VarID &vid, Metadata &metadata) = 0;
 };
 
 // Helper class for ResolvePackages
 class DependencyTracker {
  public:
-  bool Provided(const std::string &var) { return provided_vars.count(var) > 0; }
+  bool Provided(const VarID &vid) { return provided_vars.count(vid) > 0; }
 
-  void Categorize(const std::string &package, const std::string &var,
-                  const Metadata &metadata, VariableProvider *pvp) {
+  void Categorize(const std::string &package, const VarID &vid, const Metadata &metadata,
+                  VariableProvider *pvp) {
     auto dependency = metadata.Role();
     if (dependency == Metadata::Private) {
-      pvp->AddPrivate(package, var, metadata);
+      pvp->AddPrivate(package, vid, metadata);
     } else if (dependency == Metadata::Provides) {
-      if (Provided(var)) {
-        PARTHENON_THROW("Variable " + var + " provided by multiple packages");
+      if (Provided(vid)) {
+        PARTHENON_THROW("Variable " + vid.label() + " provided by multiple packages");
       }
-      provided_vars.insert(var);
-      pvp->AddProvides(package, var, metadata);
+      provided_vars.insert(vid);
+      pvp->AddProvides(package, vid, metadata);
     } else if (dependency == Metadata::Requires) {
-      depends_vars.insert(var);
+      depends_vars.insert(vid);
     } else if (dependency == Metadata::Overridable) {
-      if (overridable_meta.count(var) == 0) {
-        overridable_meta[var] = {metadata};
+      if (overridable_meta.count(vid) == 0) {
+        overridable_meta[vid] = {metadata};
       }
       // only update overridable_vars count once
-      if (overridable_meta.at(var).size() == 1) {
-        overridable_vars[var] += 1; // using value initalization of ints = 0
+      if (overridable_meta.at(vid).size() == 1) {
+        overridable_vars[vid] += 1; // using value initialization of ints = 0
       }
     } else {
       PARTHENON_THROW("Unknown dependency");
@@ -78,9 +78,9 @@ class DependencyTracker {
   void CategorizeCollection(const std::string &package, const Collection &c,
                             VariableProvider *pvp) {
     for (auto &pair : c) {
-      std::string const &var = pair.first;
+      const auto &vid = pair.first;
       auto &metadata = pair.second;
-      Categorize(package, var, metadata, pvp);
+      Categorize(package, VarID(vid), metadata, pvp);
     }
   }
 
@@ -88,7 +88,7 @@ class DependencyTracker {
     for (auto &v : depends_vars) {
       if (!Provided(v) && overridable_vars.count(v) == 0) {
         std::stringstream ss;
-        ss << "Variable " << v
+        ss << "Variable " << v.label()
            << " registered as required, but not provided by any package!" << std::endl;
         PARTHENON_THROW(ss);
       }
@@ -98,31 +98,31 @@ class DependencyTracker {
   void CheckOverridable(VariableProvider *pvp) {
     std::unordered_set<std::string> cache;
     for (auto &pair : overridable_vars) {
-      auto &var = pair.first;
+      const auto &vid = pair.first;
       auto &count = pair.second;
-      if (!Provided(var)) {
+      if (!Provided(vid)) {
         if (count > 1) {
           std::stringstream ss;
-          ss << "Variable " << var
+          ss << "Variable " << vid.label()
              << " registered as overridable multiple times, but never provided."
              << " This results in undefined behaviour as to which package will provide"
              << " it." << std::endl;
           PARTHENON_DEBUG_WARN(ss);
         }
-        auto &mvec = overridable_meta[var];
+        auto &mvec = overridable_meta[vid];
         for (auto &metadata : mvec) {
-          pvp->AddOverridable(var, metadata);
+          pvp->AddOverridable(vid, metadata);
         }
       }
     }
   }
 
  private:
-  std::unordered_set<std::string> provided_vars;
-  std::unordered_set<std::string> depends_vars;
+  std::unordered_set<VarID, VarIDHasher> provided_vars;
+  std::unordered_set<VarID, VarIDHasher> depends_vars;
 
-  Dictionary<int> overridable_vars;
-  Dictionary<std::vector<Metadata>> overridable_meta;
+  std::unordered_map<VarID, int, VarIDHasher> overridable_vars;
+  std::unordered_map<VarID, std::vector<Metadata>, VarIDHasher> overridable_meta;
 };
 
 // Helper functions for adding vars
@@ -130,16 +130,16 @@ class DependencyTracker {
 class FieldProvider : public VariableProvider {
  public:
   explicit FieldProvider(std::shared_ptr<StateDescriptor> &sd) : state_(sd) {}
-  void AddPrivate(const std::string &package, const std::string &var,
+  void AddPrivate(const std::string &package, const VarID &vid,
                   const Metadata &metadata) {
-    state_->AddFieldImpl(package + "::" + var, metadata);
+    state_->AddFieldImpl(VarID(package + "::" + vid.base_name, vid.sparse_id), metadata);
   }
-  void AddProvides(const std::string &package, const std::string &var,
+  void AddProvides(const std::string &package, const VarID &vid,
                    const Metadata &metadata) {
-    state_->AddFieldImpl(var, metadata);
+    state_->AddFieldImpl(vid, metadata);
   }
-  void AddOverridable(const std::string &var, Metadata &metadata) {
-    state_->AddFieldImpl(var, metadata);
+  void AddOverridable(const VarID &vid, Metadata &metadata) {
+    state_->AddFieldImpl(vid, metadata);
   }
 
  private:
@@ -150,21 +150,22 @@ class SwarmProvider : public VariableProvider {
  public:
   SwarmProvider(Packages_t &packages, std::shared_ptr<StateDescriptor> &sd)
       : packages_(packages), state_(sd) {}
-  void AddPrivate(const std::string &package, const std::string &var,
+  void AddPrivate(const std::string &package, const VarID &vid,
                   const Metadata &metadata) {
-    AddSwarm_(packages_.Get(package).get(), var, package + "::" + var, metadata);
+    AddSwarm_(packages_.Get(package).get(), vid.label(), package + "::" + vid.label(),
+              metadata);
   }
-  void AddProvides(const std::string &package, const std::string &var,
+  void AddProvides(const std::string &package, const VarID &vid,
                    const Metadata &metadata) {
-    AddSwarm_(packages_.Get(package).get(), var, var, metadata);
+    AddSwarm_(packages_.Get(package).get(), vid.label(), vid.label(), metadata);
   }
-  void AddOverridable(const std::string &swarm, Metadata &metadata) {
-    state_->AddSwarm(swarm, metadata);
+  void AddOverridable(const VarID &vid, Metadata &metadata) {
+    state_->AddSwarm(vid.label(), metadata);
     for (auto &pair : packages_.AllPackages()) {
       auto &package = pair.second;
-      if (package->SwarmPresent(swarm)) {
-        for (auto &pair : package->AllSwarmValues(swarm)) {
-          state_->AddSwarmValue(pair.first, swarm, pair.second);
+      if (package->SwarmPresent(vid.label())) {
+        for (auto &pair : package->AllSwarmValues(vid.label())) {
+          state_->AddSwarmValue(pair.first, vid.label(), pair.second);
         }
         return;
       }
@@ -198,15 +199,17 @@ bool StateDescriptor::AddSwarmValue(const std::string &value_name,
   return true;
 }
 
-bool StateDescriptor::AddFieldImpl(const std::string &field_name, const Metadata &m_in) {
+bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in) {
   Metadata m = m_in; // Force const correctness
 
   const std::string &assoc = m.getAssociated();
-  if (!assoc.length()) m.Associate(field_name);
-  if (metadataMap_.count(field_name) > 0) {
+  if (m.getAssociated() != "") {
+    m.Associate(vid.label());
+  }
+  if (metadataMap_.count(vid) > 0) {
     return false; // this field has already been added
   } else {
-    metadataMap_[field_name] = m;
+    metadataMap_[vid] = m;
   }
 
   return true;
@@ -234,7 +237,7 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
   for (auto &pair : sd.metadataMap_) {
     auto &metadata = pair.second;
     if (!metadata.IsSet(Metadata::Sparse))
-      os << std::left << std::setw(25) << pair.first << " " << metadata << "\n";
+      os << std::left << std::setw(25) << pair.first.label() << " " << metadata << "\n";
   }
   os << "# ---------------------------------------------------\n"
      << "# Sparse Variables:\n"
@@ -243,7 +246,7 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
   for (auto &pair : sd.metadataMap_) {
     auto &metadata = pair.second;
     if (metadata.IsSet(Metadata::Sparse))
-      os << std::left << std::setw(25) << pair.first << " " << metadata << "\n";
+      os << std::left << std::setw(25) << pair.first.label() << " " << metadata << "\n";
   }
   os << "# ---------------------------------------------------\n"
      << "# Swarms:\n"

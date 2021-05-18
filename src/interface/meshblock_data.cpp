@@ -30,15 +30,6 @@
 
 namespace parthenon {
 
-template <typename T>
-void MeshBlockData<T>::Add(const std::vector<std::string> &labelArray,
-                           const Metadata &metadata) {
-  // generate the vector and call Add
-  for (const auto &label : labelArray) {
-    Add(label, metadata);
-  }
-}
-
 ///
 /// The internal routine for allocating an array.  This subroutine
 /// is topology aware and will allocate accordingly.
@@ -46,7 +37,8 @@ void MeshBlockData<T>::Add(const std::vector<std::string> &labelArray,
 /// @param label the name of the variable
 /// @param metadata the metadata associated with the variable
 template <typename T>
-void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
+void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata,
+                           int sparse_id) {
   // branch on kind of variable
   if (metadata.Where() == Metadata::Node) {
     PARTHENON_THROW("Node variables are not implemented yet");
@@ -67,10 +59,11 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
       std::exit(1);
     }
     // add a face variable
-    auto pfv = std::make_shared<FaceVariable<T>>(label, metadata);
+    auto pfv = std::make_shared<FaceVariable<T>>(
+        label, metadata.GetArrayDims(pmy_block.lock()->cellbounds), metadata);
     Add(pfv);
   } else {
-    auto sv = std::make_shared<CellVariable<T>>(label, metadata);
+    auto sv = std::make_shared<CellVariable<T>>(label, metadata, sparse_id);
     Add(sv);
     if (!sv->IsSparse()) {
       sv->Allocate(pmy_block);
@@ -147,11 +140,11 @@ std::shared_ptr<MeshBlockData<T>> MeshBlockData<T>::SparseSlice(int sparse_id) {
   auto c = std::make_shared<MeshBlockData<T>>();
 
   // copy in private data
-  c.SetBlockPointer(GetBlockPointer());
+  c->SetBlockPointer(GetBlockPointer());
 
   // Note that all dense variables get added
   for (auto v : varVector_) {
-    if (!v->IsSparse() || (v->SparseID() == sparse_id)) {
+    if (!v->IsSparse() || (v->GetSparseID() == sparse_id)) {
       c->Add(v);
     }
   }
@@ -441,18 +434,6 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
       }
     }
   }
-  for (auto &sv : sparseVector_) {
-    if (sv->IsSet(Metadata::FillGhost)) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        if (!v->mpiStatus) {
-          v->resetBoundary();
-          v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
-          ret = (ret & v->mpiStatus);
-        }
-      }
-    }
-  }
 
   Kokkos::Profiling::popRegion(); // Task_ReceiveBoundaryBuffers_MeshBlockData
   if (ret) return TaskStatus::complete;
@@ -469,18 +450,7 @@ TaskStatus MeshBlockData<T>::ReceiveAndSetBoundariesWithWait() {
       v->mpiStatus = true;
     }
   }
-  for (auto &sv : sparseVector_) {
-    if ((sv->IsSet(Metadata::FillGhost))) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        if (!v->mpiStatus) {
-          v->resetBoundary();
-          v->vbvar->ReceiveAndSetBoundariesWithWait();
-          v->mpiStatus = true;
-        }
-      }
-    }
-  }
+
   Kokkos::Profiling::popRegion(); // Task_ReceiveAndSetBoundariesWithWait
   return TaskStatus::complete;
 }
@@ -498,15 +468,7 @@ TaskStatus MeshBlockData<T>::SetBoundaries() {
       v->vbvar->SetBoundaries();
     }
   }
-  for (auto &sv : sparseVector_) {
-    if (sv->IsSet(Metadata::FillGhost)) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        v->resetBoundary();
-        v->vbvar->SetBoundaries();
-      }
-    }
-  }
+
   Kokkos::Profiling::popRegion(); // Task_SetBoundaries_MeshBlockData
   return TaskStatus::complete;
 }
@@ -519,14 +481,7 @@ void MeshBlockData<T>::ResetBoundaryCellVariables() {
       v->vbvar->var_cc = v->data;
     }
   }
-  for (auto &sv : sparseVector_) {
-    if (sv->IsSet(Metadata::FillGhost)) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        v->vbvar->var_cc = v->data;
-      }
-    }
-  }
+
   Kokkos::Profiling::popRegion(); // ResetBoundaryCellVariables
 }
 
@@ -540,16 +495,7 @@ TaskStatus MeshBlockData<T>::StartReceiving(BoundaryCommSubset phase) {
       v->mpiStatus = false;
     }
   }
-  for (auto &sv : sparseVector_) {
-    if (sv->IsSet(Metadata::FillGhost)) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        v->resetBoundary();
-        v->vbvar->StartReceiving(phase);
-        v->mpiStatus = false;
-      }
-    }
-  }
+
   Kokkos::Profiling::popRegion(); // Task_StartReceiving
   return TaskStatus::complete;
 }
@@ -562,14 +508,7 @@ TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
       v->vbvar->ClearBoundary(phase);
     }
   }
-  for (auto &sv : sparseVector_) {
-    if (sv->IsSet(Metadata::FillGhost)) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        v->vbvar->ClearBoundary(phase);
-      }
-    }
-  }
+
   Kokkos::Profiling::popRegion(); // Task_ClearBoundary
   return TaskStatus::complete;
 }
@@ -600,9 +539,6 @@ void MeshBlockData<T>::Print() {
   }
   for (auto v : faceVector_) {
     std::cout << " face: " << v->info() << std::endl;
-  }
-  for (auto v : sparseVector_) {
-    std::cout << " sparse:" << v->info() << std::endl;
   }
 }
 

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -200,7 +200,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we set individual fields by index") {
       PackIndexMap vmap;
-      auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
+      auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), false, &vmap);
       const int iv3lo = vmap.get("v3").first;
       const int iv3hi = vmap.get("v3").second;
       const int iv6 = vmap.get("v6").first;
@@ -219,7 +219,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
           });
       THEN("the values should as we expect") {
         PackIndexMap vmap; // recompute the pack
-        auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
+        auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), false, &vmap);
         const int iv3lo = vmap.get("v3").first;
         const int iv3hi = vmap.get("v3").second;
         const int iv6 = vmap.get("v6").first;
@@ -299,7 +299,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
-        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
+        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, false, &imap);
         REQUIRE(imap.get("vsparse").second == imap.get("vsparse").first + 2);
         REQUIRE(imap.get("v6").second == imap.get("v6").first);
         REQUIRE(imap.get("v3").second == imap.get("v3").first + 2);
@@ -309,7 +309,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
       AND_THEN("bounds are still correct if I get just a subset of the sparse fields") {
         PackIndexMap imap;
-        auto v = rc.PackVariables({"v3", "vsparse"}, {1, 42}, imap);
+        auto v = rc.PackVariables(std::vector<std::string>{"v3", "vsparse"}, {1, 42},
+                                  false, &imap);
         REQUIRE(imap.get("vsparse").second == imap.get("vsparse").first + 1);
         REQUIRE(std::abs(imap.get("vsparse_42").first - imap.get("vsparse_1").first) ==
                 1);
@@ -317,7 +318,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
       AND_THEN("the association with sparse ids is captured") {
         PackIndexMap imap;
-        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
+        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, false, &imap);
         int correct = 0;
         const int v3first = imap.get("v3").first;
         const int v6first = imap.get("v6").first;
@@ -326,37 +327,11 @@ TEST_CASE("Can pull variables from containers based on Metadata",
         Kokkos::parallel_reduce(
             "add correct checks", 1,
             KOKKOS_LAMBDA(const int i, int &sum) {
-              sum = (v.GetSparse(v3first) == -1);
-              sum += (v.GetSparse(v6first) == -1);
-              sum += (v.GetSparse(vsfirst) == 1);
-              sum += (v.GetSparse(vsfirst + 1) == 13);
-              sum += (v.GetSparse(vssecnd) == 42);
-            },
-            correct);
-        REQUIRE(correct == 5);
-
-        correct = 0;
-        Kokkos::parallel_reduce(
-            "add correct checks", 1,
-            KOKKOS_LAMBDA(const int i, int &sum) {
-              sum = (v.GetSparseId(v3first) == -1);
-              sum += (v.GetSparseId(v6first) == -1);
-              sum += (v.GetSparseId(vsfirst) == 1);
-              sum += (v.GetSparseId(vsfirst + 1) == 13);
-              sum += (v.GetSparseId(vssecnd) == 42);
-            },
-            correct);
-        REQUIRE(correct == 5);
-
-        correct = 0;
-        Kokkos::parallel_reduce(
-            "add correct checks", 1,
-            KOKKOS_LAMBDA(const int i, int &sum) {
-              sum = (v.GetSparseIndex(v3first) == -1);
-              sum += (v.GetSparseIndex(v6first) == -1);
-              sum += (v.GetSparseIndex(vsfirst) == 1);
-              sum += (v.GetSparseIndex(vsfirst + 1) == 13);
-              sum += (v.GetSparseIndex(vssecnd) == 42);
+              sum = (v.GetSparseID(v3first) == parthenon::InvalidSparseID);
+              sum += (v.GetSparseID(v6first) == parthenon::InvalidSparseID);
+              sum += (v.GetSparseID(vsfirst) == 1);
+              sum += (v.GetSparseID(vsfirst + 1) == 13);
+              sum += (v.GetSparseID(vssecnd) == 42);
             },
             correct);
         REQUIRE(correct == 5);

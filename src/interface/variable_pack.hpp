@@ -72,7 +72,7 @@ class VarListWithLabels {
       // The label here is used in the key for variable pack caching, so it has to include
       // the allocation status of the variable, since we cannot reuse a variable pack if
       // one of its variables has a changed allocation status
-      labels_.push_back(var->label() + var->IsAllocated() ? "_A" : "");
+      labels_.push_back(var->label() + (var->IsAllocated() ? "_A" : ""));
     }
   }
 
@@ -389,12 +389,12 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
     // add variables
     auto fvar = vars.front()->data;
     cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-    FillVarView(vars, &cv, &sparse_id, &vector_component, vmap_out);
+    FillVarView(vars, false, cv, sparse_id, vector_component, vmap_out);
 
     if (fsize > 0) {
       // add fluxes
       const int ndim = (cv_size[2] > 1 ? 3 : (cv_size[1] > 1 ? 2 : 1));
-      FillFluxViews(flux_vars, ndim, &f1, &f2, &f3, vmap_out);
+      FillFluxViews(flux_vars, ndim, f1, f2, f3, vmap_out);
     }
   }
 
@@ -421,7 +421,7 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars, bool coarse,
   if (vsize > 0) {
     const auto &fvar = coarse ? vars.front()->coarse_s : vars.front()->data;
     cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-    FillVarView(vars, coarse, &cv, &sparse_id, &vector_component, vmap_out);
+    FillVarView(vars, coarse, cv, sparse_id, vector_component, vmap_out);
   }
 
   return VariablePack<T>(cv, sparse_id, vector_component, cv_size);

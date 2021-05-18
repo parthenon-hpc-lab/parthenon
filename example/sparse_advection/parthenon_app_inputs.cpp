@@ -94,7 +94,7 @@ void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &t
   for (auto &pmb : mesh->block_list) {
     auto rc = pmb->meshblock_data.Get(); // get base container
     for (int i = 0; i < n; ++i) {
-      if (rc->IsSparseIDAllocated("sparse", i)) {
+      if (rc->IsAllocated("sparse", i)) {
         num_allocated[i] += 1;
       }
     }
