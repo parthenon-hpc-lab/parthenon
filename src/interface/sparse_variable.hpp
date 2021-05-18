@@ -104,9 +104,6 @@ class SparseVariable {
 
   bool IsSet(const MetadataFlag flag) { return metadata_.IsSet(flag); }
 
-  inline bool HasFluxes() const { return metadata_.IsSet(Metadata::WithFluxes); }
-  inline bool HasBoundaryVars() const { return metadata_.IsSet(Metadata::FillGhost); }
-
   /// return information string
   std::string info() {
     std::string s = "info not yet implemented for sparse variables";

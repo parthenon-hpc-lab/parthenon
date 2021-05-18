@@ -112,8 +112,6 @@ variables are copied or not in multiple stages.
   always required. `OneCopy` variables, for example, may not need
   this.
 
-- `Metadata::SharedComms` TODO(JMM): not sure this variable is used
-
 ### Ghost Zones, Communication, and Fluxes
 
 Depending on a combination of flags, extra communication buffers and

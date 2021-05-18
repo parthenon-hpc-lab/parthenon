@@ -39,6 +39,7 @@
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -58,6 +59,10 @@ class CellVariable {
   CellVariable<T>(const std::string &base_name, const Metadata &metadata,
                   int sparse_id = InvalidSparseID)
       : m_(metadata), base_name_(base_name), sparse_id_(sparse_id) {
+    PARTHENON_REQUIRE_THROWS(
+        m_.IsSet(Metadata::Real),
+        "Only Real data type is currently supported for CellVariable");
+
     if (m_.getAssociated() == "") {
       m_.Associate(label());
     }
@@ -85,9 +90,6 @@ class CellVariable {
 
   ///< retrieve metadata for variable
   inline Metadata metadata() const { return m_; }
-
-  inline bool HasFluxes() const { return m_.IsSet(Metadata::WithFluxes); }
-  inline bool HasBoundaryVars() const { return m_.IsSet(Metadata::FillGhost); }
 
   /// Get Sparse ID (-1 if not sparse)
   inline int GetSparseID() const { return IsSparse() ? sparse_id_ : InvalidSparseID; }

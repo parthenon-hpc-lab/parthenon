@@ -50,11 +50,8 @@ std::string CellVariable<T>::info() {
 template <typename T>
 std::shared_ptr<CellVariable<T>>
 CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb, const bool allocComms) {
-  // copy the Metadata and set the SharedComms flag if appropriate
+  // copy the Metadata
   Metadata m = m_;
-  if (IsSet(Metadata::FillGhost) && !allocComms) {
-    m.Set(Metadata::SharedComms);
-  }
 
   // make the new CellVariable
   auto cv = std::make_shared<CellVariable<T>>(label(), m, sparse_id_);
@@ -110,7 +107,7 @@ void CellVariable<T>::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
 
   // set up fluxes
   std::string base_name = label();
-  if (HasFluxes()) {
+  if (IsSet(Metadata::WithFluxes)) {
     flux[X1DIR] = ParArrayND<T>(base_name + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
                                 GetDim(3), GetDim(2), GetDim(1));
     if (GetDim(2) > 1)
@@ -122,7 +119,7 @@ void CellVariable<T>::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
   }
 
   // Create the boundary object
-  if (HasBoundaryVars()) {
+  if (IsSet(Metadata::FillGhost)) {
     if (wpmb.expired()) return;
 
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
