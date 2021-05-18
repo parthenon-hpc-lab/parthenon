@@ -17,6 +17,7 @@
 
 // options for building
 #include "config.hpp"
+#include "utils/error_checking.hpp"
 
 // Only proceed if HDF5 output enabled
 #ifdef ENABLE_HDF5
@@ -94,7 +95,7 @@ struct VarInfo {
   static constexpr int vector_flag = (1 << 21);
 
   const std::string label;
-  const std::vector<std::string> component_labels; // may be empty
+  const std::vector<std::string> component_labels;
   const int vlen;
   const bool is_sparse;
   const bool is_vector;
@@ -103,8 +104,10 @@ struct VarInfo {
 
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels,
           int vlen, bool is_sparse, bool is_vector)
-      : label(label), component_labels(component_labels), vlen(vlen),
-        is_sparse(is_sparse), is_vector(is_vector) {
+      : label(label),
+        component_labels(component_labels.size() > 0 ? component_labels
+                                                     : std::vector<std::string>{label}),
+        vlen(vlen), is_sparse(is_sparse), is_vector(is_vector) {
     if ((vlen <= 0) || (vlen > max_vlen)) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with length " << vlen
@@ -500,9 +503,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
 
     HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
-
-    // OutputDatasetNames - which datasets from the top level to read
-    HDF5WriteAttribute("OutputDatasetNames", output_params.variables, info_group);
   } // Info section
 
   // write Params
@@ -929,27 +929,33 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
   }
 
+  // names of variables
+  std::vector<std::string> var_names;
+  var_names.reserve(all_unique_vars.size());
+
   // number of components within each dataset
   std::vector<size_t> num_components;
+  num_components.reserve(all_unique_vars.size());
+
   // names of components within each dataset
   std::vector<std::string> component_names;
+  component_names.reserve(all_unique_vars.size()); // may be larger
 
   for (const auto &vi : all_unique_vars) {
-    const auto &component_labels = vi.component_labels;
+    var_names.push_back(vi.label);
 
-    if (component_labels.size() > 0) {
-      num_components.push_back(component_labels.size());
-      for (const auto &label : component_labels) {
-        component_names.push_back(label);
-      }
-    } else {
-      num_components.push_back(1);
-      component_names.push_back(vi.label);
+    const auto &component_labels = vi.component_labels;
+    PARTHENON_REQUIRE_THROWS(component_labels.size() > 0, "Got 0 component labels");
+
+    num_components.push_back(component_labels.size());
+    for (const auto &label : component_labels) {
+      component_names.push_back(label);
     }
   }
 
   HDF5WriteAttribute("NumComponents", num_components, info_group);
   HDF5WriteAttribute("ComponentNames", component_names, info_group);
+  HDF5WriteAttribute("OutputDatasetNames", var_names, info_group);
 
   // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
   // this if we have sparse fields)
