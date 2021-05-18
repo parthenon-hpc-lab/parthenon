@@ -37,35 +37,35 @@
   /**  bit 0 is ignored */                                                               \
   PARTHENON_INTERNAL_FOR_FLAG(Ignore)                                                    \
   /************************************************/                                     \
-  /**  TOPOLOGY: Exactly one must be specified (default is None) */                      \
-  /**  no topology specified */                                                          \
+  /** TOPOLOGY: Exactly one must be specified (default is None) */                      \
+  /** no topology specified */                                                          \
   PARTHENON_INTERNAL_FOR_FLAG(None)                                                      \
-  /**  cell variable */                                                                  \
+  /** cell variable */                                                                  \
   PARTHENON_INTERNAL_FOR_FLAG(Cell)                                                      \
-  /**  face variable */                                                                  \
+  /** face variable */                                                                  \
   PARTHENON_INTERNAL_FOR_FLAG(Face)                                                      \
-  /**  edge variable */                                                                  \
+  /** edge variable */                                                                  \
   PARTHENON_INTERNAL_FOR_FLAG(Edge)                                                      \
-  /**  node variable */                                                                  \
+  /** node variable */                                                                  \
   PARTHENON_INTERNAL_FOR_FLAG(Node)                                                      \
   /************************************************/                                     \
-  /**  ROLE: Exactly one must be specified (default is Provides) */                      \
-  /**  Private to a package */                                                           \
+  /** ROLE: Exactly one must be specified (default is Provides) */                      \
+  /** Private to a package */                                                           \
   PARTHENON_INTERNAL_FOR_FLAG(Private)                                                   \
-  /**  Provided by a package */                                                          \
+  /** Provided by a package */                                                          \
   PARTHENON_INTERNAL_FOR_FLAG(Provides)                                                  \
-  /**  Not created by a package, assumes available from another package */               \
+  /** Not created by a package, assumes available from another package */               \
   PARTHENON_INTERNAL_FOR_FLAG(Requires)                                                  \
-  /**  does nothing if another package provides the variable */                          \
+  /** does nothing if another package provides the variable */                          \
   PARTHENON_INTERNAL_FOR_FLAG(Overridable)                                               \
   /************************************************/                                     \
-  /**  SHAPE: Neither or one (but not both) can be specified */                          \
-  /**  a vector quantity, i.e. a rank 1 contravariant tensor */                          \
+  /** SHAPE: Neither or one (but not both) can be specified */                          \
+  /** a vector quantity, i.e. a rank 1 contravariant tensor */                          \
   PARTHENON_INTERNAL_FOR_FLAG(Vector)                                                    \
-  /**  a rank-2 tensor */                                                                \
+  /** a rank-2 tensor */                                                                \
   PARTHENON_INTERNAL_FOR_FLAG(Tensor)                                                    \
   /************************************************/                                     \
-  /**  DATATYPE: Exactly one must be specified (default is Real) */                      \
+  /** DATATYPE: Exactly one must be specified (default is Real) */                      \
   /** Boolean-valued quantity */                                                         \
   PARTHENON_INTERNAL_FOR_FLAG(Boolean)                                                   \
   /** Integer-valued quantity */                                                         \
@@ -73,22 +73,16 @@
   /** Real-valued quantity */                                                            \
   PARTHENON_INTERNAL_FOR_FLAG(Real)                                                      \
   /************************************************/                                     \
-  /**  INDEPENDENT: Exactly one must be specified (default is Independent) */            \
+  /** INDEPENDENT: Exactly one must be specified (default is Independent) */            \
   /** is an independent, evolved variable */                                             \
   PARTHENON_INTERNAL_FOR_FLAG(Independent)                                               \
   /** is a derived quantity (ignored) */                                                 \
   PARTHENON_INTERNAL_FOR_FLAG(Derived)                                                   \
   /************************************************/                                     \
-  /**  COMMUNICATION: SharedComms can only be set if FillGhost is set */                 \
-  /** Do boundary communication */                                                       \
-  PARTHENON_INTERNAL_FOR_FLAG(FillGhost)                                                 \
-  /** Communication arrays are a copy: hint to destructor */                             \
-  PARTHENON_INTERNAL_FOR_FLAG(SharedComms)                                               \
-  /************************************************/                                     \
-  /**  OTHER: All the following flags can be turned on or off independently */           \
-  /**  advected variable */                                                              \
+  /** OTHER: All the following flags can be turned on or off independently */           \
+  /** advected variable */                                                              \
   PARTHENON_INTERNAL_FOR_FLAG(Advected)                                                  \
-  /**  conserved variable */                                                             \
+  /** conserved variable */                                                             \
   PARTHENON_INTERNAL_FOR_FLAG(Conserved)                                                 \
   /** intensive variable */                                                              \
   PARTHENON_INTERNAL_FOR_FLAG(Intensive)                                                 \
@@ -98,6 +92,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Sparse)                                                    \
   /** only one copy even if multiple stages */                                           \
   PARTHENON_INTERNAL_FOR_FLAG(OneCopy)                                                   \
+  /** Do boundary communication */                                                       \
+  PARTHENON_INTERNAL_FOR_FLAG(FillGhost)                                                 \
   /** does variable have fluxes */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)
 
@@ -314,14 +310,6 @@ class Metadata {
       valid = false;
       if (throw_on_fail) {
         PARTHENON_THROW("Either the Independent or Derived flag must be set");
-      }
-    }
-
-    // Communication
-    if (IsSet(SharedComms) && !IsSet(FillGhost)) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("FillGhost must be set if SharedComms is set");
       }
     }
 
