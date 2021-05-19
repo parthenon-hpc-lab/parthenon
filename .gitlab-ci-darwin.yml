@@ -45,23 +45,17 @@ stages:
     EXECUTABLE: "execute_python_application.sh"
     BUILD_TARGET_BRANCH: "OFF"
     SCRIPT_TO_RUN: "install_python_scripts.sh"
-    GIT_STRATEGY: clone
+    GIT_STRATEGY: clone # Prevents problems when rebase is used
   script:
     - |
       if [ -d "{CI_PROJECT_DIR}/../parthenon.wiki" ];
       then
         rm -rf "{CI_PROJECT_DIR}/../parthenon.wiki"
       fi
-    - git remote --verbose
-      #    - git remote add github https://github.com/lanl/parthenon.git
-      #    - git remote --verbose
-      #    - git clean -n
-      #    - git clean -fd
-    - git fetch --all #github # --all
+    - git fetch --all
     - *print-copy-executable
     - *run-script-with-check
     - git checkout ${CI_COMMIT_BRANCH}
-    - git diff
     - git pull origin ${CI_COMMIT_BRANCH}
 
 .gcc-mpi-cuda-performance-regression-build:
