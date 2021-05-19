@@ -62,7 +62,7 @@ stages:
     - *run-script-with-check
     - git checkout ${CI_COMMIT_BRANCH}
     - git diff
-    - git pull ${CI_COMMIT_BRANCH}
+    - git pull origin ${CI_COMMIT_BRANCH}
 
 .gcc-mpi-cuda-performance-regression-build:
   variables:
