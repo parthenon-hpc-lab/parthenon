@@ -312,7 +312,7 @@ For the calculate pi example shown above this consists of adding parameters to f
 
 ```
 list(APPEND TEST_DIRS calculate_pi)
-list(APPEND TES_PROCS ${NUM_MPI_PROC_TESTING})
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
 list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/parthenon-example --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
 list(APPEND EXTRA_TEST_LABELS "perf")
 ```
