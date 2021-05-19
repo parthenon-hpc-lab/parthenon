@@ -38,6 +38,7 @@
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -53,17 +54,20 @@ class CellVariable {
         mpiStatus(false), m_(metadata),
         label_(label + (sparse_id >= 0 ? "_" + std::to_string(sparse_id) : "")),
         sparse_id_(sparse_id) {
+    PARTHENON_REQUIRE_THROWS(
+        m_.IsSet(Metadata::Real),
+        "Only Real data type is currently supported for CellVariable");
     if (m_.getAssociated() == "") {
       m_.Associate(label);
     }
   }
 
   // make a new CellVariable based on an existing one
-  std::shared_ptr<CellVariable<T>> AllocateCopy(const bool allocComms = false,
-                                                std::weak_ptr<MeshBlock> wpmb = {});
+  std::shared_ptr<CellVariable<T>>
+  AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
+               std::weak_ptr<MeshBlock> wpmb = {});
 
   // accessors
-
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
     return data(std::forward<Args>(args)...);
@@ -88,8 +92,9 @@ class CellVariable {
   /// return information string
   std::string info();
 
-  /// allocate communication space based on info in MeshBlock
-  void allocateComms(std::weak_ptr<MeshBlock> wpmb);
+  /// allocate fluxes (if Metadata::WithFluxes is set) and boundary variable if
+  /// (Metadata::FillGhost is set)
+  void AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb);
 
   /// Repoint vbvar's var_cc array at the current variable
   inline void resetBoundary() { vbvar->var_cc = data; }
