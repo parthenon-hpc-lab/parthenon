@@ -54,7 +54,7 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
     int varIndex = metadata.GetSparseId();
     sparseMap_[label]->Add(varIndex, arrDims);
     auto &v = sparseMap_[label]->Get(varIndex);
-    v->allocateComms(pmy_block);
+    v->AllocateFluxesAndBdryVar(pmy_block);
   } else if (metadata.Where() == Metadata::Edge) {
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
@@ -77,7 +77,7 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
   } else {
     auto sv = std::make_shared<CellVariable<T>>(label, arrDims, metadata);
     Add(sv);
-    sv->allocateComms(pmy_block);
+    sv->AllocateFluxesAndBdryVar(pmy_block);
   }
 }
 

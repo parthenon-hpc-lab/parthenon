@@ -49,7 +49,8 @@ std::string CellVariable<T>::info() {
 // copy constructor
 template <typename T>
 std::shared_ptr<CellVariable<T>>
-CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wpmb) {
+CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
+                              std::weak_ptr<MeshBlock> wpmb) {
   std::array<int, 6> dims = {GetDim(1), GetDim(2), GetDim(3),
                              GetDim(4), GetDim(5), GetDim(6)};
 
@@ -60,8 +61,8 @@ CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wp
   auto cv = std::make_shared<CellVariable<T>>(label(), dims, m);
 
   if (IsSet(Metadata::FillGhost)) {
-    if (allocComms) {
-      cv->allocateComms(wpmb);
+    if (alloc_separate_fluxes_and_bvar) {
+      cv->AllocateFluxesAndBdryVar(wpmb);
     } else {
       // set data pointer for the boundary communication
       // Note that vbvar->var_cc will be set when stage is selected
@@ -82,7 +83,7 @@ CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wp
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
-void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
+void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
   std::string base_name = label();
 
   // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise
