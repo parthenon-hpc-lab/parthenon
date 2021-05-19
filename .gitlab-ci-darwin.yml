@@ -51,6 +51,9 @@ stages:
       then
         rm -rf "{CI_PROJECT_DIR}/../parthenon.wiki"
       fi
+    - git remote --verbose
+    - git clean -n
+    - git clean -fd
     - git fetch --all
     - *print-copy-executable
     - *run-script-with-check
