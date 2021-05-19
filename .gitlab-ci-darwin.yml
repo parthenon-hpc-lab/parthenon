@@ -58,7 +58,8 @@ stages:
     - git fetch github # --all
     - *print-copy-executable
     - *run-script-with-check
-    - git checkout ${CI_COMMIT_BRANCH}
+    - git checkout github ${CI_COMMIT_BRANCH}
+    - git diff
     - git pull github ${CI_COMMIT_BRANCH}
 
 .gcc-mpi-cuda-performance-regression-build:
