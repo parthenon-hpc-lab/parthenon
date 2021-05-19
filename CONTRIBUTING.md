@@ -318,7 +318,7 @@ list(APPEND EXTRA_TEST_LABELS "perf")
 ```
 
 NOTE: The TEST\_PROCS list indicates how many processors to use when running
-mpi. The cmake vriable NUM\_MPI\_PROC\_TESTING can be used if you do not want
+mpi. The cmake variable NUM\_MPI\_PROC\_TESTING can be used if you do not want
 to hardcode a value, and is recommended.  By default all regression tests added
 to these lists will be run in serial and in parallel with mpi. The number of
 mpi processors used is by default set to 4. This default can be adjusted by
