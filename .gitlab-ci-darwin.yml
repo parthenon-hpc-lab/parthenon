@@ -51,14 +51,15 @@ stages:
       then
         rm -rf "{CI_PROJECT_DIR}/../parthenon.wiki"
       fi
+    - git remote add github https://github.com/lanl/parthenon.git
     - git remote --verbose
     - git clean -n
     - git clean -fd
-    - git fetch --all
+    - git fetch github # --all
     - *print-copy-executable
     - *run-script-with-check
     - git checkout ${CI_COMMIT_BRANCH}
-    - git pull origin ${CI_COMMIT_BRANCH}
+    - git pull github ${CI_COMMIT_BRANCH}
 
 .gcc-mpi-cuda-performance-regression-build:
   variables:
