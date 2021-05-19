@@ -70,7 +70,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddSwarmValue("weight", swarm_name, real_swarmvalue_metadata);
 
   std::string field_name = "particle_deposition";
-  Metadata m({Metadata::Cell, Metadata::Independent});
+  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes});
   pkg->AddField(field_name, m);
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
