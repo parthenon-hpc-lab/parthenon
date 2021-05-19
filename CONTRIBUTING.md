@@ -96,9 +96,9 @@ request.
 PRs can opened as usual from forks.
 Unfortunately, the CI will not automatically trigger for forks. This is for security
 reasons. As a workaround, in order to trigger the CI, a local branch will need to be created
-on Parthenon first. The forked code can then be merged into the local branch on 
+on Parthenon first. The forked code can then be merged into the local branch on
 Parthenon. At this point when a new merge request is opened from the local branch
-to the develop branch it will trigger the CI. 
+to the develop branch it will trigger the CI.
 Someone of the Parthenon core team will take care of the work around once a PR from a fork.
 No extra work is required from the contributor.
 
@@ -110,7 +110,7 @@ $ git fetch external-A
 $ git checkout external-A/feature-A
 $ git push --set-upstream origin CONTRIBUTOR/feature-A
 
-NOTE: Any subsequent updates made to the forked branch will need to be manually pulled into the local branch. 
+NOTE: Any subsequent updates made to the forked branch will need to be manually pulled into the local branch.
 
 ### Linting Code
 cpplint will automatically run as part of the CI. You can run the lint explicitly by
@@ -196,12 +196,12 @@ folder. In summary, the ci is built in release mode, with OpenMP, MPI, HDF5 and
 Cuda enabled. All tests are run on a single node with access to two Volta
 GPUs. In addition, the regression tests are run in parallel with two mpi
 processors each of which have access to their own Volta gpu. The following
-tests are run with this ci: unit, regression, performance. A final note, 
-this CI has been chosen to also check for performance regressions. The CI 
+tests are run with this ci: unit, regression, performance. A final note,
+this CI has been chosen to also check for performance regressions. The CI
 uses a github application located in /scripts/python. After a successful run
 of the CI a link to the performance metrics will appear as part of the parthenon
 metrics status check in the pr next to the commit the metrics were recorded for.
-All data from the regression tests are recorded in the parthenon wiki in a json file. 
+All data from the regression tests are recorded in the parthenon wiki in a json file.
 
 ### Adding Tests
 
@@ -326,6 +326,18 @@ changing the cmake variable NUM\_MPI\_PROC\_TESTING. The number of OpenMP
 threads is by default set to 1 but can be adjusted in the driver input file
 deck. If parthenon is compiled with CUDA enabled, by default a single GPU will
 be assigned to each node..
+
+##### Integratingthe Regression Test with the Github python performance regression app
+
+In addition to running regression tests, the Parthenon CI makes use of a Github python app to
+report performance metrics on machines of interest i.e. (power9 nodes). Currently, the apps source
+files are located in parthenon/scripts/python/packages/parthenon_performance_app. To add
+additional tests metrics changes will need to be made to the scripts located in the folder:
+parthenon/scripts/python/packages/parthenon_performance_app.  In general, the app
+works by taking performance metrics that are ouput to a file when a regression test is executed.
+This output is read by the app and compared with metrics that are stored in the wiki (json format).
+The metrics are then plotted in a png file which is also uploaded to the wiki. Finally, a markdown
+page is created with links to the images and is uploaded to the wiki.
 
 ##### Running ctest
 
