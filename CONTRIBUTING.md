@@ -329,7 +329,7 @@ be assigned to each node..
 
 ##### Integratingthe Regression Test with the Github python performance regression app
 
-In addition to running regression tests, the parthenon ci makes use of a Github python app to
+In addition to running regression tests, the Parthenon CI makes use of a Github python app to
 report performance metrics on machines of interest i.e. (power9 nodes). Currently, the apps source
 files are located in parthenon/scripts/python/packages/parthenon_performance_app. To add
 additional tests metrics can be plotted by making changes to these scripts. In general, the app
