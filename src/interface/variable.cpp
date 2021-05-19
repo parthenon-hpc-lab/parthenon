@@ -91,7 +91,7 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise
   // the stride will mess up the types.
 
-  if (HasFluxes()) {
+  if (IsSet(Metadata::WithFluxes)) {
     // Compute size of unified flux_data object and create it. A unified
     // flux_data_ object reduces the number of memory allocations per
     // variable per meshblock from 5 to 3.
@@ -108,7 +108,7 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   }
 
   // Create the boundary object
-  if (HasBoundaryVars()) {
+  if (IsSet(Metadata::FillGhost)) {
     if (wpmb.expired()) return;
 
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
