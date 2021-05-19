@@ -332,8 +332,9 @@ be assigned to each node..
 In addition to running regression tests, the Parthenon CI makes use of a Github python app to
 report performance metrics on machines of interest i.e. (power9 nodes). Currently, the apps source
 files are located in parthenon/scripts/python/packages/parthenon_performance_app. To add
-additional tests metrics can be plotted by making changes to these scripts. In general, the app
-works by taking performance metrics that are ouput from a file from one of the regression tests.
+additional tests metrics changes will need to be made to the scripts located in the folder:
+parthenon/scripts/python/packages/parthenon_performance_app.  In general, the app
+works by taking performance metrics that are ouput to a file when a regression test is executed.
 This output is read by the app and compared with metrics that are stored in the wiki (json format).
 The metrics are then plotted in a png file which is also uploaded to the wiki. Finally, a markdown
 page is created with links to the images and is uploaded to the wiki.

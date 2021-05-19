@@ -586,6 +586,8 @@ class GitHubApp:
               g.execute(['git', 'reset','--mixed','origin/master'])
             elif wiki_state == "soft":
               g.execute(['git', 'reset','--soft','origin/master'])
+            else:
+              raise Exception("Unrecognized github reset option encountered {}".format(wiki_state))
 
         return repo
 
