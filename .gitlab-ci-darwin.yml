@@ -51,6 +51,7 @@ stages:
       then
         rm -rf "{CI_PROJECT_DIR}/../parthenon.wiki"
       fi
+    - git remote --verbose
     - git remote add github https://github.com/lanl/parthenon.git
     - git remote --verbose
     - git clean -n
