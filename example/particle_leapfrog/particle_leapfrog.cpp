@@ -218,8 +218,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &vz = swarm->Get<Real>("vz").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
-  const auto &my_rank = Globals::my_rank;
-  const auto &gid = pmb->gid;
   // This hardcoded implementation should only used in PGEN and not during runtime
   // addition of particles as indices need to be taken into account.
   pmb->par_for(
@@ -233,8 +231,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         vx(n) = ic.at(m).at(3);
         vy(n) = ic.at(m).at(4);
         vz(n) = ic.at(m).at(5);
-        std::cout << "Rank " << my_rank << " added particle " << m << " to block " << gid
-                  << std::endl;
       });
 }
 
