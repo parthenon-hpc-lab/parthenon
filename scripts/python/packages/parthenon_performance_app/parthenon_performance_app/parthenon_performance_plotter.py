@@ -75,7 +75,7 @@ class PerformanceMetricsPlotter():
                     commit_temp)
                 continue
 
-            if norm_const == None:
+            if norm_const is None:
                 norm_const = cycles_temp[0]
             p[0].loglog(
                 mesh_blocks_temp, cycles_temp, label="$256^3$ Mesh")
