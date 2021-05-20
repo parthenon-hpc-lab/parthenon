@@ -26,6 +26,7 @@
 - [[PR 510]](https://github.com/lanl/parthenon/pull/510) Fix calling noexistant logger in python performance regression app
 - [[PR 527]](https://github.com/lanl/parthenon/pull/527) Fix problem with ci when rebase is used.
 - [[PR 518]](https://github.com/lanl/parthenon/pull/518) Added MPI performance regression tests to CI performance app
+- [[PR 530]](https://github.com/lanl/parthenon/pull/530) Fixed issue with ci plotting the oldest 5 commit metrics for each test, also cleaned up legend formatting.
 
 ### Removed (removing behavior/API/varaibles/...)
 - [[PR 498]](https://github.com/lanl/parthenon/pull/498) Cleanup unused user hooks and variables
