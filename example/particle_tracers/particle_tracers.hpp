@@ -28,7 +28,7 @@ using namespace parthenon::driver::prelude;
 using namespace parthenon::package::prelude;
 using namespace parthenon;
 
-namespace particles_example {
+namespace particle_tracers {
 
 class ParticleDriver : public MultiStageDriver {
  public:
@@ -43,11 +43,10 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-AmrTag CheckRefinement(MeshBlockData<Real> *rc);
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
 
 } // namespace Particles
 
-} // namespace particles_example
+} // namespace particle_tracers
 
 #endif // EXAMPLE_PARTICLE_TRACERS_PARTICLE_TRACERS_HPP_

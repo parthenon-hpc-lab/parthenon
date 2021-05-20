@@ -26,6 +26,7 @@
 #include "kokkos_abstraction.hpp"
 #include "parthenon/driver.hpp"
 #include "refinement/refinement.hpp"
+#include "utils/error_checking.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -36,18 +37,16 @@
 #include <utility>
 #include <vector>
 
-#define SMALL (1.e-10)
-
 using namespace parthenon::driver::prelude;
 using namespace parthenon::Update;
 
 typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
 
-namespace particles_example {
+namespace particle_tracers {
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
-  packages.Add(particles_example::Particles::Initialize(pin.get()));
+  packages.Add(particle_tracers::Particles::Initialize(pin.get()));
   return packages;
 }
 
@@ -101,28 +100,23 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return pkg;
 }
 
-AmrTag CheckRefinement(MeshBlockData<Real> *rc) { return AmrTag::same; }
-
-Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
-  auto pmb = rc->GetBlockPointer();
-  //  auto swarm = pmb->swarm_data.Get()->Get("tracers");
+Real EstimateTimestepBlock(MeshBlockData<Real> *mbd) {
+  auto pmb = mbd->GetBlockPointer();
   auto pkg = pmb->packages.Get("particles_package");
   const auto &cfl = pkg->Param<Real>("cfl");
-
-  // int max_active_index = swarm->GetMaxActiveIndex();
 
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
 
   // Assumes a grid with constant dx, dy, dz within a block
-  const Real &dx_i = pmb->coords.dx1f(0);
-  const Real &dx_j = pmb->coords.dx2f(0);
-  const Real &dx_k = pmb->coords.dx3f(0);
+  const Real &dx_i = pmb->coords.dx1v(0);
+  const Real &dx_j = pmb->coords.dx2v(0);
+  const Real &dx_k = pmb->coords.dx3v(0);
 
-  Real min_dt = dx_i / std::abs(vx + SMALL);
-  min_dt = std::min(min_dt, dx_j / std::abs(vy + SMALL));
-  min_dt = std::min(min_dt, dx_k / std::abs(vz + SMALL));
+  Real min_dt = dx_i / std::abs(vx + TINY_NUMBER);
+  min_dt = std::min(min_dt, dx_j / std::abs(vy + TINY_NUMBER));
+  min_dt = std::min(min_dt, dx_k / std::abs(vz + TINY_NUMBER));
 
   return cfl * min_dt;
 }
@@ -167,9 +161,10 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
+  // again using scalar dx_D for assuming a uniform grid in this example
+  const Real &dx_i = pmb->coords.dx1v(0);
+  const Real &dx_j = pmb->coords.dx2f(0);
+  const Real &dx_k = pmb->coords.dx3f(0);
   const Real &minx_i = pmb->coords.x1f(ib.s);
   const Real &minx_j = pmb->coords.x2f(jb.s);
   const Real &minx_k = pmb->coords.x3f(kb.s);
@@ -200,9 +195,12 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
             k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
           }
 
+          // For testing in this example we make sure the indices are correct
           if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
               k <= kb.e) {
             Kokkos::atomic_add(&tracer_dep(k, j, i), 1.0);
+          } else {
+            PARTHENON_FAIL("Particle outside of active region during deposition.");
           }
         }
       });
@@ -210,8 +208,8 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
-TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
-  auto pmb = rc->GetBlockPointer();
+TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
+  auto pmb = mbd->GetBlockPointer();
   auto pkg = pmb->packages.Get("particles_package");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
@@ -223,13 +221,13 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  auto advected = rc->Get("advected").data;
+  auto advected = mbd->Get("advected").data;
 
-  auto x1flux = rc->Get("advected").flux[X1DIR].Get<4>();
+  auto x1flux = mbd->Get("advected").flux[X1DIR].Get<4>();
 
   // Spatially first order upwind method
   pmb->par_for(
-      "CalculateFluxesX1", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
+      "CalculateFluxesX1", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         // X1
         if (vx > 0.) {
@@ -240,13 +238,13 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
       });
 
   if (ndim > 1) {
-    auto x2flux = rc->Get("advected").flux[X2DIR].Get<4>();
+    auto x2flux = mbd->Get("advected").flux[X2DIR].Get<4>();
     pmb->par_for(
-        "CalculateFluxesX2", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
+        "CalculateFluxesX2", kb.s, kb.e, jb.s, jb.e + 1, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           // X2
           if (vy > 0.) {
-            x2flux(0, k, j, i) = advected(k, j, i - 1) * vy;
+            x2flux(0, k, j, i) = advected(k, j - 1, i) * vy;
           } else {
             x2flux(0, k, j, i) = advected(k, j, i) * vy;
           }
@@ -254,13 +252,13 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
   }
 
   if (ndim > 2) {
-    auto x3flux = rc->Get("advected").flux[X3DIR].Get<4>();
+    auto x3flux = mbd->Get("advected").flux[X3DIR].Get<4>();
     pmb->par_for(
-        "CalculateFluxesX3", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
+        "CalculateFluxesX3", kb.s, kb.e + 1, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           // X3
           if (vz > 0.) {
-            x3flux(0, k, j, i) = advected(k, j, i - 1) * vz;
+            x3flux(0, k, j, i) = advected(k - 1, j, i) * vz;
           } else {
             x3flux(0, k, j, i) = advected(k, j, i) * vz;
           }
@@ -328,8 +326,8 @@ TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &pkg = pmb->packages.Get("particles_package");
-  auto &rc = pmb->meshblock_data.Get();
-  auto &advected = rc->Get("advected").data;
+  auto &mbd = pmb->meshblock_data.Get();
+  auto &advected = mbd->Get("advected").data;
   auto &swarm = pmb->swarm_data.Get()->Get("tracers");
   const auto num_tracers = pkg->Param<int>("num_tracers");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -344,7 +342,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   PARTHENON_REQUIRE(advected_mean > advected_amp, "Cannot have negative densities!");
 
   pmb->par_for(
-      "CalculateFluxesX3", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      "Init advected profile", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         advected(k, j, i) = advected_mean + advected_amp * sin(2. * M_PI * coords.x1v(i));
       });
@@ -386,8 +384,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &z = swarm->Get<Real>("z").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
-  const auto &my_rank = Globals::my_rank;
-  const auto &gid = pmb->gid;
   // This hardcoded implementation should only used in PGEN and not during runtime
   // addition of particles as indices need to be taken into account.
   pmb->par_for(
@@ -512,4 +508,4 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
   return tc;
 }
 
-} // namespace particles_example
+} // namespace particle_tracers
