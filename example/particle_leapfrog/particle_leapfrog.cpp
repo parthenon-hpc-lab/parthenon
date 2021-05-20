@@ -16,13 +16,6 @@
 //========================================================================================
 
 #include "particle_leapfrog.hpp"
-#include "Kokkos_CopyViews.hpp"
-#include "Kokkos_HostSpace.hpp"
-#include "basic_types.hpp"
-#include "config.hpp"
-#include "globals.hpp"
-#include "interface/update.hpp"
-#include "kokkos_abstraction.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -32,6 +25,15 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "Kokkos_CopyViews.hpp"
+#include "Kokkos_HostSpace.hpp"
+
+#include "basic_types.hpp"
+#include "config.hpp"
+#include "globals.hpp"
+#include "interface/update.hpp"
+#include "kokkos_abstraction.hpp"
 
 // *************************************************//
 // redefine some internal parthenon functions      *//
@@ -76,8 +78,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   return pkg;
 }
-
-AmrTag CheckRefinement(MeshBlockData<Real> *rc) { return AmrTag::same; }
 
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
@@ -287,9 +287,10 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
 TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
   // Boundary transfers on same MPI proc are blocking
   for (auto &block : blocks) {
-    auto swarm = block->swarm_data.Get()->Get("my particles");
-    for (int n = 0; n < block->pbval->nneighbor; n++) {
-      NeighborBlock &nb = block->pbval->neighbor[n];
+    auto &pmb = block;
+    auto swarm = pmb->swarm_data.Get()->Get("my particles");
+    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+      NeighborBlock &nb = pmb->pbval->neighbor[n];
       swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
     }
   }
@@ -354,6 +355,12 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
 
   auto num_task_lists_executed_independently = blocks.size();
 
+  TaskRegion &sync_region0 = tc.AddRegion(1);
+  {
+    auto &tl = sync_region0[0];
+    auto initialize_comms = tl.AddTask(none, InitializeCommunicationMesh, blocks);
+  }
+
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
@@ -362,10 +369,8 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
 
     auto &tl = async_region0[i];
 
-    auto initialize_comms = tl.AddTask(none, InitializeCommunicationMesh, blocks);
-
     auto transport_particles =
-        tl.AddTask(initialize_comms, TransportParticles, pmb.get(), &integrator);
+        tl.AddTask(none, TransportParticles, pmb.get(), &integrator);
 
     auto send = tl.AddTask(transport_particles, &SwarmContainer::Send, sc.get(),
                            BoundaryCommSubset::all);

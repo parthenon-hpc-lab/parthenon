@@ -14,8 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_PARTICLES_PARTICLES_HPP_
-#define EXAMPLE_PARTICLES_PARTICLES_HPP_
+#ifndef EXAMPLE_PARTICLE_LEAPFROG_PARTICLE_LEAPFROG_HPP_
+#define EXAMPLE_PARTICLE_LEAPFROG_PARTICLE_LEAPFROG_HPP_
 
 #include <memory>
 
@@ -55,4 +55,4 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
 
 } // namespace particles_example
 
-#endif // EXAMPLE_PARTICLES_PARTICLES_HPP_
+#endif // EXAMPLE_PARTICLE_LEAPFROG_PARTICLE_LEAPFROG_HPP_
