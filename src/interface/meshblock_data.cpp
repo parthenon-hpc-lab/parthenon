@@ -25,15 +25,6 @@
 
 namespace parthenon {
 
-/// The new version of Add that takes the fourth dimension from
-/// the metadata structure
-template <typename T>
-void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
-  // generate the vector and call Add
-  const std::vector<int> &dims = metadata.Shape();
-  Add(label, metadata, dims);
-}
-
 template <typename T>
 void MeshBlockData<T>::Add(const std::vector<std::string> &labelArray,
                            const Metadata &metadata) {
@@ -43,26 +34,15 @@ void MeshBlockData<T>::Add(const std::vector<std::string> &labelArray,
   }
 }
 
-template <typename T>
-void MeshBlockData<T>::Add(const std::vector<std::string> &labelArray,
-                           const Metadata &metadata, const std::vector<int> &dims) {
-  for (const auto &label : labelArray) {
-    Add(label, metadata, dims);
-  }
-}
-
 ///
 /// The internal routine for allocating an array.  This subroutine
 /// is topology aware and will allocate accordingly.
 ///
 /// @param label the name of the variable
-/// @param dims the size of each element
 /// @param metadata the metadata associated with the variable
 template <typename T>
-void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata,
-                           const std::vector<int> &dims) {
-  std::array<int, 6> arrDims;
-  calcArrDims_(arrDims, dims, metadata);
+void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
+  auto arrDims = calcArrDims_(metadata);
 
   // branch on kind of variable
   if (metadata.IsSet(Metadata::Sparse)) {
@@ -73,10 +53,8 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata,
     }
     int varIndex = metadata.GetSparseId();
     sparseMap_[label]->Add(varIndex, arrDims);
-    if (metadata.IsSet(Metadata::FillGhost)) {
-      auto &v = sparseMap_[label]->Get(varIndex);
-      v->allocateComms(pmy_block);
-    }
+    auto &v = sparseMap_[label]->Get(varIndex);
+    v->AllocateFluxesAndBdryVar(pmy_block);
   } else if (metadata.Where() == Metadata::Edge) {
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
@@ -99,9 +77,7 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata,
   } else {
     auto sv = std::make_shared<CellVariable<T>>(label, arrDims, metadata);
     Add(sv);
-    if (metadata.IsSet(Metadata::FillGhost)) {
-      sv->allocateComms(pmy_block);
-    }
+    sv->AllocateFluxesAndBdryVar(pmy_block);
   }
 }
 
@@ -585,12 +561,12 @@ template <typename T>
 TaskStatus MeshBlockData<T>::SendFluxCorrection() {
   Kokkos::Profiling::pushRegion("Task_SendFluxCorrection");
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::Independent)) {
+    if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
       v->vbvar->SendFluxCorrection();
     }
   }
   for (auto &sv : sparseVector_) {
-    if ((sv->IsSet(Metadata::Independent))) {
+    if (sv->IsSet(Metadata::WithFluxes) && sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto &v : vvec) {
         v->vbvar->SendFluxCorrection();
@@ -606,13 +582,13 @@ TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrection");
   int success = 0, total = 0;
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::Independent)) {
+    if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
       if (v->vbvar->ReceiveFluxCorrection()) success++;
       total++;
     }
   }
   for (auto &sv : sparseVector_) {
-    if (sv->IsSet(Metadata::Independent)) {
+    if (sv->IsSet(Metadata::WithFluxes) && sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto &v : vvec) {
         if (v->vbvar->ReceiveFluxCorrection()) success++;
@@ -855,10 +831,11 @@ void MeshBlockData<T>::Print() {
 }
 
 template <typename T>
-void MeshBlockData<T>::calcArrDims_(std::array<int, 6> &arrDims,
-                                    const std::vector<int> &dims,
-                                    const Metadata &metadata) {
-  const int N = dims.size();
+std::array<int, 6> MeshBlockData<T>::calcArrDims_(const Metadata &metadata) {
+  std::array<int, 6> arrDims;
+
+  const auto &shape = metadata.Shape();
+  const int N = shape.size();
 
   if (metadata.Where() == Metadata::Cell || metadata.Where() == Metadata::Face ||
       metadata.Where() == Metadata::Edge || metadata.Where() == Metadata::Node) {
@@ -866,14 +843,14 @@ void MeshBlockData<T>::calcArrDims_(std::array<int, 6> &arrDims,
     // classes add the +1's where needed.  They all expect
     // these dimensions to be the number of cells in each
     // direction, NOT the size of the arrays
-    assert(N >= 0 && N <= 3);
+    assert(N >= 1 && N <= 3);
     const IndexDomain entire = IndexDomain::entire;
     std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
     arrDims[0] = pmb->cellbounds.ncellsi(entire);
     arrDims[1] = pmb->cellbounds.ncellsj(entire);
     arrDims[2] = pmb->cellbounds.ncellsk(entire);
     for (int i = 0; i < N; i++)
-      arrDims[i + 3] = dims[i];
+      arrDims[i + 3] = shape[i];
     for (int i = N; i < 3; i++)
       arrDims[i + 3] = 1;
   } else {
@@ -882,10 +859,12 @@ void MeshBlockData<T>::calcArrDims_(std::array<int, 6> &arrDims,
     // size in each dimension
     assert(N >= 1 && N <= 6);
     for (int i = 0; i < N; i++)
-      arrDims[i] = dims[i];
+      arrDims[i] = shape[i];
     for (int i = N; i < 6; i++)
       arrDims[i] = 1;
   }
+
+  return arrDims;
 }
 
 template class MeshBlockData<double>;
