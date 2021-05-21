@@ -161,7 +161,7 @@ static BlockList_t setupMesh(const int &n_block, const int &n_mesh, const double
   auto h_xyz = Kokkos::create_mirror_view(xyz);
 
   // Set up our mesh.
-  Metadata myMetadata({Metadata::Independent, Metadata::Cell});
+  Metadata myMetadata({Metadata::Independent, Metadata::WithFluxes, Metadata::Cell});
   BlockList_t block_list;
   block_list.reserve(n_mesh * n_mesh * n_mesh);
 

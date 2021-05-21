@@ -98,10 +98,6 @@ class StateDescriptor {
   // retrieve number of fields
   int size() const { return metadataMap_.size(); }
 
-  // Ensure all required bits are present
-  // projective and can be called multiple times with no harm
-  void ValidateMetadata();
-
   // retrieve all field names
   std::vector<std::string> Fields() {
     std::vector<std::string> names;
@@ -232,21 +228,6 @@ class StateDescriptor {
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
 
  private:
-  template <typename F>
-  void MetadataLoop_(F func) {
-    for (auto &pair : metadataMap_) {
-      func(pair.second);
-    }
-    for (auto &p1 : sparseMetadataMap_) {
-      for (auto &p2 : p1.second) {
-        func(p2.second);
-      }
-    }
-    for (auto &pair : swarmMetadataMap_) {
-      func(pair.second);
-    }
-  }
-
   Params params_;
   const std::string label_;
 

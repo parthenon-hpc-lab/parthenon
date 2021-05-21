@@ -45,6 +45,7 @@ stages:
     EXECUTABLE: "execute_python_application.sh"
     BUILD_TARGET_BRANCH: "OFF"
     SCRIPT_TO_RUN: "install_python_scripts.sh"
+    GIT_STRATEGY: clone # Prevents problems when rebase is used
   script:
     - |
       if [ -d "{CI_PROJECT_DIR}/../parthenon.wiki" ];
