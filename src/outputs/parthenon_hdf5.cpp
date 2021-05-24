@@ -616,7 +616,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
   } // Block section
 
-  auto WriteLocations = [&](bool face) {
+  // Write mesh coordinates to file
+  for( const bool face : {true,false} ){
     const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
     const int offset = face ? 1 : 0;
 
@@ -656,11 +657,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     local_count[1] = global_count[1] = nx3 + offset;
     HDF5Write2D(gLocations, "z", loc_z.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
-  };
-
-  // Write mesh coordinates to file
-  WriteLocations(true);
-  WriteLocations(false);
+  }
 
   // Write Levels and Logical Locations with the level for each Meshblock loclist contains
   // levels and logical locations for all meshblocks on all ranks
