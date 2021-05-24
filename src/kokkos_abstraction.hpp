@@ -67,6 +67,8 @@ template <typename T>
 using ParArray5D = Kokkos::View<T *****, LayoutWrapper, DevMemSpace>;
 template <typename T>
 using ParArray6D = Kokkos::View<T ******, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray7D = Kokkos::View<T *******, LayoutWrapper, DevMemSpace>;
 
 using team_policy = Kokkos::TeamPolicy<>;
 using team_mbr_t = Kokkos::TeamPolicy<>::member_type;

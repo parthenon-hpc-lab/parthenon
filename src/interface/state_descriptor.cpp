@@ -275,15 +275,6 @@ bool StateDescriptor::FlagsPresent(std::vector<MetadataFlag> const &flags,
   return false;
 }
 
-void StateDescriptor::ValidateMetadata() {
-  MetadataLoop_([&](Metadata &m) {
-    auto dependency = m.Role();
-    if (dependency == Metadata::None) {
-      m.Set(Metadata::Provides);
-    }
-  });
-}
-
 std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
   os << "# Package: " << sd.label() << "\n"
      << "# ---------------------------------------------------\n"
@@ -346,7 +337,6 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
   for (auto &pair : packages.AllPackages()) {
     auto &name = pair.first;
     auto &package = pair.second;
-    package->ValidateMetadata(); // set unset flags
     // sort
     var_tracker.CategorizeCollection(name, package->AllFields(), &cvar_provider);
     for (auto &p2 : package->AllSparseFields()) { // sparse

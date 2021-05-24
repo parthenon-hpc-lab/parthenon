@@ -116,6 +116,14 @@ class PerformanceDataJsonParser():
                 cycles = data_grp.get('zone_cycles')
         return mesh_blocks, cycles
 
+    @staticmethod
+    def _containsTest(json_obj, test):
+        for data_grp in json_obj.get('data'):
+            if data_grp.get('test') == test:
+                return True
+        return False
+
+
     def _getMeshBlocksOrCyclesAt(self, meshblock_or_cycles, commit_index, test):
         list_ind = 0
         for json_obj in self._data:
@@ -179,14 +187,15 @@ class PerformanceDataJsonParser():
                             json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
                         if recent_datetime is None:
                             recent_datetime = new_datetime
-                            mesh_blocks, cycles = self._getCyclesAndMeshblocks(
-                                json_obj, test)
+                            if self._containsTest(json_obj, test):
+                                mesh_blocks, cycles = self._getCyclesAndMeshblocks(
+                                    json_obj, test)
 
                         if new_datetime > recent_datetime:
-                            recent_datetime = new_datetime
-                            self._getCyclesAndMeshblocks(json_obj, test)
-                            mesh_blocks, cycles = self._getCyclesAndMeshblocks(
-                                json_obj, test)
+                            if self._containsTest(json_obj, test):
+                                recent_datetime = new_datetime
+                                mesh_blocks, cycles = self._getCyclesAndMeshblocks(
+                                    json_obj, test)
 
                 if isinstance(mesh_blocks, str):
                     mesh_blocks = np.array(
