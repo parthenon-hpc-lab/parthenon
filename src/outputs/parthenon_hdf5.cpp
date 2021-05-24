@@ -106,7 +106,7 @@ struct VarInfo {
           int vlen, bool is_sparse, bool is_vector)
       : label_(label),
         component_labels_(component_labels.size() > 0 ? component_labels
-                                                     : std::vector<std::string>{label}),
+                                                      : std::vector<std::string>{label}),
         vlen_(vlen), is_sparse_(is_sparse), is_vector_(is_vector) {
     if ((vlen_ <= 0) || (vlen_ > max_vlen_)) {
       std::stringstream msg;
@@ -320,8 +320,8 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     for (const auto &vinfo : var_list) {
       const int vlen = vinfo.vlen_;
       dims[4] = vlen;
-      writeXdmfSlabVariableRef(xdmf, vinfo.label_, hdfFile, ib, vlen, ndims, dims, dims321,
-                               vinfo.is_vector_);
+      writeXdmfSlabVariableRef(xdmf, vinfo.label_, hdfFile, ib, vlen, ndims, dims,
+                               dims321, vinfo.is_vector_);
     }
     xdmf << "      </Grid>" << std::endl;
   }
