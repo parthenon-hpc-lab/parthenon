@@ -617,7 +617,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   } // Block section
 
   // Write mesh coordinates to file
-  for( const bool face : {true,false} ){
+  for( const bool face : {true, false} ){
     const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
     const int offset = face ? 1 : 0;
 
