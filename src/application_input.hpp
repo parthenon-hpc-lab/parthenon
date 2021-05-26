@@ -21,7 +21,6 @@
 
 #include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
-#include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -31,8 +30,6 @@ namespace parthenon {
 struct ApplicationInput {
  public:
   // ParthenonManager functions
-  std::function<Properties_t(std::unique_ptr<ParameterInput> &)> ProcessProperties =
-      nullptr;
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages = nullptr;
 
   // Mesh functions
