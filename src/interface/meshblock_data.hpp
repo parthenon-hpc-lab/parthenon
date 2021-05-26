@@ -163,36 +163,6 @@ class MeshBlockData {
   ///
   /// This function will eventually look at the metadata flags to
   /// identify the size of the first dimension based on the
-  /// topological location.
-  ///
-  /// @param label the name of the variable
-  /// @param metadata the metadata associated with the variable
-  /// @param dims the size of each element
-  ///
-  /// TODO(JMM): DO NOT make these strings const reference.
-  /// passing in C-style string literals misbehaves
-  void Add(const std::string &label, const Metadata &metadata,
-           const std::vector<int> &dims);
-
-  ///
-  /// Allocate and add a variable<T> to the container
-  ///
-  /// This function will eventually look at the metadata flags to
-  /// identify the size of the first dimension based on the
-  /// topological location.
-  ///
-  /// @param labelVector the array of names of variables
-  /// @param metadata the metadata associated with the variable
-  /// @param dims the size of each element
-  ///
-  void Add(const std::vector<std::string> &labelVector, const Metadata &metadata,
-           const std::vector<int> &dims);
-
-  ///
-  /// Allocate and add a variable<T> to the container
-  ///
-  /// This function will eventually look at the metadata flags to
-  /// identify the size of the first dimension based on the
   /// topological location.  Dimensions will be taken from the metadata.
   ///
   /// @param label the name of the variable
@@ -461,8 +431,7 @@ class MeshBlockData {
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
 
-  void calcArrDims_(std::array<int, 6> &arrDims, const std::vector<int> &dims,
-                    const Metadata &metadata);
+  std::array<int, 6> calcArrDims_(const Metadata &metadata);
 
   // helper functions for VariablePack
   vpack_types::VarList<T> MakeList_(const std::vector<std::string> &names,

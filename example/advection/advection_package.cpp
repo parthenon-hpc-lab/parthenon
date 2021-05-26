@@ -166,7 +166,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     } else {
       field_name = field_name_base + "_" + std::to_string(var);
     }
-    m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
+    m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+                  Metadata::FillGhost},
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
   }
@@ -185,14 +186,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     field_name = "one_minus_sqrt_one_minus_advected_sq";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                   Metadata::Restart},
-                 12, // just picking a sparse_id out of a hat for demonstration
-                 std::vector<int>({num_vars}));
+                 std::vector<int>({num_vars}),
+                 12 // just picking a sparse_id out of a hat for demonstration
+    );
     pkg->AddField(field_name, m);
     // add another component
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                   Metadata::Restart},
-                 37, // just picking a sparse_id out of a hat for demonstration
-                 std::vector<int>({num_vars}));
+                 std::vector<int>({num_vars}),
+                 37 // just picking a sparse_id out of a hat for demonstration
+    );
     pkg->AddField(field_name, m);
   }
 
@@ -428,7 +431,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
 
-  auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::Independent});
+  auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes});
 
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);

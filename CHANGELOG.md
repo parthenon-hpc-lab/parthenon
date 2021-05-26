@@ -8,6 +8,8 @@
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 508]](https://github.com/lanl/parthenon/pull/508) Modify `RestrictCellCenteredVariables` to support a restriction over meshblock packs.
+- [[PR 524]](https://github.com/lanl/parthenon/pull/524) Enforce `Metadata` flags constraints and add new `Metadata::WithFluxes` flag. Note: `Metadata::Independent` will be set automatically unless `Metadata::Derived` is set
+- [[PR 517]](https://github.com/lanl/parthenon/pull/517) Remove optional `dims` argument from `MeshBlockData::Add` and use the shape from the `Metadata` instead
 - [[PR 492]](https://github.com/lanl/parthenon/pull/492) Modify advection example to have an arbitrary number of dense variables and to disable fill derived for profiling.
 - [[PR 486]](https://github.com/lanl/parthenon/pull/486) Unify HDF5 output and restart file writing,
     add HDF5 compression support, add support for sparse fields in HDF5 output/restart files, add and rename some metadata in HDF5 files.
@@ -16,12 +18,15 @@
 - [[PR 487]](https://github.com/lanl/parthenon/pull/487) Add default tiling matching `i` index range to MDRange loop pattern.
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 502]](https://github.com/lanl/parthenon/pull/502) Use subviews of a single view for fluxes
 - [[PR 505]](https://github.com/lanl/parthenon/pull/505) Can also use buffer-pack-in-one function also in `Mesh::Initialize` (and thus during load balancing/mesh refinement). Breaks sparse variables with FillGhost. Enable with `PARTHENON_ENABLE_INIT_PACKING=ON` (default OFF).
 - [[PR 493]](https://github.com/lanl/parthenon/pull/493) Use subviews of a single view for comm buffers
 - [[PR 500]](https://github.com/lanl/parthenon/pull/500) Update docker file and CI environment (for Cuda 11.3 and latest `nsys`)
 - [[PR 490]](https://github.com/lanl/parthenon/pull/490) Adjust block size in OverlappingSpace instance tests to remain within Cuda/HIP limits
 - [[PR 488]](https://github.com/lanl/parthenon/pull/488) Update GitLab Dockerfile to use HDF5 version 1.10.7
 - [[PR 510]](https://github.com/lanl/parthenon/pull/510) Fix calling noexistant logger in python performance regression app
+- [[PR 527]](https://github.com/lanl/parthenon/pull/527) Fix problem with ci when rebase is used.
+- [[PR 518]](https://github.com/lanl/parthenon/pull/518) Added MPI performance regression tests to CI performance app
 
 ### Removed (removing behavior/API/varaibles/...)
 - [[PR 498]](https://github.com/lanl/parthenon/pull/498) Cleanup unused user hooks and variables
