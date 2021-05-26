@@ -449,7 +449,7 @@ class Metadata {
     }
     return num;
   }
-};
+}; // namespace parthenon
 
 } // namespace parthenon
 

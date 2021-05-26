@@ -300,7 +300,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       rc.Add("vsparse", meta_sparse, 1);
       rc.Add("vsparse", meta_sparse, 13);
       rc.Add("vsparse", meta_sparse, 42);
-      
+
       rc.AllocSparseID("vsparse", 1);
       rc.AllocSparseID("vsparse", 13);
       rc.AllocSparseID("vsparse", 42);

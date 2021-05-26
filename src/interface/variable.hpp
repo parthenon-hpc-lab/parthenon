@@ -71,8 +71,9 @@ class CellVariable {
   }
 
   // make a new CellVariable based on an existing one
-  std::shared_ptr<CellVariable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb,
-                                                const bool allocComms = false);
+  std::shared_ptr<CellVariable<T>>
+  AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
+               std::weak_ptr<MeshBlock> wpmb = {});
 
   // accessors
   template <class... Args>
@@ -124,14 +125,16 @@ class CellVariable {
   // allocate data only
   void AllocateData(std::weak_ptr<MeshBlock> wpmb);
 
-  /// allocate communication space based on info in MeshBlock
-  void AllocateComms(std::weak_ptr<MeshBlock> wpmb);
+  /// allocate fluxes (if Metadata::WithFluxes is set) and boundary variable if
+  /// (Metadata::FillGhost is set)
+  void AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb);
 
   Metadata m_;
   std::string base_name_;
   int sparse_id_ = InvalidSparseID;
 
   bool is_allocated_ = false;
+  ParArray7D<T> flux_data_; // unified par array for the fluxes
 };
 
 ///
