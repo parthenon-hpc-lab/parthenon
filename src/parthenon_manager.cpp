@@ -118,28 +118,23 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
 void ParthenonManager::ParthenonInitPackagesAndMesh() {
   // Allow for user overrides to default Parthenon functions
-  if (app_input->ProcessProperties != nullptr) {
-    ProcessProperties = app_input->ProcessProperties;
-  }
   if (app_input->ProcessPackages != nullptr) {
     ProcessPackages = app_input->ProcessPackages;
   }
 
-  // read in/set up application specific properties
-  auto properties = ProcessProperties(pinput);
   // set up all the packages in the application
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
 
   if (arg.res_flag == 0) {
-    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), properties, packages,
-                                   arg.mesh_flag);
+    pmesh =
+        std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, arg.mesh_flag);
   } else {
     // Open restart file
     // Read Mesh from restart file and create meshblocks
-    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
-                                   properties, packages);
+    pmesh =
+        std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages);
 
     // Read simulation time and cycle from restart file and set in input
     Real tNow = restartReader->GetAttr<Real>("Info", "Time");
@@ -176,14 +171,6 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
   MPI_Finalize();
 #endif
   return ParthenonStatus::complete;
-}
-
-Properties_t
-ParthenonManager::ProcessPropertiesDefault(std::unique_ptr<ParameterInput> &pin) {
-  // In practice, this function should almost always be replaced by a version
-  // that sets relevant things for the application.
-  Properties_t props;
-  return props;
 }
 
 Packages_t

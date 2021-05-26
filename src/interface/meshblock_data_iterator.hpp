@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "interface/meshblock_data.hpp"
-#include "interface/properties_interface.hpp"
 #include "interface/variable.hpp"
 
 namespace parthenon {
