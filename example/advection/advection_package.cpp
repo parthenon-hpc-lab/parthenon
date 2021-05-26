@@ -184,7 +184,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                   Metadata::Restart},
                  std::vector<int>({num_vars}));
-    pkg->AddSparseFields(field_name, {12, 37}, m);
+    pkg->AddSparsePool(field_name, m, std::vector<int>{12, 37});
   }
 
   // List (vector) of HistoryOutputVar that will all be enrolled as output variables

@@ -40,6 +40,7 @@ using parthenon::CellVariable;
 using parthenon::CellVariableVector;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
+using parthenon::MeshBlock;
 using parthenon::MeshBlockData;
 using parthenon::MeshBlockDataIterator;
 using parthenon::Metadata;
@@ -70,13 +71,17 @@ TEST_CASE("Can pull variables from containers based on Metadata",
           "[MeshBlockDataIterator]") {
   GIVEN("A Container with a set of variables initialized to zero") {
     MeshBlockData<Real> rc;
+
+    // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
+    // won't be allocated
+    auto dummy = std::make_shared<MeshBlock>(16, 3);
+    rc.SetBlockPointer(dummy);
+
     std::vector<int> scalar_shape{16, 16, 16};
     std::vector<int> vector_shape{16, 16, 16, 3};
 
-    Metadata m_in({Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost},
-                  scalar_shape);
-    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes,
-                          Metadata::FillGhost, Metadata::Vector},
+    Metadata m_in({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
+    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},
                          vector_shape);
     Metadata m_out({Metadata::Derived}, scalar_shape);
     Metadata m_out_vector({Metadata::Derived}, vector_shape);
@@ -255,8 +260,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we set fluxes of independent variables") {
-      auto vf = rc.PackVariablesAndFluxes(
-          {Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost});
+      auto vf = rc.PackVariablesAndFluxes({Metadata::Independent, Metadata::WithFluxes});
       par_for(
           DEFAULT_LOOP_PATTERN, "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0,
           vf.GetDim(3) - 1, 0, vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,
@@ -292,7 +296,11 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we add sparse fields") {
-      rc.Add("vsparse", Metadata({Metadata::Derived, Metadata::Sparse}, scalar_shape));
+      Metadata meta_sparse({Metadata::Derived, Metadata::Sparse}, scalar_shape);
+      rc.Add("vsparse", meta_sparse, 1);
+      rc.Add("vsparse", meta_sparse, 13);
+      rc.Add("vsparse", meta_sparse, 42);
+      
       rc.AllocSparseID("vsparse", 1);
       rc.AllocSparseID("vsparse", 13);
       rc.AllocSparseID("vsparse", 42);
@@ -340,15 +348,14 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we add a 2d variable") {
       std::vector<int> shape_2D{16, 16, 1};
-      Metadata m_in_2D({Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost},
-                       shape_2D);
+      Metadata m_in_2D({Metadata::Independent, Metadata::WithFluxes}, shape_2D);
       rc.Add("v2d", m_in_2D);
       auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
       THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
     }
 
     WHEN("We extract a pack over an empty set") {
-      auto pack = rc.PackVariables(std::vector<std::string>{"doesnt exist"});
+      auto pack = rc.PackVariables(std::vector<std::string>{"does_not_exist"});
       THEN("The pack is empty") { REQUIRE(pack.GetDim(4) == 0); }
     }
   }

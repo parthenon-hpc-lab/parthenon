@@ -24,6 +24,7 @@
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
+#include "interface/sparse_pool.hpp"
 #include "interface/swarm.hpp"
 #include "interface/variable.hpp"
 #include "refinement/amr_criteria.hpp"
@@ -82,7 +83,7 @@ struct VarIDHasher {
 /// Each State descriptor has a label, associated parameters, and
 /// metadata for all fields within that state.
 class StateDescriptor {
-  friend class FieldProvider;
+  friend class DenseFieldProvider;
 
  public:
   // copy constructor throw error
@@ -143,6 +144,9 @@ class StateDescriptor {
   // use the public interface below
   bool AddFieldImpl(const VarID &vid, const Metadata &m);
 
+  // add a sparse pool
+  bool AddSparsePoolImpl(const SparsePool &pool);
+
  public:
   bool AddDenseField(const std::string &field_name, const Metadata &m) {
     if (m.IsSet(Metadata::Sparse)) {
@@ -159,38 +163,12 @@ class StateDescriptor {
     return AddDenseField(field_name, m);
   }
 
-  // add a collection of sparse fields with the given sparse_ids (no data is allocated
-  // until a particular sparse_id is allocated on a particular block), the vector of
-  // metadata contains the metadata for each variable corresponding to the sparse_ids in
-  // the same order
-  bool AddSparseFields(const std::string &base_name, const std::vector<int> &sparse_ids,
-                       const std::vector<Metadata> &ms) {
-    if (sparse_ids.size() != ms.size()) {
-      PARTHENON_FAIL("Different numbers of sparse ids and metadata in AddSparseFields");
-    }
-
-    if (sparse_ids.size() == 0) {
-      return false;
-    }
-
-    if (sparseIdPool_.count(base_name) > 0) {
-      // this sparse variable has already been added
-      return false;
-    }
-
-    sparseIdPool_.insert({base_name, sparse_ids});
-    for (size_t i = 0; i < sparse_ids.size(); ++i) {
-      AddFieldImpl(VarID(base_name, sparse_ids[i]), ms[i]);
-    }
-
-    return true;
-  }
-
-  // as above, but use the same metadata for each sparse_id
-  bool AddSparseFields(const std::string &base_name, const std::vector<int> &sparse_ids,
-                       const Metadata &m) {
-    std::vector<Metadata> ms(sparse_ids.size(), m);
-    return AddSparseFields(base_name, sparse_ids, ms);
+  // add sparse pool, all arguments will be forwarded to the SparsePool constructor, so
+  // one can pass in a reference to a SparsePool or arguments that match one of the
+  // SparsePool constructors
+  template <typename... Args>
+  bool AddSparsePool(const Args &... args) {
+    return AddSparsePoolImpl(SparsePool(args...));
   }
 
   // retrieve number of fields
@@ -217,7 +195,7 @@ class StateDescriptor {
   }
 
   const auto &AllFields() const { return metadataMap_; }
-  const auto &AllSparseIdPools() const { return sparseIdPool_; }
+  const auto &AllSparsePools() const { return sparsePoolMap_; }
   const auto &AllSwarms() const { return swarmMetadataMap_; }
   const auto &AllSwarmValues(const std::string &swarm_name) const {
     return swarmValueMetadataMap_.at(swarm_name);
@@ -226,7 +204,7 @@ class StateDescriptor {
     return metadataMap_.count(VarID(base_name, sparse_id)) > 0;
   }
   bool SparseBaseNamePresent(const std::string &base_name) const {
-    return sparseIdPool_.count(base_name) > 0;
+    return sparsePoolMap_.count(base_name) > 0;
   }
   bool SwarmPresent(const std::string &swarm_name) const {
     return swarmMetadataMap_.count(swarm_name) > 0;
@@ -238,16 +216,23 @@ class StateDescriptor {
   }
 
   // retrieve metadata for a specific field
-  Metadata &FieldMetadata(const std::string &base_name, int sparse_id = InvalidSparseID) {
-    // TODO(JL) Do we want to add a default metadata for a non-existent field_name?
-    return metadataMap_[VarID(base_name, sparse_id)];
+  const Metadata &FieldMetadata(const std::string &base_name,
+                                int sparse_id = InvalidSparseID) const {
+    static const Metadata empty_metadata;
+
+    const auto itr = metadataMap_.find(VarID(base_name, sparse_id));
+    if (itr == metadataMap_.end()) {
+      return empty_metadata;
+    } else {
+      return itr->second;
+    }
   }
 
-  const auto &SparseIdPool(const std::string &base_name) const {
-    static const std::vector<int> empty_pool;
+  const auto &GetSparsePool(const std::string &base_name) const {
+    static const SparsePool empty_pool("EmptySparsePool", Metadata({Metadata::Sparse}));
 
-    const auto itr = sparseIdPool_.find(base_name);
-    if (itr == sparseIdPool_.end()) {
+    const auto itr = sparsePoolMap_.find(base_name);
+    if (itr == sparsePoolMap_.end()) {
       return empty_pool;
     } else {
       return itr->second;
@@ -337,8 +322,8 @@ class StateDescriptor {
   // for each variable label (full label for sparse variables) hold metadata
   std::unordered_map<VarID, Metadata, VarIDHasher> metadataMap_;
 
-  // for each sparse base name hold pool of possible sparse ids
-  Dictionary<std::vector<int>> sparseIdPool_;
+  // for each sparse base name hold its sparse pool
+  Dictionary<SparsePool> sparsePoolMap_;
 
   Dictionary<Metadata> swarmMetadataMap_;
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;

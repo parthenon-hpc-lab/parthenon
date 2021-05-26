@@ -211,7 +211,8 @@ class VariableFluxPack : public VariablePack<T> {
                    const ParArray1D<int> &sparse_ids,
                    const ParArray1D<int> &vector_component,
                    const std::array<int, 4> &dims, int fsize)
-      : VariablePack<T>(view, sparse_ids, vector_component, dims), f_({f0, f1, f2}) {}
+      : VariablePack<T>(view, sparse_ids, vector_component, dims), f_({f0, f1, f2}),
+        fsize_(fsize) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
   const ViewOfParArrays<T> &flux(const int dir) const {
@@ -222,9 +223,9 @@ class VariableFluxPack : public VariablePack<T> {
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsFluxAllocated(const int n) const {
     assert(0 <= n && n < fsize_);
-    // we can just check dir == 0, because it always exists and it's allocated iff all
+    // we can just check X1DIR, because it always exists and it's allocated iff all
     // used dirs are allcoated
-    return flux(0)(n).size() > 0;
+    return flux(X1DIR)(n).size() > 0;
   }
 
   KOKKOS_FORCEINLINE_FUNCTION

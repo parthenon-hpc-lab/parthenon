@@ -73,7 +73,7 @@ TEST_CASE("Test Associate in StateDescriptor", "[StateDescriptor]") {
   }
 }
 
-TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") {
+TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") {
   GIVEN("Some empty state descriptors and metadata") {
     // metadata
     FlagVec priv = {Metadata::Independent, Metadata::FillGhost, Metadata::Private};
@@ -119,9 +119,10 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
     }
 
     WHEN("We try to add the same sparse id twice") {
-      pkg1->AddSparseFields("sparse", {sparse_ids[0]}, m_sparse_provides);
+      pkg1->AddSparsePool("sparse", m_sparse_provides, std::vector<int>{sparse_ids[0]});
       THEN("The method returns false and the variable is not added") {
-        REQUIRE(!(pkg1->AddSparseFields("sparse", {sparse_ids[0]}, m_sparse_provides)));
+        REQUIRE(!(pkg1->AddSparsePool("sparse", m_sparse_provides,
+                                      std::vector<int>{sparse_ids[0]})));
       }
     }
 
@@ -146,25 +147,24 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
     }
     // TODO(JMM): This will simplify once we have dense on block
     WHEN("We add the same sparse private variable to two different packages") {
-      pkg1->AddSparseFields("sparse", {sparse_ids[2], sparse_ids[3]}, m_sparse_private);
+      pkg1->AddSparsePool("sparse", m_sparse_private, std::vector<int>{sparse_ids[2]});
+      pkg2->AddSparsePool("sparse", m_sparse_private, std::vector<int>{sparse_ids[3]});
       THEN("We can safely resolve the conflict") {
         auto pkg3 = ResolvePackages(packages);
         AND_THEN("The names are privately namespaced") {
-          REQUIRE(pkg3->FieldPresent("package1::sparse"));
-          REQUIRE(pkg3->FieldPresent("package2::sparse"));
-          REQUIRE(!(pkg3->FieldPresent("sparse")));
+          REQUIRE(pkg3->SparseBaseNamePresent("package1::sparse"));
+          REQUIRE(pkg3->SparseBaseNamePresent("package2::sparse"));
+          REQUIRE(!(pkg3->SparseBaseNamePresent("sparse")));
         }
         AND_THEN("The appropriate sparse metadata was added") {
-          REQUIRE(pkg3->FieldPresent(
-              parthenon::MakeVarLabel("package1::sparse", sparse_ids[2])));
-          REQUIRE(pkg3->FieldPresent(
-              parthenon::MakeVarLabel("package2::sparse", sparse_ids[3])));
+          REQUIRE(pkg3->FieldPresent("package1::sparse", sparse_ids[2]));
+          REQUIRE(pkg3->FieldPresent("package2::sparse", sparse_ids[3]));
         }
       }
     }
     // TODO(JMM): This will simplify once we have dense on block
     WHEN("We add multiple provides sparse ids to the same package") {
-      pkg1->AddSparseFields("sparse", sparse_ids, m_sparse_provides);
+      pkg1->AddSparsePool("sparse", m_sparse_provides, sparse_ids);
       THEN("We can safely resolve packages") {
         auto pkg4 = ResolvePackages(packages);
         AND_THEN("The sparse variable is present") {
@@ -217,7 +217,7 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
 
     WHEN("We add an overridable variable and nothing else") {
       pkg1->AddDenseField("dense", m_overridable);
-      pkg2->AddSparseFields("sparse", sparse_ids, m_sparse_overridable);
+      pkg2->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
       pkg3->AddSwarm("swarm", m_overridable);
       pkg3->AddSwarmValue("value1", "swarm", m_swarmval);
       pkg3->AddSwarmValue("value2", "swarm", m_swarmval);
@@ -246,9 +246,9 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
       pkg2->AddSwarmValue("provides", "swarm", m_swarmval);
       pkg3->AddSwarm("swarm", m_requires);
 
-      pkg1->AddSparseFields("sparse", sparse_ids, m_sparse_overridable);
-      pkg2->AddSparseFields("sparse", sparse_ids, m_sparse_overridable);
-      pkg3->AddSparseFields("sparse", sparse_ids, m_sparse_provides);
+      pkg1->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
+      pkg2->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
+      pkg3->AddSparsePool("sparse", m_sparse_provides, sparse_ids);
       for (const int sid : sparse_ids) {
         REQUIRE(pkg1->FieldPresent("sparse", sid));
         REQUIRE(pkg2->FieldPresent("sparse", sid));
@@ -264,7 +264,7 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
           REQUIRE(pkg4->SwarmMetadata("swarm") == m_provides);
           REQUIRE(pkg4->SwarmValuePresent("provides", "swarm"));
           REQUIRE(!(pkg4->SwarmValuePresent("overridable", "swarm")));
-          REQUIRE(pkg4->FieldPresent("sparse"));
+          REQUIRE(pkg4->SparseBaseNamePresent("sparse"));
           for (const int sid : sparse_ids) {
             REQUIRE(pkg4->FieldPresent("sparse", sid));
           }

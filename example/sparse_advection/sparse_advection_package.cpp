@@ -68,7 +68,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata m(
       {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::Sparse},
       std::vector<int>({1}));
-  pkg->AddSparseFields("sparse", sparse_pool, m);
+  pkg->AddSparsePool("sparse", m, sparse_pool);
 
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;

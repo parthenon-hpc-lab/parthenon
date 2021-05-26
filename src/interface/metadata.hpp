@@ -297,6 +297,9 @@ class Metadata {
   /*--------------------------------------------------------*/
   // Getters for attributes
   /*--------------------------------------------------------*/
+  // returns all set flags
+  std::vector<MetadataFlag> Flags() const;
+
   /// returns the topological location of variable
   MetadataFlag Where() const {
     if (IsSet(Cell)) {
@@ -350,38 +353,7 @@ class Metadata {
   /*--------------------------------------------------------*/
 
   // get the dims of the 6D array
-  std::array<int, 6> GetArrayDims(const IndexShape &cellbounds) const {
-    std::array<int, 6> arrDims;
-
-    const auto &shape = Shape();
-    const int N = shape.size();
-
-    if (IsMeshTied()) {
-      // Let the FaceVariable, EdgeVariable, and NodeVariable
-      // classes add the +1's where needed.  They all expect
-      // these dimensions to be the number of cells in each
-      // direction, NOT the size of the arrays
-      assert(N >= 1 && N <= 3);
-      arrDims[0] = cellbounds.ncellsi(IndexDomain::entire);
-      arrDims[1] = cellbounds.ncellsj(IndexDomain::entire);
-      arrDims[2] = cellbounds.ncellsk(IndexDomain::entire);
-      for (int i = 0; i < N; i++)
-        arrDims[i + 3] = shape[i];
-      for (int i = N; i < 3; i++)
-        arrDims[i + 3] = 1;
-    } else {
-      // This variable is not necessarily tied to any specific
-      // mesh element, so dims will be used as the actual array
-      // size in each dimension
-      assert(N >= 1 && N <= 6);
-      for (int i = 0; i < N; i++)
-        arrDims[i] = shape[i];
-      for (int i = N; i < 6; i++)
-        arrDims[i] = 1;
-    }
-
-    return arrDims;
-  }
+  std::array<int, 6> GetArrayDims(std::weak_ptr<MeshBlock> wpmb) const;
 
   /// Returns the attribute flags as a string of 1/0
   std::string MaskAsString() const {
@@ -477,7 +449,7 @@ class Metadata {
     }
     return num;
   }
-}; // namespace parthenon
+};
 
 } // namespace parthenon
 

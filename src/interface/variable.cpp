@@ -91,9 +91,13 @@ void CellVariable<T>::AllocateData(std::weak_ptr<MeshBlock> wpmb) {
     return;
   }
 
-  if (wpmb.expired()) return;
+  if (m_.IsMeshTied() && wpmb.expired()) {
+    // we can't allocate data because we need cellbounds from the meshblock but our
+    // meshblock pointer is null
+    return;
+  }
 
-  const auto dims = m_.GetArrayDims(wpmb.lock()->cellbounds);
+  const auto dims = m_.GetArrayDims(wpmb);
   data = ParArrayND<T>(label(), dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]);
   is_allocated_ = true;
 }
@@ -118,17 +122,22 @@ void CellVariable<T>::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
                                   GetDim(3), GetDim(2), GetDim(1));
   }
 
+  if (wpmb.expired()) return;
+
   // Create the boundary object
   if (IsSet(Metadata::FillGhost)) {
-    if (wpmb.expired()) return;
-
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
-    if (pmb->pmy_mesh->multilevel)
+    if ((pmb->pmy_mesh == nullptr) || (pmb->pbval == nullptr)) {
+      return;
+    }
+
+    if (pmb->pmy_mesh->multilevel) {
       coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
                                pmb->c_cellbounds.ncellsk(IndexDomain::entire),
                                pmb->c_cellbounds.ncellsj(IndexDomain::entire),
                                pmb->c_cellbounds.ncellsi(IndexDomain::entire));
+    }
 
     vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
 

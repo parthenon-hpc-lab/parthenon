@@ -59,8 +59,8 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata,
       std::exit(1);
     }
     // add a face variable
-    auto pfv = std::make_shared<FaceVariable<T>>(
-        label, metadata.GetArrayDims(pmy_block.lock()->cellbounds), metadata);
+    auto pfv = std::make_shared<FaceVariable<T>>(label, metadata.GetArrayDims(pmy_block),
+                                                 metadata);
     Add(pfv);
   } else {
     auto sv = std::make_shared<CellVariable<T>>(label, metadata, sparse_id);
@@ -313,15 +313,15 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       const auto &v = itr->second;
       // this name exists, add it
       var_list.Add(v, sparse_ids_set);
-    } else {
+    } else if (GetBlockPointer()->resolved_packages != nullptr) {
       // check if this is a sparse base name, if so we get its pool of sparse_ids,
       // otherwise we get an empty pool
-      const auto &sparse_pool = GetBlockPointer()->resolved_packages->SparseIdPool(name);
+      const auto &sparse_pool = GetBlockPointer()->resolved_packages->GetSparsePool(name);
 
       // add all sparse ids of the pool
-      for (const auto id : sparse_pool) {
+      for (const auto iter : sparse_pool.pool()) {
         // this variable must exist, if it doesn't something is very wrong
-        const auto &v = varMap_.at(MakeVarLabel(name, id));
+        const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
         var_list.Add(v, sparse_ids_set);
       }
     }

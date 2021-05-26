@@ -133,7 +133,7 @@ class MeshBlockData {
     SetBlockPointer(*other);
   }
   void SetBlockPointer(const MeshBlockData<T> &other) {
-    pmy_block = other.GetBlockPointer();
+    pmy_block = other.pmy_block;
   }
 
   ///
