@@ -56,14 +56,6 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-// can be used to set global properties that all meshblocks want to know about
-// no need in this app so use the weak version that ships with parthenon
-// Properties_t ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin)
-// {
-//  Properties_t props;
-//  return props;
-//}
-
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   // only have one package for this app, but will typically have more things added to

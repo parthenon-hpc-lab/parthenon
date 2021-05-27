@@ -17,6 +17,7 @@
 
 // options for building
 #include "config.hpp"
+#include "utils/error_checking.hpp"
 
 // Only proceed if HDF5 output enabled
 #ifdef ENABLE_HDF5
@@ -89,26 +90,28 @@ struct VarInfo {
   //
   // The info_code will have the vlen in the lower 16 bits and bits 20 and 21 will encode
   // the is_sparse and is_vector flags
-  static constexpr int max_vlen = (1 << 16) - 1;
-  static constexpr int sparse_flag = (1 << 20);
-  static constexpr int vector_flag = (1 << 21);
+  static constexpr int max_vlen_ = (1 << 16) - 1;
+  static constexpr int sparse_flag_ = (1 << 20);
+  static constexpr int vector_flag_ = (1 << 21);
 
-  const std::string label;
-  const std::vector<std::string> component_labels; // may be empty
-  const int vlen;
-  const bool is_sparse;
-  const bool is_vector;
+  const std::string label_;
+  const std::vector<std::string> component_labels_;
+  const int vlen_;
+  const bool is_sparse_;
+  const bool is_vector_;
 
   VarInfo() = delete;
 
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels,
           int vlen, bool is_sparse, bool is_vector)
-      : label(label), component_labels(component_labels), vlen(vlen),
-        is_sparse(is_sparse), is_vector(is_vector) {
-    if ((vlen <= 0) || (vlen > max_vlen)) {
+      : label_(label),
+        component_labels_(component_labels.size() > 0 ? component_labels
+                                                      : std::vector<std::string>{label}),
+        vlen_(vlen), is_sparse_(is_sparse), is_vector_(is_vector) {
+    if ((vlen_ <= 0) || (vlen_ > max_vlen_)) {
       std::stringstream msg;
-      msg << "### ERROR: Got variable " << label << " with length " << vlen
-          << ". vlen must be between 0 and " << max_vlen << std::endl;
+      msg << "### ERROR: Got variable " << label_ << " with length " << vlen_
+          << ". vlen must be between 0 and " << max_vlen_ << std::endl;
       PARTHENON_FAIL(msg);
     }
   }
@@ -127,9 +130,9 @@ struct VarInfo {
       PARTHENON_FAIL(msg);
     }
 
-    const int vlen = info_code & max_vlen;
-    const bool is_sparse = (info_code & sparse_flag) > 0;
-    const bool is_vector = (info_code & vector_flag) > 0;
+    const int vlen = info_code & max_vlen_;
+    const bool is_sparse = (info_code & sparse_flag_) > 0;
+    const bool is_vector = (info_code & vector_flag_) > 0;
 
     // first label in compact label is the variable label, the rest are the component
     // labels
@@ -140,30 +143,30 @@ struct VarInfo {
   // compactify label and component_labels into a single string for MPI communication
   std::string get_compact_label() const {
     // pack labels as {label, component_label[0], component_label[1], ...}
-    std::vector<std::string> labels = {label};
-    labels.insert(labels.end(), component_labels.begin(), component_labels.end());
+    std::vector<std::string> labels = {label_};
+    labels.insert(labels.end(), component_labels_.begin(), component_labels_.end());
     return string_utils::PackStrings(labels, '\t');
   }
 
   int get_info_code() const {
-    int code = vlen;
-    if (is_sparse) code += sparse_flag;
-    if (is_vector) code += vector_flag;
+    int code = vlen_;
+    if (is_sparse_) code += sparse_flag_;
+    if (is_vector_) code += vector_flag_;
 
     return code;
   }
 
   // so we can put VarInfo into a set
   bool operator<(const VarInfo &other) const {
-    if ((label == other.label) && (vlen != other.vlen)) {
+    if ((label_ == other.label_) && (vlen_ != other.vlen_)) {
       // variables with the same label must have the same lengths
       std::stringstream msg;
-      msg << "### ERROR: Got variable " << label << " with multiple different lengths"
+      msg << "### ERROR: Got variable " << label_ << " with multiple different lengths"
           << std::endl;
       PARTHENON_FAIL(msg);
     }
 
-    return label < other.label;
+    return label_ < other.label_;
   }
 };
 
@@ -315,10 +318,10 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     dims[3] = nx1;
     dims[4] = 1;
     for (const auto &vinfo : var_list) {
-      const int vlen = vinfo.vlen;
+      const int vlen = vinfo.vlen_;
       dims[4] = vlen;
-      writeXdmfSlabVariableRef(xdmf, vinfo.label, hdfFile, ib, vlen, ndims, dims, dims321,
-                               vinfo.is_vector);
+      writeXdmfSlabVariableRef(xdmf, vinfo.label_, hdfFile, ib, vlen, ndims, dims,
+                               dims321, vinfo.is_vector_);
     }
     xdmf << "      </Grid>" << std::endl;
   }
@@ -500,9 +503,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
 
     HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
-
-    // OutputDatasetNames - which datasets from the top level to read
-    HDF5WriteAttribute("OutputDatasetNames", output_params.variables, info_group);
   } // Info section
 
   // write Params
@@ -825,9 +825,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   std::vector<std::string> sparse_names;
   std::unordered_map<std::string, size_t> sparse_field_idx;
   for (auto &vinfo : all_unique_vars) {
-    if (vinfo.is_sparse) {
-      sparse_field_idx.insert({vinfo.label, sparse_names.size()});
-      sparse_names.push_back(vinfo.label);
+    if (vinfo.is_sparse_) {
+      sparse_field_idx.insert({vinfo.label_, sparse_names.size()});
+      sparse_names.push_back(vinfo.label_);
     }
   }
 
@@ -840,7 +840,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   const hsize_t varSize = nx3 * nx2 * nx1;
   int vlen_max = 0;
   for (auto &vinfo : all_unique_vars) {
-    vlen_max = std::max(vlen_max, vinfo.vlen);
+    vlen_max = std::max(vlen_max, vinfo.vlen_);
   }
 
   using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
@@ -858,8 +858,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // not really necessary, but doesn't hurt
     memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
 
-    const std::string var_name = vinfo.label;
-    const hsize_t vlen = vinfo.vlen;
+    const std::string var_name = vinfo.label_;
+    const hsize_t vlen = vinfo.vlen_;
 
     local_count[4] = global_count[4] = vlen;
 
@@ -893,13 +893,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         }
       }
 
-      if (vinfo.is_sparse) {
-        size_t sparse_idx = sparse_field_idx.at(vinfo.label);
+      if (vinfo.is_sparse_) {
+        size_t sparse_idx = sparse_field_idx.at(vinfo.label_);
         sparse_expanded[b_idx * num_sparse + sparse_idx] = found;
       }
 
       if (!found) {
-        if (vinfo.is_sparse) {
+        if (vinfo.is_sparse_) {
           hsize_t N = varSize * vlen;
           memset(tmpData.data() + index, 0, N * sizeof(OutT));
           index += N;
@@ -926,27 +926,33 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
   }
 
+  // names of variables
+  std::vector<std::string> var_names;
+  var_names.reserve(all_unique_vars.size());
+
   // number of components within each dataset
   std::vector<size_t> num_components;
+  num_components.reserve(all_unique_vars.size());
+
   // names of components within each dataset
   std::vector<std::string> component_names;
+  component_names.reserve(all_unique_vars.size()); // may be larger
 
   for (const auto &vi : all_unique_vars) {
-    const auto &component_labels = vi.component_labels;
+    var_names.push_back(vi.label_);
 
-    if (component_labels.size() > 0) {
-      num_components.push_back(component_labels.size());
-      for (const auto &label : component_labels) {
-        component_names.push_back(label);
-      }
-    } else {
-      num_components.push_back(1);
-      component_names.push_back(vi.label);
+    const auto &component_labels = vi.component_labels_;
+    PARTHENON_REQUIRE_THROWS(component_labels.size() > 0, "Got 0 component labels");
+
+    num_components.push_back(component_labels.size());
+    for (const auto &label : component_labels) {
+      component_names.push_back(label);
     }
   }
 
   HDF5WriteAttribute("NumComponents", num_components, info_group);
   HDF5WriteAttribute("ComponentNames", component_names, info_group);
+  HDF5WriteAttribute("OutputDatasetNames", var_names, info_group);
 
   // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
   // this if we have sparse fields)

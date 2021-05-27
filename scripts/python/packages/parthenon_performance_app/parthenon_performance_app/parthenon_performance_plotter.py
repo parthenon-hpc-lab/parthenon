@@ -52,12 +52,17 @@ class PerformanceMetricsPlotter():
             2, 1, figsize=(5, 10), sharex=True)
         fig.subplots_adjust(bottom=0.2)
         legend_temp = []
-        for i in range(0, self._number_commits_to_plot):
+        total_number_of_commits = json_perf_data_parser.getNumberOfCommits()
+        starting_commit = total_number_of_commits - self._number_commits_to_plot
+        norm_const = None
+        for i in range(starting_commit, total_number_of_commits):
             mesh_blocks_temp = json_perf_data_parser.getMeshBlocksAt(
                 i, self._test_dir)
             cycles_temp = json_perf_data_parser.getCyclesAt(
                 i, self._test_dir)
             commit_temp = json_perf_data_parser.getCommitShaAt(
+                i, self._test_dir)
+            date_temp = json_perf_data_parser.getDateAt(
                 i, self._test_dir)
             if mesh_blocks_temp is None:
                 self._log.info(
@@ -70,13 +75,13 @@ class PerformanceMetricsPlotter():
                     commit_temp)
                 continue
 
-            if i == 0:
+            if norm_const is None:
                 norm_const = cycles_temp[0]
             p[0].loglog(
                 mesh_blocks_temp, cycles_temp, label="$256^3$ Mesh")
             p[1].loglog(
                 mesh_blocks_temp, norm_const / cycles_temp)
-            legend_temp.append(commit_temp)
+            legend_temp.append("{0: <12} {1: ^10} {2: >16}".format(commit_temp[0:8],'Date:', date_temp))
 
         for i in range(2):
             p[i].grid()
