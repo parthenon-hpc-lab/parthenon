@@ -17,12 +17,12 @@
 #include <bitset>
 #include <exception>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <tuple>
 #include <vector>
 
-#include "mesh/domain.hpp"
 #include "utils/error_checking.hpp"
 
 /// The point of this macro is to generate code for each built-in flag using the
@@ -113,6 +113,7 @@ class UserMetadataState;
 
 } // namespace internal
 
+class MeshBlock;
 class Metadata;
 
 class TensorShape {

@@ -214,8 +214,6 @@ class MeshData {
   cell_centered_bvars::BufferCache_t set_buffers_{};
 };
 
-using MeshDataCollection = DataCollection<MeshData<Real>>;
-
 } // namespace parthenon
 
 #endif // INTERFACE_MESH_DATA_HPP_

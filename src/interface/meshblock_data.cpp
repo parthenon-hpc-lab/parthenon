@@ -22,6 +22,7 @@
 
 #include "bvals/cc/bvals_cc.hpp"
 #include "interface/metadata.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/mesh.hpp"
@@ -30,15 +31,37 @@
 
 namespace parthenon {
 
+template <typename T>
+void MeshBlockData<T>::Initialize(
+    const std::shared_ptr<StateDescriptor> resolved_packages,
+    const std::shared_ptr<MeshBlock> pmb) {
+  SetBlockPointer(pmb);
+  resolved_packages_ = resolved_packages;
+
+  // clear all variables, maps, and pack caches
+  varVector_.clear();
+  faceVector_.clear();
+  varMap_.clear();
+  faceMap_.clear();
+  varPackMap_.clear();
+  coarseVarPackMap_.clear();
+  varFluxPackMap_.clear();
+
+  for (auto const &q : resolved_packages->AllFields()) {
+    AllocField(q.first.label(), q.second, q.first.sparse_id);
+  }
+}
+
 ///
-/// The internal routine for allocating an array.  This subroutine
+/// The internal routine for allocating a new field.  This subroutine
 /// is topology aware and will allocate accordingly.
 ///
 /// @param label the name of the variable
 /// @param metadata the metadata associated with the variable
+/// @param sparse_id the sparse id of the variable
 template <typename T>
-void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata,
-                           int sparse_id) {
+void MeshBlockData<T>::AllocField(const std::string &label, const Metadata &metadata,
+                                  int sparse_id) {
   // branch on kind of variable
   if (metadata.Where() == Metadata::Node) {
     PARTHENON_THROW("Node variables are not implemented yet");

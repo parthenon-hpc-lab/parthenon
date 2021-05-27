@@ -115,12 +115,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     UserWorkBeforeOutput = app_in->UserWorkBeforeOutput;
   }
 
-  auto &real_container = meshblock_data.Get();
-  auto &swarm_container = swarm_data.Get();
-  // Set the block pointer for the containers
-  real_container->SetBlockPointer(shared_from_this());
-  swarm_container->SetBlockPointer(shared_from_this());
-
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
   vars_fc_.reserve(3);
@@ -138,15 +132,18 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // Add physics data, including dense, sparse, and swarm variables.
   // Resolve issues.
   resolved_packages = ResolvePackages(packages);
-  auto &pkg = resolved_packages;
-  for (auto const &q : pkg->AllFields()) {
-    real_container->Add(q.first.label(), q.second, q.first.sparse_id);
-  }
-  for (auto const &q : pkg->AllSwarms()) {
+
+  auto &real_container = meshblock_data.Get();
+  auto &swarm_container = swarm_data.Get();
+
+  real_container->Initialize(resolved_packages, shared_from_this());
+
+  swarm_container->SetBlockPointer(shared_from_this());
+  for (auto const &q : resolved_packages->AllSwarms()) {
     swarm_container->Add(q.first, q.second);
     // Populate swarm values
     auto &swarm = swarm_container->Get(q.first);
-    for (auto const &m : pkg->AllSwarmValues(q.first)) {
+    for (auto const &m : resolved_packages->AllSwarmValues(q.first)) {
       swarm->Add(m.first, m.second);
     }
   }

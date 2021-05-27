@@ -29,6 +29,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
@@ -50,6 +51,7 @@ using parthenon::par_for;
 using parthenon::ParArray4D;
 using parthenon::ParArrayND;
 using parthenon::Real;
+using parthenon::StateDescriptor;
 using parthenon::X1DIR;
 using parthenon::X2DIR;
 using parthenon::X3DIR;
@@ -70,13 +72,6 @@ bool intervals_intersect(const std::pair<int, int> &i1, const std::pair<int, int
 TEST_CASE("Can pull variables from containers based on Metadata",
           "[MeshBlockDataIterator]") {
   GIVEN("A Container with a set of variables initialized to zero") {
-    MeshBlockData<Real> rc;
-
-    // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
-    // won't be allocated
-    auto dummy = std::make_shared<MeshBlock>(16, 3);
-    rc.SetBlockPointer(dummy);
-
     std::vector<int> scalar_shape{16, 16, 16};
     std::vector<int> vector_shape{16, 16, 16, 3};
 
@@ -86,13 +81,21 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     Metadata m_out({Metadata::Derived}, scalar_shape);
     Metadata m_out_vector({Metadata::Derived}, vector_shape);
 
-    // Make some variables
-    rc.Add("v1", m_in);
-    rc.Add("v2", m_out);
-    rc.Add("v3", m_in_vector);
-    rc.Add("v4", m_out_vector);
-    rc.Add("v5", m_in);
-    rc.Add("v6", m_out);
+    // Make package with some variables
+    auto pkg = std::make_shared<StateDescriptor>("Test package");
+    pkg->AddDenseField("v1", m_in);
+    pkg->AddDenseField("v2", m_out);
+    pkg->AddDenseField("v3", m_in_vector);
+    pkg->AddDenseField("v4", m_out_vector);
+    pkg->AddDenseField("v5", m_in);
+    pkg->AddDenseField("v6", m_out);
+
+    // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
+    // won't be allocated
+    auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
+
+    MeshBlockData<Real> rc;
+    rc.Initialize(pkg, dummy_mb);
 
     WHEN("We extract a subcontainer") {
       auto subcontainer = MeshBlockData<Real>(rc, {"v1", "v3", "v5"});
@@ -297,9 +300,12 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we add sparse fields") {
       Metadata meta_sparse({Metadata::Derived, Metadata::Sparse}, scalar_shape);
-      rc.Add("vsparse", meta_sparse, 1);
-      rc.Add("vsparse", meta_sparse, 13);
-      rc.Add("vsparse", meta_sparse, 42);
+      pkg->AddSparsePool("vsparse", meta_sparse, std::vector<int>{1, 13, 42});
+
+      // re-initialize MeshBlockData with new fields
+      rc.Initialize(pkg, dummy_mb);
+
+      // TODO test packs with unallocated sparse fields
 
       rc.AllocSparseID("vsparse", 1);
       rc.AllocSparseID("vsparse", 13);
@@ -349,7 +355,9 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     WHEN("we add a 2d variable") {
       std::vector<int> shape_2D{16, 16, 1};
       Metadata m_in_2D({Metadata::Independent, Metadata::WithFluxes}, shape_2D);
-      rc.Add("v2d", m_in_2D);
+      pkg->AddDenseField("v2d", m_in_2D);
+      rc.Initialize(pkg, dummy_mb);
+
       auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
       THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
     }
@@ -366,17 +374,27 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
   using parthenon::IndexDomain;
   using parthenon::IndexShape;
 
+  // Make package with some variables
+  auto pkg = std::make_shared<StateDescriptor>("Test package");
+
+  // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
+  // won't be allocated
+  auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
+
   GIVEN("MeshBlockData, with a variable with coarse data") {
     constexpr int nside = 16;
     constexpr int nghost = 2;
     auto cellbounds = IndexShape(nside, nside, nside, nghost);
     auto c_cellbounds = IndexShape(nside / 2, nside / 2, nside / 2, nghost);
 
-    MeshBlockData<Real> rc;
     std::vector<int> block_size{nside + 2 * nghost, nside + 2 * nghost,
                                 nside + 2 * nghost};
     Metadata m({Metadata::Independent, Metadata::WithFluxes}, block_size);
-    rc.Add("var", m);
+
+    pkg->AddDenseField("var", m);
+
+    MeshBlockData<Real> rc;
+    rc.Initialize(pkg, dummy_mb);
     auto &var = rc.Get("var");
 
     auto coarse_s =

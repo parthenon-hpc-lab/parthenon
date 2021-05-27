@@ -41,6 +41,7 @@ namespace parthenon {
 ///
 
 class MeshBlock;
+class StateDescriptor;
 
 template <typename T>
 class MeshBlockData {
@@ -88,7 +89,7 @@ class MeshBlockData {
         if (v->IsSet(Metadata::OneCopy)) {
           Add(v);
         } else {
-          Add(v->AllocateCopy(pmy_block));
+          Add(v->AllocateCopy(false, pmy_block));
         }
       } else {
         PARTHENON_THROW("MeshBlockData::Copy did not find " + name);
@@ -104,7 +105,7 @@ class MeshBlockData {
         Add(v);
       } else {
         // allocate new storage
-        Add(v->AllocateCopy(pmy_block));
+        Add(v->AllocateCopy(false, pmy_block));
       }
     }
 
@@ -132,44 +133,10 @@ class MeshBlockData {
   void SetBlockPointer(const std::shared_ptr<MeshBlockData<T>> &other) {
     SetBlockPointer(*other);
   }
-  void SetBlockPointer(const MeshBlockData<T> &other) {
-    pmy_block = other.pmy_block;
-  }
+  void SetBlockPointer(const MeshBlockData<T> &other) { pmy_block = other.pmy_block; }
 
-  ///
-  /// Allocate and add a variable<T> to the container
-  ///
-  /// This function will eventually look at the metadata flags to
-  /// identify the size of the first dimension based on the
-  /// topological location.  Dimensions will be taken from the metadata.
-  ///
-  /// @param label the name of the variable
-  /// @param metadata the metadata associated with the variable
-  ///
-  void Add(const std::string &label, const Metadata &metadata,
-           int sparse_id = InvalidSparseID);
-
-  // ///
-  // /// Allocate and add a variable<T> to the container
-  // ///
-  // /// This function will eventually look at the metadata flags to
-  // /// identify the size of the first dimension based on the
-  // /// topological location.  Dimensions will be taken from the metadata.
-  // ///
-  // /// @param labelVector the array of names of variables
-  // /// @param metadata the metadata associated with the variable
-  // ///
-  // void Add(const std::vector<std::string> &labelVector, const Metadata &metadata);
-
-  void Add(std::shared_ptr<CellVariable<T>> var) {
-    varVector_.push_back(var);
-    varMap_[var->label()] = var;
-  }
-
-  void Add(std::shared_ptr<FaceVariable<T>> var) {
-    faceVector_.push_back(var);
-    faceMap_[var->label()] = var;
-  }
+  void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
+                  const std::shared_ptr<MeshBlock> pmb);
 
   //
   // Queries related to CellVariable objects
@@ -430,8 +397,22 @@ class MeshBlockData {
   }
 
  private:
+  void AllocField(const std::string &label, const Metadata &metadata,
+                  int sparse_id = InvalidSparseID);
+
+  void Add(std::shared_ptr<CellVariable<T>> var) {
+    varVector_.push_back(var);
+    varMap_[var->label()] = var;
+  }
+
+  void Add(std::shared_ptr<FaceVariable<T>> var) {
+    faceVector_.push_back(var);
+    faceMap_[var->label()] = var;
+  }
+
   int debug = 0; // TODO(JL) Do we still need this?
   std::weak_ptr<MeshBlock> pmy_block;
+  std::shared_ptr<StateDescriptor> resolved_packages_;
 
   CellVariableVector<T> varVector_; ///< the saved variable array
   FaceVector<T> faceVector_;        ///< the saved face arrays
@@ -465,8 +446,6 @@ class MeshBlockData {
                                       std::vector<std::string> *key_out,
                                       PackIndexMap *vmap_out);
 };
-
-using MeshBlockDataCollection = DataCollection<MeshBlockData<Real>>;
 
 } // namespace parthenon
 
