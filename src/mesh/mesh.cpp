@@ -59,8 +59,7 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
-Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properties,
-           Packages_t &packages,
+Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            int mesh_test)
     : // public members:
       modified(true),
@@ -92,8 +91,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
                   pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
                      ? true
                      : false),
-      nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
-      packages(packages),
+      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -498,7 +496,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
     block_list[i - nbs] = MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs,
-                                          this, pin, app_in, properties, packages, gflag);
+                                          this, pin, app_in, packages, gflag);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
@@ -514,7 +512,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
-           Properties_t &properties, Packages_t &packages, int mesh_test)
+           Packages_t &packages, int mesh_test)
     : // public members:
       // aggregate initialization of RegionSize struct:
       // (will be overwritten by memcpy from restart file, in this case)
@@ -547,8 +545,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                   pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
                      ? true
                      : false),
-      nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
-      packages(packages),
+      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -771,7 +768,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     // create a block and add into the link list
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
-                        properties, packages, gflag, costlist[i]);
+                        packages, gflag, costlist[i]);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
