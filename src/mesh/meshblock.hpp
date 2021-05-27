@@ -49,10 +49,6 @@ class MeshBlockTree;
 class MeshRefinement;
 class ParameterInput;
 
-// These Forward declarations need duplicated using statements.
-class PropertiesInterface;
-using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
-
 // Inner loop default pattern
 // - Defined outside of the MeshBlock class because it does not require an exec space
 // - Not defined in kokkos_abstraction.hpp because it requires the compile time option
@@ -76,10 +72,11 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   ~MeshBlock();
 
   // Factory method deals with initialization for you
-  static std::shared_ptr<MeshBlock>
-  Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-       BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
-       Properties_t &properties, Packages_t &packages, int igflag, double icost = 1.0);
+  static std::shared_ptr<MeshBlock> Make(int igid, int ilid, LogicalLocation iloc,
+                                         RegionSize input_block, BoundaryFlag *input_bcs,
+                                         Mesh *pm, ParameterInput *pin,
+                                         ApplicationInput *app_in, Packages_t &packages,
+                                         int igflag, double icost = 1.0);
 
   // Kokkos execution space for this MeshBlock
   DevExecSpace exec_space;
@@ -145,7 +142,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   DataCollection<MeshBlockData<Real>> meshblock_data;
   DataCollection<SwarmContainer> swarm_data;
 
-  Properties_t properties;
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;
 
@@ -375,8 +371,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // the block is allocated.
   void Initialize(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                   BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                  ApplicationInput *app_in, Properties_t &properties,
-                  Packages_t &packages, int igflag, double icost = 1.0);
+                  ApplicationInput *app_in, Packages_t &packages, int igflag,
+                  double icost = 1.0);
 
   void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
   // functions
