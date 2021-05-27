@@ -47,6 +47,7 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
+#include "mesh/refinement_cc_in_one.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -1010,7 +1011,7 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
-// \brief  initialization before the main loop
+// \brief  initialization before the main loop as well as during remeshing
 
 void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
   Kokkos::Profiling::pushRegion("Mesh::Initialize");
@@ -1066,6 +1067,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       cell_centered_bvars::SetBoundaries(md);
+      if (multilevel) {
+        cell_centered_refinement::RestrictPhysicalBounds(md.get());
+      }
     }
 
 #else // PARTHENON_ENABLE_INIT_PACKING -> OFF
@@ -1077,7 +1081,11 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     // wait to receive FillGhost variables
     for (int i = 0; i < nmb; ++i) {
-      block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
+      auto &mbd = block_list[i]->meshblock_data.Get();
+      mbd->ReceiveAndSetBoundariesWithWait();
+      if (multilevel) {
+        mbd->RestrictBoundaries();
+      }
     }
 
 #endif // PARTHENON_ENABLE_INIT_PACKING
@@ -1087,13 +1095,13 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
     // Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
-      auto &pmb = block_list[i];
+      auto &mbd = block_list[i]->meshblock_data.Get();
       if (multilevel) {
-        ProlongateBoundaries(pmb->meshblock_data.Get());
+        ProlongateBoundaries(mbd);
       }
-      ApplyBoundaryConditions(pmb->meshblock_data.Get());
+      ApplyBoundaryConditions(mbd);
       // Call MeshBlockData based FillDerived functions
-      Update::FillDerived(pmb->meshblock_data.Get().get());
+      Update::FillDerived(mbd.get());
     }
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
