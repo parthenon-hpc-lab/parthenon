@@ -67,19 +67,18 @@ std::shared_ptr<MeshBlock> MeshBlock::Make(int igid, int ilid, LogicalLocation i
                                            RegionSize input_block,
                                            BoundaryFlag *input_bcs, Mesh *pm,
                                            ParameterInput *pin, ApplicationInput *app_in,
-                                           Properties_t &properties, Packages_t &packages,
-                                           int igflag, double icost) {
+                                           Packages_t &packages, int igflag,
+                                           double icost) {
   auto pmb = std::make_shared<MeshBlock>();
-  pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, properties,
-                  packages, igflag, icost);
+  pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, packages,
+                  igflag, icost);
   return pmb;
 }
 
 void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
                            RegionSize input_block, BoundaryFlag *input_bcs, Mesh *pm,
                            ParameterInput *pin, ApplicationInput *app_in,
-                           Properties_t &properties, Packages_t &packages, int igflag,
-                           double icost) {
+                           Packages_t &packages, int igflag, double icost) {
   exec_space = DevExecSpace();
   pmy_mesh = pm;
   loc = iloc;
@@ -87,7 +86,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   gid = igid;
   lid = ilid;
   gflag = igflag;
-  this->properties = properties;
   this->packages = packages;
   cost_ = icost;
 
@@ -137,20 +135,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   pbval = std::make_unique<BoundaryValues>(shared_from_this(), input_bcs, pin);
   pbval->SetBoundaryFlags(boundary_flag);
 
-  // Add field properties data
-  // TOOD(JMM): Should packages be resolved for state descriptors in
-  // properties?
-  for (int i = 0; i < properties.size(); i++) {
-    StateDescriptor &state = properties[i]->State();
-    for (auto const &q : state.AllFields()) {
-      real_container->Add(q.first, q.second);
-    }
-    for (auto const &q : state.AllSparseFields()) {
-      for (auto const &p : q.second) {
-        real_container->Add(q.first, p.second);
-      }
-    }
-  }
   // Add physics data, including dense, sparse, and swarm variables.
   // Resolve issues.
   resolved_packages = ResolvePackages(packages);
