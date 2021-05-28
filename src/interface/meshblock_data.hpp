@@ -372,7 +372,7 @@ class MeshBlockData {
   TaskStatus ReceiveFluxCorrection();
 
   // physical boundary routines
-  void RestrictBoundaries();
+  TaskStatus RestrictBoundaries();
   void ProlongateBoundaries();
 
   bool operator==(const MeshBlockData<T> &cmp) {
