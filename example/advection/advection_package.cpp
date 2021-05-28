@@ -312,27 +312,26 @@ void PostFill(MeshBlockData<Real> *rc) {
     IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
-    const bool even = pmb->coords.GetXmin()[0] >= 0.0;
-
     // check that we have the sparse indices we want
-    rc->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", even ? 12 : 37);
+    rc->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 12);
+    rc->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 37);
 
     // packing in principle unnecessary/convoluted here and just done for demonstration
     PackIndexMap imap;
     std::vector<std::string> vars(
         {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
-    auto v = rc->PackVariables(vars, {even ? 12 : 37}, false, &imap);
+    auto v = rc->PackVariables(vars, {12, 37}, false, &imap);
     const int in = imap.get("one_minus_advected_sq").first;
-    const int out =
-        imap.get("one_minus_sqrt_one_minus_advected_sq", even ? 12 : 37).first;
+    // we can get sparse fields either by specifying base name and sparse id, or the full
+    // name
+    const int out12 = imap.get("one_minus_sqrt_one_minus_advected_sq", 12).first;
+    const int out37 = imap.get("one_minus_sqrt_one_minus_advected_sq_37").first;
     const auto num_vars = rc->Get("advected").data.GetDim(4);
     pmb->par_for(
         "advection_package::PostFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
         ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-          if (even)
-            v(out + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
-          else
-            v(out + n, k, j, i) = sqrt(v(in + n, k, j, i));
+          v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
+          v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
         });
   }
 }
