@@ -12,6 +12,7 @@
 //========================================================================================
 
 #include "interface/sparse_pool.hpp"
+
 #include "interface/metadata.hpp"
 #include "utils/error_checking.hpp"
 

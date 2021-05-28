@@ -13,10 +13,14 @@
 #ifndef INTERFACE_SPARSE_POOL_HPP_
 #define INTERFACE_SPARSE_POOL_HPP_
 
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <vector>
+
 #include "metadata.hpp"
 #include "utils/error_checking.hpp"
 #include "variable.hpp"
-#include <type_traits>
 
 namespace parthenon {
 

@@ -287,8 +287,8 @@ VariableFluxPack<T> MeshBlockData<T>::PackVariablesAndFluxes(
     const std::vector<MetadataFlag> &flags, const std::vector<int> &sparse_ids,
     PackIndexMap *vmap_out, vpack_types::StringPair *keys_out) {
   return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, true, sparse_ids),
-                                      GetVariablesByFlag(flags, true, sparse_ids), keys_out,
-                                      vmap_out);
+                                      GetVariablesByFlag(flags, true, sparse_ids),
+                                      keys_out, vmap_out);
 }
 
 /// All variables and fluxes by Metadata Flags

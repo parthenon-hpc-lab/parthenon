@@ -303,8 +303,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       // re-initialize MeshBlockData with new fields
       rc.Initialize(pkg, dummy_mb);
 
-      // TODO test packs with unallocated sparse fields
-
+      // TODO(JL) test packs with unallocated sparse fields
       rc.AllocSparseID("vsparse", 1);
       rc.AllocSparseID("vsparse", 13);
       rc.AllocSparseID("vsparse", 42);
