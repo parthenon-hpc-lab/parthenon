@@ -152,8 +152,8 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
         if one: return ret_code
 
     #Compare the names of attributes in /Info, except "Time"
-    f0_Info = { key:value for key,value in f0.Info.items() if key != "Time" and key != "BlocksPerPE" }
-    f1_Info = { key:value for key,value in f1.Info.items() if key != "Time" and key != "BlocksPerPE" }
+    f0_Info = { key:value for key,value in f0.Info.items() if key != "Time" and key != "BlocksPerPE" and key != "WallTime" }
+    f1_Info = { key:value for key,value in f1.Info.items() if key != "Time" and key != "BlocksPerPE" and key != "WallTime" }
     if sorted(f0_Info.keys()) != sorted(f1_Info.keys()):
         print("Names of attributes in '/Info' of differ")
         ret_code = ERROR_INFO_ATTRS_DIFF
