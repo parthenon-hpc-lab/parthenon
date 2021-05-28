@@ -29,6 +29,7 @@ SparsePool::SparsePool(const std::string &base_name, const Metadata &metadata,
   const auto internal_shapes = shapes.empty() ? std::vector<std::vector<int>>(N) : shapes;
   PARTHENON_REQUIRE_THROWS(internal_shapes.size() == N, "Got wrong number of shapes");
 
+  //  deepcode ignore CopyPasteError: triggers a false positive in DeepCode
   const auto internal_comp_labels = component_labels.empty()
                                         ? std::vector<std::vector<std::string>>(N)
                                         : component_labels;
