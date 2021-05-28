@@ -75,6 +75,8 @@ def main(**kwargs):
 
         test_manager.Run()
 
+        test_manager.Cleanup(step)
+
     test_result = test_manager.Analyse()
 
     if test_result == True:
