@@ -48,20 +48,20 @@ void MeshBlockData<T>::Initialize(
   varFluxPackMap_.clear();
 
   for (auto const &q : resolved_packages->AllFields()) {
-    AllocField(q.first.label(), q.second, q.first.sparse_id);
+    AddField(q.first.base_name, q.second, q.first.sparse_id);
   }
 }
 
 ///
-/// The internal routine for allocating a new field.  This subroutine
+/// The internal routine for adding a new field.  This subroutine
 /// is topology aware and will allocate accordingly.
 ///
 /// @param label the name of the variable
 /// @param metadata the metadata associated with the variable
 /// @param sparse_id the sparse id of the variable
 template <typename T>
-void MeshBlockData<T>::AllocField(const std::string &label, const Metadata &metadata,
-                                  int sparse_id) {
+void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &metadata,
+                                int sparse_id) {
   // branch on kind of variable
   if (metadata.Where() == Metadata::Node) {
     PARTHENON_THROW("Node variables are not implemented yet");
@@ -82,15 +82,21 @@ void MeshBlockData<T>::AllocField(const std::string &label, const Metadata &meta
       std::exit(1);
     }
     // add a face variable
-    auto pfv = std::make_shared<FaceVariable<T>>(label, metadata.GetArrayDims(pmy_block),
-                                                 metadata);
+    auto pfv = std::make_shared<FaceVariable<T>>(
+        base_name, metadata.GetArrayDims(pmy_block), metadata);
     Add(pfv);
   } else {
-    auto sv = std::make_shared<CellVariable<T>>(label, metadata, sparse_id);
-    Add(sv);
-    if (!sv->IsSparse()) {
-      sv->Allocate(pmy_block);
-    }
+    auto var = std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id);
+    Add(var);
+
+    // TODO(JL) For now, allocate sparse and dense fields, because we don't yet have
+    // machinery to deal with non-allocated sparse fields
+    var->Allocate(pmy_block);
+
+    // once that machinery is in place, replace the above with this:
+    // if (!var->IsSparse()) {
+    //   var->Allocate(pmy_block);
+    // }
   }
 }
 
@@ -101,6 +107,7 @@ template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
                                 const std::vector<std::string> &names) {
   SetBlockPointer(src);
+  resolved_packages_ = src.resolved_packages_;
 
   auto var_map = src.GetCellVariableMap();
   auto face_map = src.GetFaceMap();
@@ -136,6 +143,7 @@ template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
                                 const std::vector<MetadataFlag> &flags) {
   SetBlockPointer(src);
+  resolved_packages_ = src.resolved_packages_;
 
   auto var_map = src.GetCellVariableMap();
   auto face_map = src.GetFaceMap();
@@ -164,6 +172,7 @@ std::shared_ptr<MeshBlockData<T>> MeshBlockData<T>::SparseSlice(int sparse_id) {
 
   // copy in private data
   c->SetBlockPointer(GetBlockPointer());
+  c->resolved_packages_ = resolved_packages_;
 
   // Note that all dense variables get added
   for (auto v : varVector_) {
@@ -277,8 +286,8 @@ template <typename T>
 VariableFluxPack<T> MeshBlockData<T>::PackVariablesAndFluxes(
     const std::vector<MetadataFlag> &flags, const std::vector<int> &sparse_ids,
     PackIndexMap *vmap_out, vpack_types::StringPair *keys_out) {
-  return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, sparse_ids),
-                                      GetVariablesByFlag(flags, sparse_ids), keys_out,
+  return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, true, sparse_ids),
+                                      GetVariablesByFlag(flags, true, sparse_ids), keys_out,
                                       vmap_out);
 }
 
@@ -308,7 +317,7 @@ VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> 
                                                 const std::vector<int> &sparse_ids,
                                                 bool coarse, PackIndexMap *vmap_out,
                                                 std::vector<std::string> *key_out) {
-  return PackListedVariables(GetVariablesByFlag(flags, sparse_ids), coarse, key_out,
+  return PackListedVariables(GetVariablesByFlag(flags, true, sparse_ids), coarse, key_out,
                              vmap_out);
 }
 
@@ -336,10 +345,10 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       const auto &v = itr->second;
       // this name exists, add it
       var_list.Add(v, sparse_ids_set);
-    } else if (GetBlockPointer()->resolved_packages != nullptr) {
+    } else if (resolved_packages_ != nullptr) {
       // check if this is a sparse base name, if so we get its pool of sparse_ids,
       // otherwise we get an empty pool
-      const auto &sparse_pool = GetBlockPointer()->resolved_packages->GetSparsePool(name);
+      const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
 
       // add all sparse ids of the pool
       for (const auto iter : sparse_pool.pool()) {
@@ -359,7 +368,7 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
 template <typename T>
 typename MeshBlockData<T>::VarLabelList
 MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
-                                     const std::vector<int> &sparse_ids) {
+                                     bool match_all, const std::vector<int> &sparse_ids) {
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
@@ -368,7 +377,8 @@ MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
   for (const auto &pair : varMap_) {
     const auto &v = pair.second;
     // add this variable to the list if the Metadata flags match or no flags are specified
-    if (flags.empty() || v->metadata().AllFlagsSet(flags)) {
+    if (flags.empty() || (match_all && v->metadata().AllFlagsSet(flags)) ||
+        (!match_all && v->metadata().AnyFlagsSet(flags))) {
       var_list.Add(v, sparse_ids_set);
     }
   }

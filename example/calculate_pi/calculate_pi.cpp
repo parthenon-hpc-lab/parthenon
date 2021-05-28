@@ -121,8 +121,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata m({Metadata::Cell, Metadata::Derived});
   if (use_sparse) {
     m.Set(Metadata::Sparse);
+    package->AddSparsePool(field_name, m, std::vector<int>{0});
+  } else {
+    package->AddDenseField(field_name, m);
   }
-  package->AddSparsePool(field_name, m, std::vector<int>{0});
 
   // All the package FillDerived and CheckRefinement functions are called by parthenon
   package->FillDerivedBlock = SetInOrOut;

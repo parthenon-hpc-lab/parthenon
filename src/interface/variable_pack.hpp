@@ -41,9 +41,6 @@ class CellVariable;
 // some convenience aliases
 namespace vpack_types {
 
-template <typename T>
-using VarList = std::vector<std::shared_ptr<CellVariable<T>>>;
-
 // Sparse and/or scalar variables are multiple indices in the outer view of a pack
 // the pairs represent interval (inclusive) of those indices
 using IndexPair = std::pair<int, int>;
@@ -80,7 +77,7 @@ class VarListWithLabels {
   const auto &labels() const { return labels_; }
 
  private:
-  vpack_types::VarList<T> vars_;
+  CellVariableVector<T> vars_;
   std::vector<std::string> labels_;
 };
 
@@ -121,6 +118,13 @@ class PackIndexMap {
   }
 
   bool Has(std::string const &key) const { return map_.count(key) > 0; }
+
+  // for debugging
+  void print() const {
+    for (const auto itr : map_) {
+      printf("%s: %i - %i\n", itr.first.c_str(), itr.second.first, itr.second.second);
+    }
+  }
 
  private:
   std::unordered_map<std::string, vpack_types::IndexPair> map_;
@@ -265,7 +269,7 @@ template <typename T>
 using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndexPair<T>>;
 
 template <typename T>
-void FillVarView(const vpack_types::VarList<T> &vars, bool coarse,
+void FillVarView(const CellVariableVector<T> &vars, bool coarse,
                  ViewOfParArrays<T> &cv_out, ParArray1D<int> &sparse_id_out,
                  ParArray1D<int> &vector_component_out, PackIndexMap *vmap_out) {
   using vpack_types::IndexPair;
@@ -314,7 +318,7 @@ void FillVarView(const vpack_types::VarList<T> &vars, bool coarse,
 }
 
 template <typename T>
-void FillFluxViews(const vpack_types::VarList<T> &vars, const int ndim,
+void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
                    ViewOfParArrays<T> &f1_out, ViewOfParArrays<T> &f2_out,
                    ViewOfParArrays<T> &f3_out, PackIndexMap *vmap_out) {
   using vpack_types::IndexPair;
@@ -360,8 +364,8 @@ void FillFluxViews(const vpack_types::VarList<T> &vars, const int ndim,
 }
 
 template <typename T>
-VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
-                                 const vpack_types::VarList<T> &flux_vars,
+VariableFluxPack<T> MakeFluxPack(const CellVariableVector<T> &vars,
+                                 const CellVariableVector<T> &flux_vars,
                                  PackIndexMap *vmap_out = nullptr) {
   // count up the size
   int vsize = 0;
@@ -403,7 +407,7 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
 }
 
 template <typename T>
-VariablePack<T> MakePack(const vpack_types::VarList<T> &vars, bool coarse,
+VariablePack<T> MakePack(const CellVariableVector<T> &vars, bool coarse,
                          PackIndexMap *vmap_out = nullptr) {
   // count up the size
   int vsize = 0;

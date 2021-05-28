@@ -81,6 +81,7 @@ class MeshBlockData {
   void Copy(const std::shared_ptr<MeshBlockData<T>> &src,
             const std::vector<std::string> &names) {
     SetBlockPointer(src);
+    resolved_packages_ = src->resolved_packages_;
     for (const auto &name : names) {
       const auto &vMap = src->GetCellVariableMap();
       auto vit = vMap.find(name);
@@ -99,6 +100,7 @@ class MeshBlockData {
 
   void Copy(const std::shared_ptr<MeshBlockData<T>> &src) {
     SetBlockPointer(src);
+    resolved_packages_ = src->resolved_packages_;
     for (auto v : src->GetCellVariableVector()) {
       if (v->IsSet(Metadata::OneCopy)) {
         // just copy the (shared) pointer
@@ -232,12 +234,23 @@ class MeshBlockData {
                     std::string(" array not found in Get() Edge\n"));
   }
 
-  /// Gets an array of real variables from container.
-  /// @param names is the variables we want
-  /// @param indexCount a map of names to std::pair<index,count> for each name
-  int GetCellVariables(const std::vector<std::string> &names,
-                       std::vector<CellVariable<T>> &vRet,
-                       std::map<std::string, std::pair<int, int>> &indexCount);
+  using VarLabelList = VarListWithLabels<T>;
+
+  /// Get list of variables and labels by names (either a full variable name or sparse
+  /// base name), optionally selecting only given sparse ids
+  VarLabelList GetVariablesByName(const std::vector<std::string> &names,
+                                  const std::vector<int> &sparse_ids = {});
+
+  /// Get list of variables and labels by metadata flags (must match all flags if
+  /// match_all is true, otherwise must only match at least one), optionally selecting
+  /// only given sparse ids
+  VarLabelList GetVariablesByFlag(const std::vector<MetadataFlag> &flags, bool match_all,
+                                  const std::vector<int> &sparse_ids = {});
+
+  /// Get list of all variables and labels, optionally selecting only given sparse ids
+  VarLabelList GetAllVariables(const std::vector<int> &sparse_ids = {}) {
+    return GetVariablesByFlag({}, false, sparse_ids);
+  }
 
   /// Queries related to variable packs
   /// For all of these functions, vmap and key are optional output parameters, they will
@@ -397,8 +410,8 @@ class MeshBlockData {
   }
 
  private:
-  void AllocField(const std::string &label, const Metadata &metadata,
-                  int sparse_id = InvalidSparseID);
+  void AddField(const std::string &base_name, const Metadata &metadata,
+                int sparse_id = InvalidSparseID);
 
   void Add(std::shared_ptr<CellVariable<T>> var) {
     varVector_.push_back(var);
@@ -424,17 +437,6 @@ class MeshBlockData {
   MapToVariablePack<T> varPackMap_;
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
-
-  using VarLabelList = VarListWithLabels<T>;
-
-  // key is an output variable and may be nullptr
-  VarLabelList GetVariablesByName(const std::vector<std::string> &names,
-                                  const std::vector<int> &sparse_ids);
-  VarLabelList GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
-                                  const std::vector<int> &sparse_ids);
-  VarLabelList GetAllVariables(const std::vector<int> &sparse_ids) {
-    return GetVariablesByFlag({}, sparse_ids);
-  }
 
   // These helper functions are private scope because they assume that
   // the names include the components of sparse variables.

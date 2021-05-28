@@ -27,7 +27,6 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
@@ -43,7 +42,6 @@ using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::MeshBlock;
 using parthenon::MeshBlockData;
-using parthenon::MeshBlockDataIterator;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::PackIndexMap;
@@ -314,21 +312,28 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
         auto v = rc.PackVariables({"v3", "v6", "vsparse"}, false, &imap);
-        REQUIRE(imap.get("vsparse").second == imap.get("vsparse").first + 2);
+
+        REQUIRE(imap.get("vsparse_1").second == imap.get("vsparse_1").first);
+        REQUIRE(imap.get("vsparse_13").second == imap.get("vsparse_13").first);
+        REQUIRE(imap.get("vsparse_42").second == imap.get("vsparse_42").first);
         REQUIRE(imap.get("v6").second == imap.get("v6").first);
         REQUIRE(imap.get("v3").second == imap.get("v3").first + 2);
         REQUIRE(!indx_between_bounds(imap.get("v6").first, imap.get("v3")));
-        REQUIRE(!indx_between_bounds(imap.get("v6").first, imap.get("vsparse")));
-        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse")));
+        REQUIRE(!indx_between_bounds(imap.get("v6").first, imap.get("vsparse_1")));
+        REQUIRE(!indx_between_bounds(imap.get("v6").first, imap.get("vsparse_13")));
+        REQUIRE(!indx_between_bounds(imap.get("v6").first, imap.get("vsparse_42")));
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_1")));
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_13")));
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_42")));
       }
       AND_THEN("bounds are still correct if I get just a subset of the sparse fields") {
         PackIndexMap imap;
         auto v = rc.PackVariables(std::vector<std::string>{"v3", "vsparse"}, {1, 42},
                                   false, &imap);
-        REQUIRE(imap.get("vsparse").second == imap.get("vsparse").first + 1);
-        REQUIRE(std::abs(imap.get("vsparse_42").first - imap.get("vsparse_1").first) ==
-                1);
-        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse")));
+        REQUIRE(imap.get("vsparse_1").second == imap.get("vsparse_1").first);
+        REQUIRE(imap.get("vsparse_42").second == imap.get("vsparse_42").first);
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_1")));
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_42")));
       }
       AND_THEN("the association with sparse ids is captured") {
         PackIndexMap imap;
@@ -336,16 +341,17 @@ TEST_CASE("Can pull variables from containers based on Metadata",
         int correct = 0;
         const int v3first = imap.get("v3").first;
         const int v6first = imap.get("v6").first;
-        const int vsfirst = imap.get("vsparse").first;
-        const int vssecnd = imap.get("vsparse").second;
+        const int vs1 = imap.get("vsparse_1").first;
+        const int vs13 = imap.get("vsparse_13").first;
+        const int vs42 = imap.get("vsparse_42").first;
         Kokkos::parallel_reduce(
             "add correct checks", 1,
             KOKKOS_LAMBDA(const int i, int &sum) {
               sum = (v.GetSparseID(v3first) == parthenon::InvalidSparseID);
               sum += (v.GetSparseID(v6first) == parthenon::InvalidSparseID);
-              sum += (v.GetSparseID(vsfirst) == 1);
-              sum += (v.GetSparseID(vsfirst + 1) == 13);
-              sum += (v.GetSparseID(vssecnd) == 42);
+              sum += (v.GetSparseID(vs1) == 1);
+              sum += (v.GetSparseID(vs13) == 13);
+              sum += (v.GetSparseID(vs42) == 42);
             },
             correct);
         REQUIRE(correct == 5);

@@ -27,7 +27,6 @@
 #include <type_traits>
 #include <unordered_map>
 
-#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -108,7 +107,7 @@ struct VarInfo {
     if ((vlen <= 0) || (vlen > max_vlen)) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with length " << vlen
-          << ". vlen must be between 0 and " << max_vlen << std::endl;
+          << ". vlen must be between 1 and " << max_vlen << std::endl;
       PARTHENON_FAIL(msg);
     }
   }
@@ -701,24 +700,29 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // allocated on some blocks, we need to look at the list of variables on each block
   // combine these into a global list of variables
 
-  auto get_MeshBlockDataIterator = [=](const std::shared_ptr<MeshBlock> pmb) {
+  auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
     if (restart_) {
-      return MeshBlockDataIterator<Real>(
-          pmb->meshblock_data.Get(),
-          {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+      // get all vars with flag Independent OR restart
+      return pmb->meshblock_data.Get()
+          ->GetVariablesByFlag(
+              {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, false)
+          .vars();
     } else {
-      return MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(),
-                                         output_params.variables);
+      return pmb->meshblock_data.Get()
+          ->GetVariablesByName(output_params.variables)
+          .vars();
     }
   };
 
   // local list of unique vars
   std::set<VarInfo> all_unique_vars;
   for (auto &pmb : pm->block_list) {
-    auto ci = get_MeshBlockDataIterator(pmb);
-    for (auto &v : ci.vars) {
-      VarInfo vinfo(v);
-      all_unique_vars.insert(vinfo);
+    const auto vars = get_vars(pmb);
+    for (auto &v : vars) {
+      if (v->IsAllocated()) {
+        VarInfo vinfo(v);
+        all_unique_vars.insert(vinfo);
+      }
     }
   }
 
@@ -876,8 +880,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       bool found = false;
 
       // for each variable that this local meshblock actually has
-      auto ci = get_MeshBlockDataIterator(pmb);
-      for (auto &v : ci.vars) {
+      const auto vars = get_vars(pmb);
+      for (auto &v : vars) {
         // Note index l transposed to interior
         if (var_name.compare(v->label()) == 0) {
           auto v_h = v->data.GetHostMirrorAndCopy();

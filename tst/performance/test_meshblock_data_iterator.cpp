@@ -28,7 +28,6 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
@@ -43,7 +42,6 @@ using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::MeshBlock;
 using parthenon::MeshBlockData;
-using parthenon::MeshBlockDataIterator;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::PackIndexMap;

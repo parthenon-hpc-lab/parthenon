@@ -32,7 +32,6 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
-#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
@@ -131,6 +130,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // Add physics data, including dense, sparse, and swarm variables.
   // Resolve issues.
+  // TODO(JL) This should probably be moved to Mesh and only done once per mesh init
   resolved_packages = ResolvePackages(packages);
 
   auto &real_container = meshblock_data.Get();
@@ -149,17 +149,18 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
 
   // TODO(jdolence): Should these loops be moved to Variable creation
-  MeshBlockDataIterator<Real> ci(real_container, {Metadata::Independent});
-  int nindependent = ci.vars.size();
+  const auto independent_vars =
+      real_container->GetVariablesByFlag({Metadata::Independent}, true).vars();
+  int nindependent = independent_vars.size();
   for (int n = 0; n < nindependent; n++) {
-    RegisterMeshBlockData(ci.vars[n]);
+    RegisterMeshBlockData(independent_vars[n]);
   }
 
   if (pm->multilevel) {
     pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
     for (int n = 0; n < nindependent; n++) {
-      pmr->AddToRefinement(ci.vars[n]->data, ci.vars[n]->coarse_s);
+      pmr->AddToRefinement(independent_vars[n]->data, independent_vars[n]->coarse_s);
     }
   }
 
