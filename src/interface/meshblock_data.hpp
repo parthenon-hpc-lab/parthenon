@@ -90,9 +90,7 @@ class MeshBlockData {
     CopyFrom(*src, false, names);
   }
   /// Create non-shallow copy of MeshBlockData
-  void Copy(const std::shared_ptr<MeshBlockData<T>> &src) {
-    CopyFrom(*src, false);
-  }
+  void Copy(const std::shared_ptr<MeshBlockData<T>> &src) { CopyFrom(*src, false); }
 
   /// We can initialize a container with slices from a different
   /// container.  For variables that have the sparse tag, this will
