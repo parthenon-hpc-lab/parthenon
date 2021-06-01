@@ -52,6 +52,13 @@ class MeshBlockData {
   /// Constructor
   MeshBlockData<T>() = default;
 
+  /// Copies variables from src, optionally only copying names given and/or variables
+  /// matching any of the flags given. If shallow_copy is true, no copies of variables
+  /// will be allocated regardless whether they are flagged as OneCopy or not
+  void CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
+                const std::vector<std::string> &names = {},
+                const std::vector<MetadataFlag> &flags = {});
+
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names);
@@ -77,47 +84,14 @@ class MeshBlockData {
     return GetBlockPointer()->cellbounds.GetBoundsK(domain);
   }
 
-  // TODO(JL) combine this with copy constructors
+  /// Create non-shallow copy of MeshBlockData, but only include named variables
   void Copy(const std::shared_ptr<MeshBlockData<T>> &src,
             const std::vector<std::string> &names) {
-    SetBlockPointer(src);
-    resolved_packages_ = src->resolved_packages_;
-    for (const auto &name : names) {
-      const auto &vMap = src->GetCellVariableMap();
-      auto vit = vMap.find(name);
-      if (vit != vMap.end()) {
-        auto &v = vit->second;
-        if (v->IsSet(Metadata::OneCopy)) {
-          Add(v);
-        } else {
-          Add(v->AllocateCopy(false, pmy_block));
-        }
-      } else {
-        PARTHENON_THROW("MeshBlockData::Copy did not find " + name);
-      }
-    }
+    CopyFrom(*src, false, names);
   }
-
+  /// Create non-shallow copy of MeshBlockData
   void Copy(const std::shared_ptr<MeshBlockData<T>> &src) {
-    SetBlockPointer(src);
-    resolved_packages_ = src->resolved_packages_;
-    for (auto v : src->GetCellVariableVector()) {
-      if (v->IsSet(Metadata::OneCopy)) {
-        // just copy the (shared) pointer
-        Add(v);
-      } else {
-        // allocate new storage
-        Add(v->AllocateCopy(false, pmy_block));
-      }
-    }
-
-    for (auto v : src->GetFaceVector()) {
-      if (v->IsSet(Metadata::OneCopy)) {
-        Add(v);
-      } else {
-        throw std::runtime_error("Non-oneCopy face variables are not yet supported");
-      }
-    }
+    CopyFrom(*src, false);
   }
 
   /// We can initialize a container with slices from a different
