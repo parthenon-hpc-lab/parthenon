@@ -19,6 +19,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 487]](https://github.com/lanl/parthenon/pull/487) Add default tiling matching `i` index range to MDRange loop pattern.
+- [[PR 531]](https://github.com/lanl/parthenon/pull/531) Work around in parthenon_hdf5.cpp for GCC 7.3.0
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 502]](https://github.com/lanl/parthenon/pull/502) Use subviews of a single view for fluxes
