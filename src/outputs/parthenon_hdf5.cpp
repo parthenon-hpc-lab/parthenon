@@ -28,6 +28,7 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include "driver/driver.hpp"
 #include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
@@ -439,7 +440,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // -------------------------------------------------------------------------------- //
   //   WRITING ATTRIBUTES                                                             //
   // -------------------------------------------------------------------------------- //
-
   {
     // write input key-value pairs
     std::ostringstream oss;
@@ -459,6 +459,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteAttribute("Time", tm->time, info_group);
       HDF5WriteAttribute("dt", tm->dt, info_group);
     }
+
+    HDF5WriteAttribute("WallTime", Driver::elapsed_main(), info_group);
     HDF5WriteAttribute("NumDims", pm->ndim, info_group);
     HDF5WriteAttribute("NumMeshBlocks", pm->nbtotal, info_group);
     HDF5WriteAttribute("MaxLevel", max_level, info_group);
