@@ -106,6 +106,12 @@ class MeshData {
 
   auto &GetSetBuffers() const { return set_buffers_; }
 
+  void SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers) {
+    restrict_buffers_ = restrict_buffers;
+  }
+
+  auto &GetRestrictBuffers() const { return restrict_buffers_; }
+
   IndexRange GetBoundsI(const IndexDomain &domain) const {
     return block_data_[0]->GetBoundsI(domain);
   }
@@ -181,6 +187,7 @@ class MeshData {
     varFluxPackMap_.clear();
     send_buffers_ = cell_centered_bvars::BufferCache_t{};
     set_buffers_ = cell_centered_bvars::BufferCache_t{};
+    restrict_buffers_ = cell_centered_bvars::BufferCache_t{};
   }
 
   int NumBlocks() const { return block_data_.size(); }
@@ -212,6 +219,7 @@ class MeshData {
   // caches for boundary information
   cell_centered_bvars::BufferCache_t send_buffers_{};
   cell_centered_bvars::BufferCache_t set_buffers_{};
+  cell_centered_bvars::BufferCache_t restrict_buffers_{};
 };
 
 } // namespace parthenon
