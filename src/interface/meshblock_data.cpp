@@ -100,69 +100,85 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
   }
 }
 
+template <typename T>
+void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
+                                const std::vector<std::string> &names,
+                                const std::vector<MetadataFlag> &flags) {
+  SetBlockPointer(src);
+  resolved_packages_ = src.resolved_packages_;
+
+  auto add_var = [=, &flags](auto var) {
+    if (!flags.empty() && !var->metadata().AnyFlagsSet(flags)) {
+      return;
+    }
+
+    if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
+      Add(var);
+    } else {
+      Add(var->AllocateCopy(false, pmy_block));
+    }
+  };
+
+  if (names.empty()) {
+    for (auto v : src.GetCellVariableVector()) {
+      add_var(v);
+    }
+    for (auto fv : src.GetFaceVector()) {
+      add_var(fv);
+    }
+  } else {
+    auto var_map = src.GetCellVariableMap();
+    auto face_map = src.GetFaceMap();
+
+    for (const auto &name : names) {
+      bool found = false;
+      auto v = var_map.find(name);
+      if (v != var_map.end()) {
+        found = true;
+        add_var(v->second);
+      }
+
+      auto fv = face_map.find(name);
+      if (fv != face_map.end()) {
+        PARTHENON_REQUIRE_THROWS(!found, "MeshBlockData::CopyFrom: Variable '" + name +
+                                             "' found more than once");
+        found = true;
+        add_var(fv->second);
+      }
+
+      if (!found && (resolved_packages_ != nullptr)) {
+        // check if this is a sparse base name, if so we get its pool of sparse_ids,
+        // otherwise we get an empty pool
+        const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
+
+        // add all sparse ids of the pool
+        for (const auto iter : sparse_pool.pool()) {
+          // this variable must exist, if it doesn't something is very wrong
+          const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
+          add_var(v);
+          found = true;
+        }
+      }
+
+      PARTHENON_REQUIRE_THROWS(found, "MeshBlockData::CopyFrom: Variable '" + name +
+                                          "' not found");
+    }
+  }
+}
+
 // Constructor for getting sub-containers
 // the variables returned are all shallow copies of the src container.
 // Optionally extract only some of the sparse ids of src variable.
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
                                 const std::vector<std::string> &names) {
-  SetBlockPointer(src);
-  resolved_packages_ = src.resolved_packages_;
-
-  auto var_map = src.GetCellVariableMap();
-  auto face_map = src.GetFaceMap();
-
-  for (std::string name : names) {
-    bool found = false;
-    auto v = var_map.find(name);
-    if (v != var_map.end()) {
-      Add(v->second);
-      found = true;
-    }
-
-    auto fv = face_map.find(name);
-    if (fv != face_map.end()) {
-      if (found) {
-        std::stringstream msg;
-        msg << "MeshBlockData: " << name << " found more than once!" << std::endl;
-        PARTHENON_THROW(msg);
-      }
-      found = true;
-      Add(fv->second);
-    }
-
-    if (!found) {
-      std::stringstream msg;
-      msg << "MeshBlockData: " << name << " not found!" << std::endl;
-      PARTHENON_THROW(msg);
-    }
-  }
+  CopyFrom(src, true, names);
 }
 
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
                                 const std::vector<MetadataFlag> &flags) {
-  SetBlockPointer(src);
-  resolved_packages_ = src.resolved_packages_;
-
-  auto var_map = src.GetCellVariableMap();
-  auto face_map = src.GetFaceMap();
-
-  for (auto &it : var_map) {
-    auto n = it.first;
-    auto v = it.second;
-    if (v->metadata().AnyFlagsSet(flags)) {
-      Add(v);
-    }
-  }
-
-  for (auto &it : face_map) {
-    auto n = it.first;
-    auto v = it.second;
-    if (v->metadata().AnyFlagsSet(flags)) {
-      Add(v);
-    }
-  }
+  CopyFrom(src, true, {}, flags);
 }
 
 // provides a container that has a single sparse slice

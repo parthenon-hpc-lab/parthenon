@@ -158,6 +158,12 @@ class FaceVariable {
   FaceVariable(const std::string &label, FaceVariable<T> &src)
       : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
 
+  std::shared_ptr<FaceVariable<T>>
+  AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
+               std::weak_ptr<MeshBlock> wpmb = {}) {
+    PARTHENON_THROW("FaceVariable::AllocateCopy is not implemented yet");
+  }
+
   // KOKKOS_FUNCTION FaceVariable() = default;
   // KOKKOS_FUNCTION FaceVariable(const FaceVariable<T>& v) = default;
   // KOKKOS_FUNCTION ~FaceVariable() = default;
