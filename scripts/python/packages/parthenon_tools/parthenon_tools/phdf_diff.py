@@ -241,7 +241,7 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
     return ret_code
 
 
-def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, check_metadata=True):
+def compare(files, all=False, brief=False, quiet=False, one=False, tol=1.0e-12, check_metadata=True):
     """ compares two hdf files. Returns 0 if the files are equivalent.
 
         Error codes:

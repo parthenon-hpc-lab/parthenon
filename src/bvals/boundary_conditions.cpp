@@ -17,7 +17,6 @@
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/meshblock_data_iterator.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 

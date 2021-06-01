@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -30,7 +30,6 @@
 
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
-#include "interface/meshblock_data_iterator.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
@@ -51,17 +50,17 @@ int IsBigEndian() {
   return (*ep == 0); // Returns 1 (true) on a big endian machine
 }
 
-namespace {
-inline void Swap4Bytes(void *vdat) {
-  char tmp, *dat = static_cast<char *>(vdat);
-  tmp = dat[0];
-  dat[0] = dat[3];
-  dat[3] = tmp;
-  tmp = dat[1];
-  dat[1] = dat[2];
-  dat[2] = tmp;
-}
-} // namespace
+// namespace {
+// inline void Swap4Bytes(void *vdat) {
+//   char tmp, *dat = static_cast<char *>(vdat);
+//   tmp = dat[0];
+//   dat[0] = dat[3];
+//   dat[3] = tmp;
+//   tmp = dat[1];
+//   dat[1] = dat[2];
+//   dat[2] = tmp;
+// }
+// } // namespace
 
 //----------------------------------------------------------------------------------------
 //! \fn void VTKOutput:::WriteOutputFile(Mesh *pm)

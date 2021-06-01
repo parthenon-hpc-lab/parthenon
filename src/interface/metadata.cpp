@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,6 +20,9 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#include "mesh/meshblock.hpp"
+#include "utils/error_checking.hpp"
 
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
@@ -100,4 +103,55 @@ std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
   }
   return os;
 }
+
+std::vector<MetadataFlag> Metadata::Flags() const {
+  std::vector<MetadataFlag> set_flags;
+  const auto &flags = metadata_state.AllFlags();
+  for (int i = 0; i < flags.size(); ++i) {
+    const auto flag = MetadataFlag(i);
+    if (IsSet(flag)) {
+      set_flags.push_back(flag);
+    }
+  }
+
+  return set_flags;
+}
+
+std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb) const {
+  std::array<int, 6> arrDims;
+
+  const auto &shape = shape_;
+  const int N = shape.size();
+
+  if (IsMeshTied()) {
+    // Let the FaceVariable, EdgeVariable, and NodeVariable
+    // classes add the +1's where needed.  They all expect
+    // these dimensions to be the number of cells in each
+    // direction, NOT the size of the arrays
+    assert(N >= 1 && N <= 3);
+    PARTHENON_REQUIRE_THROWS(!wpmb.expired(),
+                             "Cannot determine array dimensions for mesh-tied entity "
+                             "without a valid meshblock");
+    auto pmb = wpmb.lock();
+    arrDims[0] = pmb->cellbounds.ncellsi(IndexDomain::entire);
+    arrDims[1] = pmb->cellbounds.ncellsj(IndexDomain::entire);
+    arrDims[2] = pmb->cellbounds.ncellsk(IndexDomain::entire);
+    for (int i = 0; i < N; i++)
+      arrDims[i + 3] = shape[i];
+    for (int i = N; i < 3; i++)
+      arrDims[i + 3] = 1;
+  } else {
+    // This variable is not necessarily tied to any specific
+    // mesh element, so dims will be used as the actual array
+    // size in each dimension
+    assert(N >= 1 && N <= 6);
+    for (int i = 0; i < N; i++)
+      arrDims[i] = shape[i];
+    for (int i = N; i < 6; i++)
+      arrDims[i] = 1;
+  }
+
+  return arrDims;
+}
+
 } // namespace parthenon
