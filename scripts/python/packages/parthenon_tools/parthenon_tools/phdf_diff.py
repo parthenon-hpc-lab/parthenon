@@ -319,7 +319,7 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
 def compare(
     files,
     all=False,
-    brief=True,
+    brief=False,
     quiet=False,
     one=False,
     tol=1.0e-12,
