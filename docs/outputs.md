@@ -77,7 +77,7 @@ Both [ParaView](https://www.paraview.org/) and [VisIt](https://wci.llnl.gov/simu
 
 Parthenon HDF5 outputs can be read with the python visualization library
 [yt](https://yt-project.org/) as certain variables are named when adding
-fields via `StateDescriptor::AddDenseField` and `StateDescriptor::AddSparseField`.
+fields via `StateDescriptor::AddDenseField` and `StateDescriptor::AddSparsePool`.
 Variable names are added as a
 `std::vector<std::string>` in the variable metadata. These labels are
 optional and are only used for output to HDF5. 4D variables are named with a

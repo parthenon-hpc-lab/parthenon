@@ -62,6 +62,8 @@ variable in relation to the problem.
 - `Metadata::Conserved` implies a variable obeys a conservation law.
 - `Metadata::Intensive` implies that the value of a variable does not
   scale with volume.
+- `Metadata::Sparse` implies that the variable is sparse and hence it
+  may not be allocated on all blocks.
 
 ### Output
 

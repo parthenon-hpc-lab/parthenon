@@ -8,6 +8,11 @@
 - [[PR 482]](https://github.com/lanl/parthenon/pull/482) Add support for package enrolled history outputs.
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 535]](https://github.com/lanl/parthenon/pull/535) Modify various interfaces connected with
+  variables, `StateDescriptor`, variable packing to support proper sparse variables. Replace
+  `SparseVariable` with `SparsePool`. Remove `MeshBlockDataIterator` and make
+  `MeshBlockData::GetVariablesBy[Name|Flag]` public instead. Remove public `MeshBlockData::Add`
+  interface and add `MeshBlockData::Initialize` instead.
 - [[PR 532]](https://github.com/lanl/parthenon/pull/532) Remove obsolete `Properties_t`, they have been replaced by `Packages_t`
 - [[PR 508]](https://github.com/lanl/parthenon/pull/508) Modify `RestrictCellCenteredVariables` to support a restriction over meshblock packs.
 - [[PR 524]](https://github.com/lanl/parthenon/pull/524) Enforce `Metadata` flags constraints and add new `Metadata::WithFluxes` flag. Note: `Metadata::Independent` will be set automatically unless `Metadata::Derived` is set
