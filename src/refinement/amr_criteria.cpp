@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -54,8 +54,14 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
   }
 }
 
-AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) {
-  ParArrayND<Real> q = rc->Get(field).data;
+AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
+  ParArrayND<Real> q;
+  try {
+    q = rc->Get(field).data;
+  } catch (std::invalid_argument const &) {
+    return AmrTag::same;
+  }
+
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   return Refinement::FirstDerivative(pmb.get(), q, refine_criteria, derefine_criteria);
 }

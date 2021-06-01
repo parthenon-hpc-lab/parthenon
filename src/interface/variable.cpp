@@ -20,6 +20,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -51,14 +52,15 @@ template <typename T>
 std::shared_ptr<CellVariable<T>>
 CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
                               std::weak_ptr<MeshBlock> wpmb) {
-  std::array<int, 6> dims = {GetDim(1), GetDim(2), GetDim(3),
-                             GetDim(4), GetDim(5), GetDim(6)};
-
   // copy the Metadata
   Metadata m = m_;
 
   // make the new CellVariable
-  auto cv = std::make_shared<CellVariable<T>>(label(), dims, m);
+  auto cv = std::make_shared<CellVariable<T>>(label(), m, sparse_id_);
+
+  if (is_allocated_) {
+    cv->AllocateData(wpmb);
+  }
 
   if (IsSet(Metadata::FillGhost)) {
     if (alloc_separate_fluxes_and_bvar) {
@@ -74,16 +76,44 @@ CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
       for (int i = 1; i <= 3; i++) {
         cv->flux[i] = flux[i]; // these are subviews
       }
-      cv->coarse_s = coarse_s; // reference counted
     }
+
+    // These members are pointers,      // point at same memory as src
+    cv->coarse_s = coarse_s;
   }
+
   return cv;
+}
+
+template <typename T>
+void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
+  AllocateData(wpmb);
+  AllocateFluxesAndBdryVar(wpmb);
+}
+
+template <typename T>
+void CellVariable<T>::AllocateData(std::weak_ptr<MeshBlock> wpmb) {
+  if (is_allocated_) {
+    return;
+  }
+
+  if (m_.IsMeshTied() && wpmb.expired()) {
+    // we can't allocate data because we need cellbounds from the meshblock but our
+    // meshblock pointer is null
+    return;
+  }
+
+  const auto dims = m_.GetArrayDims(wpmb);
+  data = ParArrayND<T>(label(), dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]);
+  is_allocated_ = true;
 }
 
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
 void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
+  PARTHENON_REQUIRE_THROWS(
+      is_allocated_, "Tried to allocate comms for un-allocated variable " + label());
   std::string base_name = label();
 
   // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise

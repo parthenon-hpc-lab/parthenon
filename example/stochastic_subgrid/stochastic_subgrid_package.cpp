@@ -193,15 +193,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
                 Metadata::FillGhost},
                std::vector<int>({num_vars}));
-    pkg->AddField(field_name, m);
+    pkg->AddDenseField(field_name, m);
 
     field_name = "dummy_result";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
-    pkg->AddField(field_name, m);
+    pkg->AddDenseField(field_name, m);
 
     field_name = "num_iter";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
-    pkg->AddField(field_name, m);
+    pkg->AddDenseField(field_name, m);
   }
 
   pkg->FillDerivedBlock = DoLotsOfWork;
@@ -291,10 +291,10 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
   // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars({"num_iter", "advected", "dummy_result"});
-  auto v = rc->PackVariables(vars, imap);
-  const int niter = imap["num_iter"].first;
-  const int in = imap["advected"].first;
-  const int out = imap["dummy_result"].first;
+  auto v = rc->PackVariables(vars, false, &imap);
+  const int niter = imap.get("num_iter").first;
+  const int in = imap.get("advected").first;
+  const int out = imap.get("dummy_result").first;
   const auto num_vars = rc->Get("advected").data.GetDim(4);
   int N_min = pkg->Param<int>("N_min");
 

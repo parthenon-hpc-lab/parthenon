@@ -53,6 +53,12 @@ class MeshBlockPack {
                    const int i) const {
     return v_(block)(n)(k, j, i);
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION bool IsSparseIDAllocated(const int block,
+                                                       const int var) const {
+    return v_(block).GetDim(1) > var && v_(block)(var).is_allocated();
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   int GetDim(const int i) const {
     assert(i > 0 && i < 6);
@@ -83,8 +89,6 @@ using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
 template <typename T>
 using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
 
-template <typename T>
-using MeshPackIndxPair = PackAndIndexMap<MeshBlockPack<T>>;
 template <typename T>
 using MapToMeshBlockVarPack =
     std::map<std::vector<std::string>, MeshBlockPack<VariablePack<T>>>;

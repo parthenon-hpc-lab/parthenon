@@ -161,7 +161,9 @@ class MeshData {
       return meshblock_data->PackVariables(std::forward<Args>(args)...);
     };
     std::vector<std::string> key;
-    auto vpack = block_data_[0]->PackVariables(std::forward<Args>(args)..., key);
+    // TODO(JL) This is fragile
+    auto vpack =
+        block_data_[0]->PackVariables(std::forward<Args>(args)..., false, nullptr, &key);
     return pack_on_mesh_impl::PackOnMesh<VariablePack<T>>(key, varPackMap_, block_data_,
                                                           pack_function);
   }
@@ -172,7 +174,9 @@ class MeshData {
       return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)...);
     };
     vpack_types::StringPair key;
-    auto vpack = block_data_[0]->PackVariablesAndFluxes(std::forward<Args>(args)..., key);
+    // TODO(JL) This is fragile
+    auto vpack = block_data_[0]->PackVariablesAndFluxes(std::forward<Args>(args)...,
+                                                        nullptr, &key);
     return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>>(key, varFluxPackMap_,
                                                               block_data_, pack_function);
   }
@@ -217,8 +221,6 @@ class MeshData {
   cell_centered_bvars::BufferCache_t set_buffers_{};
   cell_centered_bvars::BufferCache_t restrict_buffers_{};
 };
-
-using MeshDataCollection = DataCollection<MeshData<Real>>;
 
 } // namespace parthenon
 

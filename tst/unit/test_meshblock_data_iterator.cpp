@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -27,8 +27,8 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
@@ -40,8 +40,8 @@ using parthenon::CellVariable;
 using parthenon::CellVariableVector;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
+using parthenon::MeshBlock;
 using parthenon::MeshBlockData;
-using parthenon::MeshBlockDataIterator;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::PackIndexMap;
@@ -49,6 +49,7 @@ using parthenon::par_for;
 using parthenon::ParArray4D;
 using parthenon::ParArrayND;
 using parthenon::Real;
+using parthenon::StateDescriptor;
 using parthenon::X1DIR;
 using parthenon::X2DIR;
 using parthenon::X3DIR;
@@ -69,25 +70,30 @@ bool intervals_intersect(const std::pair<int, int> &i1, const std::pair<int, int
 TEST_CASE("Can pull variables from containers based on Metadata",
           "[MeshBlockDataIterator]") {
   GIVEN("A Container with a set of variables initialized to zero") {
-    MeshBlockData<Real> rc;
     std::vector<int> scalar_shape{16, 16, 16};
     std::vector<int> vector_shape{16, 16, 16, 3};
 
-    Metadata m_in({Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost},
-                  scalar_shape);
-    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes,
-                          Metadata::FillGhost, Metadata::Vector},
+    Metadata m_in({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
+    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},
                          vector_shape);
     Metadata m_out({Metadata::Derived}, scalar_shape);
     Metadata m_out_vector({Metadata::Derived}, vector_shape);
 
-    // Make some variables
-    rc.Add("v1", m_in);
-    rc.Add("v2", m_out);
-    rc.Add("v3", m_in_vector);
-    rc.Add("v4", m_out_vector);
-    rc.Add("v5", m_in);
-    rc.Add("v6", m_out);
+    // Make package with some variables
+    auto pkg = std::make_shared<StateDescriptor>("Test package");
+    pkg->AddDenseField("v1", m_in);
+    pkg->AddDenseField("v2", m_out);
+    pkg->AddDenseField("v3", m_in_vector);
+    pkg->AddDenseField("v4", m_out_vector);
+    pkg->AddDenseField("v5", m_in);
+    pkg->AddDenseField("v6", m_out);
+
+    // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
+    // won't be allocated
+    auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
+
+    MeshBlockData<Real> rc;
+    rc.Initialize(pkg, dummy_mb);
 
     WHEN("We extract a subcontainer") {
       auto subcontainer = MeshBlockData<Real>(rc, {"v1", "v3", "v5"});
@@ -200,10 +206,10 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we set individual fields by index") {
       PackIndexMap vmap;
-      auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
-      const int iv3lo = vmap["v3"].first;
-      const int iv3hi = vmap["v3"].second;
-      const int iv6 = vmap["v6"].first;
+      auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), false, &vmap);
+      const int iv3lo = vmap.get("v3").first;
+      const int iv3hi = vmap.get("v3").second;
+      const int iv6 = vmap.get("v6").first;
       THEN("The pack indices are all different") {
         REQUIRE(iv3hi > iv3lo);
         REQUIRE(iv3hi != iv6);
@@ -219,10 +225,10 @@ TEST_CASE("Can pull variables from containers based on Metadata",
           });
       THEN("the values should as we expect") {
         PackIndexMap vmap; // recompute the pack
-        auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
-        const int iv3lo = vmap["v3"].first;
-        const int iv3hi = vmap["v3"].second;
-        const int iv6 = vmap["v6"].first;
+        auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), false, &vmap);
+        const int iv3lo = vmap.get("v3").first;
+        const int iv3hi = vmap.get("v3").second;
+        const int iv6 = vmap.get("v6").first;
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         Real total = 0.0;
         Real sum = 1.0;
@@ -255,8 +261,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we set fluxes of independent variables") {
-      auto vf = rc.PackVariablesAndFluxes(
-          {Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost});
+      auto vf = rc.PackVariablesAndFluxes({Metadata::Independent, Metadata::WithFluxes});
       par_for(
           DEFAULT_LOOP_PATTERN, "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0,
           vf.GetDim(3) - 1, 0, vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,
@@ -292,72 +297,60 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we add sparse fields") {
-      Metadata m_sparse;
-      m_sparse = Metadata({Metadata::Derived, Metadata::Sparse}, scalar_shape, 1);
-      rc.Add("vsparse", m_sparse);
-      m_sparse = Metadata({Metadata::Derived, Metadata::Sparse}, 13);
-      rc.Add("vsparse", m_sparse);
-      m_sparse = Metadata({Metadata::Derived, Metadata::Sparse}, 42);
-      rc.Add("vsparse", m_sparse);
+      Metadata meta_sparse({Metadata::Derived, Metadata::Sparse}, scalar_shape);
+      pkg->AddSparsePool("vsparse", meta_sparse, std::vector<int>{1, 13, 42});
+
+      // re-initialize MeshBlockData with new fields
+      rc.Initialize(pkg, dummy_mb);
+
+      // TODO(JL) test packs with unallocated sparse fields
+      rc.AllocSparseID("vsparse", 1);
+      rc.AllocSparseID("vsparse", 13);
+      rc.AllocSparseID("vsparse", 42);
+
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
-        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
-        REQUIRE(imap["vsparse"].second == imap["vsparse"].first + 2);
-        REQUIRE(imap["v6"].second == imap["v6"].first);
-        REQUIRE(imap["v3"].second == imap["v3"].first + 2);
-        REQUIRE(!indx_between_bounds(imap["v6"].first, imap["v3"]));
-        REQUIRE(!indx_between_bounds(imap["v6"].first, imap["vsparse"]));
-        REQUIRE(!intervals_intersect(imap["v3"], imap["vsparse"]));
+        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, false, &imap);
+
+        REQUIRE(imap.get("vsparse_1").second == imap.get("vsparse_1").first);
+        REQUIRE(imap.get("vsparse_13").second == imap.get("vsparse_13").first);
+        REQUIRE(imap.get("vsparse_42").second == imap.get("vsparse_42").first);
+        REQUIRE(imap.get("v6").second == imap.get("v6").first);
+        REQUIRE(imap.get("v3").second == imap.get("v3").first + 2);
+        REQUIRE(!indx_between_bounds(imap.get("v6").first, imap.get("v3")));
+        REQUIRE(!indx_between_bounds(imap.get("v6").first, imap.get("vsparse_1")));
+        REQUIRE(!indx_between_bounds(imap.get("v6").first, imap.get("vsparse_13")));
+        REQUIRE(!indx_between_bounds(imap.get("v6").first, imap.get("vsparse_42")));
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_1")));
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_13")));
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_42")));
       }
       AND_THEN("bounds are still correct if I get just a subset of the sparse fields") {
         PackIndexMap imap;
-        auto v = rc.PackVariables({"v3", "vsparse"}, {1, 42}, imap);
-        REQUIRE(imap["vsparse"].second == imap["vsparse"].first + 1);
-        REQUIRE(std::abs(imap["vsparse_42"].first - imap["vsparse_1"].first) == 1);
-        REQUIRE(!intervals_intersect(imap["v3"], imap["vsparse"]));
+        auto v = rc.PackVariables(std::vector<std::string>{"v3", "vsparse"}, {1, 42},
+                                  false, &imap);
+        REQUIRE(imap.get("vsparse_1").second == imap.get("vsparse_1").first);
+        REQUIRE(imap.get("vsparse_42").second == imap.get("vsparse_42").first);
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_1")));
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_42")));
       }
       AND_THEN("the association with sparse ids is captured") {
         PackIndexMap imap;
-        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
+        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, false, &imap);
         int correct = 0;
-        const int v3first = imap["v3"].first;
-        const int v6first = imap["v6"].first;
-        const int vsfirst = imap["vsparse"].first;
-        const int vssecnd = imap["vsparse"].second;
+        const int v3first = imap.get("v3").first;
+        const int v6first = imap.get("v6").first;
+        const int vs1 = imap.get("vsparse_1").first;
+        const int vs13 = imap.get("vsparse_13").first;
+        const int vs42 = imap.get("vsparse_42").first;
         Kokkos::parallel_reduce(
             "add correct checks", 1,
             KOKKOS_LAMBDA(const int i, int &sum) {
-              sum = (v.GetSparse(v3first) == -1);
-              sum += (v.GetSparse(v6first) == -1);
-              sum += (v.GetSparse(vsfirst) == 1);
-              sum += (v.GetSparse(vsfirst + 1) == 13);
-              sum += (v.GetSparse(vssecnd) == 42);
-            },
-            correct);
-        REQUIRE(correct == 5);
-
-        correct = 0;
-        Kokkos::parallel_reduce(
-            "add correct checks", 1,
-            KOKKOS_LAMBDA(const int i, int &sum) {
-              sum = (v.GetSparseId(v3first) == -1);
-              sum += (v.GetSparseId(v6first) == -1);
-              sum += (v.GetSparseId(vsfirst) == 1);
-              sum += (v.GetSparseId(vsfirst + 1) == 13);
-              sum += (v.GetSparseId(vssecnd) == 42);
-            },
-            correct);
-        REQUIRE(correct == 5);
-
-        correct = 0;
-        Kokkos::parallel_reduce(
-            "add correct checks", 1,
-            KOKKOS_LAMBDA(const int i, int &sum) {
-              sum = (v.GetSparseIndex(v3first) == -1);
-              sum += (v.GetSparseIndex(v6first) == -1);
-              sum += (v.GetSparseIndex(vsfirst) == 1);
-              sum += (v.GetSparseIndex(vsfirst + 1) == 13);
-              sum += (v.GetSparseIndex(vssecnd) == 42);
+              sum = (v.GetSparseID(v3first) == parthenon::InvalidSparseID);
+              sum += (v.GetSparseID(v6first) == parthenon::InvalidSparseID);
+              sum += (v.GetSparseID(vs1) == 1);
+              sum += (v.GetSparseID(vs13) == 13);
+              sum += (v.GetSparseID(vs42) == 42);
             },
             correct);
         REQUIRE(correct == 5);
@@ -366,15 +359,16 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we add a 2d variable") {
       std::vector<int> shape_2D{16, 16, 1};
-      Metadata m_in_2D({Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost},
-                       shape_2D);
-      rc.Add("v2d", m_in_2D);
+      Metadata m_in_2D({Metadata::Independent, Metadata::WithFluxes}, shape_2D);
+      pkg->AddDenseField("v2d", m_in_2D);
+      rc.Initialize(pkg, dummy_mb);
+
       auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
       THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
     }
 
     WHEN("We extract a pack over an empty set") {
-      auto pack = rc.PackVariables(std::vector<std::string>{"doesnt exist"});
+      auto pack = rc.PackVariables(std::vector<std::string>{"does_not_exist"});
       THEN("The pack is empty") { REQUIRE(pack.GetDim(4) == 0); }
     }
   }
@@ -385,17 +379,27 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
   using parthenon::IndexDomain;
   using parthenon::IndexShape;
 
+  // Make package with some variables
+  auto pkg = std::make_shared<StateDescriptor>("Test package");
+
+  // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
+  // won't be allocated
+  auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
+
   GIVEN("MeshBlockData, with a variable with coarse data") {
     constexpr int nside = 16;
     constexpr int nghost = 2;
     auto cellbounds = IndexShape(nside, nside, nside, nghost);
     auto c_cellbounds = IndexShape(nside / 2, nside / 2, nside / 2, nghost);
 
-    MeshBlockData<Real> rc;
     std::vector<int> block_size{nside + 2 * nghost, nside + 2 * nghost,
                                 nside + 2 * nghost};
     Metadata m({Metadata::Independent, Metadata::WithFluxes}, block_size);
-    rc.Add("var", m);
+
+    pkg->AddDenseField("var", m);
+
+    MeshBlockData<Real> rc;
+    rc.Initialize(pkg, dummy_mb);
     auto &var = rc.Get("var");
 
     auto coarse_s =
