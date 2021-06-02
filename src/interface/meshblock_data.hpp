@@ -165,12 +165,16 @@ class MeshBlockData {
     return AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 
-  bool IsAllocated(std::string const &base_name, int sparse_id = InvalidSparseID) const {
-    auto it = varMap_.find(MakeVarLabel(base_name, sparse_id));
+  bool IsAllocated(std::string const &label) const {
+    auto it = varMap_.find(label);
     if (it == varMap_.end()) {
       return false;
     }
     return it->second->IsAllocated();
+  }
+
+  bool IsAllocated(std::string const &base_name, int sparse_id) const {
+    return IsAllocated(MakeVarLabel(base_name, sparse_id));
   }
 
   //
@@ -395,7 +399,6 @@ class MeshBlockData {
     faceMap_[var->label()] = var;
   }
 
-  int debug = 0; // TODO(JL) Do we still need this?
   std::weak_ptr<MeshBlock> pmy_block;
   std::shared_ptr<StateDescriptor> resolved_packages_;
 

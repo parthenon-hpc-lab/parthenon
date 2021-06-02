@@ -442,7 +442,6 @@ template <typename T>
 TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshBlockData");
   // sends the boundary
-  debug = 0;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
