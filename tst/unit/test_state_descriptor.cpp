@@ -23,6 +23,7 @@
 
 #include "defs.hpp"
 #include "interface/metadata.hpp"
+#include "interface/sparse_pool.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 
@@ -31,6 +32,7 @@ using parthenon::MetadataFlag;
 using parthenon::Packages_t;
 using parthenon::Real;
 using parthenon::ResolvePackages;
+using parthenon::SparsePool;
 using parthenon::StateDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
 
@@ -273,6 +275,99 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           }
         }
       }
+    }
+  }
+}
+
+TEST_CASE("Test SparsePool interface", "[StateDescriptor") {
+  GIVEN("Some metadata") {
+    Metadata dense({Metadata::Independent, Metadata::WithFluxes});
+    Metadata sparse({Metadata::Independent, Metadata::Sparse, Metadata::Vector},
+                    std::vector<int>{3});
+
+    THEN("We can create a SparsePool with sparse metadata") {
+      SparsePool pool("sparse", sparse);
+      AND_THEN("We can add sparse indices to the pool") {
+        const auto m2 = pool.Add(2);
+        REQUIRE(m2 == sparse);
+        REQUIRE(m2.IsSet(Metadata::Vector));
+        REQUIRE(!m2.IsSet(Metadata::Tensor));
+
+        const auto m5 = pool.Add(5, {2, 2, 4}, Metadata::Tensor);
+
+        const std::set<MetadataFlag> expected_flags{
+            Metadata::Independent, Metadata::Sparse,   Metadata::Tensor,
+            Metadata::None,        Metadata::Provides, Metadata::Real};
+        const auto &flags = m5.Flags();
+        const std::set<MetadataFlag> actual_flags(flags.begin(), flags.end());
+        REQUIRE(expected_flags == actual_flags);
+
+        REQUIRE(m5 != sparse); // because shape and Vector/Tensor flag are different
+        REQUIRE(m5.Shape().size() == 3);
+        REQUIRE(!m5.IsSet(Metadata::Vector));
+        REQUIRE(m5.IsSet(Metadata::Tensor));
+
+        const auto mm17 = pool.Add(-17, {1}, Metadata::None, {"foo"});
+        REQUIRE(!mm17.IsSet(Metadata::Vector));
+        REQUIRE(!mm17.IsSet(Metadata::Tensor));
+        REQUIRE(mm17.getComponentLabels() == std::vector<std::string>{"foo"});
+
+        AND_THEN("We can't add the same sparse ID twice") { REQUIRE_THROWS(pool.Add(2)); }
+      }
+
+      AND_THEN("We can't add InvalidSparseID") {
+        REQUIRE_THROWS(pool.Add(parthenon::InvalidSparseID));
+      }
+    }
+
+    THEN("Trying to create a SparsePool with dense metadata throws an error") {
+      REQUIRE_THROWS(SparsePool("dense", dense));
+    }
+  }
+
+  GIVEN("An empty state descriptor") {
+    auto pkg = std::make_shared<StateDescriptor>("pkg");
+    Metadata meta_sparse({Metadata::Sparse});
+
+    THEN("We can add sparse pools in different ways") {
+      SparsePool pool1("pool1", meta_sparse);
+      pool1.Add(0);
+      pool1.Add(55);
+      REQUIRE(pkg->AddSparsePool(pool1));
+
+      REQUIRE(pkg->AddSparsePool("pool2", meta_sparse, std::vector<int>{1, 55, 100}));
+
+      std::vector<std::vector<int>> shapes;
+      shapes.push_back({3});
+      shapes.push_back({2, 2});
+      REQUIRE(pkg->AddSparsePool(
+          "pool3", meta_sparse, std::vector<int>{0, 100}, shapes,
+          std::vector<MetadataFlag>{Metadata::Vector, Metadata::Tensor}));
+
+      REQUIRE(pkg->FieldPresent("pool1", 0));
+      REQUIRE(pkg->FieldPresent("pool1", 55));
+      REQUIRE(pkg->FieldPresent("pool2", 1));
+      REQUIRE(pkg->FieldPresent("pool2", 55));
+      REQUIRE(pkg->FieldPresent("pool2", 100));
+      REQUIRE(pkg->FieldPresent("pool3", 0));
+      REQUIRE(pkg->FieldPresent("pool3", 100));
+
+      AND_THEN("We can't add a SparsePool with wrong number of Vector/Tensor flags") {
+        REQUIRE_THROWS(pkg->AddSparsePool(
+            "pool3", meta_sparse, std::vector<int>{0, 100}, shapes,
+            std::vector<MetadataFlag>{Metadata::Vector, Metadata::Tensor,
+                                      Metadata::Tensor}));
+      }
+    }
+
+    THEN("We can't add fields/pools with the same names") {
+      REQUIRE(pkg->AddDenseField("dense", Metadata()));
+      REQUIRE_FALSE(pkg->AddDenseField("dense", Metadata()));
+      REQUIRE_FALSE(pkg->AddSparsePool("dense", meta_sparse, std::vector<int>{1, 2}));
+
+      REQUIRE(pkg->AddSparsePool("sparse", meta_sparse, std::vector<int>{1, 2}));
+      REQUIRE_FALSE(pkg->AddSparsePool("sparse", meta_sparse, std::vector<int>{4, 5}));
+      REQUIRE_FALSE(pkg->AddDenseField("sparse", Metadata()));
     }
   }
 }

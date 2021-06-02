@@ -138,6 +138,10 @@ class MetadataFlag {
     return flag_ != other.flag_;
   }
 
+  constexpr bool operator<(const MetadataFlag &other) const {
+    return flag_ < other.flag_;
+  }
+
   std::string const &Name() const;
 
 #ifdef CATCH_VERSION_MAJOR
