@@ -238,7 +238,7 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in) {
   if (m.getAssociated() == "") {
     m.Associate(vid.label());
   }
-  if (metadataMap_.count(vid) > 0) {
+  if (FieldPresent(vid.label()) || SparseBaseNamePresent(vid.label())) {
     return false; // this field has already been added
   } else {
     metadataMap_.insert({vid, m});
@@ -252,7 +252,7 @@ bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
     return false;
   }
 
-  if (sparsePoolMap_.count(pool.base_name()) > 0) {
+  if (FieldPresent(pool.base_name()) || SparseBaseNamePresent(pool.base_name())) {
     // this sparse variable has already been added
     return false;
   }
