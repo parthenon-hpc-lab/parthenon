@@ -157,7 +157,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
 
   // TODO(jdolence): Should these loops be moved to Variable creation
-  MeshBlockDataIterator<Real> ci(real_container, {Metadata::Independent});
+  MeshBlockDataIterator<Real> ci(real_container, {Metadata::FillGhost});
   int nindependent = ci.vars.size();
   for (int n = 0; n < nindependent; n++) {
     RegisterMeshBlockData(ci.vars[n]);
