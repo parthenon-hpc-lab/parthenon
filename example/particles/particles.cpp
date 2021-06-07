@@ -83,7 +83,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::string field_name = "particle_deposition";
   Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes});
-  pkg->AddDenseField(field_name, m);
+  pkg->AddField(field_name, m);
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 

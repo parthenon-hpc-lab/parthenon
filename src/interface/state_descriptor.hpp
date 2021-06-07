@@ -148,19 +148,13 @@ class StateDescriptor {
   bool AddSparsePoolImpl(const SparsePool &pool);
 
  public:
-  bool AddDenseField(const std::string &field_name, const Metadata &m) {
+  bool AddField(const std::string &field_name, const Metadata &m) {
     if (m.IsSet(Metadata::Sparse)) {
-      PARTHENON_THROW("Tried to add a sparse field with AddDenseField (or deprecated "
+      PARTHENON_THROW("Tried to add a sparse field with AddField (or deprecated "
                       "AddField), use AddSparseFields instead");
     }
 
     return AddFieldImpl(VarID(field_name), m);
-  }
-
-  // add a field with associated metadata
-  [[deprecated("Use AddDenseField instead")]] bool AddField(const std::string &field_name,
-                                                            const Metadata &m) {
-    return AddDenseField(field_name, m);
   }
 
   // add sparse pool, all arguments will be forwarded to the SparsePool constructor, so

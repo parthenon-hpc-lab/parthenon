@@ -84,12 +84,12 @@ static MeshBlockData<Real> createTestContainer() {
 
   // make some variables - 5 in all, 2 3-vectors, total 10 fields
   auto pkg = std::make_shared<StateDescriptor>("Test package");
-  pkg->AddDenseField("v0", m_in);
-  pkg->AddDenseField("v1", m_in);
-  pkg->AddDenseField("v2", m_in_vec);
-  pkg->AddDenseField("v3", m_in);
-  pkg->AddDenseField("v4", m_in_vec);
-  pkg->AddDenseField("v5", m_in);
+  pkg->AddField("v0", m_in);
+  pkg->AddField("v1", m_in);
+  pkg->AddField("v2", m_in_vec);
+  pkg->AddField("v3", m_in);
+  pkg->AddField("v4", m_in_vec);
+  pkg->AddField("v5", m_in);
 
   // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
   // won't be allocated

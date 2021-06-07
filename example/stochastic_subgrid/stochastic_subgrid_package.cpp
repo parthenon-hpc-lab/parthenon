@@ -193,15 +193,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
                 Metadata::FillGhost},
                std::vector<int>({num_vars}));
-    pkg->AddDenseField(field_name, m);
+    pkg->AddField(field_name, m);
 
     field_name = "dummy_result";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
-    pkg->AddDenseField(field_name, m);
+    pkg->AddField(field_name, m);
 
     field_name = "num_iter";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
-    pkg->AddDenseField(field_name, m);
+    pkg->AddField(field_name, m);
   }
 
   pkg->FillDerivedBlock = DoLotsOfWork;

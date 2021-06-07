@@ -81,12 +81,12 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     // Make package with some variables
     auto pkg = std::make_shared<StateDescriptor>("Test package");
-    pkg->AddDenseField("v1", m_in);
-    pkg->AddDenseField("v2", m_out);
-    pkg->AddDenseField("v3", m_in_vector);
-    pkg->AddDenseField("v4", m_out_vector);
-    pkg->AddDenseField("v5", m_in);
-    pkg->AddDenseField("v6", m_out);
+    pkg->AddField("v1", m_in);
+    pkg->AddField("v2", m_out);
+    pkg->AddField("v3", m_in_vector);
+    pkg->AddField("v4", m_out_vector);
+    pkg->AddField("v5", m_in);
+    pkg->AddField("v6", m_out);
 
     // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
     // won't be allocated
@@ -360,7 +360,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     WHEN("we add a 2d variable") {
       std::vector<int> shape_2D{16, 16, 1};
       Metadata m_in_2D({Metadata::Independent, Metadata::WithFluxes}, shape_2D);
-      pkg->AddDenseField("v2d", m_in_2D);
+      pkg->AddField("v2d", m_in_2D);
       rc.Initialize(pkg, dummy_mb);
 
       auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
@@ -396,7 +396,7 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
                                 nside + 2 * nghost};
     Metadata m({Metadata::Independent, Metadata::WithFluxes}, block_size);
 
-    pkg->AddDenseField("var", m);
+    pkg->AddField("var", m);
 
     MeshBlockData<Real> rc;
     rc.Initialize(pkg, dummy_mb);

@@ -128,7 +128,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     m.Set(Metadata::Sparse);
     package->AddSparsePool(field_name, m, std::vector<int>{0});
   } else {
-    package->AddDenseField(field_name, m);
+    package->AddField(field_name, m);
   }
 
   // All the package FillDerived and CheckRefinement functions are called by parthenon

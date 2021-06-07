@@ -47,9 +47,9 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
     Metadata m_one({Metadata::OneCopy}, size);
 
     auto pgk = std::make_shared<StateDescriptor>("DataCollection test");
-    pgk->AddDenseField("var1", m_ind);
-    pgk->AddDenseField("var2", m_one);
-    pgk->AddDenseField("var3", m_ind);
+    pgk->AddField("var1", m_ind);
+    pgk->AddField("var2", m_one);
+    pgk->AddField("var3", m_ind);
 
     auto &mbd = d.Get();
     mbd->Initialize(pgk, pmb);
