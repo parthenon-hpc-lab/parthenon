@@ -49,7 +49,7 @@ MeshBlockPack<T> PackOnMesh(K &key, M &map, BlockDataList_t<Real> &block_data_,
     ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
     auto coords_host = Kokkos::create_mirror_view(coords);
     for (int i = 0; i < nblocks; i++) {
-      packs_host(i) = packing_function(block_data_[i]);
+      packs_host(i) = packing_function(block_data_[i]).pack;
       coords_host(i) = block_data_[i]->GetBlockPointer()->coords;
     }
     std::array<int, 5> dims;
@@ -160,11 +160,8 @@ class MeshData {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data) {
       return meshblock_data->PackVariables(std::forward<Args>(args)...);
     };
-    std::vector<std::string> key;
-    // TODO(JL) This is fragile
-    auto vpack =
-        block_data_[0]->PackVariables(std::forward<Args>(args)..., false, nullptr, &key);
-    return pack_on_mesh_impl::PackOnMesh<VariablePack<T>>(key, varPackMap_, block_data_,
+    const auto key = block_data_[0]->PackVariables(std::forward<Args>(args)...).key;
+    return pack_on_mesh_impl::PackOnMesh<VariablePack<T>>(*key, varPackMap_, block_data_,
                                                           pack_function);
   }
 
@@ -173,11 +170,10 @@ class MeshData {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data) {
       return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)...);
     };
-    vpack_types::StringPair key;
-    // TODO(JL) This is fragile
-    auto vpack = block_data_[0]->PackVariablesAndFluxes(std::forward<Args>(args)...,
-                                                        nullptr, &key);
-    return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>>(key, varFluxPackMap_,
+
+    const auto key =
+        block_data_[0]->PackVariablesAndFluxes(std::forward<Args>(args)...).key;
+    return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>>(*key, varFluxPackMap_,
                                                               block_data_, pack_function);
   }
 

@@ -52,7 +52,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   IndexRange kb = cellbounds.GetBoundsK(IndexDomain::entire);
 
   auto coords = pmb->coords;
-  auto q = data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}).pack;
   const auto num_vars = q.GetDim(4);
 
   int profile_type;

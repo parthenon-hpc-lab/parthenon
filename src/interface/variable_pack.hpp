@@ -90,6 +90,8 @@ class PackIndexMap {
  public:
   PackIndexMap() = default;
 
+  const auto &get(const std::string &key) const { return map_.at(key); }
+
   auto &get(const std::string &key) {
     auto itr = map_.find(key);
     if (itr == map_.end()) {
@@ -101,6 +103,10 @@ class PackIndexMap {
   }
 
   auto &get(const std::string &key, int sparse_id) {
+    return get(MakeVarLabel(key, sparse_id));
+  }
+
+  const auto &get(const std::string &key, int sparse_id) const {
     return get(MakeVarLabel(key, sparse_id));
   }
 
@@ -262,13 +268,6 @@ class VariableFluxPack : public VariablePack<T> {
   int fsize_;
 };
 
-// Using std::map, not std::unordered_map because the key
-// would require a custom hashing function. Note this is slower: O(log(N))
-// instead of O(1).
-// Unfortunately, std::pair doesn't work. So I have to roll my own.
-// It appears to be an interaction caused by a std::map<key,std::pair>
-// Possibly it's a compiler bug. gcc/7.4.0
-// ~JMM
 template <typename PackType>
 struct PackAndIndexMap {
   PackType pack;
@@ -276,19 +275,34 @@ struct PackAndIndexMap {
 };
 
 template <typename T>
-using PackIndexPair = PackAndIndexMap<VariablePack<T>>;
+struct VarMetaPack {
+  VariablePack<T> pack;
+  PackIndexMap map;
+  const std::vector<std::string> *key;
+};
 
 template <typename T>
-using FluxPackIndexPair = PackAndIndexMap<VariableFluxPack<T>>;
+struct FluxMetaPack {
+  VariableFluxPack<T> pack;
+  PackIndexMap map;
+  const vpack_types::StringPair *key;
+};
+
+// Using std::map, not std::unordered_map because the key
+// would require a custom hashing function. Note this is slower: O(log(N))
+// instead of O(1).
 
 template <typename T>
 using SwarmPackIndxPair = PackAndIndexMap<SwarmVariablePack<T>>;
-template <typename T>
-using MapToVariablePack = std::map<std::vector<std::string>, PackIndexPair<T>>;
-template <typename T>
-using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndexPair<T>>;
+
 template <typename T>
 using MapToSwarmVariablePack = std::map<std::vector<std::string>, SwarmPackIndxPair<T>>;
+
+template <typename T>
+using MapToVariablePack = std::map<std::vector<std::string>, VarMetaPack<T>>;
+
+template <typename T>
+using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxMetaPack<T>>;
 
 template <typename T>
 void FillVarView(const CellVariableVector<T> &vars, bool coarse,
@@ -417,7 +431,7 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
 template <typename T>
 VariableFluxPack<T> MakeFluxPack(const CellVariableVector<T> &vars,
                                  const CellVariableVector<T> &flux_vars,
-                                 PackIndexMap *vmap_out = nullptr) {
+                                 PackIndexMap *vmap_out) {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -459,7 +473,7 @@ VariableFluxPack<T> MakeFluxPack(const CellVariableVector<T> &vars,
 
 template <typename T>
 VariablePack<T> MakePack(const CellVariableVector<T> &vars, bool coarse,
-                         PackIndexMap *vmap_out = nullptr) {
+                         PackIndexMap *vmap_out) {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
