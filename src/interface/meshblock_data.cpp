@@ -219,7 +219,6 @@ template <typename T>
 const FluxMetaPack<T> &
 MeshBlockData<T>::PackListedVariablesAndFluxes(const VarLabelList &var_list,
                                                const VarLabelList &flux_list) {
-
   vpack_types::StringPair keys =
       std::make_pair(std::move(var_list.labels()), std::move(flux_list.labels()));
 
