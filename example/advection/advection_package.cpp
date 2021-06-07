@@ -270,7 +270,7 @@ void PreFill(MeshBlockData<Real> *rc) {
     // packing in principle unnecessary/convoluted here and just done for demonstration
     PackIndexMap imap;
     std::vector<std::string> vars({"advected", "one_minus_advected"});
-    const auto &v = rc->PackVariables(vars, false, &imap);
+    const auto &v = rc->PackVariables(vars, &imap);
     const int in = imap.get("advected").first;
     const int out = imap.get("one_minus_advected").first;
     const auto num_vars = rc->Get("advected").data.GetDim(4);
@@ -293,7 +293,7 @@ void SquareIt(MeshBlockData<Real> *rc) {
   // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
-  auto v = rc->PackVariables(vars, false, &imap);
+  auto v = rc->PackVariables(vars, &imap);
   const int in = imap.get("one_minus_advected").first;
   const int out = imap.get("one_minus_advected_sq").first;
   const auto num_vars = rc->Get("advected").data.GetDim(4);
@@ -323,7 +323,7 @@ void PostFill(MeshBlockData<Real> *rc) {
     PackIndexMap imap;
     std::vector<std::string> vars(
         {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
-    auto v = rc->PackVariables(vars, {12, 37}, false, &imap);
+    auto v = rc->PackVariables(vars, {12, 37}, &imap);
     const int in = imap.get("one_minus_advected_sq").first;
     // we can get sparse fields either by specifying base name and sparse id, or the full
     // name

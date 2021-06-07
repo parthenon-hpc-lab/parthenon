@@ -291,7 +291,7 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
   // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars({"num_iter", "advected", "dummy_result"});
-  auto v = rc->PackVariables(vars, false, &imap);
+  auto v = rc->PackVariables(vars, &imap);
   const int niter = imap.get("num_iter").first;
   const int in = imap.get("advected").first;
   const int out = imap.get("dummy_result").first;
