@@ -160,7 +160,17 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // TODO(JMM): What variables should be in vars_cc_? They are used
   // for counting load-balance cost. Should it be different than the
   // variables used for refinement?
-  MeshBlockDataIterator<Real> ci(real_container, {Metadata::FillGhost});
+  // Should we even have both of these arrays? Are they both necessary?
+
+  // TODO(JMM): In principal this should be `Metadata::Independent`
+  // only. However, I am making it `Metadata::Independent` OR
+  // `Metadata::FillGhost` to work around the old Athena++
+  // `bvals_refine` machinery. When this machinery is completely
+  // removed, which can happen after dense-on-block for sparse
+  // variables is in place and after we write "prolongate-in-one,"
+  // this should be only for `Metadata::Independent`.
+  MeshBlockDataIterator<Real> ci(real_container,
+                                 {Metadata::Independent, Metadata::FillGhost}, true);
   int nindependent = ci.vars.size();
   for (int n = 0; n < nindependent; n++) {
     // These are used for approximating number of vars registered for refinement
