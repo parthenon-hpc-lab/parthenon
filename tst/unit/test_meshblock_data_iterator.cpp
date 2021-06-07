@@ -206,7 +206,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we set individual fields by index") {
       PackIndexMap vmap;
-      auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), false, &vmap);
+      auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), &vmap);
       const int iv3lo = vmap.get("v3").first;
       const int iv3hi = vmap.get("v3").second;
       const int iv6 = vmap.get("v6").first;
@@ -225,7 +225,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
           });
       THEN("the values should as we expect") {
         PackIndexMap vmap; // recompute the pack
-        auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), false, &vmap);
+        auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), &vmap);
         const int iv3lo = vmap.get("v3").first;
         const int iv3hi = vmap.get("v3").second;
         const int iv6 = vmap.get("v6").first;
@@ -310,7 +310,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
-        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, false, &imap);
+        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, &imap);
 
         REQUIRE(imap.get("vsparse_1").second == imap.get("vsparse_1").first);
         REQUIRE(imap.get("vsparse_13").second == imap.get("vsparse_13").first);
@@ -336,7 +336,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
       AND_THEN("the association with sparse ids is captured") {
         PackIndexMap imap;
-        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, false, &imap);
+        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, &imap);
         int correct = 0;
         const int v3first = imap.get("v3").first;
         const int v6first = imap.get("v6").first;
@@ -420,7 +420,7 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
       REQUIRE(var.coarse_s.GetDim(2) == nside / 2 + 2 * nghost);
       REQUIRE(var.coarse_s.GetDim(1) == nside / 2 + 2 * nghost);
       AND_THEN("We can extract the fine object") {
-        auto pack = rc.PackVariables(std::vector<std::string>{"var"}, false);
+        auto pack = rc.PackVariables(std::vector<std::string>{"var"});
         REQUIRE(pack.GetDim(4) == 1);
         REQUIRE(pack.GetDim(3) == cellbounds.ncellsk(IndexDomain::entire));
         REQUIRE(pack.GetDim(2) == cellbounds.ncellsj(IndexDomain::entire));
