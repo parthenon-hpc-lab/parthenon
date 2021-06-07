@@ -131,7 +131,7 @@ static double sumArray(BlockList_t &blocks, const int &n_block) {
   // I'm pretty sure I can do this better, but not worried about performance for this
   for (auto &pmb : blocks) {
     auto &base = pmb->meshblock_data.Get();
-    auto inOrOut = base->PackVariables({Metadata::Independent});
+    auto inOrOut = base->PackVariables({Metadata::Independent}).pack;
     double oneSum;
     Kokkos::parallel_reduce(
         "Reduce Sum", policyBlock,
@@ -220,7 +220,7 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
     auto pmb = blocks.begin();
     for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb++) {
       auto &base = (*pmb)->meshblock_data.Get();
-      auto inOrOut = base->PackVariables({Metadata::Independent});
+      auto inOrOut = base->PackVariables({Metadata::Independent}).pack;
       // iops = 8  fops = 11
       Kokkos::parallel_for(
           "Compute In Or Out", policyBlock, KOKKOS_LAMBDA(const int &idx) {
@@ -269,7 +269,7 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
     auto pmb = blocks.begin();
     for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb++) {
       auto &base = (*pmb)->meshblock_data.Get();
-      auto inOrOut = base->PackVariables({Metadata::Independent});
+      auto inOrOut = base->PackVariables({Metadata::Independent}).pack;
       // iops = 0  fops = 11
       par_for(
           DEFAULT_LOOP_PATTERN, "par_for in or out", DevExecSpace(), 0,

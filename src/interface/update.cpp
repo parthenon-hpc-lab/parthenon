@@ -54,8 +54,8 @@ TaskStatus FluxDivergence(MeshBlockData<Real> *in, MeshBlockData<Real> *dudt_con
   const IndexRange jb = in->GetBoundsJ(interior);
   const IndexRange kb = in->GetBoundsK(interior);
 
-  const auto &vin = in->PackVariablesAndFluxes({Metadata::WithFluxes});
-  auto dudt = dudt_cont->PackVariables({Metadata::WithFluxes});
+  const auto &vin = in->PackVariablesAndFluxes({Metadata::WithFluxes}).pack;
+  auto dudt = dudt_cont->PackVariables({Metadata::WithFluxes}).pack;
 
   const auto &coords = pmb->coords;
   const int ndim = pmb->pmy_mesh->ndim;
@@ -102,8 +102,8 @@ TaskStatus UpdateWithFluxDivergence(MeshBlockData<Real> *u0_data,
   const IndexRange jb = u0_data->GetBoundsJ(interior);
   const IndexRange kb = u0_data->GetBoundsK(interior);
 
-  auto u0 = u0_data->PackVariablesAndFluxes({Metadata::WithFluxes});
-  const auto &u1 = u1_data->PackVariables({Metadata::WithFluxes});
+  auto u0 = u0_data->PackVariablesAndFluxes({Metadata::WithFluxes}).pack;
+  const auto &u1 = u1_data->PackVariables({Metadata::WithFluxes}).pack;
 
   const auto &coords = pmb->coords;
   const int ndim = pmb->pmy_mesh->ndim;
