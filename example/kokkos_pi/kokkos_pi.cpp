@@ -163,7 +163,7 @@ static BlockList_t setupMesh(const int &n_block, const int &n_mesh, const double
   // Set up state descriptor.
   Metadata myMetadata({Metadata::Independent, Metadata::WithFluxes, Metadata::Cell});
   auto pgk = std::make_shared<StateDescriptor>("Pi");
-  pgk->AddDenseField("in_or_out", myMetadata);
+  pgk->AddField("in_or_out", myMetadata);
 
   // Set up our mesh.
   BlockList_t block_list;

@@ -48,14 +48,14 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   std::vector<int> array_size({2});
   m = Metadata({Metadata::Cell, Metadata::Vector, Metadata::Derived, Metadata::OneCopy},
                array_size);
-  package->AddDenseField("c.c.interpolated_value", m);
+  package->AddField("c.c.interpolated_value", m);
 
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
-  package->AddDenseField("c.c.interpolated_sum", m);
+  package->AddField("c.c.interpolated_sum", m);
 
   m = Metadata({Metadata::Face, Metadata::Vector, Metadata::Derived, Metadata::OneCopy},
                array_size);
-  package->AddDenseField("f.f.face_averaged_value", m);
+  package->AddField("f.f.face_averaged_value", m);
 
   packages.Add(package);
   return packages;

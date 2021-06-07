@@ -169,18 +169,18 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
                   Metadata::FillGhost},
                  std::vector<int>({vec_size}), advected_labels);
-    pkg->AddDenseField(field_name, m);
+    pkg->AddField(field_name, m);
   }
   if (fill_derived) {
     field_name = "one_minus_advected";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
                  std::vector<int>({num_vars}));
-    pkg->AddDenseField(field_name, m);
+    pkg->AddField(field_name, m);
 
     field_name = "one_minus_advected_sq";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
                  std::vector<int>({num_vars}));
-    pkg->AddDenseField(field_name, m);
+    pkg->AddField(field_name, m);
 
     // for fun make this last one a multi-component field using SparseVariable
     field_name = "one_minus_sqrt_one_minus_advected_sq";

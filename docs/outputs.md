@@ -77,7 +77,7 @@ Both [ParaView](https://www.paraview.org/) and [VisIt](https://wci.llnl.gov/simu
 
 Parthenon HDF5 outputs can be read with the python visualization library
 [yt](https://yt-project.org/) as certain variables are named when adding
-fields via `StateDescriptor::AddDenseField` and `StateDescriptor::AddSparsePool`.
+fields via `StateDescriptor::AddField` and `StateDescriptor::AddSparsePool`.
 Variable names are added as a
 `std::vector<std::string>` in the variable metadata. These labels are
 optional and are only used for output to HDF5. 4D variables are named with a
@@ -97,13 +97,13 @@ cons_labels[3]="MomentumDensity3";
 cons_labels[4]="TotalEnergyDensity";
 Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
            std::vector<int>({nhydro}), cons_labels);
-pkg->AddDenseField("cons", m);
+pkg->AddField("cons", m);
 
 const int ndensity = 1;
 std::vector<std::string> density_labels(ndensity);
 density_labels[0]="Density";
 m = Metadata({Metadata::Cell, Metadata::Derived}, std::vector<int>({ndensity}), density_labels);
-pkg->AddDenseField("dens", m);
+pkg->AddField("dens", m);
 
 const int nvelocity = 3;
 std::vector<std::string> velocity_labels(nvelocity);
@@ -111,13 +111,13 @@ velocity_labels[0]="Velocity1";
 velocity_labels[1]="Velocity2";
 velocity_labels[2]="Velocity3";
 m = Metadata({Metadata::Cell, Metadata::Derived}, std::vector<int>({nvelocity}), velocity_labels);
-pkg->AddDenseField("vel", m);
+pkg->AddField("vel", m);
 
 const int npressure = 1;
 std::vector<std::string> pressure_labels(npressure);
 pressure_labels[0]="Pressure";
 m = Metadata({Metadata::Cell, Metadata::Derived}, std::vector<int>({npressure}), pressure_labels);
-pkg->AddDenseField("pres", m);
+pkg->AddField("pres", m);
 ```
 
 The `yt` frontend needs either the hydrodynamic conserved variables or

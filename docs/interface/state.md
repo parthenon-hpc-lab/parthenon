@@ -9,8 +9,8 @@ The `Metadata` class provides a means of defining self-describing variables with
 # StateDescriptor
 
 The `StateDescriptor` class is intended to be used to inform Parthenon about the needs of an application and store relevant parameters that control application-specific behavior at runtime.  The class provides several useful features and functions.
-* `bool AddDenseField(const std::string& field_name, Metadata& m)` provides the means to add new
-  dense variables to a Parthenon-based application with associated `Metadata`.  This function does
+* `bool AddField(const std::string& field_name, Metadata& m)` provides the means to add new
+  (dense) variables to a Parthenon-based application with associated `Metadata`.  This function does
   not allocate any storage or create any of the objects below, it simply adds the name and
   `Metadata` to a list so that those objects can be populated at the appropriate time.
 * `bool AddSparsePool(...)` either adds a given `SparsePool` or forwards the arguments to the

@@ -63,9 +63,9 @@ TEST_CASE("Test Associate in StateDescriptor", "[StateDescriptor]") {
     FlagVec foo = {Metadata::Independent, Metadata::FillGhost};
     StateDescriptor state("state");
     WHEN("We add some fields with and without associated vars in metadata") {
-      state.AddDenseField("foo", Metadata(foo));
-      state.AddDenseField("bar", Metadata(foo, "foo"));
-      state.AddDenseField("baz", Metadata(foo));
+      state.AddField("foo", Metadata(foo));
+      state.AddField("bar", Metadata(foo, "foo"));
+      state.AddField("baz", Metadata(foo));
       THEN("The associations are correct") {
         REQUIRE(state.FieldMetadata("foo").getAssociated() == "foo");
         REQUIRE(state.FieldMetadata("bar").getAssociated() == "foo");
@@ -114,9 +114,9 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
     packages.Add(pkg3);
 
     WHEN("We add two non-sparse variables of the same name") {
-      pkg1->AddDenseField("dense", m_provides);
+      pkg1->AddField("dense", m_provides);
       THEN("The method returns false and the variable is not added") {
-        REQUIRE(!(pkg1->AddDenseField("dense", m_provides)));
+        REQUIRE(!(pkg1->AddField("dense", m_provides)));
       }
     }
 
@@ -130,14 +130,14 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
 
     // no need to check this case for sparse/swarm as it's the same code path
     WHEN("We add the same dense provides variable to two different packages") {
-      pkg1->AddDenseField("dense", m_provides);
-      pkg2->AddDenseField("dense", m_provides);
+      pkg1->AddField("dense", m_provides);
+      pkg2->AddField("dense", m_provides);
       THEN("Resolution raises an error") { REQUIRE_THROWS(ResolvePackages(packages)); }
     }
 
     WHEN("We add the same dense private variable to two different packages") {
-      pkg1->AddDenseField("dense", m_private);
-      pkg2->AddDenseField("dense", m_private);
+      pkg1->AddField("dense", m_private);
+      pkg2->AddField("dense", m_private);
       THEN("We can safely resolve the conflict") {
         auto pkg3 = ResolvePackages(packages);
         AND_THEN("The names are privately namespaced") {
@@ -199,15 +199,15 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
     // Do not need to repeat this for sparse/swarm as it is the same
     // code path
     WHEN("We add a Requires variable but do not provide it") {
-      pkg1->AddDenseField("dense1", m_requires);
-      pkg2->AddDenseField("dense2", m_requires);
+      pkg1->AddField("dense1", m_requires);
+      pkg2->AddField("dense2", m_requires);
       THEN("Resolving conflicts raises an error") {
         REQUIRE_THROWS(ResolvePackages(packages));
       }
     }
     WHEN("We add a dense requires variable and a provides variable") {
-      pkg1->AddDenseField("dense", m_requires);
-      pkg2->AddDenseField("dense", m_provides);
+      pkg1->AddField("dense", m_requires);
+      pkg2->AddField("dense", m_provides);
       THEN("We can safely resolve the conflicts") {
         auto pkg3 = ResolvePackages(packages);
         AND_THEN("The provides package is available") {
@@ -218,7 +218,7 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
     }
 
     WHEN("We add an overridable variable and nothing else") {
-      pkg1->AddDenseField("dense", m_overridable);
+      pkg1->AddField("dense", m_overridable);
       pkg2->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
       pkg3->AddSwarm("swarm", m_overridable);
       pkg3->AddSwarmValue("value1", "swarm", m_swarmval);
@@ -238,9 +238,9 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
     }
 
     WHEN("We add a provides variable and several overridable/requires variables") {
-      pkg1->AddDenseField("dense", m_provides);
-      pkg2->AddDenseField("dense", m_overridable);
-      pkg3->AddDenseField("dense", m_overridable);
+      pkg1->AddField("dense", m_provides);
+      pkg2->AddField("dense", m_overridable);
+      pkg3->AddField("dense", m_overridable);
 
       pkg1->AddSwarm("swarm", m_overridable);
       pkg1->AddSwarmValue("overridable", "swarm", m_swarmval);
@@ -361,13 +361,13 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor") {
     }
 
     THEN("We can't add fields/pools with the same names") {
-      REQUIRE(pkg->AddDenseField("dense", Metadata()));
-      REQUIRE_FALSE(pkg->AddDenseField("dense", Metadata()));
+      REQUIRE(pkg->AddField("dense", Metadata()));
+      REQUIRE_FALSE(pkg->AddField("dense", Metadata()));
       REQUIRE_FALSE(pkg->AddSparsePool("dense", meta_sparse, std::vector<int>{1, 2}));
 
       REQUIRE(pkg->AddSparsePool("sparse", meta_sparse, std::vector<int>{1, 2}));
       REQUIRE_FALSE(pkg->AddSparsePool("sparse", meta_sparse, std::vector<int>{4, 5}));
-      REQUIRE_FALSE(pkg->AddDenseField("sparse", Metadata()));
+      REQUIRE_FALSE(pkg->AddField("sparse", Metadata()));
     }
   }
 }
