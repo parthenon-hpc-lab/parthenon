@@ -157,16 +157,22 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
 
   // TODO(jdolence): Should these loops be moved to Variable creation
+  // TODO(JMM): What variables should be in vars_cc_? They are used
+  // for counting load-balance cost. Should it be different than the
+  // variables used for refinement?
   MeshBlockDataIterator<Real> ci(real_container, {Metadata::FillGhost});
   int nindependent = ci.vars.size();
   for (int n = 0; n < nindependent; n++) {
-    RegisterMeshBlockData(ci.vars[n]);
+    // These are used for approximating number of vars registered for refinement
+    // for the purposes of computing load balancing work
+    RegisterMeshBlockData(ci.vars[n]); 
   }
 
   if (pm->multilevel) {
     pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
     for (int n = 0; n < nindependent; n++) {
+      // These are used for doing refinement
       pmr->AddToRefinement(ci.vars[n]->data, ci.vars[n]->coarse_s);
     }
   }
