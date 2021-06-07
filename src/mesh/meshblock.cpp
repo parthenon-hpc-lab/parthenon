@@ -165,7 +165,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   for (int n = 0; n < nindependent; n++) {
     // These are used for approximating number of vars registered for refinement
     // for the purposes of computing load balancing work
-    RegisterMeshBlockData(ci.vars[n]); 
+    RegisterMeshBlockData(ci.vars[n]);
   }
 
   if (pm->multilevel) {
