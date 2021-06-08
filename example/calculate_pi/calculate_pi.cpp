@@ -41,7 +41,8 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
   ParArrayND<Real> v;
   const auto &radius = pmb->packages.Get("calculate_pi")->Param<Real>("radius");
 
-  // If we're using sparse variables, check if we need to allocate the sparse id before
+  // If we're using sparse variables, we only allocate in_or_out on blocks that have at
+  // least some part inside the circle, otherwise it would be all 0's
   bool const use_sparse = pmb->packages.Get("calculate_pi")->Param<bool>("use_sparse");
   if (use_sparse) {
     int const ndim = pmb->pmy_mesh->ndim;
@@ -52,31 +53,23 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
                          {bs.x1max, bs.x2min},
                          {bs.x1max, bs.x2max}};
 
-    bool inside = false;
-    bool outside = false;
+    bool fully_outside = true;
 
     for (auto i = 0; i < 4; i++) {
       Real const rsq = coords[i][0] * coords[i][0] + coords[i][1] * coords[i][1];
       if (rsq < radius * radius) {
-        inside = true;
-      } else {
-        outside = true;
+        fully_outside = false;
+        break;
       }
     }
 
-    // If part of the block falls inside and other parts fall outside, then we need to
-    // allocate the sparse id before computing on it. If it's wholly inside or outside,
-    // then there's no need for expansion.
-
-    // TODO(agaspar): Change this to only allocate sparse ids that fall on the radius.
-    // Currently we're allocating all sparse ids that fall outside the circle at all. if
-    // (!inside || !outside) {
-    if (inside && !outside) {
-      // std::cout << "Out: " << pmb->gid << std::endl;
+    // If any part of the block falls inside, then we need to allocate the sparse id
+    // before computing on it. If it's fully outside, then it would be all 0's and we
+    // don't need to allocate in_or_out on this block
+    if (fully_outside) {
+      // block is fully outside of circle, do nothing
       return;
     }
-
-    // std::cout << "In: " << pmb->gid << std::endl;
 
     rc->AllocSparseID("in_or_out", 0);
     v = rc->Get("in_or_out", 0).data;
@@ -120,6 +113,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bool use_sparse =
       pin->DoesParameterExist("Pi", "use_sparse") && pin->GetBoolean("Pi", "use_sparse");
   params.Add("use_sparse", use_sparse);
+
+  if (use_sparse) {
+    // rename "in_or_out" field referenced in input file to "in_or_out_0"
+    pin->SetString("parthenon/refinement0", "field", "in_or_out_0");
+    pin->SetString("parthenon/output0", "variables", "in_or_out_0");
+  }
 
   // add a variable called in_or_out that will hold the value of the indicator function
   std::string field_name("in_or_out");
