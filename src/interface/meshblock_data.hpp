@@ -53,8 +53,10 @@ class MeshBlockData {
   MeshBlockData<T>() = default;
 
   /// Copies variables from src, optionally only copying names given and/or variables
-  /// matching any of the flags given. If shallow_copy is true, no copies of variables
-  /// will be allocated regardless whether they are flagged as OneCopy or not
+  /// matching any of the flags given. If both names and flags are provided, only
+  /// variables that show up in names AND have metadata in FLAGS are copied. If
+  /// shallow_copy is true, no copies of variables will be allocated regardless whether
+  /// they are flagged as OneCopy or not
   void CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
                 const std::vector<std::string> &names = {},
                 const std::vector<MetadataFlag> &flags = {});

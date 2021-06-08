@@ -101,23 +101,15 @@ class PackIndexMap {
     return itr->second;
   }
 
-  auto &get(const std::string &base_name, int sparse_id = InvalidSparseID) {
-    // to avoid code duplication, call const version and cast away const
-    const auto &res = static_cast<const PackIndexMap&>(*this).get(base_name, sparse_id);
-    return const_cast<vpack_types::IndexPair&>(res);
-  }
-
-  [[deprecated("Use PackIndexMap::get() instead")]] vpack_types::IndexPair &
-  operator[](const std::string &key) {
-    // this is too dangerous, we won't notice that we don't have a requested field if
-    // misspelled or sparse id not allocated
-
-    // if (!Has(key)) {
-    //   map_.insert({key, vpack_types::IndexPair(0, -1)});
-    // }
-    // return map_.at(key);
-
-    return get(key);
+  // This is dangerous! Use at your own peril!
+  // It will silently return invalid indices if the key doesn't exist (e.g. misspelled or
+  // sparse id not part of label)
+  const vpack_types::IndexPair &operator[](const std::string &key) const {
+    static const vpack_types::IndexPair invalid_indices(-1, -1);
+    if (!Has(key)) {
+      return invalid_indices;
+    }
+    return map_.at(key);
   }
 
   void insert(std::pair<std::string, vpack_types::IndexPair> keyval) {
@@ -306,7 +298,7 @@ using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxMetaPack<T>>
 template <typename T>
 void FillVarView(const CellVariableVector<T> &vars, bool coarse,
                  ViewOfParArrays<T> &cv_out, ParArray1D<int> &sparse_id_out,
-                 ParArray1D<int> &vector_component_out, PackIndexMap *vmap_out) {
+                 ParArray1D<int> &vector_component_out, PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
   assert(cv_out.size() == sparse_id_out.size());
@@ -341,8 +333,8 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
       }
     }
 
-    if (vmap_out != nullptr) {
-      vmap_out->insert(
+    if (pvmap != nullptr) {
+      pvmap->insert(
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
     }
   }
@@ -384,7 +376,7 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
 template <typename T>
 void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
                    ViewOfParArrays<T> &f1_out, ViewOfParArrays<T> &f2_out,
-                   ViewOfParArrays<T> &f3_out, PackIndexMap *vmap_out) {
+                   ViewOfParArrays<T> &f3_out, PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
   auto host_f1 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f1_out);
@@ -416,8 +408,8 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
       }
     }
 
-    if (vmap_out != nullptr) {
-      vmap_out->insert(
+    if (pvmap != nullptr) {
+      pvmap->insert(
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
     }
   }
@@ -430,7 +422,7 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
 template <typename T>
 VariableFluxPack<T> MakeFluxPack(const CellVariableVector<T> &vars,
                                  const CellVariableVector<T> &flux_vars,
-                                 PackIndexMap *vmap_out) {
+                                 PackIndexMap *pvmap) {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -458,12 +450,12 @@ VariableFluxPack<T> MakeFluxPack(const CellVariableVector<T> &vars,
     // add variables
     auto fvar = vars.front()->data;
     cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-    FillVarView(vars, false, cv, sparse_id, vector_component, vmap_out);
+    FillVarView(vars, false, cv, sparse_id, vector_component, pvmap);
 
     if (fsize > 0) {
       // add fluxes
       const int ndim = (cv_size[2] > 1 ? 3 : (cv_size[1] > 1 ? 2 : 1));
-      FillFluxViews(flux_vars, ndim, f1, f2, f3, vmap_out);
+      FillFluxViews(flux_vars, ndim, f1, f2, f3, pvmap);
     }
   }
 
@@ -472,7 +464,7 @@ VariableFluxPack<T> MakeFluxPack(const CellVariableVector<T> &vars,
 
 template <typename T>
 VariablePack<T> MakePack(const CellVariableVector<T> &vars, bool coarse,
-                         PackIndexMap *vmap_out) {
+                         PackIndexMap *pvmap) {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -490,7 +482,7 @@ VariablePack<T> MakePack(const CellVariableVector<T> &vars, bool coarse,
   if (vsize > 0) {
     const auto &fvar = coarse ? vars.front()->coarse_s : vars.front()->data;
     cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-    FillVarView(vars, coarse, cv, sparse_id, vector_component, vmap_out);
+    FillVarView(vars, coarse, cv, sparse_id, vector_component, pvmap);
   }
 
   return VariablePack<T>(cv, sparse_id, vector_component, cv_size);
