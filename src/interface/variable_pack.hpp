@@ -90,9 +90,8 @@ class PackIndexMap {
  public:
   PackIndexMap() = default;
 
-  const auto &get(const std::string &key) const { return map_.at(key); }
-
-  auto &get(const std::string &key) {
+  const auto &get(const std::string &base_name, int sparse_id = InvalidSparseID) const {
+    const auto &key = MakeVarLabel(base_name, sparse_id);
     auto itr = map_.find(key);
     if (itr == map_.end()) {
       auto err = "PackIndexMap does not have key '" + key + "'";
@@ -102,12 +101,10 @@ class PackIndexMap {
     return itr->second;
   }
 
-  auto &get(const std::string &key, int sparse_id) {
-    return get(MakeVarLabel(key, sparse_id));
-  }
-
-  const auto &get(const std::string &key, int sparse_id) const {
-    return get(MakeVarLabel(key, sparse_id));
+  auto &get(const std::string &base_name, int sparse_id = InvalidSparseID) {
+    // to avoid code duplication, call const version and cast away const
+    const auto &res = static_cast<const PackIndexMap&>(*this).get(base_name, sparse_id);
+    return const_cast<vpack_types::IndexPair&>(res);
   }
 
   [[deprecated("Use PackIndexMap::get() instead")]] vpack_types::IndexPair &
@@ -127,7 +124,9 @@ class PackIndexMap {
     map_.insert(keyval);
   }
 
-  bool Has(std::string const &key) const { return map_.count(key) > 0; }
+  bool Has(std::string const &base_name, int sparse_id = InvalidSparseID) const {
+    return map_.count(MakeVarLabel(base_name, sparse_id)) > 0;
+  }
 
   // for debugging
   void print() const {
