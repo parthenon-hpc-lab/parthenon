@@ -151,7 +151,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
 
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
-    this->restartReader = nullptr; 
+    this->restartReader = nullptr;
   }
 
   // add root_level to all max_level
@@ -255,7 +255,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           for (int k = out_kb.s; k <= out_kb.e; ++k) {
             for (int j = out_jb.s; j <= out_jb.e; ++j) {
               for (int i = out_ib.s; i <= out_ib.e; ++i) {
-		      for (int l = 0; l < v_h.GetDim(4); ++l) {
+                for (int l = 0; l < v_h.GetDim(4); ++l) {
                   v_h(l, k, j, i) = tmp[index++];
                 }
               }
