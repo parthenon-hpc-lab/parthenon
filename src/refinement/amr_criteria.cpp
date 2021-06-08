@@ -56,12 +56,11 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
 
 AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
   ParArrayND<Real> q;
-  try {
-    q = rc->Get(field).data;
-  } catch (std::invalid_argument const &) {
+  if (!rc->HasCellVariable(field) || !rc->IsAllocated(field)) {
     return AmrTag::same;
   }
 
+  q = rc->Get(field).data;
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   return Refinement::FirstDerivative(pmb.get(), q, refine_criteria, derefine_criteria);
 }

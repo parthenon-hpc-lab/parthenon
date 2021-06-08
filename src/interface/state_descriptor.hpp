@@ -150,8 +150,8 @@ class StateDescriptor {
  public:
   bool AddField(const std::string &field_name, const Metadata &m) {
     if (m.IsSet(Metadata::Sparse)) {
-      PARTHENON_THROW("Tried to add a sparse field with AddField (or deprecated "
-                      "AddField), use AddSparseFields instead");
+      PARTHENON_THROW(
+          "Tried to add a sparse field with AddField, use AddSparsePool instead");
     }
 
     return AddFieldImpl(VarID(field_name), m);
@@ -161,8 +161,8 @@ class StateDescriptor {
   // one can pass in a reference to a SparsePool or arguments that match one of the
   // SparsePool constructors
   template <typename... Args>
-  bool AddSparsePool(const Args &... args) {
-    return AddSparsePoolImpl(SparsePool(args...));
+  bool AddSparsePool(Args &&... args) {
+    return AddSparsePoolImpl(SparsePool(std::forward<Args>(args)...));
   }
 
   // retrieve number of fields
@@ -212,14 +212,11 @@ class StateDescriptor {
   // retrieve metadata for a specific field
   const Metadata &FieldMetadata(const std::string &base_name,
                                 int sparse_id = InvalidSparseID) const {
-    static const Metadata empty_metadata;
-
     const auto itr = metadataMap_.find(VarID(base_name, sparse_id));
-    if (itr == metadataMap_.end()) {
-      return empty_metadata;
-    } else {
-      return itr->second;
-    }
+    PARTHENON_REQUIRE_THROWS(itr != metadataMap_.end(),
+                             "FieldMetadata: Non-existent field: " +
+                                 MakeVarLabel(base_name, sparse_id));
+    return itr->second;
   }
 
   const auto &GetSparsePool(const std::string &base_name) const {
