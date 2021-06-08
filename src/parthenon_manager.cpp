@@ -255,7 +255,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           for (int k = out_kb.s; k <= out_kb.e; ++k) {
             for (int j = out_jb.s; j <= out_jb.e; ++j) {
               for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                for (int l = 0; l < vlen; ++l) {
+		      for (int l = 0; l < v_h.GetDim(4); ++l) {
                   v_h(l, k, j, i) = tmp[index++];
                 }
               }
