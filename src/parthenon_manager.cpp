@@ -148,6 +148,10 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
 
     // Read package data from restart file
     RestartPackages(*pmesh, *restartReader);
+
+    // close hdf5 file to prevent HDF5 hangs and corrupted files
+    // if code dies after restart
+    this->restartReader = nullptr; 
   }
 
   // add root_level to all max_level
