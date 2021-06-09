@@ -1,8 +1,8 @@
-#========================================================================================
+# ========================================================================================
 # Athena++ astrophysical MHD code
 # Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 # Licensed under the 3-clause BSD License, see LICENSE file for details
-#========================================================================================
+# ========================================================================================
 # (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -13,7 +13,7 @@
 # itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
-#========================================================================================
+# ========================================================================================
 
 # Modules
 import math
@@ -25,8 +25,9 @@ import utils.test_case
 """ To prevent littering up imported folders with .pyc files or __pycache_ folder"""
 sys.dont_write_bytecode = True
 
+
 class TestCase(utils.test_case.TestCaseAbs):
-    def Prepare(self,parameters, step):
+    def Prepare(self, parameters, step):
         """
         Any preprocessing that is needed before the drive is run can be done in
         this method
@@ -34,7 +35,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         This includes preparing files or any other pre processing steps that
         need to be implemented.  The method also provides access to the
         parameters object which controls which parameters are being used to run
-        the driver. 
+        the driver.
 
         It is possible to append arguments to the driver_cmd_line_args if it is
         desired to  override the parthenon input file. Each element in the list
@@ -53,14 +54,14 @@ class TestCase(utils.test_case.TestCaseAbs):
         parameters.coverage_status = "both"
         return parameters
 
-    def Analyse(self,parameters):
+    def Analyse(self, parameters):
         """
         Analyze the output and determine if the test passes.
 
         This function is called after the driver has been executed. It is
         responsible for reading whatever data it needs and making a judgment
         about whether or not the test passes. It takes no inputs. Output should
-        be True (test passes) or False (test fails).  
+        be True (test passes) or False (test fails).
 
         The parameters that are passed in provide the paths to relevant
         locations and commands. Of particular importance is the path to the
@@ -75,22 +76,26 @@ class TestCase(utils.test_case.TestCaseAbs):
         line1 = ""
         line2 = ""
         try:
-            f = open(os.path.join(parameters.output_path, "summary.txt"),"r")
+            f = open(os.path.join(parameters.output_path, "summary.txt"), "r")
             # Do something with the file
             line1 = f.readline()
             line2 = f.readline()
 
             f.close()
         except IOError:
-            print("Summary file not accessible, path: " + parameters.output_path + "/summary.txt")
+            print(
+                "Summary file not accessible, path: "
+                + parameters.output_path
+                + "/summary.txt"
+            )
 
         words1 = line1.split()
         pi_val = float(words1[2])
 
-        error_abs_e = math.fabs( math.pi - pi_val ) / math.pi  
+        error_abs_e = math.fabs(math.pi - pi_val) / math.pi
 
         analyze_status = True
-        if (error_abs_e > 0.001 ) or np.isnan(error_abs_e):
+        if (error_abs_e > 0.001) or np.isnan(error_abs_e):
             analyze_status = False
-        
+
         return analyze_status

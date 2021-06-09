@@ -15,11 +15,15 @@
 import os
 import datetime
 import numpy as np
-from parthenon_performance_app.parthenon_performance_json_parser import PerformanceDataJsonParser
-from parthenon_performance_app.parthenon_performance_plotter import PerformanceMetricsPlotter
+from parthenon_performance_app.parthenon_performance_json_parser import (
+    PerformanceDataJsonParser,
+)
+from parthenon_performance_app.parthenon_performance_plotter import (
+    PerformanceMetricsPlotter,
+)
 
 
-class AdvectionAnalyser():
+class AdvectionAnalyser:
     def __init__(self, create_figures):
         """Creates analyzser, which will check for performance regression and created figures."""
         self._create_figures = create_figures
@@ -29,7 +33,7 @@ class AdvectionAnalyser():
         """Will read the performance metrics of a .txt file that is output from one of the tests."""
         mesh_blocks = np.zeros(1)
         zone_cycles = np.zeros(1)
-        with open(file_path, 'r') as reader:
+        with open(file_path, "r") as reader:
             lines = reader.readlines()
             # Remove first line in file, it is just the title
 
@@ -38,7 +42,7 @@ class AdvectionAnalyser():
 
             ind = 0
             for line in lines:
-              # Skip header
+                # Skip header
                 if ind != 0:
                     line = line.split()
                     mesh_blocks[ind - 1] = float(line[2])
@@ -46,26 +50,30 @@ class AdvectionAnalyser():
                 ind = ind + 1
         return mesh_blocks, zone_cycles
 
-    def analyse(self,
-                regression_outputs,
-                commit_sha,
-                test_dir,
-                target_branch,
-                current_branch,
-                wiki_directory,
-                figure_path_name,
-                number_commits_to_plot,
-                now
-                ):
+    def analyse(
+        self,
+        regression_outputs,
+        commit_sha,
+        test_dir,
+        target_branch,
+        current_branch,
+        wiki_directory,
+        figure_path_name,
+        number_commits_to_plot,
+        now,
+    ):
 
         if not os.path.isfile(
-                regression_outputs + "/advection_performance/performance_metrics.txt"):
+            regression_outputs + "/advection_performance/performance_metrics.txt"
+        ):
             raise Exception(
-                "Cannot analyze advection_performance, missing performance metrics file: " +
-                regression_outputs +
-                "/advection_performance/performance_metrics.txt")
+                "Cannot analyze advection_performance, missing performance metrics file: "
+                + regression_outputs
+                + "/advection_performance/performance_metrics.txt"
+            )
         mesh_blocks, zone_cycles = self.readPerformanceMetricsTXT(
-            regression_outputs + "/advection_performance/performance_metrics.txt")
+            regression_outputs + "/advection_performance/performance_metrics.txt"
+        )
         now = datetime.datetime.now()
 
         # Check if performance_metrics.json exists in wiki
@@ -76,33 +84,45 @@ class AdvectionAnalyser():
         # The performance metrics
         # The pull request
         new_data = {
-            'commit sha': commit_sha,
-            'branch': current_branch,
-            'date': now.strftime("%Y-%m-%d %H:%M:%S"),
-            'data': [{
-                'test': test_dir,
-                'mesh_blocks': np.array2string(mesh_blocks),
-                'zone_cycles': np.array2string(zone_cycles)
-            }]
+            "commit sha": commit_sha,
+            "branch": current_branch,
+            "date": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "data": [
+                {
+                    "test": test_dir,
+                    "mesh_blocks": np.array2string(mesh_blocks),
+                    "zone_cycles": np.array2string(zone_cycles),
+                }
+            ],
         }
 
         # Get the data for the target branch before writing the stats for the current branch,
         # This is to avoid the scenario where the target and current
         # branch are the same.
-        json_file_compare = str(
-            wiki_directory) + "/performance_metrics_" + target_branch.replace(
-            r'/', '-') + ".json"
+        json_file_compare = (
+            str(wiki_directory)
+            + "/performance_metrics_"
+            + target_branch.replace(r"/", "-")
+            + ".json"
+        )
 
         json_perf_data_parser = PerformanceDataJsonParser()
         target_data_file_exists = False
         if os.path.isfile(json_file_compare):
             target_data_file_exists = True
-            target_meshblocks, target_cycles = json_perf_data_parser.getMostRecentPerformanceData(
-                json_file_compare, target_branch, test_dir)
+            (
+                target_meshblocks,
+                target_cycles,
+            ) = json_perf_data_parser.getMostRecentPerformanceData(
+                json_file_compare, target_branch, test_dir
+            )
 
-        json_file_out = str(
-            wiki_directory) + "/performance_metrics_" + current_branch.replace(
-            r'/', '-') + ".json"
+        json_file_out = (
+            str(wiki_directory)
+            + "/performance_metrics_"
+            + current_branch.replace(r"/", "-")
+            + ".json"
+        )
         json_perf_data_parser.append(new_data, json_file_out)
 
         if self._create_figures:
@@ -116,7 +136,8 @@ class AdvectionAnalyser():
                 target_branch,
                 target_data_file_exists,
                 target_meshblocks,
-                target_cycles)
+                target_cycles,
+            )
 
             plotter.plot(json_perf_data_parser, figure_path_name)
         return json_file_out
