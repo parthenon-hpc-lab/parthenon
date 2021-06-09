@@ -35,6 +35,6 @@ setup(
       ],
     keywords = 'testing performance regression',
     packages = find_packages(),
-    install_requires = ['matplotlib','numpy','pyjwt','argparse','pycurl','pem','gitpython'],
+    install_requires = ['matplotlib','numpy','pyjwt','argparse','pycurl','pem','gitpython','py_cgad'],
     scripts=['bin/parthenon_metrics_app.py']
     )
