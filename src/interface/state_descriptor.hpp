@@ -58,7 +58,13 @@ class Packages_t {
   Dictionary<std::shared_ptr<StateDescriptor>> packages_;
 };
 
-/// VarID uniquely identifies a variable by its base name and sparse id
+/// We uniquely identify a variable by it's full label, i.e. base name plus sparse ID.
+/// However, sometimes we also need to be able to separate the base name from the sparse
+/// ID. Instead of relying on the fact that they are separated by a "_", we store them
+/// separately in VarID struct. This way we know that a dense variable "foo_3" does not
+/// have a sparse ID and a sparse field "foo_3" has base name "foo" and sparse ID 3,
+/// however, the two VarIDs representing them are still considered equal, so that we find
+/// such duplicates
 struct VarID {
   std::string base_name;
   int sparse_id;
@@ -68,9 +74,7 @@ struct VarID {
 
   std::string label() const { return MakeVarLabel(base_name, sparse_id); }
 
-  bool operator==(const VarID &other) const {
-    return (base_name == other.base_name) && (sparse_id == other.sparse_id);
-  }
+  bool operator==(const VarID &other) const { return (label() == other.label()); }
 };
 
 struct VarIDHasher {
@@ -236,13 +240,6 @@ class StateDescriptor {
     // TODO(JL) Do we want to add a default metadata for a non-existent swarm_name?
     return swarmMetadataMap_[swarm_name];
   }
-
-  // JL: Disabling this for now because it's probably incomplete
-  // // get all metadata for this physics
-  // const Dictionary<Metadata> &AllMetadata() {
-  //   // TODO (JL): What about swarmMetadataMap_ and swarmValueMetadataMap_
-  //   return metadataMap_;
-  // }
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 
