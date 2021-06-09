@@ -182,7 +182,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                  std::vector<int>({num_vars}));
     pkg->AddField(field_name, m);
 
-    // for fun make this last one a multi-component field using SparseVariable
+    // for fun make this last one a multi-component field using SparsePool
     field_name = "one_minus_sqrt_one_minus_advected_sq";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                   Metadata::Restart},
