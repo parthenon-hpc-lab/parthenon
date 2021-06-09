@@ -48,6 +48,14 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advectio
 --num_steps 5")
 list(APPEND EXTRA_TEST_LABELS "perf-reg")
 
+# AMR Performance regression test
+list(APPEND TEST_DIRS amr_performance)
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/amr_performance/parthinput.amr_performance \
+--num_steps 6")
+list(APPEND EXTRA_TEST_LABELS "perf-reg")
+
 if (ENABLE_HDF5)
 
   # h5py is needed for restart and hdff5 test

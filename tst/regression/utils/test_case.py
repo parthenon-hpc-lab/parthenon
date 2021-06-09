@@ -39,6 +39,7 @@ class Parameters():
     # both - run regardless of whether coverage is enabled or not 
     # only-coverage - only run if coverage has been enabled
     coverage_status = "only-regression"
+    kokkos_profiling_lib = None # cache for profiling lib to be used
 
 class TestCaseAbs:
     def Prepare(parameters):
@@ -47,6 +48,10 @@ class TestCaseAbs:
 
     def Analyse(parameters):
         raise NotImplementedError("Every TestCase must initialse an Analyse method")
+
+    # optional function to be executed after each Run()
+    def Cleanup(self, parameters, step):
+        return
 
 class TestManager:
     def __init__(self,run_test_path,**kwargs):
@@ -108,6 +113,7 @@ class TestManager:
         self.parameters.mpi_ranks_flag = kwargs.pop('mpirun_ranks_flag')
         self.parameters.num_ranks = int(kwargs.pop('mpirun_ranks_num'))
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
+        self.parameters.kokkos_profiling_lib = os.getenv('KOKKOS_PROFILE_LIBRARY')
 
         module_root_path = os.path.join(test_path, "..","..")
         if module_root_path not in sys.path:
@@ -240,6 +246,13 @@ class TestManager:
                               .format(err.returncode, ' '.join(err.cmd)))
         # Reset parameters
         self.parameters.coverage_status = "only-regression"
+
+    def Cleanup(self, step):
+        print("*****************************************************************")
+        print("Cleaning up Test Case Step %d" % step)
+        print("*****************************************************************\n")
+        sys.stdout.flush()
+        self.test_case.Cleanup(self.parameters, step)
 
     def Analyse(self):
 
