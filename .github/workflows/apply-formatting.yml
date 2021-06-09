@@ -12,4 +12,4 @@ jobs:
       with:
         botName: par-hermes
         clangFormatVersion: 8
-        token: ${{ secrets.TOKEN_GITHUB }}
+        token: ${{ secrets.GITHUB_TOKEN }}
