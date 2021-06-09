@@ -261,7 +261,12 @@ bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
 
   // add all the sparse fields
   for (const auto itr : pool.pool()) {
-    AddFieldImpl(VarID(pool.base_name(), itr.first), itr.second);
+    if (!AddFieldImpl(VarID(pool.base_name(), itr.first), itr.second)) {
+      // a field with this name already exists, this would leave the StateDescriptor in an
+      // inconsistent state, so throw
+      PARTHENON_THROW("Couldn't add sparse field " +
+                      VarID(pool.base_name(), itr.first).label());
+    }
   }
 
   return true;

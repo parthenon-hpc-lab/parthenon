@@ -373,6 +373,16 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor") {
 
       // this is ok, but probably not a good idea
       REQUIRE(pkg->AddField("sparse_3", Metadata()));
+
+      // check the other way around
+      REQUIRE(pkg->AddField("fake_sparse_27", Metadata()));
+      REQUIRE(pkg->AddSparsePool("fake_sparse", meta_sparse, std::vector<int>{10, 12}));
+      REQUIRE_FALSE(
+          pkg->AddSparsePool("fake_sparse", meta_sparse, std::vector<int>{13, 27, 9}));
+
+      REQUIRE(pkg->AddField("fake2_sparse_27", Metadata()));
+      REQUIRE_THROWS(
+          pkg->AddSparsePool("fake2_sparse", meta_sparse, std::vector<int>{13, 27, 9}));
     }
   }
 }
