@@ -151,7 +151,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
 
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
-    this->restartReader = nullptr;
+    restartReader = nullptr;
   }
 
   // add root_level to all max_level
