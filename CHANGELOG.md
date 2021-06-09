@@ -18,6 +18,7 @@
 - [[PR 522]](https://github.com/lanl/parthenon/pull/522) Corrected ordering of `OutputDatasetNames` to match `ComponentNames`
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 539]](https://github.com/lanl/parthenon/pull/539) Fix restart indexing/hdf5 bugs
 - [[PR 487]](https://github.com/lanl/parthenon/pull/487) Add default tiling matching `i` index range to MDRange loop pattern.
 - [[PR 531]](https://github.com/lanl/parthenon/pull/531) Work around in parthenon_hdf5.cpp for GCC 7.3.0
 

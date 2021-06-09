@@ -148,6 +148,10 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
 
     // Read package data from restart file
     RestartPackages(*pmesh, *restartReader);
+
+    // close hdf5 file to prevent HDF5 hangs and corrupted files
+    // if code dies after restart
+    restartReader = nullptr;
   }
 
   // add root_level to all max_level
@@ -157,14 +161,12 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     }
   }
 
-  pmesh->Initialize(!Restart(), pinput.get(), app_input.get());
+  pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
-  // close restart file before finalizing MPI
-  this->restartReader = nullptr;
   pmesh.reset();
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
@@ -251,7 +253,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           for (int k = out_kb.s; k <= out_kb.e; ++k) {
             for (int j = out_jb.s; j <= out_jb.e; ++j) {
               for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                for (int l = 0; l < vlen; ++l) {
+                for (int l = 0; l < v_h.GetDim(4); ++l) {
                   v_h(l, k, j, i) = tmp[index++];
                 }
               }
