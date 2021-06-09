@@ -482,7 +482,7 @@ class GitHubApp:
 
         return contents
 
-    def upload(self, file_name, branch=None, use_wiki=False):
+    def upload(self, file_name, branch=None, use_wiki=False, wiki_state="hard"):
         """
         This method attempts to upload a file to the specified branch.
 
@@ -527,7 +527,7 @@ class GitHubApp:
                 commit_msg = "Updating file " + file_name
             else:
                 commit_msg = "Adding file " + file_name
-            repo = self.getWikiRepo(branch)
+            repo = self.getWikiRepo(branch, wiki_state)
             destination = (
                 self._parthenon_wiki_dir
                 + "/"
@@ -615,7 +615,7 @@ class GitHubApp:
 
         self._fillTree(self._parth_root, branch)
 
-    def cloneWikiRepo(self):
+    def cloneWikiRepo(self, wiki_state="hard"):
         """
         Clone a git repo
 
@@ -643,11 +643,20 @@ class GitHubApp:
             # Ensure local branches are synchronized with server
             g.execute(["git", "fetch"])
             # Will not overwrite files but will reset the index to match with the remote
-            g.execute(["git", "reset", "--mixed", "origin/master"])
+            if wiki_state == "hard":
+                g.execute(["git", "reset", "--hard", "origin/master"])
+            elif wiki_state == "mixed":
+                g.execute(["git", "reset", "--mixed", "origin/master"])
+            elif wiki_state == "soft":
+                g.execute(["git", "reset", "--soft", "origin/master"])
+            else:
+                raise Exception(
+                    "Unrecognized github reset option encountered {}".format(wiki_state)
+                )
 
         return repo
 
-    def getWikiRepo(self, branch):
+    def getWikiRepo(self, branch, wiki_state="hard"):
         """
         Get the git wiki repo
 
@@ -656,7 +665,7 @@ class GitHubApp:
         directly. This method will clone the repository if it does not exist. It will then return a
         repo object.
         """
-        repo = self.cloneWikiRepo()
+        repo = self.cloneWikiRepo(wiki_state)
         return repo
 
     def postStatus(
