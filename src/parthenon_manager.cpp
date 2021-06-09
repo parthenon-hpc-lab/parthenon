@@ -161,14 +161,12 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     }
   }
 
-  pmesh->Initialize(!Restart(), pinput.get(), app_input.get());
+  pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
-  // close restart file before finalizing MPI
-  this->restartReader = nullptr;
   pmesh.reset();
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
