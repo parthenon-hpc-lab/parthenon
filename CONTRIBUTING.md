@@ -126,7 +126,7 @@ cmake -DPARTHENON_LINT_DEFAULT=ON .
 ```
 
 ### Formatting Code
-We use clang-format to automatically format the code. If you have clang-format installed
+We use clang-format to automatically format the code cpp code. If you have clang-format installed
 locally, you can always execute `make format` or `cmake --build . --target format` from
 your build directory to automatically format the code.
 
@@ -158,6 +158,14 @@ Remember - this will change the branch history from your local commit, so you'll
 run something equivalent to
 `git fetch origin && git reset --hard origin/$(git branch --show-current)` to update your
 local tracking branch.
+
+In addition to clang-format, black is used to enforce formatting on python scripts.
+Running:
+```
+@par-hermes format
+```
+
+Will also format all the ".py" files found in the repository.
 
 ## Test Suite
 
