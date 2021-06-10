@@ -10,4 +10,24 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
-file(DOWNLOAD https://codecov.io/bash ${COVERAGE_PATH}/CombinedCoverage/script.coverage EXPECTED_HASH SHA256=d6aa3207c4908d123bd8af62ec0538e3f2b9f257c3de62fad4e29cd3b59b41d9)
+file(DOWNLOAD https://codecov.io/bash ${COVERAGE_PATH}/CombinedCoverage/script.coverage)
+
+file(READ ${COVERAGE_PATH}/CombinedCoverage/script.coverage COVERAGE_FILE_CONTENT)
+string(REGEX MATCH "VERSION=\"[0-9.].[0-9.].[0-9.]\"" VERSION_NUM ${COVERAGE_FILE_CONTENT})
+STRING(REGEX MATCH "\"(.+)\"" VERSION_NUM ${VERSION_NUM})
+STRING(REPLACE "\"" "" VERSION_NUM ${VERSION_NUM})
+message("VERSION NUM ${VERSION_NUM}")
+file(DOWNLOAD https://raw.githubusercontent.com/codecov/codecov-bash/${VERSION_NUM}/SHA256SUM ${COVERAGE_PATH}/CombinedCoverage/trusted_hashes)
+file(READ ${COVERAGE_PATH}/CombinedCoverage/trusted_hashes HASH_FILE_CONTENT)
+
+string(REGEX REPLACE "\n$" "" HASH_FILE_CONTENT "${HASH_FILE_CONTENT}")
+string(REGEX REPLACE "  " ";" HASH_FILE_CONTENT "${HASH_FILE_CONTENT}")
+
+list(GET HASH_FILE_CONTENT 0 TRUSTED_HASH)
+
+file(SHA256 ${COVERAGE_PATH}/CombinedCoverage/script.coverage HASH_VAL_FILE)
+
+if( NOT ${HASH_VAL_FILE} STREQUAL ${TRUSTED_HASH} )
+  message(FATAL_ERROR "Untrusted bash codecoverage script detected.")
+endif()
+
