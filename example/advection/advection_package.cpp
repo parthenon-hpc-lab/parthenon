@@ -61,9 +61,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto buffer_send_pack = pin->GetOrAddBoolean("Advection", "buffer_send_pack", false);
   auto buffer_recv_pack = pin->GetOrAddBoolean("Advection", "buffer_recv_pack", false);
   auto buffer_set_pack = pin->GetOrAddBoolean("Advection", "buffer_set_pack", false);
+  auto buffer_restrict_pack =
+      pin->GetOrAddBoolean("Advection", "buffer_restrict_pack", false);
   pkg->AddParam<>("buffer_send_pack", buffer_send_pack);
   pkg->AddParam<>("buffer_recv_pack", buffer_recv_pack);
   pkg->AddParam<>("buffer_set_pack", buffer_set_pack);
+  pkg->AddParam<>("buffer_restrict_pack", buffer_restrict_pack);
 
   Real amp = pin->GetOrAddReal("Advection", "amp", 1e-6);
   Real vel = std::sqrt(vx * vx + vy * vy + vz * vz);
@@ -163,7 +166,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     } else {
       field_name = field_name_base + "_" + std::to_string(var);
     }
-    m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
+    m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+                  Metadata::FillGhost},
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
   }
@@ -427,7 +431,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
 
-  auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::Independent});
+  auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes});
 
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);

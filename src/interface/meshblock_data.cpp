@@ -53,10 +53,8 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
     }
     int varIndex = metadata.GetSparseId();
     sparseMap_[label]->Add(varIndex, arrDims);
-    if (metadata.IsSet(Metadata::FillGhost)) {
-      auto &v = sparseMap_[label]->Get(varIndex);
-      v->allocateComms(pmy_block);
-    }
+    auto &v = sparseMap_[label]->Get(varIndex);
+    v->AllocateFluxesAndBdryVar(pmy_block);
   } else if (metadata.Where() == Metadata::Edge) {
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
@@ -79,9 +77,7 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
   } else {
     auto sv = std::make_shared<CellVariable<T>>(label, arrDims, metadata);
     Add(sv);
-    if (metadata.IsSet(Metadata::FillGhost)) {
-      sv->allocateComms(pmy_block);
-    }
+    sv->AllocateFluxesAndBdryVar(pmy_block);
   }
 }
 
@@ -565,12 +561,12 @@ template <typename T>
 TaskStatus MeshBlockData<T>::SendFluxCorrection() {
   Kokkos::Profiling::pushRegion("Task_SendFluxCorrection");
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::Independent)) {
+    if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
       v->vbvar->SendFluxCorrection();
     }
   }
   for (auto &sv : sparseVector_) {
-    if ((sv->IsSet(Metadata::Independent))) {
+    if (sv->IsSet(Metadata::WithFluxes) && sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto &v : vvec) {
         v->vbvar->SendFluxCorrection();
@@ -586,13 +582,13 @@ TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrection");
   int success = 0, total = 0;
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::Independent)) {
+    if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
       if (v->vbvar->ReceiveFluxCorrection()) success++;
       total++;
     }
   }
   for (auto &sv : sparseVector_) {
-    if (sv->IsSet(Metadata::Independent)) {
+    if (sv->IsSet(Metadata::WithFluxes) && sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto &v : vvec) {
         if (v->vbvar->ReceiveFluxCorrection()) success++;
@@ -803,12 +799,13 @@ TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
 }
 
 template <typename T>
-void MeshBlockData<T>::RestrictBoundaries() {
+TaskStatus MeshBlockData<T>::RestrictBoundaries() {
   Kokkos::Profiling::pushRegion("RestrictBoundaries");
   // TODO(JMM): Change this upon refactor of BoundaryValues
   auto pmb = GetBlockPointer();
   pmb->pbval->RestrictBoundaries();
   Kokkos::Profiling::popRegion(); // RestrictBoundaries
+  return TaskStatus::complete;
 }
 
 template <typename T>

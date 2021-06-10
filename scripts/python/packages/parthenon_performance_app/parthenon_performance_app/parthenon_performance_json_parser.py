@@ -116,6 +116,14 @@ class PerformanceDataJsonParser():
                 cycles = data_grp.get('zone_cycles')
         return mesh_blocks, cycles
 
+    @staticmethod
+    def _containsTest(json_obj, test):
+        for data_grp in json_obj.get('data'):
+            if data_grp.get('test') == test:
+                return True
+        return False
+
+
     def _getMeshBlocksOrCyclesAt(self, meshblock_or_cycles, commit_index, test):
         list_ind = 0
         for json_obj in self._data:
@@ -179,14 +187,15 @@ class PerformanceDataJsonParser():
                             json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
                         if recent_datetime is None:
                             recent_datetime = new_datetime
-                            mesh_blocks, cycles = self._getCyclesAndMeshblocks(
-                                json_obj, test)
+                            if self._containsTest(json_obj, test):
+                                mesh_blocks, cycles = self._getCyclesAndMeshblocks(
+                                    json_obj, test)
 
                         if new_datetime > recent_datetime:
-                            recent_datetime = new_datetime
-                            self._getCyclesAndMeshblocks(json_obj, test)
-                            mesh_blocks, cycles = self._getCyclesAndMeshblocks(
-                                json_obj, test)
+                            if self._containsTest(json_obj, test):
+                                recent_datetime = new_datetime
+                                mesh_blocks, cycles = self._getCyclesAndMeshblocks(
+                                    json_obj, test)
 
                 if isinstance(mesh_blocks, str):
                     mesh_blocks = np.array(
@@ -230,7 +239,7 @@ class PerformanceDataJsonParser():
             # Need to convert the dict to a string to dump to a file
             json.dump(self._data, fout, indent=4)
 
-    def getNumOfCommits(self):
+    def getNumberOfCommits(self):
         return len(self._data)
 
     def getCyclesAt(self, commit_index, test):
@@ -241,15 +250,21 @@ class PerformanceDataJsonParser():
         """Returns the number of mesh blocks for a particular test associated with a commit."""
         return self._getMeshBlocksOrCyclesAt("mesh_blocks", commit_index, test)
 
-    def getCommitShaAt(self, commit_index, test):
+    def getValueAt(self, commit_index, test, tag):
         list_ind = 0
         for json_obj in self._data:
             if commit_index == list_ind:
                 for data_grp in json_obj.get('data'):
                     if data_grp.get('test') == test:
-                        return json_obj.get('commit sha')
+                        return json_obj.get(tag)
             list_ind = list_ind + 1
         return None
+
+    def getCommitShaAt(self, commit_index, test):
+        return self.getValueAt(commit_index, test, 'commit sha')
+
+    def getDateAt(self, commit_index, test):
+        return self.getValueAt(commit_index, test, 'date')
 
     @staticmethod
     def checkDataUpToDate(file_name, branch, commit_sha, test):
