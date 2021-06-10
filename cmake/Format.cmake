@@ -18,6 +18,9 @@ find_program(
         clang-format-mp-8.0 # MacPorts
         clang-format # Default name
     )
+
+find_program(BLACK  NAMES black)
+
 if (CLANG_FORMAT AND NOT CLANG_FORMAT_VERSION)
     # Get clang-format --version
     execute_process(
@@ -30,6 +33,16 @@ if (CLANG_FORMAT AND NOT CLANG_FORMAT_VERSION)
 
         set(CLANG_FORMAT_VERSION ${CLANG_FORMAT_VERSION} CACHE STRING "clang-format version")
     endif()
+endif()
+
+if (BLACK)
+    # Get clang-format --version
+    execute_process(
+      COMMAND ${BLACK} --version
+      OUTPUT_VARIABLE BLACK_VERSION_OUTPUT)
+
+    message(STATUS "black --version: " ${BLACK_VERSION_OUTPUT})
+
 endif()
 
 if (NOT CLANG_FORMAT_VERSION)
@@ -55,10 +68,22 @@ set(
     ${PROJECT_SOURCE_DIR}/example/[^\.]*.cpp ${PROJECT_SOURCE_DIR}/example/[^\.]*.hpp
 )
 
+# Specifically trying to exclude external here - I'm not sure if there's a better way
+set(
+    PY_GLOBS
+    ${PROJECT_SOURCE_DIR}/scripts/[^\.]*.py
+    ${PROJECT_SOURCE_DIR}/tst/[^\.]*.py
+    ${PROJECT_SOURCE_DIR}/example/[^\.]*.py
+)
+
 if (CMAKE_VERSION VERSION_LESS "3.12.0")
     file(GLOB_RECURSE FORMAT_SOURCES ${GLOBS})
+    file(GLOR_RECURSE PY_FORMAT_SOURCES ${PY_GLOBS})
 else()
     file(GLOB_RECURSE FORMAT_SOURCES CONFIGURE_DEPENDS ${GLOBS})
+    file(GLOB_RECURSE PY_FORMAT_SOURCES CONFIGURE_DEPENDS ${PY_GLOBS})
 endif()
 
-add_custom_target(format ${CLANG_FORMAT} -i ${FORMAT_SOURCES})
+add_custom_target(format
+  COMMAND ${CLANG_FORMAT} -i ${FORMAT_SOURCES}
+  COMMAND ${BLACK} ${PY_FORMAT_SOURCES})
