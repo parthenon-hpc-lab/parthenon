@@ -57,10 +57,10 @@ CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
   Metadata m = m_;
 
   // make the new CellVariable
-  auto cv = std::make_shared<CellVariable<T>>(label(), m, sparse_id_);
+  auto cv = std::make_shared<CellVariable<T>>(label(), m, sparse_id_, wpmb);
 
   if (is_allocated_) {
-    cv->AllocateData(wpmb);
+    cv->AllocateData();
   }
 
   if (alloc_separate_fluxes_and_bvar) {
@@ -93,24 +93,18 @@ CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
 
 template <typename T>
 void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
-  AllocateData(wpmb);
+  AllocateData();
   AllocateFluxesAndBdryVar(wpmb);
 }
 
 template <typename T>
-void CellVariable<T>::AllocateData(std::weak_ptr<MeshBlock> wpmb) {
+void CellVariable<T>::AllocateData() {
   if (is_allocated_) {
     return;
   }
 
-  if (m_.IsMeshTied() && wpmb.expired()) {
-    // we can't allocate data because we need cellbounds from the meshblock but our
-    // meshblock pointer is null
-    return;
-  }
-
-  const auto dims = m_.GetArrayDims(wpmb);
-  data = ParArrayND<T>(label(), dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]);
+  data =
+      ParArrayND<T>(label(), dims_[5], dims_[4], dims_[3], dims_[2], dims_[1], dims_[0]);
   is_allocated_ = true;
 }
 

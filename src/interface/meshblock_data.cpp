@@ -86,7 +86,8 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
         base_name, metadata.GetArrayDims(pmy_block), metadata);
     Add(pfv);
   } else {
-    auto var = std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id);
+    auto var =
+        std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
     Add(var);
 
     // TODO(JL) For now, allocate sparse and dense fields, because we don't yet have

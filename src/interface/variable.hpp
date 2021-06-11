@@ -56,8 +56,10 @@ template <typename T>
 class CellVariable {
  public:
   /// Initialize a 6D variable
-  CellVariable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id)
-      : m_(metadata), base_name_(base_name), sparse_id_(sparse_id) {
+  CellVariable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
+                  std::weak_ptr<MeshBlock> wpmb)
+      : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
+        dims_(m_.GetArrayDims(wpmb)) {
     PARTHENON_REQUIRE_THROWS(
         m_.IsSet(Metadata::Real),
         "Only Real data type is currently supported for CellVariable");
@@ -78,14 +80,19 @@ class CellVariable {
   // accessors
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
+    assert(is_allocated_);
     return data(std::forward<Args>(args)...);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  auto GetDim(const int i) const { return data.GetDim(i); }
+  auto GetDim(const int i) const {
+    // we can't query data.GetDim() here because data may be unallocated
+    assert(0 < i && i <= 6 && "ParArrayNDGenerics are max 6D");
+    return dims_[i - 1];
+  }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  auto NumComponents() const { return GetDim(6) * GetDim(5) * GetDim(4); }
+  auto NumComponents() const { return dims_[5] * dims_[4] * dims_[3]; }
 
   ///< retrieve label for variable
   inline const auto label() const { return MakeVarLabel(base_name_, sparse_id_); }
@@ -123,7 +130,7 @@ class CellVariable {
 
  private:
   // allocate data only
-  void AllocateData(std::weak_ptr<MeshBlock> wpmb);
+  void AllocateData();
 
   /// allocate fluxes (if Metadata::WithFluxes is set) and boundary variable if
   /// (Metadata::FillGhost is set)
@@ -132,6 +139,7 @@ class CellVariable {
   Metadata m_;
   std::string base_name_;
   int sparse_id_ = InvalidSparseID;
+  const std::array<int, 6> dims_;
 
   bool is_allocated_ = false;
   ParArray7D<T> flux_data_; // unified par array for the fluxes
