@@ -216,6 +216,9 @@ std::shared_ptr<MeshBlockData<T>> MeshBlockData<T>::SparseSlice(int sparse_id) {
 /// Inputs:
 /// variables = forward list of shared pointers of vars to pack
 /// fluxes = forward list of shared pointers of fluxes to pack
+/// Returns:
+/// A FluxMetaPack<T> that contains the actual VariableFluxPack, the PackIndexMap, and the
+/// keys
 template <typename T>
 const FluxMetaPack<T> &
 MeshBlockData<T>::PackListedVariablesAndFluxes(const VarLabelList &var_list,
@@ -239,6 +242,8 @@ MeshBlockData<T>::PackListedVariablesAndFluxes(const VarLabelList &var_list,
 /// Inputs:
 /// vars = forward list of shared pointers of vars to pack
 /// coarse = whether to use coarse pack map or not
+/// Returns:
+/// A VarMetaPack<T> that contains the actual VariablePack, the PackIndexMap, and the key
 template <typename T>
 const VarMetaPack<T> &MeshBlockData<T>::PackListedVariables(const VarLabelList &var_list,
                                                             bool coarse) {
