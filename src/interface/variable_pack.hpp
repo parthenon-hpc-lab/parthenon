@@ -186,6 +186,10 @@ class VariablePack {
     return sparse_ids_(n);
   }
 
+  // Alias of GetSparseID
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetSparseIndex(const int n) const { return GetSparseID(n); }
+
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsSparse(const int n) const { return GetSparseID() != InvalidSparseID; }
 
@@ -326,8 +330,6 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
 
           if (v->IsAllocated()) {
             host_cv(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
-          } else {
-            host_cv(vindex) = ParArray3D<T>("unallocated_" + v->label(), 0, 0, 0);
           }
 
           vindex++;
@@ -395,14 +397,6 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
             host_f1(vindex) = v->flux[X1DIR].Get(k, j, i);
             if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
             if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
-          } else {
-            host_f1(vindex) = ParArray3D<T>("unallocated_f1_" + v->label(), 0, 0, 0);
-            if (ndim >= 2) {
-              host_f2(vindex) = ParArray3D<T>("unallocated_f2_" + v->label(), 0, 0, 0);
-            }
-            if (ndim >= 3) {
-              host_f3(vindex) = ParArray3D<T>("unallocated_f3_" + v->label(), 0, 0, 0);
-            }
           }
 
           vindex++;
