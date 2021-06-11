@@ -106,10 +106,12 @@ class PackIndexMap {
   // sparse id not part of label)
   const vpack_types::IndexPair &operator[](const std::string &key) const {
     static const vpack_types::IndexPair invalid_indices(-1, -1);
-    if (!Has(key)) {
+    auto itr = map_.find(key);
+    if (itr == map_.end()) {
       return invalid_indices;
     }
-    return map_.at(key);
+
+    return itr->second;
   }
 
   void insert(std::pair<std::string, vpack_types::IndexPair> keyval) {

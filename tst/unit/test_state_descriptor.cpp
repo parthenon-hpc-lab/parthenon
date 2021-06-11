@@ -147,7 +147,7 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         }
       }
     }
-    // TODO(JMM): This will simplify once we have dense on block
+
     WHEN("We add the same sparse private variable to two different packages") {
       pkg1->AddSparsePool("sparse", m_sparse_private, std::vector<int>{sparse_ids[2]});
       pkg2->AddSparsePool("sparse", m_sparse_private, std::vector<int>{sparse_ids[3]});
@@ -164,7 +164,7 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         }
       }
     }
-    // TODO(JMM): This will simplify once we have dense on block
+
     WHEN("We add multiple provides sparse ids to the same package") {
       pkg1->AddSparsePool("sparse", m_sparse_provides, sparse_ids);
       THEN("We can safely resolve packages") {
@@ -175,6 +175,18 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           }
         }
       }
+    }
+
+    WHEN("We add the same dense/sparse provides in two packages") {
+      pkg1->AddField("foo", m_provides);
+      pkg2->AddSparsePool("foo", m_sparse_provides, sparse_ids);
+      THEN("Resolution raises an error") { REQUIRE_THROWS(ResolvePackages(packages)); }
+    }
+
+    WHEN("We add the same dense provides as a sparse field provides in two packages") {
+      pkg1->AddField("foo_7", m_provides);
+      pkg2->AddSparsePool("foo", m_sparse_provides, sparse_ids);
+      THEN("Resolution raises an error") { REQUIRE_THROWS(ResolvePackages(packages)); }
     }
 
     WHEN("We add the same private swarm to two different packages") {
@@ -279,7 +291,7 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
   }
 }
 
-TEST_CASE("Test SparsePool interface", "[StateDescriptor") {
+TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
   GIVEN("Some metadata") {
     Metadata dense({Metadata::Independent, Metadata::WithFluxes});
     Metadata sparse({Metadata::Independent, Metadata::Sparse, Metadata::Vector},

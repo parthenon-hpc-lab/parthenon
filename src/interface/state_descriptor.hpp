@@ -88,8 +88,6 @@ struct VarIDHasher {
 /// Each State descriptor has a label, associated parameters, and
 /// metadata for all fields within that state.
 class StateDescriptor {
-  friend class DenseFieldProvider;
-
  public:
   // copy constructor throw error
   StateDescriptor(const StateDescriptor &s) = delete;

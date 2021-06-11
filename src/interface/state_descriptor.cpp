@@ -129,48 +129,54 @@ class DependencyTracker {
 
 // Helper functions for adding vars
 // closures by reference
-class DenseFieldProvider : public VariableProvider {
+class FieldProvider : public VariableProvider {
  public:
-  explicit DenseFieldProvider(std::shared_ptr<StateDescriptor> &sd) : state_(sd) {}
-  void AddPrivate(const std::string &package, const std::string &label,
-                  const Metadata &metadata) {
-    state_->AddFieldImpl(VarID(package + "::" + label), metadata);
-  }
-  void AddProvides(const std::string & /*package*/, const std::string &label,
-                   const Metadata &metadata) {
-    state_->AddFieldImpl(VarID(label), metadata);
-  }
-  void AddOverridable(const std::string &label, Metadata &metadata) {
-    state_->AddFieldImpl(VarID(label), metadata);
-  }
-
- private:
-  std::shared_ptr<StateDescriptor> &state_;
-};
-
-class SparsePoolProvider : public VariableProvider {
- public:
-  explicit SparsePoolProvider(Packages_t &packages, std::shared_ptr<StateDescriptor> &sd)
+  explicit FieldProvider(Packages_t &packages, std::shared_ptr<StateDescriptor> &sd)
       : packages_(packages), state_(sd) {}
   void AddPrivate(const std::string &package, const std::string &base_name,
-                  const Metadata & /*metadata*/) {
-    const auto &src_pool = packages_.Get(package)->GetSparsePool(base_name);
-    state_->AddSparsePool(package + "::" + base_name, src_pool);
+                  const Metadata &metadata) {
+    bool added = false;
+    if (metadata.IsSet(Metadata::Sparse)) {
+      const auto &src_pool = packages_.Get(package)->GetSparsePool(base_name);
+      added = state_->AddSparsePool(package + "::" + base_name, src_pool);
+    } else {
+      added = state_->AddField(package + "::" + base_name, metadata);
+    }
+
+    PARTHENON_REQUIRE_THROWS(added, "Couldn't add private field '" + base_name +
+                                        "' to resolved state");
   }
   void AddProvides(const std::string &package, const std::string &base_name,
-                   const Metadata & /*metadata*/) {
-    const auto &pool = packages_.Get(package)->GetSparsePool(base_name);
-    state_->AddSparsePool(pool);
-  }
-  void AddOverridable(const std::string &base_name, Metadata & /*metadata*/) {
-    for (auto &pair : packages_.AllPackages()) {
-      auto &package = pair.second;
-      if (package->SparseBaseNamePresent(base_name)) {
-        const auto &pool = package->GetSparsePool(base_name);
-        state_->AddSparsePool(pool);
-        return;
-      }
+                   const Metadata &metadata) {
+    bool added = false;
+    if (metadata.IsSet(Metadata::Sparse)) {
+      const auto &pool = packages_.Get(package)->GetSparsePool(base_name);
+      added = state_->AddSparsePool(pool);
+    } else {
+      added = state_->AddField(base_name, metadata);
     }
+
+    PARTHENON_REQUIRE_THROWS(added, "Couldn't add provided field '" + base_name +
+                                        "' to resolved state");
+  }
+  void AddOverridable(const std::string &base_name, Metadata &metadata) {
+    bool added = false;
+    if (metadata.IsSet(Metadata::Sparse)) {
+      // we don't know which package this pool is coming from, so we need to search for it
+      for (auto &pair : packages_.AllPackages()) {
+        auto &package = pair.second;
+        if (package->SparseBaseNamePresent(base_name)) {
+          const auto &pool = package->GetSparsePool(base_name);
+          added = state_->AddSparsePool(pool);
+          break;
+        }
+      }
+    } else {
+      added = state_->AddField(base_name, metadata);
+    }
+
+    PARTHENON_REQUIRE_THROWS(added, "Couldn't add overridable field '" + base_name +
+                                        "' to resolved state");
   }
 
  private:
@@ -331,12 +337,10 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
 
   // The workhorse data structure. Uses sets to cache which variables
   // are of what type.
-  DependencyTracker dense_tracker;
-  DependencyTracker sparse_tracker;
+  DependencyTracker field_tracker;
   DependencyTracker swarm_tracker;
   // closures that provide functions for DependencyTracker
-  DenseFieldProvider dense_field_provider(state);
-  SparsePoolProvider sparse_pool_provider(packages, state);
+  FieldProvider field_provider(packages, state);
   SwarmProvider swarm_provider(packages, state);
 
   // Add private/provides variables. Check for conflicts among those.
@@ -345,29 +349,27 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
     const auto &name = pair.first;
     auto &package = pair.second;
 
-    // make metadata dictionary of dense variables and sparse pools (using the shared
-    // metadata, which contains the role information)
-    Dictionary<Metadata> dense_dict, sparse_dict;
+    // make metadata dictionary of all dense fields and sparse pools (they are treated on
+    // the same level for the purpose of dependency resolution)
+    Dictionary<Metadata> field_dict;
 
     for (const auto itr : package->AllFields()) {
       if (!itr.second.IsSet(Metadata::Sparse)) {
-        dense_dict.insert({itr.first.label(), itr.second});
+        field_dict.insert({itr.first.label(), itr.second});
       }
     }
 
     for (const auto itr : package->AllSparsePools()) {
-      sparse_dict.insert({itr.first, itr.second.shared_metadata()});
+      field_dict.insert({itr.first, itr.second.shared_metadata()});
     }
 
     // sort
-    dense_tracker.CategorizeCollection(name, dense_dict, &dense_field_provider);
-    sparse_tracker.CategorizeCollection(name, sparse_dict, &sparse_pool_provider);
+    field_tracker.CategorizeCollection(name, field_dict, &field_provider);
     swarm_tracker.CategorizeCollection(name, package->AllSwarms(), &swarm_provider);
   }
 
   // check that dependent variables are provided somewhere
-  dense_tracker.CheckRequires();
-  sparse_tracker.CheckRequires();
+  field_tracker.CheckRequires();
   swarm_tracker.CheckRequires();
 
   // Treat overridable vars:
@@ -375,8 +377,7 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   // If a var is overridable and unique, add it to the state.
   // If a var is overridable and not unique, add one to the state
   // and optionally throw a warning.
-  dense_tracker.CheckOverridable(&dense_field_provider);
-  sparse_tracker.CheckOverridable(&sparse_pool_provider);
+  field_tracker.CheckOverridable(&field_provider);
   swarm_tracker.CheckOverridable(&swarm_provider);
 
   return state;

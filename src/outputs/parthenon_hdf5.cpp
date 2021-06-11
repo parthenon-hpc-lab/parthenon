@@ -882,7 +882,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       const auto vars = get_vars(pmb);
       for (auto &v : vars) {
         // Note index l transposed to interior
-        if (var_name.compare(v->label()) == 0) {
+        if (v->IsAllocated() && (var_name.compare(v->label()) == 0)) {
           auto v_h = v->data.GetHostMirrorAndCopy();
           for (int k = out_kb.s; k <= out_kb.e; ++k) {
             for (int j = out_jb.s; j <= out_jb.e; ++j) {
