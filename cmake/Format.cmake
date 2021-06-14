@@ -84,6 +84,21 @@ else()
     file(GLOB_RECURSE PY_FORMAT_SOURCES CONFIGURE_DEPENDS ${PY_GLOBS})
 endif()
 
-add_custom_target(format
-  COMMAND ${CLANG_FORMAT} -i ${FORMAT_SOURCES}
-  COMMAND ${BLACK} ${PY_FORMAT_SOURCES})
+if (CLANG_FORMAT)
+  if (BLACK)
+    add_custom_target(format
+      COMMAND ${CLANG_FORMAT} -i ${FORMAT_SOURCES}
+      COMMAND ${BLACK} ${PY_FORMAT_SOURCES}
+      VERBATIM)
+  else()
+    add_custom_target(format
+      COMMAND echo "Only C++ files will be formatted black was not found"
+      COMMAND ${CLANG_FORMAT} -i ${FORMAT_SOURCES}
+      VERBATIM)
+  endif()
+elseif (BLACK)
+  add_custom_target(format
+    COMMAND echo "Only Python files will be formatted clang_format was not found"
+    COMMAND ${BLACK} ${PY_FORMAT_SOURCES}
+    VERBATIM)
+endif()
