@@ -126,7 +126,7 @@ cmake -DPARTHENON_LINT_DEFAULT=ON .
 ```
 
 ### Formatting Code
-We use clang-format to automatically format the code cpp code. If you have clang-format installed
+We use clang-format to automatically format the C++ code. If you have clang-format installed
 locally, you can always execute `make format` or `cmake --build . --target format` from
 your build directory to automatically format the code.
 
