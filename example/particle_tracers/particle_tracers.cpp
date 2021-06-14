@@ -313,6 +313,20 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
   return TaskStatus::complete;
 }
 
+// Clean up particle memory pool which can become sparse due to particles removed during
+// communication.
+TaskStatus Defrag(MeshBlock *pmb) {
+  auto s = pmb->swarm_data.Get()->Get("tracers");
+
+  // Only do this if list is getting too sparse. This criterion (whether there
+  // are *any* gaps in the list) is very aggressive
+  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
+    s->Defrag();
+  }
+
+  return TaskStatus::complete;
+}
+
 // Mark all MPI requests as NULL / initialize boundary flags.
 TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
   // Boundary transfers on same MPI proc are blocking
@@ -391,12 +405,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real y_max_mesh = mesh_size.x2max;
   const Real z_max_mesh = mesh_size.x3max;
 
+  const Real kwave = 2. * M_PI / (x_max_mesh - x_min_mesh);
+
   pmb->par_for(
       "Init advected profile", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        advected(k, j, i) =
-            advected_mean +
-            advected_amp * sin(2. * M_PI / (x_max_mesh - x_min_mesh) * coords.x1v(i));
+        advected(k, j, i) = advected_mean + advected_amp * sin(kwave * coords.x1v(i));
       });
 
   // Calculate fraction of total tracer particles on this meshblock by integrating the
@@ -404,11 +418,11 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // = advected*volume.
   Real number_meshblock =
       advected_mean * (x_max - x_min) -
-      advected_amp / (2. * M_PI) * (cos(2. * M_PI * x_max) - cos(2. * M_PI * x_min));
+      advected_amp / kwave * (cos(kwave * x_max) - cos(kwave * x_min));
   number_meshblock *= (y_max - y_min) * (z_max - z_min);
   Real number_mesh = advected_mean * (x_max_mesh - x_min_mesh);
-  number_mesh -= advected_amp / (2. * M_PI) *
-                 (cos(2. * M_PI * x_max_mesh) - cos(2. * M_PI * x_min_mesh));
+  number_mesh -=
+      advected_amp / kwave * (cos(kwave * x_max_mesh) - cos(kwave * x_min_mesh));
   number_mesh *= (y_max_mesh - y_min_mesh) * (z_max_mesh - z_min_mesh);
 
   int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
@@ -538,6 +552,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
           tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
 
       auto deposit = tl.AddTask(receive, tracers_example::DepositTracers, pmb.get());
+
+      auto defrag = tl.AddTask(deposit, tracers_example::Defrag, pmb.get());
     }
   }
 
