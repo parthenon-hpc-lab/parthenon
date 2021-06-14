@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,13 +11,16 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-add_subdirectory(stochastic_subgrid)
-add_subdirectory(advection)
-add_subdirectory(calculate_pi)
-add_subdirectory(face_fields)
-add_subdirectory(kokkos_pi)
-add_subdirectory(particles)
-add_subdirectory(particle_leapfrog)
-add_subdirectory(particle_tracers)
-add_subdirectory(poisson)
-add_subdirectory(sparse_advection)
+get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
+if( "sparse_advection-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
+  add_executable(sparse_advection-example
+    sparse_advection_driver.cpp
+    sparse_advection_driver.hpp
+    sparse_advection_package.cpp
+    sparse_advection_package.hpp
+    main.cpp
+    parthenon_app_inputs.cpp
+  )
+  target_link_libraries(sparse_advection-example PRIVATE Parthenon::parthenon)
+  lint_target(sparse_advection-example)
+endif()
