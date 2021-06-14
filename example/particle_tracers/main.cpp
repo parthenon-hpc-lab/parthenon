@@ -21,8 +21,8 @@ int main(int argc, char *argv[]) {
   ParthenonManager pman;
 
   // Redefine parthenon defaults
-  pman.app_input->ProcessPackages = particle_tracers::ProcessPackages;
-  pman.app_input->ProblemGenerator = particle_tracers::ProblemGenerator;
+  pman.app_input->ProcessPackages = tracers_example::ProcessPackages;
+  pman.app_input->ProblemGenerator = tracers_example::ProblemGenerator;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);
@@ -38,8 +38,8 @@ int main(int argc, char *argv[]) {
   // make use of MPI and Kokkos
 
   // Initialize the driver
-  particle_tracers::ParticleDriver driver(pman.pinput.get(), pman.app_input.get(),
-                                          pman.pmesh.get());
+  tracers_example::ParticleDriver driver(pman.pinput.get(), pman.app_input.get(),
+                                         pman.pmesh.get());
 
   // This line actually runs the simulation
   auto driver_status = driver.Execute();
