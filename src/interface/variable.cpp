@@ -93,15 +93,19 @@ CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
 
 template <typename T>
 void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
+  if (is_allocated_) {
+    return;
+  }
+
   AllocateData();
   AllocateFluxesAndBdryVar(wpmb);
 }
 
 template <typename T>
 void CellVariable<T>::AllocateData() {
-  if (is_allocated_) {
-    return;
-  }
+  PARTHENON_REQUIRE_THROWS(
+      !is_allocated_,
+      "Tried to allocate data for variable that's already allocated: " + label());
 
   data =
       ParArrayND<T>(label(), dims_[5], dims_[4], dims_[3], dims_[2], dims_[1], dims_[0]);
