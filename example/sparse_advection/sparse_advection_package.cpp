@@ -22,6 +22,7 @@
 #include <parthenon/package.hpp>
 
 #include "defs.hpp"
+#include "interface/sparse_pool.hpp"
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
 #include "sparse_advection_package.hpp"
@@ -48,27 +49,30 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real derefine_tol = pin->GetOrAddReal("SparseAdvection", "derefine_tol", 0.03);
   pkg->AddParam("derefine_tol", derefine_tol);
 
-  // we have 4 different fields (sparse indices)
-  pkg->AddParam("num_fields", static_cast<int>(4));
   pkg->AddParam("init_size", static_cast<Real>(0.1));
 
   // set starting positions
   Real pos = 0.8;
-  pkg->AddParam("x0", std::vector<Real>{pos, -pos, -pos, pos});
-  pkg->AddParam("y0", std::vector<Real>{pos, pos, -pos, -pos});
+  pkg->AddParam("x0", RealArr_t{pos, -pos, -pos, pos});
+  pkg->AddParam("y0", RealArr_t{pos, pos, -pos, -pos});
 
   // add velocities, field 0 moves in (-1,-1) direction, 1 in (1,-1), 2 in (1, 1), and 3
   // in (-1,1)
   Real speed = pin->GetOrAddReal("SparseAdvection", "speed", 1.0) / sqrt(2.0);
-  pkg->AddParam("vx", std::vector<Real>{-speed, speed, speed, -speed});
-  pkg->AddParam("vy", std::vector<Real>{-speed, -speed, speed, speed});
+  pkg->AddParam("vx", RealArr_t{-speed, speed, speed, -speed});
+  pkg->AddParam("vy", RealArr_t{-speed, -speed, speed, speed});
+  pkg->AddParam("vz", RealArr_t{0.0, 0.0, 0.0, 0.0});
 
   // add sparse field
-  std::vector<int> sparse_pool{0, 1, 2, 3};
   Metadata m(
       {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::Sparse},
       std::vector<int>({1}));
-  pkg->AddSparsePool("sparse", m, sparse_pool);
+  parthenon::SparsePool pool("sparse", m);
+
+  for (int sid = 0; sid < NUM_FIELDS; ++sid) {
+    pool.Add(sid);
+  }
+  pkg->AddSparsePool(pool);
 
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
@@ -80,10 +84,9 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   // refine on advected, for example.  could also be a derived quantity
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("sparse_advection_package");
-  int num_vars = pkg->Param<int>("num_vars");
-  std::vector<std::string> vars = {"advected"};
-  for (int var = 1; var < num_vars; ++var) {
-    vars.push_back("advected_" + std::to_string(var));
+  std::vector<std::string> vars;
+  for (int var = 0; var < NUM_FIELDS; ++var) {
+    vars.push_back("sparse_" + std::to_string(var));
   }
   // type is parthenon::VariablePack<CellVariable<Real>>
   auto v = rc->PackVariables(vars).pack;
@@ -118,9 +121,9 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("sparse_advection_package");
   const auto &cfl = pkg->Param<Real>("cfl");
-  const auto &vx = pkg->Param<Real>("vx");
-  const auto &vy = pkg->Param<Real>("vy");
-  const auto &vz = pkg->Param<Real>("vz");
+  const auto &vx = pkg->Param<RealArr_t>("vx");
+  const auto &vy = pkg->Param<RealArr_t>("vy");
+  const auto &vz = pkg->Param<RealArr_t>("vz");
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -131,14 +134,15 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   // this is obviously overkill for this constant velocity problem
   Real min_dt;
   pmb->par_reduce(
-      "sparse_advection_package::EstimateTimestep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
-        if (vx != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx));
-        if (vy != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X2DIR, k, j, i) / std::abs(vy));
-        if (vz != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X3DIR, k, j, i) / std::abs(vz));
+      "sparse_advection_package::EstimateTimestep", 0, NUM_FIELDS - 1, kb.s, kb.e, jb.s,
+      jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int v, const int k, const int j, const int i, Real &lmin_dt) {
+        if (vx[v] != 0.0)
+          lmin_dt = std::min(lmin_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx[v]));
+        if (vy[v] != 0.0)
+          lmin_dt = std::min(lmin_dt, coords.Dx(X2DIR, k, j, i) / std::abs(vy[v]));
+        if (vz[v] != 0.0)
+          lmin_dt = std::min(lmin_dt, coords.Dx(X3DIR, k, j, i) / std::abs(vz[v]));
       },
       Kokkos::Min<Real>(min_dt));
 
@@ -159,9 +163,9 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   auto pkg = pmb->packages.Get("sparse_advection_package");
-  const auto &vx = pkg->Param<Real>("vx");
-  const auto &vy = pkg->Param<Real>("vy");
-  const auto &vz = pkg->Param<Real>("vz");
+  const auto &vx = pkg->Param<RealArr_t>("vx");
+  const auto &vy = pkg->Param<RealArr_t>("vy");
+  const auto &vz = pkg->Param<RealArr_t>("vz");
 
   auto v =
       rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes}).pack;
@@ -182,13 +186,13 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
         member.team_barrier();
 
         for (int n = 0; n < nvar; n++) {
-          if (vx > 0.0) {
+          if (vx[n] > 0.0) {
             par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              v.flux(X1DIR, n, k, j, i) = ql(n, i) * vx;
+              v.flux(X1DIR, n, k, j, i) = ql(n, i) * vx[n];
             });
           } else {
             par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              v.flux(X1DIR, n, k, j, i) = qr(n, i) * vx;
+              v.flux(X1DIR, n, k, j, i) = qr(n, i) * vx[n];
             });
           }
         }
@@ -214,13 +218,13 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
-            if (vy > 0.0) {
+            if (vy[n] > 0.0) {
               par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X2DIR, n, k, j, i) = ql(n, i) * vy;
+                v.flux(X2DIR, n, k, j, i) = ql(n, i) * vy[n];
               });
             } else {
               par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X2DIR, n, k, j, i) = qr(n, i) * vy;
+                v.flux(X2DIR, n, k, j, i) = qr(n, i) * vy[n];
               });
             }
           }

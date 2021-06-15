@@ -30,6 +30,9 @@ using namespace parthenon;
 // redefine some weakly linked parthenon functions *//
 // *************************************************//
 
+using sparse_advection_package::NUM_FIELDS;
+using sparse_advection_package::RealArr_t;
+
 namespace sparse_advection_example {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
@@ -46,13 +49,16 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const auto r = pkg->Param<Real>("init_size");
   const auto size = r * r;
 
-  for (int i = 0; i < pkg->Param<int>("num_fields"); ++i) {
+  const auto &x0s = pkg->Param<RealArr_t>("x0");
+  const auto &y0s = pkg->Param<RealArr_t>("y0");
+
+  for (int i = 0; i < NUM_FIELDS; ++i) {
     // we initialize sparse id i only on one rank
     if ((i % Globals::nranks) == Globals::my_rank) {
       // allocate the sparse field on the blocks where we get non-zero values
       bool any_nonzero = false;
-      const Real x0 = pkg->Param<std::vector<Real>>("x0")[i];
-      const Real y0 = pkg->Param<std::vector<Real>>("y0")[i];
+      const Real x0 = x0s[i];
+      const Real y0 = y0s[i];
 
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++) {
