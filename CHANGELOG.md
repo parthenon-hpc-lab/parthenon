@@ -35,6 +35,7 @@
 - [[PR 518]](https://github.com/lanl/parthenon/pull/518) Added MPI performance regression tests to CI performance app
 - [[PR 530]](https://github.com/lanl/parthenon/pull/530) Fixed issue with ci plotting the oldest 5 commit metrics for each test, also cleaned up legend formatting.
 - [[PR 536]](https://github.com/lanl/parthenon/pull/536) Updated to latest Kokkos release.
+- [[PR 520]](https://github.com/lanl/parthenon/pull/520) Add black python formatter to github actions
 
 ### Removed (removing behavior/API/varaibles/...)
 - [[PR 498]](https://github.com/lanl/parthenon/pull/498) Cleanup unused user hooks and variables
