@@ -43,13 +43,17 @@ std::string PackStrings(const std::vector<std::string> &strs, char delimiter) {
 }
 
 std::vector<std::string> UnpackStrings(const std::string &pack, char delimiter) {
+  std::vector<std::string> unpack;
+  if (pack.size() == 0) {
+    return unpack;
+  }
+
   if (pack[pack.size() - 1] != delimiter) {
     std::stringstream msg;
     msg << "### ERROR: Pack string does not end with delimiter" << std::endl;
     PARTHENON_FAIL(msg);
   }
 
-  std::vector<std::string> unpack;
   std::stringstream stm(pack);
   std::string token;
 
