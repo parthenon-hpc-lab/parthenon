@@ -1,6 +1,6 @@
 variables:
   OMPI_VER: '3.1.6'
-  CMAKE_VER: '3.13.5'
+  CMAKE_VER: '3.20.3'
   HDF5_VER: '1.10.6'
   UCX_VER: '1.8.1'
 
@@ -13,7 +13,7 @@ before_script:
     - export OMP_NESTED=True
     - export CTEST_OUTPUT_ON_FAILURE=1
     - export J=4 && echo Using ${J} cores during build
-    - export PATH=${PWD}/opt/cmake-${CMAKE_VER}-Linux-x86_64/bin:$PATH
+    - export PATH=${PWD}/opt/cmake-${CMAKE_VER}-linux-x86_64/bin:$PATH
     - export PATH=${PWD}/opt/openmpi-${OMPI_VER}/bin:$PATH
     - export LD_LIBRARY_PATH=${PWD}/opt/openmpi-${OMPI_VER}/lib:$LD_LIBRARY_PATH
     - export LD_LIBRARY_PATH=${PWD}/opt/ucx-${UCX_VER}/lib:$LD_LIBRARY_PATH
@@ -75,9 +75,9 @@ prep-cuda:
       CC=mpicc ./configure --prefix=${CI_PROJECT_DIR}/opt/hdf5-${HDF5_VER}/gcc/parallel --enable-parallel && make -j16 && make install && make clean;
       cd ../..;
       fi
-    - if [ ! -d opt/cmake-${CMAKE_VER}-Linux-x86_64 ]; then
+    - if [ ! -d opt/cmake-${CMAKE_VER}-linux-x86_64 ]; then
       cd opt;
-      wget -qO- http://www.cmake.org/files/v${CMAKE_VER:0:4}/cmake-${CMAKE_VER}-Linux-x86_64.tar.gz | tar -xz;
+      wget -qO- http://www.cmake.org/files/v${CMAKE_VER:0:4}/cmake-${CMAKE_VER}-linux-x86_64.tar.gz | tar -xz;
       cd ..;
       fi
     # create our own python env as the default python3 one is incorrectly linked

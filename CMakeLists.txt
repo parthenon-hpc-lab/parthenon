@@ -11,7 +11,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.16)
 
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
@@ -128,7 +128,8 @@ endif()
 
 set(ENABLE_OPENMP OFF)
 if (NOT PARTHENON_DISABLE_OPENMP)
-  # Using Host OpenMP and Cuda currently does not compile with C++17 standard.
+  # Using Host OpenMP and Cuda with nvcc currently does not compile with C++17 standard.
+  # Also there is no proper support for two separate execution spaces in Parthenon right now.
   # We may need to revisit this logic when OpenMP target for devices will be used in the future.
   if (Kokkos_ENABLE_CUDA)
     message(STATUS "Parthenon is not using Host OpenMP because Cuda is enabled")
@@ -139,7 +140,7 @@ if (NOT PARTHENON_DISABLE_OPENMP)
       "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
     endif()
     set(ENABLE_OPENMP ON)
-    set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP")
+    set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP as execution space.")
   endif()
 endif()
 
@@ -230,12 +231,15 @@ if (ENABLE_COMPILER_WARNINGS)
   add_compile_options(-Wall)
 endif()
 
-# We want Kokkos to be built with C++17, since that's what we're using in
+# We want Kokkos to be built with C++14, since that's what we're using in
 # Parthenon.
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# ensure correct flag is used as deprecated c++1z is not supported by nvcc
-set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++17")
+
+# Ensure correct flag is used as deprecated c++1z is not supported by nvcc.
+# Uncomment the following line when updating to C++17 standard OR check if the
+# correct flag is now properly set automatically.
+#set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++17")
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
     find_package(Kokkos 3)
