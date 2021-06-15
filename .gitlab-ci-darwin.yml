@@ -1,32 +1,162 @@
 variables:
-  SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9 --export=NONE'
+  SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci'
   GIT_SUBMODULE_STRATEGY: recursive
-
+  CMAKE_CXX_COMPILER: ${CI_PROJECT_DIR}/external/Kokkos/bin/nvcc_wrapper
+  CMAKE_BUILD_TYPE: 'Release'
 stages:
+  - performance-application-setup
+  - performance-target
+  - performance-regression-build
   - performance-regression
 
-.gcc-mpi-cuda-performance-regression:
-  variables: 
-    CMAKE_CXX_COMPILER: $CI_PROJECT_DIR/external/Kokkos/bin/nvcc_wrapper
+########################################################################
+# Anchors
+########################################################################
+.print-copy-executable: &print-copy-executable
+- printf 'env -i bash --norc --noprofile %s/scripts/darwin/%s  "%s"
+      "%s" "%s" "%s" "%s" "%s" "%s" "%s" "%s"\n'
+      ${CI_PROJECT_DIR}
+      ${SCRIPT_TO_RUN}
+      ${GITHUB_APP_PEM}
+      ${CI_PROJECT_DIR}
+      ${CI_COMMIT_SHA}
+      ${CI_COMMIT_BRANCH}
+      ${CI_JOB_URL}
+      ${CI_JOB_TOKEN}
+      ${BUILD_TARGET_BRANCH}
+      ${CI_PROJECT_DIR}/../python_scripts
+      ${CMAKE_BUILD_TYPE} > ${EXECUTABLE}
+- cp ${EXECUTABLE} ../
+
+.run-script-with-check: &run-script-with-check
+- env
+- chmod +x $EXECUTABLE
+- |
+  STATUS=$(${CI_PROJECT_DIR}/${EXECUTABLE})
+  echo "PASS_OR_FAIL ${STATUS}"
+  if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
+- git checkout ${CI_COMMIT_BRANCH}
+
+########################################################################
+# Templates
+########################################################################
+.gcc-mpi-cuda-python-performance-application:
+  variables:
+    EXECUTABLE: "execute_python_application.sh"
+    BUILD_TARGET_BRANCH: "OFF"
+    SCRIPT_TO_RUN: "install_python_scripts.sh"
+    GIT_STRATEGY: clone # Prevents problems when rebase is used
   script:
-    - env -i bash --norc --noprofile ./scripts/darwin/build_fast.sh
+    - |
+      if [ -d "{CI_PROJECT_DIR}/../parthenon.wiki" ];
+      then
+        rm -rf "{CI_PROJECT_DIR}/../parthenon.wiki"
+      fi
+    - git fetch --all
+    - *print-copy-executable
+    - *run-script-with-check
+    - git checkout ${CI_COMMIT_BRANCH}
+    - git pull origin ${CI_COMMIT_BRANCH}
 
+.gcc-mpi-cuda-performance-regression-build:
+  variables:
+    EXECUTABLE: "execute_main.sh"
+    BUILD_TARGET_BRANCH: "OFF"
+    SCRIPT_TO_RUN: "build_fast.sh"
+  script:
+    - *print-copy-executable
+    - *run-script-with-check
   artifacts:
-    expire_in: 3 days
     paths:
-      - ${CI_PROJECT_DIR}/build/tst/regression/outputs/advection_performance/performance.png
-      - ${CI_PROJECT_DIR}/build/tst/regression/outputs/advection_performance_mpi/performance.png
+      - ${CI_PROJECT_DIR}
+    expire_in: 1 day
 
-parthenon-power9-gcc-mpi-cuda-perf-manual:
-  extends: .gcc-mpi-cuda-performance-regression
-  stage: performance-regression
+.gcc-mpi-cuda-performance-regression-metrics:
+  variables:
+    EXECUTABLE: "execute_metrics.sh"
+    BUILD_TARGET_BRANCH: "OFF"
+    SCRIPT_TO_RUN: "metrics.sh"
+  script:
+    - *print-copy-executable
+    - *run-script-with-check
+
+.gcc-mpi-cuda-performance-regression-target-branch:
+  variables:
+    EXECUTABLE: "execute_target.sh"
+    BUILD_TARGET_BRANCH: "ON"
+    SCRIPT_TO_RUN: "build_fast.sh"
+  script:
+    - *print-copy-executable
+    - *run-script-with-check
+
+########################################################################
+# Manual Jobs
+########################################################################
+parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-python-performance-application
+  stage: performance-application-setup
+  allow_failure: false
   when: manual
   except:
     - schedules
 
-parthenon-power9-gcc-mpi-cuda-perf-schedule:
-  extends: .gcc-mpi-cuda-performance-regression
+parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-performance-regression-target-branch
+  stage: performance-target
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup]
+  except:
+    - schedules
+
+parthenon-power9-gcc-mpi-cuda-perf-manual-build:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-performance-regression-build
+  stage: performance-regression-build
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch]
+  except:
+    - schedules
+
+parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-performance-regression-metrics
   stage: performance-regression
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-build]
+  except:
+    - schedules
+
+########################################################################
+# Scheduled jobs
+########################################################################
+parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-python-performance-application
+  stage: performance-application-setup
+  only:
+    - schedules
+    - develop
+
+parthenon-power9-gcc-mpi-cuda-perf-schedule-build:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-performance-regression-build
+  stage: performance-regression-build
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup]
+  only:
+    - schedules
+    - develop
+
+parthenon-power9-gcc-mpi-cuda-perf-schedule-metrics:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-performance-regression-metrics
+  stage: performance-regression
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-build]
   only:
     - schedules
     - develop

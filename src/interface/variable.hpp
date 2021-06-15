@@ -38,6 +38,7 @@
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -48,20 +49,25 @@ class CellVariable {
  public:
   /// Initialize a 6D variable
   CellVariable<T>(const std::string &label, const std::array<int, 6> dims,
-                  const Metadata &metadata)
+                  const Metadata &metadata, int sparse_id = -1)
       : data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
-        mpiStatus(false), m_(metadata), label_(label) {
+        mpiStatus(false), m_(metadata),
+        label_(label + (sparse_id >= 0 ? "_" + std::to_string(sparse_id) : "")),
+        sparse_id_(sparse_id) {
+    PARTHENON_REQUIRE_THROWS(
+        m_.IsSet(Metadata::Real),
+        "Only Real data type is currently supported for CellVariable");
     if (m_.getAssociated() == "") {
       m_.Associate(label);
     }
   }
 
   // make a new CellVariable based on an existing one
-  std::shared_ptr<CellVariable<T>> AllocateCopy(const bool allocComms = false,
-                                                std::weak_ptr<MeshBlock> wpmb = {});
+  std::shared_ptr<CellVariable<T>>
+  AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
+               std::weak_ptr<MeshBlock> wpmb = {});
 
   // accessors
-
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
     return data(std::forward<Args>(args)...);
@@ -71,23 +77,29 @@ class CellVariable {
   auto GetDim(const int i) const { return data.GetDim(i); }
 
   ///< retrieve label for variable
-  const std::string label() const { return label_; }
+  inline const std::string label() const { return label_; }
 
   ///< retrieve metadata for variable
-  Metadata metadata() const { return m_; }
+  inline Metadata metadata() const { return m_; }
 
-  std::string getAssociated() { return m_.getAssociated(); }
+  /// Get Sparse ID (-1 if not sparse)
+  inline int GetSparseID() const { return sparse_id_; }
+
+  inline bool IsSparse() const { return sparse_id_ >= 0; }
+
+  inline std::string getAssociated() { return m_.getAssociated(); }
 
   /// return information string
   std::string info();
 
-  /// allocate communication space based on info in MeshBlock
-  void allocateComms(std::weak_ptr<MeshBlock> wpmb);
+  /// allocate fluxes (if Metadata::WithFluxes is set) and boundary variable if
+  /// (Metadata::FillGhost is set)
+  void AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb);
 
   /// Repoint vbvar's var_cc array at the current variable
-  void resetBoundary() { vbvar->var_cc = data; }
+  inline void resetBoundary() { vbvar->var_cc = data; }
 
-  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+  inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   ParArrayND<T> data;
   ParArrayND<T> flux[4];  // used for boundary calculation
@@ -99,6 +111,8 @@ class CellVariable {
  private:
   Metadata m_;
   std::string label_;
+  ParArray7D<T> flux_data_; // unified par array for the fluxes
+  int sparse_id_;
 };
 
 ///
@@ -127,10 +141,10 @@ class FaceVariable {
   // KOKKOS_FUNCTION ~FaceVariable() = default;
 
   ///< retrieve label for variable
-  const std::string &label() const { return label_; }
+  inline const std::string &label() const { return label_; }
 
   ///< retrieve metadata for variable
-  const Metadata metadata() const { return m_; }
+  inline const Metadata metadata() const { return m_; }
 
   /// return information string
   std::string info();
@@ -156,7 +170,7 @@ class FaceVariable {
       return data.x3f(std::forward<Args>(args)...);
   }
 
-  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+  inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   FaceArray<T> data;
 
@@ -187,11 +201,11 @@ class EdgeVariable {
   EdgeVariable(const std::string &label, EdgeVariable<T> &src)
       : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
   ///< retrieve metadata for variable
-  const Metadata metadata() const { return m_; }
+  inline const Metadata metadata() const { return m_; }
 
-  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+  inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
   ///< retrieve label for variable
-  std::string label() { return label_; }
+  inline std::string label() { return label_; }
 
   /// return information string
   std::string info();
@@ -220,12 +234,12 @@ class ParticleVariable {
   }
 
   ///< retrieve metadata for variable
-  const Metadata metadata() const { return m_; }
+  inline const Metadata metadata() const { return m_; }
 
-  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+  inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   ///< retrieve label for variable
-  const std::string label() const { return label_; }
+  inline const std::string label() const { return label_; }
 
   /// return information string
   std::string info() const;

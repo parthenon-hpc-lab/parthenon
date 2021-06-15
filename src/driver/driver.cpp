@@ -26,6 +26,10 @@
 #include "utils/utils.hpp"
 
 namespace parthenon {
+// Declare class static variables
+Kokkos::Timer Driver::timer_main;
+Kokkos::Timer Driver::timer_cycle;
+Kokkos::Timer Driver::timer_LBandAMR;
 
 void Driver::PreExecute() {
   if (Globals::my_rank == 0) {
@@ -178,11 +182,12 @@ void EvolutionDriver::OutputCycleDiagnostics() {
           static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
       const auto time_cycle_all = timer_cycle.seconds();
       const auto time_cycle_step = time_cycle_all - time_LBandAMR;
+      const auto wtime = timer_main.seconds();
       std::cout << "cycle=" << tm.ncycle << std::scientific
                 << std::setprecision(dt_precision) << " time=" << tm.time
                 << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec_step="
                 << static_cast<double>(zonecycles) / time_cycle_step
-                << " wsec_step=" << time_cycle_step;
+                << " wsec_total=" << wtime << " wsec_step=" << time_cycle_step;
 
       // In principle load balancing based on a cost list can happens for non-AMR runs.
       // TODO(future me) fix this when this becomes important.

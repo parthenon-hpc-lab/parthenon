@@ -66,89 +66,116 @@ def addPath():
     #sys.path.insert(0,myPath+'/../vis/python')
     #sys.path.insert(0,myPath+'/vis/python')
 
-def compare_metadata( f0, f1, tol=1.0e-12):
+def ensure_list(x):
+    return x if isinstance(x, np.ndarray) else [x]
+
+def compare_attributes(dict0, dict1):
+    keys0 = set(dict0.keys())
+    keys1 = set(dict1.keys())
+    union = keys0.union(keys1)
+    intersect = keys0.intersection(keys1)
+
+    # keys that only show up in one set
+    diff_keys = list(keys0.symmetric_difference(keys1))
+
+    # now compare values of keys that are in both sets
+    for k in intersect:
+        a = np.array(ensure_list(dict0[k]))
+        b = np.array(ensure_list(dict1[k]))
+
+        if len(a) != len(b):
+            diff_keys.append(k)
+
+        if len(a) == len(b):
+            if np.any(a != b):
+                diff_keys.append(k)
+
+    return diff_keys
+
+
+# return true if differences found
+def compare_attribute_group(f0, f1, name):
+    got_diffs = False
+
+    group0 = dict(f0.fid[name].attrs) if name in f0.fid else None
+    group1 = dict(f1.fid[name].attrs) if name in f1.fid else None
+
+    if (group0 is None) and (group1 is None):
+      print('  %20s: no diffs (neither file has %s)'% (name, name))
+    elif (group0 is None) or (group1 is None):
+      # one file has group and the other doesn't
+      print('First file %s %s, but second file %s %s' %
+            ('does NOT have' if group0 is None else 'HAS', name,
+             'does NOT have' if group1 is None else 'HAS', name))
+      got_diffs = True
+    else:
+      if sorted(group0.keys()) != sorted(group1.keys()):
+          print("\nNames of attributes in '%s' of differ" % name)
+          got_diffs = True
+
+      #Check that the values of attributes differ
+      diffs = compare_attributes(group0, group1)
+
+      if len(diffs) > 0:
+          print("\nValues of attributes in '%s' differ\n" % name)
+          print("Differing attributes: ", diffs)
+          got_diffs = True
+      else:
+          print('  %20s: no diffs' % name)
+
+
+def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
     """ compares metadata of two hdf files f0 and f1. Returns 0 if the files are equivalent.
 
         Error codes:
             10 : Times in hdf files differ
             11 : Attribute names in Info of hdf files differ
             12 : Values of attributes in Info of hdf files differ
-            13 : Attribute names in Params of hdf files differ
-            14 : Values of attributes in Params of hdf files differ
+            13 : Attribute names or values in Input of hdf files differ
+            14 : Attribute names or values in Params of hdf files differ
             15 : Meta variables (Locations, VolumeLocations, LogicalLocations, Levels) differ
     """
     ERROR_TIME_DIFF=10
     ERROR_INFO_ATTRS_DIFF=11
     ERROR_INFO_VALUES_DIFF=12
-    ERROR_PARAMS_ATTR_DIFF=13
-    ERROR_PARAMS_VALUES_DIFF=14
+    ERROR_INPUT_DIFF=13
+    ERROR_PARAMS_DIFF=14
     ERROR_META_VARS_DIFF=15
 
+    ret_code = 0
 
     #Compare the time in both files
     errTime = np.abs(f0.Time- f1.Time)
     if errTime > tol:
-        print(f"""
-        Time of outputs differ by {f0.Time - f1.Time}
-
-        Quitting...
-        """)
-        return(ERROR_TIME_DIFF)
+        print(f"Time of outputs differ by {f0.Time - f1.Time}")
+        ret_code = ERROR_TIME_DIFF
+        if one: return ret_code
 
     #Compare the names of attributes in /Info, except "Time"
-    f0_Info = { key:value for key,value in f0.Info.items() if key != "Time" and key != "BlocksPerPE" }
-    f1_Info = { key:value for key,value in f1.Info.items() if key != "Time" and key != "BlocksPerPE" }
+    f0_Info = { key:value for key,value in f0.Info.items() if key != "Time" and key != "BlocksPerPE" and key != "WallTime" }
+    f1_Info = { key:value for key,value in f1.Info.items() if key != "Time" and key != "BlocksPerPE" and key != "WallTime" }
     if sorted(f0_Info.keys()) != sorted(f1_Info.keys()):
-        print("""
-        Names of attributes in '/Info' of differ
-
-        Quitting...
-        """)
-        return(ERROR_INFO_ATTRS_DIFF)
+        print("Names of attributes in '/Info' of differ")
+        ret_code = ERROR_INFO_ATTRS_DIFF
+        if one: return ret_code
 
     #Compare the values of attributes in /Info
-    info_diffs = list( key for key in f0_Info.keys() if np.any(f0_Info[key] != f1_Info[key]))
+    info_diffs = compare_attributes(f0_Info, f1_Info)
     if len(info_diffs) > 0:
         print("\nValues of attributes in '/Info' differ\n")
         print("Differing attributes: ", info_diffs )
-        print("\nQuitting...\n")
-        return(ERROR_INFO_VALUES_DIFF)
+        ret_code = ERROR_INFO_VALUES_DIFF
+        if one: return ret_code
     else:
         print('  %20s: no diffs'%"Info")
 
-    f0_Params = f0.Params
-    f1_Params = f1.Params
-    #Comparing all params at once might work except for float point Params
-    if sorted(f0_Params.keys()) != sorted(f1_Params.keys()):
-        print("""
-        Names of attributes in '/Params' of differ
+    if compare_attribute_group(f0, f1, 'Input'):
+      ret_code = ERROR_INPUT_DIFF
+      if one: return ret_code
 
-        Quitting...
-        """)
-        return(ERROR_PARAMS_ATTRS_DIFF)
-
-    #Check that the values of non-floats in Params match
-    params_nonfloats_diffs = list(key for key in f0_Params.keys()
-            if not isinstance(f0_Params[key], float) and f0_Params[key] != f1_Params[key] )
-
-
-    #Check that the values of floats Params match
-    params_floats_diffs = list(key for key in f0_Params.keys()
-            if isinstance(f0_Params[key], float) and np.abs(f0_Params[key] - f1_Params[key]) > tol )
-
-    if len(params_nonfloats_diffs) > 0 or len(params_floats_diffs) > 0:
-        if len(params_nonfloats_diffs) > 0:
-            print("\nValues of non-float attributes in '/Params' differ\n")
-            print("Differing attributes: ",params_nonfloats_diffs  )
-            print("\nQuitting...\n")
-        elif len(params_floats_diffs) > 0:
-            print("\nValues of float attributes in '/Params' differ\n")
-            for key in params_floats_diffs:
-                print(f"Param {key} differs by {f0_Params[key] - f1_Params[key]} ")
-            print("\nQuitting...\n")
-        return(ERROR_PARAMS_VALUES_DIFF)
-    else:
-        print('  %20s: no diffs'%"Params")
+    if compare_attribute_group(f0, f1, 'Params'):
+      ret_code = ERROR_PARAMS_DIFF
+      if one: return ret_code
 
     # Now go through all variables in first file
     # and hunt for them in second file.
@@ -160,8 +187,19 @@ def compare_metadata( f0, f1, tol=1.0e-12):
     otherBlockIdx = list(f0.findBlockIdxInOther(f1,i) for i in range(f0.NumBlocks))
 
     for var in set(f0.Variables+f1.Variables):
-        if var in ['Locations', 'VolumeLocations']:
+        if (var not in f0.Variables) or (var not in f1.Variables):
+          # we know it has to be in at least one of them
+          print("Variable '%s' %s the first file, but %s in the second file" %
+              (var, "IS" if var in f0.Variables else "is NOT", "IS" if var in f1.Variables else "is NOT"))
+          ret_code = ERROR_META_VARS_DIFF
+          if one: return ret_code
+          continue
+
+        if var in ['Blocks', 'Locations', 'VolumeLocations']:
             for key in f0.fid[var].keys():
+                if (var == 'Blocks' and key == 'loc.level-gid-lid-cnghost-gflag'):
+                    continue # depends on number of MPI ranks and distribution of blocks among ranks
+
                 #Compare raw data of these variables
                 val0 = f0.fid[var][key]
                 val1 = f1.fid[var][key]
@@ -197,8 +235,11 @@ def compare_metadata( f0, f1, tol=1.0e-12):
                 print('  %20s: no diffs'%var)
 
     if not no_meta_variables_diff:
-        return(ERROR_META_VARS_DIFF)
-    return(0)
+        ret_code = ERROR_META_VARS_DIFF
+        if one: return ret_code
+
+    return ret_code
+
 
 def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, check_metadata=True):
     """ compares two hdf files. Returns 0 if the files are equivalent.
@@ -213,8 +254,8 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
             10 : Times in hdf files differ
             11 : Attribute names in Info of hdf files differ
             12 : Values of attributes in Info of hdf files differ
-            13 : Attribute names in Params of hdf files differ
-            14 : Values of attributes in Params of hdf files differ
+            13 : Attribute names or values in Input of hdf files differ
+            14 : Attribute names or values in Params of hdf files differ
             15 : Meta variables (Locations, VolumeLocations, LogicalLocations, Levels) differ
     """
 
@@ -267,11 +308,17 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
         """)
         return(ERROR_CELLS_DIFFER)
 
+    no_diffs = True
     if check_metadata:
         if not quiet: print("Checking metadata")
-        metadata_status = compare_metadata(f0,f1)
-        if( metadata_status != 0):
-            return metadata_status
+        metadata_status = compare_metadata(f0,f1,quiet,one)
+        if (metadata_status != 0):
+            if one:
+                return metadata_status
+            else:
+                no_diffs = False
+        else:
+            if not quiet: print("Metadata matches")
     else:
         if not quiet: print("Ignoring metadata")
 
@@ -280,7 +327,7 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
     #
     # Note that indices don't match when blocks
     # are different
-    no_diffs = True
+
 
     if not brief and not quiet:
         print('____Comparing on a per variable basis with tolerance %.16g'%tol)
@@ -302,7 +349,8 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
     if not quiet: print(f0.TotalCells,'cells mapped')
 
     for var in set(f0.Variables+f1.Variables):
-        if var in ['Locations', 'VolumeLocations', 'LogicalLocations', 'Levels', 'Info', 'Params']:
+        if var in ['Locations', 'VolumeLocations', 'LogicalLocations', 'Levels', 'Info',
+                   'Params', 'SparseInfo', 'Input', 'Blocks']:
             continue
 
         #initialize info values
@@ -369,7 +417,7 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
 
         if one and not same:
             break
-    
+
     if no_diffs:
       return(0)
     else:

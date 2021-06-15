@@ -62,8 +62,7 @@ if (DARWIN_ARCH STREQUAL "x86_64")
 
     set(DARWIN_CUDA_DEFAULT OFF)
 elseif (DARWIN_ARCH STREQUAL "ppc64le")
-    set(DARWIN_VIEW_DATE_LATEST "2021-02-08")
-
+    set(DARWIN_VIEW_DATE_LATEST "2021-04-08")
     set(DARWIN_GCC_PREFERRED "GCC9")
     set(DARWIN_COMPILER_PREFERRED "GCC")
 
@@ -277,3 +276,7 @@ endif()
 set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 2 MPI ranks")
 set(NUM_GPU_DEVICES_PER_NODE ${NUM_RANKS} CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
 set(NUM_OMP_THREADS_PER_RANK 1 CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
+
+string(TOLOWER ${DARWIN_GCC_PREFERRED} COMPILER_LOWER)
+# Create target that will print appropriate spack env to use with parthenon metrics app
+set(ENV{DARWIN_SPACK_ENV} "darwin-${DARWIN_ARCH}-${COMPILER_LOWER}-${DARWIN_VIEW_DATE_LATEST}")

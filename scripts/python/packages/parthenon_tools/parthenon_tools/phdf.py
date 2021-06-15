@@ -18,7 +18,7 @@ import numpy as np
 class phdf:
     """A reader for the new HDF5 output.  Reads in a hdf5 file which
     is the only argument to the constructor.
-    
+
     Class Attributes:
             Filename: Name of file that was read
                 Time: Simulation time
@@ -46,7 +46,7 @@ class phdf:
             is not found in the file or the data if found.
 
             If variable is a vector, each element of the returned
-            numpy array is a vector of that length.  
+            numpy array is a vector of that length.
 
             Default is to return a flat array of length TotalCells.
             However if flatten is set to False, a 4D (or 5D if vector)
@@ -108,8 +108,11 @@ class phdf:
             self.CellsPerBlock = np.prod(self.MeshBlockSize)
             self.TotalCells = self.NumBlocks * self.CellsPerBlock
 
-            #Read in Params
-            self.Params = dict(f["Params"].attrs)
+            #Read in Params (older output files don't have this, so make it optional)
+            if "Params" in f:
+              self.Params = dict(f["Params"].attrs)
+            else:
+              self.Params = None
 
             # Read in coordinates
             def load_coord(coord_i):
@@ -136,7 +139,7 @@ class phdf:
             for i in range(3):
                 if self.MeshBlockSize[i] > 1:
                     self.offset[i] = self.NGhost * self.IncludesGhost
-                    
+
             # fill in self.BlockBounds
             self.BlockBounds = [None]*self.NumBlocks
             xo = self.NGhost*self.IncludesGhost
@@ -152,9 +155,9 @@ class phdf:
                     tmpy[ib,iOffsets[2]]-eps, tmpy[ib,iOffsets[3]]+eps,
                     tmpz[ib,iOffsets[4]]-eps, tmpz[ib,iOffsets[5]]+eps
                     ]
-            #Save info 
+            #Save info
             self.Info = dict(f["/Info"].attrs)
-                    
+
             # generate self.offset, isGhost and BlockIdx arrays
             self.GenAuxData()
 
@@ -219,7 +222,7 @@ class phdf:
         [iz, iy, ix] = self.BlockIdx[bidx]
         return [ib,bidx,iz,iy,ix]
 
-#    def isPointInBlock(self, 
+#    def isPointInBlock(self,
     def findIndexInOther(self,other,idx,tol=1e-10,verbose=0):
         """
         Given an index in my data, find the index in a different file.
@@ -232,7 +235,7 @@ class phdf:
         nx=int(other.MeshBlockSize[0])
         ny=int(other.MeshBlockSize[1])
         nz=int(other.MeshBlockSize[2])
-        
+
         (myX, myY, myZ) = (self.x[ib,ix], self.y[ib,iy], self.z[ib,iz])
 
         # now hunt in other file
@@ -250,7 +253,7 @@ class phdf:
                 deltas[1] =  other.y[ib1][1]-other.y[ib1][0]
             if other.MeshBlockSize[2] > 1:
                 deltas[2] = other.z[ib1][1]-other.z[ib1][0]
-                
+
             ix1 = int(round((myX-other.x[ib1][other.offset[0]])/deltas[0])) + other.offset[0]
             if self.NumDims > 1:
                 iy1 = int(round((myY-other.y[ib1][other.offset[1]])/deltas[1])) + other.offset[1]
@@ -268,10 +271,10 @@ class phdf:
                 abs(myZ - otherZ)>tol):
                 print('skipping:',ib1,[ix1,iy1,iz1],[otherX,otherY,otherX])
                 continue
-            
+
             iCell1 = ix1 + other.MeshBlockSize[0]*(iy1 + iz1*other.MeshBlockSize[1])
             idx1 = ib1*other.CellsPerBlock + iCell1
-            return [idx1, ib1, iCell1, iz1, iy1, ix1] 
+            return [idx1, ib1, iCell1, iz1, iy1, ix1]
 
         if verbose:
             print('ox=')
@@ -317,9 +320,9 @@ class phdf:
     def Get(self, variable, flatten=True):
         """
         Reads data for the named variable from file.
-        
+
         Returns None if variable is not found in the file or the data
-        if found. 
+        if found.
 
         If variable is a vector, each element of the returned numpy
         array is a vector of that length.
@@ -344,7 +347,7 @@ class phdf:
                                 self.MeshBlockSize[1],
                                 self.MeshBlockSize[0])
                     self.varData[variable] = tmp.reshape((newShape))
-                    
+
         except:
             print("""
             ERROR: Unable to read %s from file %s
@@ -357,9 +360,9 @@ class phdf:
                 return self.varData[variable][:].reshape(self.TotalCells,vShape[-1])
             else:
                 return self.varData[variable][:].reshape(self.TotalCells)
-            
+
         return self.varData[variable][:]
-        
+
     def __str__(self):
         return """
 -------------------------------------------
@@ -398,7 +401,7 @@ class phdf:
            ) + str([k for k in self.Variables]) + """
 --------------------------------------------
 """
-            
+
 if __name__ == "__main__":
     files = sys.argv[1:]
     for filename in files:

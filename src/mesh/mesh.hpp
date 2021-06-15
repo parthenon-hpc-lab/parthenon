@@ -38,7 +38,6 @@
 #include "domain.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/mesh_data.hpp"
-#include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -73,10 +72,10 @@ class Mesh {
 
  public:
   // 2x function overloads of ctor: normal and restarted simulation
-  Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properties,
-       Packages_t &packages, int test_flag = 0);
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+       int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
-       Properties_t &properties, Packages_t &packages, int test_flag = 0);
+       Packages_t &packages, int test_flag = 0);
   ~Mesh();
 
   // accessors
@@ -102,13 +101,12 @@ class Mesh {
   int gflag;
 
   BlockList_t block_list;
-  Properties_t properties;
   Packages_t packages;
 
   DataCollection<MeshData<Real>> mesh_data;
 
   // functions
-  void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
+  void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void OutputCycleDiagnostics();
@@ -215,9 +213,6 @@ class Mesh {
 
   // functions
   MeshGenFunc MeshGenerator_[4];
-  AMRFlagFunc AMRFlag_;
-  SrcTermFunc UserSourceTerm_;
-  TimeStepFunc UserTimeStep_;
 
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
@@ -252,10 +247,7 @@ class Mesh {
   std::function<void(ParameterInput *)> InitUserMeshData = InitUserMeshDataDefault;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
-  void EnrollUserRefinementCondition(AMRFlagFunc amrflag);
   void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
-  void EnrollUserExplicitSourceFunction(SrcTermFunc my_func);
-  void EnrollUserTimeStepFunction(TimeStepFunc my_func);
 };
 
 //----------------------------------------------------------------------------------------

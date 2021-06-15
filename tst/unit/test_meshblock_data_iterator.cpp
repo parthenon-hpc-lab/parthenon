@@ -70,18 +70,24 @@ TEST_CASE("Can pull variables from containers based on Metadata",
           "[MeshBlockDataIterator]") {
   GIVEN("A Container with a set of variables initialized to zero") {
     MeshBlockData<Real> rc;
-    Metadata m_in({Metadata::Independent, Metadata::FillGhost});
-    Metadata m_in_vector({Metadata::Independent, Metadata::FillGhost, Metadata::Vector});
-    Metadata m_out;
-    std::vector<int> scalar_block_size{16, 16, 16};
-    std::vector<int> vector_block_size{16, 16, 16, 3};
+    std::vector<int> scalar_shape{16, 16, 16};
+    std::vector<int> vector_shape{16, 16, 16, 3};
+
+    Metadata m_in({Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost},
+                  scalar_shape);
+    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes,
+                          Metadata::FillGhost, Metadata::Vector},
+                         vector_shape);
+    Metadata m_out({Metadata::Derived}, scalar_shape);
+    Metadata m_out_vector({Metadata::Derived}, vector_shape);
+
     // Make some variables
-    rc.Add("v1", m_in, scalar_block_size);
-    rc.Add("v2", m_out, scalar_block_size);
-    rc.Add("v3", m_in_vector, vector_block_size);
-    rc.Add("v4", m_out, vector_block_size);
-    rc.Add("v5", m_in, scalar_block_size);
-    rc.Add("v6", m_out, scalar_block_size);
+    rc.Add("v1", m_in);
+    rc.Add("v2", m_out);
+    rc.Add("v3", m_in_vector);
+    rc.Add("v4", m_out_vector);
+    rc.Add("v5", m_in);
+    rc.Add("v6", m_out);
 
     WHEN("We extract a subcontainer") {
       auto subcontainer = MeshBlockData<Real>(rc, {"v1", "v3", "v5"});
@@ -249,7 +255,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we set fluxes of independent variables") {
-      auto vf = rc.PackVariablesAndFluxes({Metadata::Independent, Metadata::FillGhost});
+      auto vf = rc.PackVariablesAndFluxes(
+          {Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost});
       par_for(
           DEFAULT_LOOP_PATTERN, "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0,
           vf.GetDim(3) - 1, 0, vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,
@@ -286,12 +293,12 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we add sparse fields") {
       Metadata m_sparse;
-      m_sparse = Metadata({Metadata::Sparse}, 1);
-      rc.Add("vsparse", m_sparse, scalar_block_size);
-      m_sparse = Metadata({Metadata::Sparse}, 13);
-      rc.Add("vsparse", m_sparse, scalar_block_size);
-      m_sparse = Metadata({Metadata::Sparse}, 42);
-      rc.Add("vsparse", m_sparse, scalar_block_size);
+      m_sparse = Metadata({Metadata::Derived, Metadata::Sparse}, scalar_shape, 1);
+      rc.Add("vsparse", m_sparse);
+      m_sparse = Metadata({Metadata::Derived, Metadata::Sparse}, 13);
+      rc.Add("vsparse", m_sparse);
+      m_sparse = Metadata({Metadata::Derived, Metadata::Sparse}, 42);
+      rc.Add("vsparse", m_sparse);
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
         auto v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
@@ -358,8 +365,10 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we add a 2d variable") {
-      std::vector<int> twod_block_size{16, 16, 1};
-      rc.Add("v2d", m_in, twod_block_size);
+      std::vector<int> shape_2D{16, 16, 1};
+      Metadata m_in_2D({Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost},
+                       shape_2D);
+      rc.Add("v2d", m_in_2D);
       auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
       THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
     }
@@ -383,10 +392,10 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
     auto c_cellbounds = IndexShape(nside / 2, nside / 2, nside / 2, nghost);
 
     MeshBlockData<Real> rc;
-    Metadata m({Metadata::Independent});
     std::vector<int> block_size{nside + 2 * nghost, nside + 2 * nghost,
                                 nside + 2 * nghost};
-    rc.Add("var", m, block_size);
+    Metadata m({Metadata::Independent, Metadata::WithFluxes}, block_size);
+    rc.Add("var", m);
     auto &var = rc.Get("var");
 
     auto coarse_s =

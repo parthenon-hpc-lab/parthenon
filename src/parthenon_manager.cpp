@@ -21,10 +21,10 @@
 
 #include "driver/driver.hpp"
 #include "globals.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
-#include "outputs/parthenon_hdf5.hpp"
 #include "refinement/refinement.hpp"
 
 namespace parthenon {
@@ -103,7 +103,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
     // Load input stream
     pinput = std::make_unique<ParameterInput>();
-    std::string inputString = restartReader->ReadAttrString("Input", "File");
+    auto inputString = restartReader->GetAttr<std::string>("Input", "File");
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
   }
@@ -118,28 +118,23 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
 void ParthenonManager::ParthenonInitPackagesAndMesh() {
   // Allow for user overrides to default Parthenon functions
-  if (app_input->ProcessProperties != nullptr) {
-    ProcessProperties = app_input->ProcessProperties;
-  }
   if (app_input->ProcessPackages != nullptr) {
     ProcessPackages = app_input->ProcessPackages;
   }
 
-  // read in/set up application specific properties
-  auto properties = ProcessProperties(pinput);
   // set up all the packages in the application
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
 
   if (arg.res_flag == 0) {
-    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), properties, packages,
-                                   arg.mesh_flag);
+    pmesh =
+        std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, arg.mesh_flag);
   } else {
     // Open restart file
     // Read Mesh from restart file and create meshblocks
-    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
-                                   properties, packages);
+    pmesh =
+        std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages);
 
     // Read simulation time and cycle from restart file and set in input
     Real tNow = restartReader->GetAttr<Real>("Info", "Time");
@@ -148,11 +143,15 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     Real dt = restartReader->GetAttr<Real>("Info", "dt");
     pinput->SetPrecise("parthenon/time", "dt", dt);
 
-    int ncycle = restartReader->GetAttr<int32_t>("Info", "NCycle");
+    int ncycle = restartReader->GetAttr<int>("Info", "NCycle");
     pinput->SetInteger("parthenon/time", "ncycle", ncycle);
 
     // Read package data from restart file
     RestartPackages(*pmesh, *restartReader);
+
+    // close hdf5 file to prevent HDF5 hangs and corrupted files
+    // if code dies after restart
+    restartReader = nullptr;
   }
 
   // add root_level to all max_level
@@ -162,28 +161,18 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     }
   }
 
-  pmesh->Initialize(Restart(), pinput.get(), app_input.get());
+  pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
-  // close restart file before finalizing MPI
-  this->restartReader = nullptr;
   pmesh.reset();
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
   MPI_Finalize();
 #endif
   return ParthenonStatus::complete;
-}
-
-Properties_t
-ParthenonManager::ProcessPropertiesDefault(std::unique_ptr<ParameterInput> &pin) {
-  // In practice, this function should almost always be replaced by a version
-  // that sets relevant things for the application.
-  Properties_t props;
-  return props;
 }
 
 Packages_t
@@ -222,6 +211,10 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   size_t nCells = bsize[0] * bsize[1] * bsize[2];
 
   // Get list of variables, assumed same for all blocks
+
+  // TODO(JL) this won't work when reading true sparse variables, will be updated in PR
+  // #383
+
   auto ciX = MeshBlockDataIterator<Real>(
       mb.meshblock_data.Get(),
       {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
@@ -255,8 +248,18 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       for (auto &v : cX.vars) {
         if (vName.compare(v->label()) == 0) {
           auto v_h = v->data.GetHostMirror();
-          UNLOADVARIABLEONE(index, tmp, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
-                            out_kb.s, out_kb.e, v4);
+
+          // Note index l transposed to interior
+          for (int k = out_kb.s; k <= out_kb.e; ++k) {
+            for (int j = out_jb.s; j <= out_jb.e; ++j) {
+              for (int i = out_ib.s; i <= out_ib.e; ++i) {
+                for (int l = 0; l < v_h.GetDim(4); ++l) {
+                  v_h(l, k, j, i) = tmp[index++];
+                }
+              }
+            }
+          }
+
           v->data.DeepCopy(v_h);
           found = true;
           break;
@@ -270,4 +273,5 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
   }
 }
+
 } // namespace parthenon
