@@ -19,6 +19,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -61,9 +63,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real cfl = pin->GetOrAddReal("Particles", "cfl", 0.3);
   pkg->AddParam<>("cfl", cfl);
 
-  auto write_particle_log =
-      pin->GetOrAddBoolean("Particles", "write_particle_log", false);
-  pkg->AddParam<>("write_particle_log", write_particle_log);
+  auto write_particle_log_nth_cycle =
+      pin->GetOrAddInteger("Particles", "write_particle_log_nth_cycle", 0);
+  pkg->AddParam<>("write_particle_log_nth_cycle", write_particle_log_nth_cycle);
 
   std::string swarm_name = "my particles";
   Metadata swarm_metadata({Metadata::Provides});
@@ -117,42 +119,129 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 
 } // namespace Particles
 
-// *************************************************//
-// define the application driver. in this case,    *//
-// that just means defining the MakeTaskList       *//
-// function.                                       *//
-// *************************************************//
-
-TaskStatus WriteParticleLog(MeshBlock *pmb) {
-  auto pkg = pmb->packages.Get("particles_package");
-
-  const auto write_particle_log = pkg->Param<bool>("write_particle_log");
-  if (!write_particle_log) {
+// Simple log function to ease regression tests and debugging until there's a proper
+// particles output method. Do NOT use in practice.
+TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
+  auto pkg = blocks[0]->packages.Get("particles_package");
+  const auto write_particle_log_nth_cycle =
+      pkg->Param<int>("write_particle_log_nth_cycle");
+  if ((write_particle_log_nth_cycle < 1) ||
+      (ncycle % write_particle_log_nth_cycle != 0)) {
     return TaskStatus::complete;
   }
 
-  auto swarm = pmb->swarm_data.Get()->Get("my particles");
+  // Step 1: Gather number of particles on this rank
+  int num_particles_this_rank = 0;
 
-  const auto &id = swarm->Get<int>("id").Get().GetHostMirrorAndCopy();
-  const auto &x = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
-  const auto &y = swarm->Get<Real>("y").Get().GetHostMirrorAndCopy();
-  const auto &z = swarm->Get<Real>("z").Get().GetHostMirrorAndCopy();
-  const auto &vx = swarm->Get<Real>("vx").Get().GetHostMirrorAndCopy();
-  const auto &vy = swarm->Get<Real>("vy").Get().GetHostMirrorAndCopy();
-  const auto &vz = swarm->Get<Real>("vz").Get().GetHostMirrorAndCopy();
+  for (int i = 0; i < blocks.size(); i++) {
+    auto &pmb = blocks[i];
 
-  const auto &is_active = swarm->GetMask().Get().GetHostMirrorAndCopy();
-  std::stringstream buffer;
-  for (auto n = 0; n < x.GetSize(); n++) {
-    if (!is_active(n)) {
-      continue;
+    auto swarm = pmb->swarm_data.Get()->Get("my particles");
+    const auto &is_active = swarm->GetMask().Get().GetHostMirrorAndCopy();
+    for (auto n = 0; n < is_active.GetSize(); n++) {
+      if (is_active(n)) {
+        num_particles_this_rank += 1;
+      }
     }
-    buffer << Globals::my_rank << " , " << pmb->gid << " , " << id(n) << " , " << x(n)
-           << " , " << y(n) << " , " << z(n) << " , " << vx(n) << " , " << vy(n) << " , "
-           << vz(n) << std::endl;
   }
 
-  std::cout << buffer.str();
+  // Step 2a: Gather actual data locally
+  constexpr int num_fields = 8; // block->gid, id, x, y, z, vx, vy, vz
+  Kokkos::View<Real *, LayoutWrapper, HostMemSpace> particle_output_this_rank(
+      "particle_output_this_rank", num_fields * num_particles_this_rank);
+
+  int offset = 0;
+  for (int i = 0; i < blocks.size(); i++) {
+    auto &pmb = blocks[i];
+    auto swarm = pmb->swarm_data.Get()->Get("my particles");
+
+    const auto &id = swarm->Get<int>("id").Get().GetHostMirrorAndCopy();
+    const auto &x = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
+    const auto &y = swarm->Get<Real>("y").Get().GetHostMirrorAndCopy();
+    const auto &z = swarm->Get<Real>("z").Get().GetHostMirrorAndCopy();
+    const auto &vx = swarm->Get<Real>("vx").Get().GetHostMirrorAndCopy();
+    const auto &vy = swarm->Get<Real>("vy").Get().GetHostMirrorAndCopy();
+    const auto &vz = swarm->Get<Real>("vz").Get().GetHostMirrorAndCopy();
+
+    const auto &is_active = swarm->GetMask().Get().GetHostMirrorAndCopy();
+    for (auto n = 0; n < is_active.GetSize(); n++) {
+      if (is_active(n)) {
+        particle_output_this_rank(offset++) = static_cast<Real>(pmb->gid);
+        particle_output_this_rank(offset++) = static_cast<Real>(id(n));
+        particle_output_this_rank(offset++) = x(n);
+        particle_output_this_rank(offset++) = y(n);
+        particle_output_this_rank(offset++) = z(n);
+        particle_output_this_rank(offset++) = vx(n);
+        particle_output_this_rank(offset++) = vy(n);
+        particle_output_this_rank(offset++) = vz(n);
+      }
+    }
+  }
+
+  // Step 2b. Gather data on root process
+  Kokkos::View<Real *, LayoutWrapper, HostMemSpace> particle_output_all_ranks;
+  std::vector<int> num_particles_all_ranks(Globals::nranks);
+#ifdef MPI_PARALLEL
+  if (Globals::my_rank == 0) {
+    PARTHENON_MPI_CHECK(MPI_Gather(&num_particles_this_rank, 1, MPI_INT,
+                                   &num_particles_all_ranks.front(), 1, MPI_INT, 0,
+                                   MPI_COMM_WORLD));
+
+    int num_particles_total = 0;
+    std::vector<int> displacements(Globals::nranks);
+    std::vector<int> recvsizes(Globals::nranks);
+    for (int i = 0; i < Globals::nranks; i++) {
+      num_particles_total += num_particles_all_ranks.at(i);
+      recvsizes.at(i) = num_particles_all_ranks.at(i) * num_fields;
+      if (i > 0) {
+        displacements.at(i) = displacements.at(i - 1) + recvsizes.at(i - 1);
+      }
+    }
+    particle_output_all_ranks = Kokkos::View<Real *, LayoutWrapper, HostMemSpace>(
+        "particle_output_all_ranks", num_fields * num_particles_total);
+
+    PARTHENON_MPI_CHECK(MPI_Gatherv(
+        particle_output_this_rank.data(), particle_output_this_rank.size(),
+        MPI_PARTHENON_REAL, particle_output_all_ranks.data(), &recvsizes.front(),
+        &displacements.front(), MPI_PARTHENON_REAL, 0, MPI_COMM_WORLD));
+
+  } else {
+    PARTHENON_MPI_CHECK(MPI_Gather(&num_particles_this_rank, 1, MPI_INT, nullptr, 1,
+                                   MPI_INT, 0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Gatherv(particle_output_this_rank.data(),
+                                    particle_output_this_rank.size(), MPI_PARTHENON_REAL,
+                                    nullptr, nullptr, nullptr, MPI_PARTHENON_REAL, 0,
+                                    MPI_COMM_WORLD));
+  }
+
+#else
+  particle_output_all_ranks = Kokkos::View<Real *, LayoutWrapper, HostMemSpace>(
+      "particle_output_all_ranks", num_fields * num_particles_this_rank);
+  Kokkos::deep_copy(particle_output_all_ranks, particle_output_this_rank);
+  num_particles_all_ranks.at(0) = num_particles_this_rank;
+#endif
+
+  // Step 3: Root process write data
+  if (Globals::my_rank == 0) {
+    std::stringstream buffer;
+    // set precision for float fields
+    buffer << std::fixed << std::setprecision(10);
+    int offset = 0;
+    for (auto rank = 0; rank < Globals::nranks; rank++) {
+      for (auto p = 0; p < num_particles_all_ranks.at(rank); p++) {
+        buffer << ncycle << " , " << rank << " , "
+               << static_cast<int>(particle_output_all_ranks(offset)) // block id
+               << " , "
+               << static_cast<int>(particle_output_all_ranks(offset + 1)); // particle id
+        offset += 2;
+        for (auto j = 2; j < num_fields; j++) {
+          buffer << " , " << particle_output_all_ranks(offset++);
+        }
+        buffer << std::endl;
+      }
+    }
+    std::cout << buffer.str();
+  }
 
   return TaskStatus::complete;
 }
@@ -399,13 +488,8 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
                    pmb->meshblock_data.Get().get());
   }
 
-  TaskRegion &sync_region = tc.AddRegion(1);
-  {
-    for (int i = 0; i < blocks.size(); i++) {
-      auto &pmb = blocks[i];
-      auto write_particle_log = sync_region[0].AddTask(none, WriteParticleLog, pmb.get());
-    }
-  }
+  // Directly add single region with single task
+  tc.AddRegion(1)[0].AddTask(none, WriteParticleLog, blocks, tm.ncycle);
 
   return tc;
 }

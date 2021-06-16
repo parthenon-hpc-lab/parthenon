@@ -40,9 +40,9 @@ ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 16
-nx2 = 16
-nx3 = 16
+nx1 = 8
+nx2 = 8
+nx3 = 8
 
 <parthenon/time>
 tlim = 1.0
@@ -51,4 +51,4 @@ integrator = rk1
 
 <Particles>
 cfl = 0.3
-write_particle_log = true
+write_particle_log_nth_cycle = 10
