@@ -98,7 +98,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // Add advected field
   std::string field_name = "advected";
-  Metadata mfield({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
+  Metadata mfield(
+      {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
   pkg->AddField(field_name, mfield);
 
   // Add field in which to deposit tracer densities

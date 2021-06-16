@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
 
   // Initialize the driver
   particles_leapfrog::ParticleDriver driver(pman.pinput.get(), pman.app_input.get(),
-                                           pman.pmesh.get());
+                                            pman.pmesh.get());
 
   // This line actually runs the simulation
   auto driver_status = driver.Execute();
