@@ -154,7 +154,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // Add swarm of tracer particles
   std::string swarm_name = "tracers";
-  Metadata swarm_metadata;
+  Metadata swarm_metadata({Metadata::Provides});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));

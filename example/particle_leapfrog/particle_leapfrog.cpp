@@ -66,7 +66,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("write_particle_log", write_particle_log);
 
   std::string swarm_name = "my particles";
-  Metadata swarm_metadata;
+  Metadata swarm_metadata({Metadata::Provides});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
