@@ -54,8 +54,6 @@ SparseAdvectionDriver::SparseAdvectionDriver(ParameterInput *pin,
 // See the advection.hpp declaration for a description of how this function gets called.
 TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
                                                          const int stage) {
-  printf("Running MakeTaskCollection on %zu blocks, stage %i\n", blocks.size(), stage);
-
   using namespace parthenon::Update;
   TaskCollection tc;
   TaskID none(0);
