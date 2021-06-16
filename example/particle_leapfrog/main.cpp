@@ -21,8 +21,8 @@ int main(int argc, char *argv[]) {
   ParthenonManager pman;
 
   // Redefine parthenon defaults
-  pman.app_input->ProcessPackages = particles_example::ProcessPackages;
-  pman.app_input->ProblemGenerator = particles_example::ProblemGenerator;
+  pman.app_input->ProcessPackages = particles_leapfrog::ProcessPackages;
+  pman.app_input->ProblemGenerator = particles_leapfrog::ProblemGenerator;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);
@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
   // make use of MPI and Kokkos
 
   // Initialize the driver
-  particles_example::ParticleDriver driver(pman.pinput.get(), pman.app_input.get(),
+  particles_leapfrog::ParticleDriver driver(pman.pinput.get(), pman.app_input.get(),
                                            pman.pmesh.get());
 
   // This line actually runs the simulation

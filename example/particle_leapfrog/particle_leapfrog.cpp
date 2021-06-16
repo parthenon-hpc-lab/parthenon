@@ -38,11 +38,11 @@
 // *************************************************//
 // redefine some internal parthenon functions      *//
 // *************************************************//
-namespace particles_example {
+namespace particles_leapfrog {
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
-  packages.Add(particles_example::Particles::Initialize(pin.get()));
+  packages.Add(Particles::Initialize(pin.get()));
   return packages;
 }
 
@@ -410,4 +410,4 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
   return tc;
 }
 
-} // namespace particles_example
+} // namespace particles_leapfrog
