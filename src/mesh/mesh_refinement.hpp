@@ -77,15 +77,14 @@ class MeshRefinement {
   int AddToRefinement(ParArrayND<Real> pvar_cc, ParArrayND<Real> pcoarse_cc);
   int AddToRefinement(FaceField *pvar_fc, FaceField *pcoarse_fc);
 
+  Coordinates_t GetCoarseCoords() const { return coarse_coords; }
+
  private:
   // data
   std::weak_ptr<MeshBlock> pmy_block_;
   Coordinates_t coarse_coords;
 
   int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;
-
-  // functions
-  AMRFlagFunc AMRFlag_; // duplicate of Mesh class member
 
   // tuples of references to AMR-enrolled arrays (quantity, coarse_quantity)
   std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>> pvars_cc_;

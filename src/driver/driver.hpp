@@ -46,9 +46,12 @@ class Driver {
   ApplicationInput *app_input;
   Mesh *pmesh;
   std::unique_ptr<Outputs> pouts;
+  static double elapsed_main() { return timer_main.seconds(); }
+  static double elapsed_cycle() { return timer_cycle.seconds(); }
+  static double elapsed_LBandAMR() { return timer_LBandAMR.seconds(); }
 
  protected:
-  Kokkos::Timer timer_cycle, timer_main, timer_LBandAMR;
+  static Kokkos::Timer timer_cycle, timer_main, timer_LBandAMR;
   double time_LBandAMR;
   std::uint64_t mbcnt_prev;
   virtual void PreExecute();

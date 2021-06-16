@@ -41,7 +41,7 @@ using VarList = std::forward_list<std::shared_ptr<CellVariable<T>>>;
 template <typename T>
 using SwarmVarList = std::forward_list<std::shared_ptr<ParticleVariable<T>>>;
 // Sparse and/or scalar variables are multiple indices in the outer view of a pack
-// the pairs represent interval (inclusive) of thos indices
+// the pairs represent interval (inclusive) of those indices
 using IndexPair = std::pair<int, int>;
 // Flux packs require a set of names for the variables and a set of names for the strings
 // and order matters. So StringPair forms the keys for the FluxPack cache.

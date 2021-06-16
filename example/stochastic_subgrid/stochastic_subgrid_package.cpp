@@ -69,9 +69,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     pkg->AddParam<>("derefine_tol", derefine_tol);
 
     const auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
-    if (!((profile_str.compare("wave") == 0) ||
-          (profile_str.compare("smooth_gaussian") == 0) ||
-          (profile_str.compare("hard_sphere") == 0))) {
+    if (!((profile_str == "wave") || (profile_str == "smooth_gaussian") ||
+          (profile_str == "hard_sphere"))) {
       PARTHENON_FAIL(("Unknown profile in advection example: " + profile_str).c_str());
     }
     pkg->AddParam<>("profile", profile_str);
@@ -191,7 +190,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     const auto num_vars = pin->GetOrAddInteger("Advection", "num_vars", 1);
 
     std::string field_name = "advected";
-    Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
+    Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+                Metadata::FillGhost},
                std::vector<int>({num_vars}));
     pkg->AddField(field_name, m);
 
@@ -319,8 +319,8 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
           for (int n = 0; n < num_vars; ++n)
             (n % 2 == 0 ? even : odd) += sqrt(n + 1) * v(in + n, k, j, i);
 
-          Real a = pow(10.0, (odd + even) / (fmax(1.0, abs(odd * even))));
-          Real b = pow(10.0, (odd - even) / (fmax(1.0, abs(odd * even))));
+          Real a = pow(10.0, (odd + even) / (fmax(1.0, fabs(odd * even))));
+          Real b = pow(10.0, (odd - even) / (fmax(1.0, fabs(odd * even))));
           v(out, k, j, i) += log(a * b) * ilog10 / (log(a) * ilog10 + log(b) * ilog10);
         }
       });

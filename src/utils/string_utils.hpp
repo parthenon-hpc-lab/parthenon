@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,17 +11,25 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef UTILS_TRIM_STRING_HPP_
-#define UTILS_TRIM_STRING_HPP_
+#ifndef UTILS_STRING_UTILS_HPP_
+#define UTILS_STRING_UTILS_HPP_
 
 #include <string>
+#include <vector>
 
-namespace trim_string {
+namespace parthenon {
+namespace string_utils {
 
+// trim whitespace
 std::string ltrim(const std::string &s);
 std::string rtrim(const std::string &s);
 std::string trim(const std::string &s);
 
-} // namespace trim_string
+// pack/unpack strings (basically join and split with a given delimiter)
+std::string PackStrings(const std::vector<std::string> &strs, char delimiter);
+std::vector<std::string> UnpackStrings(const std::string &pack, char delimiter);
 
-#endif // UTILS_TRIM_STRING_HPP_
+} // namespace string_utils
+} // namespace parthenon
+
+#endif // UTILS_STRING_UTILS_HPP_

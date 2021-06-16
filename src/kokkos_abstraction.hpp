@@ -42,6 +42,7 @@ using DevExecSpace = Kokkos::DefaultExecutionSpace;
 #endif
 using ScratchMemSpace = DevExecSpace::scratch_memory_space;
 
+using HostExecSpace = Kokkos::DefaultHostExecutionSpace;
 using LayoutWrapper = Kokkos::LayoutRight;
 
 #if defined(KOKKOS_ENABLE_CUDA) && defined(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
@@ -66,6 +67,8 @@ template <typename T>
 using ParArray5D = Kokkos::View<T *****, LayoutWrapper, DevMemSpace>;
 template <typename T>
 using ParArray6D = Kokkos::View<T ******, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray7D = Kokkos::View<T *******, LayoutWrapper, DevMemSpace>;
 
 using team_policy = Kokkos::TeamPolicy<>;
 using team_mbr_t = Kokkos::TeamPolicy<>::member_type;
@@ -91,23 +94,24 @@ using ScratchPad6D = Kokkos::View<T ******, LayoutWrapper, ScratchMemSpace,
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
 
-// Translates a non-Kokkos standard C++ nested `for` loop where the innermost `for` is
-// decorated with a #pragma omp simd
-// IMPORTANT: This only works on CPUs
+// Translates a non-Kokkos standard C++ nested `for` loop where the innermost
+// `for` is decorated with a #pragma omp simd IMPORTANT: This only works on CPUs
 static struct LoopPatternSimdFor {
 } loop_pattern_simdfor_tag;
-// Translates to a Kokkos 1D range (Kokkos::RangePolicy) where the wrapper takes care
-// of the (hidden) 1D index to `n`, `k`, `j`, `i indices conversion
+// Translates to a Kokkos 1D range (Kokkos::RangePolicy) where the wrapper takes
+// care of the (hidden) 1D index to `n`, `k`, `j`, `i indices conversion
 static struct LoopPatternFlatRange {
 } loop_pattern_flatrange_tag;
 // Translates to a Kokkos multi dimensional  range (Kokkos::MDRangePolicy) with
 // a 1:1 indices matching
 static struct LoopPatternMDRange {
 } loop_pattern_mdrange_tag;
-// Translates to a Kokkos::TeamPolicy with a single inner Kokkos::TeamThreadRange
+// Translates to a Kokkos::TeamPolicy with a single inner
+// Kokkos::TeamThreadRange
 static struct LoopPatternTPTTR {
 } loop_pattern_tpttr_tag;
-// Translates to a Kokkos::TeamPolicy with a single inner Kokkos::ThreadVectorRange
+// Translates to a Kokkos::TeamPolicy with a single inner
+// Kokkos::ThreadVectorRange
 static struct LoopPatternTPTVR {
 } loop_pattern_tptvr_tag;
 // Translates to a Kokkos::TeamPolicy with a middle Kokkos::TeamThreadRange and
@@ -118,7 +122,8 @@ static struct LoopPatternTPTTRTVR {
 static struct LoopPatternUndefined {
 } loop_pattern_undefined_tag;
 
-// Tags for Nested parallelism where the outermost layer supports 1, 2, or 3 indices
+// Tags for Nested parallelism where the outermost layer supports 1, 2, or 3
+// indices
 
 // Translates to outermost loop being a Kokkos::TeamPolicy
 // Currently the only available option.
@@ -128,6 +133,9 @@ static struct OuterLoopPatternTeams {
 // Translate to a Kokkos::TeamVectorRange as innermost loop (single index)
 struct InnerLoopPatternTVR {};
 constexpr InnerLoopPatternTVR inner_loop_pattern_tvr_tag;
+// Translates to a Kokkos::TeamThreadRange as innermost loop
+struct InnerLoopPatternTTR {};
+constexpr InnerLoopPatternTTR inner_loop_pattern_ttr_tag;
 // Translate to a non-Kokkos plain C++ innermost loop (single index)
 // decorated with #pragma omp simd
 // IMPORTANT: currently only supported on CPUs
@@ -179,12 +187,12 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
              const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
-  kokkos_dispatch(
-      tag, name,
-      Kokkos::Experimental::require(
-          Kokkos::MDRangePolicy<Kokkos::Rank<2>>(exec_space, {jl, il}, {ju + 1, iu + 1}),
-          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-      function, std::forward<Args>(args)...);
+  kokkos_dispatch(tag, name,
+                  Kokkos::Experimental::require(
+                      Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                          exec_space, {jl, il}, {ju + 1, iu + 1}, {1, iu + 1 - il}),
+                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+                  function, std::forward<Args>(args)...);
 }
 
 // 3D loop using Kokkos 1D Range
@@ -225,7 +233,8 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
   kokkos_dispatch(tag, name,
                   Kokkos::Experimental::require(
                       Kokkos::MDRangePolicy<Kokkos::Rank<3>>(exec_space, {kl, jl, il},
-                                                             {ku + 1, ju + 1, iu + 1}),
+                                                             {ku + 1, ju + 1, iu + 1},
+                                                             {1, 1, iu + 1 - il}),
                       Kokkos::Experimental::WorkItemProperty::HintLightWeight),
                   function, std::forward<Args>(args)...);
 }
@@ -347,7 +356,8 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
   kokkos_dispatch(tag, name,
                   Kokkos::Experimental::require(
                       Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
-                          exec_space, {nl, kl, jl, il}, {nu + 1, ku + 1, ju + 1, iu + 1}),
+                          exec_space, {nl, kl, jl, il}, {nu + 1, ku + 1, ju + 1, iu + 1},
+                          {1, 1, 1, iu + 1 - il}),
                       Kokkos::Experimental::WorkItemProperty::HintLightWeight),
                   function, std::forward<Args>(args)...);
 }
@@ -451,8 +461,9 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
   kokkos_dispatch(
       tag, name,
       Kokkos::Experimental::require(
-          Kokkos::MDRangePolicy<Kokkos::Rank<5>>(
-              exec_space, {ml, nl, kl, jl, il}, {mu + 1, nu + 1, ku + 1, ju + 1, iu + 1}),
+          Kokkos::MDRangePolicy<Kokkos::Rank<5>>(exec_space, {ml, nl, kl, jl, il},
+                                                 {mu + 1, nu + 1, ku + 1, ju + 1, iu + 1},
+                                                 {1, 1, 1, 1, iu + 1 - il}),
           Kokkos::Experimental::WorkItemProperty::HintLightWeight),
       function, std::forward<Args>(args)...);
 }
@@ -587,6 +598,65 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
       });
 }
 
+// Inner parallel loop using TeamThreadRange
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void
+par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int nl, const int nu,
+              const int kl, const int ku, const int jl, const int ju, const int il,
+              const int iu, const Function &function) {
+  const int Nn = nu - nl + 1;
+  const int Nk = ku - kl + 1;
+  const int Nj = ju - jl + 1;
+  const int Ni = iu - il + 1;
+  const int NjNi = Nj * Ni;
+  const int NkNjNi = Nk * NjNi;
+  const int NnNkNjNi = Nn * NkNjNi;
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, NnNkNjNi),
+                       [&](const int &idx) {
+                         int n = idx / NkNjNi;
+                         int k = (idx - n * NkNjNi) / NjNi;
+                         int j = (idx - n * NkNjNi - k * NjNi) / Ni;
+                         int i = idx - n * NkNjNi - k * NjNi - j * Ni;
+                         n += nl;
+                         k += kl;
+                         j += jl;
+                         i += il;
+                         function(n, k, j, i);
+                       });
+}
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member,
+                                          const int kl, const int ku, const int jl,
+                                          const int ju, const int il, const int iu,
+                                          const Function &function) {
+  const int Nk = ku - kl + 1;
+  const int Nj = ju - jl + 1;
+  const int Ni = iu - il + 1;
+  const int NkNjNi = Nk * Nj * Ni;
+  const int NjNi = Nj * Ni;
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, NkNjNi), [&](const int &idx) {
+    int k = idx / NjNi;
+    int j = (idx - k * NjNi) / Ni;
+    int i = idx - k * NjNi - j * Ni;
+    k += kl;
+    j += jl;
+    i += il;
+    function(k, j, i);
+  });
+}
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member,
+                                          const int jl, const int ju, const int il,
+                                          const int iu, const Function &function) {
+  const int Nj = ju - jl + 1;
+  const int Ni = iu - il + 1;
+  const int NjNi = Nj * Ni;
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, NjNi), [&](const int &idx) {
+    int j = idx / Ni + jl;
+    int i = idx % Ni + il;
+    function(j, i);
+  });
+}
 // Inner parallel loop using TeamVectorRange
 template <typename Function>
 KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_member,
@@ -596,6 +666,47 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_m
 }
 
 // Inner parallel loop using FOR SIMD
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void
+par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int nl, const int nu,
+              const int kl, const int ku, const int jl, const int ju, const int il,
+              const int iu, const Function &function) {
+  for (int n = nl; n <= nu; ++n) {
+    for (int k = kl; k <= ku; ++k) {
+      for (int j = jl; j <= ju; ++j) {
+#pragma omp simd
+        for (int i = il; i <= iu; i++) {
+          function(k, j, i);
+        }
+      }
+    }
+  }
+}
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
+                                          const int kl, const int ku, const int jl,
+                                          const int ju, const int il, const int iu,
+                                          const Function &function) {
+  for (int k = kl; k <= ku; ++k) {
+    for (int j = jl; j <= ju; ++j) {
+#pragma omp simd
+      for (int i = il; i <= iu; i++) {
+        function(k, j, i);
+      }
+    }
+  }
+}
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
+                                          const int jl, const int ju, const int il,
+                                          const int iu, const Function &function) {
+  for (int j = jl; j <= ju; ++j) {
+#pragma omp simd
+    for (int i = il; i <= iu; i++) {
+      function(j, i);
+    }
+  }
+}
 template <typename Function>
 KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
                                           const int il, const int iu,

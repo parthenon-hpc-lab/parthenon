@@ -38,7 +38,6 @@
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "reconstruct/reconstruction.hpp"
 
 namespace parthenon {
 
@@ -49,10 +48,6 @@ class Mesh;
 class MeshBlockTree;
 class MeshRefinement;
 class ParameterInput;
-
-// These Forward declarations need duplicated using statements.
-class PropertiesInterface;
-using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
 
 // Inner loop default pattern
 // - Defined outside of the MeshBlock class because it does not require an exec space
@@ -77,10 +72,11 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   ~MeshBlock();
 
   // Factory method deals with initialization for you
-  static std::shared_ptr<MeshBlock>
-  Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-       BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
-       Properties_t &properties, Packages_t &packages, int igflag, double icost = 1.0);
+  static std::shared_ptr<MeshBlock> Make(int igid, int ilid, LogicalLocation iloc,
+                                         RegionSize input_block, BoundaryFlag *input_bcs,
+                                         Mesh *pm, ParameterInput *pin,
+                                         ApplicationInput *app_in, Packages_t &packages,
+                                         int igflag, double icost = 1.0);
 
   // Kokkos execution space for this MeshBlock
   DevExecSpace exec_space;
@@ -146,7 +142,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   DataCollection<MeshBlockData<Real>> meshblock_data;
   DataCollection<SwarmContainer> swarm_data;
 
-  Properties_t properties;
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;
 
@@ -159,7 +154,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<BoundarySwarms> pbswarm;
   std::unique_ptr<MeshRefinement> pmr;
-  std::unique_ptr<Reconstruction> precon;
 
   BoundaryFlag boundary_flag[6];
 
@@ -229,10 +223,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist) {
     pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   }
-  void WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
-                   ParArrayND<Real> &u_in2, const Real wght[3]);
-  void WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2,
-                   const Real wght[3]);
 
   void ResetToIC() { ProblemGenerator(nullptr, nullptr); }
 
@@ -382,8 +372,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // the block is allocated.
   void Initialize(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                   BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                  ApplicationInput *app_in, Properties_t &properties,
-                  Packages_t &packages, int igflag, double icost = 1.0);
+                  ApplicationInput *app_in, Packages_t &packages, int igflag,
+                  double icost = 1.0);
 
   void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
   // functions

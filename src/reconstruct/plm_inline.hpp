@@ -29,7 +29,6 @@
 
 #include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
-#include "reconstruct/reconstruction.hpp"
 
 namespace parthenon {
 

@@ -32,6 +32,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
+#include "mesh/refinement_cc_in_one.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "refinement/refinement.hpp"
@@ -45,8 +46,7 @@ namespace parthenon {
 
 MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin)
     : pmy_block_(pmb), deref_count_(0),
-      deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)),
-      AMRFlag_(pmb.lock()->pmy_mesh->AMRFlag_) {
+      deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)) {
   // Create coarse mesh object for parent grid
   coarse_coords = Coordinates_t(pmb.lock()->coords, 2);
 
@@ -72,76 +72,32 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
                                                 int csk, int cek) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
 
-  auto coords = pmb->coords;
-  const IndexDomain interior = IndexDomain::interior;
-  const IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-  const IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-  const IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-  const IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-  const IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
-  const IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
-
-  // store the restricted data in the prolongation buffer for later use
-  if (pmb->block_size.nx3 > 1) { // 3D
-    pmb->par_for(
-        "RestrictCellCenteredValues3d", sn, en, csk, cek, csj, cej, csi, cei,
-        KOKKOS_LAMBDA(const int n, const int ck, const int cj, const int ci) {
-          int k = (ck - ckb.s) * 2 + kb.s;
-          int j = (cj - cjb.s) * 2 + jb.s;
-          int i = (ci - cib.s) * 2 + ib.s;
-          // KGF: add the off-centered quantities first to preserve FP symmetry
-          const Real vol000 = coords.Volume(k, j, i);
-          const Real vol001 = coords.Volume(k, j, i + 1);
-          const Real vol010 = coords.Volume(k, j + 1, i);
-          const Real vol011 = coords.Volume(k, j + 1, i + 1);
-          const Real vol100 = coords.Volume(k + 1, j, i);
-          const Real vol101 = coords.Volume(k + 1, j, i + 1);
-          const Real vol110 = coords.Volume(k + 1, j + 1, i);
-          const Real vol111 = coords.Volume(k + 1, j + 1, i + 1);
-          Real tvol = ((vol000 + vol010) + (vol001 + vol011)) +
-                      ((vol100 + vol110) + (vol101 + vol111));
-          // KGF: add the off-centered quantities first to preserve FP symmetry
-          coarse(n, ck, cj, ci) =
-              (((fine(n, k, j, i) * vol000 + fine(n, k, j + 1, i) * vol010) +
-                (fine(n, k, j, i + 1) * vol001 + fine(n, k, j + 1, i + 1) * vol011)) +
-               ((fine(n, k + 1, j, i) * vol100 + fine(n, k + 1, j + 1, i) * vol110) +
-                (fine(n, k + 1, j, i + 1) * vol101 +
-                 fine(n, k + 1, j + 1, i + 1) * vol111))) /
-              tvol;
-        });
-  } else if (pmb->block_size.nx2 > 1) { // 2D
-    int k = kb.s;
-    pmb->par_for(
-        "RestrictCellCenteredValues2d", sn, en, csj, cej, csi, cei,
-        KOKKOS_LAMBDA(const int n, const int cj, const int ci) {
-          int j = (cj - cjb.s) * 2 + jb.s;
-          int i = (ci - cib.s) * 2 + ib.s;
-          // KGF: add the off-centered quantities first to preserve FP symmetry
-          const Real vol00 = coords.Volume(k, j, i);
-          const Real vol10 = coords.Volume(k, j + 1, i);
-          const Real vol01 = coords.Volume(k, j, i + 1);
-          const Real vol11 = coords.Volume(k, j + 1, i + 1);
-          Real tvol = (vol00 + vol10) + (vol01 + vol11);
-
-          // KGF: add the off-centered quantities first to preserve FP symmetry
-          coarse(n, 0, cj, ci) =
-              ((fine(n, 0, j, i) * vol00 + fine(n, 0, j + 1, i) * vol10) +
-               (fine(n, 0, j, i + 1) * vol01 + fine(n, 0, j + 1, i + 1) * vol11)) /
-              tvol;
-        });
-  } else { // 1D
-    int j = jb.s, cj = cjb.s, k = kb.s, ck = ckb.s;
-    pmb->par_for(
-        "RestrictCellCenteredValues1d", sn, en, csi, cei,
-        KOKKOS_LAMBDA(const int n, const int ci) {
-          int i = (ci - cib.s) * 2 + ib.s;
-          const Real vol0 = coords.Volume(k, j, i);
-          const Real vol1 = coords.Volume(k, j, i + 1);
-          Real tvol = vol0 + vol1;
-          coarse(n, ck, cj, ci) =
-              (fine(n, k, j, i) * vol0 + fine(n, k, j, i + 1) * vol1) / tvol;
-        });
+  int b = 0;
+  int nbuffers = fine.GetDim(6) * fine.GetDim(5);
+  int nvars = fine.GetDim(4);
+  cell_centered_bvars::BufferCache_t info("refinement info", nbuffers);
+  auto info_h = Kokkos::create_mirror_view(info);
+  for (int l = 0; l < fine.GetDim(6); ++l) {
+    for (int m = 0; m < fine.GetDim(5); ++m) {
+      // buff and var unused.
+      info_h(b).si = csi;
+      info_h(b).ei = cei;
+      info_h(b).sj = csj;
+      info_h(b).ej = cej;
+      info_h(b).sk = csk;
+      info_h(b).ek = cek;
+      info_h(b).Nv = nvars;
+      info_h(b).restrict = true;
+      info_h(b).coords = pmb->coords;
+      info_h(b).coarse_coords = this->coarse_coords;
+      info_h(b).fine = fine.Get(l, m);
+      info_h(b).coarse = coarse.Get(l, m);
+      ++b;
+    }
   }
+  Kokkos::deep_copy(info, info_h);
+
+  cell_centered_refinement::Restrict(info, pmb->cellbounds, pmb->c_cellbounds);
 }
 
 //----------------------------------------------------------------------------------------
@@ -999,7 +955,6 @@ void MeshRefinement::CheckRefinementCondition() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &rc = pmb->meshblock_data.Get();
   AmrTag ret = Refinement::CheckAllRefinement(rc.get());
-  // if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);
 }
 

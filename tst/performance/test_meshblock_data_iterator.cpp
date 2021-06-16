@@ -75,18 +75,19 @@ void performance_test_wrapper(const std::string &test_name, InitFunc init_func,
 static MeshBlockData<Real> createTestContainer() {
   // Make a container for testing performance
   MeshBlockData<Real> container;
-  Metadata m_in({Metadata::Independent});
-  Metadata m_out;
-  std::vector<int> scalar_block_size{N, N, N};
-  std::vector<int> vector_block_size{N, N, N, 3};
+  std::vector<int> scalar_shape{N, N, N};
+  std::vector<int> vector_shape{N, N, N, 3};
+
+  Metadata m_in({Metadata::Independent}, scalar_shape);
+  Metadata m_in_vec({Metadata::Independent}, vector_shape);
 
   // make some variables - 5 in all, 2 3-vectors, total 10 fields
-  container.Add("v0", m_in, scalar_block_size);
-  container.Add("v1", m_in, scalar_block_size);
-  container.Add("v2", m_in, vector_block_size);
-  container.Add("v3", m_in, scalar_block_size);
-  container.Add("v4", m_in, vector_block_size);
-  container.Add("v5", m_in, scalar_block_size);
+  container.Add("v0", m_in);
+  container.Add("v1", m_in);
+  container.Add("v2", m_in_vec);
+  container.Add("v3", m_in);
+  container.Add("v4", m_in_vec);
+  container.Add("v5", m_in);
   return container;
 }
 
