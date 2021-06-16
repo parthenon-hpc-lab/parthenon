@@ -192,6 +192,9 @@ class Swarm {
   /// Get number of active particles
   int GetNumActive() const { return num_active_; }
 
+  /// Get mask variable
+  auto GetMask() const { return mask_; }
+
   /// Get the quality of the data layout. 1 is perfectly organized, < 1
   /// indicates gaps in the list.
   Real GetPackingEfficiency() const { return num_active_ / (max_active_index_ + 1); }
