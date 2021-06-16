@@ -93,7 +93,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
 void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &tm) {
   auto pkg = mesh->block_list[0]->packages.Get("sparse_advection_package");
-  const auto n = pkg->Param<int>("num_fields");
+  const auto n = NUM_FIELDS;
 
   std::vector<int> num_allocated(n, 0);
 
