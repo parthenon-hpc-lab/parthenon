@@ -57,7 +57,7 @@ CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
   Metadata m = m_;
 
   // make the new CellVariable
-  auto cv = std::make_shared<CellVariable<T>>(label(), m, sparse_id_, wpmb);
+  auto cv = std::make_shared<CellVariable<T>>(base_name_, m, sparse_id_, wpmb);
 
   if (is_allocated_) {
     cv->AllocateData();
