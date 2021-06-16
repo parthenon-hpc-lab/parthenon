@@ -38,7 +38,6 @@ using parthenon::Metadata;
 using parthenon::Packages_t;
 using parthenon::ParameterInput;
 using parthenon::ParArrayND;
-using parthenon::Properties_t;
 using parthenon::Swarm;
 using std::endl;
 
@@ -59,10 +58,9 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   auto pin = std::make_shared<ParameterInput>();
   pin->LoadFromStream(is);
   auto app_in = std::make_shared<ApplicationInput>();
-  Properties_t properties;
   Packages_t packages;
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
-  auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), properties, packages, 1);
+  auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
   meshblock->pmy_mesh = mesh.get();
   Metadata m;
   auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
