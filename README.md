@@ -40,7 +40,7 @@ For detailed instructions for a given system, see our [build doc](docs/building.
     cd build
     cmake ../
     cmake --build . -j 8
-    ctest
+    cmake --build --target test
 
 ## Import Into Your Code
 ```c++
