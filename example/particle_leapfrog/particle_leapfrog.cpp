@@ -221,6 +221,11 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
   // Step 3: Root process write data
   if (Globals::my_rank == 0) {
     std::stringstream buffer;
+    // write header
+    if (ncycle == 0) {
+      buffer << "ncycle , rank , block gid , particles id , x , y , z , vx , vy , vz"
+             << std::endl;
+    }
     // set precision for float fields
     buffer << std::fixed << std::setprecision(10);
     int offset = 0;
@@ -237,7 +242,13 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
         buffer << std::endl;
       }
     }
-    std::cout << buffer.str();
+
+    std::ofstream outfile("particles.csv", std::ios_base::app);
+    if (outfile.is_open()) {
+      outfile << buffer.str();
+    } else {
+      PARTHENON_THROW("Unable to open particles output file");
+    }
   }
 
   return TaskStatus::complete;
