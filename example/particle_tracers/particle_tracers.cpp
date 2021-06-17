@@ -16,17 +16,6 @@
 //========================================================================================
 
 #include "particle_tracers.hpp"
-#include "Kokkos_CopyViews.hpp"
-#include "Kokkos_HostSpace.hpp"
-#include "basic_types.hpp"
-#include "config.hpp"
-#include "globals.hpp"
-#include "interface/metadata.hpp"
-#include "interface/update.hpp"
-#include "kokkos_abstraction.hpp"
-#include "parthenon/driver.hpp"
-#include "refinement/refinement.hpp"
-#include "utils/error_checking.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -36,6 +25,12 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "basic_types.hpp"
+#include "config.hpp"
+#include "globals.hpp"
+#include "interface/update.hpp"
+#include "kokkos_abstraction.hpp"
 
 using namespace parthenon::driver::prelude;
 using namespace parthenon::Update;

@@ -28,9 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include "Kokkos_CopyViews.hpp"
-#include "Kokkos_HostSpace.hpp"
-
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "globals.hpp"
