@@ -11,7 +11,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.16)
 
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
@@ -50,6 +50,7 @@ option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${PARTHENON
 option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${PARTHENON_ENABLE_TESTING})
 option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${PARTHENON_ENABLE_TESTING})
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
+option(PARTHENON_ENABLE_CPP17 "Build Parthenon using C++17 standard" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
@@ -128,13 +129,20 @@ endif()
 
 set(ENABLE_OPENMP OFF)
 if (NOT PARTHENON_DISABLE_OPENMP)
-  find_package(OpenMP COMPONENTS CXX)
-  if (NOT OpenMP_FOUND)
-    message(FATAL_ERROR "OpenMP is required but couldn't be found. "
-    "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
+  # Using Host OpenMP and Cuda with nvcc currently does not compile with C++17 standard.
+  # Also there is no proper support for two separate execution spaces in Parthenon right now.
+  # We may need to revisit this logic when OpenMP target for devices will be used in the future.
+  if (Kokkos_ENABLE_CUDA)
+    message(STATUS "Parthenon is not using Host OpenMP because Cuda is enabled")
+  else()
+    find_package(OpenMP COMPONENTS CXX)
+    if (NOT OpenMP_FOUND)
+      message(FATAL_ERROR "OpenMP is required but couldn't be found. "
+      "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
+    endif()
+    set(ENABLE_OPENMP ON)
+    set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP as execution space.")
   endif()
-  set(ENABLE_OPENMP ON)
-  set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP")
 endif()
 
 if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
@@ -224,9 +232,15 @@ if (ENABLE_COMPILER_WARNINGS)
   add_compile_options(-Wall)
 endif()
 
-# We want Kokkos to be built with C++14, since that's what we're using in
-# Parthenon.
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if (PARTHENON_ENABLE_CPP17)
+  set(CMAKE_CXX_STANDARD 17)
+# Ensure correct flag is used as deprecated c++1z is not supported by nvcc.
+  set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++17")
+else()
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
     find_package(Kokkos 3)
