@@ -64,9 +64,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam("vz", RealArr_t{0.0, 0.0, 0.0, 0.0});
 
   // add sparse field
-  Metadata m(
-      {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::Sparse},
-      std::vector<int>({1}));
+  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+              Metadata::FillGhost, Metadata::Sparse},
+             std::vector<int>({1}));
   parthenon::SparsePool pool("sparse", m);
 
   for (int sid = 0; sid < NUM_FIELDS; ++sid) {
