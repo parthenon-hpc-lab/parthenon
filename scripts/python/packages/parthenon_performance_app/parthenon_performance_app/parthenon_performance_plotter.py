@@ -15,18 +15,20 @@
 import logging
 import matplotlib.pyplot as plt
 
-class PerformanceMetricsPlotter():
 
-    def __init__(self,
-                 number_commits_to_plot,
-                 test_dir,
-                 current_branch,
-                 mesh_blocks,
-                 zone_cycles,
-                 target_branch,
-                 target_data_file_exists,
-                 target_meshblocks,
-                 target_cycles):
+class PerformanceMetricsPlotter:
+    def __init__(
+        self,
+        number_commits_to_plot,
+        test_dir,
+        current_branch,
+        mesh_blocks,
+        zone_cycles,
+        target_branch,
+        target_data_file_exists,
+        target_meshblocks,
+        target_cycles,
+    ):
         """Creates figures that display performance metrics."""
         self._number_commits_to_plot = number_commits_to_plot
         self._test_dir = test_dir
@@ -45,82 +47,88 @@ class PerformanceMetricsPlotter():
         ch.setLevel(logging.INFO)
         self._log.addHandler(ch)
 
-    def _plotDataFromPreviousCommitsFromSameBranch(self, json_perf_data_parser, figure_path_name):
+    def _plotDataFromPreviousCommitsFromSameBranch(
+        self, json_perf_data_parser, figure_path_name
+    ):
         # If running on same branch grab the data for the last
         # 5 commits stored in the file
-        fig, p = plt.subplots(
-            2, 1, figsize=(5, 10), sharex=True)
+        fig, p = plt.subplots(2, 1, figsize=(5, 10), sharex=True)
         fig.subplots_adjust(bottom=0.2)
         legend_temp = []
-        for i in range(0, self._number_commits_to_plot):
-            mesh_blocks_temp = json_perf_data_parser.getMeshBlocksAt(
-                i, self._test_dir)
-            cycles_temp = json_perf_data_parser.getCyclesAt(
-                i, self._test_dir)
-            commit_temp = json_perf_data_parser.getCommitShaAt(
-                i, self._test_dir)
+        total_number_of_commits = json_perf_data_parser.getNumberOfCommits()
+        starting_commit = total_number_of_commits - self._number_commits_to_plot
+        norm_const = None
+        for i in range(starting_commit, total_number_of_commits):
+            mesh_blocks_temp = json_perf_data_parser.getMeshBlocksAt(i, self._test_dir)
+            cycles_temp = json_perf_data_parser.getCyclesAt(i, self._test_dir)
+            commit_temp = json_perf_data_parser.getCommitShaAt(i, self._test_dir)
+            date_temp = json_perf_data_parser.getDateAt(i, self._test_dir)
             if mesh_blocks_temp is None:
                 self._log.info(
-                    "Skipping data at %s\n no mesh blocks recordered in data" %
-                    commit_temp)
+                    "Skipping data at %s\n no mesh blocks recordered in data"
+                    % commit_temp
+                )
                 continue
             if cycles_temp is None:
                 self._log.info(
-                    "Skipping data at %s\n no cycles recordered in data" %
-                    commit_temp)
+                    "Skipping data at %s\n no cycles recordered in data" % commit_temp
+                )
                 continue
 
-            if i == 0:
+            if norm_const is None:
                 norm_const = cycles_temp[0]
-            p[0].loglog(
-                mesh_blocks_temp, cycles_temp, label="$256^3$ Mesh")
-            p[1].loglog(
-                mesh_blocks_temp, norm_const / cycles_temp)
-            legend_temp.append(commit_temp)
+            p[0].loglog(mesh_blocks_temp, cycles_temp, label="$256^3$ Mesh")
+            p[1].loglog(mesh_blocks_temp, norm_const / cycles_temp)
+            legend_temp.append(
+                "{0: <12} {1: ^10} {2: >16}".format(
+                    commit_temp[0:8], "Date:", date_temp
+                )
+            )
 
         for i in range(2):
             p[i].grid()
 
-        p[1].legend(legend_temp,loc=9, bbox_to_anchor=(0.5,-0.2))
+        p[1].legend(legend_temp, loc=9, bbox_to_anchor=(0.5, -0.2))
 
         p[0].set_ylabel("zone-cycles/s")
         p[1].set_ylabel("normalized overhead")
         p[1].set_xlabel("Meshblock size")
 
         fig.suptitle(self._test_dir, fontsize=16)
-        fig.savefig(figure_path_name, bbox_inches='tight')
+        fig.savefig(figure_path_name, bbox_inches="tight")
 
     def _plotTargetBranchDataVsCurrentBranchData(self, figure_path_name):
         # Get the data for the last commit in the development branch
         # Now we need to create the figure to update
-        fig, p = plt.subplots(
-            2, 1, figsize=(5, 10), sharex=True)
+        fig, p = plt.subplots(2, 1, figsize=(5, 10), sharex=True)
         fig.subplots_adjust(bottom=0.2)
 
-        p[0].loglog(
-            self._mesh_blocks, self._zone_cycles, label="$256^3$ Mesh")
-        p[1].loglog(self._mesh_blocks,
-                    self._zone_cycles[0] / self._zone_cycles)
+        p[0].loglog(self._mesh_blocks, self._zone_cycles, label="$256^3$ Mesh")
+        p[1].loglog(self._mesh_blocks, self._zone_cycles[0] / self._zone_cycles)
         if self._target_data_file_exists:
             if self._target_meshblocks is not None and self._target_cycles is not None:
                 p[0].loglog(
-                    self._target_meshblocks,
-                    self._target_cycles,
-                    label="$256^3$ Mesh")
+                    self._target_meshblocks, self._target_cycles, label="$256^3$ Mesh"
+                )
                 p[1].loglog(
-                    self._target_meshblocks, self._zone_cycles[0] / self._target_cycles)
+                    self._target_meshblocks, self._zone_cycles[0] / self._target_cycles
+                )
 
         for i in range(2):
             p[i].grid()
 
         if self._target_data_file_exists:
-            p[1].legend([self._current_branch, self._target_branch],loc=9, bbox_to_anchor=(0.5,-0.2))
+            p[1].legend(
+                [self._current_branch, self._target_branch],
+                loc=9,
+                bbox_to_anchor=(0.5, -0.2),
+            )
         else:
-            p[1].legend([self._current_branch],loc=9, bbox_to_anchor=(0.5,-0.2))
+            p[1].legend([self._current_branch], loc=9, bbox_to_anchor=(0.5, -0.2))
         p[0].set_ylabel("zone-cycles/s")
         p[1].set_ylabel("normalized overhead")
         p[1].set_xlabel("Meshblock size")
-        fig.savefig(figure_path_name, bbox_inches='tight')
+        fig.savefig(figure_path_name, bbox_inches="tight")
 
     def plot(self, json_perf_data_parser, figure_path):
         """
@@ -133,6 +141,7 @@ class PerformanceMetricsPlotter():
         """
         if self._target_branch == self._current_branch:
             self._plotDataFromPreviousCommitsFromSameBranch(
-                json_perf_data_parser, figure_path)
+                json_perf_data_parser, figure_path
+            )
         else:
             self._plotTargetBranchDataVsCurrentBranchData(figure_path)

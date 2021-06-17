@@ -47,6 +47,7 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
+#include "mesh/refinement_cc_in_one.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -59,8 +60,7 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
-Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properties,
-           Packages_t &packages,
+Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            int mesh_test)
     : // public members:
       modified(true),
@@ -92,8 +92,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
                   pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
                      ? true
                      : false),
-      nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
-      packages(packages),
+      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -498,7 +497,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
     block_list[i - nbs] = MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs,
-                                          this, pin, app_in, properties, packages, gflag);
+                                          this, pin, app_in, packages, gflag);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
@@ -514,7 +513,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
-           Properties_t &properties, Packages_t &packages, int mesh_test)
+           Packages_t &packages, int mesh_test)
     : // public members:
       // aggregate initialization of RegionSize struct:
       // (will be overwritten by memcpy from restart file, in this case)
@@ -547,8 +546,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                   pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
                      ? true
                      : false),
-      nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
-      packages(packages),
+      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -771,7 +769,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     // create a block and add into the link list
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
-                        properties, packages, gflag, costlist[i]);
+                        packages, gflag, costlist[i]);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
@@ -1013,7 +1011,7 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
-// \brief  initialization before the main loop
+// \brief  initialization before the main loop as well as during remeshing
 
 void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
   Kokkos::Profiling::pushRegion("Mesh::Initialize");
@@ -1069,6 +1067,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       cell_centered_bvars::SetBoundaries(md);
+      if (multilevel) {
+        cell_centered_refinement::RestrictPhysicalBounds(md.get());
+      }
     }
 
 #else // PARTHENON_ENABLE_INIT_PACKING -> OFF
@@ -1080,7 +1081,11 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     // wait to receive FillGhost variables
     for (int i = 0; i < nmb; ++i) {
-      block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
+      auto &mbd = block_list[i]->meshblock_data.Get();
+      mbd->ReceiveAndSetBoundariesWithWait();
+      if (multilevel) {
+        mbd->RestrictBoundaries();
+      }
     }
 
 #endif // PARTHENON_ENABLE_INIT_PACKING
@@ -1090,13 +1095,13 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
     // Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
-      auto &pmb = block_list[i];
+      auto &mbd = block_list[i]->meshblock_data.Get();
       if (multilevel) {
-        ProlongateBoundaries(pmb->meshblock_data.Get());
+        ProlongateBoundaries(mbd);
       }
-      ApplyBoundaryConditions(pmb->meshblock_data.Get());
+      ApplyBoundaryConditions(mbd);
       // Call MeshBlockData based FillDerived functions
-      Update::FillDerived(pmb->meshblock_data.Get().get());
+      Update::FillDerived(mbd.get());
     }
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,7 +20,6 @@
 #include "argument_parser.hpp"
 #include "basic_types.hpp"
 #include "driver/driver.hpp"
-#include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
@@ -39,13 +38,10 @@ class ParthenonManager {
   void ParthenonInitPackagesAndMesh();
   ParthenonStatus ParthenonFinalize();
 
-  bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
-  static Properties_t ProcessPropertiesDefault(std::unique_ptr<ParameterInput> &pin);
+  bool IsRestart() { return (arg.restart_filename == nullptr ? false : true); }
   static Packages_t ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin);
   void RestartPackages(Mesh &rm, RestartReader &resfile);
 
-  std::function<Properties_t(std::unique_ptr<ParameterInput> &)> ProcessProperties =
-      ProcessPropertiesDefault;
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages =
       ProcessPackagesDefault;
 

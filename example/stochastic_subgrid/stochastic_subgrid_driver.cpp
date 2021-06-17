@@ -176,7 +176,9 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
 
       auto prolongBound = none;
       if (pmesh->multilevel) {
-        prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
+        auto restrictBound =
+            tl.AddTask(none, &MeshBlockData<Real>::RestrictBoundaries, sc1.get());
+        prolongBound = tl.AddTask(restrictBound, parthenon::ProlongateBoundaries, sc1);
       }
 
       // set physical boundaries

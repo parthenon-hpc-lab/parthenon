@@ -26,6 +26,7 @@
 #include "parthenon_mpi.hpp"
 
 #include "bvals/bvals_interfaces.hpp"
+#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "defs.hpp"
 #include "mesh/domain.hpp"
 #include "parthenon_arrays.hpp"
@@ -127,6 +128,11 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   void RestrictBoundaries();
   void ProlongateBoundaries();
 
+  int NumRestrictions();
+  void FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
+                               int &idx_start, ParArray4D<Real> &fine,
+                               ParArray4D<Real> &coarse, int Nv);
+
   int AdvanceCounterPhysID(int num_phys);
 
  private:
@@ -143,14 +149,14 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // communication (subset of Mesh::next_phys_id_)
   int bvars_next_phys_id_;
 
-  // ProlongateBoundaries() wraps the following S/AMR-operations (within nneighbor loop):
+  // ProlongateBoundaries() wraps the following S/AMR-operations (within neighbor loop):
   // (the next function is also called within 3x nested loops over nk,nj,ni)
-  void RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int nk, int nj, int ni);
-  void ApplyPhysicalBoundariesOnCoarseLevel(const NeighborBlock &nb, const Real time,
-                                            const Real dt, int si, int ei, int sj, int ej,
-                                            int sk, int ek);
-  void ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj, int ej,
-                            int sk, int ek);
+  void RestrictGhostCellsOnSameLevel_(const NeighborBlock &nb, int nk, int nj, int ni);
+  void ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei, int sj, int ej,
+                             int sk, int ek);
+  void ComputeRestrictionIndices_(const NeighborBlock &nb, int nk, int nj, int ni,
+                                  int &ris, int &rie, int &rjs, int &rje, int &rks,
+                                  int &rke);
   void ComputeRestrictionBounds_(const NeighborBlock &nb, IndexRange &ni, IndexRange &nj,
                                  IndexRange &nk);
   void ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
