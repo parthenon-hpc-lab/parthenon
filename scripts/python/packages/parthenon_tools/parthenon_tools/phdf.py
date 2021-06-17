@@ -168,6 +168,8 @@ class phdf:
                 tmpz[ib, iOffsets[4]] - eps,
                 tmpz[ib, iOffsets[5]] + eps,
             ]
+        #Save info
+        self.Info = dict(f["/Info"].attrs)
 
         # generate self.offset, isGhost and BlockIdx arrays
         self.GenAuxData()

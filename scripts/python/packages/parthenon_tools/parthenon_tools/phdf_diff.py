@@ -92,6 +92,12 @@ def processArgs():
         action="store_true",
         help="Ignore differences in metadata. Overrides -all",
     )
+    parser.add_argument(
+            '-r',
+            '-relative',
+            action='store_true',
+            help='Compare relative differences.'
+    )
     parser.add_argument("files", nargs="*")
 
     return parser.parse_args()
@@ -318,6 +324,7 @@ def compare(
     one=False,
     tol=1.0e-12,
     check_metadata=True,
+    relative=False
 ):
     """compares two hdf files. Returns 0 if the files are equivalent.
 
