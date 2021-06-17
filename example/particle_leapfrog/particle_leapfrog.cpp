@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
+#include <ios>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -221,10 +222,12 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
   // Step 3: Root process write data
   if (Globals::my_rank == 0) {
     std::stringstream buffer;
+    auto open_mode = std::ios_base::app; // default append
     // write header
     if (ncycle == 0) {
       buffer << "ncycle , rank , block gid , particles id , x , y , z , vx , vy , vz"
              << std::endl;
+      open_mode = std::ios_base::out; // start writing clean file
     }
     // set precision for float fields
     buffer << std::fixed << std::setprecision(10);
@@ -243,7 +246,7 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
       }
     }
 
-    std::ofstream outfile("particles.csv", std::ios_base::app);
+    std::ofstream outfile("particles.csv", open_mode);
     if (outfile.is_open()) {
       outfile << buffer.str();
     } else {
@@ -259,7 +262,7 @@ constexpr int num_test_particles = 4;
 const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
     {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},  // along x direction
     {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},  // along y direction
-    {-0.1, 0.3, 0.2, 0.0, 0.0, 1.0},  // along z direction
+    {-0.1, 0.3, 0.2, 0.0, 0.0, 0.5},  // along z direction
     {0.12, 0.2, -0.3, 1.0, 1.0, 1.0}, // along diagonal
 }};
 

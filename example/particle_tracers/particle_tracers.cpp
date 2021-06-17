@@ -182,7 +182,6 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
   pmb->par_for(
       "Tracer advection", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
-
           x(n) += vx * dt;
           y(n) += vy * dt;
           z(n) += vz * dt;
