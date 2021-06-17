@@ -96,9 +96,11 @@ exclusive and required. All variables should be either independent or
 derived.
 
 - `Metadata::Independent` implies the variable is part of independent
-  state
+  state. In particular, implies data is in restart files 
+  and is prolongated/restricted during remeshing. 
+  Buffers for a coarse grid are allocated for independent variables.
 - `Metadata::Derived` implies the variable can be calculated, given
-  the independent state
+  the independent state. This is the default.
 
 ### Communication
 
