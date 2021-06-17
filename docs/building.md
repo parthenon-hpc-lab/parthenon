@@ -16,6 +16,7 @@ If you come across a disfunctional setup, please report it by open an issue or p
    |       PARTHENON\_ENABLE\_INIT\_PACKING | OFF               | Option | Use MeshBlockPack based buffer functions in Mesh::Initialize. Does NOT support sparse variables. |
    |             PARTHENON\_DISABLE\_OPENMP | OFF               | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
    |             ENABLE\_COMPILER\_WARNINGS | OFF               | Option | Enable compiler warnings |
+   |               PARTHENON\_ENABLE\_CPP17 | OFF               | Option | Compile Parthenon using C++17 standard (e.g., required for using `constexpr if` in kernels |
    |                  TEST\_ERROR\_CHECKING | OFF               | Option | Enables the error checking unit test. This test will FAIL |
    |              TEST\_INTEL\_OPTIMIZATION | OFF               | Option | Test intel optimization and vectorization |
    |              CHECK\_REGISTRY\_PRESSURE | OFF               | Option | Check the registry pressure for Kokkos CUDA kernels |

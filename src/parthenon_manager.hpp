@@ -38,7 +38,7 @@ class ParthenonManager {
   void ParthenonInitPackagesAndMesh();
   ParthenonStatus ParthenonFinalize();
 
-  bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
+  bool IsRestart() { return (arg.restart_filename == nullptr ? false : true); }
   static Packages_t ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin);
   void RestartPackages(Mesh &rm, RestartReader &resfile);
 

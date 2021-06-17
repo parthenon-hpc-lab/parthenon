@@ -478,7 +478,7 @@ many_array_kernel(const Array &arr0, const Array &arr1, const Array &arr2,
                   const Array &arr9, const Array &arr_out, const int k, const int j,
                   const int i) {
   for (int rep = 0; rep < 2; rep++) {
-    register Real tmp_array[10];
+    Real tmp_array[10];
     tmp_array[0] = arr0(k, j, i);
     tmp_array[1] = arr1(k, j, i);
     tmp_array[2] = arr2(k, j, i);
