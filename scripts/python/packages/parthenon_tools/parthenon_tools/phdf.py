@@ -451,7 +451,7 @@ class phdf:
         missing_components = [
             component
             for component in components
-            if not component in self.ComponentsDatasetMap.keys()
+            if not component in self.ComponentsDatasetMap
         ]
         if len(missing_components) > 0:
             raise Exception(
