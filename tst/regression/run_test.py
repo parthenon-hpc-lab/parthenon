@@ -186,9 +186,12 @@ if __name__ == "__main__":
         help="Run test cases where coverage has been enabled",
     )
 
-    parser.add_argument('--analyze','-a',
-                        action='store_true',
-                        help='Skip to analysis, assumes test data already exists')
+    parser.add_argument(
+        "--analyze",
+        "-a",
+        action="store_true",
+        help="Skip to analysis, assumes test data already exists",
+    )
 
     args = parser.parse_args()
     try:
