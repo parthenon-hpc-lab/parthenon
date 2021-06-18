@@ -73,7 +73,7 @@
   /** Real-valued quantity */                                                            \
   PARTHENON_INTERNAL_FOR_FLAG(Real)                                                      \
   /************************************************/                                     \
-  /** INDEPENDENT: Exactly one must be specified (default is Independent) */             \
+  /** INDEPENDENT: Exactly one must be specified (default is Derived) */                 \
   /** is an independent, evolved variable */                                             \
   PARTHENON_INTERNAL_FOR_FLAG(Independent)                                               \
   /** is a derived quantity (ignored) */                                                 \
@@ -206,7 +206,7 @@ class Metadata {
       DoBit(Real, true);
     }
     if (CountSet({Independent, Derived}) == 0) {
-      DoBit(Independent, true);
+      DoBit(Derived, true);
     }
 
     // check if all flag constraints are satisfied, throw if not
