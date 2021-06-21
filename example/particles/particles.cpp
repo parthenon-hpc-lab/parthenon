@@ -478,6 +478,8 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     num_sent_local += swarm->num_particles_sent_;
   }
 
+  int num_sent_global = num_sent_local; // potentially overwritte by following Allreduce
+#ifdef MPI_PARALLEL
   for (auto &block : blocks) {
     auto swarm = block->swarm_data.Get()->Get("my particles");
     for (int n = 0; n < block->pbval->nneighbor; n++) {
@@ -497,8 +499,8 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     }
   }
 
-  int num_sent_global = 0;
   MPI_Allreduce(&num_sent_local, &num_sent_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+#endif // MPI_PARALLEL
 
   if (num_sent_global == 0) {
     for (auto &block : blocks) {

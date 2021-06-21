@@ -386,6 +386,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
 // TODO(BRR) Should this be a Swarm method?
 TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
   // Boundary transfers on same MPI proc are blocking
+#ifdef MPI_PARALLEL
   for (auto &block : blocks) {
     auto &pmb = block;
     auto swarm = pmb->swarm_data.Get()->Get("my particles");
@@ -394,17 +395,7 @@ TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
       swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
     }
   }
-
-  for (auto &block : blocks) {
-    auto &pmb = block;
-    auto sc = pmb->swarm_data.Get();
-    auto swarm = sc->Get("my particles");
-
-    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-      auto &nb = pmb->pbval->neighbor[n];
-      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-    }
-  }
+#endif
 
   // Reset boundary statuses
   for (auto &block : blocks) {

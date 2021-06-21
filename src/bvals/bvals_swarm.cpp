@@ -110,7 +110,7 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
         if (bd_var_.send[nb.bufid].extent(0) >
             ptarget_bswarm->bd_var_.recv[nb.targetid].extent(0)) {
           ptarget_bswarm->bd_var_.recv[nb.targetid] =
-              ParArray1D<Real>("Buffer", (bd_var_.send[nb.bufid].extent(0)));
+              BufArray1D<Real>("Buffer", (bd_var_.send[nb.bufid].extent(0)));
         }
 
         target_block.deep_copy(ptarget_bswarm->bd_var_.recv[nb.targetid],
