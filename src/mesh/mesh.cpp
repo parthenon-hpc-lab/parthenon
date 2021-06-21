@@ -1033,6 +1033,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
       pmb->pbval->SetupPersistentMPI();
       pmb->meshblock_data.Get()->SetupPersistentMPI();
+      pmb->swarm_data.Get()->SetupPersistentMPI();
     }
 
     // prepare to receive conserved variables
