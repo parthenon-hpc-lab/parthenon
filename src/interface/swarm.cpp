@@ -108,7 +108,6 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
                                 " already enrolled during Add()!");
   }
 
-  int vec_type;
   if (metadata.Type() == Metadata::Integer) {
     Add_<int>(label);
   } else if (metadata.Type() == Metadata::Real) {
@@ -722,7 +721,7 @@ int Swarm::CountParticlesToSend_() {
     // Resize buffer if too small
     auto sendbuf = vbswarm->bd_var_.send[n];
     if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
-      sendbuf = ParArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
+      sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
       vbswarm->bd_var_.send[n] = sendbuf;
     }
     vbswarm->send_size[n] = num_particles_to_send_h(n) * particle_size;
