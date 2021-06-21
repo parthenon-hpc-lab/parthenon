@@ -43,6 +43,7 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
 
   auto swarm = std::make_shared<Swarm>(label, metadata);
   swarm->SetBlockPointer(GetBlockPointer());
+  swarm->AllocateComms(GetBlockPointer());
   swarmVector_.push_back(swarm);
   swarmMap_[label] = swarm;
 }
@@ -75,7 +76,11 @@ void SwarmContainer::Remove(const std::string &label) {
 
 void SwarmContainer::SendBoundaryBuffers() {}
 
-void SwarmContainer::SetupPersistentMPI() {}
+void SwarmContainer::SetupPersistentMPI() {
+  for (auto &s : swarmVector_) {
+    s->SetupPersistentMPI();
+  }
+}
 
 bool SwarmContainer::ReceiveBoundaryBuffers() { return true; }
 
@@ -83,7 +88,29 @@ void SwarmContainer::ReceiveAndSetBoundariesWithWait() {}
 
 void SwarmContainer::SetBoundaries() {}
 
-void SwarmContainer::StartReceiving(BoundaryCommSubset phase) {}
+TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
+  int success = 0, total = 0;
+  for (auto &s : swarmVector_) {
+    if (s->Send(phase)) {
+      success++;
+    }
+    total++;
+  }
+  if (success == total) return TaskStatus::complete;
+  return TaskStatus::incomplete;
+}
+
+TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
+  int success = 0, total = 0;
+  for (auto &s : swarmVector_) {
+    if (s->Receive(phase)) {
+      success++;
+    }
+    total++;
+  }
+  if (success == total) return TaskStatus::complete;
+  return TaskStatus::incomplete;
+}
 
 void SwarmContainer::ClearBoundary(BoundaryCommSubset phase) {}
 

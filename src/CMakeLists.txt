@@ -116,6 +116,7 @@ add_library(parthenon
   bvals/boundary_flag.cpp
   bvals/bvals_refine.cpp
   bvals/bvals_var.cpp
+  bvals/bvals_swarm.cpp
 
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp

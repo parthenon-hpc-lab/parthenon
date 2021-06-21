@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -231,6 +231,24 @@ class ParArrayNDGeneric {
   }
   KOKKOS_INLINE_FUNCTION
   auto Get() const { return d6d_; }
+  // Resize View while preserving contents for shared extent
+  void Resize(const int nx1) { Kokkos::resize(d6d_, 1, 1, 1, 1, 1, nx1); }
+  void Resize(const int nx2, const int nx1) {
+    Kokkos::resize(d6d_, 1, 1, 1, 1, nx2, nx1);
+  }
+  void Resize(const int nx3, const int nx2, const int nx1) {
+    Kokkos::resize(d6d_, 1, 1, 1, nx3, nx2, nx1);
+  }
+  void Resize(const int nx4, const int nx3, const int nx2, const int nx1) {
+    Kokkos::resize(d6d_, 1, 1, nx4, nx3, nx2, nx1);
+  }
+  void Resize(const int nx5, const int nx4, const int nx3, const int nx2, const int nx1) {
+    Kokkos::resize(d6d_, 1, nx5, nx4, nx3, nx2, nx1);
+  }
+  void Resize(const int nx6, const int nx5, const int nx4, const int nx3, const int nx2,
+              const int nx1) {
+    Kokkos::resize(d6d_, nx6, nx5, nx4, nx3, nx2, nx1);
+  }
   // call me as Get<D>();
   template <std::size_t N = 6>
   KOKKOS_INLINE_FUNCTION auto
