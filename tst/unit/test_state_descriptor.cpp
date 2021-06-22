@@ -294,18 +294,20 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
 TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
   GIVEN("Some metadata") {
     Metadata dense({Metadata::Independent, Metadata::WithFluxes});
-    Metadata sparse({Metadata::Independent, Metadata::Sparse, Metadata::Vector},
-                    std::vector<int>{3});
+    Metadata sparse_vec({Metadata::Independent, Metadata::Sparse, Metadata::Vector},
+                        std::vector<int>{3});
 
     THEN("We can create a SparsePool with sparse metadata") {
-      SparsePool pool("sparse", sparse);
+      SparsePool pool("sparse", sparse_vec);
       AND_THEN("We can add sparse indices to the pool") {
         const auto m2 = pool.Add(2);
-        REQUIRE(m2 == sparse);
+        REQUIRE(m2 == sparse_vec);
         REQUIRE(m2.IsSet(Metadata::Vector));
         REQUIRE(!m2.IsSet(Metadata::Tensor));
 
-        const auto m5 = pool.Add(5, {2, 2, 4}, Metadata::Tensor);
+        const int sparse_id = 5;
+        const std::vector<int> shape = {2, 2, 4};
+        const auto m5 = pool.Add(sparse_id, shape, Metadata::Tensor);
 
         const std::set<MetadataFlag> expected_flags{
             Metadata::Independent, Metadata::Sparse,   Metadata::Tensor,
@@ -314,8 +316,8 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
         const std::set<MetadataFlag> actual_flags(flags.begin(), flags.end());
         REQUIRE(expected_flags == actual_flags);
 
-        REQUIRE(m5 != sparse); // because shape and Vector/Tensor flag are different
-        REQUIRE(m5.Shape().size() == 3);
+        REQUIRE(m5 != sparse_vec); // because shape and Vector/Tensor flag are different
+        REQUIRE(m5.Shape().size() == shape.size());
         REQUIRE(!m5.IsSet(Metadata::Vector));
         REQUIRE(m5.IsSet(Metadata::Tensor));
 
@@ -347,13 +349,15 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
       pool1.Add(55);
       REQUIRE(pkg->AddSparsePool(pool1));
 
-      REQUIRE(pkg->AddSparsePool("pool2", meta_sparse, std::vector<int>{1, 55, 100}));
+      const std::vector<int> sparse_ids_2{1, 55, 100};
+      REQUIRE(pkg->AddSparsePool("pool2", meta_sparse, sparse_ids_2));
 
       std::vector<std::vector<int>> shapes;
       shapes.push_back({3});
       shapes.push_back({2, 2});
+      const std::vector<int> sparse_ids_3{0, 100};
       REQUIRE(pkg->AddSparsePool(
-          "pool3", meta_sparse, std::vector<int>{0, 100}, shapes,
+          "pool3", meta_sparse, sparse_ids_3, shapes,
           std::vector<MetadataFlag>{Metadata::Vector, Metadata::Tensor}));
 
       REQUIRE(pkg->FieldPresent("pool1", 0));
@@ -366,7 +370,7 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
 
       AND_THEN("We can't add a SparsePool with wrong number of Vector/Tensor flags") {
         REQUIRE_THROWS(pkg->AddSparsePool(
-            "pool3", meta_sparse, std::vector<int>{0, 100}, shapes,
+            "pool4", meta_sparse, std::vector<int>{0, 100}, shapes,
             std::vector<MetadataFlag>{Metadata::Vector, Metadata::Tensor,
                                       Metadata::Tensor}));
       }

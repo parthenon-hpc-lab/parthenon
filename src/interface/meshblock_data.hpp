@@ -117,13 +117,15 @@ class MeshBlockData {
   //
   // Queries related to CellVariable objects
   //
-  bool HasCellVariable(const std::string &label) const {
+  bool HasCellVariable(const std::string &label) const noexcept {
     return varMap_.count(label) > 0;
   }
 
-  const CellVariableVector<T> &GetCellVariableVector() const { return varVector_; }
+  const CellVariableVector<T> &GetCellVariableVector() const noexcept {
+    return varVector_;
+  }
 
-  const MapToCellVars<T> &GetCellVariableMap() const { return varMap_; }
+  const MapToCellVars<T> &GetCellVariableMap() const noexcept { return varMap_; }
 
   std::shared_ptr<CellVariable<T>> GetCellVarPtr(const std::string &label) const {
     auto it = varMap_.find(label);
@@ -140,7 +142,7 @@ class MeshBlockData {
   }
   CellVariable<T> &Get(const int index) const { return *(varVector_[index]); }
 
-  int Index(const std::string &label) {
+  int Index(const std::string &label) noexcept {
     for (int i = 0; i < (varVector_).size(); i++) {
       if (!varVector_[i]->label().compare(label)) return i;
     }
@@ -167,7 +169,7 @@ class MeshBlockData {
     return AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 
-  bool IsAllocated(std::string const &label) const {
+  bool IsAllocated(std::string const &label) const noexcept {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
       return false;
@@ -175,15 +177,15 @@ class MeshBlockData {
     return it->second->IsAllocated();
   }
 
-  bool IsAllocated(std::string const &base_name, int sparse_id) const {
+  bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
     return IsAllocated(MakeVarLabel(base_name, sparse_id));
   }
 
   //
   // Queries related to FaceVariable objects
   //
-  const FaceVector<T> &GetFaceVector() const { return faceVector_; }
-  const MapToFace<T> &GetFaceMap() const { return faceMap_; }
+  const FaceVector<T> &GetFaceVector() const noexcept { return faceVector_; }
+  const MapToFace<T> &GetFaceMap() const noexcept { return faceMap_; }
   // DO NOT make this a const reference. Passing in C-style string literals
   // cuases it to misbehave.
   FaceVariable<T> &GetFace(std::string label) {
@@ -290,7 +292,7 @@ class MeshBlockData {
   void Print();
 
   // return number of stored arrays
-  int Size() { return varVector_.size(); }
+  int Size() noexcept { return varVector_.size(); }
 
   // Communication routines
   void ResetBoundaryCellVariables();
@@ -328,12 +330,12 @@ class MeshBlockData {
     return (my_keys == cmp_keys);
   }
 
-  bool Contains(const std::string &name) const {
+  bool Contains(const std::string &name) const noexcept {
     if (varMap_.find(name) != varMap_.end()) return true;
     if (faceMap_.find(name) != faceMap_.end()) return true;
     return false;
   }
-  bool Contains(const std::vector<std::string> &names) const {
+  bool Contains(const std::vector<std::string> &names) const noexcept {
     for (const auto &name : names) {
       if (!Contains(name)) return false;
     }
@@ -344,12 +346,12 @@ class MeshBlockData {
   void AddField(const std::string &base_name, const Metadata &metadata,
                 int sparse_id = InvalidSparseID);
 
-  void Add(std::shared_ptr<CellVariable<T>> var) {
+  void Add(std::shared_ptr<CellVariable<T>> var) noexcept {
     varVector_.push_back(var);
     varMap_[var->label()] = var;
   }
 
-  void Add(std::shared_ptr<FaceVariable<T>> var) {
+  void Add(std::shared_ptr<FaceVariable<T>> var) noexcept {
     faceVector_.push_back(var);
     faceMap_[var->label()] = var;
   }
