@@ -192,7 +192,7 @@ std::shared_ptr<MeshBlockData<T>> MeshBlockData<T>::SparseSlice(int sparse_id) {
   c->resolved_packages_ = resolved_packages_;
 
   // Note that all dense variables get added
-  for (auto v : varVector_) {
+  for (const auto &v : varVector_) {
     if (!v->IsSparse() || (v->GetSparseID() == sparse_id)) {
       c->Add(v);
     }
@@ -201,7 +201,7 @@ std::shared_ptr<MeshBlockData<T>> MeshBlockData<T>::SparseSlice(int sparse_id) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   c.s->_edgeVector.push_back(vNew);
   // }
-  for (auto v : faceVector_) {
+  for (const auto &v : faceVector_) {
     c->Add(v);
   }
 

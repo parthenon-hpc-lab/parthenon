@@ -124,10 +124,10 @@ class StateDescriptor {
     return params_.GetType(key);
   }
 
-  Params &AllParams() { return params_; }
+  Params &AllParams() noexcept { return params_; }
 
   // retrieve label
-  const std::string &label() const { return label_; }
+  const std::string &label() const noexcept { return label_; }
 
   bool AddSwarm(const std::string &swarm_name, const Metadata &m) {
     if (swarmMetadataMap_.count(swarm_name) > 0) {
@@ -169,10 +169,10 @@ class StateDescriptor {
   }
 
   // retrieve number of fields
-  int size() const { return metadataMap_.size(); }
+  int size() const noexcept { return metadataMap_.size(); }
 
   // retrieve all field names
-  std::vector<std::string> Fields() {
+  std::vector<std::string> Fields() noexcept {
     std::vector<std::string> names;
     names.reserve(metadataMap_.size());
     for (auto &x : metadataMap_) {
@@ -182,7 +182,7 @@ class StateDescriptor {
   }
 
   // retrieve all swarm names
-  std::vector<std::string> Swarms() {
+  std::vector<std::string> Swarms() noexcept {
     std::vector<std::string> names;
     names.reserve(swarmMetadataMap_.size());
     for (auto &x : swarmMetadataMap_) {
@@ -191,23 +191,24 @@ class StateDescriptor {
     return names;
   }
 
-  const auto &AllFields() const { return metadataMap_; }
-  const auto &AllSparsePools() const { return sparsePoolMap_; }
-  const auto &AllSwarms() const { return swarmMetadataMap_; }
-  const auto &AllSwarmValues(const std::string &swarm_name) const {
+  const auto &AllFields() const noexcept { return metadataMap_; }
+  const auto &AllSparsePools() const noexcept { return sparsePoolMap_; }
+  const auto &AllSwarms() const noexcept { return swarmMetadataMap_; }
+  const auto &AllSwarmValues(const std::string &swarm_name) const noexcept {
     return swarmValueMetadataMap_.at(swarm_name);
   }
-  bool FieldPresent(const std::string &base_name, int sparse_id = InvalidSparseID) const {
+  bool FieldPresent(const std::string &base_name, int sparse_id = InvalidSparseID) const
+      noexcept {
     return metadataMap_.count(VarID(base_name, sparse_id)) > 0;
   }
-  bool SparseBaseNamePresent(const std::string &base_name) const {
+  bool SparseBaseNamePresent(const std::string &base_name) const noexcept {
     return sparsePoolMap_.count(base_name) > 0;
   }
-  bool SwarmPresent(const std::string &swarm_name) const {
+  bool SwarmPresent(const std::string &swarm_name) const noexcept {
     return swarmMetadataMap_.count(swarm_name) > 0;
   }
   bool SwarmValuePresent(const std::string &value_name,
-                         const std::string &swarm_name) const {
+                         const std::string &swarm_name) const noexcept {
     if (!SwarmPresent(swarm_name)) return false;
     return swarmValueMetadataMap_.at(swarm_name).count(value_name) > 0;
   }
@@ -222,7 +223,7 @@ class StateDescriptor {
     return itr->second;
   }
 
-  const auto &GetSparsePool(const std::string &base_name) const {
+  const auto &GetSparsePool(const std::string &base_name) const noexcept {
     static const SparsePool empty_pool("EmptySparsePool", Metadata({Metadata::Sparse}));
 
     const auto itr = sparsePoolMap_.find(base_name);
@@ -234,7 +235,7 @@ class StateDescriptor {
   }
 
   // retrieve metadata for a specific swarm
-  Metadata &SwarmMetadata(const std::string &swarm_name) {
+  Metadata &SwarmMetadata(const std::string &swarm_name) noexcept {
     // TODO(JL) Do we want to add a default metadata for a non-existent swarm_name?
     return swarmMetadataMap_[swarm_name];
   }
