@@ -43,6 +43,7 @@
 - [[PR 536]](https://github.com/lanl/parthenon/pull/536) Updated to latest Kokkos release.
 - [[PR 520]](https://github.com/lanl/parthenon/pull/520) Add black python formatter to github actions
 - [[PR 519]](https://github.com/lanl/parthenon/pull/519) Add checksum to bash uploader script to verify file is trusted
+- [[PR 554]](https://github.com/lanl/parthenon/pull/554) Small fix to documentation related to python parthenon tools README
 
 ### Removed (removing behavior/API/varaibles/...)
 - [[PR 498]](https://github.com/lanl/parthenon/pull/498) Cleanup unused user hooks and variables
