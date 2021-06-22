@@ -91,14 +91,9 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
         std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
     Add(pvar);
 
-    // TODO(JL) For now, allocate sparse and dense fields, because we don't yet have
-    // machinery to deal with non-allocated sparse fields
-    pvar->Allocate(pmy_block);
-
-    // once that machinery is in place, replace the above with this:
-    // if (!var->IsSparse()) {
-    //   var->Allocate(pmy_block);
-    // }
+    if (!pvar->IsSparse()) {
+      pvar->Allocate(pmy_block);
+    }
   }
 }
 
