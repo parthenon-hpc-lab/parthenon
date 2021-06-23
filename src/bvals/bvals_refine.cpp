@@ -130,7 +130,7 @@ void BoundaryValues::FillRestrictionMetadata(cell_centered_bvars::BufferCacheHos
           info(idx).coarse_coords = pmb->pmr->coarse_coords;
           info(idx).fine = fine;
           info(idx).coarse = coarse;
-          info(idx).restrict = true;
+          info(idx).restriction = true;
           info(idx).Nv = Nv;
           idx++;
         }

@@ -42,7 +42,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues3d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).restrict) {
+          if (info(buf).restriction) {
             par_for_inner(
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
                 info(buf).sk, info(buf).ek, info(buf).sj, info(buf).ej, info(buf).si,
@@ -83,7 +83,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues2d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).restrict) {
+          if (info(buf).restriction) {
             const int k = kb.s;
             par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
                           info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
@@ -115,7 +115,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues1d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).restrict) {
+          if (info(buf).restriction) {
             const int ck = ckb.s;
             const int cj = cjb.s;
             const int k = kb.s;

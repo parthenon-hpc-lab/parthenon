@@ -87,7 +87,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
       info_h(b).sk = csk;
       info_h(b).ek = cek;
       info_h(b).Nv = nvars;
-      info_h(b).restrict = true;
+      info_h(b).restriction = true;
       info_h(b).coords = pmb->coords;
       info_h(b).coarse_coords = this->coarse_coords;
       info_h(b).fine = fine.Get(l, m);
