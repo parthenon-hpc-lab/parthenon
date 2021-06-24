@@ -11,6 +11,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 553]](https://github.com/lanl/parthenon/pull/553) Avoid use of variable named restrict
 - [[PR 476]](https://github.com/lanl/parthenon/pull/476) Update min. `CMake` version to 3.16 (matching `Kokkos`) and add option to compile with C++17 (`PARTHENON_ENABLE_CPP17` - default: off)
 - [[PR 532]](https://github.com/lanl/parthenon/pull/532) Remove obsolete `Properties_t`, they have been replaced by `Packages_t`
 - [[PR 508]](https://github.com/lanl/parthenon/pull/508) Modify `RestrictCellCenteredVariables` to support a restriction over meshblock packs.
