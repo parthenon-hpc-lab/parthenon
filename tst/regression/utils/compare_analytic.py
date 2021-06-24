@@ -53,7 +53,7 @@ def compare_analytic(
     analytic_components: Dictionary keying component names to analytic functions.
         Each analytic function in the dictionary takes the arguments:
 
-        def analytic_func(Z,Y,x,t)
+        def analytic_func(Z,Y,X,t)
 
         where Z,Y,X comprise arrays of z,y,x coords to compute the analytic solution
         for a component at time t

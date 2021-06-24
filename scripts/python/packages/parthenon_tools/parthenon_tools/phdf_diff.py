@@ -484,10 +484,11 @@ def compare(
 
         # compute error at every point
         if relative:
-            err_val = np.abs((val0 - val1) / val0)
-            # Set error values where val0==0 to 0
+            denom = 0.5 * (np.abs(val0) + np.abs(val1))
+            err_val = np.abs(val0 - val1) / denom
+            # Set error values where denom==0 to 0
             # Numpy masked arrays would be more robust here, but they are very slow
-            err_val[val0 == 0] = 0
+            err_val[denom == 0] = 0
         else:
             err_val = np.abs(val0 - val1)
 
