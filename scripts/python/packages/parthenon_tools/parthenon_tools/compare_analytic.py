@@ -39,10 +39,14 @@ def norm_err_func(gold, test, norm_ord=2, relative=False, ignore_gold_zero=True)
     err = gold - test
 
     if relative:
-        err /= 0.5 * (np.abs(gold) + np.abs(test))
+        denom = 0.5 * (np.abs(gold) + np.abs(test))
+        #To avoid nan when gold and test are 0
+        denom[denom == 0] = 1
 
-    if ignore_gold_zero:
-        err = err[gold != 0]
+        err /= denom
+
+        if ignore_gold_zero:
+            err = err[gold != 0]
 
     return np.linalg.norm(err, ord=norm_ord)
 
