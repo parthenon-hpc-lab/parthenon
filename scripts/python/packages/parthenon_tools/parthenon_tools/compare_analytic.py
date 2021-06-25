@@ -14,8 +14,8 @@
 import numpy as np
 
 
-def norm_err_func(gold,test,norm_ord=2,relative=False,ignore_gold_zero=True):
-    """Example error metric function 
+def norm_err_func(gold, test, norm_ord=2, relative=False, ignore_gold_zero=True):
+    """Example error metric function
     Arguments:
     gold: array_like
         Array of gold data for a single component (Supplied by analytic_component)
@@ -23,7 +23,7 @@ def norm_err_func(gold,test,norm_ord=2,relative=False,ignore_gold_zero=True):
         1D array of test data
 
     Keyword Arguments:
-    norm_ord=2: {non-zero int, inf, -inf, ‘fro’, ‘nuc’} 
+    norm_ord=2: {non-zero int, inf, -inf, ‘fro’, ‘nuc’}
         Order of the norm. See numpy.linalg.norm for documentation of norms
     relative=False: boolean
         If true, at every point divides the difference between the gold and test
@@ -39,12 +39,13 @@ def norm_err_func(gold,test,norm_ord=2,relative=False,ignore_gold_zero=True):
     err = gold - test
 
     if relative:
-        err /= 0.5*( np.abs(gold) + np.abs(test))
+        err /= 0.5 * (np.abs(gold) + np.abs(test))
 
     if ignore_gold_zero:
         err = err[gold != 0]
 
-    return np.linalg.norm(err,ord=norm_ord)
+    return np.linalg.norm(err, ord=norm_ord)
+
 
 ################################################################################
 #   Compare_analytic
