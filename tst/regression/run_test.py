@@ -74,7 +74,7 @@ def main(**kwargs):
 
     test_manager = tc.TestManager(run_test_py_path, **kwargs)
 
-    if not "analyze" in kwargs or kwargs["analyze"] == False:
+    if "analyze" not in kwargs or kwargs["analyze"] == False:
 
         print("Make output folder in test if does not exist")
 

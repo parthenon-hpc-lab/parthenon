@@ -430,30 +430,7 @@ def compare(
     print("Tolerance = %g" % tol)
 
     # Make loc array of locations matching the shape of val0,val1
-    # Useful for reporting locations of errors
-    locations_x = f0.x
-    locations_y = f0.y
-    locations_z = f0.z
-
-    # loc[dim,grid_idx,k,j,i]
-    loc = np.empty(
-        (
-            3,
-            locations_x.shape[0],
-            locations_z.shape[1],
-            locations_y.shape[1],
-            locations_x.shape[1],
-        )
-    )
-
-    # Share every coordinate
-    for grid_idx in range(loc.shape[1]):
-        loc[:, grid_idx] = np.meshgrid(
-            locations_z[grid_idx],
-            locations_y[grid_idx],
-            locations_x[grid_idx],
-            indexing="ij",
-        )
+    loc = f0.GetVolumeLocations(flatten=False)
 
     for var in set(f0.Variables + f1.Variables):
         var_no_diffs = True
