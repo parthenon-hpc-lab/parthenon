@@ -18,6 +18,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -37,21 +38,67 @@ template <typename T>
 using BlockDataList_t = std::vector<std::shared_ptr<MeshBlockData<T>>>;
 
 namespace pack_on_mesh_impl {
+
+template <typename K>
+inline void AppendKey(K *key_collection, const K *new_key);
+
+template <>
+inline void AppendKey<std::vector<std::string>>(std::vector<std::string> *key_collection,
+                                                const std::vector<std::string> *new_key) {
+  for (const auto &k : *new_key) {
+    key_collection->push_back(k);
+  }
+}
+
+template <>
+inline void AppendKey<vpack_types::StringPair>(vpack_types::StringPair *key_collection,
+                                               const vpack_types::StringPair *new_key) {
+  for (const auto &k : new_key->first) {
+    key_collection->first.push_back(k);
+  }
+  for (const auto &k : new_key->second) {
+    key_collection->second.push_back(k);
+  }
+}
+
 // TODO(JMM): pass the coarse/fine option through the meshblockpack machinery
-template <typename T, typename K, typename M, typename F>
-MeshBlockPack<T> PackOnMesh(K &key, M &map, BlockDataList_t<Real> &block_data_,
-                            F &packing_function) {
-  auto kvpair = map.find(key);
-  if (kvpair == map.end()) {
-    int nblocks = block_data_.size();
-    ParArray1D<T> packs("MeshData::PackVariables::packs", nblocks);
+template <typename P, typename M, typename F>
+const P &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_, F &packing_function) {
+  using Key_t =
+      typename std::remove_cv<typename std::remove_pointer<decltype(P::key)>::type>::type;
+  using Pack_t = typename decltype(P::pack)::pack_type;
+
+  const auto nblocks = block_data_.size();
+
+  // since the pack keys used by MeshBlockData includes the allocation status of each
+  // variable, we cannot simply use the key from the first MeshBlockData, but we need to
+  // get the keys from all MeshBlockData instances and concatenate them
+  Key_t key;
+  for (size_t i = 0; i < nblocks; i++) {
+    AppendKey(&key, packing_function(block_data_[i]).key);
+  }
+
+  auto itr = map.find(key);
+  if (itr == map.end()) {
+    ParArray1D<Pack_t> packs("MeshData::PackVariables::packs", nblocks);
     auto packs_host = Kokkos::create_mirror_view(packs);
     ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
     auto coords_host = Kokkos::create_mirror_view(coords);
-    for (int i = 0; i < nblocks; i++) {
-      packs_host(i) = packing_function(block_data_[i]).pack;
+
+    P new_item;
+
+    for (size_t i = 0; i < nblocks; i++) {
+      const auto &meta_pack = packing_function(block_data_[i]);
+      packs_host(i) = meta_pack.pack;
       coords_host(i) = block_data_[i]->GetBlockPointer()->coords;
+
+      if (i == 0) {
+        new_item.map = meta_pack.map;
+      } else {
+        assert(new_item.map == meta_pack.map);
+      }
     }
+
     std::array<int, 5> dims;
     for (int i = 0; i < 4; i++) {
       dims[i] = packs_host(0).GetDim(i + 1);
@@ -61,13 +108,15 @@ MeshBlockPack<T> PackOnMesh(K &key, M &map, BlockDataList_t<Real> &block_data_,
     Kokkos::deep_copy(packs, packs_host);
     Kokkos::deep_copy(coords, coords_host);
 
-    auto cellbounds = block_data_[0]->GetBlockPointer()->cellbounds;
-    auto mbp = MeshBlockPack<T>(packs, cellbounds, coords, dims);
-    map[key] = mbp;
-    return mbp;
+    const auto cellbounds = block_data_[0]->GetBlockPointer()->cellbounds;
+    new_item.pack = MeshBlockPack<Pack_t>(packs, cellbounds, coords, dims);
+    itr = map.insert({key, new_item}).first;
+    itr->second.key = &itr->first;
   }
-  return kvpair->second;
+
+  return itr->second;
 }
+
 } // namespace pack_on_mesh_impl
 
 /// The MeshData class is a container for cached MeshBlockPacks, i.e., it
@@ -156,25 +205,22 @@ class MeshData {
   }
 
   template <typename... Args>
-  auto PackVariables(Args &&... args) {
+  const auto &PackVariables(Args &&... args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data) {
       return meshblock_data->PackVariables(std::forward<Args>(args)...);
     };
-    const auto key = block_data_[0]->PackVariables(std::forward<Args>(args)...).key;
-    return pack_on_mesh_impl::PackOnMesh<VariablePack<T>>(*key, varPackMap_, block_data_,
-                                                          pack_function);
+    return pack_on_mesh_impl::PackOnMesh<MeshBlockVarMetaPack<T>>(
+        varPackMap_, block_data_, pack_function);
   }
 
   template <typename... Args>
-  auto PackVariablesAndFluxes(Args &&... args) {
+  const auto &PackVariablesAndFluxes(Args &&... args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data) {
       return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)...);
     };
 
-    const auto key =
-        block_data_[0]->PackVariablesAndFluxes(std::forward<Args>(args)...).key;
-    return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>>(*key, varFluxPackMap_,
-                                                              block_data_, pack_function);
+    return pack_on_mesh_impl::PackOnMesh<MeshBlockFluxMetaPack<T>>(
+        varFluxPackMap_, block_data_, pack_function);
   }
 
   void ClearCaches() {

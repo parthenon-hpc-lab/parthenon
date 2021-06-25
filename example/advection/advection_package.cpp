@@ -356,7 +356,8 @@ Real AdvectionHst(MeshData<Real> *md) {
 
   // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
   // collection of blocks
-  const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
+  const auto &advected_pack =
+      md->PackVariables(std::vector<std::string>{"advected"}).pack;
 
   const auto ib = advected_pack.cellbounds.GetBoundsI(IndexDomain::interior);
   const auto jb = advected_pack.cellbounds.GetBoundsJ(IndexDomain::interior);

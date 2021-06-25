@@ -170,10 +170,11 @@ TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> a
   bool const use_sparse =
       md->GetMeshPointer()->packages.Get("calculate_pi")->Param<bool>("use_sparse");
 
-  MeshBlockPack<VariablePack<Real>> pack =
+  const auto &pack =
       use_sparse ? md->PackVariables(std::vector<std::string>({"in_or_out"}),
                                      std::vector<int>{0})
-                 : md->PackVariables(std::vector<std::string>({"in_or_out"}));
+                       .pack
+                 : md->PackVariables(std::vector<std::string>({"in_or_out"})).pack;
 
   areas(i) = use_sparse ? ComputeAreaInternal(
                               pack, areas,

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -73,8 +73,8 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
   const IndexDomain interior = IndexDomain::interior;
 
   std::vector<MetadataFlag> flags({Metadata::WithFluxes});
-  const auto &vin = in_obj->PackVariablesAndFluxes(flags);
-  auto dudt = dudt_obj->PackVariables(flags);
+  const auto &vin = in_obj->PackVariablesAndFluxes(flags).pack;
+  auto dudt = dudt_obj->PackVariables(flags).pack;
   const IndexRange ib = in_obj->GetBoundsI(interior);
   const IndexRange jb = in_obj->GetBoundsJ(interior);
   const IndexRange kb = in_obj->GetBoundsK(interior);
@@ -124,8 +124,8 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
   const IndexDomain interior = IndexDomain::interior;
 
   std::vector<MetadataFlag> flags({Metadata::WithFluxes});
-  auto u0_pack = u0_data->PackVariablesAndFluxes(flags);
-  const auto &u1_pack = u1_data->PackVariables(flags);
+  auto u0_pack = u0_data->PackVariablesAndFluxes(flags).pack;
+  const auto &u1_pack = u1_data->PackVariables(flags).pack;
   const IndexRange ib = u0_data->GetBoundsI(interior);
   const IndexRange jb = u0_data->GetBoundsJ(interior);
   const IndexRange kb = u0_data->GetBoundsK(interior);
