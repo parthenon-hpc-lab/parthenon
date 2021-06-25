@@ -342,7 +342,7 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
 
             auto &coarse_buf = v->vbvar->coarse_buf;
             boundary_info_h(b).var = coarse_buf.Get<4>();
-            boundary_info_h(b).restrict = true;
+            boundary_info_h(b).restriction = true;
 
           } else {
             CalcIndicesLoadToFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());

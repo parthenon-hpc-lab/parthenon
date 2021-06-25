@@ -152,6 +152,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // mesh-related objects
   // TODO(jcd): remove all these?
   std::unique_ptr<BoundaryValues> pbval;
+  std::unique_ptr<BoundarySwarms> pbswarm;
   std::unique_ptr<MeshRefinement> pmr;
 
   BoundaryFlag boundary_flag[6];

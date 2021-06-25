@@ -132,12 +132,14 @@ class SwarmContainer {
   std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }
 
   // Communication routines
-  [[deprecated("Not yet implemented")]] void SetupPersistentMPI();
+  void SetupPersistentMPI();
   [[deprecated("Not yet implemented")]] void SetBoundaries();
   [[deprecated("Not yet implemented")]] void SendBoundaryBuffers();
   [[deprecated("Not yet implemented")]] void ReceiveAndSetBoundariesWithWait();
   [[deprecated("Not yet implemented")]] bool ReceiveBoundaryBuffers();
-  [[deprecated("Not yet implemented")]] void StartReceiving(BoundaryCommSubset phase);
+  TaskStatus StartCommunication(BoundaryCommSubset phase);
+  TaskStatus Send(BoundaryCommSubset phase);
+  TaskStatus Receive(BoundaryCommSubset phase);
   [[deprecated("Not yet implemented")]] void ClearBoundary(BoundaryCommSubset phase);
 
   bool operator==(const SwarmContainer &cmp) {

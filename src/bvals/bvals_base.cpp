@@ -40,9 +40,9 @@ namespace parthenon {
 bool BoundaryBase::called_;
 int BoundaryBase::maxneighbor_;
 // array types: each element is zero-initialized
-int BoundaryBase::bufid[56];
+int BoundaryBase::bufid[NMAX_NEIGHBORS];
 // struct type: zero-initializes each non-static data member (this case: all scalar types)
-NeighborIndexes BoundaryBase::ni[56];
+NeighborIndexes BoundaryBase::ni[NMAX_NEIGHBORS];
 
 //----------------------------------------------------------------------------------------
 // \!fn void NeighborBlock::SetNeighbor(int irank, int ilevel, int igid, int ilid,

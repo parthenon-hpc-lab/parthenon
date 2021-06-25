@@ -48,6 +48,13 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advectio
 --num_steps 5")
 list(APPEND EXTRA_TEST_LABELS "perf-reg")
 
+list(APPEND TEST_DIRS particle_leapfrog)
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/particle-leapfrog \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_leapfrog/parthinput.particle_leapfrog \
+--num_steps 1")
+list(APPEND EXTRA_TEST_LABELS "")
+
 if (ENABLE_HDF5)
 
   # h5py is needed for restart and hdff5 test
