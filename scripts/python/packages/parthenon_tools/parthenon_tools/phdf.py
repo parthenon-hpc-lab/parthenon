@@ -498,7 +498,7 @@ class phdf:
         x[grid_idx,i]
         """
 
-        if( not (x.shape[0] == y.shape[0] == z.shape[0]) ):
+        if not (x.shape[0] == y.shape[0] == z.shape[0]):
             raise Exception("z,y,x have different number of grids")
 
         # loc[grid_idx,k,j,i]
