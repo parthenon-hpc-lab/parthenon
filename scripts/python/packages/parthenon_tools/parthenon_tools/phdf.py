@@ -124,7 +124,7 @@ class phdf:
         def load_coord(coord_i):
             coord_name = ["x", "y", "z"][coord_i]
 
-            tmp = f["/Locations/" + coord_name][:, :]
+            coordf = f["/Locations/" + coord_name][:, :]
             vol_loc = "/VolumeLocations/" + coord_name
             if vol_loc in f:
                 coord = f[vol_loc][:, :]
@@ -132,13 +132,12 @@ class phdf:
                 coord = np.zeros((self.NumBlocks, self.MeshBlockSize[coord_i]))
                 for bId in range(self.NumBlocks):
                     for cId in range(self.MeshBlockSize[coord_i]):
-                        coord[bId, cId] = 0.5 * (tmp[bId, cId] + tmp[bId, cId + 1])
-            coordf = tmp
-            return tmp, coord, coordf
+                        coord[bId, cId] = 0.5 * (coordf[bId, cId] + coordf[bId, cId + 1])
+            return coord, coordf
 
-        tmpx, self.x, self.xf = load_coord(0)
-        tmpy, self.y, self.yf = load_coord(1)
-        tmpz, self.z, self.zf = load_coord(2)
+        self.x, self.xf = load_coord(0)
+        self.y, self.yf = load_coord(1)
+        self.z, self.zf = load_coord(2)
 
         # fill in self.offset and block bounds
         self.offset = [0, 0, 0]
@@ -160,12 +159,12 @@ class phdf:
         eps = 1e-8
         for ib in range(self.NumBlocks):
             self.BlockBounds[ib] = [
-                tmpx[ib, iOffsets[0]] - eps,
-                tmpx[ib, iOffsets[1]] + eps,
-                tmpy[ib, iOffsets[2]] - eps,
-                tmpy[ib, iOffsets[3]] + eps,
-                tmpz[ib, iOffsets[4]] - eps,
-                tmpz[ib, iOffsets[5]] + eps,
+                self.xf[ib, iOffsets[0]] - eps,
+                self.xf[ib, iOffsets[1]] + eps,
+                self.yf[ib, iOffsets[2]] - eps,
+                self.yf[ib, iOffsets[3]] + eps,
+                self.zf[ib, iOffsets[4]] - eps,
+                self.zf[ib, iOffsets[5]] + eps,
             ]
         # Save info
         self.Info = dict(f["/Info"].attrs)
@@ -445,6 +444,18 @@ class phdf:
         has dimensions [NumBlocks, Nz, Ny, Nx] where NumBlocks is the total
         number of blocks, and Nz, Ny, and Nx are the number of cells in the z,
         y, and x directions respectively.
+
+        Components can be from a single variable or spread across multiple variables.
+
+        Components refer to top-level components of variables. The number of
+        components and the names of each component in variables are specified in
+        the phdf file in Info/NumComponents and Info/ComponentNames with
+        variables in the order of Info/OutputDatasetNames.
+
+        In the c++ code, components of variables can be named by supplying a
+        std::vector of std::strings when creating the Metadata for variables.
+        Without specifying component names, by default variables have a single
+        component with the same name as the variable.
         """
 
         # Check if these components exist
