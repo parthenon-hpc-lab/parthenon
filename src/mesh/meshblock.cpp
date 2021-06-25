@@ -164,7 +164,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // variables is in place and after we write "prolongate-in-one,"
   // this should be only for `Metadata::Independent`.
   const auto vars =
-      real_container->GetVariablesByFlag({Metadata::Independent, Metadata::FillGhost}, false).vars();
+      real_container
+          ->GetVariablesByFlag({Metadata::Independent, Metadata::FillGhost}, false)
+          .vars();
   for (int n = 0; n < vars.size(); n++) {
     RegisterMeshBlockData(vars[n]);
   }

@@ -248,7 +248,7 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
   Kokkos::Profiling::pushRegion("Task_ComputeNumIter");
 
   Kokkos::Profiling::pushRegion("Task_ComputeNumIter_pack");
-  auto pack = md->PackVariables(std::vector<std::string>({"num_iter"}));
+  auto pack = md->PackVariables(std::vector<std::string>({"num_iter"})).pack;
   Kokkos::Profiling::popRegion();
 
   auto pkg = packages.Get("stochastic_subgrid_package");

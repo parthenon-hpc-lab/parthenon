@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -46,9 +46,9 @@ using ::parthenon::DevExecSpace;
 using ::parthenon::HostExecSpace;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
+using ::parthenon::MeshBlockFluxMetaPack;
 using ::parthenon::MeshBlockPack;
-using ::parthenon::MeshBlockVarFluxPack;
-using ::parthenon::MeshBlockVarPack;
+using ::parthenon::MeshBlockVarMetaPack;
 using ::parthenon::Metadata;
 using ::parthenon::PackIndexMap;
 using ::parthenon::par_for;

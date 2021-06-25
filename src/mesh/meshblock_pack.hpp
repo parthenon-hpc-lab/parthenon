@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -38,6 +38,8 @@ class Mesh;
 template <typename T>
 class MeshBlockPack {
  public:
+  using pack_type = T;
+
   MeshBlockPack() = default;
   MeshBlockPack(const ParArray1D<T> view, const IndexShape shape,
                 const ParArray1D<Coordinates_t> coordinates,
@@ -80,21 +82,24 @@ class MeshBlockPack {
 };
 
 template <typename T>
-using ViewOfPacks = ParArray1D<VariablePack<T>>;
-template <typename T>
-using ViewOfFluxPacks = ParArray1D<VariableFluxPack<T>>;
+struct MeshBlockVarMetaPack {
+  MeshBlockPack<VariablePack<T>> pack;
+  PackIndexMap map;
+  const std::vector<std::string> *key;
+};
 
 template <typename T>
-using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
-template <typename T>
-using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
+struct MeshBlockFluxMetaPack {
+  MeshBlockPack<VariableFluxPack<T>> pack;
+  PackIndexMap map;
+  const vpack_types::StringPair *key;
+};
 
 template <typename T>
-using MapToMeshBlockVarPack =
-    std::map<std::vector<std::string>, MeshBlockPack<VariablePack<T>>>;
+using MapToMeshBlockVarPack = std::map<std::vector<std::string>, MeshBlockVarMetaPack<T>>;
 template <typename T>
 using MapToMeshBlockVarFluxPack =
-    std::map<vpack_types::StringPair, MeshBlockPack<VariableFluxPack<T>>>;
+    std::map<vpack_types::StringPair, MeshBlockFluxMetaPack<T>>;
 
 } // namespace parthenon
 

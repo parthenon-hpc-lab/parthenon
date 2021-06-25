@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,6 +18,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <typeinfo>
 #include <utility>
 #include <vector>
@@ -49,9 +50,9 @@ template <typename F, typename T>
 TaskStatus WeightedSumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,
                            const Real w2, T *out) {
   Kokkos::Profiling::pushRegion("Task_WeightedSumData");
-  const auto &x = in1->PackVariables(flags);
-  const auto &y = in2->PackVariables(flags);
-  const auto &z = out->PackVariables(flags);
+  const auto &x = in1->PackVariables(flags).pack;
+  const auto &y = in2->PackVariables(flags).pack;
+  const auto &z = out->PackVariables(flags).pack;
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "WeightedSumData", DevExecSpace(), 0, x.GetDim(5) - 1, 0,
       x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0, x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
