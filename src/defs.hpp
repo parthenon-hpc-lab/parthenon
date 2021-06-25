@@ -42,6 +42,8 @@ namespace parthenon {
 
 #define CACHELINE_BYTES 64
 
+#define NMAX_NEIGHBORS 56
+
 // forward declarations needed for function pointer type aliases
 class MeshBlock;
 class Coordinates;

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -31,11 +31,15 @@ namespace parthenon {
 // Forward declarations
 template <typename T>
 class CellVariable;
+template <typename T>
+class ParticleVariable;
 
 // some convenience aliases
 namespace vpack_types {
 template <typename T>
 using VarList = std::forward_list<std::shared_ptr<CellVariable<T>>>;
+template <typename T>
+using SwarmVarList = std::forward_list<std::shared_ptr<ParticleVariable<T>>>;
 // Sparse and/or scalar variables are multiple indices in the outer view of a pack
 // the pairs represent interval (inclusive) of those indices
 using IndexPair = std::pair<int, int>;
@@ -118,6 +122,21 @@ class VariablePack {
   std::array<int, 4> dims_;
   int ndim_;
 };
+template <typename T>
+class SwarmVariablePack {
+ public:
+  SwarmVariablePack() = default;
+  SwarmVariablePack(const ViewOfParArrays<T> view, const std::array<int, 2> dims)
+      : v_(view), dims_(dims) {}
+  KOKKOS_FORCEINLINE_FUNCTION
+  ParArray3D<T> &operator()(const int n) const { return v_(n); }
+  KOKKOS_FORCEINLINE_FUNCTION
+  T &operator()(const int n, const int i) const { return v_(n)(0, 0, i); }
+
+ private:
+  ViewOfParArrays<T> v_;
+  std::array<int, 2> dims_;
+};
 
 template <typename T>
 class VariableFluxPack : public VariablePack<T> {
@@ -163,9 +182,13 @@ using PackIndxPair = PackAndIndexMap<VariablePack<T>>;
 template <typename T>
 using FluxPackIndxPair = PackAndIndexMap<VariableFluxPack<T>>;
 template <typename T>
+using SwarmPackIndxPair = PackAndIndexMap<SwarmVariablePack<T>>;
+template <typename T>
 using MapToVariablePack = std::map<std::vector<std::string>, PackIndxPair<T>>;
 template <typename T>
 using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair<T>>;
+template <typename T>
+using MapToSwarmVariablePack = std::map<std::vector<std::string>, SwarmPackIndxPair<T>>;
 
 template <typename T>
 void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
@@ -231,6 +254,35 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
   Kokkos::deep_copy(cv, host_view);
   Kokkos::deep_copy(sparse_assoc, host_sp);
   Kokkos::deep_copy(vector_component, host_vc);
+}
+
+template <typename T>
+void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vmap,
+                      ViewOfParArrays<T> &cv) {
+  using vpack_types::IndexPair;
+
+  auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv);
+
+  int vindex = 0;
+  int sparse_start;
+  std::string sparse_name;
+  // TODO(BRR) Remove the logic for sparse variables
+  for (const auto v : vars) {
+    if (vmap != nullptr) {
+      vmap->insert(std::pair<std::string, IndexPair>(
+          sparse_name, IndexPair(sparse_start, vindex - 1)));
+      sparse_name = "";
+    }
+    int vstart = vindex;
+    // Reusing ViewOfParArrays which expects 3D slices
+    host_view(vindex++) = v->data.Get(0, 0, 0);
+    if (vmap != nullptr) {
+      vmap->insert(
+          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
+    }
+  }
+
+  Kokkos::deep_copy(cv, host_view);
 }
 
 template <typename T>
@@ -355,6 +407,31 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
     std::array<int, 4> cv_size = {0, 0, 0, vsize};
     return VariablePack<T>(cv, sparse_assoc, vector_component, cv_size);
   }
+}
+
+template <typename T>
+SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
+                                   PackIndexMap *vmap = nullptr) {
+  // count up the size
+  int vsize = 0;
+  for (const auto &v : vars) {
+    vsize++;
+  }
+
+  // make the outer view
+  ViewOfParArrays<T> cv("MakeSwarmPack::cv", vsize);
+  ParArray1D<int> sparse_assoc("MakeSwarmPack::sparse_assoc", vsize); // Unused
+
+  FillSwarmVarView(vars, vmap, cv);
+
+  // If no vars, return empty pack
+  if (vars.empty()) {
+    return SwarmVariablePack<T>();
+  }
+
+  auto fvar = vars.front()->data;
+  std::array<int, 2> cv_size = {fvar.GetDim(1), vsize};
+  return SwarmVariablePack<T>(cv, cv_size);
 }
 
 } // namespace parthenon

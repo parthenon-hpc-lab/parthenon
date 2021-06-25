@@ -7,8 +7,11 @@
 - [[PR 479]](https://github.com/lanl/parthenon/pull/479) Add `Update` function to `Params` to update the value of an existing key.
 - [[PR 482]](https://github.com/lanl/parthenon/pull/482) Add support for package enrolled history outputs.
 - [[PR 511]](https://github.com/lanl/parthenon/pull/511) Improvements/speed ups in phdf_diff, phdf_diff, analytic_compare.py
+- [[PR 497]](https://github.com/lanl/parthenon/pull/497) Add tracer particles example.
+- [[PR 404]](https://github.com/lanl/parthenon/pull/404) Add capability to communicate particles across meshblocks/MPI processes
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 553]](https://github.com/lanl/parthenon/pull/553) Avoid use of variable named restrict
 - [[PR 476]](https://github.com/lanl/parthenon/pull/476) Update min. `CMake` version to 3.16 (matching `Kokkos`) and add option to compile with C++17 (`PARTHENON_ENABLE_CPP17` - default: off)
 - [[PR 532]](https://github.com/lanl/parthenon/pull/532) Remove obsolete `Properties_t`, they have been replaced by `Packages_t`
 - [[PR 508]](https://github.com/lanl/parthenon/pull/508) Modify `RestrictCellCenteredVariables` to support a restriction over meshblock packs.
@@ -20,6 +23,8 @@
 - [[PR 522]](https://github.com/lanl/parthenon/pull/522) Corrected ordering of `OutputDatasetNames` to match `ComponentNames`
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 551]](https://github.com/lanl/parthenon/pull/551) Hotfix to make particles compile without MPI again
+- [[PR 552]](https://github.com/lanl/parthenon/pull/552) Fix missing include for fstream
 - [[PR 537]](https://github.com/lanl/parthenon/pull/538) Fix inconsistent treatment of coarse buffers.
 - [[PR 539]](https://github.com/lanl/parthenon/pull/539) Fix restart indexing/hdf5 bugs
 - [[PR 487]](https://github.com/lanl/parthenon/pull/487) Add default tiling matching `i` index range to MDRange loop pattern.
@@ -39,6 +44,8 @@
 - [[PR 536]](https://github.com/lanl/parthenon/pull/536) Updated to latest Kokkos release.
 - [[PR 520]](https://github.com/lanl/parthenon/pull/520) Add black python formatter to github actions
 - [[PR 519]](https://github.com/lanl/parthenon/pull/519) Add checksum to bash uploader script to verify file is trusted
+- [[PR 549]](https://github.com/lanl/parthenon/pull/549) Add deep-code badge.
+- [[PR 554]](https://github.com/lanl/parthenon/pull/554) Small fix to documentation related to python parthenon tools README
 
 ### Removed (removing behavior/API/varaibles/...)
 - [[PR 498]](https://github.com/lanl/parthenon/pull/498) Cleanup unused user hooks and variables

@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2021 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -10,8 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_PARTICLES_PARTICLES_HPP_
-#define EXAMPLE_PARTICLES_PARTICLES_HPP_
+#ifndef EXAMPLE_PARTICLE_LEAPFROG_PARTICLE_LEAPFROG_HPP_
+#define EXAMPLE_PARTICLE_LEAPFROG_PARTICLE_LEAPFROG_HPP_
 
 #include <memory>
 
@@ -24,15 +28,12 @@ using namespace parthenon::driver::prelude;
 using namespace parthenon::package::prelude;
 using namespace parthenon;
 
-namespace particles_example {
-
-typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
+namespace particles_leapfrog {
 
 class ParticleDriver : public EvolutionDriver {
  public:
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : EvolutionDriver(pin, app_in, pm), integrator(pin) {}
-  TaskCollection MakeParticlesCreationTaskCollection() const;
   TaskCollection MakeParticlesUpdateTaskCollection() const;
   TaskCollection MakeFinalizationTaskCollection() const;
   TaskListStatus Step();
@@ -52,6 +53,6 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
 
 } // namespace Particles
 
-} // namespace particles_example
+} // namespace particles_leapfrog
 
-#endif // EXAMPLE_PARTICLES_PARTICLES_HPP_
+#endif // EXAMPLE_PARTICLE_LEAPFROG_PARTICLE_LEAPFROG_HPP_
