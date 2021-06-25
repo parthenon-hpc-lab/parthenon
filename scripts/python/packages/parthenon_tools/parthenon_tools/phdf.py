@@ -132,7 +132,9 @@ class phdf:
                 coord = np.zeros((self.NumBlocks, self.MeshBlockSize[coord_i]))
                 for bId in range(self.NumBlocks):
                     for cId in range(self.MeshBlockSize[coord_i]):
-                        coord[bId, cId] = 0.5 * (coordf[bId, cId] + coordf[bId, cId + 1])
+                        coord[bId, cId] = 0.5 * (
+                            coordf[bId, cId] + coordf[bId, cId + 1]
+                        )
             return coord, coordf
 
         self.x, self.xf = load_coord(0)

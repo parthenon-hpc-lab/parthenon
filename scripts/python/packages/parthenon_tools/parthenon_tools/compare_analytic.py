@@ -40,7 +40,7 @@ def norm_err_func(gold, test, norm_ord=2, relative=False, ignore_gold_zero=True)
 
     if relative:
         denom = 0.5 * (np.abs(gold) + np.abs(test))
-        #To avoid nan when gold and test are 0
+        # To avoid nan when gold and test are 0
         denom[denom == 0] = 1
 
         err /= denom
