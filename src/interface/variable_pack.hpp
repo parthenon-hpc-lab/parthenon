@@ -101,6 +101,8 @@ class PackIndexMap {
     return itr->second;
   }
 
+  bool operator==(const PackIndexMap &other) { return map_ == other.map_; }
+
   // This is dangerous! Use at your own peril!
   // It will silently return invalid indices if the key doesn't exist (e.g. misspelled or
   // sparse id not part of label)
