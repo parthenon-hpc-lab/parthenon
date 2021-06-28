@@ -462,9 +462,11 @@ def compare(
         # compute error at every point
         if relative:
             denom = 0.5 * (np.abs(val0) + np.abs(val1))
-            #When val0==0 but val1!=0, use the mean of the entire data set as
-            #denom to avoid giving these points an err_val=2.0
-            denom[ np.logical_or(val0==0,val1==0) ] = 0.5*np.mean(np.abs(val0)+np.abs(val1))
+            # When val0==0 but val1!=0, use the mean of the entire data set as
+            # denom to avoid giving these points an err_val=2.0
+            denom[np.logical_or(val0 == 0, val1 == 0)] = 0.5 * np.mean(
+                np.abs(val0) + np.abs(val1)
+            )
 
             err_val = np.abs(val0 - val1) / denom
             # Set error values where denom==0 to 0
