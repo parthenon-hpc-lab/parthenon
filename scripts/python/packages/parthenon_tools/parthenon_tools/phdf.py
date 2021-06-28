@@ -457,7 +457,8 @@ class phdf:
         In the c++ code, components of variables can be named by supplying a
         std::vector of std::strings when creating the Metadata for variables.
         Without specifying component names, by default variables have a single
-        component with the same name as the variable.
+        component with the same name as the variable. See the Parthenon docs
+        outputs.md#preparing-outputs-for-yt for details.
         """
 
         # Check if these components exist
@@ -500,7 +501,7 @@ class phdf:
         x[grid_idx,i]
         """
 
-        if not (x.shape[0] == y.shape[0] == z.shape[0]):
+        if( not (x.shape[0] == y.shape[0] == z.shape[0]) ):
             raise Exception("z,y,x have different number of grids")
 
         # loc[grid_idx,k,j,i]
