@@ -36,19 +36,24 @@ def norm_err_func(gold, test, norm_ord=2, relative=False, ignore_gold_zero=True)
 
     Returns error metric between gold and test
     """
-    err = gold - test
+    err_val = np.abs(gold - test)
 
     if relative:
         denom = 0.5 * (np.abs(gold) + np.abs(test))
+        # When test==0 but gold!=0 or vice versa, use the mean of the entire
+        # data set as denom to avoid giving these points an err_val=2.0
+        denom[np.logical_or(gold == 0, test == 0)] = 0.5 * np.mean(
+            np.abs(gold) + np.abs(test)
+        )
         # To avoid nan when gold and test are 0
         denom[denom == 0] = 1
 
-        err /= denom
+        err_val /= denom
 
         if ignore_gold_zero:
-            err = err[gold != 0]
+            err_val = err_val[gold != 0]
 
-    return np.linalg.norm(err, ord=norm_ord)
+    return np.linalg.norm(err_val, ord=norm_ord)
 
 
 ################################################################################
