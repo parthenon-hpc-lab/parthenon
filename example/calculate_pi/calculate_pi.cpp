@@ -45,7 +45,6 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
   // least some part inside the circle, otherwise it would be all 0's
   bool const use_sparse = pmb->packages.Get("calculate_pi")->Param<bool>("use_sparse");
   if (use_sparse) {
-    int const ndim = pmb->pmy_mesh->ndim;
     auto &bs = pmb->block_size;
     // check if block falls on radius.
     Real coords[4][2] = {{bs.x1min, bs.x2min},
