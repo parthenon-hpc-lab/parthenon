@@ -17,8 +17,13 @@ SCRIPT=$(realpath "$0")
 SOURCE=$(dirname "$SCRIPT")
 source "${SOURCE}/base_setup.sh"
 
+# Here we are defining where path to the parthenon performance application is, which is
+# a python script called 'parthenon_metrics_app.py'
 METRICS_APP="${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py"
 
+# The below logic is designed to help correctly report an error to the
+# github server if something should happen while the ci is running. This would not
+# be necessary if gitlab was not behind a firewall.
 trap 'catch $? $LINENO' ERR
 catch() {
   echo "Error $1 occurred on $2"
