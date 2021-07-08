@@ -109,8 +109,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real radius = pin->GetOrAddReal("Pi", "radius", 1.0);
   params.Add("radius", radius);
 
-  bool use_sparse =
-      pin->DoesParameterExist("Pi", "use_sparse") && pin->GetBoolean("Pi", "use_sparse");
+  bool use_sparse = pin->GetOrAddBoolean("Pi", "use_sparse", false);
   params.Add("use_sparse", use_sparse);
 
   if (use_sparse) {
@@ -172,8 +171,8 @@ TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> a
   const auto &pack =
       use_sparse ? md->PackVariables(std::vector<std::string>({"in_or_out"}),
                                      std::vector<int>{0})
-                       .pack
-                 : md->PackVariables(std::vector<std::string>({"in_or_out"})).pack;
+
+                 : md->PackVariables(std::vector<std::string>({"in_or_out"}));
 
   areas(i) = use_sparse ? ComputeAreaInternal(
                               pack, areas,

@@ -267,41 +267,30 @@ class VariableFluxPack : public VariablePack<T> {
   int fsize_;
 };
 
+// Using std::map, not std::unordered_map because the key
+// would require a custom hashing function. Note this is slower: O(log(N))
+// instead of O(1).
+// Unfortunately, std::pair doesn't work. So I have to roll my own.
+// It appears to be an interaction caused by a std::map<key,std::pair>
+// Possibly it's a compiler bug. gcc/7.4.0
+// ~JMM
 template <typename PackType>
 struct PackAndIndexMap {
   PackType pack;
   PackIndexMap map;
 };
-
 template <typename T>
-struct VarMetaPack {
-  VariablePack<T> pack;
-  PackIndexMap map;
-  const std::vector<std::string> *key;
-};
-
+using PackIndxPair = PackAndIndexMap<VariablePack<T>>;
 template <typename T>
-struct FluxMetaPack {
-  VariableFluxPack<T> pack;
-  PackIndexMap map;
-  const vpack_types::StringPair *key;
-};
-
-// Using std::map, not std::unordered_map because the key
-// would require a custom hashing function. Note this is slower: O(log(N))
-// instead of O(1).
-
+using FluxPackIndxPair = PackAndIndexMap<VariableFluxPack<T>>;
 template <typename T>
 using SwarmPackIndxPair = PackAndIndexMap<SwarmVariablePack<T>>;
-
+template <typename T>
+using MapToVariablePack = std::map<std::vector<std::string>, PackIndxPair<T>>;
+template <typename T>
+using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair<T>>;
 template <typename T>
 using MapToSwarmVariablePack = std::map<std::vector<std::string>, SwarmPackIndxPair<T>>;
-
-template <typename T>
-using MapToVariablePack = std::map<std::vector<std::string>, VarMetaPack<T>>;
-
-template <typename T>
-using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxMetaPack<T>>;
 
 template <typename T>
 void FillVarView(const CellVariableVector<T> &vars, bool coarse,

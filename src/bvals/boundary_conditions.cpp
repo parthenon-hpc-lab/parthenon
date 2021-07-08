@@ -84,7 +84,7 @@ void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsI(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "OutflowInnerX1", nb, IndexDomain::inner_x1, coarse,
@@ -97,7 +97,7 @@ void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsI(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "OutflowOuterX1", nb, IndexDomain::outer_x1, coarse,
@@ -110,7 +110,7 @@ void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsJ(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "OutflowInnerX2", nb, IndexDomain::inner_x2, coarse,
@@ -123,7 +123,7 @@ void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsJ(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "OutflowOuterX2", nb, IndexDomain::outer_x2, coarse,
@@ -136,7 +136,7 @@ void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsJ(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "OutflowInnerX3", nb, IndexDomain::inner_x3, coarse,
@@ -149,7 +149,7 @@ void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsJ(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "OutflowOuterX3", nb, IndexDomain::outer_x3, coarse,
@@ -162,7 +162,7 @@ void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsI(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "ReflectInnerX1", nb, IndexDomain::inner_x1, coarse,
@@ -176,7 +176,7 @@ void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsI(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "ReflectOuterX1", nb, IndexDomain::outer_x1, coarse,
@@ -190,7 +190,7 @@ void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsJ(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "ReflectInnerX2", nb, IndexDomain::inner_x2, coarse,
@@ -204,7 +204,7 @@ void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsJ(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "ReflectOuterX2", nb, IndexDomain::outer_x2, coarse,
@@ -218,7 +218,7 @@ void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsK(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "ReflectInnerX3", nb, IndexDomain::inner_x3, coarse,
@@ -232,7 +232,7 @@ void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
   int ref = bounds.GetBoundsK(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse).pack;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
   pmb->par_for_bndry(
       "ReflectOuterX3", nb, IndexDomain::outer_x3, coarse,
