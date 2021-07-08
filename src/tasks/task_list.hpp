@@ -138,7 +138,9 @@ class TaskList {
       }
     }
     bool valid = (found == num_iters);
-    PARTHENON_REQUIRE_THROWS(valid, "Task list validation found iterative tasks without a completion criteria");
+    PARTHENON_REQUIRE_THROWS(
+        valid,
+        "Task list validation found iterative tasks without a completion criteria");
     return valid;
   }
 
