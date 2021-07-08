@@ -55,6 +55,7 @@ class TaskList {
     }
   }
   void IterationComplete(const std::string &label) {
+    completed_iters_.insert(label);
     for (auto &task : task_list_) {
       if (task.GetLabel() == label) {
         task.SetStatus(TaskStatus::complete);
@@ -87,7 +88,6 @@ class TaskList {
     }
   }
   TaskListStatus DoAvailable() {
-    std::set<std::string> completed_iters;
     for (auto &task : task_list_) {
       // first skip task if it's complete.  Only possible for TaskType::iterative
       if (task.GetStatus() == TaskStatus::complete) continue;
@@ -98,7 +98,6 @@ class TaskList {
           MarkTaskComplete(task.GetID());
           if (task.GetType() == TaskType::completion_criteria) {
             IterationComplete(task.GetLabel());
-            completed_iters.insert(task.GetLabel());
           }
         } else if (task.GetStatus() == TaskStatus::iterate
                   && task.GetType() == TaskType::completion_criteria) {
@@ -106,9 +105,10 @@ class TaskList {
         }
       }
     }
-    for (auto &label : completed_iters) {
+    for (auto &label : completed_iters_) {
       ClearIteration(label);
     }
+    completed_iters_.clear();
     ClearComplete();
     if (IsComplete()) return TaskListStatus::complete;
     return TaskListStatus::running;
@@ -197,6 +197,7 @@ class TaskList {
   TaskID tasks_completed_;
   std::map<std::string, unsigned int> max_iterations_;
   std::map<std::string, unsigned int> count_;
+  std::set<std::string> completed_iters_;
 };
 
 using TaskRegion = std::vector<TaskList>;

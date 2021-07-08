@@ -56,4 +56,4 @@ variables = potential, density
 
 <poisson>
 max_iterations = 10000
-error_tolerance = 1.e-10
+error_tolerance = 1.e-8
