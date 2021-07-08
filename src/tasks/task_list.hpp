@@ -122,7 +122,7 @@ class TaskList {
     if (IsComplete()) return TaskListStatus::complete;
     return TaskListStatus::running;
   }
-  bool Validate() {
+  bool Validate() const {
     std::set<std::string> iters;
     for (auto &task : task_list_) {
       if (task.GetType() == TaskType::iterative) iters.insert(task.GetLabel());
@@ -137,7 +137,9 @@ class TaskList {
         }
       }
     }
-    return (found == num_iters);
+    bool valid = (found == num_iters);
+    PARTHENON_REQUIRE_THROWS(valid, "Task list validation found iterative tasks without a completion criteria");
+    return valid;
   }
 
   template <class F, class... Args>
@@ -254,7 +256,7 @@ struct TaskCollection {
     }
     return TaskListStatus::complete;
   }
-  bool Validate() {
+  bool Validate() const {
     for (auto &region : regions) {
       for (auto &list : region) {
         if (!list.Validate()) return false;
