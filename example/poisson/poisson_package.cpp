@@ -21,9 +21,9 @@
 #include <coordinates/coordinates.hpp>
 #include <parthenon/package.hpp>
 
-#include "poisson_package.hpp"
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
+#include "poisson_package.hpp"
 #include "reconstruct/dc_inline.hpp"
 
 using namespace parthenon::package::prelude;
@@ -59,9 +59,9 @@ TaskStatus UpdatePhi(MeshData<Real> *u, MeshData<Real> *du) {
   Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
   auto pm = u->GetParentPointer();
 
-  IndexRange ib = pm->block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pm->block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pm->block_list[0]->cellbounds.GetBoundsK(IndexDomain::interior);
+  IndexRange ib = u->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = u->GetBoundsK(IndexDomain::interior);
 
   PackIndexMap imap;
   std::vector<std::string> vars({"density", "potential"});
@@ -76,29 +76,32 @@ TaskStatus UpdatePhi(MeshData<Real> *u, MeshData<Real> *du) {
   const Real dx = coords.Dx(X1DIR);
   for (int i = X2DIR; i <= ndim; i++) {
     const Real dy = coords.Dx(i);
-    PARTHENON_REQUIRE_THROWS(dx==dy, "UpdatePhi requires that DX be equal in all directions.");
+    PARTHENON_REQUIRE_THROWS(dx == dy,
+                             "UpdatePhi requires that DX be equal in all directions.");
   }
 
-  parthenon::par_for(DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(),
-             0, u->NumBlocks()-1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-             KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-    dv(b,0,k,j,i) = -v(b,irho,k,j,i) * dx*dx;
-    dv(b,0,k,j,i) += v(b,iphi,k,j,i-1) + v(b,iphi,k,j,i+1);
-    if (ndim > 1) {
-      dv(b,0,k,j,i) += v(b,iphi,k,j-1,i) + v(b,iphi,k,j+1,i);
-      if (ndim == 3) {
-        dv(b,0,k,j,i) += v(b,iphi,k-1,j,i) + v(b,iphi,k-1,j,i);
-      }
-    }
-    dv(b,0,k,j,i) /= 2.0*ndim;
-    dv(b,0,k,j,i) -= v(b,iphi,k,j,i);
-  });
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, u->NumBlocks() - 1, kb.s,
+      kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        dv(b, 0, k, j, i) = -v(b, irho, k, j, i) * dx * dx;
+        dv(b, 0, k, j, i) += v(b, iphi, k, j, i - 1) + v(b, iphi, k, j, i + 1);
+        if (ndim > 1) {
+          dv(b, 0, k, j, i) += v(b, iphi, k, j - 1, i) + v(b, iphi, k, j + 1, i);
+          if (ndim == 3) {
+            dv(b, 0, k, j, i) += v(b, iphi, k - 1, j, i) + v(b, iphi, k - 1, j, i);
+          }
+        }
+        dv(b, 0, k, j, i) /= 2.0 * ndim;
+        dv(b, 0, k, j, i) -= v(b, iphi, k, j, i);
+      });
 
-  parthenon::par_for(DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(),
-             0, u->NumBlocks()-1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-             KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-    v(b,iphi,k,j,i) += dv(b,0,k,j,i);
-  });
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, u->NumBlocks() - 1, kb.s,
+      kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        v(b, iphi, k, j, i) += dv(b, 0, k, j, i);
+      });
 
   Kokkos::Profiling::popRegion(); // Task_Poisson_UpdatePhi
   return TaskStatus::complete;
@@ -108,9 +111,9 @@ TaskStatus CheckConvergence(MeshData<Real> *u, MeshData<Real> *du) {
   Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
   auto pm = u->GetParentPointer();
 
-  IndexRange ib = pm->block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pm->block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pm->block_list[0]->cellbounds.GetBoundsK(IndexDomain::interior);
+  IndexRange ib = u->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = u->GetBoundsK(IndexDomain::interior);
 
   std::vector<std::string> vars({"potential"});
   auto v = u->PackVariables(vars);
@@ -118,19 +121,20 @@ TaskStatus CheckConvergence(MeshData<Real> *u, MeshData<Real> *du) {
 
   Real max_err;
   parthenon::par_reduce(
-             parthenon::loop_pattern_mdrange_tag, "CheckConvergence", DevExecSpace(),
-             0, u->NumBlocks()-1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-             KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &eps) {
-    Real reps = std::abs(dv(b,0,k,j,i) / v(b,0,k,j,i));
-    Real aeps = std::abs(dv(b,0,k,j,i));
-    eps = std::max(eps, std::min(reps, aeps));
-  }, Kokkos::Max<Real>(max_err));
+      parthenon::loop_pattern_mdrange_tag, "CheckConvergence", DevExecSpace(), 0,
+      u->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &eps) {
+        Real reps = std::abs(dv(b, 0, k, j, i) / v(b, 0, k, j, i));
+        Real aeps = std::abs(dv(b, 0, k, j, i));
+        eps = std::max(eps, std::min(reps, aeps));
+      },
+      Kokkos::Max<Real>(max_err));
 
   // get the global max
 #ifdef MPI_PARALLEL
   Real glob_err;
   PARTHENON_MPI_CHECK(
-    MPI_Allreduce(&max_err, &glob_err, 1, MPI_PARTHENON_REAL, MPI_MAX, MPI_COMM_WORLD));
+      MPI_Allreduce(&max_err, &glob_err, 1, MPI_PARTHENON_REAL, MPI_MAX, MPI_COMM_WORLD));
 #else
   Real glob_err = max_err;
 #endif
@@ -138,13 +142,10 @@ TaskStatus CheckConvergence(MeshData<Real> *u, MeshData<Real> *du) {
   auto pkg = pm->packages.Get("poisson_package");
   Real err_tol = pkg->Param<Real>("error_tolerance");
 
-  auto status = (glob_err < err_tol
-                  ? TaskStatus::complete
-                  : TaskStatus::iterate);
+  auto status = (glob_err < err_tol ? TaskStatus::complete : TaskStatus::iterate);
 
   Kokkos::Profiling::popRegion(); // Task_Poisson_CheckConvergence
   return status;
 }
-
 
 } // namespace poisson_package

@@ -16,14 +16,14 @@
 #include <vector>
 
 // Local Includes
-#include "poisson_driver.hpp"
-#include "poisson_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "mesh/refinement_cc_in_one.hpp"
 #include "parthenon/driver.hpp"
+#include "poisson_driver.hpp"
+#include "poisson_package.hpp"
 #include "refinement/refinement.hpp"
 
 using namespace parthenon::driver::prelude;
@@ -62,36 +62,35 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   auto update = tl.AddIterativeTask(TaskType::iterative, solver_tag, none,
                                     poisson_package::UpdatePhi, md.get(), mdelta.get());
 
-  auto send = tl.AddIterativeTask(TaskType::iterative, solver_tag, update,
-                                  parthenon::cell_centered_bvars::SendBoundaryBuffers,
-                                  md);
+  auto send =
+      tl.AddIterativeTask(TaskType::iterative, solver_tag, update,
+                          parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
 
-  auto recv = tl.AddIterativeTask(TaskType::iterative, solver_tag, update|start_recv,
-                                  parthenon::cell_centered_bvars::ReceiveBoundaryBuffers,
-                                  md);
+  auto recv =
+      tl.AddIterativeTask(TaskType::iterative, solver_tag, update | start_recv,
+                          parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
 
   auto setb = tl.AddIterativeTask(TaskType::iterative, solver_tag, recv,
-                                  parthenon::cell_centered_bvars::SetBoundaries,
-                                  md);
+                                  parthenon::cell_centered_bvars::SetBoundaries, md);
 
   auto clear = tl.AddIterativeTask(TaskType::iterative, solver_tag, recv,
                                    &MeshData<Real>::ClearBoundary, md.get(),
                                    BoundaryCommSubset::all);
 
-  auto check = tl.AddIterativeTask(TaskType::completion_criteria, solver_tag,
-                                   setb, poisson_package::CheckConvergence, md.get(),
-                                   mdelta.get());
+  auto check =
+      tl.AddIterativeTask(TaskType::completion_criteria, solver_tag, setb,
+                          poisson_package::CheckConvergence, md.get(), mdelta.get());
 
   int max_iters = pmesh->packages.Get("poisson_package")->Param<int>("max_iterations");
   tl.SetMaxIterations(solver_tag, max_iters);
   bool fail_flag =
-    pmesh->packages.Get("poisson_package")->Param<bool>("fail_without_convergence");
+      pmesh->packages.Get("poisson_package")->Param<bool>("fail_without_convergence");
   tl.SetFailWithMaxIterations(solver_tag, fail_flag);
   bool warn_flag =
-    pmesh->packages.Get("poisson_package")->Param<bool>("warn_without_convergence");
+      pmesh->packages.Get("poisson_package")->Param<bool>("warn_without_convergence");
   tl.SetWarnWithMaxIterations(solver_tag, warn_flag);
 
   return tc;
 }
 
-} // namespace advection_example
+} // namespace poisson_example

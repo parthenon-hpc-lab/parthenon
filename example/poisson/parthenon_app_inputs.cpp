@@ -17,9 +17,9 @@
 #include <parthenon/package.hpp>
 
 //#include "poisson_driver.hpp"
-#include "poisson_package.hpp"
 #include "config.hpp"
 #include "defs.hpp"
+#include "poisson_package.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -55,10 +55,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   pmb->par_for(
       "Poisson::ProblemGenerator", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        Real dist2 = std::pow(coords.x1v(i) - x0, 2)
-                   + std::pow(coords.x2v(j) - y0, 2)
-                   + std::pow(coords.x3v(k) - z0, 2);
-        if (dist2 < radius*radius) {
+        Real dist2 = std::pow(coords.x1v(i) - x0, 2) + std::pow(coords.x2v(j) - y0, 2) +
+                     std::pow(coords.x3v(k) - z0, 2);
+        if (dist2 < radius * radius) {
           q(irho, k, j, i) = 1.0;
         } else {
           q(irho, k, j, i) = 0.0;
@@ -75,4 +74,4 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
-} // namespace advection_example
+} // namespace poisson_example

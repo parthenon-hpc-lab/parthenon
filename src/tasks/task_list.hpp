@@ -47,8 +47,8 @@ class TaskList {
   void ClearComplete() {
     auto task = task_list_.begin();
     while (task != task_list_.end()) {
-      if (task->GetStatus() == TaskStatus::complete
-         && task->GetType() != TaskType::iterative) {
+      if (task->GetStatus() == TaskStatus::complete &&
+          task->GetType() != TaskType::iterative) {
         task = task_list_.erase(task);
       } else {
         ++task;
@@ -77,12 +77,12 @@ class TaskList {
     count_[label]++;
     if (count_[label] == max_iterations_[label]) {
       if (throw_with_max_iters_[label]) {
-        PARTHENON_THROW("Iteration " + label
-                      + " reached maximum allowed cycles without convergence.");
+        PARTHENON_THROW("Iteration " + label +
+                        " reached maximum allowed cycles without convergence.");
       }
       if (warn_with_max_iters_[label]) {
-        PARTHENON_WARN("Iteration " + label
-                     + " reached maximum allowed cycles without convergence.");
+        PARTHENON_WARN("Iteration " + label +
+                       " reached maximum allowed cycles without convergence.");
       }
       IterationComplete(label);
       return;
@@ -108,8 +108,8 @@ class TaskList {
           if (task.GetType() == TaskType::completion_criteria) {
             IterationComplete(task.GetLabel());
           }
-        } else if (task.GetStatus() == TaskStatus::iterate
-                  && task.GetType() == TaskType::completion_criteria) {
+        } else if (task.GetStatus() == TaskStatus::iterate &&
+                   task.GetType() == TaskType::completion_criteria) {
           ResetIteration(task.GetLabel());
         }
       }
@@ -174,10 +174,12 @@ class TaskList {
       warn_with_max_iters_[label] = true;
     }
     TaskID id(tasks_added_ + 1);
-    task_list_.push_back(
-        Task(id, dep, [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
+    task_list_.push_back(Task(
+        id, dep,
+        [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
           return func(args...);
-        }, type, label));
+        },
+        type, label));
     tasks_added_++;
     return id;
   }
@@ -188,19 +190,19 @@ class TaskList {
   TaskID AddIterativeTask(const TaskType &type, const std::string &label,
                           TaskID const &dep, TaskStatus (T::*func)(Args...), T *obj,
                           Args &&... args) {
-    return this->AddIterativeTask(type, label, dep,
-                         [=]() mutable -> TaskStatus { return (obj->*func)(args...); });
+    return this->AddIterativeTask(
+        type, label, dep, [=]() mutable -> TaskStatus { return (obj->*func)(args...); });
   }
 
   void SetMaxIterations(const std::string &label, const int max) {
     max_iterations_[label] = max;
   }
 
-  void SetFailWithMaxIterations(const std::string &label, bool flag) { 
+  void SetFailWithMaxIterations(const std::string &label, bool flag) {
     throw_with_max_iters_[label] = flag;
   }
 
-  void SetWarnWithMaxIterations(const std::string &label, bool flag) { 
+  void SetWarnWithMaxIterations(const std::string &label, bool flag) {
     warn_with_max_iters_[label] = flag;
   }
 
