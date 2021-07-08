@@ -112,6 +112,20 @@ class MeshData {
 
   auto &GetRestrictBuffers() const { return restrict_buffers_; }
 
+  TaskStatus StartReceiving(BoundaryCommSubset phase) {
+    for (const auto &pbd : block_data_) {
+      pbd->StartReceiving(phase);
+    }
+    return TaskStatus::complete;
+  }
+
+  TaskStatus ClearBoundary(BoundaryCommSubset phase) {
+    for (const auto &pbd : block_data_) {
+      pbd->ClearBoundary(phase);
+    }
+    return TaskStatus::complete;
+  }
+
   IndexRange GetBoundsI(const IndexDomain &domain) const {
     return block_data_[0]->GetBoundsI(domain);
   }

@@ -23,19 +23,32 @@
 
 namespace parthenon {
 
+enum class TaskType { single, iterative, completion_criteria };
+
 class Task {
  public:
   Task(const TaskID &id, TaskID dep, std::function<TaskStatus()> func)
-      : myid_(id), dep_(dep), func_(std::move(func)) {}
-  TaskStatus operator()() { return func_(); }
-  TaskID GetID() { return myid_; }
-  TaskID GetDependency() { return dep_; }
-  void SetComplete() { complete_ = true; }
-  bool IsComplete() { return complete_; }
+      : myid_(id), dep_(dep), type_(TaskType::single), label_(std::string()),
+        func_(std::move(func)) {}
+  Task(const TaskID &id, TaskID dep, std::function<TaskStatus()> func,
+       const TaskType &type, const std::string &label)
+      : myid_(id), dep_(dep), type_(type), label_(label), func_(std::move(func)) {
+    assert(label_ != "");
+  }
+  void operator()() { status_ = func_(); }
+  TaskID GetID() const { return myid_; }
+  TaskID GetDependency() const { return dep_; }
+  TaskStatus GetStatus() const { return status_; }
+  void SetStatus(const TaskStatus &status) { status_ = status; }
+  TaskType GetType() const { return type_; }
+  std::string GetLabel() const { return label_; }
 
  private:
   TaskID myid_, dep_;
-  bool lb_time, complete_ = false;
+  const TaskType type_;
+  const std::string label_;
+  TaskStatus status_ = TaskStatus::incomplete;
+  bool lb_time;
   std::function<TaskStatus()> func_;
 };
 
