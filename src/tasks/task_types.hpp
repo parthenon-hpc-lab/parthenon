@@ -27,10 +27,10 @@ enum class TaskType { single, iterative, completion_criteria };
 
 class Task {
  public:
-  Task(const TaskID &id, TaskID dep, std::function<TaskStatus()> func)
+  Task(const TaskID &id, const TaskID &dep, std::function<TaskStatus()> func)
       : myid_(id), dep_(dep), type_(TaskType::single), label_(std::string()),
         func_(std::move(func)) {}
-  Task(const TaskID &id, TaskID dep, std::function<TaskStatus()> func,
+  Task(const TaskID &id, const TaskID &dep, std::function<TaskStatus()> func,
        const TaskType &type, const std::string &label)
       : myid_(id), dep_(dep), type_(type), label_(label), func_(std::move(func)) {
     assert(label_ != "");
