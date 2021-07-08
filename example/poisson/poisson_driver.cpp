@@ -58,32 +58,38 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
   auto start_recv = tl.AddTask(none, &MeshData<Real>::StartReceiving, md.get(),
                                BoundaryCommSubset::all);
-
-  auto update = tl.AddIterativeTask(TaskType::iterative, "poisson_solve", none,
+  std::string solver_tag("poisson_solve");
+  auto update = tl.AddIterativeTask(TaskType::iterative, solver_tag, none,
                                     poisson_package::UpdatePhi, md.get(), mdelta.get());
 
-  auto send = tl.AddIterativeTask(TaskType::iterative, "poisson_solve", update,
+  auto send = tl.AddIterativeTask(TaskType::iterative, solver_tag, update,
                                   parthenon::cell_centered_bvars::SendBoundaryBuffers,
                                   md);
 
-  auto recv = tl.AddIterativeTask(TaskType::iterative, "poisson_solve", update|start_recv,
+  auto recv = tl.AddIterativeTask(TaskType::iterative, solver_tag, update|start_recv,
                                   parthenon::cell_centered_bvars::ReceiveBoundaryBuffers,
                                   md);
 
-  auto setb = tl.AddIterativeTask(TaskType::iterative, "poisson_solve", recv,
+  auto setb = tl.AddIterativeTask(TaskType::iterative, solver_tag, recv,
                                   parthenon::cell_centered_bvars::SetBoundaries,
                                   md);
 
-  auto clear = tl.AddIterativeTask(TaskType::iterative, "poisson_solve", recv,
+  auto clear = tl.AddIterativeTask(TaskType::iterative, solver_tag, recv,
                                    &MeshData<Real>::ClearBoundary, md.get(),
                                    BoundaryCommSubset::all);
 
-  auto check = tl.AddIterativeTask(TaskType::completion_criteria, "poisson_solve",
+  auto check = tl.AddIterativeTask(TaskType::completion_criteria, solver_tag,
                                    setb, poisson_package::CheckConvergence, md.get(),
                                    mdelta.get());
 
   int max_iters = pmesh->packages.Get("poisson_package")->Param<int>("max_iterations");
-  tl.SetMaxIterations("poisson_solve", max_iters);
+  tl.SetMaxIterations(solver_tag, max_iters);
+  bool fail_flag =
+    pmesh->packages.Get("poisson_package")->Param<bool>("fail_without_convergence");
+  tl.SetFailWithMaxIterations(solver_tag, fail_flag);
+  bool warn_flag =
+    pmesh->packages.Get("poisson_package")->Param<bool>("warn_without_convergence");
+  tl.SetWarnWithMaxIterations(solver_tag, warn_flag);
 
   return tc;
 }

@@ -27,6 +27,7 @@
 #include "basic_types.hpp"
 #include "task_id.hpp"
 #include "task_types.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -75,6 +76,14 @@ class TaskList {
   void ResetIteration(const std::string &label) {
     count_[label]++;
     if (count_[label] == max_iterations_[label]) {
+      if (throw_with_max_iters_[label]) {
+        PARTHENON_THROW("Iteration " + label
+                      + " reached maximum allowed cycles without convergence.");
+      }
+      if (warn_with_max_iters_[label]) {
+        PARTHENON_WARN("Iteration " + label
+                     + " reached maximum allowed cycles without convergence.");
+      }
       IterationComplete(label);
       return;
     }
@@ -158,6 +167,12 @@ class TaskList {
       max_iterations_[label] = std::numeric_limits<unsigned int>::max();
       count_[label] = 0;
     }
+    if (throw_with_max_iters_.count(label) == 0) {
+      throw_with_max_iters_[label] = false;
+    }
+    if (warn_with_max_iters_.count(label) == 0) {
+      warn_with_max_iters_[label] = true;
+    }
     TaskID id(tasks_added_ + 1);
     task_list_.push_back(
         Task(id, dep, [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
@@ -181,6 +196,14 @@ class TaskList {
     max_iterations_[label] = max;
   }
 
+  void SetFailWithMaxIterations(const std::string &label, bool flag) { 
+    throw_with_max_iters_[label] = flag;
+  }
+
+  void SetWarnWithMaxIterations(const std::string &label, bool flag) { 
+    warn_with_max_iters_[label] = flag;
+  }
+
   void Print() {
     int i = 0;
     std::cout << "TaskList::Print():" << std::endl;
@@ -198,6 +221,8 @@ class TaskList {
   std::map<std::string, unsigned int> max_iterations_;
   std::map<std::string, unsigned int> count_;
   std::set<std::string> completed_iters_;
+  std::map<std::string, bool> throw_with_max_iters_;
+  std::map<std::string, bool> warn_with_max_iters_;
 };
 
 using TaskRegion = std::vector<TaskList>;

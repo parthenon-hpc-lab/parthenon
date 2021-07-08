@@ -195,6 +195,11 @@ inline void warn(std::stringstream const &message, const char *const filename,
   warn(message.str().c_str(), filename, linenumber);
 }
 
+inline void warn(std::string const &message, const char *const filename,
+                 int const linenumber) {
+  warn(message.c_str(), filename, linenumber);
+}
+
 #ifdef MPI_PARALLEL
 [[noreturn]] void fail_throws_mpi(int const status, char const *const expr,
                                   char const *const filename, int const linenumber);

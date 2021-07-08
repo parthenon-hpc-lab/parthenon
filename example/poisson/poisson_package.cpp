@@ -40,6 +40,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real err_tol = pin->GetOrAddReal("poisson", "error_tolerance", 1.e-8);
   pkg->AddParam<>("error_tolerance", err_tol);
 
+  bool fail_flag = pin->GetOrAddBoolean("poisson", "fail_without_convergence", false);
+  pkg->AddParam<>("fail_without_convergence", fail_flag);
+
+  bool warn_flag = pin->GetOrAddBoolean("poisson", "warn_without_convergence", true);
+  pkg->AddParam<>("warn_without_convergence", warn_flag);
+
   auto mrho = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField("density", mrho);
 
