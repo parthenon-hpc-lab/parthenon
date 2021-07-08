@@ -105,7 +105,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
     }
 
-    auto v = rc.PackVariables().pack;
+    auto v = rc.PackVariables();
     par_for(
         DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1,
         0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
@@ -155,7 +155,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we set Independent variables to one") {
       // set "Independent" variables to one
-      auto v = rc.PackVariables({Metadata::Independent}).pack;
+      auto v = rc.PackVariables({Metadata::Independent});
       par_for(
           DEFAULT_LOOP_PATTERN, "Set independent variables", DevExecSpace(), 0,
           v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
@@ -177,7 +177,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
       AND_THEN("pulling out a subset by name should work") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-        auto v = rc.PackVariables({"v2", "v3", "v5"}).pack;
+        auto v = rc.PackVariables({"v2", "v3", "v5"});
         Real total = 0.0;
         Real sum = 1.0;
         Kokkos::parallel_reduce(
@@ -205,9 +205,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we set individual fields by index") {
-      const auto &mp = rc.PackVariables(std::vector<std::string>({"v3", "v6"}));
-      const auto &v = mp.pack;
-      const auto &vmap = mp.map;
+      PackIndexMap vmap;
+      const auto &v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
 
       const int iv3lo = vmap.get("v3").first;
       const int iv3hi = vmap.get("v3").second;
@@ -226,9 +225,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
             v(iv6, k, j, i) = 3.0;
           });
       THEN("the values should as we expect") {
-        const auto &mp = rc.PackVariables(std::vector<std::string>({"v3", "v6"}));
-        const auto &v = mp.pack;
-        const auto &vmap = mp.map;
+        PackIndexMap vmap;
+        const auto &v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
 
         const int iv3lo = vmap.get("v3").first;
         const int iv3hi = vmap.get("v3").second;
@@ -251,7 +249,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
       AND_THEN("summing up everything should still work") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-        auto v = rc.PackVariables().pack;
+        auto v = rc.PackVariables();
         Real total = 0.0;
         Real sum = 1.0;
         Kokkos::parallel_reduce(
@@ -265,8 +263,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we set fluxes of independent variables") {
-      auto vf =
-          rc.PackVariablesAndFluxes({Metadata::Independent, Metadata::WithFluxes}).pack;
+      auto vf = rc.PackVariablesAndFluxes({Metadata::Independent, Metadata::WithFluxes});
       par_for(
           DEFAULT_LOOP_PATTERN, "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0,
           vf.GetDim(3) - 1, 0, vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,
@@ -314,9 +311,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       rc.AllocSparseID("vsparse", 42);
 
       THEN("the low and high index bounds are correct as returned by PackVariables") {
-        const auto &mp = rc.PackVariables({"v3", "v6", "vsparse"});
-        const auto &v = mp.pack;
-        const auto &imap = mp.map;
+        PackIndexMap imap;
+        const auto &v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
 
         REQUIRE(imap.get("vsparse_1").second == imap.get("vsparse_1").first);
         REQUIRE(imap.get("vsparse_13").second == imap.get("vsparse_13").first);
@@ -332,18 +328,16 @@ TEST_CASE("Can pull variables from containers based on Metadata",
         REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_42")));
       }
       AND_THEN("bounds are still correct if I get just a subset of the sparse fields") {
-        const auto &imap =
-            rc.PackVariables(std::vector<std::string>{"v3", "vsparse"}, {1, 42}, false)
-                .map;
+        PackIndexMap imap;
+        rc.PackVariables(std::vector<std::string>{"v3", "vsparse"}, {1, 42}, imap);
         REQUIRE(imap.get("vsparse_1").second == imap.get("vsparse_1").first);
         REQUIRE(imap.get("vsparse_42").second == imap.get("vsparse_42").first);
         REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_1")));
         REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_42")));
       }
       AND_THEN("the association with sparse ids is captured") {
-        const auto &mp = rc.PackVariables({"v3", "v6", "vsparse"});
-        const auto &v = mp.pack;
-        const auto &imap = mp.map;
+        PackIndexMap imap;
+        const auto &v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
 
         int correct = 0;
         const int v3first = imap.get("v3").first;
@@ -371,12 +365,12 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       pkg->AddField("v2d", m_in_2D);
       rc.Initialize(pkg, dummy_mb);
 
-      auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"}).pack;
+      auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
       THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
     }
 
     WHEN("We extract a pack over an empty set") {
-      auto pack = rc.PackVariables(std::vector<std::string>{"does_not_exist"}).pack;
+      auto pack = rc.PackVariables(std::vector<std::string>{"does_not_exist"});
       THEN("The pack is empty") { REQUIRE(pack.GetDim(4) == 0); }
     }
   }
@@ -428,13 +422,13 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
       REQUIRE(var.coarse_s.GetDim(2) == nside / 2 + 2 * nghost);
       REQUIRE(var.coarse_s.GetDim(1) == nside / 2 + 2 * nghost);
       AND_THEN("We can extract the fine object") {
-        auto pack = rc.PackVariables(std::vector<std::string>{"var"}).pack;
+        auto pack = rc.PackVariables(std::vector<std::string>{"var"});
         REQUIRE(pack.GetDim(4) == 1);
         REQUIRE(pack.GetDim(3) == cellbounds.ncellsk(IndexDomain::entire));
         REQUIRE(pack.GetDim(2) == cellbounds.ncellsj(IndexDomain::entire));
         REQUIRE(pack.GetDim(1) == cellbounds.ncellsi(IndexDomain::entire));
         AND_THEN("We can extract the coarse object") {
-          auto pack = rc.PackVariables(std::vector<std::string>{"var"}, true).pack;
+          auto pack = rc.PackVariables(std::vector<std::string>{"var"}, true);
           AND_THEN("The pack has the coarse dimensions") {
             REQUIRE(pack.GetDim(4) == 1);
             REQUIRE(pack.GetDim(3) == c_cellbounds.ncellsk(IndexDomain::entire));

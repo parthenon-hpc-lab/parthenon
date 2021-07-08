@@ -54,8 +54,8 @@ TaskStatus FluxDivergence(MeshBlockData<Real> *in, MeshBlockData<Real> *dudt_con
   const IndexRange jb = in->GetBoundsJ(interior);
   const IndexRange kb = in->GetBoundsK(interior);
 
-  const auto &vin = in->PackVariablesAndFluxes({Metadata::WithFluxes}).pack;
-  auto dudt = dudt_cont->PackVariables({Metadata::WithFluxes}).pack;
+  const auto &vin = in->PackVariablesAndFluxes({Metadata::WithFluxes});
+  auto dudt = dudt_cont->PackVariables({Metadata::WithFluxes});
 
   const auto &coords = pmb->coords;
   const int ndim = pmb->pmy_mesh->ndim;
@@ -73,8 +73,8 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
   const IndexDomain interior = IndexDomain::interior;
 
   std::vector<MetadataFlag> flags({Metadata::WithFluxes});
-  const auto &vin = in_obj->PackVariablesAndFluxes(flags).pack;
-  auto dudt = dudt_obj->PackVariables(flags).pack;
+  const auto &vin = in_obj->PackVariablesAndFluxes(flags);
+  auto dudt = dudt_obj->PackVariables(flags);
   const IndexRange ib = in_obj->GetBoundsI(interior);
   const IndexRange jb = in_obj->GetBoundsJ(interior);
   const IndexRange kb = in_obj->GetBoundsK(interior);
@@ -102,8 +102,8 @@ TaskStatus UpdateWithFluxDivergence(MeshBlockData<Real> *u0_data,
   const IndexRange jb = u0_data->GetBoundsJ(interior);
   const IndexRange kb = u0_data->GetBoundsK(interior);
 
-  auto u0 = u0_data->PackVariablesAndFluxes({Metadata::WithFluxes}).pack;
-  const auto &u1 = u1_data->PackVariables({Metadata::WithFluxes}).pack;
+  auto u0 = u0_data->PackVariablesAndFluxes({Metadata::WithFluxes});
+  const auto &u1 = u1_data->PackVariables({Metadata::WithFluxes});
 
   const auto &coords = pmb->coords;
   const int ndim = pmb->pmy_mesh->ndim;
@@ -124,8 +124,8 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
   const IndexDomain interior = IndexDomain::interior;
 
   std::vector<MetadataFlag> flags({Metadata::WithFluxes});
-  auto u0_pack = u0_data->PackVariablesAndFluxes(flags).pack;
-  const auto &u1_pack = u1_data->PackVariables(flags).pack;
+  auto u0_pack = u0_data->PackVariablesAndFluxes(flags);
+  const auto &u1_pack = u1_data->PackVariables(flags);
   const IndexRange ib = u0_data->GetBoundsI(interior);
   const IndexRange jb = u0_data->GetBoundsJ(interior);
   const IndexRange kb = u0_data->GetBoundsK(interior);

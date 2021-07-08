@@ -82,24 +82,22 @@ class MeshBlockPack {
 };
 
 template <typename T>
-struct MeshBlockVarMetaPack {
-  MeshBlockPack<VariablePack<T>> pack;
-  PackIndexMap map;
-  const std::vector<std::string> *key;
-};
+using ViewOfPacks = ParArray1D<VariablePack<T>>;
+template <typename T>
+using ViewOfFluxPacks = ParArray1D<VariableFluxPack<T>>;
 
 template <typename T>
-struct MeshBlockFluxMetaPack {
-  MeshBlockPack<VariableFluxPack<T>> pack;
-  PackIndexMap map;
-  const vpack_types::StringPair *key;
-};
+using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
+template <typename T>
+using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
 
 template <typename T>
-using MapToMeshBlockVarPack = std::map<std::vector<std::string>, MeshBlockVarMetaPack<T>>;
+using MeshPackIndxPair = PackAndIndexMap<MeshBlockPack<T>>;
+template <typename T>
+using MapToMeshBlockVarPack = std::map<std::vector<std::string>, MeshBlockVarPack<T>>;
 template <typename T>
 using MapToMeshBlockVarFluxPack =
-    std::map<vpack_types::StringPair, MeshBlockFluxMetaPack<T>>;
+    std::map<vpack_types::StringPair, MeshBlockVarFluxPack<T>>;
 
 } // namespace parthenon
 

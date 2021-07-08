@@ -229,7 +229,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
     vars.push_back("advected_" + std::to_string(var));
   }
   // type is parthenon::VariablePack<CellVariable<Real>>
-  auto v = rc->PackVariables(vars).pack;
+  auto v = rc->PackVariables(vars);
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -269,9 +269,8 @@ void PreFill(MeshBlockData<Real> *rc) {
 
     // packing in principle unnecessary/convoluted here and just done for demonstration
     std::vector<std::string> vars({"advected", "one_minus_advected"});
-    const auto &mp = rc->PackVariables(vars);
-    const auto &v = mp.pack;
-    const auto &imap = mp.map;
+    PackIndexMap imap;
+    const auto &v = rc->PackVariables(vars, imap);
 
     const int in = imap.get("advected").first;
     const int out = imap.get("one_minus_advected").first;
@@ -294,9 +293,8 @@ void SquareIt(MeshBlockData<Real> *rc) {
 
   // packing in principle unnecessary/convoluted here and just done for demonstration
   std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
-  const auto &mp = rc->PackVariables(vars);
-  const auto &v = mp.pack;
-  const auto &imap = mp.map;
+  PackIndexMap imap;
+  const auto &v = rc->PackVariables(vars, imap);
 
   const int in = imap.get("one_minus_advected").first;
   const int out = imap.get("one_minus_advected_sq").first;
@@ -326,9 +324,8 @@ void PostFill(MeshBlockData<Real> *rc) {
     // packing in principle unnecessary/convoluted here and just done for demonstration
     std::vector<std::string> vars(
         {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
-    const auto &mp = rc->PackVariables(vars, {12, 37});
-    const auto &v = mp.pack;
-    const auto &imap = mp.map;
+    PackIndexMap imap;
+    const auto &v = rc->PackVariables(vars, imap);
 
     const int in = imap.get("one_minus_advected_sq").first;
     // we can get sparse fields either by specifying base name and sparse id, or the full
@@ -356,8 +353,7 @@ Real AdvectionHst(MeshData<Real> *md) {
 
   // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
   // collection of blocks
-  const auto &advected_pack =
-      md->PackVariables(std::vector<std::string>{"advected"}).pack;
+  const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
 
   const auto ib = advected_pack.cellbounds.GetBoundsI(IndexDomain::interior);
   const auto jb = advected_pack.cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -435,8 +431,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
 
-  auto v =
-      rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes}).pack;
+  auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes});
 
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);

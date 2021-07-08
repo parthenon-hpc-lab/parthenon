@@ -248,7 +248,7 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
   Kokkos::Profiling::pushRegion("Task_ComputeNumIter");
 
   Kokkos::Profiling::pushRegion("Task_ComputeNumIter_pack");
-  auto pack = md->PackVariables(std::vector<std::string>({"num_iter"})).pack;
+  auto pack = md->PackVariables(std::vector<std::string>({"num_iter"}));
   Kokkos::Profiling::popRegion();
 
   auto pkg = packages.Get("stochastic_subgrid_package");
@@ -290,9 +290,8 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
 
   // packing in principle unnecessary/convoluted here and just done for demonstration
   std::vector<std::string> vars({"num_iter", "advected", "dummy_result"});
-  const auto &mp = rc->PackVariables(vars);
-  const auto &v = mp.pack;
-  const auto &imap = mp.map;
+  PackIndexMap imap;
+  const auto &v = rc->PackVariables(vars, imap);
 
   const int niter = imap.get("num_iter").first;
   const int in = imap.get("advected").first;
