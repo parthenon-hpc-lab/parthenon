@@ -34,3 +34,21 @@ In each refinement block, you are required to provide a ``method`` which is a st
 
 ## Package-specific Criteria
 As a package developer, you can define a tagging function that takes a ``Container`` as an argument and returns an integer in {-1,0,1} to indicate the block should be derefined, left alone, or refined, respectively.  This function should be registered in a ``StateDescriptor`` object by assigning the ``CheckRefinement`` function pointer to point at the packages function.  An example is demonstrated [here](../example/calculate_pi/pi.cpp).
+
+## Ensuring your data is consistent after re-meshing
+
+WHen re-meshing happens, a few operations have, which can be plugged in to in various ways. The operations performed (in order) are:
+- The function `InitUserMeshBlockData` is called. This function can be set by setting it in the `ApplicationInputs` field of the problem generator:
+```C++
+void MyInitUserMeshBlockData(MeshBlock *pmb, ParameterInput *pin) {
+  // Do something on a meshblock
+}
+pman.app_input.InitUserMeshBlockData = MyInitUserMeshBlockData;
+// continue with initialization...
+```
+- When the mesh is being generated at initialization, the problem generator is called after every re-meshing.
+- Prolongation, restriction, physical boundaries, and ghost zone communication are performed
+- The `FillDerived` functions set per-package and per-application are called.
+
+If you have a function that you would like called every cycle, you may wish to put it in `FillDerived`.
+If you have a function you would like performed only at re-meshing, you may wish to put it in `InitUserMeshBlockData`.
