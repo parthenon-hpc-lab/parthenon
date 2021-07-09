@@ -48,7 +48,7 @@ class Task {
   const TaskType type_;
   const std::string label_;
   TaskStatus status_ = TaskStatus::incomplete;
-  bool lb_time;
+  bool lb_time = false;
   std::function<TaskStatus()> func_;
 };
 
