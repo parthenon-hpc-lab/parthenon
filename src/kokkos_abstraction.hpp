@@ -155,11 +155,11 @@ struct DispatchType {
 };
 
 template <class... Args>
-inline void kokkos_dispatch(ParallelForDispatch, Args &&...args) {
+inline void kokkos_dispatch(ParallelForDispatch, Args &&... args) {
   Kokkos::parallel_for(std::forward<Args>(args)...);
 }
 template <class... Args>
-inline void kokkos_dispatch(ParallelReduceDispatch, Args &&...args) {
+inline void kokkos_dispatch(ParallelReduceDispatch, Args &&... args) {
   Kokkos::parallel_reduce(std::forward<Args>(args)...);
 }
 
@@ -169,7 +169,7 @@ inline void kokkos_dispatch(ParallelReduceDispatch, Args &&...args) {
 template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
-             const int &il, const int &iu, const Function &function, Args &&...args) {
+             const int &il, const int &iu, const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   kokkos_dispatch(tag, name,
@@ -184,7 +184,7 @@ template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
              const int jl, const int ju, const int il, const int iu,
-             const Function &function, Args &&...args) {
+             const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   kokkos_dispatch(tag, name,
@@ -200,7 +200,7 @@ template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
              const int kl, const int ku, const int jl, const int ju, const int il,
-             const int iu, const Function &function, Args &&...args) {
+             const int iu, const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   const int Nk = ku - kl + 1;
@@ -227,7 +227,7 @@ template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
              const int &kl, const int &ku, const int &jl, const int &ju, const int &il,
-             const int &iu, const Function &function, Args &&...args) {
+             const int &iu, const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   kokkos_dispatch(tag, name,
@@ -318,7 +318,7 @@ inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
              const int nl, const int nu, const int kl, const int ku, const int jl,
              const int ju, const int il, const int iu, const Function &function,
-             Args &&...args) {
+             Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   const int Nn = nu - nl + 1;
@@ -350,7 +350,7 @@ inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
              const int nl, const int nu, const int kl, const int ku, const int jl,
              const int ju, const int il, const int iu, const Function &function,
-             Args &&...args) {
+             Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   kokkos_dispatch(tag, name,
@@ -455,7 +455,7 @@ inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
              const int ml, const int mu, const int nl, const int nu, const int kl,
              const int ku, const int jl, const int ju, const int il, const int iu,
-             const Function &function, Args &&...args) {
+             const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   kokkos_dispatch(
@@ -520,12 +520,12 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
 }
 
 template <class... Args>
-inline void par_for(Args &&...args) {
+inline void par_for(Args &&... args) {
   par_dispatch(std::forward<Args>(args)...);
 }
 
 template <class... Args>
-inline void par_reduce(Args &&...args) {
+inline void par_reduce(Args &&... args) {
   par_dispatch(std::forward<Args>(args)...);
 }
 
