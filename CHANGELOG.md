@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 557]](https://github.com/lanl/parthenon/pull/557) Re-enable `InitUserMeshBlockData` so data can be set per-remeshing
 - [[PR 509]](https://github.com/lanl/parthenon/pull/509) Add `elapsed_main`, `elapsed_cycle`, and `elapsed_LBandAMR` functions to `Driver` as static functions to enable access to timing information in output and restart files.
 - [[PR 479]](https://github.com/lanl/parthenon/pull/479) Add `Update` function to `Params` to update the value of an existing key.
 - [[PR 482]](https://github.com/lanl/parthenon/pull/482) Add support for package enrolled history outputs.
