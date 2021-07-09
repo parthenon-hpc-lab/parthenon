@@ -102,7 +102,7 @@ MeshBlock::InitApplicationMeshBlockDataDefault(MeshBlock * /*pmb*/,
 //  Called in MeshBlock constructor before ProblemGenerator.
 //========================================================================================
 
-void MeshBlock::InitUserMeshBlockDataDefault(ParameterInput *pin) {
+void MeshBlock::InitUserMeshBlockDataDefault(MeshBlock *pmb, ParameterInput *pin) {
   // do nothing
   return;
 }

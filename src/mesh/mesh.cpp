@@ -1096,6 +1096,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
     // Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
+      MeshBlock *pmb = block_list[i].get();
+      pmb->InitUserMeshBlockData(pmb, pin);
       auto &mbd = block_list[i]->meshblock_data.Get();
       if (multilevel) {
         ProlongateBoundaries(mbd);
