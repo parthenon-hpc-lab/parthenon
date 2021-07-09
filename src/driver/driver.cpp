@@ -156,7 +156,9 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 void EvolutionDriver::SetGlobalTimeStep() {
   // don't allow dt to grow by more than 2x
   // consider making this configurable in the input
-  tm.dt *= 2.0;
+  if (tm.dt < 0.1 * std::numeric_limits<Real>::max()) {
+    tm.dt *= 2.0;
+  }
   Real big = std::numeric_limits<Real>::max();
   for (auto const &pmb : pmesh->block_list) {
     tm.dt = std::min(tm.dt, pmb->NewDt());
