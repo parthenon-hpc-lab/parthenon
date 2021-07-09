@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -59,6 +59,11 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
       });
 }
 
+void SetInOrOutBlock(MeshBlock *pmb, ParameterInput *pin) {
+  MeshBlockData<Real> *rc = pmb->meshblock_data.Get().get();
+  SetInOrOut(rc);
+}
+
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto package = std::make_shared<StateDescriptor>("calculate_pi");
   Params &params = package->AllParams();
@@ -68,11 +73,14 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // add a variable called in_or_out that will hold the value of the indicator function
   std::string field_name("in_or_out");
-  Metadata m({Metadata::Cell, Metadata::Derived});
+  Metadata m({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   package->AddField(field_name, m);
 
   // All the package FillDerived and CheckRefinement functions are called by parthenon
-  package->FillDerivedBlock = SetInOrOut;
+  // We could use the package FillDerived, which is called every "cycle" as below.
+  // Instead in this example, we use the InitMeshBlockUserData, which happens
+  // only when the mesh is created or changes.
+  // package->FillDerivedBlock = SetInOrOut;
   // could use package specific refinement tagging routine (see advection example), but
   // instead this example will make use of the parthenon shipped first derivative
   // criteria, as invoked in the input file
