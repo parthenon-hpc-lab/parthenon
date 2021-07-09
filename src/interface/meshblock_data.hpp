@@ -426,7 +426,6 @@ class MeshBlockData {
     return PackVariablesImpl(names, sparse_ids, coarse, nullptr, nullptr);
   }
   const VariablePack<T> &PackVariables(const std::vector<std::string> &names,
-
                                        PackIndexMap &map, std::vector<std::string> &key,
                                        bool coarse = false) {
     return PackVariablesImpl(names, {}, coarse, &map, &key);
@@ -513,10 +512,12 @@ class MeshBlockData {
   const VariablePack<T> &PackVariables(PackIndexMap &map, bool coarse = false) {
     return PackVariablesImpl({}, coarse, &map, nullptr);
   }
-  const VariablePack<T> &PackVariables(std::vector<std::string> &key,
-                                       bool coarse = false) {
-    return PackVariablesImpl({}, coarse, nullptr, &key);
-  }
+  // we have to disable this overload because it overshadows packing by name without any
+  // output parameters
+  // const VariablePack<T> &PackVariables(std::vector<std::string> &key,
+  //                                      bool coarse = false) {
+  //   return PackVariablesImpl({}, coarse, nullptr, &key);
+  // }
   const VariablePack<T> &PackVariables(bool coarse = false) {
     return PackVariablesImpl({}, coarse, nullptr, nullptr);
   }
