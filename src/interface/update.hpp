@@ -50,7 +50,6 @@ Real FluxDiv_(const int l, const int k, const int j, const int i, const int ndim
   return -du / coords.Volume(k, j, i);
 }
 
-
 template <typename T>
 TaskStatus FluxDivergence(T *in, T *dudt_obj);
 
