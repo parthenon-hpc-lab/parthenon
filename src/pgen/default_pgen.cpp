@@ -96,13 +96,13 @@ MeshBlock::InitApplicationMeshBlockDataDefault(MeshBlock * /*pmb*/,
 }
 
 //========================================================================================
-//! \fn void MeshBlock::InitUserMeshBlockDataDefault(ParameterInput *pin)
+//! \fn void MeshBlock::InitMeshBlockUserDataDefault(ParameterInput *pin)
 //  \brief Function to initialize problem-specific data in MeshBlock class.  Can also be
 //  used to initialize variables which are global to other functions in this file.
 //  Called in MeshBlock constructor before ProblemGenerator.
 //========================================================================================
 
-void MeshBlock::InitUserMeshBlockDataDefault(MeshBlock *pmb, ParameterInput *pin) {
+void MeshBlock::InitMeshBlockUserDataDefault(MeshBlock *pmb, ParameterInput *pin) {
   // do nothing
   return;
 }

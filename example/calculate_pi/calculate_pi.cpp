@@ -78,7 +78,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // All the package FillDerived and CheckRefinement functions are called by parthenon
   // We could use the package FillDerived, which is called every "cycle" as below.
-  // Instead in this example, we use the InitUserMeshBlockData, which happens
+  // Instead in this example, we use the InitMeshBlockUserData, which happens
   // only when the mesh is created or changes.
   // package->FillDerivedBlock = SetInOrOut;
   // could use package specific refinement tagging routine (see advection example), but

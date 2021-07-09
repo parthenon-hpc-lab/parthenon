@@ -387,9 +387,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   InitApplicationMeshBlockDataDefault(MeshBlock *, ParameterInput *pin);
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>
       InitApplicationMeshBlockData = &InitApplicationMeshBlockDataDefault;
-  static void InitUserMeshBlockDataDefault(MeshBlock *pmb, ParameterInput *pin);
-  std::function<void(MeshBlock *, ParameterInput *)> InitUserMeshBlockData =
-      &InitUserMeshBlockDataDefault;
+  static void InitMeshBlockUserDataDefault(MeshBlock *pmb, ParameterInput *pin);
+  std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData =
+      &InitMeshBlockUserDataDefault;
 
   // functions and variables for automatic load balancing based on timing
   Kokkos::Timer lb_timer;

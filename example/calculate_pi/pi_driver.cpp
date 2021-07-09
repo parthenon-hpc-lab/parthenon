@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
   pman.app_input->ProcessPackages = ProcessPackages;
 
   // This is called on each mesh block whenever the mesh changes.
-  pman.app_input->InitUserMeshBlockData = &calculate_pi::SetInOrOutBlock;
+  pman.app_input->InitMeshBlockUserData = &calculate_pi::SetInOrOutBlock;
 
   auto manager_status = pman.ParthenonInit(argc, argv);
   if (manager_status == ParthenonStatus::complete) {

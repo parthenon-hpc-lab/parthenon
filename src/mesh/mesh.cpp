@@ -1023,7 +1023,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // init meshblock data
     for (int i = 0; i < nmb; ++i) {
       MeshBlock *pmb = block_list[i].get();
-      pmb->InitUserMeshBlockData(pmb, pin);
+      pmb->InitMeshBlockUserData(pmb, pin);
     }
 
     // problem generator

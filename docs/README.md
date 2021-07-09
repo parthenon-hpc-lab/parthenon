@@ -113,7 +113,7 @@ be redefined by an application. Currently, these functions are, by class:
 
 #### MeshBlock
 * `InitApplicationMeshBlockData`
-* `InitUserMeshBlockData`
+* `InitMeshBlockUserData`
 * `ProblemGenerator`
 * `MeshBlockUserWorkInLoop`
 * `UserWorkBeforeOutput`

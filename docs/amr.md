@@ -38,12 +38,12 @@ As a package developer, you can define a tagging function that takes a ``Contain
 ## Ensuring your data is consistent after re-meshing
 
 When re-meshing happens, a few operations happen, which can be plugged in to in various ways. The operations performed (in order) are:
-- The function `InitUserMeshBlockData` is called. This function can be set by setting it in the `ApplicationInputs` field of the problem generator:
+- The function `InitMeshBlockUserData` is called. This function can be set by setting it in the `ApplicationInputs` field of the problem generator:
 ```C++
-void MyInitUserMeshBlockData(MeshBlock *pmb, ParameterInput *pin) {
+void MyInitMeshBlockUserData(MeshBlock *pmb, ParameterInput *pin) {
   // Do something on a meshblock
 }
-pman.app_input.InitUserMeshBlockData = MyInitUserMeshBlockData;
+pman.app_input.InitMeshBlockUserData = MyInitMeshBlockUserData;
 // continue with initialization...
 ```
 - When the mesh is being generated at initialization, the problem generator is called after every re-meshing.
@@ -51,4 +51,4 @@ pman.app_input.InitUserMeshBlockData = MyInitUserMeshBlockData;
 - The `FillDerived` functions set per-package and per-application are called.
 
 If you have a function that you would like called every cycle, you may wish to put it in `FillDerived`.
-If you have a function you would like performed only at re-meshing, you may wish to put it in `InitUserMeshBlockData`.
+If you have a function you would like performed only at re-meshing, you may wish to put it in `InitMeshBlockUserData`.
