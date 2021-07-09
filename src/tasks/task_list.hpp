@@ -89,12 +89,13 @@ class IterativeTasks {
   template <class F, class... Args>
   TaskID AddTask_(const TaskType &type, TaskID const &dep, F &&func, Args &&... args) {
     TaskID id(0);
-    id = task_list_impl::AddTaskHelper(tl_, Task(
-        id, dep,
-        [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
-          return func(std::forward<Args>(args)...);
-        },
-        type, key_));
+    id = task_list_impl::AddTaskHelper(
+        tl_, Task(
+                 id, dep,
+                 [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
+                   return func(std::forward<Args>(args)...);
+                 },
+                 type, key_));
     return id;
   }
   TaskList *tl_;
@@ -240,7 +241,6 @@ class TaskList {
     });
   }
 
-
   IterativeTasks &AddIteration() {
     int key = iter_tasks.size();
     iter_tasks.push_back(IterativeTasks(this, key));
@@ -268,9 +268,7 @@ class TaskList {
 namespace task_list_impl {
 // helper function to avoid having to call a member function of TaskList from
 // IterativeTasks before TaskList has been defined
-inline TaskID AddTaskHelper(TaskList *tl, Task tsk) {
-  return tl->AddTask(tsk);
-}
+inline TaskID AddTaskHelper(TaskList *tl, Task tsk) { return tl->AddTask(tsk); }
 } // namespace task_list_impl
 
 using TaskRegion = std::vector<TaskList>;
