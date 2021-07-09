@@ -36,6 +36,75 @@ namespace parthenon {
 
 enum class TaskListStatus { running, stuck, complete, nothing_to_do };
 
+class TaskList;
+namespace task_list_impl {
+TaskID AddTaskHelper(TaskList *, Task);
+} // namespace task_list_impl
+
+class IterativeTasks {
+ public:
+  IterativeTasks(TaskList *tl, int key) : tl_(tl), key_(key) {
+    max_iterations_ = std::numeric_limits<unsigned int>::max();
+  }
+
+  template <class T, class... Args>
+  TaskID AddTask(TaskID const &dep, T &&func, Args &&... args) {
+    return AddTask_(TaskType::iterative, dep, std::forward<T>(func),
+                    std::forward<Args>(args)...);
+  }
+  // overload to add member functions of class T to task list
+  // NOTE: we must capture the object pointer
+  template <class T, class... Args>
+  TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), T *obj,
+                 Args &&... args) {
+    return this->AddTask_(TaskType::iterative, dep, [=]() mutable -> TaskStatus {
+      return (obj->*func)(std::forward<Args>(args)...);
+    });
+  }
+
+  template <class T, class... Args>
+  TaskID AddCompletionTask(TaskID const &dep, T &&func, Args &&... args) {
+    return AddTask_(TaskType::completion_criteria, dep, std::forward<T>(func),
+                    std::forward<Args>(args)...);
+  }
+  template <class T, class... Args>
+  TaskID AddCompletionTask(TaskID const &dep, TaskStatus (T::*func)(Args...), T *obj,
+                           Args &&... args) {
+    return this->AddTask_(TaskType::completion_criteria, dep,
+                          [=]() mutable -> TaskStatus {
+                            return (obj->*func)(std::forward<Args>(args)...);
+                          });
+  }
+
+  void SetMaxIterations(const unsigned int max) { max_iterations_ = max; }
+  void SetFailWithMaxIterations(const bool flag) { throw_with_max_iters_ = flag; }
+  void SetWarnWithMaxIterations(const bool flag) { warn_with_max_iters_ = flag; }
+  bool ShouldThrowWithMax() const { return throw_with_max_iters_; }
+  bool ShouldWarnWithMax() const { return warn_with_max_iters_; }
+  unsigned int GetMaxIterations() const { return max_iterations_; }
+  unsigned int GetIterationCount() const { return count_; }
+  void IncrementCount() { count_++; }
+
+ private:
+  template <class F, class... Args>
+  TaskID AddTask_(const TaskType &type, TaskID const &dep, F &&func, Args &&... args) {
+    TaskID id(0);
+    id = task_list_impl::AddTaskHelper(tl_, Task(
+        id, dep,
+        [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
+          return func(std::forward<Args>(args)...);
+        },
+        type, key_));
+    return id;
+  }
+  TaskList *tl_;
+  int key_;
+  unsigned int max_iterations_;
+  unsigned int count_ = 0;
+  bool throw_with_max_iters_ = false;
+  bool warn_with_max_iters_ = true;
+};
+
 class TaskList {
  public:
   TaskList() = default;
@@ -142,6 +211,14 @@ class TaskList {
     return valid;
   }
 
+  TaskID AddTask(Task tsk) {
+    TaskID id(tasks_added_ + 1);
+    tsk.SetID(id);
+    task_list_.push_back(tsk);
+    tasks_added_++;
+    return id;
+  }
+
   template <class F, class... Args>
   TaskID AddTask(TaskID const &dep, F &&func, Args &&... args) {
     TaskID id(tasks_added_ + 1);
@@ -163,70 +240,6 @@ class TaskList {
     });
   }
 
-  class IterativeTasks {
-   public:
-    IterativeTasks(TaskList *tl, int key) : tl_(tl), key_(key) {
-      max_iterations_ = std::numeric_limits<unsigned int>::max();
-    }
-
-    template <class T, class... Args>
-    TaskID AddTask(TaskID const &dep, T &&func, Args &&... args) {
-      return AddTask_(TaskType::iterative, dep, std::forward<T>(func),
-                      std::forward<Args>(args)...);
-    }
-    // overload to add member functions of class T to task list
-    // NOTE: we must capture the object pointer
-    template <class T, class... Args>
-    TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), T *obj,
-                   Args &&... args) {
-      return this->AddTask_(TaskType::iterative, dep, [=]() mutable -> TaskStatus {
-        return (obj->*func)(std::forward<Args>(args)...);
-      });
-    }
-
-    template <class T, class... Args>
-    TaskID AddCompletionTask(TaskID const &dep, T &&func, Args &&... args) {
-      return AddTask_(TaskType::completion_criteria, dep, std::forward<T>(func),
-                      std::forward<Args>(args)...);
-    }
-    template <class T, class... Args>
-    TaskID AddCompletionTask(TaskID const &dep, TaskStatus (T::*func)(Args...), T *obj,
-                             Args &&... args) {
-      return this->AddTask_(TaskType::completion_criteria, dep,
-                            [=]() mutable -> TaskStatus {
-                              return (obj->*func)(std::forward<Args>(args)...);
-                            });
-    }
-
-    void SetMaxIterations(const unsigned int max) { max_iterations_ = max; }
-    void SetFailWithMaxIterations(const bool flag) { throw_with_max_iters_ = flag; }
-    void SetWarnWithMaxIterations(const bool flag) { warn_with_max_iters_ = flag; }
-    bool ShouldThrowWithMax() const { return throw_with_max_iters_; }
-    bool ShouldWarnWithMax() const { return warn_with_max_iters_; }
-    unsigned int GetMaxIterations() const { return max_iterations_; }
-    unsigned int GetIterationCount() const { return count_; }
-    void IncrementCount() { count_++; }
-
-   private:
-    template <class F, class... Args>
-    TaskID AddTask_(const TaskType &type, TaskID const &dep, F &&func, Args &&... args) {
-      TaskID id(tl_->tasks_added_ + 1);
-      tl_->task_list_.push_back(Task(
-          id, dep,
-          [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
-            return func(std::forward<Args>(args)...);
-          },
-          type, key_));
-      tl_->tasks_added_++;
-      return id;
-    }
-    TaskList *tl_;
-    int key_;
-    unsigned int max_iterations_;
-    unsigned int count_ = 0;
-    bool throw_with_max_iters_ = false;
-    bool warn_with_max_iters_ = true;
-  };
 
   IterativeTasks &AddIteration() {
     int key = iter_tasks.size();
@@ -251,6 +264,14 @@ class TaskList {
   TaskID tasks_completed_;
   std::set<int> completed_iters_;
 };
+
+namespace task_list_impl {
+// helper function to avoid having to call a member function of TaskList from
+// IterativeTasks before TaskList has been defined
+inline TaskID AddTaskHelper(TaskList *tl, Task tsk) {
+  return tl->AddTask(tsk);
+}
+} // namespace task_list_impl
 
 using TaskRegion = std::vector<TaskList>;
 

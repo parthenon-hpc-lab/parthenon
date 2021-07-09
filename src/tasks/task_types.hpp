@@ -35,6 +35,7 @@ class Task {
     assert(key_ >= 0);
   }
   void operator()() { status_ = func_(); }
+  void SetID(TaskID id) { myid_ = id; }
   TaskID GetID() const { return myid_; }
   TaskID GetDependency() const { return dep_; }
   TaskStatus GetStatus() const { return status_; }
