@@ -152,7 +152,7 @@ class TaskList {
     TaskID id(tasks_added_ + 1);
     task_list_.push_back(
         Task(id, dep, [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
-          return func(args...);
+          return func(std::forward<Args>(args)...);
         }));
     tasks_added_++;
     return id;
@@ -163,8 +163,9 @@ class TaskList {
   template <class T, class... Args>
   TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), T *obj,
                  Args &&... args) {
-    return this->AddTask(dep,
-                         [=]() mutable -> TaskStatus { return (obj->*func)(args...); });
+    return this->AddTask(dep, [=]() mutable -> TaskStatus {
+      return (obj->*func)(std::forward<Args>(args)...);
+    });
   }
 
   template <class F, class... Args>
@@ -184,7 +185,7 @@ class TaskList {
     task_list_.push_back(Task(
         id, dep,
         [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
-          return func(args...);
+          return func(std::forward<Args>(args)...);
         },
         type, label));
     tasks_added_++;
@@ -197,8 +198,9 @@ class TaskList {
   TaskID AddIterativeTask(const TaskType &type, const std::string &label,
                           TaskID const &dep, TaskStatus (T::*func)(Args...), T *obj,
                           Args &&... args) {
-    return this->AddIterativeTask(
-        type, label, dep, [=]() mutable -> TaskStatus { return (obj->*func)(args...); });
+    return this->AddIterativeTask(type, label, dep, [=]() mutable -> TaskStatus {
+      return (obj->*func)(std::forward<Args>(args)...);
+    });
   }
 
   void SetMaxIterations(const std::string &label, const int max) {
