@@ -32,7 +32,6 @@ using namespace parthenon;
 namespace poisson_example {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
-
   auto &data = pmb->meshblock_data.Get();
 
   Real x0 = pin->GetOrAddReal("poisson", "x0", 0.0);

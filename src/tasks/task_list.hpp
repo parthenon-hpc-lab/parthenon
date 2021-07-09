@@ -16,8 +16,11 @@
 
 #include <bitset>
 #include <iostream>
+#include <limits>
 #include <list>
+#include <map>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
