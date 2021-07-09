@@ -37,7 +37,7 @@ As a package developer, you can define a tagging function that takes a ``Contain
 
 ## Ensuring your data is consistent after re-meshing
 
-WHen re-meshing happens, a few operations have, which can be plugged in to in various ways. The operations performed (in order) are:
+When re-meshing happens, a few operations happen, which can be plugged in to in various ways. The operations performed (in order) are:
 - The function `InitUserMeshBlockData` is called. This function can be set by setting it in the `ApplicationInputs` field of the problem generator:
 ```C++
 void MyInitUserMeshBlockData(MeshBlock *pmb, ParameterInput *pin) {
