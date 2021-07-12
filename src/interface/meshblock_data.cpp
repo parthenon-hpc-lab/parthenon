@@ -104,12 +104,19 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
 template <typename T>
 void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
                                 const std::vector<std::string> &names,
-                                const std::vector<MetadataFlag> &flags) {
+                                const std::vector<MetadataFlag> &flags,
+                                const std::vector<int> &sparse_ids) {
   SetBlockPointer(src);
   resolved_packages_ = src.resolved_packages_;
+  std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
-  auto add_var = [=, &flags](auto var) {
+  auto add_var = [=, &flags, &sparse_ids](auto var) {
     if (!flags.empty() && !var->metadata().AnyFlagsSet(flags)) {
+      return;
+    }
+
+    if (!sparse_ids.empty() && var->IsSparse() &&
+        (sparse_ids_set.count(var->GetSparseID()) == 0)) {
       return;
     }
 
@@ -172,39 +179,24 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
 // Optionally extract only some of the sparse ids of src variable.
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
-                                const std::vector<std::string> &names) {
-  CopyFrom(src, true, names);
+                                const std::vector<std::string> &names,
+                                const std::vector<int> &sparse_ids) {
+  CopyFrom(src, true, names, {}, sparse_ids);
 }
 
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
-                                const std::vector<MetadataFlag> &flags) {
-  CopyFrom(src, true, {}, flags);
+                                const std::vector<MetadataFlag> &flags,
+                                const std::vector<int> &sparse_ids) {
+  CopyFrom(src, true, {}, flags, sparse_ids);
 }
 
 // provides a container that has a single sparse slice
 template <typename T>
-std::shared_ptr<MeshBlockData<T>> MeshBlockData<T>::SparseSlice(int sparse_id) {
+std::shared_ptr<MeshBlockData<T>>
+MeshBlockData<T>::SparseSlice(const std::vector<int> &sparse_ids) const {
   auto c = std::make_shared<MeshBlockData<T>>();
-
-  // copy in private data
-  c->SetBlockPointer(GetBlockPointer());
-  c->resolved_packages_ = resolved_packages_;
-
-  // Note that all dense variables get added
-  for (const auto &v : varVector_) {
-    if (!v->IsSparse() || (v->GetSparseID() == sparse_id)) {
-      c->Add(v);
-    }
-  }
-  // for (auto v : s->_edgeVector) {
-  //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
-  //   c.s->_edgeVector.push_back(vNew);
-  // }
-  for (const auto &v : faceVector_) {
-    c->Add(v);
-  }
-
+  c->CopyFrom(*this, true, {}, {}, sparse_ids);
   return c;
 }
 

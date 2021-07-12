@@ -158,8 +158,8 @@ class FaceVariable {
                const Metadata &metadata)
       : data(label, ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
         dims_(ncells), m_(metadata), label_(label) {
-    assert(!metadata.IsSet(Metadata::Sparse) &&
-           "Sparse not implemented yet for FaceVariable");
+    PARTHENON_REQUIRE_THROWS(!metadata.IsSet(Metadata::Sparse),
+                             "Sparse not implemented yet for FaceVariable");
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
@@ -207,6 +207,11 @@ class FaceVariable {
   }
 
   inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+
+  // to mimick interface of CellVariable, currently sparse FaceVariables are not
+  // implemented
+  inline bool IsSparse() const { return false; }
+  inline int GetSparseID() const { return InvalidSparseID; }
 
   FaceArray<T> data;
 
