@@ -53,18 +53,22 @@ class MeshBlockData {
   MeshBlockData<T>() = default;
 
   /// Copies variables from src, optionally only copying names given and/or variables
-  /// matching any of the flags given. If both names and flags are provided, only
-  /// variables that show up in names AND have metadata in FLAGS are copied. If
-  /// shallow_copy is true, no copies of variables will be allocated regardless whether
-  /// they are flagged as OneCopy or not
+  /// matching any of the flags given. If sparse_ids is not empty, only sparse fields with
+  /// listed sparse ids will be copied, dense fields will always be copied. If both names
+  /// and flags are provided, only variables that show up in names AND have metadata in
+  /// FLAGS are copied. If shallow_copy is true, no copies of variables will be allocated
+  /// regardless whether they are flagged as OneCopy or not
   void CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
                 const std::vector<std::string> &names = {},
-                const std::vector<MetadataFlag> &flags = {});
+                const std::vector<MetadataFlag> &flags = {},
+                const std::vector<int> &sparse_ids = {});
 
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
-  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names);
-  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags);
+  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names,
+                   const std::vector<int> &sparse_ids = {});
+  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags,
+                   const std::vector<int> &sparse_ids = {});
 
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() const {
@@ -94,14 +98,17 @@ class MeshBlockData {
   /// Create non-shallow copy of MeshBlockData
   void Copy(const std::shared_ptr<MeshBlockData<T>> &src) { CopyFrom(*src, false); }
 
-  /// We can initialize a container with slices from a different
-  /// container.  For variables that have the sparse tag, this will
-  /// return the sparse slice.  All other variables are added as
-  /// is. This call returns a new container.
+  /// Get a container containing only dense fields and the sparse fields with a sparse id
+  /// from the given list of sparse ids.
   ///
-  /// @param sparse_id The sparse id
+  /// @param sparse_ids The list of sparse ids to include
   /// @return New container with slices from all variables
-  std::shared_ptr<MeshBlockData<T>> SparseSlice(int sparse_id);
+  std::shared_ptr<MeshBlockData<T>> SparseSlice(const std::vector<int> &sparse_ids) const;
+
+  /// As above but for just one sparse id
+  std::shared_ptr<MeshBlockData<T>> SparseSlice(int sparse_id) const {
+    return SparseSlice({sparse_id});
+  }
 
   ///
   /// Set the pointer to the mesh block for this container

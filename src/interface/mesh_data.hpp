@@ -40,9 +40,11 @@ using BlockDataList_t = std::vector<std::shared_ptr<MeshBlockData<T>>>;
 
 namespace pack_on_mesh_impl {
 
+// This function template takes a new key and adds it to a key collection
 template <typename K>
 inline void AppendKey(K *key_collection, const K *new_key);
 
+// Specialization for variable packs where key is a std::vector<std::string>
 template <>
 inline void AppendKey<std::vector<std::string>>(std::vector<std::string> *key_collection,
                                                 const std::vector<std::string> *new_key) {
@@ -51,6 +53,8 @@ inline void AppendKey<std::vector<std::string>>(std::vector<std::string> *key_co
   }
 }
 
+// Specialization for flux-variable packs where key is a vpack_types::StringPair (which is
+// a pair of std::vector<std::string>)
 template <>
 inline void AppendKey<vpack_types::StringPair>(vpack_types::StringPair *key_collection,
                                                const vpack_types::StringPair *new_key) {
