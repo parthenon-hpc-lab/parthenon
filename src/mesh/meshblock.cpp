@@ -102,8 +102,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   if (app_in->InitApplicationMeshBlockData != nullptr) {
     InitApplicationMeshBlockData = app_in->InitApplicationMeshBlockData;
   }
-  if (app_in->InitUserMeshBlockData != nullptr) {
-    InitUserMeshBlockData = app_in->InitUserMeshBlockData;
+  if (app_in->InitMeshBlockUserData != nullptr) {
+    InitMeshBlockUserData = app_in->InitMeshBlockUserData;
   }
   if (app_in->ProblemGenerator != nullptr) {
     ProblemGenerator = app_in->ProblemGenerator;
@@ -190,7 +190,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
 
   // Create user mesh data
-  // InitUserMeshBlockData(pin);
+  // InitMeshBlockUserData(pin);
   app = InitApplicationMeshBlockData(this, pin);
   return;
 }

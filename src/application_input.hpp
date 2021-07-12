@@ -52,7 +52,7 @@ struct ApplicationInput {
   // MeshBlock functions
   std::function<std::unique_ptr<MeshBlockApplicationData>(MeshBlock *, ParameterInput *)>
       InitApplicationMeshBlockData = nullptr;
-  std::function<void(ParameterInput *)> InitUserMeshBlockData = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
   std::function<void()> MeshBlockUserWorkInLoop = nullptr;
   std::function<void(ParameterInput *)> UserWorkBeforeOutput = nullptr;
