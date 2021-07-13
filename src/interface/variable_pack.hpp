@@ -167,11 +167,12 @@ class VariablePack {
     return v_(n)(k, j, i);
   }
 
-  // TODO(JL) This is here so code templated on VariablePack and MeshBlockPack doesn't
-  // need to change, but maybe we should add assert(m == 0)?
+  // This is here so code templated on VariablePack and MeshBlockPack doesn't need to
+  // change
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(const int m, const int n, const int k, const int j, const int i) const {
     assert(IsAllocated(n));
+    assert(m == 0);
     return v_(n)(k, j, i);
   }
 

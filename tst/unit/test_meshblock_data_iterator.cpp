@@ -92,11 +92,11 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     // won't be allocated
     auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
 
-    MeshBlockData<Real> rc;
-    rc.Initialize(pkg, dummy_mb);
+    MeshBlockData<Real> mbd;
+    mbd.Initialize(pkg, dummy_mb);
 
     WHEN("We extract a subcontainer") {
-      auto subcontainer = MeshBlockData<Real>(rc, {"v1", "v3", "v5"});
+      auto subcontainer = MeshBlockData<Real>(mbd, {"v1", "v3", "v5"});
       THEN("The container has the names in the right order") {
         auto vars = subcontainer.GetCellVariableVector();
         REQUIRE(vars[0]->label() == "v1");
@@ -105,7 +105,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
     }
 
-    auto v = rc.PackVariables();
+    auto v = mbd.PackVariables();
     par_for(
         DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1,
         0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
@@ -115,7 +115,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we check them") {
       // set them all to zero
-      const CellVariableVector<Real> &cv = rc.GetCellVariableVector();
+      const CellVariableVector<Real> &cv = mbd.GetCellVariableVector();
       for (int n = 0; n < cv.size(); n++) {
         ParArrayND<Real> v = cv[n]->data;
         par_for(
@@ -155,7 +155,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we set Independent variables to one") {
       // set "Independent" variables to one
-      auto v = rc.PackVariables({Metadata::Independent});
+      auto v = mbd.PackVariables({Metadata::Independent});
       par_for(
           DEFAULT_LOOP_PATTERN, "Set independent variables", DevExecSpace(), 0,
           v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
@@ -177,7 +177,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
       AND_THEN("pulling out a subset by name should work") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-        auto v = rc.PackVariables({"v2", "v3", "v5"});
+        auto v = mbd.PackVariables({"v2", "v3", "v5"});
         Real total = 0.0;
         Real sum = 1.0;
         Kokkos::parallel_reduce(
@@ -206,7 +206,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we set individual fields by index") {
       PackIndexMap vmap;
-      const auto &v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
+      const auto &v = mbd.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
 
       const int iv3lo = vmap.get("v3").first;
       const int iv3hi = vmap.get("v3").second;
@@ -226,7 +226,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
           });
       THEN("the values should as we expect") {
         PackIndexMap vmap;
-        const auto &v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
+        const auto &v = mbd.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
 
         const int iv3lo = vmap.get("v3").first;
         const int iv3hi = vmap.get("v3").second;
@@ -249,7 +249,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
       AND_THEN("summing up everything should still work") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-        auto v = rc.PackVariables();
+        auto v = mbd.PackVariables();
         Real total = 0.0;
         Real sum = 1.0;
         Kokkos::parallel_reduce(
@@ -263,7 +263,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we set fluxes of independent variables") {
-      auto vf = rc.PackVariablesAndFluxes({Metadata::Independent, Metadata::WithFluxes});
+      auto vf = mbd.PackVariablesAndFluxes({Metadata::Independent, Metadata::WithFluxes});
       par_for(
           DEFAULT_LOOP_PATTERN, "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0,
           vf.GetDim(3) - 1, 0, vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,
@@ -303,16 +303,16 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       pkg->AddSparsePool("vsparse", meta_sparse, std::vector<int>{1, 13, 42});
 
       // re-initialize MeshBlockData with new fields
-      rc.Initialize(pkg, dummy_mb);
+      mbd.Initialize(pkg, dummy_mb);
 
       // TODO(JL) test packs with unallocated sparse fields
-      rc.AllocSparseID("vsparse", 1);
-      rc.AllocSparseID("vsparse", 13);
-      rc.AllocSparseID("vsparse", 42);
+      mbd.AllocSparseID("vsparse", 1);
+      mbd.AllocSparseID("vsparse", 13);
+      mbd.AllocSparseID("vsparse", 42);
 
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
-        const auto &v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
+        const auto &v = mbd.PackVariables({"v3", "v6", "vsparse"}, imap);
 
         REQUIRE(imap.get("vsparse_1").second == imap.get("vsparse_1").first);
         REQUIRE(imap.get("vsparse_13").second == imap.get("vsparse_13").first);
@@ -329,7 +329,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
       AND_THEN("bounds are still correct if I get just a subset of the sparse fields") {
         PackIndexMap imap;
-        rc.PackVariables(std::vector<std::string>{"v3", "vsparse"}, {1, 42}, imap);
+        mbd.PackVariables(std::vector<std::string>{"v3", "vsparse"}, {1, 42}, imap);
         REQUIRE(imap.get("vsparse_1").second == imap.get("vsparse_1").first);
         REQUIRE(imap.get("vsparse_42").second == imap.get("vsparse_42").first);
         REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse_1")));
@@ -337,7 +337,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
       AND_THEN("the association with sparse ids is captured") {
         PackIndexMap imap;
-        const auto &v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
+        const auto &v = mbd.PackVariables({"v3", "v6", "vsparse"}, imap);
 
         int correct = 0;
         const int v3first = imap.get("v3").first;
@@ -363,14 +363,14 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       std::vector<int> shape_2D{16, 16, 1};
       Metadata m_in_2D({Metadata::Independent, Metadata::WithFluxes}, shape_2D);
       pkg->AddField("v2d", m_in_2D);
-      rc.Initialize(pkg, dummy_mb);
+      mbd.Initialize(pkg, dummy_mb);
 
-      auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
+      auto packw2d = mbd.PackVariablesAndFluxes({"v2d"}, {"v2d"});
       THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
     }
 
     WHEN("We extract a pack over an empty set") {
-      auto pack = rc.PackVariables(std::vector<std::string>{"does_not_exist"});
+      auto pack = mbd.PackVariables(std::vector<std::string>{"does_not_exist"});
       THEN("The pack is empty") { REQUIRE(pack.GetDim(4) == 0); }
     }
   }
@@ -402,7 +402,7 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
 
     MeshBlockData<Real> mbd;
     mbd.Initialize(pkg, dummy_mb);
-    auto &var = rc.Get("var");
+    auto &var = mbd.Get("var");
 
     auto coarse_s =
         ParArrayND<Real>("var.coarse", var.GetDim(6), var.GetDim(5), var.GetDim(4),
@@ -422,13 +422,13 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
       REQUIRE(var.coarse_s.GetDim(2) == nside / 2 + 2 * nghost);
       REQUIRE(var.coarse_s.GetDim(1) == nside / 2 + 2 * nghost);
       AND_THEN("We can extract the fine object") {
-        auto pack = rc.PackVariables(std::vector<std::string>{"var"});
+        auto pack = mbd.PackVariables(std::vector<std::string>{"var"});
         REQUIRE(pack.GetDim(4) == 1);
         REQUIRE(pack.GetDim(3) == cellbounds.ncellsk(IndexDomain::entire));
         REQUIRE(pack.GetDim(2) == cellbounds.ncellsj(IndexDomain::entire));
         REQUIRE(pack.GetDim(1) == cellbounds.ncellsi(IndexDomain::entire));
         AND_THEN("We can extract the coarse object") {
-          auto pack = rc.PackVariables(std::vector<std::string>{"var"}, true);
+          auto pack = mbd.PackVariables(std::vector<std::string>{"var"}, true);
           AND_THEN("The pack has the coarse dimensions") {
             REQUIRE(pack.GetDim(4) == 1);
             REQUIRE(pack.GetDim(3) == c_cellbounds.ncellsk(IndexDomain::entire));
