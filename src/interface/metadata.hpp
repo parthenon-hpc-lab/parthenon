@@ -416,8 +416,12 @@ class Metadata {
   }
 
   bool operator==(const Metadata &b) const {
-    // TODO(JL) What about component_labels_ and associated_?
     return HasSameFlags(b) && (shape_ == b.shape_);
+
+    // associated_ can be used by downstream codes to associate some variables with
+    // others, and component_labels_ are used in output files to label components of
+    // vectors/tensors. Both are not true metadata of a variable for the purposes of the
+    // infrastructure and hence are not checked here
   }
 
   bool operator!=(const Metadata &b) const { return !(*this == b); }
