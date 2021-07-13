@@ -94,8 +94,7 @@ class PackIndexMap {
     const auto &key = MakeVarLabel(base_name, sparse_id);
     auto itr = map_.find(key);
     if (itr == map_.end()) {
-      auto err = "PackIndexMap does not have key '" + key + "'";
-      PARTHENON_THROW(err.c_str());
+      PARTHENON_THROW("PackIndexMap does not have key '" + key + "'");
     }
 
     return itr->second;
