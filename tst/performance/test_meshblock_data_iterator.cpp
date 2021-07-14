@@ -95,10 +95,10 @@ static MeshBlockData<Real> createTestContainer() {
   // won't be allocated
   auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
 
-  MeshBlockData<Real> rc;
-  rc.Initialize(pkg, dummy_mb);
+  MeshBlockData<Real> mbd;
+  mbd.Initialize(pkg, dummy_mb);
 
-  return rc;
+  return mbd;
 }
 
 // std::function<void()> createLambdaRaw(ParArrayND<Real> &raw_array) {
