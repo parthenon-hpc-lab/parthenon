@@ -224,14 +224,10 @@ class StateDescriptor {
   }
 
   const auto &GetSparsePool(const std::string &base_name) const noexcept {
-    static const SparsePool empty_pool("EmptySparsePool", Metadata({Metadata::Sparse}));
-
     const auto itr = sparsePoolMap_.find(base_name);
-    if (itr == sparsePoolMap_.end()) {
-      return empty_pool;
-    } else {
-      return itr->second;
-    }
+    PARTHENON_REQUIRE_THROWS(itr != sparsePoolMap_.end(),
+                             "GetSparsePool: Non-existent sparse pool: " + base_name);
+    return itr->second;
   }
 
   // retrieve metadata for a specific swarm
