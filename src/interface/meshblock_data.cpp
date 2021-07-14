@@ -342,9 +342,8 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       const auto &v = itr->second;
       // this name exists, add it
       var_list.Add(v, sparse_ids_set);
-    } else if (resolved_packages_ != nullptr) {
-      // check if this is a sparse base name, if so we get its pool of sparse_ids,
-      // otherwise we get an empty pool
+    } else if ((resolved_packages_ != nullptr) &&
+               (resolved_packages_->SparseBaseNamePresent(name))) {
       const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
 
       // add all sparse ids of the pool
