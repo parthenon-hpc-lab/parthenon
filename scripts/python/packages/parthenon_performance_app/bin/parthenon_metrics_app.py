@@ -87,7 +87,9 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
             self._log.info("Wiki page url is: %s" % wiki_url)
             return wiki_url
 
-    def _uploadMetrics(self, json_files_to_upload, figure_files_to_upload, pr_wiki_page):
+    def _uploadMetrics(
+        self, json_files_to_upload, figure_files_to_upload, pr_wiki_page
+    ):
         """
         Uploads metrics files
 
