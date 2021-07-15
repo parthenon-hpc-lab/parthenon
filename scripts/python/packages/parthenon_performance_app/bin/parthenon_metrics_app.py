@@ -296,11 +296,11 @@ def main(**kwargs):
 
     app = ParthenonApp()
     app.initialize(
-        kwargs["wiki"],
-        kwargs["ignore"],
-        kwargs["permissions"],
-        kwargs["create"],
-        getValue(kwargs, "repository_path"),
+        use_wiki=kwargs["wiki"],
+        ignore=kwargs["ignore"],
+        pem_file=kwargs["permissions"],
+        create_branch=kwargs["create"],
+        path_to_repo=getValue(kwargs, "repository_path"),
     )
 
     branch = getValue(kwargs, "branch")
