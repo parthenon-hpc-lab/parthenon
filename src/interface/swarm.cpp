@@ -768,10 +768,7 @@ void Swarm::SetupPersistentMPI() {
   //}
 
   const int nbmax = pmb->pbval->nneighbor;
-  printf("nbmax: %i ndim: %i\n", nbmax, ndim);
-  if (nbmax > 0) {
-    num_particles_to_send_ = ParArrayND<int>("npts", nbmax);
-  }
+  num_particles_to_send_ = ParArrayND<int>("npts", nbmax);
 
   // Build up convenience array of neighbor indices
   if (ndim == 1) {
@@ -1032,7 +1029,7 @@ void Swarm::UnloadBuffers_() {
           }
           for (int i = 0; i < int_vars_size; i++) {
             vint(i, sid) = static_cast<int>(
-                bdvar.recv[nid]((real_vars_size + bid) * particle_size + i));
+                bdvar.recv[nid](real_vars_size + bid * particle_size + i));
           }
         });
 
