@@ -320,6 +320,8 @@ class Swarm {
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
 
+  void ApplyBoundaries_(const int nparticles, ParArrayND<int> indices);
+
   int nmax_pool_;
   int max_active_index_ = 0;
   int num_active_ = 0;
