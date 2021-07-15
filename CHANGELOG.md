@@ -53,16 +53,17 @@
 - [[PR 490]](https://github.com/lanl/parthenon/pull/490) Adjust block size in OverlappingSpace instance tests to remain within Cuda/HIP limits
 - [[PR 488]](https://github.com/lanl/parthenon/pull/488) Update GitLab Dockerfile to use HDF5 version 1.10.7
 - [[PR 510]](https://github.com/lanl/parthenon/pull/510) Fix calling noexistant logger in python performance regression app
-- [[PR 527]](https://github.com/lanl/parthenon/pull/527) Fix problem with ci when rebase is used.
+- [[PR 527]](https://github.com/lanl/parthenon/pull/527) Fix problem with CI when rebase is used.
 - [[PR 518]](https://github.com/lanl/parthenon/pull/518) Added MPI performance regression tests to CI performance app
-- [[PR 530]](https://github.com/lanl/parthenon/pull/530) Fixed issue with ci plotting the oldest 5 commit metrics for each test, also cleaned up legend formatting.
+- [[PR 530]](https://github.com/lanl/parthenon/pull/530) Fixed issue with CI plotting the oldest 5 commit metrics for each test, also cleaned up legend formatting.
 - [[PR 536]](https://github.com/lanl/parthenon/pull/536) Updated to latest Kokkos release.
 - [[PR 520]](https://github.com/lanl/parthenon/pull/520) Add black python formatter to github actions
 - [[PR 519]](https://github.com/lanl/parthenon/pull/519) Add checksum to bash uploader script to verify file is trusted
 - [[PR 549]](https://github.com/lanl/parthenon/pull/549) Add deep-code badge.
 - [[PR 554]](https://github.com/lanl/parthenon/pull/554) Small fix to documentation related to python parthenon tools README
-- [[PR 555](https://github.com/lanl/parthenon/pull/555) Added documentation for darwin ci and scripts
+- [[PR 555](https://github.com/lanl/parthenon/pull/555) Added documentation for darwin CI and scripts
 - [[PR 560]](https://github.com/lanl/parthenon/pull/560) Rename `png_files_to_upload` to more generic `figure_files_to_upload`
+- [[PR 561]](https://github.com/lanl/parthenon/pull/561) Adding documentation to help with adding new performance regression tests.
 
 ### Removed (removing behavior/API/varaibles/...)
 - [[PR 498]](https://github.com/lanl/parthenon/pull/498) Cleanup unused user hooks and variables
@@ -97,7 +98,7 @@ Date: 03/30/2021
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 436]](https://github.com/lanl/parthenon/pull/436) Update Summit build doc and machine file
 - [[PR 435]](https://github.com/lanl/parthenon/pull/435) Fix ctest logic for parsing number of ranks in MPI tests
-- [[PR 407]](https://github.com/lanl/parthenon/pull/407) More cleanup, removed old bash scripts for ci.
+- [[PR 407]](https://github.com/lanl/parthenon/pull/407) More cleanup, removed old bash scripts for CI.
 - [[PR 428]](https://github.com/lanl/parthenon/pull/428) Triad Copyright 2021
 - [[PR 413]](https://github.com/lanl/parthenon/pull/413) LANL Snow machine configuration
 - [[PR 390]](https://github.com/lanl/parthenon/pull/390) Resolve `@PAR_ROOT@` to parthenon root rather than the location of the current source directory
@@ -135,11 +136,11 @@ Date: 01/19/2021
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 392]](https://github.com/lanl/parthenon/pull/392) Fix C++ linting for when parthenon is a submodule
 - [[PR 335]](https://github.com/lanl/parthenon/pull/335) New machine configuration file for LANL's Darwin cluster
-- [[PR 200]](https://github.com/lanl/parthenon/pull/200) Adds support for running ci on power9 nodes.
-- [[PR 347]](https://github.com/lanl/parthenon/pull/347) Speed up darwin ci by using pre installed spack packages from project space
-- [[PR 368]](https://github.com/lanl/parthenon/pull/368) Fixes false positive in ci.
-- [[PR 369]](https://github.com/lanl/parthenon/pull/369) Initializes submodules when running on darwin ci.
-- [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast ci implementation on Darwin.
+- [[PR 200]](https://github.com/lanl/parthenon/pull/200) Adds support for running CI on POWER9 nodes.
+- [[PR 347]](https://github.com/lanl/parthenon/pull/347) Speed up darwin CI by using pre installed spack packages from project space
+- [[PR 368]](https://github.com/lanl/parthenon/pull/368) Fixes false positive in CI.
+- [[PR 369]](https://github.com/lanl/parthenon/pull/369) Initializes submodules when running on darwin CI.
+- [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast CI implementation on Darwin.
 - [[PR 362]](https://github.com/lanl/parthenon/pull/362) Small fix to clean regression tests output folder on reruns
 - [[PR 403]](https://github.com/lanl/parthenon/pull/403) Cleanup Codacy warnings
 - [[PR 377]](https://github.com/lanl/parthenon/pull/377) New machine configuration file for LLNL's RZAnsel cluster
