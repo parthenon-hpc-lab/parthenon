@@ -41,9 +41,9 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.ib_s_ = ib.s;
   context.jb_s_ = jb.s;
   context.kb_s_ = kb.s;
-  context.dx1_ = (pmb->coords.x1f(ib.e + 1) - pmb->coords.x1f(ib.s))/(ib.e - ib.s + 1);
-  context.dx2_ = (pmb->coords.x2f(jb.e + 1) - pmb->coords.x2f(jb.s))/(jb.e - jb.s + 1);
-  context.dx3_ = (pmb->coords.x3f(kb.e + 1) - pmb->coords.x3f(kb.s))/(kb.e - kb.s + 1);
+  context.dx1_ = (pmb->coords.x1f(ib.e + 1) - pmb->coords.x1f(ib.s)) / (ib.e - ib.s + 1);
+  context.dx2_ = (pmb->coords.x2f(jb.e + 1) - pmb->coords.x2f(jb.s)) / (jb.e - jb.s + 1);
+  context.dx3_ = (pmb->coords.x3f(kb.e + 1) - pmb->coords.x3f(kb.s)) / (kb.e - kb.s + 1);
   context.x_min_ = pmb->coords.x1f(ib.s);
   context.y_min_ = pmb->coords.x2f(jb.s);
   context.z_min_ = pmb->coords.x3f(kb.s);
@@ -161,7 +161,8 @@ void Swarm::AllocateBoundaries() {
 
   for (int n = 0; n < 6; n++) {
     pbounds.bounds[n] = bounds[n].get();
-    PARTHENON_REQUIRE(pbounds.bounds[n] != nullptr, "Null device boundary condition pointer!");
+    PARTHENON_REQUIRE(pbounds.bounds[n] != nullptr,
+                      "Null device boundary condition pointer!");
   }
 }
 
@@ -761,7 +762,7 @@ void Swarm::SetupPersistentMPI() {
   // TODO(BRR) Checks against some current limitations
   const int ndim = pmb->pmy_mesh->ndim;
   auto mesh_bcs = pmb->pmy_mesh->mesh_bcs;
-  //for (int n = 0; n < 2 * ndim; n++) {
+  // for (int n = 0; n < 2 * ndim; n++) {
   //  PARTHENON_REQUIRE(mesh_bcs[n] == BoundaryFlag::periodic,
   //                    "Only periodic boundaries supported right now!");
   //}
@@ -791,7 +792,7 @@ void Swarm::SetupPersistentMPI() {
         printf("[%i %i %i] neighbor: %i\n", k, j, i, neighborIndices_h(k, j, i));
       }
     }
-   }
+  }
 
   neighbor_received_particles_.resize(vbswarm->bd_var_.nbmax);
 }
@@ -801,7 +802,7 @@ int Swarm::CountParticlesToSend_() {
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
-  //const int nbmax = vbswarm->bd_var_.nbmax;
+  // const int nbmax = vbswarm->bd_var_.nbmax;
   const int nbmax = pmb->pbval->nneighbor;
 
   // Fence to make sure particles aren't currently being transported locally

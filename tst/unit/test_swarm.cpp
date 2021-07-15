@@ -38,7 +38,6 @@ using parthenon::Metadata;
 using parthenon::Packages_t;
 using parthenon::ParameterInput;
 using parthenon::ParArrayND;
-using parthenon::Properties_t;
 using parthenon::Swarm;
 using std::endl;
 

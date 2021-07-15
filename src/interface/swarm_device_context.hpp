@@ -62,11 +62,11 @@ class SwarmDeviceContext {
   KOKKOS_INLINE_FUNCTION
   void Xtoijk(const Real &x, const Real &y, const Real &z, int &i, int &j, int &k) const {
     if (ndim_ > 0) {
-      i = static_cast<int>(std::floor((x - x_min_)/dx1_)) + ib_s_;
+      i = static_cast<int>(std::floor((x - x_min_) / dx1_)) + ib_s_;
       if (ndim_ > 1) {
-        j = static_cast<int>(std::floor((y - y_min_)/dx2_)) + jb_s_;
+        j = static_cast<int>(std::floor((y - y_min_) / dx2_)) + jb_s_;
         if (ndim_ > 2) {
-          k = static_cast<int>(std::floor((z - z_min_)/dx3_)) + kb_s_;
+          k = static_cast<int>(std::floor((z - z_min_) / dx3_)) + kb_s_;
         } else {
           k = kb_s_;
         }
@@ -78,7 +78,7 @@ class SwarmDeviceContext {
     }
   }
 
-// private:
+  // private:
   int ib_s_;
   int jb_s_;
   int kb_s_;

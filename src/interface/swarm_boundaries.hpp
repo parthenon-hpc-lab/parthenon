@@ -20,10 +20,10 @@ namespace parthenon {
 class ParticleBound {
  public:
   KOKKOS_INLINE_FUNCTION virtual void Apply(const int n, double &x, double &y, double &z,
-                                            //const SwarmDeviceContext &context) = 0;
+                                            // const SwarmDeviceContext &context) = 0;
                                             const SwarmDeviceContext &context) {
-                                              PARTHENON_FAIL("Calling base class");
-                                            }
+    PARTHENON_FAIL("Calling base class");
+  }
 };
 
 class ParticleBoundIX1Periodic : public ParticleBound {
