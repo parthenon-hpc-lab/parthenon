@@ -15,7 +15,7 @@
 import argparse
 import os
 import datetime
-import parthenon_performance_app.githubapp
+import py_cgad.githubapp import GitHubApp
 from parthenon_performance_app.parthenon_performance_advection_analyzer import (
     AdvectionAnalyser,
 )
@@ -24,7 +24,7 @@ from parthenon_performance_app.parthenon_performance_json_parser import (
 )
 
 
-class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
+class ParthenonApp(GitHubApp):
     """
     Parthenon App Class
 

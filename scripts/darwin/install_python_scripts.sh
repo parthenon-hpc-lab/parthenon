@@ -23,6 +23,9 @@ then
   rm -rf "${PYTHON_SCRIPTS_DIR}"
 fi
 
+cd "$PARTHENON_DIR/external/Py-CGAD"
+pip install . --no-dependencies --target="${PYTHON_SCRIPTS_DIR}"
+
 cd "$PARTHENON_DIR/scripts/python/packages/parthenon_performance_app"
 # Dependencies should be handled by spack
 pip install . --no-dependencies --target="${PYTHON_SCRIPTS_DIR}"

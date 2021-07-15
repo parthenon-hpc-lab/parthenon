@@ -43,6 +43,7 @@ setup(
         "pycurl",
         "pem",
         "gitpython",
+        "py_cgad",
     ],
     scripts=["bin/parthenon_metrics_app.py"],
 )
