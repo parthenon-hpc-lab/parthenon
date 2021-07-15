@@ -87,21 +87,21 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
             self._log.info("Wiki page url is: %s" % wiki_url)
             return wiki_url
 
-    def _uploadMetrics(self, json_files_to_upload, png_files_to_upload, pr_wiki_page):
+    def _uploadMetrics(self, json_files_to_upload, figure_files_to_upload, pr_wiki_page):
         """
         Uploads metrics files
 
         Metrics files include:
         json data files containing raw data
-        png files containging plots of the performance metrics
+        figure files containging plots of the performance metrics
         the wiki page used to display the metrics on github
         """
         for json_upload in json_files_to_upload:
             self.upload(json_upload, "master", use_wiki=True, wiki_state="mixed")
 
-        for png_upload in png_files_to_upload:
+        for figure_upload in figure_files_to_upload:
             self.upload(
-                png_upload,
+                figure_upload,
                 self._default_image_branch,
                 use_wiki=False,
                 wiki_state="mixed",
@@ -179,7 +179,7 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
         commit_sha = os.getenv("CI_COMMIT_SHA")
         # Files should only be uploaded if there are no errors
         json_files_to_upload = []
-        png_files_to_upload = []
+        figure_files_to_upload = []
         figure_urls = []
         for test_dir in all_dirs:
             if not isinstance(test_dir, str):
@@ -189,7 +189,7 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
                 or test_dir == "advection_performance_mpi"
             ):
 
-                figure_url, png_file, _ = self._createFigureURLPathAndName(
+                figure_url, figure_file, _ = self._createFigureURLPathAndName(
                     test_dir, current_branch, target_branch
                 )
 
@@ -201,7 +201,7 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
                     target_branch,
                     current_branch,
                     self._parthenon_wiki_dir,
-                    png_file,
+                    figure_file,
                     number_commits_to_plot,
                     now,
                 )
@@ -209,14 +209,14 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
                 json_files_to_upload.append(json_file_out)
 
                 if create_figures:
-                    png_files_to_upload.append(png_file)
+                    figure_files_to_upload.append(figure_file)
                     figure_urls.append(figure_url)
 
         wiki_url = self._writeWikiPage(
             commit_sha, pr_wiki_page, figure_urls, now, wiki_file_name
         )
 
-        self._uploadMetrics(json_files_to_upload, png_files_to_upload, pr_wiki_page)
+        self._uploadMetrics(json_files_to_upload, figure_files_to_upload, pr_wiki_page)
 
         if post_status:
             self.postStatus(
