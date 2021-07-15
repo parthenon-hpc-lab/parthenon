@@ -378,7 +378,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
 
           bool on_current_mesh_block = true;
           swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
-          printf("[%i][%i] new x y z: %e %e %e on current block? %i\n", n, id(n), x(n), y(n), z(n), on_current_mesh_block);
         }
       });
 
