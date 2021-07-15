@@ -15,7 +15,7 @@
 import argparse
 import os
 import datetime
-import py_cgad.githubapp import GitHubApp
+from py_cgad.githubapp import GitHubApp
 from parthenon_performance_app.parthenon_performance_advection_analyzer import (
     AdvectionAnalyser,
 )
