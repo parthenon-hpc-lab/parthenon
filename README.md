@@ -1,7 +1,10 @@
 # parthenon
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/3c7f326d05b34929a847657a9674f524)](https://app.codacy.com/gh/lanl/parthenon?utm_source=github.com&utm_medium=referral&utm_content=lanl/parthenon&utm_campaign=Badge_Grade)
+[![deepcode](https://www.deepcode.ai/api/gh/badge?key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwbGF0Zm9ybTEiOiJnaCIsIm93bmVyMSI6ImxhbmwiLCJyZXBvMSI6InBhcnRoZW5vbiIsImluY2x1ZGVMaW50IjpmYWxzZSwiYXV0aG9ySWQiOjE2MzAxLCJpYXQiOjE2MjM5NjA4Njh9.7W8akiFnSjPx7tPq5Ra6NqnJUOLq0sKnwaHEpD0_YH0)](https://www.deepcode.ai/app/gh/lanl/parthenon/_/dashboard?utm_content=gh%2Flanl%2Fparthenon)
 [![codecov](https://codecov.io/gh/lanl/parthenon/branch/master/graph/badge.svg)](https://codecov.io/gh/lanl/parthenon)
 [![testing](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror/badges/develop/pipeline.svg)](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror/-/commits/develop)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 Parthenon performance portable AMR framework
 

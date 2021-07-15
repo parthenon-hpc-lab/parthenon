@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -60,6 +60,10 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
     for (; pmb->pbval->ni[bd.nbmax].type == NeighborConnect::edge; bd.nbmax++) {
     }
   }
+  auto total_size = 0;
+  std::vector<size_t> offsets;
+  offsets.reserve(bd.nbmax + 1);
+
   for (int n = 0; n < bd.nbmax; n++) {
     // Clear flags and requests
     bd.flag[n] = BoundaryStatus::waiting;
@@ -79,8 +83,20 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
           << "Invalid boundary type is specified." << std::endl;
       PARTHENON_FAIL(msg);
     }
-    bd.send[n] = BufArray1D<Real>("send buf " + std::to_string(n), size);
-    bd.recv[n] = BufArray1D<Real>("recv buf " + std::to_string(n), size);
+    offsets.push_back(total_size);
+    total_size += size;
+  }
+  bd.buffers = BufArray1D<Real>("comm buffers", 2 * total_size);
+  offsets.push_back(total_size);
+  for (int n = 0; n < bd.nbmax; n++) {
+    if (offsets.at(n) == offsets.at(n + 1)) {
+      continue;
+    }
+    bd.send[n] =
+        BufArray1D<Real>(bd.buffers, std::make_pair(offsets.at(n), offsets.at(n + 1)));
+    bd.recv[n] =
+        BufArray1D<Real>(bd.buffers, std::make_pair(offsets.at(n) + total_size,
+                                                    offsets.at(n + 1) + total_size));
   }
 }
 

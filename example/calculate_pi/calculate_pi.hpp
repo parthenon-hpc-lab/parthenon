@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -29,6 +29,7 @@ using Pack_t = parthenon::MeshBlockVarPack<Real>;
 
 // Package Callbacks
 void SetInOrOut(MeshBlockData<Real> *rc);
+void SetInOrOutBlock(MeshBlock *pmb, ParameterInput *pin);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 // Task Implementations

@@ -36,6 +36,9 @@ int main(int argc, char *argv[]) {
 
   pman.app_input->ProcessPackages = ProcessPackages;
 
+  // This is called on each mesh block whenever the mesh changes.
+  pman.app_input->InitMeshBlockUserData = &calculate_pi::SetInOrOutBlock;
+
   auto manager_status = pman.ParthenonInit(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
     pman.ParthenonFinalize();
@@ -55,14 +58,6 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
-
-// can be used to set global properties that all meshblocks want to know about
-// no need in this app so use the weak version that ships with parthenon
-// Properties_t ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin)
-// {
-//  Properties_t props;
-//  return props;
-//}
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;

@@ -3,6 +3,61 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 557]](https://github.com/lanl/parthenon/pull/557) Re-enable `InitMeshBlockUserData` so data can be set per-remeshing
+- [[PR 509]](https://github.com/lanl/parthenon/pull/509) Add `elapsed_main`, `elapsed_cycle`, and `elapsed_LBandAMR` functions to `Driver` as static functions to enable access to timing information in output and restart files.
+- [[PR 479]](https://github.com/lanl/parthenon/pull/479) Add `Update` function to `Params` to update the value of an existing key.
+- [[PR 482]](https://github.com/lanl/parthenon/pull/482) Add support for package enrolled history outputs.
+- [[PR 511]](https://github.com/lanl/parthenon/pull/511) Improvements/speed ups in phdf_diff, phdf_diff, analytic_compare.py
+- [[PR 497]](https://github.com/lanl/parthenon/pull/497) Add tracer particles example.
+- [[PR 404]](https://github.com/lanl/parthenon/pull/404) Add capability to communicate particles across meshblocks/MPI processes
+
+### Changed (changing behavior/API/variables/...)
+- [[PR 553]](https://github.com/lanl/parthenon/pull/553) Avoid use of variable named restrict
+- [[PR 476]](https://github.com/lanl/parthenon/pull/476) Update min. `CMake` version to 3.16 (matching `Kokkos`) and add option to compile with C++17 (`PARTHENON_ENABLE_CPP17` - default: off)
+- [[PR 532]](https://github.com/lanl/parthenon/pull/532) Remove obsolete `Properties_t`, they have been replaced by `Packages_t`
+- [[PR 508]](https://github.com/lanl/parthenon/pull/508) Modify `RestrictCellCenteredVariables` to support a restriction over meshblock packs.
+- [[PR 524]](https://github.com/lanl/parthenon/pull/524) Enforce `Metadata` flags constraints and add new `Metadata::WithFluxes` flag. Note: `Metadata::Independent` will be set automatically unless `Metadata::Derived` is set
+- [[PR 517]](https://github.com/lanl/parthenon/pull/517) Remove optional `dims` argument from `MeshBlockData::Add` and use the shape from the `Metadata` instead
+- [[PR 492]](https://github.com/lanl/parthenon/pull/492) Modify advection example to have an arbitrary number of dense variables and to disable fill derived for profiling.
+- [[PR 486]](https://github.com/lanl/parthenon/pull/486) Unify HDF5 output and restart file writing,
+    add HDF5 compression support, add support for sparse fields in HDF5 output/restart files, add and rename some metadata in HDF5 files.
+- [[PR 522]](https://github.com/lanl/parthenon/pull/522) Corrected ordering of `OutputDatasetNames` to match `ComponentNames`
+
+### Fixed (not changing behavior/API/variables/...)
+- [[PR 551]](https://github.com/lanl/parthenon/pull/551) Hotfix to make particles compile without MPI again
+- [[PR 552]](https://github.com/lanl/parthenon/pull/552) Fix missing include for fstream
+- [[PR 537]](https://github.com/lanl/parthenon/pull/538) Fix inconsistent treatment of coarse buffers.
+- [[PR 539]](https://github.com/lanl/parthenon/pull/539) Fix restart indexing/hdf5 bugs
+- [[PR 487]](https://github.com/lanl/parthenon/pull/487) Add default tiling matching `i` index range to MDRange loop pattern.
+- [[PR 531]](https://github.com/lanl/parthenon/pull/531) Work around in parthenon_hdf5.cpp for GCC 7.3.0
+
+### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 502]](https://github.com/lanl/parthenon/pull/502) Use subviews of a single view for fluxes
+- [[PR 505]](https://github.com/lanl/parthenon/pull/505) Can also use buffer-pack-in-one function also in `Mesh::Initialize` (and thus during load balancing/mesh refinement). Breaks sparse variables with FillGhost. Enable with `PARTHENON_ENABLE_INIT_PACKING=ON` (default OFF).
+- [[PR 493]](https://github.com/lanl/parthenon/pull/493) Use subviews of a single view for comm buffers
+- [[PR 500]](https://github.com/lanl/parthenon/pull/500) Update docker file and CI environment (for Cuda 11.3 and latest `nsys`)
+- [[PR 490]](https://github.com/lanl/parthenon/pull/490) Adjust block size in OverlappingSpace instance tests to remain within Cuda/HIP limits
+- [[PR 488]](https://github.com/lanl/parthenon/pull/488) Update GitLab Dockerfile to use HDF5 version 1.10.7
+- [[PR 510]](https://github.com/lanl/parthenon/pull/510) Fix calling noexistant logger in python performance regression app
+- [[PR 527]](https://github.com/lanl/parthenon/pull/527) Fix problem with ci when rebase is used.
+- [[PR 518]](https://github.com/lanl/parthenon/pull/518) Added MPI performance regression tests to CI performance app
+- [[PR 530]](https://github.com/lanl/parthenon/pull/530) Fixed issue with ci plotting the oldest 5 commit metrics for each test, also cleaned up legend formatting.
+- [[PR 536]](https://github.com/lanl/parthenon/pull/536) Updated to latest Kokkos release.
+- [[PR 520]](https://github.com/lanl/parthenon/pull/520) Add black python formatter to github actions
+- [[PR 519]](https://github.com/lanl/parthenon/pull/519) Add checksum to bash uploader script to verify file is trusted
+- [[PR 549]](https://github.com/lanl/parthenon/pull/549) Add deep-code badge.
+- [[PR 554]](https://github.com/lanl/parthenon/pull/554) Small fix to documentation related to python parthenon tools README
+
+### Removed (removing behavior/API/varaibles/...)
+- [[PR 498]](https://github.com/lanl/parthenon/pull/498) Cleanup unused user hooks and variables
+- [[PR 481]](https://github.com/lanl/parthenon/pull/481) Cleanup unused/untested/not fully ported code (mostly OpenMP and reconstruction)
+
+
+## Release 0.5.0
+Date: 03/30/2021
+
+### Added (new features/APIs/variables/...)
+- [[PR 475]](https://github.com/lanl/parthenon/pull/475) Add update function `UpdateWithFluxDivergence` and `gamma` variables to integrator to support low-storage, two stage integrators.
 - [[PR 463]](https://github.com/lanl/parthenon/pull/463) Add `PARTHENON_ENABLE_TESTING` and `PARTHENON_ENABLE_PYTHON_MODULE_CHECK` option and documentation on how to use the regression testing framework downstream.
 - [[PR 461]](https://github.com/lanl/parthenon/pull/461) A negative `dt` in an output block disables it.
 - [[PR 440]](https://github.com/lanl/parthenon/pull/440) Add abstraction for allocating a `unique_ptr` to an object in device memory
@@ -21,7 +76,7 @@
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 468]](https://github.com/lanl/parthenon/pull/468) Fix extra `endl` in input CheckDesired
 - [[PR 465]](https://github.com/lanl/parthenon/pull/465) Fix soft disable output for drivers without temporal evolution
-- [[PR 453]](https://github.com/lanl/parthenon/pull/453) Fix array bounds for AMR hierarchy log and use vector instead of unique_ptr
+- [[PR 453]](https://github.com/lanl/parthenon/pull/453) Fix array bounds for AMR hierarchy log and use vector instead of `unique_ptr`
 - [[PR 441]](https://github.com/lanl/parthenon/pull/441) Fixed type in input parsing of `pack_size`
 
 ### Infrastructure (changes irrelevant to downstream codes)
@@ -30,12 +85,11 @@
 - [[PR 407]](https://github.com/lanl/parthenon/pull/407) More cleanup, removed old bash scripts for ci.
 - [[PR 428]](https://github.com/lanl/parthenon/pull/428) Triad Copyright 2021
 - [[PR 413]](https://github.com/lanl/parthenon/pull/413) LANL Snow machine configuration
-- [[PR 390]](https://github.com/lanl/parthenon/pull/390) Resolve @PAR_ROOT@ to parthenon root rather than the location of the current source directory
+- [[PR 390]](https://github.com/lanl/parthenon/pull/390) Resolve `@PAR_ROOT@` to parthenon root rather than the location of the current source directory
 - [[PR 443]](https://github.com/lanl/parthenon/pull/443) Fix Darwin machine config - use spectrum mpi
 - [[PR 444]](https://github.com/lanl/parthenon/pull/444) Writes performance metrics to file for advection test
 - [[PR 452]](https://github.com/lanl/parthenon/pull/452) Disable copyright check and linting by default, add CI check for copyright
-
-### Removed (removing behavior/API/varaibles/...)
+- [[PR 473]](https://github.com/lanl/parthenon/pull/473) Added documentation for forked pr
 
 ## Release 0.4.0
 Date: 01/19/2021

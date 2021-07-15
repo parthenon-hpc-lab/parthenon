@@ -11,12 +11,12 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.16)
 
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.4.0 LANGUAGES C CXX)
+project(parthenon VERSION 0.5.0 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -30,8 +30,11 @@ include(CTest)
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "Allocate communication buffers on host" OFF)
+option(PARTHENON_ENABLE_INIT_PACKING "Use MeshBlockPack based buffer functions in \
+Mesh::Initialize. Does NOT support sparse variables." OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
+option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
 this to True to enable linting in the default target" OFF)
 option(PARTHENON_COPYRIGHT_CHECK_DEFAULT "Copyright check is turned off by default, use the \
@@ -47,6 +50,7 @@ option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${PARTHENON
 option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${PARTHENON_ENABLE_TESTING})
 option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${PARTHENON_ENABLE_TESTING})
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
+option(PARTHENON_ENABLE_CPP17 "Build Parthenon using C++17 standard" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
@@ -63,9 +67,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 3 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 9 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=2445000a031aafc9a85a684aa7e82fb5ccda05530c5652ab432a8fb254642c7b18252ff55d8306b1120aba898713712b28b804eb30272b06278698046a6461cc"
+  "SHA512=545300260f896c8cdfadc8f217db5d76f00f3a7193f89aa84f2ab98204b609697d8708475ee217cce5c8294fbfed28b81de68a7e93e3c9f2ecce047307759be0"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -125,13 +129,20 @@ endif()
 
 set(ENABLE_OPENMP OFF)
 if (NOT PARTHENON_DISABLE_OPENMP)
-  find_package(OpenMP COMPONENTS CXX)
-  if (NOT OpenMP_FOUND)
-    message(FATAL_ERROR "OpenMP is required but couldn't be found. "
-    "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
+  # Using Host OpenMP and Cuda with nvcc currently does not compile with C++17 standard.
+  # Also there is no proper support for two separate execution spaces in Parthenon right now.
+  # We may need to revisit this logic when OpenMP target for devices will be used in the future.
+  if (Kokkos_ENABLE_CUDA)
+    message(STATUS "Parthenon is not using Host OpenMP because Cuda is enabled")
+  else()
+    find_package(OpenMP COMPONENTS CXX)
+    if (NOT OpenMP_FOUND)
+      message(FATAL_ERROR "OpenMP is required but couldn't be found. "
+      "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
+    endif()
+    set(ENABLE_OPENMP ON)
+    set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP as execution space.")
   endif()
-  set(ENABLE_OPENMP ON)
-  set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP")
 endif()
 
 if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
@@ -156,6 +167,23 @@ if (NOT PARTHENON_DISABLE_HDF5)
     "was found. Please install a parallel version of HDF5 (or point CMake to it by adding its path "
     "to the CMAKE_PREFIX_PATH environment variable), or disable either MPI or HDF5 by rerunning "
     "CMake with -DPARTHENON_DISABLE_MPI=ON or -DPARTHENON_DISABLE_HDF5=ON")
+  endif()
+
+  if ((NOT PARTHENON_DISABLE_HDF5_COMPRESSION) AND ENABLE_MPI)
+    # make sure we use an HDF5 version that doesn't have a known bug when used with compression and
+    # parallel I/O. See:
+    # https://forum.hdfgroup.org/t/crash-when-writing-parallel-compressed-chunks/6186
+    #
+    # It appears that the bug is fixed in 1.10.7 and 1.12.0, assume that later versions are ok as
+    # well, so we check that we have at least 1.10.7
+    if (HDF5_VERSION VERSION_LESS "1.10.7")
+      message(FATAL_ERROR "This version of HDF5 has a known bug that will crash when trying to "
+      "write compressed datasets with MPI parallel I/O. Please use HDF5 version 1.10.7 or later "
+      "or turn off either HDF5 compression or MPI by rerunning CMake with "
+      "-DPARTHENON_DISABLE_HDF5_COMPRESSION=ON or -DPARTHENON_DISABLE_MPI=ON.\nNOTE: Using HDF5 "
+      "without compression can result in much larger HDF5 output and restart files as well as "
+      "degraded I/O performance.")
+    endif()
   endif()
 
   # HDF5 Interface library
@@ -204,9 +232,15 @@ if (ENABLE_COMPILER_WARNINGS)
   add_compile_options(-Wall)
 endif()
 
-# We want Kokkos to be built with C++14, since that's what we're using in
-# Parthenon.
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if (PARTHENON_ENABLE_CPP17)
+  set(CMAKE_CXX_STANDARD 17)
+# Ensure correct flag is used as deprecated c++1z is not supported by nvcc.
+  set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++17")
+else()
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
     find_package(Kokkos 3)

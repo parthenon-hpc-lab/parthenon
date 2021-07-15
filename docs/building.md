@@ -10,10 +10,13 @@ If you come across a disfunctional setup, please report it by open an issue or p
    | -------------------------------------: | :---------------- | :----- | :---------- |
    |           PARTHENON\_SINGLE\_PRECISION | OFF               | Option | Enable single precision mode if requested |
    |               PARTHENON\_DISABLE\_HDF5 | OFF               | Option | HDF5 is enabled by default if found, set this to True to disable HDF5 |
+   |   PARTHENON\_DISABLE_HDF5\_COMPRESSION | OFF               | Option | HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files |
    |                PARTHENON\_DISABLE\_MPI | OFF               | Option | MPI is enabled by default if found, set this to True to disable MPI |
    | PARTHENON\_ENABLE\_HOST\_COMM\_BUFFERS | OFF               | Option | MPI communication buffers are by default allocated on the execution device. This options forces allocation in memory accessible directly by the host. |
+   |       PARTHENON\_ENABLE\_INIT\_PACKING | OFF               | Option | Use MeshBlockPack based buffer functions in Mesh::Initialize. Does NOT support sparse variables. |
    |             PARTHENON\_DISABLE\_OPENMP | OFF               | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
    |             ENABLE\_COMPILER\_WARNINGS | OFF               | Option | Enable compiler warnings |
+   |               PARTHENON\_ENABLE\_CPP17 | OFF               | Option | Compile Parthenon using C++17 standard (e.g., required for using `constexpr if` in kernels |
    |                  TEST\_ERROR\_CHECKING | OFF               | Option | Enables the error checking unit test. This test will FAIL |
    |              TEST\_INTEL\_OPTIMIZATION | OFF               | Option | Test intel optimization and vectorization |
    |              CHECK\_REGISTRY\_PRESSURE | OFF               | Option | Check the registry pressure for Kokkos CUDA kernels |

@@ -19,18 +19,6 @@ else ()
   set(MPI_OPTION NOT_MPI_PARALLEL)
 endif()
 
-if (ENABLE_OPENMP)
-  set(OPENMP_OPTION OPENMP_PARALLEL)
-else()
-  set(OPENMP_OPTION NOT_OPENMP_PARALLEL)
-endif()
-
-if (ENABLE_HDF5)
-  set(HDF5_OPTION HDF5OUTPUT)
-else()
-  set(HDF5_OPTION NO_HDF5OUTPUT)
-endif()
-
 # The following lines determine the default loop pattern by setting the
 # default defines to the appropriate "tags" in the config.hpp file.
 # See `kokkos_abstraction.hpp` for available tags and what they translate to.
@@ -102,8 +90,6 @@ set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
 
-set(NFIELD_VARIABLES 0) # TODO: Remove
-set(NWAVE_VALUE 5) # TODO: Remove
 set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
@@ -153,8 +139,6 @@ add_library(parthenon
   interface/metadata.cpp
   interface/metadata.hpp
   interface/params.hpp
-  interface/properties_interface.cpp
-  interface/properties_interface.hpp
   interface/sparse_variable.cpp
   interface/sparse_variable.hpp
   interface/state_descriptor.hpp
@@ -176,7 +160,8 @@ add_library(parthenon
   mesh/meshblock_tree.cpp
   mesh/meshblock_tree.hpp
   mesh/meshblock.cpp
-  mesh/weighted_ave.cpp
+  mesh/refinement_cc_in_one.cpp
+  mesh/refinement_cc_in_one.hpp
 
   outputs/formatted_table.cpp
   outputs/history.cpp
@@ -195,14 +180,8 @@ add_library(parthenon
 
   pgen/default_pgen.cpp
 
-  reconstruct/characteristic.cpp
   reconstruct/dc_inline.hpp
-  reconstruct/dc.cpp
   reconstruct/plm_inline.hpp
-  reconstruct/plm.cpp
-  reconstruct/ppm.cpp
-  reconstruct/reconstruction.hpp
-  reconstruct/reconstruction.cpp
 
   refinement/amr_criteria.cpp
   refinement/amr_criteria.hpp
@@ -224,8 +203,8 @@ add_library(parthenon
   utils/partition_stl_containers.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp
-  utils/trim_string.cpp
-  utils/trim_string.hpp
+  utils/string_utils.cpp
+  utils/string_utils.hpp
   utils/utils.hpp
 
   argument_parser.hpp
@@ -244,7 +223,12 @@ add_library(Parthenon::parthenon ALIAS parthenon)
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
-target_compile_features(parthenon PUBLIC cxx_std_14)
+if (PARTHENON_ENABLE_CPP17)
+  target_compile_features(parthenon PUBLIC cxx_std_17)
+else()
+  target_compile_features(parthenon PUBLIC cxx_std_14)
+endif()
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
 endif()
@@ -262,7 +246,14 @@ if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
 endif()
 
-if (Kokkos_ENABLE_CUDA)
+# For Cuda with NVCC (<11.2) and C++17 Kokkos currently does not work/compile with
+# relaxed-constexpr, see https://github.com/kokkos/kokkos/issues/3496
+# However, Parthenon heavily relies on it and there is no harm in compiling Kokkos
+# without and Parthenon with (via Max Katz on the Kokkos Slack channel).
+# Therefore, we don't use the Kokkos_ENABLE_CUDA_CONSTEXPR option add the flag manually.
+# Also, not checking for NVIDIA as nvcc_wrapper is identified as GNU so we just make sure
+# the flag is not added when compiling with Clang for Cuda.
+if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
    target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
 endif()
 

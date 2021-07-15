@@ -42,11 +42,14 @@
 // define PARTHENON_ENABLE_HOST_COMM_BUFFERS or not at all
 #cmakedefine PARTHENON_ENABLE_HOST_COMM_BUFFERS
 
-// OpenMP parallelization (OPENMP_PARALLEL or NOT_OPENMP_PARALLEL)
-#define @OPENMP_OPTION@
+// define PARTHENON_ENABLE_INIT_PACKING or not at all
+#cmakedefine PARTHENON_ENABLE_INIT_PACKING
 
-// HDF5 output (HDF5OUTPUT or NO_HDF5OUTPUT)
-#define @HDF5_OPTION@
+// defne ENABLE_HDF5 or not at all
+#cmakedefine ENABLE_HDF5
+
+// define PARTHENON_DISABLE_HDF5_COMPRESSION or not at all
+#cmakedefine PARTHENON_DISABLE_HDF5_COMPRESSION
 
 // Default loop patterns for MeshBlock par_for() wrappers,
 // see kokkos_abstraction.hpp for available tags.
@@ -65,14 +68,6 @@
 #define COMPILED_WITH "@COMPILER_CHOICE@"
 #define COMPILER_COMMAND "@COMPILER_COMMAND@"
 #define COMPILED_WITH_OPTIONS "@COMPILER_FLAGS@" // NOLINT
-
-//----------------------------------------------------------------------------------------
-// macros associated with numerical algorithm (rarely modified)
-
-#define NFIELD @NFIELD_VARIABLES@
-#define NWAVE @NWAVE_VALUE@
-#define MAX_NSTAGE 5     // maximum number of stages per cycle for time-integrator
-#define MAX_NREGISTER 3  // maximum number of (u, b) register pairs for time-integrator
 
 //----------------------------------------------------------------------------------------
 // general purpose macros (never modified)

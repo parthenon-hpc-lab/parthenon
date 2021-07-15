@@ -163,36 +163,6 @@ class MeshBlockData {
   ///
   /// This function will eventually look at the metadata flags to
   /// identify the size of the first dimension based on the
-  /// topological location.
-  ///
-  /// @param label the name of the variable
-  /// @param metadata the metadata associated with the variable
-  /// @param dims the size of each element
-  ///
-  /// TODO(JMM): DO NOT make these strings const reference.
-  /// passing in C-style string literals misbehaves
-  void Add(const std::string &label, const Metadata &metadata,
-           const std::vector<int> &dims);
-
-  ///
-  /// Allocate and add a variable<T> to the container
-  ///
-  /// This function will eventually look at the metadata flags to
-  /// identify the size of the first dimension based on the
-  /// topological location.
-  ///
-  /// @param labelVector the array of names of variables
-  /// @param metadata the metadata associated with the variable
-  /// @param dims the size of each element
-  ///
-  void Add(const std::vector<std::string> &labelVector, const Metadata &metadata,
-           const std::vector<int> &dims);
-
-  ///
-  /// Allocate and add a variable<T> to the container
-  ///
-  /// This function will eventually look at the metadata flags to
-  /// identify the size of the first dimension based on the
   /// topological location.  Dimensions will be taken from the metadata.
   ///
   /// @param label the name of the variable
@@ -233,8 +203,8 @@ class MeshBlockData {
   CellVariable<T> &Get(const std::string &label) const {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
-      throw std::invalid_argument(std::string("\n") + std::string(label) +
-                                  std::string(" array not found in Get()\n"));
+      PARTHENON_THROW(std::string("\n") + std::string(label) +
+                      std::string(" array not found in Get()\n"));
     }
     return *(it->second);
   }
@@ -256,7 +226,7 @@ class MeshBlockData {
   SparseVariable<T> &GetSparseVariable(const std::string &label) {
     auto it = sparseMap_.find(label);
     if (it == sparseMap_.end()) {
-      throw std::invalid_argument("sparseMap_ does not have " + label);
+      PARTHENON_THROW("sparseMap_ does not have " + label);
     }
     return *(it->second);
   }
@@ -287,8 +257,8 @@ class MeshBlockData {
   FaceVariable<T> &GetFace(std::string label) {
     auto it = faceMap_.find(label);
     if (it == faceMap_.end()) {
-      throw std::invalid_argument(std::string("\n") + std::string(label) +
-                                  std::string(" array not found in Get() Face\n"));
+      PARTHENON_THROW(std::string("\n") + std::string(label) +
+                      std::string(" array not found in Get() Face\n"));
     }
     return *(it->second);
   }
@@ -306,8 +276,8 @@ class MeshBlockData {
     // for (auto v : edgeVector_) {
     //   if (! v->label().compare(label)) return v;
     // }
-    throw std::invalid_argument(std::string("\n") + std::string(label) +
-                                std::string(" array not found in Get() Edge\n"));
+    PARTHENON_THROW(std::string("\n") + std::string(label) +
+                    std::string(" array not found in Get() Edge\n"));
   }
 
   /// Gets an array of real variables from container.
@@ -402,7 +372,7 @@ class MeshBlockData {
   TaskStatus ReceiveFluxCorrection();
 
   // physical boundary routines
-  void RestrictBoundaries();
+  TaskStatus RestrictBoundaries();
   void ProlongateBoundaries();
 
   bool operator==(const MeshBlockData<T> &cmp) {
@@ -461,8 +431,7 @@ class MeshBlockData {
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
 
-  void calcArrDims_(std::array<int, 6> &arrDims, const std::vector<int> &dims,
-                    const Metadata &metadata);
+  std::array<int, 6> calcArrDims_(const Metadata &metadata);
 
   // helper functions for VariablePack
   vpack_types::VarList<T> MakeList_(const std::vector<std::string> &names,

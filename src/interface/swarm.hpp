@@ -94,7 +94,11 @@ class SwarmDeviceContext {
   KOKKOS_INLINE_FUNCTION
   int GetMyRank() const { return my_rank_; }
 
+<<<<<<< HEAD
 // private:
+=======
+ private:
+>>>>>>> upstream/develop
   Real x_min_;
   Real x_max_;
   Real y_min_;
@@ -187,7 +191,7 @@ class Swarm {
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
 
   /// Make a new Swarm based on an existing one
-  std::shared_ptr<Swarm> AllocateCopy(const bool allocComms = false,
+  std::shared_ptr<Swarm> AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
                                       MeshBlock *pmb = nullptr);
 
   /// Add variable of given type to swarm
@@ -210,7 +214,6 @@ class Swarm {
     bounds[n] = std::move(bc);
     pbounds.bounds[n] = bounds[n].get();
   }
-  // bounds[n] = bc; }
 
   /// Get particle variable
   template <class T>
@@ -247,6 +250,9 @@ class Swarm {
 
   /// Get number of active particles
   int GetNumActive() const { return num_active_; }
+
+  /// Get mask variable
+  auto GetMask() const { return mask_; }
 
   /// Get the quality of the data layout. 1 is perfectly organized, < 1
   /// indicates gaps in the list.

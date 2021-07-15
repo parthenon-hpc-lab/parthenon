@@ -180,7 +180,8 @@ void Swarm::Add(const std::vector<std::string> &labelArray, const Metadata &meta
   }
 }
 
-std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool allocComms, MeshBlock *pmb) {
+std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool /*alloc_separate_fluxes_and_bvar*/,
+                                           MeshBlock * /*pmb*/) {
   Metadata m = m_;
 
   auto swarm = std::make_shared<Swarm>(label(), m, nmax_pool_);
@@ -334,7 +335,11 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
 ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
                                           ParArrayND<int> &new_indices) {
-  PARTHENON_REQUIRE(num_to_add > 0, "Attempting to add fewer than 1 new particles!");
+  if (num_to_add <= 0) {
+    new_indices = ParArrayND<int>();
+    return ParArrayND<bool>();
+  }
+
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }

@@ -72,7 +72,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("rng_pool", rng_pool);
 
   std::string swarm_name = "my particles";
-  Metadata swarm_metadata;
+  Metadata swarm_metadata({Metadata::Provides});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("t", swarm_name, real_swarmvalue_metadata);
@@ -82,7 +82,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddSwarmValue("weight", swarm_name, real_swarmvalue_metadata);
 
   std::string field_name = "particle_deposition";
-  Metadata m({Metadata::Cell, Metadata::Independent});
+  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes});
   pkg->AddField(field_name, m);
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
@@ -197,6 +197,9 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   auto v = pkg->Param<Real>("particle_speed");
   const auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
 
+  ParArrayND<int> new_indices;
+  const auto new_particles_mask = swarm->AddEmptyParticles(num_particles, new_indices);
+
   // Meshblock geometry
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -211,16 +214,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   const Real &minx_j = pmb->coords.x2f(jb.s);
   const Real &minx_k = pmb->coords.x3f(kb.s);
 
-  // Temporary beam stuff (all particles created in -0.5 < x < 0
-  num_particles = 1;
-  if (t0 > 1.e-12 || minx_i >= 0.0) {
-    num_particles = 0;
-    return TaskStatus::complete;
-  }
-
-  ParArrayND<int> new_indices;
-  const auto new_particles_mask = swarm->AddEmptyParticles(num_particles, new_indices);
-
   auto &t = swarm->Get<Real>("t").Get();
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
@@ -231,41 +224,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   auto &weight = swarm->Get<Real>("weight").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
-
-  Real xbeam = -0.25;
-  Real ybeam = 0.;
-  Real zbeam = 0.;
-  Real theta = 0.; // Angle from x axis
-  Real phi = 0.;
-
-  printf("myrank: %i numparticles: %i\n", Globals::my_rank, num_particles);
-
-
-    pmb->par_for(
-        "CreateSomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
-          if (new_particles_mask(n)) {
-            auto rng_gen = rng_pool.get_state();
-
-            // Randomly sample in space in this meshblock
-            x(n) = xbeam;
-            y(n) = ybeam;
-            z(n) = zbeam;
-
-            // Randomly sample direction on the unit sphere, fixing speed
-            vz(n) = v * sin(theta) * cos(phi);
-            vy(n) = v * sin(theta) * sin(phi);
-            vx(n) = v * cos(theta);
-
-            // Create particles at the beginning of the timestep
-            t(n) = t0;
-
-            weight(n) = 1.0;
-
-            rng_pool.free_state(rng_gen);
-          }
-        });
-
-    return TaskStatus::complete;
 
   if (orbiting_particles) {
     pmb->par_for(
@@ -418,6 +376,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               vz(n) *= v / v_tmp;
 
               bool on_current_mesh_block = true;
+              // This call is required to trigger internal boundary condition machinery
               swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
 
               if (!on_current_mesh_block) {
@@ -434,7 +393,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
           if (swarm_d.IsActive(n)) {
             Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
             while (t(n) < t0 + dt) {
-              printf("[%i] push particle! xyz = %e %e %e\n", Globals::my_rank, x(n), y(n), z(n));
               Real dt_cell = dx_push / v;
               Real dt_end = t0 + dt - t(n);
               Real dt_push = std::min<Real>(dt_cell, dt_end);
@@ -445,9 +403,8 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               t(n) += dt_push;
 
               bool on_current_mesh_block = true;
+              // This call is required to trigger internal boundary condition machinery
               swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
-
-              printf("                    xyz = %e %e %e\n", Globals::my_rank, x(n), y(n), z(n));
 
               if (!on_current_mesh_block) {
                 // Particle no longer on this block. Can still be communicated to a
@@ -521,6 +478,8 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     num_sent_local += swarm->num_particles_sent_;
   }
 
+  int num_sent_global = num_sent_local; // potentially overwritten by following Allreduce
+#ifdef MPI_PARALLEL
   for (auto &block : blocks) {
     auto swarm = block->swarm_data.Get()->Get("my particles");
     for (int n = 0; n < block->pbval->nneighbor; n++) {
@@ -540,8 +499,8 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     }
   }
 
-  int num_sent_global = 0;
   MPI_Allreduce(&num_sent_local, &num_sent_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+#endif // MPI_PARALLEL
 
   if (num_sent_global == 0) {
     for (auto &block : blocks) {

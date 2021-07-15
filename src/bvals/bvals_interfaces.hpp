@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -164,6 +164,7 @@ struct BoundaryData { // aggregate and POD (even when MPI_PARALLEL is defined)
   // currently, sflag[] is only used by Multgrid (send buffers are reused each stage in
   // red-black comm. pattern; need to check if they are available)
   BoundaryStatus flag[kMaxNeighbor], sflag[kMaxNeighbor];
+  BufArray1D<Real> buffers;
   BufArray1D<Real> send[kMaxNeighbor], recv[kMaxNeighbor];
 #ifdef MPI_PARALLEL
   MPI_Request req_send[kMaxNeighbor], req_recv[kMaxNeighbor];
