@@ -20,6 +20,7 @@ and revision any time as necessary.
             - [Creating a Regression Test](#creating-a-regression-test)
             - [Integrating the Regression Test with CMake](#integrating-the-regression-test-with-cmake)
             - [Running ctest](#running-ctest)
+        * [Adding Performance Regression Tests](#adding-performance-regression-tests)
         * [Including Tests in Code Coverage Report](#including-tests-in-code-coverage-report)
         * [Creating and Uploading Coverage Report](#creating-and-uploading-coverage-report)
 
@@ -372,6 +373,97 @@ regression    =   1.44 sec*proc (1 test)
 
 Total Test time (real) =   1.47 sec
 ```
+
+#### Adding Performance Regression Tests
+
+Regression tests can also be added for the purposes of testing the performance. Adding
+performance tests does require understanding how the ci infrastructure is setup. Currently,
+the performance tests are setup to run on dedicated Power9 nodes that are provided by LANL,
+this is to ensure consistency in the result. However, because the performance tests are
+running on LANL machines it means that it is not straightforward to make the results viewable to
+non LANL contributors. To make the results of the regression tests viewable on github
+a custom github application was developed to be used with Parthenon which we will call
+the Parthenon Performance Metrics App (PPMA).
+
+The PPMA is series of python scripts located in the parthenon repository in
+./scripts/python/packages/parthenon_performance_app. The PPMA has the following responsibilities:
+
+1. Submit a status check associated with the commit being analyzed to the
+   Parthenon repository
+2. Read in performance metrics from regression tests in a build directory
+3. Compare the current metrics with metrics stored in the parthenon.wiki, the
+   files in the wiki should contain performance metrics from previous runs.
+4. Generate images showing the performance numbers.
+5. Add images to an orphan branch in the parthenon repository (branch name is
+   figures).
+6. Add new performance metrics to the appropriate performance .json file stored
+   in the wiki
+7. Create or overwrite a wiki page that contains links to the performance
+   figures located in the parthenon wiki repository.
+8. Upload the wiki page the images and performance metrics to the Parthenon
+   repository.
+9. Submit a status check indicating that the performance metrics are ready to
+   be viewed with a link to the wiki page.
+
+In order to add a performance test the following tasks must be completed.
+
+1. The test must have a folder in ./tst/regression/test_suites (we will call it
+   dir_foo)
+2. When the test is run e.g. by calling ctest the test must output the
+   performance metrics in a file
+3. The main PPMA file located in
+   ./scripts/python/packages/parthenon_performance_app/bin must be edited. The
+   PPMA script works by looping over the output directories of the regression
+   tests, the loop exists in the main PPMA file and should have a logic block
+   similar to what is shown below:
+
+```python
+for test_dir in all_dirs:
+    if not isinstance(test_dir, str):
+        test_dir = str(test_dir)
+    if (test_dir == "advection_performance"
+        or test_dir == "advection_performance_mpi"):
+
+        figure_url, png_file, _ = self._createFigureURLPathAndName(
+                    test_dir, current_branch, target_branch
+                )
+
+        do something...
+
+        if create_figures:
+            png_files_to_upload.append(png_file)
+            figure_urls.append(figure_url)
+
+
+```
+
+Shown above you can see a branch for `advection_performance` and
+`advection_performance_mpi`, because the logic is the same for both of there is
+a single if statement. You will likely need to add a separate branch for any
+additional tests e.g. `dir_foo`.
+
+The `_createFigureURLPathAndName` is a convenience method for generating a figure url
+and a png_file name. The figure_url will be of the form https://github.com/lanl/parthenon/blob/figures/png_file.
+Using this method is not a requirement for instance if you had multiple different performance figures that you
+wanted to generate for a single test you could do it e.g.
+
+```python
+
+jpeg_fig_name = "awesome.jpeg"
+figure_url1 = "https://github.com/lanl/parthenon/blob/figures/" + jpeg_fig_name
+
+png_fig_name = "awesome.png"
+figure_url2 = "https://github.com/lanl/parthenon/blob/figures/" + png_fig_name
+
+png_fig_name2 = "awesome2.png"
+figure_url3 = "https://github.com/lanl/parthenon/blob/figures/" + png_fig_name2
+
+
+if create_figures:
+    png_files_to_upload.append(png_file)
+    figure_urls.append(figure_url)
+```
+
 
 #### Including Tests in Code Coverage Report
 
