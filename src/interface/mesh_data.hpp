@@ -66,6 +66,41 @@ inline void AppendKey<vpack_types::StringPair>(vpack_types::StringPair *key_coll
   }
 }
 
+// This functor template takes a pack (VariablePack or VariableFluxPack) and appends
+// all the allocation statuses to the given collection of allocation statuses. We have to
+// use a functor instead of a template function because template function cannot be
+// partially specialized
+template <typename P>
+struct AllocationStatusCollector {
+  static inline void Append(std::vector<bool> *allocation_status_collection,
+                            const P &pack);
+};
+
+// Specialization for VariablePack<T>
+template <typename T>
+struct AllocationStatusCollector<VariablePack<T>> {
+  static inline void Append(std::vector<bool> *allocation_status_collection,
+                            const VariablePack<T> &var_pack) {
+    allocation_status_collection->insert(allocation_status_collection->end(),
+                                         var_pack.allocation_status().begin(),
+                                         var_pack.allocation_status().end());
+  }
+};
+
+// Specialization for VariableFluxPack<T>
+template <typename T>
+struct AllocationStatusCollector<VariableFluxPack<T>> {
+  static inline void Append(std::vector<bool> *allocation_status_collection,
+                            const VariableFluxPack<T> &var_flux_pack) {
+    allocation_status_collection->insert(allocation_status_collection->end(),
+                                         var_flux_pack.allocation_status().begin(),
+                                         var_flux_pack.allocation_status().end());
+    allocation_status_collection->insert(allocation_status_collection->end(),
+                                         var_flux_pack.flux_allocation_status().begin(),
+                                         var_flux_pack.flux_allocation_status().end());
+  }
+};
+
 // TODO(JMM): pass the coarse/fine option through the meshblockpack machinery
 template <typename P, typename M, typename F, typename K>
 const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
@@ -82,9 +117,12 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   PackIndexMap pack_idx_map;
   PackIndexMap this_map;
 
+  std::vector<bool> allocation_status_collection;
+
   for (size_t i = 0; i < nblocks; i++) {
-    packing_function(block_data_[i], this_map, this_key);
+    const auto &pack = packing_function(block_data_[i], this_map, this_key);
     AppendKey(&total_key, &this_key);
+    AllocationStatusCollector<P>::Append(&allocation_status_collection, pack);
 
     if (i == 0) {
       pack_idx_map = this_map;
@@ -94,7 +132,20 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   }
 
   auto itr = map.find(total_key);
+  bool make_new_pack = false;
   if (itr == map.end()) {
+    // we don't have a cached pack, need to make a new one
+    make_new_pack = true;
+  } else {
+    // we have a cached pack, check allocation status
+    if (allocation_status_collection != itr->second.allocation_status_collection()) {
+      // allocation statuses differ, need to make a new pack and remove outdated one
+      make_new_pack = true;
+      map.erase(itr);
+    }
+  }
+
+  if (make_new_pack) {
     ParArray1D<P> packs("MeshData::PackVariables::packs", nblocks);
     auto packs_host = Kokkos::create_mirror_view(packs);
     ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
@@ -116,7 +167,8 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
     Kokkos::deep_copy(coords, coords_host);
 
     const auto cellbounds = block_data_[0]->GetBlockPointer()->cellbounds;
-    auto pack = MeshBlockPack<P>(packs, cellbounds, coords, dims);
+    auto pack =
+        MeshBlockPack<P>(packs, cellbounds, coords, dims, allocation_status_collection);
     itr = map.insert({total_key, pack}).first;
   }
 

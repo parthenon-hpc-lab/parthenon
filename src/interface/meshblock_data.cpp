@@ -219,9 +219,23 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
       std::make_pair(std::move(var_list.labels()), std::move(flux_list.labels()));
 
   auto itr = varFluxPackMap_.find(keys);
+  bool make_new_pack = false;
   if (itr == varFluxPackMap_.end()) {
+    // we don't have a cached pack, need to make a new one
+    make_new_pack = true;
+  } else {
+    // we have a cached pack, check allocation status
+    if ((var_list.allocation_status() != itr->second.pack.allocation_status()) ||
+        (flux_list.allocation_status() != itr->second.pack.flux_allocation_status())) {
+      // allocation statuses differ, need to make a new pack and remove outdated one
+      make_new_pack = true;
+      varFluxPackMap_.erase(itr);
+    }
+  }
+
+  if (make_new_pack) {
     FluxPackIndxPair<T> new_item;
-    new_item.pack = MakeFluxPack(var_list.vars(), flux_list.vars(), &new_item.map);
+    new_item.pack = MakeFluxPack(var_list, flux_list, &new_item.map);
     itr = varFluxPackMap_.insert({keys, new_item}).first;
   }
 
@@ -251,9 +265,22 @@ MeshBlockData<T>::PackListedVariables(const VarLabelList &var_list, bool coarse,
   auto &packmap = coarse ? coarseVarPackMap_ : varPackMap_;
 
   auto itr = packmap.find(key);
+  bool make_new_pack = false;
   if (itr == packmap.end()) {
+    // we don't have a cached pack, need to make a new one
+    make_new_pack = true;
+  } else {
+    // we have a cached pack, check allocation status
+    if (var_list.allocation_status() != itr->second.pack.allocation_status()) {
+      // allocation statuses differ, need to make a new pack and remove outdated one
+      make_new_pack = true;
+      packmap.erase(itr);
+    }
+  }
+
+  if (make_new_pack) {
     PackIndxPair<T> new_item;
-    new_item.pack = MakePack<T>(var_list.vars(), coarse, &new_item.map);
+    new_item.pack = MakePack<T>(var_list, coarse, &new_item.map);
     itr = packmap.insert({key, new_item}).first;
   }
 

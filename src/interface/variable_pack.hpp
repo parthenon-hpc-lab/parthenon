@@ -70,19 +70,19 @@ class VarListWithLabels {
     if (!var->IsSparse() || sparse_ids.empty() ||
         (sparse_ids.count(var->GetSparseID()) > 0)) {
       vars_.push_back(var);
-      // The label here is used in the key for variable pack caching, so it has to include
-      // the allocation status of the variable, since we cannot reuse a variable pack if
-      // one of its variables has a changed allocation status
-      labels_.push_back(var->label() + (var->IsAllocated() ? "_A" : ""));
+      labels_.push_back(var->label());
+      allocation_status_.push_back(var->IsAllocated());
     }
   }
 
   const auto &vars() const { return vars_; }
   const auto &labels() const { return labels_; }
+  const auto &allocation_status() const { return allocation_status_; }
 
  private:
   CellVariableVector<T> vars_;
   std::vector<std::string> labels_;
+  std::vector<bool> allocation_status_;
 };
 
 // using PackIndexMap = std::unordered_map<std::string, vpack_types::IndexPair>;
@@ -142,16 +142,32 @@ using ViewOfParArrays = ParArray1D<ParArray3D<T>>;
 template <typename T>
 class VariablePack {
  public:
+  using value_type = T;
+
   VariablePack() = default;
 
   VariablePack(const ViewOfParArrays<T> &view, const ParArray1D<int> &sparse_ids,
+               const std::vector<bool> &allocation_status,
                const ParArray1D<int> &vector_component, const std::array<int, 4> &dims)
-      : v_(view), sparse_ids_(sparse_ids), vector_component_(vector_component),
-        dims_(dims), ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
+      : v_(view), sparse_ids_(sparse_ids), allocation_status_(allocation_status),
+        vector_component_(vector_component), dims_(dims),
+        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {
+    // don't check length of allocation_status_, because it can be different from
+    // dims_[3]. There is one entry in allocation_status_ per VARIABLE, but dims_[3] is
+    // number of COMPONENTS (e.g. for a vector variable with 3 components, there will be
+    // only one entry in allocation_status_, but 3 entries in v_, sparse_ids_, etc.)
+    assert(dims_[3] == v_.extent(0));
+    assert(dims_[3] == sparse_ids_.extent(0));
+    assert(dims_[3] == vector_component_.extent(0));
+  }
+
+  // Host only
+  const auto &allocation_status() const { return allocation_status_; }
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsAllocated(const int n) const {
     assert(0 <= n && n < dims_[3]);
+    // don't use allocated_status_ because it's available only on the host
     return v_(n).size() > 0;
   }
 
@@ -210,6 +226,7 @@ class VariablePack {
  protected:
   ViewOfParArrays<T> v_;
   ParArray1D<int> sparse_ids_;
+  std::vector<bool> allocation_status_; // host only
   ParArray1D<int> vector_component_;
   std::array<int, 4> dims_;
   int ndim_;
@@ -237,10 +254,20 @@ class VariableFluxPack : public VariablePack<T> {
   VariableFluxPack(const ViewOfParArrays<T> &view, const ViewOfParArrays<T> &f0,
                    const ViewOfParArrays<T> &f1, const ViewOfParArrays<T> &f2,
                    const ParArray1D<int> &sparse_ids,
+                   const std::vector<bool> &allocation_status,
                    const ParArray1D<int> &vector_component,
-                   const std::array<int, 4> &dims, int fsize)
-      : VariablePack<T>(view, sparse_ids, vector_component, dims), f_({f0, f1, f2}),
-        fsize_(fsize) {}
+                   const std::array<int, 4> &dims, int fsize,
+                   const std::vector<bool> &flux_allocation_status)
+      : VariablePack<T>(view, sparse_ids, allocation_status, vector_component, dims),
+        f_({f0, f1, f2}), fsize_(fsize), flux_allocation_status_(flux_allocation_status) {
+    // don't check flux_allocation_status (see note in constructor of VariablePack)
+    assert(fsize == f0.extent(0));
+    assert(fsize == f1.extent(0));
+    assert(fsize == f2.extent(0));
+  }
+
+  // Host only
+  const auto &flux_allocation_status() const { return flux_allocation_status_; }
 
   KOKKOS_FORCEINLINE_FUNCTION
   const ViewOfParArrays<T> &flux(const int dir) const {
@@ -251,6 +278,7 @@ class VariableFluxPack : public VariablePack<T> {
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsFluxAllocated(const int n) const {
     assert(0 <= n && n < fsize_);
+    // don't use flux_allocated_status_ because it's available only on the host
     // we can just check X1DIR, because it always exists and it's allocated iff all
     // used dirs are allcoated
     return flux(X1DIR)(n).size() > 0;
@@ -265,6 +293,7 @@ class VariableFluxPack : public VariablePack<T> {
  private:
   std::array<ViewOfParArrays<T>, 3> f_;
   int fsize_;
+  std::vector<bool> flux_allocation_status_; // host only
 };
 
 // Using std::map, not std::unordered_map because the key
@@ -407,9 +436,12 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
 }
 
 template <typename T>
-VariableFluxPack<T> MakeFluxPack(const CellVariableVector<T> &vars,
-                                 const CellVariableVector<T> &flux_vars,
+VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
+                                 const VarListWithLabels<T> &flux_var_list,
                                  PackIndexMap *pvmap) {
+  const auto &vars = var_list.vars();           // for convenience
+  const auto &flux_vars = flux_var_list.vars(); // for convenience
+
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -446,12 +478,16 @@ VariableFluxPack<T> MakeFluxPack(const CellVariableVector<T> &vars,
     }
   }
 
-  return VariableFluxPack<T>(cv, f1, f2, f3, sparse_id, vector_component, cv_size, fsize);
+  return VariableFluxPack<T>(cv, f1, f2, f3, sparse_id, var_list.allocation_status(),
+                             vector_component, cv_size, fsize,
+                             flux_var_list.allocation_status());
 }
 
 template <typename T>
-VariablePack<T> MakePack(const CellVariableVector<T> &vars, bool coarse,
+VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
                          PackIndexMap *pvmap) {
+  const auto &vars = var_list.vars(); // for convenience
+
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -472,7 +508,8 @@ VariablePack<T> MakePack(const CellVariableVector<T> &vars, bool coarse,
     FillVarView(vars, coarse, cv, sparse_id, vector_component, pvmap);
   }
 
-  return VariablePack<T>(cv, sparse_id, vector_component, cv_size);
+  return VariablePack<T>(cv, sparse_id, var_list.allocation_status(), vector_component,
+                         cv_size);
 }
 
 template <typename T>

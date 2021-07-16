@@ -43,9 +43,16 @@ class MeshBlockPack {
   MeshBlockPack() = default;
   MeshBlockPack(const ParArray1D<T> view, const IndexShape shape,
                 const ParArray1D<Coordinates_t> coordinates,
-                const std::array<int, 5> dims)
+                const std::array<int, 5> dims,
+                std::vector<bool> allocation_status_collection)
       : v_(view), cellbounds(shape), coords(coordinates), dims_(dims),
-        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
+        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))),
+        allocation_status_collection_(allocation_status_collection) {}
+  // host only
+  const auto &allocation_status_collection() const {
+    return allocation_status_collection_;
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator()(const int block) const { return v_(block); }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -77,6 +84,7 @@ class MeshBlockPack {
 
  private:
   ParArray1D<T> v_;
+  std::vector<bool> allocation_status_collection_; // host only
   std::array<int, 5> dims_;
   int ndim_;
 };
