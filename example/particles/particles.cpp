@@ -96,7 +96,6 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("particles_package");
   const Real &dt = pkg->Param<Real>("const_dt");
-  printf("dt: %e\n", dt);
   return dt;
 }
 
@@ -598,8 +597,8 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
     auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
 
     // estimate next time step
-    auto new_dt =
-        tl.AddTask(defrag, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>, sc1.get());
+    auto new_dt = tl.AddTask(
+        defrag, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>, sc1.get());
   }
 
   return tc;
