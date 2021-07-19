@@ -67,11 +67,17 @@ class VarListWithLabels {
   // c) The sparse id of the variable is contained in the set of sparse_ids
   void Add(const std::shared_ptr<CellVariable<T>> &var,
            const std::unordered_set<int> &sparse_ids = {}) {
+    std::vector<bool> temp_alloc;
     if (!var->IsSparse() || sparse_ids.empty() ||
         (sparse_ids.count(var->GetSparseID()) > 0)) {
       vars_.push_back(var);
       labels_.push_back(var->label());
-      allocation_status_.push_back(var->IsAllocated());
+      temp_alloc.push_back(var->IsAllocated());
+    }
+
+    Kokkos::resize(allocation_status_, temp_alloc.size());
+    for (int i = 0; i < allocation_status_.extent(0); ++i) {
+      allocation_status_(i) = temp_alloc[i];
     }
   }
 
@@ -82,7 +88,7 @@ class VarListWithLabels {
  private:
   CellVariableVector<T> vars_;
   std::vector<std::string> labels_;
-  std::vector<bool> allocation_status_;
+  Kokkos::View<bool *, HostMemSpace> allocation_status_;
 };
 
 // using PackIndexMap = std::unordered_map<std::string, vpack_types::IndexPair>;
@@ -147,7 +153,7 @@ class VariablePack {
   VariablePack() = default;
 
   VariablePack(const ViewOfParArrays<T> &view, const ParArray1D<int> &sparse_ids,
-               const std::vector<bool> &allocation_status,
+               const Kokkos::View<bool *, HostMemSpace> &allocation_status,
                const ParArray1D<int> &vector_component, const std::array<int, 4> &dims)
       : v_(view), sparse_ids_(sparse_ids), allocation_status_(allocation_status),
         vector_component_(vector_component), dims_(dims),
@@ -161,7 +167,7 @@ class VariablePack {
     assert(dims_[3] == vector_component_.extent(0));
   }
 
-  // Host only
+  // host only
   const auto &allocation_status() const { return allocation_status_; }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -226,7 +232,9 @@ class VariablePack {
  protected:
   ViewOfParArrays<T> v_;
   ParArray1D<int> sparse_ids_;
-  std::vector<bool> allocation_status_; // host only
+  // unfortunately, we can't use a std::vector here, because then this class can't be
+  // destroyed on device
+  Kokkos::View<bool *, HostMemSpace> allocation_status_; // host only
   ParArray1D<int> vector_component_;
   std::array<int, 4> dims_;
   int ndim_;
@@ -254,10 +262,10 @@ class VariableFluxPack : public VariablePack<T> {
   VariableFluxPack(const ViewOfParArrays<T> &view, const ViewOfParArrays<T> &f0,
                    const ViewOfParArrays<T> &f1, const ViewOfParArrays<T> &f2,
                    const ParArray1D<int> &sparse_ids,
-                   const std::vector<bool> &allocation_status,
+                   const Kokkos::View<bool *, HostMemSpace> &allocation_status,
                    const ParArray1D<int> &vector_component,
                    const std::array<int, 4> &dims, int fsize,
-                   const std::vector<bool> &flux_allocation_status)
+                   const Kokkos::View<bool *, HostMemSpace> &flux_allocation_status)
       : VariablePack<T>(view, sparse_ids, allocation_status, vector_component, dims),
         f_({f0, f1, f2}), fsize_(fsize), flux_allocation_status_(flux_allocation_status) {
     // don't check flux_allocation_status (see note in constructor of VariablePack)
@@ -266,7 +274,7 @@ class VariableFluxPack : public VariablePack<T> {
     assert(fsize == f2.extent(0));
   }
 
-  // Host only
+  // host only
   const auto &flux_allocation_status() const { return flux_allocation_status_; }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -293,7 +301,7 @@ class VariableFluxPack : public VariablePack<T> {
  private:
   std::array<ViewOfParArrays<T>, 3> f_;
   int fsize_;
-  std::vector<bool> flux_allocation_status_; // host only
+  Kokkos::View<bool *, HostMemSpace> flux_allocation_status_; // host only
 };
 
 // Using std::map, not std::unordered_map because the key

@@ -44,7 +44,7 @@ class MeshBlockPack {
   MeshBlockPack(const ParArray1D<T> view, const IndexShape shape,
                 const ParArray1D<Coordinates_t> coordinates,
                 const std::array<int, 5> dims,
-                std::vector<bool> allocation_status_collection)
+                const Kokkos::View<bool *, HostMemSpace> &allocation_status_collection)
       : v_(view), cellbounds(shape), coords(coordinates), dims_(dims),
         ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))),
         allocation_status_collection_(allocation_status_collection) {}
@@ -84,7 +84,7 @@ class MeshBlockPack {
 
  private:
   ParArray1D<T> v_;
-  std::vector<bool> allocation_status_collection_; // host only
+  Kokkos::View<bool *, HostMemSpace> allocation_status_collection_; // host only
   std::array<int, 5> dims_;
   int ndim_;
 };

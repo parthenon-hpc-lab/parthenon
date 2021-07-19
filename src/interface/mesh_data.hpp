@@ -22,12 +22,14 @@
 #include <utility>
 #include <vector>
 
+#include "Kokkos_CopyViews.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -72,32 +74,53 @@ inline void AppendKey<vpack_types::StringPair>(vpack_types::StringPair *key_coll
 // partially specialized
 template <typename P>
 struct AllocationStatusCollector {
-  static inline void Append(std::vector<bool> *allocation_status_collection,
-                            const P &pack);
+  static inline void
+  Append(Kokkos::View<bool *, HostMemSpace> *allocation_status_collection, const P &pack);
 };
 
 // Specialization for VariablePack<T>
 template <typename T>
 struct AllocationStatusCollector<VariablePack<T>> {
-  static inline void Append(std::vector<bool> *allocation_status_collection,
-                            const VariablePack<T> &var_pack) {
-    allocation_status_collection->insert(allocation_status_collection->end(),
-                                         var_pack.allocation_status().begin(),
-                                         var_pack.allocation_status().end());
+  static inline void
+  Append(Kokkos::View<bool *, HostMemSpace> *allocation_status_collection,
+         const VariablePack<T> &var_pack) {
+    const auto old_size = allocation_status_collection->extent(0);
+    const int n = var_pack.allocation_status().extent(0);
+    Kokkos::resize(*allocation_status_collection, old_size + n);
+
+    for (int i = 0; i < n; ++i) {
+      (*allocation_status_collection)(i + old_size) = var_pack.allocation_status()(i);
+    }
   }
 };
 
 // Specialization for VariableFluxPack<T>
 template <typename T>
 struct AllocationStatusCollector<VariableFluxPack<T>> {
-  static inline void Append(std::vector<bool> *allocation_status_collection,
-                            const VariableFluxPack<T> &var_flux_pack) {
-    allocation_status_collection->insert(allocation_status_collection->end(),
-                                         var_flux_pack.allocation_status().begin(),
-                                         var_flux_pack.allocation_status().end());
-    allocation_status_collection->insert(allocation_status_collection->end(),
-                                         var_flux_pack.flux_allocation_status().begin(),
-                                         var_flux_pack.flux_allocation_status().end());
+  static inline void
+  Append(Kokkos::View<bool *, HostMemSpace> *allocation_status_collection,
+         const VariableFluxPack<T> &var_flux_pack) {
+    {
+      const auto old_size = allocation_status_collection->extent(0);
+      const int n = var_flux_pack.allocation_status().extent(0);
+      Kokkos::resize(*allocation_status_collection, old_size + n);
+
+      for (int i = 0; i < n; ++i) {
+        (*allocation_status_collection)(i + old_size) =
+            var_flux_pack.allocation_status()(i);
+      }
+    }
+
+    {
+      const auto old_size = allocation_status_collection->extent(0);
+      const int n = var_flux_pack.flux_allocation_status().extent(0);
+      Kokkos::resize(*allocation_status_collection, old_size + n);
+
+      for (int i = 0; i < n; ++i) {
+        (*allocation_status_collection)(i + old_size) =
+            var_flux_pack.flux_allocation_status()(i);
+      }
+    }
   }
 };
 
@@ -117,7 +140,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   PackIndexMap pack_idx_map;
   PackIndexMap this_map;
 
-  std::vector<bool> allocation_status_collection;
+  Kokkos::View<bool *, HostMemSpace> allocation_status_collection;
 
   for (size_t i = 0; i < nblocks; i++) {
     const auto &pack = packing_function(block_data_[i], this_map, this_key);
@@ -138,7 +161,8 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
     make_new_pack = true;
   } else {
     // we have a cached pack, check allocation status
-    if (allocation_status_collection != itr->second.allocation_status_collection()) {
+    if (!ViewEqual(allocation_status_collection,
+                   itr->second.allocation_status_collection())) {
       // allocation statuses differ, need to make a new pack and remove outdated one
       make_new_pack = true;
       map.erase(itr);

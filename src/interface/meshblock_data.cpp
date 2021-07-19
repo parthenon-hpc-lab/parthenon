@@ -28,6 +28,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -225,8 +226,9 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
     make_new_pack = true;
   } else {
     // we have a cached pack, check allocation status
-    if ((var_list.allocation_status() != itr->second.pack.allocation_status()) ||
-        (flux_list.allocation_status() != itr->second.pack.flux_allocation_status())) {
+    if (!ViewEqual(var_list.allocation_status(), itr->second.pack.allocation_status()) ||
+        !ViewEqual(flux_list.allocation_status(),
+                   itr->second.pack.flux_allocation_status())) {
       // allocation statuses differ, need to make a new pack and remove outdated one
       make_new_pack = true;
       varFluxPackMap_.erase(itr);
@@ -271,7 +273,7 @@ MeshBlockData<T>::PackListedVariables(const VarLabelList &var_list, bool coarse,
     make_new_pack = true;
   } else {
     // we have a cached pack, check allocation status
-    if (var_list.allocation_status() != itr->second.pack.allocation_status()) {
+    if (!ViewEqual(var_list.allocation_status(), itr->second.pack.allocation_status())) {
       // allocation statuses differ, need to make a new pack and remove outdated one
       make_new_pack = true;
       packmap.erase(itr);
