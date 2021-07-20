@@ -50,22 +50,6 @@ void Report();
 
 } // namespace SignalHandler
 
-// convenience function to check if two 1D bool views are equal
-inline bool ViewEqual(const Kokkos::View<bool *, HostMemSpace> &a,
-                      const Kokkos::View<bool *, HostMemSpace> &b) {
-  if (a.extent(0) != b.extent(0)) {
-    return false;
-  }
-
-  for (int i = 0; i < a.extent(0); ++i) {
-    if (a(i) != b(i)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 } // namespace parthenon
 
 #endif // UTILS_UTILS_HPP_

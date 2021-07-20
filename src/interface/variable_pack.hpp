@@ -67,28 +67,22 @@ class VarListWithLabels {
   // c) The sparse id of the variable is contained in the set of sparse_ids
   void Add(const std::shared_ptr<CellVariable<T>> &var,
            const std::unordered_set<int> &sparse_ids = {}) {
-    std::vector<bool> temp_alloc;
     if (!var->IsSparse() || sparse_ids.empty() ||
         (sparse_ids.count(var->GetSparseID()) > 0)) {
       vars_.push_back(var);
       labels_.push_back(var->label());
-      temp_alloc.push_back(var->IsAllocated());
-    }
-
-    Kokkos::resize(allocation_status_, temp_alloc.size());
-    for (int i = 0; i < allocation_status_.extent(0); ++i) {
-      allocation_status_(i) = temp_alloc[i];
+      alloc_status_.push_back(var->IsAllocated());
     }
   }
 
   const auto &vars() const { return vars_; }
   const auto &labels() const { return labels_; }
-  const auto &allocation_status() const { return allocation_status_; }
+  const auto &alloc_status() const { return alloc_status_; }
 
  private:
   CellVariableVector<T> vars_;
   std::vector<std::string> labels_;
-  Kokkos::View<bool *, HostMemSpace> allocation_status_;
+  std::vector<bool> alloc_status_;
 };
 
 // using PackIndexMap = std::unordered_map<std::string, vpack_types::IndexPair>;
@@ -143,21 +137,25 @@ class PackIndexMap {
 template <typename T>
 using ViewOfParArrays = ParArray1D<ParArray3D<T>>;
 
+// forward declaration
+template <typename T>
+class MeshBlockData;
+
 // Try to keep these Variable*Pack classes as lightweight as possible.
 // They go to the device.
 template <typename T>
 class VariablePack {
+  friend class MeshBlockData<T>;
+
  public:
   using value_type = T;
 
   VariablePack() = default;
 
   VariablePack(const ViewOfParArrays<T> &view, const ParArray1D<int> &sparse_ids,
-               const Kokkos::View<bool *, HostMemSpace> &allocation_status,
                const ParArray1D<int> &vector_component, const std::array<int, 4> &dims)
-      : v_(view), sparse_ids_(sparse_ids), allocation_status_(allocation_status),
-        vector_component_(vector_component), dims_(dims),
-        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {
+      : v_(view), sparse_ids_(sparse_ids), vector_component_(vector_component),
+        dims_(dims), ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {
     // don't check length of allocation_status_, because it can be different from
     // dims_[3]. There is one entry in allocation_status_ per VARIABLE, but dims_[3] is
     // number of COMPONENTS (e.g. for a vector variable with 3 components, there will be
@@ -168,7 +166,7 @@ class VariablePack {
   }
 
   // host only
-  const auto &allocation_status() const { return allocation_status_; }
+  inline auto alloc_status() const { return alloc_status_; }
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsAllocated(const int n) const {
@@ -232,12 +230,12 @@ class VariablePack {
  protected:
   ViewOfParArrays<T> v_;
   ParArray1D<int> sparse_ids_;
-  // unfortunately, we can't use a std::vector here, because then this class can't be
-  // destroyed on device
-  Kokkos::View<bool *, HostMemSpace> allocation_status_; // host only
   ParArray1D<int> vector_component_;
   std::array<int, 4> dims_;
   int ndim_;
+
+  // lives on host
+  const std::vector<bool> *alloc_status_;
 };
 template <typename T>
 class SwarmVariablePack {
@@ -257,17 +255,17 @@ class SwarmVariablePack {
 
 template <typename T>
 class VariableFluxPack : public VariablePack<T> {
+  friend class MeshBlockData<T>;
+
  public:
   VariableFluxPack() = default;
   VariableFluxPack(const ViewOfParArrays<T> &view, const ViewOfParArrays<T> &f0,
                    const ViewOfParArrays<T> &f1, const ViewOfParArrays<T> &f2,
                    const ParArray1D<int> &sparse_ids,
-                   const Kokkos::View<bool *, HostMemSpace> &allocation_status,
                    const ParArray1D<int> &vector_component,
-                   const std::array<int, 4> &dims, int fsize,
-                   const Kokkos::View<bool *, HostMemSpace> &flux_allocation_status)
-      : VariablePack<T>(view, sparse_ids, allocation_status, vector_component, dims),
-        f_({f0, f1, f2}), fsize_(fsize), flux_allocation_status_(flux_allocation_status) {
+                   const std::array<int, 4> &dims, int fsize)
+      : VariablePack<T>(view, sparse_ids, vector_component, dims), f_({f0, f1, f2}),
+        fsize_(fsize) {
     // don't check flux_allocation_status (see note in constructor of VariablePack)
     assert(fsize == f0.extent(0));
     assert(fsize == f1.extent(0));
@@ -275,7 +273,7 @@ class VariableFluxPack : public VariablePack<T> {
   }
 
   // host only
-  const auto &flux_allocation_status() const { return flux_allocation_status_; }
+  inline auto flux_alloc_status() const { return flux_alloc_status_; }
 
   KOKKOS_FORCEINLINE_FUNCTION
   const ViewOfParArrays<T> &flux(const int dir) const {
@@ -301,7 +299,9 @@ class VariableFluxPack : public VariablePack<T> {
  private:
   std::array<ViewOfParArrays<T>, 3> f_;
   int fsize_;
-  Kokkos::View<bool *, HostMemSpace> flux_allocation_status_; // host only
+
+  // lives on host
+  const std::vector<bool> *flux_alloc_status_;
 };
 
 // Using std::map, not std::unordered_map because the key
@@ -315,7 +315,10 @@ template <typename PackType>
 struct PackAndIndexMap {
   PackType pack;
   PackIndexMap map;
+  std::vector<bool> alloc_status;
+  std::vector<bool> flux_alloc_status;
 };
+
 template <typename T>
 using PackIndxPair = PackAndIndexMap<VariablePack<T>>;
 template <typename T>
@@ -486,9 +489,7 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
     }
   }
 
-  return VariableFluxPack<T>(cv, f1, f2, f3, sparse_id, var_list.allocation_status(),
-                             vector_component, cv_size, fsize,
-                             flux_var_list.allocation_status());
+  return VariableFluxPack<T>(cv, f1, f2, f3, sparse_id, vector_component, cv_size, fsize);
 }
 
 template <typename T>
@@ -516,8 +517,7 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
     FillVarView(vars, coarse, cv, sparse_id, vector_component, pvmap);
   }
 
-  return VariablePack<T>(cv, sparse_id, var_list.allocation_status(), vector_component,
-                         cv_size);
+  return VariablePack<T>(cv, sparse_id, vector_component, cv_size);
 }
 
 template <typename T>

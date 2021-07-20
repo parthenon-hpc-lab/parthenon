@@ -43,15 +43,9 @@ class MeshBlockPack {
   MeshBlockPack() = default;
   MeshBlockPack(const ParArray1D<T> view, const IndexShape shape,
                 const ParArray1D<Coordinates_t> coordinates,
-                const std::array<int, 5> dims,
-                const Kokkos::View<bool *, HostMemSpace> &allocation_status_collection)
+                const std::array<int, 5> dims)
       : v_(view), cellbounds(shape), coords(coordinates), dims_(dims),
-        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))),
-        allocation_status_collection_(allocation_status_collection) {}
-  // host only
-  const auto &allocation_status_collection() const {
-    return allocation_status_collection_;
-  }
+        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator()(const int block) const { return v_(block); }
@@ -84,15 +78,9 @@ class MeshBlockPack {
 
  private:
   ParArray1D<T> v_;
-  Kokkos::View<bool *, HostMemSpace> allocation_status_collection_; // host only
   std::array<int, 5> dims_;
   int ndim_;
 };
-
-template <typename T>
-using ViewOfPacks = ParArray1D<VariablePack<T>>;
-template <typename T>
-using ViewOfFluxPacks = ParArray1D<VariableFluxPack<T>>;
 
 template <typename T>
 using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
@@ -100,12 +88,11 @@ template <typename T>
 using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
 
 template <typename T>
-using MeshPackIndxPair = PackAndIndexMap<MeshBlockPack<T>>;
-template <typename T>
-using MapToMeshBlockVarPack = std::map<std::vector<std::string>, MeshBlockVarPack<T>>;
+using MapToMeshBlockVarPack =
+    std::map<std::vector<std::string>, PackAndIndexMap<MeshBlockVarPack<T>>>;
 template <typename T>
 using MapToMeshBlockVarFluxPack =
-    std::map<vpack_types::StringPair, MeshBlockVarFluxPack<T>>;
+    std::map<vpack_types::StringPair, PackAndIndexMap<MeshBlockVarFluxPack<T>>>;
 
 } // namespace parthenon
 

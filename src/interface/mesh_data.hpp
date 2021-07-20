@@ -74,53 +74,31 @@ inline void AppendKey<vpack_types::StringPair>(vpack_types::StringPair *key_coll
 // partially specialized
 template <typename P>
 struct AllocationStatusCollector {
-  static inline void
-  Append(Kokkos::View<bool *, HostMemSpace> *allocation_status_collection, const P &pack);
+  static inline void Append(std::vector<bool> *alloc_status_collection, const P &pack);
 };
 
 // Specialization for VariablePack<T>
 template <typename T>
 struct AllocationStatusCollector<VariablePack<T>> {
-  static inline void
-  Append(Kokkos::View<bool *, HostMemSpace> *allocation_status_collection,
-         const VariablePack<T> &var_pack) {
-    const auto old_size = allocation_status_collection->extent(0);
-    const int n = var_pack.allocation_status().extent(0);
-    Kokkos::resize(*allocation_status_collection, old_size + n);
-
-    for (int i = 0; i < n; ++i) {
-      (*allocation_status_collection)(i + old_size) = var_pack.allocation_status()(i);
-    }
+  static inline void Append(std::vector<bool> *alloc_status_collection,
+                            const VariablePack<T> &var_pack) {
+    alloc_status_collection->insert(alloc_status_collection->end(),
+                                    var_pack.alloc_status()->begin(),
+                                    var_pack.alloc_status()->end());
   }
 };
 
 // Specialization for VariableFluxPack<T>
 template <typename T>
 struct AllocationStatusCollector<VariableFluxPack<T>> {
-  static inline void
-  Append(Kokkos::View<bool *, HostMemSpace> *allocation_status_collection,
-         const VariableFluxPack<T> &var_flux_pack) {
-    {
-      const auto old_size = allocation_status_collection->extent(0);
-      const int n = var_flux_pack.allocation_status().extent(0);
-      Kokkos::resize(*allocation_status_collection, old_size + n);
-
-      for (int i = 0; i < n; ++i) {
-        (*allocation_status_collection)(i + old_size) =
-            var_flux_pack.allocation_status()(i);
-      }
-    }
-
-    {
-      const auto old_size = allocation_status_collection->extent(0);
-      const int n = var_flux_pack.flux_allocation_status().extent(0);
-      Kokkos::resize(*allocation_status_collection, old_size + n);
-
-      for (int i = 0; i < n; ++i) {
-        (*allocation_status_collection)(i + old_size) =
-            var_flux_pack.flux_allocation_status()(i);
-      }
-    }
+  static inline void Append(std::vector<bool> *alloc_status_collection,
+                            const VariableFluxPack<T> &var_flux_pack) {
+    alloc_status_collection->insert(alloc_status_collection->end(),
+                                    var_flux_pack.alloc_status()->cbegin(),
+                                    var_flux_pack.alloc_status()->cend());
+    alloc_status_collection->insert(alloc_status_collection->end(),
+                                    var_flux_pack.flux_alloc_status()->cbegin(),
+                                    var_flux_pack.flux_alloc_status()->cend());
   }
 };
 
@@ -140,12 +118,12 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   PackIndexMap pack_idx_map;
   PackIndexMap this_map;
 
-  Kokkos::View<bool *, HostMemSpace> allocation_status_collection;
+  std::vector<bool> alloc_status_collection;
 
   for (size_t i = 0; i < nblocks; i++) {
     const auto &pack = packing_function(block_data_[i], this_map, this_key);
     AppendKey(&total_key, &this_key);
-    AllocationStatusCollector<P>::Append(&allocation_status_collection, pack);
+    AllocationStatusCollector<P>::Append(&alloc_status_collection, pack);
 
     if (i == 0) {
       pack_idx_map = this_map;
@@ -161,8 +139,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
     make_new_pack = true;
   } else {
     // we have a cached pack, check allocation status
-    if (!ViewEqual(allocation_status_collection,
-                   itr->second.allocation_status_collection())) {
+    if (alloc_status_collection != itr->second.alloc_status) {
       // allocation statuses differ, need to make a new pack and remove outdated one
       make_new_pack = true;
       map.erase(itr);
@@ -190,20 +167,23 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
     Kokkos::deep_copy(packs, packs_host);
     Kokkos::deep_copy(coords, coords_host);
 
-    const auto cellbounds = block_data_[0]->GetBlockPointer()->cellbounds;
-    auto pack =
-        MeshBlockPack<P>(packs, cellbounds, coords, dims, allocation_status_collection);
-    itr = map.insert({total_key, pack}).first;
+    typename M::mapped_type new_item;
+    new_item.alloc_status = alloc_status_collection;
+    new_item.map = pack_idx_map;
+    new_item.pack = MeshBlockPack<P>(packs, block_data_[0]->GetBlockPointer()->cellbounds,
+                                     coords, dims);
+
+    itr = map.insert({total_key, new_item}).first;
   }
 
   if (map_out != nullptr) {
-    *map_out = pack_idx_map;
+    *map_out = itr->second.map;
   }
   if (key_out != nullptr) {
     *key_out = itr->first;
   }
 
-  return itr->second;
+  return itr->second.pack;
 }
 
 } // namespace pack_on_mesh_impl
