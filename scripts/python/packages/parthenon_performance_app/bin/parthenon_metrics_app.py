@@ -352,7 +352,9 @@ if __name__ == "__main__":
         "the application. If not provided will use the env variable PARTHENON_METRICS_APP_PEM."
     )
 
-    parser.add_argument("--permissions", "-p", default=None, type=str, nargs=1, help=desc)
+    parser.add_argument(
+        "--permissions", "-p", default=None, type=str, nargs=1, help=desc
+    )
 
     desc = (
         "Path to the repository that will be analized, by default will check to see if a "
