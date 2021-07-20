@@ -28,7 +28,7 @@ else
   # Here the parthenon metrics app is being used to communicate with the github server. It is
   # asking the github server what the target branch is. Note the parthenon metrics app is
   # not interacting locally with the github repository but is interacting with the remote
-  # server using RESTful api calls, this ensures that the information it obtains is consistent
+  # server using RESTful API calls, this ensures that the information it obtains is consistent
   # with the latest changes on the server.
   #
   # CI_COMMIT_BRANCH
@@ -51,11 +51,11 @@ fi
 #
 # ********* Overview ********
 #
-# The below command at the bottome of the page s rather involved. Here the parthenon
-# metrics app is being told to analyze the results of the parthenon performance
+# The below command at the bottom of the page is rather involved. Here the Parthenon
+# metrics app is being told to analyze the results of the Parthenon performance
 # regression tests. This consists of several steps:
 #
-# 1. performance test data must exist in the local parthenon repository
+# 1. Performance test data must exist in the local Parthenon repository
 #
 # 2. A comparison between the local test results and previous results must be conducted
 #    so that a regression can be spotted.
@@ -82,7 +82,7 @@ fi
 #    It may be necessary in the future to squash the commit history in that branch occassionally.
 #
 # 6. Finally, a status report will be sent to github and associated with commit of the current branch,
-#    this status should show up next to other status reports such as Codacy, Deepcode and gitlab ci.
+#    this status should show up next to other status reports such as Codacy, Deepcode and GitLab ci.
 #    The status will contain a link to the wiki page where the performance metrics are posted.
 #
 # NOTE a. Why are we uploading figures to their own branch in the parthenon repository and not
@@ -103,7 +103,7 @@ fi
 #
 # -p path_to_matrics_application_permissions_file
 #
-# The path to the .pem file so the metrics application can authenticate with the github server.
+# The path to the .pem file so the metrics application can authenticate with the GitHub server.
 #
 # --analyze path_to_tst_results
 #
@@ -137,7 +137,7 @@ fi
 #
 # --target_branch target_branch_name
 #
-# This is the branch that is being merged into if it is a pull request.
+# This is the branch that is being merged into if it is a pull request (usually the develop branch).
 #
 # --generate-figures-on-analysis
 #

@@ -89,14 +89,14 @@ if [[ "${BUILD_TARGET}" == "ON" ]]; then
 
     # The command below is now simply updating the performance metrics file for the target branch
     # and then pushing the results to the github server, so that the remote parthenon wiki now has
-    # an up todate copy of the performance metrics for the target branch.
+    # an up-to-date copy of the performance metrics for the target branch.
     "${METRICS_APP}" -p "${GITHUB_APP_PEM}" --branch "$target_branch" --target-branch "$target_branch" --analyze "${BUILD_DIR}/tst/regression/outputs" --create
   fi
 
 else
 
   # Here we are doing the same thing as the above logic except there is no need to switch
-  # branches. Secondly, uploading and analzyses for the current branch is handled in this
+  # branches. Secondly, uploading and analysis for the current branch is handled in this
   # case in a separate script.
   echo "build fast $GITHUB_APP_PEM"
    "${METRICS_APP}" -p "${GITHUB_APP_PEM}"  --status "pending" --status-context "Parthenon Metrics App" --status-description "Building parthenon" --status-url "${CI_JOB_URL}"

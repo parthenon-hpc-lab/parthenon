@@ -20,9 +20,9 @@
 #
 # 1. Scheduled Run
 #
-# The scheduled run is run everymorning at 4:00 am MTN
-# time and is responsible for ensuring that the performance metrics for
-# the develop branch are up to date. Upto date metrics are uploaded to the
+# The scheduled run is run every morning at 4:00 am Mountain
+# Time and is responsible for ensuring that the performance metrics for
+# the develop branch are up to date. Up-to-date metrics are uploaded to the
 # wiki and can be found at the url:
 # https://github.com/lanl/parthenon/wiki/develop_develop
 #
@@ -32,7 +32,7 @@
 # on the re-git server here:
 # https://re-git.lanl.gov/eap-oss/parthenon/-/pipelines
 #
-# metrics for the branch are also uploaded to the wiki and appear
+# metrics for the branch are also uploaded to the wiki and appear here:
 # https://github.com/lanl/parthenon/wiki/{current_branch}_{target_branch}
 #
 # where {current_branch} is the branch you are working on and {target_branch}
@@ -283,7 +283,7 @@ stages:
 #
 # Note that step 1. is the only job requiring a manual trigger, this is
 # done with the 'when: manual' keywords and has been designed this way
-# for security reasons to avoid jobs automatically running on lanl
+# for security reasons to avoid jobs automatically running on LANL
 # infrastructure before they have been vetted. The other jobs will
 # automatically run in the correct order once the manual job has been
 # triggered and passes.
@@ -334,7 +334,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
 # to have been merged into develop it must have first been approved by
 # a LANL employee hence providing a level of vetting.
 #
-# The pipeline has been setup to run at 4:00 am MTN time every day. The
+# The pipeline has been setup to run at 4:00 am Mountain Time every day. The
 # schedule settings are located on re-git in the ci settings.
 #
 # Unlike the manual pipeline only 3 jobs are needed because we are only
@@ -370,4 +370,3 @@ parthenon-power9-gcc-mpi-cuda-perf-schedule-metrics:
   only:
     - schedules
     - develop
-

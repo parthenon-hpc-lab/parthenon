@@ -17,7 +17,7 @@ SCRIPT=$(realpath "$0")
 SOURCE=$(dirname "$SCRIPT")
 source "${SOURCE}/base_setup.sh"
 
-# Here we are defining where path to the parthenon performance application is, which is
+# Here we are defining the path to the Parthenon performance application, which is
 # a python script called 'parthenon_metrics_app.py'
 METRICS_APP="${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py"
 
@@ -35,4 +35,3 @@ catch() {
   # are needed as good practice
   exit "$((ERR))"
 }
-
