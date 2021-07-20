@@ -22,7 +22,6 @@
 #include <utility>
 #include <vector>
 
-#include "Kokkos_CopyViews.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
