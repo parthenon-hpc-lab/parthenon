@@ -17,9 +17,9 @@
 # to be used on Darwin.
 #
 # Commonly needed system env variables are sourced, followed by the
-# spack env variables specific to the parthenon project and finally
+# spack env variables specific to the Parthenon project and finally
 # the .bashrc in the parthenon-project space needed to automatically setup
-# the build dependencies when building parthenon with cmake.
+# the build dependencies when building Parthenon with cmake.
 
 # Load system env only
 source /etc/bashrc
@@ -56,7 +56,7 @@ CMAKE_BUILD_TYPE="$9"
 
 # Here we are adding the location of the python scripts bin folder
 # to the path variable. The python scripts directory contains the
-# python parthenon metrics files. This files are used to interact
+# python Parthenon metrics files. This files are used to interact
 # with the github server.
 export PATH=${PYTHON_SCRIPTS_DIR}/bin:${PATH}
 export PYTHONPATH=${PYTHON_SCRIPTS_DIR}/${PYTHONPATH}
@@ -69,7 +69,7 @@ echo "CI commit branch ${CI_COMMIT_BRANCH}"
 module load gcc/9.3.0
 spack compiler find
 
-# Always get the latest spack environment so that the parthenon
+# Always get the latest spack environment so that the Parthenon
 # build dependencies are up to date.
 spack_env_latest=$(spack env list | grep darwin-ppc64le-gcc9 | sort | tail -n 1 | tr -d '[:space:]')
 spack env activate "${spack_env_latest}"
