@@ -171,6 +171,8 @@ def compare_attribute_group(f0, f1, name):
         else:
             print("  %20s: no diffs" % name)
 
+    return got_diffs
+
 
 def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
     """compares metadata of two hdf files f0 and f1. Returns 0 if the files are equivalent.
@@ -289,7 +291,7 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
                         print("")
                 else:
                     print("  %18s/%s: no diffs" % (var, key))
-        if var in ["LogicalLocations", "Levels"]:
+        if var in ["LogicalLocations", "Levels", "SparseInfo"]:
             # Compare raw data of these variables
             val0 = np.array(f0.fid[var])
             val1 = np.array(f1.fid[var])
@@ -319,7 +321,7 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
 def compare(
     files,
     all=False,
-    brief=True,
+    brief=False,
     quiet=False,
     one=False,
     tol=1.0e-12,

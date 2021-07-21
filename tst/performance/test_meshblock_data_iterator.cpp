@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -28,19 +28,20 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 
 using parthenon::CellVariable;
 using parthenon::CellVariableVector;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
+using parthenon::MeshBlock;
 using parthenon::MeshBlockData;
-using parthenon::MeshBlockDataIterator;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::PackIndexMap;
@@ -48,6 +49,7 @@ using parthenon::par_for;
 using parthenon::ParArray4D;
 using parthenon::ParArrayND;
 using parthenon::Real;
+using parthenon::StateDescriptor;
 using parthenon::X1DIR;
 using parthenon::X2DIR;
 using parthenon::X3DIR;
@@ -74,7 +76,6 @@ void performance_test_wrapper(const std::string &test_name, InitFunc init_func,
 
 static MeshBlockData<Real> createTestContainer() {
   // Make a container for testing performance
-  MeshBlockData<Real> container;
   std::vector<int> scalar_shape{N, N, N};
   std::vector<int> vector_shape{N, N, N, 3};
 
@@ -82,13 +83,22 @@ static MeshBlockData<Real> createTestContainer() {
   Metadata m_in_vec({Metadata::Independent}, vector_shape);
 
   // make some variables - 5 in all, 2 3-vectors, total 10 fields
-  container.Add("v0", m_in);
-  container.Add("v1", m_in);
-  container.Add("v2", m_in_vec);
-  container.Add("v3", m_in);
-  container.Add("v4", m_in_vec);
-  container.Add("v5", m_in);
-  return container;
+  auto pkg = std::make_shared<StateDescriptor>("Test package");
+  pkg->AddField("v0", m_in);
+  pkg->AddField("v1", m_in);
+  pkg->AddField("v2", m_in_vec);
+  pkg->AddField("v3", m_in);
+  pkg->AddField("v4", m_in_vec);
+  pkg->AddField("v5", m_in);
+
+  // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
+  // won't be allocated
+  auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
+
+  MeshBlockData<Real> mbd;
+  mbd.Initialize(pkg, dummy_mb);
+
+  return mbd;
 }
 
 // std::function<void()> createLambdaRaw(ParArrayND<Real> &raw_array) {

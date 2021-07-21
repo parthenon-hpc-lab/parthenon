@@ -160,8 +160,12 @@ static BlockList_t setupMesh(const int &n_block, const int &n_mesh, const double
   const Real dxyzCell = radius / static_cast<Real>(n_mesh * n_block);
   auto h_xyz = Kokkos::create_mirror_view(xyz);
 
-  // Set up our mesh.
+  // Set up state descriptor.
   Metadata myMetadata({Metadata::Independent, Metadata::WithFluxes, Metadata::Cell});
+  auto pgk = std::make_shared<StateDescriptor>("Pi");
+  pgk->AddField("in_or_out", myMetadata);
+
+  // Set up our mesh.
   BlockList_t block_list;
   block_list.reserve(n_mesh * n_mesh * n_mesh);
 
@@ -180,9 +184,7 @@ static BlockList_t setupMesh(const int &n_block, const int &n_mesh, const double
         h_xyz(1, idx) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5) - delta;
         h_xyz(2, idx) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5) - delta;
         // Add variable for in_or_out
-        auto &base = pmb->meshblock_data.Get();
-        base->SetBlockPointer(pmb);
-        base->Add("in_or_out", myMetadata);
+        pmb->meshblock_data.Get()->Initialize(pgk, pmb);
       }
     }
   }

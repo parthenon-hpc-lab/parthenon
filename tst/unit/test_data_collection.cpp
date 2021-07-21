@@ -35,19 +35,25 @@ using parthenon::MeshData;
 using parthenon::Metadata;
 using parthenon::par_for;
 using parthenon::Real;
+using parthenon::StateDescriptor;
 
 TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]") {
   GIVEN("An DataCollection with a base MeshBlockData with some variables") {
     DataCollection<MeshBlockData<Real>> d;
     auto pmb = std::make_shared<MeshBlock>();
-    auto &mbd = d.Get();
-    mbd->SetBlockPointer(pmb);
+
     std::vector<int> size(6, 1);
     Metadata m_ind({Metadata::Independent}, size);
     Metadata m_one({Metadata::OneCopy}, size);
-    mbd->Add("var1", m_ind);
-    mbd->Add("var2", m_one);
-    mbd->Add("var3", m_ind);
+
+    auto pgk = std::make_shared<StateDescriptor>("DataCollection test");
+    pgk->AddField("var1", m_ind);
+    pgk->AddField("var2", m_one);
+    pgk->AddField("var3", m_ind);
+
+    auto &mbd = d.Get();
+    mbd->Initialize(pgk, pmb);
+
     auto &v1 = mbd->Get("var1").data;
     auto &v2 = mbd->Get("var2").data;
     auto &v3 = mbd->Get("var3").data;

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -26,7 +26,7 @@ class ParameterInput;
 struct AMRCriteria {
   AMRCriteria() = default;
   virtual ~AMRCriteria() {}
-  virtual AmrTag operator()(const MeshBlockData<Real> *rc) = 0;
+  virtual AmrTag operator()(const MeshBlockData<Real> *rc) const = 0;
   std::string field;
   Real refine_criteria, derefine_criteria;
   int max_level;
@@ -36,7 +36,7 @@ struct AMRCriteria {
 
 struct AMRFirstDerivative : public AMRCriteria {
   AMRFirstDerivative(ParameterInput *pin, std::string &block_name);
-  AmrTag operator()(const MeshBlockData<Real> *rc);
+  AmrTag operator()(const MeshBlockData<Real> *rc) const override;
 };
 
 } // namespace parthenon

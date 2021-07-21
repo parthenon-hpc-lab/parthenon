@@ -13,6 +13,11 @@
 - [[PR 404]](https://github.com/lanl/parthenon/pull/404) Add capability to communicate particles across meshblocks/MPI processes
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 535]](https://github.com/lanl/parthenon/pull/535) Modify various interfaces connected with
+  variables, `StateDescriptor`, variable packing to support proper sparse variables. Replace
+  `SparseVariable` with `SparsePool`. Remove `MeshBlockDataIterator` and make
+  `MeshBlockData::GetVariablesBy[Name|Flag]` public instead. Remove public `MeshBlockData::Add`
+  interface and add `MeshBlockData::Initialize` instead.
 - [[PR 553]](https://github.com/lanl/parthenon/pull/553) Avoid use of variable named restrict
 - [[PR 476]](https://github.com/lanl/parthenon/pull/476) Update min. `CMake` version to 3.16 (matching `Kokkos`) and add option to compile with C++17 (`PARTHENON_ENABLE_CPP17` - default: off)
 - [[PR 532]](https://github.com/lanl/parthenon/pull/532) Remove obsolete `Properties_t`, they have been replaced by `Packages_t`
