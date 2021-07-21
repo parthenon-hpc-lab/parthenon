@@ -24,6 +24,7 @@
 
 #include "constants.hpp"
 #include "error_checking.hpp"
+#include "kokkos_abstraction.hpp"
 
 namespace parthenon {
 
