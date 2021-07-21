@@ -9,7 +9,16 @@ The `Metadata` class provides a means of defining self-describing variables with
 # StateDescriptor
 
 The `StateDescriptor` class is intended to be used to inform Parthenon about the needs of an application and store relevant parameters that control application-specific behavior at runtime.  The class provides several useful features and functions.
-* `bool AddField(const std::string& field_name, Metadata& m)` provides the means to add new variables to a Parthenon-based application with associated `Metadata`.  This function does not allocate any storage or create any of the objects below, it simply adds the name and `Metadata` to a list so that those objects can be populated at the appropriate time.
+* `bool AddField(const std::string& field_name, Metadata& m)` provides the means to add new
+  (dense) variables to a Parthenon-based application with associated `Metadata`.  This function does
+  not allocate any storage or create any of the objects below, it simply adds the name and
+  `Metadata` to a list so that those objects can be populated at the appropriate time.
+* `bool AddSparsePool(...)` either adds a given `SparsePool` or forwards the arguments to the
+  `SparsePool` constructor. A `SparsePool` is a collection of sparse variable fields that share the
+  same base name and `Metadata`, except that the shape, `Vector`/`Tensor` metadata flags, and
+  component names can be specified per sparse id. Currently, sparse variables are allocated on all
+  blocks just like dense variables, however, in a future upgrade, they will only be allocated on
+  those blocks where the user explicitly allocates them or non-zero values are advected into.
 * `void AddParam<T>(const std::string& key, T& value)` adds a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`.
 * `void UpdateParam<T>(const std::string& key, T& value)`updates a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`. A parameter of the same type must exist.
 * `const T& Param(const std::string& key)` provides the getter to access parameters previously added by `AddParam`.
@@ -79,12 +88,12 @@ This provides a light wrapper around `Kokkos::View` with some convenience featur
 
 The `CellVariable` class collects several associated objects that are needed to store, describe, and update simulation data.  `CellVariable` is templated on type `T` and includes the following member data (names preceded by `_` have private scope):
 
-| Member Data | Description |
-|-|-|
-| `ParArrayND<T> data` | Storage for the cell-centered associated with the object. |
-| `ParArrayND<T> flux[3]` | Storage for the face-centered intercell fluxes in each direction.<br>Only allocated for fields registered with the `Metadata::Independent` flag. |
-| `ParArrayND<T> coarse_s` | Storage for coarse buffers need for multilevel setups. |
-| `Metadata m_` | See [here](Metadata.md). |
+| Member Data              | Description                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ParArrayND<T> data`     | Storage for the cell-centered associated with the object.                                                                                        |
+| `ParArrayND<T> flux[3]`  | Storage for the face-centered intercell fluxes in each direction.<br>Only allocated for fields registered with the `Metadata::Independent` flag. |
+| `ParArrayND<T> coarse_s` | Storage for coarse buffers need for multilevel setups.                                                                                           |
+| `Metadata m_`            | See [here](Metadata.md).                                                                                                                         |
 
 Additionally, the class overloads the `()` operator to provide convenient access to the `data` array, though this may be less efficient than operating directly on `data` or a reference/copy of that array.
 
@@ -94,9 +103,27 @@ Finally, the `bool IsSet(const MetadataFlag bit)` member function provides a con
 
 # EdgeVariable (Work in progress...)
 
-# SparseVariable
+# Sparse fields
 
-The `SparseVariable` class is designed to support multi-component state where not all components may be present and therefore need to be stored.  At its core, the data is represented using a map that associates an integer ID to a `std::shared_ptr<CellVariable<T>>`.  Since all `CellVariable` entries are assumed to have identical `Metadata` flags, the class provides an `IsSet` member function identical to the `CellVariable` class that applies to all variables stored in the map.  The `Get` method takes an integer ID as input and returns a reference to the associated `CellVariable`, or throws a `std::invalid_argument` error if it does not exist.  The `GetVector` method returns a dense `std::vector`, eliminating the sparsity but also the association to particular IDs.  The `GetIndex` method provides the index in this vector associated with a given sparse ID, and returns -1 if the ID does not exist.
+Sparse fields can be added via the `StateDescriptor::AddSparsePool` function. A `SparsePool` is a
+collection of sparse fields that share a common base name and metadata (see details below), but each
+sparse ID produces a distinct `CellVariable`. For example, a `SparsePool` with base name `sparse`
+and sparse IDs `{3, 10, 11, 2097}` will produce four `CellVariable`s: `sparse_3`, `sparse_10`,
+`sparse_11`, and `sparse_2097`. These variables can be accessed either via their full name or the
+combination of base name and sparse ID. Furthermore, in a future upgrade, the sparse fields will not
+be allocated on all blocks but can be allocated only on specific blocks with a custom prescription
+on how to handle when they advect to neighboring blocks.
+
+All the sparse field of a `SparsePool` share the same metadata, except for the following, which can
+be specified individually for each sparse ID (but they don't have to be specified, if they are not
+given, they are copied from the shared metadata of the pool):
+- Shape
+- `Vector`/`Tensor` metadata flag (since that may be tied to shape)
+- Component labels (which is usually also tied to shape)
+
+In particular, the associated string is shared between all sparse IDs of the same pool, so if the
+metadata used to create the pool has associated "foo", then all the sparse IDs of that pool will
+have associated "foo".
 
 # MeshBlockData
 

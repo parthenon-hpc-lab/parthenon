@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,7 +18,6 @@
 #include <application_input.hpp>
 #include <basic_types.hpp>
 #include <coordinates/coordinates.hpp>
-#include <interface/meshblock_data_iterator.hpp>
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
 #include <interface/state_descriptor.hpp>
@@ -47,7 +46,6 @@ using ::parthenon::DevExecSpace;
 using ::parthenon::HostExecSpace;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
-using ::parthenon::MeshBlockDataIterator;
 using ::parthenon::MeshBlockPack;
 using ::parthenon::MeshBlockVarFluxPack;
 using ::parthenon::MeshBlockVarPack;

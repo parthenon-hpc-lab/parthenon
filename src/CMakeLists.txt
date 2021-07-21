@@ -129,7 +129,6 @@ add_library(parthenon
   interface/data_collection.cpp
   interface/data_collection.hpp
   interface/mesh_data.hpp
-  interface/meshblock_data_iterator.hpp
   interface/meshblock_data.cpp
   interface/meshblock_data.hpp
   interface/swarm_container.cpp
@@ -137,8 +136,8 @@ add_library(parthenon
   interface/metadata.cpp
   interface/metadata.hpp
   interface/params.hpp
-  interface/sparse_variable.cpp
-  interface/sparse_variable.hpp
+  interface/sparse_pool.cpp
+  interface/sparse_pool.hpp
   interface/state_descriptor.hpp
   interface/state_descriptor.cpp
   interface/update.cpp
