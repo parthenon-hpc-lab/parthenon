@@ -23,21 +23,21 @@
 # The scheduled run is run every morning at 4:00 am Mountain
 # Time and is responsible for ensuring that the performance metrics for
 # the develop branch are up to date. Up-to-date metrics are uploaded to the
-# wiki and can be found at the url:
+# Wiki and can be found at the url:
 # https://github.com/lanl/parthenon/wiki/develop_develop
 #
 # 2. Manual Run
 #
-# Manual runs can be triggered for any parthenon branch
+# Manual runs can be triggered for any Parthenon branch
 # on the re-git server here:
 # https://re-git.lanl.gov/eap-oss/parthenon/-/pipelines
 #
-# metrics for the branch are also uploaded to the wiki and appear here:
+# metrics for the branch are also uploaded to the Wiki and appear here:
 # https://github.com/lanl/parthenon/wiki/{current_branch}_{target_branch}
 #
 # where {current_branch} is the branch you are working on and {target_branch}
 # is the branch you are merging into. E.g. if you had a branch named 'test'
-# that you were merging into 'develop' a wiki page at:
+# that you were merging into 'develop' a Wiki page at:
 #
 # https://github.com/lanl/parthenon/wiki/test_develop
 #
