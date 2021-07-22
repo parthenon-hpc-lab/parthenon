@@ -281,9 +281,9 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
         COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/
         )
-      message(STATUS "  Download of gold standard successful.")
+      message(STATUS "  Download of gold standard successful. Now using version ${REGRESSION_GOLD_STANDARD_VER}")
     else()
-      message(STATUS "Gold standard is up-to-date. No download required.")
+      message(STATUS "Gold standard is up-to-date (version ${REGRESSION_GOLD_STANDARD_VER}). No download required.")
     endif()
 
 
