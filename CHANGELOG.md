@@ -54,6 +54,7 @@
 - [[PR 549]](https://github.com/lanl/parthenon/pull/549) Add deep-code badge.
 - [[PR 554]](https://github.com/lanl/parthenon/pull/554) Small fix to documentation related to python parthenon tools README
 - [[PR 555](https://github.com/lanl/parthenon/pull/555) Added documentation for darwin ci and scripts
+- [[PR 560]](https://github.com/lanl/parthenon/pull/560) Rename `png_files_to_upload` to more generic `figure_files_to_upload`
 
 ### Removed (removing behavior/API/varaibles/...)
 - [[PR 498]](https://github.com/lanl/parthenon/pull/498) Cleanup unused user hooks and variables
