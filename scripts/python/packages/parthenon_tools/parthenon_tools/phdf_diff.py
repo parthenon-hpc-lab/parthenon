@@ -168,6 +168,14 @@ def compare_attribute_group(f0, f1, name):
             print("\nValues of attributes in '%s' differ\n" % name)
             print("Differing attributes: ", diffs)
             got_diffs = True
+
+            print("\nFirst file:")
+            for k in diffs:
+              print('%20s: ' % k, group0[k])
+
+            print("\nSecond file:")
+            for k in diffs:
+              print('%20s: ' % k, group1[k])
         else:
             print("  %20s: no diffs" % name)
 
