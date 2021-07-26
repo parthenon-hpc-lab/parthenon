@@ -1020,6 +1020,13 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   do {
     int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
+    // init meshblock data
+    for (int i = 0; i < nmb; ++i) {
+      MeshBlock *pmb = block_list[i].get();
+      pmb->InitMeshBlockUserData(pmb, pin);
+    }
+
+    // problem generator
     if (init_problem) {
       for (int i = 0; i < nmb; ++i) {
         auto &pmb = block_list[i];

@@ -32,7 +32,6 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
-#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
@@ -102,8 +101,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   if (app_in->InitApplicationMeshBlockData != nullptr) {
     InitApplicationMeshBlockData = app_in->InitApplicationMeshBlockData;
   }
-  if (app_in->InitUserMeshBlockData != nullptr) {
-    InitUserMeshBlockData = app_in->InitUserMeshBlockData;
+  if (app_in->InitMeshBlockUserData != nullptr) {
+    InitMeshBlockUserData = app_in->InitMeshBlockUserData;
   }
   if (app_in->ProblemGenerator != nullptr) {
     ProblemGenerator = app_in->ProblemGenerator;
@@ -114,12 +113,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   if (app_in->UserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->UserWorkBeforeOutput;
   }
-
-  auto &real_container = meshblock_data.Get();
-  auto &swarm_container = swarm_data.Get();
-  // Set the block pointer for the containers
-  real_container->SetBlockPointer(shared_from_this());
-  swarm_container->SetBlockPointer(shared_from_this());
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
@@ -139,21 +132,20 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // Add physics data, including dense, sparse, and swarm variables.
   // Resolve issues.
+  // TODO(JL) This should probably be moved to Mesh and only done once per mesh init
   resolved_packages = ResolvePackages(packages);
-  auto &pkg = resolved_packages;
-  for (auto const &q : pkg->AllFields()) {
-    real_container->Add(q.first, q.second);
-  }
-  for (auto const &q : pkg->AllSparseFields()) {
-    for (auto const &p : q.second) {
-      real_container->Add(q.first, p.second);
-    }
-  }
-  for (auto const &q : pkg->AllSwarms()) {
+
+  auto &real_container = meshblock_data.Get();
+  auto &swarm_container = swarm_data.Get();
+
+  real_container->Initialize(resolved_packages, shared_from_this());
+
+  swarm_container->SetBlockPointer(shared_from_this());
+  for (auto const &q : resolved_packages->AllSwarms()) {
     swarm_container->Add(q.first, q.second);
     // Populate swarm values
     auto &swarm = swarm_container->Get(q.first);
-    for (auto const &m : pkg->AllSwarmValues(q.first)) {
+    for (auto const &m : resolved_packages->AllSwarmValues(q.first)) {
       swarm->Add(m.first, m.second);
     }
   }
@@ -171,26 +163,25 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // removed, which can happen after dense-on-block for sparse
   // variables is in place and after we write "prolongate-in-one,"
   // this should be only for `Metadata::Independent`.
-  MeshBlockDataIterator<Real> ci(real_container,
-                                 {Metadata::Independent, Metadata::FillGhost}, true);
-  int nindependent = ci.vars.size();
-  for (int n = 0; n < nindependent; n++) {
-    // These are used for approximating number of vars registered for refinement
-    // for the purposes of computing load balancing work
-    RegisterMeshBlockData(ci.vars[n]);
+  const auto vars =
+      real_container
+          ->GetVariablesByFlag({Metadata::Independent, Metadata::FillGhost}, false)
+          .vars();
+  for (int n = 0; n < vars.size(); n++) {
+    RegisterMeshBlockData(vars[n]);
   }
 
   if (pm->multilevel) {
     pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
-    for (int n = 0; n < nindependent; n++) {
+    for (int n = 0; n < vars.size(); n++) {
       // These are used for doing refinement
-      pmr->AddToRefinement(ci.vars[n]->data, ci.vars[n]->coarse_s);
+      pmr->AddToRefinement(vars[n]->data, vars[n]->coarse_s);
     }
   }
 
   // Create user mesh data
-  // InitUserMeshBlockData(pin);
+  // InitMeshBlockUserData(pin);
   app = InitApplicationMeshBlockData(this, pin);
   return;
 }
