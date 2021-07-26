@@ -36,8 +36,8 @@ namespace Update {
 
 // Calculate the flux divergence for a specific component l of a variable v
 KOKKOS_FORCEINLINE_FUNCTION
-Real FluxDiv_(const int l, const int k, const int j, const int i, const int ndim,
-              const Coordinates_t &coords, const VariableFluxPack<Real> &v) {
+Real FluxDivHelper(const int l, const int k, const int j, const int i, const int ndim,
+                   const Coordinates_t &coords, const VariableFluxPack<Real> &v) {
   Real du = (coords.Area(X1DIR, k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
              coords.Area(X1DIR, k, j, i) * v.flux(X1DIR, l, k, j, i));
   if (ndim >= 2) {
