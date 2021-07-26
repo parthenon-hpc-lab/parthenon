@@ -39,6 +39,7 @@ def Usage():
                         don't print any extraneous info.
              --tol=eps: set tolerance to eps.  Default 1.0e-12
       -ignore_metadata: Ignore differences in metadata
+   -incl_file_metadata: Include file metadata in comparison (default is off)
              -relative: Compare relative differences using the
                         first file as the reference. Ignores
                         points where the first file is zero
@@ -91,6 +92,12 @@ def processArgs():
         "-ignore_metadata",
         action="store_true",
         help="Ignore differences in metadata.",
+    )
+    parser.add_argument(
+        "-f",
+        "-incl_file_metadata",
+        action="store_true",
+        help="Include file metadata in comparison.",
     )
     parser.add_argument(
         "-r", "-relative", action="store_true", help="Compare relative differences."
@@ -182,7 +189,7 @@ def compare_attribute_group(f0, f1, name):
     return got_diffs
 
 
-def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
+def compare_metadata(f0, f1, quiet=False, one=False, include_file_metadata=False, tol=1.0e-12):
     """compares metadata of two hdf files f0 and f1. Returns 0 if the files are equivalent.
 
     Error codes:
@@ -238,10 +245,11 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
     else:
         print("  %20s: no diffs" % "Info")
 
-    if compare_attribute_group(f0, f1, "Input"):
-        ret_code = ERROR_INPUT_DIFF
-        if one:
-            return ret_code
+    if include_file_metadata:
+        if compare_attribute_group(f0, f1, "Input"):
+            ret_code = ERROR_INPUT_DIFF
+            if one:
+                return ret_code
 
     if compare_attribute_group(f0, f1, "Params"):
         ret_code = ERROR_PARAMS_DIFF
@@ -334,6 +342,7 @@ def compare(
     one=False,
     tol=1.0e-12,
     check_metadata=True,
+    include_file_metadata=False,
     relative=False,
 ):
     """compares two hdf files. Returns 0 if the files are equivalent.
@@ -415,7 +424,7 @@ def compare(
     if check_metadata:
         if not quiet:
             print("Checking metadata")
-        metadata_status = compare_metadata(f0, f1, quiet, one)
+        metadata_status = compare_metadata(f0, f1, quiet, one, include_file_metadata)
         if metadata_status != 0:
             if one:
                 return metadata_status
@@ -555,6 +564,7 @@ if __name__ == "__main__":
     quiet = input.q
     one = input.o
     ignore_metadata = input.i
+    include_file_metadata = input.f
     relative = input.r
 
     check_metadata = not ignore_metadata
@@ -575,5 +585,5 @@ if __name__ == "__main__":
         Usage()
         sys.exit(1)
 
-    ret = compare(files, all, brief, quiet, one, tol, check_metadata, relative)
+    ret = compare(files, all, brief, quiet, one, tol, check_metadata, include_file_metadata, relative)
     sys.exit(ret)
