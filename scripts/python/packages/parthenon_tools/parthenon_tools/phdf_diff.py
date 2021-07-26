@@ -178,18 +178,20 @@ def compare_attribute_group(f0, f1, name):
 
             print("\nFirst file:")
             for k in diffs:
-              print('%20s: ' % k, group0[k])
+                print("%20s: " % k, group0[k])
 
             print("\nSecond file:")
             for k in diffs:
-              print('%20s: ' % k, group1[k])
+                print("%20s: " % k, group1[k])
         else:
             print("  %20s: no diffs" % name)
 
     return got_diffs
 
 
-def compare_metadata(f0, f1, quiet=False, one=False, include_file_metadata=False, tol=1.0e-12):
+def compare_metadata(
+    f0, f1, quiet=False, one=False, include_file_metadata=False, tol=1.0e-12
+):
     """compares metadata of two hdf files f0 and f1. Returns 0 if the files are equivalent.
 
     Error codes:
@@ -585,5 +587,15 @@ if __name__ == "__main__":
         Usage()
         sys.exit(1)
 
-    ret = compare(files, all, brief, quiet, one, tol, check_metadata, include_file_metadata, relative)
+    ret = compare(
+        files,
+        all,
+        brief,
+        quiet,
+        one,
+        tol,
+        check_metadata,
+        include_file_metadata,
+        relative,
+    )
     sys.exit(ret)
