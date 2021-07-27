@@ -183,9 +183,7 @@ def compare_attribute_group(f0, f1, name):
     return got_diffs
 
 
-def compare_metadata(
-    f0, f1, quiet=False, one=False, check_input=False, tol=1.0e-12
-):
+def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e-12):
     """compares metadata of two hdf files f0 and f1. Returns 0 if the files are equivalent.
 
     Error codes:
