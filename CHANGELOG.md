@@ -41,6 +41,7 @@
 - [[PR 531]](https://github.com/lanl/parthenon/pull/531) Work around in parthenon_hdf5.cpp for GCC 7.3.0
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 575]](https://github.com/lanl/parthenon/pull/575) Make file comparison more verbose, don't check File metadata
 - [[PR 502]](https://github.com/lanl/parthenon/pull/502) Use subviews of a single view for fluxes
 - [[PR 505]](https://github.com/lanl/parthenon/pull/505) Can also use buffer-pack-in-one function also in `Mesh::Initialize` (and thus during load balancing/mesh refinement). Breaks sparse variables with FillGhost. Enable with `PARTHENON_ENABLE_INIT_PACKING=ON` (default OFF).
 - [[PR 493]](https://github.com/lanl/parthenon/pull/493) Use subviews of a single view for comm buffers
