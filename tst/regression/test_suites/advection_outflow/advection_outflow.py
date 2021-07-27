@@ -48,8 +48,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "outflow.out0.00001.phdf",
                 parameters.parthenon_path
                 + "/tst/regression/gold_standard/outflow.out0.00001.phdf",
-            ],
-            all=True,
+            ]
         )
 
         return delta == 0

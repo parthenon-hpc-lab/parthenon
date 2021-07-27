@@ -29,17 +29,15 @@ def Usage():
     print(
         """
 
-    Usage: %s [-quiet] [-brief] [-all] [-one] [--tol=eps] [-ignore_metadata] file1.phdf file2.phdf
+    Usage: %s [-quiet] [-brief] [-one] [--tol=eps] [-ignore_metadata] [-check_input] file1.phdf file2.phdf
 
-                  -all: report all diffs at all positions
                   -one: Quit after first different variable
                 -brief: Only report if files are different
-                        Overrides --all
                 -quiet: Only report if files are different and
                         don't print any extraneous info.
              --tol=eps: set tolerance to eps.  Default 1.0e-12
       -ignore_metadata: Ignore differences in metadata
-   -incl_file_metadata: Include file metadata in comparison (default is off)
+          -check_input: Include the Input metadata in comparison (default is off)
              -relative: Compare relative differences using the
                         first file as the reference. Ignores
                         points where the first file is zero
@@ -61,13 +59,10 @@ def processArgs():
     """
     )
     parser.add_argument(
-        "-a", "-all", action="store_true", help="report all diffs at all positions"
-    )
-    parser.add_argument(
         "-t",
         "--tol",
         action="store",
-        help="Sets tolerance for comparisons.  Default 1e-12",
+        help="Sets tolerance for comparisons. Default 1e-12",
     )
     parser.add_argument(
         "-o",
@@ -79,13 +74,13 @@ def processArgs():
         "-b",
         "-brief",
         action="store_true",
-        help="Only report if files are different.  Overrides -all",
+        help="Only report if files are different.",
     )
     parser.add_argument(
         "-q",
         "-quiet",
         action="store_true",
-        help="Only report if files are different.  No other output. Overrides -all",
+        help="Only report if files are different. No other output.",
     )
     parser.add_argument(
         "-i",
@@ -94,10 +89,9 @@ def processArgs():
         help="Ignore differences in metadata.",
     )
     parser.add_argument(
-        "-f",
-        "-incl_file_metadata",
+        "-check_input",
         action="store_true",
-        help="Include file metadata in comparison.",
+        help="Include the Input metadata in comparison.",
     )
     parser.add_argument(
         "-r", "-relative", action="store_true", help="Compare relative differences."
@@ -190,7 +184,7 @@ def compare_attribute_group(f0, f1, name):
 
 
 def compare_metadata(
-    f0, f1, quiet=False, one=False, include_file_metadata=False, tol=1.0e-12
+    f0, f1, quiet=False, one=False, check_input=False, tol=1.0e-12
 ):
     """compares metadata of two hdf files f0 and f1. Returns 0 if the files are equivalent.
 
@@ -247,7 +241,7 @@ def compare_metadata(
     else:
         print("  %20s: no diffs" % "Info")
 
-    if include_file_metadata:
+    if check_input:
         if compare_attribute_group(f0, f1, "Input"):
             ret_code = ERROR_INPUT_DIFF
             if one:
@@ -338,13 +332,12 @@ def compare_metadata(
 
 def compare(
     files,
-    all=False,
     brief=False,
     quiet=False,
     one=False,
     tol=1.0e-12,
     check_metadata=True,
-    include_file_metadata=False,
+    check_input=False,
     relative=False,
 ):
     """compares two hdf files. Returns 0 if the files are equivalent.
@@ -426,7 +419,7 @@ def compare(
     if check_metadata:
         if not quiet:
             print("Checking metadata")
-        metadata_status = compare_metadata(f0, f1, quiet, one, include_file_metadata)
+        metadata_status = compare_metadata(f0, f1, quiet, one, check_input)
         if metadata_status != 0:
             if one:
                 return metadata_status
@@ -566,16 +559,9 @@ if __name__ == "__main__":
     quiet = input.q
     one = input.o
     ignore_metadata = input.i
-    include_file_metadata = input.f
+    check_input = input.check_input
     relative = input.r
-
     check_metadata = not ignore_metadata
-
-    # set all only if brief not set
-    if brief or quiet:
-        all = False
-    else:
-        all = input.a
     files = input.files
 
     if input.tol is not None:
@@ -589,13 +575,12 @@ if __name__ == "__main__":
 
     ret = compare(
         files,
-        all,
         brief,
         quiet,
         one,
         tol,
         check_metadata,
-        include_file_metadata,
+        check_input,
         relative,
     )
     sys.exit(ret)

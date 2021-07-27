@@ -99,16 +99,14 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "advection_2d.out0.00001.phdf",
                 parameters.parthenon_path
                 + "/tst/regression/gold_standard/advection_2d.out0.00001.phdf",
-            ],
-            all=True,
+            ]
         )
         ret_3d = phdf_diff.compare(
             [
                 "advection_3d.out0.00001.phdf",
                 parameters.parthenon_path
                 + "/tst/regression/gold_standard/advection_3d.out0.00001.phdf",
-            ],
-            all=True,
+            ]
         )
 
         if ret_2d != 0 or ret_3d != 0:
