@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 577]](https://github.com/lanl/parthenon/pull/577) Update invalid indices to allow for no-op loops
 - [[PR 564]](https://github.com/lanl/parthenon/pull/564) Add EstimateTimestep to particles example task list
 - [[PR 557]](https://github.com/lanl/parthenon/pull/557) Re-enable `InitMeshBlockUserData` so data can be set per-remeshing
 - [[PR 509]](https://github.com/lanl/parthenon/pull/509) Add `elapsed_main`, `elapsed_cycle`, and `elapsed_LBandAMR` functions to `Driver` as static functions to enable access to timing information in output and restart files.
