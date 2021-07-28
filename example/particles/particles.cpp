@@ -109,6 +109,8 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 // first some helper tasks
 
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
+  Kokkos::Profiling::pushRegion("Task_Particles_DestroySomeParticles");
+
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -133,10 +135,13 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   // Remove marked particles
   swarm->RemoveMarkedParticles();
 
+  Kokkos::Profiling::popRegion(); // Task_Particles_DestroySomeParticles
   return TaskStatus::complete;
 }
 
 TaskStatus DepositParticles(MeshBlock *pmb) {
+  Kokkos::Profiling::pushRegion("Task_Particles_DepositParticles");
+
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   // Meshblock geometry
@@ -186,10 +191,13 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
         }
       });
 
+  Kokkos::Profiling::popRegion(); // Task_Particles_DepositParticles
   return TaskStatus::complete;
 }
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
+  Kokkos::Profiling::pushRegion("Task_Particles_CreateSomeParticles");
+
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -297,11 +305,14 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
         });
   }
 
+  Kokkos::Profiling::popRegion(); // Task_Particles_CreateSomeParticles
   return TaskStatus::complete;
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator,
                               const double t0) {
+  Kokkos::Profiling::pushRegion("Task_Particles_TransportParticles");
+
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto pkg = pmb->packages.Get("particles_package");
   const auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
@@ -417,10 +428,13 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
         });
   }
 
+  Kokkos::Profiling::popRegion(); // Task_Particles_TransportParticles
   return TaskStatus::complete;
 }
 
 TaskStatus Defrag(MeshBlock *pmb) {
+  Kokkos::Profiling::pushRegion("Task_Particles_Defrag");
+
   auto s = pmb->swarm_data.Get()->Get("my particles");
 
   // Only do this if list is getting too sparse. This criterion (whether there
@@ -429,6 +443,7 @@ TaskStatus Defrag(MeshBlock *pmb) {
     s->Defrag();
   }
 
+  Kokkos::Profiling::popRegion(); // Task_Particles_Defrag
   return TaskStatus::complete;
 }
 
@@ -470,6 +485,8 @@ TaskListStatus ParticleDriver::Step() {
 // TODO(BRR) This should really be in parthenon/src... but it can't just live in Swarm
 // because of the loop over blocks
 TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
+  Kokkos::Profiling::pushRegion("Task_Particles_StopCommunicationMesh");
+
   int num_sent_local = 0;
   for (auto &block : blocks) {
     auto sc = block->swarm_data.Get();
@@ -522,6 +539,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     }
   }
 
+  Kokkos::Profiling::popRegion(); // Task_Particles_StopCommunicationMesh
   return TaskStatus::complete;
 }
 
