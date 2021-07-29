@@ -89,7 +89,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
     vars.push_back("sparse_" + std::to_string(var));
   }
   // type is parthenon::VariablePack<CellVariable<Real>>
-  auto v = rc->PackVariables(vars).pack;
+  const auto &v = rc->PackVariables(vars);
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -167,8 +167,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const auto &vy = pkg->Param<RealArr_t>("vy");
   const auto &vz = pkg->Param<RealArr_t>("vz");
 
-  auto v =
-      rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes}).pack;
+  const auto &v =
+      rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes});
 
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
