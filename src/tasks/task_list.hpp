@@ -15,7 +15,6 @@
 #define TASKS_TASK_LIST_HPP_
 
 #include <bitset>
-#include <chrono>
 #include <iostream>
 #include <limits>
 #include <list>
@@ -27,10 +26,8 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-using namespace std::chrono;
 
 #include "basic_types.hpp"
-#include "globals.hpp"
 #include "task_id.hpp"
 #include "task_types.hpp"
 #include "utils/error_checking.hpp"
