@@ -80,16 +80,14 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto send =
         solver.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
 
-    auto recv = solver.AddTask(
-        update | start_recv, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
+    auto recv = solver.AddTask(start_recv, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
 
-    auto setb = solver.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, md);
+    auto setb = solver.AddTask(recv | update, parthenon::cell_centered_bvars::SetBoundaries, md);
 
-    auto clear = solver.AddTask(send | recv | setb, &MeshData<Real>::ClearBoundary,
+    auto clear = solver.AddTask(send | setb, &MeshData<Real>::ClearBoundary,
                                 md.get(), BoundaryCommSubset::all);
 
-    auto check = solver.SetCompletionTask(
-        start_recv | update | send | recv | setb | clear,
+    auto check = solver.SetCompletionTask(update | clear,
         poisson_package::CheckConvergence<MeshData<Real>>, md.get(), mdelta.get());
     solver_region.AddRegionalDependencies(0, i, check);
   }
