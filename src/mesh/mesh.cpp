@@ -270,14 +270,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   tree.CreateRootGrid();
 
   // Load balancing flag and parameters
-#ifdef MPI_PARALLEL
   if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "automatic")
     lb_automatic_ = true;
   else if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "manual")
     lb_manual_ = true;
   lb_tolerance_ = pin->GetOrAddReal("loadbalancing", "tolerance", 0.5);
   lb_interval_ = pin->GetOrAddReal("loadbalancing", "interval", 10);
-#endif
 
   // SMR / AMR:
   if (adaptive) {
@@ -1020,6 +1018,13 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   do {
     int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
+    // init meshblock data
+    for (int i = 0; i < nmb; ++i) {
+      MeshBlock *pmb = block_list[i].get();
+      pmb->InitMeshBlockUserData(pmb, pin);
+    }
+
+    // problem generator
     if (init_problem) {
       for (int i = 0; i < nmb; ++i) {
         auto &pmb = block_list[i];

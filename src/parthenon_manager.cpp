@@ -21,7 +21,6 @@
 
 #include "driver/driver.hpp"
 #include "globals.hpp"
-#include "interface/meshblock_data_iterator.hpp"
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
@@ -214,20 +213,21 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // TODO(JL) this won't work when reading true sparse variables, will be updated in PR
   // #383
-
-  auto ciX = MeshBlockDataIterator<Real>(
-      mb.meshblock_data.Get(),
-      {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+  const auto indep_restart_vars =
+      mb.meshblock_data.Get()
+          ->GetVariablesByFlag(
+              {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, false)
+          .vars();
 
   // Allocate space based on largest vector
   size_t vlen = 1;
-  for (auto &v : ciX.vars) {
+  for (auto &v : indep_restart_vars) {
     if (v->GetDim(4) > vlen) {
       vlen = v->GetDim(4);
     }
   }
   std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * vlen);
-  for (auto &v : ciX.vars) {
+  for (auto &v : indep_restart_vars) {
     const size_t v4 = v->GetDim(4);
     const std::string vName = v->label();
 
@@ -242,10 +242,12 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     size_t index = 0;
     for (auto &pmb : rm.block_list) {
       bool found = false;
-      auto cX = MeshBlockDataIterator<Real>(
-          pmb->meshblock_data.Get(),
-          {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
-      for (auto &v : cX.vars) {
+      const auto this_indep_restart_vars =
+          pmb->meshblock_data.Get()
+              ->GetVariablesByFlag(
+                  {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, false)
+              .vars();
+      for (auto &v : this_indep_restart_vars) {
         if (vName.compare(v->label()) == 0) {
           auto v_h = v->data.GetHostMirror();
 

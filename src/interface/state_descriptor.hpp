@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,12 +19,15 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
+#include "interface/sparse_pool.hpp"
 #include "interface/swarm.hpp"
+#include "interface/variable.hpp"
 #include "refinement/amr_criteria.hpp"
 #include "utils/error_checking.hpp"
 
@@ -35,6 +38,50 @@ template <typename T>
 class MeshBlockData;
 template <typename T>
 class MeshData;
+
+class StateDescriptor; // forward declaration
+
+class Packages_t {
+ public:
+  Packages_t() = default;
+  void Add(const std::shared_ptr<StateDescriptor> &package);
+
+  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
+    return packages_.at(name);
+  }
+
+  const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
+    return packages_;
+  }
+
+ private:
+  Dictionary<std::shared_ptr<StateDescriptor>> packages_;
+};
+
+/// We uniquely identify a variable by it's full label, i.e. base name plus sparse ID.
+/// However, sometimes we also need to be able to separate the base name from the sparse
+/// ID. Instead of relying on the fact that they are separated by a "_", we store them
+/// separately in VarID struct. This way we know that a dense variable "foo_3" does not
+/// have a sparse ID and a sparse field "foo_3" has base name "foo" and sparse ID 3,
+/// however, the two VarIDs representing them are still considered equal, so that we find
+/// such duplicates
+struct VarID {
+  std::string base_name;
+  int sparse_id;
+
+  explicit VarID(const std::string base_name, int sparse_id = InvalidSparseID)
+      : base_name(base_name), sparse_id(sparse_id) {}
+
+  std::string label() const { return MakeVarLabel(base_name, sparse_id); }
+
+  bool operator==(const VarID &other) const { return (label() == other.label()); }
+};
+
+struct VarIDHasher {
+  auto operator()(const VarID &vid) const {
+    return std::hash<std::string>{}(vid.label());
+  }
+};
 
 /// The state metadata descriptor class.
 ///
@@ -47,6 +94,9 @@ class StateDescriptor {
 
   // Preferred constructor
   explicit StateDescriptor(std::string const &label) : label_(label) {}
+
+  static std::shared_ptr<StateDescriptor>
+  CreateResolvedStateDescriptor(Packages_t &packages);
 
   template <typename T>
   void AddParam(const std::string &key, T value) {
@@ -74,10 +124,10 @@ class StateDescriptor {
     return params_.GetType(key);
   }
 
-  Params &AllParams() { return params_; }
+  Params &AllParams() noexcept { return params_; }
 
   // retrieve label
-  const std::string &label() const { return label_; }
+  const std::string &label() const noexcept { return label_; }
 
   bool AddSwarm(const std::string &swarm_name, const Metadata &m) {
     if (swarmMetadataMap_.count(swarm_name) > 0) {
@@ -92,24 +142,47 @@ class StateDescriptor {
                      const Metadata &m);
 
   // field addition / retrieval routines
-  // add a field with associated metadata
-  bool AddField(const std::string &field_name, const Metadata &m);
+ private:
+  // internal function to add dense/sparse fields. Private because outside classes must
+  // use the public interface below
+  bool AddFieldImpl(const VarID &vid, const Metadata &m);
+
+  // add a sparse pool
+  bool AddSparsePoolImpl(const SparsePool &pool);
+
+ public:
+  bool AddField(const std::string &field_name, const Metadata &m) {
+    if (m.IsSet(Metadata::Sparse)) {
+      PARTHENON_THROW(
+          "Tried to add a sparse field with AddField, use AddSparsePool instead");
+    }
+
+    return AddFieldImpl(VarID(field_name), m);
+  }
+
+  // add sparse pool, all arguments will be forwarded to the SparsePool constructor, so
+  // one can pass in a reference to a SparsePool or arguments that match one of the
+  // SparsePool constructors
+  template <typename... Args>
+  bool AddSparsePool(Args &&... args) {
+    return AddSparsePoolImpl(SparsePool(std::forward<Args>(args)...));
+  }
 
   // retrieve number of fields
-  int size() const { return metadataMap_.size(); }
+  int size() const noexcept { return metadataMap_.size(); }
 
   // retrieve all field names
-  std::vector<std::string> Fields() {
+  std::vector<std::string> Fields() noexcept {
     std::vector<std::string> names;
     names.reserve(metadataMap_.size());
     for (auto &x : metadataMap_) {
-      names.push_back(x.first);
+      names.push_back(x.first.label());
     }
     return names;
   }
 
   // retrieve all swarm names
-  std::vector<std::string> Swarms() {
+  std::vector<std::string> Swarms() noexcept {
     std::vector<std::string> names;
     names.reserve(swarmMetadataMap_.size());
     for (auto &x : swarmMetadataMap_) {
@@ -118,51 +191,50 @@ class StateDescriptor {
     return names;
   }
 
-  const Dictionary<Metadata> &AllFields() const { return metadataMap_; }
-  const Dictionary<std::unordered_map<int, Metadata>> &AllSparseFields() const {
-    return sparseMetadataMap_;
-  }
-  const Dictionary<Metadata> &AllSwarms() const { return swarmMetadataMap_; }
-  const Dictionary<Metadata> &AllSwarmValues(const std::string &swarm_name) const {
+  const auto &AllFields() const noexcept { return metadataMap_; }
+  const auto &AllSparsePools() const noexcept { return sparsePoolMap_; }
+  const auto &AllSwarms() const noexcept { return swarmMetadataMap_; }
+  const auto &AllSwarmValues(const std::string &swarm_name) const noexcept {
     return swarmValueMetadataMap_.at(swarm_name);
   }
-  bool FieldPresent(const std::string &field_name) const {
-    return metadataMap_.count(field_name) > 0;
+  bool FieldPresent(const std::string &base_name, int sparse_id = InvalidSparseID) const
+      noexcept {
+    return metadataMap_.count(VarID(base_name, sparse_id)) > 0;
   }
-  bool SparsePresent(const std::string &field_name) const {
-    return sparseMetadataMap_.count(field_name) > 0;
+  bool SparseBaseNamePresent(const std::string &base_name) const noexcept {
+    return sparsePoolMap_.count(base_name) > 0;
   }
-  bool SparsePresent(const std::string &field_name, int i) const {
-    if (sparseMetadataMap_.count(field_name) > 0) {
-      return sparseMetadataMap_.at(field_name).count(i) > 0;
-    }
-    return false;
-  }
-  bool SwarmPresent(const std::string &swarm_name) const {
+  bool SwarmPresent(const std::string &swarm_name) const noexcept {
     return swarmMetadataMap_.count(swarm_name) > 0;
   }
   bool SwarmValuePresent(const std::string &value_name,
-                         const std::string &swarm_name) const {
+                         const std::string &swarm_name) const noexcept {
     if (!SwarmPresent(swarm_name)) return false;
     return swarmValueMetadataMap_.at(swarm_name).count(value_name) > 0;
   }
 
   // retrieve metadata for a specific field
-  Metadata &FieldMetadata(const std::string &field_name) {
-    return metadataMap_[field_name];
+  const Metadata &FieldMetadata(const std::string &base_name,
+                                int sparse_id = InvalidSparseID) const {
+    const auto itr = metadataMap_.find(VarID(base_name, sparse_id));
+    PARTHENON_REQUIRE_THROWS(itr != metadataMap_.end(),
+                             "FieldMetadata: Non-existent field: " +
+                                 MakeVarLabel(base_name, sparse_id));
+    return itr->second;
   }
 
-  Metadata &FieldMetadata(const std::string &field_name, int i) {
-    return sparseMetadataMap_[field_name][i];
+  const auto &GetSparsePool(const std::string &base_name) const noexcept {
+    const auto itr = sparsePoolMap_.find(base_name);
+    PARTHENON_REQUIRE_THROWS(itr != sparsePoolMap_.end(),
+                             "GetSparsePool: Non-existent sparse pool: " + base_name);
+    return itr->second;
   }
 
   // retrieve metadata for a specific swarm
-  Metadata &SwarmMetadata(const std::string &swarm_name) {
+  Metadata &SwarmMetadata(const std::string &swarm_name) noexcept {
+    // TODO(JL) Do we want to add a default metadata for a non-existent swarm_name?
     return swarmMetadataMap_[swarm_name];
   }
-
-  // get all metadata for this physics
-  const Dictionary<Metadata> &AllMetadata() { return metadataMap_; }
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 
@@ -231,34 +303,19 @@ class StateDescriptor {
   Params params_;
   const std::string label_;
 
-  Dictionary<Metadata> metadataMap_;
-  Dictionary<std::unordered_map<int, Metadata>> sparseMetadataMap_;
+  // for each variable label (full label for sparse variables) hold metadata
+  std::unordered_map<VarID, Metadata, VarIDHasher> metadataMap_;
+
+  // for each sparse base name hold its sparse pool
+  Dictionary<SparsePool> sparsePoolMap_;
+
   Dictionary<Metadata> swarmMetadataMap_;
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 };
 
-class Packages_t {
- public:
-  Packages_t() = default;
-  void Add(const std::shared_ptr<StateDescriptor> &package) {
-    const auto &name = package->label();
-    PARTHENON_REQUIRE_THROWS(packages_.count(name) == 0,
-                             "Package name " + name + " must be unique.");
-    packages_[name] = package;
-    return;
-  }
-  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
-    return packages_.at(name);
-  }
-  const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
-    return packages_;
-  }
-
- private:
-  Dictionary<std::shared_ptr<StateDescriptor>> packages_;
-};
-
-std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages);
+inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
+  return StateDescriptor::CreateResolvedStateDescriptor(packages);
+}
 
 } // namespace parthenon
 

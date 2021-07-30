@@ -29,16 +29,15 @@ def Usage():
     print(
         """
 
-    Usage: %s [-quiet] [-brief] [-all] [-one] [--tol=eps] [-ignore_metadata] file1.phdf file2.phdf
+    Usage: %s [-quiet] [-brief] [-one] [--tol=eps] [-ignore_metadata] [-check_input] file1.phdf file2.phdf
 
-                  -all: report all diffs at all positions
                   -one: Quit after first different variable
                 -brief: Only report if files are different
-                        Overrides --all
                 -quiet: Only report if files are different and
                         don't print any extraneous info.
              --tol=eps: set tolerance to eps.  Default 1.0e-12
       -ignore_metadata: Ignore differences in metadata
+          -check_input: Include the Input metadata in comparison (default is off)
              -relative: Compare relative differences using the
                         first file as the reference. Ignores
                         points where the first file is zero
@@ -60,13 +59,10 @@ def processArgs():
     """
     )
     parser.add_argument(
-        "-a", "-all", action="store_true", help="report all diffs at all positions"
-    )
-    parser.add_argument(
         "-t",
         "--tol",
         action="store",
-        help="Sets tolerance for comparisons.  Default 1e-12",
+        help="Sets tolerance for comparisons. Default 1e-12",
     )
     parser.add_argument(
         "-o",
@@ -78,19 +74,24 @@ def processArgs():
         "-b",
         "-brief",
         action="store_true",
-        help="Only report if files are different.  Overrides -all",
+        help="Only report if files are different.",
     )
     parser.add_argument(
         "-q",
         "-quiet",
         action="store_true",
-        help="Only report if files are different.  No other output. Overrides -all",
+        help="Only report if files are different. No other output.",
     )
     parser.add_argument(
         "-i",
         "-ignore_metadata",
         action="store_true",
         help="Ignore differences in metadata.",
+    )
+    parser.add_argument(
+        "-check_input",
+        action="store_true",
+        help="Include the Input metadata in comparison.",
     )
     parser.add_argument(
         "-r", "-relative", action="store_true", help="Compare relative differences."
@@ -168,11 +169,21 @@ def compare_attribute_group(f0, f1, name):
             print("\nValues of attributes in '%s' differ\n" % name)
             print("Differing attributes: ", diffs)
             got_diffs = True
+
+            print("\nFirst file:")
+            for k in diffs:
+                print("%20s: " % k, group0[k])
+
+            print("\nSecond file:")
+            for k in diffs:
+                print("%20s: " % k, group1[k])
         else:
             print("  %20s: no diffs" % name)
 
+    return got_diffs
 
-def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
+
+def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e-12):
     """compares metadata of two hdf files f0 and f1. Returns 0 if the files are equivalent.
 
     Error codes:
@@ -228,10 +239,11 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
     else:
         print("  %20s: no diffs" % "Info")
 
-    if compare_attribute_group(f0, f1, "Input"):
-        ret_code = ERROR_INPUT_DIFF
-        if one:
-            return ret_code
+    if check_input:
+        if compare_attribute_group(f0, f1, "Input"):
+            ret_code = ERROR_INPUT_DIFF
+            if one:
+                return ret_code
 
     if compare_attribute_group(f0, f1, "Params"):
         ret_code = ERROR_PARAMS_DIFF
@@ -289,7 +301,7 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
                         print("")
                 else:
                     print("  %18s/%s: no diffs" % (var, key))
-        if var in ["LogicalLocations", "Levels"]:
+        if var in ["LogicalLocations", "Levels", "SparseInfo"]:
             # Compare raw data of these variables
             val0 = np.array(f0.fid[var])
             val1 = np.array(f1.fid[var])
@@ -318,12 +330,12 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
 
 def compare(
     files,
-    all=False,
-    brief=True,
+    brief=False,
     quiet=False,
     one=False,
     tol=1.0e-12,
     check_metadata=True,
+    check_input=False,
     relative=False,
 ):
     """compares two hdf files. Returns 0 if the files are equivalent.
@@ -405,7 +417,7 @@ def compare(
     if check_metadata:
         if not quiet:
             print("Checking metadata")
-        metadata_status = compare_metadata(f0, f1, quiet, one)
+        metadata_status = compare_metadata(f0, f1, quiet, one, check_input)
         if metadata_status != 0:
             if one:
                 return metadata_status
@@ -545,15 +557,9 @@ if __name__ == "__main__":
     quiet = input.q
     one = input.o
     ignore_metadata = input.i
+    check_input = input.check_input
     relative = input.r
-
     check_metadata = not ignore_metadata
-
-    # set all only if brief not set
-    if brief or quiet:
-        all = False
-    else:
-        all = input.a
     files = input.files
 
     if input.tol is not None:
@@ -565,5 +571,14 @@ if __name__ == "__main__":
         Usage()
         sys.exit(1)
 
-    ret = compare(files, all, brief, quiet, one, tol, check_metadata, relative)
+    ret = compare(
+        files,
+        brief,
+        quiet,
+        one,
+        tol,
+        check_metadata,
+        check_input,
+        relative,
+    )
     sys.exit(ret)
