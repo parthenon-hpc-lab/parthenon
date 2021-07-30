@@ -15,6 +15,7 @@
 #define TASKS_TASK_LIST_HPP_
 
 #include <bitset>
+#include <chrono>
 #include <iostream>
 #include <limits>
 #include <list>
@@ -26,7 +27,6 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-#include <chrono>
 using namespace std::chrono;
 
 #include "basic_types.hpp"
@@ -89,9 +89,6 @@ class IterativeTasks {
   unsigned int GetIterationCount() const { return count_; }
   unsigned int GetCheckInterval() const { return check_interval_; }
   void IncrementCount() { count_++; }
-  bool Locked() const { return locked_; }
-  void Lock() { locked_ = true; }
-  void Unlock() { locked_ = false; }
 
  private:
   template <class F, class... Args>
@@ -114,7 +111,6 @@ class IterativeTasks {
   unsigned int check_interval_ = 1;
   bool throw_with_max_iters_ = false;
   bool warn_with_max_iters_ = true;
-  bool locked_ = false;
 };
 
 class TaskList {
@@ -147,7 +143,6 @@ class TaskList {
     for (auto &task : task_list_) {
       if (task.GetID() == id) return (task.GetStatus() == status);
     }
-    std::cout << "Aghhhh!!!" << std::endl;
     return true;
   }
   bool CheckTaskCompletion(TaskID id) const {
@@ -167,21 +162,12 @@ class TaskList {
     std::set<int> completed_iters;
     for (auto &tsk : task_list_) {
       if (tsk.GetType() == TaskType::completion_criteria &&
-          tsk.GetStatus() == TaskStatus::complete &&
-          !tsk.IsRegional()) {
+          tsk.GetStatus() == TaskStatus::complete && !tsk.IsRegional()) {
         completed_iters.insert(tsk.GetKey());
       }
     }
     for (const auto &key : completed_iters) {
       ClearIteration(key);
-    }
-  }
-  void IterationComplete(const int key) {
-    completed_iters_.insert(key);
-    for (auto &task : task_list_) {
-      if (task.GetKey() == key) {
-        task.SetStatus(TaskStatus::complete);
-      }
     }
   }
   void ClearIteration(const int key) {
@@ -195,9 +181,7 @@ class TaskList {
     }
   }
   void ResetIteration(const int key) {
-    iter_tasks[key].Unlock();
     iter_tasks[key].IncrementCount();
-    if (iter_tasks[key].GetIterationCount() % 100 == 0) std::cout << Globals::my_rank << "  iter count = " << iter_tasks[key].GetIterationCount() << std::endl;
     if (iter_tasks[key].GetIterationCount() == iter_tasks[key].GetMaxIterations()) {
       if (iter_tasks[key].ShouldThrowWithMax()) {
         PARTHENON_THROW("Iteration " + std::to_string(key) +
@@ -207,16 +191,14 @@ class TaskList {
         PARTHENON_WARN("Iteration " + std::to_string(key) +
                        " reached maximum allowed cycles without convergence.");
       }
-      IterationComplete(key);
+      ClearIteration(key);
       return;
     }
     for (auto &task : task_list_) {
       if (task.GetKey() == key) {
         if (CheckDependencies(task.GetID())) {
           MarkTaskComplete(task.GetID());
-        } else if (task.GetType() != TaskType::completion_criteria) {
-          std::cout << "What the actual f*ck" << std::endl;
-        }
+        } 
         task.SetStatus(TaskStatus::incomplete);
       }
     }
@@ -224,13 +206,8 @@ class TaskList {
   void ResetIfNeeded(TaskID id) {
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
-        auto status = task.GetStatus();
-        if (task.GetType() == TaskType::completion_criteria &&
-            status == TaskStatus::skip) {
-          std::cout << Globals::my_rank << " resetting " << iter_tasks[task.GetKey()].GetIterationCount() << std::endl;
+        if (task.GetType() == TaskType::completion_criteria) {
           ResetIteration(task.GetKey());
-        } else {
-          std::cout << "Should not be here..." << std::endl;
         }
         break;
       }
@@ -239,35 +216,29 @@ class TaskList {
   void CompleteIfNeeded(TaskID id) {
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
-        ClearIteration(task.GetKey());
+        if (task.GetType() == TaskType::completion_criteria) {
+          ClearIteration(task.GetKey());
+        }
         break;
       }
     }
   }
-  void ResetFromID(TaskID id) {
+  void DoAvailable() {
     for (auto &task : task_list_) {
-      if (task.GetID() == id) {
-        //std::cout << Globals::my_rank << " force resetting " << iter_tasks[task.GetKey()].GetIterationCount() << std::endl;
-        ResetIteration(task.GetKey());
-        break;
-      }
-    }
-  }
-  TaskListStatus DoAvailable() {
-    for (auto &task : task_list_) {
-      // first skip task if it's complete.  Only possible for TaskType::iterative
+      // first skip task if it's complete.  Possible for iterative tasks
       if (task.GetStatus() != TaskStatus::incomplete) continue;
       auto dep = task.GetDependency();
       if (CheckDependencies(dep)) {
         task();
         if (task.GetStatus() == TaskStatus::complete) {
           MarkTaskComplete(task.GetID());
+        } else if (task.GetStatus() == TaskStatus::skip &&
+                   task.GetType() == TaskType::completion_criteria) {
+          ResetIteration(task.GetKey());
         }
       }
     }
     ClearComplete();
-    //if (IsComplete()) return TaskListStatus::complete;
-    return TaskListStatus::running;
   }
   bool Validate() const {
     std::set<int> iters;
@@ -356,20 +327,57 @@ namespace task_list_impl {
 inline TaskID AddTaskHelper(TaskList *tl, Task tsk) { return tl->AddTask(tsk); }
 } // namespace task_list_impl
 
-//using TaskRegion = std::vector<TaskList>;
-
-struct TaskRegion {
+class TaskRegion {
+ public:
   TaskRegion(const int size) : lists(size) {}
   void AddRegionalDependencies(const int reg_dep_id, const int list_index, TaskID id) {
     auto task_pair = std::make_pair(list_index, id);
     id_for_reg[reg_dep_id].push_back(task_pair);
     lists[list_index].MarkRegional(id);
   }
-  TaskList & operator[](int i) {
-    return lists[i];
-  }
+
+  TaskList &operator[](int i) { return lists[i]; }
+
   int size() const { return lists.size(); }
 
+  bool CheckAndUpdate() {
+    for (auto &reg_dep : id_for_reg) {
+      auto reg_id = reg_dep.first;
+      if (HasRun(reg_id)) {
+        bool done = IsComplete(reg_id);
+#ifdef MPI_PARALLEL
+        int all_done = done;
+        int global_done;
+        MPI_Allreduce(&all_done, &global_done, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+#else
+        int global_done = done;
+#endif
+        if (global_done) {
+          for (auto &lst : reg_dep.second) {
+            lists[lst.first].CompleteIfNeeded(lst.second);
+          }
+        } else {
+          for (auto &lst : reg_dep.second) {
+            lists[lst.first].ResetIfNeeded(lst.second);
+          }
+        }
+      } 
+    }
+    int complete_cnt = 0;
+    const int num_lists = size();
+    for (auto i = 0; i < num_lists; ++i) {
+      if (lists[i].IsComplete()) complete_cnt++;
+    }
+    return (complete_cnt == num_lists);
+  }
+
+  bool Validate() const {
+    for (auto &list : lists) {
+      if (!list.Validate()) return false;
+    }
+    return true;
+  }
+ private:
   bool HasRun(const int reg_id) {
     auto &lvec = id_for_reg[reg_id];
     int n_to_run = lvec.size();
@@ -381,21 +389,6 @@ struct TaskRegion {
         n_ran++;
       }
     }
-    //std::cout << n_ran << "/" << n_to_run << std::endl;
-    return n_ran == n_to_run;
-  }
-  bool Skip(const int reg_id) {
-    auto &lvec = id_for_reg[reg_id];
-    int n_to_run = lvec.size();
-    int n_ran = 0;
-    for (auto &pair : lvec) {
-      int list_index = pair.first;
-      TaskID id = pair.second;
-      if (lists[list_index].CheckStatus(id, TaskStatus::skip)) {
-        n_ran++;
-      }
-    }
-    //std::cout << n_ran << "/" << n_to_run << std::endl;
     return n_ran == n_to_run;
   }
   bool IsComplete(const int reg_id) {
@@ -412,11 +405,13 @@ struct TaskRegion {
     return n_finished == n_to_finish;
   }
 
+  // id_for_reg[region_id] = std::pair<>(task_list_index, task_id_of_regional_task)
   std::map<int, std::vector<std::pair<int, TaskID>>> id_for_reg;
   std::vector<TaskList> lists;
 };
 
-struct TaskCollection {
+class TaskCollection {
+ public: 
   TaskCollection() = default;
   TaskRegion &AddRegion(const int num_lists) {
     regions.push_back(TaskRegion(num_lists));
@@ -424,78 +419,25 @@ struct TaskCollection {
   }
   TaskListStatus Execute() {
     assert(Validate());
-    auto time = high_resolution_clock::now();
-    auto total_time = duration_cast<microseconds>(time-time);
     for (auto &region : regions) {
-      int complete_cnt = 0;
+      bool complete = false;
       auto num_lists = region.size();
-      int cycle = 0;
-      while (complete_cnt != num_lists) {
+      while (!complete) {
         // TODO(pgrete): need to let Kokkos::PartitionManager handle this
         for (auto i = 0; i < num_lists; ++i) {
           if (!region[i].IsComplete()) {
-            //std::cout << Globals::my_rank << " " << i << std::endl;
-            auto status = region[i].DoAvailable();
+            region[i].DoAvailable();
           }
         }
-        /*std::string line;
-        std::getline(std::cin, line);
-        if (line == "p") {
-          for (int i = 0; i < num_lists; ++i) {
-            region[i].Print();
-          }
-        }*/
-        for (auto &reg : region.id_for_reg) {
-          auto reg_id = reg.first;
-          if (region.HasRun(reg_id)) {
-            //std::cout << "if  HasRun cycle " << cycle << std::endl;
-            bool done = region.IsComplete(reg_id);
-#ifdef MPI_PARALLEL
-            int all_done = done;
-            int global_done;
-            auto start = high_resolution_clock::now();
-            MPI_Allreduce(&all_done, &global_done, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-            auto stop = high_resolution_clock::now();
-            total_time += duration_cast<microseconds>(stop-start);
-            //std::cout << n_finished << "/" << n_to_finish << "   " << global_done << std::endl;
-#else
-            int global_done = done;
-#endif
-
-            //std::cout << Globals::my_rank << " global_done = " << global_done << std::endl;
-            if (global_done) {
-              for (auto &lst : reg.second) {
-                region.lists[lst.first].CompleteIfNeeded(lst.second);
-              }
-              std::cout << "time in MPI_Allreduce was " << total_time.count() << std::endl;
-            } else {
-              //std::cout << "Resetting..." << std::endl;
-              for (auto &lst : reg.second) {
-                region.lists[lst.first].ResetFromID(lst.second);
-              }
-            }
-          } else if (region.Skip(reg_id)) {
-            //std::cout << "else HasRun cycle " << cycle << std::endl;
-            MPI_Barrier(MPI_COMM_WORLD);
-            for (auto &lst : reg.second) {
-              region.lists[lst.first].ResetIfNeeded(lst.second);
-            }
-          }
-        }
-        cycle++;
-        complete_cnt = 0;
-        for (auto i = 0; i < num_lists; ++i) {
-          if (region[i].IsComplete()) complete_cnt++;
-        }
+        complete = region.CheckAndUpdate();
       }
     }
     return TaskListStatus::complete;
   }
+ private:
   bool Validate() const {
     for (auto &region : regions) {
-      for (auto &list : region.lists) {
-        if (!list.Validate()) return false;
-      }
+      if (!region.Validate()) return false;
     }
     return true;
   }

@@ -55,7 +55,7 @@ class Task {
   void SetStatus(const TaskStatus &status) { status_ = status; }
   TaskType GetType() const { return type_; }
   int GetKey() const { return key_; }
-  void SetRegional() { regional_= true; }
+  void SetRegional() { regional_ = true; }
   bool IsRegional() const { return regional_; }
 
  private:

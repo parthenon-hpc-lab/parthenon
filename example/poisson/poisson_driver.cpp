@@ -48,9 +48,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     pmb->meshblock_data.Add("delta", base);
   }
 
-
   int max_iters = pmesh->packages.Get("poisson_package")->Param<int>("max_iterations");
-  int check_interval = pmesh->packages.Get("poisson_package")->Param<int>("check_interval");
+  int check_interval =
+      pmesh->packages.Get("poisson_package")->Param<int>("check_interval");
   bool fail_flag =
       pmesh->packages.Get("poisson_package")->Param<bool>("fail_without_convergence");
   bool warn_flag =
@@ -72,31 +72,25 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     solver.SetFailWithMaxIterations(fail_flag);
     solver.SetWarnWithMaxIterations(warn_flag);
     auto start_recv = solver.AddTask(none, &MeshData<Real>::StartReceiving, md.get(),
-                                 BoundaryCommSubset::all);
+                                     BoundaryCommSubset::all);
 
-    auto update = solver.AddTask(none, poisson_package::UpdatePhi<MeshData<Real>>, md.get(), mdelta.get());
-
+    auto update = solver.AddTask(none, poisson_package::UpdatePhi<MeshData<Real>>,
+                                 md.get(), mdelta.get());
 
     auto send =
         solver.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
 
-    auto recv = solver.AddTask(update | start_recv,
-                               parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
+    auto recv = solver.AddTask(
+        update | start_recv, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
 
     auto setb = solver.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, md);
-/*
-  auto send = solver.AddTask(update, &MeshBlockData<Real>::SendBoundaryBuffers, md.get());
-  auto recv = solver.AddTask(update | start_recv, &MeshBlockData<Real>::ReceiveBoundaryBuffers,
-                             md.get());
-  auto setb = solver.AddTask(recv, &MeshBlockData<Real>::SetBoundaries,
-                             md.get());
-*/
 
-    auto clear = solver.AddTask(send|recv|setb, &MeshData<Real>::ClearBoundary, md.get(),
-                                BoundaryCommSubset::all);
+    auto clear = solver.AddTask(send | recv | setb, &MeshData<Real>::ClearBoundary,
+                                md.get(), BoundaryCommSubset::all);
 
-    auto check = solver.SetCompletionTask(start_recv|update|send|recv|setb|clear, poisson_package::CheckConvergence<MeshData<Real>>, md.get(),
-                                          mdelta.get());
+    auto check = solver.SetCompletionTask(
+        start_recv | update | send | recv | setb | clear,
+        poisson_package::CheckConvergence<MeshData<Real>>, md.get(), mdelta.get());
     solver_region.AddRegionalDependencies(0, i, check);
   }
 
