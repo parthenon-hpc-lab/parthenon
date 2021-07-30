@@ -87,7 +87,6 @@ class IterativeTasks {
   bool ShouldWarnWithMax() const { return warn_with_max_iters_; }
   unsigned int GetMaxIterations() const { return max_iterations_; }
   unsigned int GetIterationCount() const { return count_; }
-  unsigned int GetCheckInterval() const { return check_interval_; }
   void IncrementCount() { count_++; }
 
  private:
