@@ -117,7 +117,7 @@ class TaskList {
   TaskList() = default;
   bool IsComplete() { return task_list_.empty(); }
   int Size() { return task_list_.size(); }
-  void MarkRegional(const TaskID &id) const {
+  void MarkRegional(const TaskID &id) {
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
         task.SetRegional();
@@ -202,7 +202,7 @@ class TaskList {
       }
     }
   }
-  void ResetIfNeeded(const TaskID &id) const {
+  void ResetIfNeeded(const TaskID &id) {
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
         if (task.GetType() == TaskType::completion_criteria) {
@@ -212,7 +212,7 @@ class TaskList {
       }
     }
   }
-  void CompleteIfNeeded(const TaskID &id) const {
+  void CompleteIfNeeded(const TaskID &id) {
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
         if (task.GetType() == TaskType::completion_criteria) {
