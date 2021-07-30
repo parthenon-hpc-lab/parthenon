@@ -137,7 +137,6 @@ TaskStatus CheckConvergence(T *u, T *du) {
       },
       Kokkos::Max<Real>(max_err));
 
-
   StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
   Real err_tol = pkg->Param<Real>("error_tolerance");
 

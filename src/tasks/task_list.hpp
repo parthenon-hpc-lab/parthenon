@@ -198,7 +198,7 @@ class TaskList {
       if (task.GetKey() == key) {
         if (CheckDependencies(task.GetID())) {
           MarkTaskComplete(task.GetID());
-        } 
+        }
         task.SetStatus(TaskStatus::incomplete);
       }
     }
@@ -361,7 +361,7 @@ class TaskRegion {
             lists[lst.first].ResetIfNeeded(lst.second);
           }
         }
-      } 
+      }
     }
     int complete_cnt = 0;
     const int num_lists = size();
@@ -377,6 +377,7 @@ class TaskRegion {
     }
     return true;
   }
+
  private:
   bool HasRun(const int reg_id) {
     auto &lvec = id_for_reg[reg_id];
@@ -411,7 +412,7 @@ class TaskRegion {
 };
 
 class TaskCollection {
- public: 
+ public:
   TaskCollection() = default;
   TaskRegion &AddRegion(const int num_lists) {
     regions.push_back(TaskRegion(num_lists));
@@ -434,6 +435,7 @@ class TaskCollection {
     }
     return TaskListStatus::complete;
   }
+
  private:
   bool Validate() const {
     for (auto &region : regions) {
