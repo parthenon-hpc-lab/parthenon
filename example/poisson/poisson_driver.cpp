@@ -93,6 +93,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
         update | clear, poisson_package::CheckConvergence<MeshData<Real>>, md.get(),
         mdelta.get());
     solver_region.AddRegionalDependencies(0, i, check);
+
+    auto print = tl.AddTask(check, poisson_package::PrintComplete);
   }
 
   return tc;

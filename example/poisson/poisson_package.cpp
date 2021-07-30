@@ -151,6 +151,13 @@ TaskStatus CheckConvergence(T *u, T *du) {
   return status;
 }
 
+TaskStatus PrintComplete() {
+  if (parthenon::Globals::my_rank == 0) {
+    std::cout << "Poisson solver complete!" << std::endl;
+  }
+  return TaskStatus::complete;
+}
+
 template TaskStatus CheckConvergence<MeshData<Real>>(MeshData<Real> *, MeshData<Real> *);
 template TaskStatus CheckConvergence<MeshBlockData<Real>>(MeshBlockData<Real> *,
                                                           MeshBlockData<Real> *);

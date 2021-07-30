@@ -25,6 +25,7 @@ template <typename T>
 TaskStatus UpdatePhi(T *u, T *du);
 template <typename T>
 TaskStatus CheckConvergence(T *u, T *du);
+TaskStatus PrintComplete();
 } // namespace poisson_package
 
 #endif // EXAMPLE_POISSON_POISSON_PACKAGE_HPP_

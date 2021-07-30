@@ -212,6 +212,7 @@ class TaskList {
   void CompleteIfNeeded(const TaskID &id) {
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
+        MarkTaskComplete(id);
         if (task.GetType() == TaskType::completion_criteria) {
           ClearIteration(task.GetKey());
         }
@@ -226,7 +227,7 @@ class TaskList {
       auto dep = task.GetDependency();
       if (CheckDependencies(dep)) {
         task();
-        if (task.GetStatus() == TaskStatus::complete) {
+        if (task.GetStatus() == TaskStatus::complete && !task.IsRegional()) {
           MarkTaskComplete(task.GetID());
         } else if (task.GetStatus() == TaskStatus::skip &&
                    task.GetType() == TaskType::completion_criteria) {
