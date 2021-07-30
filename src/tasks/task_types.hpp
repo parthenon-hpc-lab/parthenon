@@ -48,7 +48,7 @@ class Task {
       status_ = TaskStatus::skip;
     }
   }
-  void SetID(TaskID id) { myid_ = id; }
+  void SetID(const TaskID &id) { myid_ = id; }
   TaskID GetID() const { return myid_; }
   TaskID GetDependency() const { return dep_; }
   TaskStatus GetStatus() const { return status_; }

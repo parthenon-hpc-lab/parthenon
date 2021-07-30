@@ -117,7 +117,7 @@ class TaskList {
   TaskList() = default;
   bool IsComplete() { return task_list_.empty(); }
   int Size() { return task_list_.size(); }
-  void MarkRegional(TaskID id) {
+  void MarkRegional(const TaskID &id) const {
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
         task.SetRegional();
@@ -125,8 +125,8 @@ class TaskList {
       }
     }
   }
-  void MarkTaskComplete(TaskID id) { tasks_completed_.SetFinished(id); }
-  bool CheckDependencies(TaskID id) const {
+  void MarkTaskComplete(const TaskID &id) { tasks_completed_.SetFinished(id); }
+  bool CheckDependencies(const TaskID &id) const {
     return tasks_completed_.CheckDependencies(id);
   }
   bool CheckTaskRan(TaskID id) const {
@@ -138,13 +138,13 @@ class TaskList {
     }
     return true;
   }
-  bool CheckStatus(TaskID id, TaskStatus status) const {
+  bool CheckStatus(const TaskID &id, TaskStatus status) const {
     for (auto &task : task_list_) {
       if (task.GetID() == id) return (task.GetStatus() == status);
     }
     return true;
   }
-  bool CheckTaskCompletion(TaskID id) const {
+  bool CheckTaskCompletion(const TaskID &id) const {
     return CheckStatus(id, TaskStatus::complete);
   }
   void ClearComplete() {
@@ -202,7 +202,7 @@ class TaskList {
       }
     }
   }
-  void ResetIfNeeded(TaskID id) {
+  void ResetIfNeeded(const TaskID &id) const {
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
         if (task.GetType() == TaskType::completion_criteria) {
@@ -212,7 +212,7 @@ class TaskList {
       }
     }
   }
-  void CompleteIfNeeded(TaskID id) {
+  void CompleteIfNeeded(const TaskID &id) const {
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
         if (task.GetType() == TaskType::completion_criteria) {
@@ -328,7 +328,7 @@ inline TaskID AddTaskHelper(TaskList *tl, Task tsk) { return tl->AddTask(tsk); }
 
 class TaskRegion {
  public:
-  TaskRegion(const int size) : lists(size) {}
+  explicit TaskRegion(const int size) : lists(size) {}
   void AddRegionalDependencies(const int reg_dep_id, const int list_index, TaskID id) {
     auto task_pair = std::make_pair(list_index, id);
     id_for_reg[reg_dep_id].push_back(task_pair);
