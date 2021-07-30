@@ -66,7 +66,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     TaskList &tl = solver_region[i];
 
-    auto &solver = tl.AddIteration();
+    auto &solver = tl.AddIteration("poisson solver");
     solver.SetMaxIterations(max_iters);
     solver.SetCheckInterval(check_interval);
     solver.SetFailWithMaxIterations(fail_flag);

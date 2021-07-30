@@ -51,7 +51,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField("density", mrho);
 
   auto mphi = Metadata(
-      {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
+      {Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
   pkg->AddField("potential", mphi);
 
   return pkg;
@@ -75,7 +75,9 @@ TaskStatus UpdatePhi(T *u, T *du) {
   const int irho = imap["density"].first;
   const int iphi = imap["potential"].first;
   std::vector<std::string> phi_var({"potential"});
-  auto dv = du->PackVariables(phi_var);
+  PackIndexMap imap2;
+  auto dv = du->PackVariables(phi_var, imap2);
+  const int idphi = imap2["potential"].first;
 
   auto coords = GetCoords(pm);
   const int ndim = v.GetNdim();
@@ -90,16 +92,16 @@ TaskStatus UpdatePhi(T *u, T *du) {
       DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
       jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        dv(b, 0, k, j, i) = -v(b, irho, k, j, i) * dx * dx;
-        dv(b, 0, k, j, i) += v(b, iphi, k, j, i - 1) + v(b, iphi, k, j, i + 1);
+        dv(b, idphi, k, j, i) = -v(b, irho, k, j, i) * std::pow(dx, ndim);
+        dv(b, idphi, k, j, i) += v(b, iphi, k, j, i - 1) + v(b, iphi, k, j, i + 1);
         if (ndim > 1) {
-          dv(b, 0, k, j, i) += v(b, iphi, k, j - 1, i) + v(b, iphi, k, j + 1, i);
+          dv(b, idphi, k, j, i) += v(b, iphi, k, j - 1, i) + v(b, iphi, k, j + 1, i);
           if (ndim == 3) {
-            dv(b, 0, k, j, i) += v(b, iphi, k - 1, j, i) + v(b, iphi, k - 1, j, i);
+            dv(b, idphi, k, j, i) += v(b, iphi, k - 1, j, i) + v(b, iphi, k - 1, j, i);
           }
         }
-        dv(b, 0, k, j, i) /= 2.0 * ndim;
-        dv(b, 0, k, j, i) -= v(b, iphi, k, j, i);
+        dv(b, idphi, k, j, i) /= 2.0 * ndim;
+        dv(b, idphi, k, j, i) -= v(b, iphi, k, j, i);
       });
 
   parthenon::par_for(
@@ -123,16 +125,20 @@ TaskStatus CheckConvergence(T *u, T *du) {
   IndexRange kb = u->GetBoundsK(IndexDomain::interior);
 
   std::vector<std::string> vars({"potential"});
-  auto v = u->PackVariables(vars);
-  auto dv = du->PackVariables(vars);
+  PackIndexMap imap;
+  auto v = u->PackVariables(vars, imap);
+  const int iphi = imap["potential"].first;
+  PackIndexMap imap2;
+  auto dv = du->PackVariables(vars, imap2);
+  const int idphi = imap2["potential"].first;
 
   Real max_err;
   parthenon::par_reduce(
       parthenon::loop_pattern_mdrange_tag, "CheckConvergence", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &eps) {
-        Real reps = std::abs(dv(b, 0, k, j, i) / v(b, 0, k, j, i));
-        Real aeps = std::abs(dv(b, 0, k, j, i));
+        Real reps = std::abs(dv(b, idphi, k, j, i) / v(b, iphi, k, j, i));
+        Real aeps = std::abs(dv(b, idphi, k, j, i));
         eps = std::max(eps, std::min(reps, aeps));
       },
       Kokkos::Max<Real>(max_err));

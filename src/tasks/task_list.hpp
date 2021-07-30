@@ -180,11 +180,11 @@ class TaskList {
     iter_tasks[key].IncrementCount();
     if (iter_tasks[key].GetIterationCount() == iter_tasks[key].GetMaxIterations()) {
       if (iter_tasks[key].ShouldThrowWithMax()) {
-        PARTHENON_THROW("Iteration " + std::to_string(key) +
+        PARTHENON_THROW("Iteration " + iter_labels[key] +
                         " reached maximum allowed cycles without convergence.");
       }
       if (iter_tasks[key].ShouldWarnWithMax()) {
-        PARTHENON_WARN("Iteration " + std::to_string(key) +
+        PARTHENON_WARN("Iteration " + iter_labels[key] +
                        " reached maximum allowed cycles without convergence.");
       }
       ClearIteration(key);
@@ -287,9 +287,10 @@ class TaskList {
     });
   }
 
-  IterativeTasks &AddIteration() {
+  IterativeTasks &AddIteration(const std::string &label) {
     int key = iter_tasks.size();
     iter_tasks.push_back(IterativeTasks(this, key));
+    iter_labels.push_back(label);
     return iter_tasks.back();
   }
 
@@ -311,10 +312,10 @@ class TaskList {
 
  protected:
   std::vector<IterativeTasks> iter_tasks;
+  std::vector<std::string> iter_labels;
   std::list<Task> task_list_;
   int tasks_added_ = 0;
   TaskID tasks_completed_;
-  std::set<int> completed_iters_;
 };
 
 namespace task_list_impl {
