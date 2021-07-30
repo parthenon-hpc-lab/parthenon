@@ -57,7 +57,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         Real dist2 = std::pow(coords.x1v(i) - x0, 2) + std::pow(coords.x2v(j) - y0, 2) +
                      std::pow(coords.x3v(k) - z0, 2);
         if (dist2 < radius * radius) {
-          q(irho, k, j, i) = 1.0/(4.0/3.0 * M_PI * std::pow(radius,3));
+          q(irho, k, j, i) = 1.0 / (4.0 / 3.0 * M_PI * std::pow(radius, 3));
         } else {
           q(irho, k, j, i) = 0.0;
         }

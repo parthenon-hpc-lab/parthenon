@@ -50,8 +50,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto mrho = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField("density", mrho);
 
-  auto mphi = Metadata(
-      {Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
+  auto mphi = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
   pkg->AddField("potential", mphi);
 
   return pkg;
