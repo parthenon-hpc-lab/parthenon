@@ -24,18 +24,19 @@
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
 #include "poisson_package.hpp"
-#include "reconstruct/dc_inline.hpp"
 
 using namespace parthenon::package::prelude;
 
 namespace poisson_package {
-using parthenon::UserHistoryOperation;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("poisson_package");
 
   int max_poisson_iterations = pin->GetOrAddInteger("poisson", "max_iterations", 10000);
   pkg->AddParam<>("max_iterations", max_poisson_iterations);
+
+  int check_interval = pin->GetOrAddInteger("poisson", "check_interval", 100);
+  pkg->AddParam<>("check_interval", check_interval);
 
   Real err_tol = pin->GetOrAddReal("poisson", "error_tolerance", 1.e-8);
   pkg->AddParam<>("error_tolerance", err_tol);
@@ -49,13 +50,21 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto mrho = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField("density", mrho);
 
-  auto mphi = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
+  auto mphi = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
   pkg->AddField("potential", mphi);
 
   return pkg;
 }
 
-TaskStatus UpdatePhi(MeshData<Real> *u, MeshData<Real> *du) {
+auto &GetCoords(std::shared_ptr<MeshBlock> &pmb) {
+  return pmb->coords;
+}
+auto &GetCoords(Mesh *pm) {
+  return pm->block_list[0]->coords;
+}
+
+template <typename T>
+TaskStatus UpdatePhi(T *u, T *du) {
   Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
   auto pm = u->GetParentPointer();
 
@@ -71,8 +80,8 @@ TaskStatus UpdatePhi(MeshData<Real> *u, MeshData<Real> *du) {
   std::vector<std::string> phi_var({"potential"});
   auto dv = du->PackVariables(phi_var);
 
-  auto coords = pm->block_list[0]->coords;
-  const int ndim = pm->ndim;
+  auto coords = GetCoords(pm);
+  const int ndim = v.GetNdim();
   const Real dx = coords.Dx(X1DIR);
   for (int i = X2DIR; i <= ndim; i++) {
     const Real dy = coords.Dx(i);
@@ -81,7 +90,7 @@ TaskStatus UpdatePhi(MeshData<Real> *u, MeshData<Real> *du) {
   }
 
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, u->NumBlocks() - 1, kb.s,
+      DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s,
       kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         dv(b, 0, k, j, i) = -v(b, irho, k, j, i) * dx * dx;
@@ -97,7 +106,7 @@ TaskStatus UpdatePhi(MeshData<Real> *u, MeshData<Real> *du) {
       });
 
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, u->NumBlocks() - 1, kb.s,
+      DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, dv.GetDim(5) - 1, kb.s,
       kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         v(b, iphi, k, j, i) += dv(b, 0, k, j, i);
@@ -107,7 +116,8 @@ TaskStatus UpdatePhi(MeshData<Real> *u, MeshData<Real> *du) {
   return TaskStatus::complete;
 }
 
-TaskStatus CheckConvergence(MeshData<Real> *u, MeshData<Real> *du) {
+template <typename T>
+TaskStatus CheckConvergence(T *u, T *du) {
   Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
   auto pm = u->GetParentPointer();
 
@@ -122,7 +132,7 @@ TaskStatus CheckConvergence(MeshData<Real> *u, MeshData<Real> *du) {
   Real max_err;
   parthenon::par_reduce(
       parthenon::loop_pattern_mdrange_tag, "CheckConvergence", DevExecSpace(), 0,
-      u->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &eps) {
         Real reps = std::abs(dv(b, 0, k, j, i) / v(b, 0, k, j, i));
         Real aeps = std::abs(dv(b, 0, k, j, i));
@@ -131,15 +141,15 @@ TaskStatus CheckConvergence(MeshData<Real> *u, MeshData<Real> *du) {
       Kokkos::Max<Real>(max_err));
 
   // get the global max
-#ifdef MPI_PARALLEL
+/*#ifdef MPI_PARALLEL
   Real glob_err;
   PARTHENON_MPI_CHECK(
       MPI_Allreduce(&max_err, &glob_err, 1, MPI_PARTHENON_REAL, MPI_MAX, MPI_COMM_WORLD));
-#else
+#else*/
   Real glob_err = max_err;
-#endif
+//#endif
 
-  auto pkg = pm->packages.Get("poisson_package");
+  StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
   Real err_tol = pkg->Param<Real>("error_tolerance");
 
   auto status = (glob_err < err_tol ? TaskStatus::complete : TaskStatus::iterate);
@@ -147,5 +157,10 @@ TaskStatus CheckConvergence(MeshData<Real> *u, MeshData<Real> *du) {
   Kokkos::Profiling::popRegion(); // Task_Poisson_CheckConvergence
   return status;
 }
+
+template TaskStatus CheckConvergence<MeshData<Real>>(MeshData<Real> *, MeshData<Real> *);
+template TaskStatus CheckConvergence<MeshBlockData<Real>>(MeshBlockData<Real> *, MeshBlockData<Real> *);
+template TaskStatus UpdatePhi<MeshData<Real>>(MeshData<Real> *, MeshData<Real> *);
+template TaskStatus UpdatePhi<MeshBlockData<Real>>(MeshBlockData<Real> *, MeshBlockData<Real> *);
 
 } // namespace poisson_package

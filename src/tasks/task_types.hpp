@@ -34,7 +34,20 @@ class Task {
       : myid_(id), dep_(dep), type_(type), key_(key), func_(std::move(func)) {
     assert(key_ >= 0);
   }
-  void operator()() { status_ = func_(); }
+  Task(const TaskID &id, const TaskID &dep, std::function<TaskStatus()> func,
+       const TaskType &type, const int key, const int interval)
+      : myid_(id), dep_(dep), type_(type), key_(key), func_(std::move(func)),
+        interval_(interval) {
+    assert(key_ >= 0);
+  }
+  void operator()() {
+    calls_++;
+    if (calls_ % interval_ == 0) {
+      status_ = func_();
+    } else {
+      status_ = TaskStatus::skip;
+    }
+  }
   void SetID(TaskID id) { myid_ = id; }
   TaskID GetID() const { return myid_; }
   TaskID GetDependency() const { return dep_; }
@@ -42,14 +55,19 @@ class Task {
   void SetStatus(const TaskStatus &status) { status_ = status; }
   TaskType GetType() const { return type_; }
   int GetKey() const { return key_; }
+  void SetRegional() { regional_= true; }
+  bool IsRegional() const { return regional_; }
 
  private:
   TaskID myid_, dep_;
   const TaskType type_;
   const int key_;
   TaskStatus status_ = TaskStatus::incomplete;
-  bool lb_time = false;
+  bool regional_ = false;
+  bool lb_time_ = false;
   std::function<TaskStatus()> func_;
+  int calls_ = 0;
+  int interval_ = 1;
 };
 
 } // namespace parthenon

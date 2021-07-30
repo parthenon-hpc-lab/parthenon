@@ -21,8 +21,10 @@ namespace poisson_package {
 using namespace parthenon::package::prelude;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-TaskStatus UpdatePhi(MeshData<Real> *u, MeshData<Real> *du);
-TaskStatus CheckConvergence(MeshData<Real> *u, MeshData<Real> *du);
+template <typename T>
+TaskStatus UpdatePhi(T *u, T *du);
+template <typename T>
+TaskStatus CheckConvergence(T *u, T *du);
 } // namespace poisson_package
 
 #endif // EXAMPLE_POISSON_POISSON_PACKAGE_HPP_
