@@ -425,7 +425,8 @@ template <typename T>
 TaskStatus MeshBlockData<T>::SendFluxCorrection() {
   Kokkos::Profiling::pushRegion("Task_SendFluxCorrection");
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
+    if (v->IsAllocated() && v->IsSet(Metadata::WithFluxes) &&
+        v->IsSet(Metadata::FillGhost)) {
       v->vbvar->SendFluxCorrection();
     }
   }
@@ -439,7 +440,8 @@ TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrection");
   int success = 0, total = 0;
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
+    if (v->IsAllocated() && v->IsSet(Metadata::WithFluxes) &&
+        v->IsSet(Metadata::FillGhost)) {
       if (v->vbvar->ReceiveFluxCorrection()) {
         success++;
       }
@@ -457,7 +459,7 @@ TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshBlockData");
   // sends the boundary
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
+    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
       v->vbvar->SendBoundaryBuffers();
     }
@@ -471,7 +473,7 @@ template <typename T>
 void MeshBlockData<T>::SetupPersistentMPI() {
   // setup persistent MPI
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
+    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
       v->vbvar->SetupPersistentMPI();
     }
@@ -485,7 +487,7 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
   // receives the boundary
   for (auto &v : varVector_) {
     if (!v->mpiStatus) {
-      if (v->IsSet(Metadata::FillGhost)) {
+      if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
         // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
         // In case we have trouble with multiple arrays causing
         // problems with task status, we should comment one line
@@ -506,7 +508,7 @@ template <typename T>
 TaskStatus MeshBlockData<T>::ReceiveAndSetBoundariesWithWait() {
   Kokkos::Profiling::pushRegion("Task_ReceiveAndSetBoundariesWithWait");
   for (auto &v : varVector_) {
-    if ((!v->mpiStatus) && v->IsSet(Metadata::FillGhost)) {
+    if ((!v->mpiStatus) && v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
       v->vbvar->ReceiveAndSetBoundariesWithWait();
       v->mpiStatus = true;
@@ -525,7 +527,7 @@ TaskStatus MeshBlockData<T>::SetBoundaries() {
   Kokkos::Profiling::pushRegion("Task_SetBoundaries_MeshBlockData");
   // sets the boundary
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
+    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
       v->vbvar->SetBoundaries();
     }
@@ -539,7 +541,7 @@ template <typename T>
 void MeshBlockData<T>::ResetBoundaryCellVariables() {
   Kokkos::Profiling::pushRegion("ResetBoundaryCellVariables");
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
+    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
       v->vbvar->var_cc = v->data;
     }
   }
@@ -551,7 +553,7 @@ template <typename T>
 TaskStatus MeshBlockData<T>::StartReceiving(BoundaryCommSubset phase) {
   Kokkos::Profiling::pushRegion("Task_StartReceiving");
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
+    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
       v->vbvar->StartReceiving(phase);
       v->mpiStatus = false;
@@ -566,7 +568,7 @@ template <typename T>
 TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
   Kokkos::Profiling::pushRegion("Task_ClearBoundary");
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
+    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
       v->vbvar->ClearBoundary(phase);
     }
   }

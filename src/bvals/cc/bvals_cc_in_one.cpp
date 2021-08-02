@@ -249,7 +249,7 @@ size_t ResetSendBuffers(MeshData<Real> *md, bool cache_is_valid) {
 
     int mylevel = pmb->loc.level;
     for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(Metadata::FillGhost)) {
+      if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
         v->resetBoundary();
         for (int n = 0; n < pmb->pbval->nneighbor; n++) {
           parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -298,7 +298,7 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
 
     int mylevel = pmb->loc.level;
     for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(Metadata::FillGhost)) {
+      if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; n++) {
           parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
           auto *pbd_var_ = v->vbvar->GetPBdVar();
@@ -385,7 +385,7 @@ void SendAndNotify(MeshData<Real> *md) {
 
     int mylevel = pmb->loc.level;
     for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(Metadata::FillGhost)) {
+      if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; n++) {
           parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
           auto *pbd_var_ = v->vbvar->GetPBdVar();
@@ -532,7 +532,7 @@ void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
     for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(Metadata::FillGhost)) {
+      if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; n++) {
           buffers_used += 1;
         }
@@ -550,7 +550,7 @@ void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md) {
 
     int mylevel = pmb->loc.level;
     for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(Metadata::FillGhost)) {
+      if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; n++) {
           parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
           auto *pbd_var_ = v->vbvar->GetPBdVar();
