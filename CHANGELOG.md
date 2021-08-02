@@ -3,6 +3,8 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 578]](https://github.com/lanl/parthenon/pull/578) Add some profiling regions to tasks in particles example
+- [[PR 577]](https://github.com/lanl/parthenon/pull/577) Update invalid indices to allow for no-op loops
 - [[PR 564]](https://github.com/lanl/parthenon/pull/564) Add EstimateTimestep to particles example task list
 - [[PR 557]](https://github.com/lanl/parthenon/pull/557) Re-enable `InitMeshBlockUserData` so data can be set per-remeshing
 - [[PR 509]](https://github.com/lanl/parthenon/pull/509) Add `elapsed_main`, `elapsed_cycle`, and `elapsed_LBandAMR` functions to `Driver` as static functions to enable access to timing information in output and restart files.
@@ -30,6 +32,7 @@
 - [[PR 522]](https://github.com/lanl/parthenon/pull/522) Corrected ordering of `OutputDatasetNames` to match `ComponentNames`
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 572]](https://github.com/lanl/parthenon/pull/572) Fix meshblockpack issue coming from variatic template shadowing
 - [[PR 569]](https://github.com/lanl/parthenon/pull/569) Fix path to nvcc_wrapper in README example
 - [[PR 551]](https://github.com/lanl/parthenon/pull/551) Hotfix to make particles compile without MPI again
 - [[PR 552]](https://github.com/lanl/parthenon/pull/552) Fix missing include for fstream
@@ -39,6 +42,7 @@
 - [[PR 531]](https://github.com/lanl/parthenon/pull/531) Work around in parthenon_hdf5.cpp for GCC 7.3.0
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 575]](https://github.com/lanl/parthenon/pull/575) Make file comparison more verbose, don't check File metadata
 - [[PR 502]](https://github.com/lanl/parthenon/pull/502) Use subviews of a single view for fluxes
 - [[PR 505]](https://github.com/lanl/parthenon/pull/505) Can also use buffer-pack-in-one function also in `Mesh::Initialize` (and thus during load balancing/mesh refinement). Breaks sparse variables with FillGhost. Enable with `PARTHENON_ENABLE_INIT_PACKING=ON` (default OFF).
 - [[PR 493]](https://github.com/lanl/parthenon/pull/493) Use subviews of a single view for comm buffers
