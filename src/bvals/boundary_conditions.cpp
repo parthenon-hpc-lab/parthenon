@@ -80,7 +80,10 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
 
 namespace BoundaryFunction {
 
-template <CoordinateDirection DIR, bool INNER, bool REFLECT>
+enum class BCSide { Inner, Outer };
+enum class BCType { Outflow, Reflect };
+
+template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   // make sure DIR is X[123]DIR so we don't have to check again
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
@@ -89,6 +92,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   constexpr bool X1 = (DIR == X1DIR);
   constexpr bool X2 = (DIR == X2DIR);
   constexpr bool X3 = (DIR == X3DIR);
+  constexpr bool INNER = (SIDE == BCSide::Inner);
 
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
@@ -101,11 +105,11 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
 
-  std::string label = (REFLECT ? "Reflect" : "Outflow");
+  std::string label = (TYPE == BCType::Reflect ? "Reflect" : "Outflow");
   label += (INNER ? "Inner" : "Outer");
   label += "X" + std::to_string(DIR);
 
-  const IndexDomain domain =
+  constexpr IndexDomain domain =
       INNER ? (X1 ? IndexDomain::inner_x1
                   : (X2 ? IndexDomain::inner_x2 : IndexDomain::inner_x3))
             : (X1 ? IndexDomain::outer_x1
@@ -117,7 +121,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   pmb->par_for_bndry(
       label, nb, domain, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        if (REFLECT) {
+        if (TYPE == BCType::Reflect) {
           const bool reflect = (q.VectorComponent(l) == DIR);
           q(l, k, j, i) =
               (reflect ? -1.0 : 1.0) *
@@ -129,51 +133,51 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
 }
 
 void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X1DIR, true, false>(rc, coarse);
+  GenericBC<X1DIR, BCSide::Inner, BCType::Outflow>(rc, coarse);
 }
 
 void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X1DIR, false, false>(rc, coarse);
+  GenericBC<X1DIR, BCSide::Outer, BCType::Outflow>(rc, coarse);
 }
 
 void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X2DIR, true, false>(rc, coarse);
+  GenericBC<X2DIR, BCSide::Inner, BCType::Outflow>(rc, coarse);
 }
 
 void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X2DIR, false, false>(rc, coarse);
+  GenericBC<X2DIR, BCSide::Outer, BCType::Outflow>(rc, coarse);
 }
 
 void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X3DIR, true, false>(rc, coarse);
+  GenericBC<X3DIR, BCSide::Inner, BCType::Outflow>(rc, coarse);
 }
 
 void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X3DIR, false, false>(rc, coarse);
+  GenericBC<X3DIR, BCSide::Outer, BCType::Outflow>(rc, coarse);
 }
 
 void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X1DIR, true, true>(rc, coarse);
+  GenericBC<X1DIR, BCSide::Inner, BCType::Reflect>(rc, coarse);
 }
 
 void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X1DIR, false, true>(rc, coarse);
+  GenericBC<X1DIR, BCSide::Outer, BCType::Reflect>(rc, coarse);
 }
 
 void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X2DIR, true, true>(rc, coarse);
+  GenericBC<X2DIR, BCSide::Inner, BCType::Reflect>(rc, coarse);
 }
 
 void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X2DIR, false, true>(rc, coarse);
+  GenericBC<X2DIR, BCSide::Outer, BCType::Reflect>(rc, coarse);
 }
 
 void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X3DIR, true, true>(rc, coarse);
+  GenericBC<X3DIR, BCSide::Inner, BCType::Reflect>(rc, coarse);
 }
 
 void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X3DIR, false, true>(rc, coarse);
+  GenericBC<X3DIR, BCSide::Outer, BCType::Reflect>(rc, coarse);
 }
 
 } // namespace BoundaryFunction
