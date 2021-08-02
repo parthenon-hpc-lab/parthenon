@@ -86,9 +86,9 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
 
   // convenient shorthands
-  const bool X1 = (DIR == X1DIR);
-  const bool X2 = (DIR == X2DIR);
-  const bool X3 = (DIR == X3DIR);
+  constexpr bool X1 = (DIR == X1DIR);
+  constexpr bool X2 = (DIR == X2DIR);
+  constexpr bool X3 = (DIR == X3DIR);
 
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
