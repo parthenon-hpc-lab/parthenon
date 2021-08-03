@@ -561,65 +561,65 @@ class MeshBlockData {
   }
   const VariablePack<T> &PackVariables(const std::vector<std::string> &names,
                                        const std::vector<int> &sparse_ids,
-                                       PackIndexMap &map, std::vector<std::string> &key,
+                                       PackIndexMap &map, vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(names, sparse_ids, coarse, &map, &key);
   }
   const VariablePack<T> &PackVariables(const std::vector<std::string> &names,
                                        const std::vector<int> &sparse_ids,
-                                       std::vector<std::string> &key,
+                                       vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(names, sparse_ids, coarse, nullptr, &key);
   }
   const VariablePack<T> &PackVariables(const std::vector<std::string> &names,
-                                       PackIndexMap &map, std::vector<std::string> &key,
+                                       PackIndexMap &map, vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(names, {}, coarse, &map, &key);
   }
   const VariablePack<T> &PackVariables(const std::vector<std::string> &names,
-                                       std::vector<std::string> &key,
+                                       vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(names, {}, coarse, nullptr, &key);
   }
   const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
                                        const std::vector<int> &sparse_ids,
-                                       PackIndexMap &map, std::vector<std::string> &key,
+                                       PackIndexMap &map, vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(flags, sparse_ids, coarse, &map, &key);
   }
   const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
                                        const std::vector<int> &sparse_ids,
-                                       std::vector<std::string> &key,
+                                       vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(flags, sparse_ids, coarse, nullptr, &key);
   }
   const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
-                                       PackIndexMap &map, std::vector<std::string> &key,
+                                       PackIndexMap &map, vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(flags, {}, coarse, &map, &key);
   }
   const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
-                                       std::vector<std::string> &key,
+                                       vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(flags, {}, coarse, nullptr, &key);
   }
   const VariablePack<T> &PackVariables(const std::vector<int> &sparse_ids,
-                                       PackIndexMap &map, std::vector<std::string> &key,
+                                       PackIndexMap &map, vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(sparse_ids, coarse, &map, &key);
   }
   const VariablePack<T> &PackVariables(const std::vector<int> &sparse_ids,
-                                       std::vector<std::string> &key,
+                                       vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(sparse_ids, coarse, nullptr, &key);
   }
-  const VariablePack<T> &PackVariables(PackIndexMap &map, std::vector<std::string> &key,
+  const VariablePack<T> &PackVariables(PackIndexMap &map, vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl({}, coarse, &map, &key);
   }
   // we have to disable this overload because it overshadows packing by name without any
   // output parameters
-  // const VariablePack<T> &PackVariables(std::vector<std::string> &key,
+  // const VariablePack<T> &PackVariables(vpack_types::VPackKey_t &key,
   //                                      bool coarse = false) {
   //   return PackVariablesImpl({}, coarse, nullptr, &key);
   // }

@@ -70,7 +70,7 @@ class TaskList {
   }
 
   template <class F, class... Args>
-  TaskID AddTask(TaskID const &dep, F &&func, Args &&... args) {
+  TaskID AddTask(TaskID const &dep, F &&func, Args &&...args) {
     TaskID id(tasks_added_ + 1);
     task_list_.push_back(
         Task(id, dep, [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
@@ -84,7 +84,7 @@ class TaskList {
   // NOTE: we must capture the object pointer
   template <class T, class... Args>
   TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), T *obj,
-                 Args &&... args) {
+                 Args &&...args) {
     return this->AddTask(dep,
                          [=]() mutable -> TaskStatus { return (obj->*func)(args...); });
   }

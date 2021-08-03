@@ -62,8 +62,8 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
     constexpr int N = 6;
     constexpr int NDIM = 3;
     constexpr int NBLOCKS = 9;
-    std::vector<int> scalar_shape{N, N, N};
-    std::vector<int> vector_shape{N, N, N, 3};
+    const std::vector<int> scalar_shape{N, N, N};
+    const std::vector<int> vector_shape{N, N, N, 3};
 
     Metadata m({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
     Metadata m_vector({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},
@@ -83,7 +83,7 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
       auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
       auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
       auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
-      std::vector<std::string> all_indep{"v1", "v3", "v5"};
+      const std::vector<std::string> all_indep{"v1", "v3", "v5"};
       for (int b = 0; b < NBLOCKS; ++b) {
         auto &pmb = block_list[b];
         auto &pmbd = pmb->meshblock_data.Get();
@@ -105,7 +105,7 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
 
       THEN("A pack for a scalar with a PackIndexMap works") {
         PackIndexMap imap;
-        std::vector<std::string> vlist{"v5"};
+        const std::vector<std::string> vlist{"v5"};
         auto pack = mesh_data.PackVariables(vlist, imap);
         const int vlo = imap["v5"].first;
         const int vhi = imap["v5"].second;
@@ -127,7 +127,7 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
       }
 
       THEN("A hardcoded pack for a scalar with no PackIndexMap works") {
-        std::vector<std::string> vlist{"v5"};
+        const std::vector<std::string> vlist{"v5"};
         auto pack = mesh_data.PackVariables(vlist);
 
         const int c = 0;
