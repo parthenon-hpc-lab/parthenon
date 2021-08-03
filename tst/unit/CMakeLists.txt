@@ -28,6 +28,7 @@ list(APPEND unit_tests_SOURCES
     test_metadata.cpp
     test_pararrays.cpp
     test_meshblock_data_iterator.cpp
+    test_mesh_data.cpp
     test_swarm.cpp
     test_required_desired.cpp
     test_error_checking.cpp

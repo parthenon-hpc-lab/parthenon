@@ -49,6 +49,9 @@ using SwarmVarList = std::forward_list<std::shared_ptr<ParticleVariable<T>>>;
 // the pairs represent interval (inclusive) of those indices
 using IndexPair = std::pair<int, int>;
 
+// The key for variable packs
+using VPackKey_t = std::vector<std::string>;
+
 // Flux packs require a set of names for the variables and a set of names for the strings
 // and order matters. So StringPair forms the keys for the FluxPack cache.
 using StringPair = std::pair<std::vector<std::string>, std::vector<std::string>>;
