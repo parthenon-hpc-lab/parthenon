@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,7 +16,6 @@
 
 #include <parthenon/package.hpp>
 
-//#include "poisson_driver.hpp"
 #include "config.hpp"
 #include "defs.hpp"
 #include "poisson_package.hpp"
@@ -46,10 +45,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   auto coords = pmb->coords;
   PackIndexMap imap;
-  std::vector<std::string> vars({"density", "potential"});
-  auto q = data->PackVariables(vars, imap);
-  int irho = imap["density"].first;
-  int iphi = imap["potential"].first;
+  const std::vector<std::string> vars({"density", "potential"});
+  const auto &q = data->PackVariables(vars, imap);
+  const int irho = imap["density"].first;
+  const int iphi = imap["potential"].first;
 
   pmb->par_for(
       "Poisson::ProblemGenerator", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,

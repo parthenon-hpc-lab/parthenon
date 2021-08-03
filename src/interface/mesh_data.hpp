@@ -231,14 +231,20 @@ class MeshData {
 
   TaskStatus StartReceiving(BoundaryCommSubset phase) {
     for (const auto &pbd : block_data_) {
-      pbd->StartReceiving(phase);
+      auto status = pbd->StartReceiving(phase);
+      if (status != TaskStatus::complete) {
+        PARTHENON_THROW("StartReceiving failed!");
+      }
     }
     return TaskStatus::complete;
   }
 
   TaskStatus ClearBoundary(BoundaryCommSubset phase) {
     for (const auto &pbd : block_data_) {
-      pbd->ClearBoundary(phase);
+      auto status = pbd->ClearBoundary(phase);
+      if (status != TaskStatus::complete) {
+        PARTHENON_THROW("ClearBoundary failed!");
+      }
     }
     return TaskStatus::complete;
   }

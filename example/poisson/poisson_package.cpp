@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -69,13 +69,13 @@ TaskStatus UpdatePhi(T *u, T *du) {
   IndexRange kb = u->GetBoundsK(IndexDomain::interior);
 
   PackIndexMap imap;
-  std::vector<std::string> vars({"density", "potential"});
-  auto v = u->PackVariables(vars, imap);
+  const std::vector<std::string> vars({"density", "potential"});
+  const auto &v = u->PackVariables(vars, imap);
   const int irho = imap["density"].first;
   const int iphi = imap["potential"].first;
-  std::vector<std::string> phi_var({"potential"});
+  const std::vector<std::string> phi_var({"potential"});
   PackIndexMap imap2;
-  auto dv = du->PackVariables(phi_var, imap2);
+  const auto &dv = du->PackVariables(phi_var, imap2);
   const int idphi = imap2["potential"].first;
 
   auto coords = GetCoords(pm);
@@ -107,7 +107,7 @@ TaskStatus UpdatePhi(T *u, T *du) {
       DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, dv.GetDim(5) - 1, kb.s, kb.e,
       jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        v(b, iphi, k, j, i) += dv(b, 0, k, j, i);
+        v(b, iphi, k, j, i) += dv(b, idphi, k, j, i);
       });
 
   Kokkos::Profiling::popRegion(); // Task_Poisson_UpdatePhi
@@ -123,12 +123,12 @@ TaskStatus CheckConvergence(T *u, T *du) {
   IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = u->GetBoundsK(IndexDomain::interior);
 
-  std::vector<std::string> vars({"potential"});
+  const std::vector<std::string> vars({"potential"});
   PackIndexMap imap;
-  auto v = u->PackVariables(vars, imap);
+  const auto &v = u->PackVariables(vars, imap);
   const int iphi = imap["potential"].first;
   PackIndexMap imap2;
-  auto dv = du->PackVariables(vars, imap2);
+  const auto &dv = du->PackVariables(vars, imap2);
   const int idphi = imap2["potential"].first;
 
   Real max_err;
