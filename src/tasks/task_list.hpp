@@ -44,7 +44,7 @@ TaskID AddTaskHelper(TaskList *, Task);
 class IterativeTasks {
  public:
   IterativeTasks(TaskList *tl, int key) : tl_(tl), key_(key) {
-    max_iterations_ = std::numeric_limits<unsigned int>::max();
+    max_iterations_ = std::numeric_limits<int>::max();
   }
 
   template <class T, class... Args>
@@ -76,14 +76,20 @@ class IterativeTasks {
                     });
   }
 
-  void SetMaxIterations(const unsigned int max) { max_iterations_ = max; }
-  void SetCheckInterval(const unsigned int chk) { check_interval_ = chk; }
+  void SetMaxIterations(const int max) {
+    assert(max > 0);
+    max_iterations_ = max;
+  }
+  void SetCheckInterval(const int chk) {
+    assert(chk > 0);
+    check_interval_ = chk;
+  }
   void SetFailWithMaxIterations(const bool flag) { throw_with_max_iters_ = flag; }
   void SetWarnWithMaxIterations(const bool flag) { warn_with_max_iters_ = flag; }
   bool ShouldThrowWithMax() const { return throw_with_max_iters_; }
   bool ShouldWarnWithMax() const { return warn_with_max_iters_; }
-  unsigned int GetMaxIterations() const { return max_iterations_; }
-  unsigned int GetIterationCount() const { return count_; }
+  int GetMaxIterations() const { return max_iterations_; }
+  int GetIterationCount() const { return count_; }
   void IncrementCount() { count_++; }
 
  private:
@@ -102,9 +108,9 @@ class IterativeTasks {
   }
   TaskList *tl_;
   int key_;
-  unsigned int max_iterations_;
+  int max_iterations_;
   unsigned int count_ = 0;
-  unsigned int check_interval_ = 1;
+  int check_interval_ = 1;
   bool throw_with_max_iters_ = false;
   bool warn_with_max_iters_ = true;
 };
@@ -177,6 +183,7 @@ class TaskList {
     }
   }
   void ResetIteration(const int key) {
+    PARTHENON_REQUIRE_THROWS(key < iter_tasks.size(), "Invalid iteration key");
     iter_tasks[key].IncrementCount();
     if (iter_tasks[key].GetIterationCount() == iter_tasks[key].GetMaxIterations()) {
       if (iter_tasks[key].ShouldThrowWithMax()) {

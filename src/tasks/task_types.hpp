@@ -28,17 +28,21 @@ enum class TaskType { single, iterative, completion_criteria };
 class Task {
  public:
   Task(const TaskID &id, const TaskID &dep, std::function<TaskStatus()> func)
-      : myid_(id), dep_(dep), type_(TaskType::single), key_(-1), func_(std::move(func)) {}
+      : myid_(id), dep_(dep), type_(TaskType::single), key_(-1), func_(std::move(func)),
+        interval_(1) {}
   Task(const TaskID &id, const TaskID &dep, std::function<TaskStatus()> func,
        const TaskType &type, const int key)
-      : myid_(id), dep_(dep), type_(type), key_(key), func_(std::move(func)) {
+      : myid_(id), dep_(dep), type_(type), key_(key), func_(std::move(func)),
+        interval_(1) {
     assert(key_ >= 0);
+    assert(type_ != TaskType::single);
   }
   Task(const TaskID &id, const TaskID &dep, std::function<TaskStatus()> func,
        const TaskType &type, const int key, const int interval)
       : myid_(id), dep_(dep), type_(type), key_(key), func_(std::move(func)),
         interval_(interval) {
     assert(key_ >= 0);
+    assert(type_ != TaskType::single);
   }
   void operator()() {
     calls_++;
@@ -59,7 +63,8 @@ class Task {
   bool IsRegional() const { return regional_; }
 
  private:
-  TaskID myid_, dep_;
+  TaskID myid_;
+  const TaskID dep_;
   const TaskType type_;
   const int key_;
   TaskStatus status_ = TaskStatus::incomplete;
@@ -67,7 +72,7 @@ class Task {
   bool lb_time_ = false;
   std::function<TaskStatus()> func_;
   int calls_ = 0;
-  int interval_ = 1;
+  const int interval_;
 };
 
 } // namespace parthenon
