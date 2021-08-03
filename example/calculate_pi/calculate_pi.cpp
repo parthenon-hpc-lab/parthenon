@@ -168,15 +168,12 @@ TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> a
   bool const use_sparse =
       md->GetMeshPointer()->packages.Get("calculate_pi")->Param<bool>("use_sparse");
 
-  PackIndexMap imap;            // PackIndex map can be used to get the index in
-                                // a pack of a specific variable
-  std::vector<std::string> key; // The key is a hash used for caching
-                                // packs. You shouldn't need to use
-                                // it, but it is accessible.
+  PackIndexMap imap; // PackIndex map can be used to get the index in
+                     // a pack of a specific variable
   // This call signature works
   const auto &pack = use_sparse
                          ? md->PackVariables(std::vector<std::string>({"in_or_out"}),
-                                             std::vector<int>{0}, imap, key)
+                                             std::vector<int>{0}, imap)
 
                          // and so does this one
                          : md->PackVariables(std::vector<std::string>({"in_or_out"}));
