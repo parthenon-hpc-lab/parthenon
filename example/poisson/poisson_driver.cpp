@@ -90,8 +90,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
                                 BoundaryCommSubset::all);
 
     auto check = solver.SetCompletionTask(
-        clear, poisson_package::CheckConvergence<MeshData<Real>>, md.get(),
-        mdelta.get());
+        clear, poisson_package::CheckConvergence<MeshData<Real>>, md.get(), mdelta.get());
     // mark task so that dependent tasks (below) won't execute
     // until all task lists have completed it
     solver_region.AddRegionalDependencies(0, i, check);
