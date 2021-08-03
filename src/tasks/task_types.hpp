@@ -43,6 +43,7 @@ class Task {
         interval_(interval) {
     assert(key_ >= 0);
     assert(type_ != TaskType::single);
+    assert(interval_ > 0);
   }
   void operator()() {
     calls_++;
