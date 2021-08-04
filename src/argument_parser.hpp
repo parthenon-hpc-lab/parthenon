@@ -34,39 +34,35 @@ class ArgParse {
       if (*argv[i] == '-' && *(argv[i] + 1) != '\0' && *(argv[i] + 2) == '\0') {
         // check validity of command line options + arguments:
         char opt_letter = *(argv[i] + 1);
-        switch (opt_letter) {
-        // options that do not take arguments:
-        case 'n':
-        case 'c':
-        case 'h':
-          break;
-          // options that require arguments:
-        default:
-          if ((i + 1 >= argc) // flag is at the end of the command line options
-              || (*argv[i + 1] == '-')) { // flag is followed by another flag
-            if (Globals::my_rank == 0) {
-              std::cout << "### FATAL ERROR in main" << std::endl
-                        << "-" << opt_letter << " must be followed by a valid argument\n";
-              return ArgStatus::error;
-            }
+        bool complete = false;
+        bool error = false;
+        bool invalid = false;
+        auto invalid_arg = [&]() {
+          if ((i+1 >= argc) || (*argv[i+1] == '-')) {
+            return true;
           }
-        }
-        switch (*(argv[i] + 1)) {
+          return false;
+        };
+        switch (opt_letter) {
         case 'i': // -i <input_filename>
+          invalid = invalid_arg();
           input_filename = argv[++i];
           iarg_flag = 1;
           break;
         case 'r': // -r <restart_file>
+          invalid = invalid_arg();
           res_flag = 1;
           restart_filename = argv[++i];
           break;
         case 'd': // -d <run_directory>
+          invalid = invalid_arg();
           prundir = argv[++i];
           break;
         case 'n':
           narg_flag = 1;
           break;
         case 'm': // -m <nproc>
+          invalid = invalid_arg();
           mesh_flag = static_cast<int>(std::strtol(argv[++i], nullptr, 10));
           break;
         case 't': // -t <hh:mm:ss>
@@ -78,10 +74,9 @@ class ArgParse {
           if (Globals::my_rank == 0) ShowConfig();
           return ArgStatus::error;
         case 'h':
+          complete = true;
         default:
           if (Globals::my_rank == 0) {
-            std::string athena_version = "version 19.0 - August 2019";
-            std::cout << "Athena++ " << athena_version << std::endl;
             std::cout << "Usage: " << argv[0] << " [options] [block/par=value ...]\n";
             std::cout << "Options:" << std::endl;
             std::cout << "  -i <file>       specify input file [athinput]\n";
@@ -92,7 +87,20 @@ class ArgParse {
             std::cout << "  -m <nproc>      output mesh structure and quit\n";
             std::cout << "  -t hh:mm:ss     wall time limit for final output\n";
             std::cout << "  -h              this help\n";
-            ShowConfig();
+          }
+          error = true;
+        }
+        if (complete) return ArgStatus::complete;
+        if (invalid) {
+          if (Globals::my_rank == 0) {
+            std::cout << "Option -" << opt_letter
+                      << " must be followed by a valid argument" << std::endl;
+          }
+          return ArgStatus::error;
+        }
+        if (error) {
+          if (Globals::my_rank == 0) {
+            std::cout << "Invalid options or required options missing" << std::endl;
           }
           return ArgStatus::error;
         }
