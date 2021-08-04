@@ -95,6 +95,13 @@ if (ENABLE_HDF5)
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_outflow/parthinput.advection_outflow")
   list(APPEND EXTRA_TEST_LABELS "")
+
+  list(APPEND TEST_DIRS poisson)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/poisson/poisson-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/poisson/parthinput.poisson")
+  list(APPEND EXTRA_TEST_LABELS "poisson")
+
 endif()
 
 # Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES

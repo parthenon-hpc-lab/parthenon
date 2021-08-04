@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -193,6 +193,11 @@ void warn(const char *const message, const char *const filename, int const linen
 inline void warn(std::stringstream const &message, const char *const filename,
                  int const linenumber) {
   warn(message.str().c_str(), filename, linenumber);
+}
+
+inline void warn(std::string const &message, const char *const filename,
+                 int const linenumber) {
+  warn(message.c_str(), filename, linenumber);
 }
 
 #ifdef MPI_PARALLEL
