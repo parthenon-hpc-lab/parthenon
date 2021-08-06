@@ -38,7 +38,7 @@ class ArgParse {
         bool error = false;
         bool invalid = false;
         auto invalid_arg = [&]() {
-          if ((i+1 >= argc) || (*argv[i+1] == '-')) {
+          if ((i + 1 >= argc) || (*argv[i + 1] == '-')) {
             return true;
           }
           return false;
