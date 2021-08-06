@@ -34,8 +34,16 @@
 
 namespace parthenon {
 
-BoundaryVariable::BoundaryVariable(std::weak_ptr<MeshBlock> pmb)
-    : bvar_index(), pmy_block_(pmb), pmy_mesh_(pmb.lock()->pmy_mesh) {}
+BoundaryVariable::BoundaryVariable(std::weak_ptr<MeshBlock> pmb, bool is_sparse)
+    : bvar_index(), pmy_block_(pmb), pmy_mesh_(pmb.lock()->pmy_mesh),
+      is_sparse_(is_sparse) {
+  // if this is a sparse variable, neighbor allocation status will be set later, we
+  // initialize it to false here. For dense variable we initialize to true, as all
+  // neighbors will always have this variable allocated
+  for (int i = 0; i < NMAX_NEIGHBORS; ++i) {
+    neighbor_allocated[i] = !is_sparse_;
+  }
+}
 
 //----------------------------------------------------------------------------------------
 //! \fn void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type)
@@ -158,6 +166,7 @@ void BoundaryVariable::SendBoundaryBuffers() {
   auto pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (bd_var_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
     int ssize;
@@ -192,6 +201,8 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
 
   auto pmb = GetBlockPointer();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    if (!neighbor_allocated[n]) continue;
+
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::arrived) continue;
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::waiting) {
