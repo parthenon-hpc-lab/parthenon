@@ -181,7 +181,7 @@ cell_centered_bvars::BufferCache_t ComputePhysicalRestrictBounds(MeshData<Real> 
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
     for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(parthenon::Metadata::FillGhost)) {
+      if (v->IsAllocated() && v->IsSet(parthenon::Metadata::FillGhost)) {
         for (int l = 0; l < v->GetDim(6); ++l) {
           for (int m = 0; m < v->GetDim(5); ++m) {
             ParArray4D<Real> fine = v->data.Get(l, m);

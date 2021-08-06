@@ -152,7 +152,8 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
     }
 
     if (IsSet(Metadata::FillGhost)) {
-      vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
+      vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux,
+                                                             IsSparse());
 
       // enroll CellCenteredBoundaryVariable object
       vbvar->bvar_index = pmb->pbval->bvars.size();

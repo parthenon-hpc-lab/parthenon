@@ -252,6 +252,8 @@ size_t ResetSendBuffers(MeshData<Real> *md, bool cache_is_valid) {
       if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
         v->resetBoundary();
         for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+          if (!v->vbvar->neighbor_allocated[n]) continue;
+
           parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
           auto *pbd_var_ = v->vbvar->GetPBdVar();
           if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) continue;
@@ -300,6 +302,8 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
     for (auto &v : rc->GetCellVariableVector()) {
       if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+          if (!v->vbvar->neighbor_allocated[n]) continue;
+
           parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
           auto *pbd_var_ = v->vbvar->GetPBdVar();
           if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) continue;
@@ -387,6 +391,8 @@ void SendAndNotify(MeshData<Real> *md) {
     for (auto &v : rc->GetCellVariableVector()) {
       if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+          if (!v->vbvar->neighbor_allocated[n]) continue;
+
           parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
           auto *pbd_var_ = v->vbvar->GetPBdVar();
           if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) continue;

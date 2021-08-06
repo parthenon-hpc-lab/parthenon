@@ -36,7 +36,8 @@ namespace parthenon {
 class CellCenteredBoundaryVariable : public BoundaryVariable {
  public:
   CellCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb, ParArrayND<Real> var,
-                               ParArrayND<Real> coarse_var, ParArrayND<Real> *var_flux);
+                               ParArrayND<Real> coarse_var, ParArrayND<Real> *var_flux,
+                               bool is_sparse);
   ~CellCenteredBoundaryVariable();
 
   // may want to rebind var_cc to u,u1,u2,w,w1, etc. registers for time integrator logic.

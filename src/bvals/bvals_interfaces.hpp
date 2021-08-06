@@ -243,11 +243,17 @@ class BoundaryBuffer {
 
 class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
  public:
-  explicit BoundaryVariable(std::weak_ptr<MeshBlock> pmb);
+  explicit BoundaryVariable(std::weak_ptr<MeshBlock> pmb, bool is_sparse);
   virtual ~BoundaryVariable() = default;
 
   // (usuallly the std::size_t unsigned integer type)
   std::vector<BoundaryVariable *>::size_type bvar_index;
+
+  // to flag indicating if a particular neighbor has this variable allocated, only
+  // applicable for sparse variables (dense variables will always have all true)
+  bool neighbor_allocated[NMAX_NEIGHBORS];
+
+  bool IsSparse() const { return is_sparse_; }
 
   virtual int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) = 0;
   virtual int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) = 0;
@@ -282,7 +288,8 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
   void InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type);
   void DestroyBoundaryData(BoundaryData<> &bd);
 
-  // private:
+ private:
+  const bool is_sparse_;
 };
 
 //----------------------------------------------------------------------------------------
