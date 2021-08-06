@@ -459,7 +459,7 @@ a single if statement. You will likely need to add a separate branch for any
 additional tests e.g. `dir_foo_performance`.
 
 The `_createFigureURLPathAndName` is a convenience method for generating a figure URL
-and a figure_file name. The figure_url will be of the form https://github.com/lanl/parthenon/blob/figures/figure_file.
+and a figure_file name. The `figure_url` will be of the form https://github.com/lanl/parthenon/blob/figures/figure_file.
 Using this method is not a requirement. For instance, if you had multiple different performance figures that you
 wanted to generate for a single test you could do, for example:
 
