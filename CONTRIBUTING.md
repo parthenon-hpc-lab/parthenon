@@ -486,7 +486,7 @@ if (test_dir == "dir_foo_performance"):
         figure_urls.append(figure_url3)
 ```
 
-4. At this point we know the app knows the urls of the figures and we know the
+4. At this point we know the app knows the URLs of the figures and we know the
    figure names, however we have to actually generate the figures, this
    involves creating an analyzer, you can take a look at the AdvectionAnalyzer as
    an example
