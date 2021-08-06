@@ -393,8 +393,8 @@ responsibilities:
 1. Submit a status check associated with the commit being analyzed to the
    Parthenon repository
 2. Read in performance metrics from regression tests in a build directory
-3. Compare the current metrics with metrics stored in the parthenon.wiki, the
-   files in the wiki should contain performance metrics from previous runs.
+3. Compare the current metrics with metrics stored in the Parthenon Wiki, the
+   files in the Wiki should contain performance metrics from previous runs.
 4. Generate images showing the performance numbers.
 5. Add images to an orphan branch in the parthenon repository (branch name is
    figures).
