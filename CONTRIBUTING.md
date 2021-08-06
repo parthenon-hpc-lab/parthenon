@@ -399,7 +399,7 @@ responsibilities:
 5. Add images to an orphan branch in the Parthenon repository (branch name is
    figures).
 6. Add new performance metrics to the appropriate performance .json file stored
-   in the wiki. These json files are labeled with the following format:
+   in the Wiki. These JSON files are labeled with the following format:
    performance_metrics_current-branch.json, this means each branch should
    have its own .json performance file.
 7. Create or overwrite a wiki page that contains links to the performance
