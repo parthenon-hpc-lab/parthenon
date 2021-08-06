@@ -396,7 +396,7 @@ responsibilities:
 3. Compare the current metrics with metrics stored in the Parthenon Wiki, the
    files in the Wiki should contain performance metrics from previous runs.
 4. Generate images showing the performance numbers.
-5. Add images to an orphan branch in the parthenon repository (branch name is
+5. Add images to an orphan branch in the Parthenon repository (branch name is
    figures).
 6. Add new performance metrics to the appropriate performance .json file stored
    in the wiki. These json files are labeled with the following format:
