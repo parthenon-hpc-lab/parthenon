@@ -16,6 +16,7 @@
 - [[PR 404]](https://github.com/lanl/parthenon/pull/404) Add capability to communicate particles across meshblocks/MPI processes
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 581]](https://github.com/lanl/parthenon/pull/581) Change return status of `ArgParse` so that `complete` is returned when passing in the help flag.
 - [[PR 580]](https://github.com/lanl/parthenon/pull/580) Hid variable/meshblock pack keys from public API, added unit tests for `MeshBlockData`.
 - [[PR 535]](https://github.com/lanl/parthenon/pull/535) Modify various interfaces connected with
   variables, `StateDescriptor`, variable packing to support proper sparse variables. Replace
