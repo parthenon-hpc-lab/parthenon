@@ -451,8 +451,6 @@ for test_dir in all_dirs:
         if create_figures:
             figure_files_to_upload.append(figure_file)
             figure_urls.append(figure_url)
-
-
 ```
 
 Above you can see a branch for `advection_performance` and
