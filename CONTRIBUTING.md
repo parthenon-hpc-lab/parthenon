@@ -383,7 +383,7 @@ dedicated Power9 nodes that are provided by LANL, this is to ensure consistency
 in the result. However, because the performance tests are running on LANL
 machines it means that it is not straightforward to make the results viewable
 to non LANL contributors. To make the results of the regression tests viewable
-on github a custom github application was developed to be used with Parthenon
+on GitHub a custom GitHub application was developed to be used with Parthenon
 which we will call the Parthenon Performance Metrics App (PPMA).
 
 The PPMA is series of python scripts located in the parthenon repository in
