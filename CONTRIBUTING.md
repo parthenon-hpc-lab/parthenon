@@ -408,7 +408,7 @@ responsibilities:
    repository. The wiki page will be named with the following format:
    current-branch_target-branch.md
    E.g. If you were merging hotfix branch into develop the wiki page would be
-   named: hotfix_develop.md, each pr should have it's own wiki page. For performance
+   named: hotfix_develop.md, each PR should have it's own Wiki page. For performance
    tests that are not run as part of a wiki such as the develop branch is scheduled
    to run daily the current-branch and target-branch are the same: develop_develop.md.
 9. Submit a status check indicating that the performance metrics are ready to
