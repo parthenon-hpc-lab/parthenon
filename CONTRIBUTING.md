@@ -201,16 +201,16 @@ NVIDIA V100 (Volta) GPUs (power9 architecture). Tests run on these systems are
 primarily aimed at measuring the performance of this specific architecture.
 Compilation and testing details can be found by looking in the
 [.gitlab-ci-darwin.yml](.gitlab-ci-darwin.yml) file *and* the /scripts/darwin
-folder. In summary, the ci is built in release mode, with OpenMP, MPI, HDF5 and
+folder. In summary, the CI is built in release mode, with OpenMP, MPI, HDF5 and
 Cuda enabled. All tests are run on a single node with access to two Volta
 GPUs. In addition, the regression tests are run in parallel with two mpi
 processors each of which have access to their own Volta gpu. The following
-tests are run with this ci: unit, regression, performance. A final note,
+tests are run with this CI: unit, regression, performance. A final note,
 this CI has been chosen to also check for performance regressions. The CI
-uses a github application located in /scripts/python. After a successful run
+uses a GitHub application located in /scripts/python. After a successful run
 of the CI a link to the performance metrics will appear as part of the parthenon
 metrics status check in the pr next to the commit the metrics were recorded for.
-All data from the regression tests are recorded in the parthenon wiki in a json file.
+All data from the regression tests are recorded in the parthenon wiki in a JSON file.
 
 ### Adding Tests
 
@@ -344,7 +344,7 @@ files are located in parthenon/scripts/python/packages/parthenon_performance_app
 additional tests metrics changes will need to be made to the scripts located in the folder:
 parthenon/scripts/python/packages/parthenon_performance_app.  In general, the app
 works by taking performance metrics that are ouput to a file when a regression test is executed.
-This output is read by the app and compared with metrics that are stored in the wiki (json format).
+This output is read by the app and compared with metrics that are stored in the wiki (JSON format).
 The metrics are then plotted in a png file which is also uploaded to the wiki. Finally, a markdown
 page is created with links to the images and is uploaded to the wiki.
 
@@ -377,7 +377,7 @@ Total Test time (real) =   1.47 sec
 #### Adding Performance Regression Tests
 
 Regression tests can also be added for the purposes of testing the performance.
-Adding performance tests does require understanding a bit about how the ci
+Adding performance tests does require understanding a bit about how the CI
 infrastructure is setup. Currently, the performance tests are setup to run on
 dedicated Power9 nodes that are provided by LANL, this is to ensure consistency
 in the result. However, because the performance tests are running on LANL
@@ -398,10 +398,10 @@ responsibilities:
 4. Generate images showing the performance numbers.
 5. Add images to an orphan branch in the Parthenon repository (branch name is
    figures).
-6. Add new performance metrics to the appropriate performance .json file stored
+6. Add new performance metrics to the appropriate performance JSON file stored
    in the Wiki. These JSON files are labeled with the following format:
-   performance_metrics_current-branch.json, this means each branch should
-   have its own .json performance file.
+   `performance_metrics_current-branch.json`, this means each branch should
+   have its own JSON performance file.
 7. Create or overwrite a wiki page that contains links to the performance
    figures located in the parthenon wiki repository.
 8. Upload the wiki page the images and performance metrics to the Parthenon
@@ -414,23 +414,23 @@ responsibilities:
 9. Submit a status check indicating that the performance metrics are ready to
    be viewed with a link to the wiki page.
 
-In order to add a performance test the following tasks must be completed.
+In order to add a performance test, let's call it `TEST`, the following tasks must be completed.
 
-1. The test must have a folder in ./tst/regression/test_suites (we will call it
-   dir_foo_performance). NOTE the test folder must have performance in name because
+1. The test must be inside the folder `./tst/regression/test_suites/TEST_performance`.
+   NOTE: the test folder must have `performance` in the name because
    regexp matching of the folder name is used to figure out which tests to run
-   from the ci. To be explicit you can see what command is run by looking in the
-   file ./scripts/darwin/build_fast.sh, there is a line
+   from the CI. To be explicit you can see what command is run by looking in the
+   file `./scripts/darwin/build_fast.sh`, there is a line
 
    ```Bash
        ctest --output-on-failure -R performance -E "SpaceInstances"
    ```
 
 2. When the test is run e.g. by calling ctest the test must output the
-   performance metrics in a file `foo_results.txt` which will appear in the
-   build directory e.g. ./build/.
+   performance metrics in a file called `TEST_results.txt` which will appear in the
+   build directory.
 3. The main PPMA file located in
-   ./scripts/python/packages/parthenon_performance_app/bin/ must be edited. The
+   `./scripts/python/packages/parthenon_performance_app/bin/` must be edited. The
    PPMA script works by looping over the output directories of the regression
    tests, the loop exists in the main PPMA file and should have a logic block
    similar to what is shown below:
