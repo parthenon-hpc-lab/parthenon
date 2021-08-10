@@ -181,7 +181,7 @@ TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> a
   areas(i) = use_sparse ? ComputeAreaInternal(
                               pack, areas,
                               KOKKOS_LAMBDA(int const b, int const v) {
-                                return pack.IsSparseIDAllocated(b, v);
+                                return pack.IsAllocated(b, v);
                               })
                         : ComputeAreaInternal(
                               pack, areas, KOKKOS_LAMBDA(int, int) { return true; });

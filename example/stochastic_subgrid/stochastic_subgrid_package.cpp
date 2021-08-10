@@ -369,7 +369,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  ParArrayND<Real> advected = rc->Get("advected").data;
+  const auto &advected = rc->PackVariables(std::vector<std::string>{"advected"});
   auto pkg = pmb->packages.Get("stochastic_subgrid_package");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");

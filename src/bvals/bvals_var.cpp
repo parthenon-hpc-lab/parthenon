@@ -166,6 +166,7 @@ void BoundaryVariable::SendBoundaryBuffers() {
   auto pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    if (!neighbor_allocated[n]) continue;
 
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (bd_var_.sflag[nb.bufid] == BoundaryStatus::completed) continue;

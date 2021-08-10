@@ -168,7 +168,7 @@ cell_centered_bvars::BufferCache_t ComputePhysicalRestrictBounds(MeshData<Real> 
     auto pmb = rc->GetBlockPointer();
     int nrestrictions = pmb->pbval->NumRestrictions();
     for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(parthenon::Metadata::FillGhost)) {
+      if (v->IsAllocated() && v->IsSet(parthenon::Metadata::FillGhost)) {
         nbuffs += nrestrictions * (v->GetDim(6)) * (v->GetDim(5));
       }
     }

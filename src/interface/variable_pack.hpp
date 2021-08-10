@@ -253,6 +253,9 @@ class VariablePack {
     // dims_[3]. There is one entry in allocation_status_ per VARIABLE, but dims_[3] is
     // number of COMPONENTS (e.g. for a vector variable with 3 components, there will be
     // only one entry in allocation_status_, but 3 entries in v_, sparse_ids_, etc.)
+    assert(dims_[0] > 1);
+    assert(dims_[1] > 0);
+    assert(dims_[2] > 0);
     assert(dims_[3] == v_.extent(0));
     assert(dims_[3] == sparse_ids_.extent(0));
     assert(dims_[3] == vector_component_.extent(0));
@@ -266,6 +269,14 @@ class VariablePack {
     assert(0 <= n && n < dims_[3]);
     // don't use allocated_status_ because it's available only on the host
     return v_(n).size() > 0;
+  }
+
+    // This is here so code templated on VariablePack and MeshBlockPack doesn't need to
+  // change
+  KOKKOS_FORCEINLINE_FUNCTION
+  bool IsAllocated(const int m, const int n) const {
+    assert(m == 0);
+    return IsAllocated(n);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -284,9 +295,8 @@ class VariablePack {
   // change
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(const int m, const int n, const int k, const int j, const int i) const {
-    assert(IsAllocated(n));
     assert(m == 0);
-    return v_(n)(k, j, i);
+    return (*this)(n, k, j, i);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -330,6 +340,7 @@ class VariablePack {
   // lives on host
   const std::vector<bool> *alloc_status_;
 };
+
 template <typename T>
 class SwarmVariablePack {
  public:
@@ -376,6 +387,7 @@ class VariableFluxPack : public VariablePack<T> {
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsFluxAllocated(const int n) const {
+    assert(this->IsAllocated(n));
     assert(0 <= n && n < fsize_);
     // don't use flux_allocated_status_ because it's available only on the host
     // we can just check X1DIR, because it always exists and it's allocated iff all
@@ -576,9 +588,14 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
 
   std::array<int, 4> cv_size{0, 0, 0, 0};
   if (vsize > 0) {
-    // add variables
-    auto fvar = vars.front()->data;
-    cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
+    // get dimension from first variable, they must all be the same
+    // TODO(JL): maybe verify this?
+    const auto &var = vars.front();
+    for (int i = 0; i < 3; ++i) {
+      cv_size[i] = var->GetDim(i + 1);
+    }
+    cv_size[3] = vsize;
+
     FillVarView(vars, false, cv, sparse_id, vector_component, pvmap);
 
     if (fsize > 0) {
@@ -611,8 +628,14 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
 
   std::array<int, 4> cv_size{0, 0, 0, 0};
   if (vsize > 0) {
-    const auto &fvar = coarse ? vars.front()->coarse_s : vars.front()->data;
-    cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
+    // get dimension from first variable, they must all be the same
+    // TODO(JL): maybe verify this?
+    const auto &var = vars.front();
+    for (int i = 0; i < 3; ++i) {
+      cv_size[i] = coarse ? var->GetCoarseDim(i + 1) : var->GetDim(i + 1);
+    }
+    cv_size[3] = vsize;
+
     FillVarView(vars, coarse, cv, sparse_id, vector_component, pvmap);
   }
 
