@@ -18,8 +18,12 @@
 #include <memory>
 #include <utility>
 
+#include "interface/mesh_data.hpp"
+#include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "refinement/amr_criteria.hpp"
 
@@ -43,7 +47,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return ref;
 }
 
-AmrTag CheckAllRefinement(std::shared_ptr<Container<Real>> &rc) {
+AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
   // Check all refinement criteria and return the maximum recommended change in
   // refinement level:
   //   delta_level = -1 => recommend derefinement
@@ -55,25 +59,21 @@ AmrTag CheckAllRefinement(std::shared_ptr<Container<Real>> &rc) {
   //    2) the code must maintain proper nesting, which sometimes means a block that is
   //       tagged as "derefine" must be left alone (or possibly refined?) because of
   //       neighboring blocks.  Similarly for "do nothing"
-  MeshBlock *pmb = rc->pmy_block;
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   // delta_level holds the max over all criteria.  default to derefining.
   AmrTag delta_level = AmrTag::derefine;
-  for (auto &pkg : pmb->packages) {
+  for (auto &pkg : pmb->packages.AllPackages()) {
     auto &desc = pkg.second;
-    // call package specific function, if set
-    if (desc->CheckRefinement != nullptr) {
-      // keep the max over all criteria up to date
-      delta_level = std::max(delta_level, desc->CheckRefinement(rc));
-      if (delta_level == AmrTag::refine) {
-        // since 1 is the max, we can return without having to look at anything else
-        return AmrTag::refine;
-      }
+    delta_level = std::max(delta_level, desc->CheckRefinement(rc));
+    if (delta_level == AmrTag::refine) {
+      // since 1 is the max, we can return without having to look at anything else
+      return AmrTag::refine;
     }
     // call parthenon criteria that were registered
     for (auto &amr : desc->amr_criteria) {
       // get the recommended change in refinement level from this criteria
       AmrTag temp_delta = (*amr)(rc);
-      if ((temp_delta == AmrTag::refine) && rc->pmy_block->loc.level >= amr->max_level) {
+      if ((temp_delta == AmrTag::refine) && pmb->loc.level >= amr->max_level) {
         // don't refine if we're at the max level
         temp_delta = AmrTag::same;
       }
@@ -88,7 +88,7 @@ AmrTag CheckAllRefinement(std::shared_ptr<Container<Real>> &rc) {
   return delta_level;
 }
 
-AmrTag FirstDerivative(DevExecSpace exec_space, const ParArrayND<Real> &q,
+AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria) {
   const int dim1 = q.GetDim(1);
   const int dim2 = q.GetDim(2);
@@ -106,12 +106,9 @@ AmrTag FirstDerivative(DevExecSpace exec_space, const ParArrayND<Real> &q,
     il = 1;
     iu = dim1 - 2;
   }
-
   Real maxd = 0.0;
-  Kokkos::parallel_reduce(
-      "refinement first derivative",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
-          exec_space, {kl, jl, il}, {ku + 1, ju + 1, iu + 1}, {1, 1, iu + 1 - il}),
+  pmb->par_reduce(
+      "refinement first derivative", kl, ku, jl, ju, il, iu,
       KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real scale = std::abs(q(k, j, i));
         Real d =
@@ -131,6 +128,29 @@ AmrTag FirstDerivative(DevExecSpace exec_space, const ParArrayND<Real> &q,
   if (maxd > refine_criteria) return AmrTag::refine;
   if (maxd < derefine_criteria) return AmrTag::derefine;
   return AmrTag::same;
+}
+
+void SetRefinement_(MeshBlockData<Real> *rc) {
+  auto pmb = rc->GetBlockPointer();
+  pmb->pmr->SetRefinement(CheckAllRefinement(rc));
+}
+
+template <>
+TaskStatus Tag(MeshBlockData<Real> *rc) {
+  Kokkos::Profiling::pushRegion("Task_Tag_Block");
+  SetRefinement_(rc);
+  Kokkos::Profiling::popRegion(); // Task_Tag_Block
+  return TaskStatus::complete;
+}
+
+template <>
+TaskStatus Tag(MeshData<Real> *rc) {
+  Kokkos::Profiling::pushRegion("Task_Tag_Mesh");
+  for (int i = 0; i < rc->NumBlocks(); i++) {
+    SetRefinement_(rc->GetBlockData(i).get());
+  }
+  Kokkos::Profiling::popRegion(); // Task_Tag_Mesh
+  return TaskStatus::complete;
 }
 
 } // namespace Refinement

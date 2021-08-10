@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,8 +23,10 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "interface/mesh_data.hpp"
 #include "io_wrapper.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -44,6 +46,7 @@ struct OutputParameters {
   std::string file_id;
   std::string variable;
   std::vector<std::string> variables;
+  std::vector<std::string> component_labels;
   std::string file_type;
   std::string data_format;
   Real next_time, dt;
@@ -53,12 +56,15 @@ struct OutputParameters {
   bool include_ghost_zones, cartesian_vector;
   int islice, jslice, kslice;
   Real x1_slice, x2_slice, x3_slice;
+  bool single_precision_output;
+  int hdf5_compression_level;
   // TODO(felker): some of the parameters in this class are not initialized in constructor
   OutputParameters()
       : block_number(0), next_time(0.0), dt(-1.0), file_number(0), output_slicex1(false),
         output_slicex2(false), output_slicex3(false), output_sumx1(false),
         output_sumx2(false), output_sumx3(false), include_ghost_zones(false),
-        cartesian_vector(false), islice(0), jslice(0), kslice(0) {}
+        cartesian_vector(false), islice(0), jslice(0), kslice(0),
+        single_precision_output(false), hdf5_compression_level(5) {}
 };
 
 //----------------------------------------------------------------------------------------
@@ -124,12 +130,32 @@ class OutputType {
 };
 
 //----------------------------------------------------------------------------------------
+// Helper definitions to enroll user output variables
+
+// Function signature for currently supported user output functions
+using HstFun_t = std::function<Real(MeshData<Real> *md)>;
+
+// Container
+struct HistoryOutputVar {
+  UserHistoryOperation hst_op; // Reduction operation
+  HstFun_t hst_fun;            // Function to be called
+  std::string label;           // column label in hst output file
+  HistoryOutputVar(const UserHistoryOperation &hst_op_, const HstFun_t &hst_fun_,
+                   const std::string &label_)
+      : hst_op(hst_op_), hst_fun(hst_fun_), label(label_) {}
+};
+
+using HstVar_list = std::vector<HistoryOutputVar>;
+// Hardcoded global entry to be used by each package to enroll user output functions
+const char hist_param_key[] = "HistoryFunctions";
+
+//----------------------------------------------------------------------------------------
 //! \class HistoryFile
 //  \brief derived OutputType class for history dumps
 
 class HistoryOutput : public OutputType {
  public:
-  explicit HistoryOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit HistoryOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
@@ -139,7 +165,7 @@ class HistoryOutput : public OutputType {
 
 class FormattedTableOutput : public OutputType {
  public:
-  explicit FormattedTableOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit FormattedTableOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
@@ -149,42 +175,29 @@ class FormattedTableOutput : public OutputType {
 
 class VTKOutput : public OutputType {
  public:
-  explicit VTKOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit VTKOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
-//----------------------------------------------------------------------------------------
-//! \class RestartOutput
-//  \brief derived OutputType class for restart dumps
-
-class RestartOutput : public OutputType {
- public:
-  explicit RestartOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
-};
-
-#ifdef HDF5OUTPUT
+#ifdef ENABLE_HDF5
 //----------------------------------------------------------------------------------------
 //! \class PHDF5Output
-//  \brief derived OutputType class for Athena HDF5 files
+//  \brief derived OutputType class for Athena HDF5 files or restart dumps
 
 class PHDF5Output : public OutputType {
  public:
   // Function declarations
-  explicit PHDF5Output(OutputParameters oparams) : OutputType(oparams) {}
+  PHDF5Output(const OutputParameters &oparams, bool restart)
+      : OutputType(oparams), restart_(restart) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
-  void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm);
+  template <bool WRITE_SINGLE_PRECISION>
+  void WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm);
 
  private:
-  // Parameters
-  static const int max_name_length = 128; // maximum length of names excluding \0
-
-  // Metadata
-  std::string filename; // name of phdf file
-  int nx1, nx2, nx3;    // sizes of MeshBlocks
+  const bool restart_; // true if we write a restart file, false for regular output files
 };
-#endif
+#endif // ifdef ENABLE_HDF5
 
 //----------------------------------------------------------------------------------------
 //! \class Outputs

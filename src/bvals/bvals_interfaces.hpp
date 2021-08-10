@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -22,6 +22,7 @@
 // TODO(felker): deduplicate forward declarations
 // TODO(felker): consider moving enums and structs in a new file? bvals_structs.hpp?
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,7 @@
 
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -80,21 +82,11 @@ enum {
 };
 #endif
 
-// identifiers for all 6 faces of a MeshBlock
-enum BoundaryFace {
-  undef = -1,
-  inner_x1 = 0,
-  outer_x1 = 1,
-  inner_x2 = 2,
-  outer_x2 = 3,
-  inner_x3 = 4,
-  outer_x3 = 5
-};
 // TODO(felker): BoundaryFace must be unscoped enum, for now. Its enumerators are used as
 // int to index raw arrays (not ParArrayNDs)--> enumerator vals are explicitly specified
 
 // identifiers for boundary conditions
-enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic };
+enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic, user };
 
 // identifiers for types of neighbor blocks (connectivity with current MeshBlock)
 enum class NeighborConnect {
@@ -164,7 +156,7 @@ struct NeighborBlock { // aggregate and POD type. Inheritance breaks standard-la
 // TODO(felker): consider renaming/be more specific--- what kind of data/info?
 // one for each type of "BoundaryQuantity" corresponding to BoundaryVariable
 
-template <int n = 56>
+template <int n = NMAX_NEIGHBORS>
 struct BoundaryData { // aggregate and POD (even when MPI_PARALLEL is defined)
   static constexpr int kMaxNeighbor = n;
   // KGF: "nbmax" only used in bvals_var.cpp, Init/DestroyBoundaryData()
@@ -172,7 +164,8 @@ struct BoundaryData { // aggregate and POD (even when MPI_PARALLEL is defined)
   // currently, sflag[] is only used by Multgrid (send buffers are reused each stage in
   // red-black comm. pattern; need to check if they are available)
   BoundaryStatus flag[kMaxNeighbor], sflag[kMaxNeighbor];
-  ParArray1D<Real> send[kMaxNeighbor], recv[kMaxNeighbor];
+  BufArray1D<Real> buffers;
+  BufArray1D<Real> send[kMaxNeighbor], recv[kMaxNeighbor];
 #ifdef MPI_PARALLEL
   MPI_Request req_send[kMaxNeighbor], req_recv[kMaxNeighbor];
 #endif
@@ -227,17 +220,17 @@ class BoundaryBuffer {
 
  protected:
   // universal buffer management methods for Cartesian grids (unrefined and SMR/AMR):
-  virtual int LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
+  virtual int LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf,
                                           const NeighborBlock &nb) = 0;
-  virtual void SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) = 0;
+  virtual void SetBoundarySameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) = 0;
 
   // SMR/AMR-exclusive buffer management methods:
-  virtual int LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf,
+  virtual int LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf,
                                           const NeighborBlock &nb) = 0;
-  virtual int LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
+  virtual int LoadBoundaryBufferToFiner(BufArray1D<Real> &buf,
                                         const NeighborBlock &nb) = 0;
-  virtual void SetBoundaryFromCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) = 0;
-  virtual void SetBoundaryFromFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) = 0;
+  virtual void SetBoundaryFromCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) = 0;
+  virtual void SetBoundaryFromFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) = 0;
 };
 
 //----------------------------------------------------------------------------------------
@@ -250,7 +243,7 @@ class BoundaryBuffer {
 
 class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
  public:
-  explicit BoundaryVariable(MeshBlock *pmb);
+  explicit BoundaryVariable(std::weak_ptr<MeshBlock> pmb);
   virtual ~BoundaryVariable() = default;
 
   // (usuallly the std::size_t unsigned integer type)
@@ -264,14 +257,24 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
   bool ReceiveBoundaryBuffers() override;
   void ReceiveAndSetBoundariesWithWait() override;
   void SetBoundaries() override;
+  auto GetPBdVar() { return &bd_var_; }
 
  protected:
   // deferred initialization of BoundaryData objects in derived class constructors
   BoundaryData<> bd_var_, bd_var_flcor_;
   // derived class dtors are also responsible for calling DestroyBoundaryData(bd_var_)
 
-  MeshBlock *pmy_block_; // ptr to MeshBlock containing this BoundaryVariable
+  // ptr to MeshBlock containing this BoundaryVariable
+  std::weak_ptr<MeshBlock> pmy_block_;
   Mesh *pmy_mesh_;
+
+  /// Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block_.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block_.lock();
+  }
 
   void CopyVariableBufferSameProcess(NeighborBlock &nb, int ssize);
   void CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, int ssize);
@@ -280,6 +283,53 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
   void DestroyBoundaryData(BoundaryData<> &bd);
 
   // private:
+};
+
+//----------------------------------------------------------------------------------------
+// Concrete classes
+//----------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------
+//! \class BoundarySwarm
+class BoundarySwarm : public BoundaryCommunication {
+ public:
+  explicit BoundarySwarm(std::weak_ptr<MeshBlock> pmb);
+  ~BoundarySwarm() = default;
+
+  std::vector<ParArrayND<int>> vars_int;
+  std::vector<ParArrayND<Real>> vars_real;
+
+  // (usuallly the std::size_t unsigned integer type)
+  std::vector<BoundaryVariable *>::size_type bswarm_index;
+
+  // BoundaryCommunication
+  void SetupPersistentMPI() final;
+  void StartReceiving(BoundaryCommSubset phase) final{};
+  void ClearBoundary(BoundaryCommSubset phase) final{};
+  void Receive(BoundaryCommSubset phase);
+  void Send(BoundaryCommSubset phase);
+
+  BoundaryData<> bd_var_;
+  std::weak_ptr<MeshBlock> pmy_block;
+  Mesh *pmy_mesh_;
+  int send_tag[NMAX_NEIGHBORS], recv_tag[NMAX_NEIGHBORS];
+  int particle_size, send_size[NMAX_NEIGHBORS], recv_size[NMAX_NEIGHBORS];
+
+ protected:
+  int nl_, nu_;
+  void InitBoundaryData(BoundaryData<> &bd);
+
+ private:
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block.lock();
+  }
+
+#ifdef MPI_PARALLEL
+  int swarm_id_;
+#endif
 };
 
 } // namespace parthenon

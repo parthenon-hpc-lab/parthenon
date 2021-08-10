@@ -19,6 +19,7 @@
 //! \file mesh_refinement.hpp
 //  \brief defines MeshRefinement class used for static/adaptive mesh refinement
 
+#include <memory>
 #include <tuple>
 #include <vector>
 
@@ -45,7 +46,7 @@ class MeshRefinement {
   friend class Mesh;
 
  public:
-  MeshRefinement(MeshBlock *pmb, ParameterInput *pin);
+  MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin);
 
   // functions
   void RestrictCellCenteredValues(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
@@ -76,19 +77,26 @@ class MeshRefinement {
   int AddToRefinement(ParArrayND<Real> pvar_cc, ParArrayND<Real> pcoarse_cc);
   int AddToRefinement(FaceField *pvar_fc, FaceField *pcoarse_fc);
 
+  Coordinates_t GetCoarseCoords() const { return coarse_coords; }
+
  private:
   // data
-  MeshBlock *pmy_block_;
+  std::weak_ptr<MeshBlock> pmy_block_;
   Coordinates_t coarse_coords;
 
   int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;
 
-  // functions
-  AMRFlagFunc AMRFlag_; // duplicate of Mesh class member
-
   // tuples of references to AMR-enrolled arrays (quantity, coarse_quantity)
   std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>> pvars_cc_;
   std::vector<std::tuple<FaceField *, FaceField *>> pvars_fc_;
+
+  // Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block_.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block_.lock();
+  }
 };
 
 } // namespace parthenon

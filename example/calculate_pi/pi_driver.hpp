@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,6 +13,9 @@
 
 #ifndef EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
 #define EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
+
+#include <memory>
+#include <vector>
 
 #include <parthenon/driver.hpp>
 
@@ -29,9 +32,11 @@ class PiDriver : public Driver {
     pin->CheckDesired("Pi", "radius");
   }
 
-  /// MakeTaskList isn't a virtual routine on `Driver`, but each driver is expected to
-  /// implement it.
-  TaskList MakeTaskList(MeshBlock *pmb);
+  /// MakeTaskList and MakeTasks aren't virtual routines on `Driver`,
+  // but each driver is expected to implement at least one of them.
+  /// TaskList MakeTaskList(MeshBlock *pmb);
+  template <typename T>
+  TaskCollection MakeTaskCollection(T &blocks);
 
   /// `Execute` cylces until simulation completion.
   DriverStatus Execute() override;

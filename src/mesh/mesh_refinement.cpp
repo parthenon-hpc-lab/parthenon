@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -30,6 +31,8 @@
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
+#include "mesh/refinement_cc_in_one.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "refinement/refinement.hpp"
@@ -41,18 +44,18 @@ namespace parthenon {
 //! \fn MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
 //  \brief constructor
 
-MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
+MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin)
     : pmy_block_(pmb), deref_count_(0),
-      deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)),
-      AMRFlag_(pmb->pmy_mesh->AMRFlag_) {
+      deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)) {
   // Create coarse mesh object for parent grid
-  coarse_coords = Coordinates_t(pmb->coords, 2);
+  coarse_coords = Coordinates_t(pmb.lock()->coords, 2);
 
-  if (NGHOST % 2) {
+  if ((Globals::nghost % 2) != 0) {
     std::stringstream msg;
     msg << "### FATAL ERROR in MeshRefinement constructor" << std::endl
-        << "Selected --nghost=" << NGHOST << " is incompatible with mesh refinement.\n"
-        << "Reconfigure with an even number of ghost cells " << std::endl;
+        << "Selected --nghost=" << Globals::nghost
+        << " is incompatible with mesh refinement because it is not a multiple of 2.\n"
+        << "Rerun with an even number of ghost cells " << std::endl;
     PARTHENON_FAIL(msg);
   }
 }
@@ -67,80 +70,34 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
                                                 ParArrayND<Real> &coarse, int sn, int en,
                                                 int csi, int cei, int csj, int cej,
                                                 int csk, int cek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
 
-  auto coords = pmb->coords;
-  const IndexDomain interior = IndexDomain::interior;
-  const IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-  const IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-  const IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-  const IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-  const IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
-  const IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
-
-  int si = (csi - cib.s) * 2 + ib.s;
-  int ei = (cei - cib.s) * 2 + ib.s + 1;
-  // store the restricted data in the prolongation buffer for later use
-  if (pmb->block_size.nx3 > 1) { // 3D
-    pmb->par_for(
-        "RestrictCellCenteredValues3d", sn, en, csk, cek, csj, cej, csi, cei,
-        KOKKOS_LAMBDA(const int n, const int ck, const int cj, const int ci) {
-          int k = (ck - ckb.s) * 2 + kb.s;
-          int j = (cj - cjb.s) * 2 + jb.s;
-          int i = (ci - cib.s) * 2 + ib.s;
-          // KGF: add the off-centered quantities first to preserve FP symmetry
-          const Real vol000 = coords.Volume(k, j, i);
-          const Real vol001 = coords.Volume(k, j, i + 1);
-          const Real vol010 = coords.Volume(k, j + 1, i);
-          const Real vol011 = coords.Volume(k, j + 1, i + 1);
-          const Real vol100 = coords.Volume(k + 1, j, i);
-          const Real vol101 = coords.Volume(k + 1, j, i + 1);
-          const Real vol110 = coords.Volume(k + 1, j + 1, i);
-          const Real vol111 = coords.Volume(k + 1, j + 1, i + 1);
-          Real tvol = ((vol000 + vol010) + (vol001 + vol011)) +
-                      ((vol100 + vol110) + (vol101 + vol111));
-          // KGF: add the off-centered quantities first to preserve FP symmetry
-          coarse(n, ck, cj, ci) =
-              (((fine(n, k, j, i) * vol000 + fine(n, k, j + 1, i) * vol010) +
-                (fine(n, k, j, i + 1) * vol001 + fine(n, k, j + 1, i + 1) * vol011)) +
-               ((fine(n, k + 1, j, i) * vol100 + fine(n, k + 1, j + 1, i) * vol110) +
-                (fine(n, k + 1, j, i + 1) * vol101 +
-                 fine(n, k + 1, j + 1, i + 1) * vol111))) /
-              tvol;
-        });
-  } else if (pmb->block_size.nx2 > 1) { // 2D
-    int k = kb.s, ck = ckb.s;
-    pmb->par_for(
-        "RestrictCellCenteredValues2d", sn, en, csj, cej, csi, cei,
-        KOKKOS_LAMBDA(const int n, const int cj, const int ci) {
-          int j = (cj - cjb.s) * 2 + jb.s;
-          int i = (ci - cib.s) * 2 + ib.s;
-          // KGF: add the off-centered quantities first to preserve FP symmetry
-          const Real vol00 = coords.Volume(k, j, i);
-          const Real vol10 = coords.Volume(k, j + 1, i);
-          const Real vol01 = coords.Volume(k, j, i + 1);
-          const Real vol11 = coords.Volume(k, j + 1, i + 1);
-          Real tvol = (vol00 + vol10) + (vol01 + vol11);
-
-          // KGF: add the off-centered quantities first to preserve FP symmetry
-          coarse(n, 0, cj, ci) =
-              ((fine(n, 0, j, i) * vol00 + fine(n, 0, j + 1, i) * vol10) +
-               (fine(n, 0, j, i + 1) * vol01 + fine(n, 0, j + 1, i + 1) * vol11)) /
-              tvol;
-        });
-  } else { // 1D
-    int j = jb.s, cj = cjb.s, k = kb.s, ck = ckb.s;
-    pmb->par_for(
-        "RestrictCellCenteredValues1d", sn, en, csi, cei,
-        KOKKOS_LAMBDA(const int n, const int ci) {
-          int i = (ci - cib.s) * 2 + ib.s;
-          const Real vol0 = coords.Volume(k, j, i);
-          const Real vol1 = coords.Volume(k, j, i + 1);
-          Real tvol = vol0 + vol1;
-          coarse(n, ck, cj, ci) =
-              (fine(n, k, j, i) * vol0 + fine(n, k, j, i + 1) * vol1) / tvol;
-        });
+  int b = 0;
+  int nbuffers = fine.GetDim(6) * fine.GetDim(5);
+  int nvars = fine.GetDim(4);
+  cell_centered_bvars::BufferCache_t info("refinement info", nbuffers);
+  auto info_h = Kokkos::create_mirror_view(info);
+  for (int l = 0; l < fine.GetDim(6); ++l) {
+    for (int m = 0; m < fine.GetDim(5); ++m) {
+      // buff and var unused.
+      info_h(b).si = csi;
+      info_h(b).ei = cei;
+      info_h(b).sj = csj;
+      info_h(b).ej = cej;
+      info_h(b).sk = csk;
+      info_h(b).ek = cek;
+      info_h(b).Nv = nvars;
+      info_h(b).restriction = true;
+      info_h(b).coords = pmb->coords;
+      info_h(b).coarse_coords = this->coarse_coords;
+      info_h(b).fine = fine.Get(l, m);
+      info_h(b).coarse = coarse.Get(l, m);
+      ++b;
+    }
   }
+  Kokkos::deep_copy(info, info_h);
+
+  cell_centered_refinement::Restrict(info, pmb->cellbounds, pmb->c_cellbounds);
 }
 
 //----------------------------------------------------------------------------------------
@@ -151,11 +108,11 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
 void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
                                      ParArrayND<Real> &coarse, int csi, int cei, int csj,
                                      int cej, int csk, int cek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
-  int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-  int ei = (cei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+  // int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+  // int ei = (cei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
 
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3 > 1) { // 3D
@@ -190,6 +147,7 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
         coarse(csk, cj, ci) = (fine(k, j, i) * area0 + fine(k, j + 1, i) * area1) / tarea;
       }
     }
+
   } else { // 1D - no restriction, just copy
     for (int ci = csi; ci <= cei; ci++) {
       int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
@@ -209,7 +167,7 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
 void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine,
                                      ParArrayND<Real> &coarse, int csi, int cei, int csj,
                                      int cej, int csk, int cek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
   int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
@@ -272,7 +230,7 @@ void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine,
 void MeshRefinement::RestrictFieldX3(const ParArrayND<Real> &fine,
                                      ParArrayND<Real> &coarse, int csi, int cei, int csj,
                                      int cej, int csk, int cek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
   int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior),
@@ -341,7 +299,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
                                                   ParArrayND<Real> &fine, int sn, int en,
                                                   int si, int ei, int sj, int ej, int sk,
                                                   int ek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto coords = pmb->coords;
   auto coarse_coords = this->coarse_coords;
   const IndexDomain interior = IndexDomain::interior;
@@ -510,7 +468,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
 void MeshRefinement::ProlongateSharedFieldX1(const ParArrayND<Real> &coarse,
                                              ParArrayND<Real> &fine, int si, int ei,
                                              int sj, int ej, int sk, int ek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
   if (pmb->block_size.nx3 > 1) {
@@ -594,7 +552,7 @@ void MeshRefinement::ProlongateSharedFieldX1(const ParArrayND<Real> &coarse,
 void MeshRefinement::ProlongateSharedFieldX2(const ParArrayND<Real> &coarse,
                                              ParArrayND<Real> &fine, int si, int ei,
                                              int sj, int ej, int sk, int ek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const IndexDomain interior = IndexDomain::interior;
   auto &coords = pmb->coords;
   if (pmb->block_size.nx3 > 1) {
@@ -684,7 +642,7 @@ void MeshRefinement::ProlongateSharedFieldX2(const ParArrayND<Real> &coarse,
 void MeshRefinement::ProlongateSharedFieldX3(const ParArrayND<Real> &coarse,
                                              ParArrayND<Real> &fine, int si, int ei,
                                              int sj, int ej, int sk, int ek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const IndexDomain interior = IndexDomain::interior;
   auto &coords = pmb->coords;
   if (pmb->block_size.nx3 > 1) {
@@ -797,7 +755,7 @@ void MeshRefinement::ProlongateSharedFieldX3(const ParArrayND<Real> &coarse,
 
 void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, int sj,
                                              int ej, int sk, int ek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
   int fsi = (si - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior),
@@ -994,15 +952,14 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
 //  \brief Check refinement criteria
 
 void MeshRefinement::CheckRefinementCondition() {
-  MeshBlock *pmb = pmy_block_;
-  auto &rc = pmb->real_containers.Get();
-  AmrTag ret = Refinement::CheckAllRefinement(rc);
-  // if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  auto &rc = pmb->meshblock_data.Get();
+  AmrTag ret = Refinement::CheckAllRefinement(rc.get());
   SetRefinement(ret);
 }
 
 void MeshRefinement::SetRefinement(AmrTag flag) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int aret = std::max(-1, static_cast<int>(flag));
 
   if (aret == 0) refine_flag_ = 0;

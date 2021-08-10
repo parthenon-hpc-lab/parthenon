@@ -39,17 +39,26 @@
 // MPI parallelization (MPI_PARALLEL or NOT_MPI_PARALLEL)
 #define @MPI_OPTION@
 
-// OpenMP parallelization (OPENMP_PARALLEL or NOT_OPENMP_PARALLEL)
-#define @OPENMP_OPTION@
+// define PARTHENON_ENABLE_HOST_COMM_BUFFERS or not at all
+#cmakedefine PARTHENON_ENABLE_HOST_COMM_BUFFERS
 
-// HDF5 output (HDF5OUTPUT or NO_HDF5OUTPUT)
-#define @HDF5_OPTION@
+// define PARTHENON_ENABLE_INIT_PACKING or not at all
+#cmakedefine PARTHENON_ENABLE_INIT_PACKING
 
+// defne ENABLE_HDF5 or not at all
+#cmakedefine ENABLE_HDF5
+
+// define PARTHENON_DISABLE_HDF5_COMPRESSION or not at all
+#cmakedefine PARTHENON_DISABLE_HDF5_COMPRESSION
+
+// Default loop patterns for MeshBlock par_for() wrappers,
+// see kokkos_abstraction.hpp for available tags.
 // Kokkos tight loop layout
-#define @PAR_LOOP_LAYOUT@
+#define DEFAULT_LOOP_PATTERN parthenon::@PAR_LOOP_LAYOUT_TAG@
 
-// Kokkos nested loop layout (inner)
-#define @PAR_LOOP_INNER_LAYOUT@
+// Kokkos nested loop layout
+#define DEFAULT_OUTER_LOOP_PATTERN parthenon::outer_loop_pattern_teams_tag
+#define DEFAULT_INNER_LOOP_PATTERN parthenon::@PAR_LOOP_INNER_LAYOUT_TAG@
 
 // try/throw/catch C++ exception handling (ENABLE_EXCEPTIONS or DISABLE_EXCEPTIONS)
 // (enabled by default)
@@ -59,15 +68,6 @@
 #define COMPILED_WITH "@COMPILER_CHOICE@"
 #define COMPILER_COMMAND "@COMPILER_COMMAND@"
 #define COMPILED_WITH_OPTIONS "@COMPILER_FLAGS@" // NOLINT
-
-//----------------------------------------------------------------------------------------
-// macros associated with numerical algorithm (rarely modified)
-
-#define NFIELD @NFIELD_VARIABLES@
-#define NWAVE @NWAVE_VALUE@
-#define NGHOST @NUMBER_GHOST_CELLS@
-#define MAX_NSTAGE 5     // maximum number of stages per cycle for time-integrator
-#define MAX_NREGISTER 3  // maximum number of (u, b) register pairs for time-integrator
 
 //----------------------------------------------------------------------------------------
 // general purpose macros (never modified)

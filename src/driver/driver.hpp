@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,7 @@
 #ifndef DRIVER_DRIVER_HPP_
 #define DRIVER_DRIVER_HPP_
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -37,7 +38,7 @@ enum class DriverStatus { complete, timeout, failed };
 class Driver {
  public:
   Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : pinput(pin), app_input(app_in), pmesh(pm) {}
+      : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev(), time_LBandAMR() {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
 
@@ -45,14 +46,16 @@ class Driver {
   ApplicationInput *app_input;
   Mesh *pmesh;
   std::unique_ptr<Outputs> pouts;
+  static double elapsed_main() { return timer_main.seconds(); }
+  static double elapsed_cycle() { return timer_cycle.seconds(); }
+  static double elapsed_LBandAMR() { return timer_LBandAMR.seconds(); }
 
  protected:
-  clock_t tstart_;
-#ifdef OPENMP_PARALLEL
-  double omp_start_time_;
-#endif
+  static Kokkos::Timer timer_cycle, timer_main, timer_LBandAMR;
+  double time_LBandAMR;
+  std::uint64_t mbcnt_prev;
   virtual void PreExecute();
-  virtual void PostExecute();
+  virtual void PostExecute(DriverStatus status);
 
  private:
 };
@@ -61,12 +64,18 @@ class EvolutionDriver : public Driver {
  public:
   EvolutionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : Driver(pin, app_in, pm) {
-    Real start_time = pinput->GetOrAddReal("parthenon/time", "start_time", 0.0);
-    Real tstop = pinput->GetReal("parthenon/time", "tlim");
-    int nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
-    int nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
-    // TODO(jcd): the 0 below should be the current cycle number, not necessarily 0
-    tm = SimTime(start_time, tstop, nmax, 0, nout);
+    Real start_time = pinput->GetOrAddPrecise("parthenon/time", "start_time", 0.0);
+    Real tstop = pinput->GetOrAddPrecise("parthenon/time", "tlim",
+                                         std::numeric_limits<Real>::infinity());
+    Real dt =
+        pinput->GetOrAddPrecise("parthenon/time", "dt", std::numeric_limits<Real>::max());
+    const auto ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
+    const auto nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
+    const auto nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
+    // disable mesh output by default
+    const auto nout_mesh =
+        pinput->GetOrAddInteger("parthenon/time", "ncycle_out_mesh", 0);
+    tm = SimTime(start_time, tstop, nmax, ncycle, nout, nout_mesh, dt);
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
   }
   DriverStatus Execute() override;
@@ -77,7 +86,7 @@ class EvolutionDriver : public Driver {
   SimTime tm;
 
  protected:
-  virtual void PostExecute(DriverStatus status);
+  void PostExecute(DriverStatus status) override;
 
  private:
   void InitializeBlockTimeSteps();
@@ -88,25 +97,23 @@ namespace DriverUtils {
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<TaskList> task_lists;
-  MeshBlock *pmb = driver->pmesh->pblock;
-  while (pmb != nullptr) {
-    task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
-    pmb = pmb->next;
+  TaskCollection tc;
+  TaskRegion &tr = tc.AddRegion(nmb);
+
+  int i = 0;
+  for (auto &pmb : driver->pmesh->block_list) {
+    tr[i++] = driver->MakeTaskList(pmb.get(), std::forward<Args>(args)...);
   }
-  int complete_cnt = 0;
-  while (complete_cnt != nmb) {
-    // TODO(pgrete): need to let Kokkos::PartitionManager handle this
-    for (auto i = 0; i < nmb; ++i) {
-      if (!task_lists[i].IsComplete()) {
-        auto status = task_lists[i].DoAvailable();
-        if (status == TaskListStatus::complete) {
-          complete_cnt++;
-        }
-      }
-    }
-  }
-  return TaskListStatus::complete;
+  TaskListStatus status = tc.Execute();
+  return status;
+}
+
+template <typename T, class... Args>
+TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
+  TaskCollection tc =
+      driver->MakeTaskCollection(driver->pmesh->block_list, std::forward<Args>(args)...);
+  TaskListStatus status = tc.Execute();
+  return status;
 }
 
 } // namespace DriverUtils

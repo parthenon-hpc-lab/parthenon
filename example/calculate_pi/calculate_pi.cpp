@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,17 +11,20 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Self Include
-#include "calculate_pi.hpp"
-
 // Standard Includes
 #include <iostream>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 // Parthenon Includes
 #include <coordinates/coordinates.hpp>
+#include <kokkos_abstraction.hpp>
 #include <parthenon/package.hpp>
+
+// Local Includes
+#include "calculate_pi.hpp"
 
 using namespace parthenon::package::prelude;
 
@@ -32,13 +35,51 @@ using namespace parthenon::package::prelude;
 // pi \approx A/r0^2
 namespace calculate_pi {
 
-void SetInOrOut(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+void SetInOrOut(MeshBlockData<Real> *rc) {
+  auto pmb = rc->GetBlockPointer();
+
+  ParArrayND<Real> v;
+  const auto &radius = pmb->packages.Get("calculate_pi")->Param<Real>("radius");
+
+  // If we're using sparse variables, we only allocate in_or_out on blocks that have at
+  // least some part inside the circle, otherwise it would be all 0's
+  bool const use_sparse = pmb->packages.Get("calculate_pi")->Param<bool>("use_sparse");
+  if (use_sparse) {
+    auto &bs = pmb->block_size;
+    // check if block falls on radius.
+    Real coords[4][2] = {{bs.x1min, bs.x2min},
+                         {bs.x1min, bs.x2max},
+                         {bs.x1max, bs.x2min},
+                         {bs.x1max, bs.x2max}};
+
+    bool fully_outside = true;
+
+    for (auto i = 0; i < 4; i++) {
+      Real const rsq = coords[i][0] * coords[i][0] + coords[i][1] * coords[i][1];
+      if (rsq < radius * radius) {
+        fully_outside = false;
+        break;
+      }
+    }
+
+    // If any part of the block falls inside, then we need to allocate the sparse id
+    // before computing on it. If it's fully outside, then it would be all 0's and we
+    // don't need to allocate in_or_out on this block
+    if (fully_outside) {
+      // block is fully outside of circle, do nothing
+      return;
+    }
+
+    rc->AllocSparseID("in_or_out", 0);
+    v = rc->Get("in_or_out", 0).data;
+  } else {
+    v = rc->Get("in_or_out").data;
+  }
+
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  ParArrayND<Real> &v = rc->Get("in_or_out").data;
-  const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
+
   auto &coords = pmb->coords;
   // Set an indicator function that indicates whether the cell center
   // is inside or outside of the circle we're interating the area of.
@@ -56,6 +97,11 @@ void SetInOrOut(std::shared_ptr<Container<Real>> &rc) {
       });
 }
 
+void SetInOrOutBlock(MeshBlock *pmb, ParameterInput *pin) {
+  MeshBlockData<Real> *rc = pmb->meshblock_data.Get().get();
+  SetInOrOut(rc);
+}
+
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto package = std::make_shared<StateDescriptor>("calculate_pi");
   Params &params = package->AllParams();
@@ -63,42 +109,103 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real radius = pin->GetOrAddReal("Pi", "radius", 1.0);
   params.Add("radius", radius);
 
+  bool use_sparse = pin->GetOrAddBoolean("Pi", "use_sparse", false);
+  params.Add("use_sparse", use_sparse);
+
+  if (use_sparse) {
+    // rename "in_or_out" field referenced in input file to "in_or_out_0"
+    pin->SetString("parthenon/refinement0", "field", "in_or_out_0");
+    pin->SetString("parthenon/output0", "variables", "in_or_out_0");
+  }
+
   // add a variable called in_or_out that will hold the value of the indicator function
   std::string field_name("in_or_out");
-  Metadata m({Metadata::Cell, Metadata::Derived});
-  package->AddField(field_name, m, DerivedOwnership::unique);
+  Metadata m({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+  if (use_sparse) {
+    m.Set(Metadata::Sparse);
+    package->AddSparsePool(field_name, m, std::vector<int>{0});
+  } else {
+    package->AddField(field_name, m);
+  }
 
   // All the package FillDerived and CheckRefinement functions are called by parthenon
-  package->FillDerived = SetInOrOut;
+  // We could use the package FillDerived, which is called every "cycle" as below.
+  // Instead in this example, we use the InitMeshBlockUserData, which happens
+  // only when the mesh is created or changes.
+  // package->FillDerivedBlock = SetInOrOut;
   // could use package specific refinement tagging routine (see advection example), but
   // instead this example will make use of the parthenon shipped first derivative
   // criteria, as invoked in the input file
-  // package->CheckRefinement = CheckRefinement;
+  // package->CheckRefinementBlock = CheckRefinement;
+
   return package;
 }
 
-TaskStatus ComputeArea(MeshBlock *pmb) {
-  // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
-  auto &rc = pmb->real_containers.Get();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  auto &coords = pmb->coords;
+template <typename CheckAllocated>
+Real ComputeAreaInternal(MeshBlockPack<VariablePack<Real>> pack, ParArrayHost<Real> areas,
+                         CheckAllocated &&check_allocated) {
+  const IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
-  ParArrayND<Real> &v = rc->Get("in_or_out").data;
-
-  Real area;
-  Kokkos::parallel_reduce(
-      "calculate_pi compute area",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
-                                             {kb.e + 1, jb.e + 1, ib.e + 1},
-                                             {1, 1, ib.e + 1 - ib.s}),
-      KOKKOS_LAMBDA(int k, int j, int i, Real &larea) {
-        larea += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
+  Real area = 0.0;
+  par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "calculate_pi compute area",
+      parthenon::DevExecSpace(), 0, pack.GetDim(5) - 1, 0, pack.GetDim(4) - 1, kb.s, kb.e,
+      jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(int b, int v, int k, int j, int i, Real &larea) {
+        // Must check if in_or_out is allocated for sparse variables
+        if (check_allocated(b, v)) {
+          larea += pack(b, v, k, j, i) * pack.coords(b).Area(parthenon::X3DIR, k, j, i);
+        }
       },
       area);
-  Kokkos::deep_copy(pmb->exec_space, v.Get(0, 0, 0, 0, 0, 0), area);
+  return area;
+}
 
+TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> areas,
+                       int i) {
+  bool const use_sparse =
+      md->GetMeshPointer()->packages.Get("calculate_pi")->Param<bool>("use_sparse");
+
+  PackIndexMap imap; // PackIndex map can be used to get the index in
+                     // a pack of a specific variable
+  // This call signature works
+  const auto &pack = use_sparse
+                         ? md->PackVariables(std::vector<std::string>({"in_or_out"}),
+                                             std::vector<int>{0}, imap)
+
+                         // and so does this one
+                         : md->PackVariables(std::vector<std::string>({"in_or_out"}));
+
+  areas(i) = use_sparse ? ComputeAreaInternal(
+                              pack, areas,
+                              KOKKOS_LAMBDA(int const b, int const v) {
+                                return pack.IsSparseIDAllocated(b, v);
+                              })
+                        : ComputeAreaInternal(
+                              pack, areas, KOKKOS_LAMBDA(int, int) { return true; });
+  return TaskStatus::complete;
+}
+
+TaskStatus AccumulateAreas(ParArrayHost<Real> areas, Packages_t &packages) {
+  const auto &radius = packages.Get("calculate_pi")->Param<Real>("radius");
+
+  Real area = 0.0;
+  for (int i = 0; i < areas.GetSize(); i++) {
+    area += areas(i);
+  }
+  area /= (radius * radius);
+
+#ifdef MPI_PARALLEL
+  Real pi_val;
+  PARTHENON_MPI_CHECK(
+      MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD));
+#else
+  Real pi_val = area;
+#endif
+
+  packages.Get("calculate_pi")->AddParam("pi_val", pi_val);
   return TaskStatus::complete;
 }
 

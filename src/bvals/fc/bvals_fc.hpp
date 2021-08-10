@@ -20,6 +20,8 @@
 //  \brief handle boundaries for any FaceField type variable that represents a physical
 //         quantity indexed along / located around face-centers of cells
 
+#include <memory>
+
 #include "parthenon_mpi.hpp"
 
 #include "bvals/bvals.hpp"
@@ -31,8 +33,8 @@ namespace parthenon {
 
 class FaceCenteredBoundaryVariable : public BoundaryVariable {
  public:
-  FaceCenteredBoundaryVariable(MeshBlock *pmb, FaceField *var, FaceField &coarse_buf,
-                               EdgeField &var_flux);
+  FaceCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb, FaceField *var,
+                               FaceField &coarse_buf, EdgeField &var_flux);
   ~FaceCenteredBoundaryVariable();
 
   // may want to rebind var_fc to b, b1, b2, etc. Hence ptr member, not reference
@@ -72,12 +74,12 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
 #endif
 
   // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
-  int LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
-  int LoadBoundaryBufferToFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundaryFromCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundaryFromFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundarySameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferToFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundaryFromCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundaryFromFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
 
   void CountFineEdges(); // called in SetupPersistentMPI()
 

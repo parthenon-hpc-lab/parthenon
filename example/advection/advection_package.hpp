@@ -21,15 +21,14 @@ namespace advection_package {
 using namespace parthenon::package::prelude;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc);
-void PreFill(std::shared_ptr<Container<Real>> &rc);
-void SquareIt(std::shared_ptr<Container<Real>> &rc);
-void PostFill(std::shared_ptr<Container<Real>> &rc);
-Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc);
-TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc);
-
+AmrTag CheckRefinement(MeshBlockData<Real> *rc);
+void PreFill(MeshBlockData<Real> *rc);
+void SquareIt(MeshBlockData<Real> *rc);
+void PostFill(MeshBlockData<Real> *rc);
+Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
+TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc);
+template <typename T>
+Real AdvectionHst(MeshData<Real> *md);
 } // namespace advection_package
-
-void SetFillDerivedFunctions();
 
 #endif // EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_

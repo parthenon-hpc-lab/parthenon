@@ -3,11 +3,24 @@
 # IndexShape Class
 
 The index shape class provides access to the index bounds of a mesh block. The
-bounds are split into two domains which can be accessed using a class enum
-**IndexDomain**. The **IndexDomain** can either be **entire** or **interior**.
-Using the **entire** domain, allows one to access the starting indices of the
-full meshblock including ghost zones, The **interior** domain allows access to
-the interior of the meshblock excluding ghost cells. 
+bounds are split into several domains which can be accessed using a class enum
+**IndexDomain**. The **IndexDomain** can be:
+- **entire,** which allows one to access the starting indices of the
+full meshblock including ghost zones
+- **interior,** which allows access to the interior of the meshblock
+excluding ghost cells
+- **inner_x1,** which accesses the ghost zones for "inner" face of
+  a meshblock in the `x1` direction
+- **outer_x1,** which accesses the ghost zones for "outer" face of
+  a meshblock in the `x1` direction
+- **inner_x2,** which accesses the ghost zones for "inner" face of
+  a meshblock in the `x2` direction
+- **outer_x2,** which accesses the ghost zones for "outer" face of
+  a meshblock in the `x2` direction
+- **inner_x3,** which accesses the ghost zones for "inner" face of
+  a meshblock in the `x3` direction
+- **outer_x3,** which accesses the ghost zones for "outer" face of
+  a meshblock in the `x3` direction
 
 The starting and ending indices of each dimension of the index shape can be
 accessed using the **is**, **ie**, **js**, **je**, **ks**, **ke** methods.

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,30 +17,35 @@
 //! \file restart.cpp
 //  \brief writes restart files
 
-#include <cstdio>
-#include <cstring>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <sstream>
-#include <stdexcept>
+#include <memory>
 #include <string>
+#include <utility>
 
-#include "defs.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
-#include "parameter_input.hpp"
-#include "parthenon_arrays.hpp"
+#include "outputs/restart.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
-//! \fn void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag)
-//  \brief Cycles over all MeshBlocks and writes data to a single restart file.
+//! \fn void RestartReader::RestartReader(const std::string filename)
+//  \brief Opens the restart file and stores appropriate file handle in fh_
+RestartReader::RestartReader(const char *filename) : filename_(filename) {
+#ifndef ENABLE_HDF5
+  std::stringstream msg;
+  msg << "### FATAL ERROR in Restart (Reader) constructor" << std::endl
+      << "Executable not configured for HDF5 outputs, but HDF5 file format "
+      << "is required for restarts" << std::endl;
+  PARTHENON_FAIL(msg);
+#else
+  // Open the HDF file in read only mode
+  fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
 
-void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
-  throw std::runtime_error(std::string(__func__) + " is not implemented");
+  hasGhost = GetAttr<int>("Info", "IncludesGhost");
+#endif
 }
 
 } // namespace parthenon

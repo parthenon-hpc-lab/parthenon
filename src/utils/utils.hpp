@@ -24,11 +24,11 @@
 
 #include "constants.hpp"
 #include "error_checking.hpp"
+#include "kokkos_abstraction.hpp"
 
 namespace parthenon {
 
 void ChangeRunDir(const char *pdir);
-double ran2(std::int64_t *idum);
 void ShowConfig();
 
 //----------------------------------------------------------------------------------------

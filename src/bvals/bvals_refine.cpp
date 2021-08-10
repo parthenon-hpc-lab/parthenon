@@ -23,8 +23,11 @@
 #include <cmath>
 #include <iterator>
 
+#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "fc/bvals_fc.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 
 namespace parthenon {
 
@@ -32,177 +35,126 @@ namespace parthenon {
 // NOTE ON SWITCHING BETWEEN PRIMITIVE VS. CONSERVED AND STANDARD VS. COARSE BUFFERS HERE:
 // -----------
 
-// In both Mesh::Initialize and time_integartor.cpp, this wrapper function
-// ProlongateBoundaries expects to have associated
-// BoundaryVariable objects with member pointers pointing to their CONSERVED VARIABLE
-// ARRAYS (standard and coarse buffers) by the time this function is called.
-
-// E.g. in time_integrator.cpp, the PROLONG task is called after SEND_HYD, SETB_HYD,
-// SEND_SCLR, SETB_SCLR, all of which indepedently switch to their associated CONSERVED
-// VARIABLE ARRAYS and before CON2PRIM which switches to PRIMITIVE VARIABLE ARRAYS.
-
-// However, this is currently not a strict requirement, since all below
-// MeshRefinement::Prolongate*() and Restrict*() calls refer directly to
-// MeshRefinement::pvars_cc_, pvars_fc_ vectors, NOT the var_cc, coarse_buf ptr members of
-// CellCenteredBoundaryVariable objects
-
 // -----------
-// There are three sets of variable pointers used in this file:
-// 1) BoundaryVariable pointer members: var_cc, coarse_buf
-// -- Only used in ApplyPhysicalBoundariesOnCoarseLevel()
+// There are several sets of variable pointers used in this file:
+// 1) MeshRefinement tuples of pointers: pvars_cc_
+// -- Used in RestrictGhostCellsOnSameLevel_() and ProlongateGhostCells_()
 
-// 2) MeshRefinement tuples of pointers: pvars_cc_
-// -- Used in RestrictGhostCellsOnSameLevel() and ProlongateGhostCells()
-
-// 3) Hardcoded pointers through MeshBlock members
-// -- Used in ApplyPhysicalBoundariesOnCoarseLevel() and ProlongateGhostCells() where
+// 2) Hardcoded pointers through MeshBlock members
+// -- Used in ProlongateGhostCells_() where
 // physical quantities are coupled through EquationOfState
 
-// -----------
-// SUMMARY OF BELOW PTR CHANGES:
-// -----------
-// 1. RestrictGhostCellsOnSameLevel (MeshRefinement::pvars_cc)
-// --- change standard and coarse CONSERVED
-// (also temporarily change to standard and coarse PRIMITIVE for GR simulations)
-
-// 2. ApplyPhysicalBoundariesOnCoarseLevel (CellCenteredBoundaryVariable::var_cc)
-// --- ONLY var_cc (var_fc) is changed to = coarse_buf, PRIMITIVE
-// (automatically switches var_cc to standard and coarse_buf to coarse primitive
-// arrays after fn returns)
-
-// 3. ProlongateGhostCells (MeshRefinement::pvars_cc)
-// --- change to standard and coarse PRIMITIVE
-// (automatically switches back to conserved variables at the end of fn)
-
-void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
-  MeshBlock *pmb = pmy_block_;
+// NOTE(JMM): ProlongateBounds has been split into RestrictBoundaries
+// and ProlongateBoundaries,
+// which are now called together as ProlongateBoundaries in
+// `bvals/bondary_conditions.hpp`. This allows us to loop over all variables in a
+// container.
+void BoundaryValues::RestrictBoundaries() {
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
-
-  // This hardcoded technique is also used to manually specify the coupling between
-  // physical variables in:
-  // - step 2, ApplyPhysicalBoundariesOnCoarseLevel(): calls to W(U) and user BoundaryFunc
-  // - step 3, ProlongateGhostCells(): calls to calculate bcc and U(W)
-
-  // downcast BoundaryVariable pointers to known derived class pointer types:
-  // RTTI via dynamic_case
-
-  // For each finer neighbor, to prolongate a boundary we need to fill one more cell
-  // surrounding the boundary zone to calculate the slopes ("ghost-ghost zone"). 3x steps:
   for (int n = 0; n < nneighbor; n++) {
     NeighborBlock &nb = neighbor[n];
+
     if (nb.snb.level >= mylevel) continue;
+
     // fill the required ghost-ghost zone
-    int nis, nie, njs, nje, nks, nke;
-    nis = std::max(nb.ni.ox1 - 1, -1);
-    nie = std::min(nb.ni.ox1 + 1, 1);
-    if (pmb->block_size.nx2 == 1) {
-      njs = 0;
-      nje = 0;
-    } else {
-      njs = std::max(nb.ni.ox2 - 1, -1);
-      nje = std::min(nb.ni.ox2 + 1, 1);
-    }
+    IndexRange bni, bnj, bnk;
+    ComputeRestrictionBounds_(nb, bni, bnj, bnk);
 
-    if (pmb->block_size.nx3 == 1) {
-      nks = 0;
-      nke = 0;
-    } else {
-      nks = std::max(nb.ni.ox3 - 1, -1);
-      nke = std::min(nb.ni.ox3 + 1, 1);
-    }
-
-    // Step 1. Apply necessary variable restrictions when ghost-ghost zone is on same lvl
-    for (int nk = nks; nk <= nke; nk++) {
-      for (int nj = njs; nj <= nje; nj++) {
-        for (int ni = nis; ni <= nie; ni++) {
+    // TODO(JMM): this loop should probably be a kokkos loop
+    for (int nk = bnk.s; nk <= bnk.e; nk++) {
+      for (int nj = bnj.s; nj <= bnj.e; nj++) {
+        for (int ni = bni.s; ni <= bni.e; ni++) {
           int ntype = std::abs(ni) + std::abs(nj) + std::abs(nk);
           // skip myself or coarse levels; only the same level must be restricted
           if (ntype == 0 || nblevel[nk + 1][nj + 1][ni + 1] != mylevel) continue;
 
           // this neighbor block is on the same level
           // and needs to be restricted for prolongation
-          RestrictGhostCellsOnSameLevel(nb, nk, nj, ni);
+          RestrictGhostCellsOnSameLevel_(nb, nk, nj, ni);
         }
       }
     }
-
-    const IndexDomain interior = IndexDomain::interior;
-    // calculate the loop limits for the ghost zones
-    int cn = pmb->cnghost - 1;
-    int si, ei, sj, ej, sk, ek;
-    if (nb.ni.ox1 == 0) {
-      std::int64_t &lx1 = pmb->loc.lx1;
-      si = pmb->c_cellbounds.is(interior);
-      ei = pmb->c_cellbounds.ie(interior);
-      if ((lx1 & 1LL) == 0LL) {
-        ei += cn;
-      } else {
-        si -= cn;
-      }
-    } else if (nb.ni.ox1 > 0) {
-      si = pmb->c_cellbounds.ie(interior) + 1;
-      ei = pmb->c_cellbounds.ie(interior) + cn;
-    } else {
-      si = pmb->c_cellbounds.is(interior) - cn;
-      ei = pmb->c_cellbounds.is(interior) - 1;
-    }
-
-    if (nb.ni.ox2 == 0) {
-      sj = pmb->c_cellbounds.js(interior);
-      ej = pmb->c_cellbounds.je(interior);
-      if (pmb->block_size.nx2 > 1) {
-        std::int64_t &lx2 = pmb->loc.lx2;
-        if ((lx2 & 1LL) == 0LL) {
-          ej += cn;
-        } else {
-          sj -= cn;
-        }
-      }
-    } else if (nb.ni.ox2 > 0) {
-      sj = pmb->c_cellbounds.je(interior) + 1;
-      ej = pmb->c_cellbounds.je(interior) + cn;
-    } else {
-      sj = pmb->c_cellbounds.js(interior) - cn;
-      ej = pmb->c_cellbounds.js(interior) - 1;
-    }
-
-    if (nb.ni.ox3 == 0) {
-      sk = pmb->c_cellbounds.ks(interior);
-      ek = pmb->c_cellbounds.ke(interior);
-      if (pmb->block_size.nx3 > 1) {
-        std::int64_t &lx3 = pmb->loc.lx3;
-        if ((lx3 & 1LL) == 0LL) {
-          ek += cn;
-        } else {
-          sk -= cn;
-        }
-      }
-    } else if (nb.ni.ox3 > 0) {
-      sk = pmb->c_cellbounds.ke(interior) + 1;
-      ek = pmb->c_cellbounds.ke(interior) + cn;
-    } else {
-      sk = pmb->c_cellbounds.ks(interior) - cn;
-      ek = pmb->c_cellbounds.ks(interior) - 1;
-    }
-
-    // (temp workaround) to automatically call all BoundaryFunction_[] on coarse_prim/b
-    // instead of previous targets var_cc=cons, var_fc=b
-
-    // Step 2. Re-apply physical boundaries on the coarse boundary:
-    // ApplyPhysicalBoundariesOnCoarseLevel(nb, time, dt, si, ei, sj, ej, sk, ek);
-
-    // (temp workaround) swap BoundaryVariable var_cc/fc to standard primitive variable
-    // arrays (not coarse) from coarse primitive variables arrays
-
-    // Step 3. Finally, the ghost-ghost zones are ready for prolongation:
-    ProlongateGhostCells(nb, si, ei, sj, ej, sk, ek);
-  } // end loop over nneighbor
-  return;
+  }
 }
 
-void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int nk,
-                                                   int nj, int ni) {
-  MeshBlock *pmb = pmy_block_;
+int BoundaryValues::NumRestrictions() {
+  int nbuffs = 0;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  MeshRefinement *pmr = pmb->pmr.get();
+  int &mylevel = pmb->loc.level;
+  for (int n = 0; n < nneighbor; n++) {
+    NeighborBlock &nb = neighbor[n];
+    if (nb.snb.level >= mylevel) continue;
+
+    IndexRange bni, bnj, bnk;
+    ComputeRestrictionBounds_(nb, bni, bnj, bnk);
+
+    for (int nk = bnk.s; nk <= bnk.e; nk++) {
+      for (int nj = bnj.s; nj <= bnj.e; nj++) {
+        for (int ni = bni.s; ni <= bni.e; ni++) {
+          int ntype = std::abs(ni) + std::abs(nj) + std::abs(nk);
+          // skip myself or coarse levels; only the same level must be restricted
+          if (ntype == 0 || nblevel[nk + 1][nj + 1][ni + 1] != mylevel) continue;
+          nbuffs += 1;
+        }
+      }
+    }
+  }
+  return nbuffs;
+}
+
+void BoundaryValues::FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
+                                             int &idx, ParArray4D<Real> &fine,
+                                             ParArray4D<Real> &coarse, int Nv) {
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  MeshRefinement *pmr = pmb->pmr.get();
+  int &mylevel = pmb->loc.level;
+  for (int n = 0; n < nneighbor; n++) {
+    NeighborBlock &nb = neighbor[n];
+    if (nb.snb.level >= mylevel) continue;
+
+    IndexRange bni, bnj, bnk;
+    ComputeRestrictionBounds_(nb, bni, bnj, bnk);
+
+    for (int nk = bnk.s; nk <= bnk.e; nk++) {
+      for (int nj = bnj.s; nj <= bnj.e; nj++) {
+        for (int ni = bni.s; ni <= bni.e; ni++) {
+          int ntype = std::abs(ni) + std::abs(nj) + std::abs(nk);
+          // skip myself or coarse levels; only the same level must be restricted
+          if (ntype == 0 || nblevel[nk + 1][nj + 1][ni + 1] != mylevel) continue;
+          ComputeRestrictionIndices_(nb, nk, nj, ni, info(idx).si, info(idx).ei,
+                                     info(idx).sj, info(idx).ej, info(idx).sk,
+                                     info(idx).ek);
+          info(idx).coords = pmb->coords;
+          info(idx).coarse_coords = pmb->pmr->coarse_coords;
+          info(idx).fine = fine;
+          info(idx).coarse = coarse;
+          info(idx).restriction = true;
+          info(idx).Nv = Nv;
+          idx++;
+        }
+      }
+    }
+  }
+}
+
+void BoundaryValues::ProlongateBoundaries() {
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  int &mylevel = pmb->loc.level;
+  for (int n = 0; n < nneighbor; n++) {
+    NeighborBlock &nb = neighbor[n];
+    if (nb.snb.level >= mylevel) continue;
+    // calculate the loop limits for the ghost zones
+    IndexRange bi, bj, bk;
+    ComputeProlongationBounds_(nb, bi, bj, bk);
+    ProlongateGhostCells_(nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
+  } // end loop over nneighbor
+}
+
+void BoundaryValues::RestrictGhostCellsOnSameLevel_(const NeighborBlock &nb, int nk,
+                                                    int nj, int ni) {
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   MeshRefinement *pmr = pmb->pmr.get();
 
   const IndexDomain interior = IndexDomain::interior;
@@ -210,28 +162,8 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int 
   IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
   IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
 
-  auto CalcRestricedIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
-    if (n == 0) {
-      rs = b.s;
-      re = b.e;
-      if (ox == 1) {
-        rs = b.e;
-      } else if (ox == -1) {
-        re = b.s;
-      }
-    } else if (n == 1) {
-      rs = b.e + 1;
-      re = b.e + 1;
-    } else { //(n ==  - 1)
-      rs = b.s - 1;
-      re = b.s - 1;
-    }
-  };
-
   int ris, rie, rjs, rje, rks, rke;
-  CalcRestricedIndices(ris, rie, ni, nb.ni.ox1, cib);
-  CalcRestricedIndices(rjs, rje, nj, nb.ni.ox2, cjb);
-  CalcRestricedIndices(rks, rke, nk, nb.ni.ox3, ckb);
+  ComputeRestrictionIndices_(nb, nk, nj, ni, ris, rie, rjs, rje, rks, rke);
 
   for (auto cc_pair : pmr->pvars_cc_) {
     ParArrayND<Real> var_cc = std::get<0>(cc_pair);
@@ -276,25 +208,9 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int 
   return;
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn void BoundaryValues::ApplyPhysicalBoundariesOnCoarseLevel(
-//           const NeighborBlock& nb, const Real time, const Real dt,
-//           int si, int ei, int sj, int ej, int sk, int ek)
-//  \brief
-
-void BoundaryValues::ApplyPhysicalBoundariesOnCoarseLevel(const NeighborBlock &nb,
-                                                          const Real time, const Real dt,
-                                                          int si, int ei, int sj, int ej,
-                                                          int sk, int ek) {
-  // TODO(SS)
-  // Write code to take a container as input and apply
-  // appropriate boundary condiditions
-  throw std::runtime_error(std::string(__func__) + " is not implemented");
-}
-
-void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj,
-                                          int ej, int sk, int ek) {
-  MeshBlock *pmb = pmy_block_;
+void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei,
+                                           int sj, int ej, int sk, int ek) {
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &pmr = pmb->pmr;
 
   for (auto cc_pair : pmr->pvars_cc_) {
@@ -357,44 +273,90 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int e
     // step 4. calculate the internal finer fields using the Toth & Roe method
     pmr->ProlongateInternalField((*var_fc), si, ei, sj, ej, sk, ek);
   }
+}
 
-  // now that the ghost-ghost zones are filled and prolongated,
-  // calculate the loop limits for the finer grid
-  int fsi, fei, fsj, fej, fsk, fek;
-
+void BoundaryValues::ComputeRestrictionIndices_(const NeighborBlock &nb, int nk, int nj,
+                                                int ni, int &ris, int &rie, int &rjs,
+                                                int &rje, int &rks, int &rke) {
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const IndexDomain interior = IndexDomain::interior;
   IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
   IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
   IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
 
-  fsi = (si - cib.s) * 2 + pmb->cellbounds.is(interior);
-  fei = (ei - cib.s) * 2 + pmb->cellbounds.is(interior) + 1;
-  if (pmb->block_size.nx2 > 1) {
-    fsj = (sj - cjb.s) * 2 + pmb->cellbounds.js(interior);
-    fej = (ej - cjb.s) * 2 + pmb->cellbounds.js(interior) + 1;
+  auto CalcIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
+    if (n == 0) {
+      rs = b.s;
+      re = b.e;
+      if (ox == 1) {
+        rs = b.e;
+      } else if (ox == -1) {
+        re = b.s;
+      }
+    } else if (n == 1) {
+      rs = b.e + 1;
+      re = b.e + 1;
+    } else { //(n ==  - 1)
+      rs = b.s - 1;
+      re = b.s - 1;
+    }
+  };
+
+  CalcIndices(ris, rie, ni, nb.ni.ox1, cib);
+  CalcIndices(rjs, rje, nj, nb.ni.ox2, cjb);
+  CalcIndices(rks, rke, nk, nb.ni.ox3, ckb);
+}
+
+void BoundaryValues::ComputeRestrictionBounds_(const NeighborBlock &nb, IndexRange &ni,
+                                               IndexRange &nj, IndexRange &nk) {
+  auto getbounds = [](const int nbx, IndexRange &n) {
+    n.s = std::max(nbx - 1, -1);
+    n.e = std::min(nbx + 1, 1);
+  };
+
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  getbounds(nb.ni.ox1, ni);
+  if (pmb->block_size.nx2 == 1) {
+    nj.s = nj.e = 0;
   } else {
-    fsj = pmb->cellbounds.js(interior);
-    fej = pmb->cellbounds.je(interior);
+    getbounds(nb.ni.ox2, nj);
   }
 
-  if (pmb->block_size.nx3 > 1) {
-    fsk = (sk - ckb.s) * 2 + pmb->cellbounds.ks(interior);
-    fek = (ek - ckb.s) * 2 + pmb->cellbounds.ks(interior) + 1;
+  if (pmb->block_size.nx3 == 1) {
+    nk.s = nk.e = 0;
   } else {
-    fsk = pmb->cellbounds.ks(interior);
-    fek = pmb->cellbounds.ke(interior);
+    getbounds(nb.ni.ox3, nk);
   }
+}
 
-  // KGF: COUPLING OF QUANTITIES (must be manually specified)
-  // Field prolongation completed, calculate cell centered fields
-  // TODO(KGF): passing nullptrs (pf) if no MHD (coarse_* no longer in MeshRefinement)
-  // (may be fine to unconditionally directly set to pmb->pfield now. see above comment)
+void BoundaryValues::ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi,
+                                                IndexRange &bj, IndexRange &bk) {
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  const IndexDomain interior = IndexDomain::interior;
+  int cn = pmb->cnghost - 1;
 
-  // KGF: COUPLING OF QUANTITIES (must be manually specified)
-  // calculate conservative variables
-  // pmb->peos->PrimitiveToConserved(ph->w, pf->bcc, ph->u, pmb->pcoord,
-  //                                fsi, fei, fsj, fej, fsk, fek);
-  return;
+  auto getbounds = [=](const int nbx, const std::int64_t &lx, const IndexRange bblock,
+                       IndexRange &bprol) {
+    if (nbx == 0) {
+      bprol.s = bblock.s;
+      bprol.e = bblock.e;
+      if ((lx & 1LL) == 0LL) {
+        bprol.e += cn;
+      } else {
+        bprol.s -= cn;
+      }
+    } else if (nbx > 0) {
+      bprol.s = bblock.e + 1;
+      bprol.e = bblock.e + cn;
+    } else {
+      bprol.s = bblock.s - cn;
+      bprol.e = bblock.s - 1;
+    }
+  };
+
+  getbounds(nb.ni.ox1, pmb->loc.lx1, pmb->c_cellbounds.GetBoundsI(interior), bi);
+  getbounds(nb.ni.ox2, pmb->loc.lx2, pmb->c_cellbounds.GetBoundsJ(interior), bj);
+  getbounds(nb.ni.ox3, pmb->loc.lx3, pmb->c_cellbounds.GetBoundsK(interior), bk);
 }
 
 } // namespace parthenon

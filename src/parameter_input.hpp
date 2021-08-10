@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -29,10 +29,6 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "outputs/io_wrapper.hpp"
-
-#ifdef OPENMP_PARALLEL
-#include <omp.h>
-#endif
 
 namespace parthenon {
 
@@ -90,43 +86,39 @@ class ParameterInput {
   void LoadFromFile(IOWrapper &input);
   void ModifyFromCmdline(int argc, char *argv[]);
   void ParameterDump(std::ostream &os);
-  int DoesParameterExist(std::string block, std::string name);
-  int DoesBlockExist(std::string block);
-  std::string GetComment(std::string block, std::string name);
-  int GetInteger(std::string block, std::string name);
-  int GetOrAddInteger(std::string block, std::string name, int value);
-  int SetInteger(std::string block, std::string name, int value);
-  Real GetReal(std::string block, std::string name);
-  Real GetOrAddReal(std::string block, std::string name, Real value);
-  Real SetReal(std::string block, std::string name, Real value);
-  bool GetBoolean(std::string block, std::string name);
-  bool GetOrAddBoolean(std::string block, std::string name, bool value);
-  bool SetBoolean(std::string block, std::string name, bool value);
-  std::string GetString(std::string block, std::string name);
-  std::string GetOrAddString(std::string block, std::string name, std::string value);
-  std::string SetString(std::string block, std::string name, std::string value);
+  int DoesParameterExist(const std::string &block, const std::string &name);
+  int DoesBlockExist(const std::string &block);
+  std::string GetComment(const std::string &block, const std::string &name);
+  int GetInteger(const std::string &block, const std::string &name);
+  int GetOrAddInteger(const std::string &block, const std::string &name, int value);
+  int SetInteger(const std::string &block, const std::string &name, int value);
+  Real GetReal(const std::string &block, const std::string &name);
+  Real GetOrAddReal(const std::string &block, const std::string &name, Real value);
+  Real GetOrAddPrecise(const std::string &block, const std::string &name, Real value);
+  Real SetReal(const std::string &block, const std::string &name, Real value);
+  Real SetPrecise(const std::string &block, const std::string &name, Real value);
+  bool GetBoolean(const std::string &block, const std::string &name);
+  bool GetOrAddBoolean(const std::string &block, const std::string &name, bool value);
+  bool SetBoolean(const std::string &block, const std::string &name, bool value);
+  std::string GetString(const std::string &block, const std::string &name);
+  std::string GetOrAddString(const std::string &block, const std::string &name,
+                             const std::string &value);
+  std::string SetString(const std::string &block, const std::string &name,
+                        const std::string &value);
   void RollbackNextTime();
   void ForwardNextTime(Real time);
-  void CheckRequired(std::string block, std::string name);
-  void CheckDesired(std::string block, std::string name);
+  void CheckRequired(const std::string &block, const std::string &name);
+  void CheckDesired(const std::string &block, const std::string &name);
 
  private:
   std::string last_filename_; // last input file opened, to prevent duplicate reads
 
-  InputBlock *FindOrAddBlock(std::string name);
-  InputBlock *GetPtrToBlock(std::string name);
+  InputBlock *FindOrAddBlock(const std::string &name);
+  InputBlock *GetPtrToBlock(const std::string &name);
   bool ParseLine(InputBlock *pib, std::string line, std::string &name, std::string &value,
                  std::string &comment);
-  void AddParameter(InputBlock *pib, std::string name, std::string value,
-                    std::string comment);
-
-  // thread safety
-#ifdef OPENMP_PARALLEL
-  omp_lock_t lock_;
-#endif
-
-  void Lock();
-  void Unlock();
+  void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
+                    const std::string &comment);
 };
 } // namespace parthenon
 #endif // PARAMETER_INPUT_HPP_

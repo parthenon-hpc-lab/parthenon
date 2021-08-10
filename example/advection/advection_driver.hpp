@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,6 +15,7 @@
 #define EXAMPLE_ADVECTION_ADVECTION_DRIVER_HPP_
 
 #include <memory>
+#include <vector>
 
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
@@ -22,7 +23,7 @@
 namespace advection_example {
 using namespace parthenon::driver::prelude;
 
-class AdvectionDriver : public MultiStageBlockTaskDriver {
+class AdvectionDriver : public MultiStageDriver {
  public:
   AdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm);
   // This next function essentially defines the driver.
@@ -30,16 +31,15 @@ class AdvectionDriver : public MultiStageBlockTaskDriver {
   // main()
   //   EvolutionDriver::Execute (driver.cpp)
   //     MultiStageBlockTaskDriver::Step (multistage.cpp)
-  //       DriverUtils::ConstructAndExecuteBlockTasks (driver.hpp)
-  //         AdvectionDriver::MakeTaskList (advection.cpp)
-  TaskList MakeTaskList(MeshBlock *pmb, int stage);
+  //       DriverUtils::ConstructAndExecuteTaskLists (driver.hpp)
+  //         AdvectionDriver::MakeTaskCollection (advection_driver.cpp)
+  TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage);
 };
 
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);
 void UserWorkAfterLoop(Mesh *mesh, parthenon::ParameterInput *pin,
                        parthenon::SimTime &tm);
 parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);
-void SetFillDerivedFunctions();
 
 } // namespace advection_example
 

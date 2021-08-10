@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -21,7 +21,6 @@
 
 #include "parthenon_manager.hpp"
 
-using parthenon::DerivedOwnership;
 using parthenon::DriverStatus;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
@@ -47,20 +46,18 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 
   Metadata m;
   std::vector<int> array_size({2});
-  m = Metadata({Metadata::Cell, Metadata::Vector, Metadata::Derived, Metadata::OneCopy,
-                Metadata::Graphics},
+  m = Metadata({Metadata::Cell, Metadata::Vector, Metadata::Derived, Metadata::OneCopy},
                array_size);
-  package->AddField("c.c.interpolated_value", m, DerivedOwnership::unique);
+  package->AddField("c.c.interpolated_value", m);
 
-  m = Metadata(
-      {Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Graphics});
-  package->AddField("c.c.interpolated_sum", m, DerivedOwnership::unique);
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+  package->AddField("c.c.interpolated_sum", m);
 
   m = Metadata({Metadata::Face, Metadata::Vector, Metadata::Derived, Metadata::OneCopy},
                array_size);
-  package->AddField("f.f.face_averaged_value", m, DerivedOwnership::unique);
+  package->AddField("f.f.face_averaged_value", m);
 
-  packages["FaceFieldExample"] = package;
+  packages.Add(package);
   return packages;
 }
 
@@ -74,13 +71,12 @@ DriverStatus FaceFieldExample::Execute() {
 
   // post-evolution analysis
   Real rank_sum = 0.0;
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
-    parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
-    parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
-    parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-    auto &rc = pmb->real_containers.Get();
+  for (auto &pmb : pmesh->block_list) {
+    parthenon::IndexDomain const interior = parthenon::IndexDomain::interior;
+    parthenon::IndexRange const ib = pmb->cellbounds.GetBoundsI(interior);
+    parthenon::IndexRange const jb = pmb->cellbounds.GetBoundsJ(interior);
+    parthenon::IndexRange const kb = pmb->cellbounds.GetBoundsK(interior);
+    auto &rc = pmb->meshblock_data.Get();
     auto &summed = rc->Get("c.c.interpolated_sum").data;
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
@@ -89,11 +85,11 @@ DriverStatus FaceFieldExample::Execute() {
         }
       }
     }
-    pmb = pmb->next;
   }
 #ifdef MPI_PARALLEL
   Real global_sum;
-  MPI_Reduce(&rank_sum, &global_sum, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+  PARTHENON_MPI_CHECK(MPI_Reduce(&rank_sum, &global_sum, 1, MPI_PARTHENON_REAL, MPI_SUM,
+                                 0, MPI_COMM_WORLD));
 #else
   Real global_sum = rank_sum;
 #endif
@@ -105,7 +101,7 @@ DriverStatus FaceFieldExample::Execute() {
   }
 
   pmesh->mbcnt = pmesh->nbtotal;
-  Driver::PostExecute();
+  Driver::PostExecute(DriverStatus::complete);
   return DriverStatus::complete;
 }
 
@@ -114,11 +110,12 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
   TaskList tl;
   TaskID none(0);
 
-  auto fill_faces = tl.AddTask(FaceFields::fill_faces, none, pmb);
+  auto fill_faces = tl.AddTask(none, FaceFields::fill_faces, pmb);
 
   auto interpolate = tl.AddTask(
+      fill_faces,
       [](MeshBlock *pmb) -> TaskStatus {
-        auto &rc = pmb->real_containers.Get();
+        auto &rc = pmb->meshblock_data.Get();
         parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
         parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
         parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
@@ -141,11 +138,12 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
         }
         return TaskStatus::complete;
       },
-      fill_faces, pmb);
+      pmb);
 
   auto sum = tl.AddTask(
+      interpolate,
       [](MeshBlock *pmb) -> TaskStatus {
-        auto &rc = pmb->real_containers.Get();
+        auto &rc = pmb->meshblock_data.Get();
         parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
         parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
         parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
@@ -161,7 +159,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
         }
         return TaskStatus::complete;
       },
-      interpolate, pmb);
+      pmb);
 
   return tl;
 }
@@ -169,11 +167,11 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
 parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb) {
   using parthenon::Real;
 
-  auto example = pmb->packages["FaceFieldExample"];
+  auto example = pmb->packages.Get("FaceFieldExample");
   Real px = example->Param<Real>("px");
   Real py = example->Param<Real>("py");
   Real pz = example->Param<Real>("pz");
-  auto &rc = pmb->real_containers.Get();
+  auto &rc = pmb->meshblock_data.Get();
   auto coords = pmb->coords;
   parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);

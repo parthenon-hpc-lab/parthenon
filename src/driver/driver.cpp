@@ -1,6 +1,5 @@
-
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,74 +17,75 @@
 
 #include "driver/driver.hpp"
 
+#include "interface/update.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_mpi.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
+// Declare class static variables
+Kokkos::Timer Driver::timer_main;
+Kokkos::Timer Driver::timer_cycle;
+Kokkos::Timer Driver::timer_LBandAMR;
 
 void Driver::PreExecute() {
   if (Globals::my_rank == 0) {
     std::cout << std::endl << "Setup complete, executing driver...\n" << std::endl;
   }
 
-  tstart_ = clock();
-#ifdef OPENMP_PARALLEL
-  omp_start_time_ = omp_get_wtime();
-#endif
+  timer_main.reset();
 }
 
-void Driver::PostExecute() {
+void Driver::PostExecute(DriverStatus status) {
   if (Globals::my_rank == 0) {
     SignalHandler::CancelWallTimeAlarm();
     // Calculate and print the zone-cycles/cpu-second and wall-second
-#ifdef OPENMP_PARALLEL
-    double omp_time = omp_get_wtime() - omp_start_time_;
-#endif
-    clock_t tstop = clock();
-    double cpu_time = (tstop > tstart_ ? static_cast<double>(tstop - tstart_) : 1.0) /
-                      static_cast<double>(CLOCKS_PER_SEC);
     std::uint64_t zonecycles =
-        pmesh->mbcnt *
-        static_cast<std::uint64_t>(pmesh->pblock->GetNumberOfMeshBlockCells());
-    double zc_cpus = static_cast<double>(zonecycles) / cpu_time;
+        pmesh->mbcnt * static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
 
-    std::cout << std::endl << "zone-cycles = " << zonecycles << std::endl;
-    std::cout << "cpu time used  = " << cpu_time << std::endl;
-    std::cout << "zone-cycles/cpu_second = " << zc_cpus << std::endl;
-#ifdef OPENMP_PARALLEL
-    double zc_omps = static_cast<double>(zonecycles) / omp_time;
-    std::cout << std::endl << "omp wtime used = " << omp_time << std::endl;
-    std::cout << "zone-cycles/omp_wsecond = " << zc_omps << std::endl;
-#endif
+    auto wtime = timer_main.seconds();
+    std::cout << std::endl << "walltime used = " << wtime << std::endl;
+    std::cout << "zone-cycles/wallsecond = " << static_cast<double>(zonecycles) / wtime
+              << std::endl;
   }
 }
 
 DriverStatus EvolutionDriver::Execute() {
-  Driver::PreExecute();
+  PreExecute();
   InitializeBlockTimeSteps();
   SetGlobalTimeStep();
   pouts->MakeOutputs(pmesh, pinput, &tm);
   pmesh->mbcnt = 0;
+  int perf_cycle_offset =
+      pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
+  Kokkos::Profiling::pushRegion("Driver_Main");
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
+
+    pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
+    pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
 
     TaskListStatus status = Step();
     if (status != TaskListStatus::complete) {
       std::cerr << "Step failed to complete all tasks." << std::endl;
       return DriverStatus::failed;
     }
-    // pmesh->UserWorkInLoop();
+
+    pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
+    pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
 
     tm.ncycle++;
     tm.time += tm.dt;
     pmesh->mbcnt += pmesh->nbtotal;
     pmesh->step_since_lb++;
 
+    timer_LBandAMR.reset();
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
     if (pmesh->modified) InitializeBlockTimeSteps();
+    time_LBandAMR += timer_LBandAMR.seconds();
     SetGlobalTimeStep();
     if (tm.time < tm.tlim) // skip the final output as it happens later
       pouts->MakeOutputs(pmesh, pinput, &tm);
@@ -94,7 +94,12 @@ DriverStatus EvolutionDriver::Execute() {
     if (SignalHandler::CheckSignalFlags() != 0) {
       return DriverStatus::failed;
     }
+    if (tm.ncycle == perf_cycle_offset) {
+      pmesh->mbcnt = 0;
+      timer_main.reset();
+    }
   } // END OF MAIN INTEGRATION LOOP ======================================================
+  Kokkos::Profiling::popRegion(); // Driver_Main
 
   pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
@@ -128,15 +133,19 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
                 << std::endl;
     }
   }
-  Driver::PostExecute();
+  Driver::PostExecute(status);
 }
 
 void EvolutionDriver::InitializeBlockTimeSteps() {
-  // calculate the first time step
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->real_containers.Get()));
-    pmb = pmb->next;
+  // calculate the first time step using Block function
+  for (auto &pmb : pmesh->block_list) {
+    Update::EstimateTimestep(pmb->meshblock_data.Get().get());
+  }
+  // calculate the first time step using Mesh function
+  const int num_partitions = pmesh->DefaultNumPartitions();
+  for (int i = 0; i < num_partitions; i++) {
+    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
+    Update::EstimateTimestep(mbase.get());
   }
 }
 
@@ -145,42 +154,74 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 // \brief function that loops over all MeshBlocks and find new timestep
 
 void EvolutionDriver::SetGlobalTimeStep() {
-  MeshBlock *pmb = pmesh->pblock;
-
-  Real dt_max = 2.0 * tm.dt;
-  tm.dt = std::numeric_limits<Real>::max();
-  while (pmb != nullptr) {
+  // don't allow dt to grow by more than 2x
+  // consider making this configurable in the input
+  tm.dt *= 2.0;
+  Real big = std::numeric_limits<Real>::max();
+  for (auto const &pmb : pmesh->block_list) {
     tm.dt = std::min(tm.dt, pmb->NewDt());
-    pmb = pmb->next;
+    pmb->SetAllowedDt(big);
   }
-  tm.dt = std::min(dt_max, tm.dt);
 
 #ifdef MPI_PARALLEL
-  MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN, MPI_COMM_WORLD);
+  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN,
+                                    MPI_COMM_WORLD));
 #endif
 
   if (tm.time < tm.tlim &&
       (tm.tlim - tm.time) < tm.dt) // timestep would take us past desired endpoint
     tm.dt = tm.tlim - tm.time;
-
-  return;
 }
 
 void EvolutionDriver::OutputCycleDiagnostics() {
   const int dt_precision = std::numeric_limits<Real>::max_digits10 - 1;
-  const int ratio_precision = 3;
   if (tm.ncycle_out != 0) {
     if (tm.ncycle % tm.ncycle_out == 0) {
-      if (Globals::my_rank == 0) {
-        std::cout << "cycle=" << tm.ncycle << std::scientific
-                  << std::setprecision(dt_precision) << " time=" << tm.time
-                  << " dt=" << tm.dt;
-        // insert more diagnostics here
-        std::cout << std::endl;
+      std::uint64_t zonecycles =
+          (pmesh->mbcnt - mbcnt_prev) *
+          static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
+      const auto time_cycle_all = timer_cycle.seconds();
+      const auto time_cycle_step = time_cycle_all - time_LBandAMR;
+      const auto wtime = timer_main.seconds();
+      std::cout << "cycle=" << tm.ncycle << std::scientific
+                << std::setprecision(dt_precision) << " time=" << tm.time
+                << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec_step="
+                << static_cast<double>(zonecycles) / time_cycle_step
+                << " wsec_total=" << wtime << " wsec_step=" << time_cycle_step;
+
+      // In principle load balancing based on a cost list can happens for non-AMR runs.
+      // TODO(future me) fix this when this becomes important.
+      if (pmesh->adaptive) {
+        std::cout << " zone-cycles/wsec="
+                  << static_cast<double>(zonecycles) / (time_cycle_step + time_LBandAMR)
+                  << " wsec_AMR=" << time_LBandAMR;
       }
+
+      // insert more diagnostics here
+      std::cout << std::endl;
+
+      // reset cycle related counters
+      timer_cycle.reset();
+      time_LBandAMR = 0.0;
+      // need to cache number of MeshBlocks as AMR/load balance change it
+      mbcnt_prev = pmesh->mbcnt;
     }
   }
-  return;
+  if (tm.ncycle_out_mesh != 0) {
+    // output after mesh refinement (enabled by use of negative cycle number)
+    if (tm.ncycle_out_mesh < 0 && pmesh->modified) {
+      std::cout << "-------------- New Mesh structure after (de)refinement -------------";
+      pmesh->OutputMeshStructure(-1, false);
+      std::cout << "--------------------------------------------------------------------"
+                << std::endl;
+      // output in fixed intervals
+    } else if (tm.ncycle % tm.ncycle_out_mesh == 0) {
+      std::cout << "---------------------- Current Mesh structure ----------------------";
+      pmesh->OutputMeshStructure(-1, false);
+      std::cout << "--------------------------------------------------------------------"
+                << std::endl;
+    }
+  }
 }
 
 } // namespace parthenon

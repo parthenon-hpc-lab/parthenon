@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,18 +14,18 @@
 // Standard Includes
 #include <fstream>
 #include <memory>
+#include <string>
+#include <vector>
 
 // Parthenon Includes
-#include <parthenon/package.hpp>
+#include <parthenon/driver.hpp>
 
 // Local Includes
 #include "calculate_pi.hpp"
 #include "pi_driver.hpp"
 
 // Preludes
-using namespace parthenon::package::prelude;
-using parthenon::Packages_t;
-using parthenon::ParameterInput;
+using namespace parthenon::driver::prelude;
 
 using pi::PiDriver;
 
@@ -35,6 +35,9 @@ int main(int argc, char *argv[]) {
   ParthenonManager pman;
 
   pman.app_input->ProcessPackages = ProcessPackages;
+
+  // This is called on each mesh block whenever the mesh changes.
+  pman.app_input->InitMeshBlockUserData = &calculate_pi::SetInOrOutBlock;
 
   auto manager_status = pman.ParthenonInit(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
@@ -56,18 +59,10 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-// can be used to set global properties that all meshblocks want to know about
-// no need in this app so use the weak version that ships with parthenon
-// Properties_t ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin)
-// {
-//  Properties_t props;
-//  return props;
-//}
-
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   // only have one package for this app, but will typically have more things added to
-  packages["calculate_pi"] = calculate_pi::Initialize(pin.get());
+  packages.Add(calculate_pi::Initialize(pin.get()));
   return packages;
 }
 
@@ -78,13 +73,6 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 //  // nothing to do here for this app
 //}
 
-// applications can register functions to fill shared derived quantities
-// before and/or after all the package FillDerived call backs
-// in this case, just use the weak version that sets these to nullptr
-// void ParthenonManager::SetFillDerivedFunctions() {
-//  FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
-//}
-
 parthenon::DriverStatus PiDriver::Execute() {
   // this is where the main work is orchestrated
   // No evolution in this driver.  Just calculates something once.
@@ -93,34 +81,11 @@ parthenon::DriverStatus PiDriver::Execute() {
 
   pouts->MakeOutputs(pmesh, pinput);
 
-  ConstructAndExecuteBlockTasks<>(this);
+  // The tasks compute pi and store it in the param "pi_val"
+  ConstructAndExecuteTaskLists<>(this);
 
-  // All the blocks are done, now do a global reduce and spit out the answer
-  // first sum over blocks on this rank
-  Real area = 0.0;
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    auto &rc = pmb->real_containers.Get();
-    ParArrayND<Real> v = rc->Get("in_or_out").data;
-
-    // extract area from device memory
-    Real block_area;
-    Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
-    pmb->exec_space.fence(); // as the deep copy may be async
-
-    const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
-    // area must be reduced by r^2 to get the block's contribution to PI
-    block_area /= (radius * radius);
-
-    area += block_area;
-    pmb = pmb->next;
-  }
-#ifdef MPI_PARALLEL
-  Real pi_val;
-  MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
-#else
-  Real pi_val = area;
-#endif
+  // retrieve "pi_val" and post execute.
+  auto &pi_val = pmesh->packages.Get("calculate_pi")->Param<Real>("pi_val");
   pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
   PostExecute(pi_val);
   return DriverStatus::complete;
@@ -136,24 +101,43 @@ void PiDriver::PostExecute(Real pi_val) {
 
     std::fstream fs;
     fs.open("summary.txt", std::fstream::out);
+    if (!fs.is_open()) PARTHENON_THROW("Unable to open summary.txt");
     fs << "PI = " << pi_val << std::endl;
     fs << "rel error = " << (pi_val - M_PI) / M_PI << std::endl;
     fs.close();
   }
-  Driver::PostExecute();
+  Driver::PostExecute(DriverStatus::complete);
 }
 
-parthenon::TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
-  // make a task list for this mesh block
+template <typename T>
+TaskCollection PiDriver::MakeTaskCollection(T &blocks) {
+  using calculate_pi::AccumulateAreas;
   using calculate_pi::ComputeArea;
-  TaskList tl;
+  TaskCollection tc;
 
-  TaskID none(0);
-  auto get_area = tl.AddTask(ComputeArea, none, pmb);
+  const int pack_size = pmesh->DefaultPackSize();
+  auto partitions = partition::ToSizeN(blocks, pack_size);
+  for (int i = 0; i < partitions.size(); i++) {
+    auto md = pmesh->mesh_data.Add(std::to_string(i));
+    md->Set(partitions[i], "base");
+  }
 
-  // could add more tasks like:
-  // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);
-  // for a task that executes the function FuncPtr (with argument MeshBlock *pmb)
-  // that depends on task get_area
-  return tl;
+  ParArrayHost<Real> areas("areas", partitions.size());
+  TaskRegion &async_region = tc.AddRegion(partitions.size());
+  {
+    // asynchronous region where area is computed per partition
+    for (int i = 0; i < partitions.size(); i++) {
+      TaskID none(0);
+      auto &md = pmesh->mesh_data.Get(std::to_string(i));
+      auto get_area = async_region[i].AddTask(none, ComputeArea, md, areas, i);
+    }
+  }
+  TaskRegion &sync_region = tc.AddRegion(1);
+  {
+    TaskID none(0);
+    auto accumulate_areas =
+        sync_region[0].AddTask(none, AccumulateAreas, areas, pmesh->packages);
+  }
+
+  return tc;
 }

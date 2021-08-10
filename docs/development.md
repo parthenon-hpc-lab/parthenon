@@ -15,6 +15,8 @@ The following list contains a few overall design decision that are useful to kee
   - `auto arr_host = Kokkos::create_mirror(arr_dev);` to always create a new array even if the device is associated with the host (e.g., OpenMP) or
   - `auto arr_host = Kokkos::create_mirror_view(arr_dev);` to create an array on the host if the HostSpace != DeviceSpace or get another reference to arr_dev through arr_host if HostSpace == DeviceSpace
 - `par_for` and `Kokkos::deep_copy` by default use the standard stream (on Cuda devices) and are discouraged from use. Use `mb->par_for` and `mb->deep_copy` instead where `mb` is a `MeshBlock` (explanation: each `MeshBlock` has an `ExecutionSpace`, which may be changed at runtime, e.g., to a different stream, and the wrapper within a `MeshBlock` offer transparent access to the parallel region/copy where the `MeshBlock`'s `ExecutionSpace` is automatically used).
+- The default loop pattern for the `mb->par_for` wrappers is defined at compile time through the `PAR_LOOP_LAYOUT` and `PAR_LOOP_INNER_LAYOUT` `CMake` variables Note, that the 1D and 2D abstractions currently only wrap `Kokkos::RangePolicy` and `Kokkos::MDRangePolicy`, respectively, and, thus, are indepdent of the `PAR_LOOP_LAYOUT` and `PAR_LOOP_INNER_LAYOUT` configuration.
+- `DeviceAllocate` and `DeviceCopy` return a `unique_ptr` to an object allocated on device memory; the latter also copies data from a provided object in host memory. These `unique_ptr`s automatically free the device memory when they go out of scope. This is especially useful for inheritance, but note that these allocation and deallocation calls are not performant and should be used minimally.
 
 An arbitrary-dimensional wrapper for `Kokkos::Views` is available as
 `ParArrayND`. See documentation [here](parthenon_arrays.md).
@@ -30,7 +32,7 @@ Therefore, a `parallel_reduce` needs to be used instead of a `parallel_for`.
 
 A strong hint where this is in order are places where a single variable is incremented within a kernel or where another reduction over MPI processes follows the preceding computations.
 
-Currently, Parthenon does not provide wrappers for parallel reductions so the raw Kokkos versions are used.
+Parthenon provides abstractions that provide the ability to perform reductions.  In particular, reductions are available for loops from 1D to 5D, but do not include any nested parallel patterns.  The interface for the abstracted `parallel_for` and `parallel_reduce` executions are nearly identical, with calls to `par_reduce` having one additional final argument compared to `par_for`.  The additional argument should be a Kokkos Reducer, for example one of the built-in [Reducers](https://github.com/kokkos/kokkos/wiki/Custom-Reductions%3A-Built-In-Reducers) that ship with Kokkos.
 
 Examples can be found in the [advection example](../example/advection/advection_package.cpp)
 ```diff
@@ -44,21 +46,16 @@ Examples can be found in the [advection example](../example/advection/advection_
 -      }
 -    }
 -  }
-+
-+  typename Kokkos::MinMax<Real>::value_type minmax;
-+  Kokkos::parallel_reduce(
-+      "advection check refinement",
-+      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
-+                                             {kb.e + 1, jb.e + 1, ib.e + 1},
-+                                             {1, 1, ib.e + 1 - ib.s}),
-+      KOKKOS_LAMBDA(int k, int j, int i,
-+                    typename Kokkos::MinMax<Real>::value_type &lminmax) {
-+        lminmax.min_val = (v(k, j, i) < lminmax.min_val ? v(k, j, i) : lminmax.min_val);
-+        lminmax.max_val = (v(k, j, i) > lminmax.max_val ? v(k, j, i) : lminmax.max_val);
-+      },
-+      Kokkos::MinMax<Real>(minmax));
++ typename Kokkos::MinMax<Real>::value_type minmax;
++ pmb->par_reduce(
++     "advection check refinement", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
++     KOKKOS_LAMBDA(int k, int j, int i,
++                   typename Kokkos::MinMax<Real>::value_type &lminmax) {
++       lminmax.min_val = (v(k, j, i) < lminmax.min_val ? v(k, j, i) : lminmax.min_val);
++       lminmax.max_val = (v(k, j, i) > lminmax.max_val ? v(k, j, i) : lminmax.max_val);
++     },
++     Kokkos::MinMax<Real>(minmax));
 ```
-(note the explicit use of `pmb->exec_space` to use to execution space associated with the `MeshBlock`)
 or in the [buffer packing]() functions
 ```diff
 -void PackData(ParArrayND<T> &src, T *buf, int sn, int en, int si, int ei, int sj, int ej,

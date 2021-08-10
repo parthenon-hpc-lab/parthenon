@@ -22,27 +22,83 @@
 
 #include <catch2/catch.hpp>
 
-TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
-  const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
-  const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
+TEST_CASE("Checking IndexShape indices", "[IndexShape]") {
+  const auto interior = parthenon::IndexDomain::interior;
+  const auto entire = parthenon::IndexDomain::entire;
+  const auto inner_x1 = parthenon::IndexDomain::inner_x1;
+  const auto outer_x1 = parthenon::IndexDomain::outer_x1;
+  const auto inner_x2 = parthenon::IndexDomain::inner_x2;
+  const auto outer_x2 = parthenon::IndexDomain::outer_x2;
+  const auto inner_x3 = parthenon::IndexDomain::inner_x3;
+  const auto outer_x3 = parthenon::IndexDomain::outer_x3;
   GIVEN("A 1D Index Shape") {
     int nx1 = 6;
     int num_ghost = 1;
 
     parthenon::IndexShape shape(nx1, num_ghost);
-    REQUIRE(shape.is(interior) == num_ghost);
-    REQUIRE(shape.ie(interior) == num_ghost + nx1 - 1);
+    REQUIRE(shape.is(interior) == 1);
+    REQUIRE(shape.ie(interior) == 6);
     REQUIRE(shape.js(interior) == 0);
     REQUIRE(shape.je(interior) == 0);
     REQUIRE(shape.ks(interior) == 0);
     REQUIRE(shape.ke(interior) == 0);
+    REQUIRE(shape.GetTotal(interior) == 6);
 
     REQUIRE(shape.is(entire) == 0);
-    REQUIRE(shape.ie(entire) == 2 * num_ghost + nx1 - 1);
+    REQUIRE(shape.ie(entire) == 7);
     REQUIRE(shape.js(entire) == 0);
     REQUIRE(shape.je(entire) == 0);
     REQUIRE(shape.ks(entire) == 0);
     REQUIRE(shape.ke(entire) == 0);
+    REQUIRE(shape.GetTotal(entire) == 8);
+
+    REQUIRE(shape.is(inner_x1) == 0);
+    REQUIRE(shape.ie(inner_x1) == 0);
+    REQUIRE(shape.js(inner_x1) == 0);
+    REQUIRE(shape.je(inner_x1) == 0);
+    REQUIRE(shape.ks(inner_x1) == 0);
+    REQUIRE(shape.ke(inner_x1) == 0);
+    REQUIRE(shape.GetTotal(inner_x1) == 1);
+
+    REQUIRE(shape.is(outer_x1) == 7);
+    REQUIRE(shape.ie(outer_x1) == 7);
+    REQUIRE(shape.js(outer_x1) == 0);
+    REQUIRE(shape.je(outer_x1) == 0);
+    REQUIRE(shape.ks(outer_x1) == 0);
+    REQUIRE(shape.ke(outer_x1) == 0);
+    REQUIRE(shape.GetTotal(outer_x1) == 1);
+
+    REQUIRE(shape.is(inner_x2) == 0);
+    REQUIRE(shape.ie(inner_x2) == 7);
+    REQUIRE(shape.js(inner_x2) == 0);
+    REQUIRE(shape.je(inner_x2) == 0);
+    REQUIRE(shape.ks(inner_x2) == 0);
+    REQUIRE(shape.ke(inner_x2) == 0);
+    REQUIRE(shape.GetTotal(inner_x2) == 0);
+
+    REQUIRE(shape.is(outer_x2) == 0);
+    REQUIRE(shape.ie(outer_x2) == 7);
+    REQUIRE(shape.js(outer_x2) == 0);
+    REQUIRE(shape.je(outer_x2) == 0);
+    REQUIRE(shape.ks(outer_x2) == 0);
+    REQUIRE(shape.ke(outer_x2) == 0);
+    REQUIRE(shape.GetTotal(outer_x2) == 0);
+
+    REQUIRE(shape.is(inner_x3) == 0);
+    REQUIRE(shape.ie(inner_x3) == 7);
+    REQUIRE(shape.js(inner_x3) == 0);
+    REQUIRE(shape.je(inner_x3) == 0);
+    REQUIRE(shape.ks(inner_x3) == 0);
+    REQUIRE(shape.ke(inner_x3) == 0);
+    REQUIRE(shape.GetTotal(inner_x3) == 0);
+
+    REQUIRE(shape.is(outer_x3) == 0);
+    REQUIRE(shape.ie(outer_x3) == 7);
+    REQUIRE(shape.js(outer_x3) == 0);
+    REQUIRE(shape.je(outer_x3) == 0);
+    REQUIRE(shape.ks(outer_x3) == 0);
+    REQUIRE(shape.ke(outer_x3) == 0);
+    REQUIRE(shape.GetTotal(outer_x3) == 0);
   }
 
   GIVEN("A 2D Index Shape") {
@@ -51,19 +107,69 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     int num_ghost = 1;
 
     parthenon::IndexShape shape(nx2, nx1, num_ghost);
-    REQUIRE(shape.is(interior) == num_ghost);
-    REQUIRE(shape.ie(interior) == num_ghost + nx1 - 1);
-    REQUIRE(shape.js(interior) == num_ghost);
-    REQUIRE(shape.je(interior) == num_ghost + nx2 - 1);
+    REQUIRE(shape.is(interior) == 1);
+    REQUIRE(shape.ie(interior) == 6);
+    REQUIRE(shape.js(interior) == 1);
+    REQUIRE(shape.je(interior) == 1);
     REQUIRE(shape.ks(interior) == 0);
     REQUIRE(shape.ke(interior) == 0);
+    REQUIRE(shape.GetTotal(interior) == 6);
 
     REQUIRE(shape.is(entire) == 0);
-    REQUIRE(shape.ie(entire) == 2 * num_ghost + nx1 - 1);
+    REQUIRE(shape.ie(entire) == 7);
     REQUIRE(shape.js(entire) == 0);
-    REQUIRE(shape.je(entire) == 2 * num_ghost + nx2 - 1);
+    REQUIRE(shape.je(entire) == 2);
     REQUIRE(shape.ks(entire) == 0);
     REQUIRE(shape.ke(entire) == 0);
+    REQUIRE(shape.GetTotal(entire) == 24);
+
+    REQUIRE(shape.is(inner_x1) == 0);
+    REQUIRE(shape.ie(inner_x1) == 0);
+    REQUIRE(shape.js(inner_x1) == 0);
+    REQUIRE(shape.je(inner_x1) == 2);
+    REQUIRE(shape.ks(inner_x1) == 0);
+    REQUIRE(shape.ke(inner_x1) == 0);
+    REQUIRE(shape.GetTotal(inner_x1) == 3);
+
+    REQUIRE(shape.is(outer_x1) == 7);
+    REQUIRE(shape.ie(outer_x1) == 7);
+    REQUIRE(shape.js(outer_x1) == 0);
+    REQUIRE(shape.je(outer_x1) == 2);
+    REQUIRE(shape.ks(outer_x1) == 0);
+    REQUIRE(shape.ke(outer_x1) == 0);
+    REQUIRE(shape.GetTotal(outer_x1) == 3);
+
+    REQUIRE(shape.is(inner_x2) == 0);
+    REQUIRE(shape.ie(inner_x2) == 7);
+    REQUIRE(shape.js(inner_x2) == 0);
+    REQUIRE(shape.je(inner_x2) == 0);
+    REQUIRE(shape.ks(inner_x2) == 0);
+    REQUIRE(shape.ke(inner_x2) == 0);
+    REQUIRE(shape.GetTotal(inner_x2) == 8);
+
+    REQUIRE(shape.is(outer_x2) == 0);
+    REQUIRE(shape.ie(outer_x2) == 7);
+    REQUIRE(shape.js(outer_x2) == 2);
+    REQUIRE(shape.je(outer_x2) == 2);
+    REQUIRE(shape.ks(outer_x2) == 0);
+    REQUIRE(shape.ke(outer_x2) == 0);
+    REQUIRE(shape.GetTotal(outer_x2) == 8);
+
+    REQUIRE(shape.is(inner_x3) == 0);
+    REQUIRE(shape.ie(inner_x3) == 7);
+    REQUIRE(shape.js(inner_x3) == 0);
+    REQUIRE(shape.je(inner_x3) == 2);
+    REQUIRE(shape.ks(inner_x3) == 0);
+    REQUIRE(shape.ke(inner_x3) == 0);
+    REQUIRE(shape.GetTotal(inner_x3) == 0);
+
+    REQUIRE(shape.is(outer_x3) == 0);
+    REQUIRE(shape.ie(outer_x3) == 7);
+    REQUIRE(shape.js(outer_x3) == 0);
+    REQUIRE(shape.je(outer_x3) == 2);
+    REQUIRE(shape.ks(outer_x3) == 0);
+    REQUIRE(shape.ke(outer_x3) == 0);
+    REQUIRE(shape.GetTotal(outer_x3) == 0);
   }
 
   GIVEN("A 3D Index Shape") {
@@ -73,19 +179,69 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     int num_ghost = 1;
 
     parthenon::IndexShape shape(nx3, nx2, nx1, num_ghost);
-    REQUIRE(shape.is(interior) == num_ghost);
-    REQUIRE(shape.ie(interior) == num_ghost + nx1 - 1);
-    REQUIRE(shape.js(interior) == num_ghost);
-    REQUIRE(shape.je(interior) == num_ghost + nx2 - 1);
-    REQUIRE(shape.ks(interior) == num_ghost);
-    REQUIRE(shape.ke(interior) == num_ghost + nx3 - 1);
+    REQUIRE(shape.is(interior) == 1);
+    REQUIRE(shape.ie(interior) == 6);
+    REQUIRE(shape.js(interior) == 1);
+    REQUIRE(shape.je(interior) == 1);
+    REQUIRE(shape.ks(interior) == 1);
+    REQUIRE(shape.ke(interior) == 4);
+    REQUIRE(shape.GetTotal(interior) == 24);
 
     REQUIRE(shape.is(entire) == 0);
-    REQUIRE(shape.ie(entire) == 2 * num_ghost + nx1 - 1);
+    REQUIRE(shape.ie(entire) == 7);
     REQUIRE(shape.js(entire) == 0);
-    REQUIRE(shape.je(entire) == 2 * num_ghost + nx2 - 1);
+    REQUIRE(shape.je(entire) == 2);
     REQUIRE(shape.ks(entire) == 0);
-    REQUIRE(shape.ke(entire) == 2 * num_ghost + nx3 - 1);
+    REQUIRE(shape.ke(entire) == 5);
+    REQUIRE(shape.GetTotal(entire) == 144);
+
+    REQUIRE(shape.is(inner_x1) == 0);
+    REQUIRE(shape.ie(inner_x1) == 0);
+    REQUIRE(shape.js(inner_x1) == 0);
+    REQUIRE(shape.je(inner_x1) == 2);
+    REQUIRE(shape.ks(inner_x1) == 1);
+    REQUIRE(shape.ke(inner_x1) == 4);
+    REQUIRE(shape.GetTotal(inner_x1) == 12);
+
+    REQUIRE(shape.is(outer_x1) == 7);
+    REQUIRE(shape.ie(outer_x1) == 7);
+    REQUIRE(shape.js(outer_x1) == 0);
+    REQUIRE(shape.je(outer_x1) == 2);
+    REQUIRE(shape.ks(outer_x1) == 1);
+    REQUIRE(shape.ke(outer_x1) == 4);
+    REQUIRE(shape.GetTotal(outer_x1) == 12);
+
+    REQUIRE(shape.is(inner_x2) == 0);
+    REQUIRE(shape.ie(inner_x2) == 7);
+    REQUIRE(shape.js(inner_x2) == 0);
+    REQUIRE(shape.je(inner_x2) == 0);
+    REQUIRE(shape.ks(inner_x2) == 1);
+    REQUIRE(shape.ke(inner_x2) == 4);
+    REQUIRE(shape.GetTotal(inner_x2) == 32);
+
+    REQUIRE(shape.is(outer_x2) == 0);
+    REQUIRE(shape.ie(outer_x2) == 7);
+    REQUIRE(shape.js(outer_x2) == 2);
+    REQUIRE(shape.je(outer_x2) == 2);
+    REQUIRE(shape.ks(outer_x2) == 1);
+    REQUIRE(shape.ke(outer_x2) == 4);
+    REQUIRE(shape.GetTotal(outer_x2) == 32);
+
+    REQUIRE(shape.is(inner_x3) == 0);
+    REQUIRE(shape.ie(inner_x3) == 7);
+    REQUIRE(shape.js(inner_x3) == 0);
+    REQUIRE(shape.je(inner_x3) == 2);
+    REQUIRE(shape.ks(inner_x3) == 0);
+    REQUIRE(shape.ke(inner_x3) == 0);
+    REQUIRE(shape.GetTotal(inner_x3) == 24);
+
+    REQUIRE(shape.is(outer_x3) == 0);
+    REQUIRE(shape.ie(outer_x3) == 7);
+    REQUIRE(shape.js(outer_x3) == 0);
+    REQUIRE(shape.je(outer_x3) == 2);
+    REQUIRE(shape.ks(outer_x3) == 5);
+    REQUIRE(shape.ke(outer_x3) == 5);
+    REQUIRE(shape.GetTotal(outer_x3) == 24);
   }
 
   GIVEN("A 3D Index Shape initialize with vector") {
@@ -96,19 +252,21 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     int num_ghost = 1;
 
     parthenon::IndexShape shape(nxs, num_ghost);
-    REQUIRE(shape.is(interior) == num_ghost);
-    REQUIRE(shape.ie(interior) == num_ghost + nx1 - 1);
-    REQUIRE(shape.js(interior) == num_ghost);
-    REQUIRE(shape.je(interior) == num_ghost + nx2 - 1);
-    REQUIRE(shape.ks(interior) == num_ghost);
-    REQUIRE(shape.ke(interior) == num_ghost + nx3 - 1);
+    REQUIRE(shape.is(interior) == 1);
+    REQUIRE(shape.ie(interior) == 6);
+    REQUIRE(shape.js(interior) == 1);
+    REQUIRE(shape.je(interior) == 1);
+    REQUIRE(shape.ks(interior) == 1);
+    REQUIRE(shape.ke(interior) == 4);
+    REQUIRE(shape.GetTotal(interior) == 24);
 
     REQUIRE(shape.is(entire) == 0);
-    REQUIRE(shape.ie(entire) == 2 * num_ghost + nx1 - 1);
+    REQUIRE(shape.ie(entire) == 7);
     REQUIRE(shape.js(entire) == 0);
-    REQUIRE(shape.je(entire) == 2 * num_ghost + nx2 - 1);
+    REQUIRE(shape.je(entire) == 2);
     REQUIRE(shape.ks(entire) == 0);
-    REQUIRE(shape.ke(entire) == 2 * num_ghost + nx3 - 1);
+    REQUIRE(shape.ke(entire) == 5);
+    REQUIRE(shape.GetTotal(entire) == 144);
   }
 
   GIVEN("A 3D Index Shape 0 dim in nx3") {
@@ -119,37 +277,69 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     int num_ghost = 1;
 
     parthenon::IndexShape shape(nxs, num_ghost);
-    REQUIRE(shape.is(interior) == num_ghost);
-    REQUIRE(shape.ie(interior) == num_ghost + nx1 - 1);
-    REQUIRE(shape.js(interior) == num_ghost);
-    REQUIRE(shape.je(interior) == num_ghost + nx2 - 1);
+    REQUIRE(shape.is(interior) == 1);
+    REQUIRE(shape.ie(interior) == 6);
+    REQUIRE(shape.js(interior) == 1);
+    REQUIRE(shape.je(interior) == 1);
     REQUIRE(shape.ks(interior) == 0);
     REQUIRE(shape.ke(interior) == 0);
+    REQUIRE(shape.GetTotal(interior) == 6);
 
     REQUIRE(shape.is(entire) == 0);
-    REQUIRE(shape.ie(entire) == 2 * num_ghost + nx1 - 1);
+    REQUIRE(shape.ie(entire) == 7);
     REQUIRE(shape.js(entire) == 0);
-    REQUIRE(shape.je(entire) == 2 * num_ghost + nx2 - 1);
+    REQUIRE(shape.je(entire) == 2);
     REQUIRE(shape.ks(entire) == 0);
     REQUIRE(shape.ke(entire) == 0);
+    REQUIRE(shape.GetTotal(entire) == 24);
   }
 }
 
-TEST_CASE("Checking IndexShape cell counts", "[ncellsi,ncellsj,ncellsk]") {
-  const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
-  const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
+TEST_CASE("Checking IndexShape cell counts", "[IndexShape]") {
+  const auto interior = parthenon::IndexDomain::interior;
+  const auto entire = parthenon::IndexDomain::entire;
+  const auto inner_x1 = parthenon::IndexDomain::inner_x1;
+  const auto outer_x1 = parthenon::IndexDomain::outer_x1;
+  const auto inner_x2 = parthenon::IndexDomain::inner_x2;
+  const auto outer_x2 = parthenon::IndexDomain::outer_x2;
+  const auto inner_x3 = parthenon::IndexDomain::inner_x3;
+  const auto outer_x3 = parthenon::IndexDomain::outer_x3;
   GIVEN("A 1D Index Shape, check the numbers of cells") {
     int nx1 = 6;
     int num_ghost = 1;
 
     parthenon::IndexShape shape(nx1, num_ghost);
-    REQUIRE(shape.ncellsi(interior) == nx1);
+    REQUIRE(shape.ncellsi(interior) == 6);
     REQUIRE(shape.ncellsj(interior) == 1);
     REQUIRE(shape.ncellsk(interior) == 1);
 
-    REQUIRE(shape.ncellsi(entire) == nx1 + 2 * num_ghost);
+    REQUIRE(shape.ncellsi(entire) == 8);
     REQUIRE(shape.ncellsj(entire) == 1);
     REQUIRE(shape.ncellsk(entire) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x1) == 1);
+    REQUIRE(shape.ncellsj(inner_x1) == 1);
+    REQUIRE(shape.ncellsk(inner_x1) == 1);
+
+    REQUIRE(shape.ncellsi(outer_x1) == 1);
+    REQUIRE(shape.ncellsj(outer_x1) == 1);
+    REQUIRE(shape.ncellsk(outer_x1) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x2) == 8);
+    REQUIRE(shape.ncellsj(inner_x2) == 0);
+    REQUIRE(shape.ncellsk(inner_x2) == 1);
+
+    REQUIRE(shape.ncellsi(outer_x2) == 8);
+    REQUIRE(shape.ncellsj(outer_x2) == 0);
+    REQUIRE(shape.ncellsk(outer_x2) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x3) == 8);
+    REQUIRE(shape.ncellsj(inner_x3) == 1);
+    REQUIRE(shape.ncellsk(inner_x3) == 0);
+
+    REQUIRE(shape.ncellsi(outer_x3) == 8);
+    REQUIRE(shape.ncellsj(outer_x3) == 1);
+    REQUIRE(shape.ncellsk(outer_x3) == 0);
   }
 
   GIVEN("A 2D Index Shape, check the numbers of cells") {
@@ -158,13 +348,37 @@ TEST_CASE("Checking IndexShape cell counts", "[ncellsi,ncellsj,ncellsk]") {
     int num_ghost = 1;
 
     parthenon::IndexShape shape(nx2, nx1, num_ghost);
-    REQUIRE(shape.ncellsi(interior) == nx1);
-    REQUIRE(shape.ncellsj(interior) == nx2);
+    REQUIRE(shape.ncellsi(interior) == 6);
+    REQUIRE(shape.ncellsj(interior) == 1);
     REQUIRE(shape.ncellsk(interior) == 1);
 
-    REQUIRE(shape.ncellsi(entire) == nx1 + 2 * num_ghost);
-    REQUIRE(shape.ncellsj(entire) == nx2 + 2 * num_ghost);
+    REQUIRE(shape.ncellsi(entire) == 8);
+    REQUIRE(shape.ncellsj(entire) == 3);
     REQUIRE(shape.ncellsk(entire) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x1) == 1);
+    REQUIRE(shape.ncellsj(inner_x1) == 3);
+    REQUIRE(shape.ncellsk(inner_x1) == 1);
+
+    REQUIRE(shape.ncellsi(outer_x1) == 1);
+    REQUIRE(shape.ncellsj(outer_x1) == 3);
+    REQUIRE(shape.ncellsk(outer_x1) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x2) == 8);
+    REQUIRE(shape.ncellsj(inner_x2) == 1);
+    REQUIRE(shape.ncellsk(inner_x2) == 1);
+
+    REQUIRE(shape.ncellsi(outer_x2) == 8);
+    REQUIRE(shape.ncellsj(outer_x2) == 1);
+    REQUIRE(shape.ncellsk(outer_x2) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x3) == 8);
+    REQUIRE(shape.ncellsj(inner_x3) == 3);
+    REQUIRE(shape.ncellsk(inner_x3) == 0);
+
+    REQUIRE(shape.ncellsi(outer_x3) == 8);
+    REQUIRE(shape.ncellsj(outer_x3) == 3);
+    REQUIRE(shape.ncellsk(outer_x3) == 0);
   }
 
   GIVEN("A 3D Index Shape, check the numbers of cells") {
@@ -174,13 +388,37 @@ TEST_CASE("Checking IndexShape cell counts", "[ncellsi,ncellsj,ncellsk]") {
     int num_ghost = 1;
 
     parthenon::IndexShape shape(nx3, nx2, nx1, num_ghost);
-    REQUIRE(shape.ncellsi(interior) == nx1);
-    REQUIRE(shape.ncellsj(interior) == nx2);
-    REQUIRE(shape.ncellsk(interior) == nx3);
+    REQUIRE(shape.ncellsi(interior) == 6);
+    REQUIRE(shape.ncellsj(interior) == 1);
+    REQUIRE(shape.ncellsk(interior) == 4);
 
-    REQUIRE(shape.ncellsi(entire) == nx1 + 2 * num_ghost);
-    REQUIRE(shape.ncellsj(entire) == nx2 + 2 * num_ghost);
-    REQUIRE(shape.ncellsk(entire) == nx3 + 2 * num_ghost);
+    REQUIRE(shape.ncellsi(entire) == 8);
+    REQUIRE(shape.ncellsj(entire) == 3);
+    REQUIRE(shape.ncellsk(entire) == 6);
+
+    REQUIRE(shape.ncellsi(inner_x1) == 1);
+    REQUIRE(shape.ncellsj(inner_x1) == 3);
+    REQUIRE(shape.ncellsk(inner_x1) == 4);
+
+    REQUIRE(shape.ncellsi(outer_x1) == 1);
+    REQUIRE(shape.ncellsj(outer_x1) == 3);
+    REQUIRE(shape.ncellsk(outer_x1) == 4);
+
+    REQUIRE(shape.ncellsi(inner_x2) == 8);
+    REQUIRE(shape.ncellsj(inner_x2) == 1);
+    REQUIRE(shape.ncellsk(inner_x2) == 4);
+
+    REQUIRE(shape.ncellsi(outer_x2) == 8);
+    REQUIRE(shape.ncellsj(outer_x2) == 1);
+    REQUIRE(shape.ncellsk(outer_x2) == 4);
+
+    REQUIRE(shape.ncellsi(inner_x3) == 8);
+    REQUIRE(shape.ncellsj(inner_x3) == 3);
+    REQUIRE(shape.ncellsk(inner_x3) == 1);
+
+    REQUIRE(shape.ncellsi(outer_x3) == 8);
+    REQUIRE(shape.ncellsj(outer_x3) == 3);
+    REQUIRE(shape.ncellsk(outer_x3) == 1);
   }
 
   GIVEN("A 3D Index Shape, check the numbers of cells after initializing with a vector") {
@@ -191,13 +429,13 @@ TEST_CASE("Checking IndexShape cell counts", "[ncellsi,ncellsj,ncellsk]") {
     std::vector<int> nxs = {nx3, nx2, nx1};
 
     parthenon::IndexShape shape(nxs, num_ghost);
-    REQUIRE(shape.ncellsi(interior) == nx1);
-    REQUIRE(shape.ncellsj(interior) == nx2);
-    REQUIRE(shape.ncellsk(interior) == nx3);
+    REQUIRE(shape.ncellsi(interior) == 6);
+    REQUIRE(shape.ncellsj(interior) == 1);
+    REQUIRE(shape.ncellsk(interior) == 4);
 
-    REQUIRE(shape.ncellsi(entire) == nx1 + 2 * num_ghost);
-    REQUIRE(shape.ncellsj(entire) == nx2 + 2 * num_ghost);
-    REQUIRE(shape.ncellsk(entire) == nx3 + 2 * num_ghost);
+    REQUIRE(shape.ncellsi(entire) == 8);
+    REQUIRE(shape.ncellsj(entire) == 3);
+    REQUIRE(shape.ncellsk(entire) == 6);
   }
 
   GIVEN("A 3D Index Shape, check the numbers of cells with 0 dim") {
@@ -208,12 +446,12 @@ TEST_CASE("Checking IndexShape cell counts", "[ncellsi,ncellsj,ncellsk]") {
     std::vector<int> nxs = {nx3, nx2, nx1};
 
     parthenon::IndexShape shape(nxs, num_ghost);
-    REQUIRE(shape.ncellsi(interior) == nx1);
-    REQUIRE(shape.ncellsj(interior) == nx2);
+    REQUIRE(shape.ncellsi(interior) == 6);
+    REQUIRE(shape.ncellsj(interior) == 1);
     REQUIRE(shape.ncellsk(interior) == 1);
 
-    REQUIRE(shape.ncellsi(entire) == nx1 + 2 * num_ghost);
-    REQUIRE(shape.ncellsj(entire) == nx2 + 2 * num_ghost);
+    REQUIRE(shape.ncellsi(entire) == 8);
+    REQUIRE(shape.ncellsj(entire) == 3);
     REQUIRE(shape.ncellsk(entire) == 1);
   }
 }

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -32,12 +32,13 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
-#include "interface/container_iterator.hpp"
 #include "interface/metadata.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -49,8 +50,7 @@ namespace parthenon {
 // MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
 MeshBlock::MeshBlock(const int n_side, const int ndim)
-    : exec_space(DevExecSpace()), pmy_mesh(nullptr), prev(nullptr), next(nullptr),
-      cost_(1.0) {
+    : exec_space(DevExecSpace()), pmy_mesh(nullptr), cost_(1.0) {
   // initialize grid indices
   if (ndim == 1) {
     InitializeIndexShapes(n_side, 0, 0);
@@ -61,14 +61,33 @@ MeshBlock::MeshBlock(const int n_side, const int ndim)
   }
 }
 
-MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-                     BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                     ApplicationInput *app_in, Properties_t &properties,
-                     Packages_t &packages, int igflag, bool ref_flag)
-    : exec_space(DevExecSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block),
-      gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
-      prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
-      new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
+// Factory method deals with initialization for you
+std::shared_ptr<MeshBlock> MeshBlock::Make(int igid, int ilid, LogicalLocation iloc,
+                                           RegionSize input_block,
+                                           BoundaryFlag *input_bcs, Mesh *pm,
+                                           ParameterInput *pin, ApplicationInput *app_in,
+                                           Packages_t &packages, int igflag,
+                                           double icost) {
+  auto pmb = std::make_shared<MeshBlock>();
+  pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, packages,
+                  igflag, icost);
+  return pmb;
+}
+
+void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
+                           RegionSize input_block, BoundaryFlag *input_bcs, Mesh *pm,
+                           ParameterInput *pin, ApplicationInput *app_in,
+                           Packages_t &packages, int igflag, double icost) {
+  exec_space = DevExecSpace();
+  pmy_mesh = pm;
+  loc = iloc;
+  block_size = input_block;
+  gid = igid;
+  lid = ilid;
+  gflag = igflag;
+  this->packages = packages;
+  cost_ = icost;
+
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
     InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
@@ -82,8 +101,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   if (app_in->InitApplicationMeshBlockData != nullptr) {
     InitApplicationMeshBlockData = app_in->InitApplicationMeshBlockData;
   }
-  if (app_in->InitUserMeshBlockData != nullptr) {
-    InitUserMeshBlockData = app_in->InitUserMeshBlockData;
+  if (app_in->InitMeshBlockUserData != nullptr) {
+    InitMeshBlockUserData = app_in->InitMeshBlockUserData;
   }
   if (app_in->ProblemGenerator != nullptr) {
     ProblemGenerator = app_in->ProblemGenerator;
@@ -94,10 +113,6 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   if (app_in->UserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->UserWorkBeforeOutput;
   }
-
-  auto &real_container = real_containers.Get();
-  // Set the block pointer for the containers
-  real_container->setBlock(this);
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
@@ -110,140 +125,83 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
   // mesh-related objects
   // Boundary
-  pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
+  pbval = std::make_unique<BoundaryValues>(shared_from_this(), input_bcs, pin);
   pbval->SetBoundaryFlags(boundary_flag);
+  pbswarm = std::make_unique<BoundarySwarms>(shared_from_this(), input_bcs, pin);
+  pbswarm->SetBoundaryFlags(boundary_flag);
 
-  // Reconstruction: constructor may implicitly depend on Coordinates, and PPM variable
-  // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is
-  // ok
-  precon = std::make_unique<Reconstruction>(this, pin);
+  // Add physics data, including dense, sparse, and swarm variables.
+  // Resolve issues.
+  // TODO(JL) This should probably be moved to Mesh and only done once per mesh init
+  resolved_packages = ResolvePackages(packages);
 
-  // Add field properties data
-  for (int i = 0; i < properties.size(); i++) {
-    StateDescriptor &state = properties[i]->State();
-    for (auto const &q : state.AllFields()) {
-      real_container->Add(q.first, q.second);
-    }
-    for (auto const &q : state.AllSparseFields()) {
-      for (auto const &m : q.second) {
-        real_container->Add(q.first, m);
-      }
-    }
-  }
-  // Add physics data
-  for (auto const &pkg : packages) {
-    for (auto const &q : pkg.second->AllFields()) {
-      real_container->Add(q.first, q.second);
-    }
-    for (auto const &q : pkg.second->AllSparseFields()) {
-      for (auto const &m : q.second) {
-        real_container->Add(q.first, m);
-      }
+  auto &real_container = meshblock_data.Get();
+  auto &swarm_container = swarm_data.Get();
+
+  real_container->Initialize(resolved_packages, shared_from_this());
+
+  swarm_container->SetBlockPointer(shared_from_this());
+  for (auto const &q : resolved_packages->AllSwarms()) {
+    swarm_container->Add(q.first, q.second);
+    // Populate swarm values
+    auto &swarm = swarm_container->Get(q.first);
+    for (auto const &m : resolved_packages->AllSwarmValues(q.first)) {
+      swarm->Add(m.first, m.second);
     }
   }
 
   // TODO(jdolence): Should these loops be moved to Variable creation
-  ContainerIterator<Real> ci(real_container, {Metadata::Independent});
-  int nindependent = ci.vars.size();
-  for (int n = 0; n < nindependent; n++) {
-    RegisterMeshBlockData(ci.vars[n]);
+  // TODO(JMM): What variables should be in vars_cc_? They are used
+  // for counting load-balance cost. Should it be different than the
+  // variables used for refinement?
+  // Should we even have both of these arrays? Are they both necessary?
+
+  // TODO(JMM): In principal this should be `Metadata::Independent`
+  // only. However, I am making it `Metadata::Independent` OR
+  // `Metadata::FillGhost` to work around the old Athena++
+  // `bvals_refine` machinery. When this machinery is completely
+  // removed, which can happen after dense-on-block for sparse
+  // variables is in place and after we write "prolongate-in-one,"
+  // this should be only for `Metadata::Independent`.
+  const auto vars =
+      real_container
+          ->GetVariablesByFlag({Metadata::Independent, Metadata::FillGhost}, false)
+          .vars();
+  for (int n = 0; n < vars.size(); n++) {
+    RegisterMeshBlockData(vars[n]);
   }
 
   if (pm->multilevel) {
-    pmr = std::make_unique<MeshRefinement>(this, pin);
+    pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
-    for (int n = 0; n < nindependent; n++) {
-      pmr->AddToRefinement(ci.vars[n]->data, ci.vars[n]->coarse_s);
+    for (int n = 0; n < vars.size(); n++) {
+      // These are used for doing refinement
+      pmr->AddToRefinement(vars[n]->data, vars[n]->coarse_s);
     }
   }
 
   // Create user mesh data
-  // InitUserMeshBlockData(pin);
-  app = InitApplicationMeshBlockData(pin);
-}
-
-//----------------------------------------------------------------------------------------
-// MeshBlock constructor for restarts
-#if 0
-MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-                     Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
-                     RegionSize input_block, BoundaryFlag *input_bcs, double icost,
-                     char *mbdata, int igflag)
-    : pmy_mesh(pm), loc(iloc), block_size(input_block), gid(igid), lid(ilid),
-      gflag(igflag), nuser_out_var(), properties(properties), packages(packages),
-      prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
-      new_block_dt_parabolic_{}, new_block_dt_user_{}, nreal_user_meshblock_data_(),
-      nint_user_meshblock_data_(), cost_(icost), exec_space(DevExecSpace()) {
-  // initialize grid indices
-
-  // std::cerr << "WHY AM I HERE???" << std::endl;
-
-  // initialize grid indices
-  InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
-
-  // Set the block pointer for the containers
-  real_containers.Get().setBlock(this);
-
-  // (re-)create mesh-related objects in MeshBlock
-
-  coords = Coordinates_t(block_size, pin);
-
-  // Boundary
-  pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
-
-  // Reconstruction (constructor may implicitly depend on Coordinates)
-  precon = std::make_unique<Reconstruction>(this, pin);
-
-  if (pm->multilevel) pmr = std::make_unique<MeshRefinement>(this, pin);
-
-  app = InitApplicationMeshBlockData(pin);
-  InitUserMeshBlockData(pin);
-
-  std::size_t os = 0;
-
-  // load user MeshBlock data
-  for (int n = 0; n < nint_user_meshblock_data_; n++) {
-    std::memcpy(iuser_meshblock_data[n].data(), &(mbdata[os]),
-                iuser_meshblock_data[n].GetSizeInBytes());
-    os += iuser_meshblock_data[n].GetSizeInBytes();
-  }
-  for (int n = 0; n < nreal_user_meshblock_data_; n++) {
-    std::memcpy(ruser_meshblock_data[n].data(), &(mbdata[os]),
-                ruser_meshblock_data[n].GetSizeInBytes());
-    os += ruser_meshblock_data[n].GetSizeInBytes();
-  }
-
+  // InitMeshBlockUserData(pin);
+  app = InitApplicationMeshBlockData(this, pin);
   return;
 }
-#endif
 
 //----------------------------------------------------------------------------------------
 // MeshBlock destructor
 
-MeshBlock::~MeshBlock() {
-  if (prev != nullptr) prev->next = next;
-  if (next != nullptr) next->prev = prev;
-}
+MeshBlock::~MeshBlock() = default;
 
 void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
-  cellbounds = IndexShape(nx3, nx2, nx1, NGHOST);
+  cellbounds = IndexShape(nx3, nx2, nx1, Globals::nghost);
 
   if (pmy_mesh != nullptr) {
     if (pmy_mesh->multilevel) {
-      cnghost = (NGHOST + 1) / 2 + 1;
-      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, NGHOST);
+      cnghost = (Globals::nghost + 1) / 2 + 1;
+      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, Globals::nghost);
     } else {
       c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
     }
   }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn std::size_t MeshBlock::GetBlockSizeInBytes()
-//  \brief Calculate the block data size required for restart.
-
-std::size_t MeshBlock::GetBlockSizeInBytes() {
-  throw std::runtime_error("MeshBlock::GetBlockSizeInBytes not yet implemented.");
 }
 
 //----------------------------------------------------------------------------------------
@@ -271,11 +229,7 @@ void MeshBlock::ResetTimeMeasurement() {
 
 void MeshBlock::StartTimeMeasurement() {
   if (pmy_mesh->lb_automatic_) {
-#ifdef OPENMP_PARALLEL
-    lb_time_ = omp_get_wtime();
-#else
-    lb_time_ = static_cast<double>(clock());
-#endif
+    lb_timer.reset();
   }
 }
 
@@ -285,12 +239,7 @@ void MeshBlock::StartTimeMeasurement() {
 
 void MeshBlock::StopTimeMeasurement() {
   if (pmy_mesh->lb_automatic_) {
-#ifdef OPENMP_PARALLEL
-    lb_time_ = omp_get_wtime() - lb_time_;
-#else
-    lb_time_ = static_cast<double>(clock()) - lb_time_;
-#endif
-    cost_ += lb_time_;
+    cost_ += lb_timer.seconds();
   }
 }
 

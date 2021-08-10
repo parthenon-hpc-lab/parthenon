@@ -4,11 +4,11 @@ on:
     types: [created]
 jobs:
   apply-formatting:
-    name: Format C++ Code
+    name: Format Py and C++ Code
     runs-on: ubuntu-latest
     if: startsWith(github.event.comment.body, '@par-hermes format')
     steps:
-    - uses: AndrewGaspar/cpp-auto-formatter/command@v0.1
+    - uses: JoshuaSBrown/cpp-py-formatter/command@v0.2.3
       with:
         botName: par-hermes
         clangFormatVersion: 8

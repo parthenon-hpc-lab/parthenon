@@ -11,7 +11,12 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+add_subdirectory(stochastic_subgrid)
 add_subdirectory(advection)
 add_subdirectory(calculate_pi)
 add_subdirectory(face_fields)
 add_subdirectory(kokkos_pi)
+add_subdirectory(particles)
+add_subdirectory(particle_leapfrog)
+add_subdirectory(particle_tracers)
+add_subdirectory(poisson)

@@ -1,0 +1,372 @@
+#========================================================================================
+# (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+#
+# This program was produced under U.S. Government contract 89233218CNA000001 for Los
+# Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+# for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+# in the program are reserved by Triad National Security, LLC, and the U.S. Department
+# of Energy/National Nuclear Security Administration. The Government is granted for
+# itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+# license in this material to reproduce, prepare derivative works, distribute copies to
+# the public, perform publicly and display publicly, and to permit others to do so.
+#========================================================================================
+
+
+# ********* General Overview *********
+#
+# This file is responsible for running the performance metrics ci on Darwin
+#
+# The ci is split up into two components:
+#
+# 1. Scheduled Run
+#
+# The scheduled run is run every morning at 4:00 am Mountain
+# Time and is responsible for ensuring that the performance metrics for
+# the develop branch are up to date. Up-to-date metrics are uploaded to the
+# Wiki and can be found at the url:
+# https://github.com/lanl/parthenon/wiki/develop_develop
+#
+# 2. Manual Run
+#
+# Manual runs can be triggered for any Parthenon branch
+# on the re-git server here:
+# https://re-git.lanl.gov/eap-oss/parthenon/-/pipelines
+#
+# metrics for the branch are also uploaded to the Wiki and appear here:
+# https://github.com/lanl/parthenon/wiki/{current_branch}_{target_branch}
+#
+# where {current_branch} is the branch you are working on and {target_branch}
+# is the branch you are merging into. E.g. if you had a branch named 'test'
+# that you were merging into 'develop' a Wiki page at:
+#
+# https://github.com/lanl/parthenon/wiki/test_develop
+#
+# would be created containing the performance metrics.
+#
+# ********* Variables *********
+#
+# SCHEDULER_PARAMETERS
+#
+# This variable is reserved for use with the gitlab
+# runner on Darwin and is responsible for interacting with the queing system.
+# The arguments passed to the job scheduler can be adjusted to run on different
+# architectures and with different numbers of resources.
+#
+# GIT_SUBMODULE_STRATEGY
+#
+# Ensures that git will recursively pull in submodules.
+#
+# CMAKE_CXX_COMPILER
+#
+# Indicates the location of the nvcc_wrapper in the
+# Parthenon repository.
+#
+# CMAKE_BUILD_TYPE
+#
+# Build type whether release or debug, because this ci
+# is designed to test the performance we have opted for a release build.
+#
+variables:
+  SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci'
+  GIT_SUBMODULE_STRATEGY: recursive
+  CMAKE_CXX_COMPILER: ${CI_PROJECT_DIR}/external/Kokkos/bin/nvcc_wrapper
+  CMAKE_BUILD_TYPE: 'Release'
+
+# ********* Stages *********
+#
+# A total of 4 stages have been defined:
+#
+# 1. performance-application-setup
+#
+# This stage is designed to setup the python performance metrics and
+# install them as well as ensure we are working with a clean environment.
+#
+# 2. performance-target
+#
+# When submitting a merge request it makes sense to compare the performance
+# metrics of your current branch (the branch with a new feature) with the
+# target branch (the branch you are merging into). This stage is designed
+# to be used to analzye the performance of the target branch if metrics for
+# the target branch do not exist.
+#
+# 3. performance-regression-build
+#
+# This will build and run tests on the current branch (feature branch).
+#
+# 4. performance-regression-build
+#
+# Will upload the performance metrics of the current branch (feature branch).
+stages:
+  - performance-application-setup
+  - performance-target
+  - performance-regression-build
+  - performance-regression
+
+########################################################################
+# Anchors
+########################################################################
+
+
+# ********* Anchor 1 *********
+#
+# This first anchor is designed to capture the ci environment and build
+# scripts into a single executable that can be rerun outside of the ci
+# and reproduce the same behavior. It was created to make it easier to
+# reproduce errors encountered in the ci.
+#
+# SCRIPT_TO_RUN
+#
+# This is an env variable that contains a build script located in
+# the parthenon repo in /scripts/darwin.
+#
+# EXECUTABLE
+#
+# This is the file created by the anchor that stores the env variables
+# and script command and can be executed outside of the ci to reproduce
+# the ci behavior.
+#
+# The command executed by the EXECUTABLE file will have the form
+#
+# env -i bash --norc --noprofile {something}/{something}/parthenon/scripts/darwin/{name_of_script_build_script} variable1 variable2 ... etc
+#
+# The first part of the command is needed "env -i bash --norc --noprofile"
+# to ensure that user settings do not prevent inconsistency between
+# ci runs.
+
+# GITHUB_APP_PEM
+#
+# This is the permissions file path for the parthenon performance application
+# it is stored as a secret and provided as github environmental variable
+# when the ci is run.
+#
+# The remaining variables beginning with CI_ prefix are defined on gitlabs
+# documentation pages.
+#
+.print-copy-executable: &print-copy-executable
+- printf 'env -i bash --norc --noprofile %s/scripts/darwin/%s  "%s"
+      "%s" "%s" "%s" "%s" "%s" "%s" "%s" "%s"\n'
+      ${CI_PROJECT_DIR}
+      ${SCRIPT_TO_RUN}
+      ${GITHUB_APP_PEM}
+      ${CI_PROJECT_DIR}
+      ${CI_COMMIT_SHA}
+      ${CI_COMMIT_BRANCH}
+      ${CI_JOB_URL}
+      ${CI_JOB_TOKEN}
+      ${BUILD_TARGET_BRANCH}
+      ${CI_PROJECT_DIR}/../python_scripts
+      ${CMAKE_BUILD_TYPE} > ${EXECUTABLE}
+- cp ${EXECUTABLE} ../
+
+# ********* Anchor 2 *********
+#
+# This script is designed to ensure that when an {EXECUTABLE} file
+# runs and fails that the ci job also fails. I had difficulty getting bash
+# to correctly fail ci jobs and had to revert to printing out if the
+# bash script failed or not.
+.run-script-with-check: &run-script-with-check
+- env
+- chmod +x $EXECUTABLE
+- |
+  STATUS=$(${CI_PROJECT_DIR}/${EXECUTABLE})
+  echo "PASS_OR_FAIL ${STATUS}"
+  if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
+- git checkout ${CI_COMMIT_BRANCH}
+
+########################################################################
+# Templates
+########################################################################
+#
+# There are a total of 4 templates which also follow the descrption of
+# the four stages mentioned above. Three environment variables are used
+# to define how they behave differently.
+#
+# EXECUTABLE
+#
+# This is the name of the file that will contain the build script to run
+# in addition to the environmental variables used by the ci to reproduce
+# the behavior.
+#
+# BUILD_TARGET_BRANCH
+#
+# This is used to toggle whether we should check if performance metrics
+# for the target branch (the branch we are merging into) need to first
+# be generated.
+#
+# SCRIPT_TO_RUN
+#
+# This is an env variable that contains a build script located in
+# the parthenon repo in /scripts/darwin.
+
+# 1. gcc-mpi-cuda-python-performance-application
+#
+# This template is designed to setup the python performance metrics and
+# install them as well as ensure we are working with a clean environment.
+# Hence the removal of parthenon wiki directory if it exists.
+.gcc-mpi-cuda-python-performance-application:
+  variables:
+    EXECUTABLE: "execute_python_application.sh"
+    BUILD_TARGET_BRANCH: "OFF"
+    SCRIPT_TO_RUN: "install_python_scripts.sh"
+    GIT_STRATEGY: clone # Prevents problems when rebase is used
+  script:
+    - |
+      if [ -d "{CI_PROJECT_DIR}/../parthenon.wiki" ];
+      then
+        rm -rf "{CI_PROJECT_DIR}/../parthenon.wiki"
+      fi
+    - git fetch --all
+    - *print-copy-executable
+    - *run-script-with-check
+    - git checkout ${CI_COMMIT_BRANCH}
+    - git pull origin ${CI_COMMIT_BRANCH}
+
+# 2. gcc-mpi-cuda-performance-regression-build
+#
+# This template will execute the build_fast.sh script located in
+# the parthenon/scripts/darwin. It can be used to build the
+# current branch (feature branch) and run performance tests.
+#
+.gcc-mpi-cuda-performance-regression-build:
+  variables:
+    EXECUTABLE: "execute_main.sh"
+    BUILD_TARGET_BRANCH: "OFF"
+    SCRIPT_TO_RUN: "build_fast.sh"
+  script:
+    - *print-copy-executable
+    - *run-script-with-check
+  artifacts:
+    paths:
+      - ${CI_PROJECT_DIR}
+    expire_in: 1 day
+
+# 3. gcc-mpi-cuda-performance-regression-metrics
+#
+# This template will execute the metrics.sh script located in
+# the parthenon/scripts/darwin. It can be used to analyze the
+# output of the performance tests if they have been run and
+#
+.gcc-mpi-cuda-performance-regression-metrics:
+  variables:
+    EXECUTABLE: "execute_metrics.sh"
+    BUILD_TARGET_BRANCH: "OFF"
+    SCRIPT_TO_RUN: "metrics.sh"
+  script:
+    - *print-copy-executable
+    - *run-script-with-check
+
+# 4. gcc-mpi-cuda-performance-regression-target-branch
+#
+# This template will execute the build_fast.sh script located in
+# the parthenon/scripts/darwin. It can be used to both build,
+# and run tests on the target branch (the branch to merge into).
+#
+.gcc-mpi-cuda-performance-regression-target-branch:
+  variables:
+    EXECUTABLE: "execute_target.sh"
+    BUILD_TARGET_BRANCH: "ON"
+    SCRIPT_TO_RUN: "build_fast.sh"
+  script:
+    - *print-copy-executable
+    - *run-script-with-check
+
+########################################################################
+# Manual Jobs
+########################################################################
+#
+# The following jobs are designed to run in the following order:
+#
+# 1. build python tools and install, as well as clean ci space
+# 2. build and run tests on target branch if no metrics exists on it
+# 3. build and run tests on the current branch (feature branch)
+# 4. analyze the results and upload to repository wiki.
+#
+# Note that step 1. is the only job requiring a manual trigger, this is
+# done with the 'when: manual' keywords and has been designed this way
+# for security reasons to avoid jobs automatically running on LANL
+# infrastructure before they have been vetted. The other jobs will
+# automatically run in the correct order once the manual job has been
+# triggered and passes.
+parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-python-performance-application
+  stage: performance-application-setup
+  allow_failure: false
+  when: manual
+  except:
+    - schedules
+
+parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-performance-regression-target-branch
+  stage: performance-target
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup]
+  except:
+    - schedules
+
+parthenon-power9-gcc-mpi-cuda-perf-manual-build:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-performance-regression-build
+  stage: performance-regression-build
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch]
+  except:
+    - schedules
+
+parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-performance-regression-metrics
+  stage: performance-regression
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-build]
+  except:
+    - schedules
+
+########################################################################
+# Scheduled jobs
+########################################################################
+#
+# There are a total of 3 jobs in the scheduled pipeline. The scheduled
+# pipeline is designed to only run on the develop branch which is protected
+# this is for security reasons, because it is run automatically. For code
+# to have been merged into develop it must have first been approved by
+# a LANL employee hence providing a level of vetting.
+#
+# The pipeline has been setup to run at 4:00 am Mountain Time every day. The
+# schedule settings are located on re-git in the ci settings.
+#
+# Unlike the manual pipeline only 3 jobs are needed because we are only
+# running the pipeline on the develop branch, which means there is no
+# need to compare the performance metrics with another branch. Instead
+# performance metrics are compared on the same branch for the last
+# 5 commits.
+parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-python-performance-application
+  stage: performance-application-setup
+  only:
+    - schedules
+    - develop
+
+parthenon-power9-gcc-mpi-cuda-perf-schedule-build:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-performance-regression-build
+  stage: performance-regression-build
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup]
+  only:
+    - schedules
+    - develop
+
+parthenon-power9-gcc-mpi-cuda-perf-schedule-metrics:
+  tags:
+    - eap
+  extends: .gcc-mpi-cuda-performance-regression-metrics
+  stage: performance-regression
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-build]
+  only:
+    - schedules
+    - develop

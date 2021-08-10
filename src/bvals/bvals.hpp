@@ -26,8 +26,11 @@
 #include "parthenon_mpi.hpp"
 
 #include "bvals/bvals_interfaces.hpp"
+#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "defs.hpp"
+#include "mesh/domain.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -58,10 +61,10 @@ class BoundaryBase {
   // 1x pair (neighbor index, buffer ID) per entire SET of separate variable buffers
   // (Field, Passive Scalar, etc.). Greedy allocation for worst-case
   // of refined 3D; only 26 entries needed/initialized if unrefined 3D, e.g.
-  static NeighborIndexes ni[56];
-  static int bufid[56];
+  static NeighborIndexes ni[NMAX_NEIGHBORS];
+  static int bufid[NMAX_NEIGHBORS];
 
-  NeighborBlock neighbor[56];
+  NeighborBlock neighbor[NMAX_NEIGHBORS];
   int nneighbor;
   int nblevel[3][3][3];
   LogicalLocation loc;
@@ -91,6 +94,62 @@ class BoundaryBase {
 };
 
 //----------------------------------------------------------------------------------------
+//! \class BoundarySwarms
+//  \brief centralized class for interacting with each individual swarm boundary data
+class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
+ public:
+  BoundarySwarms(std::weak_ptr<MeshBlock> pmb, BoundaryFlag *input_bcs,
+                 ParameterInput *pin);
+
+  // variable-length arrays of references to all BoundarySwarm instances
+  std::vector<std::shared_ptr<BoundarySwarm>> bswarms;
+
+  void SetBoundaryFlags(BoundaryFlag bc_flag[]) {
+    for (int i = 0; i < 6; i++) {
+      bc_flag[i] = block_bcs[i];
+    }
+  }
+
+  // inherited functions (interface shared with BoundaryVariable objects):
+  // ------
+  // called before time-stepper:
+  void SetupPersistentMPI() final; // setup MPI requests
+
+  // called before and during time-stepper (currently do nothing for swarms):
+  void StartReceiving(BoundaryCommSubset phase) final {}
+  void ClearBoundary(BoundaryCommSubset phase) final {}
+
+  int AdvanceCounterPhysID(int num_phys) { return 0; }
+
+ private:
+  // ptr to MeshBlock containing this BoundaryValues
+  std::weak_ptr<MeshBlock> pmy_block_;
+  int nface_, nedge_;
+
+  // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
+  // false --> e.g. block, polar, periodic boundaries
+  // bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
+  // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
+
+  // local counter for generating unique MPI tags for per-MeshBlock BoundarySwarm
+  // communication (subset of Mesh::next_phys_id_)
+  int bvars_next_phys_id_;
+
+  /// Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block_.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block_.lock();
+  }
+
+  friend class Mesh;
+  // currently, this class friendship is required for copying send/recv buffers between
+  // BoundarySwarm objects within different MeshBlocks on the same MPI rank:
+  friend class BoundarySwarm;
+};
+
+//----------------------------------------------------------------------------------------
 //! \class BoundaryValues
 //  \brief centralized class for interacting with each individual variable boundary data
 //         (design pattern ~ mediator)
@@ -98,13 +157,12 @@ class BoundaryBase {
 class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
                        public BoundaryCommunication {
  public:
-  BoundaryValues(MeshBlock *pmb, BoundaryFlag *input_bcs, ParameterInput *pin);
+  BoundaryValues(std::weak_ptr<MeshBlock> pmb, BoundaryFlag *input_bcs,
+                 ParameterInput *pin);
 
   // variable-length arrays of references to BoundaryVariable instances
   // containing all BoundaryVariable instances:
   std::vector<std::shared_ptr<BoundaryVariable>> bvars;
-  // subset of bvars that are exchanged in the main TimeIntegratorTaskList
-  std::vector<std::shared_ptr<BoundaryVariable>> bvars_main_int;
 
   void SetBoundaryFlags(BoundaryFlag bc_flag[]) {
     for (int i = 0; i < 6; i++)
@@ -123,13 +181,20 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // non-inhertied / unique functions (do not exist in BoundaryVariable objects):
   // (these typically involve a coupled interaction of boundary variable/quantities)
   // ------
-  void ProlongateBoundaries(const Real time, const Real dt);
+  void RestrictBoundaries();
+  void ProlongateBoundaries();
+
+  int NumRestrictions();
+  void FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
+                               int &idx_start, ParArray4D<Real> &fine,
+                               ParArray4D<Real> &coarse, int Nv);
 
   int AdvanceCounterPhysID(int num_phys);
 
  private:
-  MeshBlock *pmy_block_; // ptr to MeshBlock containing this BoundaryValues
-  int nface_, nedge_;    // used only in fc/flux_correction_fc.cpp calculations
+  // ptr to MeshBlock containing this BoundaryValues
+  std::weak_ptr<MeshBlock> pmy_block_;
+  int nface_, nedge_; // used only in fc/flux_correction_fc.cpp calculations
 
   // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
   // false --> e.g. block, polar, periodic boundaries
@@ -140,14 +205,26 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // communication (subset of Mesh::next_phys_id_)
   int bvars_next_phys_id_;
 
-  // ProlongateBoundaries() wraps the following S/AMR-operations (within nneighbor loop):
+  // ProlongateBoundaries() wraps the following S/AMR-operations (within neighbor loop):
   // (the next function is also called within 3x nested loops over nk,nj,ni)
-  void RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int nk, int nj, int ni);
-  void ApplyPhysicalBoundariesOnCoarseLevel(const NeighborBlock &nb, const Real time,
-                                            const Real dt, int si, int ei, int sj, int ej,
-                                            int sk, int ek);
-  void ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj, int ej,
-                            int sk, int ek);
+  void RestrictGhostCellsOnSameLevel_(const NeighborBlock &nb, int nk, int nj, int ni);
+  void ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei, int sj, int ej,
+                             int sk, int ek);
+  void ComputeRestrictionIndices_(const NeighborBlock &nb, int nk, int nj, int ni,
+                                  int &ris, int &rie, int &rjs, int &rje, int &rks,
+                                  int &rke);
+  void ComputeRestrictionBounds_(const NeighborBlock &nb, IndexRange &ni, IndexRange &nj,
+                                 IndexRange &nk);
+  void ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
+                                  IndexRange &bk);
+
+  /// Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block_.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block_.lock();
+  }
 
   // temporary--- Added by @tomidakn on 2015-11-27 in f0f989f85f
   // TODO(KGF): consider removing this friendship designation
@@ -158,6 +235,7 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   friend class FaceCenteredBoundaryVariable; // needs nface_, nedge_, num_north/south_...
   // TODO(KGF): consider removing these friendship designations:
   friend class CellCenteredBoundaryVariable;
+  friend class BoundarySwarm;
 };
 
 } // namespace parthenon

@@ -49,6 +49,7 @@ nx3 = 64
 tlim = 1.0
 nlim = 20
 integrator = rk2
+perf_cycle_offset = 2
 
 <Advection>
 cfl = 0.30
@@ -61,6 +62,11 @@ ang_3 = 0.0
 ang_2_vert = false
 ang_3_vert = false
 amp = 1e-6
+
+num_vars = 1 # number of variables in variable vector
+buffer_send_pack = false # send all buffers using packs
+buffer_recv_pack = false # receive buffers using packs
+buffer_set_pack = false # set received buffers using packs
 
 refine_tol = 1.01    # control the package specific refinement tagging function
 derefine_tol = 1.001

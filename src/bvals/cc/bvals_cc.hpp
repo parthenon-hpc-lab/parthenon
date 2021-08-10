@@ -20,6 +20,8 @@
 //  \brief handle boundaries for any ParArrayND type variable that represents a physical
 //         quantity indexed along / located around cell-centers
 
+#include <memory>
+
 #include "parthenon_mpi.hpp"
 
 #include "bvals/bvals.hpp"
@@ -33,7 +35,7 @@ namespace parthenon {
 
 class CellCenteredBoundaryVariable : public BoundaryVariable {
  public:
-  CellCenteredBoundaryVariable(MeshBlock *pmb, ParArrayND<Real> var,
+  CellCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb, ParArrayND<Real> var,
                                ParArrayND<Real> coarse_var, ParArrayND<Real> *var_flux);
   ~CellCenteredBoundaryVariable();
 
@@ -69,14 +71,14 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
 
  private:
   // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundarySameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
 
-  int LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
-  int LoadBoundaryBufferToFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferToFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
 
-  void SetBoundaryFromCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundaryFromFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundaryFromCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundaryFromFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
 
 #ifdef MPI_PARALLEL
   int cc_phys_id_, cc_flx_phys_id_;

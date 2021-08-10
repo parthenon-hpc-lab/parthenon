@@ -33,6 +33,7 @@ using parthenon::ParArray3D;
 using parthenon::ParArrayND;
 using Real = double;
 
+using policy6d = Kokkos::MDRangePolicy<Kokkos::Rank<6>>;
 using policy3d = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
 using policy2d = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
 
@@ -40,6 +41,7 @@ constexpr int NG = 1; // six-point stencil requires one ghost zone
 constexpr int N = 32 + 2 * NG;
 constexpr int NT = 100;
 constexpr int NARRAYS = 64;
+constexpr int NS = 2;
 
 #ifdef KOKKOS_ENABLE_CUDA
 using UVMSpace = Kokkos::CudaUVMSpace;
@@ -365,6 +367,77 @@ TEST_CASE("ParArrayND with LayoutLeft", "[ParArrayND][Kokkos][LayoutLeft]") {
   }
 }
 
+TEST_CASE("ParArray resizing", "[ParArrayND]") {
+  GIVEN("Initial ParArrayNDs of multiple extents") {
+    ParArrayND<int> pa1("1D", NS);
+    ParArrayND<int> pa2("2D", NS, NS);
+    ParArrayND<int> pa3("3D", NS, NS, NS);
+    ParArrayND<int> pa4("4D", NS, NS, NS, NS);
+    ParArrayND<int> pa5("5D", NS, NS, NS, NS, NS);
+    ParArrayND<int> pa6("6D", NS, NS, NS, NS, NS, NS);
+    Kokkos::parallel_for(
+        policy6d({0, 0, 0, 0, 0, 0}, {NS, NS, NS, NS, NS, NS}),
+        KOKKOS_LAMBDA(const int n, const int m, const int l, const int k, const int j,
+                      const int i) {
+          pa1(i) = 1;
+          pa2(j, i) = 1;
+          pa3(k, j, i) = 1;
+          pa4(l, k, j, i) = 1;
+          pa5(m, l, k, j, i) = 1;
+          pa6(n, m, l, k, j, i) = 1;
+        });
+    pa1.Resize(NS + 1);
+    pa2.Resize(NS + 1, NS + 1);
+    pa3.Resize(NS + 1, NS + 1, NS + 1);
+    pa4.Resize(NS + 1, NS + 1, NS + 1, NS + 1);
+    pa5.Resize(NS + 1, NS + 1, NS + 1, NS + 1, NS + 1);
+    pa6.Resize(NS + 1, NS + 1, NS + 1, NS + 1, NS + 1, NS + 1);
+    auto pa1_h = pa1.GetHostMirrorAndCopy();
+    auto pa2_h = pa2.GetHostMirrorAndCopy();
+    auto pa3_h = pa3.GetHostMirrorAndCopy();
+    auto pa4_h = pa4.GetHostMirrorAndCopy();
+    auto pa5_h = pa5.GetHostMirrorAndCopy();
+    auto pa6_h = pa6.GetHostMirrorAndCopy();
+    THEN("Resizing them should work and retain data in the common extent") {
+      REQUIRE(pa1_h(NS - 1) == 1);
+      REQUIRE(pa2_h(NS - 1, NS - 1) == 1);
+      REQUIRE(pa3_h(NS - 1, NS - 1, NS - 1) == 1);
+      REQUIRE(pa4_h(NS - 1, NS - 1, NS - 1, NS - 1) == 1);
+      REQUIRE(pa5_h(NS - 1, NS - 1, NS - 1, NS - 1, NS - 1) == 1);
+      REQUIRE(pa6_h(NS - 1, NS - 1, NS - 1, NS - 1, NS - 1, NS - 1) == 1);
+    }
+    pa1.Resize(1);
+    pa2.Resize(1, 2);
+    pa3.Resize(1, 2, 3);
+    pa4.Resize(1, 2, 3, 4);
+    pa5.Resize(1, 2, 3, 4, 5);
+    pa6.Resize(1, 2, 3, 4, 5, 6);
+    THEN("Resized arrays should have the correct dimensions") {
+      REQUIRE(pa1.GetDim(1) == 1);
+      REQUIRE(pa2.GetDim(1) == 2);
+      REQUIRE(pa2.GetDim(2) == 1);
+      REQUIRE(pa3.GetDim(1) == 3);
+      REQUIRE(pa3.GetDim(2) == 2);
+      REQUIRE(pa3.GetDim(3) == 1);
+      REQUIRE(pa4.GetDim(1) == 4);
+      REQUIRE(pa4.GetDim(2) == 3);
+      REQUIRE(pa4.GetDim(3) == 2);
+      REQUIRE(pa4.GetDim(4) == 1);
+      REQUIRE(pa5.GetDim(1) == 5);
+      REQUIRE(pa5.GetDim(2) == 4);
+      REQUIRE(pa5.GetDim(3) == 3);
+      REQUIRE(pa5.GetDim(4) == 2);
+      REQUIRE(pa5.GetDim(5) == 1);
+      REQUIRE(pa6.GetDim(1) == 6);
+      REQUIRE(pa6.GetDim(2) == 5);
+      REQUIRE(pa6.GetDim(3) == 4);
+      REQUIRE(pa6.GetDim(4) == 3);
+      REQUIRE(pa6.GetDim(5) == 2);
+      REQUIRE(pa6.GetDim(6) == 1);
+    }
+  }
+}
+
 // clang-format gets confused by the #ifndef inside the TEST_CASE
 // clang-format off
 TEST_CASE("Time simple stencil operations", "[ParArrayND][performance]") {
@@ -478,7 +551,7 @@ many_array_kernel(const Array &arr0, const Array &arr1, const Array &arr2,
                   const Array &arr9, const Array &arr_out, const int k, const int j,
                   const int i) {
   for (int rep = 0; rep < 2; rep++) {
-    register Real tmp_array[10];
+    Real tmp_array[10];
     tmp_array[0] = arr0(k, j, i);
     tmp_array[1] = arr1(k, j, i);
     tmp_array[2] = arr2(k, j, i);

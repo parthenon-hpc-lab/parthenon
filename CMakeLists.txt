@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,51 +11,66 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-cmake_minimum_required(VERSION 3.12)
-project(parthenon VERSION 0.1.0 LANGUAGES C CXX)
+cmake_minimum_required(VERSION 3.16)
+
+# Imports machine-specific configuration
+include(cmake/MachineCfg.cmake)
+
+project(parthenon VERSION 0.5.0 LANGUAGES C CXX)
+
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
+  cmake_policy(SET CMP0110 NEW)
+endif()
 
 include(CTest)
 
 # Compile time constants
-set(PARTHENON_NGHOST 2 CACHE STRING "Number of ghost cells") 
 
 # Compile Options
-option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF) 
+option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
+option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "Allocate communication buffers on host" OFF)
+option(PARTHENON_ENABLE_INIT_PACKING "Use MeshBlockPack based buffer functions in \
+Mesh::Initialize. Does NOT support sparse variables." OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
-option(
-  PARTHENON_LINT_DEFAULT
-  "Sources files are linted when building the default target. Set to OFF to \
-stop linting by default. You can still lint using the \"lint\" target"
-  ON
-)
-option(
-  PARTHENON_DISABLE_EXAMPLES 
-  "Example drivers are built by default, set this to True to diable, note if regression tests are \
-built some, drivers needed by the regression tests will still be built." 
-  OFF
-)
-
-option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
-option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
-option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${BUILD_TESTING})
-option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
+option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
+option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
+this to True to enable linting in the default target" OFF)
+option(PARTHENON_COPYRIGHT_CHECK_DEFAULT "Copyright check is turned off by default, use the \
+\"check-copyright\" target or set this to True to check copyright in the default target" OFF)
+option(PARTHENON_DISABLE_EXAMPLES "Example drivers are built by default, set this to True to disable, \
+note if regression tests are built some, drivers needed by the regression tests will still be built." OFF)
+option(PARTHENON_ENABLE_TESTING "Default for all test types." ${BUILD_TESTING})
+option(PARTHENON_ENABLE_PYTHON_MODULE_CHECK "Check if local python version contains all modules required for running tests." ${PARTHENON_ENABLE_TESTING})
+option(PARTHENON_ENABLE_GPU_MPI_CHECKS "Checks if possible that the mpi num of procs and the number\
+of gpu devices detected are appropriate." ${PARTHENON_ENABLE_TESTING})
+option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${PARTHENON_ENABLE_TESTING})
+option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${PARTHENON_ENABLE_TESTING})
+option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${PARTHENON_ENABLE_TESTING})
+option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${PARTHENON_ENABLE_TESTING})
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
+option(PARTHENON_ENABLE_CPP17 "Build Parthenon using C++17 standard" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 
+# Default to an external Kokkos package if the submodule is not populated
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt" AND NOT EXISTS "${Kokkos_ROOT}/CMakeLists.txt")
+    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" ON)
+else()
+    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
+endif()
+
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
-# internal variable for number of ghost cells
-set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST}) 
-
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 2 CACHE STRING "Version of gold standard to download and use")
-set(REGRESSION_GOLD_STANDARD_HASH "SHA512=45f57d16b76a3a44940e40ea642c1d5a2b3aea681a3064e4c06b031bf264d627f8009e967b92a2cb0fbc08e5cd0ffda381038483f390fa00f47c42a551ca3646" CACHE STRING "Hash of default gold standard file to download")
+set(REGRESSION_GOLD_STANDARD_VER 11 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_HASH
+  "SHA512=11fdcb9e42457f41f2f4d4cce4636a73cdab601eac9638fb63f9284c10dc90f5719b190e075a079c13804d8126e56a80590ffc71c6cc5eeb0d0afa72cbeaa9a1"
+  CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
 # set single precision #define
@@ -63,7 +78,7 @@ if ( PARTHENON_SINGLE_PRECISION )
   set(SINGLE_PRECISION_ENABLED 1)
 else()
   set(SINGLE_PRECISION_ENABLED 0)
-endif()  
+endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -81,7 +96,7 @@ endif()
 
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
- 
+
 # Don't allow in-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
 if(EXISTS "${LOC_PATH}")
@@ -114,12 +129,20 @@ endif()
 
 set(ENABLE_OPENMP OFF)
 if (NOT PARTHENON_DISABLE_OPENMP)
-  find_package(OpenMP COMPONENTS CXX)
-  if (NOT OpenMP_FOUND)
-    message(FATAL_ERROR "OpenMP is required but couldn't be found. "
-    "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
+  # Using Host OpenMP and Cuda with nvcc currently does not compile with C++17 standard.
+  # Also there is no proper support for two separate execution spaces in Parthenon right now.
+  # We may need to revisit this logic when OpenMP target for devices will be used in the future.
+  if (Kokkos_ENABLE_CUDA)
+    message(STATUS "Parthenon is not using Host OpenMP because Cuda is enabled")
+  else()
+    find_package(OpenMP COMPONENTS CXX)
+    if (NOT OpenMP_FOUND)
+      message(FATAL_ERROR "OpenMP is required but couldn't be found. "
+      "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
+    endif()
+    set(ENABLE_OPENMP ON)
+    set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP as execution space.")
   endif()
-  set(ENABLE_OPENMP ON)
 endif()
 
 if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
@@ -146,11 +169,30 @@ if (NOT PARTHENON_DISABLE_HDF5)
     "CMake with -DPARTHENON_DISABLE_MPI=ON or -DPARTHENON_DISABLE_HDF5=ON")
   endif()
 
+  if ((NOT PARTHENON_DISABLE_HDF5_COMPRESSION) AND ENABLE_MPI)
+    # make sure we use an HDF5 version that doesn't have a known bug when used with compression and
+    # parallel I/O. See:
+    # https://forum.hdfgroup.org/t/crash-when-writing-parallel-compressed-chunks/6186
+    #
+    # It appears that the bug is fixed in 1.10.7 and 1.12.0, assume that later versions are ok as
+    # well, so we check that we have at least 1.10.7
+    if (HDF5_VERSION VERSION_LESS "1.10.7")
+      message(FATAL_ERROR "This version of HDF5 has a known bug that will crash when trying to "
+      "write compressed datasets with MPI parallel I/O. Please use HDF5 version 1.10.7 or later "
+      "or turn off either HDF5 compression or MPI by rerunning CMake with "
+      "-DPARTHENON_DISABLE_HDF5_COMPRESSION=ON or -DPARTHENON_DISABLE_MPI=ON.\nNOTE: Using HDF5 "
+      "without compression can result in much larger HDF5 output and restart files as well as "
+      "degraded I/O performance.")
+    endif()
+  endif()
+
   # HDF5 Interface library
   add_library(HDF5_C INTERFACE)
   target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
   target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
   target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
+
+  install(TARGETS HDF5_C EXPORT parthenonTargets)
 endif()
 
 # Kokkos recommendatation resulting in not using default GNU extensions
@@ -161,10 +203,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
      "Kokkos aggressive vectorization")
 
-# Tell Kokkos we need lambdas in Cuda.
+# Check that gpu devices are actually detected
+set(NUM_GPU_DEVICES_PER_NODE "1" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
+set(NUM_OMP_THREADS_PER_RANK "1" CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
 if (Kokkos_ENABLE_CUDA)
+  # Tell Kokkos we need lambdas in Cuda.
   SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
        "Enable lambda expressions in CUDA")
+  if ( "${PARTHENON_ENABLE_GPU_MPI_CHECKS}" )
+     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CTestCustom.cmake.in ${CMAKE_BINARY_DIR}/CTestCustom.cmake @ONLY)
+  endif()
 endif()
 
 # If this is a debug build, set kokkos debug on
@@ -184,15 +232,33 @@ if (ENABLE_COMPILER_WARNINGS)
   add_compile_options(-Wall)
 endif()
 
-# We want Kokkos to be built with C++14, since that's what we're using in
-# Parthenon.
-set(Kokkos_CXX_STANDARD 14)
-if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
-  add_subdirectory(${Kokkos_ROOT} Kokkos)
-elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
-  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos Kokkos)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if (PARTHENON_ENABLE_CPP17)
+  set(CMAKE_CXX_STANDARD 17)
+# Ensure correct flag is used as deprecated c++1z is not supported by nvcc.
+  set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++17")
 else()
-  find_package(Kokkos 3 REQUIRED)
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+
+if (NOT TARGET Kokkos::kokkos)
+  if (PARTHENON_IMPORT_KOKKOS)
+    find_package(Kokkos 3)
+    if (NOT Kokkos_FOUND)
+      unset(PARTHENON_IMPORT_KOKKOS CACHE)
+      message(FATAL_ERROR "Could not find external Kokkos. Consider importing a Kokkos installation into your environment or disabling external Kokkos with e.g. -DPARTHENON_IMPORT_KOKKOS=OFF")
+    endif()
+  else()
+    if (EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
+      add_subdirectory(${Kokkos_ROOT} Kokkos)
+      message(STATUS "Using Kokkos source from Kokkos_ROOT=${Kokkos_ROOT}")
+    elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
+      add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos Kokkos)
+      message(STATUS "Using Kokkos source from Parthenon submodule at ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos")
+    else()
+      message(FATAL_ERROR "Could not find Kokkos source. Consider running `git submodule update --init`, providing the path to a Kokkos source directory with Kokkos_ROOT, or setting PARTHENON_IMPORT_KOKKOS=ON to link to an external Kokkos installation.")
+    endif()
+  endif()
 endif()
 
 # Build Tests and download Catch2
@@ -215,9 +281,19 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
         COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/
         )
-      message(STATUS "  Download of gold standard successful.")
+      message(STATUS "  Download of gold standard successful. Now using version ${REGRESSION_GOLD_STANDARD_VER}")
     else()
-      message(STATUS "Gold standard is up-to-date. No download required.")
+      message(STATUS "Gold standard is up-to-date (version ${REGRESSION_GOLD_STANDARD_VER}). No download required.")
+    endif()
+
+
+    # Throw a warning if the number of processors available is less than the number specified for running the tests.
+    include(ProcessorCount)
+    ProcessorCount(N)
+    if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}")
+      message(WARNING "Consider changing the number of MPI processors used in testing, currently "
+        "NUM_MPI_PROC_TESTING is set to ${NUM_MPI_PROC_TESTING} but cmake has only detected a"
+        " total of ${N} available processors")
     endif()
   endif()
 
@@ -251,7 +327,7 @@ endif()
 # Note that these options may not play nice with nvcc wrapper
 if (TEST_INTEL_OPTIMIZATION)
   add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
-endif()	       
+endif()
 
 add_subdirectory(src)
 add_subdirectory(example)
@@ -259,10 +335,11 @@ add_subdirectory(example)
 create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)
 
+configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
+
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
 # before running them.
 #
 # If you add tests with other binaries, add them to the DEPENDS line
 add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS unit_tests)
-

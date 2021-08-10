@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,7 +14,7 @@
 
 #include <memory>
 
-#include "interface/container.hpp"
+#include "interface/meshblock_data.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
@@ -54,10 +54,15 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
   }
 }
 
-AmrTag AMRFirstDerivative::operator()(std::shared_ptr<Container<Real>> &rc) {
-  ParArrayND<Real> q = rc->Get(field).data;
-  return Refinement::FirstDerivative(rc->pmy_block->exec_space, q, refine_criteria,
-                                     derefine_criteria);
+AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
+  ParArrayND<Real> q;
+  if (!rc->HasCellVariable(field) || !rc->IsAllocated(field)) {
+    return AmrTag::same;
+  }
+
+  q = rc->Get(field).data;
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  return Refinement::FirstDerivative(pmb.get(), q, refine_criteria, derefine_criteria);
 }
 
 } // namespace parthenon

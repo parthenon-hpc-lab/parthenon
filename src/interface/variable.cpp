@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,10 +14,14 @@
 #include "interface/variable.hpp"
 
 #include <iostream>
+#include <utility>
 
 #include "bvals/cc/bvals_cc.hpp"
+#include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -46,73 +50,121 @@ std::string CellVariable<T>::info() {
 
 // copy constructor
 template <typename T>
-std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocComms,
-                                                               MeshBlock *pmb) {
-  std::array<int, 6> dims = {GetDim(1), GetDim(2), GetDim(3),
-                             GetDim(4), GetDim(5), GetDim(6)};
-
-  // copy the Metadata and set the SharedComms flag if appropriate
+std::shared_ptr<CellVariable<T>>
+CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
+                              std::weak_ptr<MeshBlock> wpmb) {
+  // copy the Metadata
   Metadata m = m_;
-  if (IsSet(Metadata::FillGhost) && !allocComms) {
-    m.Set(Metadata::SharedComms);
-  }
 
   // make the new CellVariable
-  auto cv = std::make_shared<CellVariable<T>>(label(), dims, m);
+  auto cv = std::make_shared<CellVariable<T>>(base_name_, m, sparse_id_, wpmb);
 
-  if (IsSet(Metadata::FillGhost)) {
-    if (allocComms) {
-      cv->allocateComms(pmb);
-    } else {
-      // set data pointer for the boundary communication
-      // Note that vbvar->var_cc will be set when stage is selected
-      cv->vbvar = vbvar;
+  if (is_allocated_) {
+    cv->AllocateData();
+  }
 
-      // fluxes, etc are always a copy
+  if (alloc_separate_fluxes_and_bvar) {
+    cv->AllocateFluxesAndBdryVar(wpmb);
+  } else {
+    if (IsSet(Metadata::WithFluxes)) {
+      // fluxes, coarse buffers, etc., are always a copy
+      // Rely on reference counting and shallow copy of kokkos views
+      cv->flux_data_ = flux_data_; // reference counted
       for (int i = 1; i <= 3; i++) {
-        cv->flux[i] = flux[i];
+        cv->flux[i] = flux[i]; // these are subviews
       }
+    }
 
-      // These members are pointers,
-      // point at same memory as src
+    if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+      // no need to check mesh->multilevel, if false, we're just making a shallow copy of
+      // an empty ParArrayND
       cv->coarse_s = coarse_s;
+
+      if (IsSet(Metadata::FillGhost)) {
+        // set data pointer for the boundary communication
+        // Note that vbvar->var_cc will be set when stage is selected
+        cv->vbvar = vbvar;
+      }
     }
   }
+
   return cv;
+}
+
+template <typename T>
+void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
+  if (is_allocated_) {
+    return;
+  }
+
+  AllocateData();
+  AllocateFluxesAndBdryVar(wpmb);
+}
+
+template <typename T>
+void CellVariable<T>::AllocateData() {
+  PARTHENON_REQUIRE_THROWS(
+      !is_allocated_,
+      "Tried to allocate data for variable that's already allocated: " + label());
+
+  data =
+      ParArrayND<T>(label(), dims_[5], dims_[4], dims_[3], dims_[2], dims_[1], dims_[0]);
+  is_allocated_ = true;
 }
 
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
-void CellVariable<T>::allocateComms(MeshBlock *pmb) {
-  // set up fluxes
+void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
+  PARTHENON_REQUIRE_THROWS(
+      is_allocated_, "Tried to allocate comms for un-allocated variable " + label());
   std::string base_name = label();
-  if (IsSet(Metadata::Independent)) {
-    flux[X1DIR] = ParArrayND<T>(base_name + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
-                                GetDim(3), GetDim(2), GetDim(1));
-    if (GetDim(2) > 1)
-      flux[X2DIR] = ParArrayND<T>(base_name + ".fluxX2", GetDim(6), GetDim(5), GetDim(4),
-                                  GetDim(3), GetDim(2), GetDim(1));
-    if (GetDim(3) > 1)
-      flux[X3DIR] = ParArrayND<T>(base_name + ".fluxX3", GetDim(6), GetDim(5), GetDim(4),
-                                  GetDim(3), GetDim(2), GetDim(1));
+
+  // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise
+  // the stride will mess up the types.
+
+  if (IsSet(Metadata::WithFluxes)) {
+    // Compute size of unified flux_data object and create it. A unified
+    // flux_data_ object reduces the number of memory allocations per
+    // variable per meshblock from 5 to 3.
+    int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
+    // allocate fluxes
+    flux_data_ = ParArray7D<T>(base_name + ".flux_data", n_outer, GetDim(6), GetDim(5),
+                               GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+    // set up fluxes
+    for (int d = X1DIR; d <= n_outer; ++d) {
+      flux[d] = ParArrayND<T>(Kokkos::subview(flux_data_, d - 1, Kokkos::ALL(),
+                                              Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
+                                              Kokkos::ALL(), Kokkos::ALL()));
+    }
   }
 
-  if (!pmb) return;
-
-  if (pmb->pmy_mesh->multilevel)
-    coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
-                             pmb->c_cellbounds.ncellsk(IndexDomain::entire),
-                             pmb->c_cellbounds.ncellsj(IndexDomain::entire),
-                             pmb->c_cellbounds.ncellsi(IndexDomain::entire));
-
   // Create the boundary object
-  vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
+  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+    if (wpmb.expired()) return;
+    std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
-  // enroll CellCenteredBoundaryVariable object
-  vbvar->bvar_index = pmb->pbval->bvars.size();
-  pmb->pbval->bvars.push_back(vbvar);
-  pmb->pbval->bvars_main_int.push_back(vbvar);
+    if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
+      coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
+                               pmb->c_cellbounds.ncellsk(IndexDomain::entire),
+                               pmb->c_cellbounds.ncellsj(IndexDomain::entire),
+                               pmb->c_cellbounds.ncellsi(IndexDomain::entire));
+    }
+
+    if (IsSet(Metadata::FillGhost)) {
+      vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
+
+      // enroll CellCenteredBoundaryVariable object
+      vbvar->bvar_index = pmb->pbval->bvars.size();
+      // TODO(JMM): This means RestrictBoundaries()
+      // is called on EVERY stage, regardless of what
+      // stage needs it.
+      // The fix is to refactor BoundaryValues
+      // to expose calls at either the `Variable`
+      // or `MeshBlockData` and `MeshData` level.
+      pmb->pbval->bvars.push_back(vbvar);
+    }
+  }
 
   mpiStatus = false;
 }
@@ -156,6 +208,20 @@ std::string EdgeVariable<T>::info() {
   s += " : " + this->metadata().MaskAsString();
 
   return s;
+}
+
+template <typename T>
+std::string ParticleVariable<T>::info() const {
+  std::stringstream ss;
+
+  // first add label
+  std::string s = this->label();
+  s.resize(20, '.');
+
+  // combine
+  ss << s << data.GetDim(1) << ":" << this->metadata().MaskAsString();
+
+  return ss.str();
 }
 
 template class CellVariable<Real>;

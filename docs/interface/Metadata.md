@@ -5,6 +5,31 @@
 Variables can be tagged with a variety of `MetadataFlag` values. These flags
 primarily allow an application to tell Parthenon to apply certain behaviors to
 each field.
+
+### Dependency Management
+
+Several packages may add variables of the same name. These metadata
+flags tell `Parthenon` how to resolve conflicts.
+
+- `Private`: private metadata means a variable is package
+  specific. The package name is prepended to the variable name, like a
+  namespace. Two different variables can have the same name if they
+  live in different packages.
+- `Provides`: variables with this metadata are shared, and demand they
+  be the only ones to provide a variable. The metadata of these
+  variables takes priority. If two packages provide the same variable
+  with the Provides metadata, an error is raised at runtime. Provides
+  is on by default unless overriden by another flag.
+- `Requires`: variables with this metadata flag are not added by a
+  package. The package simply declares it expects the variable to
+  exist and if it doesn't, an error is raised.
+- `Overridable`: Variables with this metadata flag are provided by the
+  package that registers them unless another package provides said
+  variable (with the Provides flag), in which case, that other package
+  determines what happens to that variable. If two packages request an
+  Overridable variable, but it is not provided, it's undefined
+  behaviour and Parthenon warns as such.
+
 ### Variable Topology
 
 Topology essentially specifies on which place on the finite volume
@@ -37,6 +62,8 @@ variable in relation to the problem.
 - `Metadata::Conserved` implies a variable obeys a conservation law.
 - `Metadata::Intensive` implies that the value of a variable does not
   scale with volume.
+- `Metadata::Sparse` implies that the variable is sparse and hence it
+  may not be allocated on all blocks.
 
 ### Output
 
@@ -44,14 +71,13 @@ These flags specify how a variable interacts with I/O. Enable them to
 enable output properties.
 
 - `Metadata::Restart` implies a variable is required in restart files
-- `Metadata::Graphics` implies a varaible should be output for visualization
 
 ### Tensor properties and boundaries
 
 For multidimensional variables, these flags specify how to treat the
 individual components at boundaries. For concreteness, we will discuss
 reflecting boundaries. But this may apply more broadly. A variable
-with no flag set is assumed to be a *Scalar*. Scalars obey 
+with no flag set is assumed to be a *Scalar*. Scalars obey
 [Dirichlet boundary conditions](https://en.wikipedia.org/wiki/Dirichlet_boundary_condition)
 at reflecting boundaries and are set to a constant value.
 The following flags are mutually exclusive.
@@ -72,9 +98,11 @@ exclusive and required. All variables should be either independent or
 derived.
 
 - `Metadata::Independent` implies the variable is part of independent
-  state
+  state. In particular, implies data is in restart files 
+  and is prolongated/restricted during remeshing. 
+  Buffers for a coarse grid are allocated for independent variables.
 - `Metadata::Derived` implies the variable can be calculated, given
-  the independent state
+  the independent state. This is the default.
 
 ### Communication
 
@@ -88,7 +116,21 @@ variables are copied or not in multiple stages.
   always required. `OneCopy` variables, for example, may not need
   this.
 
-- `Metadata::SharedComms` TODO(JMM): not sure this variable is used
+### Ghost Zones, Communication, and Fluxes
+
+Depending on a combination of flags, extra communication buffers and
+classes may be allocated. The behaviours are the following:
+
+- If `Metadata::FillGhosts` is set, boundary conditions data is set,
+  MPI communication buffers are allocated, and buffers for a coarse
+  grid are allocated. These buffers are *one-copy*, meaning they are
+  shared between all instances of a variable in all `Containers` in a
+  `DataCollection`.
+
+- If `Metadata::WithFluxes` is set, the flux vector for the variable
+  is allocated. Note that it is necessary to set both
+  `Metadata::WithFluxes` and `Metadata::FillGhosts` to send flux
+  corrections across meshblocks.
 
 ### Application Metadata Flags
 
