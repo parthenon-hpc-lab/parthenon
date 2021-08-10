@@ -117,7 +117,8 @@ std::vector<MetadataFlag> Metadata::Flags() const {
   return set_flags;
 }
 
-std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb) const {
+std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
+                                          bool coarse) const {
   std::array<int, 6> arrDims;
 
   const auto &shape = shape_;
@@ -133,9 +134,10 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb) const {
                              "Cannot determine array dimensions for mesh-tied entity "
                              "without a valid meshblock");
     auto pmb = wpmb.lock();
-    arrDims[0] = pmb->cellbounds.ncellsi(IndexDomain::entire);
-    arrDims[1] = pmb->cellbounds.ncellsj(IndexDomain::entire);
-    arrDims[2] = pmb->cellbounds.ncellsk(IndexDomain::entire);
+    const auto bnds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+    arrDims[0] = bnds.ncellsi(IndexDomain::entire);
+    arrDims[1] = bnds.ncellsj(IndexDomain::entire);
+    arrDims[2] = bnds.ncellsk(IndexDomain::entire);
     for (int i = 0; i < N; i++)
       arrDims[i + 3] = shape[i];
     for (int i = N; i < 3; i++)

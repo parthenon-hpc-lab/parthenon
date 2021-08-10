@@ -50,6 +50,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
   const IndexDomain interior = IndexDomain::interior;
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    if (!neighbor_allocated[n]) continue;
+
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.ni.type != NeighborConnect::face) break;
     if (bd_var_flcor_.sflag[nb.bufid] == BoundaryStatus::completed) continue;

@@ -145,10 +145,9 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
     if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
-      coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
-                               pmb->c_cellbounds.ncellsk(IndexDomain::entire),
-                               pmb->c_cellbounds.ncellsj(IndexDomain::entire),
-                               pmb->c_cellbounds.ncellsi(IndexDomain::entire));
+      coarse_s = ParArrayND<T>(base_name + ".coarse", coarse_dims_[5], coarse_dims_[4],
+                               coarse_dims_[3], coarse_dims_[2], coarse_dims_[1],
+                               coarse_dims_[0]);
     }
 
     if (IsSet(Metadata::FillGhost)) {

@@ -59,7 +59,7 @@ class CellVariable {
   CellVariable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
                   std::weak_ptr<MeshBlock> wpmb)
       : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
-        dims_(m_.GetArrayDims(wpmb)) {
+        dims_(m_.GetArrayDims(wpmb, false)), coarse_dims_(m_.GetArrayDims(wpmb, true)) {
     PARTHENON_REQUIRE_THROWS(
         m_.IsSet(Metadata::Real),
         "Only Real data type is currently supported for CellVariable");
@@ -89,6 +89,13 @@ class CellVariable {
     // we can't query data.GetDim() here because data may be unallocated
     assert(0 < i && i <= 6 && "ParArrayNDGenerics are max 6D");
     return dims_[i - 1];
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetCoarseDim(const int i) const {
+    // we can't query coarse_s.GetDim() here because it may be unallocated
+    assert(0 < i && i <= 6 && "ParArrayNDGenerics are max 6D");
+    return coarse_dims_[i - 1];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -137,9 +144,9 @@ class CellVariable {
   void AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb);
 
   Metadata m_;
-  std::string base_name_;
-  int sparse_id_ = InvalidSparseID;
-  const std::array<int, 6> dims_;
+  const std::string base_name_;
+  const int sparse_id_;
+  const std::array<int, 6> dims_, coarse_dims_;
 
   bool is_allocated_ = false;
   ParArray7D<T> flux_data_; // unified par array for the fluxes

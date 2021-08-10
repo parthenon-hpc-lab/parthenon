@@ -84,7 +84,7 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
     }
     // add a face variable
     auto pfv = std::make_shared<FaceVariable<T>>(
-        base_name, metadata.GetArrayDims(pmy_block), metadata);
+        base_name, metadata.GetArrayDims(pmy_block, false), metadata);
     Add(pfv);
   } else {
     auto pvar =

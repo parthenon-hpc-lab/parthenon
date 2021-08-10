@@ -46,7 +46,9 @@ TaskStatus FluxDivergence(MeshBlockData<Real> *in, MeshBlockData<Real> *dudt_con
   pmb->par_for(
       "FluxDivergenceBlock", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        dudt(l, k, j, i) = FluxDivHelper(l, k, j, i, ndim, coords, vin);
+        if (dudt.IsAllocated(l) && vin.IsAllocated(l)) {
+          dudt(l, k, j, i) = FluxDivHelper(l, k, j, i, ndim, coords, vin);
+        }
       });
 
   return TaskStatus::complete;
@@ -68,9 +70,11 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
       DEFAULT_LOOP_PATTERN, "FluxDivergenceMesh", DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
       vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
-        const auto &coords = vin.coords(m);
-        const auto &v = vin(m);
-        dudt(m, l, k, j, i) = FluxDivHelper(l, k, j, i, ndim, coords, v);
+        if (dudt.IsAllocated(m, l) && vin.IsAllocated(m, l)) {
+          const auto &coords = vin.coords(m);
+          const auto &v = vin(m);
+          dudt(m, l, k, j, i) = FluxDivHelper(l, k, j, i, ndim, coords, v);
+        }
       });
   return TaskStatus::complete;
 }
@@ -94,8 +98,10 @@ TaskStatus UpdateWithFluxDivergence(MeshBlockData<Real> *u0_data,
   pmb->par_for(
       "UpdateWithFluxDivergenceBlock", 0, u0.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
       ib.e, KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        u0(l, k, j, i) = gam0 * u0(l, k, j, i) + gam1 * u1(l, k, j, i) +
-                         beta_dt * FluxDivHelper(l, k, j, i, ndim, coords, u0);
+        if (u0.IsAllocated(l) && u1.IsAllocated(l)) {
+          u0(l, k, j, i) = gam0 * u0(l, k, j, i) + gam1 * u1(l, k, j, i) +
+                           beta_dt * FluxDivHelper(l, k, j, i, ndim, coords, u0);
+        }
       });
 
   return TaskStatus::complete;
@@ -119,10 +125,12 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
       DEFAULT_LOOP_PATTERN, "UpdateWithFluxDivergenceMesh", DevExecSpace(), 0,
       u0_pack.GetDim(5) - 1, 0, u0_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
-        const auto &coords = u0_pack.coords(m);
-        const auto &u0 = u0_pack(m);
-        u0_pack(m, l, k, j, i) = gam0 * u0(l, k, j, i) + gam1 * u1_pack(m, l, k, j, i) +
-                                 beta_dt * FluxDivHelper(l, k, j, i, ndim, coords, u0);
+        if (u0_pack.IsAllocated(m, l) && u1_pack.IsAllocated(m, l)) {
+          const auto &coords = u0_pack.coords(m);
+          const auto &u0 = u0_pack(m);
+          u0_pack(m, l, k, j, i) = gam0 * u0(l, k, j, i) + gam1 * u1_pack(m, l, k, j, i) +
+                                   beta_dt * FluxDivHelper(l, k, j, i, ndim, coords, u0);
+        }
       });
   return TaskStatus::complete;
 }

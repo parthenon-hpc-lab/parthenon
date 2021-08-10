@@ -101,10 +101,12 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
       ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
-        lminmax.min_val =
-            (v(n, k, j, i) < lminmax.min_val ? v(n, k, j, i) : lminmax.min_val);
-        lminmax.max_val =
-            (v(n, k, j, i) > lminmax.max_val ? v(n, k, j, i) : lminmax.max_val);
+        if (v.IsAllocated(n)) {
+          lminmax.min_val =
+              (v(n, k, j, i) < lminmax.min_val ? v(n, k, j, i) : lminmax.min_val);
+          lminmax.max_val =
+              (v(n, k, j, i) > lminmax.max_val ? v(n, k, j, i) : lminmax.max_val);
+        }
       },
       Kokkos::MinMax<Real>(minmax));
 
@@ -186,6 +188,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
         member.team_barrier();
 
         for (int n = 0; n < nvar; n++) {
+          if (!v.IsAllocated(n)) continue;
           if (vx[n] > 0.0) {
             par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
               v.flux(X1DIR, n, k, j, i) = ql(n, i) * vx[n];
@@ -218,6 +221,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
+            if (!v.IsAllocated(n)) continue;
             if (vy[n] > 0.0) {
               par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 v.flux(X2DIR, n, k, j, i) = ql(n, i) * vy[n];
