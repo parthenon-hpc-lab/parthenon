@@ -544,6 +544,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   H5P const pl_xfer = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
   H5P const pl_dcreate = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_CREATE));
 
+  PARTHENON_HDF5_CHECK(H5Pset_alloc_time(pl_dcreate, H5D_ALLOC_TIME_EARLY));
+  PARTHENON_HDF5_CHECK(H5Pset_fill_time(pl_dcreate, H5D_FILL_TIME_NEVER));
+
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
   if (output_params.hdf5_compression_level > 0) {
     // we need chunks to enable compression
