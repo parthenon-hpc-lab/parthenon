@@ -20,6 +20,7 @@
 
 #include <coordinates/coordinates.hpp>
 #include <parthenon/package.hpp>
+#include <solvers/solver_utils.hpp>
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
@@ -49,9 +50,27 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto mrho = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField("density", mrho);
+  pkg->AddField("rhs", mrho);
 
   auto mphi = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
   pkg->AddField("potential", mphi);
+
+  int ndim = 1
+           + (pin->GetInteger("parthenon/mesh", "nx2") > 1)
+           + (pin->GetInteger("parthenon/mesh", "nx3") > 1);
+  // set up the stencil object corresponding to the finite difference
+  // discretization we adopt in this pacakge
+  const int nstencil = 1 + 2*ndim;
+  const Real w0 = 1.0/(2.0*ndim);
+  std::vector<Real> wgts({w0, -1.0, w0, w0, w0, w0, w0});
+  std::vector<std::vector<int>> offsets ({
+    {-1, 0, 1, 0, 0, 0, 0},
+    {0, 0, 0, -1, 1, 0, 0},
+    {0, 0, 0, 0, 0, -1, 1}
+  });
+
+  auto stencil = parthenon::solvers::Stencil<Real>("stencil", nstencil, wgts, offsets);
+  pkg->AddParam<>("stencil", stencil);
 
   return pkg;
 }
@@ -60,7 +79,41 @@ auto &GetCoords(std::shared_ptr<MeshBlock> &pmb) { return pmb->coords; }
 auto &GetCoords(Mesh *pm) { return pm->block_list[0]->coords; }
 
 template <typename T>
+TaskStatus ComputeRHS(T *u) {
+  auto pm = u->GetParentPointer();
+
+  IndexRange ib = u->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = u->GetBoundsK(IndexDomain::interior);
+
+  PackIndexMap imap;
+  const std::vector<std::string> vars({"density", "rhs"});
+  const auto &v = u->PackVariables(vars, imap);
+  const int irho = imap["density"].first;
+  const int irhs = imap["rhs"].first;
+
+  auto coords = GetCoords(pm);
+  const int ndim = v.GetNdim();
+  const Real dx = coords.Dx(X1DIR);
+  for (int i = X2DIR; i <= ndim; i++) {
+    const Real dy = coords.Dx(i);
+    PARTHENON_REQUIRE_THROWS(dx == dy,
+                             "ComputeRHS requires that DX be equal in all directions.");
+  }
+
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "ComputeRHS", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
+      jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        // first add the RHS
+        v(b, irhs, k, j, i) = -v(b, irho, k, j, i) * std::pow(dx, ndim);
+      });
+  return TaskStatus::complete;
+}
+
+template <typename T>
 TaskStatus UpdatePhi(T *u, T *du) {
+  using Stencil_t = parthenon::solvers::Stencil<Real>;
   Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
   auto pm = u->GetParentPointer();
 
@@ -69,39 +122,19 @@ TaskStatus UpdatePhi(T *u, T *du) {
   IndexRange kb = u->GetBoundsK(IndexDomain::interior);
 
   PackIndexMap imap;
-  const std::vector<std::string> vars({"density", "potential"});
+  const std::vector<std::string> vars({"rhs", "potential"});
   const auto &v = u->PackVariables(vars, imap);
-  const int irho = imap["density"].first;
+  const int irhs = imap["rhs"].first;
   const int iphi = imap["potential"].first;
   const std::vector<std::string> phi_var({"potential"});
   PackIndexMap imap2;
   const auto &dv = du->PackVariables(phi_var, imap2);
   const int idphi = imap2["potential"].first;
 
-  auto coords = GetCoords(pm);
-  const int ndim = v.GetNdim();
-  const Real dx = coords.Dx(X1DIR);
-  for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.Dx(i);
-    PARTHENON_REQUIRE_THROWS(dx == dy,
-                             "UpdatePhi requires that DX be equal in all directions.");
-  }
+  StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
+  const auto stencil = pkg->Param<Stencil_t>("stencil");
 
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
-      jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        dv(b, idphi, k, j, i) = -v(b, irho, k, j, i) * std::pow(dx, ndim);
-        dv(b, idphi, k, j, i) += v(b, iphi, k, j, i - 1) + v(b, iphi, k, j, i + 1);
-        if (ndim > 1) {
-          dv(b, idphi, k, j, i) += v(b, iphi, k, j - 1, i) + v(b, iphi, k, j + 1, i);
-          if (ndim == 3) {
-            dv(b, idphi, k, j, i) += v(b, iphi, k - 1, j, i) + v(b, iphi, k - 1, j, i);
-          }
-        }
-        dv(b, idphi, k, j, i) /= 2.0 * ndim;
-        dv(b, idphi, k, j, i) -= v(b, iphi, k, j, i);
-      });
+  StencilMatVec(v, iphi, dv, idphi, v, irhs, stencil, ib, jb, kb);
 
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, dv.GetDim(5) - 1, kb.s, kb.e,
@@ -164,5 +197,7 @@ template TaskStatus CheckConvergence<MeshBlockData<Real>>(MeshBlockData<Real> *,
 template TaskStatus UpdatePhi<MeshData<Real>>(MeshData<Real> *, MeshData<Real> *);
 template TaskStatus UpdatePhi<MeshBlockData<Real>>(MeshBlockData<Real> *,
                                                    MeshBlockData<Real> *);
+template TaskStatus ComputeRHS<MeshData<Real>>(MeshData<Real> *);
+template TaskStatus ComputeRHS<MeshBlockData<Real>>(MeshBlockData<Real> *);
 
 } // namespace poisson_package
