@@ -33,6 +33,8 @@ class PoissonDriver : public Driver {
   TaskCollection MakeTaskCollection(BlockList_t &blocks);
 
   DriverStatus Execute() override;
+ private:
+  std::vector<AllReduce<Real>> reductions;
 };
 
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);

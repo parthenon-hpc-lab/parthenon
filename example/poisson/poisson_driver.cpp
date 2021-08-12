@@ -59,12 +59,37 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   const int num_partitions = pmesh->DefaultNumPartitions();
   TaskRegion &solver_region = tc.AddRegion(num_partitions);
 
+  // make some storage for doing an Allreduce
+  reductions.resize(1);
+  // initialize it to zero
+  reductions[0].val = 0.0;
+
   for (int i = 0; i < num_partitions; i++) {
     // make/get a mesh_data container for the state
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
     auto &mdelta = pmesh->mesh_data.GetOrAdd("delta", i);
 
     TaskList &tl = solver_region[i];
+  
+    // pass a pointer to the variable being reduced into
+    auto loc_red = tl.AddTask(none, poisson_package::SumMass<MeshData<Real>>, md.get(), &reductions[0].val);
+    // make it a regional dependency so dependent tasks can't execute until all lists do this
+    solver_region.AddRegionalDependencies(0, i, loc_red);
+    // start a non-blocking MPI_Iallreduce
+    TaskID start_global_reduce = tl.AddTask(loc_red, &parthenon::AllReduce<Real>::StartReduce, &reductions[0], i, MPI_SUM);
+    // test the reduction until it completes
+    TaskID finish_global_reduce = tl.AddTask(start_global_reduce, &parthenon::AllReduce<Real>::CheckReduce, &reductions[0], i);
+    solver_region.AddRegionalDependencies(1, i, finish_global_reduce);
+
+    // notice how we must always pass a pointer to the reduction value
+    // since tasks capture args by value, this would print zero if we just passed in
+    // the val since the tasks that compute the value haven't actually executed yet
+    auto report_mass = tl.AddTask(finish_global_reduce, [](const int list_id, Real *total_mass) {
+      if (list_id == 0 && parthenon::Globals::my_rank == 0) {
+        std::cout << "Total mass = " << *total_mass << std::endl;
+      }
+      return TaskStatus::complete;
+    }, i, &reductions[0].val);
 
     auto rhs = tl.AddTask(none, poisson_package::ComputeRHS<MeshData<Real>>, md.get());
 
@@ -95,9 +120,12 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
         clear, poisson_package::CheckConvergence<MeshData<Real>>, md.get(), mdelta.get());
     // mark task so that dependent tasks (below) won't execute
     // until all task lists have completed it
-    solver_region.AddRegionalDependencies(0, i, check);
+    solver_region.AddRegionalDependencies(2, i, check);
 
-    auto print = tl.AddTask(check, poisson_package::PrintComplete);
+    auto print = none;
+    if (i == 0) { // only print once
+      print = tl.AddTask(check, poisson_package::PrintComplete);
+    }
   }
 
   return tc;

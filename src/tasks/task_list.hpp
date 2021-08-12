@@ -30,6 +30,7 @@
 #include "basic_types.hpp"
 #include "task_id.hpp"
 #include "task_types.hpp"
+#include "utils/all_reduce.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -217,9 +218,9 @@ class TaskList {
     }
   }
   void CompleteIfNeeded(const TaskID &id) {
+    MarkTaskComplete(id);
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
-        MarkTaskComplete(id);
         if (task.GetType() == TaskType::completion_criteria) {
           ClearIteration(task.GetKey());
         }
@@ -339,6 +340,8 @@ class TaskRegion {
     auto task_pair = std::make_pair(list_index, id);
     id_for_reg[reg_dep_id].push_back(task_pair);
     lists[list_index].MarkRegional(id);
+    id_complete[reg_dep_id] = false;
+    all_done[reg_dep_id].val = 0;
   }
 
   TaskList &operator[](int i) { return lists[i]; }
@@ -348,22 +351,31 @@ class TaskRegion {
   bool CheckAndUpdate() {
     for (auto &reg_dep : id_for_reg) {
       auto reg_id = reg_dep.first;
-      if (HasRun(reg_id)) {
+      if (id_complete[reg_id]) continue;
+      if (HasRun(reg_id) && !all_done[reg_id].active) {
         bool done = IsComplete(reg_id);
 #ifdef MPI_PARALLEL
-        int all_done = done;
-        int global_done;
-        MPI_Allreduce(&all_done, &global_done, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+        all_done[reg_id].val = done;
+        all_done[reg_id].StartReduce(MPI_MIN);
+        int global_done = all_done[reg_id].val;
 #else
         int global_done = done;
 #endif
-        if (global_done) {
-          for (auto &lst : reg_dep.second) {
-            lists[lst.first].CompleteIfNeeded(lst.second);
-          }
-        } else {
-          for (auto &lst : reg_dep.second) {
-            lists[lst.first].ResetIfNeeded(lst.second);
+      }
+      if (all_done[reg_id].active) {
+        int arrived;
+        auto status = all_done[reg_id].CheckReduce();
+        if (status == TaskStatus::complete) {
+          if (all_done[reg_id].val) {
+            id_complete[reg_id] = true;
+            for (auto &lst : reg_dep.second) {
+              lists[lst.first].CompleteIfNeeded(lst.second);
+            }
+          } else {
+            for (auto &lst : reg_dep.second) {
+              lists[lst.first].ResetIfNeeded(lst.second);
+            }
+            all_done[reg_id].val = 0;
           }
         }
       }
@@ -413,7 +425,9 @@ class TaskRegion {
 
   // id_for_reg[region_id] = std::pair<>(task_list_index, task_id_of_regional_task)
   std::map<int, std::vector<std::pair<int, TaskID>>> id_for_reg;
+  std::map<int, bool> id_complete;
   std::vector<TaskList> lists;
+  std::map<int, AllReduce<int>> all_done;
 };
 
 class TaskCollection {

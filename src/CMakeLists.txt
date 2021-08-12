@@ -185,6 +185,8 @@ add_library(parthenon
   refinement/refinement.cpp
   refinement/refinement.hpp
 
+  solvers/solver_utils.hpp
+
   tasks/task_id.cpp
   tasks/task_id.hpp
   tasks/task_list.hpp
@@ -192,6 +194,7 @@ add_library(parthenon
 
   utils/alias_method.cpp
   utils/alias_method.hpp
+  utils/all_reduce.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp

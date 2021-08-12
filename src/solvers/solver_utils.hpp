@@ -13,6 +13,7 @@
 #ifndef SOLVERS_SOLVER_UTILS_HPP_
 #define SOLVERS_SOLVER_UTILS_HPP_
 
+#include <string>
 #include <vector>
 
 #include "kokkos_abstraction.hpp"

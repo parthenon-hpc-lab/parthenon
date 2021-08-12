@@ -75,6 +75,41 @@ auto &GetCoords(std::shared_ptr<MeshBlock> &pmb) { return pmb->coords; }
 auto &GetCoords(Mesh *pm) { return pm->block_list[0]->coords; }
 
 template <typename T>
+TaskStatus SumMass(T *u, Real *reduce_sum) {
+  auto pm = u->GetParentPointer();
+
+  IndexRange ib = u->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = u->GetBoundsK(IndexDomain::interior);
+
+  PackIndexMap imap;
+  const std::vector<std::string> vars({"density"});
+  const auto &v = u->PackVariables(vars, imap);
+  const int irho = imap["density"].first;
+
+  auto coords = GetCoords(pm);
+  const int ndim = v.GetNdim();
+  const Real dx = coords.Dx(X1DIR);
+  for (int i = X2DIR; i <= ndim; i++) {
+    const Real dy = coords.Dx(i);
+    PARTHENON_REQUIRE_THROWS(dx == dy,
+                             "ComputeRHS requires that DX be equal in all directions.");
+  }
+
+  Real total;
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "ComputeRHS", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
+      jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &sum) {
+        // first add the RHS
+        sum += v(b, irho, k, j, i) * std::pow(dx, ndim);
+      }, Kokkos::Sum<Real>(total));
+
+  *reduce_sum += total;
+  return TaskStatus::complete;
+}
+
+template <typename T>
 TaskStatus ComputeRHS(T *u) {
   auto pm = u->GetParentPointer();
 
@@ -195,5 +230,7 @@ template TaskStatus UpdatePhi<MeshBlockData<Real>>(MeshBlockData<Real> *,
                                                    MeshBlockData<Real> *);
 template TaskStatus ComputeRHS<MeshData<Real>>(MeshData<Real> *);
 template TaskStatus ComputeRHS<MeshBlockData<Real>>(MeshBlockData<Real> *);
+template TaskStatus SumMass<MeshData<Real>>(MeshData<Real> *, Real *);
+template TaskStatus SumMass<MeshBlockData<Real>>(MeshBlockData<Real> *, Real *);
 
 } // namespace poisson_package

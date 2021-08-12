@@ -22,6 +22,8 @@ using namespace parthenon::package::prelude;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 template <typename T>
+TaskStatus SumMass(T *u, Real *sum);
+template <typename T>
 TaskStatus ComputeRHS(T *u);
 template <typename T>
 TaskStatus UpdatePhi(T *u, T *du);
