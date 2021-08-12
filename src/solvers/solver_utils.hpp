@@ -28,9 +28,9 @@ struct Stencil {
   const int nstencil;
 
   Stencil(const std::string &label, const int n, std::vector<T> wgt,
-    std::vector<std::vector<int>> off)
-    : w(label+"_w", n), ioff(label+"_ioff", n), joff(label+"_joff", n),
-      koff(label+"_koff", n), nstencil(n) {
+          std::vector<std::vector<int>> off)
+      : w(label + "_w", n), ioff(label + "_ioff", n), joff(label + "_joff", n),
+        koff(label + "_koff", n), nstencil(n) {
     assert(off.size() == 3);
     assert(wgt.size() >= n);
     assert(off[0].size() >= n);
@@ -56,21 +56,21 @@ struct Stencil {
 };
 
 template <typename PackType, typename T>
-void StencilMatVec(const PackType &vin, const int ivin,
-                   const PackType &vout, const int ivout,
-                   const PackType &rhs, const int irhs, const Stencil<T> &s,
-                   const IndexRange &ib, const IndexRange &jb, const IndexRange &kb) {
-  parthenon::par_for(DEFAULT_LOOP_PATTERN, "StencilMatVec", DevExecSpace(),
-    0, vout.GetDim(5)-1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-    KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-      vout(b, ivout, k, j, i) = rhs(b, irhs, k, j, i);
-      for (int n = 0; n < s.nstencil; n++) {
-        vout(b, ivout, k, j, i) +=
-          s.w(n)*vin(b, ivin, k+s.koff(n), j+s.joff(n), i+s.ioff(n));
-      }
-    });
+void StencilMatVec(const PackType &vin, const int ivin, const PackType &vout,
+                   const int ivout, const PackType &rhs, const int irhs,
+                   const Stencil<T> &s, const IndexRange &ib, const IndexRange &jb,
+                   const IndexRange &kb) {
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "StencilMatVec", DevExecSpace(), 0, vout.GetDim(5) - 1, kb.s,
+      kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        vout(b, ivout, k, j, i) = rhs(b, irhs, k, j, i);
+        for (int n = 0; n < s.nstencil; n++) {
+          vout(b, ivout, k, j, i) +=
+              s.w(n) * vin(b, ivin, k + s.koff(n), j + s.joff(n), i + s.ioff(n));
+        }
+      });
 }
-
 
 } // namespace solvers
 

@@ -55,19 +55,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto mphi = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
   pkg->AddField("potential", mphi);
 
-  int ndim = 1
-           + (pin->GetInteger("parthenon/mesh", "nx2") > 1)
-           + (pin->GetInteger("parthenon/mesh", "nx3") > 1);
+  int ndim = 1 + (pin->GetInteger("parthenon/mesh", "nx2") > 1) +
+             (pin->GetInteger("parthenon/mesh", "nx3") > 1);
   // set up the stencil object corresponding to the finite difference
   // discretization we adopt in this pacakge
-  const int nstencil = 1 + 2*ndim;
-  const Real w0 = 1.0/(2.0*ndim);
+  const int nstencil = 1 + 2 * ndim;
+  const Real w0 = 1.0 / (2.0 * ndim);
   std::vector<Real> wgts({w0, -1.0, w0, w0, w0, w0, w0});
-  std::vector<std::vector<int>> offsets ({
-    {-1, 0, 1, 0, 0, 0, 0},
-    {0, 0, 0, -1, 1, 0, 0},
-    {0, 0, 0, 0, 0, -1, 1}
-  });
+  std::vector<std::vector<int>> offsets(
+      {{-1, 0, 1, 0, 0, 0, 0}, {0, 0, 0, -1, 1, 0, 0}, {0, 0, 0, 0, 0, -1, 1}});
 
   auto stencil = parthenon::solvers::Stencil<Real>("stencil", nstencil, wgts, offsets);
   pkg->AddParam<>("stencil", stencil);
