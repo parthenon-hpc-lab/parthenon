@@ -98,12 +98,13 @@ TaskStatus SumMass(T *u, Real *reduce_sum) {
 
   Real total;
   parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, "ComputeRHS", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
-      jb.s, jb.e, ib.s, ib.e,
+      parthenon::loop_pattern_mdrange_tag, "ComputeRHS", DevExecSpace(), 0,
+      v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &sum) {
         // first add the RHS
         sum += v(b, irho, k, j, i) * std::pow(dx, ndim);
-      }, Kokkos::Sum<Real>(total));
+      },
+      Kokkos::Sum<Real>(total));
 
   *reduce_sum += total;
   return TaskStatus::complete;

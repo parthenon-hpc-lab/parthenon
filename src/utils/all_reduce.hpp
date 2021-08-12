@@ -20,12 +20,12 @@
 
 namespace parthenon {
 
-enum class Op {MAX, MIN, SUM, PROD, LAND, BAND, LOR, BOR, LXOR, BXOR, MAXLOC, MINLOC};
+enum class Op { MAX, MIN, SUM, PROD, LAND, BAND, LOR, BOR, LXOR, BXOR, MAXLOC, MINLOC };
 #ifndef MPI_PARALLEL
 #define MPI_
 #endif
 
-template <typename T, int N=0>
+template <typename T, int N = 0>
 struct AllReduce {
   T val;
 #ifdef MPI_PARALLEL
@@ -34,7 +34,7 @@ struct AllReduce {
   bool active = false;
 
   template <typename U = T>
-  typename std::enable_if<std::is_same<U,Real>::value, TaskStatus>::type
+  typename std::enable_if<std::is_same<U, Real>::value, TaskStatus>::type
   StartReduce(int &only, MPI_Op op) {
 #ifdef MPI_PARALLEL
     if (only == N) {
@@ -45,7 +45,7 @@ struct AllReduce {
     return TaskStatus::complete;
   }
   template <typename U = T>
-  typename std::enable_if<std::is_same<U,int>::value, TaskStatus>::type
+  typename std::enable_if<std::is_same<U, int>::value, TaskStatus>::type
   StartReduce(int &only, MPI_Op op) {
 #ifdef MPI_PARALLEL
     if (only == N) {
@@ -56,7 +56,7 @@ struct AllReduce {
     return TaskStatus::complete;
   }
   template <typename U = T>
-  typename std::enable_if<std::is_same<U,bool>::value, TaskStatus>::type
+  typename std::enable_if<std::is_same<U, bool>::value, TaskStatus>::type
   StartReduce(int &only, MPI_Op op) {
 #ifdef MPI_PARALLEL
     if (only == N) {
@@ -67,11 +67,12 @@ struct AllReduce {
     return TaskStatus::complete;
   }
   template <typename U = T>
-  typename std::enable_if<std::is_same<U,std::vector<Real>>::value, TaskStatus>::type
+  typename std::enable_if<std::is_same<U, std::vector<Real>>::value, TaskStatus>::type
   StartReduce(int &only, MPI_Op op) {
 #ifdef MPI_PARALLEL
     if (only == N) {
-      MPI_Iallreduce(MPI_IN_PLACE, val.data(), val.size(), MPI_PARTHENON_REAL, op, MPI_COMM_WORLD, &req);
+      MPI_Iallreduce(MPI_IN_PLACE, val.data(), val.size(), MPI_PARTHENON_REAL, op,
+                     MPI_COMM_WORLD, &req);
     }
 #endif
     active = true;
