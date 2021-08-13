@@ -383,6 +383,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   filename.append(file_number.str());
   filename.append(restart_ ? ".rhdf" : ".phdf");
 
+  // After file has been opened with the current number, already advance output
+  // parameters so that for restarts the file is not immediatly overwritten again.
+  output_params.file_number++;
+  output_params.next_time += output_params.dt;
+  pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
+  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+
   // set file access property list
 #ifdef MPI_PARALLEL
   /* set the file access template for parallel IO access */
@@ -981,12 +988,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // generate XDMF companion file
     genXDMF(filename, pm, tm, nx1, nx2, nx3, all_unique_vars);
   }
-
-  // advance output parameters
-  output_params.file_number++;
-  output_params.next_time += output_params.dt;
-  pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
 }
 
 // explicit template instantiation
