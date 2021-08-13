@@ -78,11 +78,13 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // this
     solver_region.AddRegionalDependencies(0, i, loc_red);
     // start a non-blocking MPI_Iallreduce
-    TaskID start_global_reduce = tl.AddTask(
-        loc_red, &parthenon::AllReduce<Real>::StartReduce, &reductions[0], i, MPI_SUM);
+    TaskID start_global_reduce =
+        (i == 0 ? tl.AddTask(loc_red, &parthenon::AllReduce<Real>::StartReduce,
+                             &reductions[0], MPI_SUM)
+                : none);
     // test the reduction until it completes
     TaskID finish_global_reduce = tl.AddTask(
-        start_global_reduce, &parthenon::AllReduce<Real>::CheckReduce, &reductions[0], i);
+        start_global_reduce, &parthenon::AllReduce<Real>::CheckReduce, &reductions[0]);
     solver_region.AddRegionalDependencies(1, i, finish_global_reduce);
 
     // notice how we must always pass a pointer to the reduction value

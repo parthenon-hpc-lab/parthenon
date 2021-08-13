@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,10 +19,36 @@
 //         issue was that some header files attempted to include MPI by checking #ifdef
 //         MPI_PARALLEL, but they didn't include config.hpp, which defined MPI_PARALLEL
 
+#include "basic_types.hpp"
 #include "config.hpp"
 
 #ifdef MPI_PARALLEL
 #include <mpi.h>
+
+namespace parthenon {
+
+template <typename T>
+struct MPITypeMap {
+  static MPI_Datatype type() { return MPI_DATATYPE_NULL; }
+};
+
+template <>
+inline MPI_Datatype MPITypeMap<Real>::type() {
+  return MPI_PARTHENON_REAL;
+}
+
+template <>
+inline MPI_Datatype MPITypeMap<int>::type() {
+  return MPI_INT;
+}
+
+template <>
+inline MPI_Datatype MPITypeMap<bool>::type() {
+  return MPI_CXX_BOOL;
+}
+
+} // namespace parthenon
+
 #endif
 
 #endif // PARTHENON_MPI_HPP_

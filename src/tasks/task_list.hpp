@@ -275,6 +275,16 @@ class TaskList {
     return id;
   }
 
+  // overload to add member functions of class T to task list
+  // NOTE: we must capture the object pointer
+  template <class T, class... Args>
+  TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), T *obj,
+                 Args &&... args) {
+    return this->AddTask(dep, [=]() mutable -> TaskStatus {
+      return (obj->*func)(std::forward<Args>(args)...);
+    });
+  }
+
   template <class F, class... Args>
   TaskID AddTask(TaskID const &dep, F &&func, Args &&... args) {
     TaskID id(tasks_added_ + 1);
@@ -284,16 +294,6 @@ class TaskList {
         }));
     tasks_added_++;
     return id;
-  }
-
-  // overload to add member functions of class T to task list
-  // NOTE: we must capture the object pointer
-  template <class T, class... Args>
-  TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), T *obj,
-                 Args &&... args) {
-    return this->AddTask(dep, [=]() mutable -> TaskStatus {
-      return (obj->*func)(std::forward<Args>(args)...);
-    });
   }
 
   IterativeTasks &AddIteration(const std::string &label) {

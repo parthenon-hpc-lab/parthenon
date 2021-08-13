@@ -25,7 +25,37 @@ enum class Op { MAX, MIN, SUM, PROD, LAND, BAND, LOR, BOR, LXOR, BXOR, MAXLOC, M
 #define MPI_
 #endif
 
-template <typename T, int N = 0>
+// Some helper functions
+template <typename U>
+void *GetPtr(std::vector<U> &v) {
+  return v.data();
+}
+template <typename U>
+void *GetPtr(U &v) {
+  return &v;
+}
+
+template <typename U>
+int GetSize(std::vector<U> &v) {
+  return v.size();
+}
+template <typename U>
+int GetSize(U &v) {
+  return 1;
+}
+
+#ifdef MPI_PARALLEL
+template <typename U>
+MPI_Datatype GetType(std::vector<U> &v) {
+  return MPITypeMap<U>::type();
+}
+template <typename U>
+MPI_Datatype GetType(U &v) {
+  return MPITypeMap<U>::type();
+}
+#endif
+
+template <typename T>
 struct AllReduce {
   T val;
 #ifdef MPI_PARALLEL
@@ -33,56 +63,20 @@ struct AllReduce {
 #endif
   bool active = false;
 
-  template <typename U = T>
-  typename std::enable_if<std::is_same<U, Real>::value, TaskStatus>::type
-  StartReduce(int &only, MPI_Op op) {
-#ifdef MPI_PARALLEL
-    if (only == N) {
-      MPI_Iallreduce(MPI_IN_PLACE, &val, 1, MPI_PARTHENON_REAL, op, MPI_COMM_WORLD, &req);
-    }
-#endif
-    active = true;
-    return TaskStatus::complete;
-  }
-  template <typename U = T>
-  typename std::enable_if<std::is_same<U, int>::value, TaskStatus>::type
-  StartReduce(int &only, MPI_Op op) {
-#ifdef MPI_PARALLEL
-    if (only == N) {
-      MPI_Iallreduce(MPI_IN_PLACE, &val, 1, MPI_INT, op, MPI_COMM_WORLD, &req);
-    }
-#endif
-    active = true;
-    return TaskStatus::complete;
-  }
-  template <typename U = T>
-  typename std::enable_if<std::is_same<U, bool>::value, TaskStatus>::type
-  StartReduce(int &only, MPI_Op op) {
-#ifdef MPI_PARALLEL
-    if (only == N) {
-      MPI_Iallreduce(MPI_IN_PLACE, &val, 1, MPI_CXX_BOOL, op, MPI_COMM_WORLD, &req);
-    }
-#endif
-    active = true;
-    return TaskStatus::complete;
-  }
-  template <typename U = T>
-  typename std::enable_if<std::is_same<U, std::vector<Real>>::value, TaskStatus>::type
-  StartReduce(int &only, MPI_Op op) {
-#ifdef MPI_PARALLEL
-    if (only == N) {
-      MPI_Iallreduce(MPI_IN_PLACE, val.data(), val.size(), MPI_PARTHENON_REAL, op,
-                     MPI_COMM_WORLD, &req);
-    }
-#endif
-    active = true;
-    return TaskStatus::complete;
-  }
   TaskStatus StartReduce(MPI_Op op) {
-    int i = 0;
-    return StartReduce(i, op);
+#ifdef MPI_PARALLEL
+    auto type = GetType(val);
+    PARTHENON_REQUIRE_THROWS(
+        type != MPI_DATATYPE_NULL,
+        "Invalid type passed to StartReduce. Add type to parthenon_mpi.hpp");
+    MPI_Iallreduce(MPI_IN_PLACE, GetPtr(val), GetSize(val), type, op, MPI_COMM_WORLD,
+                   &req);
+#endif
+    active = true;
+    return TaskStatus::complete;
   }
-  TaskStatus CheckReduce(int &only) {
+
+  TaskStatus CheckReduce() {
     int check = 1;
 #ifdef MPI_PARALLEL
     MPI_Test(&req, &check, MPI_STATUS_IGNORE);
@@ -93,11 +87,11 @@ struct AllReduce {
     }
     return TaskStatus::incomplete;
   }
-  TaskStatus CheckReduce() {
-    int i = 0;
-    return CheckReduce(i);
-  }
 };
+
+/*
+template <
+TaskStatus*/
 
 #undef MPI_
 
