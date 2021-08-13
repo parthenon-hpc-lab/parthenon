@@ -55,7 +55,6 @@ dt = 0.05
 variables = potential, density
 
 <poisson>
-use_stencil = false
 max_iterations = 100000
 check_interval = 100
 error_tolerance = 1.e-8
