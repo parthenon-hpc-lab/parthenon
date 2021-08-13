@@ -17,6 +17,7 @@
 
 #include <config.hpp>
 #include <parthenon_mpi.hpp>
+#include <utils/error_checking.hpp>
 
 namespace parthenon {
 
