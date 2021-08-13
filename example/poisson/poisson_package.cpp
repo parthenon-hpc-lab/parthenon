@@ -60,15 +60,60 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // set up the stencil object corresponding to the finite difference
   // discretization we adopt in this pacakge
   const int nstencil = 1 + 2 * ndim;
-  const Real w0 = 1.0 / (2.0 * ndim);
-  std::vector<Real> wgts({w0, -1.0, w0, w0, w0, w0, w0});
   std::vector<std::vector<int>> offsets(
       {{-1, 0, 1, 0, 0, 0, 0}, {0, 0, 0, -1, 1, 0, 0}, {0, 0, 0, 0, 0, -1, 1}});
 
-  auto stencil = parthenon::solvers::Stencil<Real>("stencil", nstencil, wgts, offsets);
-  pkg->AddParam<>("stencil", stencil);
+  bool use_stencil = pin->GetOrAddBoolean("poisson", "use_stencil", true);
+  pkg->AddParam<>("use_stencil", use_stencil);
+  if (use_stencil) {
+    const Real w0 = 1.0 / (2.0 * ndim);
+    std::vector<Real> wgts({w0, -1.0, w0, w0, w0, w0, w0});
+    auto stencil = parthenon::solvers::Stencil<Real>("stencil", nstencil, wgts, offsets);
+    pkg->AddParam<>("stencil", stencil);
+  } else {
+    // setup the sparse matrix
+    Metadata msp = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
+                            std::vector<int>({nstencil}));
+    pkg->AddField("poisson_sparse_matrix", msp);
+    auto sp_accessor =
+        parthenon::solvers::SparseMatrixAccessor("accessor", nstencil, offsets);
+    pkg->AddParam("sparse_accessor", sp_accessor);
+  }
 
   return pkg;
+}
+
+template <typename T>
+TaskStatus SetMatrixElements(T *u) {
+  auto pm = u->GetParentPointer();
+
+  IndexRange ib = u->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = u->GetBoundsK(IndexDomain::interior);
+
+  PackIndexMap imap;
+  const std::vector<std::string> vars({"poisson_sparse_matrix"});
+  const auto &v = u->PackVariables(vars, imap);
+  const int isp_lo = imap["poisson_sparse_matrix"].first;
+  const int isp_hi = imap["poisson_sparse_matrix"].second;
+
+  if (isp_hi < 0) { // must be using the stencil so return
+    return TaskStatus::complete;
+  }
+
+  const int ndim = v.GetNdim();
+  const Real w0 = 1.0 / (2.0 * ndim);
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "SetMatElem", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
+      jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        for (int n = isp_lo; n <= isp_hi; n++) {
+          v(b, n, k, j, i) = w0;
+        }
+        v(b, isp_lo + 1, k, j, i) = -1.0;
+      });
+
+  return TaskStatus::complete;
 }
 
 auto &GetCoords(std::shared_ptr<MeshBlock> &pmb) { return pmb->coords; }
@@ -93,15 +138,14 @@ TaskStatus SumMass(T *u, Real *reduce_sum) {
   for (int i = X2DIR; i <= ndim; i++) {
     const Real dy = coords.Dx(i);
     PARTHENON_REQUIRE_THROWS(dx == dy,
-                             "ComputeRHS requires that DX be equal in all directions.");
+                             "SumMass requires that DX be equal in all directions.");
   }
 
   Real total;
   parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, "ComputeRHS", DevExecSpace(), 0,
-      v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      parthenon::loop_pattern_mdrange_tag, "SumMass", DevExecSpace(), 0, v.GetDim(5) - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &sum) {
-        // first add the RHS
         sum += v(b, irho, k, j, i) * std::pow(dx, ndim);
       },
       Kokkos::Sum<Real>(total));
@@ -137,7 +181,6 @@ TaskStatus ComputeRHS(T *u) {
       DEFAULT_LOOP_PATTERN, "ComputeRHS", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
       jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        // first add the RHS
         v(b, irhs, k, j, i) = -v(b, irho, k, j, i) * std::pow(dx, ndim);
       });
   return TaskStatus::complete;
@@ -154,8 +197,10 @@ TaskStatus UpdatePhi(T *u, T *du) {
   IndexRange kb = u->GetBoundsK(IndexDomain::interior);
 
   PackIndexMap imap;
-  const std::vector<std::string> vars({"rhs", "potential"});
+  const std::vector<std::string> vars({"poisson_sparse_matrix", "rhs", "potential"});
   const auto &v = u->PackVariables(vars, imap);
+  const int isp_lo = imap["poisson_sparse_matrix"].first;
+  const int isp_hi = imap["poisson_sparse_matrix"].second;
   const int irhs = imap["rhs"].first;
   const int iphi = imap["potential"].first;
   const std::vector<std::string> phi_var({"potential"});
@@ -164,9 +209,14 @@ TaskStatus UpdatePhi(T *u, T *du) {
   const int idphi = imap2["potential"].first;
 
   StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
-  const auto stencil = pkg->Param<Stencil_t>("stencil");
-
-  StencilMatVec(v, iphi, dv, idphi, v, irhs, stencil, ib, jb, kb);
+  if (isp_hi < 0) { // there is no sparse matrix, so we must be using the stencil
+    const auto &stencil = pkg->Param<Stencil_t>("stencil");
+    stencil.MatVec(v, iphi, dv, idphi, v, irhs, ib, jb, kb);
+  } else {
+    const auto &sp_accessor =
+        pkg->Param<parthenon::solvers::SparseMatrixAccessor>("sparse_accessor");
+    sp_accessor.MatVec(v, isp_lo, isp_hi, v, iphi, dv, idphi, v, irhs, ib, jb, kb);
+  }
 
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, dv.GetDim(5) - 1, kb.s, kb.e,
@@ -233,5 +283,7 @@ template TaskStatus ComputeRHS<MeshData<Real>>(MeshData<Real> *);
 template TaskStatus ComputeRHS<MeshBlockData<Real>>(MeshBlockData<Real> *);
 template TaskStatus SumMass<MeshData<Real>>(MeshData<Real> *, Real *);
 template TaskStatus SumMass<MeshBlockData<Real>>(MeshBlockData<Real> *, Real *);
+template TaskStatus SetMatrixElements<MeshData<Real>>(MeshData<Real> *);
+template TaskStatus SetMatrixElements<MeshBlockData<Real>>(MeshBlockData<Real> *);
 
 } // namespace poisson_package

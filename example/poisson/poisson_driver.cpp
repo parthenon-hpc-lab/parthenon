@@ -98,6 +98,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
         },
         i, &reductions[0].val);
 
+    auto mat_elem =
+        tl.AddTask(none, poisson_package::SetMatrixElements<MeshData<Real>>, md.get());
     auto rhs = tl.AddTask(none, poisson_package::ComputeRHS<MeshData<Real>>, md.get());
 
     auto &solver = tl.AddIteration("poisson solver");
@@ -108,8 +110,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto start_recv = solver.AddTask(none, &MeshData<Real>::StartReceiving, md.get(),
                                      BoundaryCommSubset::all);
 
-    auto update = solver.AddTask(rhs, poisson_package::UpdatePhi<MeshData<Real>>,
-                                 md.get(), mdelta.get());
+    auto update =
+        solver.AddTask(rhs | mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
+                       md.get(), mdelta.get());
 
     auto send =
         solver.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
