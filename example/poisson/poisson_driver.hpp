@@ -37,10 +37,9 @@ class PoissonDriver : public Driver {
  private:
   // we'll demonstrate doing some global reductions of scalars
   AllReduce<Real> total_mass;
-  //AllReduce<Real> 
+  // AllReduce<Real>
   // and we'll do a global reduction of a vector just for fun
   AllReduce<std::vector<int>> vec_reduce;
-
 };
 
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);

@@ -76,8 +76,7 @@ struct AllReduce {
     PARTHENON_REQUIRE_THROWS(
         type != MPI_DATATYPE_NULL,
         "Invalid type passed to StartReduce. Add type to parthenon_mpi.hpp");
-    MPI_Iallreduce(MPI_IN_PLACE, GetPtr(val), GetSize(val), type, op, comm,
-                   &req);
+    MPI_Iallreduce(MPI_IN_PLACE, GetPtr(val), GetSize(val), type, op, comm, &req);
 #endif
     active = true;
     return TaskStatus::complete;
