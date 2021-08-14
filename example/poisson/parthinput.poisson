@@ -19,7 +19,7 @@
 problem_id = poisson
 
 <parthenon/mesh>
-pack_size = 1
+
 nx1 = 64
 x1min = -1.0
 x1max = 1.0
