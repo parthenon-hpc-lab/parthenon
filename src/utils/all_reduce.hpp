@@ -61,8 +61,14 @@ struct AllReduce {
   T val;
 #ifdef MPI_PARALLEL
   MPI_Request req;
+  MPI_Comm comm;
 #endif
   bool active = false;
+  AllReduce() {
+#ifdef MPI_PARALLEL
+    MPI_Comm_dup(MPI_COMM_WORLD, &comm);
+#endif
+  }
 
   TaskStatus StartReduce(MPI_Op op) {
 #ifdef MPI_PARALLEL
@@ -70,7 +76,7 @@ struct AllReduce {
     PARTHENON_REQUIRE_THROWS(
         type != MPI_DATATYPE_NULL,
         "Invalid type passed to StartReduce. Add type to parthenon_mpi.hpp");
-    MPI_Iallreduce(MPI_IN_PLACE, GetPtr(val), GetSize(val), type, op, MPI_COMM_WORLD,
+    MPI_Iallreduce(MPI_IN_PLACE, GetPtr(val), GetSize(val), type, op, comm,
                    &req);
 #endif
     active = true;
@@ -78,6 +84,7 @@ struct AllReduce {
   }
 
   TaskStatus CheckReduce() {
+    if (!active) return TaskStatus::complete;
     int check = 1;
 #ifdef MPI_PARALLEL
     MPI_Test(&req, &check, MPI_STATUS_IGNORE);
