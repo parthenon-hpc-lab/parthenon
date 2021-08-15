@@ -10,14 +10,15 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef UTILS_ALL_REDUCE_HPP_
-#define UTILS_ALL_REDUCE_HPP_
+#ifndef UTILS_REDUCTIONS_HPP_
+#define UTILS_REDUCTIONS_HPP_
 
 #include <vector>
 
 #include <config.hpp>
 #include <parthenon_mpi.hpp>
 #include <utils/error_checking.hpp>
+#include <utils/mpi_types.hpp>
 
 namespace parthenon {
 
@@ -57,29 +58,17 @@ MPI_Datatype GetType(U &v) {
 #endif
 
 template <typename T>
-struct AllReduce {
+struct ReductionBase {
   T val;
 #ifdef MPI_PARALLEL
   MPI_Request req;
   MPI_Comm comm;
 #endif
   bool active = false;
-  AllReduce() {
+  ReductionBase() {
 #ifdef MPI_PARALLEL
     MPI_Comm_dup(MPI_COMM_WORLD, &comm);
 #endif
-  }
-
-  TaskStatus StartReduce(MPI_Op op) {
-#ifdef MPI_PARALLEL
-    auto type = GetType(val);
-    PARTHENON_REQUIRE_THROWS(
-        type != MPI_DATATYPE_NULL,
-        "Invalid type passed to StartReduce. Add type to parthenon_mpi.hpp");
-    MPI_Iallreduce(MPI_IN_PLACE, GetPtr(val), GetSize(val), type, op, comm, &req);
-#endif
-    active = true;
-    return TaskStatus::complete;
   }
 
   TaskStatus CheckReduce() {
@@ -96,8 +85,38 @@ struct AllReduce {
   }
 };
 
+template <typename T>
+struct AllReduce : public ReductionBase<T> {
+  TaskStatus StartReduce(MPI_Op op) {
+#ifdef MPI_PARALLEL
+    MPI_Iallreduce(MPI_IN_PLACE, GetPtr(this->val), GetSize(this->val),
+                   GetType(this->val), op, this->comm, &(this->req));
+    this->active = true;
+#endif
+    return TaskStatus::complete;
+  }
+};
+
+template <typename T>
+struct Reduce : public ReductionBase<T> {
+  TaskStatus StartReduce(const int n, MPI_Op op) {
+#ifdef MPI_PARALLEL
+    if (Globals::my_rank == n) {
+      MPI_Ireduce(MPI_IN_PLACE, GetPtr(this->val), GetSize(this->val),
+                  GetType(this->val), op, n, this->comm, &(this->req));
+
+    } else {
+      MPI_Ireduce(GetPtr(this->val), nullptr, GetSize(this->val),
+                  GetType(this->val), op, n, this->comm, &(this->req));
+    }
+    this->active = true;
+#endif
+    return TaskStatus::complete;
+  }
+};
+
 #undef MPI_
 
 } // namespace parthenon
 
-#endif // UTILS_ALL_REDUCE_HPP_
+#endif // UTILS_REDUCTIONS_HPP_

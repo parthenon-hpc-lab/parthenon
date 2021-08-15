@@ -194,13 +194,14 @@ add_library(parthenon
 
   utils/alias_method.cpp
   utils/alias_method.hpp
-  utils/all_reduce.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
   utils/error_checking.hpp
   utils/error_checking.cpp
+  utils/mpi_types.hpp
   utils/partition_stl_containers.hpp
+  utils/reductions.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp
   utils/string_utils.cpp

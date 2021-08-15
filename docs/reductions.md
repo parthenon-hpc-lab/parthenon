@@ -13,3 +13,7 @@ To facilitate this pattern, parthenon provides an `AllReduce` struct, described 
 ## AllReduce
 
 `AllReduce` is a struct templated on the type of value that needs to be reduced (e.g. `int`, `Real`, `std::vector<Real>`, etc.).  It manages the storage in a member variable `val` which is of the type provided as a template argument.  `val` must be appropriately initialized by the user.  The functionality in `AllReduce` (described above) is exposed through two member functions, `StartReduce ` and `CheckReduce`.  `StartReduce` requires a single argument which is the MPI reduction operator (e.g. `MPI_SUM`, `MPI_MAX`, etc.).  Both of these tasks are non-blocking (i.e. they call `MPI_Iallreduce` and `MPI_Test`).
+
+## Reduce
+
+Same as `AllReduce` except `MPI_Ireduce` is called and the root rank of the reduction must be provided in `StartReduce`

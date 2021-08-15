@@ -35,10 +35,11 @@ class PoissonDriver : public Driver {
   DriverStatus Execute() override;
 
  private:
-  // we'll demonstrate doing some global reductions of scalars
+  // we'll demonstrate doing a global all reduce of a scalar
   AllReduce<Real> total_mass;
-  // AllReduce<Real>
-  // and we'll do a global reduction of a vector just for fun
+  // and a reduction onto one rank of a scalar
+  Reduce<int> max_rank;
+  // and we'll do an all reduce of a vector just for fun
   AllReduce<std::vector<int>> vec_reduce;
 };
 

@@ -30,8 +30,8 @@
 #include "basic_types.hpp"
 #include "task_id.hpp"
 #include "task_types.hpp"
-#include "utils/all_reduce.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/reductions.hpp"
 
 namespace parthenon {
 
@@ -277,8 +277,8 @@ class TaskList {
 
   // overload to add member functions of class T to task list
   // NOTE: we must capture the object pointer
-  template <class T, class... Args>
-  TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), T *obj,
+  template <class T, class U, class... Args>
+  TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), U *obj,
                  Args &&... args) {
     return this->AddTask(dep, [=]() mutable -> TaskStatus {
       return (obj->*func)(std::forward<Args>(args)...);
