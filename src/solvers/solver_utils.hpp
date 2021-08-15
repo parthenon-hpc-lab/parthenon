@@ -25,6 +25,7 @@ namespace solvers {
 struct SparseMatrixAccessor {
   ParArray1D<int> ioff, joff, koff;
   const int nstencil;
+  int ndiag;
 
   SparseMatrixAccessor(const std::string &label, const int n,
                        std::vector<std::vector<int>> off)
@@ -42,6 +43,9 @@ struct SparseMatrixAccessor {
       ioff_h(i) = off[0][i];
       joff_h(i) = off[1][i];
       koff_h(i) = off[2][i];
+      if (off[0][i] == 0 && off[1][i] == 0 && off[2][i] == 0) {
+        ndiag = i;
+      }
     }
 
     Kokkos::deep_copy(ioff, ioff_h);
@@ -50,22 +54,26 @@ struct SparseMatrixAccessor {
   }
 
   template <typename PackType>
-  void MatVec(const PackType &spmat, const int imat_lo, const int imat_hi,
-              const PackType &vin, const int ivin, const PackType &vout, const int ivout,
-              const PackType &rhs, const int irhs, const IndexRange &ib,
-              const IndexRange &jb, const IndexRange &kb) const {
-    parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "SparseMatVec", DevExecSpace(), 0, vout.GetDim(5) - 1, kb.s,
-        kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          vout(b, ivout, k, j, i) = rhs(b, irhs, k, j, i);
-          for (int n = imat_lo; n <= imat_hi; n++) {
-            const int m = n - imat_lo;
-            vout(b, ivout, k, j, i) +=
-                spmat(b, n, k, j, i) *
-                vin(b, ivin, k + koff(m), j + joff(m), i + ioff(m));
-          }
-        });
+  Real MatVec(const PackType &spmat, const int imat_lo, const int imat_hi,
+              const PackType &v, const int iv, const int b, const int k,
+              const int j, const int i) const {
+    Real matvec = 0.0;
+    for (int n = imat_lo; n <= imat_hi; n++) {
+      const int m = n - imat_lo;
+      matvec += spmat(b, n, k, j, i) *
+                v(b, iv, k + koff(m), j + joff(m), i + ioff(m));
+    }
+    return matvec;
+  }
+
+  template <typename PackType>
+  KOKKOS_INLINE_FUNCTION
+  Real Jacobi(const PackType &spmat, const int imat_lo, const int imat_hi,
+              const PackType &v, const int iv, const int b, const int k, const int j,
+              const int i, const Real rhs) const {
+    const Real matvec = MatVec(spmat, imat_lo, imat_hi, v, iv, b, k, j, i);
+    return (rhs - matvec + spmat(b, imat_lo+ndiag, k, j, i)*v(b, iv, k, j, i))
+              /spmat(b, imat_lo+ndiag, k, j, i);
   }
 };
 
@@ -74,6 +82,7 @@ struct Stencil {
   ParArray1D<T> w;
   ParArray1D<int> ioff, joff, koff;
   const int nstencil;
+  int ndiag;
 
   Stencil(const std::string &label, const int n, std::vector<T> wgt,
           std::vector<std::vector<int>> off)
@@ -94,6 +103,9 @@ struct Stencil {
       ioff_h(i) = off[0][i];
       joff_h(i) = off[1][i];
       koff_h(i) = off[2][i];
+      if (off[0][i] == 0 && off[1][i] == 0 && off[2][i] == 0) {
+        ndiag = i;
+      }
     }
 
     Kokkos::deep_copy(w, w_h);
@@ -103,19 +115,22 @@ struct Stencil {
   }
 
   template <typename PackType>
-  void MatVec(const PackType &vin, const int ivin, const PackType &vout, const int ivout,
-              const PackType &rhs, const int irhs, const IndexRange &ib,
-              const IndexRange &jb, const IndexRange &kb) const {
-    parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "StencilMatVec", DevExecSpace(), 0, vout.GetDim(5) - 1,
-        kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          vout(b, ivout, k, j, i) = rhs(b, irhs, k, j, i);
-          for (int n = 0; n < nstencil; n++) {
-            vout(b, ivout, k, j, i) +=
-                w(n) * vin(b, ivin, k + koff(n), j + joff(n), i + ioff(n));
-          }
-        });
+  KOKKOS_INLINE_FUNCTION
+  Real MatVec(const PackType &v, const int iv, const int b, const int k, const int j,
+              const int i) const {
+    Real matvec = 0.0;
+    for (int n = 0; n < nstencil; n++) {
+      matvec += w(n) * v(b, iv, k + koff(n), j + joff(n), i + ioff(n));
+    }
+    return matvec;
+  }
+
+  template <typename PackType>
+  KOKKOS_INLINE_FUNCTION
+  Real Jacobi(const PackType &v, const int iv, const int b, const int k, const int j,
+              const int i, const Real rhs) const {
+    const Real matvec = MatVec(v, iv, b, k, j, i);
+    return (rhs - matvec + w(ndiag)*v(b, iv, k, j, i))/w(ndiag);
   }
 };
 

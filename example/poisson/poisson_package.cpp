@@ -63,11 +63,18 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::vector<std::vector<int>> offsets(
       {{-1, 0, 1, 0, 0, 0, 0}, {0, 0, 0, -1, 1, 0, 0}, {0, 0, 0, 0, 0, -1, 1}});
 
+  bool use_jacobi = pin->GetOrAddBoolean("poisson", "use_jacobi", true);
+  pkg->AddParam<>("use_jacobi", use_jacobi);
   bool use_stencil = pin->GetOrAddBoolean("poisson", "use_stencil", true);
   pkg->AddParam<>("use_stencil", use_stencil);
   if (use_stencil) {
-    const Real w0 = 1.0 / (2.0 * ndim);
-    std::vector<Real> wgts({w0, -1.0, w0, w0, w0, w0, w0});
+    std::vector<Real> wgts;
+    if (use_jacobi) {
+      wgts = std::vector<Real>({1.0, -2.0*ndim, 1.0, 1.0, 1.0, 1.0, 1.0});
+    } else {
+      const Real w0 = 1.0 / (2.0 * ndim);
+      wgts = std::vector<Real>({w0, -1.0, w0, w0, w0, w0, w0});
+    }
     auto stencil = parthenon::solvers::Stencil<Real>("stencil", nstencil, wgts, offsets);
     pkg->AddParam<>("stencil", stencil);
   } else {
@@ -102,15 +109,15 @@ TaskStatus SetMatrixElements(T *u) {
   }
 
   const int ndim = v.GetNdim();
-  const Real w0 = 1.0 / (2.0 * ndim);
+  const Real w0 = -2.0 * ndim;
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetMatElem", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
       jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         for (int n = isp_lo; n <= isp_hi; n++) {
-          v(b, n, k, j, i) = w0;
+          v(b, n, k, j, i) = 1;
         }
-        v(b, isp_lo + 1, k, j, i) = -1.0;
+        v(b, isp_lo + 1, k, j, i) = w0;
       });
 
   return TaskStatus::complete;
@@ -155,38 +162,6 @@ TaskStatus SumMass(T *u, Real *reduce_sum) {
 }
 
 template <typename T>
-TaskStatus ComputeRHS(T *u) {
-  auto pm = u->GetParentPointer();
-
-  IndexRange ib = u->GetBoundsI(IndexDomain::interior);
-  IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = u->GetBoundsK(IndexDomain::interior);
-
-  PackIndexMap imap;
-  const std::vector<std::string> vars({"density", "rhs"});
-  const auto &v = u->PackVariables(vars, imap);
-  const int irho = imap["density"].first;
-  const int irhs = imap["rhs"].first;
-
-  auto coords = GetCoords(pm);
-  const int ndim = v.GetNdim();
-  const Real dx = coords.Dx(X1DIR);
-  for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.Dx(i);
-    PARTHENON_REQUIRE_THROWS(dx == dy,
-                             "ComputeRHS requires that DX be equal in all directions.");
-  }
-
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "ComputeRHS", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
-      jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        v(b, irhs, k, j, i) = -v(b, irho, k, j, i) * std::pow(dx, ndim);
-      });
-  return TaskStatus::complete;
-}
-
-template <typename T>
 TaskStatus UpdatePhi(T *u, T *du) {
   using Stencil_t = parthenon::solvers::Stencil<Real>;
   Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
@@ -197,10 +172,11 @@ TaskStatus UpdatePhi(T *u, T *du) {
   IndexRange kb = u->GetBoundsK(IndexDomain::interior);
 
   PackIndexMap imap;
-  const std::vector<std::string> vars({"poisson_sparse_matrix", "rhs", "potential"});
+  const std::vector<std::string> vars({"poisson_sparse_matrix", "density", "rhs", "potential"});
   const auto &v = u->PackVariables(vars, imap);
   const int isp_lo = imap["poisson_sparse_matrix"].first;
   const int isp_hi = imap["poisson_sparse_matrix"].second;
+  const int irho = imap["density"].first;
   const int irhs = imap["rhs"].first;
   const int iphi = imap["potential"].first;
   const std::vector<std::string> phi_var({"potential"});
@@ -208,14 +184,41 @@ TaskStatus UpdatePhi(T *u, T *du) {
   const auto &dv = du->PackVariables(phi_var, imap2);
   const int idphi = imap2["potential"].first;
 
+  using PackType = decltype(v);
+
+  auto coords = GetCoords(pm);
+  const int ndim = v.GetNdim();
+  const Real dx = coords.Dx(X1DIR);
+  for (int i = X2DIR; i <= ndim; i++) {
+    const Real dy = coords.Dx(i);
+    PARTHENON_REQUIRE_THROWS(dx == dy,
+                             "UpdatePhi requires that DX be equal in all directions.");
+  }
+  const Real dV = std::pow(dx, ndim);
+
   StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
   if (isp_hi < 0) { // there is no sparse matrix, so we must be using the stencil
     const auto &stencil = pkg->Param<Stencil_t>("stencil");
-    stencil.MatVec(v, iphi, dv, idphi, v, irhs, ib, jb, kb);
+    parthenon::par_for(
+        DEFAULT_LOOP_PATTERN, "StencilJacobi", DevExecSpace(), 0, v.GetDim(5) - 1,
+        kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          const Real rhs = dV*v(b, irho, k, j, i);
+          const Real phi_new = stencil.Jacobi(v, iphi, b, k, j, i, rhs);
+          dv(b, idphi, k, j, i) = phi_new - v(b, iphi, k, j, i);
+        });
+
   } else {
     const auto &sp_accessor =
         pkg->Param<parthenon::solvers::SparseMatrixAccessor>("sparse_accessor");
-    sp_accessor.MatVec(v, isp_lo, isp_hi, v, iphi, dv, idphi, v, irhs, ib, jb, kb);
+    parthenon::par_for(
+        DEFAULT_LOOP_PATTERN, "SparseUpdate", DevExecSpace(), 0, v.GetDim(5) - 1,
+        kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          const Real rhs = dV*v(b, irho, k, j, i);
+          const Real phi_new = sp_accessor.Jacobi(v, isp_lo, isp_hi, v, iphi, b, k, j, i, rhs);
+          dv(b, idphi, k, j, i) = phi_new - v(b, iphi, k, j, i);
+        });
   }
 
   parthenon::par_for(
@@ -279,8 +282,6 @@ template TaskStatus CheckConvergence<MeshBlockData<Real>>(MeshBlockData<Real> *,
 template TaskStatus UpdatePhi<MeshData<Real>>(MeshData<Real> *, MeshData<Real> *);
 template TaskStatus UpdatePhi<MeshBlockData<Real>>(MeshBlockData<Real> *,
                                                    MeshBlockData<Real> *);
-template TaskStatus ComputeRHS<MeshData<Real>>(MeshData<Real> *);
-template TaskStatus ComputeRHS<MeshBlockData<Real>>(MeshBlockData<Real> *);
 template TaskStatus SumMass<MeshData<Real>>(MeshData<Real> *, Real *);
 template TaskStatus SumMass<MeshBlockData<Real>>(MeshBlockData<Real> *, Real *);
 template TaskStatus SetMatrixElements<MeshData<Real>>(MeshData<Real> *);

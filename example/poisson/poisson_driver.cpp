@@ -105,7 +105,6 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     auto mat_elem =
         tl.AddTask(none, poisson_package::SetMatrixElements<MeshData<Real>>, md.get());
-    auto rhs = tl.AddTask(none, poisson_package::ComputeRHS<MeshData<Real>>, md.get());
 
     auto &solver = tl.AddIteration("poisson solver");
     solver.SetMaxIterations(max_iters);
@@ -116,7 +115,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
                                      BoundaryCommSubset::all);
 
     auto update =
-        solver.AddTask(rhs | mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
+        solver.AddTask(mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
                        md.get(), mdelta.get());
 
     auto send =

@@ -96,10 +96,6 @@ struct AllReduce {
   }
 };
 
-/*
-template <
-TaskStatus*/
-
 #undef MPI_
 
 } // namespace parthenon
