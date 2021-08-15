@@ -102,12 +102,12 @@ struct Reduce : public ReductionBase<T> {
   TaskStatus StartReduce(const int n, MPI_Op op) {
 #ifdef MPI_PARALLEL
     if (Globals::my_rank == n) {
-      MPI_Ireduce(MPI_IN_PLACE, GetPtr(this->val), GetSize(this->val),
-                  GetType(this->val), op, n, this->comm, &(this->req));
+      MPI_Ireduce(MPI_IN_PLACE, GetPtr(this->val), GetSize(this->val), GetType(this->val),
+                  op, n, this->comm, &(this->req));
 
     } else {
-      MPI_Ireduce(GetPtr(this->val), nullptr, GetSize(this->val),
-                  GetType(this->val), op, n, this->comm, &(this->req));
+      MPI_Ireduce(GetPtr(this->val), nullptr, GetSize(this->val), GetType(this->val), op,
+                  n, this->comm, &(this->req));
     }
     this->active = true;
 #endif

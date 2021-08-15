@@ -75,7 +75,6 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     TaskList &tl = solver_region[i];
 
-
     //--- Demo a few reductions
     // pass a pointer to the variable being reduced into
     auto loc_red = tl.AddTask(none, poisson_package::SumMass<MeshData<Real>>, md.get(),
@@ -84,32 +83,32 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // this
     solver_region.AddRegionalDependencies(0, i, loc_red);
 
-    auto rank_red = tl.AddTask(none, [](int *max_rank) {
-      *max_rank = std::max(*max_rank, parthenon::Globals::my_rank);
-      return TaskStatus::complete;
-    }, &max_rank.val);
+    auto rank_red = tl.AddTask(
+        none,
+        [](int *max_rank) {
+          *max_rank = std::max(*max_rank, parthenon::Globals::my_rank);
+          return TaskStatus::complete;
+        },
+        &max_rank.val);
     solver_region.AddRegionalDependencies(1, i, rank_red);
 
     // start a non-blocking MPI_Iallreduce
     auto start_global_reduce =
-        (i == 0 ? tl.AddTask(loc_red, &AllReduce<Real>::StartReduce,
-                             &total_mass, MPI_SUM)
+        (i == 0 ? tl.AddTask(loc_red, &AllReduce<Real>::StartReduce, &total_mass, MPI_SUM)
                 : none);
 
     auto start_rank_reduce =
-        (i == 0 ? tl.AddTask(rank_red, &Reduce<int>::StartReduce,
-                             &max_rank, 0, MPI_MAX)
+        (i == 0 ? tl.AddTask(rank_red, &Reduce<int>::StartReduce, &max_rank, 0, MPI_MAX)
                 : none);
 
     // test the reduction until it completes
-    auto finish_global_reduce = tl.AddTask(
-        start_global_reduce, &AllReduce<Real>::CheckReduce, &total_mass);
+    auto finish_global_reduce =
+        tl.AddTask(start_global_reduce, &AllReduce<Real>::CheckReduce, &total_mass);
     solver_region.AddRegionalDependencies(2, i, finish_global_reduce);
 
-    auto finish_rank_reduce = tl.AddTask(
-        start_rank_reduce, &Reduce<int>::CheckReduce, &max_rank);
+    auto finish_rank_reduce =
+        tl.AddTask(start_rank_reduce, &Reduce<int>::CheckReduce, &max_rank);
     solver_region.AddRegionalDependencies(3, i, finish_rank_reduce);
-
 
     // notice how we must always pass a pointer to the reduction value
     // since tasks capture args by value, this would print zero if we just passed in

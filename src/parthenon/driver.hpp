@@ -29,8 +29,8 @@
 #include <tasks/task_id.hpp>
 #include <tasks/task_list.hpp>
 #include <tasks/task_types.hpp>
-#include <utils/reductions.hpp>
 #include <utils/partition_stl_containers.hpp>
+#include <utils/reductions.hpp>
 
 // Local Includes
 #include "prelude.hpp"
