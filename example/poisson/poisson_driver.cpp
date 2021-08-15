@@ -114,9 +114,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto start_recv = solver.AddTask(none, &MeshData<Real>::StartReceiving, md.get(),
                                      BoundaryCommSubset::all);
 
-    auto update =
-        solver.AddTask(mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
-                       md.get(), mdelta.get());
+    auto update = solver.AddTask(mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
+                                 md.get(), mdelta.get());
 
     auto send =
         solver.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);

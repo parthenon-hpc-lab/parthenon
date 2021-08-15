@@ -55,25 +55,24 @@ struct SparseMatrixAccessor {
 
   template <typename PackType>
   Real MatVec(const PackType &spmat, const int imat_lo, const int imat_hi,
-              const PackType &v, const int iv, const int b, const int k,
-              const int j, const int i) const {
+              const PackType &v, const int iv, const int b, const int k, const int j,
+              const int i) const {
     Real matvec = 0.0;
     for (int n = imat_lo; n <= imat_hi; n++) {
       const int m = n - imat_lo;
-      matvec += spmat(b, n, k, j, i) *
-                v(b, iv, k + koff(m), j + joff(m), i + ioff(m));
+      matvec += spmat(b, n, k, j, i) * v(b, iv, k + koff(m), j + joff(m), i + ioff(m));
     }
     return matvec;
   }
 
   template <typename PackType>
-  KOKKOS_INLINE_FUNCTION
-  Real Jacobi(const PackType &spmat, const int imat_lo, const int imat_hi,
-              const PackType &v, const int iv, const int b, const int k, const int j,
-              const int i, const Real rhs) const {
+  KOKKOS_INLINE_FUNCTION Real Jacobi(const PackType &spmat, const int imat_lo,
+                                     const int imat_hi, const PackType &v, const int iv,
+                                     const int b, const int k, const int j, const int i,
+                                     const Real rhs) const {
     const Real matvec = MatVec(spmat, imat_lo, imat_hi, v, iv, b, k, j, i);
-    return (rhs - matvec + spmat(b, imat_lo+ndiag, k, j, i)*v(b, iv, k, j, i))
-              /spmat(b, imat_lo+ndiag, k, j, i);
+    return (rhs - matvec + spmat(b, imat_lo + ndiag, k, j, i) * v(b, iv, k, j, i)) /
+           spmat(b, imat_lo + ndiag, k, j, i);
   }
 };
 
@@ -115,9 +114,8 @@ struct Stencil {
   }
 
   template <typename PackType>
-  KOKKOS_INLINE_FUNCTION
-  Real MatVec(const PackType &v, const int iv, const int b, const int k, const int j,
-              const int i) const {
+  KOKKOS_INLINE_FUNCTION Real MatVec(const PackType &v, const int iv, const int b,
+                                     const int k, const int j, const int i) const {
     Real matvec = 0.0;
     for (int n = 0; n < nstencil; n++) {
       matvec += w(n) * v(b, iv, k + koff(n), j + joff(n), i + ioff(n));
@@ -126,11 +124,11 @@ struct Stencil {
   }
 
   template <typename PackType>
-  KOKKOS_INLINE_FUNCTION
-  Real Jacobi(const PackType &v, const int iv, const int b, const int k, const int j,
-              const int i, const Real rhs) const {
+  KOKKOS_INLINE_FUNCTION Real Jacobi(const PackType &v, const int iv, const int b,
+                                     const int k, const int j, const int i,
+                                     const Real rhs) const {
     const Real matvec = MatVec(v, iv, b, k, j, i);
-    return (rhs - matvec + w(ndiag)*v(b, iv, k, j, i))/w(ndiag);
+    return (rhs - matvec + w(ndiag) * v(b, iv, k, j, i)) / w(ndiag);
   }
 };
 

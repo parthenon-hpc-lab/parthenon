@@ -70,7 +70,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   if (use_stencil) {
     std::vector<Real> wgts;
     if (use_jacobi) {
-      wgts = std::vector<Real>({1.0, -2.0*ndim, 1.0, 1.0, 1.0, 1.0, 1.0});
+      wgts = std::vector<Real>({1.0, -2.0 * ndim, 1.0, 1.0, 1.0, 1.0, 1.0});
     } else {
       const Real w0 = 1.0 / (2.0 * ndim);
       wgts = std::vector<Real>({w0, -1.0, w0, w0, w0, w0, w0});
@@ -172,7 +172,8 @@ TaskStatus UpdatePhi(T *u, T *du) {
   IndexRange kb = u->GetBoundsK(IndexDomain::interior);
 
   PackIndexMap imap;
-  const std::vector<std::string> vars({"poisson_sparse_matrix", "density", "rhs", "potential"});
+  const std::vector<std::string> vars(
+      {"poisson_sparse_matrix", "density", "rhs", "potential"});
   const auto &v = u->PackVariables(vars, imap);
   const int isp_lo = imap["poisson_sparse_matrix"].first;
   const int isp_hi = imap["poisson_sparse_matrix"].second;
@@ -200,10 +201,10 @@ TaskStatus UpdatePhi(T *u, T *du) {
   if (isp_hi < 0) { // there is no sparse matrix, so we must be using the stencil
     const auto &stencil = pkg->Param<Stencil_t>("stencil");
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "StencilJacobi", DevExecSpace(), 0, v.GetDim(5) - 1,
-        kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        DEFAULT_LOOP_PATTERN, "StencilJacobi", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s,
+        kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          const Real rhs = dV*v(b, irho, k, j, i);
+          const Real rhs = dV * v(b, irho, k, j, i);
           const Real phi_new = stencil.Jacobi(v, iphi, b, k, j, i, rhs);
           dv(b, idphi, k, j, i) = phi_new - v(b, iphi, k, j, i);
         });
@@ -212,11 +213,12 @@ TaskStatus UpdatePhi(T *u, T *du) {
     const auto &sp_accessor =
         pkg->Param<parthenon::solvers::SparseMatrixAccessor>("sparse_accessor");
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "SparseUpdate", DevExecSpace(), 0, v.GetDim(5) - 1,
-        kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        DEFAULT_LOOP_PATTERN, "SparseUpdate", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s,
+        kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          const Real rhs = dV*v(b, irho, k, j, i);
-          const Real phi_new = sp_accessor.Jacobi(v, isp_lo, isp_hi, v, iphi, b, k, j, i, rhs);
+          const Real rhs = dV * v(b, irho, k, j, i);
+          const Real phi_new =
+              sp_accessor.Jacobi(v, isp_lo, isp_hi, v, iphi, b, k, j, i, rhs);
           dv(b, idphi, k, j, i) = phi_new - v(b, iphi, k, j, i);
         });
   }
