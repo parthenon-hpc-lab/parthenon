@@ -183,3 +183,11 @@ A description of mesh indexing classes [here](mesh/domain.md).
 ### Input file parameter
 
 An overview of input file parameters [here](input.md)
+
+### Global reductions
+
+Global reductions are a common need for downstream applications and can be accomplished within Parthenon's task-based execution as described [here](reductions.md).
+
+### Solvers
+
+Solvers are still a work in progress in Parthenon, but some basic building blocks are described [here](solvers.md).
