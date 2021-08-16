@@ -353,14 +353,8 @@ class TaskRegion {
       auto reg_id = reg_dep.first;
       if (id_complete[reg_id]) continue;
       if (HasRun(reg_id) && !all_done[reg_id].active) {
-        bool done = IsComplete(reg_id);
-#ifdef MPI_PARALLEL
-        all_done[reg_id].val = done;
+        all_done[reg_id].val = IsComplete(reg_id);
         all_done[reg_id].StartReduce(MPI_MIN);
-        int global_done = all_done[reg_id].val;
-#else
-        int global_done = done;
-#endif
       }
       if (all_done[reg_id].active) {
         int arrived;

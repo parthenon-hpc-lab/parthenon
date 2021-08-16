@@ -39,7 +39,7 @@ parthenon::DriverStatus PoissonDriver::Execute() {
 }
 
 TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
-  using namespace parthenon::Update;
+  using namespace parthenon;
   TaskCollection tc;
   TaskID none(0);
 
@@ -87,7 +87,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto rank_red = tl.AddTask(
         none,
         [](int *max_rank) {
-          *max_rank = std::max(*max_rank, parthenon::Globals::my_rank);
+          *max_rank = std::max(*max_rank, Globals::my_rank);
           return TaskStatus::complete;
         },
         &max_rank.val);
@@ -114,7 +114,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // notice how we must always pass a pointer to the reduction value
     // since tasks capture args by value, this would print zero if we just passed in
     // the val since the tasks that compute the value haven't actually executed yet
-    auto report_mass = (i == 0 && parthenon::Globals::my_rank == 0
+    auto report_mass = (i == 0 && Globals::my_rank == 0
                             ? tl.AddTask(
                                   finish_global_reduce,
                                   [](Real *mass) {
@@ -123,7 +123,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
                                   },
                                   &total_mass.val)
                             : none);
-    auto report_rank = (i == 0 && parthenon::Globals::my_rank == 0
+    auto report_rank = (i == 0 && Globals::my_rank == 0
                             ? tl.AddTask(
                                   finish_rank_reduce,
                                   [](int *max_rank) {
@@ -148,14 +148,12 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto update = solver.AddTask(mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
                                  md.get(), mdelta.get());
 
-    auto send =
-        solver.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
+    auto send = solver.AddTask(update, cell_centered_bvars::SendBoundaryBuffers, md);
 
-    auto recv = solver.AddTask(
-        start_recv, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
+    auto recv =
+        solver.AddTask(start_recv, cell_centered_bvars::ReceiveBoundaryBuffers, md);
 
-    auto setb =
-        solver.AddTask(recv | update, parthenon::cell_centered_bvars::SetBoundaries, md);
+    auto setb = solver.AddTask(recv | update, cell_centered_bvars::SetBoundaries, md);
 
     auto clear = solver.AddTask(send | setb, &MeshData<Real>::ClearBoundary, md.get(),
                                 BoundaryCommSubset::all);
@@ -186,37 +184,34 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     solver_region.AddRegionalDependencies(5, i, fill_vec);
 
     TaskID start_vec_reduce =
-        (i == 0
-             ? tl.AddTask(fill_vec, &parthenon::AllReduce<std::vector<int>>::StartReduce,
-                          &vec_reduce, MPI_SUM)
-             : none);
+        (i == 0 ? tl.AddTask(fill_vec, &AllReduce<std::vector<int>>::StartReduce,
+                             &vec_reduce, MPI_SUM)
+                : none);
     // test the reduction until it completes
-    TaskID finish_vec_reduce =
-        tl.AddTask(start_vec_reduce, &parthenon::AllReduce<std::vector<int>>::CheckReduce,
-                   &vec_reduce);
+    TaskID finish_vec_reduce = tl.AddTask(
+        start_vec_reduce, &AllReduce<std::vector<int>>::CheckReduce, &vec_reduce);
     solver_region.AddRegionalDependencies(6, i, finish_vec_reduce);
 
-    auto report_vec =
-        (i == 0 && parthenon::Globals::my_rank == 0
-             ? tl.AddTask(
-                   finish_vec_reduce,
-                   [num_partitions](std::vector<int> *vec) {
-                     auto &v = *vec;
-                     std::cout << "Vec reduction: ";
-                     for (int n = 0; n < v.size(); n++) {
-                       std::cout << v[n] << " ";
-                     }
-                     std::cout << std::endl;
-                     std::cout << "Should be:     ";
-                     for (int n = 0; n < v.size(); n++) {
-                       std::cout << n * num_partitions * parthenon::Globals::nranks
-                                 << " ";
-                     }
-                     std::cout << std::endl;
-                     return TaskStatus::complete;
-                   },
-                   &vec_reduce.val)
-             : none);
+    auto report_vec = (i == 0 && Globals::my_rank == 0
+                           ? tl.AddTask(
+                                 finish_vec_reduce,
+                                 [num_partitions](std::vector<int> *vec) {
+                                   auto &v = *vec;
+                                   std::cout << "Vec reduction: ";
+                                   for (int n = 0; n < v.size(); n++) {
+                                     std::cout << v[n] << " ";
+                                   }
+                                   std::cout << std::endl;
+                                   std::cout << "Should be:     ";
+                                   for (int n = 0; n < v.size(); n++) {
+                                     std::cout << n * num_partitions * Globals::nranks
+                                               << " ";
+                                   }
+                                   std::cout << std::endl;
+                                   return TaskStatus::complete;
+                                 },
+                                 &vec_reduce.val)
+                           : none);
   }
 
   return tc;

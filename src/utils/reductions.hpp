@@ -23,9 +23,21 @@
 
 namespace parthenon {
 
-enum class Op { MAX, MIN, SUM, PROD, LAND, BAND, LOR, BOR, LXOR, BXOR, MAXLOC, MINLOC };
 #ifndef MPI_PARALLEL
-#define MPI_
+enum MPI_Op {
+  MPI_MAX,
+  MPI_MIN,
+  MPI_SUM,
+  MPI_PROD,
+  MPI_LAND,
+  MPI_BAND,
+  MPI_LOR,
+  MPI_BOR,
+  MPI_LXOR,
+  MPI_BXOR,
+  MPI_MAXLOC,
+  MPI_MINLOC
+};
 #endif
 
 // Some helper functions
@@ -92,8 +104,8 @@ struct AllReduce : public ReductionBase<T> {
 #ifdef MPI_PARALLEL
     MPI_Iallreduce(MPI_IN_PLACE, GetPtr(this->val), GetSize(this->val),
                    GetType(this->val), op, this->comm, &(this->req));
-    this->active = true;
 #endif
+    this->active = true;
     return TaskStatus::complete;
   }
 };
@@ -110,8 +122,8 @@ struct Reduce : public ReductionBase<T> {
       MPI_Ireduce(GetPtr(this->val), nullptr, GetSize(this->val), GetType(this->val), op,
                   n, this->comm, &(this->req));
     }
-    this->active = true;
 #endif
+    this->active = true;
     return TaskStatus::complete;
   }
 };

@@ -50,7 +50,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto mrho = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField("density", mrho);
-  pkg->AddField("rhs", mrho);
 
   auto mphi = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
   pkg->AddField("potential", mphi);
@@ -172,13 +171,11 @@ TaskStatus UpdatePhi(T *u, T *du) {
   IndexRange kb = u->GetBoundsK(IndexDomain::interior);
 
   PackIndexMap imap;
-  const std::vector<std::string> vars(
-      {"poisson_sparse_matrix", "density", "rhs", "potential"});
+  const std::vector<std::string> vars({"poisson_sparse_matrix", "density", "potential"});
   const auto &v = u->PackVariables(vars, imap);
   const int isp_lo = imap["poisson_sparse_matrix"].first;
   const int isp_hi = imap["poisson_sparse_matrix"].second;
   const int irho = imap["density"].first;
-  const int irhs = imap["rhs"].first;
   const int iphi = imap["potential"].first;
   const std::vector<std::string> phi_var({"potential"});
   PackIndexMap imap2;

@@ -31,10 +31,11 @@ struct SparseMatrixAccessor {
                        std::vector<std::vector<int>> off)
       : ioff(label + "_ioff", n), joff(label + "_joff", n), koff(label + "_koff", n),
         nstencil(n) {
-    assert(off.size() == 3);
-    assert(off[0].size() >= n);
-    assert(off[1].size() >= n);
-    assert(off[2].size() >= n);
+    PARTHENON_REQUIRE_THROWS(off.size() == 3,
+                             "Offset array must have dimensions off[3][*]");
+    PARTHENON_REQUIRE_THROWS(off[0].size() >= n, "Offset array off[0][*] too small");
+    PARTHENON_REQUIRE_THROWS(off[1].size() >= n, "Offset array off[1][*] too small");
+    PARTHENON_REQUIRE_THROWS(off[2].size() >= n, "Offset array off[2][*] too small");
     auto ioff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), ioff);
     auto joff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), joff);
     auto koff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), koff);
@@ -88,11 +89,12 @@ struct Stencil {
           std::vector<std::vector<int>> off)
       : w(label + "_w", n), ioff(label + "_ioff", n), joff(label + "_joff", n),
         koff(label + "_koff", n), nstencil(n) {
-    assert(off.size() == 3);
-    assert(wgt.size() >= n);
-    assert(off[0].size() >= n);
-    assert(off[1].size() >= n);
-    assert(off[2].size() >= n);
+    PARTHENON_REQUIRE_THROWS(off.size() == 3,
+                             "Offset array must have dimensions off[3][*]");
+    PARTHENON_REQUIRE_THROWS(wgt.size() >= n, "Weight array too small");
+    PARTHENON_REQUIRE_THROWS(off[0].size() >= n, "Offset array off[0][*] too small");
+    PARTHENON_REQUIRE_THROWS(off[1].size() >= n, "Offset array off[1][*] too small");
+    PARTHENON_REQUIRE_THROWS(off[2].size() >= n, "Offset array off[2][*] too small");
     auto w_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), w);
     auto ioff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), ioff);
     auto joff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), joff);
