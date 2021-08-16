@@ -289,12 +289,13 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
   const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
   // packing in principle unnecessary/convoluted here and just done for demonstration
-  PackIndexMap imap;
   std::vector<std::string> vars({"num_iter", "advected", "dummy_result"});
-  auto v = rc->PackVariables(vars, imap);
-  const int niter = imap["num_iter"].first;
-  const int in = imap["advected"].first;
-  const int out = imap["dummy_result"].first;
+  PackIndexMap imap;
+  const auto &v = rc->PackVariables(vars, imap);
+
+  const int niter = imap.get("num_iter").first;
+  const int in = imap.get("advected").first;
+  const int out = imap.get("dummy_result").first;
   const auto num_vars = rc->Get("advected").data.GetDim(4);
   int N_min = pkg->Param<int>("N_min");
 

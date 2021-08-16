@@ -17,9 +17,11 @@
 #include <utility>
 
 #include "bvals/cc/bvals_cc.hpp"
+#include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -51,39 +53,71 @@ template <typename T>
 std::shared_ptr<CellVariable<T>>
 CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
                               std::weak_ptr<MeshBlock> wpmb) {
-  std::array<int, 6> dims = {GetDim(1), GetDim(2), GetDim(3),
-                             GetDim(4), GetDim(5), GetDim(6)};
-
   // copy the Metadata
   Metadata m = m_;
 
   // make the new CellVariable
-  auto cv = std::make_shared<CellVariable<T>>(label(), dims, m);
+  auto cv = std::make_shared<CellVariable<T>>(base_name_, m, sparse_id_, wpmb);
 
-  if (IsSet(Metadata::FillGhost)) {
-    if (alloc_separate_fluxes_and_bvar) {
-      cv->AllocateFluxesAndBdryVar(wpmb);
-    } else {
-      // set data pointer for the boundary communication
-      // Note that vbvar->var_cc will be set when stage is selected
-      cv->vbvar = vbvar;
+  if (is_allocated_) {
+    cv->AllocateData();
+  }
 
+  if (alloc_separate_fluxes_and_bvar) {
+    cv->AllocateFluxesAndBdryVar(wpmb);
+  } else {
+    if (IsSet(Metadata::WithFluxes)) {
       // fluxes, coarse buffers, etc., are always a copy
       // Rely on reference counting and shallow copy of kokkos views
       cv->flux_data_ = flux_data_; // reference counted
       for (int i = 1; i <= 3; i++) {
         cv->flux[i] = flux[i]; // these are subviews
       }
-      cv->coarse_s = coarse_s; // reference counted
+    }
+
+    if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+      // no need to check mesh->multilevel, if false, we're just making a shallow copy of
+      // an empty ParArrayND
+      cv->coarse_s = coarse_s;
+
+      if (IsSet(Metadata::FillGhost)) {
+        // set data pointer for the boundary communication
+        // Note that vbvar->var_cc will be set when stage is selected
+        cv->vbvar = vbvar;
+      }
     }
   }
+
   return cv;
+}
+
+template <typename T>
+void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
+  if (is_allocated_) {
+    return;
+  }
+
+  AllocateData();
+  AllocateFluxesAndBdryVar(wpmb);
+}
+
+template <typename T>
+void CellVariable<T>::AllocateData() {
+  PARTHENON_REQUIRE_THROWS(
+      !is_allocated_,
+      "Tried to allocate data for variable that's already allocated: " + label());
+
+  data =
+      ParArrayND<T>(label(), dims_[5], dims_[4], dims_[3], dims_[2], dims_[1], dims_[0]);
+  is_allocated_ = true;
 }
 
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
 void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
+  PARTHENON_REQUIRE_THROWS(
+      is_allocated_, "Tried to allocate comms for un-allocated variable " + label());
   std::string base_name = label();
 
   // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise

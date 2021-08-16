@@ -67,9 +67,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 9 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 11 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=545300260f896c8cdfadc8f217db5d76f00f3a7193f89aa84f2ab98204b609697d8708475ee217cce5c8294fbfed28b81de68a7e93e3c9f2ecce047307759be0"
+  "SHA512=11fdcb9e42457f41f2f4d4cce4636a73cdab601eac9638fb63f9284c10dc90f5719b190e075a079c13804d8126e56a80590ffc71c6cc5eeb0d0afa72cbeaa9a1"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -281,9 +281,9 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
         COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/
         )
-      message(STATUS "  Download of gold standard successful.")
+      message(STATUS "  Download of gold standard successful. Now using version ${REGRESSION_GOLD_STANDARD_VER}")
     else()
-      message(STATUS "Gold standard is up-to-date. No download required.")
+      message(STATUS "Gold standard is up-to-date (version ${REGRESSION_GOLD_STANDARD_VER}). No download required.")
     endif()
 
 

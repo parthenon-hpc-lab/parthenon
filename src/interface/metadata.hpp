@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,6 +17,7 @@
 #include <bitset>
 #include <exception>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -112,6 +113,7 @@ class UserMetadataState;
 
 } // namespace internal
 
+class MeshBlock;
 class Metadata;
 
 class TensorShape {
@@ -134,6 +136,10 @@ class MetadataFlag {
 
   constexpr bool operator!=(MetadataFlag const &other) const {
     return flag_ != other.flag_;
+  }
+
+  constexpr bool operator<(const MetadataFlag &other) const {
+    return flag_ < other.flag_;
   }
 
   std::string const &Name() const;
@@ -180,16 +186,15 @@ class Metadata {
 
   Metadata() = default;
 
-  // There are 4 optional arguments: shape, sparse_id, component_labels, and associated,
-  // so we'll need 16 constructors to provide all possible variants
+  // There are 3 optional arguments: shape, component_labels, and associated, so we'll
+  // need 8 constructors to provide all possible variants
 
-  // 5 constructors, this is the general constructor called by all other constructors, so
+  // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {1},
-           int sparse_id = -1, const std::vector<std::string> &component_labels = {},
+           const std::vector<std::string> &component_labels = {},
            const std::string &associated = "")
-      : shape_(shape), sparse_id_(sparse_id), component_labels_(component_labels),
-        associated_(associated) {
+      : shape_(shape), component_labels_(component_labels), associated_(associated) {
     // set flags
     for (const auto f : bits) {
       DoBit(f, true);
@@ -225,40 +230,18 @@ class Metadata {
 
   // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
-           int sparse_id, const std::string &associated)
-      : Metadata(bits, shape, sparse_id, {}, associated) {}
-
-  // 2 constructors
-  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
-           const std::vector<std::string> component_labels,
-           const std::string &associated = "")
-      : Metadata(bits, shape, -1, component_labels, associated) {}
-
-  // 1 constructor
-  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
            const std::string &associated)
-      : Metadata(bits, shape, -1, {}, associated) {}
-
-  // 3 constructors
-  Metadata(const std::vector<MetadataFlag> &bits, int sparse_id,
-           const std::vector<std::string> component_labels = {},
-           const std::string &associated = "")
-      : Metadata(bits, {1}, sparse_id, component_labels, associated) {}
-
-  // 1 constructor
-  Metadata(const std::vector<MetadataFlag> &bits, int sparse_id,
-           const std::string &associated)
-      : Metadata(bits, {1}, sparse_id, {}, associated) {}
+      : Metadata(bits, shape, {}, associated) {}
 
   // 2 constructors
   Metadata(const std::vector<MetadataFlag> &bits,
            const std::vector<std::string> component_labels,
            const std::string &associated = "")
-      : Metadata(bits, {1}, -1, component_labels, associated) {}
+      : Metadata(bits, {1}, component_labels, associated) {}
 
   // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated)
-      : Metadata(bits, {1}, -1, {}, associated) {}
+      : Metadata(bits, {1}, {}, associated) {}
 
   // Static routines
   static MetadataFlag AllocateNewFlag(std::string &&name);
@@ -313,20 +296,15 @@ class Metadata {
       }
     }
 
-    // Sparse
-    if (IsSet(Sparse) != (sparse_id_ != -1)) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Mismatch between sparse flag and sparse ID");
-      }
-    }
-
     return valid;
   }
 
   /*--------------------------------------------------------*/
   // Getters for attributes
   /*--------------------------------------------------------*/
+  // returns all set flags
+  std::vector<MetadataFlag> Flags() const;
+
   /// returns the topological location of variable
   MetadataFlag Where() const {
     if (IsSet(Cell)) {
@@ -373,14 +351,15 @@ class Metadata {
     PARTHENON_THROW("No role flag set");
   }
 
-  void SetSparseId(int id) { sparse_id_ = id; }
-  int GetSparseId() const { return sparse_id_; }
-
   const std::vector<int> &Shape() const { return shape_; }
 
   /*--------------------------------------------------------*/
   // Utility functions
   /*--------------------------------------------------------*/
+
+  // get the dims of the 6D array
+  std::array<int, 6> GetArrayDims(std::weak_ptr<MeshBlock> wpmb) const;
+
   /// Returns the attribute flags as a string of 1/0
   std::string MaskAsString() const {
     std::string str;
@@ -436,13 +415,13 @@ class Metadata {
     return true;
   }
 
-  bool SparseEqual(const Metadata &b) const {
-    return HasSameFlags(b) && (shape_ == b.shape_);
-  }
-
   bool operator==(const Metadata &b) const {
-    // TODO(JL) What about component_labels_ and associated_?
-    return (SparseEqual(b) && (sparse_id_ == b.sparse_id_));
+    return HasSameFlags(b) && (shape_ == b.shape_);
+
+    // associated_ can be used by downstream codes to associate some variables with
+    // others, and component_labels_ are used in output files to label components of
+    // vectors/tensors. Both are not true metadata of a variable for the purposes of the
+    // infrastructure and hence are not checked here
   }
 
   bool operator!=(const Metadata &b) const { return !(*this == b); }
@@ -458,7 +437,6 @@ class Metadata {
   /// the attribute flags that are set for the class
   std::vector<bool> bits_;
   std::vector<int> shape_ = {1};
-  int sparse_id_ = -1;
   std::vector<std::string> component_labels_ = {};
   std::string associated_ = "";
 

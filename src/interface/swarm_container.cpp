@@ -95,6 +95,8 @@ void SwarmContainer::AllocateBoundaries() {
 }
 
 TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
+  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Send");
+
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {
     if (s->Send(phase)) {
@@ -102,11 +104,15 @@ TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
     }
     total++;
   }
+
+  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_Send
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
 
 TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
+  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Receive");
+
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {
     if (s->Receive(phase)) {
@@ -114,6 +120,8 @@ TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
     }
     total++;
   }
+
+  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_Receive
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
