@@ -1089,6 +1089,28 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   }
 }
 
+bool Swarm::ResetCommunication() {
+  auto pmb = GetBlockPointer();
+#ifdef MPI_PARALLEL
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
+  }
+#endif
+
+  // Reset boundary statuses
+  for (int n = 0; n < vbswarm->bd_var_.nbmax; n++) {
+    auto &nb = pmb->pbval->neighbor[n];
+    vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+  }
+  return true;
+}
+
+bool Swarm::FinalizeCommunicationIterative() {
+
+  return true;
+}
+
 void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
   if (wpmb.expired()) return;
 

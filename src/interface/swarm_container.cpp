@@ -126,6 +126,38 @@ TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
   return TaskStatus::incomplete;
 }
 
+TaskStatus SwarmContainer::ResetCommunication() {
+  Kokkos::Profiling::pushRegion("Task_SwarmContainer_ResetCommunication");
+
+  int success = 0, total = 0;
+  for (auto &s : swarmVector_) {
+    if (s->ResetCommunication()) {
+      success++;
+    }
+    total++;
+  }
+
+  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_ResetCommunication
+  if (success == total) return TaskStatus::complete;
+  return TaskStatus::incomplete;
+}
+
+TaskStatus SwarmContainer::FinalizeCommunicationIterative() {
+  Kokkos::Profiling::pushRegion("Task_SwarmContainer_FinalizeCommunicationIterative");
+
+  int success = 0, total = 0;
+  for (auto &s : swarmVector_) {
+    if (s->FinalizeCommunicationIterative()) {
+      success++;
+    }
+    total++;
+  }
+
+  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_FinalizeCommunicationIterative
+  if (success == total) return TaskStatus::complete;
+  return TaskStatus::incomplete;
+}
+
 void SwarmContainer::ClearBoundary(BoundaryCommSubset phase) {}
 
 void SwarmContainer::Print() const {

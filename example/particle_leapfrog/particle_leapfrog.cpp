@@ -448,10 +448,20 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
 
   auto num_task_lists_executed_independently = blocks.size();
 
-  TaskRegion &sync_region0 = tc.AddRegion(1);
+  /*TaskRegion &sync_region0 = tc.AddRegion(1);
   {
     auto &tl = sync_region0[0];
     auto initialize_comms = tl.AddTask(none, InitializeCommunicationMesh, blocks);
+  }*/
+
+  TaskRegion &sync_region0 = tc.AddRegion(1);
+  {
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &tl = sync_region0[0];
+      auto &pmb = blocks[i];
+      auto &sc = pmb->swarm_data.Get();
+      auto reset_comms = tl.AddTask(none, &SwarmContainer::ResetCommunication, sc.get());
+    }
   }
 
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);

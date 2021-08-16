@@ -49,113 +49,6 @@ struct ParticleBoundaries {
 class MeshBlock;
 
 enum class PARTICLE_STATUS { UNALLOCATED, ALIVE, DEAD };
-/*
-class SwarmDeviceContext {
- public:
-  KOKKOS_FUNCTION
-  bool IsActive(int n) const { return mask_(n); }
-
-  KOKKOS_FUNCTION
-  void MarkParticleForRemoval(int n) const { marked_for_removal_(n) = true; }
-
-  KOKKOS_FUNCTION
-  bool IsMarkedForRemoval(const int n) const { return marked_for_removal_(n); }
-
-  KOKKOS_INLINE_FUNCTION
-  int GetNeighborBlockIndex(const int &n, const double &x, const double &y,
-                            const double &z, bool &is_on_current_mesh_block) const {
-    const int i =
-        static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
-    const int j =
-        static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
-    const int k =
-        static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
-
-    // Something went wrong
-    if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
-        ((k < 0 || k > 3) && ndim_ > 2)) {
-      PARTHENON_FAIL("Particle neighbor indices out of bounds");
-    }
-
-    // Ignore k,j indices as necessary based on problem dimension
-    if (ndim_ == 1) {
-      blockIndex_(n) = neighborIndices_(0, 0, i);
-    } else if (ndim_ == 2) {
-      blockIndex_(n) = neighborIndices_(0, j, i);
-    } else {
-      blockIndex_(n) = neighborIndices_(k, j, i);
-    }
-
-    is_on_current_mesh_block = (blockIndex_(n) == this_block_);
-
-    return blockIndex_(n);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  int GetMyRank() const { return my_rank_; }
-
-<<<<<<< HEAD
-// private:
-=======
- private:
->>>>>>> upstream/develop
-  Real x_min_;
-  Real x_max_;
-  Real y_min_;
-  Real y_max_;
-  Real z_min_;
-  Real z_max_;
-  Real x_min_global_;
-  Real x_max_global_;
-  Real y_min_global_;
-  Real y_max_global_;
-  Real z_min_global_;
-  Real z_max_global_;
-  ParArrayND<bool> marked_for_removal_;
-  ParArrayND<bool> mask_;
-  ParArrayND<int> blockIndex_;
-  ParArrayND<int> neighborIndices_; // 4x4x4 array of possible block AMR regions
-  int ndim_;
-  friend class Swarm;
-  constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
-  int my_rank_;
-};
-*/
-
-//} // namespace parthenon
-
-//#include "swarm_boundaries.hpp"
-
-// namespace parthenon {
-
-/*
-class ParticleBoundIX1Periodic : ParticleBound {
- public:
-  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
-                                        const SwarmDeviceContext &swarm_d) override {
-    if (x < swarm_d.x_min_global_) {
-      x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
-    }
-  }
-};
-
-class ParticleBoundIX1Outflow : ParticleBound {
- public:
-  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
-                                        const SwarmDeviceContext &swarm_d) override {
-    swarm_d.MarkParticleForRemoval(n);
-  }
-};
-
-class ParticleBoundIX1Reflect : ParticleBound {
- public:
-  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
-                                        const SwarmDeviceContext &swarm_d) override {
-    if (x < swarm_d.x_min_global_) {
-      x = swarm_d.x_min_global_ + (swarm_d.x_min_global_ - x);
-    }
-  }
-};*/
 
 class Swarm {
  private:
@@ -283,6 +176,10 @@ class Swarm {
   bool Send(BoundaryCommSubset phase);
 
   bool Receive(BoundaryCommSubset phase);
+
+  bool ResetCommunication();
+
+  bool FinalizeCommunicationIterative();
 
   template <class T>
   SwarmVariablePack<T> PackAllVariables(PackIndexMap &vmap);

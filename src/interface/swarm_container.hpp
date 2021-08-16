@@ -142,6 +142,8 @@ class SwarmContainer {
   TaskStatus StartCommunication(BoundaryCommSubset phase);
   TaskStatus Send(BoundaryCommSubset phase);
   TaskStatus Receive(BoundaryCommSubset phase);
+  TaskStatus ResetCommunication();
+  TaskStatus FinalizeCommunicationIterative();
   [[deprecated("Not yet implemented")]] void ClearBoundary(BoundaryCommSubset phase);
 
   bool operator==(const SwarmContainer &cmp) {
