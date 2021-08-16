@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <config.hpp>
+#include <globals.hpp>
 #include <parthenon_mpi.hpp>
 #include <utils/error_checking.hpp>
 #include <utils/mpi_types.hpp>
