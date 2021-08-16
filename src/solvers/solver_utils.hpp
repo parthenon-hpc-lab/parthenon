@@ -54,9 +54,10 @@ struct SparseMatrixAccessor {
   }
 
   template <typename PackType>
-  Real MatVec(const PackType &spmat, const int imat_lo, const int imat_hi,
-              const PackType &v, const int iv, const int b, const int k, const int j,
-              const int i) const {
+  KOKKOS_INLINE_FUNCTION Real MatVec(const PackType &spmat, const int imat_lo,
+                                     const int imat_hi, const PackType &v, const int iv,
+                                     const int b, const int k, const int j,
+                                     const int i) const {
     Real matvec = 0.0;
     for (int n = imat_lo; n <= imat_hi; n++) {
       const int m = n - imat_lo;
