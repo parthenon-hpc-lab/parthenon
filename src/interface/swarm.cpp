@@ -1106,7 +1106,10 @@ bool Swarm::ResetCommunication() {
   return true;
 }
 
-bool Swarm::FinalizeCommunicationIterative() { return true; }
+bool Swarm::FinalizeCommunicationIterative() {
+  PARTHENON_THROW("FinalizeCommunicationIterative not yet implemented!");
+  return true;
+}
 
 void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
   if (wpmb.expired()) return;

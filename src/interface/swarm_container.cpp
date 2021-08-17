@@ -163,6 +163,8 @@ TaskStatus SwarmContainer::ResetCommunication() {
 TaskStatus SwarmContainer::FinalizeCommunicationIterative() {
   Kokkos::Profiling::pushRegion("Task_SwarmContainer_FinalizeCommunicationIterative");
 
+  PARTHENON_THROW("FinalizeCommunicationIterative not yet fully implemented!")
+
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {
     if (s->FinalizeCommunicationIterative()) {
