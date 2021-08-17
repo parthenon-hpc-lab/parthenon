@@ -36,8 +36,6 @@
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
 
-constexpr Real min_occupancy = 0.9;
-
 // *************************************************//
 // redefine some internal parthenon functions      *//
 // *************************************************//

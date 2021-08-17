@@ -758,13 +758,7 @@ void Swarm::SetupPersistentMPI() {
 
   auto pmb = GetBlockPointer();
 
-  // TODO(BRR) Checks against some current limitations
   const int ndim = pmb->pmy_mesh->ndim;
-  auto mesh_bcs = pmb->pmy_mesh->mesh_bcs;
-  // for (int n = 0; n < 2 * ndim; n++) {
-  //  PARTHENON_REQUIRE(mesh_bcs[n] == BoundaryFlag::periodic,
-  //                    "Only periodic boundaries supported right now!");
-  //}
 
   const int nbmax = pmb->pbval->nneighbor;
   num_particles_to_send_ = ParArrayND<int>("npts", nbmax);
@@ -780,16 +774,6 @@ void Swarm::SetupPersistentMPI() {
     PARTHENON_FAIL("ndim must be 1, 2, or 3 for particles!");
   }
 
-  // TODO(BRR) TEMP!
-  auto neighborIndices_h = neighborIndices_.GetHostMirror();
-  for (int k = 0; k < 4; k++) {
-    for (int j = 0; j < 4; j++) {
-      for (int i = 0; i < 4; i++) {
-        printf("[%i %i %i] neighbor: %i\n", k, j, i, neighborIndices_h(k, j, i));
-      }
-    }
-  }
-
   neighbor_received_particles_.resize(vbswarm->bd_var_.nbmax);
 }
 
@@ -798,7 +782,6 @@ int Swarm::CountParticlesToSend_() {
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
-  // const int nbmax = vbswarm->bd_var_.nbmax;
   const int nbmax = pmb->pbval->nneighbor;
 
   // Fence to make sure particles aren't currently being transported locally
@@ -848,7 +831,7 @@ int Swarm::CountParticlesToSend_() {
     // Resize buffer if too small
     auto sendbuf = vbswarm->bd_var_.send[n];
     if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
-      sendbuf = ParArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
+      sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
       vbswarm->bd_var_.send[n] = sendbuf;
     }
     vbswarm->send_size[n] = num_particles_to_send_h(n) * particle_size;

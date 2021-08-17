@@ -202,11 +202,11 @@ class Swarm {
 
   void ApplyBoundaries_(const int nparticles, ParArrayND<int> indices);
 
+  std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds[6];
+
  private:
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarListAll_();
-
-  std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds[6];
 
   void SetNeighborIndices1D_();
   void SetNeighborIndices2D_();
