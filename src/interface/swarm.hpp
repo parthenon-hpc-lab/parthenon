@@ -203,7 +203,7 @@ class Swarm {
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarListAll_();
 
-  std::unique_ptr<ParticleBound, DeviceDeleter<Kokkos::HostSpace>> bounds[6];
+  std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds[6];
 
   void SetNeighborIndices1D_();
   void SetNeighborIndices2D_();
