@@ -103,7 +103,8 @@ class Swarm {
   /// Set a custom boundary condition
   void SetBoundary(
       const int n,
-      std::unique_ptr<ParticleBound, parthenon::DeviceDeleter<parthenon::DevMemSpace>> bc) {
+      std::unique_ptr<ParticleBound, parthenon::DeviceDeleter<parthenon::DevMemSpace>>
+          bc) {
     bounds[n] = std::move(bc);
     pbounds.bounds[n] = bounds[n].get();
   }
