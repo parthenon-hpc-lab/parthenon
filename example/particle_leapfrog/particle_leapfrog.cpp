@@ -67,7 +67,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("write_particle_log_nth_cycle", write_particle_log_nth_cycle);
 
   std::string swarm_name = "my particles";
-  Metadata swarm_metadata({Metadata::Provides});
+  Metadata swarm_metadata({Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
@@ -384,35 +384,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   return TaskStatus::complete;
 }
 
-// Mark all MPI requests as NULL / initialize boundary flags.
-// TODO(BRR) Should this be a Swarm method?
-TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
-  // Boundary transfers on same MPI proc are blocking
-#ifdef MPI_PARALLEL
-  for (auto &block : blocks) {
-    auto &pmb = block;
-    auto swarm = pmb->swarm_data.Get()->Get("my particles");
-    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-      NeighborBlock &nb = pmb->pbval->neighbor[n];
-      swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
-    }
-  }
-#endif
-
-  // Reset boundary statuses
-  for (auto &block : blocks) {
-    auto &pmb = block;
-    auto sc = pmb->swarm_data.Get();
-    auto swarm = sc->Get("my particles");
-    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-      auto &nb = pmb->pbval->neighbor[n];
-      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-    }
-  }
-
-  return TaskStatus::complete;
-}
-
 TaskStatus Defrag(MeshBlock *pmb) {
   auto s = pmb->swarm_data.Get()->Get("my particles");
 
@@ -447,12 +418,6 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   const BlockList_t &blocks = pmesh->block_list;
 
   auto num_task_lists_executed_independently = blocks.size();
-
-  /*TaskRegion &sync_region0 = tc.AddRegion(1);
-  {
-    auto &tl = sync_region0[0];
-    auto initialize_comms = tl.AddTask(none, InitializeCommunicationMesh, blocks);
-  }*/
 
   TaskRegion &sync_region0 = tc.AddRegion(1);
   {

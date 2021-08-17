@@ -1108,6 +1108,7 @@ bool Swarm::ResetCommunication() {
 
 bool Swarm::FinalizeCommunicationIterative() {
 
+
   return true;
 }
 

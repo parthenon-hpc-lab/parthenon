@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 563]](https://github.com/lanl/parthenon/pull/563) Physical boundary options for particles
 - [[PR 556]](https://github.com/lanl/parthenon/pull/556) Introduce iterative tasks and regionally dependent tasks
 - [[PR 578]](https://github.com/lanl/parthenon/pull/578) Add some profiling regions to tasks in particles example
 - [[PR 577]](https://github.com/lanl/parthenon/pull/577) Update invalid indices to allow for no-op loops
