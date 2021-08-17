@@ -36,6 +36,8 @@
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
 
+constexpr Real min_occupancy = 0.9;
+
 // *************************************************//
 // redefine some internal parthenon functions      *//
 // *************************************************//
@@ -384,18 +386,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   return TaskStatus::complete;
 }
 
-TaskStatus Defrag(MeshBlock *pmb) {
-  auto s = pmb->swarm_data.Get()->Get("my particles");
-
-  // Only do this if list is getting too sparse. This criterion (whether there
-  // are *any* gaps in the list) is very aggressive
-  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
-    s->Defrag();
-  }
-
-  return TaskStatus::complete;
-}
-
 // Custom step function to allow for looping over MPI-related tasks until complete
 TaskListStatus ParticleDriver::Step() {
   TaskListStatus status;
@@ -433,7 +423,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
 
-    auto sc = pmb->swarm_data.Get();
+    auto &sc = pmb->swarm_data.Get();
 
     auto &tl = async_region0[i];
 
@@ -459,9 +449,12 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
 
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
+    auto &sc = pmb->swarm_data.Get();
     auto &tl = async_region1[i];
 
-    auto defrag = tl.AddTask(none, Defrag, pmb.get());
+    // Defragment if swarm memory pool occupancy is 90%
+    auto defrag = tl.AddTask(none, &SwarmContainer::Defrag, sc.get(), 0.9);
+
     auto new_dt =
         tl.AddTask(defrag, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>,
                    pmb->meshblock_data.Get().get());

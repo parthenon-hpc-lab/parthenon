@@ -74,6 +74,23 @@ void SwarmContainer::Remove(const std::string &label) {
   swarmMap_.erase(label);
 }
 
+TaskStatus SwarmContainer::Defrag(double min_occupancy) {
+  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Defrag");
+  PARTHENON_REQUIRE_THROWS(min_occupancy >= 0. && min_occupancy <= 1.,
+    "Max fractional occupancy of swarm must be >= 0 and <= 1");
+
+  for (auto &s : swarmVector_) {
+    s->SetupPersistentMPI();
+    if (s->GetNumActive() > 0 && s->GetNumActive()/(s->GetMaxActiveIndex() + 1) < min_occupancy) {
+      s->Defrag();
+    }
+  }
+
+  Kokkos::Profiling::popRegion();
+
+  return TaskStatus::complete;
+}
+
 void SwarmContainer::SendBoundaryBuffers() {}
 
 void SwarmContainer::SetupPersistentMPI() {

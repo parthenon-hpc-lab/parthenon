@@ -308,20 +308,6 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
   return TaskStatus::complete;
 }
 
-// Clean up particle memory pool which can become sparse due to particles removed during
-// communication.
-TaskStatus Defrag(MeshBlock *pmb) {
-  auto s = pmb->swarm_data.Get()->Get("tracers");
-
-  // Only do this if list is getting too sparse. This criterion (whether there
-  // are *any* gaps in the list) is very aggressive
-  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
-    s->Defrag();
-  }
-
-  return TaskStatus::complete;
-}
-
 // *************************************************//
 // define the application driver. in this case,    *//
 // that just means defining the MakeTaskList       *//
@@ -495,7 +481,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
         auto &tl = sync_region0[0];
         auto &pmb = blocks[i];
         auto &sc = pmb->swarm_data.Get();
-        auto reset_comms = tl.AddTask(none, &SwarmContainer::ResetCommunication, sc.get());
+        auto reset_comms =
+            tl.AddTask(none, &SwarmContainer::ResetCommunication, sc.get());
       }
     }
 
@@ -515,7 +502,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
 
       auto deposit = tl.AddTask(receive, tracers_example::DepositTracers, pmb.get());
 
-      auto defrag = tl.AddTask(deposit, tracers_example::Defrag, pmb.get());
+      // Defragment if swarm memory pool occupancy is 90%
+      auto defrag = tl.AddTask(none, &SwarmContainer::Defrag, sc.get(), 0.9);
     }
   }
 

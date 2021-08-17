@@ -133,6 +133,9 @@ class SwarmContainer {
   // Element accessor functions
   std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }
 
+  // Defragmentation task
+  TaskStatus Defrag(double min_occupancy);
+
   // Communication routines
   void SetupPersistentMPI();
   [[deprecated("Not yet implemented")]] void SetBoundaries();

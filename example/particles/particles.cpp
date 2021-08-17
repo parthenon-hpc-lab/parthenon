@@ -432,21 +432,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   return TaskStatus::complete;
 }
 
-TaskStatus Defrag(MeshBlock *pmb) {
-  Kokkos::Profiling::pushRegion("Task_Particles_Defrag");
-
-  auto s = pmb->swarm_data.Get()->Get("my particles");
-
-  // Only do this if list is getting too sparse. This criterion (whether there
-  // are *any* gaps in the list) is very aggressive
-  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
-    s->Defrag();
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_Particles_Defrag
-  return TaskStatus::complete;
-}
-
 // Custom step function to allow for looping over MPI-related tasks until complete
 TaskListStatus ParticleDriver::Step() {
   TaskListStatus status;
@@ -572,7 +557,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
 
-    auto sc = pmb->swarm_data.Get();
+    auto &sc = pmb->swarm_data.Get();
 
     auto &tl = async_region0[i];
 
@@ -604,6 +589,7 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
 
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
+    auto &sc = pmb->swarm_data.Get();
     auto &sc1 = pmb->meshblock_data.Get();
     auto &tl = async_region1[i];
 
@@ -612,7 +598,8 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
     auto deposit_particles =
         tl.AddTask(destroy_some_particles, DepositParticles, pmb.get());
 
-    auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
+    // Defragment if swarm memory pool occupancy is 90%
+    auto defrag = tl.AddTask(deposit_particles, &SwarmContainer::Defrag, sc.get(), 0.9);
 
     // estimate next time step
     auto new_dt = tl.AddTask(
