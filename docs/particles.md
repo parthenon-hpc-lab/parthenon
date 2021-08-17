@@ -93,3 +93,12 @@ further details. Note that this pattern is blocking, and may be replaced in the
 future.
 
 AMR is currently not supported, but support will be added in the future.
+
+## Boundary conditions
+
+Particle boundary conditions are not applied in separate kernel calls; instead, inherited
+classes containing boundary condition functions for updating particles or removing them
+when they are in boundary regions are allocated depending on the boundary flags specified
+in the input file. Currently, only reflecting, outflow, and periodic boundaries are
+supported. User-specified boundary conditions supplied by downstream codes will be
+supported in the future.
