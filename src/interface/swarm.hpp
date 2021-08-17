@@ -103,7 +103,7 @@ class Swarm {
   /// Set a custom boundary condition
   void SetBoundary(
       const int n,
-      std::unique_ptr<ParticleBound, parthenon::DeviceDeleter<Kokkos::HostSpace>> bc) {
+      std::unique_ptr<ParticleBound, parthenon::DeviceDeleter<parthenon::DevMemSpace>> bc) {
     bounds[n] = std::move(bc);
     pbounds.bounds[n] = bounds[n].get();
   }
@@ -199,6 +199,8 @@ class Swarm {
   void LoadBuffers_(const int max_indices_size);
   void UnloadBuffers_();
 
+  void ApplyBoundaries_(const int nparticles, ParArrayND<int> indices);
+
  private:
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarListAll_();
@@ -216,8 +218,6 @@ class Swarm {
 
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
-
-  void ApplyBoundaries_(const int nparticles, ParArrayND<int> indices);
 
   int nmax_pool_;
   int max_active_index_ = 0;

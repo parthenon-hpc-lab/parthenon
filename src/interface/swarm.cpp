@@ -196,7 +196,6 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
                                 " already enrolled during Add()!");
   }
 
-  int vec_type;
   if (metadata.Type() == Metadata::Integer) {
     Add_<int>(label);
   } else if (metadata.Type() == Metadata::Real) {
@@ -876,8 +875,6 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
 
-  auto bcs = this->pbounds;
-
   auto &bdvar = vbswarm->bd_var_;
   auto num_particles_to_send = num_particles_to_send_;
   auto particle_indices_to_send = particle_indices_to_send_;
@@ -915,7 +912,6 @@ bool Swarm::Send(BoundaryCommSubset phase) {
 
     int total_sent_particles = 0;
 
-    int max_indices_size = 0;
     for (int n = 0; n <= max_active_index_; n++) {
       if (mask_h(n)) {
         // This particle should be "sent"
@@ -1017,7 +1013,6 @@ void Swarm::UnloadBuffers_() {
     // construct map from buffer index to swarm index (or just return vector of indices!)
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
-    auto bcs = this->pbounds;
 
     pmb->par_for(
         "Unload buffers", 0, total_received_particles_ - 1, KOKKOS_LAMBDA(const int n) {
