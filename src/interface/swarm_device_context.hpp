@@ -109,4 +109,4 @@ class SwarmDeviceContext {
 
 } // namespace parthenon
 
-#endif // SWARM_DEVICE_CONTEXT_HPP_
+#endif // INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
