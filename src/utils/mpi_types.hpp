@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,41 +11,40 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TASKS_TASK_ID_HPP_
-#define TASKS_TASK_ID_HPP_
-
-#include <bitset>
-#include <string>
-#include <vector>
+#ifndef UTILS_MPI_TYPES_HPP_
+#define UTILS_MPI_TYPES_HPP_
 
 #include "basic_types.hpp"
+#include <parthenon_mpi.hpp>
+#include <utils/error_checking.hpp>
 
+#ifdef MPI_PARALLEL
 namespace parthenon {
 
-//----------------------------------------------------------------------------------------
-//! \class TaskID
-//  \brief generalization of bit fields for Task IDs, status, and dependencies.
-
-#define BITBLOCK 16
-
-class TaskID {
- public:
-  TaskID() { Set(0); }
-  explicit TaskID(int id);
-
-  void Set(int id);
-  void clear();
-  bool CheckDependencies(const TaskID &rhs) const;
-  void SetFinished(const TaskID &rhs);
-  bool operator==(const TaskID &rhs) const;
-  bool operator!=(const TaskID &rhs) const;
-  TaskID operator|(const TaskID &rhs) const;
-  std::string to_string() const;
-
- private:
-  std::vector<std::bitset<BITBLOCK>> bitblocks;
+template <typename T>
+struct MPITypeMap {
+  static MPI_Datatype type() {
+    PARTHENON_THROW("Type not available in MPITypeMap.");
+    return MPI_DATATYPE_NULL;
+  }
 };
 
-} // namespace parthenon
+template <>
+inline MPI_Datatype MPITypeMap<Real>::type() {
+  return MPI_PARTHENON_REAL;
+}
 
-#endif // TASKS_TASK_ID_HPP_
+template <>
+inline MPI_Datatype MPITypeMap<int>::type() {
+  return MPI_INT;
+}
+
+template <>
+inline MPI_Datatype MPITypeMap<bool>::type() {
+  return MPI_CXX_BOOL;
+}
+
+} // namespace parthenon
+#endif
+
+#endif // UTILS_MPI_TYPES_HPP_
