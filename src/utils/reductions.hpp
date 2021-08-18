@@ -101,6 +101,7 @@ struct ReductionBase {
 template <typename T>
 struct AllReduce : public ReductionBase<T> {
   TaskStatus StartReduce(MPI_Op op) {
+    if (this->active) return TaskStatus::complete;
 #ifdef MPI_PARALLEL
     MPI_Iallreduce(MPI_IN_PLACE, GetPtr(this->val), GetSize(this->val),
                    GetType(this->val), op, this->comm, &(this->req));
@@ -113,6 +114,7 @@ struct AllReduce : public ReductionBase<T> {
 template <typename T>
 struct Reduce : public ReductionBase<T> {
   TaskStatus StartReduce(const int n, MPI_Op op) {
+    if (this->active) return TaskStatus::complete;
 #ifdef MPI_PARALLEL
     if (Globals::my_rank == n) {
       MPI_Ireduce(MPI_IN_PLACE, GetPtr(this->val), GetSize(this->val), GetType(this->val),
@@ -127,8 +129,6 @@ struct Reduce : public ReductionBase<T> {
     return TaskStatus::complete;
   }
 };
-
-#undef MPI_
 
 } // namespace parthenon
 

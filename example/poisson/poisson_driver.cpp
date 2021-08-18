@@ -152,8 +152,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto norm = solver.AddTask(update, poisson_package::SumDeltaPhi<MeshData<Real>>,
                                mdelta.get(), &update_norm.val);
     solver_region.AddRegionalDependencies(4, i, norm);
-    auto start_reduce_norm =
-        solver.AddTask(norm, &AllReduce<Real>::StartReduce, &update_norm, MPI_SUM);
+    auto start_reduce_norm = (i == 0 ? solver.AddTask(norm, &AllReduce<Real>::StartReduce,
+                                                      &update_norm, MPI_SUM)
+                                     : none);
     auto finish_reduce_norm =
         solver.AddTask(start_reduce_norm, &AllReduce<Real>::CheckReduce, &update_norm);
     auto report_norm = (i == 0 ? solver.AddTask(
