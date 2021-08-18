@@ -161,6 +161,31 @@ TaskStatus SumMass(T *u, Real *reduce_sum) {
 }
 
 template <typename T>
+TaskStatus SumDeltaPhi(T *du, Real *reduce_sum) {
+  auto pm = du->GetParentPointer();
+
+  IndexRange ib = du->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = du->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = du->GetBoundsK(IndexDomain::interior);
+
+  PackIndexMap imap;
+  const std::vector<std::string> vars({"potential"});
+  const auto &dv = du->PackVariables(vars, imap);
+  const int iphi = imap["potential"].first;
+
+  Real total;
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "SumMass", DevExecSpace(), 0, dv.GetDim(5) - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &sum) {
+        sum += std::pow(dv(b, iphi, k, j, i), 2);
+      },
+      Kokkos::Sum<Real>(total));
+
+  *reduce_sum += total;
+  return TaskStatus::complete;
+}
+template <typename T>
 TaskStatus UpdatePhi(T *u, T *du) {
   using Stencil_t = parthenon::solvers::Stencil<Real>;
   Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
@@ -281,6 +306,8 @@ template TaskStatus CheckConvergence<MeshBlockData<Real>>(MeshBlockData<Real> *,
 template TaskStatus UpdatePhi<MeshData<Real>>(MeshData<Real> *, MeshData<Real> *);
 template TaskStatus UpdatePhi<MeshBlockData<Real>>(MeshBlockData<Real> *,
                                                    MeshBlockData<Real> *);
+template TaskStatus SumDeltaPhi<MeshData<Real>>(MeshData<Real> *, Real *);
+template TaskStatus SumDeltaPhi<MeshBlockData<Real>>(MeshBlockData<Real> *, Real *);
 template TaskStatus SumMass<MeshData<Real>>(MeshData<Real> *, Real *);
 template TaskStatus SumMass<MeshBlockData<Real>>(MeshBlockData<Real> *, Real *);
 template TaskStatus SetMatrixElements<MeshData<Real>>(MeshData<Real> *);

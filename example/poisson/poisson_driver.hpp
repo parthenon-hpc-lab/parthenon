@@ -37,6 +37,7 @@ class PoissonDriver : public Driver {
  private:
   // we'll demonstrate doing a global all reduce of a scalar
   AllReduce<Real> total_mass;
+  AllReduce<Real> update_norm;
   // and a reduction onto one rank of a scalar
   Reduce<int> max_rank;
   // and we'll do an all reduce of a vector just for fun

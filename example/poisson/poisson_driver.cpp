@@ -63,6 +63,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   // setup some reductions
   // initialize to zero
   total_mass.val = 0.0;
+  update_norm.val = 0.0;
   max_rank.val = 0;
   // we'll also demonstrate how to reduce a vector
   vec_reduce.val.resize(10);
@@ -148,6 +149,26 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto update = solver.AddTask(mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
                                  md.get(), mdelta.get());
 
+    auto norm = solver.AddTask(update, poisson_package::SumDeltaPhi<MeshData<Real>>,
+                               mdelta.get(), &update_norm.val);
+    solver_region.AddRegionalDependencies(4, i, norm);
+    auto start_reduce_norm =
+        solver.AddTask(norm, &AllReduce<Real>::StartReduce, &update_norm, MPI_SUM);
+    auto finish_reduce_norm =
+        solver.AddTask(start_reduce_norm, &AllReduce<Real>::CheckReduce, &update_norm);
+    auto report_norm = (i == 0 ? solver.AddTask(
+                                     finish_reduce_norm,
+                                     [](Real *norm) {
+                                       if (Globals::my_rank == 0) {
+                                         std::cout << "Update norm = " << *norm
+                                                   << std::endl;
+                                       }
+                                       *norm = 0.0;
+                                       return TaskStatus::complete;
+                                     },
+                                     &update_norm.val)
+                               : none);
+
     auto send = solver.AddTask(update, cell_centered_bvars::SendBoundaryBuffers, md);
 
     auto recv =
@@ -155,14 +176,14 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     auto setb = solver.AddTask(recv | update, cell_centered_bvars::SetBoundaries, md);
 
-    auto clear = solver.AddTask(send | setb, &MeshData<Real>::ClearBoundary, md.get(),
-                                BoundaryCommSubset::all);
+    auto clear = solver.AddTask(send | setb | report_norm, &MeshData<Real>::ClearBoundary,
+                                md.get(), BoundaryCommSubset::all);
 
     auto check = solver.SetCompletionTask(
         clear, poisson_package::CheckConvergence<MeshData<Real>>, md.get(), mdelta.get());
     // mark task so that dependent tasks (below) won't execute
     // until all task lists have completed it
-    solver_region.AddRegionalDependencies(4, i, check);
+    solver_region.AddRegionalDependencies(5, i, check);
 
     auto print = none;
     if (i == 0) { // only print once
@@ -181,7 +202,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
           return TaskStatus::complete;
         },
         &vec_reduce.val);
-    solver_region.AddRegionalDependencies(5, i, fill_vec);
+    solver_region.AddRegionalDependencies(6, i, fill_vec);
 
     TaskID start_vec_reduce =
         (i == 0 ? tl.AddTask(fill_vec, &AllReduce<std::vector<int>>::StartReduce,
@@ -190,7 +211,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // test the reduction until it completes
     TaskID finish_vec_reduce = tl.AddTask(
         start_vec_reduce, &AllReduce<std::vector<int>>::CheckReduce, &vec_reduce);
-    solver_region.AddRegionalDependencies(6, i, finish_vec_reduce);
+    solver_region.AddRegionalDependencies(7, i, finish_vec_reduce);
 
     auto report_vec = (i == 0 && Globals::my_rank == 0
                            ? tl.AddTask(

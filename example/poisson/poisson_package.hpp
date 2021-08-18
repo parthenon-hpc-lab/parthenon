@@ -26,6 +26,8 @@ TaskStatus SetMatrixElements(T *u);
 template <typename T>
 TaskStatus SumMass(T *u, Real *sum);
 template <typename T>
+TaskStatus SumDeltaPhi(T *u, Real *sum);
+template <typename T>
 TaskStatus UpdatePhi(T *u, T *du);
 template <typename T>
 TaskStatus CheckConvergence(T *u, T *du);
