@@ -92,23 +92,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     pkg->AddParam("sparse_accessor", sp_accessor);
   }
 
+
+  pkg->AddParam<std::string>("spm_name", "poisson_sparse_matrix");
+  pkg->AddParam<std::string>("rhs_name", "rhs");
+  pkg->AddParam<std::string>("sol_name", "xk");
+  
   // creating solver class.
   parthenon::solvers::CG_Solver_Helper cg_sol_helper;
   cg_sol_helper.init(pkg);
   
-#if 0  
-  // for cg..
-  // no ghost exchange
-  auto mcdo = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
-  pkg->AddField("zk", mcdo);
-  pkg->AddField("res", mcdo);
-  pkg->AddField("apk", mcdo);
-  pkg->AddField("xk", mcdo);
-  
-  //ghost exchange.
-  auto mcif = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
-  pkg->AddField("pk", mcif);
-#endif
   return pkg;
 }
 
@@ -290,11 +282,6 @@ TaskStatus CheckConvergence(T *u, T *du) {
       },
       Kokkos::Max<Real>(max_err));
 
-#ifdef MPI_PARALLEL
-   MPI_Allreduce(MPI_IN_PLACE, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX, 
-   MPI_COMM_WORLD);
-   std::cout <<"max_err: " << max_err<<std::endl;
-#endif
   StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
   Real err_tol = pkg->Param<Real>("error_tolerance");
 
@@ -348,228 +335,13 @@ TaskStatus SetRHS( T* u)
       jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         v(b, irhs, k, j, i) = dV*v(b, irho, k, j, i);
+        
       });
 
   return TaskStatus::complete;
 }
   
-#if 0
-/////////////////////////////////////////////////////////////////////////////////////////////
-template<typename T>
-TaskStatus Axpy1( T* u, Real *beta)
-{
-  std::cout <<"in axpy1"<<std::endl;
-  auto pm = u->GetParentPointer();
-  const auto &ib = u->GetBoundsI(IndexDomain::interior);
-  const auto &jb = u->GetBoundsJ(IndexDomain::interior);
-  const auto &kb = u->GetBoundsK(IndexDomain::interior);
-  
-  PackIndexMap imap;
-  const std::vector<std::string> vars({"zk", "pk"});
-  const auto &v = u->PackVariables(vars,imap);
-  
-  // this get cell variable..
-  const int izk = imap["zk"].first;
-  const int ipk = imap["pk"].first;
-
-  parthenon::par_for(
-    DEFAULT_LOOP_PATTERN, "axpy1", DevExecSpace(), 0, v.GetDim(5)-1, 
-    kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-    KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-      v(b,ipk,k,j,i) = (*beta)*v(b,ipk,k,j,i) + v(b,izk,k,j,i);
-    });  
-  std::cout <<"out axpy1"<<std::endl;
-  
-  return TaskStatus::complete;
-    
-}//Axpy1
-/////////////////////////////////////////////////////////////////////////
-template<typename T> 
-TaskStatus DiagScaling(T *u, T*du, Real *reduce_sum)
-{
-  std::cout <<"in diagscaling"<<std::endl;
-  
-  auto pm = u->GetParentPointer();
-  const auto &ib = u->GetBoundsI(IndexDomain::interior);
-  const auto &jb = u->GetBoundsJ(IndexDomain::interior);
-  const auto &kb = u->GetBoundsK(IndexDomain::interior);
-
-  PackIndexMap imap;
-  const std::vector<std::string> vars({"density", "zk", "pk" ,"res","poisson_sparse_matrix"});
-  const auto &v = u->PackVariables(vars,imap);
-
-  // this get cell variable..
-  const int irho = imap["density"].first;
-  
-  const int izk = imap["zk"].first;
-  const int ipk = imap["pk"].first;
-  const int ires = imap["res"].first;
-  const int isp_lo = imap["poisson_sparse_matrix"].first;
-  const int isp_hi = imap["poisson_sparse_matrix"].second;
-  const int diag = isp_lo+1;
-  
-  const std::vector<std::string> var2({"xk"});
-  PackIndexMap imap2;
-  const auto &dv = du->PackVariables(var2, imap2);
-  const int ixk = imap2["xk"].first;
-
-  Real sum(0);
-  Real gsum(0);
-
-  using PackType = decltype(v);
-
-  auto coords = GetCoords(pm);
-  const int ndim = v.GetNdim();
-  const Real dx = coords.Dx(X1DIR);
-  for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.Dx(i);
-    PARTHENON_REQUIRE_THROWS(dx == dy,
-                             "DiagScaling requires that DX be equal in all directions.");
-  }
-  const Real dV = std::pow(dx, ndim);
-
-  
-  StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
-  const auto &sp_accessor =
-    pkg->Param<parthenon::solvers::SparseMatrixAccessor>("sparse_accessor");
-
-  parthenon::par_reduce(
-    parthenon::loop_pattern_mdrange_tag, "diag_scaling", DevExecSpace(), 0,
-    v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-    KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum)
-    {
-      //r0 = b = dV*rho;(for this test.)
-      v(b,ires,k,j,i) = dV*v(b,irho,k,j,i);
-      
-      //
-      //x=0
-      dv(b,ixk,k,j,i) = 0;
-
-      // z=r/J_ii
-      v(b,izk,k,j,i) = v(b,ires,k,j,i)/v(b,diag,k,j,i);
-      //p=z
-      v(b,ipk,k,j,i) = v(b,izk,k,j,i);
-      //r.z
-      lsum += v(b,ires,k,j,i)*v(b,izk,k,j,i);
-    },Kokkos::Sum<Real>(gsum));  
-
-  *reduce_sum += gsum;
-  std::cout <<"diag-scale sum: " << *reduce_sum<<std::endl;
-  
-  return TaskStatus::complete;
-
-}//DiagScaling
-
-  
-/////////////////////////////////////////////////////////////////////////
-template<typename T>
-TaskStatus MatVec(T* u, Real *reduce_sum)
-{
-  std::cout <<"in matvec: " <<std::endl;
-  
-  auto pm = u->GetParentPointer();
-  const auto &ib = u->GetBoundsI(IndexDomain::interior);
-  const auto &jb = u->GetBoundsJ(IndexDomain::interior);
-  const auto &kb = u->GetBoundsK(IndexDomain::interior);
-    
-  PackIndexMap imap;
-  const std::vector<std::string> vars({"pk", "apk","poisson_sparse_matrix"});
-  const auto &v = u->PackVariables(vars,imap);
-
-  const int ipk  = imap["pk"].first;
-  const int iapk = imap["apk"].first;
-    
-  const int isp_lo = imap["poisson_sparse_matrix"].first;
-  const int isp_hi = imap["poisson_sparse_matrix"].second;
-
-  auto &coords = GetCoords(pm);
-
-  int ndim =v.GetNdim() ;
-  Real dot(0);
-
-  StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
-  const auto &sp_accessor =
-    pkg->Param<parthenon::solvers::SparseMatrixAccessor>("sparse_accessor");
-
-  parthenon::par_reduce(
-    parthenon::loop_pattern_mdrange_tag, "mat_vec", DevExecSpace(), 0,
-    v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-    KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum)
-    {
-      //ap = A*p;
-      v(b,iapk, k,j,i) = sp_accessor.MatVec(v, isp_lo, isp_hi, v, ipk, b, k, j, i);
-
-      //p.Ap
-      lsum += v(b,ipk,k,j,i)*v(b,iapk,k,j,i);
-    },Kokkos::Sum<Real>(dot));  
-  *reduce_sum += dot;
-
-  std::cout <<"matvec: " << *reduce_sum<<std::endl;
-  
-  return TaskStatus::complete;
-}//MatVec
-  
-
-/////////////////////////////////////////////////////////////////////////
-template<typename T>
-TaskStatus DoubleAxpy(T* u, T* du, Real *alphak, Real *reduce_sum)
-{
-  std::cout <<"in double axpy "<<*alphak<<std::endl;
-  
-  auto pm = u->GetParentPointer();
-  const auto &ib = u->GetBoundsI(IndexDomain::interior);
-  const auto &jb = u->GetBoundsJ(IndexDomain::interior);
-  const auto &kb = u->GetBoundsK(IndexDomain::interior);
-    
-  PackIndexMap imap;
-  const std::vector<std::string> vars({"pk", "apk", "res", "zk","jac", "poisson_sparse_matrix"});
-  const auto &v = u->PackVariables(vars,imap);
-
-  const int ipk  = imap["pk"].first;
-  const int iapk = imap["apk"].first;
-    
-  const int ires = imap["res"].first;
-  const int izk  = imap["zk"].first;
-    
-  const int isp_lo = imap["poisson_sparse_matrix"].first;
-  const int diag = isp_lo+1;
-
-  const std::vector<std::string> var2({"xk"});
-  PackIndexMap imap2;
-  const auto &dv = du->PackVariables(var2, imap2);
-  const int ixk = imap2["xk"].first;
-
-  Real sum(0);
-
-  parthenon::par_reduce(
-    parthenon::loop_pattern_mdrange_tag, "double_axpy", DevExecSpace(), 0,
-    v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-    KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum)
-    {
-      //x = x+alpha*p
-      dv(b, ixk, k, j, i) += *alphak*v(b, ipk, k, j, i);
-      //r = r-alpha*Ap
-      v(b, ires,k, j, i) -= *alphak*v(b, iapk, k, j, i);
-      //z = r/J_ii;(precon..)
-      v(b, izk, k, j, i)  = v(b, ires, k, j, i)/v(b, diag, k, j, i);
-      //r.z
-
-      lsum += v(b, ires, k, j, i)*v(b, izk, k, j, i);
-    },Kokkos::Sum<Real>(sum));
-    
-  *reduce_sum += sum;
-  std::cout <<"doubleaxpy: " << *reduce_sum<<std::endl;
-  std::cin.get();
-  
-  return TaskStatus::complete;
-    
-}//DoubleAxpy
-#endif
 /////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-
 template TaskStatus CheckConvergence<MeshData<Real>>(MeshData<Real> *, MeshData<Real> *);
 template TaskStatus CheckConvergence<MeshBlockData<Real>>(MeshBlockData<Real> *,
                                                           MeshBlockData<Real> *);
@@ -581,18 +353,6 @@ template TaskStatus SumMass<MeshBlockData<Real>>(MeshBlockData<Real> *, Real *);
 template TaskStatus SetMatrixElements<MeshData<Real>>(MeshData<Real> *);
 template TaskStatus SetMatrixElements<MeshBlockData<Real>>(MeshBlockData<Real> *);
 
-///////////////////////////////////////////////////////////////////////////////////////////////  
-#if 0
-  template TaskStatus Axpy1<MeshData<Real>>(MeshData<Real> *, Real *);
-template TaskStatus DiagScaling<MeshData<Real>>(MeshData<Real> *, MeshData<Real> *, Real *);
-template TaskStatus MatVec<MeshData<Real>>(MeshData<Real> *, Real *);
-template TaskStatus DoubleAxpy<MeshData<Real>>(MeshData<Real> *, MeshData<Real> *, Real *, Real *);
-  
-template TaskStatus Axpy1<MeshBlockData<Real>>(MeshBlockData<Real> *, Real *);
-template TaskStatus DiagScaling<MeshBlockData<Real>>(MeshBlockData<Real> *, MeshBlockData<Real> *, Real *);
-template TaskStatus MatVec<MeshBlockData<Real>>(MeshBlockData<Real> *, Real *);
-template TaskStatus DoubleAxpy<MeshBlockData<Real>>(MeshBlockData<Real> *, MeshBlockData<Real> *, Real *, Real *);
-#endif
 template TaskStatus SetRHS<MeshData<Real>>(MeshData<Real> *);
 template TaskStatus SetRHS<MeshBlockData<Real>>(MeshBlockData<Real> *);
 } // namespace poisson_package
