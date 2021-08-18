@@ -220,7 +220,7 @@ TaskStatus UpdatePhi(T *u, T *du) {
   const Real dV = std::pow(dx, ndim);
 
   // Demonstrate the usage of the Stencil and SparseMatrixAccessor classes
-  // which here represent the sparse matrix corresponding to a simple 
+  // which here represent the sparse matrix corresponding to a simple
   // second order finite difference discretization of the Poisson eq.
   StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
   if (isp_hi < 0) { // there is no sparse matrix, so we must be using the stencil
