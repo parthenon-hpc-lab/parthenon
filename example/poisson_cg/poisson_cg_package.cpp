@@ -32,6 +32,7 @@ using namespace parthenon::package::prelude;
 namespace poisson_package {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
+  using namespace parthenon::solvers;
   auto pkg = std::make_shared<StateDescriptor>("poisson_package");
 
   int max_poisson_iterations = pin->GetOrAddInteger("poisson", "max_iterations", 10000);
@@ -72,16 +73,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::cout <<"use_jacobi: " << use_jacobi
             << " use_stencil: " << use_stencil<<std::endl;
   
+  pkg->AddParam<std::string>("spm_name", "poisson_sparse_matrix");
+  pkg->AddParam<std::string>("rhs_name", "rhs");
+  pkg->AddParam<std::string>("sol_name", "potential");
+
   if (use_stencil) {
     std::vector<Real> wgts;
-    if (use_jacobi) {
-      wgts = std::vector<Real>({1.0, -2.0 * ndim, 1.0, 1.0, 1.0, 1.0, 1.0});
-    } else {
-      const Real w0 = 1.0 / (2.0 * ndim);
-      wgts = std::vector<Real>({w0, -1.0, w0, w0, w0, w0, w0});
-    }
+    wgts = std::vector<Real>({-1.0, 2.0 * ndim, -1.0, -1.0, -1.0, -1.0, -1.0});
     auto stencil = parthenon::solvers::Stencil<Real>("stencil", nstencil, wgts, offsets);
-    pkg->AddParam<>("stencil", stencil);
+    auto cg_sol = std::make_shared<CG_Solver<Stencil<Real>>>(pkg.get(), err_tol, stencil);
+    pkg->AddParam("cg_solver", cg_sol);
   } else {
     // setup the sparse matrix
     Metadata msp = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
@@ -89,17 +90,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     pkg->AddField("poisson_sparse_matrix", msp);
     auto sp_accessor =
         parthenon::solvers::SparseMatrixAccessor("accessor", nstencil, offsets);
-    pkg->AddParam("sparse_accessor", sp_accessor);
+    //pkg->AddParam("sparse_accessor", sp_accessor);
+    auto cg_sol = std::make_shared<CG_Solver<SparseMatrixAccessor>>(pkg.get(), err_tol, sp_accessor);
+    pkg->AddParam("cg_solver", cg_sol);
   }
-
-
-  pkg->AddParam<std::string>("spm_name", "poisson_sparse_matrix");
-  pkg->AddParam<std::string>("rhs_name", "rhs");
-  pkg->AddParam<std::string>("sol_name", "xk");
-  
-  // creating solver class.
-  parthenon::solvers::CG_Solver_Helper cg_sol_helper;
-  cg_sol_helper.init(pkg);
   
   return pkg;
 }
@@ -127,14 +121,12 @@ TaskStatus SetMatrixElements(T *u) {
   }
 
   const int ndim = v.GetNdim();
-//  const Real w0 = -2.0 * ndim;
   const Real w0 = 2.0 * ndim;
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetMatElem", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
       jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         for (int n = isp_lo; n <= isp_hi; n++) {
-          //v(b, n, k, j, i) = 1;
           v(b, n, k, j, i) = -1;
         }
         v(b, isp_lo + 1, k, j, i) = w0;
@@ -334,7 +326,7 @@ TaskStatus SetRHS( T* u)
       DEFAULT_LOOP_PATTERN, "set-rhs", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
       jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        v(b, irhs, k, j, i) = dV*v(b, irho, k, j, i);
+        v(b, irhs, k, j, i) = -dV*v(b, irho, k, j, i);
         
       });
 

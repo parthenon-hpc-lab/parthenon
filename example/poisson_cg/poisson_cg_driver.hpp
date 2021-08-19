@@ -42,11 +42,6 @@ class PoissonDriver : public Driver {
   Reduce<int> max_rank;
   // and we'll do an all reduce of a vector just for fun
   AllReduce<std::vector<int>> vec_reduce;
-
-
-  // cgsolver class..
-  parthenon::solvers::CG_Solver cgsol;
-  
 };
 
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);
