@@ -77,12 +77,11 @@ Date: 03/30/2021
 - [[PR 475]](https://github.com/lanl/parthenon/pull/475) Add update function `UpdateWithFluxDivergence` and `gamma` variables to integrator to support low-storage, two stage integrators.
 - [[PR 463]](https://github.com/lanl/parthenon/pull/463) Add `PARTHENON_ENABLE_TESTING` and `PARTHENON_ENABLE_PYTHON_MODULE_CHECK` option and documentation on how to use the regression testing framework downstream.
 - [[PR 461]](https://github.com/lanl/parthenon/pull/461) A negative `dt` in an output block disables it.
-- [[PR 440]](https://github.com/lanl/parthenon/pull/440) Add abstraction for allocating a `unique_ptr` to an object in device memory
 - [[PR 439]](https://github.com/lanl/parthenon/pull/439) Add split initialization of environment (`ParthenonInitEnv()`) and packages and mesh (`ParthenonInitPackagesAndMesh()`) to `ParthenonManager`
+- [[PR 406]](https://github.com/lanl/parthenon/pull/406) Add `stochastic_subgrid` example that performs a random amount of work per cell (drawn from a power law distribution)
+- [[PR 440]](https://github.com/lanl/parthenon/pull/440) Add abstraction for allocating a `unique_ptr` to an object in device memory
 - [[PR 438]](https://github.com/lanl/parthenon/pull/438) More diagnostic runtime output (AMR/Loadbalance and mesh structure) controlled via `parthenon/time/ncycle_out_mesh` input parameter (default 0 - off)
 - [[PR 412]](https://github.com/lanl/parthenon/pull/412) Add capability to use host (pinned) memory for communication buffers (via `PARTHENON_ENABLE_HOST_COMM_BUFFERS` - default OFF)
-- [[PR 406]](https://github.com/lanl/parthenon/pull/406) Add `stochastic_subgrid` example that performs a random amount of work per cell (drawn from a power law distribution)
-- [[PR 404]](https://github.com/lanl/parthenon/pull/404) Add capability to communicate particles across meshblocks/MPI processes
 - [[PR 359]](https://github.com/lanl/parthenon/pull/359) MeshBlockPack support for buffer pack and unpack of CellCentered Variables
 
 ### Changed (changing behavior/API/variables/...)
