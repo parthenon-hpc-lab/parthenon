@@ -105,7 +105,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
   std::int64_t nbmax;
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -212,7 +211,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   EnrollBndryFncts_(app_in);
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   // read and set MeshBlock parameters
   block_size.x1rat = mesh_size.x1rat;
@@ -291,10 +289,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   } else {
     max_level = 63;
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   InitUserMeshData(pin);
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   if (multilevel) {
     if (block_size.nx1 % 2 == 1 || (block_size.nx2 % 2 == 1 && (ndim >= 2)) ||
@@ -437,7 +433,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       pib = pib->pnext;
     }
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   // initial mesh hierarchy construction is completed here
   tree.CountMeshBlock(nbtotal);
@@ -474,24 +469,19 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     brdisp = std::vector<int>(Globals::nranks);
     bddisp = std::vector<int>(Globals::nranks);
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   // initialize cost array with the simplest estimate; all the blocks are equal
   costlist = std::vector<double>(nbtotal, 1.0);
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   // Output some diagnostic information to terminal
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
-  printf("%s:%i\n", __FILE__, __LINE__);
   if (mesh_test > 0) {
     if (Globals::my_rank == 0) OutputMeshStructure(ndim);
     return;
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   mesh_data.SetMeshPointer(this);
 
@@ -501,16 +491,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // create MeshBlock list for this process
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
-  printf("%s:%i\n", __FILE__, __LINE__);
   for (int i = nbs; i <= nbe; i++) {
-  printf("%s:%i\n", __FILE__, __LINE__);
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
     block_list[i - nbs] = MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs,
                                           this, pin, app_in, packages, gflag);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   ResetLoadBalanceVariables();
 
@@ -569,7 +556,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -792,7 +778,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     std::cout << "#Variables in use:\n"
               << *(block_list[0]->resolved_packages) << std::endl;
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 //----------------------------------------------------------------------------------------
@@ -1030,17 +1015,14 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   Kokkos::Profiling::pushRegion("Mesh::Initialize");
   bool init_done = true;
   const int nb_initial = nbtotal;
-  printf("%s:%i\n", __FILE__, __LINE__);
   do {
     int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
-  printf("%s:%i\n", __FILE__, __LINE__);
 
     // init meshblock data
     for (int i = 0; i < nmb; ++i) {
       MeshBlock *pmb = block_list[i].get();
       pmb->InitMeshBlockUserData(pmb, pin);
     }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
     // problem generator
     if (init_problem) {
@@ -1049,19 +1031,14 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         pmb->ProblemGenerator(pmb.get(), pin);
       }
     }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
     // Create send/recv MPI_Requests for all BoundaryData objects
     for (int i = 0; i < nmb; ++i) {
       auto &pmb = block_list[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
-  printf("%s:%i\n", __FILE__, __LINE__);
       pmb->pbval->SetupPersistentMPI();
-  printf("%s:%i\n", __FILE__, __LINE__);
       pmb->meshblock_data.Get()->SetupPersistentMPI();
-  printf("%s:%i\n", __FILE__, __LINE__);
       pmb->swarm_data.Get()->SetupPersistentMPI();
-  printf("%s:%i\n", __FILE__, __LINE__);
     }
 
     // prepare to receive conserved variables

@@ -69,10 +69,8 @@ std::shared_ptr<MeshBlock> MeshBlock::Make(int igid, int ilid, LogicalLocation i
                                            Packages_t &packages, int igflag,
                                            double icost) {
   auto pmb = std::make_shared<MeshBlock>();
-  printf("%s:%i\n", __FILE__, __LINE__);
   pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, packages,
                   igflag, icost);
-  printf("%s:%i\n", __FILE__, __LINE__);
   return pmb;
 }
 
@@ -103,9 +101,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   if (app_in->InitApplicationMeshBlockData != nullptr) {
     InitApplicationMeshBlockData = app_in->InitApplicationMeshBlockData;
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
   if (app_in->InitMeshBlockUserData != nullptr) {
-  printf("%s:%i\n", __FILE__, __LINE__);
     InitMeshBlockUserData = app_in->InitMeshBlockUserData;
   }
   if (app_in->ProblemGenerator != nullptr) {

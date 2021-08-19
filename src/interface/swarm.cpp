@@ -93,9 +93,7 @@ void Swarm::AllocateBoundaries() {
 
   auto &bcs = pmb->pmy_mesh->mesh_bcs;
 
-  if (bcs[0] == BoundaryFlag::reflect) {
-    bounds[0] = DeviceAllocate<ParticleBoundIX1Reflect>();
-  } else if (bcs[0] == BoundaryFlag::outflow) {
+  if (bcs[0] == BoundaryFlag::outflow) {
     bounds[0] = DeviceAllocate<ParticleBoundIX1Outflow>();
   } else if (bcs[0] == BoundaryFlag::periodic) {
     bounds[0] = DeviceAllocate<ParticleBoundIX1Periodic>();
@@ -104,9 +102,7 @@ void Swarm::AllocateBoundaries() {
     PARTHENON_THROW(msg);
   }
 
-  if (bcs[1] == BoundaryFlag::reflect) {
-    bounds[1] == DeviceAllocate<ParticleBoundOX1Reflect>();
-  } else if (bcs[1] == BoundaryFlag::outflow) {
+  if (bcs[1] == BoundaryFlag::outflow) {
     bounds[1] = DeviceAllocate<ParticleBoundOX1Outflow>();
   } else if (bcs[1] == BoundaryFlag::periodic) {
     bounds[1] = DeviceAllocate<ParticleBoundOX1Periodic>();
@@ -115,9 +111,7 @@ void Swarm::AllocateBoundaries() {
     PARTHENON_THROW(msg);
   }
 
-  if (bcs[2] == BoundaryFlag::reflect) {
-    bounds[2] = DeviceAllocate<ParticleBoundIX2Reflect>();
-  } else if (bcs[2] == BoundaryFlag::outflow) {
+  if (bcs[2] == BoundaryFlag::outflow) {
     bounds[2] = DeviceAllocate<ParticleBoundIX2Outflow>();
   } else if (bcs[2] == BoundaryFlag::periodic) {
     bounds[2] = DeviceAllocate<ParticleBoundIX2Periodic>();
@@ -126,9 +120,7 @@ void Swarm::AllocateBoundaries() {
     PARTHENON_THROW(msg);
   }
 
-  if (bcs[3] == BoundaryFlag::reflect) {
-    bounds[3] == DeviceAllocate<ParticleBoundOX2Reflect>();
-  } else if (bcs[3] == BoundaryFlag::outflow) {
+  if (bcs[3] == BoundaryFlag::outflow) {
     bounds[3] = DeviceAllocate<ParticleBoundOX2Outflow>();
   } else if (bcs[3] == BoundaryFlag::periodic) {
     bounds[3] = DeviceAllocate<ParticleBoundOX2Periodic>();
@@ -137,9 +129,7 @@ void Swarm::AllocateBoundaries() {
     PARTHENON_THROW(msg);
   }
 
-  if (bcs[4] == BoundaryFlag::reflect) {
-    bounds[4] = DeviceAllocate<ParticleBoundIX3Reflect>();
-  } else if (bcs[4] == BoundaryFlag::outflow) {
+  if (bcs[4] == BoundaryFlag::outflow) {
     bounds[4] = DeviceAllocate<ParticleBoundIX3Outflow>();
   } else if (bcs[4] == BoundaryFlag::periodic) {
     bounds[4] = DeviceAllocate<ParticleBoundIX3Periodic>();
@@ -148,9 +138,7 @@ void Swarm::AllocateBoundaries() {
     PARTHENON_THROW(msg);
   }
 
-  if (bcs[5] == BoundaryFlag::reflect) {
-    bounds[5] == DeviceAllocate<ParticleBoundOX3Reflect>();
-  } else if (bcs[5] == BoundaryFlag::outflow) {
+  if (bcs[5] == BoundaryFlag::outflow) {
     bounds[5] = DeviceAllocate<ParticleBoundOX3Outflow>();
   } else if (bcs[5] == BoundaryFlag::periodic) {
     bounds[5] = DeviceAllocate<ParticleBoundOX3Periodic>();

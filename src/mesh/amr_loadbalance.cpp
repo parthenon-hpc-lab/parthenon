@@ -136,7 +136,6 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
                                 std::vector<int> &ranklist, std::vector<int> &nslist,
                                 std::vector<int> &nblist) {
   Kokkos::Profiling::pushRegion("CalculateLoadBalance");
-  printf("%s:%i\n", __FILE__, __LINE__);
   auto const total_blocks = costlist.size();
 
   using it = std::vector<double>::const_iterator;
@@ -151,7 +150,6 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
   // Updates nslist with the ID of the starting block on each rank and the count of blocks
   // on each rank.
   UpdateBlockList(ranklist, nslist, nblist);
-  printf("%s:%i\n", __FILE__, __LINE__);
 
 #ifdef MPI_PARALLEL
   if (total_blocks % (Globals::nranks) != 0 && !adaptive && !lb_flag_ &&
@@ -184,7 +182,6 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
                 << std::endl;
     }
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
   Kokkos::Profiling::popRegion(); // CalculateLoadBalance
 }
 
