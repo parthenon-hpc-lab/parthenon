@@ -69,8 +69,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   vec_reduce.val.resize(10);
   for (int i = 0; i < 10; i++)
     vec_reduce.val[i] = 0;
-
+  int reg_dep_id;
   for (int i = 0; i < num_partitions; i++) {
+    reg_dep_id = 0;
     // make/get a mesh_data container for the state
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
     auto &mdelta = pmesh->mesh_data.GetOrAdd("delta", i);
@@ -83,7 +84,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
                               &total_mass.val);
     // make it a regional dependency so dependent tasks can't execute until all lists do
     // this
-    solver_region.AddRegionalDependencies(0, i, loc_red);
+    solver_region.AddRegionalDependencies(reg_dep_id, i, loc_red);
+    reg_dep_id++;
 
     auto rank_red = tl.AddTask(
         none,
@@ -92,7 +94,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
           return TaskStatus::complete;
         },
         &max_rank.val);
-    solver_region.AddRegionalDependencies(1, i, rank_red);
+    solver_region.AddRegionalDependencies(reg_dep_id, i, rank_red);
+    reg_dep_id++;
 
     // start a non-blocking MPI_Iallreduce
     auto start_global_reduce =
@@ -106,11 +109,13 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // test the reduction until it completes
     auto finish_global_reduce =
         tl.AddTask(start_global_reduce, &AllReduce<Real>::CheckReduce, &total_mass);
-    solver_region.AddRegionalDependencies(2, i, finish_global_reduce);
+    solver_region.AddRegionalDependencies(reg_dep_id, i, finish_global_reduce);
+    reg_dep_id++;
 
     auto finish_rank_reduce =
         tl.AddTask(start_rank_reduce, &Reduce<int>::CheckReduce, &max_rank);
-    solver_region.AddRegionalDependencies(3, i, finish_rank_reduce);
+    solver_region.AddRegionalDependencies(reg_dep_id, i, finish_rank_reduce);
+    reg_dep_id++;
 
     // notice how we must always pass a pointer to the reduction value
     // since tasks capture args by value, this would print zero if we just passed in
@@ -151,9 +156,11 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     auto norm = solver.AddTask(update, poisson_package::SumDeltaPhi<MeshData<Real>>,
                                mdelta.get(), &update_norm.val);
-    solver_region.AddRegionalDependencies(4, i, norm);
-    auto start_reduce_norm =
-        solver.AddTask(norm, &AllReduce<Real>::StartReduce, &update_norm, MPI_SUM);
+    solver_region.AddRegionalDependencies(reg_dep_id, i, norm);
+    reg_dep_id++;
+    auto start_reduce_norm = (i == 0 ? solver.AddTask(norm, &AllReduce<Real>::StartReduce,
+                                                      &update_norm, MPI_SUM)
+                                     : none);
     auto finish_reduce_norm =
         solver.AddTask(start_reduce_norm, &AllReduce<Real>::CheckReduce, &update_norm);
     auto report_norm = (i == 0 ? solver.AddTask(
@@ -183,7 +190,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
         clear, poisson_package::CheckConvergence<MeshData<Real>>, md.get(), mdelta.get());
     // mark task so that dependent tasks (below) won't execute
     // until all task lists have completed it
-    solver_region.AddRegionalDependencies(5, i, check);
+    solver_region.AddRegionalDependencies(reg_dep_id, i, check);
+    reg_dep_id++;
 
     auto print = none;
     if (i == 0) { // only print once
@@ -202,7 +210,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
           return TaskStatus::complete;
         },
         &vec_reduce.val);
-    solver_region.AddRegionalDependencies(6, i, fill_vec);
+    solver_region.AddRegionalDependencies(reg_dep_id, i, fill_vec);
+    reg_dep_id++;
 
     TaskID start_vec_reduce =
         (i == 0 ? tl.AddTask(fill_vec, &AllReduce<std::vector<int>>::StartReduce,
@@ -211,7 +220,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // test the reduction until it completes
     TaskID finish_vec_reduce = tl.AddTask(
         start_vec_reduce, &AllReduce<std::vector<int>>::CheckReduce, &vec_reduce);
-    solver_region.AddRegionalDependencies(7, i, finish_vec_reduce);
+    solver_region.AddRegionalDependencies(reg_dep_id, i, finish_vec_reduce);
+    reg_dep_id++;
 
     auto report_vec = (i == 0 && Globals::my_rank == 0
                            ? tl.AddTask(
