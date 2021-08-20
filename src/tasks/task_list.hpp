@@ -351,11 +351,13 @@ inline TaskID AddTaskHelper(TaskList *tl, Task tsk) { return tl->AddTask(tsk); }
 class TaskRegion {
  public:
   explicit TaskRegion(const int size) : lists(size) {}
-  void AddRegionalDependencies(const int reg_dep_id, const int list_index, const TaskID &id) {
+  void AddRegionalDependencies(const int reg_dep_id, const int list_index,
+                               const TaskID &id) {
     AddDepdencies(reg_dep_id, list_index, id);
     global[reg_dep_id] = false;
   }
-  void AddGlobalDependencies(const int reg_dep_id, const int list_index, const TaskID &id) {
+  void AddGlobalDependencies(const int reg_dep_id, const int list_index,
+                             const TaskID &id) {
     AddDepdencies(reg_dep_id, list_index, id);
     global[reg_dep_id] = true;
   }
