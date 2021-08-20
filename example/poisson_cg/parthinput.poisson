@@ -60,4 +60,4 @@ check_interval = 1
 error_tolerance = 1.e-8
 fail_without_convergence = false
 warn_without_convergence = true
-use_stencil = false
+use_stencil = true

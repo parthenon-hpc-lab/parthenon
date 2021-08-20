@@ -71,7 +71,11 @@ class CG_Solver : public CG_Counter {
   }
 
   std::vector<std::string> SolverState() const {
-    return std::vector<std::string>({zk, res, apk, pk, spm_name, rhs_name});
+    if (use_sparse_accessor) {
+      return std::vector<std::string>({zk, res, apk, pk, spm_name, rhs_name});
+    } else {
+      return std::vector<std::string>({zk, res, apk, pk, rhs_name});
+    }
   }
   std::string label() const {
     std::string lab;
@@ -296,8 +300,6 @@ class CG_Solver : public CG_Counter {
     if (use_sparse_accessor) {
       diag = sp_accessor.ndiag + isp_lo;
     } else {
-      // this doesn't actually work yet
-      // code below assumes there's a matrix
       diag = stencil.ndiag;
     }
 
@@ -321,7 +323,8 @@ class CG_Solver : public CG_Counter {
           v(b, ires, k, j, i) = v(b, irhs, k, j, i);
 
           // z=r/J_ii
-          v(b, izk, k, j, i) = v(b, ires, k, j, i) / v(b, diag, k, j, i);
+          Real J_ii = (use_sparse_accessor ? v(b, diag, k, j, i) : stencil.w(diag));
+          v(b, izk, k, j, i) = v(b, ires, k, j, i) / J_ii;
           // p=z
           v(b, ipk, k, j, i) = v(b, izk, k, j, i);
           // r.z
@@ -364,8 +367,9 @@ class CG_Solver : public CG_Counter {
           v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
             // ap = A*p;
-            v(b, iapk, k, j, i) =
-                sp_accessor.MatVec(v, isp_lo, isp_hi, v, ipk, b, k, j, i);
+            v(b, iapk, k, j, i) = (use_sparse_accessor
+                ? sp_accessor.MatVec(v, isp_lo, isp_hi, v, ipk, b, k, j, i)
+                : stencil.MatVec(v,ipk,b,k,j,i));
 
             // p.Ap
             lsum += v(b, ipk, k, j, i) * v(b, iapk, k, j, i);
@@ -408,7 +412,12 @@ class CG_Solver : public CG_Counter {
     const int izk = imap[zk].first;
 
     const int isp_lo = imap[spm_name].first;
-    const int diag = isp_lo + 1;
+    int diag;
+    if (use_sparse_accessor) {
+      diag = sp_accessor.ndiag + isp_lo;
+    } else {
+      diag = stencil.ndiag;
+    }
 
     const std::vector<std::string> var2({sol_name});
     PackIndexMap imap2;
@@ -427,7 +436,8 @@ class CG_Solver : public CG_Counter {
           // r = r-alpha*Ap
           v(b, ires, k, j, i) -= alphak * v(b, iapk, k, j, i);
           // z = r/J_ii;(precon..)
-          v(b, izk, k, j, i) = v(b, ires, k, j, i) / v(b, diag, k, j, i);
+          Real J_ii = (use_sparse_accessor ? v(b, diag, k, j, i) : stencil.w(diag));
+          v(b, izk, k, j, i) = v(b, ires, k, j, i) / J_ii;
           // r.z
 
           lsum += v(b, ires, k, j, i) * v(b, izk, k, j, i);
