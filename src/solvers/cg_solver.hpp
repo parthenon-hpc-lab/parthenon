@@ -36,7 +36,7 @@ struct CG_Counter {
 template <typename SPType>
 class CG_Solver : public CG_Counter {
  public:
-  CG_Solver(){}
+  CG_Solver() {}
   CG_Solver(StateDescriptor *pkg, const Real error_tol_in, const Stencil<Real> &st)
       : error_tol(error_tol_in), stencil(st) {
     use_sparse_accessor = false;
