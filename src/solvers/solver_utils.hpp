@@ -27,7 +27,7 @@ struct SparseMatrixAccessor {
   ParArray1D<int> ioff, joff, koff;
   const int nstencil;
   int ndiag;
-  SparseMatrixAccessor() : nstencil(0) : ndiag(0) {}
+  SparseMatrixAccessor() : nstencil(0), ndiag(0) {}
   SparseMatrixAccessor(const SparseMatrixAccessor &sp)
       : ioff(sp.ioff), joff(sp.joff), koff(sp.koff), nstencil(sp.nstencil),
         ndiag(sp.ndiag) {}
