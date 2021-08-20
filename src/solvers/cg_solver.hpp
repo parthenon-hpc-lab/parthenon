@@ -65,37 +65,46 @@ class CG_Solver : public CG_Counter {
     pkg->AddField(apk, mcdo);
 
     //ghost exchange required...
-    auto mcif = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
+    auto mcif = Metadata({Metadata::Cell, Metadata::FillGhost});
     pkg->AddField(pk, mcif);
 
     global_num_cg_solvers++;
   }
 
   std::vector<std::string> SolverState() const {
-    return std::vector<std::string>({zk,res,apk,xk,pk,spm_name,rhs_name});
+    return std::vector<std::string>({zk,res,apk,pk,spm_name,rhs_name});
+  }
+  std::string label() const {
+    std::string lab;
+    for (const auto &s : SolverState()) lab += s;
+    return lab;
   }
   
   TaskID createCGTaskList(TaskID &begin, int &i, int &j,
-                          TaskCollection &tc, TaskList &tl,
+                          TaskList &tl,
                           TaskRegion &solver_region, IterativeTasks &solver,
-                          std::shared_ptr<MeshData<Real>> md, std::shared_ptr<MeshData<Real>> mdelta) {
+                          std::shared_ptr<MeshData<Real>> md, std::shared_ptr<MeshData<Real>> mout) {
     TaskID none(0);
 
-    auto rz0=  tl.AddTask(none,
+    // these are values shared across lists
+    auto rz0 = (i == 0 ? tl.AddTask(none,
                           [](Real *val, Real *beta, int *cntr) {
                             *val=0;
                             *beta=0;
                             *cntr=0;
                             return TaskStatus::complete;
                           },
-                          &r_dot_z.val, &betak.val, &cg_cntr);
+                          &r_dot_z.val, &betak.val, &cg_cntr)
+                       : solver.AddTask(none, &CG_Solver<SPType>::DoNothing, this));
+    solver_region.AddRegionalDependencies(j, i, rz0);
+    j++;
 
     // x=0;
     // b = dV*rho
     // r=b-Ax;
     // z = Minv*r;
     auto res0 =
-      tl.AddTask(begin | rz0, &CG_Solver<SPType>::DiagScaling<MeshData<Real>>, this, md.get(), mdelta.get(),
+      tl.AddTask(begin | rz0, &CG_Solver<SPType>::DiagScaling<MeshData<Real>>, this, md.get(), mout.get(),
                   &r_dot_z.val);
     solver_region.AddRegionalDependencies(j, i, res0);
     j++;
@@ -105,15 +114,9 @@ class CG_Solver : public CG_Counter {
       (i == 0 ? tl.AddTask(res0,  &AllReduce<Real>::StartReduce, &r_dot_z, MPI_SUM)
        : res0);
 
+
     auto finish_global_rz =
       tl.AddTask(start_global_rz, &AllReduce<Real>::CheckReduce, &r_dot_z);
-
-    //synch.
-    //solver_region.AddRegionalDependencies(j, i, finish_global_rz);
-    //j++;
-    
-
-    
 
 ////////////////////////////////////////////////////////////////////////////////
     //CG
@@ -124,61 +127,57 @@ class CG_Solver : public CG_Counter {
     /////////////////////////////////////////////
     // Iteration starts here.
     // p = beta*p+z;
-    auto axpy1 = solver.AddTask(res0, &CG_Solver<SPType>::Axpy1<MeshData<Real>>, this, md.get(), &betak.val);
-    
+    auto axpy1 = solver.AddTask(res0 | finish_global_rz, &CG_Solver<SPType>::Axpy1<MeshData<Real>>, this, md.get(), &betak.val);
     // matvec Ap = J*p
-    auto pAp0=  solver.AddTask(none,
+    auto pAp0=  (i == 0 ? solver.AddTask(none,
                                [](Real *val) {
                                  *val=0;
                                  return TaskStatus::complete;
                                },
-                               &p_dot_ap.val);
-    
+                               &p_dot_ap.val)
+                        : solver.AddTask(none, &CG_Solver<SPType>::DoNothing, this));
+    solver_region.AddRegionalDependencies(j, i, pAp0);
+    j++;
+
     auto start_recv = solver.AddTask(none, &MeshData<Real>::StartReceiving, md.get(),
                                      BoundaryCommSubset::all);
-    
     //ghost exchange.
     auto send =
       solver.AddTask(axpy1, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
-
     auto recv = solver.AddTask(
       start_recv, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
-
     auto setb =
       solver.AddTask(recv|axpy1, parthenon::cell_centered_bvars::SetBoundaries, md);
-
     auto clear = solver.AddTask(send | setb, &MeshData<Real>::ClearBoundary, md.get(),
                                 BoundaryCommSubset::all);
-    
     auto matvec = solver.AddTask(clear | pAp0, &CG_Solver<SPType>::MatVec<MeshData<Real>>, this, md.get(), &p_dot_ap.val);
     solver_region.AddRegionalDependencies(j, i, matvec);
     j++;
-
 
     // reduce p.Ap
     auto start_global_pAp =
       (i == 0 ? solver.AddTask(matvec, &AllReduce<Real>::StartReduce, &p_dot_ap, MPI_SUM)
        : matvec);
-
     auto finish_global_pAp =
       solver.AddTask(start_global_pAp, &AllReduce<Real>::CheckReduce, &p_dot_ap);
 
-
     // alpha = r.z/p.Ap
-    auto alpha=  solver.AddTask(finish_global_pAp | finish_global_rz,
+    auto alpha=  (i == 0 ? solver.AddTask(finish_global_pAp | finish_global_rz,
                                 [](Real *val,Real *rz, Real *pAp, Real *rznew) {
                                   *val=(*rz)/(*pAp);
                                   *rznew=0;
                                   return TaskStatus::complete;
                                 },
-                                &alphak.val, &r_dot_z.val, &p_dot_ap.val, &r_dot_z_new.val );
-    
+                                &alphak.val, &r_dot_z.val, &p_dot_ap.val, &r_dot_z_new.val )
+                         : solver.AddTask(none, &CG_Solver<SPType>::DoNothing, this));
+    solver_region.AddRegionalDependencies(j, i, alpha);
+    j++;
+
     // x = x+alpha*p
     // r = r-alpha*Apk
     // z = M^-1*r
     // r.z-new
-
-    auto double_axpy = solver.AddTask(alpha, &CG_Solver<SPType>::DoubleAxpy<MeshData<Real>>, this, md.get(), mdelta.get(),
+    auto double_axpy = solver.AddTask(alpha, &CG_Solver<SPType>::DoubleAxpy<MeshData<Real>>, this, md.get(), mout.get(),
                                       &alphak.val, &r_dot_z_new.val);
     solver_region.AddRegionalDependencies(j, i, double_axpy);
     j++;
@@ -187,16 +186,13 @@ class CG_Solver : public CG_Counter {
     auto start_global_rz_new =
       (i == 0 ? solver.AddTask(double_axpy, &AllReduce<Real>::StartReduce, &r_dot_z_new, MPI_SUM)
        : double_axpy);
-
     auto finish_global_rz_new =
       solver.AddTask(start_global_rz_new, &AllReduce<Real>::CheckReduce, &r_dot_z_new);
 
-//    solver_region.AddRegionalDependencies(4, i, finish_global_rz_new);
-    
     // beta= rz_new/rz
     // and check convergence..
-    auto beta = solver.SetCompletionTask(finish_global_rz_new,
-                                         [](Real *beta, Real *rz_new, Real *rz, Real *res_global, Real *gres0, Real* err_tol, int* cntr)
+    auto beta = (i == 0 ? solver.AddTask(finish_global_rz_new,
+                                         [](Real *beta, Real *rz_new, Real *rz, Real *res_global, Real *gres0, int* cntr)
                                          {
                                            *beta=(*rz_new)/(*rz);
                                            *res_global = sqrt(*rz_new);
@@ -206,28 +202,36 @@ class CG_Solver : public CG_Counter {
 
                                            *cntr= *cntr+1;
                                            (*rz) = (*rz_new);
-                                           
-                                           auto status = (*res_global/(*gres0) < (*err_tol) ?
-                                                          TaskStatus::complete : TaskStatus::iterate);
-
-                                           if( parthenon::Globals::my_rank==0)
-                                             std::cout <<parthenon::Globals::my_rank<< " its= " <<*cntr<<" relative res: "
-                                                       << *res_global/(*gres0)<< " absolute-res " << *res_global
-                                                       << " relerr-tol: " <<(*err_tol)<<std::endl;
-                                           
-                                           return status;
+                                          
+                                           return TaskStatus::complete;
                                          },
-                                         &betak.val, &r_dot_z_new.val, &r_dot_z.val, &res_global.val, &global_res0,&error_tol, &cg_cntr);
-
+                                         &betak.val, &r_dot_z_new.val, &r_dot_z.val, &res_global, &global_res0, &cg_cntr)
+                          : solver.AddTask(none, &CG_Solver<SPType>::DoNothing, this));
     solver_region.AddRegionalDependencies(j, i, beta);
     j++;
-    
+ 
+    auto check = (i == 0 ? solver.SetCompletionTask(beta, [](Real *res_global, Real *gres0, Real *err_tol, int *cntr) {
+                            auto status = (*res_global/(*gres0) < (*err_tol)
+                                  ? TaskStatus::complete
+                                  : TaskStatus::iterate);
 
-    return beta;
-    
+                            if (parthenon::Globals::my_rank==0)
+                              std::cout << parthenon::Globals::my_rank << " its= " << *cntr << " relative res: "
+                                << *res_global/(*gres0) << " absolute-res " << *res_global
+                                << " relerr-tol: " << (*err_tol) << std::endl << std::flush;
+                                           
+                            return status;
+                           }, &res_global, &global_res0, &error_tol, &cg_cntr)
+                         : solver.SetCompletionTask(none, &CG_Solver<SPType>::DoNothing, this));
+    solver_region.AddGlobalDependencies(j, i, check);
+    j++;
 
+    return check;
   }
 
+  TaskStatus DoNothing() {
+    return TaskStatus::complete;
+  }
 
   /////////////////////////////////////////////////////////////////////////////////////////  
   //Utility tasks for solver..
@@ -267,12 +271,6 @@ class CG_Solver : public CG_Counter {
     const auto &kb = u->GetBoundsK(IndexDomain::interior);
     
     PackIndexMap imap;
-    std::cout << "My strings "
-              << zk << " "
-              << pk << " "
-              << res << " " 
-              << rhs_name << " "
-              << spm_name << std::endl;
     const std::vector<std::string> vars({zk, pk, res, rhs_name, spm_name});
     const auto &v = u->PackVariables(vars,imap);
 
@@ -436,7 +434,7 @@ class CG_Solver : public CG_Counter {
   AllReduce<Real> r_dot_z_new;
   AllReduce<Real> alphak;
   AllReduce<Real> betak;
-  AllReduce<Real> res_global;
+  Real res_global;
 
   int cg_cntr;
   Real global_res0;

@@ -139,7 +139,8 @@ class TaskList {
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
         return (task.GetStatus() != TaskStatus::incomplete &&
-                task.GetStatus() != TaskStatus::skip);
+                task.GetStatus() != TaskStatus::skip &&
+                task.GetStatus() != TaskStatus::waiting);
       }
     }
     return false;
@@ -197,6 +198,11 @@ class TaskList {
         PARTHENON_WARN("Iteration " + iter_labels[key] +
                        " reached maximum allowed cycles without convergence.");
       }
+      for (auto &task : task_list_) {
+        if (task.GetKey() == key && task.GetType() == TaskType::completion_criteria) {
+          MarkTaskComplete(task.GetID());
+        }
+      }
       ClearIteration(key);
       return;
     }
@@ -227,7 +233,9 @@ class TaskList {
         if (task->GetType() == TaskType::completion_criteria) {
           ClearIteration(task->GetKey());
         } else if (task->GetType() == TaskType::single) {
-          task_list_.erase(task);
+          task = task_list_.erase(task);
+        } else {
+          task->SetStatus(TaskStatus::waiting);
         }
         break;
       } else {
@@ -316,6 +324,7 @@ class TaskList {
     for (auto &t : task_list_) {
       std::cout << "  " << i << "  " << t.GetID().to_string() << "  "
                 << t.GetDependency().to_string() << " "
+                << tasks_completed_.to_string() << " "
                 << (t.GetStatus() == TaskStatus::incomplete)
                 << (t.GetStatus() == TaskStatus::complete)
                 << (t.GetStatus() == TaskStatus::skip)
@@ -344,11 +353,14 @@ class TaskRegion {
  public:
   explicit TaskRegion(const int size) : lists(size) {}
   void AddRegionalDependencies(const int reg_dep_id, const int list_index, TaskID id) {
-    auto task_pair = std::make_pair(list_index, id);
-    id_for_reg[reg_dep_id].push_back(task_pair);
-    lists[list_index].MarkRegional(id);
-    all_done[reg_dep_id].val = 0;
+    AddDepdencies(reg_dep_id, list_index, id);
+    global[reg_dep_id] = false;
   }
+  void AddGlobalDependencies(const int reg_dep_id, const int list_index, TaskID id) {
+    AddDepdencies(reg_dep_id, list_index, id);
+    global[reg_dep_id] = true;
+  }
+
 
   TaskList &operator[](int i) { return lists[i]; }
 
@@ -357,23 +369,31 @@ class TaskRegion {
   bool CheckAndUpdate() {
     for (auto &reg_dep : id_for_reg) {
       auto reg_id = reg_dep.first;
+      bool check = false;
       if (HasRun(reg_id) && !all_done[reg_id].active) {
         all_done[reg_id].val = IsComplete(reg_id);
-        all_done[reg_id].StartReduce(MPI_MIN);
+        if (global[reg_id]) {
+          all_done[reg_id].StartReduce(MPI_MIN);
+        } else {
+          check = true;
+        }
       }
-      if (all_done[reg_id].active) {
+      if (global[reg_id] && all_done[reg_id].active) {
         auto status = all_done[reg_id].CheckReduce();
         if (status == TaskStatus::complete) {
-          if (all_done[reg_id].val) {
-            for (auto &lst : reg_dep.second) {
-              lists[lst.first].CompleteIfNeeded(lst.second);
-            }
-          } else {
-            for (auto &lst : reg_dep.second) {
-              lists[lst.first].ResetIfNeeded(lst.second);
-            }
-            all_done[reg_id].val = 0;
+          check = true;
+        }
+      }
+      if (check) {
+        if (all_done[reg_id].val) {
+          for (auto &lst : reg_dep.second) {
+            lists[lst.first].CompleteIfNeeded(lst.second);
           }
+        } else {
+          for (auto &lst : reg_dep.second) {
+            lists[lst.first].ResetIfNeeded(lst.second);
+          }
+          all_done[reg_id].val = 0;
         }
       }
     }
@@ -393,6 +413,12 @@ class TaskRegion {
   }
 
  private:
+  void AddDepdencies(int reg_id, int list_id, TaskID tid) {
+    auto task_pair = std::make_pair(list_id, tid);
+    id_for_reg[reg_id].push_back(task_pair);
+    lists[list_id].MarkRegional(tid);
+    all_done[reg_id].val = 0;
+  }
   bool HasRun(const int reg_id) {
     auto &lvec = id_for_reg[reg_id];
     int n_to_run = lvec.size();
@@ -424,6 +450,7 @@ class TaskRegion {
   std::map<int, std::vector<std::pair<int, TaskID>>> id_for_reg;
   std::vector<TaskList> lists;
   std::map<int, AllReduce<int>> all_done;
+  std::map<int, bool> global;
 };
 
 class TaskCollection {

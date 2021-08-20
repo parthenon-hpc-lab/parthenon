@@ -45,11 +45,6 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   TaskCollection tc;
   TaskID none(0);
 
-  for (int i = 0; i < blocks.size(); i++) {
-    auto &pmb = blocks[i];
-    auto &base = pmb->meshblock_data.Get();
-  }
-
   int max_iters = pmesh->packages.Get("poisson_package")->Param<int>("max_iterations");
   int check_interval =
       pmesh->packages.Get("poisson_package")->Param<int>("check_interval");
@@ -67,12 +62,21 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
       : std::make_shared<CG_Solver<Stencil<Real>>>()); 
   auto cgsol_spmat = (!use_stencil
       ? psn_pkg->Param<std::shared_ptr<CG_Solver<SparseMatrixAccessor>>>("cg_solver")
-      : std::make_shared<CG_Solver<SparseMatrixAccessor>>()); 
+      : std::make_shared<CG_Solver<SparseMatrixAccessor>>());
+  std::string solver_name;
   std::vector<std::string> solver_vec_names;
   if (use_stencil) {
+    solver_name = cgsol_stencil->label();
     solver_vec_names = cgsol_stencil->SolverState();
   } else {
+    solver_name = cgsol_spmat->label();
     solver_vec_names = cgsol_spmat->SolverState();
+  }
+
+  for (int i = 0; i < blocks.size(); i++) {
+    auto &pmb = blocks[i];
+    auto &base = pmb->meshblock_data.Get();
+    pmb->meshblock_data.Add(solver_name, base, solver_vec_names);
   }
   
   const int num_partitions = pmesh->DefaultNumPartitions();
@@ -86,11 +90,12 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   for (int i = 0; i < num_partitions; i++) {
     int reg_dep_id = 0; 
     // make/get a mesh_data container for the state
-    auto &md = pmesh->mesh_data.GetOrAdd("base", i);
+    auto &base = pmesh->mesh_data.GetOrAdd("base", i);
+    auto &md = pmesh->mesh_data.GetOrAdd(solver_name, i);
 
     TaskList &tl = solver_region[i];
 
-    auto setrhs = tl.AddTask(none, poisson_package::SetRHS<MeshData<Real>>, md.get());
+    auto setrhs = tl.AddTask(none, poisson_package::SetRHS<MeshData<Real>>, base.get());
     auto mat_elem =
       tl.AddTask(none, poisson_package::SetMatrixElements<MeshData<Real>>, md.get());
     
@@ -102,13 +107,13 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     auto begin = setrhs | mat_elem;
     // create task list for solver.
-    auto beta = (use_stencil 
-              ? cgsol_stencil->createCGTaskList(begin, i, reg_dep_id, tc, tl, solver_region, solver, md, md)
-              : cgsol_spmat->createCGTaskList(begin, i, reg_dep_id, tc, tl, solver_region, solver, md, md));
+    auto cg_complete = (use_stencil 
+              ? cgsol_stencil->createCGTaskList(begin, i, reg_dep_id, tl, solver_region, solver, md, base)
+              : cgsol_spmat->createCGTaskList(begin, i, reg_dep_id, tl, solver_region, solver, md, base));
 
     auto print = none;
-    if (i == 0) { // only print donce
-      print = tl.AddTask(beta, poisson_package::PrintComplete);
+    if (i == 0) { // only print once
+      print = tl.AddTask(cg_complete, poisson_package::PrintComplete);
     }
   }
   
