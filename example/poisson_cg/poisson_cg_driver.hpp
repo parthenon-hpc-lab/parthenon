@@ -17,9 +17,9 @@
 #include <memory>
 #include <vector>
 
+#include "solvers/cg_solver.hpp"
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
-#include "solvers/cg_solver.hpp"
 
 namespace poisson_example {
 using namespace parthenon::driver::prelude;

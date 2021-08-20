@@ -20,8 +20,8 @@
 
 #include <coordinates/coordinates.hpp>
 #include <parthenon/package.hpp>
-#include <solvers/solver_utils.hpp>
 #include <solvers/cg_solver.hpp>
+#include <solvers/solver_utils.hpp>
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
@@ -67,7 +67,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   bool use_stencil = pin->GetOrAddBoolean("poisson", "use_stencil", true);
   pkg->AddParam<>("use_stencil", use_stencil);
-  
+
   pkg->AddParam<std::string>("spm_name", "poisson_sparse_matrix");
   pkg->AddParam<std::string>("rhs_name", "rhs");
   pkg->AddParam<std::string>("sol_name", "potential");
@@ -85,11 +85,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     pkg->AddField("poisson_sparse_matrix", msp);
     auto sp_accessor =
         parthenon::solvers::SparseMatrixAccessor("accessor", nstencil, offsets);
-    //pkg->AddParam("sparse_accessor", sp_accessor);
-    auto cg_sol = std::make_shared<CG_Solver<SparseMatrixAccessor>>(pkg.get(), err_tol, sp_accessor);
+    // pkg->AddParam("sparse_accessor", sp_accessor);
+    auto cg_sol = std::make_shared<CG_Solver<SparseMatrixAccessor>>(pkg.get(), err_tol,
+                                                                    sp_accessor);
     pkg->AddParam("cg_solver", cg_sol);
   }
-  
+
   return pkg;
 }
 
@@ -136,12 +137,11 @@ TaskStatus PrintComplete() {
   return TaskStatus::complete;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////  
-//Utility tasks for solver..
 /////////////////////////////////////////////////////////////////////////////////////////
-template<typename T>
-TaskStatus SetRHS(T* u)
-{
+// Utility tasks for solver..
+/////////////////////////////////////////////////////////////////////////////////////////
+template <typename T>
+TaskStatus SetRHS(T *u) {
   auto pm = u->GetParentPointer();
 
   IndexRange ib = u->GetBoundsI(IndexDomain::interior);
@@ -149,8 +149,7 @@ TaskStatus SetRHS(T* u)
   IndexRange kb = u->GetBoundsK(IndexDomain::interior);
 
   PackIndexMap imap;
-  const std::vector<std::string> vars(
-      {"density", "rhs"});
+  const std::vector<std::string> vars({"density", "rhs"});
   const auto &v = u->PackVariables(vars, imap);
   const int irho = imap["density"].first;
   const int irhs = imap["rhs"].first;
@@ -172,13 +171,12 @@ TaskStatus SetRHS(T* u)
       DEFAULT_LOOP_PATTERN, "set-rhs", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
       jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        v(b, irhs, k, j, i) = -dV*v(b, irho, k, j, i);
-        
+        v(b, irhs, k, j, i) = -dV * v(b, irho, k, j, i);
       });
 
   return TaskStatus::complete;
 }
-  
+
 /////////////////////////////////////////////////////////////////////////////////////////
 template TaskStatus SetMatrixElements<MeshData<Real>>(MeshData<Real> *);
 template TaskStatus SetMatrixElements<MeshBlockData<Real>>(MeshBlockData<Real> *);

@@ -323,9 +323,8 @@ class TaskList {
     std::cout << "TaskList::Print():" << std::endl;
     for (auto &t : task_list_) {
       std::cout << "  " << i << "  " << t.GetID().to_string() << "  "
-                << t.GetDependency().to_string() << " "
-                << tasks_completed_.to_string() << " "
-                << (t.GetStatus() == TaskStatus::incomplete)
+                << t.GetDependency().to_string() << " " << tasks_completed_.to_string()
+                << " " << (t.GetStatus() == TaskStatus::incomplete)
                 << (t.GetStatus() == TaskStatus::complete)
                 << (t.GetStatus() == TaskStatus::skip)
                 << (t.GetStatus() == TaskStatus::iterate)
@@ -360,7 +359,6 @@ class TaskRegion {
     AddDepdencies(reg_dep_id, list_index, id);
     global[reg_dep_id] = true;
   }
-
 
   TaskList &operator[](int i) { return lists[i]; }
 
