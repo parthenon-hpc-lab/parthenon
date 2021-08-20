@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_POISSON_POISSON_CG_PACKAGE_HPP_
-#define EXAMPLE_POISSON_POISSON_CG_PACKAGE_HPP_
+#ifndef EXAMPLE_POISSON_CG_POISSON_CG_PACKAGE_HPP_
+#define EXAMPLE_POISSON_CG_POISSON_CG_PACKAGE_HPP_
 
 #include <memory>
 
@@ -36,4 +36,4 @@ TaskStatus SetRHS(T *u);
 
 } // namespace poisson_package
 
-#endif // EXAMPLE_POISSON_POISSON_CG_PACKAGE_HPP_
+#endif // EXAMPLE_POISSON_CG_POISSON_CG_PACKAGE_HPP_

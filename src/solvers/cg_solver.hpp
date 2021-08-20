@@ -13,6 +13,7 @@
 #ifndef SOLVERS_CG_SOLVER_HPP_
 #define SOLVERS_CG_SOLVER_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -35,7 +36,7 @@ struct CG_Counter {
 template <typename SPType>
 class CG_Solver : public CG_Counter {
  public:
-  CG_Solver(){};
+  CG_Solver(){}
   CG_Solver(StateDescriptor *pkg, const Real error_tol_in, const Stencil<Real> &st)
       : error_tol(error_tol_in), stencil(st) {
     use_sparse_accessor = false;
@@ -275,7 +276,6 @@ class CG_Solver : public CG_Counter {
         });
 
     return TaskStatus::complete;
-
   } // Axpy1
   /////////////////////////////////////////////////////////////////////////
   template <typename T>
@@ -334,7 +334,6 @@ class CG_Solver : public CG_Counter {
 
     *reduce_sum += gsum;
     return TaskStatus::complete;
-
   } // DiagScaling
 
   /////////////////////////////////////////////////////////////////////////
@@ -367,9 +366,10 @@ class CG_Solver : public CG_Counter {
           v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
             // ap = A*p;
-            v(b, iapk, k, j, i) = (use_sparse_accessor
-                ? sp_accessor.MatVec(v, isp_lo, isp_hi, v, ipk, b, k, j, i)
-                : stencil.MatVec(v,ipk,b,k,j,i));
+            v(b, iapk, k, j, i) =
+                (use_sparse_accessor
+                     ? sp_accessor.MatVec(v, isp_lo, isp_hi, v, ipk, b, k, j, i)
+                     : stencil.MatVec(v, ipk, b, k, j, i));
 
             // p.Ap
             lsum += v(b, ipk, k, j, i) * v(b, iapk, k, j, i);
@@ -446,8 +446,8 @@ class CG_Solver : public CG_Counter {
 
     *reduce_sum += sum;
     return TaskStatus::complete;
-
   } // DoubleAxpy
+
  private:
   AllReduce<Real> p_dot_ap;
   AllReduce<Real> r_dot_z;

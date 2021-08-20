@@ -11,15 +11,15 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_POISSON_POISSON_CG_DRIVER_HPP_
-#define EXAMPLE_POISSON_POISSON_CG_DRIVER_HPP_
+#ifndef EXAMPLE_POISSON_CG_POISSON_CG_DRIVER_HPP_
+#define EXAMPLE_POISSON_CG_POISSON_CG_DRIVER_HPP_
 
 #include <memory>
 #include <vector>
 
-#include "solvers/cg_solver.hpp"
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
+#include <solvers/cg_solver.hpp>
 
 namespace poisson_example {
 using namespace parthenon::driver::prelude;
@@ -49,4 +49,4 @@ parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput>
 
 } // namespace poisson_example
 
-#endif // EXAMPLE_POISSON_POISSON_CG_DRIVER_HPP_
+#endif // EXAMPLE_POISSON_CG_POISSON_CG_DRIVER_HPP_
