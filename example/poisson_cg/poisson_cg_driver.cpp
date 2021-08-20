@@ -52,7 +52,6 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   bool warn_flag =
       pmesh->packages.Get("poisson_package")->Param<bool>("warn_without_convergence");
 
-  std::string pkg_name = "poisson_package";
   auto psn_pkg = pmesh->packages.Get("poisson_package");
   bool use_stencil = psn_pkg->Param<bool>("use_stencil");
   auto cgsol_stencil =

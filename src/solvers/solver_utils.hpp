@@ -27,13 +27,9 @@ struct SparseMatrixAccessor {
   ParArray1D<int> ioff, joff, koff;
   const int nstencil;
   int ndiag;
-  SparseMatrixAccessor() : nstencil(0) {}
-  SparseMatrixAccessor(const SparseMatrixAccessor &sp) : nstencil(sp.nstencil) {
-    ioff = sp.ioff;
-    joff = sp.joff;
-    koff = sp.koff;
-    ndiag = sp.ndiag;
-  }
+  SparseMatrixAccessor() : nstencil(0) : ndiag(0) {}
+  SparseMatrixAccessor(const SparseMatrixAccessor &sp) : ioff(sp.ioff), joff(sp.joff),
+    koff(sp.koff), nstencil(sp.nstencil), ndiag(sp.ndiag) {}
   SparseMatrixAccessor(const std::string &label, const int n,
                        std::vector<std::vector<int>> off)
       : ioff(label + "_ioff", n), joff(label + "_joff", n), koff(label + "_koff", n),
@@ -91,14 +87,9 @@ struct Stencil {
   ParArray1D<int> ioff, joff, koff;
   const int nstencil;
   int ndiag;
-  Stencil() : nstencil(0) {}
-  Stencil(const Stencil<T> &st) : nstencil(st.nstencil) {
-    w = st.w;
-    ioff = st.ioff;
-    joff = st.joff;
-    koff = st.koff;
-    ndiag = st.ndiag;
-  }
+  Stencil() : nstencil(0), ndiag(0) {}
+  Stencil(const Stencil<T> &st) : w(st.w), ioff(st.ioff), joff(st.joff), koff(st.koff),
+    nstencil(st.nstencil), ndiag(st.ndiag) {}
   Stencil(const std::string &label, const int n, std::vector<T> wgt,
           std::vector<std::vector<int>> off)
       : w(label + "_w", n), ioff(label + "_ioff", n), joff(label + "_joff", n),
