@@ -72,6 +72,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<std::string>("rhs_name", "rhs");
   pkg->AddParam<std::string>("sol_name", "potential");
 
+  std::string precon_name = pin->GetOrAddString("poisson","precon_name", "diag");
+  
+  pkg->AddParam<std::string>("precon_name", precon_name);
   if (use_stencil) {
     std::vector<Real> wgts;
     wgts = std::vector<Real>({-1.0, 2.0 * ndim, -1.0, -1.0, -1.0, -1.0, -1.0});

@@ -48,12 +48,19 @@ class CG_Solver : public CG_Counter {
     Init(pkg);
   }
 
+  enum Precon_Type
+  {
+    NONE=1,DIAG_SCALING=2,ERROR=3
+  };
+  
+    
   void Init(StateDescriptor *pkg) {
     // add a couple of vectors for solver..
     auto mcdo = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
     spm_name = pkg->Param<std::string>("spm_name");
     sol_name = pkg->Param<std::string>("sol_name");
     rhs_name = pkg->Param<std::string>("rhs_name");
+
     const std::string cg_id(std::to_string(global_num_cg_solvers));
     zk = "zk" + cg_id;
     res = "res" + cg_id;
@@ -68,6 +75,16 @@ class CG_Solver : public CG_Counter {
     auto mcif = Metadata({Metadata::Cell, Metadata::FillGhost});
     pkg->AddField(pk, mcif);
 
+    //setting up preconditioner.
+    precon_name = pkg->Param<std::string>("precon_name");
+    
+    if(precon_name== "none")
+      precon_type=Precon_Type::NONE;
+    else if(precon_name == "diag")
+      precon_type=Precon_Type::DIAG_SCALING;
+    else
+      precon_type=Precon_Type::ERROR;
+    
     global_num_cg_solvers++;
   }
 
@@ -109,15 +126,23 @@ class CG_Solver : public CG_Counter {
     // b = dV*rho
     // r=b-Ax;
     // z = Minv*r;
-    auto res0 = tl.AddTask(begin | rz0, &CG_Solver<SPType>::DiagScaling<MeshData<Real>>,
-                           this, md.get(), mout.get(), &r_dot_z.val);
-    solver_region.AddRegionalDependencies(j, i, res0);
+
+    auto init_cg = tl.AddTask(begin | rz0, &CG_Solver<SPType>::InitializeCG<MeshData<Real>>,
+                              this, md.get(), mout.get());
+    
+    auto precon0 = tl.AddTask(init_cg, &CG_Solver<SPType>::Precon<MeshData<Real>>,
+                              this, md.get(), &precon_type);
+
+    auto rdotz0 = tl.AddTask(precon0, &CG_Solver<SPType>::RdotZ<MeshData<Real>>,
+                             this, md.get(),  &r_dot_z.val);
+
+    solver_region.AddRegionalDependencies(j, i, rdotz0);
     j++;
 
     // r.z;
     auto start_global_rz =
-        (i == 0 ? tl.AddTask(res0, &AllReduce<Real>::StartReduce, &r_dot_z, MPI_SUM)
-                : res0);
+        (i == 0 ? tl.AddTask(rdotz0, &AllReduce<Real>::StartReduce, &r_dot_z, MPI_SUM)
+                : rdotz0);
 
     auto finish_global_rz =
         tl.AddTask(start_global_rz, &AllReduce<Real>::CheckReduce, &r_dot_z);
@@ -130,9 +155,9 @@ class CG_Solver : public CG_Counter {
 
     /////////////////////////////////////////////
     // Iteration starts here.
-    // p = beta*p+z;
+    // p = beta*p+z; NOTE: at the first iteration, beta=0 so p=z;
     auto axpy1 =
-        solver.AddTask(res0 | finish_global_rz, &CG_Solver<SPType>::Axpy1<MeshData<Real>>,
+        solver.AddTask(init_cg | finish_global_rz, &CG_Solver<SPType>::Axpy1<MeshData<Real>>,
                        this, md.get(), &betak.val);
     // matvec Ap = J*p
     auto pAp0 = (i == 0 ? solver.AddTask(
@@ -189,15 +214,22 @@ class CG_Solver : public CG_Counter {
     // r.z-new
     auto double_axpy =
         solver.AddTask(alpha, &CG_Solver<SPType>::DoubleAxpy<MeshData<Real>>, this,
-                       md.get(), mout.get(), &alphak.val, &r_dot_z_new.val);
-    solver_region.AddRegionalDependencies(j, i, double_axpy);
+                       md.get(), mout.get(), &alphak.val);
+    auto precon =
+        solver.AddTask(double_axpy, &CG_Solver<SPType>::Precon<MeshData<Real>>, this,
+                       md.get(), &precon_type);
+    auto rdotz =
+        solver.AddTask(precon, &CG_Solver<SPType>::RdotZ<MeshData<Real>>, this,
+                       md.get(), &r_dot_z_new.val);
+    
+    solver_region.AddRegionalDependencies(j, i, rdotz);
     j++;
 
     // reduce p.Ap
     auto start_global_rz_new =
-        (i == 0 ? solver.AddTask(double_axpy, &AllReduce<Real>::StartReduce, &r_dot_z_new,
+        (i == 0 ? solver.AddTask(rdotz, &AllReduce<Real>::StartReduce, &r_dot_z_new,
                                  MPI_SUM)
-                : double_axpy);
+                : rdotz);
     auto finish_global_rz_new =
         solver.AddTask(start_global_rz_new, &AllReduce<Real>::CheckReduce, &r_dot_z_new);
 
@@ -280,8 +312,97 @@ class CG_Solver : public CG_Counter {
     return TaskStatus::complete;
   } // Axpy1
   /////////////////////////////////////////////////////////////////////////
+
   template <typename T>
-  TaskStatus DiagScaling(T *u, T *du, Real *reduce_sum) {
+  TaskStatus Precon(T *u, Precon_Type *precon_type) {
+    auto pm = u->GetParentPointer();
+    const auto &ib = u->GetBoundsI(IndexDomain::interior);
+    const auto &jb = u->GetBoundsJ(IndexDomain::interior);
+    const auto &kb = u->GetBoundsK(IndexDomain::interior);
+
+    PackIndexMap imap;
+    const std::vector<std::string> vars({zk, res, spm_name});
+    const auto &v = u->PackVariables(vars, imap);
+
+    // this get cell variable..
+    const int izk = imap[zk].first;
+    const int ires = imap[res].first;
+    const int isp_lo = imap[spm_name].first;
+    const int isp_hi = imap[spm_name].second;
+    int diag;
+    if (use_sparse_accessor) {
+      diag = sp_accessor.ndiag + isp_lo;
+    } else {
+      diag = stencil.ndiag;
+    }
+
+    Real sum(0);
+    Real gsum(0);
+    
+    switch(*precon_type)
+    {
+    case Precon_Type::NONE:
+        parthenon::par_for(
+          parthenon::loop_pattern_mdrange_tag, "noprecon", DevExecSpace(), 0,
+          v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+            // z=r/J_ii
+            v(b, izk, k, j, i) = v(b, ires, k, j, i);
+          });
+        break;
+    case Precon_Type::DIAG_SCALING:
+        parthenon::par_for(
+          parthenon::loop_pattern_mdrange_tag, "diag_scaling", DevExecSpace(), 0,
+          v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+            // z=r/J_ii
+            Real J_ii = (use_sparse_accessor ? v(b, diag, k, j, i) : stencil.w(diag));
+            v(b, izk, k, j, i) = v(b, ires, k, j, i) / J_ii;
+          });
+      break;
+    default :
+      std::cout <<"Preconditiong invalid...."<<std::endl;
+      throw;
+      break;
+    }
+    
+    return TaskStatus::complete;
+  } // DiagScalingPrecon
+  /////////////////////////////////////////////////////////////////////////
+  template <typename T>
+  TaskStatus RdotZ(T *u,  Real *reduce_sum) {
+    auto pm = u->GetParentPointer();
+    const auto &ib = u->GetBoundsI(IndexDomain::interior);
+    const auto &jb = u->GetBoundsJ(IndexDomain::interior);
+    const auto &kb = u->GetBoundsK(IndexDomain::interior);
+
+    PackIndexMap imap;
+    const std::vector<std::string> vars({zk, res});
+    const auto &v = u->PackVariables(vars, imap);
+
+    // this get cell variable..
+    const int izk = imap[zk].first;
+    const int ires = imap[res].first;
+
+    Real sum(0);
+    Real gsum(0);
+
+    parthenon::par_reduce(
+        parthenon::loop_pattern_mdrange_tag, "r_dot_z", DevExecSpace(), 0,
+        v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
+          lsum += v(b, ires, k, j, i) * v(b, izk, k, j, i);
+        },
+        Kokkos::Sum<Real>(gsum));
+
+    *reduce_sum += gsum;
+    return TaskStatus::complete;
+  } // RdotZ
+
+  
+  /////////////////////////////////////////////////////////////////////////
+  template <typename T>
+  TaskStatus InitializeCG(T *u, T *du) {
     auto pm = u->GetParentPointer();
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
@@ -311,30 +432,16 @@ class CG_Solver : public CG_Counter {
     const auto &dv = du->PackVariables(var2, imap2);
     const int ixk = imap2[sol_name].first;
 
-    Real sum(0);
-    Real gsum(0);
-
-    parthenon::par_reduce(
-        parthenon::loop_pattern_mdrange_tag, "diag_scaling", DevExecSpace(), 0,
+    parthenon::par_for(
+        parthenon::loop_pattern_mdrange_tag, "initialize_cg", DevExecSpace(), 0,
         v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           // x=0
           dv(b, ixk, k, j, i) = 0;
 
           // res = rhs
           v(b, ires, k, j, i) = v(b, irhs, k, j, i);
-
-          // z=r/J_ii
-          Real J_ii = (use_sparse_accessor ? v(b, diag, k, j, i) : stencil.w(diag));
-          v(b, izk, k, j, i) = v(b, ires, k, j, i) / J_ii;
-          // p=z
-          v(b, ipk, k, j, i) = v(b, izk, k, j, i);
-          // r.z
-          lsum += v(b, ires, k, j, i) * v(b, izk, k, j, i);
-        },
-        Kokkos::Sum<Real>(gsum));
-
-    *reduce_sum += gsum;
+        });
     return TaskStatus::complete;
   } // DiagScaling
 
@@ -395,61 +502,42 @@ class CG_Solver : public CG_Counter {
     return TaskStatus::complete;
   } // MatVec
 
+
   /////////////////////////////////////////////////////////////////////////
   template <typename T>
-  TaskStatus DoubleAxpy(T *u, T *du, Real *palphak, Real *reduce_sum) {
+  TaskStatus DoubleAxpy(T *u, T *du, Real *palphak) {
     auto pm = u->GetParentPointer();
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
     const auto &kb = u->GetBoundsK(IndexDomain::interior);
 
     PackIndexMap imap;
-    const std::vector<std::string> vars({pk, apk, res, zk, spm_name});
+    const std::vector<std::string> vars({pk, apk, res});
     const auto &v = u->PackVariables(vars, imap);
 
     const int ipk = imap[pk].first;
     const int iapk = imap[apk].first;
 
     const int ires = imap[res].first;
-    const int izk = imap[zk].first;
-
-    const int isp_lo = imap[spm_name].first;
-    int diag;
-    if (use_sparse_accessor) {
-      diag = sp_accessor.ndiag + isp_lo;
-    } else {
-      diag = stencil.ndiag;
-    }
 
     const std::vector<std::string> var2({sol_name});
     PackIndexMap imap2;
     const auto &dv = du->PackVariables(var2, imap2);
     const int ixk = imap2[sol_name].first;
 
-    Real sum(0);
     // make a local copy so it's captured in the kernel
     const Real alphak = *palphak;
-    parthenon::par_reduce(
+    parthenon::par_for(
         parthenon::loop_pattern_mdrange_tag, "double_axpy", DevExecSpace(), 0,
         v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           // x = x+alpha*p
           dv(b, ixk, k, j, i) += alphak * v(b, ipk, k, j, i);
           // r = r-alpha*Ap
           v(b, ires, k, j, i) -= alphak * v(b, iapk, k, j, i);
-          // z = r/J_ii;(precon..)
-          Real J_ii = (use_sparse_accessor ? v(b, diag, k, j, i) : stencil.w(diag));
-          v(b, izk, k, j, i) = v(b, ires, k, j, i) / J_ii;
-          // r.z
-
-          lsum += v(b, ires, k, j, i) * v(b, izk, k, j, i);
-        },
-        Kokkos::Sum<Real>(sum));
-
-    *reduce_sum += sum;
+        });
     return TaskStatus::complete;
   } // DoubleAxpy
-
  private:
   AllReduce<Real> p_dot_ap;
   AllReduce<Real> r_dot_z;
@@ -461,11 +549,13 @@ class CG_Solver : public CG_Counter {
   int cg_cntr;
   Real global_res0;
   std::string zk, res, apk, xk, pk;
-  std::string spm_name, sol_name, rhs_name;
+  std::string spm_name, sol_name, rhs_name, precon_name;
   Real error_tol;
   Stencil<Real> stencil;
   SparseMatrixAccessor sp_accessor;
   bool use_sparse_accessor;
+  Precon_Type precon_type;
+  
 };
 
 } // namespace solvers
