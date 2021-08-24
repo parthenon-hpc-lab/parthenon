@@ -268,11 +268,13 @@ class CG_Solver : public CG_Counter {
     const int izk = imap[zk].first;
     const int ipk = imap[pk].first;
 
+    // make local copy.
+    const Real betak = *beta;
     parthenon::par_for(
         DEFAULT_LOOP_PATTERN, "axpy1", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
         jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          v(b, ipk, k, j, i) = (*beta) * v(b, ipk, k, j, i) + v(b, izk, k, j, i);
+          v(b, ipk, k, j, i) = betak * v(b, ipk, k, j, i) + v(b, izk, k, j, i);
         });
 
     return TaskStatus::complete;
