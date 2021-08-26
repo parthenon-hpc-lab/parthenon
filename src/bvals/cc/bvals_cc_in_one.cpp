@@ -432,11 +432,10 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
 
   auto boundary_info = md->GetSendBuffers();
-  bool cache_is_valid = boundary_info.is_allocated();
+  bool have_cache = boundary_info.is_allocated();
+  auto buffers_used = ResetSendBuffers(md.get(), have_cache);
 
-  auto buffers_used = ResetSendBuffers(md.get(), cache_is_valid);
-
-  if (!cache_is_valid) {
+  if (!have_cache || (buffers_used != boundary_info.extent(0))) {
     ResetSendBufferBoundaryInfo(md.get(), buffers_used);
     boundary_info = md->GetSendBuffers();
   } else {

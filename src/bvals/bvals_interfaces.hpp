@@ -188,7 +188,7 @@ class BoundaryCommunication {
  public:
   BoundaryCommunication() {}
   virtual ~BoundaryCommunication() {}
-  // create unique tags for each MeshBlock/buffer/quantity and initalize MPI requests:
+  // create unique tags for each MeshBlock/buffer/quantity and initialize MPI requests:
   virtual void SetupPersistentMPI() = 0;
   // call MPI_Start() on req_recv[]
   virtual void StartReceiving(BoundaryCommSubset phase) = 0;
@@ -234,7 +234,7 @@ class BoundaryBuffer {
 };
 
 //----------------------------------------------------------------------------------------
-// Abstract classes containing mix of pure virtual, virtual, and concrete functoins
+// Abstract classes containing mix of pure virtual, virtual, and concrete functions
 //----------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------
