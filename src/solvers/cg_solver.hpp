@@ -50,7 +50,7 @@ class CG_Solver : public CG_Counter {
 
   enum Precon_Type
   {
-    NONE=1,DIAG_SCALING=2,ERROR=3
+    NONE=1,DIAG_SCALING=2,ICC=3, ERROR=4
   };
   
     
@@ -60,7 +60,9 @@ class CG_Solver : public CG_Counter {
     spm_name = pkg->Param<std::string>("spm_name");
     sol_name = pkg->Param<std::string>("sol_name");
     rhs_name = pkg->Param<std::string>("rhs_name");
-
+    pcm_name = "";
+    
+    
     const std::string cg_id(std::to_string(global_num_cg_solvers));
     zk = "zk" + cg_id;
     res = "res" + cg_id;
@@ -82,6 +84,12 @@ class CG_Solver : public CG_Counter {
       precon_type=Precon_Type::NONE;
     else if(precon_name == "diag")
       precon_type=Precon_Type::DIAG_SCALING;
+    else if( precon_name == "icc")
+    {
+      
+      precon_type = Precon_Type::ICC;
+      pcm_name = pkg->Param<std::string>("pcm_name");
+    }
     else
       precon_type=Precon_Type::ERROR;
     
@@ -90,6 +98,9 @@ class CG_Solver : public CG_Counter {
 
   std::vector<std::string> SolverState() const {
     if (use_sparse_accessor) {
+      if( precon_type == Precon_Type::ICC )
+        return std::vector<std::string>({zk, res, apk, pk, spm_name,pcm_name, rhs_name});
+      else
       return std::vector<std::string>({zk, res, apk, pk, spm_name, rhs_name});
     } else {
       return std::vector<std::string>({zk, res, apk, pk, rhs_name});
@@ -128,7 +139,7 @@ class CG_Solver : public CG_Counter {
     // z = Minv*r;
 
     auto init_cg = tl.AddTask(begin | rz0, &CG_Solver<SPType>::InitializeCG<MeshData<Real>>,
-                              this, md.get(), mout.get());
+                              this, md.get(), mout.get(), &precon_type);
     
     auto precon0 = tl.AddTask(init_cg, &CG_Solver<SPType>::Precon<MeshData<Real>>,
                               this, md.get(), &precon_type);
@@ -321,7 +332,11 @@ class CG_Solver : public CG_Counter {
     const auto &kb = u->GetBoundsK(IndexDomain::interior);
 
     PackIndexMap imap;
-    const std::vector<std::string> vars({zk, res, spm_name});
+    std::vector<std::string> vars({zk, res, spm_name});
+
+    if((*precon_type) == Precon_Type::ICC)
+      vars.push_back(pcm_name);
+
     const auto &v = u->PackVariables(vars, imap);
 
     // this get cell variable..
@@ -360,6 +375,117 @@ class CG_Solver : public CG_Counter {
             v(b, izk, k, j, i) = v(b, ires, k, j, i) / J_ii;
           });
       break;
+    case Precon_Type::ICC:
+    {
+      int nx=(ib.e-ib.s)+1;
+      int ny=(jb.e-jb.s)+1;
+      int nz=(kb.e-kb.s)+1;
+      int nxny = nx*ny;
+      const auto ioff = sp_accessor.ioff;
+      const auto joff = sp_accessor.joff;
+      const auto koff = sp_accessor.koff;
+    
+      const int ipcm_lo = imap[pcm_name].first;
+      const int ipcm_hi = imap[pcm_name].second;
+      int pc_diag = sp_accessor.ndiag + ipcm_lo;
+
+      int nstencil = sp_accessor.nstencil;
+
+      // first copy r into z.
+      parthenon::par_for(
+        parthenon::loop_pattern_mdrange_tag, "noprecon", DevExecSpace(), 0,
+        v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          // z=r/J_ii
+               int l = (i-ib.s)+nx*(j-jb.s)+nxny*(k-kb.s);
+          v(b, izk, k, j, i) = v(b, ires, k, j, i);
+        });
+      
+      // step1: x=(D+L)^-1 *r
+      for(int b=0;b<v.GetDim(5);++b)
+      {
+        for(int k=kb.s;k<kb.e+1;++k)
+        {
+          for(int j=jb.s;j<jb.e+1;++j)
+          {
+            for(int i=ib.s;i<ib.e+1;++i)
+            {
+              Real sum(0);
+              
+              int l = (i-ib.s)+nx*(j-jb.s)+nxny*(k-kb.s);
+              for(int col=ipcm_lo; col<=ipcm_hi;col++)// m-loop
+              {
+                // a(l,m) = v(col,k,j,i)
+                // a(m,l) = v(off_inv+ipcm_lo,k2,j2,i2)
+                const int off = col - ipcm_lo;
+                // get neighbor id.
+                int i2 = i+ioff(off);
+                int j2 = j+joff(off);
+                int k2 = k+koff(off);
+                int m = (i2-ib.s)+nx*(j2-jb.s)+nxny*(k2-kb.s);
+                if(  m < l )
+                {
+                  sum += v(b,col,k,j,i)*v(b,izk,k2,j2,i2);
+                }
+              }//ncol
+              v(b,izk,k,j,i) = (v(b,izk,k,j,i)-sum)/v(b,pc_diag,k,j,i);
+            }//i
+          }//j
+        }//k
+      }//b
+
+      //step2 y = Dx
+      for(int b=0;b<v.GetDim(5);++b)
+      {
+        for(int k=kb.s;k<kb.e+1;++k)
+        {
+          for(int j=jb.s;j<jb.e+1;++j)
+          {
+            for(int i=ib.s;i<ib.e+1;++i)
+            {
+              v(b,izk,k,j,i) *= v(b,pc_diag,k,j,i);
+            }//i
+          }//j
+        }//k
+      }//b
+
+      // step3: z=(D+U)^-1 *y
+      for(int b=0;b<v.GetDim(5);++b)
+      {
+        for(int k=kb.e;k>=kb.s;--k)
+        {
+          for(int j=jb.e;j>=jb.s;--j)
+          {
+            for(int i=ib.e; i>= ib.s;--i)
+            {
+              Real sum(0);
+              
+              int l = (i-ib.s)+nx*(j-jb.s)+nxny*(k-kb.s);
+              for(int col=ipcm_lo; col<=ipcm_hi;col++)// m-loop
+              {
+                // a(l,m) = v(col,k,j,i)
+                // a(m,l) = v(off_inv+ipcm_lo,k2,j2,i2)
+                const int off = col - ipcm_lo;
+                // get neighbor id.
+                int i2 = i+ioff(off);
+                int j2 = j+joff(off);
+                int k2 = k+koff(off);
+                int m = (i2-ib.s)+nx*(j2-jb.s)+nxny*(k2-kb.s);
+                if(  m > l )
+                  sum += v(b,col,k,j,i)*v(b,izk,k2,j2,i2);
+              }//ncol
+              v(b,izk,k,j,i) = (v(b,izk,k,j,i)-sum)/v(b,pc_diag,k,j,i);
+         //  std::cout<< " step: " << v(b,izk,k,j,i)
+          //   <<" " << v(b,ires,k,j,i)<<std::endl;
+              
+            }//i
+          }//j
+        }//k
+      }//b
+    }
+    
+      break;
+      
     default :
       std::cout <<"Preconditiong invalid...."<<std::endl;
       throw;
@@ -367,7 +493,7 @@ class CG_Solver : public CG_Counter {
     }
     
     return TaskStatus::complete;
-  } // DiagScalingPrecon
+  } // Precon
   /////////////////////////////////////////////////////////////////////////
   template <typename T>
   TaskStatus RdotZ(T *u,  Real *reduce_sum) {
@@ -402,14 +528,23 @@ class CG_Solver : public CG_Counter {
   
   /////////////////////////////////////////////////////////////////////////
   template <typename T>
-  TaskStatus InitializeCG(T *u, T *du) {
+  TaskStatus InitializeCG(T *u, T *du, Precon_Type *precon_type) {
     auto pm = u->GetParentPointer();
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
     const auto &kb = u->GetBoundsK(IndexDomain::interior);
 
+    int nx=(ib.e-ib.s)+1;
+    int ny=(jb.e-jb.s)+1;
+    int nz=(kb.e-kb.s)+1;
+    int nxny = nx*ny;
+    
     PackIndexMap imap;
-    const std::vector<std::string> vars({zk, pk, res, rhs_name, spm_name});
+    std::vector<std::string> vars({zk, pk, res, rhs_name, spm_name});
+
+    if((*precon_type) == Precon_Type::ICC)
+      vars.push_back(pcm_name);
+    
     const auto &v = u->PackVariables(vars, imap);
 
     // this get cell variable..
@@ -419,19 +554,26 @@ class CG_Solver : public CG_Counter {
     const int irhs = imap[rhs_name].first;
     const int isp_lo = imap[spm_name].first;
     const int isp_hi = imap[spm_name].second;
+    const int ipcm_lo = imap[pcm_name].first;
+    const int ipcm_hi = imap[pcm_name].second;
     int diag;
     if (use_sparse_accessor) {
       diag = sp_accessor.ndiag + isp_lo;
     } else {
       diag = stencil.ndiag;
     }
-
+    
     // assume solution is in "dv"
     const std::vector<std::string> var2({sol_name});
     PackIndexMap imap2;
     const auto &dv = du->PackVariables(var2, imap2);
     const int ixk = imap2[sol_name].first;
 
+    // this runs i(inner-most),j,k,b(outer-most) in the order..
+    const auto ioff = sp_accessor.ioff;
+    const auto joff = sp_accessor.joff;
+    const auto koff = sp_accessor.koff;
+    const auto inv_entries = sp_accessor.inv_entries;
     parthenon::par_for(
         parthenon::loop_pattern_mdrange_tag, "initialize_cg", DevExecSpace(), 0,
         v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -442,8 +584,262 @@ class CG_Solver : public CG_Counter {
           // res = rhs
           v(b, ires, k, j, i) = v(b, irhs, k, j, i);
         });
+
+    // do incomplete cholesky factorization..
+    //pcm="preconditioning matrix"
+    if((*precon_type) == Precon_Type::ICC)
+    {
+      //  const auto ioff = sp_accessor.ioff;
+      //const auto joff = sp_accessor.joff;
+      //const auto koff = sp_accessor.koff;
+    
+      //const int ipcm_lo = imap[pcm_name].first;
+      //const int ipcm_hi = imap[pcm_name].second;
+      int pc_diag = sp_accessor.ndiag + ipcm_lo;
+
+      int nstencil = sp_accessor.nstencil;
+
+      std::cout <<"ipcmlo:" << ipcm_lo<< " " << ipcm_hi<<std::endl;
+      // copy matrix into precon matrix.
+      parthenon::par_for(
+        parthenon::loop_pattern_mdrange_tag, "icc_copy", DevExecSpace(), 0,
+        v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          for(int n=ipcm_lo, n2=0; n<=ipcm_hi;n++,n2++)
+          {
+            v(b, n, k, j, i) = v(b,isp_lo+n2,k,j,i);
+          }//n
+        });
+
+      for(int b=0;b<v.GetDim(5);++b)
+      {
+        for(int k=kb.s;k<kb.e+1;++k)
+        {
+          for(int j=jb.s;j<jb.e+1;++j)
+          {
+            for(int i=ib.s;i<ib.e+1;++i)
+            {
+              
+//              for(int n=ipcm_lo, n2=0; n<=ipcm_hi;n++,n2++)
+              for(int n=0;n<nstencil;++n)
+              {
+                v(b, ipcm_lo+n, k, j, i) = v(b,isp_lo+n,k,j,i);
+              }//n
+            }//i
+          }//j
+        }//k
+      }//b
+// This is only works (for now) for 5pt (2d) or 7pt(3d) stencil ...
+//outer loop.
+
+      for(int b=0;b<v.GetDim(5);++b)
+      {
+        for(int k=kb.s;k<kb.e+1;++k)
+        {
+          for(int j=jb.s;j<jb.e+1;++j)
+          {
+            for(int i=ib.s;i<ib.e+1;++i)
+            {
+      
+              //a(l,l) = v(pc_diag,k,j,i)
+              v(b, pc_diag, k, j, i) = sqrt( v(b,pc_diag,k,j,i) );
+            //  std::cout <<"v: "<< b << " "<<pc_diag<<" " << k << " " << j << " " << i<<" " << v(b,pc_diag,k,j,i)<<std::endl;
+              
+              Real denom = v(b, pc_diag, k, j, i);
+              int l = (i-ib.s)+nx*(j-jb.s)+nxny*(k-kb.s);
+
+              //for( m=(l+1):ncells)
+              //{
+              //  if (a(m,l)!=0)
+              //    a(m,l) = a(m,l)/a(l,l);            
+              //}//m
+              for(int col=ipcm_lo; col<=ipcm_hi;col++)// m-loop
+              {
+                // a(l,m) = v(col,k,j,i)
+                // a(m,l) = v(off_inv+ipcm_lo,k2,j2,i2)
+                const int off = col - ipcm_lo;
+                // get neighbor id.
+                int i2 = i+ioff(off);
+                int j2 = j+joff(off);
+                int k2 = k+koff(off);
+                int m = (i2-ib.s)+nx*(j2-jb.s)+nxny*(k2-kb.s);
+                if( m > l )
+                {
+                  int off_inv = inv_entries(off);
+                  int col_inv = ipcm_lo+off_inv;
+                  v(b,col_inv,k2,j2,i2) = v(b,col_inv,k2,j2,i2)/denom;
+                }//m>l
+              }//col
+
+              //for( n=(l+1):ncells)
+              //{
+              //  for( m=n:ncells)
+              //  {
+              //    if (a(m,n)!=0)
+              //      a(m,n) = a(m,n)-a(m,l)*a(n,l);  
+              //  }//m
+              //}//n		
+              for(int col=ipcm_lo; col<=ipcm_hi;col++)//n
+              {
+                // a(l,n) = v(col,k,j,i);
+                // a(n,l) = v(off_inv+ipcm_lo,k2,j2,i2);
+                const int off = col - ipcm_lo;
+                int off_inv = inv_entries(off);
+                int col_inv = ipcm_lo+off_inv;
+            
+                // get neighbor id.
+                int i2 = i+ioff(off);
+                int j2 = j+joff(off);
+                int k2 = k+koff(off);
+                int n = (i2-ib.s)+nx*(j2-jb.s)+nxny*(k2-kb.s);
+                Real a_nl = v(b,off_inv+ipcm_lo,k2,j2,i2);
+                if( n> l )
+                {
+                  // only diag is common.. a(m,n) !=0 iff m=n.
+                  // so a(n,n) = a(n,n)-a(n,l)*a(n,l);
+                  v(b,pc_diag,k2,j2,i2) = v(b,pc_diag,k2,j2,i2)-a_nl*a_nl;
+                }//n>l
+              }//n
+            }//i
+          }//j
+        }//k
+      }//b
+      // because of the sparse matrix, we fill upper trianglar..
+      // l<m
+      for(int b=0;b<v.GetDim(5);++b)
+      {
+        for(int k=kb.s;k<kb.e+1;++k)
+        {
+          for(int j=jb.s;j<jb.e+1;++j)
+          {
+            for(int i=ib.s;i<ib.e+1;++i)
+            {
+      
+              int l = (i-ib.s)+nx*(j-jb.s)+nxny*(k-kb.s);
+              for(int col=ipcm_lo; col<=ipcm_hi;col++)// m-loop
+              {
+                // a(l,m) = v(col,k,j,i)
+                // a(m,l) = v(off_inv+ipcm_lo,k2,j2,i2)
+                const int off = col - ipcm_lo;
+                // get neighbor id.
+                int i2 = i+ioff(off);
+                int j2 = j+joff(off);
+                int k2 = k+koff(off);
+                int m = (i2-ib.s)+nx*(j2-jb.s)+nxny*(k2-kb.s);
+                if(  l < m )
+                {
+                  int off_inv = inv_entries(off);
+                  int col_inv = ipcm_lo+off_inv;
+                  v(b,col,k,j,i) = v(b,col_inv,k2,j2,i2);
+       //           std::cout <<"v-up: " << col << " k " << k << " " << j << " " << i 
+       //            << " "  << v(b,col,k,j,i)<<std::endl;
+                }//m>l
+              }//col
+            }//i
+          }//j
+        }//k
+      }//b
+      
+#if 0
+      parthenon::par_for(
+        parthenon::loop_pattern_mdrange_tag, "icc_0", DevExecSpace(), 0,
+        v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+
+
+          //a(l,l) = v(pc_diag,k,j,i)
+          v(b, pc_diag, k, j, i) = sqrt( v(b,pc_diag,k,j,i) );
+
+          Real denom = v(b, pc_diag, k, j, i);
+          int l = (i-ib.s)+nx*(j-jb.s)+nxny*(k-kb.s);
+
+          //for( m=(l+1):ncells)
+          //{
+          //  if (a(m,l)!=0)
+          //    a(m,l) = a(m,l)/a(l,l);            
+          //}//m
+          for(int col=ipcm_lo; col<=ipcm_hi;col++)// m-loop
+          {
+            // a(l,m) = v(col,k,j,i)
+            // a(m,l) = v(off_inv+ipcm_lo,k2,j2,i2)
+            const int off = col - ipcm_lo;
+            // get neighbor id.
+            int i2 = i+ioff(off);
+            int j2 = j+joff(off);
+            int k2 = k+koff(off);
+            int m = (i2-ib.s)+nx*(j2-jb.s)+nxny*(k2-kb.s);
+            if( m > l )
+            {
+              int off_inv = inv_entries[off];
+              int col_inv = ipcm_lo+off_inv;
+              v(b,col_inv,k2,j2,i2) = v(b,col_inv,k2,j2,i2)/denom;
+            }//m>l
+          }//col
+
+          //for( n=(l+1):ncells)
+          //{
+          //  for( m=n:ncells)
+          //  {
+          //    if (a(m,n)!=0)
+          //      a(m,n) = a(m,n)-a(m,l)*a(n,l);  
+          //  }//m
+          //}//n		
+          for(int col=ipcm_lo; col<=ipcm_hi;col++)//n
+          {
+            // a(l,n) = v(col,k,j,i);
+            // a(n,l) = v(off_inv+ipcm_lo,k2,j2,i2);
+            const int off = col - ipcm_lo;
+            int off_inv = inv_entries[off];
+            int col_inv = ipcm_lo+off_inv;
+            
+            // get neighbor id.
+            int i2 = i+ioff(off);
+            int j2 = j+joff(off);
+            int k2 = k+koff(off);
+            int n = (i2-ib.s)+nx*(j2-jb.s)+nxny*(k2-kb.s);
+            Real a_nl = v(b,off_inv+ipcm_lo,k2,j2,i2);
+            if( n> l )
+            {
+              // only diag is common.. a(m,n) !=0 iff m=n.
+              // so a(n,n) = a(n,n)-a(n,l)*a(n,l);
+              v(b,pc_diag,k2,j2,i2) = v(b,pc_diag,k2,j2,i2)-a_nl*a_nl;
+            }//n>l
+          }//n
+          
+        });
+
+      // because of the sparse matrix, we fill upper trianglar..
+      // l<m
+      parthenon::par_for(
+        parthenon::loop_pattern_mdrange_tag, "icc_0", DevExecSpace(), 0,
+        v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+
+          int l = (i-ib.s)+nx*(j-jb.s)+nxny*(k-kb.s);
+          for(int col=ipcm_lo; col<=ipcm_hi;col++)// m-loop
+          {
+            // a(l,m) = v(col,k,j,i)
+            // a(m,l) = v(off_inv+ipcm_lo,k2,j2,i2)
+            const int off = col - ipcm_lo;
+            // get neighbor id.
+            int i2 = i+ioff(off);
+            int j2 = j+joff(off);
+            int k2 = k+koff(off);
+            int m = (i2-ib.s)+nx*(j2-jb.s)+nxny*(k2-kb.s);
+            if(  l < m )
+            {
+              int off_inv = inv_entries[off];
+              int col_inv = ipcm_lo+off_inv;
+              v(b,col,k,j,i) = v(b,col_inv,k2,j2,i2);
+            }//m>l
+          }//col
+        });
+      
+        
+#endif    
+    }
     return TaskStatus::complete;
-  } // DiagScaling
+  } // initializeCG;
 
   /////////////////////////////////////////////////////////////////////////
   template <typename T>
@@ -550,6 +946,8 @@ class CG_Solver : public CG_Counter {
   Real global_res0;
   std::string zk, res, apk, xk, pk;
   std::string spm_name, sol_name, rhs_name, precon_name;
+  std::string pcm_name;
+  
   Real error_tol;
   Stencil<Real> stencil;
   SparseMatrixAccessor sp_accessor;
