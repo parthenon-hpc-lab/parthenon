@@ -85,7 +85,7 @@ class CG_Solver : public CG_Counter {
     return lab;
   }
 
-  TaskID createCGTaskList(TaskID &begin, int &i, int &j, TaskList &tl,
+  TaskID createCGTaskList(TaskID &begin, const int i, int &j, TaskList &tl,
                           TaskRegion &solver_region, IterativeTasks &solver,
                           std::shared_ptr<MeshData<Real>> md,
                           std::shared_ptr<MeshData<Real>> mout) {
@@ -101,7 +101,7 @@ class CG_Solver : public CG_Counter {
                                return TaskStatus::complete;
                              },
                              &r_dot_z.val, &betak.val, &cg_cntr)
-                       : solver.AddTask(none, &CG_Solver<SPType>::DoNothing, this));
+                       : tl.AddTask(none, &CG_Solver<SPType>::DoNothing, this));
     solver_region.AddRegionalDependencies(j, i, rz0);
     j++;
 

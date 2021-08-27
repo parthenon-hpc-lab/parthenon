@@ -12,11 +12,13 @@
 //========================================================================================
 
 #include "cg_solver.hpp"
+#include "newton.hpp"
 
 namespace parthenon {
 namespace solvers {
 
 int CG_Counter::global_num_cg_solvers = 0;
+int Newton_Counter::global_num_newton_solvers = 0;
 
 } // namespace solvers
 } // namespace parthenon
