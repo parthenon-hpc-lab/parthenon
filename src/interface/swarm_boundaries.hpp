@@ -22,7 +22,7 @@ class ParticleBound {
   KOKKOS_INLINE_FUNCTION virtual void Apply(const int n, double &x, double &y, double &z,
                                             // const SwarmDeviceContext &context) = 0;
                                             const SwarmDeviceContext &context) const {
-    PARTHENON_FAIL("Calling base class");
+    PARTHENON_FAIL("You are calling the ParticleBound abstract base class Apply method");
   }
 };
 
