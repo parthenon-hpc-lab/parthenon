@@ -72,7 +72,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("rng_pool", rng_pool);
 
   std::string swarm_name = "my particles";
-  Metadata swarm_metadata({Metadata::None});
+  Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("t", swarm_name, real_swarmvalue_metadata);

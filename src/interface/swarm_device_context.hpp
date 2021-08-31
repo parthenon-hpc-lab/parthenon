@@ -13,9 +13,12 @@
 #ifndef INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
 #define INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
 
+#include "coordinates/coordinates.hpp"
+
 namespace parthenon {
 
 class SwarmDeviceContext {
+
  public:
   KOKKOS_FUNCTION
   bool IsActive(int n) const { return mask_(n); }
@@ -62,11 +65,11 @@ class SwarmDeviceContext {
   KOKKOS_INLINE_FUNCTION
   void Xtoijk(const Real &x, const Real &y, const Real &z, int &i, int &j, int &k) const {
     if (ndim_ > 0) {
-      i = static_cast<int>(std::floor((x - x_min_) / dx1_)) + ib_s_;
+      i = static_cast<int>(std::floor((x - x_min_) / coords_.Dx(CoordinateDirection::X1DIR))) + ib_s_;
       if (ndim_ > 1) {
-        j = static_cast<int>(std::floor((y - y_min_) / dx2_)) + jb_s_;
+        j = static_cast<int>(std::floor((y - y_min_) / coords_.Dx(CoordinateDirection::X2DIR))) + jb_s_;
         if (ndim_ > 2) {
-          k = static_cast<int>(std::floor((z - z_min_) / dx3_)) + kb_s_;
+          k = static_cast<int>(std::floor((z - z_min_) / coords_.Dx(CoordinateDirection::X3DIR))) + kb_s_;
         } else {
           k = kb_s_;
         }
@@ -82,9 +85,6 @@ class SwarmDeviceContext {
   int ib_s_;
   int jb_s_;
   int kb_s_;
-  Real dx1_;
-  Real dx2_;
-  Real dx3_;
   Real x_min_;
   Real x_max_;
   Real y_min_;
@@ -105,6 +105,7 @@ class SwarmDeviceContext {
   friend class Swarm;
   constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
   int my_rank_;
+  Coordinates_t coords_;
 };
 
 } // namespace parthenon
