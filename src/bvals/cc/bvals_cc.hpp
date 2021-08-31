@@ -37,7 +37,7 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
  public:
   CellCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb, ParArrayND<Real> var,
                                ParArrayND<Real> coarse_var, ParArrayND<Real> *var_flux,
-                               bool is_sparse);
+                               bool is_sparse, const std::string &label);
   ~CellCenteredBoundaryVariable();
 
   // may want to rebind var_cc to u,u1,u2,w,w1, etc. registers for time integrator logic.
@@ -53,6 +53,8 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   // (CellCenteredBoundaryVariable only actually uses 1x if multilevel==false)
   // must correspond to the # of "int *phys_id_" private members, below. Convert to array?
   static constexpr int max_phys_id = 3;
+
+  const std::string label;
 
   // BoundaryVariable:
   int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) final;

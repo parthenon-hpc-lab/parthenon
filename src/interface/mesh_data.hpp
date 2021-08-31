@@ -193,6 +193,8 @@ class MeshData {
  public:
   MeshData() = default;
 
+  const auto &StageName() const { return stage_name_; }
+
   Mesh *GetMeshPointer() const { return pmy_mesh_; }
   auto GetParentPointer() const { return GetMeshPointer(); }
 
@@ -207,11 +209,14 @@ class MeshData {
     }
   }
 
-  void SetSendBuffers(const cell_centered_bvars::BufferCache_t &send_buffers) {
+  void SetSendBuffers(const cell_centered_bvars::BufferCache_t &send_buffers,
+                      const ParArray1D<bool> &sending_nonzero_flags) {
     send_buffers_ = send_buffers;
+    sending_nonzero_flags_ = sending_nonzero_flags;
   }
 
   auto &GetSendBuffers() const { return send_buffers_; }
+  auto &GetSendingNonzeroFlags() const { return sending_nonzero_flags_; }
 
   void SetSetBuffers(const cell_centered_bvars::BufferCache_t &set_buffers) {
     set_buffers_ = set_buffers;
@@ -263,6 +268,7 @@ class MeshData {
   }
 
   void Set(BlockList_t blocks, const std::string &name) {
+    stage_name_ = name;
     const int nblocks = blocks.size();
     block_data_.resize(nblocks);
     SetMeshPointer(blocks[0]->pmy_mesh);
@@ -415,6 +421,7 @@ class MeshData {
     block_data_.clear();
     varPackMap_.clear();
     varFluxPackMap_.clear();
+    sending_nonzero_flags_ = ParArray1D<bool>();
     send_buffers_ = cell_centered_bvars::BufferCache_t{};
     set_buffers_ = cell_centered_bvars::BufferCache_t{};
     restrict_buffers_ = cell_centered_bvars::BufferCache_t{};
@@ -443,10 +450,12 @@ class MeshData {
  private:
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
+  std::string stage_name_;
   // caches for packs
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   // caches for boundary information
+  ParArray1D<bool> sending_nonzero_flags_{};
   cell_centered_bvars::BufferCache_t send_buffers_{};
   cell_centered_bvars::BufferCache_t set_buffers_{};
   cell_centered_bvars::BufferCache_t restrict_buffers_{};
