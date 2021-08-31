@@ -72,6 +72,9 @@ class CellVariable {
     }
   }
 
+  // copy fluxes and boundary variable from src CellVariable
+  void CopyFluxesAndBdryVar(const CellVariable<T> *src);
+
   // make a new CellVariable based on an existing one
   std::shared_ptr<CellVariable<T>>
   AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
@@ -120,8 +123,11 @@ class CellVariable {
 
   bool IsAllocated() const { return is_allocated_; }
 
-  // allocate data
+  // allocate data, fluxes, and boundary variable
   void Allocate(std::weak_ptr<MeshBlock> wpmb);
+
+  // allocate data only
+  void AllocateData();
 
   /// Repoint vbvar's var_cc array at the current variable
   inline void resetBoundary() { vbvar->var_cc = data; }
@@ -136,9 +142,6 @@ class CellVariable {
   bool mpiStatus = false;
 
  private:
-  // allocate data only
-  void AllocateData();
-
   /// allocate fluxes (if Metadata::WithFluxes is set) and boundary variable if
   /// (Metadata::FillGhost is set)
   void AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb);

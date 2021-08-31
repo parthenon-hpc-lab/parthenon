@@ -50,6 +50,30 @@ std::string CellVariable<T>::info() {
 
 // copy constructor
 template <typename T>
+void CellVariable<T>::CopyFluxesAndBdryVar(const CellVariable<T> *src) {
+  if (IsSet(Metadata::WithFluxes)) {
+    // fluxes, coarse buffers, etc., are always a copy
+    // Rely on reference counting and shallow copy of kokkos views
+    flux_data_ = src->flux_data_; // reference counted
+    for (int i = 1; i <= 3; i++) {
+      flux[i] = src->flux[i]; // these are subviews
+    }
+  }
+
+  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+    // no need to check mesh->multilevel, if false, we're just making a shallow copy of
+    // an empty ParArrayND
+    coarse_s = src->coarse_s;
+
+    if (IsSet(Metadata::FillGhost)) {
+      // set data pointer for the boundary communication
+      // Note that vbvar->var_cc will be set when stage is selected
+      vbvar = src->vbvar;
+    }
+  }
+}
+
+template <typename T>
 std::shared_ptr<CellVariable<T>>
 CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
                               std::weak_ptr<MeshBlock> wpmb) {
@@ -66,26 +90,7 @@ CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
   if (alloc_separate_fluxes_and_bvar) {
     cv->AllocateFluxesAndBdryVar(wpmb);
   } else {
-    if (IsSet(Metadata::WithFluxes)) {
-      // fluxes, coarse buffers, etc., are always a copy
-      // Rely on reference counting and shallow copy of kokkos views
-      cv->flux_data_ = flux_data_; // reference counted
-      for (int i = 1; i <= 3; i++) {
-        cv->flux[i] = flux[i]; // these are subviews
-      }
-    }
-
-    if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
-      // no need to check mesh->multilevel, if false, we're just making a shallow copy of
-      // an empty ParArrayND
-      cv->coarse_s = coarse_s;
-
-      if (IsSet(Metadata::FillGhost)) {
-        // set data pointer for the boundary communication
-        // Note that vbvar->var_cc will be set when stage is selected
-        cv->vbvar = vbvar;
-      }
-    }
+    cv->CopyFluxesAndBdryVar(this);
   }
 
   return cv;
@@ -152,7 +157,7 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
 
     if (IsSet(Metadata::FillGhost)) {
       vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux,
-                                                             IsSparse());
+                                                             IsSparse(), label());
 
       // enroll CellCenteredBoundaryVariable object
       vbvar->bvar_index = pmb->pbval->bvars.size();

@@ -51,6 +51,9 @@ class DataCollection {
     return containers_[label];
   }
 
+  auto &Stages() { return containers_; }
+  const auto &Stages() const { return containers_; }
+
   std::shared_ptr<T> &Get() { return containers_.at("base"); }
   const std::shared_ptr<T> &Get() const { return containers_.at("base"); }
   std::shared_ptr<T> &Get(const std::string &label) {

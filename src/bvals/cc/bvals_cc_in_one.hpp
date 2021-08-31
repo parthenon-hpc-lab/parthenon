@@ -44,6 +44,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md);
 
+// We have one BndInfo per variable per neighbor per block
 struct BndInfo {
   int si = 0;
   int ei = 0;
@@ -62,6 +63,7 @@ struct BndInfo {
 
 using BufferCache_t = ParArray1D<BndInfo>;
 using BufferCacheHost_t = typename BufferCache_t::HostMirror;
+
 } // namespace cell_centered_bvars
 } // namespace parthenon
 
