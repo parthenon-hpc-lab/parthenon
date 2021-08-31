@@ -149,8 +149,13 @@ void Swarm::AllocateBoundaries() {
 
   for (int n = 0; n < 6; n++) {
     pbounds.bounds[n] = bounds[n].get();
-    PARTHENON_REQUIRE(pbounds.bounds[n] != nullptr,
-                      "Null device boundary condition pointer!");
+    std::stringstream msg;
+    msg << "Boundary condition on face " << n << " missing.\n"
+           << "Please set it to `outflow`, `periodic`, or `user` in the input deck.\n"
+           << "If you set it to user, you must also manually set "
+           << "the swarm boundary pointer in your application."
+           << std::endl;
+    PARTHENON_REQUIRE(pbounds.bounds[n] != nullptr, msg);
   }
 }
 
