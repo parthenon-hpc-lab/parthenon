@@ -885,15 +885,15 @@ bool Swarm::Send(BoundaryCommSubset phase) {
     auto mask_h = mask_.data.GetHostMirrorAndCopy();
 
     int total_sent_particles = 0;
-
-    for (int n = 0; n <= max_active_index_; n++) {
-      if (mask_h(n)) {
-        // This particle should be "sent"
-        if (blockIndex_h(n) >= 0) {
-          total_sent_particles++;
+    pmb->par_reduce("total sent particles", 0, max_active_index_,
+      KOKKOS_LAMBDA(int n, int &total_sent_particles) {
+        if (mask_(n)) {
+          if (blockIndex_(n) >= 0) {
+            total_sent_particles++;
+          }
         }
-      }
-    }
+      },
+      Kokkos::Sum<int>(total_sent_particles));
 
     if (total_sent_particles > 0) {
       ParArrayND<int> new_indices("new indices", total_sent_particles);
