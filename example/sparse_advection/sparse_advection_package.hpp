@@ -21,7 +21,7 @@ namespace sparse_advection_package {
 
 using namespace parthenon::package::prelude;
 
-static constexpr int NUM_FIELDS = 4;
+static constexpr int NUM_FIELDS = 1;
 using RealArr_t = Kokkos::Array<Real, NUM_FIELDS>;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);

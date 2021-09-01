@@ -49,19 +49,18 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real derefine_tol = pin->GetOrAddReal("SparseAdvection", "derefine_tol", 0.03);
   pkg->AddParam("derefine_tol", derefine_tol);
 
-  pkg->AddParam("init_size", static_cast<Real>(0.1));
+  pkg->AddParam("init_size", static_cast<Real>(0.25));
 
   // set starting positions
-  Real pos = 0.8;
-  pkg->AddParam("x0", RealArr_t{pos, -pos, -pos, pos});
-  pkg->AddParam("y0", RealArr_t{pos, pos, -pos, -pos});
+  pkg->AddParam("x0", RealArr_t{-3.0});
+  pkg->AddParam("y0", RealArr_t{0.0});
 
   // add velocities, field 0 moves in (-1,-1) direction, 1 in (1,-1), 2 in (1, 1), and 3
   // in (-1,1)
   Real speed = pin->GetOrAddReal("SparseAdvection", "speed", 1.0) / sqrt(2.0);
-  pkg->AddParam("vx", RealArr_t{-speed, speed, speed, -speed});
-  pkg->AddParam("vy", RealArr_t{-speed, -speed, speed, speed});
-  pkg->AddParam("vz", RealArr_t{0.0, 0.0, 0.0, 0.0});
+  pkg->AddParam("vx", RealArr_t{speed});
+  pkg->AddParam("vy", RealArr_t{0.0});
+  pkg->AddParam("vz", RealArr_t{0.0});
 
   // add sparse field
   Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
