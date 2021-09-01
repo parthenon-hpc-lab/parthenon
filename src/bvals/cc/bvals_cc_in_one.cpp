@@ -267,8 +267,6 @@ size_t ResetSendBuffers(MeshData<Real> *md, bool cache_is_valid) {
 
   Kokkos::Profiling::popRegion(); // Reset boundaries
 
-  printf("ResetSendBuffers: buffers_used = %zu\n", buffers_used);
-
   return buffers_used;
 }
 
@@ -444,11 +442,10 @@ void SendAndNotify(MeshData<Real> *md) {
             auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
 
             if (new_neighbor_alloc) {
-              // printf("Block %4i is telling block %4i to allocate %s (local buf id %2i,
-              // "
-              //        "nb.bufid = %2i, nb.targetid = %2i)\n",
-              //        pmb->gid, target_block->gid, v->label().c_str(), b, nb.bufid,
-              //        nb.targetid);
+              printf("Block %4i is telling block %4i to allocate %s (local buf id %2i, "
+                     "nb.bufid = %2i, nb.targetid = %2i)\n",
+                     pmb->gid, target_block->gid, v->label().c_str(), b, nb.bufid,
+                     nb.targetid);
 
               NeighborAllocTask task;
               task.var_label = v->label();
@@ -485,6 +482,9 @@ void SendAndNotify(MeshData<Real> *md) {
 
   // process neighbor alloc tasks
   for (const auto &t : neighbor_alloc_tasks) {
+    printf("Neighbor alloc task, block %i -> %i, variable %s, neighbor idx %i\n",
+           t.this_block->gid, t.target_block->gid, t.var_label.c_str(), t.n);
+
     // pointers to the variable in question for this stage on the sending and target
     // blocks
     BoundaryData<> *this_bd, *target_bd;
@@ -492,7 +492,13 @@ void SendAndNotify(MeshData<Real> *md) {
     // update all stages of sending block
     for (auto stage : t.this_block->meshblock_data.Stages()) {
       auto v = stage.second->GetCellVarPtr(t.var_label);
-      v->vbvar->neighbor_allocated[t.n] = true;
+
+      for (int n = 0; n < t.this_block->pbval->nneighbor; ++n) {
+        const parthenon::NeighborBlock &nb = t.this_block->pbval->neighbor[n];
+        if (nb.snb.gid == t.target_block->gid) {
+          v->vbvar->neighbor_allocated[t.n] = true;
+        }
+      }
 
       if (stage.first == md->StageName()) {
         // this is the current stage
@@ -530,6 +536,26 @@ void SendAndNotify(MeshData<Real> *md) {
         // this is the current stage
         target_bd = v->vbvar->GetPBdVar();
       }
+
+      for (int n = 0; n < t.target_block->pbval->nneighbor; n++) {
+        const parthenon::NeighborBlock &nb = t.target_block->pbval->neighbor[n];
+
+        // update neighbor_allocated on target block for all stages
+        if (nb.snb.gid == t.this_block->gid) {
+          v->vbvar->neighbor_allocated[n] = true;
+        }
+
+        // only for current stage: set send flag to completed on target block, since it
+        // won't be sending anything out this cycle, also set received flag on buffer that
+        // are by this block
+        if (stage.first == md->StageName()) {
+          target_bd->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
+
+          if (nb.snb.gid == t.this_block->gid) {
+            target_bd->flag[nb.bufid] = parthenon::BoundaryStatus::arrived;
+          }
+        }
+      }
     }
 
     // move copy data directly to neighbor's receiving buffer (only for current stage)
@@ -537,7 +563,6 @@ void SendAndNotify(MeshData<Real> *md) {
 
     // update boundary flags for current stage
     this_bd->sflag[t.nb.bufid] = parthenon::BoundaryStatus::completed;
-    target_bd->flag[t.nb.targetid] = parthenon::BoundaryStatus::arrived;
 
     // since this is a new allocation on the neighbor block, it won't send us
     // anything, this time, so set boundary flag to arrived on sending boundary variable
@@ -558,31 +583,6 @@ void SendAndNotify(MeshData<Real> *md) {
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
-
-  {
-    int cnt = 0;
-    for (int block = 0; block < md->NumBlocks(); block++) {
-      auto &rc = md->GetBlockData(block);
-      auto pmb = rc->GetBlockPointer();
-
-      int mylevel = pmb->loc.level;
-      const auto &var_vec = rc->GetCellVariableVector();
-      for (size_t i = 0; i < var_vec.size(); ++i) {
-        const auto &v = var_vec[i];
-        if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
-          for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-            parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
-            auto *pbd_var_ = v->vbvar->GetPBdVar();
-            if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed)
-              continue;
-            ++cnt;
-          }
-        }
-      }
-    }
-
-    printf("Count 0: %i\n", cnt);
-  }
 
   auto boundary_info = md->GetSendBuffers();
   auto sending_nonzero_flags = md->GetSendingNonzeroFlags();
@@ -614,7 +614,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     printf("Count 1: %i\n", cnt);
   }
 
-  if (!have_cache || (buffers_used != boundary_info.extent(0))) {
+  if (!have_cache || (buffers_used != boundary_info.size())) {
     ResetSendBufferBoundaryInfo(md.get(), buffers_used);
     boundary_info = md->GetSendBuffers();
     sending_nonzero_flags = md->GetSendingNonzeroFlags();
@@ -716,6 +716,18 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
           for (int n = 0; n < pmb->pbval->nneighbor; n++) {
             parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
             auto *pbd_var_ = v->vbvar->GetPBdVar();
+            auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
+
+            // printf("Block %i, variable %s, neighbor %i (block %i), status %s\n",
+            // pmb->gid,
+            //        v->label().c_str(), n, target_block->gid,
+            //        pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::arrived
+            //            ? "arrived"
+            //            : pbd_var_->sflag[nb.bufid] ==
+            //            parthenon::BoundaryStatus::completed
+            //                  ? "completed"
+            //                  : "waiting");
+
             if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed)
               continue;
             ++cnt;
@@ -742,7 +754,19 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
         if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
           for (int n = 0; n < pmb->pbval->nneighbor; n++) {
             parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
+            auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
             auto *pbd_var_ = v->vbvar->GetPBdVar();
+
+            // printf("Block %i, variable %s, neighbor %i (block %i), status %s\n",
+            // pmb->gid,
+            //        v->label().c_str(), n, target_block->gid,
+            //        pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::arrived
+            //            ? "arrived"
+            //            : pbd_var_->sflag[nb.bufid] ==
+            //            parthenon::BoundaryStatus::completed
+            //                  ? "completed"
+            //                  : "waiting");
+
             if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed)
               continue;
             ++cnt;
@@ -783,14 +807,10 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used)
-//  \brief Reset/recreates boundary_info to fill cell centered vars from the receiving
-//         buffers. The new boundary_info is directly stored in the MeshData object.
-
-void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md) {
+//! \fn size_t GetNumSetFromBufers(MeshData<Real> *md)
+//  \brief Returns number of receiving buffers.
+auto GetNumSetFromBufers(MeshData<Real> *md) {
   Kokkos::Profiling::pushRegion("Create set_boundary_info");
-
-  IndexDomain interior = IndexDomain::interior;
 
   // first calculate the number of active buffers
   size_t buffers_used = 0;
@@ -805,6 +825,19 @@ void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md) {
       }
     }
   }
+
+  return buffers_used;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used)
+//  \brief Reset/recreates boundary_info to fill cell centered vars from the receiving
+//         buffers. The new boundary_info is directly stored in the MeshData object.
+
+void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
+  Kokkos::Profiling::pushRegion("Create set_boundary_info");
+
+  IndexDomain interior = IndexDomain::interior;
 
   auto boundary_info = BufferCache_t("set_boundary_info", buffers_used);
   auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
@@ -879,9 +912,11 @@ void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md) {
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetBoundaries_MeshData");
 
+  const auto buffers_used = GetNumSetFromBufers(md.get());
+
   auto boundary_info = md->GetSetBuffers();
-  if (!boundary_info.is_allocated()) {
-    ResetSetFromBufferBoundaryInfo(md.get());
+  if (!boundary_info.is_allocated() || (buffers_used != boundary_info.size())) {
+    ResetSetFromBufferBoundaryInfo(md.get(), buffers_used);
     boundary_info = md->GetSetBuffers();
   }
 
