@@ -64,7 +64,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       blockIndex_("blockIndex_", nmax_pool_),
       neighborIndices_("neighborIndices_", 4, 4, 4), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
-    "SwarmDeviceContext only supports a uniform Cartesian mesh!");
+                           "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
   Add("x", Metadata({Metadata::Real}));
   Add("y", Metadata({Metadata::Real}));
@@ -149,10 +149,9 @@ void Swarm::AllocateBoundaries() {
     bounds_d.bounds[n] = bounds_uptrs[n].get();
     std::stringstream msg;
     msg << "Boundary condition on face " << n << " missing.\n"
-           << "Please set it to `outflow`, `periodic`, or `user` in the input deck.\n"
-           << "If you set it to user, you must also manually set "
-           << "the swarm boundary pointer in your application."
-           << std::endl;
+        << "Please set it to `outflow`, `periodic`, or `user` in the input deck.\n"
+        << "If you set it to user, you must also manually set "
+        << "the swarm boundary pointer in your application." << std::endl;
     PARTHENON_REQUIRE(bounds_d.bounds[n] != nullptr, msg);
   }
 }
@@ -885,15 +884,16 @@ void Swarm::Send(BoundaryCommSubset phase) {
     auto mask_h = mask_.data.GetHostMirrorAndCopy();
 
     int total_sent_particles = 0;
-    pmb->par_reduce("total sent particles", 0, max_active_index_,
-      KOKKOS_LAMBDA(int n, int &total_sent_particles) {
-        if (mask_(n)) {
-          if (blockIndex_(n) >= 0) {
-            total_sent_particles++;
+    pmb->par_reduce(
+        "total sent particles", 0, max_active_index_,
+        KOKKOS_LAMBDA(int n, int &total_sent_particles) {
+          if (mask_(n)) {
+            if (blockIndex_(n) >= 0) {
+              total_sent_particles++;
+            }
           }
-        }
-      },
-      Kokkos::Sum<int>(total_sent_particles));
+        },
+        Kokkos::Sum<int>(total_sent_particles));
 
     if (total_sent_particles > 0) {
       ParArrayND<int> new_indices("new indices", total_sent_particles);
@@ -908,7 +908,6 @@ void Swarm::Send(BoundaryCommSubset phase) {
         }
       }
       new_indices.DeepCopy(new_indices_h);
-
 
       ApplyBoundaries_(total_sent_particles, new_indices);
     }
