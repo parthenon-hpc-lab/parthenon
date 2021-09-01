@@ -52,33 +52,39 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const auto &x0s = pkg->Param<RealArr_t>("x0");
   const auto &y0s = pkg->Param<RealArr_t>("y0");
 
-  for (int i = 0; i < NUM_FIELDS; ++i) {
+  for (int f = 0; f < NUM_FIELDS; ++f) {
     // we initialize sparse id i only on one rank
-    if ((i % Globals::nranks) == Globals::my_rank) {
+    if ((f % Globals::nranks) == Globals::my_rank) {
       // allocate the sparse field on the blocks where we get non-zero values
       bool any_nonzero = false;
-      const Real x0 = x0s[i];
-      const Real y0 = y0s[i];
+      const Real x0 = x0s[f];
+      const Real y0 = y0s[f];
 
-      for (int j = jb.s; j <= jb.e; j++) {
-        for (int i = ib.s; i <= ib.e; i++) {
-          auto x = coords.x1v(i) - x0;
-          auto y = coords.x2v(j) - y0;
-          auto r2 = x * x + y * y;
-          if (r2 < size) {
-            any_nonzero = true;
+      for (int k = kb.s; k <= kb.e; k++) {
+        for (int j = jb.s; j <= jb.e; j++) {
+          for (int i = ib.s; i <= ib.e; i++) {
+            auto x = coords.x1v(i) - x0;
+            auto y = coords.x2v(j) - y0;
+            auto z = coords.x3v(k);
+            auto r2 = x * x + y * y + z * z;
+            if (r2 < size) {
+              any_nonzero = true;
+            }
           }
         }
       }
 
+      printf("Block %i: any_nonzero: %s\n", pmb->gid, any_nonzero ? "YES" : "NO");
+
       if (any_nonzero) {
-        auto v = data->AllocSparseID("sparse", i)->data;
+        auto v = data->AllocSparseID("sparse", f)->data;
         pmb->par_for(
             "SparseAdvection::ProblemGenerator", 0, 0, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
               auto x = coords.x1v(i) - x0;
               auto y = coords.x2v(j) - y0;
-              auto r2 = x * x + y * y;
+              auto z = coords.x3v(k);
+              auto r2 = x * x + y * y + z * z;
               v(n, k, j, i) = (r2 < size ? 1.0 : 0.0);
             });
       }

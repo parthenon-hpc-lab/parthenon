@@ -210,12 +210,11 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::arrived) continue;
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::waiting) {
       if (nb.snb.rank == Globals::my_rank) { // on the same process
-        // printf("Block %4i is waiting to get boundary data from block %4i for %s
-        // (nb.bufid "
-        //        "= %2i, nb.targetid = %2i)\n",
-        //        pmb->gid, nb.snb.gid,
-        //        dynamic_cast<CellCenteredBoundaryVariable *>(this)->label.c_str(),
-        //        nb.bufid, nb.targetid);
+        printf("Block %4i is waiting to get boundary data from block %4i for %s "
+               "(nb.bufid = % 2i, nb.targetid = % 2i)\n",
+               pmb->gid, nb.snb.gid,
+               dynamic_cast<CellCenteredBoundaryVariable *>(this)->label.c_str(),
+               nb.bufid, nb.targetid);
         bflag = false;
         continue;
       }
