@@ -46,8 +46,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         # this tests code paths not otherwise present (when blocks have >0 neighbors)
         ref_data = np.array(
             [
-                [-0.1, 0.3, 0.3353164693, 0., 0., 0.5],
-                [ 0.3906329387, 0.4706329387, -0.0293670613, 1.0, 1.0, 1.0]
+                [-0.1, 0.3, 0.3353164693, 0.0, 0.0, 0.5],
+                [0.3906329387, 0.4706329387, -0.0293670613, 1.0, 1.0, 1.0]
             ]
         )
         return (
