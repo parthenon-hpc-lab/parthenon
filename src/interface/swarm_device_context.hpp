@@ -18,7 +18,6 @@
 namespace parthenon {
 
 class SwarmDeviceContext {
-
  public:
   KOKKOS_FUNCTION
   bool IsActive(int n) const { return mask_(n); }
