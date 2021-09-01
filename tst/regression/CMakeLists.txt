@@ -55,6 +55,13 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/
 --num_steps 1")
 list(APPEND EXTRA_TEST_LABELS "")
 
+list(APPEND TEST_DIRS particle_leapfrog_outflow)
+list(APPEND TEST_PROCS 1)
+list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/particle-leapfrog \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_leapfrog_outflow/parthinput.particle_leapfrog_outflow \
+--num_steps 1")
+list(APPEND EXTRA_TEST_LABELS "")
+
 if (ENABLE_HDF5)
 
   # h5py is needed for restart and hdff5 test

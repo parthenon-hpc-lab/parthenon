@@ -41,7 +41,7 @@
 
 namespace parthenon {
 
-struct ParticleBoundaries {
+struct BoundaryDeviceContext {
   ParticleBound *bounds[6];
 };
 
@@ -104,8 +104,8 @@ class Swarm {
       const int n,
       std::unique_ptr<ParticleBound, parthenon::DeviceDeleter<parthenon::DevMemSpace>>
           bc) {
-    bounds[n] = std::move(bc);
-    pbounds.bounds[n] = bounds[n].get();
+    bounds_uptrs[n] = std::move(bc);
+    bounds_d.bounds[n] = bounds_uptrs[n].get();
   }
 
   /// Get particle variable
@@ -173,11 +173,11 @@ class Swarm {
     return std::get<0>(Vectors_).size() + std::get<1>(Vectors_).size();
   }
 
-  bool Send(BoundaryCommSubset phase);
+  void Send(BoundaryCommSubset phase);
 
   bool Receive(BoundaryCommSubset phase);
 
-  bool ResetCommunication();
+  void ResetCommunication();
 
   bool FinalizeCommunicationIterative();
 
@@ -194,14 +194,14 @@ class Swarm {
 
   // Class to store raw pointers to boundary conditions on device. Copy locally for
   // compute kernel capture.
-  ParticleBoundaries pbounds;
+  BoundaryDeviceContext bounds_d;
 
   void LoadBuffers_(const int max_indices_size);
   void UnloadBuffers_();
 
   void ApplyBoundaries_(const int nparticles, ParArrayND<int> indices);
 
-  std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds[6];
+  std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds_uptrs[6];
 
  private:
   template <class T>
