@@ -358,6 +358,8 @@ void CellCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
+      PARTHENON_REQUIRE_THROWS(neighbor_allocated[n],
+                               "True sparse is not supported yet for MPI");
       pmb->exec_space.fence();
       PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_.req_recv[nb.bufid])));
       if (phase == BoundaryCommSubset::all && nb.ni.type == NeighborConnect::face &&

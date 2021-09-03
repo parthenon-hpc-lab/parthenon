@@ -205,6 +205,8 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
   bool bflag = true;
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    if (!neighbor_allocated[n]) continue;
+
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.ni.type != NeighborConnect::face) break;
     if (nb.snb.level == pmb->loc.level + 1) {
