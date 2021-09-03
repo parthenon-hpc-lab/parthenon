@@ -15,13 +15,12 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <algorithm>
 #include <iostream> // debug
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "Kokkos_CopyViews.hpp"
-#include "Kokkos_HostSpace.hpp"
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "bvals_cc_in_one.hpp"
@@ -430,7 +429,7 @@ void SendAndNotify(MeshData<Real> *md) {
           bool new_neighbor_alloc =
               !v->vbvar->neighbor_allocated[n] &&
               sending_nonzero_flags_h( // b
-                  std::min(b, int(sending_nonzero_flags_h.extent(0)) - 1));
+                  std::min(b, static_cast<int>(sending_nonzero_flags_h.extent(0)) - 1));
 
           // on the same rank the data has been directly copied to the target buffer
           if (nb.snb.rank == parthenon::Globals::my_rank) {
@@ -439,7 +438,8 @@ void SendAndNotify(MeshData<Real> *md) {
             auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
 
             if (new_neighbor_alloc) {
-              // printf("Block %4i is telling block %4i to allocate %s (local buf id %2i, "
+              // printf("Block %4i is telling block %4i to allocate %s (local buf id %2i,
+              // "
               //        "nb.bufid = %2i, nb.targetid = %2i)\n",
               //        pmb->gid, target_block->gid, v->label().c_str(), b, nb.bufid,
               //        nb.targetid);
