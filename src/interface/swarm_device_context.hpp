@@ -17,6 +17,8 @@
 
 namespace parthenon {
 
+// TODO(BRR) Template this class on coordinates/pass appropriate additional args to e.g.
+// coords_.Dx()
 class SwarmDeviceContext {
  public:
   KOKKOS_FUNCTION
@@ -31,6 +33,7 @@ class SwarmDeviceContext {
   KOKKOS_FUNCTION
   bool IsMarkedForRemoval(const int n) const { return marked_for_removal_(n); }
 
+  // TODO(BRR) This logic will change for non-uniform cartesian meshes
   KOKKOS_INLINE_FUNCTION
   int GetNeighborBlockIndex(const int &n, const double &x, const double &y,
                             const double &z, bool &is_on_current_mesh_block) const {
@@ -61,6 +64,7 @@ class SwarmDeviceContext {
   KOKKOS_INLINE_FUNCTION
   int GetMyRank() const { return my_rank_; }
 
+  // TODO(BRR) This logic will change for non-uniform cartesian meshes
   KOKKOS_INLINE_FUNCTION
   void Xtoijk(const Real &x, const Real &y, const Real &z, int &i, int &j, int &k) const {
     i = static_cast<int>(

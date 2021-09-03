@@ -1034,7 +1034,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     return true;
   } else {
     // Ensure all local deep copies marked BoundaryStatus::completed are actually received
-    GetBlockPointer()->exec_space.fence();
+    pmb->exec_space.fence();
 
     // Populate buffers
     vbswarm->Receive(phase);
