@@ -271,7 +271,7 @@ class VariablePack {
     return v_(n).size() > 0;
   }
 
-    // This is here so code templated on VariablePack and MeshBlockPack doesn't need to
+  // This is here so code templated on VariablePack and MeshBlockPack doesn't need to
   // change
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsAllocated(const int m, const int n) const {

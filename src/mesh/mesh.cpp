@@ -1079,7 +1079,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
 
 #else // PARTHENON_ENABLE_INIT_PACKING -> OFF
-  #error "Only PARTHENON_ENABLE_INIT_PACKING is supported at this time"
+#error "Only PARTHENON_ENABLE_INIT_PACKING is supported at this time"
 
     // send FillGhost variables
     for (int i = 0; i < nmb; ++i) {
