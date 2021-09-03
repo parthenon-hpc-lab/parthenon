@@ -30,6 +30,7 @@
 #include <tasks/task_list.hpp>
 #include <tasks/task_types.hpp>
 #include <utils/partition_stl_containers.hpp>
+#include <utils/reductions.hpp>
 
 // Local Includes
 #include "prelude.hpp"
@@ -39,6 +40,7 @@ namespace driver {
 namespace prelude {
 using namespace ::parthenon::prelude;
 
+using ::parthenon::AllReduce;
 using ::parthenon::ApplicationInput;
 using ::parthenon::ApplyBoundaryConditions;
 using ::parthenon::BlockList_t;
@@ -56,6 +58,7 @@ using ::parthenon::Outputs;
 using ::parthenon::Packages_t;
 using ::parthenon::ParameterInput;
 using ::parthenon::ParthenonManager;
+using ::parthenon::Reduce;
 using ::parthenon::StagedIntegrator;
 using ::parthenon::Task;
 using ::parthenon::TaskCollection;

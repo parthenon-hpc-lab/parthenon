@@ -146,7 +146,7 @@ TaskID TaskID::operator|(const TaskID &rhs) const {
   return res;
 }
 
-std::string TaskID::to_string() {
+std::string TaskID::to_string() const {
   std::string bs;
   for (int i = bitblocks.size() - 1; i >= 0; i--) {
     bs += bitblocks[i].to_string();
