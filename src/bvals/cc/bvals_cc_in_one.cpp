@@ -381,9 +381,6 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
   Kokkos::deep_copy(sending_nonzero_flags, sending_nonzero_flags_h);
   md->SetSendBuffers(boundary_info, sending_nonzero_flags);
 
-  printf("ResetSendBufferBoundaryInfo: b = %i, %lu / %lu\n", b, boundary_info_h.extent(0),
-         sending_nonzero_flags.extent(0));
-
   // Restrict whichever buffers need restriction.
   cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
 
@@ -442,10 +439,10 @@ void SendAndNotify(MeshData<Real> *md) {
             auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
 
             if (new_neighbor_alloc) {
-              printf("Block %4i is telling block %4i to allocate %s (local buf id %2i, "
-                     "nb.bufid = %2i, nb.targetid = %2i)\n",
-                     pmb->gid, target_block->gid, v->label().c_str(), b, nb.bufid,
-                     nb.targetid);
+              // printf("Block %4i is telling block %4i to allocate %s (local buf id %2i, "
+              //        "nb.bufid = %2i, nb.targetid = %2i)\n",
+              //        pmb->gid, target_block->gid, v->label().c_str(), b, nb.bufid,
+              //        nb.targetid);
 
               NeighborAllocTask task;
               task.var_label = v->label();
@@ -478,12 +475,10 @@ void SendAndNotify(MeshData<Real> *md) {
     }
   }
 
-  printf("SendAndNotify: b = %i, %lu\n", b, sending_nonzero_flags_h.extent(0));
-
   // process neighbor alloc tasks
   for (const auto &t : neighbor_alloc_tasks) {
-    printf("Neighbor alloc task, block %i -> %i, variable %s, neighbor idx %i\n",
-           t.this_block->gid, t.target_block->gid, t.var_label.c_str(), t.n);
+    // printf("Neighbor alloc task, block %i -> %i, variable %s, neighbor idx %i\n",
+    //        t.this_block->gid, t.target_block->gid, t.var_label.c_str(), t.n);
 
     // pointers to the variable in question for this stage on the sending and target
     // blocks
@@ -589,31 +584,6 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   bool have_cache = boundary_info.is_allocated();
   auto buffers_used = ResetSendBuffers(md.get(), have_cache);
 
-  {
-    int cnt = 0;
-    for (int block = 0; block < md->NumBlocks(); block++) {
-      auto &rc = md->GetBlockData(block);
-      auto pmb = rc->GetBlockPointer();
-
-      int mylevel = pmb->loc.level;
-      const auto &var_vec = rc->GetCellVariableVector();
-      for (size_t i = 0; i < var_vec.size(); ++i) {
-        const auto &v = var_vec[i];
-        if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
-          for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-            parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
-            auto *pbd_var_ = v->vbvar->GetPBdVar();
-            if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed)
-              continue;
-            ++cnt;
-          }
-        }
-      }
-    }
-
-    printf("Count 1: %i\n", cnt);
-  }
-
   if (!have_cache || (buffers_used != boundary_info.size())) {
     ResetSendBufferBoundaryInfo(md.get(), buffers_used);
     boundary_info = md->GetSendBuffers();
@@ -630,31 +600,6 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     // Otherwise restriction happens when the new boundary_info is created
     cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
     Kokkos::Profiling::popRegion(); // Reset boundaries
-  }
-
-  {
-    int cnt = 0;
-    for (int block = 0; block < md->NumBlocks(); block++) {
-      auto &rc = md->GetBlockData(block);
-      auto pmb = rc->GetBlockPointer();
-
-      int mylevel = pmb->loc.level;
-      const auto &var_vec = rc->GetCellVariableVector();
-      for (size_t i = 0; i < var_vec.size(); ++i) {
-        const auto &v = var_vec[i];
-        if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
-          for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-            parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
-            auto *pbd_var_ = v->vbvar->GetPBdVar();
-            if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed)
-              continue;
-            ++cnt;
-          }
-        }
-      }
-    }
-
-    printf("Count 2: %i\n", cnt);
   }
 
   Kokkos::parallel_for(
@@ -702,81 +647,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::fence();
 #endif
 
-  {
-    int cnt = 0;
-    for (int block = 0; block < md->NumBlocks(); block++) {
-      auto &rc = md->GetBlockData(block);
-      auto pmb = rc->GetBlockPointer();
-
-      int mylevel = pmb->loc.level;
-      const auto &var_vec = rc->GetCellVariableVector();
-      for (size_t i = 0; i < var_vec.size(); ++i) {
-        const auto &v = var_vec[i];
-        if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
-          for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-            parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
-            auto *pbd_var_ = v->vbvar->GetPBdVar();
-            auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
-
-            // printf("Block %i, variable %s, neighbor %i (block %i), status %s\n",
-            // pmb->gid,
-            //        v->label().c_str(), n, target_block->gid,
-            //        pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::arrived
-            //            ? "arrived"
-            //            : pbd_var_->sflag[nb.bufid] ==
-            //            parthenon::BoundaryStatus::completed
-            //                  ? "completed"
-            //                  : "waiting");
-
-            if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed)
-              continue;
-            ++cnt;
-          }
-        }
-      }
-    }
-
-    printf("Count 3: %i\n", cnt);
-  }
-
   SendAndNotify(md.get());
-
-  {
-    int cnt = 0;
-    for (int block = 0; block < md->NumBlocks(); block++) {
-      auto &rc = md->GetBlockData(block);
-      auto pmb = rc->GetBlockPointer();
-
-      int mylevel = pmb->loc.level;
-      const auto &var_vec = rc->GetCellVariableVector();
-      for (size_t i = 0; i < var_vec.size(); ++i) {
-        const auto &v = var_vec[i];
-        if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
-          for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-            parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
-            auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
-            auto *pbd_var_ = v->vbvar->GetPBdVar();
-
-            // printf("Block %i, variable %s, neighbor %i (block %i), status %s\n",
-            // pmb->gid,
-            //        v->label().c_str(), n, target_block->gid,
-            //        pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::arrived
-            //            ? "arrived"
-            //            : pbd_var_->sflag[nb.bufid] ==
-            //            parthenon::BoundaryStatus::completed
-            //                  ? "completed"
-            //                  : "waiting");
-
-            if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed)
-              continue;
-            ++cnt;
-          }
-        }
-      }
-    }
-
-    printf("Count 4: %i\n", cnt);
-  }
 
   Kokkos::Profiling::popRegion(); // Task_SendBoundaryBuffers_MeshData
   // TODO(?) reintroduce sparse logic (or merge with above)

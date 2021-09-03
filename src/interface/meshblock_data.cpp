@@ -487,9 +487,6 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
   bool ret = true;
   // receives the boundary
   for (auto &v : varVector_) {
-    printf("Block %i, var %s, mpiStatus %s, allocated %s, fillghost %s\n",
-           pmy_block.lock()->gid, v->label().c_str(), v->mpiStatus ? "YES" : "NO",
-           v->IsAllocated() ? "YES" : "NO", v->IsSet(Metadata::FillGhost) ? "YES" : "NO");
     if (!v->mpiStatus) {
       if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
         // ret = ret & v->vbvar->ReceiveBoundaryBuffers();

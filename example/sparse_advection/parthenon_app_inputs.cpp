@@ -74,8 +74,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         }
       }
 
-      printf("Block %i: any_nonzero: %s\n", pmb->gid, any_nonzero ? "YES" : "NO");
-
       if (any_nonzero) {
         auto v = data->AllocSparseID("sparse", f)->data;
         pmb->par_for(
