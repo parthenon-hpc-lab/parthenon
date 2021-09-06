@@ -15,7 +15,7 @@ Parthenon performance portable AMR framework
 
 ## Required
 
-* CMake 3.12 or greater
+* CMake 3.16 or greater
 * C++14 compatible compiler
 * Kokkos 3.0 or greater
 

@@ -3,6 +3,19 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+
+### Changed (changing behavior/API/variables/...)
+
+### Fixed (not changing behavior/API/variables/...)
+
+### Infrastructure (changes irrelevant to downstream codes)
+
+### Removed (removing behavior/API/varaibles/...)
+
+## Release 0.6.0
+Date: 09/06/2021
+
+### Added (new features/APIs/variables/...)
 - [[PR 563]](https://github.com/lanl/parthenon/pull/563) Physical boundary options for particles
 - [[PR 582]](https://github.com/lanl/parthenon/pull/582) Adding global reductions and basic functionality needed for solvers.
 - [[PR 556]](https://github.com/lanl/parthenon/pull/556) Introduce iterative tasks and regionally dependent tasks
