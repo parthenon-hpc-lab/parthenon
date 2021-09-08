@@ -68,7 +68,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
  public:
   MeshBlock() = default;
-  MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
+  MeshBlock(const int n_side, const int ndim, bool init_coarse = true,
+            bool multilevel = true); // for Kokkos testing with ghost
   ~MeshBlock();
 
   // Factory method deals with initialization for you
@@ -385,6 +386,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                   ApplicationInput *app_in, Packages_t &packages, int igflag,
                   double icost = 1.0);
 
+  void InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
+                                 bool init_coarse, bool multilevel);
   void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
   // functions
   void SetCostForLoadBalancing(double cost);
