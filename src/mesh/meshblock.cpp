@@ -49,15 +49,15 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
-MeshBlock::MeshBlock(const int n_side, const int ndim)
+MeshBlock::MeshBlock(const int n_side, const int ndim, bool init_coarse, bool multilevel)
     : exec_space(DevExecSpace()), pmy_mesh(nullptr), cost_(1.0) {
   // initialize grid indices
   if (ndim == 1) {
-    InitializeIndexShapes(n_side, 0, 0);
+    InitializeIndexShapesImpl(n_side, 0, 0, init_coarse, multilevel);
   } else if (ndim == 2) {
-    InitializeIndexShapes(n_side, n_side, 0);
+    InitializeIndexShapesImpl(n_side, n_side, 0, init_coarse, multilevel);
   } else {
-    InitializeIndexShapes(n_side, n_side, n_side);
+    InitializeIndexShapesImpl(n_side, n_side, n_side, init_coarse, multilevel);
   }
 }
 
@@ -193,17 +193,24 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
 MeshBlock::~MeshBlock() = default;
 
-void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
+void MeshBlock::InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
+                                          bool init_coarse, bool multilevel) {
   cellbounds = IndexShape(nx3, nx2, nx1, Globals::nghost);
 
-  if (pmy_mesh != nullptr) {
-    if (pmy_mesh->multilevel) {
+  if (init_coarse) {
+    if (multilevel) {
       cnghost = (Globals::nghost + 1) / 2 + 1;
       c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, Globals::nghost);
     } else {
       c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
     }
   }
+}
+
+void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
+  const bool init_coarse = (pmy_mesh != nullptr);
+  const bool multilevel = (init_coarse && pmy_mesh->multilevel);
+  InitializeIndexShapesImpl(nx1, nx2, nx3, init_coarse, multilevel);
 }
 
 //----------------------------------------------------------------------------------------

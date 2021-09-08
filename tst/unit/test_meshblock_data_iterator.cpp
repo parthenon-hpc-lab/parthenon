@@ -26,6 +26,7 @@
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "defs.hpp"
+#include "globals.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
@@ -384,19 +385,20 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
   // Make package with some variables
   auto pkg = std::make_shared<StateDescriptor>("Test package");
 
+  constexpr int nside = 16;
+  constexpr int nghost = 2;
+  parthenon::Globals::nghost = nghost;
+
   // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
   // won't be allocated
-  auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
+  auto dummy_mb = std::make_shared<MeshBlock>(nside, 3);
 
   GIVEN("MeshBlockData, with a variable with coarse data") {
-    constexpr int nside = 16;
-    constexpr int nghost = 2;
     auto cellbounds = IndexShape(nside, nside, nside, nghost);
     auto c_cellbounds = IndexShape(nside / 2, nside / 2, nside / 2, nghost);
 
-    std::vector<int> block_size{nside + 2 * nghost, nside + 2 * nghost,
-                                nside + 2 * nghost};
-    Metadata m({Metadata::Independent, Metadata::WithFluxes}, block_size);
+    // need to flag this as Cell, otherwise won't have correct coarse sizes
+    Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes});
 
     pkg->AddField("var", m);
 
@@ -404,11 +406,9 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
     mbd.Initialize(pkg, dummy_mb);
     auto &var = mbd.Get("var");
 
-    auto coarse_s =
-        ParArrayND<Real>("var.coarse", var.GetDim(6), var.GetDim(5), var.GetDim(4),
-                         c_cellbounds.ncellsk(IndexDomain::entire),
-                         c_cellbounds.ncellsj(IndexDomain::entire),
-                         c_cellbounds.ncellsi(IndexDomain::entire));
+    auto coarse_s = ParArrayND<Real>(
+        "var.coarse", var.GetCoarseDim(6), var.GetCoarseDim(5), var.GetCoarseDim(4),
+        var.GetCoarseDim(3), var.GetCoarseDim(2), var.GetCoarseDim(1));
 
     THEN("The variable is allocated") { REQUIRE(var.data.GetSize() > 0); }
     var.coarse_s = coarse_s;
@@ -439,6 +439,9 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
       }
     }
   }
+
+  // reset for subsequent unit tests
+  parthenon::Globals::nghost = 0;
 }
 
 TEST_CASE("Get the correct access pattern when using FlatIdx", "[FlatIdx]") {

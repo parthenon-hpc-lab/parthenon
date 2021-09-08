@@ -564,6 +564,11 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
   const auto &vars = var_list.vars();           // for convenience
   const auto &flux_vars = flux_var_list.vars(); // for convenience
 
+  if (vars.empty()) {
+    // return empty pack
+    return VariableFluxPack<T>();
+  }
+
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -612,6 +617,11 @@ template <typename T>
 VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
                          PackIndexMap *pvmap) {
   const auto &vars = var_list.vars(); // for convenience
+
+  if (vars.empty()) {
+    // return empty pack
+    return VariablePack<T>();
+  }
 
   // count up the size
   int vsize = 0;
