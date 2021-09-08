@@ -433,7 +433,7 @@ class CG_Solver : public CG_Counter {
           }//j
         }//k
       }//b
-
+#if 0
       //step2 y = Dx
       for(int b=0;b<v.GetDim(5);++b)
       {
@@ -448,7 +448,7 @@ class CG_Solver : public CG_Counter {
           }//j
         }//k
       }//b
-
+#endif
       // step3: z=(D+U)^-1 *y
       for(int b=0;b<v.GetDim(5);++b)
       {
@@ -611,6 +611,11 @@ class CG_Solver : public CG_Counter {
           }//n
         });
 
+
+// This is only works (for now) for 5pt (2d) or 7pt(3d) stencil ...
+//outer loop.
+      int left(0), right(2), bottom(3), top(5);
+
       for(int b=0;b<v.GetDim(5);++b)
       {
         for(int k=kb.s;k<kb.e+1;++k)
@@ -619,16 +624,21 @@ class CG_Solver : public CG_Counter {
           {
             for(int i=ib.s;i<ib.e+1;++i)
             {
+              // recurrance.
+              // diag_i=diag_i-left_i*right_i-1/diag_i-1-bottom_i*top_j-1/diag_j-1
+              Real val = v(b,diag,k,j,i);
+              Real val_i =-v(b,ipcm_lo+left,k,j,i)*v(b,ipcm_lo+right,k,j,i-1)/v(b,pc_diag,k,j,i-1);
+              Real val_j =-v(b,ipcm_lo+bottom,k,j,i)*(b,ipcm_lo+top,k,j-1,i)/v(b,pc_diag,k,j-1,i);;
+              if( i == ib.s ) val_i =0;
+              if( j == jb.s ) val_j =0;
               
-//              for(int n=ipcm_lo, n2=0; n<=ipcm_hi;n++,n2++)
-              for(int n=0;n<nstencil;++n)
-              {
-                v(b, ipcm_lo+n, k, j, i) = v(b,isp_lo+n,k,j,i);
-              }//n
+              v(b,diag, k, j, i) = val+val_i+val_j;
             }//i
           }//j
         }//k
       }//b
+
+#if 0      
 // This is only works (for now) for 5pt (2d) or 7pt(3d) stencil ...
 //outer loop.
 
@@ -704,6 +714,7 @@ class CG_Solver : public CG_Counter {
           }//j
         }//k
       }//b
+#endif      
       // because of the sparse matrix, we fill upper trianglar..
       // l<m
       for(int b=0;b<v.GetDim(5);++b)
