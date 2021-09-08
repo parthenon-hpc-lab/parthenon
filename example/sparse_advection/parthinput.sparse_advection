@@ -64,9 +64,9 @@ dt = 0.05
 
 <parthenon/output0>
 file_type = hdf5
-dt = 0.05
+dt = 0.00001
 variables = sparse
 
 <parthenon/output3>
 file_type = hst
-dt = 0.05
+dt = 0.00001

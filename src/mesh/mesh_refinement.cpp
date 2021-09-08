@@ -29,6 +29,7 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
@@ -1015,9 +1016,8 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
 
 // TODO(felker): consider merging w/ MeshBlock::pvars_cc, etc. See meshblock.cpp
 
-int MeshRefinement::AddToRefinement(ParArrayND<Real> pvar_cc,
-                                    ParArrayND<Real> pcoarse_cc) {
-  pvars_cc_.push_back(std::make_tuple(pvar_cc, pcoarse_cc));
+int MeshRefinement::AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar) {
+  pvars_cc_.push_back(pvar);
   return static_cast<int>(pvars_cc_.size() - 1);
 }
 
