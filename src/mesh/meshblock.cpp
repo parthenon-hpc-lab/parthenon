@@ -178,7 +178,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     // This is very redundant, I think, but necessary for now
     for (int n = 0; n < vars.size(); n++) {
       // These are used for doing refinement
-      pmr->AddToRefinement(vars[n]->data, vars[n]->coarse_s);
+      pmr->AddToRefinement(vars[n]);
     }
   }
 

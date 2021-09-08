@@ -23,6 +23,7 @@
 #include <tuple>
 #include <vector>
 
+#include "interface/variable.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "coordinates/coordinates.hpp"
@@ -74,7 +75,7 @@ class MeshRefinement {
 
   // setter functions for "enrolling" variable arrays in refinement via Mesh::AMR()
   // and/or in BoundaryValues::ProlongateBoundaries() (for SMR and AMR)
-  int AddToRefinement(ParArrayND<Real> pvar_cc, ParArrayND<Real> pcoarse_cc);
+  int AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar);
   int AddToRefinement(FaceField *pvar_fc, FaceField *pcoarse_fc);
 
   Coordinates_t GetCoarseCoords() const { return coarse_coords; }
@@ -87,7 +88,7 @@ class MeshRefinement {
   int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;
 
   // tuples of references to AMR-enrolled arrays (quantity, coarse_quantity)
-  std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>> pvars_cc_;
+  std::vector<std::shared_ptr<CellVariable<Real>>> pvars_cc_;
   std::vector<std::tuple<FaceField *, FaceField *>> pvars_fc_;
 
   // Returns shared pointer to a block

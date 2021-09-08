@@ -165,9 +165,9 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel_(const NeighborBlock &nb, int
   int ris, rie, rjs, rje, rks, rke;
   ComputeRestrictionIndices_(nb, nk, nj, ni, ris, rie, rjs, rje, rks, rke);
 
-  for (auto cc_pair : pmr->pvars_cc_) {
-    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
-    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+  for (auto cc_var : pmr->pvars_cc_) {
+    ParArrayND<Real> var_cc = cc_var->data;
+    ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = var_cc.GetDim(4) - 1;
     pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, ris, rie, rjs, rje,
                                          rks, rke);
@@ -213,9 +213,9 @@ void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int 
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &pmr = pmb->pmr;
 
-  for (auto cc_pair : pmr->pvars_cc_) {
-    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
-    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+  for (auto cc_var : pmr->pvars_cc_) {
+    ParArrayND<Real> var_cc = cc_var->data;
+    ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = var_cc.GetDim(4) - 1;
     pmr->ProlongateCellCenteredValues(coarse_cc, var_cc, 0, nu, si, ei, sj, ej, sk, ek);
   }

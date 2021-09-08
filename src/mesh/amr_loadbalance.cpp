@@ -705,6 +705,13 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             if (ranklist[on + ll] != Globals::my_rank) continue;
             // fine to coarse on the same MPI rank (different AMR level) - restriction
             auto pob = FindMeshBlock(on + ll);
+
+            // allocte sparse variables that were allocated on old block
+            for (auto var : pob->meshblock_data.Get()->GetCellVariableVector()) {
+              if (var->IsSparse() && var->IsAllocated()) {
+                new_block_list[n - nbs]->AllocateSparse(var->label());
+              }
+            }
             FillSameRankFineToCoarseAMR(pob.get(), new_block_list[n - nbs].get(),
                                         loclist[on + ll]);
           }
@@ -712,6 +719,13 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                    (ranklist[on] == Globals::my_rank)) {
           // coarse to fine on the same MPI rank (different AMR level) - prolongation
           auto pob = FindMeshBlock(on);
+
+          // allocte sparse variables that were allocated on old block
+          for (auto var : pob->meshblock_data.Get()->GetCellVariableVector()) {
+            if (var->IsSparse() && var->IsAllocated()) {
+              new_block_list[n - nbs]->AllocateSparse(var->label());
+            }
+          }
           FillSameRankCoarseToFineAMR(pob.get(), new_block_list[n - nbs].get(),
                                       newloc[n]);
         }
@@ -879,8 +893,8 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
     ku = pb->cellbounds.ke(interior) + f3;
   }
   int p = 0;
-  for (auto cc_pair : pb->pmr->pvars_cc_) {
-    ParArray4D<Real> var_cc = std::get<0>(cc_pair).Get<4>();
+  for (auto cc_var : pb->pmr->pvars_cc_) {
+    ParArray4D<Real> var_cc = cc_var->data.Get<4>();
     int nu = var_cc.extent(0) - 1;
     BufferUtility::PackData(var_cc, sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
   }
@@ -910,9 +924,9 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf) 
 
   auto &pmr = pb->pmr;
   int p = 0;
-  for (auto cc_pair : pmr->pvars_cc_) {
-    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
-    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+  for (auto cc_var : pmr->pvars_cc_) {
+    ParArrayND<Real> var_cc = cc_var->data;
+    ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = var_cc.GetDim(4) - 1;
     pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s, cjb.e,
                                     ckb.s, ckb.e);
@@ -964,16 +978,16 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
   // MeshBlock in lock-step with pob
   auto pmb_cc_it = pmb->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on pob
-  for (auto cc_pair : pmr->pvars_cc_) {
-    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
-    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+  for (auto cc_var : pmr->pvars_cc_) {
+    ParArrayND<Real> var_cc = cc_var->data;
+    ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = var_cc.GetDim(4) - 1;
     pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s, cjb.e,
                                     ckb.s, ckb.e);
 
     // copy from old/original/other MeshBlock (pob) to newly created block (pmb)
     ParArrayND<Real> src = coarse_cc;
-    ParArrayND<Real> dst = std::get<0>(*pmb_cc_it);
+    ParArrayND<Real> dst = (*pmb_cc_it)->data;
     int koff = kl - ckb.s;
     int joff = jl - cjb.s;
     int ioff = il - cib.s;
@@ -1065,12 +1079,12 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
 
   auto pob_cc_it = pob->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on new pmb
-  for (auto cc_pair : pmr->pvars_cc_) {
-    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
-    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+  for (auto cc_var : pmr->pvars_cc_) {
+    ParArrayND<Real> var_cc = cc_var->data;
+    ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = var_cc.GetDim(4) - 1;
 
-    ParArrayND<Real> src = std::get<0>(*pob_cc_it);
+    ParArrayND<Real> src = (*pob_cc_it)->data;
     ParArrayND<Real> dst = coarse_cc;
     // fill the coarse buffer
     // WARNING: potential Cuda stream pitfall (exec space of coarse and fine MB)
@@ -1226,8 +1240,8 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
   else
     kl = kb.s + pb->block_size.nx3 / 2, ku = kb.e;
 
-  for (auto cc_pair : pb->pmr->pvars_cc_) {
-    ParArray4D<Real> var_cc = std::get<0>(cc_pair).Get<4>();
+  for (auto cc_var : pb->pmr->pvars_cc_) {
+    ParArray4D<Real> var_cc = cc_var->data.Get<4>();
     int nu = var_cc.extent(0) - 1;
     BufferUtility::UnpackData(recvbuf, var_cc, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
   }
@@ -1269,9 +1283,9 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
   int il = cib.s - 1, iu = cib.e + 1, jl = cjb.s - f2, ju = cjb.e + f2, kl = ckb.s - f3,
       ku = ckb.e + f3;
 
-  for (auto cc_pair : pb->pmr->pvars_cc_) {
-    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
-    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+  for (auto cc_var : pb->pmr->pvars_cc_) {
+    ParArrayND<Real> var_cc = cc_var->data;
+    ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = var_cc.GetDim(4) - 1;
     ParArray4D<Real> coarse_cc_ = coarse_cc.Get<4>();
     BufferUtility::UnpackData(recvbuf, coarse_cc_, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
