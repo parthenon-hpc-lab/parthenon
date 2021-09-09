@@ -777,9 +777,8 @@ int Swarm::CountParticlesToSend_() {
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
   auto num_particles_to_send_h = num_particles_to_send_.GetHostMirror();
-  for (int n = 0; n < nbmax; n++) {
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     num_particles_to_send_h(n) = 0;
-    auto &nb = pmb->pbval->neighbor[n];
   }
   const int particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
@@ -817,7 +816,7 @@ int Swarm::CountParticlesToSend_() {
   particle_indices_to_send_.DeepCopy(particle_indices_to_send_h);
 
   num_particles_sent_ = 0;
-  for (int n = 0; n < nbmax; n++) {
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     // Resize buffer if too small
     auto sendbuf = vbswarm->bd_var_.send[n];
     if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
@@ -835,7 +834,6 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int particle_size = GetParticleDataSize();
-  const int nbmax = pmb->pbval->nneighbor;
 
   auto &intVector_ = std::get<getType<int>()>(Vectors_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
@@ -854,7 +852,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   pmb->par_for(
       "Pack Buffers", 0, max_indices_size,
       KOKKOS_LAMBDA(const int n) {        // Max index
-        for (int m = 0; m < nbmax; m++) { // Number of neighbors
+        for (int m = 0; m < pmb->pbval->nneighbor; m++) { // Number of neighbors
           if (n < num_particles_to_send(m)) {
             const int sidx = particle_indices_to_send(m, n);
             int buffer_index = n * particle_size;
@@ -925,9 +923,8 @@ void Swarm::Send(BoundaryCommSubset phase) {
 
 void Swarm::CountReceivedParticles_() {
   auto pmb = GetBlockPointer();
-  const int max_neighbor = vbswarm->bd_var_.nbmax;
   total_received_particles_ = 0;
-  for (int n = 0; n < max_neighbor; n++) {
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     if (vbswarm->bd_var_.flag[pmb->pbval->neighbor[n].bufid] == BoundaryStatus::arrived) {
       PARTHENON_DEBUG_REQUIRE(vbswarm->recv_size[n] % vbswarm->particle_size == 0,
                               "Receive buffer is not divisible by particle size!");
@@ -941,12 +938,12 @@ void Swarm::CountReceivedParticles_() {
 
 void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
                                                 ParArrayND<int> &buffer_index) {
-  const int max_neighbor = vbswarm->bd_var_.nbmax;
+  auto pmb = GetBlockPointer();
   auto neighbor_index_h = neighbor_index.GetHostMirror();
   auto buffer_index_h = buffer_index.GetHostMirror();
 
   int id = 0;
-  for (int n = 0; n < max_neighbor; n++) {
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     for (int m = 0; m < neighbor_received_particles_[n]; m++) {
       neighbor_index_h(id) = n;
       buffer_index_h(id) = m;
@@ -959,7 +956,6 @@ void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
 
 void Swarm::UnloadBuffers_() {
   auto pmb = GetBlockPointer();
-  const int maxneighbor = vbswarm->bd_var_.nbmax;
 
   CountReceivedParticles_();
 
@@ -1067,7 +1063,7 @@ void Swarm::ResetCommunication() {
 #endif
 
   // Reset boundary statuses
-  for (int n = 0; n < vbswarm->bd_var_.nbmax; n++) {
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     auto &nb = pmb->pbval->neighbor[n];
     vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
   }
