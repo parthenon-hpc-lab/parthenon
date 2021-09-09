@@ -365,9 +365,8 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
           if ((nb.snb.rank == parthenon::Globals::my_rank) &&
               v->vbvar->neighbor_allocated[n]) {
             auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
-            boundary_info_h(b).buf = target_block->pbval->bvars[v->vbvar->bvar_index]
-                                         ->GetPBdVar()
-                                         ->recv[nb.targetid];
+            boundary_info_h(b).buf =
+                target_block->pbval->bvars.at(v->label())->GetPBdVar()->recv[nb.targetid];
           } else {
             boundary_info_h(b).buf = pbd_var_->send[nb.bufid];
           }
@@ -455,9 +454,8 @@ void SendAndNotify(MeshData<Real> *md) {
             }
 
             if (v->vbvar->neighbor_allocated[n]) {
-              target_block->pbval->bvars[v->vbvar->bvar_index]
-                  ->GetPBdVar()
-                  ->flag[nb.targetid] = parthenon::BoundaryStatus::arrived;
+              target_block->pbval->bvars.at(v->label())->GetPBdVar()->flag[nb.targetid] =
+                  parthenon::BoundaryStatus::arrived;
             }
           } else {
 #ifdef MPI_PARALLEL

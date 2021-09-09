@@ -46,7 +46,10 @@ FaceCenteredBoundaryVariable::FaceCenteredBoundaryVariable(std::weak_ptr<MeshBlo
                                                            FaceField *var,
                                                            FaceField &coarse_buf,
                                                            EdgeField &var_flux)
-    : BoundaryVariable(pmb, false), // sparse variables are not supported yet
+    // TODO(JL): Add a label for face variables
+    : BoundaryVariable(
+          pmb, false,
+          "TODO: Give label to face variables"), // sparse variables are not supported yet
       var_fc(var), coarse_buf(coarse_buf) {
   // assuming Field, not generic FaceCenteredBoundaryVariable:
 

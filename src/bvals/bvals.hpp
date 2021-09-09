@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "bvals/bvals_interfaces.hpp"
@@ -160,9 +161,8 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   BoundaryValues(std::weak_ptr<MeshBlock> pmb, BoundaryFlag *input_bcs,
                  ParameterInput *pin);
 
-  // variable-length arrays of references to BoundaryVariable instances
-  // containing all BoundaryVariable instances:
-  std::vector<std::shared_ptr<BoundaryVariable>> bvars;
+  // Dictionary of boundary variable pointers indexed by the variable label
+  Dictionary<std::shared_ptr<BoundaryVariable>> bvars;
 
   void SetBoundaryFlags(BoundaryFlag bc_flag[]) {
     for (int i = 0; i < 6; i++)
