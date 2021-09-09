@@ -159,15 +159,13 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
       vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux,
                                                              IsSparse(), label());
 
-      // enroll CellCenteredBoundaryVariable object
-      vbvar->bvar_index = pmb->pbval->bvars.size();
       // TODO(JMM): This means RestrictBoundaries()
       // is called on EVERY stage, regardless of what
       // stage needs it.
       // The fix is to refactor BoundaryValues
       // to expose calls at either the `Variable`
       // or `MeshBlockData` and `MeshData` level.
-      pmb->pbval->bvars.push_back(vbvar);
+      pmb->pbval->bvars.insert({label(), vbvar});
     }
   }
 

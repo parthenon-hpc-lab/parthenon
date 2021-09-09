@@ -55,8 +55,6 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   // must correspond to the # of "int *phys_id_" private members, below. Convert to array?
   static constexpr int max_phys_id = 3;
 
-  const std::string label;
-
   // BoundaryVariable:
   int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) final;
   int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) final;

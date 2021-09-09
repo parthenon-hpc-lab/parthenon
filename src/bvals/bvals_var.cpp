@@ -36,9 +36,10 @@
 
 namespace parthenon {
 
-BoundaryVariable::BoundaryVariable(std::weak_ptr<MeshBlock> pmb, bool is_sparse)
-    : bvar_index(), pmy_block_(pmb), pmy_mesh_(pmb.lock()->pmy_mesh),
-      is_sparse_(is_sparse) {
+BoundaryVariable::BoundaryVariable(std::weak_ptr<MeshBlock> pmb, bool is_sparse,
+                                   const std::string &label)
+    : pmy_block_(pmb), pmy_mesh_(pmb.lock()->pmy_mesh), is_sparse_(is_sparse),
+      label_(label) {
   // if this is a sparse variable, neighbor allocation status will be set later, we
   // initialize it to false here. For dense variable we initialize to true, as all
   // neighbors will always have this variable allocated
@@ -138,7 +139,7 @@ void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb, int ssiz
   // 1) which MeshBlock?
   MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
   // 2) which element in vector of BoundaryVariable *?
-  BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars[bvar_index]->bd_var_);
+  BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars.at(label_)->bd_var_);
   target_block.deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_.send[nb.bufid]);
   // finally, set the BoundaryStatus flag on the destination buffer
   ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
@@ -152,7 +153,7 @@ void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, in
   // 1) which MeshBlock?
   MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
   // 2) which element in vector of BoundaryVariable *?
-  BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars[bvar_index]->bd_var_flcor_);
+  BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars.at(label_)->bd_var_flcor_);
   target_block.deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_flcor_.send[nb.bufid]);
   ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
   return;

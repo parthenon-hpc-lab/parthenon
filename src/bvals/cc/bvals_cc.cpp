@@ -46,9 +46,9 @@ namespace parthenon {
 CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
     std::weak_ptr<MeshBlock> pmb, ParArrayND<Real> var, ParArrayND<Real> coarse_var,
     ParArrayND<Real> var_flux[], bool is_sparse, const std::string &label)
-    : BoundaryVariable(pmb, is_sparse), var_cc(var), coarse_buf(coarse_var),
-      x1flux(var_flux[X1DIR]), x2flux(var_flux[X2DIR]), x3flux(var_flux[X3DIR]),
-      label(label), nl_(0), nu_(var.GetDim(4) - 1) {
+    : BoundaryVariable(pmb, is_sparse, label), var_cc(var), coarse_buf(coarse_var),
+      x1flux(var_flux[X1DIR]), x2flux(var_flux[X2DIR]), x3flux(var_flux[X3DIR]), nl_(0),
+      nu_(var.GetDim(4) - 1) {
   // CellCenteredBoundaryVariable should only be used w/ 4D or 3D (nx4=1) ParArrayND
   // For now, assume that full span of 4th dim of input ParArrayND should be used:
   // ---> get the index limits directly from the input ParArrayND
