@@ -38,12 +38,20 @@ class CG_Solver : public CG_Counter {
  public:
   CG_Solver() {}
   CG_Solver(StateDescriptor *pkg, const Real error_tol_in, const Stencil<Real> &st)
-      : error_tol(error_tol_in), stencil(st) {
+      : error_tol(error_tol_in), stencil(st),
+        max_iters(pkg->Param<int>("cg_max_iterations")),
+        check_interval(pkg->Param<int>("cg_check_interval")),
+        fail_flag(pkg->Param<bool>("cg_abort_on_fail")),
+        warn_flag(pkg->Param<bool>("cg_warn_on_fail")) {
     use_sparse_accessor = false;
     Init(pkg);
   }
   CG_Solver(StateDescriptor *pkg, const Real error_tol_in, const SparseMatrixAccessor &sp)
-      : error_tol(error_tol_in), sp_accessor(sp) {
+      : error_tol(error_tol_in), sp_accessor(sp),
+        max_iters(pkg->Param<int>("cg_max_iterations")),
+        check_interval(pkg->Param<int>("cg_check_interval")),
+        fail_flag(pkg->Param<bool>("cg_abort_on_fail")),
+        warn_flag(pkg->Param<bool>("cg_warn_on_fail")) {
     use_sparse_accessor = true;
     Init(pkg);
   }
@@ -64,6 +72,7 @@ class CG_Solver : public CG_Counter {
     
     
     const std::string cg_id(std::to_string(global_num_cg_solvers));
+    solver_name = "internal_cg_" + cg_id;
     zk = "zk" + cg_id;
     res = "res" + cg_id;
     apk = "apk" + cg_id;
@@ -99,7 +108,7 @@ class CG_Solver : public CG_Counter {
   std::vector<std::string> SolverState() const {
     if (use_sparse_accessor) {
       if( precon_type == Precon_Type::ICC )
-        return std::vector<std::string>({zk, res, apk, pk, spm_name,pcm_name, rhs_name});
+        return std::vector<std::string>({zk, res, apk, pk, spm_name, pcm_name, rhs_name});
       else
       return std::vector<std::string>({zk, res, apk, pk, spm_name, rhs_name});
     } else {
@@ -112,43 +121,51 @@ class CG_Solver : public CG_Counter {
       lab += s;
     return lab;
   }
+  int MaxIters() const { return max_iters; }
+  int CheckInterval() const { return check_interval; }
+  bool GetFail() const { return fail_flag; }
+  bool GetWarn() const { return warn_flag; }
 
-  TaskID createCGTaskList(TaskID &begin, const int i, int &j, TaskList &tl,
-                          TaskRegion &solver_region, IterativeTasks &solver,
+  TaskID createTaskList(const TaskID &begin, const int i,
+                          TaskRegion &tr,
+                          std::shared_ptr<MeshData<Real>> md,
+                          std::shared_ptr<MeshData<Real>> mout) {
+    auto &solver = tr[i].AddIteration(solver_name);
+    solver.SetMaxIterations(max_iters);
+    solver.SetCheckInterval(check_interval);
+    solver.SetFailWithMaxIterations(fail_flag);
+    solver.SetWarnWithMaxIterations(warn_flag);
+    return createTaskList(begin, i, tr, solver, md, mout);
+  }
+
+  TaskID createTaskList(const TaskID &begin, const int i,
+                          TaskRegion &tr, IterativeTasks &solver,
                           std::shared_ptr<MeshData<Real>> md,
                           std::shared_ptr<MeshData<Real>> mout) {
     TaskID none(0);
+    TaskList &tl = tr[i];
+    RegionCounter reg(solver_name);
 
     // these are values shared across lists
-    auto rz0 = (i == 0 ? tl.AddTask(
-                             none,
-                             [](Real *val, Real *beta, int *cntr) {
-                               *val = 0;
-                               *beta = 0;
-                               *cntr = 0;
-                               return TaskStatus::complete;
-                             },
-                             &r_dot_z.val, &betak.val, &cg_cntr)
-                       : tl.AddTask(none, &CG_Solver<SPType>::DoNothing, this));
-    solver_region.AddRegionalDependencies(j, i, rz0);
-    j++;
+    r_dot_z.val = 0.0;
+    betak = 0.0;
+    cg_cntr = 0;
+    p_dot_ap.val = 0.0;
 
     // x=0;
     // b = dV*rho
     // r=b-Ax;
     // z = Minv*r;
-
-    auto init_cg = tl.AddTask(begin | rz0, &CG_Solver<SPType>::InitializeCG<MeshData<Real>>,
-                              this, md.get(), mout.get(), &precon_type);
+    auto init_cg = tl.AddTask(begin, &CG_Solver<SPType>::InitializeCG<MeshData<Real>>,
+                              this, md.get(), mout.get());
     
     auto precon0 = tl.AddTask(init_cg, &CG_Solver<SPType>::Precon<MeshData<Real>>,
-                              this, md.get(), &precon_type);
+                              this, md.get());
 
     auto rdotz0 = tl.AddTask(precon0, &CG_Solver<SPType>::RdotZ<MeshData<Real>>,
                              this, md.get(),  &r_dot_z.val);
 
-    solver_region.AddRegionalDependencies(j, i, rdotz0);
-    j++;
+    tr.AddRegionalDependencies(reg.ID(), i, rdotz0);
 
     // r.z;
     auto start_global_rz =
@@ -169,22 +186,11 @@ class CG_Solver : public CG_Counter {
     // p = beta*p+z; NOTE: at the first iteration, beta=0 so p=z;
     auto axpy1 =
         solver.AddTask(init_cg | finish_global_rz, &CG_Solver<SPType>::Axpy1<MeshData<Real>>,
-                       this, md.get(), &betak.val);
-    // matvec Ap = J*p
-    auto pAp0 = (i == 0 ? solver.AddTask(
-                              none,
-                              [](Real *val) {
-                                *val = 0;
-                                return TaskStatus::complete;
-                              },
-                              &p_dot_ap.val)
-                        : solver.AddTask(none, &CG_Solver<SPType>::DoNothing, this));
-    solver_region.AddRegionalDependencies(j, i, pAp0);
-    j++;
+                       this, md.get());
 
+    // ghost exchange.
     auto start_recv = solver.AddTask(none, &MeshData<Real>::StartReceiving, md.get(),
                                      BoundaryCommSubset::all);
-    // ghost exchange.
     auto send =
         solver.AddTask(axpy1, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
     auto recv = solver.AddTask(
@@ -193,10 +199,10 @@ class CG_Solver : public CG_Counter {
         solver.AddTask(recv | axpy1, parthenon::cell_centered_bvars::SetBoundaries, md);
     auto clear = solver.AddTask(send | setb, &MeshData<Real>::ClearBoundary, md.get(),
                                 BoundaryCommSubset::all);
-    auto matvec = solver.AddTask(clear | pAp0, &CG_Solver<SPType>::MatVec<MeshData<Real>>,
-                                 this, md.get(), &p_dot_ap.val);
-    solver_region.AddRegionalDependencies(j, i, matvec);
-    j++;
+    // matvec Ap = J*p
+    auto matvec = solver.AddTask(clear, &CG_Solver<SPType>::MatVec<MeshData<Real>>,
+                                 this, md.get());
+    tr.AddRegionalDependencies(reg.ID(), i, matvec);
 
     // reduce p.Ap
     auto start_global_pAp =
@@ -207,17 +213,9 @@ class CG_Solver : public CG_Counter {
         solver.AddTask(start_global_pAp, &AllReduce<Real>::CheckReduce, &p_dot_ap);
 
     // alpha = r.z/p.Ap
-    auto alpha = (i == 0 ? solver.AddTask(
-                               finish_global_pAp | finish_global_rz,
-                               [](Real *val, Real *rz, Real *pAp, Real *rznew) {
-                                 *val = (*rz) / (*pAp);
-                                 *rznew = 0;
-                                 return TaskStatus::complete;
-                               },
-                               &alphak.val, &r_dot_z.val, &p_dot_ap.val, &r_dot_z_new.val)
-                         : solver.AddTask(none, &CG_Solver<SPType>::DoNothing, this));
-    solver_region.AddRegionalDependencies(j, i, alpha);
-    j++;
+    auto alpha = solver.AddTask(finish_global_pAp | finish_global_rz,
+                    &CG_Solver<SPType>::UpdateAlpha, this, i);
+    tr.AddRegionalDependencies(reg.ID(), i, alpha);
 
     // x = x+alpha*p
     // r = r-alpha*Apk
@@ -225,16 +223,14 @@ class CG_Solver : public CG_Counter {
     // r.z-new
     auto double_axpy =
         solver.AddTask(alpha, &CG_Solver<SPType>::DoubleAxpy<MeshData<Real>>, this,
-                       md.get(), mout.get(), &alphak.val);
+                       md.get(), mout.get());
     auto precon =
         solver.AddTask(double_axpy, &CG_Solver<SPType>::Precon<MeshData<Real>>, this,
-                       md.get(), &precon_type);
+                       md.get());
     auto rdotz =
         solver.AddTask(precon, &CG_Solver<SPType>::RdotZ<MeshData<Real>>, this,
                        md.get(), &r_dot_z_new.val);
-    
-    solver_region.AddRegionalDependencies(j, i, rdotz);
-    j++;
+    tr.AddRegionalDependencies(reg.ID(), i, rdotz);
 
     // reduce p.Ap
     auto start_global_rz_new =
@@ -246,58 +242,53 @@ class CG_Solver : public CG_Counter {
 
     // beta= rz_new/rz
     // and check convergence..
-    auto beta = (i == 0 ? solver.AddTask(
-                              finish_global_rz_new,
-                              [](Real *beta, Real *rz_new, Real *rz, Real *res_global,
-                                 Real *gres0, int *cntr) {
-                                *beta = (*rz_new) / (*rz);
-                                *res_global = sqrt(*rz_new);
+    auto beta = solver.AddTask(finish_global_rz_new, &CG_Solver<SPType>::UpdateInternals, this, i);
+    tr.AddRegionalDependencies(reg.ID(), i, beta);
 
-                                if (*cntr == 0) *gres0 = *res_global;
-
-                                *cntr = *cntr + 1;
-                                (*rz) = (*rz_new);
-
-                                return TaskStatus::complete;
-                              },
-                              &betak.val, &r_dot_z_new.val, &r_dot_z.val, &res_global,
-                              &global_res0, &cg_cntr)
-                        : solver.AddTask(none, &CG_Solver<SPType>::DoNothing, this));
-    solver_region.AddRegionalDependencies(j, i, beta);
-    j++;
-
-    auto check =
-        (i == 0 ? solver.SetCompletionTask(
-                      beta,
-                      [](Real *res_global, Real *gres0, Real *err_tol, int *cntr) {
-                        auto status =
-                            (*res_global / (*gres0) < (*err_tol) ? TaskStatus::complete
-                                                                 : TaskStatus::iterate);
-
-                        if (parthenon::Globals::my_rank == 0)
-                          std::cout << parthenon::Globals::my_rank << " its= " << *cntr
-                                    << " relative res: " << *res_global / (*gres0)
-                                    << " absolute-res " << *res_global
-                                    << " relerr-tol: " << (*err_tol) << std::endl
-                                    << std::flush;
-
-                        return status;
-                      },
-                      &res_global, &global_res0, &error_tol, &cg_cntr)
-                : solver.SetCompletionTask(none, &CG_Solver<SPType>::DoNothing, this));
-    solver_region.AddGlobalDependencies(j, i, check);
-    j++;
+    auto check = solver.SetCompletionTask(beta, &CG_Solver<SPType>::CheckConvergence, this, i, true);
+    tr.AddGlobalDependencies(reg.ID(), i, check);
 
     return check;
   }
 
   TaskStatus DoNothing() { return TaskStatus::complete; }
+  TaskStatus UpdateAlpha(const int &i) {
+    if (i == 0) {
+      alphak = r_dot_z.val/p_dot_ap.val;
+      r_dot_z_new.val = 0.0;
+      p_dot_ap.val = 0.0;
+    }
+    return TaskStatus::complete;
+  }
+  TaskStatus UpdateInternals(const int &i) {
+    if (i == 0) {
+      betak = r_dot_z_new.val/r_dot_z.val;
+      res_global = std::sqrt(r_dot_z.val);
+      if (cg_cntr == 0) res_global0 = res_global;
+      cg_cntr++;
+      r_dot_z.val = r_dot_z_new.val;
+    }
+    return TaskStatus::complete;
+  }
+  TaskStatus CheckConvergence(const int &i, bool report) {
+    if (i != 0) return TaskStatus::complete;
+    if (report) {
+      if (parthenon::Globals::my_rank == 0) {
+        std::cout << parthenon::Globals::my_rank << " its= " << cg_cntr
+                  << " relative res: " << res_global / res_global0
+                  << " absolute-res " << res_global
+                  << " relerr-tol: " << error_tol << std::endl
+                  << std::flush;
+      }
+    }
+    return (res_global/res_global0 < error_tol ? TaskStatus::complete : TaskStatus::iterate);
+  }
 
   /////////////////////////////////////////////////////////////////////////////////////////
   // Utility tasks for solver..
   /////////////////////////////////////////////////////////////////////////////////////////
   template <typename T>
-  TaskStatus Axpy1(T *u, Real *beta) {
+  TaskStatus Axpy1(T *u) {
     auto pm = u->GetParentPointer();
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
@@ -312,12 +303,12 @@ class CG_Solver : public CG_Counter {
     const int ipk = imap[pk].first;
 
     // make local copy.
-    const Real betak = *beta;
+    const Real bk = betak;
     parthenon::par_for(
         DEFAULT_LOOP_PATTERN, "axpy1", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
         jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          v(b, ipk, k, j, i) = betak * v(b, ipk, k, j, i) + v(b, izk, k, j, i);
+          v(b, ipk, k, j, i) = bk * v(b, ipk, k, j, i) + v(b, izk, k, j, i);
         });
 
     return TaskStatus::complete;
@@ -325,7 +316,7 @@ class CG_Solver : public CG_Counter {
   /////////////////////////////////////////////////////////////////////////
 
   template <typename T>
-  TaskStatus Precon(T *u, Precon_Type *precon_type) {
+  TaskStatus Precon(T *u) {
     auto pm = u->GetParentPointer();
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
@@ -334,7 +325,7 @@ class CG_Solver : public CG_Counter {
     PackIndexMap imap;
     std::vector<std::string> vars({zk, res, spm_name});
 
-    if((*precon_type) == Precon_Type::ICC)
+    if(precon_type == Precon_Type::ICC)
       vars.push_back(pcm_name);
 
     const auto &v = u->PackVariables(vars, imap);
@@ -354,7 +345,7 @@ class CG_Solver : public CG_Counter {
     Real sum(0);
     Real gsum(0);
     
-    switch(*precon_type)
+    switch(precon_type)
     {
     case Precon_Type::NONE:
         parthenon::par_for(
@@ -528,7 +519,7 @@ class CG_Solver : public CG_Counter {
   
   /////////////////////////////////////////////////////////////////////////
   template <typename T>
-  TaskStatus InitializeCG(T *u, T *du, Precon_Type *precon_type) {
+  TaskStatus InitializeCG(T *u, T *du) {
     auto pm = u->GetParentPointer();
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
@@ -542,7 +533,7 @@ class CG_Solver : public CG_Counter {
     PackIndexMap imap;
     std::vector<std::string> vars({zk, pk, res, rhs_name, spm_name});
 
-    if((*precon_type) == Precon_Type::ICC)
+    if(precon_type == Precon_Type::ICC)
       vars.push_back(pcm_name);
     
     const auto &v = u->PackVariables(vars, imap);
@@ -587,7 +578,7 @@ class CG_Solver : public CG_Counter {
 
     // do incomplete cholesky factorization..
     //pcm="preconditioning matrix"
-    if((*precon_type) == Precon_Type::ICC)
+    if(precon_type == Precon_Type::ICC)
     {
       //  const auto ioff = sp_accessor.ioff;
       //const auto joff = sp_accessor.joff;
@@ -599,7 +590,6 @@ class CG_Solver : public CG_Counter {
 
       int nstencil = sp_accessor.nstencil;
 
-      std::cout <<"ipcmlo:" << ipcm_lo<< " " << ipcm_hi<<std::endl;
       // copy matrix into precon matrix.
       parthenon::par_for(
         parthenon::loop_pattern_mdrange_tag, "icc_copy", DevExecSpace(), 0,
@@ -843,7 +833,7 @@ class CG_Solver : public CG_Counter {
 
   /////////////////////////////////////////////////////////////////////////
   template <typename T>
-  TaskStatus MatVec(T *u, Real *reduce_sum) {
+  TaskStatus MatVec(T *u) {
     auto pm = u->GetParentPointer();
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
@@ -861,10 +851,6 @@ class CG_Solver : public CG_Counter {
 
     int ndim = v.GetNdim();
     Real dot(0);
-
-    // const auto &sp_accessor =
-    //  pkg->Param<parthenon::solvers::SparseMatrixAccessor>("sparse_accessor");
-
     if (use_sparse_accessor) {
       parthenon::par_reduce(
           parthenon::loop_pattern_mdrange_tag, "mat_vec", DevExecSpace(), 0,
@@ -893,7 +879,7 @@ class CG_Solver : public CG_Counter {
           },
           Kokkos::Sum<Real>(dot));
     }
-    *reduce_sum += dot;
+    p_dot_ap.val += dot;
 
     return TaskStatus::complete;
   } // MatVec
@@ -901,7 +887,7 @@ class CG_Solver : public CG_Counter {
 
   /////////////////////////////////////////////////////////////////////////
   template <typename T>
-  TaskStatus DoubleAxpy(T *u, T *du, Real *palphak) {
+  TaskStatus DoubleAxpy(T *u, T *du) {
     auto pm = u->GetParentPointer();
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
@@ -922,15 +908,15 @@ class CG_Solver : public CG_Counter {
     const int ixk = imap2[sol_name].first;
 
     // make a local copy so it's captured in the kernel
-    const Real alphak = *palphak;
+    const Real ak = alphak;
     parthenon::par_for(
         parthenon::loop_pattern_mdrange_tag, "double_axpy", DevExecSpace(), 0,
         v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           // x = x+alpha*p
-          dv(b, ixk, k, j, i) += alphak * v(b, ipk, k, j, i);
+          dv(b, ixk, k, j, i) += ak * v(b, ipk, k, j, i);
           // r = r-alpha*Ap
-          v(b, ires, k, j, i) -= alphak * v(b, iapk, k, j, i);
+          v(b, ires, k, j, i) -= ak * v(b, iapk, k, j, i);
         });
     return TaskStatus::complete;
   } // DoubleAxpy
@@ -938,12 +924,10 @@ class CG_Solver : public CG_Counter {
   AllReduce<Real> p_dot_ap;
   AllReduce<Real> r_dot_z;
   AllReduce<Real> r_dot_z_new;
-  AllReduce<Real> alphak;
-  AllReduce<Real> betak;
-  Real res_global;
+  Real alphak, betak, res_global, res_global0;
 
   int cg_cntr;
-  Real global_res0;
+  std::string solver_name;
   std::string zk, res, apk, xk, pk;
   std::string spm_name, sol_name, rhs_name, precon_name;
   std::string pcm_name;
@@ -951,6 +935,8 @@ class CG_Solver : public CG_Counter {
   Real error_tol;
   Stencil<Real> stencil;
   SparseMatrixAccessor sp_accessor;
+  int max_iters, check_interval;
+  bool fail_flag, warn_flag;
   bool use_sparse_accessor;
   Precon_Type precon_type;
   

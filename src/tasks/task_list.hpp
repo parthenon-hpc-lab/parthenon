@@ -44,6 +44,7 @@ TaskID AddTaskHelper(TaskList *, Task);
 
 class IterativeTasks {
  public:
+  IterativeTasks() = default;
   IterativeTasks(TaskList *tl, int key) : tl_(tl), key_(key) {
     max_iterations_ = std::numeric_limits<int>::max();
   }
@@ -94,6 +95,8 @@ class IterativeTasks {
   int GetMaxIterations() const { return max_iterations_; }
   int GetIterationCount() const { return count_; }
   void IncrementCount() { count_++; }
+  void ResetCount() { count_ = 0; }
+  void PrintList() { std::cout << "tl_ = " << tl_ << std::endl; }
 
  private:
   template <class F, class... Args>
@@ -185,6 +188,7 @@ class TaskList {
         ++task;
       }
     }
+    iter_tasks[key].ResetCount();
   }
   void ResetIteration(const int key) {
     PARTHENON_REQUIRE_THROWS(key < iter_tasks.size(), "Invalid iteration key");
@@ -225,13 +229,14 @@ class TaskList {
       }
     }
   }
-  void CompleteIfNeeded(const TaskID &id) {
+  bool CompleteIfNeeded(const TaskID &id) {
     MarkTaskComplete(id);
     auto task = task_list_.begin();
     while (task != task_list_.end()) {
       if (task->GetID() == id) {
         if (task->GetType() == TaskType::completion_criteria) {
           ClearIteration(task->GetKey());
+          return true;
         } else if (task->GetType() == TaskType::single) {
           task = task_list_.erase(task);
         } else {
@@ -242,21 +247,28 @@ class TaskList {
         ++task;
       }
     }
+    return false;
   }
   void DoAvailable() {
-    for (auto &task : task_list_) {
+    auto task = task_list_.begin();
+    //for (auto &task : task_list_) {
+    while (task != task_list_.end()) {
       // first skip task if it's complete.  Possible for iterative tasks
-      if (task.GetStatus() != TaskStatus::incomplete) continue;
-      auto dep = task.GetDependency();
+      if (task->GetStatus() != TaskStatus::incomplete) {
+        ++task;
+        continue;
+      }
+      auto dep = task->GetDependency();
       if (CheckDependencies(dep)) {
-        task();
-        if (task.GetStatus() == TaskStatus::complete && !task.IsRegional()) {
-          MarkTaskComplete(task.GetID());
-        } else if (task.GetStatus() == TaskStatus::skip &&
-                   task.GetType() == TaskType::completion_criteria) {
-          ResetIteration(task.GetKey());
+        (*task)();
+        if (task->GetStatus() == TaskStatus::complete && !task->IsRegional()) {
+          MarkTaskComplete(task->GetID());
+        } else if (task->GetStatus() == TaskStatus::skip &&
+                   task->GetType() == TaskType::completion_criteria) {
+          ResetIteration(task->GetKey());
         }
       }
+      ++task;
     }
     ClearComplete();
   }
@@ -282,10 +294,10 @@ class TaskList {
     return valid;
   }
 
-  TaskID AddTask(Task tsk) {
+  TaskID AddTask(Task &tsk) {
     TaskID id(tasks_added_ + 1);
     tsk.SetID(id);
-    task_list_.push_back(tsk);
+    task_list_.push_back(std::move(tsk));
     tasks_added_++;
     return id;
   }
@@ -313,9 +325,9 @@ class TaskList {
 
   IterativeTasks &AddIteration(const std::string &label) {
     int key = iter_tasks.size();
-    iter_tasks.push_back(IterativeTasks(this, key));
-    iter_labels.push_back(label);
-    return iter_tasks.back();
+    iter_tasks[key] = IterativeTasks(this, key);
+    iter_labels[key] = label;//.push_back(label);
+    return iter_tasks[key];
   }
 
   void Print() {
@@ -335,8 +347,8 @@ class TaskList {
   }
 
  protected:
-  std::vector<IterativeTasks> iter_tasks;
-  std::vector<std::string> iter_labels;
+  std::map<int,IterativeTasks> iter_tasks;
+  std::map<int,std::string> iter_labels;
   std::list<Task> task_list_;
   int tasks_added_ = 0;
   TaskID tasks_completed_;
@@ -345,18 +357,38 @@ class TaskList {
 namespace task_list_impl {
 // helper function to avoid having to call a member function of TaskList from
 // IterativeTasks before TaskList has been defined
-inline TaskID AddTaskHelper(TaskList *tl, Task tsk) { return tl->AddTask(tsk); }
+inline TaskID AddTaskHelper(TaskList *tl, Task tsk) { 
+  return tl->AddTask(tsk); }
 } // namespace task_list_impl
+
+class RegionCounter {
+ public:
+  explicit RegionCounter(const std::string &base) : base_(base), cnt_(0) {}
+  std::string ID() {
+    return base_+std::to_string(cnt_++);
+  }
+ private:
+  const std::string base_;
+  int cnt_;
+};
 
 class TaskRegion {
  public:
   explicit TaskRegion(const int size) : lists(size) {}
   void AddRegionalDependencies(const int reg_dep_id, const int list_index,
                                const TaskID &id) {
+    AddRegionalDependencies(std::to_string(reg_dep_id), list_index, id);
+  }
+  void AddRegionalDependencies(const std::string &reg_dep_id, const int list_index,
+                               const TaskID &id) {
     AddDepdencies(reg_dep_id, list_index, id);
     global[reg_dep_id] = false;
   }
   void AddGlobalDependencies(const int reg_dep_id, const int list_index,
+                             const TaskID &id) {
+    AddGlobalDependencies(std::to_string(reg_dep_id), list_index, id);
+  }
+  void AddGlobalDependencies(const std::string &reg_dep_id, const int list_index,
                              const TaskID &id) {
     AddDepdencies(reg_dep_id, list_index, id);
     global[reg_dep_id] = true;
@@ -366,9 +398,19 @@ class TaskRegion {
 
   int size() const { return lists.size(); }
 
+  bool Execute() {
+    for (auto i = 0; i < lists.size(); ++i) {
+      if (!lists[i].IsComplete()) {
+        lists[i].DoAvailable();
+      }
+    }
+    return CheckAndUpdate();
+  }
+
   bool CheckAndUpdate() {
-    for (auto &reg_dep : id_for_reg) {
-      auto reg_id = reg_dep.first;
+    auto it = id_for_reg.begin();
+    while (it != id_for_reg.end()) {
+      auto &reg_id = it->first;
       bool check = false;
       if (HasRun(reg_id) && !all_done[reg_id].active) {
         all_done[reg_id].val = IsComplete(reg_id);
@@ -386,15 +428,26 @@ class TaskRegion {
       }
       if (check) {
         if (all_done[reg_id].val) {
-          for (auto &lst : reg_dep.second) {
-            lists[lst.first].CompleteIfNeeded(lst.second);
+          bool clear = false;
+          for (auto &lst : it->second) {
+            clear = lists[lst.first].CompleteIfNeeded(lst.second);
+          }
+          if (clear) {
+            all_done.erase(reg_id);
+            global.erase(reg_id);
+            it = id_for_reg.erase(it);
+          } else {
+            ++it;
           }
         } else {
-          for (auto &lst : reg_dep.second) {
+          for (auto &lst : it->second) {
             lists[lst.first].ResetIfNeeded(lst.second);
           }
           all_done[reg_id].val = 0;
+          ++it;
         }
+      } else {
+        ++it;
       }
     }
     int complete_cnt = 0;
@@ -413,13 +466,12 @@ class TaskRegion {
   }
 
  private:
-  void AddDepdencies(const int reg_id, const int list_id, const TaskID &tid) {
-    auto task_pair = std::make_pair(list_id, tid);
-    id_for_reg[reg_id].push_back(task_pair);
+  void AddDepdencies(const std::string &label, const int list_id, const TaskID &tid) {
+    id_for_reg[label][list_id] = tid;
     lists[list_id].MarkRegional(tid);
-    all_done[reg_id].val = 0;
+    all_done[label].val = 0;
   }
-  bool HasRun(const int reg_id) {
+  bool HasRun(const std::string &reg_id) {
     auto &lvec = id_for_reg[reg_id];
     int n_to_run = lvec.size();
     int n_ran = 0;
@@ -432,7 +484,7 @@ class TaskRegion {
     }
     return n_ran == n_to_run;
   }
-  bool IsComplete(const int reg_id) {
+  bool IsComplete(const std::string &reg_id) {
     auto &lvec = id_for_reg[reg_id];
     int n_to_finish = lvec.size();
     int n_finished = 0;
@@ -447,10 +499,10 @@ class TaskRegion {
   }
 
   // id_for_reg[region_id] = std::pair<>(task_list_index, task_id_of_regional_task)
-  std::map<int, std::vector<std::pair<int, TaskID>>> id_for_reg;
+  std::unordered_map<std::string, std::map<int, TaskID>> id_for_reg;
   std::vector<TaskList> lists;
-  std::map<int, AllReduce<int>> all_done;
-  std::map<int, bool> global;
+  std::unordered_map<std::string, AllReduce<int>> all_done;
+  std::unordered_map<std::string, bool> global;
 };
 
 class TaskCollection {
@@ -464,15 +516,8 @@ class TaskCollection {
     assert(Validate());
     for (auto &region : regions) {
       bool complete = false;
-      auto num_lists = region.size();
       while (!complete) {
-        // TODO(pgrete): need to let Kokkos::PartitionManager handle this
-        for (auto i = 0; i < num_lists; ++i) {
-          if (!region[i].IsComplete()) {
-            region[i].DoAvailable();
-          }
-        }
-        complete = region.CheckAndUpdate();
+        complete = region.Execute();
       }
     }
     return TaskListStatus::complete;

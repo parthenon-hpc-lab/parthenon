@@ -36,19 +36,19 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("poisson_package");
 
   int max_poisson_iterations = pin->GetOrAddInteger("poisson", "max_iterations", 10000);
-  pkg->AddParam<>("max_iterations", max_poisson_iterations);
+  pkg->AddParam<>("cg_max_iterations", max_poisson_iterations);
 
   int check_interval = pin->GetOrAddInteger("poisson", "check_interval", 100);
-  pkg->AddParam<>("check_interval", check_interval);
+  pkg->AddParam<>("cg_check_interval", check_interval);
 
   Real err_tol = pin->GetOrAddReal("poisson", "error_tolerance", 1.e-8);
   pkg->AddParam<>("error_tolerance", err_tol);
 
   bool fail_flag = pin->GetOrAddBoolean("poisson", "fail_without_convergence", false);
-  pkg->AddParam<>("fail_without_convergence", fail_flag);
+  pkg->AddParam<>("cg_abort_on_fail", fail_flag);
 
   bool warn_flag = pin->GetOrAddBoolean("poisson", "warn_without_convergence", true);
-  pkg->AddParam<>("warn_without_convergence", warn_flag);
+  pkg->AddParam<>("cg_warn_on_fail", warn_flag);
 
   auto mrho = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField("density", mrho);

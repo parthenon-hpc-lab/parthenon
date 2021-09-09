@@ -186,8 +186,9 @@ add_library(parthenon
   refinement/refinement.hpp
 
   solvers/solver_utils.hpp
-  solvers/cg_solver.cpp
   solvers/cg_solver.hpp
+  solvers/newton_krylov.hpp
+  solvers/solvers.cpp
 
   tasks/task_id.cpp
   tasks/task_id.hpp

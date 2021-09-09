@@ -10,15 +10,24 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef EXAMPLE_POISSON_CG_POISSON_CG_PACKAGE_HPP_
+#define EXAMPLE_POISSON_CG_POISSON_CG_PACKAGE_HPP_
 
-#include "cg_solver.hpp"
-#include "newton.hpp"
+#include <memory>
 
-namespace parthenon {
-namespace solvers {
+#include <parthenon/package.hpp>
 
-int CG_Counter::global_num_cg_solvers = 0;
-int Newton_Counter::global_num_newton_solvers = 0;
+namespace poisson_package {
+using namespace parthenon::package::prelude;
 
-} // namespace solvers
-} // namespace parthenon
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+template <typename T>
+TaskStatus Jacobian(T *u);
+TaskStatus PrintComplete();
+
+template <typename T>
+TaskStatus Residual(T *u, Real *res);
+
+} // namespace poisson_package
+
+#endif // EXAMPLE_POISSON_CG_POISSON_CG_PACKAGE_HPP_
