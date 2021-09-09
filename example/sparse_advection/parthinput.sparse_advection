@@ -23,31 +23,31 @@ refinement = adaptive
 numlevel = 3
 
 nx1 = 64
-x1min = -4.0
-x1max = 4.0
+x1min = -1.0
+x1max = 1.0
 ix1_bc = periodic
 ox1_bc = periodic
 
-nx2 = 8
-x2min = -0.5
-x2max = 0.5
+nx2 = 64
+x2min = -1.0
+x2max = 1.0
 ix2_bc = periodic
 ox2_bc = periodic
 
-nx3 = 8
-x3min = -0.5
-x3max = 0.5
+nx3 = 1
+x3min = -1.0
+x3max = 1.0
 ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
 nx1 = 8
 nx2 = 8
-nx3 = 8
+nx3 = 1
 
 <parthenon/time>
 nlim = -1
-tlim = 4.0
+tlim = 2.0
 integrator = rk2
 ncycle_out_mesh = -10000
 
