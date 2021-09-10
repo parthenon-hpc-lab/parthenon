@@ -834,6 +834,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int particle_size = GetParticleDataSize();
+  const int nbmax = pmb->pbval->nneighbor;
 
   auto &intVector_ = std::get<getType<int>()>(Vectors_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
@@ -851,8 +852,8 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   auto particle_indices_to_send = particle_indices_to_send_;
   pmb->par_for(
       "Pack Buffers", 0, max_indices_size,
-      KOKKOS_LAMBDA(const int n) {                        // Max index
-        for (int m = 0; m < pmb->pbval->nneighbor; m++) { // Number of neighbors
+      KOKKOS_LAMBDA(const int n) {        // Max index
+        for (int m = 0; m < nbmax; m++) { // Number of neighbors
           if (n < num_particles_to_send(m)) {
             const int sidx = particle_indices_to_send(m, n);
             int buffer_index = n * particle_size;
@@ -1040,7 +1041,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
 
     auto &bdvar = vbswarm->bd_var_;
     bool all_boundaries_received = true;
-    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    for (int n = 0; n < nneighbor; n++) {
       NeighborBlock &nb = pmb->pbval->neighbor[n];
       if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
         bdvar.flag[nb.bufid] = BoundaryStatus::completed;
