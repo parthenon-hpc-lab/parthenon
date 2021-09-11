@@ -3,6 +3,8 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 563]](https://github.com/lanl/parthenon/pull/563) Physical boundary options for particles
+- [[PR 582]](https://github.com/lanl/parthenon/pull/582) Adding global reductions and basic functionality needed for solvers.
 - [[PR 556]](https://github.com/lanl/parthenon/pull/556) Introduce iterative tasks and regionally dependent tasks
 - [[PR 578]](https://github.com/lanl/parthenon/pull/578) Add some profiling regions to tasks in particles example
 - [[PR 577]](https://github.com/lanl/parthenon/pull/577) Update invalid indices to allow for no-op loops
@@ -16,6 +18,7 @@
 - [[PR 404]](https://github.com/lanl/parthenon/pull/404) Add capability to communicate particles across meshblocks/MPI processes
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 583]](https://github.com/lanl/parthenon/pull/583) Fix file numbering logic for writing outputs after restarting a simulation.
 - [[PR 581]](https://github.com/lanl/parthenon/pull/581) Change return status of `ArgParse` so that `complete` is returned when passing in the help flag.
 - [[PR 580]](https://github.com/lanl/parthenon/pull/580) Hid variable/meshblock pack keys from public API, added unit tests for `MeshBlockData`.
 - [[PR 535]](https://github.com/lanl/parthenon/pull/535) Modify various interfaces connected with

@@ -1,4 +1,3 @@
-
 #=========================================================================================
 # (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
@@ -133,6 +132,9 @@ add_library(parthenon
   interface/meshblock_data.hpp
   interface/swarm_container.cpp
   interface/swarm.cpp
+  interface/swarm.hpp
+  interface/swarm_boundaries.hpp
+  interface/swarm_device_context.hpp
   interface/metadata.cpp
   interface/metadata.hpp
   interface/params.hpp
@@ -185,6 +187,8 @@ add_library(parthenon
   refinement/refinement.cpp
   refinement/refinement.hpp
 
+  solvers/solver_utils.hpp
+
   tasks/task_id.cpp
   tasks/task_id.hpp
   tasks/task_list.hpp
@@ -197,7 +201,9 @@ add_library(parthenon
   utils/change_rundir.cpp
   utils/error_checking.hpp
   utils/error_checking.cpp
+  utils/mpi_types.hpp
   utils/partition_stl_containers.hpp
+  utils/reductions.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp
   utils/string_utils.cpp

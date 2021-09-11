@@ -93,3 +93,13 @@ further details. Note that this pattern is blocking, and may be replaced in the
 future.
 
 AMR is currently not supported, but support will be added in the future.
+
+## Boundary conditions
+
+Particle boundary conditions are not applied in separate kernel calls; instead, inherited
+classes containing boundary condition functions for updating particles or removing them
+when they are in boundary regions are allocated depending on the boundary flags specified
+in the input file. Currently, outflow and periodic boundaries are supported natively.
+User-specified boundary conditions must be set by specifying the "user" flag in the input
+parameter file and then updating the appropriate Swarm::bounds array entries to separately
+allocated boundary condition objects.
