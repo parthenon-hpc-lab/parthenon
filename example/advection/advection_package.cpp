@@ -468,11 +468,20 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
         for (int n = 0; n < nvar; n++) {
           par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-            const auto &vx_i = v_const ? vx : v(idx_v, k, j, i);
-            if (vx_i > 0.0) {
-              v.flux(X1DIR, n, k, j, i) = ql(n, i) * vx_i;
+            // standard avection with fixed, global vx
+            if (v_const) {
+              if (vx > 0.0) {
+                v.flux(X1DIR, n, k, j, i) = ql(n, i) * vx;
+              } else {
+                v.flux(X1DIR, n, k, j, i) = qr(n, i) * vx;
+              }
+              // Custom flux function to move isolated, cells around. Just used for
+              // bvals testing.
             } else {
-              v.flux(X1DIR, n, k, j, i) = qr(n, i) * vx_i;
+              v.flux(X1DIR, n, k, j, i) =
+                  ql(idx_v, i) > 0.0 ? ql(n, i) * ql(idx_v, i) : 0.0;
+              v.flux(X1DIR, n, k, j, i) +=
+                  qr(idx_v, i) < 0.0 ? qr(n, i) * qr(idx_v, i) : 0.0;
             }
           });
         }
@@ -498,15 +507,23 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
-            if (vy > 0.0) {
-              par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X2DIR, n, k, j, i) = ql(n, i) * vy;
-              });
-            } else {
-              par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X2DIR, n, k, j, i) = qr(n, i) * vy;
-              });
-            }
+            par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              // standard avection with fixed, global vy
+              if (v_const) {
+                if (vy > 0.0) {
+                  v.flux(X2DIR, n, k, j, i) = ql(n, i) * vy;
+                } else {
+                  v.flux(X2DIR, n, k, j, i) = qr(n, i) * vy;
+                }
+                // Custom flux function to move isolated, cells around. Just used for
+                // bvals testing.
+              } else {
+                v.flux(X2DIR, n, k, j, i) =
+                    ql(idx_v + 1, i) > 0.0 ? ql(n, i) * ql(idx_v + 1, i) : 0.0;
+                v.flux(X2DIR, n, k, j, i) +=
+                    qr(idx_v + 1, i) < 0.0 ? qr(n, i) * qr(idx_v + 1, i) : 0.0;
+              }
+            });
           }
         });
   }
@@ -531,15 +548,23 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
-            if (vz > 0.0) {
-              par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X3DIR, n, k, j, i) = ql(n, i) * vz;
-              });
-            } else {
-              par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X3DIR, n, k, j, i) = qr(n, i) * vz;
-              });
-            }
+            par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              // standard avection with fixed, global vz
+              if (v_const) {
+                if (vz > 0.0) {
+                  v.flux(X3DIR, n, k, j, i) = ql(n, i) * vz;
+                } else {
+                  v.flux(X3DIR, n, k, j, i) = qr(n, i) * vz;
+                }
+                // Custom flux function to move isolated, cells around. Just used for
+                // bvals testing.
+              } else {
+                v.flux(X3DIR, n, k, j, i) =
+                    ql(idx_v + 2, i) > 0.0 ? ql(n, i) * ql(idx_v + 2, i) : 0.0;
+                v.flux(X3DIR, n, k, j, i) +=
+                    qr(idx_v + 2, i) < 0.0 ? qr(n, i) * qr(idx_v + 2, i) : 0.0;
+              }
+            });
           }
         });
   }
