@@ -25,6 +25,7 @@
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
+#include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
 
@@ -315,6 +316,25 @@ void SquareIt(MeshBlockData<Real> *rc) {
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         v(out + n, k, j, i) = v(in + n, k, j, i) * v(in + n, k, j, i);
       });
+
+  // The following block/logic is also just added for regression testing.
+  // More specifically, the "smooth_gaussian" profile is initially != 0 everywhere, but
+  // initialializes IndexDomain::interior.
+  // FillDerived (here, SquareIt) is called after the ghost cells are exchanged and over
+  // IndexDomain::entire.
+  // Thus, no 0 (from initializing Kokkos views) should be left if all faces/corners/edges
+  // are correct, which is what we check in the loop below.
+  auto pkg = pmb->packages.Get("advection_package");
+  const auto &profile = pkg->Param<std::string>("profile");
+  if (profile == "smooth_gaussian") {
+    const auto &advected = rc->Get("advected").data;
+    pmb->par_for(
+        "advection_package::SquareIt bval check", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e,
+        ib.s, ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          PARTHENON_REQUIRE(advected(n, k, j, i) != 0.0,
+                            "Advected not properly initialized.");
+        });
+  }
 }
 
 // demonstrate usage of a "post" fill derived routine
