@@ -43,6 +43,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   Real cfl = pin->GetOrAddReal("Advection", "cfl", 0.45);
   pkg->AddParam<>("cfl", cfl);
+
+  // Use constant, uniform velocity or vector valued velocity.
+  // Latter is used for testing boundary conditions.
+  auto v_const = pin->GetOrAddBoolean("Advection", "v_const", true);
+  pkg->AddParam<>("v_const", v_const);
   Real vx = pin->GetOrAddReal("Advection", "vx", 1.0);
   Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
   Real vz = pin->GetOrAddReal("Advection", "vz", 1.0);
@@ -53,7 +58,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
   if (!((profile_str == "wave") || (profile_str == "smooth_gaussian") ||
-        (profile_str == "hard_sphere"))) {
+        (profile_str == "hard_sphere") || (profile_str == "block"))) {
     PARTHENON_FAIL(("Unknown profile in advection example: " + profile_str).c_str());
   }
   pkg->AddParam<>("profile", profile_str);

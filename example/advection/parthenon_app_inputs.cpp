@@ -39,6 +39,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("advection_package");
   const auto &amp = pkg->Param<Real>("amp");
   const auto &vel = pkg->Param<Real>("vel");
+  const auto &v_const = pkg->Param<bool>("v_const");
+  const auto &vx = pkg->Param<Real>("vx");
+  const auto &vy = pkg->Param<Real>("vy");
+  const auto &vz = pkg->Param<Real>("vz");
   const auto &k_par = pkg->Param<Real>("k_par");
   const auto &cos_a2 = pkg->Param<Real>("cos_a2");
   const auto &cos_a3 = pkg->Param<Real>("cos_a3");
@@ -59,6 +63,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   if (profile == "wave") profile_type = 0;
   if (profile == "smooth_gaussian") profile_type = 1;
   if (profile == "hard_sphere") profile_type = 2;
+  if (profile == "block") profile_type = 3;
 
   pmb->par_for(
       "Advection::ProblemGenerator", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -76,6 +81,15 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
                      coords.x3v(k) * coords.x3v(k);
           q(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+        } else if (profile_type == 3) {
+          if ((coords.x1v(i) > -0.25 && coords.x1v(i) < 0.25) &&
+              (coords.x2v(j) > -0.25 && coords.x2v(j) < 0.25) &&
+              (coords.x3v(k) > -0.25 && coords.x3v(k) < 0.25)) {
+            q(n, k, j, i) = 10.0;
+
+          } else {
+            q(n, k, j, i) = 1.0;
+          }
         } else {
           q(n, k, j, i) = 0.0;
         }
