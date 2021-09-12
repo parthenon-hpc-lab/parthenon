@@ -47,7 +47,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // Use constant, uniform velocity or vector valued velocity.
   // Latter is used for testing boundary conditions.
   auto v_const = pin->GetOrAddBoolean("Advection", "v_const", true);
-  pkg->AddParam<>("v_const", v_const);
   Real vx = pin->GetOrAddReal("Advection", "vx", 1.0);
   Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
   Real vz = pin->GetOrAddReal("Advection", "vz", 1.0);
@@ -187,6 +186,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
                  std::vector<int>({num_vars}));
     pkg->AddField(field_name, m);
+    pkg->AllFields();
 
     field_name = "one_minus_advected_sq";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
@@ -441,7 +441,6 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
-  const auto &v_const = pkg->Param<bool>("v_const");
 
   PackIndexMap index_map;
   auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes},
@@ -449,7 +448,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // For non constant velocity, we need the index of the velocity vector as it's part of
   // the variable pack.
-  const int idx_v = v_const ? 0 : index_map.get("v").first;
+  const auto idx_v = index_map["v"].first;
+  const auto v_const = idx_v < 0; // using "at own perill" magic number
 
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);

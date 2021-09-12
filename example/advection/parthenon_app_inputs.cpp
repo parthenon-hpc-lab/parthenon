@@ -40,7 +40,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("advection_package");
   const auto &amp = pkg->Param<Real>("amp");
   const auto &vel = pkg->Param<Real>("vel");
-  const auto &v_const = pkg->Param<bool>("v_const");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
@@ -64,8 +63,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   // For non constant velocity, we need the index of the velocity vector as it's part of
   // the variable pack.
-  const int idx_v = v_const ? 0 : index_map.get("v").first;
-  const int idx_adv = v_const ? 0 : index_map.get("advected").first;
+  const auto idx_v = index_map["v"].first;
+  const auto v_const = idx_v < 0; // using "at own perill" magic number
+  const auto idx_adv = index_map.get("advected").first;
 
   int profile_type;
   if (profile == "wave") profile_type = 0;
