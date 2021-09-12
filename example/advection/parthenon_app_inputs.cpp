@@ -20,6 +20,7 @@
 #include "advection_package.hpp"
 #include "config.hpp"
 #include "defs.hpp"
+#include "interface/variable_pack.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -56,8 +57,14 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
 
   auto coords = pmb->coords;
-  auto q = data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  PackIndexMap index_map;
+  auto q =
+      data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, index_map);
   const auto num_vars = q.GetDim(4);
+
+  // For non constant velocity, we need the index of the velocity vector as it's part of
+  // the variable pack.
+  const int idx_v = v_const ? 0 : index_map.get("v").first;
 
   int profile_type;
   if (profile == "wave") profile_type = 0;
@@ -82,13 +89,30 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
                      coords.x3v(k) * coords.x3v(k);
           q(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
         } else if (profile_type == 3) {
+          // within block in the center
           if ((coords.x1v(i) > -0.25 && coords.x1v(i) < 0.25) &&
               (coords.x2v(j) > -0.25 && coords.x2v(j) < 0.25) &&
               (coords.x3v(k) > -0.25 && coords.x3v(k) < 0.25)) {
             q(n, k, j, i) = 10.0;
-
+            // reset value if this q(n) components belong to the v vector
+            if (!v_const) {
+              if (n == idx_v) {
+                q(n, k, j, i) = vx;
+              } else if (n == idx_v + 1) {
+                q(n, k, j, i) = vy;
+              } else if (n == idx_v + 2) {
+                q(n, k, j, i) = vz;
+              }
+            }
+            // outside block
           } else {
+            // Set nonzero value so that we can check proper initialization later (i.e.,
+            // no cell should carry default value of 0)
             q(n, k, j, i) = 1.0;
+            // reset value if this q(n) components belong to the v vector
+            if (!v_const && (n >= idx_v && n < idx_v + 3)) {
+              q(n, k, j, i) = 0.0;
+            }
           }
         } else {
           q(n, k, j, i) = 0.0;

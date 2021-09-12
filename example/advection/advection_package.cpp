@@ -176,6 +176,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
   }
+  if (!v_const) {
+    m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+                  Metadata::FillGhost, Metadata::Vector},
+                 std::vector<int>({3}), std::vector<std::string>{"vx", "vy", "vz"});
+    pkg->AddField(std::string("v"), m);
+  }
   if (fill_derived) {
     field_name = "one_minus_advected";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
@@ -435,8 +441,15 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
+  const auto &v_const = pkg->Param<bool>("v_const");
 
-  auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes});
+  PackIndexMap index_map;
+  auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes},
+                                      index_map);
+
+  // For non constant velocity, we need the index of the velocity vector as it's part of
+  // the variable pack.
+  const int idx_v = v_const ? 0 : index_map.get("v").first;
 
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
@@ -454,15 +467,14 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
         member.team_barrier();
 
         for (int n = 0; n < nvar; n++) {
-          if (vx > 0.0) {
-            par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              v.flux(X1DIR, n, k, j, i) = ql(n, i) * vx;
-            });
-          } else {
-            par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              v.flux(X1DIR, n, k, j, i) = qr(n, i) * vx;
-            });
-          }
+          par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
+            const auto &vx_i = v_const ? vx : v(idx_v, k, j, i);
+            if (vx_i > 0.0) {
+              v.flux(X1DIR, n, k, j, i) = ql(n, i) * vx_i;
+            } else {
+              v.flux(X1DIR, n, k, j, i) = qr(n, i) * vx_i;
+            }
+          });
         }
       });
 
