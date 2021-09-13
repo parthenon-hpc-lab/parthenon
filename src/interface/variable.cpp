@@ -172,6 +172,30 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
   mpiStatus = false;
 }
 
+template <typename T>
+void CellVariable<T>::Deallocate() {
+  if (!is_allocated_) {
+    return;
+  }
+
+  data = ParArrayND<T>();
+
+  if (IsSet(Metadata::WithFluxes)) {
+    flux_data_ = ParArray7D<T>();
+    int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
+    for (int d = X1DIR; d <= n_outer; ++d) {
+      flux[d] = ParArrayND<T>();
+    }
+  }
+
+  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+    coarse_s = ParArrayND<T>();
+    vbvar = nullptr;
+  }
+
+  is_allocated_ = false;
+}
+
 // TODO(jcd): clean these next two info routines up
 template <typename T>
 std::string FaceVariable<T>::info() {

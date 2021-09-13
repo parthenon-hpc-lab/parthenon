@@ -182,6 +182,21 @@ class MeshBlockData {
     return AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 
+  void DeallocateSparse(std::string const &label) {
+    if (!HasCellVariable(label)) {
+      PARTHENON_THROW("Tried to deallocate sparse variable '" + label +
+                      "', but no such sparse variable exists");
+    }
+
+    auto var = GetCellVarPtr(label);
+    PARTHENON_REQUIRE_THROWS(var->IsSparse(),
+                             "Tried to deallocate non-sparse variable " + label);
+
+    if (var->IsAllocated()) {
+      var->Deallocate();
+    }
+  }
+
   bool IsAllocated(std::string const &label) const noexcept {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
@@ -399,6 +414,7 @@ class MeshBlockData {
   int Size() noexcept { return varVector_.size(); }
 
   // Communication routines
+  void SetNeighborAllcoated();
   void ResetBoundaryCellVariables();
   void SetupPersistentMPI();
   TaskStatus SetBoundaries();

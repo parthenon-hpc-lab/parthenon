@@ -83,9 +83,6 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
 
     // pull out the container we'll use to get fluxes and/or compute RHSs
     auto &sc0 = pmb->meshblock_data.Get(stage_name[stage - 1]);
-    // pull out a container we'll use to store dU/dt.
-    // This is just -flux_divergence in this example
-    auto &dudt = pmb->meshblock_data.Get("dUdt");
     // pull out the container that will hold the updated state
     // effectively, sc1 = sc0 + dudt*dt
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
@@ -121,6 +118,11 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     // apply du/dt to all independent fields in the container
     auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
                              mdudt.get(), beta * dt, mc1.get());
+
+    // if this is the last stage, check if we can deallocate any sparse variables
+    if (stage == integrator->nstages) {
+      auto dealloc = tl.AddTask(update, SparseDeallocCheck, mc1.get());
+    }
   }
 
   auto add_boundary_task = [&](const auto &func) {

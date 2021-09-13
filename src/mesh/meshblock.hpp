@@ -178,6 +178,15 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 
+  void DeallocateSparse(std::string const &label) {
+    for (auto mb_dat : meshblock_data.Stages()) {
+      mb_dat.second->DeallocateSparse(label);
+    }
+
+    // ok to call erase even if key doesn't exist
+    pbval->bvars.erase(label);
+  }
+
   template <class... Args>
   inline void par_for(Args &&... args) {
     par_dispatch_(std::forward<Args>(args)...);

@@ -29,6 +29,7 @@
 #include "interface/state_descriptor.hpp"
 
 #include "kokkos_abstraction.hpp"
+#include "mesh/domain.hpp"
 
 namespace parthenon {
 
@@ -145,6 +146,8 @@ TaskStatus FillDerived(T *rc) {
   Kokkos::Profiling::popRegion(); // Task_FillDerived
   return TaskStatus::complete;
 }
+
+TaskStatus SparseDeallocCheck(MeshData<Real> *md);
 
 } // namespace Update
 
