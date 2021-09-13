@@ -17,6 +17,7 @@
 
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
+#include "globals.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
@@ -132,6 +133,100 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
                                    beta_dt * FluxDivHelper(l, k, j, i, ndim, coords, u0);
         }
       });
+  return TaskStatus::complete;
+}
+
+TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
+  if (md->NumBlocks() == 0) {
+    return TaskStatus::complete;
+  }
+
+  Kokkos::Profiling::pushRegion("Task_SparseDeallocCheck");
+
+  const IndexRange ib = md->GetBoundsI(IndexDomain::entire);
+  const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
+  const IndexRange kb = md->GetBoundsK(IndexDomain::entire);
+
+  const std::vector<MetadataFlag> flags({Metadata::Sparse});
+  const auto &pack = md->PackVariables(flags);
+
+  // get list of variables in same order as they appear in the pack, since variable
+  // metadata is the on all blocks, we can just use the first block
+  const auto &var_list = md->GetBlockData(0)->GetVariablesByFlag(flags, true);
+
+  const int num_blocks = pack.GetDim(5);
+  const int num_vars = pack.GetDim(4);
+  ParArray2D<bool> is_zero("IsZero", num_blocks, num_vars);
+
+  const Real threshold = Globals::sparse_config.allocation_threshold;
+
+  Kokkos::parallel_for(
+      "SparseDeallocCheck",
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), num_blocks * num_vars,
+                           Kokkos::AUTO),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+        const int idx = team_member.league_rank();
+        const int b = idx / num_vars;     // block index
+        const int v = idx - b * num_vars; // variable index
+
+        const int Nj = jb.e + 1 - jb.s;
+        const int NkNj = (kb.e + 1 - kb.s) * Nj;
+
+        is_zero(b, v) = true;
+
+        if (!pack.IsAllocated(b, v)) {
+          // setting this to false so that dealloc counter will remain at 0
+          is_zero(b, v) = false;
+          return;
+        }
+
+        const auto &var = pack(b, v);
+
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange<>(team_member, NkNj), [&](const int inner_idx) {
+              const int k = inner_idx / Nj;
+              const int j = inner_idx - k * Nj;
+
+              Kokkos::parallel_for(Kokkos::ThreadVectorRange(team_member, ib.s, ib.e + 1),
+                                   [&](const int i) {
+                                     const Real &val = var(k, j, i);
+                                     if (std::abs(val) > threshold) {
+                                       is_zero(b, v) = false;
+                                       return;
+                                     }
+                                   });
+
+              if (!is_zero(b, v)) {
+                return;
+              }
+            });
+      });
+
+  auto is_zero_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), is_zero);
+
+  Kokkos::parallel_for(
+      "SparseDeallocCheck_host",
+      Kokkos::MDRangePolicy<Kokkos::Rank<2>>(parthenon::HostExecSpace(), {0, 0},
+                                             {num_blocks, num_vars}),
+      KOKKOS_LAMBDA(const int b, const int v) {
+        auto &counter = md->GetBlockData(b)->Get(var_list.labels()[v]).dealloc_count;
+        if (is_zero_h(b, v)) {
+          // this var is zero, increment dealloc counter
+          counter += 1;
+        } else {
+          counter = 0;
+        }
+
+        if (counter > Globals::sparse_config.deallocation_count) {
+          // this variable has been flagged for deallocation deallocation_count times in a
+          // row, now deallocate it
+          md->GetBlockData(b)->GetBlockPointer()->DeallocateSparse(var_list.labels()[v]);
+          // printf("Deallocating var %s on block %i\n", var_list.labels()[v].c_str(),
+          //        md->GetBlockData(b)->GetBlockPointer()->gid);
+        }
+      });
+
+  Kokkos::Profiling::popRegion(); // Task_SparseDeallocCheck
   return TaskStatus::complete;
 }
 

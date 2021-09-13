@@ -129,6 +129,9 @@ class CellVariable {
   // allocate data only
   void AllocateData();
 
+  // deallocate data, fluxes, and boundary variable
+  void Deallocate();
+
   /// Repoint vbvar's var_cc array at the current variable
   inline void resetBoundary() { vbvar->var_cc = data; }
 
@@ -140,6 +143,8 @@ class CellVariable {
   // used in case of cell boundary communication
   std::shared_ptr<CellCenteredBoundaryVariable> vbvar;
   bool mpiStatus = false;
+
+  int dealloc_count = 0;
 
  private:
   /// allocate fluxes (if Metadata::WithFluxes is set) and boundary variable if

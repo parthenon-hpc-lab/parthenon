@@ -578,6 +578,10 @@ void SendAndNotify(MeshData<Real> *md) {
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
 
+  Kokkos::parallel_for(
+      "Update_neighbor_allocated_in_SendBoundaryBuffers", md->NumBlocks(),
+      KOKKOS_LAMBDA(const int b) { md->GetBlockData(b)->SetNeighborAllcoated(); });
+
   auto boundary_info = md->GetSendBuffers();
   auto sending_nonzero_flags = md->GetSendingNonzeroFlags();
   bool have_cache = boundary_info.is_allocated();

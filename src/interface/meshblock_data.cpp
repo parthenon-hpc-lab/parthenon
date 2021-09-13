@@ -423,6 +423,35 @@ void MeshBlockData<T>::Remove(const std::string &label) {
 }
 
 template <typename T>
+void MeshBlockData<T>::SetNeighborAllcoated() {
+  Kokkos::Profiling::pushRegion("SetNeighborAllcoated");
+
+  const auto &bval = pmy_block.lock()->pbval;
+  // set neighbor_allocated for each variable
+  for (int n = 0; n < bval->nneighbor; n++) {
+    // find neighbor block
+    PARTHENON_REQUIRE_THROWS(bval->neighbor[n].snb.rank == Globals::my_rank,
+                             "True sparse is not yet implemented for MPI");
+    auto neighbor_data = pmy_block.lock()
+                             ->pmy_mesh->FindMeshBlock(bval->neighbor[n].snb.gid)
+                             ->meshblock_data.Get();
+
+    assert(varVector_.size() == neighbor_data->varVector_.size());
+    for (size_t i = 0; i < varVector_.size(); ++i) {
+      assert(varVector_[i]->label() == neighbor_data->varVector_[i]->label());
+      if (!varVector_[i]->IsAllocated() || !varVector_[i]->IsSet(Metadata::FillGhost)) {
+        continue;
+      }
+
+      varVector_[i]->vbvar->neighbor_allocated[n] =
+          neighbor_data->varVector_[i]->IsAllocated();
+    }
+  }
+
+  Kokkos::Profiling::popRegion(); // SetNeighborAllcoated
+}
+
+template <typename T>
 TaskStatus MeshBlockData<T>::SendFluxCorrection() {
   Kokkos::Profiling::pushRegion("Task_SendFluxCorrection");
   for (auto &v : varVector_) {
@@ -553,27 +582,8 @@ void MeshBlockData<T>::ResetBoundaryCellVariables() {
 template <typename T>
 TaskStatus MeshBlockData<T>::StartReceiving(BoundaryCommSubset phase) {
   Kokkos::Profiling::pushRegion("Task_StartReceiving");
-  const auto &bval = pmy_block.lock()->pbval;
-  // set neighbor_allocated for each variable
-  for (int n = 0; n < bval->nneighbor; n++) {
-    // find neighbor block
-    PARTHENON_REQUIRE_THROWS(bval->neighbor[n].snb.rank == Globals::my_rank,
-                             "True sparse is not yet implemented for MPI");
-    auto neighbor_data = pmy_block.lock()
-                             ->pmy_mesh->FindMeshBlock(bval->neighbor[n].snb.gid)
-                             ->meshblock_data.Get();
 
-    assert(varVector_.size() == neighbor_data->varVector_.size());
-    for (size_t i = 0; i < varVector_.size(); ++i) {
-      assert(varVector_[i]->label() == neighbor_data->varVector_[i]->label());
-      if (!varVector_[i]->IsAllocated() || !varVector_[i]->IsSet(Metadata::FillGhost)) {
-        continue;
-      }
-
-      varVector_[i]->vbvar->neighbor_allocated[n] =
-          neighbor_data->varVector_[i]->IsAllocated();
-    }
-  }
+  SetNeighborAllcoated();
 
   for (auto &v : varVector_) {
     if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
