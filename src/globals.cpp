@@ -33,5 +33,8 @@ int nghost;
 int my_rank; // MPI rank of this process
 int nranks;  // total number of MPI ranks
 
+// sparse configuration values that are needed in various places
+SparseConfig sparse_config;
+
 } // namespace Globals
 } // namespace parthenon

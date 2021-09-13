@@ -18,6 +18,11 @@
 <parthenon/job>
 problem_id = advection
 
+<parthenon/sparse>
+enable_sparse = true
+alloc_threshold = 1e-10
+dealloc_count = 5
+
 <parthenon/mesh>
 refinement = adaptive
 numlevel = 3

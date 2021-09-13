@@ -249,7 +249,7 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
 
   // to flag indicating if a particular neighbor has this variable allocated, only
   // applicable for sparse variables (dense variables will always have all true)
-  bool neighbor_allocated[NMAX_NEIGHBORS];
+  std::array<bool, NMAX_NEIGHBORS> neighbor_allocated;
 
   bool IsSparse() const { return is_sparse_; }
   // the label of the variable this BoundaryVariable belongs to

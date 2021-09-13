@@ -92,7 +92,7 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
         std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
     Add(pvar);
 
-    if (!pvar->IsSparse()) {
+    if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
       pvar->Allocate(pmy_block);
     }
   }
