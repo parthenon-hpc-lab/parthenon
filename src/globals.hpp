@@ -22,7 +22,15 @@
 namespace parthenon {
 namespace Globals {
 
+struct SparseConfig {
+  bool enabled = true;
+  double allocation_threshold = 1.0e-15;
+  int deallocation_count = 5;
+};
+
 extern int my_rank, nranks, nghost;
+
+extern SparseConfig sparse_config;
 
 } // namespace Globals
 } // namespace parthenon

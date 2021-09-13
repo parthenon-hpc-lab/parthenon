@@ -107,6 +107,14 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // Set the global number of ghost zones
   Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
 
+  // set sparse config
+  Globals::sparse_config.enabled = pinput->GetOrAddBoolean(
+      "parthenon/sparse", "enable_sparse", Globals::sparse_config.enabled);
+  Globals::sparse_config.allocation_threshold = pinput->GetOrAddReal(
+      "parthenon/sparse", "alloc_threshold", Globals::sparse_config.allocation_threshold);
+  Globals::sparse_config.deallocation_count = pinput->GetOrAddInteger(
+      "parthenon/sparse", "dealloc_count", Globals::sparse_config.deallocation_count);
+
   return ParthenonStatus::ok;
 }
 

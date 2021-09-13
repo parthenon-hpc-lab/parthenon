@@ -25,6 +25,7 @@
 #include "bvals/bvals_interfaces.hpp"
 #include "bvals_cc_in_one.hpp"
 #include "config.hpp"
+#include "globals.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
@@ -600,6 +601,8 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     Kokkos::Profiling::popRegion(); // Reset boundaries
   }
 
+  const Real threshold = Globals::sparse_config.allocation_threshold;
+
   Kokkos::parallel_for(
       "SendBoundaryBuffers",
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), buffers_used, Kokkos::AUTO),
@@ -633,7 +636,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
                     const Real &val = boundary_info(b).var(v, k, j, i);
                     boundary_info(b).buf(i - si +
                                          Ni * (j - sj + Nj * (k - sk + Nk * v))) = val;
-                    if (val != 0.0) {
+                    if (std::abs(val) > threshold) {
                       sending_nonzero_flags(b) = true;
                     }
                   });
