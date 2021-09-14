@@ -138,8 +138,8 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
       MPI_Status status;
 
       if (bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[n], MPI_COMM_WORLD,
-                                       &test, &status));
+        PARTHENON_MPI_CHECK(
+            MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[n], MPI_COMM_WORLD, &test, &status));
         if (!static_cast<bool>(test)) {
           bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
         } else {
@@ -152,8 +152,8 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
             bd_var_.recv[n] = ParArray1D<Real>("Buffer", recv_size[n]);
           }
           PARTHENON_MPI_CHECK(MPI_Recv(bd_var_.recv[n].data(), recv_size[n],
-                                       MPI_PARTHENON_REAL, nb.snb.rank,
-                                       recv_tag[n], MPI_COMM_WORLD, &status));
+                                       MPI_PARTHENON_REAL, nb.snb.rank, recv_tag[n],
+                                       MPI_COMM_WORLD, &status));
         }
       }
     }

@@ -851,7 +851,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   auto particle_indices_to_send = particle_indices_to_send_;
   pmb->par_for(
       "Pack Buffers", 0, max_indices_size,
-      KOKKOS_LAMBDA(const int n) {        // Max index
+      KOKKOS_LAMBDA(const int n) {            // Max index
         for (int m = 0; m < nneighbor; m++) { // Number of neighbors
           if (n < num_particles_to_send(m)) {
             const int sidx = particle_indices_to_send(m, n);
