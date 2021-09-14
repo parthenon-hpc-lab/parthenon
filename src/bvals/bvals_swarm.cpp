@@ -69,14 +69,11 @@ void BoundarySwarm::SetupPersistentMPI() {
   // Initialize neighbor communications to other ranks
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
-    printf("[%i] n = %i nb.snb.rank = %i nb.bufid = %i\n", Globals::my_rank, n, nb.snb.rank, nb.bufid);
 
     // Neighbor on different MPI process
     if (nb.snb.rank != Globals::my_rank) {
       send_tag[n] = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, swarm_id_);
       recv_tag[n] = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, swarm_id_);
-      printf("[%i] n = %i send_tag = %i recv_tag = %i\n", Globals::my_rank,
-        n, send_tag[n], recv_tag[n]);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL) {
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
       }
@@ -91,35 +88,20 @@ void BoundarySwarm::SetupPersistentMPI() {
 // Send particle buffers across meshblocks. If different MPI ranks, use MPI, if same rank,
 // do a deep copy on device.
 void BoundarySwarm::Send(BoundaryCommSubset phase) {
-  printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  printf("nneighbor: %i\n", pmb->pbval->nneighbor);
   // Fence to make sure buffers are loaded before sending
   pmb->exec_space.fence();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
-    printf("[%i] %s:%i n = %i nb.snb.rank = %i\n", Globals::my_rank, __FILE__, __LINE__, n,
-      nb.snb.rank);
     if (nb.snb.rank != Globals::my_rank) {
 #ifdef MPI_PARALLEL
       PARTHENON_REQUIRE(bd_var_.req_send[nb.bufid] == MPI_REQUEST_NULL,
                         "Trying to create a new send before previous send completes!");
-    printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
-    printf("[%i] %s:%i nneighb: %i size: %i\n", Globals::my_rank, __FILE__, __LINE__, n, bd_var_.send[n].extent(0));
-    printf("[%i] size: %i tag: %i\n",
-      Globals::my_rank, send_size[n], static_cast<int>(send_tag[n]));
-    printf("[%i] p: %p\n", Globals::my_rank, &(bd_var_.req_send[nb.bufid]));
-    printf("try setting send \n");
-    bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
-    printf("done!");
-    printf("rank: %i\n", nb.snb.rank);
       PARTHENON_MPI_CHECK(MPI_Isend(bd_var_.send[n].data(), send_size[n],
                                     MPI_PARTHENON_REAL, nb.snb.rank, send_tag[n],
                                     MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid])));
-    printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
 #endif // MPI_PARALLEL
     } else {
-      printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
       MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
       std::shared_ptr<BoundarySwarm> ptarget_bswarm =
           target_block.pbswarm->bswarms[bswarm_index];
@@ -139,10 +121,8 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
         ptarget_bswarm->recv_size[nb.targetid] = 0;
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::completed;
       }
-      printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
     }
   }
-  printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
 }
 
 void BoundarySwarm::Receive(BoundaryCommSubset phase) {
@@ -161,9 +141,6 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
         //PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], MPI_COMM_WORLD,
         PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[n], MPI_COMM_WORLD,
                                        &test, &status));
-        printf("[%i] n: %i bufid: %i test: %i tag: %i\n", Globals::my_rank, n, nb.bufid, test,
-          //recv_tag[nb.bufid]);
-          recv_tag[n]);
         if (!static_cast<bool>(test)) {
           bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
         } else {
