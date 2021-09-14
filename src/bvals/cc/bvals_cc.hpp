@@ -68,7 +68,7 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
 
   // BoundaryBuffer:
   void SendFluxCorrection() final;
-  bool ReceiveFluxCorrection() final;
+  bool ReceiveFluxCorrection(bool is_allocated) final;
 
  protected:
   int nl_, nu_;

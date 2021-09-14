@@ -472,9 +472,8 @@ TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrection");
   int success = 0, total = 0;
   for (auto &v : varVector_) {
-    if (v->IsAllocated() && v->IsSet(Metadata::WithFluxes) &&
-        v->IsSet(Metadata::FillGhost)) {
-      if (v->vbvar->ReceiveFluxCorrection()) {
+    if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
+      if (v->vbvar->ReceiveFluxCorrection(v->IsAllocated())) {
         success++;
       }
       total++;
@@ -519,13 +518,13 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
   // receives the boundary
   for (auto &v : varVector_) {
     if (!v->mpiStatus) {
-      if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
+      if (v->IsSet(Metadata::FillGhost)) {
         // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
         // In case we have trouble with multiple arrays causing
         // problems with task status, we should comment one line
         // above and uncomment the if block below
         v->resetBoundary();
-        v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
+        v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers(v->IsAllocated());
         ret = (ret & v->mpiStatus);
       }
     }
@@ -540,9 +539,9 @@ template <typename T>
 TaskStatus MeshBlockData<T>::ReceiveAndSetBoundariesWithWait() {
   Kokkos::Profiling::pushRegion("Task_ReceiveAndSetBoundariesWithWait");
   for (auto &v : varVector_) {
-    if ((!v->mpiStatus) && v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
+    if ((!v->mpiStatus) && v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
-      v->vbvar->ReceiveAndSetBoundariesWithWait();
+      v->vbvar->ReceiveAndSetBoundariesWithWait(v->IsAllocated());
       v->mpiStatus = true;
     }
   }

@@ -52,7 +52,7 @@ void FaceCenteredBoundaryVariable::SendFluxCorrection() {
 //! \fn void FaceCenteredBoundaryVariable::ReceiveFluxCorrection()
 //  \brief Receive and Apply the flux correction to the coarse neighbor(s) if needed
 
-bool FaceCenteredBoundaryVariable::ReceiveFluxCorrection() {
+bool FaceCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
   throw std::runtime_error(
       "FaceCenteredBoundaryVariable::ReceiveFluxCorrection not implemented yet");
 }
