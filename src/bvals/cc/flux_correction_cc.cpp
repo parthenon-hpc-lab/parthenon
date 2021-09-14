@@ -202,7 +202,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
 //! \fn bool CellCenteredBoundaryVariable::ReceiveFluxCorrection()
 //  \brief Receive and apply the surface flux from the finer neighbor(s)
 
-bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
+bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   bool bflag = true;
 
@@ -217,7 +217,13 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
       if (bd_var_flcor_.flag[nb.bufid] == BoundaryStatus::completed) continue;
       if (bd_var_flcor_.flag[nb.bufid] == BoundaryStatus::waiting) {
         if (nb.snb.rank == Globals::my_rank) { // on the same process
-          bflag = false;
+          if (is_allocated) {
+            // keep waiting
+            bflag = false;
+          } else {
+            // we won't get anything, set flag to arrived
+            bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
+          }
           continue;
         }
 #ifdef MPI_PARALLEL

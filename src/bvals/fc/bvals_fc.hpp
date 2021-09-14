@@ -59,7 +59,7 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
 
   // BoundaryBuffer:
   void SendFluxCorrection() final;
-  bool ReceiveFluxCorrection() final;
+  bool ReceiveFluxCorrection(bool is_allocated) final;
 
  private:
   bool edge_flag_[12];

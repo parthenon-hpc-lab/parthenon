@@ -202,7 +202,7 @@ void BoundaryVariable::SendBoundaryBuffers() {
 //! \fn bool BoundaryVariable::ReceiveBoundaryBuffers()
 //  \brief receive the boundary data
 
-bool BoundaryVariable::ReceiveBoundaryBuffers() {
+bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
   bool bflag = true;
 
   auto pmb = GetBlockPointer();
@@ -220,7 +220,13 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
         //        pmb->gid, nb.snb.gid,
         //        dynamic_cast<CellCenteredBoundaryVariable *>(this)->label().c_str(),
         //        nb.bufid, nb.targetid);
-        bflag = false;
+        if (is_allocated) {
+          // keep waiting
+          bflag = false;
+        } else {
+          // we won't get anything, set flag to arrived
+          bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
+        }
         continue;
       }
 #ifdef MPI_PARALLEL
@@ -287,17 +293,21 @@ void BoundaryVariable::SetBoundaries() {
 //! \fn void BoundaryVariable::ReceiveAndSetBoundariesWithWait()
 //  \brief receive and set the boundary data for initialization
 
-void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
+void BoundaryVariable::ReceiveAndSetBoundariesWithWait(bool is_allocated) {
   auto pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   pmb->exec_space.fence();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
-#ifdef MPI_PARALLEL
+
     if (nb.snb.rank != Globals::my_rank) {
+#ifdef MPI_PARALLEL
       PARTHENON_MPI_CHECK(MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE));
-    }
 #endif
+    } else if (!is_allocated) {
+      continue;
+    }
+
     if (nb.snb.level == mylevel)
       SetBoundarySameLevel(bd_var_.recv[nb.bufid], nb);
     else if (nb.snb.level < mylevel)

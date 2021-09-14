@@ -1060,6 +1060,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // https://github.com/lanl/parthenon/issues/418
     bool all_received = true;
     do {
+      printf("[%i] Mesh::Initialize: ReceiveBoundaryBuffers\n", Globals::my_rank);
       all_received = true;
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
