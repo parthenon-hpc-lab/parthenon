@@ -69,11 +69,14 @@ void BoundarySwarm::SetupPersistentMPI() {
   // Initialize neighbor communications to other ranks
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
+    printf("[%i] n = %i nb.snb.rank = %i nb.bufid = %i\n", Globals::my_rank, n, nb.snb.rank, nb.bufid);
 
     // Neighbor on different MPI process
     if (nb.snb.rank != Globals::my_rank) {
       send_tag[n] = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, swarm_id_);
       recv_tag[n] = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, swarm_id_);
+      printf("[%i] n = %i send_tag = %i recv_tag = %i\n", Globals::my_rank,
+        n, send_tag[n], recv_tag[n]);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL) {
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
       }
@@ -155,8 +158,12 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
       MPI_Status status;
 
       if (bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], MPI_COMM_WORLD,
+        //PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], MPI_COMM_WORLD,
+        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[n], MPI_COMM_WORLD,
                                        &test, &status));
+        printf("[%i] n: %i bufid: %i test: %i tag: %i\n", Globals::my_rank, n, nb.bufid, test,
+          //recv_tag[nb.bufid]);
+          recv_tag[n]);
         if (!static_cast<bool>(test)) {
           bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
         } else {
@@ -170,7 +177,8 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
           }
           PARTHENON_MPI_CHECK(MPI_Recv(bd_var_.recv[n].data(), recv_size[n],
                                        MPI_PARTHENON_REAL, nb.snb.rank,
-                                       recv_tag[nb.bufid], MPI_COMM_WORLD, &status));
+                                       //recv_tag[nb.bufid], MPI_COMM_WORLD, &status));
+                                       recv_tag[n], MPI_COMM_WORLD, &status));
         }
       }
     }

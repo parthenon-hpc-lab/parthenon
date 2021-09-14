@@ -33,16 +33,16 @@ x2max = 0.5
 ix2_bc = outflow
 ox2_bc = outflow
 
-nx3 = 16
+nx3 = 1
 x3min = -0.5
 x3max = 0.5
 ix3_bc = outflow
 ox3_bc = outflow
 
 <parthenon/meshblock>
-nx1 = 8
+nx1 = 16
 nx2 = 8
-nx3 = 8
+nx3 = 1
 
 <parthenon/time>
 tlim = 2.0

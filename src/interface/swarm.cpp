@@ -790,6 +790,7 @@ int Swarm::CountParticlesToSend_() {
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int nbmax = pmb->pbval->nneighbor;
+  //const int nbmax = vbswarm->bd_var_.nbmax;
 
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
@@ -856,6 +857,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   auto pmb = GetBlockPointer();
   const int particle_size = GetParticleDataSize();
   const int nbmax = pmb->pbval->nneighbor;
+  //const int nbmax = vbswarm->bd_var_.nbmax;
 
   auto &intVector_ = std::get<getType<int>()>(Vectors_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
@@ -1055,6 +1057,7 @@ void Swarm::ApplyBoundaries_(const int nparticles, ParArrayND<int> indices) {
 bool Swarm::Receive(BoundaryCommSubset phase) {
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->pbval->nneighbor;
+  printf("[%i] %s:%i nneighbor: %i\n", Globals::my_rank, __FILE__, __LINE__, nneighbor);
 
   if (nneighbor == 0) {
     // Do nothing; no boundaries to receive
@@ -1073,6 +1076,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     bool all_boundaries_received = true;
     for (int n = 0; n < nneighbor; n++) {
       NeighborBlock &nb = pmb->pbval->neighbor[n];
+      printf("[%i] neighbor %i [%i] status: %i\n", Globals::my_rank, n, nb.bufid, static_cast<int>(bdvar.flag[nb.bufid]));
       if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
         bdvar.flag[nb.bufid] = BoundaryStatus::completed;
       } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
@@ -1095,6 +1099,8 @@ void Swarm::ResetCommunication() {
 #endif
 
   // Reset boundary statuses
+  //const int nbmax = vbswarm->bd_var_.nbmax;
+  //for (int n = 0; n < nbmax; n++) {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     auto &nb = pmb->pbval->neighbor[n];
     vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
