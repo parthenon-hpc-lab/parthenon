@@ -772,8 +772,6 @@ int Swarm::CountParticlesToSend_() {
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
-  const int nbmax = pmb->pbval->nneighbor;
-  //const int nbmax = vbswarm->bd_var_.nbmax;
 
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
@@ -835,8 +833,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int particle_size = GetParticleDataSize();
-  const int nbmax = pmb->pbval->nneighbor;
-  //const int nbmax = vbswarm->bd_var_.nbmax;
+  const int nneighbor = pmb->pbval->nneighbor;
 
   auto &intVector_ = std::get<getType<int>()>(Vectors_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
@@ -855,7 +852,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   pmb->par_for(
       "Pack Buffers", 0, max_indices_size,
       KOKKOS_LAMBDA(const int n) {        // Max index
-        for (int m = 0; m < nbmax; m++) { // Number of neighbors
+        for (int m = 0; m < nneighbor; m++) { // Number of neighbors
           if (n < num_particles_to_send(m)) {
             const int sidx = particle_indices_to_send(m, n);
             int buffer_index = n * particle_size;
@@ -889,9 +886,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
     pmb->par_reduce(
         "total sent particles", 0, max_active_index_,
         KOKKOS_LAMBDA(int n, int &total_sent_particles) {
-          //if (mask_(n)) {
           if (swarm_d.IsActive(n)) {
-            //if (blockIndex_(n) >= 0) {
             if (!swarm_d.IsOnCurrentMeshBlock(n)) {
               total_sent_particles++;
             }
@@ -1069,8 +1064,6 @@ void Swarm::ResetCommunication() {
 #endif
 
   // Reset boundary statuses
-  //const int nbmax = vbswarm->bd_var_.nbmax;
-  //for (int n = 0; n < nbmax; n++) {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     auto &nb = pmb->pbval->neighbor[n];
     vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
