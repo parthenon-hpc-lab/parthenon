@@ -22,6 +22,7 @@
 namespace parthenon {
 
 SwarmDeviceContext Swarm::GetDeviceContext() const {
+  printf("%s:%i\n", __FILE__, __LINE__);
   SwarmDeviceContext context;
   context.marked_for_removal_ = marked_for_removal_.data;
   context.mask_ = mask_.data;
@@ -86,6 +87,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
 }
 
 void Swarm::AllocateBoundaries() {
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   std::stringstream msg;
 
@@ -252,6 +254,7 @@ void Swarm::Remove(const std::string &label) {
 }
 
 void Swarm::setPoolMax(const int nmax_pool) {
+  printf("%s:%i\n", __FILE__, __LINE__);
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
   int n_new_begin = nmax_pool_;
   int n_new = nmax_pool - nmax_pool_;
@@ -313,10 +316,12 @@ void Swarm::setPoolMax(const int nmax_pool) {
   }
 
   nmax_pool_ = nmax_pool;
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
                                           ParArrayND<int> &new_indices) {
+  printf("%s:%i\n", __FILE__, __LINE__);
   if (num_to_add <= 0) {
     new_indices = ParArrayND<int>();
     return ParArrayND<bool>();
@@ -360,6 +365,7 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
   mask_.data.DeepCopy(mask_h);
   blockIndex_.DeepCopy(blockIndex_h);
 
+  printf("%s:%i\n", __FILE__, __LINE__);
   return new_mask;
 }
 
@@ -391,6 +397,7 @@ void Swarm::RemoveMarkedParticles() {
 }
 
 void Swarm::Defrag() {
+  printf("%s:%i\n", __FILE__, __LINE__);
   if (GetNumActive() == 0) {
     return;
   }
@@ -470,6 +477,7 @@ void Swarm::Defrag() {
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 ///
@@ -478,6 +486,7 @@ void Swarm::Defrag() {
 /// GetNeighborBlockIndex()
 ///
 void Swarm::SetNeighborIndices1D_() {
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   const int ndim = pmb->pmy_mesh->ndim;
   auto neighborIndices_h = neighborIndices_.GetHostMirror();
@@ -524,9 +533,11 @@ void Swarm::SetNeighborIndices1D_() {
   }
 
   neighborIndices_.DeepCopy(neighborIndices_h);
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 void Swarm::SetNeighborIndices2D_() {
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   const int ndim = pmb->pmy_mesh->ndim;
   auto neighborIndices_h = neighborIndices_.GetHostMirror();
@@ -592,9 +603,11 @@ void Swarm::SetNeighborIndices2D_() {
   }
 
   neighborIndices_.DeepCopy(neighborIndices_h);
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 void Swarm::SetNeighborIndices3D_() {
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   const int ndim = pmb->pmy_mesh->ndim;
   auto neighborIndices_h = neighborIndices_.GetHostMirror();
@@ -741,9 +754,11 @@ void Swarm::SetNeighborIndices3D_() {
   }
 
   neighborIndices_.DeepCopy(neighborIndices_h);
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 void Swarm::SetupPersistentMPI() {
+  printf("%s:%i\n", __FILE__, __LINE__);
   vbswarm->SetupPersistentMPI();
 
   auto pmb = GetBlockPointer();
@@ -765,9 +780,11 @@ void Swarm::SetupPersistentMPI() {
   }
 
   neighbor_received_particles_.resize(vbswarm->bd_var_.nbmax);
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 int Swarm::CountParticlesToSend_() {
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto swarm_d = GetDeviceContext();
@@ -820,6 +837,8 @@ int Swarm::CountParticlesToSend_() {
     // Resize buffer if too small
     auto sendbuf = vbswarm->bd_var_.send[n];
     if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
+      printf("[%i] resize sendbuf! %i neighbor: %i\n", Globals::my_rank, n,
+        num_particles_to_send_h(n) * particle_size);
       sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
       vbswarm->bd_var_.send[n] = sendbuf;
     }
@@ -827,10 +846,12 @@ int Swarm::CountParticlesToSend_() {
     num_particles_sent_ += num_particles_to_send_h(n);
   }
 
+  printf("[%i] %s:%i send %i\n", Globals::my_rank, __FILE__, __LINE__, max_indices_size);
   return max_indices_size;
 }
 
 void Swarm::LoadBuffers_(const int max_indices_size) {
+  printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int particle_size = GetParticleDataSize();
@@ -860,6 +881,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
             swarm_d.MarkParticleForRemoval(sidx);
             for (int i = 0; i < real_vars_size; i++) {
               bdvar.send[m](buffer_index) = vreal(i, sidx);
+              printf("real[%i]: %e\n", i, vreal(i,sidx));
               buffer_index++;
             }
             for (int i = 0; i < int_vars_size; i++) {
@@ -871,11 +893,14 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
       });
 
   RemoveMarkedParticles();
+  printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
 }
 
 void Swarm::Send(BoundaryCommSubset phase) {
+  printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->pbval->nneighbor;
+  auto swarm_d = GetDeviceContext();
 
   if (nneighbor == 0) {
     // Process physical boundary conditions on "sent" particles
@@ -886,8 +911,10 @@ void Swarm::Send(BoundaryCommSubset phase) {
     pmb->par_reduce(
         "total sent particles", 0, max_active_index_,
         KOKKOS_LAMBDA(int n, int &total_sent_particles) {
-          if (mask_(n)) {
-            if (blockIndex_(n) >= 0) {
+          //if (mask_(n)) {
+          if (swarm_d.IsActive(n)) {
+            //if (blockIndex_(n) >= 0) {
+            if (!swarm_d.IsOnCurrentMeshBlock(n)) {
               total_sent_particles++;
             }
           }
@@ -920,6 +947,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
     // Send buffer data
     vbswarm->Send(phase);
   }
+  printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
 }
 
 void Swarm::CountReceivedParticles_() {
@@ -939,6 +967,7 @@ void Swarm::CountReceivedParticles_() {
 
 void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
                                                 ParArrayND<int> &buffer_index) {
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   auto neighbor_index_h = neighbor_index.GetHostMirror();
   auto buffer_index_h = buffer_index.GetHostMirror();
@@ -953,6 +982,7 @@ void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
   }
   neighbor_index.DeepCopy(neighbor_index_h);
   buffer_index.DeepCopy(buffer_index_h);
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 void Swarm::UnloadBuffers_() {
@@ -1055,6 +1085,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
 }
 
 void Swarm::ResetCommunication() {
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
 #ifdef MPI_PARALLEL
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
@@ -1068,6 +1099,7 @@ void Swarm::ResetCommunication() {
     auto &nb = pmb->pbval->neighbor[n];
     vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 bool Swarm::FinalizeCommunicationIterative() {
@@ -1076,6 +1108,7 @@ bool Swarm::FinalizeCommunicationIterative() {
 }
 
 void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
+  printf("%s:%i\n", __FILE__, __LINE__);
   if (wpmb.expired()) return;
 
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();
@@ -1086,6 +1119,7 @@ void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // Enroll SwarmVariable object
   vbswarm->bswarm_index = pmb->pbswarm->bswarms.size();
   pmb->pbswarm->bswarms.push_back(vbswarm);
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 } // namespace parthenon
