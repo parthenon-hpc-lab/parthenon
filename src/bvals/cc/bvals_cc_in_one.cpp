@@ -418,21 +418,24 @@ void SendAndNotify(MeshData<Real> *md) {
 
     int mylevel = pmb->loc.level;
     for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
+      // NB: Include un-allocated variables
+      if (v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; n++) {
           parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
           auto *pbd_var_ = v->vbvar->GetPBdVar();
           if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) continue;
 
-          // if the neighbor does not have this variable allocated and we're sending
-          // non-zero values, then the neighbor needs to newly allocate this variable
-          bool new_neighbor_alloc =
-              !v->vbvar->local_neighbor_allocated[n] &&
-              sending_nonzero_flags_h( // b
-                  std::min(b, static_cast<int>(sending_nonzero_flags_h.extent(0)) - 1));
-
           // on the same rank the data has been directly copied to the target buffer
           if (nb.snb.rank == parthenon::Globals::my_rank) {
+            if (!v->IsAllocated()) {
+              continue;
+            }
+
+            // if the neighbor does not have this variable allocated and we're sending
+            // non-zero values, then the neighbor needs to newly allocate this variable
+            bool new_neighbor_alloc =
+                !v->vbvar->local_neighbor_allocated[n] && sending_nonzero_flags_h(b);
+
             // TODO(?) check performance of FindMeshBlock. Could be caching from call
             // above.
             auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
@@ -460,15 +463,17 @@ void SendAndNotify(MeshData<Real> *md) {
             }
           } else {
 #ifdef MPI_PARALLEL
-            PARTHENON_REQUIRE_THROWS(
-                !new_neighbor_alloc,
-                "New neighbor allocation with MPI is not implemented yet");
+            // call MPI_Start even if variable is not allocated, because receiving block
+            // is waiting for data
             PARTHENON_MPI_CHECK(MPI_Start(&(pbd_var_->req_send[nb.bufid])));
 #endif
           }
 
           pbd_var_->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
-          ++b;
+          // index only counts allocated variables
+          if (v->IsAllocated()) {
+            ++b;
+          }
         }
       }
     }
