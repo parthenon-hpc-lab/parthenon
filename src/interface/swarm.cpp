@@ -750,7 +750,7 @@ void Swarm::SetupPersistentMPI() {
 
   const int ndim = pmb->pmy_mesh->ndim;
 
-  const int nbmax = pmb->pbval->nneighbor;
+  const int nbmax = vbswarm->bd_var_.nbmax;
   num_particles_to_send_ = ParArrayND<int>("npts", nbmax);
 
   // Build up convenience array of neighbor indices
@@ -764,7 +764,7 @@ void Swarm::SetupPersistentMPI() {
     PARTHENON_FAIL("ndim must be 1, 2, or 3 for particles!");
   }
 
-  neighbor_received_particles_.resize(vbswarm->bd_var_.nbmax);
+  neighbor_received_particles_.resize(nbmax);
 }
 
 int Swarm::CountParticlesToSend_() {
@@ -772,6 +772,7 @@ int Swarm::CountParticlesToSend_() {
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
+  const int nbmax = vbswarm->bd_var_.nbmax;
 
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
