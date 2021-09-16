@@ -169,8 +169,31 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
 
   void AllocateSparse(std::string const &label) {
-    for (auto mb_dat : meshblock_data.Stages()) {
-      mb_dat.second->AllocateSparse(label);
+    // first allocate variable in base stage
+    auto base_var = meshblock_data.Get()->AllocateSparse(label);
+
+    // now allocate in all other stages
+    for (auto stage : meshblock_data.Stages()) {
+      if (stage.first == "base") {
+        // we've already done this
+        continue;
+      }
+
+      auto v = stage.second->GetCellVarPtr(label);
+
+      if (v->IsSet(Metadata::OneCopy)) {
+        // nothing to do, we already allocated variable on base stage, and all other
+        // stages share that variable
+        continue;
+      }
+
+      if (!v->IsAllocated()) {
+        // allocate data of target variable
+        v->AllocateData();
+
+        // copy fluxes and boundary variable from variable on base stage
+        v->CopyFluxesAndBdryVar(base_var.get());
+      }
     }
   }
 
@@ -179,12 +202,17 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
 
   void DeallocateSparse(std::string const &label) {
-    for (auto mb_dat : meshblock_data.Stages()) {
-      mb_dat.second->DeallocateSparse(label);
-    }
+    for (auto stage : meshblock_data.Stages()) {
+      stage.second->DeallocateSparse(label);
 
-    // ok to call erase even if key doesn't exist
-    pbval->bvars.erase(label);
+      auto var = stage.second->GetCellVarPtr(label);
+      auto bd = var->vbvar->GetPBdVar();
+      for (int n = 0; n < pbval->nneighbor; n++) {
+        const parthenon::NeighborBlock &nb = pbval->neighbor[n];
+        bd->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
+        bd->flag[nb.bufid] = parthenon::BoundaryStatus::arrived;
+      }
+    }
   }
 
   template <class... Args>

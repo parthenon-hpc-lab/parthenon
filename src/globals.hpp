@@ -24,7 +24,8 @@ namespace Globals {
 
 struct SparseConfig {
   bool enabled = true;
-  double allocation_threshold = 1.0e-15;
+  double allocation_threshold = 1.0e-12;
+  double deallocation_threshold = 1.0e-14;
   int deallocation_count = 5;
 };
 

@@ -112,6 +112,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
       "parthenon/sparse", "enable_sparse", Globals::sparse_config.enabled);
   Globals::sparse_config.allocation_threshold = pinput->GetOrAddReal(
       "parthenon/sparse", "alloc_threshold", Globals::sparse_config.allocation_threshold);
+  Globals::sparse_config.deallocation_threshold = pinput->GetOrAddReal(
+      "parthenon/sparse", "dealloc_threshold", Globals::sparse_config.deallocation_threshold);
   Globals::sparse_config.deallocation_count = pinput->GetOrAddInteger(
       "parthenon/sparse", "dealloc_count", Globals::sparse_config.deallocation_count);
 

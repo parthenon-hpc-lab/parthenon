@@ -43,12 +43,11 @@
 
 namespace parthenon {
 
-CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
-    std::weak_ptr<MeshBlock> pmb, ParArrayND<Real> var, ParArrayND<Real> coarse_var,
-    ParArrayND<Real> var_flux[], bool is_sparse, const std::string &label)
-    : BoundaryVariable(pmb, is_sparse, label), var_cc(var), coarse_buf(coarse_var),
-      x1flux(var_flux[X1DIR]), x2flux(var_flux[X2DIR]), x3flux(var_flux[X3DIR]), nl_(0),
-      nu_(var.GetDim(4) - 1) {
+CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb,
+                                                           bool is_sparse,
+                                                           const std::string &label,
+                                                           int dim4)
+    : BoundaryVariable(pmb, is_sparse, label), nl_(0), nu_(dim4 - 1) {
   // CellCenteredBoundaryVariable should only be used w/ 4D or 3D (nx4=1) ParArrayND
   // For now, assume that full span of 4th dim of input ParArrayND should be used:
   // ---> get the index limits directly from the input ParArrayND
@@ -56,7 +55,7 @@ CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
   if (nu_ < 0) {
     std::stringstream msg;
     msg << "### FATAL ERROR in CellCenteredBoundaryVariable constructor" << std::endl
-        << "An 'ParArrayND<Real> *var' of nx4_ = " << var.GetDim(4) << " was passed\n"
+        << "An 'ParArrayND<Real> *var' of nx4_ = " << dim4 << " was passed\n"
         << "Should be nx4 >= 1 (likely uninitialized)." << std::endl;
     PARTHENON_FAIL(msg);
   }
@@ -80,6 +79,16 @@ CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
 CellCenteredBoundaryVariable::~CellCenteredBoundaryVariable() {
   DestroyBoundaryData(bd_var_);
   if (pmy_mesh_->multilevel) DestroyBoundaryData(bd_var_flcor_);
+}
+
+void CellCenteredBoundaryVariable::Reset(ParArrayND<Real> var,
+                                         ParArrayND<Real> coarse_var,
+                                         ParArrayND<Real> *var_flux) {
+  var_cc = var;
+  coarse_buf = coarse_var;
+  x1flux = var_flux[X1DIR];
+  x2flux = var_flux[X2DIR];
+  x3flux = var_flux[X3DIR];
 }
 
 int CellCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexes &ni,
@@ -358,8 +367,6 @@ void CellCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
-      PARTHENON_REQUIRE_THROWS(local_neighbor_allocated[n],
-                               "True sparse is not supported yet for MPI");
       pmb->exec_space.fence();
       PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_.req_recv[nb.bufid])));
       if (phase == BoundaryCommSubset::all && nb.ni.type == NeighborConnect::face &&
