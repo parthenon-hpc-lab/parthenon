@@ -64,7 +64,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // For non constant velocity, we need the index of the velocity vector as it's part of
   // the variable pack.
   const auto idx_v = index_map["v"].first;
-  const auto v_const = idx_v < 0; // using "at own perill" magic number
   const auto idx_adv = index_map.get("advected").first;
 
   int profile_type;
