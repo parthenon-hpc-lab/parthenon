@@ -117,25 +117,33 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
                                bd_var_.send[nb.bufid]);
         ptarget_bswarm->recv_size[nb.targetid] = send_size[nb.bufid];
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::arrived;
+        printf("[block %i] send_size[%i] = %i recv[%i] = %i\n", pmb->lid, nb.bufid, send_size[nb.bufid], nb.targetid, ptarget_bswarm->recv_size[nb.targetid]);
+        if (ptarget_bswarm->recv_size[nb.targetid] > 10) exit(-1);
       } else {
         ptarget_bswarm->recv_size[nb.targetid] = 0;
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::completed;
+        printf("%s:%i recv[%i] = %i\n", __FILE__, __LINE__, nb.targetid, ptarget_bswarm->recv_size[nb.targetid]);
       }
     }
   }
 }
 
 void BoundarySwarm::Receive(BoundaryCommSubset phase) {
+  printf("%s:%i\n", __FILE__, __LINE__);
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
+    printf("%s:%i n %i\n", __FILE__, __LINE__, n);
+      printf("  rank = %i myrank = %i\n", nb.snb.rank, Globals::my_rank);
     if (nb.snb.rank != Globals::my_rank) {
       // pmb->exec_space.fence();
       // Check to see if we got a message
       int test;
       MPI_Status status;
+      printf("    flag: %i completed: %i\n",
+        bd_var_.flag[nb.bufid], BoundaryStatus::completed);
 
       if (bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
         PARTHENON_MPI_CHECK(
@@ -148,6 +156,8 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
           // If message is available, receive it
           PARTHENON_MPI_CHECK(
               MPI_Get_count(&status, MPI_PARTHENON_REAL, &(recv_size[n])));
+          printf("n: %i recv_size: %i\n",
+            n, recv_size[n]);
           if (recv_size[n] > bd_var_.recv[n].extent(0)) {
             bd_var_.recv[n] = ParArray1D<Real>("Buffer", recv_size[n]);
           }
