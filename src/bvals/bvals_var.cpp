@@ -166,6 +166,7 @@ void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, in
 //  \brief Send boundary buffers of variables
 
 void BoundaryVariable::SendBoundaryBuffers() {
+  PARTHENON_REQUIRE_THROWS(false, "BoundaryVariable::SendBoundaryBuffers is disabled");
   auto pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
@@ -256,6 +257,11 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
         PARTHENON_MPI_CHECK(
             MPI_Test(&(bd_var_.req_recv[nb.bufid]), &test, MPI_STATUS_IGNORE));
         if (!static_cast<bool>(test)) {
+          // printf("Block %4i (rank %i) is waiting to get boundary data from block %4i "
+          //        "(rank %i) for %s (nb.bufid = % 2i, nb.targetid = % 2i)\n",
+          //        pmb->gid, Globals::my_rank, nb.snb.gid, nb.snb.rank,
+          //        dynamic_cast<CellCenteredBoundaryVariable *>(this)->label().c_str(),
+          //        nb.bufid, nb.targetid);
           bflag = false;
           continue;
         }

@@ -58,6 +58,10 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
              ParArrayND<Real> *var_flux);
 
   // BoundaryVariable:
+  struct VariableBufferSizes {
+    int same, c2f, f2c;
+  };
+  VariableBufferSizes ComputeVariableBufferSizes(const NeighborIndexes &ni, int cng);
   int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) final;
   int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) final;
 
