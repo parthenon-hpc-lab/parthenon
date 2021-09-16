@@ -137,7 +137,7 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
 }
 
 TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
-  if (md->NumBlocks() == 0) {
+  if (!Globals::sparse_config.enabled || (md->NumBlocks() == 0)) {
     return TaskStatus::complete;
   }
 
@@ -158,7 +158,7 @@ TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
   const int num_vars = pack.GetDim(4);
   ParArray2D<bool> is_zero("IsZero", num_blocks, num_vars);
 
-  const Real threshold = Globals::sparse_config.allocation_threshold;
+  const Real threshold = Globals::sparse_config.deallocation_threshold;
 
   Kokkos::parallel_for(
       "SparseDeallocCheck",
@@ -204,27 +204,29 @@ TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
 
   auto is_zero_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), is_zero);
 
-  Kokkos::parallel_for(
-      "SparseDeallocCheck_host",
-      Kokkos::MDRangePolicy<Kokkos::Rank<2>>(parthenon::HostExecSpace(), {0, 0},
-                                             {num_blocks, num_vars}),
-      KOKKOS_LAMBDA(const int b, const int v) {
-        auto &counter = md->GetBlockData(b)->Get(var_list.labels()[v]).dealloc_count;
-        if (is_zero_h(b, v)) {
-          // this var is zero, increment dealloc counter
-          counter += 1;
-        } else {
-          counter = 0;
-        }
+  for (int b = 0; b < num_blocks; ++b) {
+    for (int v = 0; v < num_vars; ++v) {
+      auto &counter = md->GetBlockData(b)->Get(var_list.labels()[v]).dealloc_count;
+      if (is_zero_h(b, v)) {
+        // this var is zero, increment dealloc counter
+        counter += 1;
+      } else {
+        counter = 0;
+      }
 
-        if (counter > Globals::sparse_config.deallocation_count) {
-          // this variable has been flagged for deallocation deallocation_count times in a
-          // row, now deallocate it
-          md->GetBlockData(b)->GetBlockPointer()->DeallocateSparse(var_list.labels()[v]);
-          // printf("Deallocating var %s on block %i\n", var_list.labels()[v].c_str(),
-          //        md->GetBlockData(b)->GetBlockPointer()->gid);
-        }
-      });
+      if (counter > Globals::sparse_config.deallocation_count) {
+        // this variable has been flagged for deallocation deallocation_count times in a
+        // row, now deallocate it
+        // printf("Deallocating var %s on block %i\n", var_list.labels()[v].c_str(),
+        //        md->GetBlockData(b)->GetBlockPointer()->gid);
+        md->GetBlockData(b)->GetBlockPointer()->DeallocateSparse(var_list.labels()[v]);
+      }
+    }
+  }
+
+  for (int b = 0; b < num_blocks; ++b) {
+    md->GetBlockData(b)->SetLocalNeighborAllcoated();
+  }
 
   Kokkos::Profiling::popRegion(); // Task_SparseDeallocCheck
   return TaskStatus::complete;

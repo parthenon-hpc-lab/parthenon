@@ -83,8 +83,7 @@ class Swarm {
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
 
   /// Make a new Swarm based on an existing one
-  std::shared_ptr<Swarm> AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
-                                      MeshBlock *pmb = nullptr);
+  std::shared_ptr<Swarm> AllocateCopy(MeshBlock *pmb);
 
   /// Add variable of given type to swarm
   template <class T>

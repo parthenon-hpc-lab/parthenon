@@ -75,8 +75,7 @@ void CellVariable<T>::CopyFluxesAndBdryVar(const CellVariable<T> *src) {
 
 template <typename T>
 std::shared_ptr<CellVariable<T>>
-CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
-                              std::weak_ptr<MeshBlock> wpmb) {
+CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
   // copy the Metadata
   Metadata m = m_;
 
@@ -86,12 +85,7 @@ CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
   if (is_allocated_) {
     cv->AllocateData();
   }
-
-  if (alloc_separate_fluxes_and_bvar) {
-    cv->AllocateFluxesAndBdryVar(wpmb);
-  } else {
-    cv->CopyFluxesAndBdryVar(this);
-  }
+  cv->CopyFluxesAndBdryVar(this);
 
   return cv;
 }
@@ -156,8 +150,7 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
     }
 
     if (IsSet(Metadata::FillGhost)) {
-      vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux,
-                                                             IsSparse(), label());
+      vbvar->Reset(data, coarse_s, flux);
 
       // TODO(JMM): This means RestrictBoundaries()
       // is called on EVERY stage, regardless of what
@@ -165,7 +158,14 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
       // The fix is to refactor BoundaryValues
       // to expose calls at either the `Variable`
       // or `MeshBlockData` and `MeshData` level.
-      pmb->pbval->bvars.insert({label(), vbvar});
+      auto res = pmb->pbval->bvars.insert({label(), vbvar});
+      PARTHENON_REQUIRE_THROWS(
+          res.second || (pmb->pbval->bvars.at(label()).get(), vbvar.get()),
+          "A boundary variable already existed and it's different from the new one.")
+      // if (!res.second) {
+      //   printf("WARNING: bvar already existed on block %i, var %s\n", pmb->gid,
+      //          label().c_str());
+      // }
     }
   }
 
@@ -190,7 +190,10 @@ void CellVariable<T>::Deallocate() {
 
   if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
     coarse_s = ParArrayND<T>();
-    vbvar = nullptr;
+  }
+
+  if (IsSet(Metadata::FillGhost)) {
+    vbvar->Reset(data, coarse_s, flux);
   }
 
   is_allocated_ = false;

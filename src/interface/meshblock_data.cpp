@@ -120,7 +120,7 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
     if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
       Add(var);
     } else {
-      Add(var->AllocateCopy(false, pmy_block));
+      Add(var->AllocateCopy(pmy_block));
     }
   };
 
@@ -433,7 +433,7 @@ void MeshBlockData<T>::SetLocalNeighborAllcoated() {
     if (bval->neighbor[n].snb.rank != Globals::my_rank) {
       continue;
     }
-    
+
     auto neighbor_data = pmy_block.lock()
                              ->pmy_mesh->FindMeshBlock(bval->neighbor[n].snb.gid)
                              ->meshblock_data.Get();

@@ -485,82 +485,50 @@ void SendAndNotify(MeshData<Real> *md) {
 
     // update all stages of sending block
     for (auto stage : t.this_block->meshblock_data.Stages()) {
-      auto v = stage.second->GetCellVarPtr(t.var_label);
-
-      for (int n = 0; n < t.this_block->pbval->nneighbor; ++n) {
-        const parthenon::NeighborBlock &nb = t.this_block->pbval->neighbor[n];
-        if (nb.snb.gid == t.target_block->gid) {
-          v->vbvar->local_neighbor_allocated[t.n] = true;
-        }
-      }
-
       if (stage.first == md->StageName()) {
         // this is the current stage
+        auto v = stage.second->GetCellVarPtr(t.var_label);
         this_bd = v->vbvar->GetPBdVar();
+
+        // update boundary flags for current stage
+        this_bd->sflag[t.nb.bufid] = parthenon::BoundaryStatus::completed;
+
+        // since this is a new allocation on the neighbor block, it won't send us
+        // anything, this time, so set boundary flag to arrived on sending boundary
+        // variable
+        this_bd->flag[t.nb.bufid] = BoundaryStatus::arrived;
+
+        break;
       }
     }
 
-    // allocate variable on base stage of target block
-    auto base_var = t.target_block->meshblock_data.Get()->AllocateSparse(t.var_label);
+    // allocate variable on target block
+    t.target_block->AllocateSparse(t.var_label);
 
-    // now allocate variable on all other stages of target block
+    // set boundary flags and update local_neighbor_allocated
     for (auto stage : t.target_block->meshblock_data.Stages()) {
-      auto v = stage.second->GetCellVarPtr(t.var_label);
-
-      // if (stage.first == "base") {
-      //   // we've already done this
-      //   continue;
-      // }
-
-      // if (v->IsSet(Metadata::OneCopy)) {
-      //   // nothing to do, we already allocated variable on base stage, and all other
-      //   // stages share that variable
-      //   continue;
-      // }
-
-      if ((stage.first != "base") && !v->IsSet(Metadata::OneCopy) && !v->IsAllocated()) {
-        // allocate data of target variable
-        v->AllocateData();
-
-        // copy fluxes and boundary variable from variable on base stage
-        v->CopyFluxesAndBdryVar(base_var.get());
-      }
-
       if (stage.first == md->StageName()) {
         // this is the current stage
+        auto v = stage.second->GetCellVarPtr(t.var_label);
         target_bd = v->vbvar->GetPBdVar();
-      }
 
-      for (int n = 0; n < t.target_block->pbval->nneighbor; n++) {
-        const parthenon::NeighborBlock &nb = t.target_block->pbval->neighbor[n];
+        for (int n = 0; n < t.target_block->pbval->nneighbor; n++) {
+          // only for current stage: set send flag to completed on target block, since it
+          // won't be sending anything out this cycle, and set receive flags to arrived
+          // since the other neighbors don't know yet that this block allocated the
+          // variable and thus won't be sending anything
 
-        // update local_neighbor_allocated on target block for all stages
-        if (nb.snb.gid == t.this_block->gid) {
-          v->vbvar->local_neighbor_allocated[n] = true;
-        }
-
-        // only for current stage: set send flag to completed on target block, since it
-        // won't be sending anything out this cycle, also set received flag on buffer that
-        // are by this block
-        if (stage.first == md->StageName()) {
+          const parthenon::NeighborBlock &nb = t.target_block->pbval->neighbor[n];
           target_bd->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
-
-          if (nb.snb.gid == t.this_block->gid) {
-            target_bd->flag[nb.bufid] = parthenon::BoundaryStatus::arrived;
-          }
+          target_bd->flag[nb.bufid] = parthenon::BoundaryStatus::arrived;
         }
+
+        break;
       }
     }
 
     // move copy data directly to neighbor's receiving buffer (only for current stage)
     Kokkos::deep_copy(target_bd->recv[t.nb.targetid], this_bd->send[t.nb.bufid]);
-
-    // update boundary flags for current stage
-    this_bd->sflag[t.nb.bufid] = parthenon::BoundaryStatus::completed;
-
-    // since this is a new allocation on the neighbor block, it won't send us
-    // anything, this time, so set boundary flag to arrived on sending boundary variable
-    this_bd->flag[t.nb.bufid] = BoundaryStatus::arrived;
   }
 
   Kokkos::Profiling::popRegion(); // Set complete and/or start sending via MPI
@@ -578,9 +546,9 @@ void SendAndNotify(MeshData<Real> *md) {
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
 
-  Kokkos::parallel_for(
-      "Update_local_neighbor_allocated_in_SendBoundaryBuffers", md->NumBlocks(),
-      KOKKOS_LAMBDA(const int b) { md->GetBlockData(b)->SetLocalNeighborAllcoated(); });
+  for (int b = 0; b < md->NumBlocks(); ++b) {
+    md->GetBlockData(b)->SetLocalNeighborAllcoated();
+  }
 
   auto boundary_info = md->GetSendBuffers();
   auto sending_nonzero_flags = md->GetSendingNonzeroFlags();

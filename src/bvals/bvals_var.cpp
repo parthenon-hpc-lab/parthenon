@@ -218,7 +218,7 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
         // printf("Block %4i is waiting to get boundary data from block %4i for %s "
         //        "(nb.bufid = % 2i, nb.targetid = % 2i)\n",
         //        pmb->gid, nb.snb.gid,
-        //        dynamic_cast<CellCenteredBoundaryVariable *>(this)->label.c_str(),
+        //        dynamic_cast<CellCenteredBoundaryVariable *>(this)->label().c_str(),
         //        nb.bufid, nb.targetid);
         bflag = false;
         continue;

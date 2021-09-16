@@ -70,15 +70,18 @@ class CellVariable {
     if (m_.getAssociated() == "") {
       m_.Associate(label());
     }
+
+    if (IsSet(Metadata::FillGhost)) {
+      vbvar = std::make_shared<CellCenteredBoundaryVariable>(wpmb.lock(), IsSparse(),
+                                                             label(), GetDim(4));
+    }
   }
 
   // copy fluxes and boundary variable from src CellVariable
   void CopyFluxesAndBdryVar(const CellVariable<T> *src);
 
   // make a new CellVariable based on an existing one
-  std::shared_ptr<CellVariable<T>>
-  AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
-               std::weak_ptr<MeshBlock> wpmb = {});
+  std::shared_ptr<CellVariable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb);
 
   // accessors
   template <class... Args>
@@ -181,9 +184,7 @@ class FaceVariable {
   FaceVariable(const std::string &label, FaceVariable<T> &src)
       : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
 
-  std::shared_ptr<FaceVariable<T>>
-  AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
-               std::weak_ptr<MeshBlock> wpmb = {}) {
+  std::shared_ptr<FaceVariable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
     PARTHENON_THROW("FaceVariable::AllocateCopy is not implemented yet");
   }
 
