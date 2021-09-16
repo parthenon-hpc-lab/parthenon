@@ -50,9 +50,11 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
   const IndexDomain interior = IndexDomain::interior;
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    if (!neighbor_allocated[n]) continue;
-
     NeighborBlock &nb = pmb->pbval->neighbor[n];
+    if ((nb.snb.rank == Globals::my_rank) && !local_neighbor_allocated[n]) {
+      continue;
+    }
+
     if (nb.ni.type != NeighborConnect::face) break;
     if (bd_var_flcor_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
     if (nb.snb.level == pmb->loc.level - 1) {
@@ -205,9 +207,11 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
   bool bflag = true;
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    if (!neighbor_allocated[n]) continue;
-
     NeighborBlock &nb = pmb->pbval->neighbor[n];
+    if ((nb.snb.rank == Globals::my_rank) && !local_neighbor_allocated[n]) {
+      continue;
+    }
+
     if (nb.ni.type != NeighborConnect::face) break;
     if (nb.snb.level == pmb->loc.level + 1) {
       if (bd_var_flcor_.flag[nb.bufid] == BoundaryStatus::completed) continue;

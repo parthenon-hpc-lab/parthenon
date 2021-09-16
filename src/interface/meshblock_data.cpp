@@ -423,15 +423,17 @@ void MeshBlockData<T>::Remove(const std::string &label) {
 }
 
 template <typename T>
-void MeshBlockData<T>::SetNeighborAllcoated() {
-  Kokkos::Profiling::pushRegion("SetNeighborAllcoated");
+void MeshBlockData<T>::SetLocalNeighborAllcoated() {
+  Kokkos::Profiling::pushRegion("SetLocalNeighborAllcoated");
 
   const auto &bval = pmy_block.lock()->pbval;
-  // set neighbor_allocated for each variable
+  // set local_neighbor_allocated for each variable
   for (int n = 0; n < bval->nneighbor; n++) {
     // find neighbor block
-    PARTHENON_REQUIRE_THROWS(bval->neighbor[n].snb.rank == Globals::my_rank,
-                             "True sparse is not yet implemented for MPI");
+    if (bval->neighbor[n].snb.rank != Globals::my_rank) {
+      continue;
+    }
+    
     auto neighbor_data = pmy_block.lock()
                              ->pmy_mesh->FindMeshBlock(bval->neighbor[n].snb.gid)
                              ->meshblock_data.Get();
@@ -443,12 +445,12 @@ void MeshBlockData<T>::SetNeighborAllcoated() {
         continue;
       }
 
-      varVector_[i]->vbvar->neighbor_allocated[n] =
+      varVector_[i]->vbvar->local_neighbor_allocated[n] =
           neighbor_data->varVector_[i]->IsAllocated();
     }
   }
 
-  Kokkos::Profiling::popRegion(); // SetNeighborAllcoated
+  Kokkos::Profiling::popRegion(); // SetLocalNeighborAllcoated
 }
 
 template <typename T>
@@ -583,7 +585,7 @@ template <typename T>
 TaskStatus MeshBlockData<T>::StartReceiving(BoundaryCommSubset phase) {
   Kokkos::Profiling::pushRegion("Task_StartReceiving");
 
-  SetNeighborAllcoated();
+  SetLocalNeighborAllcoated();
 
   for (auto &v : varVector_) {
     if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
