@@ -504,7 +504,7 @@ template <typename T>
 void MeshBlockData<T>::SetupPersistentMPI() {
   // setup persistent MPI
   for (auto &v : varVector_) {
-    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
+    if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
       v->vbvar->SetupPersistentMPI();
     }
@@ -524,6 +524,7 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
         // problems with task status, we should comment one line
         // above and uncomment the if block below
         v->resetBoundary();
+        // printf("Block %i var %s allocated: %s\n", GetBlockPointer()->gid, v->label().c_str(), v->IsAllocated() ? "Y" : "N");
         v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers(v->IsAllocated());
         ret = (ret & v->mpiStatus);
       }
@@ -572,7 +573,7 @@ template <typename T>
 void MeshBlockData<T>::ResetBoundaryCellVariables() {
   Kokkos::Profiling::pushRegion("ResetBoundaryCellVariables");
   for (auto &v : varVector_) {
-    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
+    if (v->IsSet(Metadata::FillGhost)) {
       v->vbvar->var_cc = v->data;
     }
   }
@@ -587,7 +588,7 @@ TaskStatus MeshBlockData<T>::StartReceiving(BoundaryCommSubset phase) {
   SetLocalNeighborAllcoated();
 
   for (auto &v : varVector_) {
-    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
+    if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
       v->vbvar->StartReceiving(phase);
       v->mpiStatus = false;
@@ -602,7 +603,7 @@ template <typename T>
 TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
   Kokkos::Profiling::pushRegion("Task_ClearBoundary");
   for (auto &v : varVector_) {
-    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
+    if (v->IsSet(Metadata::FillGhost)) {
       v->vbvar->ClearBoundary(phase);
     }
   }

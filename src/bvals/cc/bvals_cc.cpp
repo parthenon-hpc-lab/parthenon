@@ -26,6 +26,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <mpi.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -61,6 +62,7 @@ CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(std::weak_ptr<MeshBlo
   }
 
   InitBoundaryData(bd_var_, BoundaryQuantity::cc);
+
 #ifdef MPI_PARALLEL
   // KGF: dead code, leaving for now:
   // cc_phys_id_ = pmb->pbval->ReserveTagVariableIDs(1);
@@ -91,29 +93,42 @@ void CellCenteredBoundaryVariable::Reset(ParArrayND<Real> var,
   x3flux = var_flux[X3DIR];
 }
 
-int CellCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexes &ni,
-                                                            int cng) {
+CellCenteredBoundaryVariable::VariableBufferSizes
+CellCenteredBoundaryVariable::ComputeVariableBufferSizes(const NeighborIndexes &ni,
+                                                         int cng) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int cng1, cng2, cng3;
   cng1 = cng;
   cng2 = cng * (pmb->block_size.nx2 > 1 ? 1 : 0);
   cng3 = cng * (pmb->block_size.nx3 > 1 ? 1 : 0);
 
-  int size = ((ni.ox1 == 0) ? pmb->block_size.nx1 : Globals::nghost) *
+  VariableBufferSizes res;
+  res.same = ((ni.ox1 == 0) ? pmb->block_size.nx1 : Globals::nghost) *
              ((ni.ox2 == 0) ? pmb->block_size.nx2 : Globals::nghost) *
              ((ni.ox3 == 0) ? pmb->block_size.nx3 : Globals::nghost);
+
+  res.f2c = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : Globals::nghost) *
+            ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : Globals::nghost) *
+            ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : Globals::nghost);
+  res.c2f = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng) *
+            ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng) *
+            ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng);
+
+  return res;
+}
+
+int CellCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexes &ni,
+                                                            int cng) {
+  auto sizes = ComputeVariableBufferSizes(ni, cng);
+  int size = sizes.same;
   if (pmy_mesh_->multilevel) {
-    int f2c = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : Globals::nghost) *
-              ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : Globals::nghost) *
-              ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : Globals::nghost);
-    int c2f = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng) *
-              ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng) *
-              ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng);
-    size = std::max(size, c2f);
-    size = std::max(size, f2c);
+    size = std::max(size, sizes.c2f);
+    size = std::max(size, sizes.f2c);
   }
   size *= nu_ + 1;
-  return size;
+
+  // adding 1 to the size to communicate allocation status
+  return size + 1;
 }
 
 int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
@@ -126,7 +141,9 @@ int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
     size = (pmb->block_size.nx1 + 1) / 2 * (pmb->block_size.nx3 + 1) / 2 * (nu_ + 1);
   if (ni.ox3 != 0)
     size = (pmb->block_size.nx1 + 1) / 2 * (pmb->block_size.nx2 + 1) / 2 * (nu_ + 1);
-  return size;
+
+  // adding 1 to the size to communicate allocation status
+  return size + 1;
 }
 
 //----------------------------------------------------------------------------------------
@@ -153,6 +170,11 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real> &
 
   ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
   BufferUtility::PackData(var_cc_, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb.get());
+
+  // if we're sending this to another rank, add allocation status flag at the end
+  // if (nb.snb.rank != Globals::my_rank) {
+  //   buf[p] =
+  // }
 
   return p;
 }
@@ -278,42 +300,38 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
 }
 
 void CellCenteredBoundaryVariable::SetupPersistentMPI() {
+
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
 
-  int cng, cng1, cng2, cng3;
-  cng = cng1 = pmb->cnghost;
-  cng2 = (pmy_mesh_->ndim >= 2) ? cng : 0;
-  cng3 = (pmy_mesh_->ndim >= 3) ? cng : 0;
   int ssize, rsize;
   int tag;
   // Initialize non-polar neighbor communications to other ranks
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
+      auto sizes = ComputeVariableBufferSizes(nb.ni, pmb->cnghost);
+
       if (nb.snb.level == mylevel) { // same
-        ssize = rsize = ((nb.ni.ox1 == 0) ? pmb->block_size.nx1 : Globals::nghost) *
-                        ((nb.ni.ox2 == 0) ? pmb->block_size.nx2 : Globals::nghost) *
-                        ((nb.ni.ox3 == 0) ? pmb->block_size.nx3 : Globals::nghost);
+        ssize = rsize = sizes.same;
       } else if (nb.snb.level < mylevel) { // coarser
-        ssize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : Globals::nghost) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : Globals::nghost) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : Globals::nghost);
-        rsize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng1) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng2) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng3);
+        ssize = sizes.f2c;
+        rsize = sizes.c2f;
       } else { // finer
-        ssize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng1) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng2) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng3);
-        rsize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : Globals::nghost) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : Globals::nghost) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : Globals::nghost);
+        ssize = sizes.c2f;
+        rsize = sizes.f2c;
       }
       ssize *= (nu_ + 1);
       rsize *= (nu_ + 1);
       // specify the offsets in the view point of the target block: flip ox? signs
+      PARTHENON_REQUIRE_THROWS(ssize > 0, "Send size is 0");
+      PARTHENON_REQUIRE_THROWS(rsize > 0, "Receive size is 0");
+
+      // we add one to the send and receive buffer sizes, which will be used to
+      // communicate the allocation status
+      ssize += 1;
+      rsize += 1;
 
       // Initialize persistent communication requests attached to specific BoundaryData
       tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_phys_id_);
@@ -330,6 +348,8 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
                                         MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid])));
 
       if (pmy_mesh_->multilevel && nb.ni.type == NeighborConnect::face) {
+        // TODO (JL): could we call ComputeFluxCorrectionBufferSize here to reduce code
+        // duplication?
         int size;
         if (nb.fid == 0 || nb.fid == 1)
           size = ((pmb->block_size.nx2 + 1) / 2) * ((pmb->block_size.nx3 + 1) / 2);
@@ -368,6 +388,9 @@ void CellCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
       pmb->exec_space.fence();
+      PARTHENON_REQUIRE_THROWS(bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL,
+                               "Trying to start a null request");
+
       PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_.req_recv[nb.bufid])));
       if (phase == BoundaryCommSubset::all && nb.ni.type == NeighborConnect::face &&
           nb.snb.level > mylevel) // opposite condition in ClearBoundary()

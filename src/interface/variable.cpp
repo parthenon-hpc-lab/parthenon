@@ -196,6 +196,7 @@ void CellVariable<T>::Deallocate() {
     vbvar->Reset(data, coarse_s, flux);
   }
 
+  printf("%s deallocated\n", label().c_str());
   is_allocated_ = false;
 }
 
