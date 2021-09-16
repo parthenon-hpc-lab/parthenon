@@ -364,7 +364,7 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
           // if on the same process and neighbor has this var allocated, then  fill the
           // target buffer directly
           if ((nb.snb.rank == parthenon::Globals::my_rank) &&
-              v->vbvar->neighbor_allocated[n]) {
+              v->vbvar->local_neighbor_allocated[n]) {
             auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
             boundary_info_h(b).buf =
                 target_block->pbval->bvars.at(v->label())->GetPBdVar()->recv[nb.targetid];
@@ -427,7 +427,7 @@ void SendAndNotify(MeshData<Real> *md) {
           // if the neighbor does not have this variable allocated and we're sending
           // non-zero values, then the neighbor needs to newly allocate this variable
           bool new_neighbor_alloc =
-              !v->vbvar->neighbor_allocated[n] &&
+              !v->vbvar->local_neighbor_allocated[n] &&
               sending_nonzero_flags_h( // b
                   std::min(b, static_cast<int>(sending_nonzero_flags_h.extent(0)) - 1));
 
@@ -454,7 +454,7 @@ void SendAndNotify(MeshData<Real> *md) {
               neighbor_alloc_tasks.push_back(task);
             }
 
-            if (v->vbvar->neighbor_allocated[n]) {
+            if (v->vbvar->local_neighbor_allocated[n]) {
               target_block->pbval->bvars.at(v->label())->GetPBdVar()->flag[nb.targetid] =
                   parthenon::BoundaryStatus::arrived;
             }
@@ -490,7 +490,7 @@ void SendAndNotify(MeshData<Real> *md) {
       for (int n = 0; n < t.this_block->pbval->nneighbor; ++n) {
         const parthenon::NeighborBlock &nb = t.this_block->pbval->neighbor[n];
         if (nb.snb.gid == t.target_block->gid) {
-          v->vbvar->neighbor_allocated[t.n] = true;
+          v->vbvar->local_neighbor_allocated[t.n] = true;
         }
       }
 
@@ -534,9 +534,9 @@ void SendAndNotify(MeshData<Real> *md) {
       for (int n = 0; n < t.target_block->pbval->nneighbor; n++) {
         const parthenon::NeighborBlock &nb = t.target_block->pbval->neighbor[n];
 
-        // update neighbor_allocated on target block for all stages
+        // update local_neighbor_allocated on target block for all stages
         if (nb.snb.gid == t.this_block->gid) {
-          v->vbvar->neighbor_allocated[n] = true;
+          v->vbvar->local_neighbor_allocated[n] = true;
         }
 
         // only for current stage: set send flag to completed on target block, since it
@@ -579,8 +579,8 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
 
   Kokkos::parallel_for(
-      "Update_neighbor_allocated_in_SendBoundaryBuffers", md->NumBlocks(),
-      KOKKOS_LAMBDA(const int b) { md->GetBlockData(b)->SetNeighborAllcoated(); });
+      "Update_local_neighbor_allocated_in_SendBoundaryBuffers", md->NumBlocks(),
+      KOKKOS_LAMBDA(const int b) { md->GetBlockData(b)->SetLocalNeighborAllcoated(); });
 
   auto boundary_info = md->GetSendBuffers();
   auto sending_nonzero_flags = md->GetSendingNonzeroFlags();
