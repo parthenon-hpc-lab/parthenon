@@ -853,6 +853,15 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   vint = PackAllVariables<int>(imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
+    
+  // Construct map from neighbor index to buffer index
+  // TODO(BRR) Do this in SetupMPI and store in Swarm
+  ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->pbval->nneighbor);
+  auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    neighbor_buffer_index_h(n) = pmb->pbval->neighbor[n].bufid;
+  }
+  neighbor_buffer_index.DeepCopy(neighbor_buffer_index_h);
 
   auto &bdvar = vbswarm->bd_var_;
   auto num_particles_to_send = num_particles_to_send_;
@@ -861,18 +870,20 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
       "Pack Buffers", 0, max_indices_size,
       KOKKOS_LAMBDA(const int n) {            // Max index
         for (int m = 0; m < nneighbor; m++) { // Number of neighbors
-          const int targetid = pmb->pbval->neighbor[m].targetid;
+          //const int targetid = pmb->pbval->neighbor[m].targetid;
+          //const int bufid = pmb->pbval->neighbor[m].bufid;
+          const int bufid = neighbor_buffer_index(m);
           if (n < num_particles_to_send(m)) {
             const int sidx = particle_indices_to_send(m, n);
             int buffer_index = n * particle_size;
             swarm_d.MarkParticleForRemoval(sidx);
             for (int i = 0; i < real_vars_size; i++) {
               //bdvar.send[m](buffer_index) = vreal(i, sidx);
-              bdvar.send[targetid](buffer_index) = vreal(i, sidx);
+              bdvar.send[bufid](buffer_index) = vreal(i, sidx);
               buffer_index++;
             }
             for (int i = 0; i < int_vars_size; i++) {
-              bdvar.send[targetid](buffer_index) = static_cast<Real>(vint(i, sidx));
+              bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, sidx));
               //bdvar.send[m](buffer_index) = static_cast<Real>(vint(i, sidx));
               buffer_index++;
             }
@@ -939,18 +950,19 @@ void Swarm::CountReceivedParticles_() {
   auto pmb = GetBlockPointer();
   total_received_particles_ = 0;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    if (vbswarm->bd_var_.flag[pmb->pbval->neighbor[n].bufid] == BoundaryStatus::arrived) {
+    const int bufid = pmb->pbval->neighbor[n].bufid;
+    if (vbswarm->bd_var_.flag[bufid] == BoundaryStatus::arrived) {
       //PARTHENON_DEBUG_REQUIRE(vbswarm->recv_size[n] % vbswarm->particle_size == 0,
       //                        "Receive buffer is not divisible by particle size!");
       //neighbor_received_particles_[n] = vbswarm->recv_size[n] / vbswarm->particle_size;
-      PARTHENON_DEBUG_REQUIRE(vbswarm->recv_size[pmb->pbval->neighbor[n].bufid] % vbswarm->particle_size == 0,
+      PARTHENON_DEBUG_REQUIRE(vbswarm->recv_size[bufid] % vbswarm->particle_size == 0,
                               "Receive buffer is not divisible by particle size!");
-      neighbor_received_particles_[n] = vbswarm->recv_size[pmb->pbval->neighbor[n].bufid] / vbswarm->particle_size;
+      neighbor_received_particles_[n] = vbswarm->recv_size[bufid] / vbswarm->particle_size;
       total_received_particles_ += neighbor_received_particles_[n];
       if (neighbor_received_particles_[n] > 10) {
         printf("recv size: %i particle_size: %i recvd particles: %i\n",
           //vbswarm->recv_size[n], vbswarm->particle_size, neighbor_received_particles_[n]);
-          vbswarm->recv_size[pmb->pbval->neighbor[n].bufid], vbswarm->particle_size, neighbor_received_particles_[n]);
+          vbswarm->recv_size[bufid], vbswarm->particle_size, neighbor_received_particles_[n]);
         exit(-1);
       }
     } else {
@@ -963,6 +975,7 @@ void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
                                                 ParArrayND<int> &buffer_index) {
   auto pmb = GetBlockPointer();
   auto neighbor_index_h = neighbor_index.GetHostMirror();
+  // buffer_index is the index of the particle in this swarm buffer, not the neighbor buffer index
   auto buffer_index_h = buffer_index.GetHostMirror();
 
   int id = 0;
@@ -1011,6 +1024,7 @@ void Swarm::UnloadBuffers_() {
   printf("[%i] Swarm::UnloadBuffers_ %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
     
     // Construct map from neighbor index to buffer index
+    // TODO(BRR) Do this in SetupMPI and store in Swarm
     ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->pbval->nneighbor);
     auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
     for (int n = 0; n < pmb->pbval->nneighbor; n++) {
@@ -1031,9 +1045,11 @@ void Swarm::UnloadBuffers_() {
           const int sid = new_indices(n);
           const int nid = neighbor_index(n);
           const int bid = buffer_index(n);
-          const int nbid = neighbor_buffer_index_h(nid);
-          //const int nbid = pmb->pbval->neighbor[nid].bufid;
           printf("sid: %i nid: %i bid: %i\n", sid, nid, bid);
+          //const int nbid = neighbor_buffer_index_h(nid);
+          const int nbid = neighbor_buffer_index(nid);
+          printf("nbid: %i\n", nbid);
+          //const int nbid = pmb->pbval->neighbor[nid].bufid;
           for (int i = 0; i < real_vars_size; i++) {
             //vreal(i, sid) = bdvar.recv[nid](bid * particle_size + i);
             vreal(i, sid) = bdvar.recv[nbid](bid * particle_size + i);

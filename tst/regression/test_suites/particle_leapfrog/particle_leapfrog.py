@@ -50,6 +50,8 @@ class TestCase(utils.test_case.TestCaseAbs):
                 [0.12, 0.2, -0.3, 1.0, 1.0, 1.0],
             ]
         )
+        print(structured_to_unstructured(final_data[["x", "y", "z", "vx", "vy", "vz"]]))
+        print(ref_data)
         return (
             structured_to_unstructured(final_data[["x", "y", "z", "vx", "vy", "vz"]])
             == ref_data
