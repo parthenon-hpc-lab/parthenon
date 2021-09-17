@@ -48,7 +48,12 @@ class TestCase(utils.test_case.TestCaseAbs):
                 [0.3906329387, 0.4706329387, -0.0293670613, 1.0, 1.0, 1.0],
             ]
         )
+        print(structured_to_unstructured(final_data[["x", "y", "z", "vx", "vy", "vz"]]))
+        print(ref_data)
+        print(ref_data.shape)
+        final_data = structured_to_unstructured(final_data[["x", "y", "z", "vx", "vy", "vz"]])
+        if ref_data.shape != final_data.shape:
+          return False
         return (
-            structured_to_unstructured(final_data[["x", "y", "z", "vx", "vy", "vz"]])
-            == ref_data
+            final_data == ref_data
         ).all()

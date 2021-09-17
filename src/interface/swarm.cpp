@@ -1046,7 +1046,6 @@ void Swarm::UnloadBuffers_() {
           const int nid = neighbor_index(n);
           const int bid = buffer_index(n);
           printf("sid: %i nid: %i bid: %i\n", sid, nid, bid);
-          //const int nbid = neighbor_buffer_index_h(nid);
           const int nbid = neighbor_buffer_index(nid);
           printf("nbid: %i\n", nbid);
           //const int nbid = pmb->pbval->neighbor[nid].bufid;
