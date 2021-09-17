@@ -56,7 +56,6 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/
 list(APPEND EXTRA_TEST_LABELS "")
 
 list(APPEND TEST_DIRS particle_leapfrog_outflow)
-#list(APPEND TEST_PROCS 1)
 list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
 list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/particle-leapfrog \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_leapfrog_outflow/parthinput.particle_leapfrog_outflow \
