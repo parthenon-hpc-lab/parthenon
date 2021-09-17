@@ -52,6 +52,4 @@ class TestCase(utils.test_case.TestCaseAbs):
         final_data = structured_to_unstructured(final_data[["x", "y", "z", "vx", "vy", "vz"]])
         if ref_data.shape != final_data.shape:
           return False
-        return (
-            final_data == ref_data
-        ).all()
+        return (final_data == ref_data).all()
