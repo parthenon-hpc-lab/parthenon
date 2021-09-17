@@ -44,19 +44,11 @@ class TestCase(utils.test_case.TestCaseAbs):
         # this tests code paths not otherwise present (when blocks have >0 neighbors)
         ref_data = np.array(
             [
-                #[-0.1, 0.3, 0.3353164693, 0.0, 0.0, 0.5],
-                #[0.3906329387, 0.4706329387, -0.0293670613, 1.0, 1.0, 1.0],
                 [0.4, 0.2, 0.3, 1.0, 0.0, 0.0],
                 [0.4, 0.4, 0.3, 0.0, 1.0, 0.0],
                 [-0.1, 0.3, 0.45, 0.0, 0.0, 0.5],
             ]
         )
-        #143 38 , 0 , 6 , 2 , -0.1000000000 , 0.3000000000 , 0.4500000000 , 0.0000000000 , 0.0000000000 , 0.5000000000
-        #144 38 , 0 , 7 , 0 , 0.4000000000 , 0.2000000000 , 0.3000000000 , 1.0000000000 , 0.0000000000 , 0.0000000000
-        #145 38 , 0 , 7 , 1 , 0.4000000000 , 0.4000000000 , 0.3000000000 , 0.0000000000 , 1.0000000000 , 0.0000000000
-        print(structured_to_unstructured(final_data[["x", "y", "z", "vx", "vy", "vz"]]))
-        print(ref_data)
-        print(ref_data.shape)
         final_data = structured_to_unstructured(final_data[["x", "y", "z", "vx", "vy", "vz"]])
         if ref_data.shape != final_data.shape:
           return False
