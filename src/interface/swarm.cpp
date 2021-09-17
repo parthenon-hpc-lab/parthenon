@@ -788,7 +788,7 @@ int Swarm::CountParticlesToSend_() {
     if (mask_h(n)) {
       // This particle should be sent
       if (blockIndex_h(n) >= 0) {
-        printf("[block %i] particle: %i send to %i\n", pmb->lid, n, num_particles_to_send_h(blockIndex_h(n)));
+        //printf("[block %i] particle: %i send to %i\n", pmb->lid, n, num_particles_to_send_h(blockIndex_h(n)));
         num_particles_to_send_h(blockIndex_h(n))++;
         if (max_indices_size < num_particles_to_send_h(blockIndex_h(n))) {
           max_indices_size = num_particles_to_send_h(blockIndex_h(n));
@@ -829,8 +829,8 @@ int Swarm::CountParticlesToSend_() {
     }
     //vbswarm->send_size[n] = num_particles_to_send_h(n) * particle_size;
     vbswarm->send_size[bufid] = num_particles_to_send_h(n) * particle_size;
-    printf("[block %i] num_particles_to_send_h(%i) = %i send_size = %i\n", pmb->lid, n,
-      num_particles_to_send_h(n), vbswarm->send_size[bufid]);
+    //printf("[block %i] num_particles_to_send_h(%i) = %i send_size = %i\n", pmb->lid, n,
+    //  num_particles_to_send_h(n), vbswarm->send_size[bufid]);
     num_particles_sent_ += num_particles_to_send_h(n);
   }
 
@@ -877,6 +877,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
             const int sidx = particle_indices_to_send(m, n);
             int buffer_index = n * particle_size;
             swarm_d.MarkParticleForRemoval(sidx);
+            printf("Sending particle! %e %e %e\n", vreal(0,sidx), vreal(1,sidx), vreal(2,sidx));
             for (int i = 0; i < real_vars_size; i++) {
               //bdvar.send[m](buffer_index) = vreal(i, sidx);
               bdvar.send[bufid](buffer_index) = vreal(i, sidx);
@@ -895,7 +896,6 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
 }
 
 void Swarm::Send(BoundaryCommSubset phase) {
-  printf("[%i] Swarm::Send %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->pbval->nneighbor;
   auto swarm_d = GetDeviceContext();
@@ -943,7 +943,6 @@ void Swarm::Send(BoundaryCommSubset phase) {
     // Send buffer data
     vbswarm->Send(phase);
   }
-  printf("[%i] Swarm::Send %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
 }
 
 void Swarm::CountReceivedParticles_() {
@@ -959,12 +958,12 @@ void Swarm::CountReceivedParticles_() {
                               "Receive buffer is not divisible by particle size!");
       neighbor_received_particles_[n] = vbswarm->recv_size[bufid] / vbswarm->particle_size;
       total_received_particles_ += neighbor_received_particles_[n];
-      if (neighbor_received_particles_[n] > 10) {
+      /*if (neighbor_received_particles_[n] > 10) {
         printf("recv size: %i particle_size: %i recvd particles: %i\n",
           //vbswarm->recv_size[n], vbswarm->particle_size, neighbor_received_particles_[n]);
           vbswarm->recv_size[bufid], vbswarm->particle_size, neighbor_received_particles_[n]);
         exit(-1);
-      }
+      }*/
     } else {
       neighbor_received_particles_[n] = 0;
     }
@@ -983,7 +982,7 @@ void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
     for (int m = 0; m < neighbor_received_particles_[n]; m++) {
       neighbor_index_h(id) = n;
       buffer_index_h(id) = m;
-      printf("neighbor: %i particle: %i id: %i\n", n, m, id);
+      //printf("neighbor: %i particle: %i id: %i\n", n, m, id);
       id++;
     }
   }
@@ -992,17 +991,13 @@ void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
 }
 
 void Swarm::UnloadBuffers_() {
-  printf("[%i] Swarm::UnloadBuffers_ %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
 
   CountReceivedParticles_();
-  printf("[%i] Swarm::UnloadBuffers_ %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
 
   auto &bdvar = vbswarm->bd_var_;
-  printf("[%i] Swarm::UnloadBuffers_ %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
 
   if (total_received_particles_ > 0) {
-  printf("[%i] Swarm::UnloadBuffers_ %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
     ParArrayND<int> new_indices;
     auto new_mask = AddEmptyParticles(total_received_particles_, new_indices);
     SwarmVariablePack<Real> vreal;
@@ -1016,12 +1011,10 @@ void Swarm::UnloadBuffers_() {
     const int ix = rmap["x"].first;
     const int iy = rmap["y"].first;
     const int iz = rmap["z"].first;
-  printf("[%i] Swarm::UnloadBuffers_ %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
 
     ParArrayND<int> neighbor_index("Neighbor index", total_received_particles_);
     ParArrayND<int> buffer_index("Buffer index", total_received_particles_);
     UpdateNeighborBufferReceiveIndices_(neighbor_index, buffer_index);
-  printf("[%i] Swarm::UnloadBuffers_ %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
     
     // Construct map from neighbor index to buffer index
     // TODO(BRR) Do this in SetupMPI and store in Swarm
@@ -1035,19 +1028,13 @@ void Swarm::UnloadBuffers_() {
     // construct map from buffer index to swarm index (or just return vector of indices!)
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
-  pmb->exec_space.fence(); printf("[%i] Swarm::UnloadBuffers_ %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
-  printf("total_received_particles: %i\n", total_received_particles_);
-  if (total_received_particles_ > 5) exit(-1);
 
     pmb->par_for(
         "Unload buffers", 0, total_received_particles_ - 1, KOKKOS_LAMBDA(const int n) {
-          printf("n: %i\n", n);
           const int sid = new_indices(n);
           const int nid = neighbor_index(n);
           const int bid = buffer_index(n);
-          printf("sid: %i nid: %i bid: %i\n", sid, nid, bid);
           const int nbid = neighbor_buffer_index(nid);
-          printf("nbid: %i\n", nbid);
           //const int nbid = pmb->pbval->neighbor[nid].bufid;
           for (int i = 0; i < real_vars_size; i++) {
             //vreal(i, sid) = bdvar.recv[nid](bid * particle_size + i);
@@ -1059,12 +1046,9 @@ void Swarm::UnloadBuffers_() {
             vint(i, sid) = static_cast<int>(
                 bdvar.recv[nbid](real_vars_size + bid * particle_size + i));
           }
-          printf("vec updated\n");
         });
-  pmb->exec_space.fence(); printf("[%i] Swarm::UnloadBuffers_ %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
 
     ApplyBoundaries_(total_received_particles_, new_indices);
-  pmb->exec_space.fence(); printf("[%i] Swarm::UnloadBuffers_ %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
   }
 }
 
@@ -1079,37 +1063,40 @@ void Swarm::ApplyBoundaries_(const int nparticles, ParArrayND<int> indices) {
   pmb->par_for(
       "Swarm::ApplyBoundaries", 0, nparticles - 1, KOKKOS_LAMBDA(const int n) {
         const int sid = indices(n);
+        printf("[%i] before bcs: xyz: %e %e %e marked for removal? %i\n", n, 
+          x(sid), y(sid), z(sid), swarm_d.IsMarkedForRemoval(n));
         for (int l = 0; l < 6; l++) {
           bcs.bounds[l]->Apply(sid, x(sid), y(sid), z(sid), swarm_d);
         }
+        printf("[%i] after bcs: xyz: %e %e %e marked for removal? %i\n", n, 
+          x(sid), y(sid), z(sid), swarm_d.IsMarkedForRemoval(n));
       });
+
+  /*if (nparticles > 0) {
+    pmb->exec_space.fence();
+    exit(-1);
+  }*/
 
   RemoveMarkedParticles();
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
-  printf("[%i] Swarm::Receive %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->pbval->nneighbor;
 
   if (nneighbor == 0) {
     // Do nothing; no boundaries to receive
-    printf("[%i] Swarm::Receive %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
     return true;
   } else {
     // Ensure all local deep copies marked BoundaryStatus::completed are actually received
-    printf("[%i] Swarm::Receive %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
     pmb->exec_space.fence();
 
     // Populate buffers
-    printf("[%i] Swarm::Receive %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
     vbswarm->Receive(phase);
 
     // Transfer data from buffers to swarm memory pool
-    printf("[%i] Swarm::Receive %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
     UnloadBuffers_();
 
-    printf("[%i] Swarm::Receive %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
     auto &bdvar = vbswarm->bd_var_;
     bool all_boundaries_received = true;
     for (int n = 0; n < nneighbor; n++) {
@@ -1121,7 +1108,6 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
       }
     }
 
-    printf("[%i] Swarm::Receive %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
     return all_boundaries_received;
   }
 }

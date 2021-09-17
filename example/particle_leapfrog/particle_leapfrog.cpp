@@ -375,6 +375,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
           x(n) += vx(n) * 0.5 * dt;
           y(n) += vy(n) * 0.5 * dt;
           z(n) += vz(n) * 0.5 * dt;
+          printf("[%i] xyz = %e %e %e\n", n, x(n), y(n), z(n));
 
           bool on_current_mesh_block = true;
           swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
