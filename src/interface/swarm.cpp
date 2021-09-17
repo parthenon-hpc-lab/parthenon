@@ -765,7 +765,7 @@ void Swarm::SetupPersistentMPI() {
   }
 
   neighbor_received_particles_.resize(nbmax);
-    
+
   // Build device array mapping neighbor index to neighbor bufid
   ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->pbval->nneighbor);
   auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
@@ -943,7 +943,8 @@ void Swarm::CountReceivedParticles_() {
     if (vbswarm->bd_var_.flag[bufid] == BoundaryStatus::arrived) {
       PARTHENON_DEBUG_REQUIRE(vbswarm->recv_size[bufid] % vbswarm->particle_size == 0,
                               "Receive buffer is not divisible by particle size!");
-      neighbor_received_particles_[n] = vbswarm->recv_size[bufid] / vbswarm->particle_size;
+      neighbor_received_particles_[n] =
+          vbswarm->recv_size[bufid] / vbswarm->particle_size;
       total_received_particles_ += neighbor_received_particles_[n];
     } else {
       neighbor_received_particles_[n] = 0;
@@ -955,7 +956,8 @@ void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
                                                 ParArrayND<int> &buffer_index) {
   auto pmb = GetBlockPointer();
   auto neighbor_index_h = neighbor_index.GetHostMirror();
-  // buffer_index is the index of the particle in this swarm buffer, not the neighbor buffer index
+  // buffer_index is the index of the particle in this swarm buffer, not the neighbor
+  // buffer index
   auto buffer_index_h = buffer_index.GetHostMirror();
 
   int id = 0;
