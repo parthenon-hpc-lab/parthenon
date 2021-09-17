@@ -22,5 +22,5 @@ outname="parthenon_regression_gold_v$1.tgz"
 
 tar czf $outname *.phdf *.phdf.xdmf current_version README.md
 
-echo "Created tarball $outname, SHA-256 hash:"
-sha256sum $outname
+echo "Created tarball $outname, SHA-512 hash:"
+sha512sum $outname
