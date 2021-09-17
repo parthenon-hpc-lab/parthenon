@@ -856,21 +856,11 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   vint = PackAllVariables<int>(imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
-    
-  // Construct map from neighbor index to buffer index
-  // TODO(BRR) Do this in SetupMPI and store in Swarm
-  /*ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->pbval->nneighbor);
-  auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    neighbor_buffer_index_h(n) = pmb->pbval->neighbor[n].bufid;
-  }
-  neighbor_buffer_index.DeepCopy(neighbor_buffer_index_h);*/
-
-  auto neighbor_buffer_index = neighbor_buffer_index_;
 
   auto &bdvar = vbswarm->bd_var_;
   auto num_particles_to_send = num_particles_to_send_;
   auto particle_indices_to_send = particle_indices_to_send_;
+  auto neighbor_buffer_index = neighbor_buffer_index_;
   pmb->par_for(
       "Pack Buffers", 0, max_indices_size,
       KOKKOS_LAMBDA(const int n) {            // Max index
@@ -1005,16 +995,6 @@ void Swarm::UnloadBuffers_() {
     ParArrayND<int> neighbor_index("Neighbor index", total_received_particles_);
     ParArrayND<int> buffer_index("Buffer index", total_received_particles_);
     UpdateNeighborBufferReceiveIndices_(neighbor_index, buffer_index);
-    
-    // Construct map from neighbor index to buffer index
-    // TODO(BRR) Do this in SetupMPI and store in Swarm
-    /*ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->pbval->nneighbor);
-    auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
-    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-      neighbor_buffer_index_h(n) = pmb->pbval->neighbor[n].bufid;
-    }
-    neighbor_buffer_index.DeepCopy(neighbor_buffer_index_h);*/
-
     auto neighbor_buffer_index = neighbor_buffer_index_;
 
     // construct map from buffer index to swarm index (or just return vector of indices!)
@@ -1027,14 +1007,10 @@ void Swarm::UnloadBuffers_() {
           const int nid = neighbor_index(n);
           const int bid = buffer_index(n);
           const int nbid = neighbor_buffer_index(nid);
-          //const int nbid = pmb->pbval->neighbor[nid].bufid;
           for (int i = 0; i < real_vars_size; i++) {
-            //vreal(i, sid) = bdvar.recv[nid](bid * particle_size + i);
             vreal(i, sid) = bdvar.recv[nbid](bid * particle_size + i);
           }
           for (int i = 0; i < int_vars_size; i++) {
-            //vint(i, sid) = static_cast<int>(
-            //    bdvar.recv[nid](real_vars_size + bid * particle_size + i));
             vint(i, sid) = static_cast<int>(
                 bdvar.recv[nbid](real_vars_size + bid * particle_size + i));
           }
@@ -1055,19 +1031,10 @@ void Swarm::ApplyBoundaries_(const int nparticles, ParArrayND<int> indices) {
   pmb->par_for(
       "Swarm::ApplyBoundaries", 0, nparticles - 1, KOKKOS_LAMBDA(const int n) {
         const int sid = indices(n);
-        printf("[%i] before bcs: xyz: %e %e %e marked for removal? %i\n", n, 
-          x(sid), y(sid), z(sid), swarm_d.IsMarkedForRemoval(n));
         for (int l = 0; l < 6; l++) {
           bcs.bounds[l]->Apply(sid, x(sid), y(sid), z(sid), swarm_d);
         }
-        printf("[%i] after bcs: xyz: %e %e %e marked for removal? %i\n", n, 
-          x(sid), y(sid), z(sid), swarm_d.IsMarkedForRemoval(n));
       });
-
-  /*if (nparticles > 0) {
-    pmb->exec_space.fence();
-    exit(-1);
-  }*/
 
   RemoveMarkedParticles();
 }
