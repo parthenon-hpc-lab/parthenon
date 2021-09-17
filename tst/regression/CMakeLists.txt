@@ -20,7 +20,7 @@
 #   * For the calculate_pi example the folder is called 'calculate_pi', This
 #     folder must be added to the cmake variable TEST_DIRS as shown below.
 #
-# 2. the correct arguments to pass to the 'run_test.py' script must be specfied
+# 2. the correct arguments to pass to the 'run_test.py' script must be specified
 #   * This arguments must be added to the CMAKE variable TEST_ARGS as shown below
 #
 # 3. the number of mpi processors that should be used when testing the mpi implementation
@@ -115,6 +115,12 @@ if (ENABLE_HDF5)
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/poisson/poisson-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/poisson/parthinput.poisson")
   list(APPEND EXTRA_TEST_LABELS "poisson")
+
+  list(APPEND TEST_DIRS sparse_advection)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/sparse_advection/sparse_advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/sparse_advection/parthinput.sparse_advection")
+  list(APPEND EXTRA_TEST_LABELS "")
 
 endif()
 

@@ -64,15 +64,7 @@ speed = 1.5
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 
-<parthenon/output1>
-file_type = rst
-dt = 0.5
-
 <parthenon/output0>
 file_type = hdf5
 dt = 0.5
 variables = sparse
-
-<parthenon/output3>
-file_type = hst
-dt = 0.00001
