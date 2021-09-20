@@ -862,7 +862,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   auto particle_indices_to_send = particle_indices_to_send_;
   auto neighbor_buffer_index = neighbor_buffer_index_;
   pmb->par_for(
-      "Pack Buffers", 0, max_indices_size,
+      "Pack Buffers", 0, max_indices_size - 1,
       KOKKOS_LAMBDA(const int n) {            // Max index
         for (int m = 0; m < nneighbor; m++) { // Number of neighbors
           const int bufid = neighbor_buffer_index(m);
@@ -956,9 +956,7 @@ void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
                                                 ParArrayND<int> &buffer_index) {
   auto pmb = GetBlockPointer();
   auto neighbor_index_h = neighbor_index.GetHostMirror();
-  // buffer_index is the index of the particle in this swarm buffer, not the neighbor
-  // buffer index
-  auto buffer_index_h = buffer_index.GetHostMirror();
+  auto buffer_index_h = buffer_index.GetHostMirror(); // Index of each particle in its received buffer
 
   int id = 0;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {

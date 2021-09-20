@@ -36,7 +36,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         data = np.genfromtxt("particles.csv", delimiter=",", names=True)
 
         # pick last cycle (given current parameter file)
-        final_data = data[data["ncycle"] == 38]
+        final_data = data[data["ncycle"] == 49]
         final_data.sort(order="particles_id")
 
         # see examples/particle_leapfrog/particle_leapfrog.cpp for reference data
@@ -44,14 +44,15 @@ class TestCase(utils.test_case.TestCaseAbs):
         # this tests code paths not otherwise present (when blocks have >0 neighbors)
         ref_data = np.array(
             [
-                [0.4, 0.2, 0.3, 1.0, 0.0, 0.0],
-                [0.4, 0.4, 0.3, 0.0, 1.0, 0.0],
-                [-0.1, 0.3, 0.45, 0.0, 0.0, 0.5],
+                [0.45, 0.2, 0.3, 1.0, 0.0, 0.0],
+                [0.4, 0.45, 0.3, 0.0, 1.0, 0.0],
+                [-0.1, 0.3, 0.475, 0.0, 0.0, 0.5],
             ]
         )
         final_data = structured_to_unstructured(
             final_data[["x", "y", "z", "vx", "vy", "vz"]]
         )
         if ref_data.shape != final_data.shape:
+            print("TEST FAIL: Mismatch between actual and reference data shape.")
             return False
         return (final_data == ref_data).all()
