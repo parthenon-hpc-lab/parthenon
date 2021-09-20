@@ -26,7 +26,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <mpi.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -300,7 +299,6 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
 }
 
 void CellCenteredBoundaryVariable::SetupPersistentMPI() {
-
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
@@ -348,7 +346,7 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
                                         MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid])));
 
       if (pmy_mesh_->multilevel && nb.ni.type == NeighborConnect::face) {
-        // TODO (JL): could we call ComputeFluxCorrectionBufferSize here to reduce code
+        // TODO(JL): could we call ComputeFluxCorrectionBufferSize here to reduce code
         // duplication?
         int size;
         if (nb.fid == 0 || nb.fid == 1)

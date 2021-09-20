@@ -524,7 +524,8 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
         // problems with task status, we should comment one line
         // above and uncomment the if block below
         v->resetBoundary();
-        // printf("Block %i var %s allocated: %s\n", GetBlockPointer()->gid, v->label().c_str(), v->IsAllocated() ? "Y" : "N");
+        // printf("Block %i var %s allocated: %s\n", GetBlockPointer()->gid,
+        // v->label().c_str(), v->IsAllocated() ? "Y" : "N");
         v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers(v->IsAllocated());
         ret = (ret & v->mpiStatus);
       }

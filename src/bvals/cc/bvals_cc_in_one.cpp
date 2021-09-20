@@ -425,11 +425,13 @@ void SendAndNotify(MeshData<Real> *md) {
           auto *pbd_var_ = v->vbvar->GetPBdVar();
           if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) {
             // if (nb.snb.rank != Globals::my_rank) {
-            //   printf("NOT sending %s (%s) from block %i (rank %i) to block %i (rank %i), "
+            //   printf("NOT sending %s (%s) from block %i (rank %i) to block %i (rank
+            //   %i), "
             //          "nb.bufid "
             //          "= %i, nb.targetid = %i\n",
-            //          v->label().c_str(), v->IsAllocated() ? "alloc" : "UNALLOC", pmb->gid,
-            //          Globals::my_rank, nb.snb.gid, nb.snb.rank, nb.bufid, nb.targetid);
+            //          v->label().c_str(), v->IsAllocated() ? "alloc" : "UNALLOC",
+            //          pmb->gid, Globals::my_rank, nb.snb.gid, nb.snb.rank, nb.bufid,
+            //          nb.targetid);
             // }
             continue;
           }
@@ -474,10 +476,12 @@ void SendAndNotify(MeshData<Real> *md) {
 #ifdef MPI_PARALLEL
             // call MPI_Start even if variable is not allocated, because receiving block
             // is waiting for data
-            // printf("Send %s (%s) from block %i (rank %i) to block %i (rank %i), nb.bufid "
+            // printf("Send %s (%s) from block %i (rank %i) to block %i (rank %i),
+            // nb.bufid "
             //        "= %i, nb.targetid = %i\n",
-            //        v->label().c_str(), v->IsAllocated() ? "alloc" : "UNALLOC", pmb->gid,
-            //        Globals::my_rank, nb.snb.gid, nb.snb.rank, nb.bufid, nb.targetid);
+            //        v->label().c_str(), v->IsAllocated() ? "alloc" : "UNALLOC",
+            //        pmb->gid, Globals::my_rank, nb.snb.gid, nb.snb.rank, nb.bufid,
+            //        nb.targetid);
             PARTHENON_MPI_CHECK(MPI_Start(&(pbd_var_->req_send[nb.bufid])));
 #endif
           }
