@@ -41,17 +41,18 @@
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SendFluxCorrection()
+//! \fn void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated)
 //  \brief Restrict, pack and send the surface flux to the coarse neighbor(s)
 
-void CellCenteredBoundaryVariable::SendFluxCorrection() {
+void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
-    if ((nb.snb.rank == Globals::my_rank) && !local_neighbor_allocated[n]) {
+    if ((nb.snb.rank == Globals::my_rank) &&
+        (!local_neighbor_allocated[n] || !is_allocated)) {
       continue;
     }
 

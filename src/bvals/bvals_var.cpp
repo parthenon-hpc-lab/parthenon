@@ -18,6 +18,7 @@
 //  \brief constructor/destructor and default implementations for some functions in the
 //         abstract BoundaryVariable class
 
+#include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 
 #include <cstring>
@@ -162,10 +163,10 @@ void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, in
 // Default / shared implementations of 4x BoundaryBuffer public functions
 
 //----------------------------------------------------------------------------------------
-//! \fn void BoundaryVariable::SendBoundaryBuffers()
+//! \fn void BoundaryVariable::SendBoundaryBuffers(bool is_allocated)
 //  \brief Send boundary buffers of variables
 
-void BoundaryVariable::SendBoundaryBuffers() {
+void BoundaryVariable::SendBoundaryBuffers(bool is_allocated) {
   PARTHENON_REQUIRE_THROWS(false, "BoundaryVariable::SendBoundaryBuffers is disabled");
   auto pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
@@ -218,9 +219,7 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
       if (nb.snb.rank == Globals::my_rank) { // on the same process
         // printf("Block %4i is waiting to get boundary data from block %4i for %s "
         //        "(nb.bufid = % 2i, nb.targetid = % 2i)\n",
-        //        pmb->gid, nb.snb.gid,
-        //        dynamic_cast<CellCenteredBoundaryVariable *>(this)->label().c_str(),
-        //        nb.bufid, nb.targetid);
+        //        pmb->gid, nb.snb.gid, label().c_str(), nb.bufid, nb.targetid);
         if (is_allocated) {
           // keep waiting
           bflag = false;
@@ -259,12 +258,19 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
         if (!static_cast<bool>(test)) {
           // printf("Block %4i (rank %i) is waiting to get boundary data from block %4i "
           //        "(rank %i) for %s (nb.bufid = % 2i, nb.targetid = % 2i)\n",
-          //        pmb->gid, Globals::my_rank, nb.snb.gid, nb.snb.rank,
-          //        dynamic_cast<CellCenteredBoundaryVariable *>(this)->label().c_str(),
+          //        pmb->gid, Globals::my_rank, nb.snb.gid, nb.snb.rank, label().c_str(),
           //        nb.bufid, nb.targetid);
           bflag = false;
           continue;
         }
+
+        const Real flag = bd_var_.recv[nb.bufid](bd_var_.recv_size[nb.bufid] - 1);
+        // check if we need to allocate this variable if it's not allocated
+        if (!is_allocated && (flag == 1.0)) {
+          // we need to allocate this variable
+          pmb->AllocateSparse(label());
+        }
+
         bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
       }
 #endif
