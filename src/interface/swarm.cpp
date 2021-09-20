@@ -956,7 +956,8 @@ void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
                                                 ParArrayND<int> &buffer_index) {
   auto pmb = GetBlockPointer();
   auto neighbor_index_h = neighbor_index.GetHostMirror();
-  auto buffer_index_h = buffer_index.GetHostMirror(); // Index of each particle in its received buffer
+  auto buffer_index_h =
+      buffer_index.GetHostMirror(); // Index of each particle in its received buffer
 
   int id = 0;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
