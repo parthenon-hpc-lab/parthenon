@@ -30,6 +30,7 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "domain.hpp"
+#include "globals.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -209,8 +210,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
       auto bd = var->vbvar->GetPBdVar();
       for (int n = 0; n < pbval->nneighbor; n++) {
         const parthenon::NeighborBlock &nb = pbval->neighbor[n];
-        bd->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
-        bd->flag[nb.bufid] = parthenon::BoundaryStatus::arrived;
+        if (nb.snb.rank == Globals::my_rank) {
+          bd->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
+          bd->flag[nb.bufid] = parthenon::BoundaryStatus::arrived;
+        }
       }
     }
   }
