@@ -15,7 +15,6 @@
 
 #include <memory>
 
-#include "Kokkos_ExecPolicy.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
