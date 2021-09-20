@@ -17,6 +17,7 @@
 
 // options for building
 #include "config.hpp"
+#include "globals.hpp"
 #include "utils/error_checking.hpp"
 
 // Only proceed if HDF5 output enabled
@@ -81,37 +82,26 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values
 
 using namespace HDF5;
 
-// Helper struct containing some information about a variable that we can easily
-// communicate via MPI
+// Helper struct containing some information about a variable
 struct VarInfo {
-  // We need to communicate this struct via MPI. To Make our lives a bit easier, we will
-  // combine the vlen integer and the is_sparse and is_vector flags into a single int
-  // (call it info_code) and communicate that.
-  //
-  // The info_code will have the vlen in the lower 16 bits and bits 20 and 21 will encode
-  // the is_sparse and is_vector flags
-  static constexpr int max_vlen_ = (1 << 16) - 1;
-  static constexpr int sparse_flag_ = (1 << 20);
-  static constexpr int vector_flag_ = (1 << 21);
-
-  const std::string label_;
-  const std::vector<std::string> component_labels_;
-  const int vlen_;
-  const bool is_sparse_;
-  const bool is_vector_;
+  std::string label;
+  std::vector<std::string> component_labels;
+  int vlen;
+  bool is_sparse;
+  bool is_vector;
 
   VarInfo() = delete;
 
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels,
           int vlen, bool is_sparse, bool is_vector)
-      : label_(label),
-        component_labels_(component_labels.size() > 0 ? component_labels
-                                                      : std::vector<std::string>{label}),
-        vlen_(vlen), is_sparse_(is_sparse), is_vector_(is_vector) {
-    if ((vlen_ <= 0) || (vlen_ > max_vlen_)) {
+      : label(label),
+        component_labels(component_labels.size() > 0 ? component_labels
+                                                     : std::vector<std::string>{label}),
+        vlen(vlen), is_sparse(is_sparse), is_vector(is_vector) {
+    if (vlen <= 0) {
       std::stringstream msg;
-      msg << "### ERROR: Got variable " << label_ << " with length " << vlen_
-          << ". vlen must be between 0 and " << max_vlen_ << std::endl;
+      msg << "### ERROR: Got variable " << label << " with length " << vlen
+          << ". vlen must be greater than 0" << std::endl;
       PARTHENON_FAIL(msg);
     }
   }
@@ -119,55 +109,6 @@ struct VarInfo {
   explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->GetDim(4),
                 var->IsSparse(), var->IsSet(Metadata::Vector)) {}
-
-  static VarInfo Decode(const std::string &compact_labels, int info_code) {
-    // unpack compact_labels
-    const auto labels = string_utils::UnpackStrings(compact_labels, '\t');
-
-    if (labels.size() == 0) {
-      std::stringstream msg;
-      msg << "### ERROR: Got no labels" << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-
-    const int vlen = info_code & max_vlen_;
-    const bool is_sparse = (info_code & sparse_flag_) > 0;
-    const bool is_vector = (info_code & vector_flag_) > 0;
-
-    // first label in compact label is the variable label, the rest are the component
-    // labels
-    return VarInfo(labels[0], std::vector<std::string>(labels.begin() + 1, labels.end()),
-                   vlen, is_sparse, is_vector);
-  }
-
-  // compactify label and component_labels into a single string for MPI communication
-  std::string get_compact_label() const {
-    // pack labels as {label, component_label[0], component_label[1], ...}
-    std::vector<std::string> labels = {label_};
-    labels.insert(labels.end(), component_labels_.begin(), component_labels_.end());
-    return string_utils::PackStrings(labels, '\t');
-  }
-
-  int get_info_code() const {
-    int code = vlen_;
-    if (is_sparse_) code += sparse_flag_;
-    if (is_vector_) code += vector_flag_;
-
-    return code;
-  }
-
-  // so we can put VarInfo into a set
-  bool operator<(const VarInfo &other) const {
-    if ((label_ == other.label_) && (vlen_ != other.vlen_)) {
-      // variables with the same label must have the same lengths
-      std::stringstream msg;
-      msg << "### ERROR: Got variable " << label_ << " with multiple different lengths"
-          << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-
-    return label_ < other.label_;
-  }
 };
 
 // XDMF subroutine to write a dataitem that refers to an HDF array
@@ -240,7 +181,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
 }
 
 void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
-             const std::set<VarInfo> &var_list) {
+             const std::vector<VarInfo> &var_list) {
   // using round robin generation.
   // must switch to MPIIO at some point
 
@@ -318,10 +259,10 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     dims[3] = nx1;
     dims[4] = 1;
     for (const auto &vinfo : var_list) {
-      const int vlen = vinfo.vlen_;
+      const int vlen = vinfo.vlen;
       dims[4] = vlen;
-      writeXdmfSlabVariableRef(xdmf, vinfo.label_, hdfFile, ib, vlen, ndims, dims,
-                               dims321, vinfo.is_vector_);
+      writeXdmfSlabVariableRef(xdmf, vinfo.label, hdfFile, ib, vlen, ndims, dims, dims321,
+                               vinfo.is_vector);
     }
     xdmf << "      </Grid>" << std::endl;
   }
@@ -776,9 +717,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   //   WRITING VARIABLES DATA                                                         //
   // -------------------------------------------------------------------------------- //
 
-  // first we need to get list of variables, because sparse variable ids are only
-  // allocated on some blocks, we need to look at the list of variables on each block
-  // combine these into a global list of variables
+  // All blocks have the same list of variable metadata that exist in the entire
+  // simulation, but not all variables may be allocated on all blocks
 
   auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
     if (restart_) {
@@ -794,105 +734,17 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
   };
 
-  // local list of unique vars
-  std::set<VarInfo> all_unique_vars;
-  for (auto &pmb : pm->block_list) {
-    const auto vars = get_vars(pmb);
-    for (auto &v : vars) {
-      if (v->IsAllocated()) {
-        VarInfo vinfo(v);
-        all_unique_vars.insert(vinfo);
-      }
-    }
+  // get list of all vars, just use the first block since the list is the same for all
+  // blocks
+  std::vector<VarInfo> all_vars_info;
+  const auto vars = get_vars(pm->block_list.front());
+  for (auto &v : vars) {
+    all_vars_info.emplace_back(v);
   }
 
-#ifdef MPI_PARALLEL
-  {
-    // we need to do a global allgather to get the global list of unique variables to
-    // be written to the HDF5 file
-
-    // the label buffer contains all labels of the unique variables on this rank
-    // separated by \t, e.g.: "label0\tlabel1\tlabel2\t"
-    std::vector<std::string> compact_labels;
-    std::vector<int> code_buffer;
-
-    for (const auto &vi : all_unique_vars) {
-      compact_labels.push_back(vi.get_compact_label());
-      code_buffer.push_back(vi.get_info_code());
-    }
-
-    std::string label_buffer = string_utils::PackStrings(compact_labels, '\n');
-
-    // first we need to communicate the lengths of the label_buffer and vlen_buffer to
-    // all ranks, 2 ints per rank: first int: label_buffer length, second int:
-    // vlen_buffer length
-    std::vector<int> buffer_lengths(2 * Globals::nranks, 0);
-    buffer_lengths[Globals::my_rank * 2 + 0] = static_cast<int>(label_buffer.size());
-    buffer_lengths[Globals::my_rank * 2 + 1] = static_cast<int>(code_buffer.size());
-
-    PARTHENON_MPI_CHECK(MPI_Allgather(MPI_IN_PLACE, 2, MPI_INT, buffer_lengths.data(), 2,
-                                      MPI_INT, MPI_COMM_WORLD));
-
-    // now do an Allgatherv combining label_buffer and vlen_buffer from all ranks
-    std::vector<int> label_lengths(Globals::nranks, 0);
-    std::vector<int> label_offsets(Globals::nranks, 0);
-    std::vector<int> code_lengths(Globals::nranks, 0);
-    std::vector<int> code_offsets(Globals::nranks, 0);
-
-    int label_offset = 0;
-    int code_offset = 0;
-    for (int n = 0; n < Globals::nranks; ++n) {
-      label_offsets[n] = label_offset;
-      code_offsets[n] = code_offset;
-
-      label_lengths[n] = buffer_lengths[n * 2 + 0];
-      code_lengths[n] = buffer_lengths[n * 2 + 1];
-
-      label_offset += label_lengths[n];
-      code_offset += code_lengths[n];
-    }
-
-    // result buffers with global data
-    std::vector<char> all_labels_buffer(label_offset, '\0');
-    std::vector<int> all_codes(code_offset, 0);
-
-    // fill in our values in global buffers
-    memcpy(all_labels_buffer.data() + label_offsets[Globals::my_rank],
-           label_buffer.data(), label_buffer.size() * sizeof(char));
-    memcpy(all_codes.data() + code_offsets[Globals::my_rank], code_buffer.data(),
-           code_buffer.size() * sizeof(int));
-
-    PARTHENON_MPI_CHECK(MPI_Allgatherv(
-        MPI_IN_PLACE, label_lengths[Globals::my_rank], MPI_BYTE, all_labels_buffer.data(),
-        label_lengths.data(), label_offsets.data(), MPI_BYTE, MPI_COMM_WORLD));
-
-    PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, code_lengths[Globals::my_rank],
-                                       MPI_INT, all_codes.data(), code_lengths.data(),
-                                       code_offsets.data(), MPI_INT, MPI_COMM_WORLD));
-
-    // unpack labels
-    auto all_compact_labels = string_utils::UnpackStrings(
-        std::string(all_labels_buffer.data(), all_labels_buffer.size()), '\n');
-
-    if (all_compact_labels.size() != all_codes.size()) {
-      printf("all_compact_labels: %zu\n", all_compact_labels.size());
-      for (size_t i = 0; i < all_compact_labels.size(); ++i)
-        printf("%4zu: %s\n", i, all_compact_labels[i].c_str());
-      printf("all_codes: %zu\n", all_codes.size());
-      for (size_t i = 0; i < all_codes.size(); ++i)
-        printf("%4zu: %i\n", i, all_codes[i]);
-
-      std::stringstream msg;
-      msg << "### ERROR: all_labels and all_codes have different sizes" << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-
-    // finally make list of all unique variables
-    for (size_t i = 0; i < all_compact_labels.size(); ++i) {
-      all_unique_vars.insert(VarInfo::Decode(all_compact_labels[i], all_codes[i]));
-    }
-  }
-#endif
+  // sort alphabetically
+  std::sort(all_vars_info.begin(), all_vars_info.end(),
+            [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
 
   // We need to add information about the sparse variables to the HDF5 file, namely:
   // 1) Which variables are sparse
@@ -911,10 +763,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   std::vector<std::string> sparse_names;
   std::unordered_map<std::string, size_t> sparse_field_idx;
-  for (auto &vinfo : all_unique_vars) {
-    if (vinfo.is_sparse_) {
-      sparse_field_idx.insert({vinfo.label_, sparse_names.size()});
-      sparse_names.push_back(vinfo.label_);
+  for (auto &vinfo : all_vars_info) {
+    if (vinfo.is_sparse) {
+      sparse_field_idx.insert({vinfo.label, sparse_names.size()});
+      sparse_names.push_back(vinfo.label);
     }
   }
 
@@ -926,8 +778,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // allocate space for largest size variable
   const hsize_t varSize = nx3 * nx2 * nx1;
   int vlen_max = 0;
-  for (auto &vinfo : all_unique_vars) {
-    vlen_max = std::max(vlen_max, vinfo.vlen_);
+  for (auto &vinfo : all_vars_info) {
+    vlen_max = std::max(vlen_max, vinfo.vlen);
   }
 
   using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
@@ -941,18 +793,17 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   local_count[3] = global_count[3] = nx1;
 
   // for each variable we write
-  for (auto &vinfo : all_unique_vars) {
+  for (auto &vinfo : all_vars_info) {
     // not really necessary, but doesn't hurt
     memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
 
-    const std::string var_name = vinfo.label_;
-    const hsize_t vlen = vinfo.vlen_;
+    const std::string var_name = vinfo.label;
+    const hsize_t vlen = vinfo.vlen;
 
     local_count[4] = global_count[4] = vlen;
 
     // load up data
     hsize_t index = 0;
-    bool found_any = false;
 
     // for each local mesh block
     for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
@@ -980,13 +831,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         }
       }
 
-      if (vinfo.is_sparse_) {
-        size_t sparse_idx = sparse_field_idx.at(vinfo.label_);
+      if (vinfo.is_sparse) {
+        size_t sparse_idx = sparse_field_idx.at(vinfo.label);
         sparse_allocated[b_idx * num_sparse + sparse_idx] = found;
       }
 
       if (!found) {
-        if (vinfo.is_sparse_) {
+        if (vinfo.is_sparse) {
           hsize_t N = varSize * vlen;
           memset(tmpData.data() + index, 0, N * sizeof(OutT));
           index += N;
@@ -995,40 +846,30 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
           msg << "### ERROR: Unable to find dense variable " << var_name << std::endl;
           PARTHENON_FAIL(msg);
         }
-      } else {
-        found_any = true;
       }
     }
 
-    // If found_any is true, it means that at least one local block has data for the
-    // current variable writing, so we write the tmpData buffer to the HDF5 file. Note,
-    // the tmpData buffer may contain some 0's for the local blocks that don't have this
-    // variable. It's ok to write these 0's because compression will take care of them.
-    // Otherwise, if found_any is false, then none of the local blocks have data for this
-    // variable, so we don't need to write a buffer of all 0's.
-    if (found_any) {
-      // write data to file
-      HDF5WriteND(file, var_name, tmpData.data(), H5_NDIM, p_loc_offset, p_loc_cnt,
-                  p_glob_cnt, pl_xfer, pl_dcreate);
-    }
+    // write data to file
+    HDF5WriteND(file, var_name, tmpData.data(), H5_NDIM, p_loc_offset, p_loc_cnt,
+                p_glob_cnt, pl_xfer, pl_dcreate);
   }
 
   // names of variables
   std::vector<std::string> var_names;
-  var_names.reserve(all_unique_vars.size());
+  var_names.reserve(all_vars_info.size());
 
   // number of components within each dataset
   std::vector<size_t> num_components;
-  num_components.reserve(all_unique_vars.size());
+  num_components.reserve(all_vars_info.size());
 
   // names of components within each dataset
   std::vector<std::string> component_names;
-  component_names.reserve(all_unique_vars.size()); // may be larger
+  component_names.reserve(all_vars_info.size()); // may be larger
 
-  for (const auto &vi : all_unique_vars) {
-    var_names.push_back(vi.label_);
+  for (const auto &vi : all_vars_info) {
+    var_names.push_back(vi.label);
 
-    const auto &component_labels = vi.component_labels_;
+    const auto &component_labels = vi.component_labels;
     PARTHENON_REQUIRE_THROWS(component_labels.size() > 0, "Got 0 component labels");
 
     num_components.push_back(component_labels.size());
@@ -1060,7 +901,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   if (!restart_) {
     // generate XDMF companion file
-    genXDMF(filename, pm, tm, nx1, nx2, nx3, all_unique_vars);
+    genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info);
   }
 }
 
