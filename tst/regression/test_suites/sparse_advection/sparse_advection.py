@@ -48,7 +48,13 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "sparse.out0.00002.phdf",
                 parameters.parthenon_path
                 + "/tst/regression/gold_standard/sparse.out0.00002.phdf",
-            ]
+            ],
+            # the gold file was made with true sparse but no MPI, so use tolerance 0 when running
+            # this test without MPI, but use tolerance 1.0e-7 when running with MPI, since MPI
+            # results differ from non-MPI results. The test are run with allocation threshold
+            # 1.0e-5, so they agree with fake sparse output to a tolerance of 1.0e-5 with and
+            # without MPI
+            tol=0 if parameters.mpi_cmd == "" else 1.0e-7,
         )
 
         return delta == 0
