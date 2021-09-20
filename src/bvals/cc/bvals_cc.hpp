@@ -71,7 +71,7 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   void ClearBoundary(BoundaryCommSubset phase) final;
 
   // BoundaryBuffer:
-  void SendFluxCorrection() final;
+  void SendFluxCorrection(bool is_allocated) final;
   bool ReceiveFluxCorrection(bool is_allocated) final;
 
  protected:

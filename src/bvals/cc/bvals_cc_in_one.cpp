@@ -424,15 +424,6 @@ void SendAndNotify(MeshData<Real> *md) {
           parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
           auto *pbd_var_ = v->vbvar->GetPBdVar();
           if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) {
-            // if (nb.snb.rank != Globals::my_rank) {
-            //   printf("NOT sending %s (%s) from block %i (rank %i) to block %i (rank
-            //   %i), "
-            //          "nb.bufid "
-            //          "= %i, nb.targetid = %i\n",
-            //          v->label().c_str(), v->IsAllocated() ? "alloc" : "UNALLOC",
-            //          pmb->gid, Globals::my_rank, nb.snb.gid, nb.snb.rank, nb.bufid,
-            //          nb.targetid);
-            // }
             continue;
           }
 
@@ -476,12 +467,6 @@ void SendAndNotify(MeshData<Real> *md) {
 #ifdef MPI_PARALLEL
             // call MPI_Start even if variable is not allocated, because receiving block
             // is waiting for data
-            // printf("Send %s (%s) from block %i (rank %i) to block %i (rank %i),
-            // nb.bufid "
-            //        "= %i, nb.targetid = %i\n",
-            //        v->label().c_str(), v->IsAllocated() ? "alloc" : "UNALLOC",
-            //        pmb->gid, Globals::my_rank, nb.snb.gid, nb.snb.rank, nb.bufid,
-            //        nb.targetid);
             PARTHENON_MPI_CHECK(MPI_Start(&(pbd_var_->req_send[nb.bufid])));
 #endif
           }
@@ -564,7 +549,7 @@ void SendAndNotify(MeshData<Real> *md) {
 //          Guarantees that buffers for MeshBlocks on the same rank are done, but MPI
 //          communication between ranks may still be in process.
 
-// TODO(pgrete) should probaly be moved to the bvals or interface folders
+// TODO(pgrete) should probably be moved to the bvals or interface folders
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
 
@@ -635,6 +620,9 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
                     }
                   });
             });
+
+        // set flag indicating if this is zero or non-zero
+        boundary_info(b).buf(NvNkNj * Ni) = (sending_nonzero_flags(b) ? 1.0 : 0.0);
       });
 
 #ifdef MPI_PARALLEL

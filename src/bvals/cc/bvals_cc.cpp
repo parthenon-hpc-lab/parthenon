@@ -169,12 +169,6 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real> &
 
   ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
   BufferUtility::PackData(var_cc_, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb.get());
-
-  // if we're sending this to another rank, add allocation status flag at the end
-  // if (nb.snb.rank != Globals::my_rank) {
-  //   buf[p] =
-  // }
-
   return p;
 }
 
@@ -330,6 +324,8 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       // communicate the allocation status
       ssize += 1;
       rsize += 1;
+
+      bd_var_.recv_size[nb.bufid] = rsize;
 
       // Initialize persistent communication requests attached to specific BoundaryData
       tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_phys_id_);

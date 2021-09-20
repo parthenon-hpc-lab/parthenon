@@ -457,9 +457,8 @@ template <typename T>
 TaskStatus MeshBlockData<T>::SendFluxCorrection() {
   Kokkos::Profiling::pushRegion("Task_SendFluxCorrection");
   for (auto &v : varVector_) {
-    if (v->IsAllocated() && v->IsSet(Metadata::WithFluxes) &&
-        v->IsSet(Metadata::FillGhost)) {
-      v->vbvar->SendFluxCorrection();
+    if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
+      v->vbvar->SendFluxCorrection(v->IsAllocated());
     }
   }
 
@@ -490,9 +489,9 @@ TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshBlockData");
   // sends the boundary
   for (auto &v : varVector_) {
-    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
+    if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
-      v->vbvar->SendBoundaryBuffers();
+      v->vbvar->SendBoundaryBuffers(v->IsAllocated());
     }
   }
 

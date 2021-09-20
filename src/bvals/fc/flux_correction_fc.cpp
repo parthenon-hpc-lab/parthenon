@@ -43,7 +43,7 @@ namespace parthenon {
 //! \fn void FaceCenteredBoundaryVariable::SendEMFCorrection()
 //  \brief Restrict, pack and send the flux correction to the coarse neighbor(s) if needed
 
-void FaceCenteredBoundaryVariable::SendFluxCorrection() {
+void FaceCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
   throw std::runtime_error(
       "FaceCenteredBoundaryVariable::SendFluxCorrection not implemented yet");
 }
