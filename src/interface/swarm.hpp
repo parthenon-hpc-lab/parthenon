@@ -246,6 +246,8 @@ class Swarm {
 
   std::vector<int> neighbor_received_particles_;
   int total_received_particles_;
+
+  ParArrayND<int> neighbor_buffer_index_; // Map from neighbor index to neighbor bufid
 };
 
 template <class T>
