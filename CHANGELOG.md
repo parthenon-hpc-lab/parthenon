@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 558]](https://github.com/lanl/parthenon/pull/558) Boundary bugfix(es) incl. regression tests and exposing FluxDiv_ interface
 - [[PR 563]](https://github.com/lanl/parthenon/pull/563) Physical boundary options for particles
 - [[PR 582]](https://github.com/lanl/parthenon/pull/582) Adding global reductions and basic functionality needed for solvers.
 - [[PR 556]](https://github.com/lanl/parthenon/pull/556) Introduce iterative tasks and regionally dependent tasks
