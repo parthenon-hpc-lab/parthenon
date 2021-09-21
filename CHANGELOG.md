@@ -13,7 +13,7 @@
 ### Removed (removing behavior/API/varaibles/...)
 
 ## Release 0.6.0
-Date: 09/06/2021
+Date: 09/22/2021
 
 ### Added (new features/APIs/variables/...)
 - [[PR 563]](https://github.com/lanl/parthenon/pull/563) Physical boundary options for particles
@@ -31,6 +31,7 @@ Date: 09/06/2021
 - [[PR 404]](https://github.com/lanl/parthenon/pull/404) Add capability to communicate particles across meshblocks/MPI processes
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 558]](https://github.com/lanl/parthenon/pull/558) Boundary bugfix(es) incl. regression tests and exposing FluxDiv_ interface
 - [[PR 583]](https://github.com/lanl/parthenon/pull/583) Fix file numbering logic for writing outputs after restarting a simulation.
 - [[PR 581]](https://github.com/lanl/parthenon/pull/581) Change return status of `ArgParse` so that `complete` is returned when passing in the help flag.
 - [[PR 580]](https://github.com/lanl/parthenon/pull/580) Hid variable/meshblock pack keys from public API, added unit tests for `MeshBlockData`.

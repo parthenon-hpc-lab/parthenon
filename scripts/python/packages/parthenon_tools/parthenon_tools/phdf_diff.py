@@ -520,7 +520,9 @@ def compare(
                 bad_idx = tuple(bad_idx)
 
                 # Find the bad location
-                bad_loc = loc[:, bad_idx[0], bad_idx[1], bad_idx[2], bad_idx[3]]
+                bad_loc = np.array(loc)[
+                    :, bad_idx[0], bad_idx[1], bad_idx[2], bad_idx[3]
+                ]
 
                 # TODO(forrestglines): Check that the bkji and zyx reported are the correct order
                 print(f"Diff in {var:20s}")
