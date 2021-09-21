@@ -30,7 +30,7 @@ try:
 except ImportError:
     ()
 
-""" To prevent littering up imported folders with .pyc files"""
+# To prevent littering up imported folders with .pyc files
 sys.dont_write_bytecode = True
 
 # Parthenon modules
