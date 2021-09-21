@@ -42,9 +42,6 @@
 // define PARTHENON_ENABLE_HOST_COMM_BUFFERS or not at all
 #cmakedefine PARTHENON_ENABLE_HOST_COMM_BUFFERS
 
-// define PARTHENON_ENABLE_INIT_PACKING or not at all
-#cmakedefine PARTHENON_ENABLE_INIT_PACKING
-
 // defne ENABLE_HDF5 or not at all
 #cmakedefine ENABLE_HDF5
 

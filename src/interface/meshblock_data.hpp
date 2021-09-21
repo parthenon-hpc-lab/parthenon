@@ -419,9 +419,6 @@ class MeshBlockData {
   void SetLocalNeighborAllcoated();
   void ResetBoundaryCellVariables();
   void SetupPersistentMPI();
-  TaskStatus SetBoundaries();
-  TaskStatus SendBoundaryBuffers();
-  TaskStatus ReceiveAndSetBoundariesWithWait();
   TaskStatus ReceiveBoundaryBuffers();
   TaskStatus StartReceiving(BoundaryCommSubset phase);
   TaskStatus ClearBoundary(BoundaryCommSubset phase);
@@ -429,7 +426,6 @@ class MeshBlockData {
   TaskStatus ReceiveFluxCorrection();
 
   // physical boundary routines
-  TaskStatus RestrictBoundaries();
   void ProlongateBoundaries();
 
   bool operator==(const MeshBlockData<T> &cmp) {

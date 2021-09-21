@@ -63,16 +63,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
   pkg->AddParam<>("profile", profile_str);
 
-  auto buffer_send_pack = pin->GetOrAddBoolean("Advection", "buffer_send_pack", false);
-  auto buffer_recv_pack = pin->GetOrAddBoolean("Advection", "buffer_recv_pack", false);
-  auto buffer_set_pack = pin->GetOrAddBoolean("Advection", "buffer_set_pack", false);
-  auto buffer_restrict_pack =
-      pin->GetOrAddBoolean("Advection", "buffer_restrict_pack", false);
-  pkg->AddParam<>("buffer_send_pack", buffer_send_pack);
-  pkg->AddParam<>("buffer_recv_pack", buffer_recv_pack);
-  pkg->AddParam<>("buffer_set_pack", buffer_set_pack);
-  pkg->AddParam<>("buffer_restrict_pack", buffer_restrict_pack);
-
   Real amp = pin->GetOrAddReal("Advection", "amp", 1e-6);
   Real vel = std::sqrt(vx * vx + vy * vy + vz * vz);
   Real ang_2 = pin->GetOrAddReal("Advection", "ang_2", -999.9);

@@ -92,7 +92,6 @@ parthenon-cuda-short:
     - cd build-cuda-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DMACHINE_VARIANT=cuda-mpi
-      -DPARTHENON_ENABLE_INIT_PACKING=ON
       ../
     - make -j${J} advection-example
     - export OMPI_MCA_mpi_common_cuda_event_max=1000
@@ -125,7 +124,6 @@ parthenon-cpu-short:
     - cd build-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DMACHINE_VARIANT=mpi
-      -DPARTHENON_ENABLE_INIT_PACKING=ON
       ../
     - make -j${J} advection-example
     - ctest -R regression_mpi_test:output_hdf5

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -49,34 +49,6 @@ namespace parthenon {
 // which are now called together as ProlongateBoundaries in
 // `bvals/bondary_conditions.hpp`. This allows us to loop over all variables in a
 // container.
-void BoundaryValues::RestrictBoundaries() {
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  int &mylevel = pmb->loc.level;
-  for (int n = 0; n < nneighbor; n++) {
-    NeighborBlock &nb = neighbor[n];
-
-    if (nb.snb.level >= mylevel) continue;
-
-    // fill the required ghost-ghost zone
-    IndexRange bni, bnj, bnk;
-    ComputeRestrictionBounds_(nb, bni, bnj, bnk);
-
-    // TODO(JMM): this loop should probably be a kokkos loop
-    for (int nk = bnk.s; nk <= bnk.e; nk++) {
-      for (int nj = bnj.s; nj <= bnj.e; nj++) {
-        for (int ni = bni.s; ni <= bni.e; ni++) {
-          int ntype = std::abs(ni) + std::abs(nj) + std::abs(nk);
-          // skip myself or coarse levels; only the same level must be restricted
-          if (ntype == 0 || nblevel[nk + 1][nj + 1][ni + 1] != mylevel) continue;
-
-          // this neighbor block is on the same level
-          // and needs to be restricted for prolongation
-          RestrictGhostCellsOnSameLevel_(nb, nk, nj, ni);
-        }
-      }
-    }
-  }
-}
 
 int BoundaryValues::NumRestrictions() {
   int nbuffs = 0;
