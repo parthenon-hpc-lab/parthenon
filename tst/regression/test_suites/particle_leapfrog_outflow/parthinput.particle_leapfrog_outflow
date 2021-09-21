@@ -45,8 +45,8 @@ nx2 = 8
 nx3 = 8
 
 <parthenon/time>
-tlim = 2.0
-nlim = 25
+tlim = 0.55
+nlim = 55
 integrator = rk1
 
 <Particles>
