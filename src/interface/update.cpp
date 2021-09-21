@@ -151,7 +151,7 @@ TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
   const auto &pack = md->PackVariables(flags);
 
   // get list of variables in same order as they appear in the pack, since variable
-  // metadata is the on all blocks, we can just use the first block
+  // metadata is the same on all blocks, we can just use the first block
   const auto &var_list = md->GetBlockData(0)->GetVariablesByFlag(flags, true);
 
   const int num_blocks = pack.GetDim(5);
