@@ -187,7 +187,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
                  std::vector<int>({num_vars}));
     pkg->AddField(field_name, m);
-    pkg->AllFields();
 
     field_name = "one_minus_advected_sq";
     m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
@@ -538,10 +537,12 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
                 // Custom flux function to move isolated, cells around. Just used for
                 // bvals testing.
               } else {
-                v.flux(X2DIR, n, k, j, i) =
-                    ql(idx_v + 1, i) > 0.0 ? ql(n, i) * ql(idx_v + 1, i) : 0.0;
-                v.flux(X2DIR, n, k, j, i) +=
-                    qr(idx_v + 1, i) < 0.0 ? qr(n, i) * qr(idx_v + 1, i) : 0.0;
+                v.flux(X2DIR, n, k, j, i) = ql(idx_v + X2DIR - 1, i) > 0.0
+                                                ? ql(n, i) * ql(idx_v + X2DIR - 1, i)
+                                                : 0.0;
+                v.flux(X2DIR, n, k, j, i) += qr(idx_v + X2DIR - 1, i) < 0.0
+                                                 ? qr(n, i) * qr(idx_v + X2DIR - 1, i)
+                                                 : 0.0;
               }
             });
           }
@@ -579,10 +580,12 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
                 // Custom flux function to move isolated, cells around. Just used for
                 // bvals testing.
               } else {
-                v.flux(X3DIR, n, k, j, i) =
-                    ql(idx_v + 2, i) > 0.0 ? ql(n, i) * ql(idx_v + 2, i) : 0.0;
-                v.flux(X3DIR, n, k, j, i) +=
-                    qr(idx_v + 2, i) < 0.0 ? qr(n, i) * qr(idx_v + 2, i) : 0.0;
+                v.flux(X3DIR, n, k, j, i) = ql(idx_v + X3DIR - 1, i) > 0.0
+                                                ? ql(n, i) * ql(idx_v + X3DIR - 1, i)
+                                                : 0.0;
+                v.flux(X3DIR, n, k, j, i) += qr(idx_v + X3DIR - 1, i) < 0.0
+                                                 ? qr(n, i) * qr(idx_v + X3DIR - 1, i)
+                                                 : 0.0;
               }
             });
           }

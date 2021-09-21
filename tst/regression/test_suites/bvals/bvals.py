@@ -28,7 +28,17 @@ sys.dont_write_bytecode = True
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
 
-        # Step 1 (default vals in parameter file) is reflecting BC
+        # Step 1 reflecting BC
+        if step == 1:
+            parameters.driver_cmd_line_args = [
+                "parthenon/mesh/ix1_bc=reflecting",
+                "parthenon/mesh/ox1_bc=reflecting",
+                "parthenon/mesh/ix2_bc=reflecting",
+                "parthenon/mesh/ox2_bc=reflecting",
+                "parthenon/mesh/ix3_bc=reflecting",
+                "parthenon/mesh/ox3_bc=reflecting",
+                "parthenon/output0/id=periodic",
+            ]
         # Step 2: periodic BC
         if step == 2:
             parameters.driver_cmd_line_args = [
