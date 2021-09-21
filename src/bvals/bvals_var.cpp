@@ -18,7 +18,6 @@
 //  \brief constructor/destructor and default implementations for some functions in the
 //         abstract BoundaryVariable class
 
-#include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 
 #include <cstring>
@@ -163,44 +162,6 @@ void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, in
 // Default / shared implementations of 4x BoundaryBuffer public functions
 
 //----------------------------------------------------------------------------------------
-//! \fn void BoundaryVariable::SendBoundaryBuffers(bool is_allocated)
-//  \brief Send boundary buffers of variables
-
-void BoundaryVariable::SendBoundaryBuffers(bool is_allocated) {
-  PARTHENON_REQUIRE_THROWS(false, "BoundaryVariable::SendBoundaryBuffers is disabled");
-  auto pmb = GetBlockPointer();
-  int mylevel = pmb->loc.level;
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-    if ((nb.snb.rank == Globals::my_rank) && !local_neighbor_allocated[n]) {
-      continue;
-    }
-
-    if (bd_var_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
-    int ssize;
-    if (nb.snb.level == mylevel)
-      ssize = LoadBoundaryBufferSameLevel(bd_var_.send[nb.bufid], nb);
-    else if (nb.snb.level < mylevel)
-      ssize = LoadBoundaryBufferToCoarser(bd_var_.send[nb.bufid], nb);
-    else
-      ssize = LoadBoundaryBufferToFiner(bd_var_.send[nb.bufid], nb);
-    // fence to make sure buffers are loaded and ready to send
-    pmb->exec_space.fence();
-    if (nb.snb.rank == Globals::my_rank) {
-      // on the same process
-      CopyVariableBufferSameProcess(nb, ssize);
-    } else {
-#ifdef MPI_PARALLEL
-      PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_.req_send[nb.bufid])));
-#endif
-    }
-
-    bd_var_.sflag[nb.bufid] = BoundaryStatus::completed;
-  }
-  return;
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn bool BoundaryVariable::ReceiveBoundaryBuffers()
 //  \brief receive the boundary data
 
@@ -277,59 +238,6 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
     }
   }
   return bflag;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void BoundaryVariable::SetBoundaries()
-//  \brief set the boundary data
-
-void BoundaryVariable::SetBoundaries() {
-  auto pmb = GetBlockPointer();
-  int mylevel = pmb->loc.level;
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-    if (nb.snb.level == mylevel)
-      // TODO(pgrete) FIX interface
-      SetBoundarySameLevel(bd_var_.recv[nb.bufid], nb);
-    else if (nb.snb.level < mylevel) // only sets the prolongation buffer
-      SetBoundaryFromCoarser(bd_var_.recv[nb.bufid], nb);
-    else
-      SetBoundaryFromFiner(bd_var_.recv[nb.bufid], nb);
-    bd_var_.flag[nb.bufid] = BoundaryStatus::completed; // completed
-  }
-
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void BoundaryVariable::ReceiveAndSetBoundariesWithWait()
-//  \brief receive and set the boundary data for initialization
-
-void BoundaryVariable::ReceiveAndSetBoundariesWithWait(bool is_allocated) {
-  auto pmb = GetBlockPointer();
-  int mylevel = pmb->loc.level;
-  pmb->exec_space.fence();
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-
-    if (nb.snb.rank != Globals::my_rank) {
-#ifdef MPI_PARALLEL
-      PARTHENON_MPI_CHECK(MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE));
-#endif
-    } else if (!is_allocated) {
-      continue;
-    }
-
-    if (nb.snb.level == mylevel)
-      SetBoundarySameLevel(bd_var_.recv[nb.bufid], nb);
-    else if (nb.snb.level < mylevel)
-      SetBoundaryFromCoarser(bd_var_.recv[nb.bufid], nb);
-    else
-      SetBoundaryFromFiner(bd_var_.recv[nb.bufid], nb);
-    bd_var_.flag[nb.bufid] = BoundaryStatus::completed; // completed
-  }
-
-  return;
 }
 
 } // namespace parthenon

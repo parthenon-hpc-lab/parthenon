@@ -181,7 +181,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // non-inhertied / unique functions (do not exist in BoundaryVariable objects):
   // (these typically involve a coupled interaction of boundary variable/quantities)
   // ------
-  void RestrictBoundaries();
   void ProlongateBoundaries();
 
   int NumRestrictions();

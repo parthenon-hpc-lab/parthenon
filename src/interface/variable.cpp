@@ -162,10 +162,6 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
       PARTHENON_REQUIRE_THROWS(
           res.second || (pmb->pbval->bvars.at(label()).get(), vbvar.get()),
           "A boundary variable already existed and it's different from the new one.")
-      // if (!res.second) {
-      //   printf("WARNING: bvar already existed on block %i, var %s\n", pmb->gid,
-      //          label().c_str());
-      // }
     }
   }
 

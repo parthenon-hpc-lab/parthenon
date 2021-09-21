@@ -485,21 +485,6 @@ TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
 }
 
 template <typename T>
-TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
-  Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshBlockData");
-  // sends the boundary
-  for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      v->resetBoundary();
-      v->vbvar->SendBoundaryBuffers(v->IsAllocated());
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_SendBoundaryBuffers_MeshBlockData
-  return TaskStatus::complete;
-}
-
-template <typename T>
 void MeshBlockData<T>::SetupPersistentMPI() {
   // setup persistent MPI
   for (auto &v : varVector_) {
@@ -534,39 +519,6 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
   Kokkos::Profiling::popRegion(); // Task_ReceiveBoundaryBuffers_MeshBlockData
   if (ret) return TaskStatus::complete;
   return TaskStatus::incomplete;
-}
-
-template <typename T>
-TaskStatus MeshBlockData<T>::ReceiveAndSetBoundariesWithWait() {
-  Kokkos::Profiling::pushRegion("Task_ReceiveAndSetBoundariesWithWait");
-  for (auto &v : varVector_) {
-    if ((!v->mpiStatus) && v->IsSet(Metadata::FillGhost)) {
-      v->resetBoundary();
-      v->vbvar->ReceiveAndSetBoundariesWithWait(v->IsAllocated());
-      v->mpiStatus = true;
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_ReceiveAndSetBoundariesWithWait
-  return TaskStatus::complete;
-}
-// This really belongs in MeshBlockData.cpp. However if I put it in there,
-// the meshblock file refuses to compile.  Don't know what's going on
-// there, but for now this is the workaround at the expense of code
-// bloat.
-template <typename T>
-TaskStatus MeshBlockData<T>::SetBoundaries() {
-  Kokkos::Profiling::pushRegion("Task_SetBoundaries_MeshBlockData");
-  // sets the boundary
-  for (auto &v : varVector_) {
-    if (v->IsAllocated() && v->IsSet(Metadata::FillGhost)) {
-      v->resetBoundary();
-      v->vbvar->SetBoundaries();
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_SetBoundaries_MeshBlockData
-  return TaskStatus::complete;
 }
 
 template <typename T>
@@ -609,16 +561,6 @@ TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
   }
 
   Kokkos::Profiling::popRegion(); // Task_ClearBoundary
-  return TaskStatus::complete;
-}
-
-template <typename T>
-TaskStatus MeshBlockData<T>::RestrictBoundaries() {
-  Kokkos::Profiling::pushRegion("RestrictBoundaries");
-  // TODO(JMM): Change this upon refactor of BoundaryValues
-  auto pmb = GetBlockPointer();
-  pmb->pbval->RestrictBoundaries();
-  Kokkos::Profiling::popRegion(); // RestrictBoundaries
   return TaskStatus::complete;
 }
 

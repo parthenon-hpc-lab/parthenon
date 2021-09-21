@@ -210,11 +210,7 @@ class BoundaryBuffer {
   virtual ~BoundaryBuffer() {}
 
   // universal buffer management methods for Cartesian grids (unrefined and SMR/AMR)
-  virtual void SendBoundaryBuffers(bool is_allocated) = 0;
   virtual bool ReceiveBoundaryBuffers(bool is_allocated) = 0;
-  // this next fn is used only during problem initialization in mesh.cpp:
-  virtual void ReceiveAndSetBoundariesWithWait(bool is_allocated) = 0;
-  virtual void SetBoundaries() = 0;
 
   virtual void SendFluxCorrection(bool is_allocated) = 0;
   virtual bool ReceiveFluxCorrection(bool is_allocated) = 0;
@@ -260,10 +256,7 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
   virtual int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) = 0;
 
   // BoundaryBuffer public functions with shared implementations
-  void SendBoundaryBuffers(bool is_allocated) override;
   bool ReceiveBoundaryBuffers(bool is_allocated) override;
-  void ReceiveAndSetBoundariesWithWait(bool is_allocated) override;
-  void SetBoundaries() override;
   auto GetPBdVar() { return &bd_var_; }
 
  protected:

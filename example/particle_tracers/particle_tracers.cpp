@@ -27,10 +27,12 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/refinement_cc_in_one.hpp"
 
 using namespace parthenon::driver::prelude;
 using namespace parthenon::Update;
@@ -450,19 +452,56 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
 
     auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshBlockData<Real>>,
                              sc0.get(), dudt.get(), beta * dt, sc1.get());
+  }
 
-    auto send = tl.AddTask(update, &MeshBlockData<Real>::SendBoundaryBuffers, sc1.get());
+  const int num_partitions = pmesh->DefaultNumPartitions();
+  // note that task within this region that contains one tasklist per pack
+  // could still be executed in parallel
+  TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
 
-    auto recv = tl.AddTask(send, &MeshBlockData<Real>::ReceiveBoundaryBuffers, sc1.get());
+  {
+    TaskRegion &tr = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+      tr[i].AddTask(none, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
+    }
+  }
 
-    auto fill_from_bufs =
-        tl.AddTask(recv, &MeshBlockData<Real>::SetBoundaries, sc1.get());
+  {
+    TaskRegion &tr = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+      tr[i].AddTask(none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
+    }
+  }
 
-    auto clear_comm_flags =
-        tl.AddTask(fill_from_bufs, &MeshBlockData<Real>::ClearBoundary, sc1.get(),
-                   BoundaryCommSubset::all);
+  {
+    TaskRegion &tr = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+      tr[i].AddTask(none, parthenon::cell_centered_bvars::SetBoundaries, mc1);
+    }
+  }
 
-    auto prolongBound = tl.AddTask(fill_from_bufs, parthenon::ProlongateBoundaries, sc1);
+  if (pmesh->multilevel) {
+    TaskRegion &tr = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+      tr[i].AddTask(none, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
+                    mc1.get());
+    }
+  }
+
+  TaskRegion &async_region1 = tc.AddRegion(nblocks);
+  for (int n = 0; n < nblocks; n++) {
+    auto &pmb = blocks[n];
+    auto &tl = async_region1[n];
+    auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
+
+    auto clear_comm_flags = tl.AddTask(none, &MeshBlockData<Real>::ClearBoundary,
+                                       sc1.get(), BoundaryCommSubset::all);
+
+    auto prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
 
     auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
 
