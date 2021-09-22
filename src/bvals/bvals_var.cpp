@@ -108,6 +108,7 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
     bd.recv[n] =
         BufArray1D<Real>(bd.buffers, std::make_pair(offsets.at(n) + total_size,
                                                     offsets.at(n + 1) + total_size));
+    bd.recv_h[n] = Kokkos::create_mirror_view(bd.recv[n]);
   }
 }
 
@@ -225,11 +226,15 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
           continue;
         }
 
-        const Real flag = bd_var_.recv[nb.bufid](bd_var_.recv_size[nb.bufid] - 1);
-        // check if we need to allocate this variable if it's not allocated
-        if (!is_allocated && (flag == 1.0)) {
-          // we need to allocate this variable
-          pmb->AllocateSparse(label());
+        if (!is_allocated) {
+          // we have to copy recv buffer to host to read it
+          Kokkos::deep_copy(bd_var_.recv_h[nb.bufid], bd_var_.recv[nb.bufid]);
+          const Real flag = bd_var_.recv_h[nb.bufid](bd_var_.recv_size[nb.bufid] - 1);
+          // check if we need to allocate this variable if it's not allocated
+          if (flag == 1.0) {
+            // we need to allocate this variable
+            pmb->AllocateSparse(label());
+          }
         }
 
         bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;

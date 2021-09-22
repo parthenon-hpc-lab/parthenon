@@ -166,6 +166,8 @@ struct BoundaryData { // aggregate and POD (even when MPI_PARALLEL is defined)
   BoundaryStatus flag[kMaxNeighbor], sflag[kMaxNeighbor];
   BufArray1D<Real> buffers;
   BufArray1D<Real> send[kMaxNeighbor], recv[kMaxNeighbor];
+  // host mirror view of recv
+  BufArray1D<Real>::host_mirror_type recv_h[kMaxNeighbor];
   int recv_size[kMaxNeighbor];
 #ifdef MPI_PARALLEL
   MPI_Request req_send[kMaxNeighbor], req_recv[kMaxNeighbor];
