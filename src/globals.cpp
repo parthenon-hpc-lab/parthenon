@@ -27,7 +27,6 @@
 namespace parthenon {
 namespace Globals {
 
-int ncycle;
 int nghost;
 
 // all of these global variables are set at the start of main():
