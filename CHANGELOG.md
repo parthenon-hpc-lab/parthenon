@@ -12,7 +12,7 @@
 
 ### Removed (removing behavior/API/varaibles/...)
 
-## Release 0.6.0
+## Release 0.6.1
 Date: 09/22/2021
 
 ### Added (new features/APIs/variables/...)

@@ -37,7 +37,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "parthenon/mesh/ox2_bc=reflecting",
                 "parthenon/mesh/ix3_bc=reflecting",
                 "parthenon/mesh/ox3_bc=reflecting",
-                "parthenon/output0/id=periodic",
+                "parthenon/output0/id=reflecting",
             ]
         # Step 2: periodic BC
         if step == 2:
