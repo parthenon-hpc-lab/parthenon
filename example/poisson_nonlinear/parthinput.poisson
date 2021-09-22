@@ -21,14 +21,14 @@ problem_id = poisson
 <parthenon/mesh>
 pack_size = 1
 nx1 = 128
-x1min = -10.0
-x1max = 10.0
+x1min = -1.0
+x1max = 1.0
 ix1_bc = outflow
 ox1_bc = outflow
 
 nx2 = 128
-x2min = -10.0
-x2max = 10.0
+x2min = -1.0
+x2max = 1.0
 ix2_bc = outflow
 ox2_bc = outflow
 
@@ -38,10 +38,10 @@ x3max = 0.5
 ix3_bc = periodic
 ox3_bc = periodic
 
-<parthenon/meshblock>
-nx1 = 64
-nx2 = 64
-nx3 = 1
+#<parthenon/meshblock>
+#nx1 = 64
+#nx2 = 64
+#nx3 = 1
 
 <parthenon/time>
 #nlim = -1
@@ -52,14 +52,14 @@ nx3 = 1
 <parthenon/output0>
 file_type = hdf5
 dt = 0.05
-variables = potential, density
+variables = potential, residual, delta
 
 <poisson>
 lambda = 0.1
-newton_max_iterations = 1 
+newton_max_iterations = 200
 lin_max_iterations = 50000
 #lin_check_interval = 1
-#newton_error_tolerance = 1.e-8
+newton_error_tolerance = 1.e-28
 #fail_without_convergence = false
 #warn_without_convergence = true
 #precon_name = icc 

@@ -71,10 +71,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto mres = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField("residual", mres);
+  pkg->AddField("delta", mres);
 
   auto mphi = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
   pkg->AddField("potential", mphi);
-
 
   pkg->AddParam<std::string>("spm_name", "poisson_jacobian");
   pkg->AddParam<std::string>("rhs_name", "residual");
@@ -167,7 +167,7 @@ TaskStatus Residual(T *u, Real *res) {
       parthenon::loop_pattern_mdrange_tag, "Residual", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
       jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lres) {
-        v(b, ires, k, j, i) = dx2 * lam * std::exp(v(b, iphi, k, j, i))
+        v(b, ires, k, j, i) = dx2 * lam * std::exp(-v(b, iphi, k, j, i))
                             - 2*ndim*v(b, iphi, k, j, i);
         v(b, ires, k, j, i) += (v(b, iphi, k, j, i-1) + v(b, iphi, k, j, i+1));
         if (ndim > 1) v(b, ires, k, j, i) += (v(b, iphi, k, j-1, i) + v(b, iphi, k, j+1, i));
@@ -218,7 +218,7 @@ TaskStatus Jacobian(T *u) {
         for (int n = isp_lo; n <= isp_hi; n++) {
           v(b, n, k, j, i) = -1;
         }
-        v(b, isp_lo + 1, k, j, i) = w0 - dx2*lam*std::exp(v(b, iphi, k, j, i));
+        v(b, isp_lo + 1, k, j, i) = w0 + dx2*lam*std::exp(-v(b, iphi, k, j, i));
       });
 
   return TaskStatus::complete;

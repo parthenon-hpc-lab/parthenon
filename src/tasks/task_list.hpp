@@ -51,16 +51,19 @@ class IterativeTasks {
 
   // overload to add member functions of class T to task list
   // NOTE: we must capture the object pointer
-  template <class T, class U, class... Args>
-  TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), U *obj,
-                 Args &&... args) {
+  template <class T, class U, class... Args1, class... Args2>
+  TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args1...), U *obj,
+                 Args2 &&... args) {
     return this->AddTask_(TaskType::iterative, 1, dep, [=]() mutable -> TaskStatus {
-      return (obj->*func)(std::forward<Args>(args)...);
+      return (obj->*func)(std::forward<Args2>(args)...);
     });
   }
 
   template <class T, class... Args>
   TaskID AddTask(TaskID const &dep, T &&func, Args &&... args) {
+    /*if (std::is_member_function_pointer<decltype(func)>::value) {
+      return AddMemberTask(dep, std::forward<T>(func), std::forward<Args>(args)...);
+    }*/
     return AddTask_(TaskType::iterative, 1, dep, std::forward<T>(func),
                     std::forward<Args>(args)...);
   }
@@ -266,6 +269,9 @@ class TaskList {
         } else if (task->GetStatus() == TaskStatus::skip &&
                    task->GetType() == TaskType::completion_criteria) {
           ResetIteration(task->GetKey());
+        } else if (task->GetStatus() == TaskStatus::iterate &&
+                   !task->IsRegional()) {
+          ResetIteration(task->GetKey());
         }
       }
       ++task;
@@ -304,11 +310,11 @@ class TaskList {
 
   // overload to add member functions of class T to task list
   // NOTE: we must capture the object pointer
-  template <class T, class U, class... Args>
-  TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), U *obj,
-                 Args &&... args) {
+  template <class T, class U, class... Args1, class... Args2>
+  TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args1...), U *obj,
+                 Args2 &&... args) {
     return this->AddTask(dep, [=]() mutable -> TaskStatus {
-      return (obj->*func)(std::forward<Args>(args)...);
+      return (obj->*func)(std::forward<Args2>(args)...);
     });
   }
 
@@ -325,6 +331,7 @@ class TaskList {
 
   IterativeTasks &AddIteration(const std::string &label) {
     int key = iter_tasks.size();
+    std::cout << "adding iteration " << key << "   " << label << std::endl;
     iter_tasks[key] = IterativeTasks(this, key);
     iter_labels[key] = label;//.push_back(label);
     return iter_tasks[key];

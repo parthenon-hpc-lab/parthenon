@@ -177,7 +177,6 @@ class CG_Solver : public CG_Counter {
 
     ////////////////////////////////////////////////////////////////////////////////
     // CG
-    // this will move to somewhere..
 
     // initialization only happens once.
 
@@ -245,7 +244,7 @@ class CG_Solver : public CG_Counter {
     auto beta = solver.AddTask(finish_global_rz_new, &CG_Solver<SPType>::UpdateInternals, this, i);
     tr.AddRegionalDependencies(reg.ID(), i, beta);
 
-    auto check = solver.SetCompletionTask(beta, &CG_Solver<SPType>::CheckConvergence, this, i, true);
+    auto check = solver.SetCompletionTask(beta, &CG_Solver<SPType>::CheckConvergence, this, i, false);
     tr.AddGlobalDependencies(reg.ID(), i, check);
 
     return check;
