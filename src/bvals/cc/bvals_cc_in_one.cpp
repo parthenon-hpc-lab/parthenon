@@ -621,8 +621,12 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
                   });
             });
 
+        team_member.team_barrier();
+
         // set flag indicating if this is zero or non-zero
-        boundary_info(b).buf(NvNkNj * Ni) = (sending_nonzero_flags(b) ? 1.0 : 0.0);
+        if (team_member.team_rank() == 0) {
+          boundary_info(b).buf(NvNkNj * Ni) = (sending_nonzero_flags(b) ? 1.0 : 0.0);
+        }
       });
 
 #ifdef MPI_PARALLEL
