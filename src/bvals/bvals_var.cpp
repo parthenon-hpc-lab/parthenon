@@ -230,11 +230,8 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
           // we have to copy recv buffer to host to read it
           Kokkos::deep_copy(bd_var_.recv_h[nb.bufid], bd_var_.recv[nb.bufid]);
           const Real flag = bd_var_.recv_h[nb.bufid](bd_var_.recv_size[nb.bufid] - 1);
-          printf("FLAG cycle %06i rank %02i block %04i var %s flag %.1f\n", Globals::ncycle,
-                 Globals::my_rank, pmb->gid, label().c_str(), flag);
           // check if we need to allocate this variable if it's not allocated
           if (flag == 1.0) {
-            printf("ALLOCATING on new rank\n");
             // we need to allocate this variable
             pmb->AllocateSparse(label());
           }

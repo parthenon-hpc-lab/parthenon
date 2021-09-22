@@ -70,7 +70,6 @@ class EvolutionDriver : public Driver {
     Real dt =
         pinput->GetOrAddPrecise("parthenon/time", "dt", std::numeric_limits<Real>::max());
     const auto ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
-    Globals::ncycle = ncycle;
     const auto nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
     const auto nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
     // disable mesh output by default

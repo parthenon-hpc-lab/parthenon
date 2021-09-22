@@ -29,7 +29,7 @@ struct SparseConfig {
   int deallocation_count = 5;
 };
 
-extern int my_rank, nranks, nghost, ncycle;
+extern int my_rank, nranks, nghost;
 
 extern SparseConfig sparse_config;
 
