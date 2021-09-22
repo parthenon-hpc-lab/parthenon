@@ -17,6 +17,7 @@
 
 #include "driver/driver.hpp"
 
+#include "globals.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -78,6 +79,7 @@ DriverStatus EvolutionDriver::Execute() {
     pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
 
     tm.ncycle++;
+    Globals::ncycle = tm.ncycle;
     tm.time += tm.dt;
     pmesh->mbcnt += pmesh->nbtotal;
     pmesh->step_since_lb++;
