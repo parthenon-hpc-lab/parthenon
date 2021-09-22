@@ -187,7 +187,7 @@ The second pipeline focuses on performance regression.
 It is executed through a (different) repository [mirror](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror)
 using runners provided by the IAS.
 The runners have Intel Xeon Gold 6148 (Skylake) processors and Nvidia V100 (Volta) GPUs.
-Both the environment and the pipeline are configoures through [.gitlab-ci-ias.yml](.gitlab-ci-ias.yml).
+Both the environment and the pipeline are configured through [.gitlab-ci-ias.yml](.gitlab-ci-ias.yml).
 The current tests span uniform grids on GPUs (using Cuda/nvcc).
 Note, in order to integrate this kind of performance regression test with CMake
 follow the instructions [below](#integrating-the-regression-test-with-cmake) *and* add the
