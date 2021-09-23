@@ -210,13 +210,16 @@ class MeshData {
   }
 
   void SetSendBuffers(const cell_centered_bvars::BufferCache_t &send_buffers,
-                      const ParArray1D<bool> &sending_nonzero_flags) {
+                      const ParArray1D<bool> &sending_nonzero_flags,
+                      const ParArray1D<bool>::host_mirror_type &sending_nonzero_flags_h) {
     send_buffers_ = send_buffers;
     sending_nonzero_flags_ = sending_nonzero_flags;
+    sending_nonzero_flags_h_ = sending_nonzero_flags_h;
   }
 
   auto &GetSendBuffers() const { return send_buffers_; }
   auto &GetSendingNonzeroFlags() const { return sending_nonzero_flags_; }
+  auto &GetSendingNonzeroFlagsHost() const { return sending_nonzero_flags_h_; }
 
   void SetSetBuffers(const cell_centered_bvars::BufferCache_t &set_buffers) {
     set_buffers_ = set_buffers;
@@ -456,6 +459,7 @@ class MeshData {
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   // caches for boundary information
   ParArray1D<bool> sending_nonzero_flags_{};
+  ParArray1D<bool>::host_mirror_type sending_nonzero_flags_h_{};
   cell_centered_bvars::BufferCache_t send_buffers_{};
   cell_centered_bvars::BufferCache_t set_buffers_{};
   cell_centered_bvars::BufferCache_t restrict_buffers_{};

@@ -377,8 +377,12 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
     }
   }
   Kokkos::deep_copy(boundary_info, boundary_info_h);
-  Kokkos::deep_copy(sending_nonzero_flags, sending_nonzero_flags_h);
-  md->SetSendBuffers(boundary_info, sending_nonzero_flags);
+
+  // only necessary if sparse is enabled
+  if (Globals::sparse_config.enabled) {
+    Kokkos::deep_copy(sending_nonzero_flags, sending_nonzero_flags_h);
+  }
+  md->SetSendBuffers(boundary_info, sending_nonzero_flags, sending_nonzero_flags_h);
 
   // Restrict whichever buffers need restriction.
   cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
@@ -397,8 +401,10 @@ void SendAndNotify(MeshData<Real> *md) {
 
   // copy sending_nonzero_flags to host
   const auto sending_nonzero_flags = md->GetSendingNonzeroFlags();
-  const auto sending_nonzero_flags_h =
-      Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), sending_nonzero_flags);
+  const auto sending_nonzero_flags_h = md->GetSendingNonzeroFlagsHost();
+  if (Globals::sparse_config.enabled) {
+    Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);
+  }
 
   struct NeighborAllocTask {
     std::string var_label;
@@ -429,7 +435,7 @@ void SendAndNotify(MeshData<Real> *md) {
 
           // on the same rank the data has been directly copied to the target buffer
           if (nb.snb.rank == parthenon::Globals::my_rank) {
-            if (!v->IsAllocated()) {
+            if (!Globals::sparse_config.enabled || !v->IsAllocated()) {
               continue;
             }
 
