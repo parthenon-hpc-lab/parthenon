@@ -227,9 +227,12 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
         }
 
         if (!is_allocated) {
-          // we have to copy recv buffer to host to read it
-          Kokkos::deep_copy(bd_var_.recv_h[nb.bufid], bd_var_.recv[nb.bufid]);
-          const Real flag = bd_var_.recv_h[nb.bufid](bd_var_.recv_size[nb.bufid] - 1);
+          // we have to copy flag at the end of recv buffer to host to read it
+          const auto idx = bd_var_.recv_size[nb.bufid] - 1;
+          BufArray1D<Real> flag_view(bd_var_.recv[nb.bufid],
+                                     std::make_pair(idx, idx + 1));
+          auto flag_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), flag_view);
+          const Real flag = flag_h(0);
           // check if we need to allocate this variable if it's not allocated
           if (flag == 1.0) {
             // we need to allocate this variable
