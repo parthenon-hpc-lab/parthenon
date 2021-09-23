@@ -435,14 +435,15 @@ void SendAndNotify(MeshData<Real> *md) {
 
           // on the same rank the data has been directly copied to the target buffer
           if (nb.snb.rank == parthenon::Globals::my_rank) {
-            if (!Globals::sparse_config.enabled || !v->IsAllocated()) {
+            if (!v->IsAllocated()) {
               continue;
             }
 
             // if the neighbor does not have this variable allocated and we're sending
             // non-zero values, then the neighbor needs to newly allocate this variable
-            bool new_neighbor_alloc =
-                !v->vbvar->local_neighbor_allocated[n] && sending_nonzero_flags_h(b);
+            bool new_neighbor_alloc = Globals::sparse_config.enabled &&
+                                      !v->vbvar->local_neighbor_allocated[n] &&
+                                      sending_nonzero_flags_h(b);
 
             // TODO(?) check performance of FindMeshBlock. Could be caching from call
             // above.
