@@ -185,7 +185,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // Create user mesh data
   // InitMeshBlockUserData(pin);
   app = InitApplicationMeshBlockData(this, pin);
-  return;
 }
 
 //----------------------------------------------------------------------------------------
@@ -260,6 +259,51 @@ void MeshBlock::RegisterMeshBlockData(std::shared_ptr<CellVariable<Real>> pvar_c
 void MeshBlock::RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc) {
   vars_fc_.push_back(pvar_fc);
   return;
+}
+
+void MeshBlock::AllocateSparse(std::string const &label) {
+  // first allocate variable in base stage
+  auto base_var = meshblock_data.Get()->AllocateSparse(label);
+
+  // now allocate in all other stages
+  for (auto stage : meshblock_data.Stages()) {
+    if (stage.first == "base") {
+      // we've already done this
+      continue;
+    }
+
+    auto v = stage.second->GetCellVarPtr(label);
+
+    if (v->IsSet(Metadata::OneCopy)) {
+      // nothing to do, we already allocated variable on base stage, and all other
+      // stages share that variable
+      continue;
+    }
+
+    if (!v->IsAllocated()) {
+      // allocate data of target variable
+      v->AllocateData();
+
+      // copy fluxes and boundary variable from variable on base stage
+      v->CopyFluxesAndBdryVar(base_var.get());
+    }
+  }
+}
+
+void MeshBlock::DeallocateSparse(std::string const &label) {
+  for (auto stage : meshblock_data.Stages()) {
+    stage.second->DeallocateSparse(label);
+
+    auto var = stage.second->GetCellVarPtr(label);
+    auto bd = var->vbvar->GetPBdVar();
+    for (int n = 0; n < pbval->nneighbor; n++) {
+      const parthenon::NeighborBlock &nb = pbval->neighbor[n];
+      if (nb.snb.rank == Globals::my_rank) {
+        bd->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
+        bd->flag[nb.bufid] = parthenon::BoundaryStatus::arrived;
+      }
+    }
+  }
 }
 
 } // namespace parthenon

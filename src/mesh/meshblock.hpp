@@ -169,54 +169,13 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     Kokkos::deep_copy(exec_space, dst, src);
   }
 
-  void AllocateSparse(std::string const &label) {
-    // first allocate variable in base stage
-    auto base_var = meshblock_data.Get()->AllocateSparse(label);
-
-    // now allocate in all other stages
-    for (auto stage : meshblock_data.Stages()) {
-      if (stage.first == "base") {
-        // we've already done this
-        continue;
-      }
-
-      auto v = stage.second->GetCellVarPtr(label);
-
-      if (v->IsSet(Metadata::OneCopy)) {
-        // nothing to do, we already allocated variable on base stage, and all other
-        // stages share that variable
-        continue;
-      }
-
-      if (!v->IsAllocated()) {
-        // allocate data of target variable
-        v->AllocateData();
-
-        // copy fluxes and boundary variable from variable on base stage
-        v->CopyFluxesAndBdryVar(base_var.get());
-      }
-    }
-  }
+  void AllocateSparse(std::string const &label);
 
   void AllocSparseID(std::string const &base_name, const int sparse_id) {
     AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 
-  void DeallocateSparse(std::string const &label) {
-    for (auto stage : meshblock_data.Stages()) {
-      stage.second->DeallocateSparse(label);
-
-      auto var = stage.second->GetCellVarPtr(label);
-      auto bd = var->vbvar->GetPBdVar();
-      for (int n = 0; n < pbval->nneighbor; n++) {
-        const parthenon::NeighborBlock &nb = pbval->neighbor[n];
-        if (nb.snb.rank == Globals::my_rank) {
-          bd->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
-          bd->flag[nb.bufid] = parthenon::BoundaryStatus::arrived;
-        }
-      }
-    }
-  }
+  void DeallocateSparse(std::string const &label);
 
   template <class... Args>
   inline void par_for(Args &&... args) {
