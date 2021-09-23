@@ -444,7 +444,7 @@ void MeshBlockData<T>::SetLocalNeighborAllcoated() {
       if (!varVector_[i]->IsSet(Metadata::FillGhost)) {
         continue;
       }
-      
+
       varVector_[i]->vbvar->local_neighbor_allocated[n] =
           neighbor_data->varVector_[i]->IsAllocated();
     }
