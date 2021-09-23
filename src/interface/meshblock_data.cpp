@@ -441,10 +441,10 @@ void MeshBlockData<T>::SetLocalNeighborAllcoated() {
     assert(varVector_.size() == neighbor_data->varVector_.size());
     for (size_t i = 0; i < varVector_.size(); ++i) {
       assert(varVector_[i]->label() == neighbor_data->varVector_[i]->label());
-      if (!varVector_[i]->IsAllocated() || !varVector_[i]->IsSet(Metadata::FillGhost)) {
+      if (!varVector_[i]->IsSet(Metadata::FillGhost)) {
         continue;
       }
-
+      
       varVector_[i]->vbvar->local_neighbor_allocated[n] =
           neighbor_data->varVector_[i]->IsAllocated();
     }
