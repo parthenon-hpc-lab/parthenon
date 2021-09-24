@@ -7,6 +7,7 @@
 ### Changed (changing behavior/API/variables/...)
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 595]](https://github.com/lanl/parthenon/pull/595) Fix build options so that non-MPI builds cannot be paired with an MPI HDF5 lib
 
 ### Infrastructure (changes irrelevant to downstream codes)
 
