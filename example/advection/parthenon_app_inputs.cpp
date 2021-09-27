@@ -38,6 +38,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &data = pmb->meshblock_data.Get();
 
   auto pkg = pmb->packages.Get("advection_package");
+  const auto &sparse_indep = pkg->Param<bool>("sparse_indep");
   const auto &amp = pkg->Param<Real>("amp");
   const auto &vel = pkg->Param<Real>("vel");
   const auto &vx = pkg->Param<Real>("vx");
@@ -113,6 +114,41 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           q(idx_v + 2, 4, 8, 8) = vz;
           q(idx_adv, 4, 10, 8) = 10.0;
           q(idx_v + 2, 4, 10, 8) = -vz;
+        });
+  }
+
+  if (sparse_indep) {
+    // initialize sparse independent fields
+    auto coords = pmb->coords;
+    PackIndexMap index_map;
+    auto q =
+        data->PackVariables(std::vector<std::string>{"sparse_independent"}, index_map);
+    const auto sp1 = index_map.get("sparse_independent", 1).first;
+    const auto sp13_s = index_map.get("sparse_independent_-13").first;
+    const auto sp13_e = index_map.get("sparse_independent", -13).second;
+
+    pmb->par_for(
+        "Advection::ProblemGenerator", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
+                     coords.x3v(k) * coords.x3v(k);
+
+          if (profile_type == 0) {
+            Real x = cos_a2 * (coords.x1v(i) * cos_a3 + coords.x2v(j) * sin_a3) +
+                     coords.x3v(k) * sin_a2;
+            Real sn = std::sin(k_par * x);
+            q(n, k, j, i) = 1.0 + amp * sn * vel;
+          } else if (profile_type == 1) {
+            Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
+                       coords.x3v(k) * coords.x3v(k);
+            q(n, k, j, i) = 1. + amp * exp(-100.0 * rsq);
+          } else if (profile_type == 2) {
+            Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
+                       coords.x3v(k) * coords.x3v(k);
+            q(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+          } else {
+            q(n, k, j, i) = 0.0;
+          }
         });
   }
 }
