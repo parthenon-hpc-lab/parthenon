@@ -23,7 +23,6 @@
 
 #include "advection_package.hpp"
 #include "defs.hpp"
-#include "interface/sparse_pool.hpp"
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
 #include "utils/error_checking.hpp"
@@ -56,10 +55,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("refine_tol", refine_tol);
   Real derefine_tol = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
   pkg->AddParam<>("derefine_tol", derefine_tol);
-
-  // add a sparse independent field
-  bool sparse_indep = pin->GetOrAddBoolean("Advection", "sparse_independent", true);
-  pkg->AddParam<>("sparse_indep", sparse_indep);
 
   auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
   if (!((profile_str == "wave") || (profile_str == "smooth_gaussian") ||
@@ -171,16 +166,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
   }
-
-  if (sparse_indep) {
-    m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
-                  Metadata::FillGhost, Metadata::Sparse});
-    SparsePool pool("sparse_independent", m);
-    pool.Add(1);
-    pool.Add(-13, {2, 3}); // yes, negative sparse id and different shape
-    pkg->AddSparsePool(pool);
-  }
-
   if (!v_const) {
     m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
                   Metadata::FillGhost, Metadata::Vector},
@@ -353,13 +338,8 @@ void PostFill(MeshBlockData<Real> *rc) {
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
     // check that we have the sparse indices we want
-    const auto x0 = pmb->coords.x1v(0);
-
-    if (x0 < -0.3) {
-      rc->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 12);
-    } else if (x0 > 0.3) {
-      rc->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 37);
-    }
+    rc->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 12);
+    rc->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 37);
 
     // packing in principle unnecessary/convoluted here and just done for demonstration
     std::vector<std::string> vars(
@@ -376,13 +356,8 @@ void PostFill(MeshBlockData<Real> *rc) {
     pmb->par_for(
         "advection_package::PostFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
         ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-          if (v.IsAllocated(out12 + n)) {
-            v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
-          }
-
-          if (v.IsAllocated(out37 + n)) {
-            v(out37 + n, k, j, i) = sqrt(v(in + n, k, j, i));
-          }
+          v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
+          v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
         });
   }
 }
