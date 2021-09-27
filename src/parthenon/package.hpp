@@ -20,6 +20,7 @@
 #include <coordinates/coordinates.hpp>
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
+#include <interface/sparse_pool.hpp>
 #include <interface/state_descriptor.hpp>
 #include <interface/variable_pack.hpp>
 #include <kokkos_abstraction.hpp>
@@ -54,6 +55,7 @@ using ::parthenon::PackIndexMap;
 using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::Params;
+using ::parthenon::SparsePool;
 using ::parthenon::StateDescriptor;
 using ::parthenon::TaskStatus;
 using ::parthenon::VariableFluxPack;
