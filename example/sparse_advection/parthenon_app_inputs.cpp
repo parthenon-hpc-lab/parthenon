@@ -85,6 +85,43 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           });
     }
   }
+
+  if (pkg->Param<bool>("restart_test")) {
+    bool any_nonzero = false;
+
+    for (int k = kb.s; k <= kb.e; k++) {
+      for (int j = jb.s; j <= jb.e; j++) {
+        for (int i = ib.s; i <= ib.e; i++) {
+          auto x = coords.x1v(i);
+          auto y = coords.x2v(j);
+          auto z = coords.x3v(k);
+          auto r2 = x * x + y * y + z * z;
+          if (r2 < 0.5 * size) {
+            any_nonzero = true;
+          }
+        }
+      }
+    }
+
+    if (any_nonzero) {
+      data->AllocSparseID("z_shape_shift", 1);
+      data->AllocSparseID("z_shape_shift", 3);
+      data->AllocSparseID("z_shape_shift", 4);
+
+      auto v = data->PackVariables(
+          std::vector<std::string>{"z_dense_A", "z_dense_B", "z_shape_shift"});
+
+      pmb->par_for(
+          "SparseAdvection::ProblemGenerator", 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e,
+          ib.s, ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+            auto x = coords.x1v(i);
+            auto y = coords.x2v(j);
+            auto z = coords.x3v(k);
+            auto r2 = x * x + y * y + z * z;
+            v(n, k, j, i) = (r2 < 0.5 * size ? 1.0 : 0.0);
+          });
+    }
+  }
 }
 
 //========================================================================================

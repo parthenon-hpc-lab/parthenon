@@ -64,13 +64,13 @@ list(APPEND EXTRA_TEST_LABELS "")
 
 if (ENABLE_HDF5)
 
-  # h5py is needed for restart and hdff5 test
+  # h5py is needed for restart and hdf5 test
   list(APPEND REQUIRED_PYTHON_MODULES h5py)
 
   # Restart
   list(APPEND TEST_DIRS restart)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
-  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/sparse_advection/sparse_advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart/parthinput.restart \
     --num_steps 2")
   list(APPEND EXTRA_TEST_LABELS "")

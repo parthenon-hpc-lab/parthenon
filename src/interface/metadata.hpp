@@ -225,6 +225,16 @@ class Metadata {
       PARTHENON_REQUIRE_THROWS(
           shape_.size() <= 3,
           "Variables tied to mesh entities can only have a shape of rank <= 3");
+
+      int num_comp = 1;
+      for (auto s : shape) {
+        num_comp *= s;
+      }
+
+      PARTHENON_REQUIRE_THROWS(component_labels.size() == 0 ||
+                                   (component_labels.size() == num_comp),
+                               "Must provide either 0 component labels or the same "
+                               "number as the number of components");
     }
   }
 

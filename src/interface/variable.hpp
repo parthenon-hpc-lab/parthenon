@@ -72,6 +72,9 @@ class CellVariable {
     }
 
     if (IsSet(Metadata::FillGhost)) {
+      PARTHENON_REQUIRE_THROWS(
+          GetDim(4) == NumComponents(),
+          "CellCenteredBoundaryVariable currently only supports rank-1 variables");
       vbvar = std::make_shared<CellCenteredBoundaryVariable>(wpmb.lock(), IsSparse(),
                                                              label(), GetDim(4));
     }

@@ -186,13 +186,15 @@ std::vector<T> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
   auto type = getHDF5Type(res.data());
 
   // check if attribute exists
-  PARTHENON_HDF5_CHECK(H5Aexists(location, name.c_str()));
+  auto status = PARTHENON_HDF5_CHECK(H5Aexists(location, name.c_str()));
+  PARTHENON_REQUIRE_THROWS(status > 0, "Attribute '" + name + "' does not exist");
 
   const H5A attr = H5A::FromHIDCheck(H5Aopen(location, name.c_str(), H5P_DEFAULT));
 
   // check data type
   const H5T hdf5_type = H5T::FromHIDCheck(H5Aget_type(attr));
-  PARTHENON_HDF5_CHECK(H5Tequal(type, hdf5_type));
+  status = PARTHENON_HDF5_CHECK(H5Tequal(type, hdf5_type));
+  PARTHENON_REQUIRE_THROWS(status > 0, "Type mismatch for attribute " + name);
 
   // Allocate array of correct size
   const H5S dataspace = H5S::FromHIDCheck(H5Aget_space(attr));

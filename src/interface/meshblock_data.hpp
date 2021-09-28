@@ -142,10 +142,8 @@ class MeshBlockData {
 
   std::shared_ptr<CellVariable<T>> GetCellVarPtr(const std::string &label) const {
     auto it = varMap_.find(label);
-    if (it == varMap_.end()) {
-      PARTHENON_THROW(std::string("\n") + std::string(label) +
-                      std::string(" array not found in Get()\n"));
-    }
+    PARTHENON_REQUIRE_THROWS(it != varMap_.end(),
+                             "Couldn't find variable '" + label + "'");
     return it->second;
   }
 

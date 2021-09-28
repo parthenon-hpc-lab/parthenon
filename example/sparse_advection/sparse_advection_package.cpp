@@ -22,6 +22,7 @@
 #include <parthenon/package.hpp>
 
 #include "defs.hpp"
+#include "interface/metadata.hpp"
 #include "interface/sparse_pool.hpp"
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
@@ -41,6 +42,9 @@ using parthenon::UserHistoryOperation;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("sparse_advection_package");
+
+  bool restart_test = pin->GetOrAddBoolean("SparseAdvection", "restart_test", false);
+  pkg->AddParam("restart_test", restart_test);
 
   Real cfl = pin->GetOrAddReal("SparseAdvection", "cfl", 0.45);
   pkg->AddParam("cfl", cfl);
@@ -64,15 +68,37 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam("vz", RealArr_t{0.0, 0.0, 0.0, 0.0});
 
   // add sparse field
-  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
-              Metadata::FillGhost, Metadata::Sparse},
-             std::vector<int>({1}));
-  parthenon::SparsePool pool("sparse", m);
+  {
+    Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+                Metadata::FillGhost, Metadata::Sparse},
+               std::vector<int>({1}));
+    SparsePool pool("sparse", m);
 
-  for (int sid = 0; sid < NUM_FIELDS; ++sid) {
-    pool.Add(sid);
+    for (int sid = 0; sid < NUM_FIELDS; ++sid) {
+      pool.Add(sid);
+    }
+    pkg->AddSparsePool(pool);
   }
-  pkg->AddSparsePool(pool);
+
+  // add fields for restart test ("Z" prefix so they are after sparse in alphabetical
+  // list, helps with reusing velocity vectors)
+  if (restart_test) {
+    Metadata m_dense({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+                      Metadata::FillGhost});
+    pkg->AddField("z_dense_A", m_dense);
+    pkg->AddField("z_dense_B", m_dense);
+
+    Metadata m_sparse({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+                       Metadata::FillGhost, Metadata::Sparse});
+
+    SparsePool pool("z_shape_shift", m_sparse);
+    pool.Add(1, std::vector<int>{1}, std::vector<std::string>{"scalar"});
+    pool.Add(3, std::vector<int>{3}, Metadata::Vector,
+             std::vector<std::string>{"vec_x", "vec_y", "vec_z"});
+    pool.Add(4, std::vector<int>{4}, Metadata::Vector);
+
+    pkg->AddSparsePool(pool);
+  }
 
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
@@ -182,22 +208,19 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
         parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
+
         // get reconstructed state on faces
         parthenon::DonorCellX1(member, k, j, ib.s - 1, ib.e + 1, v, ql, qr);
+
         // Sync all threads in the team so that scratch memory is consistent
         member.team_barrier();
 
         for (int n = 0; n < nvar; n++) {
           if (!v.IsAllocated(n)) continue;
-          if (vx[n] > 0.0) {
-            par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              v.flux(X1DIR, n, k, j, i) = ql(n, i) * vx[n];
-            });
-          } else {
-            par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              v.flux(X1DIR, n, k, j, i) = qr(n, i) * vx[n];
-            });
-          }
+          const auto this_v = vx[n % NUM_FIELDS];
+          par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
+            v.flux(X1DIR, n, k, j, i) = (this_v > 0.0 ? ql(n, i) : qr(n, i)) * this_v;
+          });
         }
       });
 
@@ -206,31 +229,28 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
     pmb->par_for_outer(
         "x2 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e + 1,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
-          // the overall algorithm/use of scratch pad here is clear inefficient and kept
+          // the overall algorithm/use of scratch pad here is clearly inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
           // reconstructed arrays for different `j` with `j` being part of the outer
           // loop given that this loop can be handled by multiple threads simultaneously.
-
           parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
           parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
           parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
                                                  nx1);
+
           // get reconstructed state on faces
           parthenon::DonorCellX2(member, k, j - 1, ib.s, ib.e, v, ql, q_unused);
           parthenon::DonorCellX2(member, k, j, ib.s, ib.e, v, q_unused, qr);
+
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
+
           for (int n = 0; n < nvar; n++) {
             if (!v.IsAllocated(n)) continue;
-            if (vy[n] > 0.0) {
-              par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X2DIR, n, k, j, i) = ql(n, i) * vy[n];
-              });
-            } else {
-              par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X2DIR, n, k, j, i) = qr(n, i) * vy[n];
-              });
-            }
+            const auto this_v = vy[n % NUM_FIELDS];
+            par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              v.flux(X2DIR, n, k, j, i) = (this_v > 0.0 ? ql(n, i) : qr(n, i)) * this_v;
+            });
           }
         });
   }
