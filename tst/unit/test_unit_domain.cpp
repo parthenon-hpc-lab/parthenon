@@ -199,33 +199,33 @@ TEST_CASE("Checking IndexShape indices", "[IndexShape]") {
     REQUIRE(shape.ie(inner_x1) == 0);
     REQUIRE(shape.js(inner_x1) == 0);
     REQUIRE(shape.je(inner_x1) == 2);
-    REQUIRE(shape.ks(inner_x1) == 1);
-    REQUIRE(shape.ke(inner_x1) == 4);
-    REQUIRE(shape.GetTotal(inner_x1) == 12);
+    REQUIRE(shape.ks(inner_x1) == 0);
+    REQUIRE(shape.ke(inner_x1) == 5);
+    REQUIRE(shape.GetTotal(inner_x1) == 18);
 
     REQUIRE(shape.is(outer_x1) == 7);
     REQUIRE(shape.ie(outer_x1) == 7);
     REQUIRE(shape.js(outer_x1) == 0);
     REQUIRE(shape.je(outer_x1) == 2);
-    REQUIRE(shape.ks(outer_x1) == 1);
-    REQUIRE(shape.ke(outer_x1) == 4);
-    REQUIRE(shape.GetTotal(outer_x1) == 12);
+    REQUIRE(shape.ks(outer_x1) == 0);
+    REQUIRE(shape.ke(outer_x1) == 5);
+    REQUIRE(shape.GetTotal(outer_x1) == 18);
 
     REQUIRE(shape.is(inner_x2) == 0);
     REQUIRE(shape.ie(inner_x2) == 7);
     REQUIRE(shape.js(inner_x2) == 0);
     REQUIRE(shape.je(inner_x2) == 0);
-    REQUIRE(shape.ks(inner_x2) == 1);
-    REQUIRE(shape.ke(inner_x2) == 4);
-    REQUIRE(shape.GetTotal(inner_x2) == 32);
+    REQUIRE(shape.ks(inner_x2) == 0);
+    REQUIRE(shape.ke(inner_x2) == 5);
+    REQUIRE(shape.GetTotal(inner_x2) == 48);
 
     REQUIRE(shape.is(outer_x2) == 0);
     REQUIRE(shape.ie(outer_x2) == 7);
     REQUIRE(shape.js(outer_x2) == 2);
     REQUIRE(shape.je(outer_x2) == 2);
-    REQUIRE(shape.ks(outer_x2) == 1);
-    REQUIRE(shape.ke(outer_x2) == 4);
-    REQUIRE(shape.GetTotal(outer_x2) == 32);
+    REQUIRE(shape.ks(outer_x2) == 0);
+    REQUIRE(shape.ke(outer_x2) == 5);
+    REQUIRE(shape.GetTotal(outer_x2) == 48);
 
     REQUIRE(shape.is(inner_x3) == 0);
     REQUIRE(shape.ie(inner_x3) == 7);
@@ -398,19 +398,19 @@ TEST_CASE("Checking IndexShape cell counts", "[IndexShape]") {
 
     REQUIRE(shape.ncellsi(inner_x1) == 1);
     REQUIRE(shape.ncellsj(inner_x1) == 3);
-    REQUIRE(shape.ncellsk(inner_x1) == 4);
+    REQUIRE(shape.ncellsk(inner_x1) == 6);
 
     REQUIRE(shape.ncellsi(outer_x1) == 1);
     REQUIRE(shape.ncellsj(outer_x1) == 3);
-    REQUIRE(shape.ncellsk(outer_x1) == 4);
+    REQUIRE(shape.ncellsk(outer_x1) == 6);
 
     REQUIRE(shape.ncellsi(inner_x2) == 8);
     REQUIRE(shape.ncellsj(inner_x2) == 1);
-    REQUIRE(shape.ncellsk(inner_x2) == 4);
+    REQUIRE(shape.ncellsk(inner_x2) == 6);
 
     REQUIRE(shape.ncellsi(outer_x2) == 8);
     REQUIRE(shape.ncellsj(outer_x2) == 1);
-    REQUIRE(shape.ncellsk(outer_x2) == 4);
+    REQUIRE(shape.ncellsk(outer_x2) == 6);
 
     REQUIRE(shape.ncellsi(inner_x3) == 8);
     REQUIRE(shape.ncellsj(inner_x3) == 3);

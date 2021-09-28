@@ -56,6 +56,7 @@ max_level = 2                   # if set, limits refinement level from this crit
 
 <Pi>
 radius = 1.5
+use_sparse = 0 # Set to 1 to use sparse variables
 
 <parthenon/output0>
 file_type = hdf5

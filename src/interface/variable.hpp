@@ -27,6 +27,7 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -44,21 +45,30 @@ namespace parthenon {
 
 class MeshBlock;
 
+static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
+
+inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
+  return base_name +
+         (sparse_id == InvalidSparseID ? "" : "_" + std::to_string(sparse_id));
+}
+
 template <typename T>
 class CellVariable {
  public:
   /// Initialize a 6D variable
-  CellVariable<T>(const std::string &label, const std::array<int, 6> dims,
-                  const Metadata &metadata, int sparse_id = -1)
-      : data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
-        mpiStatus(false), m_(metadata),
-        label_(label + (sparse_id >= 0 ? "_" + std::to_string(sparse_id) : "")),
-        sparse_id_(sparse_id) {
+  CellVariable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
+                  std::weak_ptr<MeshBlock> wpmb)
+      : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
+        dims_(m_.GetArrayDims(wpmb)) {
     PARTHENON_REQUIRE_THROWS(
         m_.IsSet(Metadata::Real),
         "Only Real data type is currently supported for CellVariable");
+
+    PARTHENON_REQUIRE_THROWS(IsSparse() == (sparse_id_ != InvalidSparseID),
+                             "Mismatch between sparse flag and sparse ID");
+
     if (m_.getAssociated() == "") {
-      m_.Associate(label);
+      m_.Associate(label());
     }
   }
 
@@ -70,31 +80,41 @@ class CellVariable {
   // accessors
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
+    assert(is_allocated_);
     return data(std::forward<Args>(args)...);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  auto GetDim(const int i) const { return data.GetDim(i); }
+  auto GetDim(const int i) const {
+    // we can't query data.GetDim() here because data may be unallocated
+    assert(0 < i && i <= 6 && "ParArrayNDGenerics are max 6D");
+    return dims_[i - 1];
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto NumComponents() const { return dims_[5] * dims_[4] * dims_[3]; }
 
   ///< retrieve label for variable
-  inline const std::string label() const { return label_; }
+  inline const auto label() const { return MakeVarLabel(base_name_, sparse_id_); }
+  inline const auto base_name() const { return base_name_; }
 
   ///< retrieve metadata for variable
   inline Metadata metadata() const { return m_; }
 
-  /// Get Sparse ID (-1 if not sparse)
-  inline int GetSparseID() const { return sparse_id_; }
+  /// Get Sparse ID (InvalidSparseID if not sparse)
+  inline int GetSparseID() const { return IsSparse() ? sparse_id_ : InvalidSparseID; }
 
-  inline bool IsSparse() const { return sparse_id_ >= 0; }
+  inline bool IsSparse() const { return m_.IsSet(Metadata::Sparse); }
 
   inline std::string getAssociated() { return m_.getAssociated(); }
 
   /// return information string
   std::string info();
 
-  /// allocate fluxes (if Metadata::WithFluxes is set) and boundary variable if
-  /// (Metadata::FillGhost is set)
-  void AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb);
+  bool IsAllocated() const { return is_allocated_; }
+
+  // allocate data
+  void Allocate(std::weak_ptr<MeshBlock> wpmb);
 
   /// Repoint vbvar's var_cc array at the current variable
   inline void resetBoundary() { vbvar->var_cc = data; }
@@ -106,13 +126,23 @@ class CellVariable {
   ParArrayND<T> coarse_s; // used for sending coarse boundary calculation
   // used in case of cell boundary communication
   std::shared_ptr<CellCenteredBoundaryVariable> vbvar;
-  bool mpiStatus;
+  bool mpiStatus = false;
 
  private:
+  // allocate data only
+  void AllocateData();
+
+  /// allocate fluxes (if Metadata::WithFluxes is set) and boundary variable if
+  /// (Metadata::FillGhost is set)
+  void AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb);
+
   Metadata m_;
-  std::string label_;
+  std::string base_name_;
+  int sparse_id_ = InvalidSparseID;
+  const std::array<int, 6> dims_;
+
+  bool is_allocated_ = false;
   ParArray7D<T> flux_data_; // unified par array for the fluxes
-  int sparse_id_;
 };
 
 ///
@@ -128,13 +158,19 @@ class FaceVariable {
                const Metadata &metadata)
       : data(label, ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
         dims_(ncells), m_(metadata), label_(label) {
-    assert(!metadata.IsSet(Metadata::Sparse) &&
-           "Sparse not implemented yet for FaceVariable");
+    PARTHENON_REQUIRE_THROWS(!metadata.IsSet(Metadata::Sparse),
+                             "Sparse not implemented yet for FaceVariable");
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
   FaceVariable(const std::string &label, FaceVariable<T> &src)
       : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
+
+  std::shared_ptr<FaceVariable<T>>
+  AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
+               std::weak_ptr<MeshBlock> wpmb = {}) {
+    PARTHENON_THROW("FaceVariable::AllocateCopy is not implemented yet");
+  }
 
   // KOKKOS_FUNCTION FaceVariable() = default;
   // KOKKOS_FUNCTION FaceVariable(const FaceVariable<T>& v) = default;
@@ -171,6 +207,11 @@ class FaceVariable {
   }
 
   inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+
+  // to mimick interface of CellVariable, currently sparse FaceVariables are not
+  // implemented
+  inline bool IsSparse() const { return false; }
+  inline int GetSparseID() const { return InvalidSparseID; }
 
   FaceArray<T> data;
 

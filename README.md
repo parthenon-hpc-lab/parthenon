@@ -15,7 +15,7 @@ Parthenon performance portable AMR framework
 
 ## Required
 
-* CMake 3.12 or greater
+* CMake 3.16 or greater
 * C++14 compatible compiler
 * Kokkos 3.0 or greater
 
@@ -91,7 +91,7 @@ For example to build with the OpenMP backend for Intel Skylake architecture usin
 or to build for NVIDIA V100 GPUs (using `nvcc` compiler for GPU code)
 
     mkdir build-cuda-v100 && cd build-cuda-v100
-    cmake -DKokkos_ENABLE_CUDA=On -DCMAKE_CXX_COMPILER=$(pwd)/../external/kokkos/bin/nvcc_wrapper -DKokkos_ARCH_VOLTA70=On ../
+    cmake -DKokkos_ENABLE_CUDA=On -DCMAKE_CXX_COMPILER=$(pwd)/../external/Kokkos/bin/nvcc_wrapper -DKokkos_ARCH_VOLTA70=On ../
 
 # Developing/Contributing
 

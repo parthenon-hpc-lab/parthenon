@@ -1,7 +1,7 @@
 # Tasks
 
 ## TaskList
-The `TaskList` class implements methods to build and execute a set of tasks with associated dependencies.  The main functionality of the class is implemented in two member functions:
+The `TaskList` class implements methods to build and execute a set of tasks with associated dependencies.  The class implements a few public facing member functions that provide useful functionality for downstream apps:
 
 ### AddTask
 `AddTask` is a templated variadic function that takes the task function to be executed, the task dependencies (see `TaskID` below), and the arguments to the task function as it's arguments.  All arguments are captured by value in a lambda for later execution.
@@ -10,14 +10,17 @@ When adding functions that are non-static class member functions, a slightly dif
 
 Examples of both `AddTask` calls can be found in the advection example [here](../example/advection/advection_driver.cpp).
 
+### AddIteration
+`AddIteration` provides a means of grouping a set of tasks together that will be executed repeatedly until stopping criteria are satisfied.  `AddIteration` returns an `IterativeTasks` object which provides overloaded `AddTask` functions as described above, but internally handles the bookkeeping necessary to maintain the association of all the tasks associated with the iterative process.  A special function `SetCompletionTask`, which behaves identically to `AddTask`, allows a task to be defined that evaluates the stopping criteria.  The maximum number of iterations can be controlled through the `SetMaxIterations` member function and the number of iterations between evaluating the stopping criteria can be set with the `SetCheckInterval` function.
+
 ### DoAvailable
-`DoAvailable` loops over the task list once, executing all tasks whose dependencies are satisfied.  The function returns either `TaskListStatus::complete` if all tasks have been executed (and the task list is therefore empty) or `TaskListStatus::running` if tasks remain to be completed.
+`DoAvailable` loops over the task list once, executing all tasks whose dependencies are satisfied.  Completed tasks are removed from the task list.
 
 ## TaskID
 The `TaskID` class implements methods that allow Parthenon to keep track of tasks, their dependencies, and what remains to be completed.  The main way application code will interact with this object is as a returned object from `TaskList::AddTask` and as an argument to subsequent calls to `TaskList::AddTask` as a dependency for other tasks.  When used as a dependency, `TaskID` objects can be combined with the bitwise or operator (`|`) to specify multiple dependencies.
 
  ## TaskRegion
- `TaskRegion` is defined via a simple using statement as a `std::vector<TaskList>`.  During task execution (described below), all task lists in a `TaskRegion` can be operated on concurrently.  For example, a `TaskRegion` can be used to construct independent task lists for each `MeshBlock`.
+ `TaskRegion` is a lightweight class that wraps `std::vector<TaskList>`, providing a little extra functionality.  During task execution (described below), all task lists in a `TaskRegion` can be operated on concurrently.  For example, a `TaskRegion` can be used to construct independent task lists for each `MeshBlock`.  Occasionally, it is useful to have a task not be considered complete until that task completes in all lists of a region.  For example, a global iterative solver cannot be considered complete until the stopping criteria are satisfied everywhere, which may require evaluating those criteria in tasks that live in different lists within a region.  An example of this use case is shown[here](../example/poisson/poisson_driver.cpp).  The mechanism to mark a task so that dependent tasks will wait until all lists have completed it is to call `AddRegionalDependencies`, as shown in the Poisson example.
 
  ## TaskCollection
  A `TaskCollection` contains a `std::vector<TaskRegion>`, i.e. an ordered list of `TaskRegion`s.  Importantly, each `TaskRegion` will be executed to completion before subsequent `TaskRegion`s, introducing a notion of sequential execution and enabling flexibility in task granularity.  For example, the following code fragment uses the `TaskCollection` and `TaskRegion` abstractions to express work that can be done asynchronously across blocks, followed by a bulk synchronous task involving all blocks, and finally another round of asynchronous work.

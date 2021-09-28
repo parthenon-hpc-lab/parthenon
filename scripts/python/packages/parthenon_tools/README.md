@@ -5,12 +5,6 @@ The Parthenon python scripts consists of several helper scripts:
 * movie2d.py
 * phdf.py
 * phdf_diff.py
-* githubapp.py
-
-## githubapp.py 
-
-This script contains a base class used to define the parthenon metrics app and allows for 
-streamlined communication with the github RESTful web API.
 
 ## phdf_diff.py
 

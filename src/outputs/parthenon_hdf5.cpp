@@ -29,7 +29,6 @@
 #include <unordered_map>
 
 #include "driver/driver.hpp"
-#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -384,6 +383,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   filename.append(file_number.str());
   filename.append(restart_ ? ".rhdf" : ".phdf");
 
+  // After file has been opened with the current number, already advance output
+  // parameters so that for restarts the file is not immediatly overwritten again.
+  output_params.file_number++;
+  output_params.next_time += output_params.dt;
+  pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
+  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+
   // set file access property list
 #ifdef MPI_PARALLEL
   /* set the file access template for parallel IO access */
@@ -699,28 +705,33 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   //   WRITING VARIABLES DATA                                                         //
   // -------------------------------------------------------------------------------- //
 
-  // first we need to get list of variables, because sparse variables are only
-  // expanded on some blocks, we need to look at the list of variables on each block
+  // first we need to get list of variables, because sparse variable ids are only
+  // allocated on some blocks, we need to look at the list of variables on each block
   // combine these into a global list of variables
 
-  auto get_MeshBlockDataIterator = [=](const std::shared_ptr<MeshBlock> pmb) {
+  auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
     if (restart_) {
-      return MeshBlockDataIterator<Real>(
-          pmb->meshblock_data.Get(),
-          {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+      // get all vars with flag Independent OR restart
+      return pmb->meshblock_data.Get()
+          ->GetVariablesByFlag(
+              {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, false)
+          .vars();
     } else {
-      return MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(),
-                                         output_params.variables);
+      return pmb->meshblock_data.Get()
+          ->GetVariablesByName(output_params.variables)
+          .vars();
     }
   };
 
   // local list of unique vars
   std::set<VarInfo> all_unique_vars;
   for (auto &pmb : pm->block_list) {
-    auto ci = get_MeshBlockDataIterator(pmb);
-    for (auto &v : ci.vars) {
-      VarInfo vinfo(v);
-      all_unique_vars.insert(vinfo);
+    const auto vars = get_vars(pmb);
+    for (auto &v : vars) {
+      if (v->IsAllocated()) {
+        VarInfo vinfo(v);
+        all_unique_vars.insert(vinfo);
+      }
     }
   }
 
@@ -814,7 +825,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // We need to add information about the sparse variables to the HDF5 file, namely:
   // 1) Which variables are sparse
-  // 2) Is a sparse id of a particular sparse variable expanded on a given block
+  // 2) Is a sparse id of a particular sparse variable allocated on a given block
   //
   // This information is stored in the dataset called "SparseInfo". The data set
   // contains an attribute "SparseFields" that is a vector of strings with the names
@@ -825,7 +836,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // The dataset SparseInfo itself is a 2D array of bools. The first index is the
   // global block index and the second index is the sparse field (same order as the
   // SparseFields attribute). SparseInfo[b][v] is true if the sparse field with index
-  // v is expanded on the block with index b, otherwise the value is false
+  // v is allocated on the block with index b, otherwise the value is false
 
   std::vector<std::string> sparse_names;
   std::unordered_map<std::string, size_t> sparse_field_idx;
@@ -839,7 +850,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   hsize_t num_sparse = sparse_names.size();
   // can't use std::vector here because std::vector<hbool_t> is the same as
   // std::vector<bool> and it doesn't have .data() member
-  std::unique_ptr<hbool_t[]> sparse_expanded(new hbool_t[num_blocks_local * num_sparse]);
+  std::unique_ptr<hbool_t[]> sparse_allocated(new hbool_t[num_blocks_local * num_sparse]);
 
   // allocate space for largest size variable
   const hsize_t varSize = nx3 * nx2 * nx1;
@@ -878,10 +889,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       bool found = false;
 
       // for each variable that this local meshblock actually has
-      auto ci = get_MeshBlockDataIterator(pmb);
-      for (auto &v : ci.vars) {
+      const auto vars = get_vars(pmb);
+      for (auto &v : vars) {
         // Note index l transposed to interior
-        if (var_name.compare(v->label()) == 0) {
+        if (v->IsAllocated() && (var_name == v->label())) {
           auto v_h = v->data.GetHostMirrorAndCopy();
           for (int k = out_kb.s; k <= out_kb.e; ++k) {
             for (int j = out_jb.s; j <= out_jb.e; ++j) {
@@ -900,7 +911,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
       if (vinfo.is_sparse_) {
         size_t sparse_idx = sparse_field_idx.at(vinfo.label_);
-        sparse_expanded[b_idx * num_sparse + sparse_idx] = found;
+        sparse_allocated[b_idx * num_sparse + sparse_idx] = found;
       }
 
       if (!found) {
@@ -964,7 +975,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   if (num_sparse > 0) {
     local_count[1] = global_count[1] = num_sparse;
 
-    HDF5Write2D(file, "SparseInfo", sparse_expanded.get(), p_loc_offset, p_loc_cnt,
+    HDF5Write2D(file, "SparseInfo", sparse_allocated.get(), p_loc_offset, p_loc_cnt,
                 p_glob_cnt, pl_xfer);
 
     // write names of sparse fields as attribute, first convert to vector of const char*
@@ -980,12 +991,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // generate XDMF companion file
     genXDMF(filename, pm, tm, nx1, nx2, nx3, all_unique_vars);
   }
-
-  // advance output parameters
-  output_params.file_number++;
-  output_params.next_time += output_params.dt;
-  pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
 }
 
 // explicit template instantiation

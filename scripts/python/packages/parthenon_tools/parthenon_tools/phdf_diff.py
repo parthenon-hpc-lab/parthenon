@@ -29,16 +29,18 @@ def Usage():
     print(
         """
 
-    Usage: %s [-quiet] [-brief] [-all] [-one] [--tol=eps] [-ignore_metadata] file1.phdf file2.phdf
+    Usage: %s [-quiet] [-brief] [-one] [--tol=eps] [-ignore_metadata] [-check_input] file1.phdf file2.phdf
 
-                  -all: report all diffs at all positions
                   -one: Quit after first different variable
                 -brief: Only report if files are different
-                        Overrides --all
                 -quiet: Only report if files are different and
                         don't print any extraneous info.
              --tol=eps: set tolerance to eps.  Default 1.0e-12
       -ignore_metadata: Ignore differences in metadata
+          -check_input: Include the Input metadata in comparison (default is off)
+             -relative: Compare relative differences using the
+                        first file as the reference. Ignores
+                        points where the first file is zero
 
     This example takes two hdf files and compares them to see if there are
     differences in the state variables.
@@ -57,13 +59,10 @@ def processArgs():
     """
     )
     parser.add_argument(
-        "-a", "-all", action="store_true", help="report all diffs at all positions"
-    )
-    parser.add_argument(
         "-t",
         "--tol",
         action="store",
-        help="Sets tolerance for comparisons.  Default 1e-12",
+        help="Sets tolerance for comparisons. Default 1e-12",
     )
     parser.add_argument(
         "-o",
@@ -75,19 +74,27 @@ def processArgs():
         "-b",
         "-brief",
         action="store_true",
-        help="Only report if files are different.  Overrides -all",
+        help="Only report if files are different.",
     )
     parser.add_argument(
         "-q",
         "-quiet",
         action="store_true",
-        help="Only report if files are different.  No other output. Overrides -all",
+        help="Only report if files are different. No other output.",
     )
     parser.add_argument(
         "-i",
         "-ignore_metadata",
         action="store_true",
-        help="Ignore differences in metadata. Overrides -all",
+        help="Ignore differences in metadata.",
+    )
+    parser.add_argument(
+        "-check_input",
+        action="store_true",
+        help="Include the Input metadata in comparison.",
+    )
+    parser.add_argument(
+        "-r", "-relative", action="store_true", help="Compare relative differences."
     )
     parser.add_argument("files", nargs="*")
 
@@ -162,11 +169,21 @@ def compare_attribute_group(f0, f1, name):
             print("\nValues of attributes in '%s' differ\n" % name)
             print("Differing attributes: ", diffs)
             got_diffs = True
+
+            print("\nFirst file:")
+            for k in diffs:
+                print("%20s: " % k, group0[k])
+
+            print("\nSecond file:")
+            for k in diffs:
+                print("%20s: " % k, group1[k])
         else:
             print("  %20s: no diffs" % name)
 
+    return got_diffs
 
-def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
+
+def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e-12):
     """compares metadata of two hdf files f0 and f1. Returns 0 if the files are equivalent.
 
     Error codes:
@@ -222,10 +239,11 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
     else:
         print("  %20s: no diffs" % "Info")
 
-    if compare_attribute_group(f0, f1, "Input"):
-        ret_code = ERROR_INPUT_DIFF
-        if one:
-            return ret_code
+    if check_input:
+        if compare_attribute_group(f0, f1, "Input"):
+            ret_code = ERROR_INPUT_DIFF
+            if one:
+                return ret_code
 
     if compare_attribute_group(f0, f1, "Params"):
         ret_code = ERROR_PARAMS_DIFF
@@ -270,9 +288,9 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
                 val1 = val1[otherBlockIdx]
 
                 # Compute norm error, check against tolerance
-                errVal = np.abs(val0 - val1)
-                errMag = np.linalg.norm(errVal)
-                if errMag > tol:
+                err_val = np.abs(val0 - val1)
+                err_mag = np.linalg.norm(err_val)
+                if err_mag > tol:
                     no_meta_variables_diff = False
                     if not quiet:
                         print("")
@@ -283,7 +301,7 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
                         print("")
                 else:
                     print("  %18s/%s: no diffs" % (var, key))
-        if var in ["LogicalLocations", "Levels"]:
+        if var in ["LogicalLocations", "Levels", "SparseInfo"]:
             # Compare raw data of these variables
             val0 = np.array(f0.fid[var])
             val1 = np.array(f1.fid[var])
@@ -312,12 +330,13 @@ def compare_metadata(f0, f1, quiet=False, one=False, tol=1.0e-12):
 
 def compare(
     files,
-    all=False,
-    brief=True,
+    brief=False,
     quiet=False,
     one=False,
     tol=1.0e-12,
     check_metadata=True,
+    check_input=False,
+    relative=False,
 ):
     """compares two hdf files. Returns 0 if the files are equivalent.
 
@@ -398,7 +417,7 @@ def compare(
     if check_metadata:
         if not quiet:
             print("Checking metadata")
-        metadata_status = compare_metadata(f0, f1, quiet, one)
+        metadata_status = compare_metadata(f0, f1, quiet, one, check_input)
         if metadata_status != 0:
             if one:
                 return metadata_status
@@ -419,26 +438,14 @@ def compare(
 
     if not brief and not quiet:
         print("____Comparing on a per variable basis with tolerance %.16g" % tol)
-    breakOut = False
     oneTenth = f0.TotalCells // 10
-    if not quiet:
-        print("Mapping indices:")
     print("Tolerance = %g" % tol)
-    otherLocations = [None] * f0.TotalCells
-    for idx in range(f0.TotalCells):
-        if not quiet:
-            if idx % oneTenth == 0:
-                print("   Mapping %8d (of %d) " % (idx, f0.TotalCells))
 
-        if f0.isGhost[idx % f0.CellsPerBlock]:
-            # don't map ghost cells
-            continue
-
-        otherLocations[idx] = f0.findIndexInOther(f1, idx)
-    if not quiet:
-        print(f0.TotalCells, "cells mapped")
+    # Make loc array of locations matching the shape of val0,val1
+    loc = f0.GetVolumeLocations(flatten=False)
 
     for var in set(f0.Variables + f1.Variables):
+        var_no_diffs = True
         if var in [
             "Locations",
             "VolumeLocations",
@@ -452,75 +459,90 @@ def compare(
         ]:
             continue
 
-        # initialize info values
-        same = True
-        errMax = -1.0
-        maxPos = [0, 0, 0]
-
         # Get values from file
-        val0 = f0.Get(var)
-        val1 = f1.Get(var)
-        isVec = np.prod(val0.shape) != f0.TotalCells
-        for idx, v in enumerate(val0):
-            if f0.isGhost[idx % f0.CellsPerBlock]:
-                # only consider real cells
-                continue
-            [ib, bidx, iz, iy, ix] = f0.ToLocation(idx)
+        val0 = f0.Get(var, flatten=False)
+        val1 = f1.Get(var, flatten=False)
 
-            # find location in other file
-            [idx1, ib1, bidx1, iz1, iy1, ix1] = otherLocations[idx]
+        is_vec = np.prod(val0.shape) != f0.TotalCells
 
-            # compute error
-            errVal = np.abs(v - val1[idx1])
-            errMag = np.linalg.norm(errVal)
+        # Determine arrangement of mesh blocks of f1 in terms of ordering in f0
+        otherBlockIdx = list(f0.findBlockIdxInOther(f1, i) for i in range(f0.NumBlocks))
 
-            # Note that we use norm / magnitude to compute error
-            if errMag > errMax:
-                errMax = errMag
-                errMaxPos = [f0.x[ib, ix], f0.y[ib, iy], f0.z[ib, iz]]
+        # Rearrange val1 to match ordering of meshblocks in val0
+        val1 = val1[otherBlockIdx]
 
-            if np.linalg.norm(errVal) > tol:
-                same = False
-                no_diffs = False
-                if brief or quiet:
-                    breakOut = True
-                    break
+        # compute error at every point
+        if relative:
+            denom = 0.5 * (np.abs(val0) + np.abs(val1))
+            # When val0==0 but val1!=0 or vice versa, use the mean of the
+            # entire data set as denom to avoid giving these points an
+            # err_val=2.0
+            denom[np.logical_or(val0 == 0, val1 == 0)] = 0.5 * np.mean(
+                np.abs(val0) + np.abs(val1)
+            )
 
-                if isVec:
-                    s = "["
-                    for xd in errVal:
-                        if xd == 0.0:
-                            s += " 0.0"
-                        else:
-                            s += " %10.4g" % xd
-                    s += "]"
-                else:
-                    s = "%10.4g" % errVal
-                if all:
-                    print(
-                        "  %20s: %6d: diff=" % (var, idx),
-                        s.strip(),
-                        "at:f0:%d:%.4f,%.4f,%.4f"
-                        % (idx, f0.x[ib, ix], f0.y[ib, iy], f0.z[ib, iz]),
-                        ":f1:%d:%.4f,%.4f,%.4f"
-                        % (idx1, f1.x[ib1, ix1], f1.y[ib1, iy1], f1.z[ib1, iz1]),
-                    )
-        if breakOut:
-            if not quiet:
-                print("")
-            print("Files %s and %s are different" % (f0.file, f1.file))
-            if not quiet:
-                print("")
-            break
-        if not quiet:
-            if same:
-                print("  %20s: no diffs" % var)
+            err_val = np.abs(val0 - val1) / denom
+            # Set error values where denom==0 to 0
+            # Numpy masked arrays would be more robust here, but they are very slow
+            err_val[denom == 0] = 0
+        else:
+            err_val = np.abs(val0 - val1)
+
+        # Compute magnitude of error at every point
+        if is_vec:
+            # Norm every vector
+            err_mag = np.linalg.norm(err_val, axis=-1)
+        else:
+            # Just plain error for scalars
+            err_mag = err_val
+        err_max = err_mag.max()
+
+        # Check if the error of any block exceeds the tolerance
+        if err_max > tol:
+            no_diffs = False
+            var_no_diffs = False
+
+            if quiet:
+                continue  # Skip reporting the error
+
+            if one:
+                # Print the maximum difference only
+                bad_idx = np.argmax(err_mag)
+                bad_idx = np.array(np.unravel_index(bad_idx, err_mag.shape))
+
+                # Reshape for printing step
+                bad_idxs = bad_idx.reshape((1, *bad_idx.shape))
             else:
-                print("____%26s: MaxDiff=%10.4g at" % (var, errMax), errMaxPos)
+                # Print all differences exceeding maximum
+                bad_idxs = np.argwhere(err_mag > tol)
 
-        if one and not same:
-            break
+            for bad_idx in bad_idxs:
+                bad_idx = tuple(bad_idx)
 
+                # Find the bad location
+                bad_loc = np.array(loc)[
+                    :, bad_idx[0], bad_idx[1], bad_idx[2], bad_idx[3]
+                ]
+
+                # TODO(forrestglines): Check that the bkji and zyx reported are the correct order
+                print(f"Diff in {var:20s}")
+                print(
+                    f"    bkji: ({bad_idx[0]:4d},{bad_idx[1]:4d},{bad_idx[2]:4d},{bad_idx[3]:4d})"
+                )
+                print(f"    zyx: ({bad_loc[0]:4f},{bad_loc[1]:4f},{bad_loc[2]:4f})")
+                print(f"    err_mag: {err_mag[bad_idx]:4f}")
+                if is_vec:
+                    print(f"    f0: " + " ".join(f"{u:.4e}" for u in val0[bad_idx]))
+                    print(f"    f1: " + " ".join(f"{u:.4e}" for u in val1[bad_idx]))
+                    print(f"    err: " + " ".join(f"{u:.4e}" for u in err_val[bad_idx]))
+                else:
+                    print(f"    f0: {val0[bad_idx]:.4e}")
+                    print(f"    f1: {val1[bad_idx]:.4e}")
+        if not quiet:
+            if var_no_diffs:
+                print(f"  {var:20s}: no diffs")
+            else:
+                print(f"  {var:20s}: differs")
     if no_diffs:
         return 0
     else:
@@ -537,14 +559,9 @@ if __name__ == "__main__":
     quiet = input.q
     one = input.o
     ignore_metadata = input.i
-
+    check_input = input.check_input
+    relative = input.r
     check_metadata = not ignore_metadata
-
-    # set all only if brief not set
-    if brief or quiet:
-        all = False
-    else:
-        all = input.a
     files = input.files
 
     if input.tol is not None:
@@ -556,5 +573,14 @@ if __name__ == "__main__":
         Usage()
         sys.exit(1)
 
-    ret = compare(files, all, brief, quiet, one, tol, check_metadata)
+    ret = compare(
+        files,
+        brief,
+        quiet,
+        one,
+        tol,
+        check_metadata,
+        check_input,
+        relative,
+    )
     sys.exit(ret)

@@ -72,7 +72,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("rng_pool", rng_pool);
 
   std::string swarm_name = "my particles";
-  Metadata swarm_metadata({Metadata::Provides});
+  Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("t", swarm_name, real_swarmvalue_metadata);
@@ -109,6 +109,8 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 // first some helper tasks
 
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
+  Kokkos::Profiling::pushRegion("Task_Particles_DestroySomeParticles");
+
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -133,10 +135,13 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   // Remove marked particles
   swarm->RemoveMarkedParticles();
 
+  Kokkos::Profiling::popRegion(); // Task_Particles_DestroySomeParticles
   return TaskStatus::complete;
 }
 
 TaskStatus DepositParticles(MeshBlock *pmb) {
+  Kokkos::Profiling::pushRegion("Task_Particles_DepositParticles");
+
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   // Meshblock geometry
@@ -186,10 +191,13 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
         }
       });
 
+  Kokkos::Profiling::popRegion(); // Task_Particles_DepositParticles
   return TaskStatus::complete;
 }
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
+  Kokkos::Profiling::pushRegion("Task_Particles_CreateSomeParticles");
+
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -297,11 +305,14 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
         });
   }
 
+  Kokkos::Profiling::popRegion(); // Task_Particles_CreateSomeParticles
   return TaskStatus::complete;
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator,
                               const double t0) {
+  Kokkos::Profiling::pushRegion("Task_Particles_TransportParticles");
+
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto pkg = pmb->packages.Get("particles_package");
   const auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
@@ -417,18 +428,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
         });
   }
 
-  return TaskStatus::complete;
-}
-
-TaskStatus Defrag(MeshBlock *pmb) {
-  auto s = pmb->swarm_data.Get()->Get("my particles");
-
-  // Only do this if list is getting too sparse. This criterion (whether there
-  // are *any* gaps in the list) is very aggressive
-  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
-    s->Defrag();
-  }
-
+  Kokkos::Profiling::popRegion(); // Task_Particles_TransportParticles
   return TaskStatus::complete;
 }
 
@@ -470,6 +470,8 @@ TaskListStatus ParticleDriver::Step() {
 // TODO(BRR) This should really be in parthenon/src... but it can't just live in Swarm
 // because of the loop over blocks
 TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
+  Kokkos::Profiling::pushRegion("Task_Particles_StopCommunicationMesh");
+
   int num_sent_local = 0;
   for (auto &block : blocks) {
     auto sc = block->swarm_data.Get();
@@ -478,7 +480,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     num_sent_local += swarm->num_particles_sent_;
   }
 
-  int num_sent_global = num_sent_local; // potentially overwritte by following Allreduce
+  int num_sent_global = num_sent_local; // potentially overwritten by following Allreduce
 #ifdef MPI_PARALLEL
   for (auto &block : blocks) {
     auto swarm = block->swarm_data.Get()->Get("my particles");
@@ -522,6 +524,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     }
   }
 
+  Kokkos::Profiling::popRegion(); // Task_Particles_StopCommunicationMesh
   return TaskStatus::complete;
 }
 
@@ -554,7 +557,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
 
-    auto sc = pmb->swarm_data.Get();
+    auto &sc = pmb->swarm_data.Get();
 
     auto &tl = async_region0[i];
 
@@ -586,6 +589,8 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
 
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
+    auto &sc = pmb->swarm_data.Get();
+    auto &sc1 = pmb->meshblock_data.Get();
     auto &tl = async_region1[i];
 
     auto destroy_some_particles = tl.AddTask(none, DestroySomeParticles, pmb.get());
@@ -593,7 +598,12 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
     auto deposit_particles =
         tl.AddTask(destroy_some_particles, DepositParticles, pmb.get());
 
-    auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
+    // Defragment if swarm memory pool occupancy is 90%
+    auto defrag = tl.AddTask(deposit_particles, &SwarmContainer::Defrag, sc.get(), 0.9);
+
+    // estimate next time step
+    auto new_dt = tl.AddTask(
+        defrag, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>, sc1.get());
   }
 
   return tc;

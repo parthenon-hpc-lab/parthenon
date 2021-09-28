@@ -36,6 +36,8 @@ ox2_bc = periodic
 nx3 = 1
 x3min = -0.5
 x3max = 0.5
+ix3_bc = periodic
+ox3_bc = periodic
 
 <parthenon/meshblock>
 nx1 = 16

@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.5.0 LANGUAGES C CXX)
+project(parthenon VERSION 0.6.1 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -67,9 +67,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 9 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 12 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=545300260f896c8cdfadc8f217db5d76f00f3a7193f89aa84f2ab98204b609697d8708475ee217cce5c8294fbfed28b81de68a7e93e3c9f2ecce047307759be0"
+  "SHA512=d0071f40eec3a793cc188a19587f9dd915dbdc092c17a3aadd4ce82bd90cfb329043a61e194291f4f3c503fc83e7a9288462e89a90136d3d16dce27a1f099383"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -165,8 +165,17 @@ if (NOT PARTHENON_DISABLE_HDF5)
   if (ENABLE_MPI AND (NOT HDF5_IS_PARALLEL))
     message(FATAL_ERROR "Both MPI and HDF5 are enabled but only a serial version of HDF5 "
     "was found. Please install a parallel version of HDF5 (or point CMake to it by adding its path "
-    "to the CMAKE_PREFIX_PATH environment variable), or disable either MPI or HDF5 by rerunning "
+    "to the CMAKE_PREFIX_PATH environment variable or by setting the HDF5_ROOT variable), "
+    "or disable either MPI or HDF5 by rerunning "
     "CMake with -DPARTHENON_DISABLE_MPI=ON or -DPARTHENON_DISABLE_HDF5=ON")
+  endif()
+
+  if ((NOT ENABLE_MPI) AND HDF5_IS_PARALLEL)
+    message(FATAL_ERROR "MPI is disabled and HDF5 is enabled but only a parallel version of HDF5 "
+    "was found. Please install a serial version of HDF5 (or point CMake to it by adding its path "
+    "to the CMAKE_PREFIX_PATH environment variable or by setting the HDF5_ROOT variable), or "
+    "either enable MPI or disable HDF5 by rerunning "
+    "CMake with -DPARTHENON_DISABLE_MPI=OFF or -DPARTHENON_DISABLE_HDF5=ON")
   endif()
 
   if ((NOT PARTHENON_DISABLE_HDF5_COMPRESSION) AND ENABLE_MPI)
@@ -281,9 +290,9 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
         COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/
         )
-      message(STATUS "  Download of gold standard successful.")
+      message(STATUS "  Download of gold standard successful. Now using version ${REGRESSION_GOLD_STANDARD_VER}")
     else()
-      message(STATUS "Gold standard is up-to-date. No download required.")
+      message(STATUS "Gold standard is up-to-date (version ${REGRESSION_GOLD_STANDARD_VER}). No download required.")
     endif()
 
 

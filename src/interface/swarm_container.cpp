@@ -74,6 +74,24 @@ void SwarmContainer::Remove(const std::string &label) {
   swarmMap_.erase(label);
 }
 
+TaskStatus SwarmContainer::Defrag(double min_occupancy) {
+  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Defrag");
+  PARTHENON_REQUIRE_THROWS(min_occupancy >= 0. && min_occupancy <= 1.,
+                           "Max fractional occupancy of swarm must be >= 0 and <= 1");
+
+  for (auto &s : swarmVector_) {
+    s->SetupPersistentMPI();
+    if (s->GetNumActive() > 0 &&
+        s->GetNumActive() / (s->GetMaxActiveIndex() + 1.0) < min_occupancy) {
+      s->Defrag();
+    }
+  }
+
+  Kokkos::Profiling::popRegion();
+
+  return TaskStatus::complete;
+}
+
 void SwarmContainer::SendBoundaryBuffers() {}
 
 void SwarmContainer::SetupPersistentMPI() {
@@ -88,19 +106,26 @@ void SwarmContainer::ReceiveAndSetBoundariesWithWait() {}
 
 void SwarmContainer::SetBoundaries() {}
 
-TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
-  int success = 0, total = 0;
+void SwarmContainer::AllocateBoundaries() {
   for (auto &s : swarmVector_) {
-    if (s->Send(phase)) {
-      success++;
-    }
-    total++;
+    s->AllocateBoundaries();
   }
-  if (success == total) return TaskStatus::complete;
-  return TaskStatus::incomplete;
+}
+
+TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
+  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Send");
+
+  for (auto &s : swarmVector_) {
+    s->Send(phase);
+  }
+
+  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_Send
+  return TaskStatus::complete;
 }
 
 TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
+  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Receive");
+
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {
     if (s->Receive(phase)) {
@@ -108,6 +133,37 @@ TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
     }
     total++;
   }
+
+  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_Receive
+  if (success == total) return TaskStatus::complete;
+  return TaskStatus::incomplete;
+}
+
+TaskStatus SwarmContainer::ResetCommunication() {
+  Kokkos::Profiling::pushRegion("Task_SwarmContainer_ResetCommunication");
+
+  for (auto &s : swarmVector_) {
+    s->ResetCommunication();
+  }
+
+  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_ResetCommunication
+  return TaskStatus::complete;
+}
+
+TaskStatus SwarmContainer::FinalizeCommunicationIterative() {
+  Kokkos::Profiling::pushRegion("Task_SwarmContainer_FinalizeCommunicationIterative");
+
+  PARTHENON_THROW("FinalizeCommunicationIterative not yet fully implemented!")
+
+  int success = 0, total = 0;
+  for (auto &s : swarmVector_) {
+    if (s->FinalizeCommunicationIterative()) {
+      success++;
+    }
+    total++;
+  }
+
+  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_FinalizeCommunicationIterative
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }

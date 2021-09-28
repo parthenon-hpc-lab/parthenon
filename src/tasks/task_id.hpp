@@ -40,7 +40,7 @@ class TaskID {
   bool operator==(const TaskID &rhs) const;
   bool operator!=(const TaskID &rhs) const;
   TaskID operator|(const TaskID &rhs) const;
-  std::string to_string();
+  std::string to_string() const;
 
  private:
   std::vector<std::bitset<BITBLOCK>> bitblocks;

@@ -67,7 +67,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("write_particle_log_nth_cycle", write_particle_log_nth_cycle);
 
   std::string swarm_name = "my particles";
-  Metadata swarm_metadata({Metadata::Provides});
+  Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
@@ -259,12 +259,22 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
 }
 
 // initial particle position: x,y,z,vx,vy,vz
-constexpr int num_test_particles = 4;
+constexpr int num_test_particles = 14;
 const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
-    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},  // along x direction
-    {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},  // along y direction
-    {-0.1, 0.3, 0.2, 0.0, 0.0, 0.5},  // along z direction
-    {0.12, 0.2, -0.3, 1.0, 1.0, 1.0}, // along diagonal
+    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
+    {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},   // along y direction
+    {-0.1, 0.3, 0.2, 0.0, 0.0, 0.5},   // along z direction
+    {0.0, 0.0, 0.0, -1.0, 0.0, 0.0},   // along -x direction
+    {0.0, 0.0, 0.0, 0.0, -1.0, 0.0},   // along -y direction
+    {0.0, 0.0, 0.0, 0.0, 0.0, -1.0},   // along -z direction
+    {0.0, 0.0, 0.0, 1.0, 1.0, 1.0},    // along xyz diagonal
+    {0.0, 0.0, 0.0, -1.0, 1.0, 1.0},   // along -xyz diagonal
+    {0.0, 0.0, 0.0, 1.0, -1.0, 1.0},   // along x-yz diagonal
+    {0.0, 0.0, 0.0, 1.0, 1.0, -1.0},   // along xy-z diagonal
+    {0.0, 0.0, 0.0, -1.0, -1.0, 1.0},  // along -x-yz diagonal
+    {0.0, 0.0, 0.0, 1.0, -1.0, -1.0},  // along x-y-z diagonal
+    {0.0, 0.0, 0.0, -1.0, 1.0, -1.0},  // along -xy-z diagonal
+    {0.0, 0.0, 0.0, -1.0, -1.0, -1.0}, // along -x-y-z diagonal
 }};
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
@@ -343,6 +353,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
 
   Real dt = integrator->dt;
 
+  auto &id = swarm->Get<int>("id").Get();
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
   auto &z = swarm->Get<Real>("z").Get();
@@ -383,47 +394,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   return TaskStatus::complete;
 }
 
-// Mark all MPI requests as NULL / initialize boundary flags.
-// TODO(BRR) Should this be a Swarm method?
-TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
-  // Boundary transfers on same MPI proc are blocking
-#ifdef MPI_PARALLEL
-  for (auto &block : blocks) {
-    auto &pmb = block;
-    auto swarm = pmb->swarm_data.Get()->Get("my particles");
-    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-      NeighborBlock &nb = pmb->pbval->neighbor[n];
-      swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
-    }
-  }
-#endif
-
-  // Reset boundary statuses
-  for (auto &block : blocks) {
-    auto &pmb = block;
-    auto sc = pmb->swarm_data.Get();
-    auto swarm = sc->Get("my particles");
-    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-      auto &nb = pmb->pbval->neighbor[n];
-      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-    }
-  }
-
-  return TaskStatus::complete;
-}
-
-TaskStatus Defrag(MeshBlock *pmb) {
-  auto s = pmb->swarm_data.Get()->Get("my particles");
-
-  // Only do this if list is getting too sparse. This criterion (whether there
-  // are *any* gaps in the list) is very aggressive
-  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
-    s->Defrag();
-  }
-
-  return TaskStatus::complete;
-}
-
 // Custom step function to allow for looping over MPI-related tasks until complete
 TaskListStatus ParticleDriver::Step() {
   TaskListStatus status;
@@ -449,15 +419,19 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
 
   TaskRegion &sync_region0 = tc.AddRegion(1);
   {
-    auto &tl = sync_region0[0];
-    auto initialize_comms = tl.AddTask(none, InitializeCommunicationMesh, blocks);
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &tl = sync_region0[0];
+      auto &pmb = blocks[i];
+      auto &sc = pmb->swarm_data.Get();
+      auto reset_comms = tl.AddTask(none, &SwarmContainer::ResetCommunication, sc.get());
+    }
   }
 
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
 
-    auto sc = pmb->swarm_data.Get();
+    auto &sc = pmb->swarm_data.Get();
 
     auto &tl = async_region0[i];
 
@@ -483,9 +457,12 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
 
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
+    auto &sc = pmb->swarm_data.Get();
     auto &tl = async_region1[i];
 
-    auto defrag = tl.AddTask(none, Defrag, pmb.get());
+    // Defragment if swarm memory pool occupancy is 90%
+    auto defrag = tl.AddTask(none, &SwarmContainer::Defrag, sc.get(), 0.9);
+
     auto new_dt =
         tl.AddTask(defrag, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>,
                    pmb->meshblock_data.Get().get());
