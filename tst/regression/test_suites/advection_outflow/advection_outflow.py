@@ -25,12 +25,10 @@ sys.dont_write_bytecode = True
 
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
-
         parameters.coverage_status = "both"
         return parameters
 
     def Analyse(self, parameters):
-
         sys.path.insert(
             1,
             parameters.parthenon_path

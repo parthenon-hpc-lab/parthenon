@@ -20,6 +20,7 @@
 #include "globals.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
+#include "interface/variable_pack.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 
@@ -147,12 +148,9 @@ TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
   const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
   const IndexRange kb = md->GetBoundsK(IndexDomain::entire);
 
+  PackIndexMap map;
   const std::vector<MetadataFlag> flags({Metadata::Sparse});
-  const auto &pack = md->PackVariables(flags);
-
-  // get list of variables in same order as they appear in the pack, since variable
-  // metadata is the same on all blocks, we can just use the first block
-  const auto &var_list = md->GetBlockData(0)->GetVariablesByFlag(flags, true);
+  const auto &pack = md->PackVariables(flags, map);
 
   const int num_blocks = pack.GetDim(5);
   const int num_vars = pack.GetDim(4);
@@ -205,10 +203,19 @@ TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
   auto is_zero_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), is_zero);
 
   for (int b = 0; b < num_blocks; ++b) {
-    for (int v = 0; v < num_vars; ++v) {
-      auto &counter = md->GetBlockData(b)->Get(var_list.labels()[v]).dealloc_count;
-      if (is_zero_h(b, v)) {
-        // this var is zero, increment dealloc counter
+    for (auto var_itr : map.Map()) {
+      const auto label = var_itr.first;
+      auto &counter = md->GetBlockData(b)->Get(label).dealloc_count;
+      bool all_zero = true;
+      for (int v = var_itr.second.first; v <= var_itr.second.second; ++v) {
+        if (!is_zero_h(b, v)) {
+          all_zero = false;
+          break;
+        }
+      }
+
+      if (all_zero) {
+        // all components of this var are zero, increment dealloc counter
         counter += 1;
       } else {
         counter = 0;
@@ -217,9 +224,9 @@ TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
       if (counter > Globals::sparse_config.deallocation_count) {
         // this variable has been flagged for deallocation deallocation_count times in a
         // row, now deallocate it
-        // printf("Deallocating var %s on block %i\n", var_list.labels()[v].c_str(),
+        // printf("Deallocating var %s on block %i\n", label.c_str(),
         //        md->GetBlockData(b)->GetBlockPointer()->gid);
-        md->GetBlockData(b)->GetBlockPointer()->DeallocateSparse(var_list.labels()[v]);
+        md->GetBlockData(b)->GetBlockPointer()->DeallocateSparse(label);
       }
     }
   }

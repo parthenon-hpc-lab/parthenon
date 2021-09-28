@@ -19,20 +19,20 @@ refinement = adaptive
 numlevel = 3
 
 nx1 = 64
-x1min = -0.5
-x1max = 0.5
+x1min = -1
+x1max = 1
 ix1_bc = periodic
 ox1_bc = periodic
 
 nx2 = 64
-x2min = -0.5
-x2max = 0.5
+x2min = -1
+x2max = 1
 ix2_bc = periodic
 ox2_bc = periodic
 
 nx3 = 1
-x3min = -0.5
-x3max = 0.5
+x3min = -1
+x3max = 1
 ix3_bc = periodic
 ox3_bc = periodic
 
@@ -45,7 +45,9 @@ nx3 = 1
 tlim = 0.5
 integrator = rk2
 
-<Advection>
+<SparseAdvection>
+restart_test = true
+
 cfl = 0.45
 vx = 1.0
 vy = 1.0
@@ -53,7 +55,8 @@ vz = 1.0
 profile = hard_sphere
 
 refine_tol = 0.3    # control the package specific refinement tagging function
-derefine_tol = 0.03
+derefine_tol = 0.01 # with a larger value there will be bigger diffs due to
+                    # de-refinement counters being reset to 0 at restart
 compute_error = false
 
 <parthenon/output0>

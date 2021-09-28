@@ -162,6 +162,8 @@ class PackIndexMap {
  public:
   PackIndexMap() = default;
 
+  const auto &Map() const { return map_; }
+
   const auto &get(const std::string &base_name, int sparse_id = InvalidSparseID) const {
     const auto &key = MakeVarLabel(base_name, sparse_id);
     auto itr = map_.find(key);

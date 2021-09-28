@@ -120,7 +120,6 @@ std::vector<MetadataFlag> Metadata::Flags() const {
 std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
                                           bool coarse) const {
   std::array<int, 6> arrDims;
-
   const auto &shape = shape_;
   const int N = shape.size();
 

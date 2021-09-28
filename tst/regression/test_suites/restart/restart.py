@@ -16,11 +16,7 @@
 # ========================================================================================
 
 # Modules
-import h5py
-import math
-import numpy as np
 import sys
-import os
 import utils.test_case
 
 
@@ -30,7 +26,6 @@ sys.dont_write_bytecode = True
 
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
-
         # enable coverage testing on pass where restart
         # files are both read and written
         parameters.coverage_status = "both"
@@ -47,16 +42,23 @@ class TestCase(utils.test_case.TestCaseAbs):
         return parameters
 
     def Analyse(self, parameters):
-        # spotcheck one variable
-        goldFile = "gold.out0.00002.rhdf"
-        silverFile = "silver.out0.00002.rhdf"
-        varName = "advected"
-        with h5py.File(goldFile, "r") as gold, h5py.File(silverFile, "r") as silver:
-            goldData = np.zeros(gold[varName].shape, dtype=np.float64)
-            gold[varName].read_direct(goldData)
-            silverData = np.zeros(silver[varName].shape, dtype=np.float64)
-            silver[varName].read_direct(silverData)
+        sys.path.insert(
+            1,
+            parameters.parthenon_path
+            + "/scripts/python/packages/parthenon_tools/parthenon_tools",
+        )
 
-        maxdiff = np.abs(goldData - silverData).max()
-        print("Variable: %s, diff=%g, N=%d" % (varName, maxdiff, len(goldData)))
-        return maxdiff == 0.0
+        try:
+            from phdf_diff import compare
+        except ModuleNotFoundError:
+            print("Couldn't find module to compare Parthenon hdf5 files.")
+            return False
+
+        delta = compare(
+            [
+                "gold.out0.00002.rhdf",
+                "silver.out0.00002.rhdf",
+            ]
+        )
+
+        return delta == 0

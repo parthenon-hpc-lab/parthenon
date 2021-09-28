@@ -58,6 +58,8 @@ integrator = rk2
 ncycle_out_mesh = -10000
 
 <SparseAdvection>
+restart_test = true
+
 cfl = 0.45
 speed = 1.5
 
@@ -71,7 +73,7 @@ dt = 0.5
 <parthenon/output0>
 file_type = hdf5
 dt = 0.1
-variables = sparse
+variables = sparse, z_dense_A, z_dense_B, z_shape_shift
 
 <parthenon/output3>
 file_type = hst

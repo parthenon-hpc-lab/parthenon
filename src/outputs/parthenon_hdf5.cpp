@@ -107,7 +107,7 @@ struct VarInfo {
   }
 
   explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
-      : VarInfo(var->label(), var->metadata().getComponentLabels(), var->GetDim(4),
+      : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
                 var->IsSparse(), var->IsSet(Metadata::Vector)) {}
 };
 
@@ -137,23 +137,25 @@ static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
 }
 
 static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name,
+                                     const std::vector<std::string> &component_labels,
                                      std::string &hdfFile, int iblock, const int &vlen,
                                      int &ndims, hsize_t *dims,
                                      const std::string &dims321, bool isVector) {
   // writes a slab reference to file
-
   std::vector<std::string> names;
   int nentries = 1;
-  int vector_size = 1;
   if (vlen == 1 || isVector) {
+    // we only make one entry, because either vlen == 1, or we write this as a vector
     names.push_back(name);
   } else {
     nentries = vlen;
     for (int i = 0; i < vlen; i++) {
-      names.push_back(name + "_" + std::to_string(i));
+      names.push_back(
+          name + "_" +
+          (component_labels.empty() ? std::to_string(i) : component_labels[i]));
     }
   }
-  if (isVector) vector_size = vlen;
+  const int vector_size = isVector ? vlen : 1;
 
   const std::string prefix = "      ";
   for (int i = 0; i < nentries; i++) {
@@ -261,8 +263,8 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     for (const auto &vinfo : var_list) {
       const int vlen = vinfo.vlen;
       dims[4] = vlen;
-      writeXdmfSlabVariableRef(xdmf, vinfo.label, hdfFile, ib, vlen, ndims, dims, dims321,
-                               vinfo.is_vector);
+      writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
+                               vlen, ndims, dims, dims321, vinfo.is_vector);
     }
     xdmf << "      </Grid>" << std::endl;
   }
@@ -325,7 +327,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   filename.append(restart_ ? ".rhdf" : ".phdf");
 
   // After file has been opened with the current number, already advance output
-  // parameters so that for restarts the file is not immediatly overwritten again.
+  // parameters so that for restarts the file is not immediately overwritten again.
   output_params.file_number++;
   output_params.next_time += output_params.dt;
   pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
