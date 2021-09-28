@@ -132,13 +132,20 @@ class RestartReader {
                                                 name + " has rank " +
                                                 std::to_string(hdl.rank));
 
-    PARTHENON_REQUIRE_THROWS(dataVec.size() >= hdl.count,
-                             "Buffer too small for dataset " + name);
-
     /** Select hyperslab in dataset **/
     hsize_t offset[5] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0};
     hsize_t count[5] = {static_cast<hsize_t>(range.e - range.s + 1), bsize[2], bsize[1],
                         bsize[0], vlen};
+
+    hsize_t total_count = 1;
+    for (int i = 0; i < 5; ++i) {
+      total_count *= count[i];
+    }
+
+    PARTHENON_REQUIRE_THROWS(dataVec.size() >= total_count,
+                             "Buffer (size " + std::to_string(dataVec.size()) +
+                                 ") is too small for dataset " + name + " (size " +
+                                 std::to_string(total_count) + ")");
     PARTHENON_HDF5_CHECK(
         H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
 
