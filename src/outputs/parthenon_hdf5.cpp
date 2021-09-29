@@ -36,6 +36,10 @@
 #include "outputs/parthenon_hdf5.hpp"
 #include "utils/string_utils.hpp"
 
+#define GB            (1024 * 1024 * 1024)
+#define MB            (1024 * 1024)
+#define KB            (1024)
+
 namespace parthenon {
 namespace HDF5 {
 
@@ -75,6 +79,34 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values
     data[i] = values[i];
   }
   HDF5WriteAttribute(name, values.size(), data.get(), location);
+}
+
+// template to get HDF5 environment variables
+template<typename T>
+static T get(const char* name, T DefaultVal, bool exists) {
+  exists = true;
+  char* value = std::getenv(name);
+
+  // Environment variable is not set
+  if (!value) {
+    exists = false;
+    return DefaultVal;
+  }
+  //std::cout << "6 " << value << std::endl;
+
+  T res;
+
+  // Environment variable is set but no value is set, use the default
+  if( !value[0]) {
+    return DefaultVal;
+  } else {
+    // Environment variable is set and value is set
+    if (std::is_same<T, char*>::value)
+      res = (T)value;
+    else
+      std::istringstream(value) >> res;
+    return res;
+  }
 }
 
 } // namespace HDF5
@@ -401,8 +433,50 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
      numbers are guesses / experiments, others come from the file system
      documentation.
 
-     The sieve_buf_size should be equal a multiple of the disk block size
      ---------------------------------------------------------------------- */
+
+  // use collective metadata optimizations
+#if H5_VERSION_GE(1,10,0)
+  PARTHENON_HDF5_CHECK(H5Pset_coll_metadata_write(acc_file, true));
+  PARTHENON_HDF5_CHECK(H5Pset_all_coll_metadata_ops(acc_file, true));
+#endif
+
+  bool exists, exists2;
+
+  // Sets the maximum size of the data sieve buffer, in bytes.
+  // The sieve_buf_size should be equal a multiple of the disk block size
+  size_t sieve_buf_size = HDF5::get<size_t>("H5_sieve_buf_size", 256*KB, exists);
+  PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, sieve_buf_size));
+
+  // Sets the minimum metadata block size, in bytes.
+  hsize_t meta_block_size = HDF5::get<hsize_t>("H5_meta_block_size", 16*MB, exists);
+  PARTHENON_HDF5_CHECK(H5Pset_meta_block_size(acc_file, meta_block_size));
+
+  // Sets alignment properties of a file access property list.
+  // Choose an alignment which is a multiple of the disk block size.
+
+  hsize_t threshold; // Threshold value. Setting to 0 forces everything to be aligned.
+  hsize_t alignment; // Alignment value.
+
+  threshold = HDF5::get<hsize_t>("H5_alignment_threshold", 1*MB, exists);
+  alignment = HDF5::get<hsize_t>("H5_alignment_alignment", 16*MB, exists2);
+  if(exists || exists2)
+     PARTHENON_HDF5_CHECK(H5Pset_alignment(acc_file, threshold, alignment));
+
+  // Defer metadata flush
+  bool defer_metadata_flush = HDF5::get<bool>("H5_defer_metadata_flush", false, exists);
+  if (defer_metadata_flush) {
+     H5AC_cache_config_t cache_config;
+     cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
+      PARTHENON_HDF5_CHECK(H5Pget_mdc_config(acc_file, &cache_config));
+     cache_config.set_initial_size  = 1;
+     cache_config.initial_size      = 16 * MB;
+     cache_config.evictions_enabled = 0;
+     cache_config.incr_mode         = H5C_incr__off;
+     cache_config.flash_incr_mode   = H5C_flash_incr__off;
+     cache_config.decr_mode         = H5C_decr__off;
+     PARTHENON_HDF5_CHECK(H5Pset_mdc_config(acc_file, &cache_config));
+    }
 
   /* create an MPI_INFO object -- on some platforms it is useful to
      pass some information onto the underlying MPI_File_open call */
@@ -415,17 +489,26 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     ~MPI_InfoDeleter() { MPI_Info_free(&info); }
   } delete_info{FILE_INFO_TEMPLATE};
 
-  PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, 262144));
-  PARTHENON_HDF5_CHECK(H5Pset_alignment(acc_file, 524288, 262144));
+  // Hint specifies the manner in which the file will be accessed until the file is closed
+  char* access_style = HDF5::get<char *>("access_style", (char*)"write_once", exists);
+  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", access_style));
 
-  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", "write_once"));
-  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
-  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", "1048576"));
-  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", "4194304"));
+  // Specifies whether the application may benefit from collective buffering
+  // Default for collective_buffering is disabled
+  bool collective_buffering = HDF5::get<bool>("collective_buffering", false, exists);
+  if(collective_buffering) {
+    PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
+    // Specifies the block size to be used for collective buffering file acces
+     char *cb_block_size = HDF5::get<char *>("cb_block_size", (char*)"1048576", exists);
+    PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size",  cb_block_size));
+    // Specifies the total buffer space that can be used for collective buffering on each target node, 
+    // usually a multiple of cb_block_size
+    char *cb_buffer_size = HDF5::get<char *>("cb_buffer_size", (char*)"4194304", exists);
+    PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", cb_buffer_size));
+  }
 
   /* tell the HDF5 library that we want to use MPI-IO to do the writing */
   PARTHENON_HDF5_CHECK(H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, FILE_INFO_TEMPLATE));
-  PARTHENON_HDF5_CHECK(H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, MPI_INFO_NULL));
 #else
   hid_t const acc_file = H5P_DEFAULT;
 #endif // ifdef MPI_PARALLEL
@@ -550,7 +633,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   H5P const pl_xfer = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
   H5P const pl_dcreate = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_CREATE));
 
-  PARTHENON_HDF5_CHECK(H5Pset_alloc_time(pl_dcreate, H5D_ALLOC_TIME_EARLY));
+  // Never write fill values to the dataset
   PARTHENON_HDF5_CHECK(H5Pset_fill_time(pl_dcreate, H5D_FILL_TIME_NEVER));
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
