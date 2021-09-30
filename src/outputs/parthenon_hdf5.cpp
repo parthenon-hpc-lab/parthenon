@@ -489,20 +489,20 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   } delete_info{FILE_INFO_TEMPLATE};
 
   // Hint specifies the manner in which the file will be accessed until the file is closed
-  char* access_style = HDF5::get<char *>("access_style", (char*)"write_once", exists);
+  char* access_style = HDF5::get<char *>("MPI_access_style", (char*)"write_once", exists);
   PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", access_style));
 
   // Specifies whether the application may benefit from collective buffering
   // Default for collective_buffering is disabled
-  bool collective_buffering = HDF5::get<bool>("collective_buffering", false, exists);
+  bool collective_buffering = HDF5::get<bool>("MPI_collective_buffering", false, exists);
   if(collective_buffering) {
     PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
     // Specifies the block size to be used for collective buffering file acces
-     char *cb_block_size = HDF5::get<char *>("cb_block_size", (char*)"1048576", exists);
+     char *cb_block_size = HDF5::get<char *>("MPI_cb_block_size", (char*)"1048576", exists);
     PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size",  cb_block_size));
     // Specifies the total buffer space that can be used for collective buffering on each target node, 
     // usually a multiple of cb_block_size
-    char *cb_buffer_size = HDF5::get<char *>("cb_buffer_size", (char*)"4194304", exists);
+    char *cb_buffer_size = HDF5::get<char *>("MPI_cb_buffer_size", (char*)"4194304", exists);
     PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", cb_buffer_size));
   }
 
