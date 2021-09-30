@@ -444,9 +444,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   bool exists, exists2;
 
   // Sets the maximum size of the data sieve buffer, in bytes.
-  // The sieve_buf_size should be equal a multiple of the disk block size
+  // The sieve_buf_size should be equal to a multiple of the disk block size
   size_t sieve_buf_size = HDF5::get<size_t>("H5_sieve_buf_size", 256*KB, exists);
-  PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, sieve_buf_size));
+  if(exists)
+     PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, sieve_buf_size));
 
   // Sets the minimum metadata block size, in bytes.
   hsize_t meta_block_size = HDF5::get<hsize_t>("H5_meta_block_size", 16*MB, exists);

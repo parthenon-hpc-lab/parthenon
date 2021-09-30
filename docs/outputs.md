@@ -32,6 +32,28 @@ be used to set the compression level (between 1 and 9, default is 5). Compressio
 altogether with the CMake build option `PARTHENON_DISABLE_HDF5_COMPRESSION`. See the [build
 doc](building.md) for more details.
 
+## Tuning HDF5 Performance
+
+Tuning IO parameters can be passed to Parthenon through the use of environment variables. Available environment variables are:
+
+|  Environment Variable | Default | Value | Description |
+|---|---|---|---|
+| H5_sieve_buf_size | disabled | int | Sets the maximum size of the data sieve buffer, in bytes.<br>The value should be equal to a multiple of the disk block size.<br>If no value is set then the default is 256 KiB. |
+| H5_meta_block_size | enabled | int | Sets the minimum metadata block size, in bytes. If no value is <br> set then the default is 16 MiB. |
+| H5_alignment_threshold | disabled | int | The threshold value, in bytes, of H5Pset_alignment. Setting to 0 forces<br> everything to be aligned. If a value is not set then the default is 1 MiB.
+<br>Setting the environment variable automatically enables alignment. |
+| H5_alignment_alignment | disabled | int | The alignment value, in bytes, of H5Pset_alignment. If a value is not set then the default is 16 MiB. 
+<br>Setting the environment variable automatically enables alignment.
+<br><br>H5Pset_alignment sets the alignment properties of a file access property list. Choose an alignment
+<br> that is a multiple of the disk block size, enabling this usually shows better performance on GPFS. 
+<br><br>Enabling may increase the file size significantly. |
+| H5_defer_metadata_flush | disabled | int | Value of 1 enables deferring metadata flush. Value of 0 disables. |
+| MPI_access_style | enabled | string | Specifies the manner in which the file will be accessed until the file is closed. Default is "write_once" |
+| MPI_collective_buffering | disabled | int | Value of 1 enables MPI collective buffering. Value of 0 disables. |
+| MPI_cb_block_size | N/A | int | Sets the block size, in bytes, to be used for collective buffering file access. Default is 1 MiB. |
+| MPI_cb_buffer_size | N/A | int | Sets the total buffer space, in bytes, that can be used for collective buffering on each target node, 
+<br>usually a multiple of cb_block_size. Default is 4 MiB. |
+
 ## Restart Files
 
 Parthenon allows users to output restart files for restarting a simulation.  The restart file captures the input file, so no input file is required to be specified.  Parameters for the input can be overriden in the usual way from the command line.  At a future date we will allow for users the ability to extensively edit the parameters stored within the restart file.
