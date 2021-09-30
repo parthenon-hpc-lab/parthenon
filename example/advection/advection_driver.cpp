@@ -121,38 +121,16 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // apply du/dt to all independent fields in the container
     auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
                              mdudt.get(), beta * dt, mc1.get());
-  }
 
-  {
-    TaskRegion &tr = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; i++) {
-      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      tr[i].AddTask(none, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
-    }
-  }
-
-  {
-    TaskRegion &tr = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; i++) {
-      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      tr[i].AddTask(none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
-    }
-  }
-
-  {
-    TaskRegion &tr = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; i++) {
-      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      tr[i].AddTask(none, parthenon::cell_centered_bvars::SetBoundaries, mc1);
-    }
-  }
-
-  if (pmesh->multilevel) {
-    TaskRegion &tr = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; i++) {
-      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      tr[i].AddTask(none, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
-                    mc1.get());
+    // do boundary exchange
+    auto send =
+        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
+    auto recv =
+        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
+    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
+    if (pmesh->multilevel) {
+      tl.AddTask(set, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
+                 mc1.get());
     }
   }
 
@@ -191,6 +169,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     }
   }
   return tc;
-} // namespace advection_example
+}
 
 } // namespace advection_example

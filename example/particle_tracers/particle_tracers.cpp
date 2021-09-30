@@ -458,37 +458,18 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &tl = single_tasklist_per_pack_region[i];
+    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
 
-  {
-    TaskRegion &tr = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; i++) {
-      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      tr[i].AddTask(none, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
-    }
-  }
-
-  {
-    TaskRegion &tr = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; i++) {
-      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      tr[i].AddTask(none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
-    }
-  }
-
-  {
-    TaskRegion &tr = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; i++) {
-      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      tr[i].AddTask(none, parthenon::cell_centered_bvars::SetBoundaries, mc1);
-    }
-  }
-
-  if (pmesh->multilevel) {
-    TaskRegion &tr = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; i++) {
-      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      tr[i].AddTask(none, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
-                    mc1.get());
+    auto send =
+        tl.AddTask(none, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
+    auto recv =
+        tl.AddTask(none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
+    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
+    if (pmesh->multilevel) {
+      tl.AddTask(set, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
+                 mc1.get());
     }
   }
 

@@ -14,7 +14,7 @@
 #ifndef TASKS_TASK_TYPES_HPP_
 #define TASKS_TASK_TYPES_HPP_
 
-#include <chrono>
+#include <chrono> // NOLINT [build/c++11]
 #include <functional>
 #include <string>
 #include <utility>
