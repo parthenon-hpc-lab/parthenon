@@ -33,6 +33,9 @@ extern int my_rank, nranks, nghost;
 
 extern SparseConfig sparse_config;
 
+extern double receive_boundary_buffer_timeout;
+extern double current_task_runtime_sec;
+
 } // namespace Globals
 } // namespace parthenon
 

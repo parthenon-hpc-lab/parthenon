@@ -668,6 +668,18 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   // TODO(?) reintroduce sparse logic (or merge with above)
   Kokkos::Profiling::popRegion(); // Task_ReceiveBoundaryBuffers_MeshData
   if (ret) return TaskStatus::complete;
+
+#ifdef MPI_PARALLEL
+  // it is possible that we end up in an infinite loop waiting to receive an MPI message
+  // that never arrives, detect this situation by checking how long this task has been
+  // running
+  if (Globals::receive_boundary_buffer_timeout > 0.0) {
+    PARTHENON_REQUIRE_THROWS(Globals::current_task_runtime_sec <
+                                 Globals::receive_boundary_buffer_timeout,
+                             "ReceiveBoundaryBuffers timed out");
+  }
+#endif // MPI_PARALLEL
+
   return TaskStatus::incomplete;
 }
 

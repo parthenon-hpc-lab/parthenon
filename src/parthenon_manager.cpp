@@ -122,6 +122,10 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   Globals::sparse_config.deallocation_count = pinput->GetOrAddInteger(
       "parthenon/sparse", "dealloc_count", Globals::sparse_config.deallocation_count);
 
+  // set timeout config
+  Globals::receive_boundary_buffer_timeout =
+      pinput->GetOrAddReal("parthenon/time", "recv_bdry_buf_timeout_sec", 60);
+
   return ParthenonStatus::ok;
 }
 
