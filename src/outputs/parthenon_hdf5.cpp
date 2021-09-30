@@ -92,10 +92,8 @@ static T get(const char* name, T DefaultVal, bool exists) {
     exists = false;
     return DefaultVal;
   }
-  //std::cout << "6 " << value << std::endl;
 
   T res;
-
   // Environment variable is set but no value is set, use the default
   if( !value[0]) {
     return DefaultVal;
