@@ -49,6 +49,9 @@ using SwarmVarList = std::forward_list<std::shared_ptr<ParticleVariable<T>>>;
 // the pairs represent interval (inclusive) of those indices
 using IndexPair = std::pair<int, int>;
 
+// Used for storing the shapes of variable fields 
+using Shape = std::vector<int>;
+
 // The key for variable packs
 using VPackKey_t = std::vector<std::string>;
 
@@ -103,7 +106,9 @@ class PackIndexMap {
     return itr->second;
   }
 
-  bool operator==(const PackIndexMap &other) { return map_ == other.map_; }
+  bool operator==(const PackIndexMap &other) {
+    return (map_ == other.map_) && (shape_map_ == other.shape_map_);
+  }
 
   // This is dangerous! Use at your own peril!
   // It will silently return invalid indices if the key doesn't exist (e.g. misspelled or
@@ -118,8 +123,40 @@ class PackIndexMap {
     return itr->second;
   }
 
-  void insert(std::pair<std::string, vpack_types::IndexPair> keyval) {
-    map_.insert(keyval);
+  void insert(std::string key, vpack_types::IndexPair val, vpack_types::Shape shape = vpack_types::Shape()) {
+    map_.insert(std::pair<std::string, vpack_types::IndexPair>(key, val));
+    shape_map_.insert(std::pair<std::string, vpack_types::Shape>(key, shape));
+  }
+
+  template <typename... Ts>
+  int GetFlatIdx(const std::string &key, Ts... idx_pack) {
+
+    std::vector<int> indices = {idx_pack...};
+
+    // Make sure the key exists
+    auto itr = map_.find(key);
+    auto itr_shape = shape_map_.find(key);
+    if ((itr == map_.end()) || (itr_shape == shape_map_.end())) {
+      return -1; // invalid index
+    }
+
+    // Check that the correct dimensionality is being specified
+    assert(indices.size() == itr_shape->second.size());
+
+    // Find the flat index from the indices assuming fastest moving index is
+    // the rightmost index
+    int idx = 0;
+    if (indices.size() > 0) {
+      idx = indices[0];
+      assert(indices[0] < itr_shape->second[0]);
+      for (int idim = 1; idim < indices.size(); ++idim) {
+        assert(indices[idim] < itr_shape->second[idim]);
+        idx = indices[idim] + idim * itr_shape->second[idim];
+      }
+    }
+    idx += itr->second.first;
+
+    return idx;
   }
 
   bool Has(std::string const &base_name, int sparse_id = InvalidSparseID) const {
@@ -135,6 +172,7 @@ class PackIndexMap {
 
  private:
   std::unordered_map<std::string, vpack_types::IndexPair> map_;
+  std::unordered_map<std::string, vpack_types::Shape> shape_map_;
 };
 
 template <typename T>
@@ -371,9 +409,14 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
       }
     }
 
+    std::vector<int> shape;
+    if (v->GetDim(6) > 0) shape.push_back(v->GetDim(6));
+    if (v->GetDim(5) > 0) shape.push_back(v->GetDim(5));
+    if (v->GetDim(4) > 0) shape.push_back(v->GetDim(4));
+
     if (pvmap != nullptr) {
       pvmap->insert(
-          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
+          v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
 
@@ -395,16 +438,14 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
   // TODO(BRR) Remove the logic for sparse variables
   for (const auto v : vars) {
     if (vmap != nullptr) {
-      vmap->insert(std::pair<std::string, IndexPair>(
-          sparse_name, IndexPair(sparse_start, vindex - 1)));
+      vmap->insert(sparse_name, IndexPair(sparse_start, vindex - 1));
       sparse_name = "";
     }
     int vstart = vindex;
     // Reusing ViewOfParArrays which expects 3D slices
     host_view(vindex++) = v->data.Get(0, 0, 0);
     if (vmap != nullptr) {
-      vmap->insert(
-          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
+      vmap->insert(v->label(), IndexPair(vstart, vindex - 1));
     }
   }
 
@@ -438,9 +479,14 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
       }
     }
 
+    std::vector<int> shape;
+    if (v->GetDim(6) > 0) shape.push_back(v->GetDim(6));
+    if (v->GetDim(5) > 0) shape.push_back(v->GetDim(5));
+    if (v->GetDim(4) > 0) shape.push_back(v->GetDim(4));
+
     if (pvmap != nullptr) {
       pvmap->insert(
-          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
+          v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
 
