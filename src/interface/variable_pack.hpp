@@ -141,22 +141,34 @@ class PackIndexMap {
     }
 
     // Check that the correct dimensionality is being specified
-    assert(indices.size() == itr_shape->second.size());
+    if (indices.size() != itr_shape->second.size()) {
+      PARTHENON_THROW("Wrong number of indices for variable " + key + ".")
+    }
 
     // Find the flat index from the indices assuming fastest moving index is
     // the rightmost index
     int idx = 0;
     if (indices.size() > 0) {
-      idx = indices[0];
-      assert(indices[0] < itr_shape->second[0]);
-      for (int idim = 1; idim < indices.size(); ++idim) {
-        assert(indices[idim] < itr_shape->second[idim]);
-        idx = indices[idim] + idim * itr_shape->second[idim];
+      // for (int idim = 0; idim < indices.size(); ++idim) {
+      for (int idim = indices.size() - 1; idim >= 0; --idim) { 
+        if (indices[idim] >= itr_shape->second[idim]) {
+          PARTHENON_THROW("Index " + std::to_string(indices[idim]) +
+                          " too large for dimension " + std::to_string(idim) + " of " +
+                          key + ".")
+        }
+        idx = indices[idim] + idx * itr_shape->second[idim];
       }
     }
-    idx += itr->second.first;
+    idx +=
+        itr->second.first; // Offset for position relative to other variables in the pack
 
     return idx;
+  }
+
+  std::vector<int> GetShape(const std::string &key) {
+    auto itr_shape = shape_map_.find(key);
+    if (itr_shape == shape_map_.end()) return {-1};
+    return itr_shape->second;
   }
 
   bool Has(std::string const &base_name, int sparse_id = InvalidSparseID) const {
@@ -410,9 +422,9 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
     }
 
     std::vector<int> shape;
-    if (v->GetDim(6) > 0) shape.push_back(v->GetDim(6));
-    if (v->GetDim(5) > 0) shape.push_back(v->GetDim(5));
-    if (v->GetDim(4) > 0) shape.push_back(v->GetDim(4));
+    if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
+    if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
+    if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
 
     if (pvmap != nullptr) {
       pvmap->insert(
@@ -480,9 +492,9 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
     }
 
     std::vector<int> shape;
-    if (v->GetDim(6) > 0) shape.push_back(v->GetDim(6));
-    if (v->GetDim(5) > 0) shape.push_back(v->GetDim(5));
-    if (v->GetDim(4) > 0) shape.push_back(v->GetDim(4));
+    if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
+    if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
+    if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
 
     if (pvmap != nullptr) {
       pvmap->insert(
