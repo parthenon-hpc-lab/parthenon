@@ -49,7 +49,7 @@ using SwarmVarList = std::forward_list<std::shared_ptr<ParticleVariable<T>>>;
 // the pairs represent interval (inclusive) of those indices
 using IndexPair = std::pair<int, int>;
 
-// Used for storing the shapes of variable fields 
+// Used for storing the shapes of variable fields
 using Shape = std::vector<int>;
 
 // The key for variable packs
@@ -123,14 +123,14 @@ class PackIndexMap {
     return itr->second;
   }
 
-  void insert(std::string key, vpack_types::IndexPair val, vpack_types::Shape shape = vpack_types::Shape()) {
+  void insert(std::string key, vpack_types::IndexPair val,
+              vpack_types::Shape shape = vpack_types::Shape()) {
     map_.insert(std::pair<std::string, vpack_types::IndexPair>(key, val));
     shape_map_.insert(std::pair<std::string, vpack_types::Shape>(key, shape));
   }
 
   template <typename... Ts>
   int GetFlatIdx(const std::string &key, Ts... idx_pack) {
-
     std::vector<int> indices = {idx_pack...};
 
     // Make sure the key exists
@@ -150,7 +150,7 @@ class PackIndexMap {
     int idx = 0;
     if (indices.size() > 0) {
       // for (int idim = 0; idim < indices.size(); ++idim) {
-      for (int idim = indices.size() - 1; idim >= 0; --idim) { 
+      for (int idim = indices.size() - 1; idim >= 0; --idim) {
         if (indices[idim] >= itr_shape->second[idim]) {
           PARTHENON_THROW("Index " + std::to_string(indices[idim]) +
                           " too large for dimension " + std::to_string(idim) + " of " +
