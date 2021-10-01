@@ -52,6 +52,45 @@ using IndexPair = std::pair<int, int>;
 // Used for storing the shapes of variable fields
 using Shape = std::vector<int>;
 
+class FlatIdx { 
+ public:
+  FlatIdx(std::vector<int> shape, int offset) : shape_("shape", shape.size()), offset_(offset) {
+    for (int i=0; i<shape.size(); ++i) {
+      shape_(i) = shape[i];
+    }
+  }
+
+  template <typename... Ts>
+  KOKKOS_INLINE_FUNCTION
+  int operator()(Ts... idx_pack) const {
+    std::vector<int> indices = {idx_pack...};
+
+    // Check that the correct dimensionality is being specified
+    if (indices.size() != shape_.size()) {
+      PARTHENON_THROW("Wrong number of indices for variable.")
+    }
+
+    // Find the flat index from the indices assuming fastest moving index is
+    // the rightmost index
+    int idx = 0;
+    if (indices.size() > 0) {
+      for (int idim = indices.size() - 1; idim >= 0; --idim) {
+        if (indices[idim] >= shape_(idim)) {
+          PARTHENON_THROW("Index " + std::to_string(indices[idim]) +
+                          " too large for dimension " + std::to_string(idim) + ".")
+        }
+        idx = indices[idim] + idx * shape_(idim);
+      }
+    }
+    idx += offset_;
+
+    return idx;
+  } 
+ private:
+  ParArray1D<int> shape_; 
+  int offset_;
+};
+
 // The key for variable packs
 using VPackKey_t = std::vector<std::string>;
 
@@ -127,6 +166,16 @@ class PackIndexMap {
               vpack_types::Shape shape = vpack_types::Shape()) {
     map_.insert(std::pair<std::string, vpack_types::IndexPair>(key, val));
     shape_map_.insert(std::pair<std::string, vpack_types::Shape>(key, shape));
+  }
+  
+  vpack_types::FlatIdx GetFlatIdxAccessor(const std::string &key) { 
+    // Make sure the key exists
+    auto itr = map_.find(key);
+    auto itr_shape = shape_map_.find(key);
+    if ((itr == map_.end()) || (itr_shape == shape_map_.end())) {
+      PARTHENON_THROW("Key " + key + " does not exist."); 
+    }
+    return vpack_types::FlatIdx(itr_shape->second, itr->second.first); 
   }
 
   template <typename... Ts>
