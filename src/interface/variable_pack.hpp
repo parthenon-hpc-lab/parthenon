@@ -149,7 +149,6 @@ class PackIndexMap {
     // the rightmost index
     int idx = 0;
     if (indices.size() > 0) {
-      // for (int idim = 0; idim < indices.size(); ++idim) {
       for (int idim = indices.size() - 1; idim >= 0; --idim) {
         if (indices[idim] >= itr_shape->second[idim]) {
           PARTHENON_THROW("Index " + std::to_string(indices[idim]) +
