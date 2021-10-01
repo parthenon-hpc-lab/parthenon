@@ -153,6 +153,11 @@ using pMeshBlockApplicationData_t = std::unique_ptr<MeshBlockApplicationData>;
 // we still need to define this somewhere, though
 inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
 
+// Convience definitions
+constexpr int GiB = 1024 * 1024 * 1024;
+constexpr int MiB = 1024 * 1024;
+constexpr int KiB = 1024;
+
 } // namespace parthenon
 
 #endif // DEFS_HPP_

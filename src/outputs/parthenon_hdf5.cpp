@@ -36,10 +36,6 @@
 #include "outputs/parthenon_hdf5.hpp"
 #include "utils/string_utils.hpp"
 
-#define GB            (1024 * 1024 * 1024)
-#define MB            (1024 * 1024)
-#define KB            (1024)
-
 namespace parthenon {
 namespace HDF5 {
 
@@ -79,32 +75,6 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values
     data[i] = values[i];
   }
   HDF5WriteAttribute(name, values.size(), data.get(), location);
-}
-
-// template to get HDF5 environment variables
-template<typename T>
-static T get(const char* name, T DefaultVal, bool exists) {
-  exists = true;
-  char* value = std::getenv(name);
-
-  // Environment variable is not set
-  if (!value) {
-    exists = false;
-    return DefaultVal;
-  }
-
-  T res;
-  // Environment variable is set but no value is set, use the default
-  if( !value[0]) {
-    return DefaultVal;
-  } else {
-    // Environment variable is set and value is set
-    if (std::is_same<T, char*>::value)
-      res = (T)value;
-    else
-      std::istringstream(value) >> res;
-    return res;
-  }
 }
 
 } // namespace HDF5
@@ -443,33 +413,37 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // Sets the maximum size of the data sieve buffer, in bytes.
   // The sieve_buf_size should be equal to a multiple of the disk block size
-  size_t sieve_buf_size = HDF5::get<size_t>("H5_sieve_buf_size", 256*KB, exists);
+  // Default: Disabled
+  size_t sieve_buf_size = Env::get<size_t>("H5_sieve_buf_size", 256*KiB, exists);
   if(exists)
      PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, sieve_buf_size));
 
   // Sets the minimum metadata block size, in bytes.
-  hsize_t meta_block_size = HDF5::get<hsize_t>("H5_meta_block_size", 16*MB, exists);
-  PARTHENON_HDF5_CHECK(H5Pset_meta_block_size(acc_file, meta_block_size));
+  // Default: Disabled
+  hsize_t meta_block_size = Env::get<hsize_t>("H5_meta_block_size", 8*MiB, exists);
+  if(exists)
+     PARTHENON_HDF5_CHECK(H5Pset_meta_block_size(acc_file, meta_block_size));
 
   // Sets alignment properties of a file access property list.
   // Choose an alignment which is a multiple of the disk block size.
-
+  // Default: Disabled
   hsize_t threshold; // Threshold value. Setting to 0 forces everything to be aligned.
   hsize_t alignment; // Alignment value.
 
-  threshold = HDF5::get<hsize_t>("H5_alignment_threshold", 1*MB, exists);
-  alignment = HDF5::get<hsize_t>("H5_alignment_alignment", 16*MB, exists2);
+  threshold = Env::get<hsize_t>("H5_alignment_threshold", 0, exists);
+  alignment = Env::get<hsize_t>("H5_alignment_alignment", 8*MiB, exists2);
   if(exists || exists2)
      PARTHENON_HDF5_CHECK(H5Pset_alignment(acc_file, threshold, alignment));
 
   // Defer metadata flush
-  bool defer_metadata_flush = HDF5::get<bool>("H5_defer_metadata_flush", false, exists);
+  // Default: Disabled
+  bool defer_metadata_flush = Env::get<bool>("H5_defer_metadata_flush", false, exists);
   if (defer_metadata_flush) {
      H5AC_cache_config_t cache_config;
      cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
       PARTHENON_HDF5_CHECK(H5Pget_mdc_config(acc_file, &cache_config));
      cache_config.set_initial_size  = 1;
-     cache_config.initial_size      = 16 * MB;
+     cache_config.initial_size      = 16 * MiB;
      cache_config.evictions_enabled = 0;
      cache_config.incr_mode         = H5C_incr__off;
      cache_config.flash_incr_mode   = H5C_flash_incr__off;
@@ -489,20 +463,20 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   } delete_info{FILE_INFO_TEMPLATE};
 
   // Hint specifies the manner in which the file will be accessed until the file is closed
-  char* access_style = HDF5::get<char *>("MPI_access_style", (char*)"write_once", exists);
+  char* access_style = Env::get<char *>("MPI_access_style", (char*)"write_once", exists);
   PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", access_style));
 
   // Specifies whether the application may benefit from collective buffering
-  // Default for collective_buffering is disabled
-  bool collective_buffering = HDF5::get<bool>("MPI_collective_buffering", false, exists);
+  // Default :: collective_buffering is disabled
+  bool collective_buffering = Env::get<bool>("MPI_collective_buffering", false, exists);
   if(collective_buffering) {
     PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
     // Specifies the block size to be used for collective buffering file acces
-     char *cb_block_size = HDF5::get<char *>("MPI_cb_block_size", (char*)"1048576", exists);
+     char *cb_block_size = Env::get<char *>("MPI_cb_block_size", (char*)"1048576", exists);
     PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size",  cb_block_size));
     // Specifies the total buffer space that can be used for collective buffering on each target node, 
     // usually a multiple of cb_block_size
-    char *cb_buffer_size = HDF5::get<char *>("MPI_cb_buffer_size", (char*)"4194304", exists);
+    char *cb_buffer_size = Env::get<char *>("MPI_cb_buffer_size", (char*)"4194304", exists);
     PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", cb_buffer_size));
   }
 

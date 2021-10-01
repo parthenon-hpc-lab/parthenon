@@ -50,6 +50,38 @@ void Report();
 
 } // namespace SignalHandler
 
+//----------------------------------------------------------------------------------------
+//! Env
+//  \brief static function to check and retrieve environment settings
+namespace Env {
+
+// template to get environment variables
+template<typename T>
+static T get(const char* name, T DefaultVal, bool exists) {
+  exists = true;
+  char* value = std::getenv(name);
+
+  // Environment variable is not set
+  if (!value) {
+    exists = false;
+    return DefaultVal;
+  }
+
+  T res;
+  // Environment variable is set but no value is set, use the default
+  if( !value[0]) {
+    return DefaultVal;
+  } else {
+    // Environment variable is set and value is set
+    if (std::is_same<T, char*>::value)
+      res = (T)value;
+    else
+      std::istringstream(value) >> res;
+    return res;
+  }
+}
+} // namespace Env
+
 } // namespace parthenon
 
 #endif // UTILS_UTILS_HPP_
