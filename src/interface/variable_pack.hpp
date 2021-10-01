@@ -59,6 +59,11 @@ class FlatIdx {
       shape_(i) = shape[i];
     }
   }
+  
+  KOKKOS_INLINE_FUNCTION 
+  int DimSize(int i) const {
+    return shape_(i);
+  }
 
   template <typename... Ts>
   KOKKOS_INLINE_FUNCTION
@@ -168,7 +173,7 @@ class PackIndexMap {
     shape_map_.insert(std::pair<std::string, vpack_types::Shape>(key, shape));
   }
   
-  vpack_types::FlatIdx GetFlatIdxAccessor(const std::string &key) { 
+  vpack_types::FlatIdx GetFlatIdx(const std::string &key) { 
     // Make sure the key exists
     auto itr = map_.find(key);
     auto itr_shape = shape_map_.find(key);
@@ -176,41 +181,6 @@ class PackIndexMap {
       PARTHENON_THROW("Key " + key + " does not exist."); 
     }
     return vpack_types::FlatIdx(itr_shape->second, itr->second.first); 
-  }
-
-  template <typename... Ts>
-  int GetFlatIdx(const std::string &key, Ts... idx_pack) {
-    std::vector<int> indices = {idx_pack...};
-
-    // Make sure the key exists
-    auto itr = map_.find(key);
-    auto itr_shape = shape_map_.find(key);
-    if ((itr == map_.end()) || (itr_shape == shape_map_.end())) {
-      return -1; // invalid index
-    }
-
-    // Check that the correct dimensionality is being specified
-    if (indices.size() != itr_shape->second.size()) {
-      PARTHENON_THROW("Wrong number of indices for variable " + key + ".")
-    }
-
-    // Find the flat index from the indices assuming fastest moving index is
-    // the rightmost index
-    int idx = 0;
-    if (indices.size() > 0) {
-      for (int idim = indices.size() - 1; idim >= 0; --idim) {
-        if (indices[idim] >= itr_shape->second[idim]) {
-          PARTHENON_THROW("Index " + std::to_string(indices[idim]) +
-                          " too large for dimension " + std::to_string(idim) + " of " +
-                          key + ".")
-        }
-        idx = indices[idim] + idx * itr_shape->second[idim];
-      }
-    }
-    idx +=
-        itr->second.first; // Offset for position relative to other variables in the pack
-
-    return idx;
   }
 
   std::vector<int> GetShape(const std::string &key) {
