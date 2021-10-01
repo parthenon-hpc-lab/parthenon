@@ -426,8 +426,7 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
     if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
 
     if (pvmap != nullptr) {
-      pvmap->insert(
-          v->label(), IndexPair(vstart, vindex - 1), shape);
+      pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
 
@@ -496,8 +495,7 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
     if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
 
     if (pvmap != nullptr) {
-      pvmap->insert(
-          v->label(), IndexPair(vstart, vindex - 1), shape);
+      pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
 
