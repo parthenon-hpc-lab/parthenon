@@ -57,9 +57,11 @@ class FlatIdx {
  public:
   FlatIdx(std::vector<int> shape, int offset)
       : shape_("shape", shape.size()), offset_(offset) {
+    auto host_shape = Kokkos::create_mirror_view(Kokkos::HostSpace(), shape_);
     for (int i = 0; i < shape.size(); ++i) {
-      shape_(i) = shape[i];
+      host_shape(i) = shape[i];
     }
+    Kokkos::deep_copy(shape_, host_shape);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -71,7 +73,7 @@ class FlatIdx {
 
     // Check that the correct dimensionality is being specified
     if (indices.size() != shape_.size()) {
-      PARTHENON_THROW("Wrong number of indices for variable.")
+      PARTHENON_FAIL(std::string("Wrong number of indices for variable.").c_str())
     }
 
     // Find the flat index from the indices assuming fastest moving index is
@@ -80,8 +82,9 @@ class FlatIdx {
     if (indices.size() > 0) {
       for (int idim = indices.size() - 1; idim >= 0; --idim) {
         if (indices[idim] >= shape_(idim)) {
-          PARTHENON_THROW("Index " + std::to_string(indices[idim]) +
+          PARTHENON_FAIL(("Index " + std::to_string(indices[idim]) +
                           " too large for dimension " + std::to_string(idim) + ".")
+                             .c_str())
         }
         idx = indices[idim] + idx * shape_(idim);
       }
