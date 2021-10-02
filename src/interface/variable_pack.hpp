@@ -52,22 +52,21 @@ using IndexPair = std::pair<int, int>;
 // Used for storing the shapes of variable fields
 using Shape = std::vector<int>;
 
-class FlatIdx { 
+// Index arbitrary rank fields into flattened indices in a VariablePack
+class FlatIdx {
  public:
-  FlatIdx(std::vector<int> shape, int offset) : shape_("shape", shape.size()), offset_(offset) {
-    for (int i=0; i<shape.size(); ++i) {
+  FlatIdx(std::vector<int> shape, int offset)
+      : shape_("shape", shape.size()), offset_(offset) {
+    for (int i = 0; i < shape.size(); ++i) {
       shape_(i) = shape[i];
     }
   }
-  
-  KOKKOS_INLINE_FUNCTION 
-  int DimSize(int i) const {
-    return shape_(i);
-  }
+
+  KOKKOS_INLINE_FUNCTION
+  int DimSize(int i) const { return shape_(i); }
 
   template <typename... Ts>
-  KOKKOS_INLINE_FUNCTION
-  int operator()(Ts... idx_pack) const {
+  KOKKOS_INLINE_FUNCTION int operator()(Ts... idx_pack) const {
     std::vector<int> indices = {idx_pack...};
 
     // Check that the correct dimensionality is being specified
@@ -90,9 +89,10 @@ class FlatIdx {
     idx += offset_;
 
     return idx;
-  } 
+  }
+
  private:
-  ParArray1D<int> shape_; 
+  ParArray1D<int> shape_;
   int offset_;
 };
 
@@ -172,15 +172,15 @@ class PackIndexMap {
     map_.insert(std::pair<std::string, vpack_types::IndexPair>(key, val));
     shape_map_.insert(std::pair<std::string, vpack_types::Shape>(key, shape));
   }
-  
-  vpack_types::FlatIdx GetFlatIdx(const std::string &key) { 
+
+  vpack_types::FlatIdx GetFlatIdx(const std::string &key) {
     // Make sure the key exists
     auto itr = map_.find(key);
     auto itr_shape = shape_map_.find(key);
     if ((itr == map_.end()) || (itr_shape == shape_map_.end())) {
-      PARTHENON_THROW("Key " + key + " does not exist."); 
+      PARTHENON_THROW("Key " + key + " does not exist.");
     }
-    return vpack_types::FlatIdx(itr_shape->second, itr->second.first); 
+    return vpack_types::FlatIdx(itr_shape->second, itr->second.first);
   }
 
   std::vector<int> GetShape(const std::string &key) {
