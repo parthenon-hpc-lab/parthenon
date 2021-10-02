@@ -69,25 +69,22 @@ class FlatIdx {
 
   template <typename... Ts>
   KOKKOS_INLINE_FUNCTION int operator()(Ts... idx_pack) const {
-    std::vector<int> indices = {idx_pack...};
+    const int size = sizeof...(idx_pack);
+    int indices[size] = {idx_pack...};
 
     // Check that the correct dimensionality is being specified
-    if (indices.size() != shape_.size()) {
-      PARTHENON_FAIL(std::string("Wrong number of indices for variable.").c_str())
+    if (size != shape_.size()) {
+      PARTHENON_FAIL("Wrong number of indices for variable.");
     }
 
     // Find the flat index from the indices assuming fastest moving index is
     // the rightmost index
     int idx = 0;
-    if (indices.size() > 0) {
-      for (int idim = indices.size() - 1; idim >= 0; --idim) {
-        if (indices[idim] >= shape_(idim)) {
-          PARTHENON_FAIL(("Index " + std::to_string(indices[idim]) +
-                          " too large for dimension " + std::to_string(idim) + ".")
-                             .c_str())
-        }
-        idx = indices[idim] + idx * shape_(idim);
+    for (int idim = size - 1; idim >= 0; --idim) {
+      if (indices[idim] >= shape_(idim)) {
+        PARTHENON_FAIL("Index too large for dimension .");
       }
+      idx = indices[idim] + idx * shape_(idim);
     }
     idx += offset_;
 
