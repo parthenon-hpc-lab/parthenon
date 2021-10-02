@@ -56,16 +56,18 @@ using Shape = std::vector<int>;
 class FlatIdx {
  public:
   FlatIdx(std::vector<int> shape, int offset)
-      : shape_("shape", shape.size()), offset_(offset) {
-    auto host_shape = Kokkos::create_mirror_view(Kokkos::HostSpace(), shape_);
+      : shape_and_offset_("shape_and_offset", shape.size() + 1) {
+    auto host_shape_and_offset =
+        Kokkos::create_mirror_view(Kokkos::HostSpace(), shape_and_offset_);
     for (int i = 0; i < shape.size(); ++i) {
-      host_shape(i) = shape[i];
+      host_shape_and_offset(i) = shape[i];
     }
-    Kokkos::deep_copy(shape_, host_shape);
+    host_shape_and_offset(shape.size()) = offset;
+    Kokkos::deep_copy(shape_and_offset_, host_shape_and_offset);
   }
 
   KOKKOS_INLINE_FUNCTION
-  int DimSize(int i) const { return shape_(i); }
+  int DimSize(int i) const { return shape_and_offset_(i); }
 
   template <typename... Ts>
   KOKKOS_INLINE_FUNCTION int operator()(Ts... idx_pack) const {
@@ -73,7 +75,7 @@ class FlatIdx {
     int indices[size] = {idx_pack...};
 
     // Check that the correct dimensionality is being specified
-    if (size != shape_.size()) {
+    if (size != shape_and_offset_.size() - 1) {
       PARTHENON_FAIL("Wrong number of indices for variable.");
     }
 
@@ -81,19 +83,18 @@ class FlatIdx {
     // the rightmost index
     int idx = 0;
     for (int idim = size - 1; idim >= 0; --idim) {
-      if (indices[idim] >= shape_(idim)) {
+      if (indices[idim] >= shape_and_offset_(idim)) {
         PARTHENON_FAIL("Index too large for dimension .");
       }
-      idx = indices[idim] + idx * shape_(idim);
+      idx = indices[idim] + idx * shape_and_offset_(idim);
     }
-    idx += offset_;
+    idx += shape_and_offset_(shape_and_offset_.size() - 1);
 
     return idx;
   }
 
  private:
-  ParArray1D<int> shape_;
-  int offset_;
+  ParArray1D<int> shape_and_offset_;
 };
 
 // The key for variable packs
