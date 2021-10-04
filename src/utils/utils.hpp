@@ -59,7 +59,7 @@ namespace Env {
 template<typename T>
 static T get(const char* name, T defaultval, bool &exists) {
   exists = true;
-  char* value = std::getenv(name);
+  const char* value = std::getenv(name);
 
   // Environment variable is not set
   if ( value == nullptr) {
