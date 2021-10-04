@@ -411,6 +411,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   bool exists, exists2;
 
+  // Set the HDF5 format versions used when creating objects
+  // Note, introducing API calls that create objects or features that are 
+  // only available to versions of the library greater than 1.8.x release will fail.
+  // For that case, the highest version value will need to be increased.
+  H5Pset_libver_bounds(acc_file, H5F_LIBVER_V18, H5F_LIBVER_V18);
+
   // Sets the maximum size of the data sieve buffer, in bytes.
   // The sieve_buf_size should be equal to a multiple of the disk block size
   // Default: Disabled
