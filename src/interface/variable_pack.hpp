@@ -55,46 +55,64 @@ using Shape = std::vector<int>;
 // Index arbitrary rank fields into flattened indices in a VariablePack
 class FlatIdx {
  public:
-  FlatIdx(std::vector<int> shape, int offset)
-      : shape_and_offset_("shape_and_offset", shape.size() + 1) {
-    auto host_shape_and_offset =
-        Kokkos::create_mirror_view(Kokkos::HostSpace(), shape_and_offset_);
-    for (int i = 0; i < shape.size(); ++i) {
-      host_shape_and_offset(i) = shape[i];
+  FlatIdx(std::vector<int> shape, int offset) : offset_(offset), ndim_(shape.size()) {
+    if (shape.size() > 3) {
+      PARTHENON_THROW("Requested rank larger than three.");
     }
-    host_shape_and_offset(shape.size()) = offset;
-    Kokkos::deep_copy(shape_and_offset_, host_shape_and_offset);
+    for (int i = 0; i < shape.size(); ++i)
+      shape_[i] = shape[i];
   }
 
   KOKKOS_INLINE_FUNCTION
-  int DimSize(int i) const { return shape_and_offset_(i); }
+  int DimSize(int iDim) const { return shape_[iDim - 1]; }
 
-  template <typename... Ts>
-  KOKKOS_INLINE_FUNCTION int operator()(Ts... idx_pack) const {
-    const int size = sizeof...(idx_pack);
-    int indices[size] = {idx_pack...};
-
-    // Check that the correct dimensionality is being specified
-    if (size != shape_and_offset_.size() - 1) {
-      PARTHENON_FAIL("Wrong number of indices for variable.");
+  IndexRange GetBounds(int iDim) const {
+    if (iDim > ndim_) {
+      PARTHENON_THROW("Dimension " + std::to_string(iDim) + " greater than rank" +
+                      std::to_string(ndim_) + ".");
     }
+    IndexRange rng;
+    rng.s = 0;
+    rng.e = shape_[iDim-1]-1;
+    return rng;
+  }
 
-    // Find the flat index from the indices assuming fastest moving index is
-    // the rightmost index
-    int idx = 0;
-    for (int idim = size - 1; idim >= 0; --idim) {
-      if (indices[idim] >= shape_and_offset_(idim)) {
-        PARTHENON_FAIL("Index too large for dimension .");
-      }
-      idx = indices[idim] + idx * shape_and_offset_(idim);
-    }
-    idx += shape_and_offset_(shape_and_offset_.size() - 1);
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()() const {
+    if (ndim_ != 0) PARTHENON_DEBUG_FAIL("Wrong number of dimensions.");
+    return offset_;
+  }
 
-    return idx;
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1) const {
+    if (ndim_ != 1) PARTHENON_DEBUG_FAIL("Wrong number of dimensions.");
+    if (idx1 >= shape_[0]) PARTHENON_DEBUG_FAIL("Idx1 too large.");
+    return offset_ + idx1;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1, const int idx2) const {
+    if (ndim_ != 2) PARTHENON_DEBUG_FAIL("Wrong number of dimensions.");
+    if (idx1 >= shape_[0]) PARTHENON_DEBUG_FAIL("Idx1 too large.");
+    if (idx2 >= shape_[1]) PARTHENON_DEBUG_FAIL("Idx2 too large.");
+    return offset_ + idx1 + shape_[0] * idx2;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1, const int idx2, const int idx3) const {
+    if (ndim_ != 3) PARTHENON_DEBUG_FAIL("Wrong number of dimensions.");
+    if (idx1 >= shape_[0]) PARTHENON_DEBUG_FAIL("Idx1 too large.");
+    if (idx2 >= shape_[1]) PARTHENON_DEBUG_FAIL("Idx2 too large.");
+    if (idx3 >= shape_[2]) PARTHENON_DEBUG_FAIL("Idx3 too large.");
+    return offset_ + idx1 + shape_[0] * (idx2 + shape_[1] * idx3);
   }
 
  private:
-  ParArray1D<int> shape_and_offset_;
+  // Tensor fields are limited to rank 3 or less, so just use a fixed
+  // length array of for all rank fields so that FlatIdx objects can
+  // easily be captured during Kokkos parallel dispatch
+  int shape_[3];
+  int offset_, ndim_;
 };
 
 // The key for variable packs
