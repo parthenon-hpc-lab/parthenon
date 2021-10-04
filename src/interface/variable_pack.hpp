@@ -73,7 +73,7 @@ class FlatIdx {
     }
     IndexRange rng;
     rng.s = 0;
-    rng.e = shape_[iDim-1]-1;
+    rng.e = shape_[iDim - 1] - 1;
     return rng;
   }
 
