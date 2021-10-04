@@ -498,13 +498,15 @@ TEST_CASE("Get the correct access pattern when using FlatIdx", "[FlatIdx]") {
         auto v = pmbd->PackVariables(std::vector<std::string>{"v2", "v3"}, imap);
 
         auto idx_v3 = imap.GetFlatIdx("v3");
+        const auto tb1 = idx_v3.GetBounds(1);
+        const auto tb2 = idx_v3.GetBounds(2);
+        const auto tb3 = idx_v3.GetBounds(3);
         Real err3 = 0.0;
         par_reduce(
-            loop_pattern_mdrange_tag, "compare v3", DevExecSpace(), 0,
-            idx_v3.DimSize(1) - 1, 0, idx_v3.DimSize(0) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-            ib.e,
+            loop_pattern_mdrange_tag, "compare v3", DevExecSpace(), tb2.s, tb2.e, tb1.s,
+            tb1.e, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int idx2, int idx1, int k, int j, int i, Real &lerr) {
-              for (int idx3 = 0; idx3 < idx_v3.DimSize(2); ++idx3) {
+              for (int idx3 = tb3.s; idx3 <= tb3.e; ++idx3) {
                 Real n_expected =
                     i + N * (j + N * (k + N1 * (idx1 + N2 * (idx2 + N3 * idx3))));
                 Real n_actual = v(idx_v3(idx1, idx2, idx3), k, j, i);
