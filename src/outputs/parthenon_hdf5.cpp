@@ -415,14 +415,16 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // The sieve_buf_size should be equal to a multiple of the disk block size
   // Default: Disabled
   size_t sieve_buf_size = Env::get<size_t>("H5_sieve_buf_size", 256*KiB, exists);
-  if(exists)
+  if(exists) {
      PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, sieve_buf_size));
+  }
 
   // Sets the minimum metadata block size, in bytes.
   // Default: Disabled
   hsize_t meta_block_size = Env::get<hsize_t>("H5_meta_block_size", 8*MiB, exists);
-  if(exists)
+  if(exists) {
      PARTHENON_HDF5_CHECK(H5Pset_meta_block_size(acc_file, meta_block_size));
+  }
 
   // Sets alignment properties of a file access property list.
   // Choose an alignment which is a multiple of the disk block size.
@@ -432,8 +434,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   threshold = Env::get<hsize_t>("H5_alignment_threshold", 0, exists);
   alignment = Env::get<hsize_t>("H5_alignment_alignment", 8*MiB, exists2);
-  if(exists || exists2)
+  if(exists || exists2) {
      PARTHENON_HDF5_CHECK(H5Pset_alignment(acc_file, threshold, alignment));
+  }
 
   // Defer metadata flush
   // Default: Disabled
@@ -469,7 +472,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // Specifies whether the application may benefit from collective buffering
   // Default :: collective_buffering is disabled
   bool collective_buffering = Env::get<bool>("MPI_collective_buffering", false, exists);
-  if(collective_buffering) {
+  if(exists) {
     PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
     // Specifies the block size to be used for collective buffering file acces
      char *cb_block_size = Env::get<char *>("MPI_cb_block_size", (char*)"1048576", exists);

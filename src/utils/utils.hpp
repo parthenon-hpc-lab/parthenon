@@ -57,20 +57,20 @@ namespace Env {
 
 // template to get environment variables
 template<typename T>
-static T get(const char* name, T DefaultVal, bool exists) {
+static T get(const char* name, T defaultval, bool &exists) {
   exists = true;
   char* value = std::getenv(name);
 
   // Environment variable is not set
-  if (!value) {
+  if ( value == nullptr) {
     exists = false;
-    return DefaultVal;
+    return defaultval;
   }
 
   T res;
   // Environment variable is set but no value is set, use the default
-  if( !value[0]) {
-    return DefaultVal;
+  if( value[0] == '\0') {
+    return defaultval;
   } else {
     // Environment variable is set and value is set
     if (std::is_same<T, char*>::value)

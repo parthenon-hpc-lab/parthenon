@@ -154,9 +154,9 @@ using pMeshBlockApplicationData_t = std::unique_ptr<MeshBlockApplicationData>;
 inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
 
 // Convience definitions
-constexpr int GiB = 1024 * 1024 * 1024;
-constexpr int MiB = 1024 * 1024;
-constexpr int KiB = 1024;
+constexpr uint64_t GiB = 1024 * 1024 * 1024;
+constexpr uint64_t MiB = 1024 * 1024;
+constexpr uint64_t KiB = 1024;
 
 } // namespace parthenon
 

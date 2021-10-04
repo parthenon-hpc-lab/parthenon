@@ -36,7 +36,7 @@ doc](building.md) for more details.
 
 Tuning IO parameters can be passed to Parthenon through the use of environment variables. Available environment variables are:
 
-|  Environment Variable | Default | Value | Description |
+|  Environment Variable | Initial State | Value Type | Description |
 |---|---|---|---|
 | H5_sieve_buf_size | disabled | int | Sets the maximum size of the data sieve buffer, in bytes. The value should be equal to a multiple of the disk block size. If no value is set then the default is 256 KiB. |
 | H5_meta_block_size | disabled | int | Sets the minimum metadata block size, in bytes. If no value is set then the default is 8 MiB. May help performance if enabled. |
