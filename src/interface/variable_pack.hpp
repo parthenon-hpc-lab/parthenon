@@ -79,31 +79,31 @@ class FlatIdx {
 
   KOKKOS_FORCEINLINE_FUNCTION
   int operator()() const {
-    if (ndim_ != 0) PARTHENON_DEBUG_FAIL("Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 0, "Wrong number of dimensions.");
     return offset_;
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   int operator()(const int idx1) const {
-    if (ndim_ != 1) PARTHENON_DEBUG_FAIL("Wrong number of dimensions.");
-    if (idx1 >= shape_[0]) PARTHENON_DEBUG_FAIL("Idx1 too large.");
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 1, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
     return offset_ + idx1;
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   int operator()(const int idx1, const int idx2) const {
-    if (ndim_ != 2) PARTHENON_DEBUG_FAIL("Wrong number of dimensions.");
-    if (idx1 >= shape_[0]) PARTHENON_DEBUG_FAIL("Idx1 too large.");
-    if (idx2 >= shape_[1]) PARTHENON_DEBUG_FAIL("Idx2 too large.");
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 2, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx2 < shape_[1], "Idx2 too large.");
     return offset_ + idx1 + shape_[0] * idx2;
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   int operator()(const int idx1, const int idx2, const int idx3) const {
-    if (ndim_ != 3) PARTHENON_DEBUG_FAIL("Wrong number of dimensions.");
-    if (idx1 >= shape_[0]) PARTHENON_DEBUG_FAIL("Idx1 too large.");
-    if (idx2 >= shape_[1]) PARTHENON_DEBUG_FAIL("Idx2 too large.");
-    if (idx3 >= shape_[2]) PARTHENON_DEBUG_FAIL("Idx3 too large.");
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 3, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx2 < shape_[1], "Idx2 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx3 < shape_[2], "Idx3 too large.");
     return offset_ + idx1 + shape_[0] * (idx2 + shape_[1] * idx3);
   }
 
