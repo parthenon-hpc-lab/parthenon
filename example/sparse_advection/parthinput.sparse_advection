@@ -58,7 +58,7 @@ integrator = rk2
 ncycle_out_mesh = -10000
 
 <SparseAdvection>
-restart_test = true
+restart_test = false
 
 cfl = 0.45
 speed = 1.5

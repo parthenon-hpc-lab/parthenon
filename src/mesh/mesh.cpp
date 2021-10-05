@@ -1130,9 +1130,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }
 
-/// Finds location of a block with ID `tgid`. Can provide an optional "hint" to start
-/// the search at.
-std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) {
+/// Finds location of a block with ID `tgid`.
+std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
   // Attempt to simply index into the block list.
   const int nbs = block_list[0]->gid;
   const int i = tgid - nbs;

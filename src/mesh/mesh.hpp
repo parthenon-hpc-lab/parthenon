@@ -128,7 +128,7 @@ class Mesh {
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
   int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
 
-  std::shared_ptr<MeshBlock> FindMeshBlock(int tgid);
+  std::shared_ptr<MeshBlock> FindMeshBlock(int tgid) const;
 
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
 
