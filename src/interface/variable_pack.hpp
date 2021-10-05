@@ -64,7 +64,10 @@ class FlatIdx {
   }
 
   KOKKOS_INLINE_FUNCTION
-  int DimSize(int iDim) const { return shape_[iDim - 1]; }
+  int DimSize(int iDim) const {
+    PARTHENON_DEBUG_REQUIRE(iDim <= ndim_, "Wrong number of dimensions.");
+    return shape_[iDim - 1];
+  }
 
   IndexRange GetBounds(int iDim) const {
     if (iDim > ndim_) {
