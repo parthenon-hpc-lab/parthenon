@@ -979,6 +979,10 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
   auto pmb_cc_it = pmb->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on pob
   for (auto cc_var : pmr->pvars_cc_) {
+    if (!cc_var->IsAllocated()) {
+      pmb_cc_it++;
+      continue;
+    }
     ParArrayND<Real> var_cc = cc_var->data;
     ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = var_cc.GetDim(4) - 1;
@@ -1080,6 +1084,14 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
   auto pob_cc_it = pob->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on new pmb
   for (auto cc_var : pmr->pvars_cc_) {
+    if (!(*pob_cc_it)->IsAllocated()) {
+      pob_cc_it++;
+      continue;
+    }
+    PARTHENON_REQUIRE_THROWS(cc_var->IsAllocated(),
+                             "Parent block has variable " + cc_var->label() +
+                                 " allocated, but child block doesn't");
+
     ParArrayND<Real> var_cc = cc_var->data;
     ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = var_cc.GetDim(4) - 1;

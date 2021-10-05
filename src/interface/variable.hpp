@@ -89,7 +89,7 @@ class CellVariable {
   // accessors
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
-    assert(is_allocated_);
+    assert(IsAllocated());
     return data(std::forward<Args>(args)...);
   }
 

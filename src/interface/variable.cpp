@@ -55,7 +55,8 @@ void CellVariable<T>::CopyFluxesAndBdryVar(const CellVariable<T> *src) {
     // fluxes, coarse buffers, etc., are always a copy
     // Rely on reference counting and shallow copy of kokkos views
     flux_data_ = src->flux_data_; // reference counted
-    for (int i = 1; i <= 3; i++) {
+    int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
+    for (int i = X1DIR; i <= n_outer; i++) {
       flux[i] = src->flux[i]; // these are subviews
     }
   }
@@ -82,7 +83,7 @@ CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
   // make the new CellVariable
   auto cv = std::make_shared<CellVariable<T>>(base_name_, m, sparse_id_, wpmb);
 
-  if (is_allocated_) {
+  if (IsAllocated()) {
     cv->AllocateData();
   }
   cv->CopyFluxesAndBdryVar(this);
@@ -92,7 +93,7 @@ CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
 
 template <typename T>
 void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
-  if (is_allocated_) {
+  if (IsAllocated()) {
     return;
   }
 
@@ -103,7 +104,7 @@ void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
 template <typename T>
 void CellVariable<T>::AllocateData() {
   PARTHENON_REQUIRE_THROWS(
-      !is_allocated_,
+      !IsAllocated(),
       "Tried to allocate data for variable that's already allocated: " + label());
 
   data =
@@ -116,7 +117,7 @@ void CellVariable<T>::AllocateData() {
 template <typename T>
 void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
   PARTHENON_REQUIRE_THROWS(
-      is_allocated_, "Tried to allocate comms for un-allocated variable " + label());
+      IsAllocated(), "Tried to allocate comms for un-allocated variable " + label());
   std::string base_name = label();
 
   // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise
@@ -170,29 +171,24 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
 
 template <typename T>
 void CellVariable<T>::Deallocate() {
-  if (!is_allocated_) {
+  if (!IsAllocated()) {
     return;
   }
 
-  data = ParArrayND<T>();
+  data.Reset();
 
   if (IsSet(Metadata::WithFluxes)) {
-    flux_data_ = ParArray7D<T>();
+    Kokkos::resize(flux_data_, 0, 0, 0, 0, 0, 0, 0);
     int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
     for (int d = X1DIR; d <= n_outer; ++d) {
-      flux[d] = ParArrayND<T>();
+      flux[d].Reset();
     }
   }
 
   if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
-    coarse_s = ParArrayND<T>();
+    coarse_s.Reset();
   }
 
-  if (IsSet(Metadata::FillGhost)) {
-    vbvar->Reset(data, coarse_s, flux);
-  }
-
-  // printf("%s deallocated\n", label().c_str());
   is_allocated_ = false;
 }
 

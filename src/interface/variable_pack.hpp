@@ -268,11 +268,10 @@ class VariablePack {
   // host only
   inline auto alloc_status() const { return alloc_status_; }
 
+  // Note: Device only
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsAllocated(const int n) const {
     assert(0 <= n && n < dims_[3]);
-    // don't use allocated_status_ because it's available only on the host
-    // return v_(n).size() > 0;
     return allocated_(n);
   }
 
@@ -393,14 +392,11 @@ class VariableFluxPack : public VariablePack<T> {
     return f_[dir - 1];
   }
 
+  // Note: Device only
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsFluxAllocated(const int n) const {
     assert(this->IsAllocated(n));
     assert(0 <= n && n < fsize_);
-    // don't use flux_allocated_status_ because it's available only on the host
-    // we can just check X1DIR, because it always exists and it's allocated iff all
-    // used dirs are allcoated
-    // return flux(X1DIR)(n).size() > 0;
     return flux_allocated_(n);
   }
 

@@ -138,6 +138,7 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel_(const NeighborBlock &nb, int
   ComputeRestrictionIndices_(nb, nk, nj, ni, ris, rie, rjs, rje, rks, rke);
 
   for (auto cc_var : pmr->pvars_cc_) {
+    if (!cc_var->IsAllocated()) continue;
     ParArrayND<Real> var_cc = cc_var->data;
     ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = var_cc.GetDim(4) - 1;
@@ -186,6 +187,7 @@ void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int 
   auto &pmr = pmb->pmr;
 
   for (auto cc_var : pmr->pvars_cc_) {
+    if (!cc_var->IsAllocated()) continue;
     ParArrayND<Real> var_cc = cc_var->data;
     ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = var_cc.GetDim(4) - 1;
