@@ -497,7 +497,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // TODO(felker): add explicit check to ensure that elements of pb->vars_cc/fc_ and
   // pb->pmr->pvars_cc/fc_ v point to the same objects, if adaptive
 
-  // int num_cc = block_list.front().pmr->pvars_cc_.size();
+  // TODO(JL) Why are we using all variables for same-level but only the variables in pmr
+  // for c2f and f2c?s
+  int num_cc = block_list.front()->vars_cc_.size();
+  int num_pmr_cc = block_list.front()->pmr->pvars_cc_.size();
   int num_fc = block_list.front()->vars_fc_.size();
   int nx4_tot = 0;
   for (auto &pvar_cc : block_list.front()->vars_cc_) {
@@ -523,6 +526,12 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       (((bnx1 / 2) + 1 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) +
        (bnx1 / 2 + 2) * (((bnx2 + 1) / 2) + f2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) +
        (bnx1 / 2 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * (((bnx3 + 1) / 2) + f3 + 2 * f3));
+
+  // add num_cc/num_pmr_cc to all buffer sizes for storing allocation statuses
+  bssame += num_cc;
+  bsc2f += num_pmr_cc;
+  bsf2c += num_pmr_cc;
+
   // add one more element to buffer size for storing the derefinement counter
   bssame++;
   Kokkos::Profiling::popRegion(); // Step 4
@@ -812,8 +821,12 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 // AMR: step 6, branch 1 (same2same: just pack+send)
 
 void Mesh::PrepareSendSameLevel(MeshBlock *pmb, BufArray1D<Real> &sendbuf) {
-  // pack
-  int p = 0;
+  // inital offset, data starts after allocation flags
+  int p = pmb->vars_cc_.size();
+
+  // subview to set allocation flags
+  auto alloc_subview = Kokkos::subview(sendbuf, std::make_pair(0, p));
+  auto alloc_subview_h = Kokkos::create_mirror_view(HostMemSpace(), alloc_subview);
 
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
@@ -831,11 +844,18 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pmb, BufArray1D<Real> &sendbuf) {
 
   // (C++11) range-based for loop: (automatic type deduction fails when iterating over
   // container with std::reference_wrapper; could use auto var_cc_r = var_cc.get())
-  for (auto &pvar_cc : pmb->vars_cc_) {
+  for (int i = 0; i < pmb->vars_cc_.size(); ++i) {
+    auto &pvar_cc = pmb->vars_cc_[i];
+    alloc_subview_h(i) = pvar_cc->IsAllocated() ? 1.0 : 0.0;
     int nu = pvar_cc->GetDim(4) - 1;
-    ParArray4D<Real> var_cc = pvar_cc->data.Get<4>();
-    BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e, p,
-                            pmb);
+    if (pvar_cc->IsAllocated()) {
+      ParArray4D<Real> var_cc = pvar_cc->data.Get<4>();
+      BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e,
+                              p, pmb);
+    } else {
+      // increment offset
+      p += (nu + 1) * (ib.e + 1 - ib.s) * (jb.e + 1 - jb.s) * (kb.e + 1 - kb.s);
+    }
   }
   for (auto &pvar_fc : pmb->vars_fc_) {
     auto &var_fc = *pvar_fc;
@@ -848,6 +868,9 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pmb, BufArray1D<Real> &sendbuf) {
     BufferUtility::PackData(x3f, sendbuf, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3, p,
                             pmb);
   }
+
+  Kokkos::deep_copy(alloc_subview, alloc_subview_h);
+
   // WARNING(felker): casting from "Real *" to "int *" in order to append single integer
   // to send buffer is slightly unsafe (especially if sizeof(int) > sizeof(Real))
   if (adaptive) {
@@ -892,12 +915,26 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
     kl = pb->cellbounds.ks(interior) + pb->block_size.nx3 / 2 - f3;
     ku = pb->cellbounds.ke(interior) + f3;
   }
-  int p = 0;
-  for (auto cc_var : pb->pmr->pvars_cc_) {
-    ParArray4D<Real> var_cc = cc_var->data.Get<4>();
-    int nu = var_cc.extent(0) - 1;
-    BufferUtility::PackData(var_cc, sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
+
+  // inital offset, data starts after allocation flags
+  int p = pb->pmr->pvars_cc_.size();
+
+  // subview to set allocation flags
+  auto alloc_subview = Kokkos::subview(sendbuf, std::make_pair(0, p));
+  auto alloc_subview_h = Kokkos::create_mirror_view(HostMemSpace(), alloc_subview);
+
+  for (int i = 0; i < pb->pmr->pvars_cc_.size(); ++i) {
+    auto &cc_var = pb->pmr->pvars_cc_[i];
+    alloc_subview_h(i) = cc_var->IsAllocated() ? 1.0 : 0.0;
+    int nu = cc_var->GetDim(4) - 1;
+    if (cc_var->IsAllocated()) {
+      ParArray4D<Real> var_cc = cc_var->data.Get<4>();
+      BufferUtility::PackData(var_cc, sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
+    } else {
+      BufferUtility::PackZero(sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
+    }
   }
+
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
     ParArray3D<Real> x1f = (*var_fc).x1f.Get<3>();
@@ -907,6 +944,9 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
     BufferUtility::PackData(x2f, sendbuf, il, iu, jl, ju + f2, kl, ku, p, pb);
     BufferUtility::PackData(x3f, sendbuf, il, iu, jl, ju, kl, ku + f3, p, pb);
   }
+
+  Kokkos::deep_copy(alloc_subview, alloc_subview_h);
+
   return;
 }
 
@@ -923,18 +963,33 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf) 
   IndexRange ckb = pb->c_cellbounds.GetBoundsK(interior);
 
   auto &pmr = pb->pmr;
-  int p = 0;
-  for (auto cc_var : pmr->pvars_cc_) {
-    ParArrayND<Real> var_cc = cc_var->data;
-    ParArrayND<Real> coarse_cc = cc_var->coarse_s;
-    int nu = var_cc.GetDim(4) - 1;
-    pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s, cjb.e,
-                                    ckb.s, ckb.e);
-    // TOGO(pgrete) remove temp var once Restrict func interface is updated
-    ParArray4D<Real> coarse_cc_ = coarse_cc.Get<4>();
-    BufferUtility::PackData(coarse_cc_, sendbuf, 0, nu, cib.s, cib.e, cjb.s, cjb.e, ckb.s,
-                            ckb.e, p, pb);
+
+  // inital offset, data starts after allocation flags
+  int p = pmr->pvars_cc_.size();
+
+  // subview to set allocation flags
+  auto alloc_subview = Kokkos::subview(sendbuf, std::make_pair(0, p));
+  auto alloc_subview_h = Kokkos::create_mirror_view(HostMemSpace(), alloc_subview);
+
+  for (int i = 0; i < pmr->pvars_cc_.size(); ++i) {
+    auto &cc_var = pmr->pvars_cc_[i];
+    alloc_subview_h(i) = cc_var->IsAllocated() ? 1.0 : 0.0;
+    int nu = cc_var->GetDim(4) - 1;
+    if (cc_var->IsAllocated()) {
+      ParArrayND<Real> var_cc = cc_var->data;
+      ParArrayND<Real> coarse_cc = cc_var->coarse_s;
+      pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s,
+                                      cjb.e, ckb.s, ckb.e);
+      // TOGO(pgrete) remove temp var once Restrict func interface is updated
+      ParArray4D<Real> coarse_cc_ = coarse_cc.Get<4>();
+      BufferUtility::PackData(coarse_cc_, sendbuf, 0, nu, cib.s, cib.e, cjb.s, cjb.e,
+                              ckb.s, ckb.e, p, pb);
+    } else {
+      BufferUtility::PackZero(sendbuf, 0, nu, cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e, p,
+                              pb);
+    }
   }
+
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
     FaceField *coarse_fc = std::get<1>(fc_pair);
@@ -954,6 +1009,9 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf) 
     BufferUtility::PackData(x3f, sendbuf, cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e + f3,
                             p, pb);
   }
+
+  Kokkos::deep_copy(alloc_subview, alloc_subview_h);
+
   return;
 }
 
@@ -1175,7 +1233,13 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
 
 // step 8 (receive and load), branch 1 (same2same: unpack)
 void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
-  int p = 0;
+  // inital offset, data starts after allocation flags
+  int p = pmb->vars_cc_.size();
+
+  // subview to set allocation flags
+  auto alloc_subview = Kokkos::subview(recvbuf, std::make_pair(0, p));
+  auto alloc_subview_h =
+      Kokkos::create_mirror_view_and_copy(HostMemSpace(), alloc_subview);
 
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
@@ -1185,11 +1249,27 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
-  for (auto &pvar_cc : pmb->vars_cc_) {
+  for (int i = 0; i < pmb->vars_cc_.size(); ++i) {
+    auto &pvar_cc = pmb->vars_cc_[i];
     int nu = pvar_cc->GetDim(4) - 1;
-    ParArray4D<Real> var_cc_ = pvar_cc->data.Get<4>();
-    BufferUtility::UnpackData(recvbuf, var_cc_, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e,
-                              p, pmb);
+
+    if (alloc_subview_h(i) == 1.0) {
+      // allocated on sending block
+      if (!pvar_cc->IsAllocated()) {
+        // need to allocate locally
+        pmb->AllocateSparse(pvar_cc->label());
+      }
+      ParArray4D<Real> var_cc_ = pvar_cc->data.Get<4>();
+      BufferUtility::UnpackData(recvbuf, var_cc_, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s,
+                                kb.e, p, pmb);
+    } else {
+      // increment offset
+      p += (nu + 1) * (ib.e + 1 - ib.s) * (jb.e + 1 - jb.s) * (kb.e + 1 - kb.s);
+      PARTHENON_REQUIRE_THROWS(
+          !pvar_cc->IsAllocated(),
+          "FinishRecvSameLevel: Received variable that was not allocated on sending "
+          "block but it is allocated on receiving block");
+    }
   }
   for (auto &pvar_fc : pmb->vars_fc_) {
     auto &var_fc = *pvar_fc;
@@ -1237,7 +1317,7 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
   int ox1 = static_cast<int>((lloc.lx1 & 1LL) == 1LL);
   int ox2 = static_cast<int>((lloc.lx2 & 1LL) == 1LL);
   int ox3 = static_cast<int>((lloc.lx3 & 1LL) == 1LL);
-  int p = 0, il, iu, jl, ju, kl, ku;
+  int il, iu, jl, ju, kl, ku;
 
   if (ox1 == 0)
     il = ib.s, iu = ib.s + pb->block_size.nx1 / 2 - 1;
@@ -1252,10 +1332,33 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
   else
     kl = kb.s + pb->block_size.nx3 / 2, ku = kb.e;
 
-  for (auto cc_var : pb->pmr->pvars_cc_) {
-    ParArray4D<Real> var_cc = cc_var->data.Get<4>();
-    int nu = var_cc.extent(0) - 1;
-    BufferUtility::UnpackData(recvbuf, var_cc, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
+  // inital offset, data starts after allocation flags
+  int p = pb->pmr->pvars_cc_.size();
+
+  // subview to set allocation flags
+  auto alloc_subview = Kokkos::subview(recvbuf, std::make_pair(0, p));
+  auto alloc_subview_h =
+      Kokkos::create_mirror_view_and_copy(HostMemSpace(), alloc_subview);
+
+  for (int i = 0; i < pb->pmr->pvars_cc_.size(); ++i) {
+    auto &cc_var = pb->pmr->pvars_cc_[i];
+    int nu = cc_var->GetDim(4) - 1;
+
+    if ((alloc_subview_h(i) == 1.0) && !cc_var->IsAllocated()) {
+      // need to allocate locally
+      pb->AllocateSparse(cc_var->label());
+      PARTHENON_REQUIRE_THROWS(
+          cc_var->IsAllocated(),
+          "Mesh::FinishRecvFineToCoarseAMR: Failed to allocate variable");
+    }
+
+    if (cc_var->IsAllocated()) {
+      ParArray4D<Real> var_cc = cc_var->data.Get<4>();
+      BufferUtility::UnpackData(recvbuf, var_cc, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
+    } else {
+      // increment offset
+      p += (nu + 1) * (iu + 1 - il) * (ju + 1 - jl) * (ku + 1 - kl);
+    }
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
@@ -1285,7 +1388,12 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   auto &pmr = pb->pmr;
-  int p = 0;
+  // inital offset, data starts after allocation flags
+  int p = pmr->pvars_cc_.size();
+
+  // subview to set allocation flags
+  auto alloc_subview = Kokkos::subview(recvbuf, std::make_pair(0, p));
+  auto alloc_subview_h = Kokkos::create_mirror_view(HostMemSpace(), alloc_subview);
 
   const IndexDomain interior = IndexDomain::interior;
   IndexRange cib = pb->c_cellbounds.GetBoundsI(interior);
@@ -1295,15 +1403,33 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
   int il = cib.s - 1, iu = cib.e + 1, jl = cjb.s - f2, ju = cjb.e + f2, kl = ckb.s - f3,
       ku = ckb.e + f3;
 
-  for (auto cc_var : pb->pmr->pvars_cc_) {
-    ParArrayND<Real> var_cc = cc_var->data;
-    ParArrayND<Real> coarse_cc = cc_var->coarse_s;
-    int nu = var_cc.GetDim(4) - 1;
-    ParArray4D<Real> coarse_cc_ = coarse_cc.Get<4>();
-    BufferUtility::UnpackData(recvbuf, coarse_cc_, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
-    pmr->ProlongateCellCenteredValues(coarse_cc, var_cc, 0, nu, cib.s, cib.e, cjb.s,
-                                      cjb.e, ckb.s, ckb.e);
+  for (int i = 0; i < pmr->pvars_cc_.size(); ++i) {
+    auto &cc_var = pmr->pvars_cc_[i];
+    int nu = cc_var->GetDim(4) - 1;
+
+    if ((alloc_subview_h(i) == 1.0) && !cc_var->IsAllocated()) {
+      // need to allocate locally
+      pb->AllocateSparse(cc_var->label());
+      PARTHENON_REQUIRE_THROWS(
+          cc_var->IsAllocated(),
+          "Mesh::FinishRecvCoarseToFineAMR: Failed to allocate variable");
+    }
+
+    if (cc_var->IsAllocated()) {
+      ParArrayND<Real> var_cc = cc_var->data;
+      PARTHENON_REQUIRE_THROWS(nu == cc_var->GetDim(4) - 1, "nu mismatch");
+      ParArrayND<Real> coarse_cc = cc_var->coarse_s;
+      ParArray4D<Real> coarse_cc_ = coarse_cc.Get<4>();
+      BufferUtility::UnpackData(recvbuf, coarse_cc_, 0, nu, il, iu, jl, ju, kl, ku, p,
+                                pb);
+      pmr->ProlongateCellCenteredValues(coarse_cc, var_cc, 0, nu, cib.s, cib.e, cjb.s,
+                                        cjb.e, ckb.s, ckb.e);
+    } else {
+      // increment offset
+      p += (nu + 1) * (iu + 1 - il) * (ju + 1 - jl) * (ku + 1 - kl);
+    }
   }
+
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
     FaceField *coarse_fc = std::get<1>(fc_pair);

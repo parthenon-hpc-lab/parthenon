@@ -37,6 +37,7 @@
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -58,8 +59,14 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
 
     if (nb.ni.type != NeighborConnect::face) break;
     if (bd_var_flcor_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
-    if (nb.snb.level == pmb->loc.level - 1) {
-      int psize = 0;
+
+    if (nb.snb.level != pmb->loc.level - 1) {
+      bd_var_flcor_.sflag[nb.bufid] = BoundaryStatus::completed;
+      continue;
+    }
+
+    int psize = 0;
+    if (is_allocated) {
       IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
       IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
       IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
@@ -185,18 +192,22 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
                   tarea;
             });
       }
-      pmb->exec_space.fence();
-      if (nb.snb.rank == Globals::my_rank) { // on the same node
-        CopyFluxCorrectionBufferSameProcess(nb, psize);
-      }
-#ifdef MPI_PARALLEL
-      else
-        PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_flcor_.req_send[nb.bufid])));
-#endif
-      bd_var_flcor_.sflag[nb.bufid] = BoundaryStatus::completed;
     }
+    pmb->exec_space.fence();
+    if (nb.snb.rank == Globals::my_rank) {
+      // on the same node
+      PARTHENON_REQUIRE_THROWS(is_allocated,
+                               "Trying copy flux corrections from unallocated variable");
+      CopyFluxCorrectionBufferSameProcess(nb, psize);
+    } else {
+      // send regardless whether allocated or not
+#ifdef MPI_PARALLEL
+      PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_flcor_.req_send[nb.bufid])));
+#endif
+    }
+
+    bd_var_flcor_.sflag[nb.bufid] = BoundaryStatus::completed;
   }
-  return;
 }
 
 //----------------------------------------------------------------------------------------
@@ -226,9 +237,10 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
             bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
           }
           continue;
-        }
+        } else {
 #ifdef MPI_PARALLEL
-        else { // NOLINT
+          // receive regardless whether allocated or not
+
           int test;
           // Comment from original Athena++ code about the MPI_Iprobe call:
           //
@@ -259,9 +271,15 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
             continue;
           }
           bd_var_flcor_.flag[nb.bufid] = BoundaryStatus::arrived;
-        }
 #endif
+        }
       }
+
+      if (!is_allocated) {
+        bd_var_flcor_.flag[nb.bufid] = BoundaryStatus::completed;
+        continue;
+      }
+
       // boundary arrived; apply flux correction
       BufArray1D<Real> &rbuf = bd_var_flcor_.recv[nb.bufid];
       int nl = nl_;

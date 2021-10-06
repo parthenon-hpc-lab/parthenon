@@ -53,6 +53,23 @@ void PackData(ParArray4D<T> &src, BufArray1D<T> &buf, int sn, int en, int si, in
   return;
 }
 
+template <typename T>
+void PackZero(BufArray1D<T> &buf, int sn, int en, int si, int ei, int sj, int ej, int sk,
+              int ek, int &offset, MeshBlock *pmb) {
+  const int ni = ei + 1 - si;
+  const int nj = ej + 1 - sj;
+  const int nk = ek + 1 - sk;
+  const int nn = en + 1 - sn;
+
+  pmb->par_for(
+      "PackData 4D", sn, en, sk, ek, sj, ej, si, ei,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn)))) = 0.0;
+      });
+  offset += nn * nk * nj * ni;
+  return;
+}
+
 //----------------------------------------------------------------------------------------
 //! \fn template <typename T> void PackData(ParArrayND<T> &src, BufArray1D<T> &buf,
 //                      int si, int ei, int sj, int ej, int sk, int ek, int &offset,
@@ -134,6 +151,8 @@ template void UnpackData<Real>(BufArray1D<Real> &, ParArray3D<Real> &, int, int,
 
 template void PackData<Real>(ParArray4D<Real> &, BufArray1D<Real> &, int, int, int, int,
                              int, int, int, int, int &, MeshBlock *);
+template void PackZero<Real>(BufArray1D<Real> &, int, int, int, int, int, int, int, int,
+                             int &, MeshBlock *);
 template void PackData<Real>(ParArray3D<Real> &, BufArray1D<Real> &, int, int, int, int,
                              int, int, int &, MeshBlock *);
 

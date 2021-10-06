@@ -52,6 +52,7 @@ nx2 = 8
 nx3 = 1
 
 <parthenon/time>
+recv_bdry_buf_timeout_sec = 10
 nlim = -1
 tlim = 1.0
 integrator = rk2

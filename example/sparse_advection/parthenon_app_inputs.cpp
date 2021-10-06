@@ -52,7 +52,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const auto &x0s = pkg->Param<RealArr_t>("x0");
   const auto &y0s = pkg->Param<RealArr_t>("y0");
 
-  for (int f = 0; f < NUM_FIELDS; ++f) {
+  for (int f = 1; f < NUM_FIELDS; ++f) {
     // allocate the sparse field on the blocks where we get non-zero values
     bool any_nonzero = false;
     const Real x0 = x0s[f];
