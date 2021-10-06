@@ -216,20 +216,6 @@ class BoundaryBuffer {
 
   virtual void SendFluxCorrection(bool is_allocated) = 0;
   virtual bool ReceiveFluxCorrection(bool is_allocated) = 0;
-
- protected:
-  // universal buffer management methods for Cartesian grids (unrefined and SMR/AMR):
-  virtual int LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf,
-                                          const NeighborBlock &nb) = 0;
-  virtual void SetBoundarySameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) = 0;
-
-  // SMR/AMR-exclusive buffer management methods:
-  virtual int LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf,
-                                          const NeighborBlock &nb) = 0;
-  virtual int LoadBoundaryBufferToFiner(BufArray1D<Real> &buf,
-                                        const NeighborBlock &nb) = 0;
-  virtual void SetBoundaryFromCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) = 0;
-  virtual void SetBoundaryFromFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) = 0;
 };
 
 //----------------------------------------------------------------------------------------

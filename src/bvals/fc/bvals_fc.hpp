@@ -73,14 +73,6 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
   int fc_phys_id_, fc_flx_phys_id_;
 #endif
 
-  // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundarySameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  int LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  int LoadBoundaryBufferToFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundaryFromCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundaryFromFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-
   void CountFineEdges(); // called in SetupPersistentMPI()
 
   void RemapFlux(const int k, const int jinner, const int jouter, const int i,
