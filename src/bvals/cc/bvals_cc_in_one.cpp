@@ -819,6 +819,14 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
 
         const int NvNkNj = Nv * Nk * Nj;
         const int NkNj = Nk * Nj;
+
+        // check if this buffer contains nonzero values
+        auto nonzero_flag = boundary_info(b).buf(NvNkNj * Ni);
+        if (nonzero_flag == 0.0) {
+          // buffer contains only zero values, ignore it
+          return;
+        }
+
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange<>(team_member, NvNkNj), [&](const int idx) {
               const int v = idx / NkNj;
