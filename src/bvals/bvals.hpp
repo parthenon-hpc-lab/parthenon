@@ -38,6 +38,8 @@ namespace parthenon {
 // forward declarations
 // TODO(felker): how many of these foward declarations are actually needed now?
 // Can #include "./bvals_interfaces.hpp" suffice?
+template <typename T>
+class CellVariable;
 class Mesh;
 class MeshBlock;
 class MeshBlockTree;
@@ -185,8 +187,7 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
 
   int NumRestrictions();
   void FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
-                               int &idx_start, ParArray4D<Real> &fine,
-                               ParArray4D<Real> &coarse, int Nv);
+                               int &idx_start, std::shared_ptr<CellVariable<Real>> v);
 
   int AdvanceCounterPhysID(int num_phys);
 

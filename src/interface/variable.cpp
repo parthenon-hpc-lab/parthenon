@@ -26,6 +26,35 @@
 namespace parthenon {
 
 template <typename T>
+CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &metadata,
+                                 int sparse_id, std::weak_ptr<MeshBlock> wpmb)
+    : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
+      dims_(m_.GetArrayDims(wpmb, false)), coarse_dims_(m_.GetArrayDims(wpmb, true)) {
+  PARTHENON_REQUIRE_THROWS(m_.IsSet(Metadata::Real),
+                           "Only Real data type is currently supported for CellVariable");
+
+  PARTHENON_REQUIRE_THROWS(IsSparse() == (sparse_id_ != InvalidSparseID),
+                           "Mismatch between sparse flag and sparse ID");
+
+  if (m_.getAssociated() == "") {
+    m_.Associate(label());
+  }
+
+  if (IsSet(Metadata::FillGhost)) {
+    auto pmb = wpmb.lock();
+    PARTHENON_REQUIRE_THROWS(
+        GetDim(4) == NumComponents(),
+        "CellCenteredBoundaryVariable currently only supports rank-1 variables");
+    vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, IsSparse(), label(),
+                                                           GetDim(4));
+    auto res = pmb->pbval->bvars.insert({label(), vbvar});
+    PARTHENON_REQUIRE_THROWS(
+        res.second || (pmb->pbval->bvars.at(label()).get(), vbvar.get()),
+        "A boundary variable already existed and it's different from the new one.")
+  }
+}
+
+template <typename T>
 std::string CellVariable<T>::info() {
   char tmp[100] = "";
   char *stmp = tmp;

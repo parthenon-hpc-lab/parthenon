@@ -55,7 +55,8 @@ class TestCase(utils.test_case.TestCaseAbs):
             # results differ from non-MPI results. The test are run with allocation threshold
             # 1.0e-5, so they agree with fake sparse output to a tolerance of 1.0e-5 with and
             # without MPI
-            tol=0 if parameters.mpi_cmd == "" else 1.0e-7,
+            tol=1e-5,
+            check_metadata=False,
         )
 
         return delta == 0

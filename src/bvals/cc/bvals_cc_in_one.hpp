@@ -53,6 +53,7 @@ struct BndInfo {
   int sk = 0;
   int ek = 0;
   int Nv = 0;
+  bool allocated = true;
   bool restriction = false;
   Coordinates_t coords, coarse_coords; // coords
   parthenon::BufArray1D<Real> buf;     // comm buffer

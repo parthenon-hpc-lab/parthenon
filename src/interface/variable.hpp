@@ -55,30 +55,8 @@ inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
 template <typename T>
 class CellVariable {
  public:
-  /// Initialize a 6D variable
   CellVariable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
-                  std::weak_ptr<MeshBlock> wpmb)
-      : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
-        dims_(m_.GetArrayDims(wpmb, false)), coarse_dims_(m_.GetArrayDims(wpmb, true)) {
-    PARTHENON_REQUIRE_THROWS(
-        m_.IsSet(Metadata::Real),
-        "Only Real data type is currently supported for CellVariable");
-
-    PARTHENON_REQUIRE_THROWS(IsSparse() == (sparse_id_ != InvalidSparseID),
-                             "Mismatch between sparse flag and sparse ID");
-
-    if (m_.getAssociated() == "") {
-      m_.Associate(label());
-    }
-
-    if (IsSet(Metadata::FillGhost)) {
-      PARTHENON_REQUIRE_THROWS(
-          GetDim(4) == NumComponents(),
-          "CellCenteredBoundaryVariable currently only supports rank-1 variables");
-      vbvar = std::make_shared<CellCenteredBoundaryVariable>(wpmb.lock(), IsSparse(),
-                                                             label(), GetDim(4));
-    }
-  }
+                  std::weak_ptr<MeshBlock> wpmb);
 
   // copy fluxes and boundary variable from src CellVariable
   void CopyFluxesAndBdryVar(const CellVariable<T> *src);

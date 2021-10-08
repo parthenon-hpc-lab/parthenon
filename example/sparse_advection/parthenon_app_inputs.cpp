@@ -52,7 +52,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const auto &x0s = pkg->Param<RealArr_t>("x0");
   const auto &y0s = pkg->Param<RealArr_t>("y0");
 
-  // Note: Skip first field to force load balancing
+  // Note: skip first field to force load balance, this makes the test much stronger
   for (int f = 1; f < NUM_FIELDS; ++f) {
     // allocate the sparse field on the blocks where we get non-zero values
     bool any_nonzero = false;

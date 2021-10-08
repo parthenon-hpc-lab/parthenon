@@ -22,10 +22,10 @@ problem_id = sparse
 enable_sparse = true
 alloc_threshold = 1e-5
 dealloc_threshold = 1e-6
-dealloc_count = 5
+dealloc_count = 500000
 
 <parthenon/mesh>
-refinement = adaptive
+refinement = none
 numlevel = 3
 
 nx1 = 64

@@ -172,10 +172,6 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
   auto pmb = GetBlockPointer();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
-    if ((nb.snb.rank == Globals::my_rank) && !local_neighbor_allocated[n]) {
-      continue;
-    }
-
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::arrived) continue;
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::waiting) {
       if (nb.snb.rank == Globals::my_rank) { // on the same process
@@ -185,14 +181,10 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
         if (is_allocated) {
           // keep waiting
           bflag = false;
-        } else {
-          // we won't get anything, set flag to arrived
-          bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
+          continue;
         }
-        continue;
-      }
+      } else {
 #ifdef MPI_PARALLEL
-      else { // NOLINT // MPI boundary
         int test;
         // Comment from original Athena++ code about the MPI_Iprobe call:
         //
@@ -225,24 +217,23 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
           bflag = false;
           continue;
         }
-
-        if (!is_allocated) {
-          // we have to copy flag at the end of recv buffer to host to read it
-          const auto idx = bd_var_.recv_size[nb.bufid] - 1;
-          BufArray1D<Real> flag_view(bd_var_.recv[nb.bufid],
-                                     std::make_pair(idx, idx + 1));
-          auto flag_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), flag_view);
-          const Real flag = flag_h(0);
-          // check if we need to allocate this variable if it's not allocated
-          if (flag == 1.0) {
-            // we need to allocate this variable
-            pmb->AllocateSparse(label());
-          }
-        }
-
-        bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
-      }
 #endif
+      }
+
+      if (!is_allocated) {
+        // we have to copy flag at the end of recv buffer to host to read it
+        const auto idx = bd_var_.recv_size[nb.bufid] - 1;
+        BufArray1D<Real> flag_view(bd_var_.recv[nb.bufid], std::make_pair(idx, idx + 1));
+        auto flag_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), flag_view);
+        const Real flag = flag_h(0);
+        // check if we need to allocate this variable if it's not allocated
+        if (flag == 1.0) {
+          // we need to allocate this variable
+          pmb->AllocateSparse(label());
+        }
+      }
+
+      bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
     }
   }
   return bflag;

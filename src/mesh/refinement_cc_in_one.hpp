@@ -31,7 +31,8 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
               IndexShape &c_cellbounds);
 TaskStatus RestrictPhysicalBounds(MeshData<Real> *md);
 
-cell_centered_bvars::BufferCache_t ComputePhysicalRestrictBounds(MeshData<Real> *md);
+std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md);
+void ComputePhysicalRestrictBounds(MeshData<Real> *md);
 
 } // namespace cell_centered_refinement
 } // namespace parthenon
