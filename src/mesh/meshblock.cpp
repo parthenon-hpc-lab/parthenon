@@ -293,16 +293,6 @@ void MeshBlock::AllocateSparse(std::string const &label) {
 void MeshBlock::DeallocateSparse(std::string const &label) {
   for (auto stage : meshblock_data.Stages()) {
     stage.second->DeallocateSparse(label);
-
-    auto var = stage.second->GetCellVarPtr(label);
-    auto bd = var->vbvar->GetPBdVar();
-    for (int n = 0; n < pbval->nneighbor; n++) {
-      const parthenon::NeighborBlock &nb = pbval->neighbor[n];
-      if (nb.snb.rank == Globals::my_rank) {
-        bd->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
-        bd->flag[nb.bufid] = parthenon::BoundaryStatus::arrived;
-      }
-    }
   }
 }
 

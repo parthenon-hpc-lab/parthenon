@@ -1037,15 +1037,22 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
   auto pmb_cc_it = pmb->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on pob
   for (auto cc_var : pmr->pvars_cc_) {
-    if (!cc_var->IsAllocated()) {
+    const bool fine_allocated = cc_var->IsAllocated();
+    if (!(*pmb_cc_it)->IsAllocated()) {
+      PARTHENON_REQUIRE_THROWS(!fine_allocated,
+                               "Mesh::FillSameRankFineToCoarseAMR: Destination not "
+                               "allocated but source allocated");
       pmb_cc_it++;
       continue;
     }
     ParArrayND<Real> var_cc = cc_var->data;
     ParArrayND<Real> coarse_cc = cc_var->coarse_s;
-    int nu = var_cc.GetDim(4) - 1;
-    pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s, cjb.e,
-                                    ckb.s, ckb.e);
+    int nu = cc_var->GetDim(4) - 1;
+
+    if (fine_allocated) {
+      pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s,
+                                      cjb.e, ckb.s, ckb.e);
+    }
 
     // copy from old/original/other MeshBlock (pob) to newly created block (pmb)
     ParArrayND<Real> src = coarse_cc;
@@ -1056,7 +1063,9 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
     pmb->par_for(
         "FillSameRankFineToCoarseAMR", 0, nu, ckb.s, ckb.e, cjb.s, cjb.e, cib.s, cib.e,
         KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
-          dst(nv, k + koff, j + joff, i + ioff) = src(nv, k, j, i);
+          // if the destination (coarse) is allocated, but source (fine) is not allocated,
+          // we just fill destination with 0's
+          dst(nv, k + koff, j + joff, i + ioff) = fine_allocated ? src(nv, k, j, i) : 0.0;
         });
     pmb_cc_it++;
   }
@@ -1142,13 +1151,12 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
   auto pob_cc_it = pob->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on new pmb
   for (auto cc_var : pmr->pvars_cc_) {
-    if (!(*pob_cc_it)->IsAllocated()) {
+    PARTHENON_REQUIRE_THROWS(cc_var->IsAllocated() == (*pob_cc_it)->IsAllocated(),
+                             "Mesh::FillSameRankCoarseToFineAMR: Allocation mismatch");
+    if (!cc_var->IsAllocated()) {
       pob_cc_it++;
       continue;
     }
-    PARTHENON_REQUIRE_THROWS(cc_var->IsAllocated(),
-                             "Parent block has variable " + cc_var->label() +
-                                 " allocated, but child block doesn't");
 
     ParArrayND<Real> var_cc = cc_var->data;
     ParArrayND<Real> coarse_cc = cc_var->coarse_s;
