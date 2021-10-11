@@ -39,7 +39,7 @@ namespace parthenon {
 // -----------
 // There are several sets of variable pointers used in this file:
 // 1) MeshRefinement tuples of pointers: pvars_cc_
-// -- Used in RestrictGhostCellsOnSameLevel_() and ProlongateGhostCells_()
+// -- Used in ProlongateGhostCells_()
 
 // 2) Hardcoded pointers through MeshBlock members
 // -- Used in ProlongateGhostCells_() where
@@ -130,63 +130,6 @@ void BoundaryValues::ProlongateBoundaries() {
     ComputeProlongationBounds_(nb, bi, bj, bk);
     ProlongateGhostCells_(nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
   } // end loop over nneighbor
-}
-
-void BoundaryValues::RestrictGhostCellsOnSameLevel_(const NeighborBlock &nb, int nk,
-                                                    int nj, int ni) {
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  MeshRefinement *pmr = pmb->pmr.get();
-
-  const IndexDomain interior = IndexDomain::interior;
-  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-
-  int ris, rie, rjs, rje, rks, rke;
-  ComputeRestrictionIndices_(nb, nk, nj, ni, ris, rie, rjs, rje, rks, rke);
-
-  for (auto cc_var : pmr->pvars_cc_) {
-    if (!cc_var->IsAllocated()) continue;
-    ParArrayND<Real> var_cc = cc_var->data;
-    ParArrayND<Real> coarse_cc = cc_var->coarse_s;
-    int nu = var_cc.GetDim(4) - 1;
-    pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, ris, rie, rjs, rje,
-                                         rks, rke);
-  }
-
-  for (auto fc_pair : pmr->pvars_fc_) {
-    FaceField *var_fc = std::get<0>(fc_pair);
-    FaceField *coarse_fc = std::get<1>(fc_pair);
-    int &mylevel = pmb->loc.level;
-    int rs = ris, re = rie + 1;
-    if (rs == cib.s && nblevel[nk + 1][nj + 1][ni] < mylevel) rs++;
-    if (re == cib.e + 1 && nblevel[nk + 1][nj + 1][ni + 2] < mylevel) re--;
-    pmr->RestrictFieldX1((*var_fc).x1f, (*coarse_fc).x1f, rs, re, rjs, rje, rks, rke);
-    if (pmb->block_size.nx2 > 1) {
-      rs = rjs, re = rje + 1;
-      if (rs == cjb.s && nblevel[nk + 1][nj][ni + 1] < mylevel) rs++;
-      if (re == cjb.e + 1 && nblevel[nk + 1][nj + 2][ni + 1] < mylevel) re--;
-      pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rs, re, rks, rke);
-    } else { // 1D
-      pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rjs, rje, rks, rke);
-      for (int i = ris; i <= rie; i++)
-        (*coarse_fc).x2f(rks, rjs + 1, i) = (*coarse_fc).x2f(rks, rjs, i);
-    }
-
-    if (pmb->block_size.nx3 > 1) {
-      rs = rks, re = rke + 1;
-      if (rs == ckb.s && nblevel[nk][nj + 1][ni + 1] < mylevel) rs++;
-      if (re == ckb.e + 1 && nblevel[nk + 2][nj + 1][ni + 1] < mylevel) re--;
-      pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rs, re);
-    } else { // 1D or 2D
-      pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rks, rke);
-      for (int j = rjs; j <= rje; j++) {
-        for (int i = ris; i <= rie; i++)
-          (*coarse_fc).x3f(rks + 1, j, i) = (*coarse_fc).x3f(rks, j, i);
-      }
-    }
-  } // end loop over pvars_fc_
-  return;
 }
 
 void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei,
