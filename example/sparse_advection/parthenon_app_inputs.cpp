@@ -10,7 +10,6 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include <mpi.h>
 #include <sstream>
 #include <string>
 
@@ -39,9 +38,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   using parthenon::MetadataFlag;
 
   auto cellbounds = pmb->cellbounds;
-  IndexRange ib = cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = cellbounds.GetBoundsK(IndexDomain::entire);
+  IndexRange ib = cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
 
   auto coords = pmb->coords;
   auto &data = pmb->meshblock_data.Get();
@@ -166,7 +165,6 @@ void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &t
     printf("\n");
   }
 
-  return;
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
