@@ -121,7 +121,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             ["dt", 1.75781e-03, 3.12500e-03],
             ["total", 7.06177e-02, 1.39160e-02],
             ["max", 9.43685e-01, 4.80914e-01],
-            ["min", 1.67180e-10, 1.45889e-07],
+            ["min", 1.67171e-10, 1.45889e-07],
         ]
         # check results in last row (at the final time of the sim)
         for i, val in enumerate(ref_results):

@@ -67,21 +67,24 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           auto r2 = x * x + y * y + z * z;
           if (r2 < size) {
             any_nonzero = true;
+            break;
           }
         }
+        if (any_nonzero) break;
       }
+      if (any_nonzero) break;
     }
 
     if (any_nonzero) {
       auto v = data->AllocSparseID("sparse", f)->data;
       pmb->par_for(
-          "SparseAdvection::ProblemGenerator", 0, 0, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-          KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          "SparseAdvection::ProblemGenerator", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int k, const int j, const int i) {
             auto x = coords.x1v(i) - x0;
             auto y = coords.x2v(j) - y0;
             auto z = coords.x3v(k);
             auto r2 = x * x + y * y + z * z;
-            v(n, k, j, i) = (r2 < size ? 1.0 : 0.0);
+            v(k, j, i) = (r2 < size ? 1.0 : 0.0);
           });
     }
   }
