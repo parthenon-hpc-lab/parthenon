@@ -149,11 +149,11 @@ void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &t
 
 #ifdef MPI_PARALLEL
   if (Globals::my_rank == 0) {
-    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, num_allocated.data(), 4, MPI_INT32_T,
+    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, num_allocated.data(), n, MPI_INT,
                                    MPI_SUM, 0, MPI_COMM_WORLD));
   } else {
-    PARTHENON_MPI_CHECK(MPI_Reduce(num_allocated.data(), num_allocated.data(), 4,
-                                   MPI_INT32_T, MPI_SUM, 0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(num_allocated.data(), num_allocated.data(), n, MPI_INT,
+                                   MPI_SUM, 0, MPI_COMM_WORLD));
   }
 #endif
 

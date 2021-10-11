@@ -62,12 +62,12 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
     constexpr int N = 6;
     constexpr int NDIM = 3;
     constexpr int NBLOCKS = 9;
-    const std::vector<int> vector_shape{3};
+    const std::vector<int> scalar_shape{N, N, N};
+    const std::vector<int> vector_shape{N, N, N, 3};
 
-    Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes});
-    Metadata m_vector(
-        {Metadata::Cell, Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},
-        vector_shape);
+    Metadata m({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
+    Metadata m_vector({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},
+                      vector_shape);
     auto pkg = std::make_shared<StateDescriptor>("Test package");
     pkg->AddField("v1", m);
     pkg->AddField("v3", m_vector);

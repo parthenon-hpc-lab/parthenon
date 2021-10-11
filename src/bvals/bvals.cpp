@@ -41,7 +41,6 @@
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
-#include "utils/error_checking.hpp"
 
 namespace parthenon {
 

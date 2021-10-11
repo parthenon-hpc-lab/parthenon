@@ -110,10 +110,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   // refine on advected, for example.  could also be a derived quantity
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("sparse_advection_package");
-  std::vector<std::string> vars;
-  for (int var = 0; var < NUM_FIELDS; ++var) {
-    vars.push_back("sparse_" + std::to_string(var));
-  }
+  std::vector<std::string> vars{"sparse"};
   // type is parthenon::VariablePack<CellVariable<Real>>
   const auto &v = rc->PackVariables(vars);
 

@@ -20,6 +20,8 @@
 #ifndef MESH_REFINEMENT_CC_IN_ONE_HPP_
 #define MESH_REFINEMENT_CC_IN_ONE_HPP_
 
+#include <vector>
+
 #include "bvals/cc/bvals_cc_in_one.hpp" // for buffercache_t
 #include "coordinates/coordinates.hpp"  // for coordinates
 #include "interface/mesh_data.hpp"

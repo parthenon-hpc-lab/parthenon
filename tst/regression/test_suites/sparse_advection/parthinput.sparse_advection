@@ -37,8 +37,8 @@ ox1_bc = periodic
 nx2 = 64
 x2min = -1.0
 x2max = 1.0
-ix2_bc = periodic
-ox2_bc = periodic
+ix2_bc = reflecting
+ox2_bc = outflow
 
 nx3 = 1
 x3min = -1.0

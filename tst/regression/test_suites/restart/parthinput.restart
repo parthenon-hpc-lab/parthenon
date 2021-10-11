@@ -21,8 +21,8 @@ numlevel = 3
 nx1 = 64
 x1min = -1
 x1max = 1
-ix1_bc = periodic
-ox1_bc = periodic
+ix1_bc = outflow
+ox1_bc = reflecting
 
 nx2 = 64
 x2min = -1
