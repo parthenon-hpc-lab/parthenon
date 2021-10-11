@@ -404,7 +404,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
      ---------------------------------------------------------------------- */
 
   // use collective metadata optimizations
-#if H5_VERSION_GE(1,10,0)
+#if H5_VERSION_GE(1, 10, 0)
   PARTHENON_HDF5_CHECK(H5Pset_coll_metadata_write(acc_file, true));
   PARTHENON_HDF5_CHECK(H5Pset_all_coll_metadata_ops(acc_file, true));
 #endif
@@ -412,7 +412,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   bool exists, exists2;
 
   // Set the HDF5 format versions used when creating objects
-  // Note, introducing API calls that create objects or features that are 
+  // Note, introducing API calls that create objects or features that are
   // only available to versions of the library greater than 1.8.x release will fail.
   // For that case, the highest version value will need to be increased.
   H5Pset_libver_bounds(acc_file, H5F_LIBVER_V18, H5F_LIBVER_V18);
@@ -420,16 +420,16 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // Sets the maximum size of the data sieve buffer, in bytes.
   // The sieve_buf_size should be equal to a multiple of the disk block size
   // Default: Disabled
-  size_t sieve_buf_size = Env::get<size_t>("H5_sieve_buf_size", 256*KiB, exists);
-  if(exists) {
-     PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, sieve_buf_size));
+  size_t sieve_buf_size = Env::get<size_t>("H5_sieve_buf_size", 256 * KiB, exists);
+  if (exists) {
+    PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, sieve_buf_size));
   }
 
   // Sets the minimum metadata block size, in bytes.
   // Default: Disabled
-  hsize_t meta_block_size = Env::get<hsize_t>("H5_meta_block_size", 8*MiB, exists);
-  if(exists) {
-     PARTHENON_HDF5_CHECK(H5Pset_meta_block_size(acc_file, meta_block_size));
+  hsize_t meta_block_size = Env::get<hsize_t>("H5_meta_block_size", 8 * MiB, exists);
+  if (exists) {
+    PARTHENON_HDF5_CHECK(H5Pset_meta_block_size(acc_file, meta_block_size));
   }
 
   // Sets alignment properties of a file access property list.
@@ -439,26 +439,26 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   hsize_t alignment; // Alignment value.
 
   threshold = Env::get<hsize_t>("H5_alignment_threshold", 0, exists);
-  alignment = Env::get<hsize_t>("H5_alignment_alignment", 8*MiB, exists2);
-  if(exists || exists2) {
-     PARTHENON_HDF5_CHECK(H5Pset_alignment(acc_file, threshold, alignment));
+  alignment = Env::get<hsize_t>("H5_alignment_alignment", 8 * MiB, exists2);
+  if (exists || exists2) {
+    PARTHENON_HDF5_CHECK(H5Pset_alignment(acc_file, threshold, alignment));
   }
 
   // Defer metadata flush
   // Default: Disabled
   bool defer_metadata_flush = Env::get<bool>("H5_defer_metadata_flush", false, exists);
   if (defer_metadata_flush) {
-     H5AC_cache_config_t cache_config;
-     cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
-      PARTHENON_HDF5_CHECK(H5Pget_mdc_config(acc_file, &cache_config));
-     cache_config.set_initial_size  = 1;
-     cache_config.initial_size      = 16 * MiB;
-     cache_config.evictions_enabled = 0;
-     cache_config.incr_mode         = H5C_incr__off;
-     cache_config.flash_incr_mode   = H5C_flash_incr__off;
-     cache_config.decr_mode         = H5C_decr__off;
-     PARTHENON_HDF5_CHECK(H5Pset_mdc_config(acc_file, &cache_config));
-    }
+    H5AC_cache_config_t cache_config;
+    cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
+    PARTHENON_HDF5_CHECK(H5Pget_mdc_config(acc_file, &cache_config));
+    cache_config.set_initial_size = 1;
+    cache_config.initial_size = 16 * MiB;
+    cache_config.evictions_enabled = 0;
+    cache_config.incr_mode = H5C_incr__off;
+    cache_config.flash_incr_mode = H5C_flash_incr__off;
+    cache_config.decr_mode = H5C_decr__off;
+    PARTHENON_HDF5_CHECK(H5Pset_mdc_config(acc_file, &cache_config));
+  }
 
   /* create an MPI_INFO object -- on some platforms it is useful to
      pass some information onto the underlying MPI_File_open call */
@@ -472,21 +472,24 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   } delete_info{FILE_INFO_TEMPLATE};
 
   // Hint specifies the manner in which the file will be accessed until the file is closed
-  char* access_style = Env::get<char *>("MPI_access_style", (char*)"write_once", exists);
+  char *access_style = Env::get<char *>("MPI_access_style", (char *)"write_once", exists);
   PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", access_style));
 
   // Specifies whether the application may benefit from collective buffering
   // Default :: collective_buffering is disabled
   bool collective_buffering = Env::get<bool>("MPI_collective_buffering", false, exists);
-  if(exists) {
+  if (exists) {
     PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
     // Specifies the block size to be used for collective buffering file acces
-     char *cb_block_size = Env::get<char *>("MPI_cb_block_size", (char*)"1048576", exists);
-    PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size",  cb_block_size));
-    // Specifies the total buffer space that can be used for collective buffering on each target node, 
-    // usually a multiple of cb_block_size
-    char *cb_buffer_size = Env::get<char *>("MPI_cb_buffer_size", (char*)"4194304", exists);
-    PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", cb_buffer_size));
+    char *cb_block_size =
+        Env::get<char *>("MPI_cb_block_size", (char *)"1048576", exists);
+    PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", cb_block_size));
+    // Specifies the total buffer space that can be used for collective buffering on each
+    // target node, usually a multiple of cb_block_size
+    char *cb_buffer_size =
+        Env::get<char *>("MPI_cb_buffer_size", (char *)"4194304", exists);
+    PARTHENON_MPI_CHECK(
+        MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", cb_buffer_size));
   }
 
   /* tell the HDF5 library that we want to use MPI-IO to do the writing */

@@ -56,24 +56,24 @@ void Report();
 namespace Env {
 
 // template to get environment variables
-template<typename T>
-static T get(const char* name, T defaultval, bool &exists) {
+template <typename T>
+static T get(const char *name, T defaultval, bool &exists) {
   exists = true;
-  const char* value = std::getenv(name);
+  const char *value = std::getenv(name);
 
   // Environment variable is not set
-  if ( value == nullptr) {
+  if (value == nullptr) {
     exists = false;
     return defaultval;
   }
 
   T res;
   // Environment variable is set but no value is set, use the default
-  if( value[0] == '\0') {
+  if (value[0] == '\0') {
     return defaultval;
   } else {
     // Environment variable is set and value is set
-    if (std::is_same<T, char*>::value)
+    if (std::is_same<T, char *>::value)
       res = (T)value;
     else
       std::istringstream(value) >> res;
