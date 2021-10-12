@@ -37,11 +37,11 @@ int nranks;  // total number of MPI ranks
 SparseConfig sparse_config;
 
 // timeout (in seconds) for cell_centered_bvars::ReceiveBoundaryBuffers task
-double receive_boundary_buffer_timeout;
+Real receive_boundary_buffer_timeout;
 
 // the total time (in seconds) the current task has been running, can be used to set
 // timeouts for tasks
-double current_task_runtime_sec;
+Real current_task_runtime_sec;
 
 } // namespace Globals
 } // namespace parthenon

@@ -414,7 +414,7 @@ class MeshBlockData {
   int Size() noexcept { return varVector_.size(); }
 
   // Communication routines
-  void SetLocalNeighborAllcoated();
+  void SetLocalNeighborAllocated();
   void ResetBoundaryCellVariables();
   void SetupPersistentMPI();
   TaskStatus ReceiveBoundaryBuffers();

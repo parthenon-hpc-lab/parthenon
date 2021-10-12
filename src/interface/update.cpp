@@ -232,7 +232,7 @@ TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
   }
 
   for (int b = 0; b < num_blocks; ++b) {
-    md->GetBlockData(b)->SetLocalNeighborAllcoated();
+    md->GetBlockData(b)->SetLocalNeighborAllocated();
   }
 
   Kokkos::Profiling::popRegion(); // Task_SparseDeallocCheck

@@ -19,13 +19,15 @@
 //! \file globals.hpp
 //  \brief namespace containing external global variables
 
+#include "basic_types.hpp"
+
 namespace parthenon {
 namespace Globals {
 
 struct SparseConfig {
   bool enabled = true;
-  double allocation_threshold = 1.0e-12;
-  double deallocation_threshold = 1.0e-14;
+  Real allocation_threshold = 1.0e-12;
+  Real deallocation_threshold = 1.0e-14;
   int deallocation_count = 5;
 };
 
@@ -33,8 +35,8 @@ extern int my_rank, nranks, nghost;
 
 extern SparseConfig sparse_config;
 
-extern double receive_boundary_buffer_timeout;
-extern double current_task_runtime_sec;
+extern Real receive_boundary_buffer_timeout;
+extern Real current_task_runtime_sec;
 
 } // namespace Globals
 } // namespace parthenon

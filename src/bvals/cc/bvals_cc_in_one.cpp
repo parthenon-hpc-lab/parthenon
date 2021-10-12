@@ -492,7 +492,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
 
   for (int b = 0; b < md->NumBlocks(); ++b) {
-    md->GetBlockData(b)->SetLocalNeighborAllcoated();
+    md->GetBlockData(b)->SetLocalNeighborAllocated();
   }
 
   auto boundary_info = md->GetSendBuffers();

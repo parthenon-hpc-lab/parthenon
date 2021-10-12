@@ -423,8 +423,8 @@ void MeshBlockData<T>::Remove(const std::string &label) {
 }
 
 template <typename T>
-void MeshBlockData<T>::SetLocalNeighborAllcoated() {
-  Kokkos::Profiling::pushRegion("SetLocalNeighborAllcoated");
+void MeshBlockData<T>::SetLocalNeighborAllocated() {
+  Kokkos::Profiling::pushRegion("SetLocalNeighborAllocated");
 
   const auto &bval = pmy_block.lock()->pbval;
   // set local_neighbor_allocated for each variable
@@ -450,7 +450,7 @@ void MeshBlockData<T>::SetLocalNeighborAllcoated() {
     }
   }
 
-  Kokkos::Profiling::popRegion(); // SetLocalNeighborAllcoated
+  Kokkos::Profiling::popRegion(); // SetLocalNeighborAllocated
 }
 
 template <typename T>
@@ -535,7 +535,7 @@ template <typename T>
 TaskStatus MeshBlockData<T>::StartReceiving(BoundaryCommSubset phase) {
   Kokkos::Profiling::pushRegion("Task_StartReceiving");
 
-  SetLocalNeighborAllcoated();
+  SetLocalNeighborAllocated();
 
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
