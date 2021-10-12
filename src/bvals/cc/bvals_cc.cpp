@@ -170,8 +170,8 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       ssize *= (nu_ + 1);
       rsize *= (nu_ + 1);
       // specify the offsets in the view point of the target block: flip ox? signs
-      PARTHENON_REQUIRE_THROWS(ssize > 0, "Send size is 0");
-      PARTHENON_REQUIRE_THROWS(rsize > 0, "Receive size is 0");
+      PARTHENON_DEBUG_REQUIRE(ssize > 0, "Send size is 0");
+      PARTHENON_DEBUG_REQUIRE(rsize > 0, "Receive size is 0");
 
       // we add one to the send and receive buffer sizes, which will be used to
       // communicate the allocation status

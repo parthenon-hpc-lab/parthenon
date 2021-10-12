@@ -47,9 +47,9 @@ SparseAdvectionDriver::SparseAdvectionDriver(ParameterInput *pin,
   // warn if these fields aren't specified in the input file
   pin->CheckDesired("parthenon/mesh", "refinement");
   pin->CheckDesired("parthenon/mesh", "numlevel");
-  pin->CheckDesired("SparseAdvection", "cfl");
-  pin->CheckDesired("SparseAdvection", "refine_tol");
-  pin->CheckDesired("SparseAdvection", "derefine_tol");
+  pin->CheckDesired("sparse_advection", "cfl");
+  pin->CheckDesired("sparse_advection", "refine_tol");
+  pin->CheckDesired("sparse_advection", "derefine_tol");
 }
 
 // See the advection.hpp declaration for a description of how this function gets called.

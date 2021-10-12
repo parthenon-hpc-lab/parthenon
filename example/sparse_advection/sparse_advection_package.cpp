@@ -27,6 +27,7 @@
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
 #include "sparse_advection_package.hpp"
+#include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
 
@@ -43,17 +44,18 @@ using parthenon::UserHistoryOperation;
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("sparse_advection_package");
 
-  bool restart_test = pin->GetOrAddBoolean("SparseAdvection", "restart_test", false);
+  bool restart_test = pin->GetOrAddBoolean("sparse_advection", "restart_test", false);
   pkg->AddParam("restart_test", restart_test);
 
-  Real cfl = pin->GetOrAddReal("SparseAdvection", "cfl", 0.45);
+  Real cfl = pin->GetOrAddReal("sparse_advection", "cfl", 0.45);
   pkg->AddParam("cfl", cfl);
-  Real refine_tol = pin->GetOrAddReal("SparseAdvection", "refine_tol", 0.3);
+  Real refine_tol = pin->GetOrAddReal("sparse_advection", "refine_tol", 0.3);
   pkg->AddParam("refine_tol", refine_tol);
-  Real derefine_tol = pin->GetOrAddReal("SparseAdvection", "derefine_tol", 0.03);
+  Real derefine_tol = pin->GetOrAddReal("sparse_advection", "derefine_tol", 0.03);
   pkg->AddParam("derefine_tol", derefine_tol);
 
-  pkg->AddParam("init_size", static_cast<Real>(0.1));
+  Real init_size = pin->GetOrAddReal("sparse_advection", "init_size", 0.1);
+  pkg->AddParam("init_size", init_size);
 
   // set starting positions
   Real pos = 0.8;
@@ -62,7 +64,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // add velocities, field 0 moves in (-1,-1) direction, 1 in (1,-1), 2 in (1, 1), and 3
   // in (-1,1)
-  Real speed = pin->GetOrAddReal("SparseAdvection", "speed", 1.0) / sqrt(2.0);
+  Real speed = pin->GetOrAddReal("sparse_advection", "speed", 1.0) / sqrt(2.0);
   pkg->AddParam("vx", RealArr_t{-speed, speed, speed, -speed});
   pkg->AddParam("vy", RealArr_t{-speed, -speed, speed, speed});
   pkg->AddParam("vz", RealArr_t{0.0, 0.0, 0.0, 0.0});
@@ -251,6 +253,9 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
           }
         });
   }
+
+  PARTHENON_REQUIRE_THROWS(pmb->pmy_mesh->ndim == 2,
+                           "Sparse Advection example must be 2D");
 
   Kokkos::Profiling::popRegion(); // Task_Advection_CalculateFluxes
   return TaskStatus::complete;

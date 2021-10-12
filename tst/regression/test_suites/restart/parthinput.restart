@@ -45,7 +45,7 @@ nx3 = 1
 tlim = 0.5
 integrator = rk2
 
-<SparseAdvection>
+<sparse_advection>
 restart_test = true
 
 cfl = 0.45

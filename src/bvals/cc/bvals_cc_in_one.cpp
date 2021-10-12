@@ -318,7 +318,6 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
           boundary_info_h(b).allocated = v->IsAllocated();
           PARTHENON_REQUIRE_THROWS(alloc_status[b] == v->IsAllocated(),
                                    "ResetSendBufferBoundaryInfo: Alloc status mismatch");
-          sending_nonzero_flags_h(b) = false;
 
           auto &si = boundary_info_h(b).si;
           auto &ei = boundary_info_h(b).ei;
@@ -383,11 +382,6 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
     }
   }
   Kokkos::deep_copy(boundary_info, boundary_info_h);
-
-  // only necessary if sparse is enabled
-  if (Globals::sparse_config.enabled) {
-    Kokkos::deep_copy(sending_nonzero_flags, sending_nonzero_flags_h);
-  }
   md->SetSendBuffers(boundary_info, sending_nonzero_flags, sending_nonzero_flags_h,
                      alloc_status);
 
@@ -412,15 +406,6 @@ void SendAndNotify(MeshData<Real> *md) {
   if (Globals::sparse_config.enabled) {
     Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);
   }
-
-  struct NeighborAllocTask {
-    std::string var_label;
-    std::shared_ptr<MeshBlock> this_block, target_block;
-    int n;
-    parthenon::NeighborBlock nb;
-  };
-
-  // std::vector<NeighborAllocTask> neighbor_alloc_tasks;
 
   // TODO(JL): This is not robust, we rely on the 3 nested for-loops to happen exactly the
   // same way in multiple functions

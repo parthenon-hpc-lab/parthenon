@@ -58,7 +58,7 @@ tlim = 1.0
 integrator = rk2
 ncycle_out_mesh = -10000
 
-<SparseAdvection>
+<sparse_advection>
 cfl = 0.45
 speed = 1.5
 
