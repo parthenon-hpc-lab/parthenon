@@ -123,7 +123,7 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     // if this is the last stage, check if we can deallocate any sparse variables
     auto dealloc = none;
     if (stage == integrator->nstages) {
-      dealloc = tl.AddTask(update, SparseDeallocCheck, mc1.get());
+      dealloc = tl.AddTask(update, SparseDealloc, mc1.get());
     }
 
     // do boundary exchange

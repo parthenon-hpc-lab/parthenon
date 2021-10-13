@@ -58,7 +58,8 @@ class TestCase(utils.test_case.TestCaseAbs):
             [
                 "gold.out0.00002.rhdf",
                 "silver.out0.00002.rhdf",
-            ]
+            ],
+            one=True,
         )
 
         return delta == 0

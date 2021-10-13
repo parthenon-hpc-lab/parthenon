@@ -137,12 +137,12 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
   return TaskStatus::complete;
 }
 
-TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
+TaskStatus SparseDealloc(MeshData<Real> *md) {
   if (!Globals::sparse_config.enabled || (md->NumBlocks() == 0)) {
     return TaskStatus::complete;
   }
 
-  Kokkos::Profiling::pushRegion("Task_SparseDeallocCheck");
+  Kokkos::Profiling::pushRegion("Task_SparseDealloc");
 
   const IndexRange ib = md->GetBoundsI(IndexDomain::entire);
   const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
@@ -159,7 +159,7 @@ TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
   const Real threshold = Globals::sparse_config.deallocation_threshold;
 
   Kokkos::parallel_for(
-      "SparseDeallocCheck",
+      "SparseDealloc",
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), num_blocks * num_vars,
                            Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
@@ -233,7 +233,7 @@ TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
     md->GetBlockData(b)->SetLocalNeighborAllocated();
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SparseDeallocCheck
+  Kokkos::Profiling::popRegion(); // Task_SparseDealloc
   return TaskStatus::complete;
 }
 

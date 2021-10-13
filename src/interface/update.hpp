@@ -147,7 +147,7 @@ TaskStatus FillDerived(T *rc) {
   return TaskStatus::complete;
 }
 
-TaskStatus SparseDeallocCheck(MeshData<Real> *md);
+TaskStatus SparseDealloc(MeshData<Real> *md);
 
 } // namespace Update
 

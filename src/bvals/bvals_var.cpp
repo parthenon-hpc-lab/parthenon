@@ -126,7 +126,7 @@ void BoundaryVariable::DestroyBoundaryData(BoundaryData<> &bd) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock& nb, int ssize)
+//! \fn void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock& nb)
 //  \brief
 
 //  Called in BoundaryVariable::SendBoundaryBuffer(), SendFluxCorrection() calls when the
@@ -135,7 +135,7 @@ void BoundaryVariable::DestroyBoundaryData(BoundaryData<> &bd) {
 //  bd_var_.recv[nb.targetid] in separate BoundaryVariable object in separate vector in
 //  separate BoundaryValues
 
-void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb, int ssize) {
+void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb) {
   // Locate target buffer
   // 1) which MeshBlock?
   MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
@@ -147,9 +147,7 @@ void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb, int ssiz
   return;
 }
 
-// KGF: change ssize to send_count
-
-void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, int ssize) {
+void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb) {
   // Locate target buffer
   // 1) which MeshBlock?
   MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);

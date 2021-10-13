@@ -264,8 +264,8 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
     return pmy_block_.lock();
   }
 
-  void CopyVariableBufferSameProcess(NeighborBlock &nb, int ssize);
-  void CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, int ssize);
+  void CopyVariableBufferSameProcess(NeighborBlock &nb);
+  void CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb);
 
   void InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type);
   void DestroyBoundaryData(BoundaryData<> &bd);
