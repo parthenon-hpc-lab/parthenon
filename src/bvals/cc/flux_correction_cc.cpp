@@ -52,6 +52,14 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
+    // flux corrections are only exchanged between blocks that both have the variable
+    // allocated (receiving non-zero flux corrections wouldn't trigger an allocation).
+    // Therefore, if the neighbor is on the same rank and either the neighbor doesn't have
+    // this variable allocated or this block doesn't have this variable allocated, there
+    // is nothing to do. If the neighbor is on a different rank, we don't know the
+    // allocation status of the neighbor, so we send the MPI message (MPI_Start below)
+    // regardless whether this block has the variable allocated or not. The neighbor only
+    // uses the flux corrections if it has the variable allocated
     if ((nb.snb.rank == Globals::my_rank) &&
         (!local_neighbor_allocated[n] || !is_allocated)) {
       continue;
@@ -65,7 +73,19 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
       continue;
     }
 
-    int psize = 0;
+    BufArray1D<Real> &sbuf = bd_var_flcor_.send[nb.bufid];
+
+    // if sparse is enabled, we set the first value in the buffer to 1/0 to indicate if
+    // the sending block has this variable allocated (1) or not (0)
+    if (Globals::sparse_config.enabled) {
+      // making a view to set the first value in sbuf from host
+      BufArray1D<Real> flag_view(sbuf, std::make_pair(0, 1));
+      auto flag_h = Kokkos::create_mirror_view(HostMemSpace(), flag_view);
+      flag_h(0) = is_allocated ? 1.0 : 0.0;
+      Kokkos::deep_copy(flag_view, flag_h);
+    }
+
+    // if this variable is allocated, fill the send buffer
     if (is_allocated) {
       IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
       IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
@@ -73,7 +93,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
       int nx1 = pmb->cellbounds.ncellsi(interior);
       int nx2 = pmb->cellbounds.ncellsj(interior);
       int nx3 = pmb->cellbounds.ncellsk(interior);
-      BufArray1D<Real> &sbuf = bd_var_flcor_.send[nb.bufid];
       int nl = nl_;
       // x1 direction
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
@@ -84,7 +103,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
         int jsize = (jb.e - jb.s + 1) / 2;
         auto &x1flx = x1flux;
         if (pmb->block_size.nx3 > 1) { // 3D
-          psize = jsize * ksize * (nu_ - nl_ + 1);
           pmb->par_for(
               "SendFluxCorrection3D_x1", nl_, nu_, 0, ksize - 1, 0, jsize - 1,
               KOKKOS_LAMBDA(const int nn, const int k, const int j) {
@@ -95,7 +113,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
                 const Real apm = coords.Area(X1DIR, kf + 1, jf, i);
                 const Real app = coords.Area(X1DIR, kf + 1, jf + 1, i);
                 const Real tarea = amm + amp + apm + app;
-                const int p = j + jsize * (k + ksize * (nn - nl));
+                // add 1 because index 0 is used for allocation flag
+                const int p = 1 + j + jsize * (k + ksize * (nn - nl));
                 sbuf(p) = (x1flx(nn, kf, jf, i) * amm + x1flx(nn, kf, jf + 1, i) * amp +
                            x1flx(nn, kf + 1, jf, i) * apm +
                            x1flx(nn, kf + 1, jf + 1, i) * app) /
@@ -103,7 +122,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
               });
         } else if (pmb->block_size.nx2 > 1) { // 2D
           int k = kb.s;
-          psize = jsize * (nu_ - nl + 1);
           pmb->par_for(
               "SendFluxCorrection2D_x1", nl_, nu_, 0, jsize - 1,
               KOKKOS_LAMBDA(const int nn, const int j) {
@@ -111,16 +129,18 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
                 const Real am = coords.Area(X1DIR, k, jf, i);
                 const Real ap = coords.Area(X1DIR, k, jf + 1, i);
                 const Real tarea = am + ap;
-                const int p = j + jsize * (nn - nl);
+                // add 1 because index 0 is used for allocation flag
+                const int p = 1 + j + jsize * (nn - nl);
                 sbuf(p) =
                     (x1flx(nn, k, jf, i) * am + x1flx(nn, k, jf + 1, i) * ap) / tarea;
               });
         } else { // 1D
           int k = kb.s, j = jb.s;
-          psize = nu_ - nl_ + 1;
           pmb->par_for(
-              "SendFluxCorrection1D_x1", nl_, nu_,
-              KOKKOS_LAMBDA(const int nn) { sbuf(nn - nl) = x1flx(nn, k, j, i); });
+              "SendFluxCorrection1D_x1", nl_, nu_, KOKKOS_LAMBDA(const int nn) {
+                // add 1 because index 0 is used for allocation flag
+                sbuf(1 + nn - nl) = x1flx(nn, k, j, i);
+              });
         }
         // x2 direction
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
@@ -131,7 +151,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
         int isize = (ib.e - ib.s + 1) / 2;
         auto &x2flx = x2flux;
         if (pmb->block_size.nx3 > 1) { // 3D
-          psize = isize * ksize * (nu_ - nl_ + 1);
           pmb->par_for(
               "SendFluxCorrection3D_x2", nl_, nu_, 0, ksize - 1, 0, isize - 1,
               KOKKOS_LAMBDA(const int nn, const int k, const int i) {
@@ -142,7 +161,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
                 const Real area10 = coords.Area(X2DIR, kf + 1, j, ii);
                 const Real area11 = coords.Area(X2DIR, kf + 1, j, ii + 1);
                 const Real tarea = area00 + area01 + area10 + area11;
-                const int p = i + isize * (k + ksize * (nn - nl));
+                // add 1 because index 0 is used for allocation flag
+                const int p = 1 + i + isize * (k + ksize * (nn - nl));
                 sbuf(p) =
                     (x2flx(nn, kf, j, ii) * area00 + x2flx(nn, kf, j, ii + 1) * area01 +
                      x2flx(nn, kf + 1, j, ii) * area10 +
@@ -151,7 +171,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
               });
         } else if (pmb->block_size.nx2 > 1) { // 2D
           int k = kb.s;
-          psize = isize * (nu_ - nl_ + 1);
           pmb->par_for(
               "SendFluxCorrection2D_x2", nl_, nu_, 0, isize - 1,
               KOKKOS_LAMBDA(const int nn, const int i) {
@@ -159,7 +178,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
                 const Real area0 = coords.Area(X2DIR, k, j, ii);
                 const Real area1 = coords.Area(X2DIR, k, j, ii + 1);
                 const Real tarea = area0 + area1;
-                const int p = i + isize * (nn - nl);
+                // add 1 because index 0 is used for allocation flag
+                const int p = 1 + i + isize * (nn - nl);
                 sbuf(p) =
                     (x2flx(nn, k, j, ii) * area0 + x2flx(nn, k, j, ii + 1) * area1) /
                     tarea;
@@ -173,7 +193,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
         int jsize = (jb.e - jb.s + 1) / 2;
         int isize = (ib.e - ib.s + 1) / 2;
         auto &x3flx = x3flux;
-        psize = isize * jsize * (nu_ - nl_ + 1);
         pmb->par_for(
             "SendFluxCorrection3D_x3", nl_, nu_, 0, jsize - 1, 0, isize - 1,
             KOKKOS_LAMBDA(const int nn, const int j, const int i) {
@@ -184,7 +203,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
               const Real area10 = coords.Area(X3DIR, k, jf + 1, ii);
               const Real area11 = coords.Area(X3DIR, k, jf + 1, ii + 1);
               const Real tarea = area00 + area01 + area10 + area11;
-              const int p = i + isize * (j + jsize * (nn - nl));
+              // add 1 because index 0 is used for allocation flag
+              const int p = 1 + i + isize * (j + jsize * (nn - nl));
               sbuf(p) =
                   (x3flx(nn, k, jf, ii) * area00 + x3flx(nn, k, jf, ii + 1) * area01 +
                    x3flx(nn, k, jf + 1, ii) * area10 +
@@ -195,10 +215,12 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
     }
     pmb->exec_space.fence();
     if (nb.snb.rank == Globals::my_rank) {
-      // on the same node
-      PARTHENON_REQUIRE_THROWS(is_allocated,
-                               "Trying copy flux corrections from unallocated variable");
-      CopyFluxCorrectionBufferSameProcess(nb, psize);
+      // on the same node, this will only be called if this variable and the neighbor is
+      // allocated
+      PARTHENON_REQUIRE_THROWS(
+          is_allocated && local_neighbor_allocated[n],
+          "Trying copy flux corrections from/to unallocated variable");
+      CopyFluxCorrectionBufferSameProcess(nb);
     } else {
       // send regardless whether allocated or not
 #ifdef MPI_PARALLEL
@@ -276,12 +298,30 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
       }
 
       if (!is_allocated) {
+        // we discard the flux corrections since we don't have the variable allocated on
+        // the block
         bd_var_flcor_.flag[nb.bufid] = BoundaryStatus::completed;
         continue;
       }
 
-      // boundary arrived; apply flux correction
+      // if we get here, we have variable allocated, if sparse is enabled, check if the
+      // sending block has it allocated
       BufArray1D<Real> &rbuf = bd_var_flcor_.recv[nb.bufid];
+
+      bool source_allocated = true;
+      if (Globals::sparse_config.enabled) {
+        // making a view to read the first value in receive on host
+        BufArray1D<Real> flag_view(rbuf, std::make_pair(0, 1));
+        auto flag_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), flag_view);
+
+        source_allocated = (flag_h(0) == 1.0);
+      }
+
+      // boundary arrived; apply flux correction
+      PARTHENON_REQUIRE_THROWS(is_allocated,
+                               "CellCenteredBoundaryVariable::ReceiveFluxCorrection: "
+                               "Unexpected unallocated variable");
+
       int nl = nl_;
       const IndexDomain interior = IndexDomain::interior;
       IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
@@ -304,8 +344,9 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
         pmb->par_for(
             "ReceiveFluxCorrection_x1", nl_, nu_, kl, ku, jl, ju,
             KOKKOS_LAMBDA(const int nn, const int k, const int j) {
-              const int p = j - jl + jsize * ((k - kl) + ksize * (nn - nl));
-              x1flx(nn, k, j, il) = rbuf(p);
+              // add 1 because index 0 is used for allocation flag
+              const int p = 1 + j - jl + jsize * ((k - kl) + ksize * (nn - nl));
+              x1flx(nn, k, j, il) = source_allocated ? rbuf(p) : 0.0;
             });
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
         int jl = jb.s + (jb.e - jb.s) * (nb.fid & 1) + (nb.fid & 1);
@@ -324,8 +365,9 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
         pmb->par_for(
             "ReceiveFluxCorrection_x2", nl_, nu_, kl, ku, il, iu,
             KOKKOS_LAMBDA(const int nn, const int k, const int i) {
-              const int p = i - il + isize * ((k - kl) + ksize * (nn - nl));
-              x2flx(nn, k, jl, i) = rbuf(p);
+              // add 1 because index 0 is used for allocation flag
+              const int p = 1 + i - il + isize * ((k - kl) + ksize * (nn - nl));
+              x2flx(nn, k, jl, i) = source_allocated ? rbuf(p) : 0.0;
             });
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
         int kl = kb.s + (kb.e - kb.s) * (nb.fid & 1) + (nb.fid & 1);
@@ -344,8 +386,9 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
         pmb->par_for(
             "ReceiveFluxCorrection_x1", nl_, nu_, jl, ju, il, iu,
             KOKKOS_LAMBDA(const int nn, const int j, const int i) {
-              const int p = i - il + isize * ((j - jl) + jsize * (nn - nl));
-              x3flx(nn, kl, j, i) = rbuf(p);
+              // add 1 because index 0 is used for allocation flag
+              const int p = 1 + i - il + isize * ((j - jl) + jsize * (nn - nl));
+              x3flx(nn, kl, j, i) = source_allocated ? rbuf(p) : 0.0;
             });
       }
       bd_var_flcor_.flag[nb.bufid] = BoundaryStatus::completed;

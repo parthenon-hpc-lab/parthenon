@@ -125,28 +125,6 @@ void BoundaryVariable::DestroyBoundaryData(BoundaryData<> &bd) {
   }
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock& nb)
-//  \brief
-
-//  Called in BoundaryVariable::SendBoundaryBuffer(), SendFluxCorrection() calls when the
-//  destination neighbor block is on the same MPI rank as the sending MeshBlock. So
-//  std::memcpy() call requires pointer to "void *dst" corresponding to
-//  bd_var_.recv[nb.targetid] in separate BoundaryVariable object in separate vector in
-//  separate BoundaryValues
-
-void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb) {
-  // Locate target buffer
-  // 1) which MeshBlock?
-  MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
-  // 2) which element in vector of BoundaryVariable *?
-  BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars.at(label_)->bd_var_);
-  target_block.deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_.send[nb.bufid]);
-  // finally, set the BoundaryStatus flag on the destination buffer
-  ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
-  return;
-}
-
 void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb) {
   // Locate target buffer
   // 1) which MeshBlock?

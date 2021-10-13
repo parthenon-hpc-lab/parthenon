@@ -205,6 +205,10 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
         else // (nb.fid == 4 || nb.fid == 5)
           size = ((pmb->block_size.nx1 + 1) / 2) * ((pmb->block_size.nx2 + 1) / 2);
         size *= (nu_ + 1);
+
+        // one more value to communicate if source has variable allocated
+        size += 1;
+
         if (nb.snb.level < mylevel) { // send to coarser
           tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_flx_phys_id_);
           if (bd_var_flcor_.req_send[nb.bufid] != MPI_REQUEST_NULL)
