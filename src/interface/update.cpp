@@ -224,8 +224,6 @@ TaskStatus SparseDeallocCheck(MeshData<Real> *md) {
       if (counter > Globals::sparse_config.deallocation_count) {
         // this variable has been flagged for deallocation deallocation_count times in a
         // row, now deallocate it
-        // printf("Deallocating var %s on block %i\n", label.c_str(),
-        //        md->GetBlockData(b)->GetBlockPointer()->gid);
         md->GetBlockData(b)->GetBlockPointer()->DeallocateSparse(label);
       }
     }
