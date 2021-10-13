@@ -164,7 +164,6 @@ void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &t
     }
     printf("\n");
   }
-
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {

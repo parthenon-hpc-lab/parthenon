@@ -11,11 +11,13 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "driver/driver.hpp"
 #include "parthenon_manager.hpp"
 
 #include "sparse_advection_driver.hpp"
 
 int main(int argc, char *argv[]) {
+  using parthenon::DriverStatus;
   using parthenon::ParthenonManager;
   using parthenon::ParthenonStatus;
   ParthenonManager pman;
@@ -51,5 +53,13 @@ int main(int argc, char *argv[]) {
 
   // MPI and Kokkos can no longer be used
 
-  return (0);
+  if (driver_status == DriverStatus::complete) {
+    return 0;
+  } else if (driver_status == DriverStatus::timeout) {
+    return 1;
+  } else if (driver_status == DriverStatus::failed) {
+    return 2;
+  } else {
+    return 3;
+  }
 }

@@ -175,11 +175,9 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::arrived) continue;
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::waiting) {
       if (nb.snb.rank == Globals::my_rank) { // on the same process
-        // printf("Block %4i is waiting to get boundary data from block %4i for %s "
-        //        "(nb.bufid = % 2i, nb.targetid = % 2i)\n",
-        //        pmb->gid, nb.snb.gid, label().c_str(), nb.bufid, nb.targetid);
+        // if this variable is allocated, we wait to get boundary data, otherwise we don't
+        // care and we'll mark this boundary as complete at the bottom
         if (is_allocated) {
-          // keep waiting
           bflag = false;
           continue;
         }
@@ -210,10 +208,6 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
         PARTHENON_MPI_CHECK(
             MPI_Test(&(bd_var_.req_recv[nb.bufid]), &test, MPI_STATUS_IGNORE));
         if (!static_cast<bool>(test)) {
-          // printf("Block %4i (rank %i) is waiting to get boundary data from block %4i "
-          //        "(rank %i) for %s (nb.bufid = % 2i, nb.targetid = % 2i)\n",
-          //        pmb->gid, Globals::my_rank, nb.snb.gid, nb.snb.rank, label().c_str(),
-          //        nb.bufid, nb.targetid);
           bflag = false;
           continue;
         }
@@ -223,11 +217,13 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
       if (!is_allocated) {
         // we have to copy flag at the end of recv buffer to host to read it
         const auto idx = bd_var_.recv_size[nb.bufid] - 1;
+        // the flag lives on the device, make a subview pointing to the flag (just one
+        // Real) so we can copy it to the host
         BufArray1D<Real> flag_view(bd_var_.recv[nb.bufid], std::make_pair(idx, idx + 1));
         auto flag_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), flag_view);
-        const Real flag = flag_h(0);
+
         // check if we need to allocate this variable if it's not allocated
-        if (flag == 1.0) {
+        if (flag_h(0) == 1.0) {
           // we need to allocate this variable
           pmb->AllocateSparse(label());
         }
