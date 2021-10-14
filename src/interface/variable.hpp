@@ -58,7 +58,7 @@ class CellVariable {
   CellVariable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
                   std::weak_ptr<MeshBlock> wpmb);
 
-  // copy fluxes and boundary variable from src CellVariable
+  // copy fluxes and boundary variable from src CellVariable (shallow copy)
   void CopyFluxesAndBdryVar(const CellVariable<T> *src);
 
   // make a new CellVariable based on an existing one

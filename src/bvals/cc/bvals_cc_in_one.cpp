@@ -502,10 +502,9 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
   auto boundary_info = md->GetSendBuffers();
   auto sending_nonzero_flags = md->GetSendingNonzeroFlags();
-  bool have_cache = boundary_info.is_allocated();
   auto alloc_status = ResetSendBuffers(md.get());
 
-  if (!have_cache || (alloc_status != md->GetSendBufAllocStatus())) {
+  if (!boundary_info.is_allocated() || (alloc_status != md->GetSendBufAllocStatus())) {
     ResetSendBufferBoundaryInfo(md.get(), alloc_status);
     boundary_info = md->GetSendBuffers();
     sending_nonzero_flags = md->GetSendingNonzeroFlags();
@@ -622,10 +621,10 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn size_t GetSetFromBufersAllocStatus(MeshData<Real> *md)
+//! \fn size_t GetSetFromBuffersAllocStatus(MeshData<Real> *md)
 //  \brief Returns alloc status for set from buffers
-auto GetSetFromBufersAllocStatus(MeshData<Real> *md) {
-  Kokkos::Profiling::pushRegion("Create set_boundary_info");
+auto GetSetFromBuffersAllocStatus(MeshData<Real> *md) {
+  Kokkos::Profiling::pushRegion("GetSetFromBuffersAllocStatus");
 
   // first calculate the number of active buffers
   std::vector<bool> alloc_status;
@@ -640,6 +639,8 @@ auto GetSetFromBufersAllocStatus(MeshData<Real> *md) {
       }
     }
   }
+
+  Kokkos::Profiling::popRegion(); // GetSetFromBuffersAllocStatus
 
   return alloc_status;
 }
@@ -733,7 +734,7 @@ void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetBoundaries_MeshData");
 
-  const auto alloc_status = GetSetFromBufersAllocStatus(md.get());
+  const auto alloc_status = GetSetFromBuffersAllocStatus(md.get());
 
   auto boundary_info = md->GetSetBuffers();
   if (!boundary_info.is_allocated() || (alloc_status != md->GetSetBufAllocStatus())) {

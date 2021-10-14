@@ -166,8 +166,7 @@ TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
   auto alloc_status = ComputePhysicalRestrictBoundsAllocStatus(md);
 
   auto info = md->GetRestrictBuffers();
-  bool cache_is_valid = info.is_allocated();
-  if (!cache_is_valid || (alloc_status != md->GetRestrictBufAllocStatus())) {
+  if (!info.is_allocated() || (alloc_status != md->GetRestrictBufAllocStatus())) {
     ComputePhysicalRestrictBounds(md);
     info = md->GetRestrictBuffers();
   }

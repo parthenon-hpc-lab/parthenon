@@ -181,10 +181,9 @@ class MeshBlockData {
   }
 
   void DeallocateSparse(std::string const &label) {
-    if (!HasCellVariable(label)) {
-      PARTHENON_THROW("Tried to deallocate sparse variable '" + label +
-                      "', but no such sparse variable exists");
-    }
+    PARTHENON_REQUIRE_THROWS(HasCellVariable(label),
+                             "Tried to deallocate sparse variable '" + label +
+                                 "', but no such sparse variable exists");
 
     auto var = GetCellVarPtr(label);
     PARTHENON_REQUIRE_THROWS(var->IsSparse(),

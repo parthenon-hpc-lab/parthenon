@@ -77,7 +77,8 @@ std::string CellVariable<T>::info() {
   return s;
 }
 
-// copy constructor
+// Makes a shallow copy of the boundary buffer and fluxes of the source variable and
+// assign them to this variable
 template <typename T>
 void CellVariable<T>::CopyFluxesAndBdryVar(const CellVariable<T> *src) {
   if (IsSet(Metadata::WithFluxes)) {
