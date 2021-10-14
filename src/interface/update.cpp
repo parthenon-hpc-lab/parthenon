@@ -144,9 +144,9 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
 
   Kokkos::Profiling::pushRegion("Task_SparseDealloc");
 
-  const IndexRange ib = md->GetBoundsI(IndexDomain::entire);
-  const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
-  const IndexRange kb = md->GetBoundsK(IndexDomain::entire);
+  const IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = md->GetBoundsK(IndexDomain::interior);
 
   PackIndexMap map;
   const std::vector<MetadataFlag> flags({Metadata::Sparse});
