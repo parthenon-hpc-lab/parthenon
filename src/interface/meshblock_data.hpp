@@ -191,8 +191,6 @@ class MeshBlockData {
                              "Tried to deallocate non-sparse variable " + label);
 
     if (var->IsAllocated()) {
-      // printf("Deallocating %s on block %i\n", var->label().c_str(),
-      // GetBlockPointer()->gid);
       var->Deallocate();
     }
   }
