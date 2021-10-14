@@ -307,6 +307,10 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
 
+    if (Globals::sparse_config.enabled) {
+      rc->SetLocalNeighborAllocated();
+    }
+
     int mylevel = pmb->loc.level;
     for (auto &v : rc->GetCellVariableVector()) {
       if (v->IsSet(Metadata::FillGhost)) {
@@ -430,6 +434,9 @@ void SendAndNotify(MeshData<Real> *md) {
 
             // if the neighbor does not have this variable allocated and we're sending
             // non-zero values, then the neighbor needs to newly allocate this variable
+            // (Note if this block doesn't have this variable allocated,
+            // sending_nonzero_flags_h(0) will be false and so new_neighbor_alloc will be
+            // false)
             bool new_neighbor_alloc = Globals::sparse_config.enabled &&
                                       !v->vbvar->local_neighbor_allocated[n] &&
                                       sending_nonzero_flags_h(b);
@@ -459,6 +466,8 @@ void SendAndNotify(MeshData<Real> *md) {
                                 v->vbvar->GetPBdVar()->send[nb.bufid]);
             }
 
+            // signal neighbor that boundary data arrived (Note: this is called regardless
+            // whether this block has variable allcoated or not)
             target_block->pbval->bvars.at(v->label())->GetPBdVar()->flag[nb.targetid] =
                 parthenon::BoundaryStatus::arrived;
           } else {
@@ -490,10 +499,6 @@ void SendAndNotify(MeshData<Real> *md) {
 // TODO(pgrete) should probably be moved to the bvals or interface folders
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
-
-  for (int b = 0; b < md->NumBlocks(); ++b) {
-    md->GetBlockData(b)->SetLocalNeighborAllocated();
-  }
 
   auto boundary_info = md->GetSendBuffers();
   auto sending_nonzero_flags = md->GetSendingNonzeroFlags();

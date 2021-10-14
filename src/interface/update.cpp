@@ -229,6 +229,7 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
     }
   }
 
+  // we can only call this after the loop over all blocks above has completed
   for (int b = 0; b < num_blocks; ++b) {
     md->GetBlockData(b)->SetLocalNeighborAllocated();
   }

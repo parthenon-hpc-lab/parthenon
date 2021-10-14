@@ -177,6 +177,14 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   void DeallocateSparse(std::string const &label);
 
+  bool IsAllocated(std::string const &label) const noexcept {
+    return meshblock_data.Get()->IsAllocated(label);
+  }
+
+  bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
+    return IsAllocated(MakeVarLabel(base_name, sparse_id));
+  }
+
   template <class... Args>
   inline void par_for(Args &&... args) {
     par_dispatch_(std::forward<Args>(args)...);

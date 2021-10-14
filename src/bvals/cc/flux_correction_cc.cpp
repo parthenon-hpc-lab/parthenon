@@ -242,23 +242,18 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
-    if ((nb.snb.rank == Globals::my_rank) && !local_neighbor_allocated[n]) {
-      continue;
-    }
-
     if (nb.ni.type != NeighborConnect::face) break;
     if (nb.snb.level == pmb->loc.level + 1) {
       if (bd_var_flcor_.flag[nb.bufid] == BoundaryStatus::completed) continue;
       if (bd_var_flcor_.flag[nb.bufid] == BoundaryStatus::waiting) {
         if (nb.snb.rank == Globals::my_rank) { // on the same process
-          if (is_allocated) {
-            // keep waiting
+          // if this variable and the neighbor is allcoated, we wait until we get the flux
+          // corrections, otherwise the neighbor won't send anything
+          if (is_allocated && local_neighbor_allocated[n]) {
             bflag = false;
-          } else {
-            // we won't get anything, set flag to arrived
-            bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
+            continue;
           }
-          continue;
+
         } else {
 #ifdef MPI_PARALLEL
           // receive regardless whether allocated or not
@@ -310,11 +305,15 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
 
       bool source_allocated = true;
       if (Globals::sparse_config.enabled) {
-        // making a view to read the first value in receive on host
-        BufArray1D<Real> flag_view(rbuf, std::make_pair(0, 1));
-        auto flag_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), flag_view);
+        if (nb.snb.rank == Globals::my_rank) {
+          source_allocated = local_neighbor_allocated[n];
+        } else {
+          // making a view to read the first value in receive on host
+          BufArray1D<Real> flag_view(rbuf, std::make_pair(0, 1));
+          auto flag_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), flag_view);
 
-        source_allocated = (flag_h(0) == 1.0);
+          source_allocated = (flag_h(0) == 1.0);
+        }
       }
 
       // boundary arrived; apply flux correction
