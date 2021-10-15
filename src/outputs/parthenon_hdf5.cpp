@@ -472,8 +472,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   } delete_info{FILE_INFO_TEMPLATE};
 
   // Hint specifies the manner in which the file will be accessed until the file is closed
-  char *access_style = Env::get<char *>("MPI_access_style", (char *)"write_once", exists);
-  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", access_style));
+  const auto access_style =
+      Env::get<std::string>("MPI_access_style", "write_once", exists);
+  PARTHENON_MPI_CHECK(
+      MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", access_style.c_str()));
 
   // Specifies whether the application may benefit from collective buffering
   // Default :: collective_buffering is disabled
@@ -481,15 +483,16 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   if (exists) {
     PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
     // Specifies the block size to be used for collective buffering file acces
-    char *cb_block_size =
-        Env::get<char *>("MPI_cb_block_size", (char *)"1048576", exists);
-    PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", cb_block_size));
+    const auto cb_block_size =
+        Env::get<std::string>("MPI_cb_block_size", "1048576", exists);
+    PARTHENON_MPI_CHECK(
+        MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", cb_block_size.c_str()));
     // Specifies the total buffer space that can be used for collective buffering on each
     // target node, usually a multiple of cb_block_size
-    char *cb_buffer_size =
-        Env::get<char *>("MPI_cb_buffer_size", (char *)"4194304", exists);
+    const auto cb_buffer_size =
+        Env::get<std::string>("MPI_cb_buffer_size", "4194304", exists);
     PARTHENON_MPI_CHECK(
-        MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", cb_buffer_size));
+        MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", cb_buffer_size.c_str()));
   }
 
   /* tell the HDF5 library that we want to use MPI-IO to do the writing */
