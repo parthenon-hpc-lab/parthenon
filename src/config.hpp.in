@@ -48,6 +48,9 @@
 // define PARTHENON_DISABLE_HDF5_COMPRESSION or not at all
 #cmakedefine PARTHENON_DISABLE_HDF5_COMPRESSION
 
+// define ENABLE_SPARSE or not at all
+#cmakedefine ENABLE_SPARSE
+
 // Default loop patterns for MeshBlock par_for() wrappers,
 // see kokkos_abstraction.hpp for available tags.
 // Kokkos tight loop layout

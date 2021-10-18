@@ -424,6 +424,7 @@ void MeshBlockData<T>::Remove(const std::string &label) {
 
 template <typename T>
 void MeshBlockData<T>::SetLocalNeighborAllocated() {
+#ifdef ENABLE_SPARSE
   Kokkos::Profiling::pushRegion("SetLocalNeighborAllocated");
 
   const auto &bval = pmy_block.lock()->pbval;
@@ -451,6 +452,8 @@ void MeshBlockData<T>::SetLocalNeighborAllocated() {
   }
 
   Kokkos::Profiling::popRegion(); // SetLocalNeighborAllocated
+
+#endif // ENABLE_SPARSE
 }
 
 template <typename T>

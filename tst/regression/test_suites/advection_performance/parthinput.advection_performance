@@ -18,9 +18,6 @@
 <parthenon/job>
 problem_id = advection
 
-<parthenon/sparse>
-enable_sparse = true
-
 <parthenon/mesh>
 refinement = none
 numlevel = 2

@@ -105,7 +105,11 @@ class CellVariable {
   /// return information string
   std::string info();
 
-  bool IsAllocated() const { return is_allocated_; }
+#ifdef ENABLE_SPARSE
+  inline bool IsAllocated() const { return is_allocated_; }
+#else
+  inline constexpr bool IsAllocated() const { return true; }
+#endif
 
   // allocate data, fluxes, and boundary variable
   void Allocate(std::weak_ptr<MeshBlock> wpmb);
@@ -140,7 +144,10 @@ class CellVariable {
   const int sparse_id_;
   const std::array<int, 6> dims_, coarse_dims_;
 
+#ifdef ENABLE_SPARSE
   bool is_allocated_ = false;
+#else
+#endif
   ParArray7D<T> flux_data_; // unified par array for the fluxes
 };
 

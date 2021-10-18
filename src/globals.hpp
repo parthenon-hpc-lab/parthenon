@@ -25,7 +25,11 @@ namespace parthenon {
 namespace Globals {
 
 struct SparseConfig {
+#ifdef ENABLE_SPARSE
   bool enabled = true;
+#else
+  bool enabled = false;
+#endif
   Real allocation_threshold = 1.0e-12;
   Real deallocation_threshold = 1.0e-14;
   int deallocation_count = 5;

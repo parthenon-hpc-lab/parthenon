@@ -373,7 +373,7 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
           // if on the same process and neighbor has this var allocated, then  fill the
           // target buffer directly
           if ((nb.snb.rank == parthenon::Globals::my_rank) &&
-              v->vbvar->local_neighbor_allocated[n]) {
+              v->vbvar->IsLocalNeighborAllocated(n)) {
             auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
             boundary_info_h(b).buf =
                 target_block->pbval->bvars.at(v->label())->GetPBdVar()->recv[nb.targetid];
@@ -432,13 +432,14 @@ void SendAndNotify(MeshData<Real> *md) {
           if (nb.snb.rank == parthenon::Globals::my_rank) {
             auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
 
+#ifdef ENABLE_SPARSE
             // if the neighbor does not have this variable allocated and we're sending
             // non-zero values, then the neighbor needs to newly allocate this variable
             // (Note if this block doesn't have this variable allocated,
             // sending_nonzero_flags_h(0) will be false and so new_neighbor_alloc will be
             // false)
             bool new_neighbor_alloc = Globals::sparse_config.enabled &&
-                                      !v->vbvar->local_neighbor_allocated[n] &&
+                                      !v->vbvar->IsLocalNeighborAllocated(n) &&
                                       sending_nonzero_flags_h(b);
 
             if (new_neighbor_alloc) {
@@ -465,6 +466,7 @@ void SendAndNotify(MeshData<Real> *md) {
               Kokkos::deep_copy(target_bd->recv[nb.targetid],
                                 v->vbvar->GetPBdVar()->send[nb.bufid]);
             }
+#endif // ENABLE_SPARSE
 
             // signal neighbor that boundary data arrived (Note: this is called regardless
             // whether this block has variable allcoated or not)
@@ -559,18 +561,22 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
                         src_allocated ? boundary_info(b).var(v, k, j, i) : 0.0;
                     boundary_info(b).buf(i - si +
                                          Ni * (j - sj + Nj * (k - sk + Nk * v))) = val;
+#ifdef ENABLE_SPARSE
                     if (std::abs(val) > threshold) {
                       sending_nonzero_flags(b) = true;
                     }
+#endif
                   });
             });
 
+#ifdef ENABLE_SPARSE
         team_member.team_barrier();
 
         // set flag indicating if this is zero or non-zero
         if (team_member.team_rank() == 0) {
           boundary_info(b).buf(NvNkNj * Ni) = (sending_nonzero_flags(b) ? 1.0 : 0.0);
         }
+#endif
       });
 
 #ifdef MPI_PARALLEL
@@ -767,29 +773,34 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
         const int NvNkNj = Nv * Nk * Nj;
         const int NkNj = Nk * Nj;
 
+#ifdef ENABLE_SPARSE
+        if (!boundary_info(b).allocated) {
+          return;
+        }
+
         // check if this buffer contains nonzero values
         const auto nonzero_flag = boundary_info(b).buf(NvNkNj * Ni);
         const bool read_buffer = !sparse_enabled || (nonzero_flag != 0.0);
+#else
+        constexpr bool read_buffer = true;
+#endif
 
-        if (boundary_info(b).allocated) {
-          Kokkos::parallel_for(
-              Kokkos::TeamThreadRange<>(team_member, NvNkNj), [&](const int idx) {
-                const int v = idx / NkNj;
-                int k = (idx - v * NkNj) / Nj;
-                int j = idx - v * NkNj - k * Nj;
-                k += sk;
-                j += sj;
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange<>(team_member, NvNkNj), [&](const int idx) {
+              const int v = idx / NkNj;
+              int k = (idx - v * NkNj) / Nj;
+              int j = idx - v * NkNj - k * Nj;
+              k += sk;
+              j += sj;
 
-                Kokkos::parallel_for(
-                    Kokkos::ThreadVectorRange(team_member, si, ei + 1), [&](const int i) {
-                      boundary_info(b).var(v, k, j, i) =
-                          read_buffer
-                              ? boundary_info(b).buf(
-                                    i - si + Ni * (j - sj + Nj * (k - sk + Nk * v)))
-                              : 0.0;
-                    });
-              });
-        }
+              Kokkos::parallel_for(
+                  Kokkos::ThreadVectorRange(team_member, si, ei + 1), [&](const int i) {
+                    boundary_info(b).var(v, k, j, i) =
+                        read_buffer ? boundary_info(b).buf(
+                                          i - si + Ni * (j - sj + Nj * (k - sk + Nk * v)))
+                                    : 0.0;
+                  });
+            });
       });
 
   Kokkos::Profiling::popRegion(); // Task_SetBoundaries_MeshData

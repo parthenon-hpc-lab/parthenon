@@ -232,9 +232,17 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
                             const std::string &label);
   virtual ~BoundaryVariable() = default;
 
+#ifdef ENABLE_SPARSE
   // to flag indicating if a particular neighbor has this variable allocated, only
   // applicable for sparse variables (dense variables will always have all true)
   std::array<bool, NMAX_NEIGHBORS> local_neighbor_allocated;
+
+  inline bool IsLocalNeighborAllocated(int n) const {
+    return local_neighbor_allocated[n];
+  }
+#else
+  inline constexpr bool IsLocalNeighborAllocated(int /*n*/) const { return true; }
+#endif
 
   bool IsSparse() const { return is_sparse_; }
   // the label of the variable this BoundaryVariable belongs to

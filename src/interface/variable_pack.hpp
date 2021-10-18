@@ -268,6 +268,7 @@ class VariablePack {
   // host only
   inline auto alloc_status() const { return alloc_status_; }
 
+#ifdef ENABLE_SPARSE
   // Note: Device only
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsAllocated(const int n) const {
@@ -282,6 +283,13 @@ class VariablePack {
     assert(m == 0);
     return IsAllocated(n);
   }
+#else
+  KOKKOS_FORCEINLINE_FUNCTION
+  constexpr bool IsAllocated(const int /*n*/) const { return true; }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  constexpr bool IsAllocated(const int /*m*/, const int /*n*/) const { return true; }
+#endif
 
   KOKKOS_FORCEINLINE_FUNCTION
   ParArray3D<T> &operator()(const int n) const {
@@ -392,6 +400,7 @@ class VariableFluxPack : public VariablePack<T> {
     return f_[dir - 1];
   }
 
+#ifdef ENABLE_SPARSE
   // Note: Device only
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsFluxAllocated(const int n) const {
@@ -399,6 +408,10 @@ class VariableFluxPack : public VariablePack<T> {
     assert(0 <= n && n < fsize_);
     return flux_allocated_(n);
   }
+#else
+  KOKKOS_FORCEINLINE_FUNCTION
+  constexpr bool IsFluxAllocated(const int /*n*/) const { return true; }
+#endif
 
   KOKKOS_FORCEINLINE_FUNCTION
   T &flux(const int dir, const int n, const int k, const int j, const int i) const {
@@ -495,7 +508,9 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
   Kokkos::deep_copy(cv_out, host_cv);
   Kokkos::deep_copy(sparse_id_out, host_sp);
   Kokkos::deep_copy(vector_component_out, host_vc);
+#ifdef ENABLE_SPARSE
   Kokkos::deep_copy(allocated_out, host_al);
+#endif
 }
 
 template <typename T>
@@ -568,7 +583,9 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
   Kokkos::deep_copy(f1_out, host_f1);
   Kokkos::deep_copy(f2_out, host_f2);
   Kokkos::deep_copy(f3_out, host_f3);
+#ifdef ENABLE_SPARSE
   Kokkos::deep_copy(flux_allocated_out, host_al);
+#endif
 }
 
 template <typename T>

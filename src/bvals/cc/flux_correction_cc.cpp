@@ -61,7 +61,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
     // regardless whether this block has the variable allocated or not. The neighbor only
     // uses the flux corrections if it has the variable allocated
     if ((nb.snb.rank == Globals::my_rank) &&
-        (!local_neighbor_allocated[n] || !is_allocated)) {
+        (!IsLocalNeighborAllocated(n) || !is_allocated)) {
       continue;
     }
 
@@ -218,7 +218,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
       // on the same node, this will only be called if this variable and the neighbor is
       // allocated
       PARTHENON_REQUIRE_THROWS(
-          is_allocated && local_neighbor_allocated[n],
+          is_allocated && IsLocalNeighborAllocated(n),
           "Trying copy flux corrections from/to unallocated variable");
       CopyFluxCorrectionBufferSameProcess(nb);
     } else {
@@ -249,7 +249,7 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
         if (nb.snb.rank == Globals::my_rank) { // on the same process
           // if this variable and the neighbor is allcoated, we wait until we get the flux
           // corrections, otherwise the neighbor won't send anything
-          if (is_allocated && local_neighbor_allocated[n]) {
+          if (is_allocated && IsLocalNeighborAllocated(n)) {
             bflag = false;
             continue;
           }
@@ -303,10 +303,11 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
       // sending block has it allocated
       BufArray1D<Real> &rbuf = bd_var_flcor_.recv[nb.bufid];
 
+#ifdef ENABLE_SPARSE
       bool source_allocated = true;
       if (Globals::sparse_config.enabled) {
         if (nb.snb.rank == Globals::my_rank) {
-          source_allocated = local_neighbor_allocated[n];
+          source_allocated = IsLocalNeighborAllocated(n);
         } else {
           // making a view to read the first value in receive on host
           BufArray1D<Real> flag_view(rbuf, std::make_pair(0, 1));
@@ -315,6 +316,9 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
           source_allocated = (flag_h(0) == 1.0);
         }
       }
+#else
+      constexpr bool source_allocated = true;
+#endif
 
       // boundary arrived; apply flux correction
       PARTHENON_REQUIRE_THROWS(is_allocated,

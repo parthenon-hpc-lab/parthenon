@@ -114,6 +114,11 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // set sparse config
   Globals::sparse_config.enabled = pinput->GetOrAddBoolean(
       "parthenon/sparse", "enable_sparse", Globals::sparse_config.enabled);
+#ifndef ENABLE_SPARSE
+  PARTHENON_REQUIRE_THROWS(
+      !Globals::sparse_config.enabled,
+      "Sparse is compile-time disabled but was requested to be enabled in input file");
+#endif
   Globals::sparse_config.allocation_threshold = pinput->GetOrAddReal(
       "parthenon/sparse", "alloc_threshold", Globals::sparse_config.allocation_threshold);
   Globals::sparse_config.deallocation_threshold =

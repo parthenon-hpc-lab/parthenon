@@ -194,7 +194,8 @@ class MeshBlockData {
     }
   }
 
-  bool IsAllocated(std::string const &label) const noexcept {
+#ifdef ENABLE_SPARSE
+  inline bool IsAllocated(std::string const &label) const noexcept {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
       return false;
@@ -202,9 +203,19 @@ class MeshBlockData {
     return it->second->IsAllocated();
   }
 
-  bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
+  inline bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
     return IsAllocated(MakeVarLabel(base_name, sparse_id));
   }
+#else
+  constexpr inline bool IsAllocated(std::string const & /*label*/) const noexcept {
+    return true;
+  }
+
+  constexpr inline bool IsAllocated(std::string const & /*base_name*/,
+                                    int /*sparse_id*/) const noexcept {
+    return true;
+  }
+#endif
 
   //
   // Queries related to FaceVariable objects

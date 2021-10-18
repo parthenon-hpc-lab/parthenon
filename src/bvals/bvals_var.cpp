@@ -40,12 +40,14 @@ BoundaryVariable::BoundaryVariable(std::weak_ptr<MeshBlock> pmb, bool is_sparse,
                                    const std::string &label)
     : pmy_block_(pmb), pmy_mesh_(pmb.lock()->pmy_mesh), is_sparse_(is_sparse),
       label_(label) {
+#ifdef ENABLE_SPARSE
   // if this is a sparse variable, local neighbor allocation status will be set later, we
   // initialize it to false here. For dense variable we initialize to true, as all local
   // neighbors will always have this variable allocated
   for (int i = 0; i < NMAX_NEIGHBORS; ++i) {
     local_neighbor_allocated[i] = !is_sparse_;
   }
+#endif
 }
 
 //----------------------------------------------------------------------------------------
