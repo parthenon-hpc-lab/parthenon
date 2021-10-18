@@ -113,13 +113,9 @@ CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
   // make the new CellVariable
   auto cv = std::make_shared<CellVariable<T>>(base_name_, m, sparse_id_, wpmb);
 
-#ifdef ENABLE_SPARSE
-  if (IsAllocated()) {
+  if (is_allocated_) {
     cv->AllocateData();
   }
-#else
-  cv->AllocateData();
-#endif
 
   cv->CopyFluxesAndBdryVar(this);
 
@@ -128,11 +124,9 @@ CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
 
 template <typename T>
 void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
-#ifdef ENABLE_SPARSE
-  if (IsAllocated()) {
+  if (is_allocated_) {
     return;
   }
-#endif
 
   AllocateData();
   AllocateFluxesAndBdryVar(wpmb);
@@ -140,25 +134,22 @@ void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
 
 template <typename T>
 void CellVariable<T>::AllocateData() {
-#ifdef ENABLE_SPARSE
   PARTHENON_REQUIRE_THROWS(
-      !IsAllocated(),
+      !is_allocated_,
       "Tried to allocate data for variable that's already allocated: " + label());
-  is_allocated_ = true;
-#endif
 
   data =
       ParArrayND<T>(label(), dims_[5], dims_[4], dims_[3], dims_[2], dims_[1], dims_[0]);
+
+  is_allocated_ = true;
 }
 
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
 void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
-#ifdef ENABLE_SPARSE
   PARTHENON_REQUIRE_THROWS(
       IsAllocated(), "Tried to allocate comms for un-allocated variable " + label());
-#endif
   std::string base_name = label();
 
   // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise

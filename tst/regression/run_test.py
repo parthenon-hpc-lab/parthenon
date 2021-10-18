@@ -193,6 +193,12 @@ if __name__ == "__main__":
         help="Skip to analysis, assumes test data already exists",
     )
 
+    parser.add_argument(
+        "--sparse_disabled",
+        action="store_true",
+        help="Signal that sparse is compile-time disabled",
+    )
+
     args = parser.parse_args()
     try:
         main(**vars(args))

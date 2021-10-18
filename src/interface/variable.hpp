@@ -144,10 +144,7 @@ class CellVariable {
   const int sparse_id_;
   const std::array<int, 6> dims_, coarse_dims_;
 
-#ifdef ENABLE_SPARSE
   bool is_allocated_ = false;
-#else
-#endif
   ParArray7D<T> flux_data_; // unified par array for the fluxes
 };
 

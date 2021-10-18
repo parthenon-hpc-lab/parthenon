@@ -143,6 +143,11 @@ foreach( index RANGE ${end_index})
   list(GET TEST_PROCS ${index} TEST_PROC)
   list(GET TEST_ARGS ${index} TEST_ARG)
   list(GET EXTRA_TEST_LABELS ${index} TEST_LABELS )
+
+  if (PARTHENON_DISABLE_SPARSE)
+    string(APPEND TEST_ARG " --sparse_disabled")
+  endif()
+
   setup_test_serial(${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
   setup_test_coverage(${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
   setup_test_parallel(${TEST_PROC} ${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")

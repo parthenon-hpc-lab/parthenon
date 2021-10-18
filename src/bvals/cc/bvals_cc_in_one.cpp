@@ -748,7 +748,9 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
     boundary_info = md->GetSetBuffers();
   }
 
+#ifdef ENABLE_SPARSE
   const bool sparse_enabled = Globals::sparse_config.enabled;
+#endif
 
   Kokkos::parallel_for(
       "SetBoundaries",

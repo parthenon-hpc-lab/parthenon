@@ -27,6 +27,12 @@ class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
 
         parameters.coverage_status = "both"
+
+        if parameters.sparse_disabled:
+            parameters.driver_cmd_line_args = [
+                "parthenon/sparse/enable_sparse=false",
+            ]
+
         return parameters
 
     def Analyse(self, parameters):
@@ -56,14 +62,15 @@ class TestCase(utils.test_case.TestCaseAbs):
             check_metadata=False,
         )
 
-        # compare against true sparse, needs to match to machine precision
-        delta = compare(
-            [
-                "sparse.out0.00002.phdf",
-                parameters.parthenon_path
-                + "/tst/regression/gold_standard/sparse_true.out0.00002.phdf",
-            ],
-            one=True,
-        )
+        if not parameters.sparse_disabled:
+            # compare against true sparse, needs to match to machine precision
+            delta = compare(
+                [
+                    "sparse.out0.00002.phdf",
+                    parameters.parthenon_path
+                    + "/tst/regression/gold_standard/sparse_true.out0.00002.phdf",
+                ],
+                one=True,
+            )
 
         return delta == 0
