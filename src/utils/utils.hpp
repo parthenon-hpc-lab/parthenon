@@ -36,12 +36,14 @@ void ShowConfig();
 //  \brief static data and functions that implement a simple signal handling system
 namespace SignalHandler {
 
-const int nsignal = 3;
-static volatile int signalflag[nsignal];
+enum class OutputSignal { none, now, final };
+constexpr int nsignal = 3;
+// using the +1 for signaling based on "output_now" trigger
+static volatile int signalflag[nsignal + 1];
 const int ITERM = 0, IINT = 1, IALRM = 2;
 static sigset_t mask;
 void SignalHandlerInit();
-int CheckSignalFlags();
+OutputSignal CheckSignalFlags();
 int GetSignalFlag(int s);
 void SetSignalFlag(int s);
 void SetWallTimeAlarm(int t);
