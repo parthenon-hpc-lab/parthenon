@@ -58,11 +58,13 @@ void Report();
 //  \brief static function to check and retrieve environment settings
 namespace Env {
 
+namespace Impl {
 // TODO(the person bumping standard to C++17) Clean up this mess and use constexpr if
 template <typename T>
 T parse_value(std::string &strvalue);
 
-// Parse env. variable expected to hold a boolean value allowing for different conventions
+// Parse env. variable expected to hold a bool value allowing for different conventions.
+// Note, the input strvalue will be modified by this fuction (converted to upper case).
 template <>
 inline bool parse_value<bool>(std::string &strvalue) {
   for (char &c : strvalue) {
@@ -100,6 +102,7 @@ inline hsize_t parse_value<hsize_t>(std::string &strvalue) {
   return parse_unsigned<hsize_t>(strvalue);
 }
 #endif // ifdef ENABLE_HDF5
+} // namespace Impl
 
 // Get environment variables of various types (with checks).
 // If variable does not exist or exists but is not set, `defaultval` will be returned.
@@ -123,7 +126,7 @@ static T get(const char *name, T defaultval, bool &exists) {
   }
 
   // Environment variable is set and value is set
-  return parse_value<T>(strvalue);
+  return Impl::parse_value<T>(strvalue);
 }
 } // namespace Env
 
