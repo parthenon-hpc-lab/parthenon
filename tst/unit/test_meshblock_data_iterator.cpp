@@ -93,7 +93,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     // won't be allocated
     auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
 
-    MeshBlockData<Real> mbd;
+    auto &mbd = *dummy_mb->meshblock_data.Get();
     mbd.Initialize(pkg, dummy_mb);
 
     WHEN("We extract a subcontainer") {
