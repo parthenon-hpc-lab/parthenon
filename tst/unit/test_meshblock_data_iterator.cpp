@@ -307,9 +307,9 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       mbd.Initialize(pkg, dummy_mb);
 
       // TODO(JL) test packs with unallocated sparse fields
-      mbd.AllocSparseID("vsparse", 1);
-      mbd.AllocSparseID("vsparse", 13);
-      mbd.AllocSparseID("vsparse", 42);
+      dummy_mb->AllocSparseID("vsparse", 1);
+      dummy_mb->AllocSparseID("vsparse", 13);
+      dummy_mb->AllocateSparse("vsparse_42");
 
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;

@@ -18,6 +18,7 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/variable.hpp"
 #include "sparse_advection_driver.hpp"
 #include "sparse_advection_package.hpp"
 #include "utils/error_checking.hpp"
@@ -75,7 +76,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
     }
 
     if (any_nonzero) {
-      auto v = data->AllocSparseID("sparse", f)->data;
+      pmb->AllocSparseID("sparse", f);
+      auto v = data->GetCellVariableMap().at(MakeVarLabel("sparse", f))->data;
       pmb->par_for(
           "SparseAdvection::ProblemGenerator", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int k, const int j, const int i) {
@@ -106,9 +108,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
     }
 
     if (any_nonzero) {
-      data->AllocSparseID("z_shape_shift", 1);
-      data->AllocSparseID("z_shape_shift", 3);
-      data->AllocSparseID("z_shape_shift", 4);
+      pmb->AllocSparseID("z_shape_shift", 1);
+      pmb->AllocSparseID("z_shape_shift", 3);
+      pmb->AllocSparseID("z_shape_shift", 4);
 
       auto v = data->PackVariables(
           std::vector<std::string>{"z_dense_A", "z_dense_B", "z_shape_shift"});

@@ -338,8 +338,8 @@ void PostFill(MeshBlockData<Real> *rc) {
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
     // check that we have the sparse indices we want
-    rc->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 12);
-    rc->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 37);
+    pmb->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 12);
+    pmb->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 37);
 
     // packing in principle unnecessary/convoluted here and just done for demonstration
     std::vector<std::string> vars(

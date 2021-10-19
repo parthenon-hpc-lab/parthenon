@@ -44,6 +44,8 @@
 namespace parthenon {
 
 class MeshBlock;
+template <typename T>
+class MeshBlockData;
 
 static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
 
@@ -54,6 +56,10 @@ inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
 
 template <typename T>
 class CellVariable {
+  // so that MeshBlock and MeshBlockData can call Allocate* and Deallocate
+  friend class MeshBlock;
+  friend class MeshBlockData<T>;
+
  public:
   CellVariable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
                   std::weak_ptr<MeshBlock> wpmb);
@@ -111,15 +117,6 @@ class CellVariable {
   inline constexpr bool IsAllocated() const { return true; }
 #endif
 
-  // allocate data, fluxes, and boundary variable
-  void Allocate(std::weak_ptr<MeshBlock> wpmb);
-
-  // allocate data only
-  void AllocateData();
-
-  // deallocate data, fluxes, and boundary variable
-  void Deallocate();
-
   /// Repoint vbvar's var_cc array at the current variable
   inline void resetBoundary() { vbvar->var_cc = data; }
 
@@ -135,6 +132,15 @@ class CellVariable {
   int dealloc_count = 0;
 
  private:
+  // allocate data, fluxes, and boundary variable
+  void Allocate(std::weak_ptr<MeshBlock> wpmb);
+
+  // allocate data only
+  void AllocateData();
+
+  // deallocate data, fluxes, and boundary variable
+  void Deallocate();
+
   /// allocate fluxes (if Metadata::WithFluxes is set) and boundary variable if
   /// (Metadata::FillGhost is set)
   void AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb);

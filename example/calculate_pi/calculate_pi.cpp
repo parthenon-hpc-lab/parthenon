@@ -70,7 +70,7 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
       return;
     }
 
-    rc->AllocSparseID("in_or_out", 0);
+    pmb->AllocSparseID("in_or_out", 0);
     v = rc->Get("in_or_out", 0).data;
   } else {
     v = rc->Get("in_or_out").data;
