@@ -333,11 +333,12 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   return;
 }
 
-void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                                  const SignalHandler::OutputSignal signal) {
   if (output_params.single_precision_output) {
-    this->template WriteOutputFileImpl<true>(pm, pin, tm);
+    this->template WriteOutputFileImpl<true>(pm, pin, tm, signal);
   } else {
-    this->template WriteOutputFileImpl<false>(pm, pin, tm);
+    this->template WriteOutputFileImpl<false>(pm, pin, tm, signal);
   }
 }
 
@@ -346,7 +347,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 //  \brief Cycles over all MeshBlocks and writes OutputData in the Parthenon HDF5 format,
 //         one file per output using parallel IO.
 template <bool WRITE_SINGLE_PRECISION>
-void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                                      const SignalHandler::OutputSignal signal) {
   // writes all graphics variables to hdf file
   // HDF5 structures
   // Also writes companion xdmf file
@@ -378,17 +380,28 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   filename.append(".");
   filename.append(output_params.file_id);
   filename.append(".");
-  std::stringstream file_number;
-  file_number << std::setw(5) << std::setfill('0') << output_params.file_number;
-  filename.append(file_number.str());
+  if (signal == SignalHandler::OutputSignal::now) {
+    filename.append("now");
+  } else if (signal == SignalHandler::OutputSignal::final) {
+    filename.append("final");
+    // default time based data dump
+  } else {
+    std::stringstream file_number;
+    file_number << std::setw(5) << std::setfill('0') << output_params.file_number;
+    filename.append(file_number.str());
+  }
   filename.append(restart_ ? ".rhdf" : ".phdf");
 
-  // After file has been opened with the current number, already advance output
-  // parameters so that for restarts the file is not immediatly overwritten again.
-  output_params.file_number++;
-  output_params.next_time += output_params.dt;
-  pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  if (signal == SignalHandler::OutputSignal::none) {
+    // After file has been opened with the current number, already advance output
+    // parameters so that for restarts the file is not immediatly overwritten again.
+    // Only applies to default time-based data dumps, so that writing "now" and "final"
+    // outputs does not change the desired output numbering.
+    output_params.file_number++;
+    output_params.next_time += output_params.dt;
+    pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
+    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  }
 
   // set file access property list
 #ifdef MPI_PARALLEL
@@ -991,9 +1004,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 }
 
 // explicit template instantiation
-template void PHDF5Output::WriteOutputFileImpl<false>(Mesh *, ParameterInput *,
-                                                      SimTime *);
-template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, SimTime *);
+template void PHDF5Output::WriteOutputFileImpl<false>(Mesh *, ParameterInput *, SimTime *,
+                                                      SignalHandler::OutputSignal);
+template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, SimTime *,
+                                                     SignalHandler::OutputSignal);
 
 } // namespace parthenon
 

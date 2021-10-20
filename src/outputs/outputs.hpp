@@ -117,7 +117,8 @@ class OutputType {
   void CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
                                 Coordinates *pco);
   // following pure virtual function must be implemented in all derived classes
-  virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) = 0;
+  virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                               const SignalHandler::OutputSignal signal) = 0;
   virtual void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) {
     return;
   }
@@ -156,7 +157,8 @@ const char hist_param_key[] = "HistoryFunctions";
 class HistoryOutput : public OutputType {
  public:
   explicit HistoryOutput(const OutputParameters &oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
 };
 
 //----------------------------------------------------------------------------------------
@@ -166,7 +168,8 @@ class HistoryOutput : public OutputType {
 class FormattedTableOutput : public OutputType {
  public:
   explicit FormattedTableOutput(const OutputParameters &oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
 };
 
 //----------------------------------------------------------------------------------------
@@ -177,7 +180,8 @@ class VTKOutput : public OutputType {
  public:
   explicit VTKOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
 };
 
 #ifdef ENABLE_HDF5
@@ -190,9 +194,11 @@ class PHDF5Output : public OutputType {
   // Function declarations
   PHDF5Output(const OutputParameters &oparams, bool restart)
       : OutputType(oparams), restart_(restart) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
   template <bool WRITE_SINGLE_PRECISION>
-  void WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm);
+  void WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                           const SignalHandler::OutputSignal signal);
 
  private:
   const bool restart_; // true if we write a restart file, false for regular output files

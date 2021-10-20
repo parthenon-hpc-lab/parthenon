@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 605]](https://github.com/lanl/parthenon/pull/605) Add output triggering by signaling.
 
 ### Changed (changing behavior/API/variables/...)
 

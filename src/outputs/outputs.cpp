@@ -466,7 +466,7 @@ void OutputType::ClearOutputData() {
 //  \brief scans through singly linked list of OutputTypes and makes any outputs needed.
 
 void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
-                          SignalHandler::OutputSignal signal) {
+                          const SignalHandler::OutputSignal signal) {
   Kokkos::Profiling::pushRegion("MakeOutputs");
   bool first = true;
   OutputType *ptype = pfirst_type_;
@@ -474,12 +474,12 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
     if ((tm == nullptr) ||
         ((ptype->output_params.dt >= 0.0) &&
          ((tm->ncycle == 0) || (tm->time >= ptype->output_params.next_time) ||
-          (tm->time >= tm->tlim) || (signal == SignalHandler::OutputSignal::now)))) {
+          (tm->time >= tm->tlim) || (signal != SignalHandler::OutputSignal::none)))) {
       if (first && ptype->output_params.file_type != "hst") {
         pm->ApplyUserWorkBeforeOutput(pin);
         first = false;
       }
-      ptype->WriteOutputFile(pm, pin, tm);
+      ptype->WriteOutputFile(pm, pin, tm, signal);
     }
     ptype = ptype->pnext_type; // move to next OutputType node in signly linked list
   }

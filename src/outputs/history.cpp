@@ -43,7 +43,12 @@ namespace parthenon {
 //! \fn void OutputType::HistoryFile()
 //  \brief Writes a history file
 
-void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                                    const SignalHandler::OutputSignal signal) {
+  // Don't update history log for forced (signaling or `output_now` file based) outputs.
+  if (signal != SignalHandler::OutputSignal::none) {
+    return;
+  }
   std::vector<std::string> all_labels = {};
   std::vector<Real> all_results = {};
 
