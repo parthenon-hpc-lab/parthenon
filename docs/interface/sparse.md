@@ -165,10 +165,146 @@ that currently the deallocation threshold is the same for all variables, a futur
 add the capability of setting a different threshold per sparse pool.
 
 ### Boundary exchange
+The boundary exchange with sparse follows the same pattern as without sparse, but with the following
+additional complexity:
 
+- The `BoundaryVariable` abstract base class now has an additional field `std::array<bool,
+  NMAX_NEIGHBORS> local_neighbor_allocated`, which tracks if this particular variable is allocated
+  on each neighboring block. This is used to determine if boundary buffers should be sent to local
+  neighboring blocks on the same rank. It is not used to keep track of neighbor allocation status
+  for neighboring blocks on a different MPI rank. The local neighbor allocation status is updated at
+  the beginning of `MeshBlockData<T>::StartReceiving`, when the send boundary buffers are recreated
+  in `cell_centered_bvars::ResetSendBufferBoundaryInfo` and at the end of running the [`SparseDealloc`
+  task](#deallocation).
+- In `cell_centered_bvars::ResetSendBufferBoundaryInfo` for local neighbors we only point the send
+  buffer directly at the neighbor's receive buffer if the neighbor has the variable allocated.
+  Otherwise, we use the separate send buffer just like for non-local neighbors.
+- The send and receive buffers of `CellCenteredBoundaryVariable` have been extended by one element
+  at the end of the buffer space (after the packed data) to convey if non-zero values are being sent
+  in the buffer. Note that this is not the same as the allocation status of the variable on the
+  sending block. If the sending block doesn't have the variable allocated, then the flag will be
+  false (meaning only zero values are being sent), but if the variable is allocated on the sending
+  block, the value of the flag will depend on whether the values in the send buffer are all below
+  the allocation threshold (i.e. considered to be zero) or not. More details in the next item.
+- In `cell_centered_bvars::SendBoundaryBuffers` when the buffers are being filled, we check if the
+  absolute value of a value written to the buffer is above the allocation threshold (this threshold
+  is currently shared between all variables, a future improvement will be to make this different per
+  variable). If at least one absolute value is above the allocation threshold, the flag indicating
+  that non-zero values are being sent is set to true (see item above). Note that currently the
+  buffers for unallocated variables are filled with all zeros. This is a simplification and not
+  necessary, but it does help to ensure that MPI and non-MPI results are exactly the same. In the
+  future, this could be optimized if one is willing to allow different results (up to the allocation
+  tolerance with and without MPI and depending on the number of ranks).
+- In `cell_centered_bvars::SendAndNotify` is where the magic for local neighbors happens.
+  Previously, there was nothing to do in `SendAndNotify` for local neighbors other than setting  the
+  boundary status flag of th neighbor to arrived. Now we check if the neighbor needs to newly
+  allocate the variable. If we are sending a non-zero buffer (see previous item) and the neighbor
+  does not have this variable allocated, then we allocate that variable on the neighbor in
+  `SendAndNotify` and we perform a `Kokkos::deep_copy` from the send buffer of the sending block to
+  the receive buffer of the target block (this is not necessary for local neighbors that already had
+  the the variable allocated, because in that case we bypassed the send buffer altogether and
+  `cell_centered_bvars::SendBoundaryBuffers` directly filled in the receive buffer).
+- For non-local neighbors, `cell_centered_bvars::SendAndNotify` always calls `MPI_Start` regardless
+  whether the variable is allocated or not. That is because the receiving block does not know the
+  allocation status of the sending block, so it always waits for a message (again regardless whether
+  it has the variable allocated or not) and thus we always have to send the message.
+- In `BoundaryVariable::ReceiveBoundaryBuffers` we only wait for the boundary status to be flagged
+  as arrived for local neighbors if the variable is allocated (otherwise there is no need to wait).
+  For non-local neighbors, we always wait until the MPI message is received. Once the MPI message is
+  received and the receiving block doesn't have the variable allocated, we check the flag at the end
+  of the receive buffer to see if the sender sent any non-zero values in the buffer. If so, we
+  allocate the variable on the receiving mesh block.
+- Finally, in `cell_centered_bvars::SetBoundaries` we only read the buffer the variable is allocated
+  (otherwise there is nowhere to write to) and if the flag indicating that non-zero values were sent
+  is false, we simply write zeros instead of reading the buffer. This is again to make sure that the
+  results are the same regardless of the number of MPI ranks used.
 
 ### Flux corrections
+Flux corrections work essentially the same as for dense variables, except that no flux corrections
+will be exchanged if either the send or the receiver doesn't have the variable allocated (for
+non-local neighbors, the MPI send/receive calls are still performed) and if a block receives flux
+corrections from a neighbor that has the variable allocated but the receiving block does not have
+the variable allocated, it will never result in a variable allocation, unlike in the boundary
+exchange.
 
+Specifically the implementation details are as follows:
+
+- Just like for the boundary buffers, the flux corrections buffers carry one additional value to
+  indicate the allocation status on the sending block. However, for flux corrections that flag is
+  actually the first element in the buffer and not the last (because of how the flux corrections are
+  written and read, it is easier to put that flag at the beginning). And also, this flag just
+  indicates the allocation status of the variable on the sending block, not if it is sending
+  non-zero values.
+- In `CellCenteredBoundaryVariable::SendFluxCorrection` if the neighbor is local and the variable is
+  not allocated on **both* the sending and receiving block, the function does nothing. Because we'd
+  either send all zeros (if not allocated on sender) or we'd ignore the flux corrections (if not
+  allocated on receiver). If the neighbor is non-local we always perform the `MPI_Start` call
+  regardless whether the sender has the variable allocated or not. But, of course, the buffer can
+  only be filled with actual flux corrections if the sender has it allocated.
+- In `CellCenteredBoundaryVariable::ReceiveFluxCorrection`, we wait to receive flux corrections from
+  a local neighbor only if both the sender and receiver have the variable allocated (otherwise the
+  sender won't be sending anything). For non-local neighbors, we always wait to receive the MPI
+  message. Once the flux corrections are received (local or non-local), we ignore them if the
+  receiving block does not have the variable allocated. Otherwise (receiver has variable allocated),
+  we check if the flag in the buffer indicates that the sender has the variable allocated. If yes,
+  we read the buffer, otherwise we write zeros into the fluxes of the variable.
 
 ### AMR and load balancing
+The sparse implementation for AMR and load balancing is quite straight forward. For AMR, when we
+create new mesh blocks, we allocate the same variables on them as there were allocated on the old
+mesh blocks the new ones are created from.
 
+For the load balancing, we need to send the allocation statuses of the variables together with their
+data. So similarly to the boundary exchange and flux corrections buffers, we add flags at the
+beginning of the send/receive buffers to indicate the allocation statuses. There is one flag per
+variable. The rest of the buffer is unchanged and always includes space for all variables regardless
+whether they are allocated or not. This simplifies the implementation drastically, because all the
+MPI messages have the same size and the sender and receiver know what that size is without needing
+the know the allocation status of the other block. The remaining changes are as follows:
+
+- In `Mesh::PrepareSendSameLevel` we only fill the send buffer (using `BufferUtility::PackData`) if
+  the variable is allocated, otherwise we simply skip that region of the buffer (and leave its
+  values uninitialized, since they won't be read) so that the data for each variable is in the same
+  place as if all variables were allocated.
+- In `Mesh::PrepareSendCoarseToFineAMR` and `Mesh::PrepareSendFineToCoarseAMR` we do the same as
+  above, but instead of leaving regions of the buffer belonging to unallocated variables
+  uninitialized, we fill them with zeros (using `BufferUtility::PackZero`) since the target block
+  may have the variable allocated even if the sender doesn't (actually, I think this can only happen
+  for fine-to-coarse and not for coarse-to-fine).
+- In `Mesh::FillSameRankFineToCoarseAMR` when filling in the destination data, we write zeros if the
+  fine source block doesn't have the variable allocated. Whereas in
+  `Mesh::FillSameRankCoarseToFineAMR` we make sure the source and destination blocks have the same
+  allocation status for each variable and we simply skip unallocated variables.
+- In all three types of `Mesh::FinishRecv*` functions, we read the allocation flags for all
+  variables from the buffer, and we allocate it on the receiving block if the sending block had it
+  allocated but it's not yet allocated on the receiving block. We then proceed to read the buffer
+  only if the variable is allocated on the receiving block.
+
+
+### Turning off sparse
+
+The sparse allocation feature can be turned off at run- or compile-time. The sparse naming feature
+cannot be turned off.
+
+#### Run-time
+Setting `enable_sparse` to `false` (default is `true`) in the `parthenon/sparse` block of the input
+file turns on the "fake sparse" mode. In this mode, all variables are always allocated on all
+blocks, just if they were all dense, and they will not be automatically deallocated. Thus the fake
+sparse mode produces the same results as if all variables were declared dense, but the
+infrastructure will still perform `IsAllocated` checks, so this mode does not remove the sparse
+infrastructure overhead, but it is useful to debug issues arising with the usage of sparse
+variables.
+
+#### Compile-time
+Turning on the CMake option `PARTHENON_DISABLE_SPARSE` turns on fake sparse mode (see above) and
+also replaces all the `IsAllocated` functions with essentially `constexpr bool IsAllocated() const
+{ return true; }` so that they should all be optimized out and thus the sparse infrastructure
+overhead should be removed, which will be useful for measuring the performance impact of the sparse
+overhead. Note however, that there will still be some overhead due to the sparse implementation on
+the host. For example, the allocation status of the variables will still be part of variable pack
+caches and will be checked when retrieving packs from the cache. However, since fake sparse is
+enabled, the allocation statuses will always be all true, thus not resulting in any additional cache
+misses.
+
+If sparse is compile-time disabled, this information is passed through to the regression test suite,
+which will adjust its comparison to gold results accordingly.
