@@ -210,7 +210,9 @@ class Outputs {
   Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr);
   ~Outputs();
 
-  void MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr);
+  void
+  MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr,
+              SignalHandler::OutputSignal signal = SignalHandler::OutputSignal::none);
 
  private:
   OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list
