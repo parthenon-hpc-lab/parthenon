@@ -87,13 +87,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   if (restart_test) {
     Metadata m_dense({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
                       Metadata::FillGhost});
-    pkg->AddField("z_dense_A", m_dense);
-    pkg->AddField("z_dense_B", m_dense);
+    pkg->AddField("dense_A", m_dense);
+    pkg->AddField("dense_B", m_dense);
 
     Metadata m_sparse({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
                        Metadata::FillGhost, Metadata::Sparse});
 
-    SparsePool pool("z_shape_shift", m_sparse);
+    SparsePool pool("shape_shift", m_sparse);
     pool.Add(1, std::vector<int>{1}, std::vector<std::string>{"scalar"});
     pool.Add(3, std::vector<int>{3}, Metadata::Vector,
              std::vector<std::string>{"vec_x", "vec_y", "vec_z"});

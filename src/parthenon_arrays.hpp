@@ -251,6 +251,7 @@ class ParArrayNDGeneric {
   }
 
   // Reset size to 0
+  // Note: Copies of this array won't be affected
   void Reset() { Kokkos::resize(d6d_, 0, 0, 0, 0, 0, 0); }
 
   // call me as Get<D>();

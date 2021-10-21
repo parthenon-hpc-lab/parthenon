@@ -62,7 +62,7 @@ void PackZero(BufArray1D<T> &buf, int sn, int en, int si, int ei, int sj, int ej
   const int nn = en + 1 - sn;
 
   pmb->par_for(
-      "PackData 4D", sn, en, sk, ek, sj, ej, si, ei,
+      "PackZero 4D", sn, en, sk, ek, sj, ej, si, ei,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn)))) = 0.0;
       });

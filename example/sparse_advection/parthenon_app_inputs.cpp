@@ -51,12 +51,17 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   const auto &x0s = pkg->Param<RealArr_t>("x0");
   const auto &y0s = pkg->Param<RealArr_t>("y0");
+  const bool do_restart_test = pkg->Param<bool>("restart_test");
 
-  for (int f = 0; f < NUM_FIELDS; ++f) {
+  // if do_restart_test is true, start at -1 to get one more iteration to take care of the
+  // restart test specific variables
+  for (int f = do_restart_test ? -1 : 0; f < NUM_FIELDS; ++f) {
+    const bool restart_test = (f == -1);
+    const auto this_size = restart_test ? 0.5 * size : size;
     // allocate the sparse field on the blocks where we get non-zero values
     bool any_nonzero = false;
-    const Real x0 = x0s[f];
-    const Real y0 = y0s[f];
+    const Real x0 = restart_test ? 0.0 : x0s[f];
+    const Real y0 = restart_test ? 0.0 : y0s[f];
 
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
@@ -65,7 +70,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           auto y = coords.x2v(j) - y0;
           auto z = coords.x3v(k);
           auto r2 = x * x + y * y + z * z;
-          if (r2 < size) {
+          if (r2 < this_size) {
             any_nonzero = true;
             break;
           }
@@ -76,53 +81,28 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
     }
 
     if (any_nonzero) {
-      pmb->AllocSparseID("sparse", f);
-      auto v = data->GetCellVariableMap().at(MakeVarLabel("sparse", f))->data;
-      pmb->par_for(
-          "SparseAdvection::ProblemGenerator", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-          KOKKOS_LAMBDA(const int k, const int j, const int i) {
-            auto x = coords.x1v(i) - x0;
-            auto y = coords.x2v(j) - y0;
-            auto z = coords.x3v(k);
-            auto r2 = x * x + y * y + z * z;
-            v(k, j, i) = (r2 < size ? 1.0 : 0.0);
-          });
-    }
-  }
+      VariablePack<Real> v;
 
-  if (pkg->Param<bool>("restart_test")) {
-    bool any_nonzero = false;
+      if (restart_test) {
+        pmb->AllocSparseID("shape_shift", 1);
+        pmb->AllocSparseID("shape_shift", 3);
+        pmb->AllocSparseID("shape_shift", 4);
 
-    for (int k = kb.s; k <= kb.e; k++) {
-      for (int j = jb.s; j <= jb.e; j++) {
-        for (int i = ib.s; i <= ib.e; i++) {
-          auto x = coords.x1v(i);
-          auto y = coords.x2v(j);
-          auto z = coords.x3v(k);
-          auto r2 = x * x + y * y + z * z;
-          if (r2 < 0.5 * size) {
-            any_nonzero = true;
-          }
-        }
+        v = data->PackVariables(
+            std::vector<std::string>{"dense_A", "dense_B", "shape_shift"});
+      } else {
+        pmb->AllocSparseID("sparse", f);
+        v = data->PackVariables(std::vector<std::string>{MakeVarLabel("sparse", f)});
       }
-    }
-
-    if (any_nonzero) {
-      pmb->AllocSparseID("z_shape_shift", 1);
-      pmb->AllocSparseID("z_shape_shift", 3);
-      pmb->AllocSparseID("z_shape_shift", 4);
-
-      auto v = data->PackVariables(
-          std::vector<std::string>{"z_dense_A", "z_dense_B", "z_shape_shift"});
 
       pmb->par_for(
           "SparseAdvection::ProblemGenerator", 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e,
           ib.s, ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-            auto x = coords.x1v(i);
-            auto y = coords.x2v(j);
+            auto x = coords.x1v(i) - x0;
+            auto y = coords.x2v(j) - y0;
             auto z = coords.x3v(k);
             auto r2 = x * x + y * y + z * z;
-            v(n, k, j, i) = (r2 < 0.5 * size ? 1.0 : 0.0);
+            v(n, k, j, i) = (r2 < this_size ? 1.0 : 0.0);
           });
     }
   }
