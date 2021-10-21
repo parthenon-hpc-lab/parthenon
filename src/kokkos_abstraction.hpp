@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2020-2021 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -20,11 +20,14 @@
 #ifndef KOKKOS_ABSTRACTION_HPP_
 #define KOKKOS_ABSTRACTION_HPP_
 
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
 
 #include <Kokkos_Core.hpp>
+
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -39,7 +42,18 @@ using DevExecSpace = Kokkos::DefaultExecutionSpace;
 #endif
 using ScratchMemSpace = DevExecSpace::scratch_memory_space;
 
+using HostExecSpace = Kokkos::DefaultHostExecutionSpace;
 using LayoutWrapper = Kokkos::LayoutRight;
+
+#if defined(KOKKOS_ENABLE_CUDA) && defined(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
+using BufMemSpace = Kokkos::CudaHostPinnedSpace::memory_space;
+#else
+using BufMemSpace = Kokkos::DefaultExecutionSpace::memory_space;
+#endif
+
+// MPI communication buffers
+template <typename T>
+using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
 
 template <typename T>
 using ParArray1D = Kokkos::View<T *, LayoutWrapper, DevMemSpace>;
@@ -166,12 +180,12 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
              const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
-  kokkos_dispatch(
-      tag, name,
-      Kokkos::Experimental::require(
-          Kokkos::MDRangePolicy<Kokkos::Rank<2>>(exec_space, {jl, il}, {ju + 1, iu + 1}),
-          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-      function, std::forward<Args>(args)...);
+  kokkos_dispatch(tag, name,
+                  Kokkos::Experimental::require(
+                      Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                          exec_space, {jl, il}, {ju + 1, iu + 1}, {1, iu + 1 - il}),
+                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+                  function, std::forward<Args>(args)...);
 }
 
 // 3D loop using Kokkos 1D Range
@@ -212,7 +226,8 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
   kokkos_dispatch(tag, name,
                   Kokkos::Experimental::require(
                       Kokkos::MDRangePolicy<Kokkos::Rank<3>>(exec_space, {kl, jl, il},
-                                                             {ku + 1, ju + 1, iu + 1}),
+                                                             {ku + 1, ju + 1, iu + 1},
+                                                             {1, 1, iu + 1 - il}),
                       Kokkos::Experimental::WorkItemProperty::HintLightWeight),
                   function, std::forward<Args>(args)...);
 }
@@ -334,7 +349,8 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
   kokkos_dispatch(tag, name,
                   Kokkos::Experimental::require(
                       Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
-                          exec_space, {nl, kl, jl, il}, {nu + 1, ku + 1, ju + 1, iu + 1}),
+                          exec_space, {nl, kl, jl, il}, {nu + 1, ku + 1, ju + 1, iu + 1},
+                          {1, 1, 1, iu + 1 - il}),
                       Kokkos::Experimental::WorkItemProperty::HintLightWeight),
                   function, std::forward<Args>(args)...);
 }
@@ -438,8 +454,9 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
   kokkos_dispatch(
       tag, name,
       Kokkos::Experimental::require(
-          Kokkos::MDRangePolicy<Kokkos::Rank<5>>(
-              exec_space, {ml, nl, kl, jl, il}, {mu + 1, nu + 1, ku + 1, ju + 1, iu + 1}),
+          Kokkos::MDRangePolicy<Kokkos::Rank<5>>(exec_space, {ml, nl, kl, jl, il},
+                                                 {mu + 1, nu + 1, ku + 1, ju + 1, iu + 1},
+                                                 {1, 1, 1, 1, iu + 1 - il}),
           Kokkos::Experimental::WorkItemProperty::HintLightWeight),
       function, std::forward<Args>(args)...);
 }
@@ -624,6 +641,42 @@ struct SpaceInstance<Kokkos::Cuda> {
   }
 };
 #endif
+
+// Design from "Runtime Polymorphism in Kokkos Applications", SAND2019-0279PE
+template <typename MS = DevMemSpace>
+struct DeviceDeleter {
+  template <typename T>
+  void operator()(T *ptr) {
+    Kokkos::kokkos_free<MS>(ptr);
+  }
+};
+
+template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
+std::unique_ptr<T, DeviceDeleter<MS>> DeviceAllocate() {
+  static_assert(std::is_trivially_destructible<T>::value,
+                "DeviceAllocate only supports trivially destructible classes!");
+  auto up = std::unique_ptr<T, DeviceDeleter<MS>>(
+      static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T))));
+  auto p = up.get();
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<ES>(0, 1), KOKKOS_LAMBDA(const int i) { new (p) T(); });
+  Kokkos::fence();
+  return up;
+}
+
+template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
+std::unique_ptr<T, DeviceDeleter<MS>> DeviceCopy(const T &host_object) {
+  static_assert(std::is_trivially_destructible<T>::value,
+                "DeviceCopy only supports trivially destructible classes!");
+  auto up = std::unique_ptr<T, DeviceDeleter<MS>>(
+      static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T))));
+  auto p = up.get();
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<ES>(0, 1),
+      KOKKOS_LAMBDA(const int i) { new (p) T(host_object); });
+  Kokkos::fence();
+  return up;
+}
 
 } // namespace parthenon
 

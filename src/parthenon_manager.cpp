@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -30,29 +30,22 @@
 namespace parthenon {
 
 ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
+  auto manager_status = ParthenonInitEnv(argc, argv);
+  if (manager_status != ParthenonStatus::ok) {
+    return manager_status;
+  }
+  ParthenonInitPackagesAndMesh();
+  return ParthenonStatus::ok;
+}
+
+ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // initialize MPI
 #ifdef MPI_PARALLEL
-#ifdef OPENMP_PARALLEL
-  int mpiprv;
-  if (MPI_SUCCESS != MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mpiprv)) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
-              << "MPI Initialization failed." << std::endl;
-    return ParthenonStatus::error;
-  }
-  if (mpiprv != MPI_THREAD_MULTIPLE) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
-              << "MPI_THREAD_MULTIPLE must be supported for the hybrid parallelzation. "
-              << MPI_THREAD_MULTIPLE << " : " << mpiprv << std::endl;
-    // MPI_Finalize();
-    return ParthenonStatus::error;
-  }
-#else  // no OpenMP
   if (MPI_SUCCESS != MPI_Init(&argc, &argv)) {
     std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
               << "MPI Initialization failed." << std::endl;
     return ParthenonStatus::error;
   }
-#endif // OPENMP_PARALLEL
   // Get process id (rank) in MPI_COMM_WORLD
   if (MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank))) {
     std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
@@ -75,20 +68,26 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
   Kokkos::initialize(argc, argv);
 
+  // pgrete: This is a hack to disable allocation tracking until the Kokkos
+  // tools provide a more fine grained control out of the box.
+  auto *env_track_alloc = std::getenv("KOKKOS_TRACK_ALLOC_OFF");
+  if (env_track_alloc != nullptr) {
+    std::string env_str(env_track_alloc); // deep-copies string
+    for (char &c : env_str) {
+      c = toupper(c);
+    }
+    if ((env_str == "TRUE") || (env_str == "ON") || (env_str == "1")) {
+      Kokkos::Profiling::Experimental::set_allocate_data_callback(nullptr);
+      Kokkos::Profiling::Experimental::set_deallocate_data_callback(nullptr);
+    }
+  }
+
   // parse the input arguments
   ArgStatus arg_status = arg.parse(argc, argv);
   if (arg_status == ArgStatus::error) {
     return ParthenonStatus::error;
   } else if (arg_status == ArgStatus::complete) {
     return ParthenonStatus::complete;
-  }
-
-  // Allow for user overrides to default Parthenon functions
-  if (app_input->ProcessProperties != nullptr) {
-    ProcessProperties = app_input->ProcessProperties;
-  }
-  if (app_input->ProcessPackages != nullptr) {
-    ProcessPackages = app_input->ProcessPackages;
   }
 
   // Set up the signal handler
@@ -111,13 +110,27 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
+  // Set the global number of ghost zones
+  Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
+
+  return ParthenonStatus::ok;
+}
+
+void ParthenonManager::ParthenonInitPackagesAndMesh() {
+  // Allow for user overrides to default Parthenon functions
+  if (app_input->ProcessProperties != nullptr) {
+    ProcessProperties = app_input->ProcessProperties;
+  }
+  if (app_input->ProcessPackages != nullptr) {
+    ProcessPackages = app_input->ProcessPackages;
+  }
 
   // read in/set up application specific properties
   auto properties = ProcessProperties(pinput);
   // set up all the packages in the application
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
-  packages["ParthenonRefinement"] = Refinement::Initialize(pinput.get());
+  packages.Add(Refinement::Initialize(pinput.get()));
 
   if (arg.res_flag == 0) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), properties, packages,
@@ -143,17 +156,15 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   }
 
   // add root_level to all max_level
-  for (auto const &ph : packages) {
+  for (auto const &ph : packages.AllPackages()) {
     for (auto &amr : ph.second->amr_criteria) {
       amr->max_level += pmesh->GetRootLevel();
     }
   }
 
-  pmesh->Initialize(Restart(), pinput.get(), app_input.get());
+  pmesh->Initialize(!Restart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
-
-  return ParthenonStatus::ok;
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {

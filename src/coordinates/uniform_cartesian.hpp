@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,6 +18,7 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "globals.hpp"
 
 #include <Kokkos_Macros.hpp>
 
@@ -34,15 +35,15 @@ class UniformCartesian {
     area_[1] = dx_[0] * dx_[2];
     area_[2] = dx_[0] * dx_[1];
     cell_volume_ = dx_[0] * dx_[1] * dx_[2];
-    istart_[0] = NGHOST;
-    istart_[1] = (rs.nx2 > 1 ? NGHOST : 0);
-    istart_[2] = (rs.nx3 > 1 ? NGHOST : 0);
+    istart_[0] = Globals::nghost;
+    istart_[1] = (rs.nx2 > 1 ? Globals::nghost : 0);
+    istart_[2] = (rs.nx3 > 1 ? Globals::nghost : 0);
     xmin_[0] = rs.x1min - istart_[0] * dx_[0];
     xmin_[1] = rs.x2min - istart_[1] * dx_[1];
     xmin_[2] = rs.x3min - istart_[2] * dx_[2];
   }
-  UniformCartesian(const UniformCartesian &src, int coarsen) {
-    istart_ = src.GetStartIndex();
+  UniformCartesian(const UniformCartesian &src, int coarsen)
+      : istart_(src.GetStartIndex()) {
     dx_ = src.Dx_();
     xmin_ = src.GetXmin();
     xmin_[0] += istart_[0] * dx_[0] * (1 - coarsen);

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "interface/mesh_data.hpp"
 #include "io_wrapper.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
@@ -45,6 +46,7 @@ struct OutputParameters {
   std::string file_id;
   std::string variable;
   std::vector<std::string> variables;
+  std::vector<std::string> component_labels;
   std::string file_type;
   std::string data_format;
   Real next_time, dt;
@@ -125,12 +127,32 @@ class OutputType {
 };
 
 //----------------------------------------------------------------------------------------
+// Helper definitions to enroll user output variables
+
+// Function signature for currently supported user output functions
+using HstFun_t = std::function<Real(MeshData<Real> *md)>;
+
+// Container
+struct HistoryOutputVar {
+  UserHistoryOperation hst_op; // Reduction operation
+  HstFun_t hst_fun;            // Function to be called
+  std::string label;           // column label in hst output file
+  HistoryOutputVar(const UserHistoryOperation &hst_op_, const HstFun_t &hst_fun_,
+                   const std::string &label_)
+      : hst_op(hst_op_), hst_fun(hst_fun_), label(label_) {}
+};
+
+using HstVar_list = std::vector<HistoryOutputVar>;
+// Hardcoded global entry to be used by each package to enroll user output functions
+const char hist_param_key[] = "HistoryFunctions";
+
+//----------------------------------------------------------------------------------------
 //! \class HistoryFile
 //  \brief derived OutputType class for history dumps
 
 class HistoryOutput : public OutputType {
  public:
-  explicit HistoryOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit HistoryOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
@@ -140,7 +162,7 @@ class HistoryOutput : public OutputType {
 
 class FormattedTableOutput : public OutputType {
  public:
-  explicit FormattedTableOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit FormattedTableOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 

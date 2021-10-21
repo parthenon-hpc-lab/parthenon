@@ -71,14 +71,14 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
 
  private:
   // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundarySameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
 
-  int LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
-  int LoadBoundaryBufferToFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferToFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
 
-  void SetBoundaryFromCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundaryFromFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundaryFromCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundaryFromFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
 
 #ifdef MPI_PARALLEL
   int cc_phys_id_, cc_flx_phys_id_;

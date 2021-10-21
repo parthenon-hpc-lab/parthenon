@@ -9,8 +9,9 @@ The `Metadata` class provides a means of defining self-describing variables with
 # StateDescriptor
 
 The `StateDescriptor` class is intended to be used to inform Parthenon about the needs of an application and store relevant parameters that control application-specific behavior at runtime.  The class provides several useful features and functions.
-* `bool AddField(const std::string& field_name, Metadata& m, DerivedOwnership owner=DerivedOwnership::unique)` provides the means to add new variables to a Parthenon-based application with associated `Metadata`.  This function does not allocate any storage or create any of the objects below, it simply adds the name and `Metadata` to a list so that those objects can be populated at the appropriate time.
+* `bool AddField(const std::string& field_name, Metadata& m)` provides the means to add new variables to a Parthenon-based application with associated `Metadata`.  This function does not allocate any storage or create any of the objects below, it simply adds the name and `Metadata` to a list so that those objects can be populated at the appropriate time.
 * `void AddParam<T>(const std::string& key, T& value)` adds a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`.
+* `void UpdateParam<T>(const std::string& key, T& value)`updates a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`. A parameter of the same type must exist.
 * `const T& Param(const std::string& key)` provides the getter to access parameters previously added by `AddParam`.
 * `void FillDerivedBlock(MeshBlockData<Real>* rc)` delgates to the `std::function` member `FillDerivedBlock` if set (defaults to `nullptr` and therefore a no-op) that allows an application to provide a function that fills in derived quantities from independent state per `MeshBlockData<Real>`.
 * `void FillDerivedMesh(MeshData<Real>* rc)` delgates to the `std::function` member `FillDerivedMesh` if set (defaults to `nullptr` and therefore a no-op) that allows an application to provide a function that fills in derived quantities from independent state per `MeshData<Real>`.
@@ -23,6 +24,52 @@ The `StateDescriptor` class is intended to be used to inform Parthenon about the
 The reasoning for providing `FillDerived*` and `EstimateTimestep*` function pointers appropriate for usage with both `MeshData` and `MeshBlockData` is to allow downstream applications better control over task/kernel granularity.  If, for example, the functionality needed in a package's `FillDerived*` function is minimal (e.g., computing velocity from momentum and mass), better performance may be acheived by making use of the `FillDerivedMesh` interface.  Note that applications and even individual packages can make simultaneous usage of _both_ `*Mesh` and `*Block` functions, so long as the appropriate tasks are called as needed by the application driver.
 
 In Parthenon, each `Mesh` and `MeshBlock` owns a `Packages_t` object, which is a `std::map<std::string, std::shared_ptr<StateDescriptor>>`.  The object is intended to be populated with a `StateDescriptor` object per package via an `Initialize` function as in the advection example [here](../example/advection/advection.cpp).  When Parthenon makes use of the `Packages_t` object, it iterates over all entries in the `std::map`.  Note that it's often useful to add a `StateDescriptor` to the `Packages_t` object for the overall application, allowing for a convenient way to define global parameters, for example.
+
+## History output
+
+Parthenon allows packages to enroll an arbitrary number of "history" functions that are all
+called at the interval according to the input parameters,
+see [output documention](../outputs.md#History-Files).
+
+To enroll functions create a list of callback function with the appropriate reduction operation:
+
+```c++
+// List (vector) of HistoryOutputVar that will all be enrolled as output variables
+parthenon::HstVar_list hst_vars = {};
+
+// Add a callback function
+hst_vars.emplace_back(parthenon::HistoryOutputVar(UserHistoryOperation::sum, MyHstFunction, "my label"));
+
+// add callbacks for HST output identified by the `hist_param_key`
+pkg->AddParam<>(parthenon::hist_param_key, hst_vars);
+```
+
+Here, `HistoryOutputVar` is a `struct` containing the global (over all blocks of all ranks) reduction operation, `MyHstFunction` is a callback function (see below), and `"my label"` is the string to
+be used as the column heading of the output file.
+
+Currently supported reductions are
+
+- `UserHistoryOperation::sum`
+- `UserHistoryOperation::min`
+- `UserHistoryOperation::max`
+
+which all match their respective MPI counterpart.
+*Note*, in case of volume weighting being desired (e.g., to calculate the total value in
+the simulation domain of some density) the volume weighting need to be done within the callback
+function, see the [advection example](../../example/advection/advection_package.cpp).
+
+Callback functions need to have the following signature
+```c++
+Real MyHstFunction(MeshData<Real> *md);
+```
+i.e., they will always work on `MeshData`.
+*Note*, currently history output will always be calculated for the "base" container.
+More specifically, the output machinery will automatically use (or create if non existent)
+a single "base" `MeshData` object containing *all* blocks of a rank.
+This simplifies the the logic for reductions over all blocks of a rank and also (generally)
+resuls in better performance as the number of kernel calls is reduced.
+However, this also implies the expectation that the "base" container holds the most recent
+data at the end of a timestep.
 
 # ParArrayND
 

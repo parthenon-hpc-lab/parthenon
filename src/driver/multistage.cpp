@@ -20,26 +20,58 @@ StagedIntegrator::StagedIntegrator(ParameterInput *pin) {
   std::string integrator_name =
       pin->GetOrAddString("parthenon/time", "integrator", "rk2");
 
-  if (!integrator_name.compare("rk1")) {
+  if (integrator_name == "rk1") {
     nstages = 1;
     beta.resize(nstages);
+    gam0.resize(nstages);
+    gam1.resize(nstages);
+
     beta[0] = 1.0;
-  } else if (!integrator_name.compare("rk2")) {
+    gam0[0] = 0.0;
+    gam1[0] = 1.0;
+  } else if (integrator_name == "rk2") {
     nstages = 2;
     beta.resize(nstages);
+    gam0.resize(nstages);
+    gam1.resize(nstages);
+
     beta[0] = 1.0;
+    gam0[0] = 0.0;
+    gam1[0] = 1.0;
+
     beta[1] = 0.5;
-  } else if (!integrator_name.compare("vl2")) {
+    gam0[1] = 0.5;
+    gam1[1] = 0.5;
+  } else if (integrator_name == "vl2") {
     nstages = 2;
     beta.resize(nstages);
+    gam0.resize(nstages);
+    gam1.resize(nstages);
+
     beta[0] = 0.5;
+    gam0[0] = 0.0;
+    gam1[0] = 1.0;
+
     beta[1] = 1.0;
-  } else if (!integrator_name.compare("rk3")) {
+    gam0[1] = 0.0;
+    gam1[1] = 1.0;
+  } else if (integrator_name == "rk3") {
     nstages = 3;
     beta.resize(nstages);
+    gam0.resize(nstages);
+    gam1.resize(nstages);
+
     beta[0] = 1.0;
+    gam0[0] = 0.0;
+    gam1[0] = 1.0;
+
     beta[1] = 0.25;
+    gam0[1] = 0.25;
+    gam1[1] = 0.75;
+
     beta[2] = 2.0 / 3.0;
+    gam0[2] = 2.0 / 3.0;
+    gam1[2] = 1.0 / 3.0;
   } else {
     throw std::invalid_argument("Invalid selection for the time integrator: " +
                                 integrator_name);

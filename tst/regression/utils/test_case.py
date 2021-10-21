@@ -15,14 +15,12 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #========================================================================================
 
-import errno
 import os
 from shutil import rmtree
 import subprocess
 from subprocess import PIPE
 import sys
 from shutil import which
-import glob
 
 class Parameters():
     driver_path = ""
@@ -70,7 +68,7 @@ class TestManager:
         test_base_name = os.path.split(test_path)[1]
         self.test = os.path.basename(os.path.normpath(test_path))
 
-        self.__checkRegressionTestScript(test_base_name)
+        self.__checkRegressionTestScript(test_dir[0], test_base_name)
         self.__checkDriverPath(parthenon_driver[0])
         self.__checkDriverInputPath(parthenon_driver_input[0])
         self.__checkMPIExecutable(mpi_executable)
@@ -94,7 +92,6 @@ class TestManager:
 
         self.__test_module = 'test_suites.' + test_base_name + '.' + test_base_name
 
-        test_module = 'test_suites.' + test_base_name + '.' + test_base_name
         output_msg = "Using:\n"
         output_msg += "driver at:       " + driver_path + "\n"
         output_msg += "driver input at: " + driver_input_path + "\n"
@@ -108,21 +105,13 @@ class TestManager:
         self.parameters.output_path = output_path
         self.parameters.test_path = test_path
         self.parameters.mpi_cmd = mpi_executable
+        self.parameters.mpi_ranks_flag = kwargs.pop('mpirun_ranks_flag')
+        self.parameters.num_ranks = int(kwargs.pop('mpirun_ranks_num'))
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
-       
-        argstrings = ['-np','-n']
-        if len(set(argstrings) & set(self.parameters.mpi_opts)) > 1:
-          print('Warning! You have set both "-n" and "-np" in your MPI options.')
-          print(self.parameters.mpi_opts)
-        for s in argstrings:
-          if s in self.parameters.mpi_opts:
-            index = self.parameters.mpi_opts.index(s)
-            if index < len(self.parameters.mpi_opts) - 1:
-              try:
-                self.parameters.num_ranks = int(self.parameters.mpi_opts[index+1])
-              except ValueError:
-                pass
 
+        module_root_path = os.path.join(test_path, "..","..")
+        if module_root_path not in sys.path:
+            sys.path.insert(0, module_root_path)
         module = __import__(self.__test_module, globals(), locals(),
                 fromlist=['TestCase'])
         my_TestCase = getattr(module,'TestCase')
@@ -151,8 +140,8 @@ class TestManager:
         else:
             return os.path.abspath(test_dir)
 
-    def __checkRegressionTestScript(self,test_base_name):
-        python_test_script = os.path.join(self.__run_test_py_path,'test_suites',test_base_name,test_base_name + ".py")
+    def __checkRegressionTestScript(self, test_dir, test_base_name):
+        python_test_script = os.path.join(test_dir, test_base_name + ".py")
         if not os.path.isfile(python_test_script):
             error_msg = "Missing regression test file "
             error_msg += python_test_script
@@ -203,6 +192,9 @@ class TestManager:
         run_command = []
         if self.parameters.mpi_cmd != "":
             run_command.extend(self.parameters.mpi_cmd)
+        if self.parameters.mpi_ranks_flag is not None:
+            run_command.append(self.parameters.mpi_ranks_flag)
+            run_command.append(str(self.parameters.num_ranks))
         for opt in self.parameters.mpi_opts:
             run_command.extend(opt.split()) 
         run_command.append(self.parameters.driver_path)

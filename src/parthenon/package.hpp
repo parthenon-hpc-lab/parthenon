@@ -44,6 +44,7 @@ using ::parthenon::ApplicationInput;
 using ::parthenon::BlockList_t;
 using ::parthenon::Coordinates;
 using ::parthenon::DevExecSpace;
+using ::parthenon::HostExecSpace;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
 using ::parthenon::MeshBlockDataIterator;

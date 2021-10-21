@@ -98,7 +98,7 @@ void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir) {
   std::stringstream msg;
   msg << "### FATAL ERROR in CheckBoundaryFlag" << std::endl
       << "Attempting to set invalid MeshBlock boundary= " << GetBoundaryString(block_flag)
-      << "\nin x" << dir + 1 << " direction" << std::endl;
+      << "\nin x" << dir << " direction" << std::endl;
   switch (dir) {
   case CoordinateDirection::X1DIR:
     switch (block_flag) {
@@ -126,8 +126,10 @@ void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir) {
     default:
       break;
     }
+    break;
+  default:
+    PARTHENON_FAIL(msg);
   }
-  return;
 }
 
 } // namespace parthenon

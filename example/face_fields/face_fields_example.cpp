@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -57,7 +57,7 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
                array_size);
   package->AddField("f.f.face_averaged_value", m);
 
-  packages["FaceFieldExample"] = package;
+  packages.Add(package);
   return packages;
 }
 
@@ -101,7 +101,7 @@ DriverStatus FaceFieldExample::Execute() {
   }
 
   pmesh->mbcnt = pmesh->nbtotal;
-  Driver::PostExecute();
+  Driver::PostExecute(DriverStatus::complete);
   return DriverStatus::complete;
 }
 
@@ -167,7 +167,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
 parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb) {
   using parthenon::Real;
 
-  auto example = pmb->packages["FaceFieldExample"];
+  auto example = pmb->packages.Get("FaceFieldExample");
   Real px = example->Param<Real>("px");
   Real py = example->Param<Real>("py");
   Real pz = example->Param<Real>("pz");

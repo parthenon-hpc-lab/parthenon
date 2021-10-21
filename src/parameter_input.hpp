@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -29,10 +29,6 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "outputs/io_wrapper.hpp"
-
-#ifdef OPENMP_PARALLEL
-#include <omp.h>
-#endif
 
 namespace parthenon {
 
@@ -123,14 +119,6 @@ class ParameterInput {
                  std::string &comment);
   void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
                     const std::string &comment);
-
-  // thread safety
-#ifdef OPENMP_PARALLEL
-  omp_lock_t lock_;
-#endif
-
-  void Lock();
-  void Unlock();
 };
 } // namespace parthenon
 #endif // PARAMETER_INPUT_HPP_

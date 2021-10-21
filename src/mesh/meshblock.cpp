@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -43,7 +43,6 @@
 #include "mesh/meshblock_tree.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "reconstruct/reconstruction.hpp"
 #include "utils/buffer_utils.hpp"
 
 namespace parthenon {
@@ -138,11 +137,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   pbval = std::make_unique<BoundaryValues>(shared_from_this(), input_bcs, pin);
   pbval->SetBoundaryFlags(boundary_flag);
 
-  // Reconstruction: constructor may implicitly depend on Coordinates, and PPM variable
-  // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is
-  // ok
-  precon = std::make_unique<Reconstruction>(shared_from_this(), pin);
-
   // Add field properties data
   // TOOD(JMM): Should packages be resolved for state descriptors in
   // properties?
@@ -195,7 +189,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // Create user mesh data
   // InitUserMeshBlockData(pin);
-  app = InitApplicationMeshBlockData(pin);
+  app = InitApplicationMeshBlockData(this, pin);
   return;
 }
 
@@ -205,12 +199,12 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 MeshBlock::~MeshBlock() = default;
 
 void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
-  cellbounds = IndexShape(nx3, nx2, nx1, NGHOST);
+  cellbounds = IndexShape(nx3, nx2, nx1, Globals::nghost);
 
   if (pmy_mesh != nullptr) {
     if (pmy_mesh->multilevel) {
-      cnghost = (NGHOST + 1) / 2 + 1;
-      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, NGHOST);
+      cnghost = (Globals::nghost + 1) / 2 + 1;
+      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, Globals::nghost);
     } else {
       c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
     }

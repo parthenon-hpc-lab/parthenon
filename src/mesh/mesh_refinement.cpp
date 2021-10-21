@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -45,16 +45,16 @@ namespace parthenon {
 
 MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin)
     : pmy_block_(pmb), deref_count_(0),
-      deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)),
-      AMRFlag_(pmb.lock()->pmy_mesh->AMRFlag_) {
+      deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)) {
   // Create coarse mesh object for parent grid
   coarse_coords = Coordinates_t(pmb.lock()->coords, 2);
 
-  if (NGHOST % 2) {
+  if ((Globals::nghost % 2) != 0) {
     std::stringstream msg;
     msg << "### FATAL ERROR in MeshRefinement constructor" << std::endl
-        << "Selected --nghost=" << NGHOST << " is incompatible with mesh refinement.\n"
-        << "Reconfigure with an even number of ghost cells " << std::endl;
+        << "Selected --nghost=" << Globals::nghost
+        << " is incompatible with mesh refinement because it is not a multiple of 2.\n"
+        << "Rerun with an even number of ghost cells " << std::endl;
     PARTHENON_FAIL(msg);
   }
 }
@@ -998,7 +998,6 @@ void MeshRefinement::CheckRefinementCondition() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &rc = pmb->meshblock_data.Get();
   AmrTag ret = Refinement::CheckAllRefinement(rc.get());
-  // if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);
 }
 

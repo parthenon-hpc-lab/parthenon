@@ -27,7 +27,7 @@ namespace particles_example {
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
-  packages["particles_package"] = particles_example::Particles::Initialize(pin.get());
+  packages.Add(particles_example::Particles::Initialize(pin.get()));
   return packages;
 }
 
@@ -82,7 +82,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) { return AmrTag::same; }
 
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages["particles_package"];
+  auto pkg = pmb->packages.Get("particles_package");
   const Real &dt = pkg->Param<Real>("const_dt");
   return dt;
 }
@@ -97,7 +97,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 // first some helper tasks
 
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
-  auto pkg = pmb->packages["particles_package"];
+  auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
 
@@ -170,7 +170,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 }
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb) {
-  auto pkg = pmb->packages["particles_package"];
+  auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
   auto num_particles = pkg->Param<int>("num_particles");

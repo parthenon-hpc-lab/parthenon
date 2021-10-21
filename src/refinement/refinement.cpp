@@ -62,7 +62,7 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   // delta_level holds the max over all criteria.  default to derefining.
   AmrTag delta_level = AmrTag::derefine;
-  for (auto &pkg : pmb->packages) {
+  for (auto &pkg : pmb->packages.AllPackages()) {
     auto &desc = pkg.second;
     delta_level = std::max(delta_level, desc->CheckRefinement(rc));
     if (delta_level == AmrTag::refine) {

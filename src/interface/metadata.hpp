@@ -181,6 +181,13 @@ class Metadata {
     SetMultiple(bits);
   }
 
+  /// returns a metadata with bits and shape set
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
+                    const std::vector<std::string> component_labels)
+      : shape_(shape), sparse_id_(-1), component_labels_(component_labels) {
+    SetMultiple(bits);
+  }
+
   /// returns a metadata with bits and sparse id set
   explicit Metadata(const std::vector<MetadataFlag> &bits, const int sparse_id)
       : shape_({1}), sparse_id_(sparse_id) {
@@ -346,12 +353,18 @@ class Metadata {
   void Associate(const std::string &name) { associated_ = name; }
   const std::string &getAssociated() const { return associated_; }
 
+  const std::vector<std::string> getComponentLabels() const noexcept {
+    return component_labels_;
+  }
+
  private:
   /// the attribute flags that are set for the class
   std::vector<bool> bits_;
   std::vector<int> shape_;
   std::string associated_;
   int sparse_id_;
+
+  std::vector<std::string> component_labels_;
 
   /*--------------------------------------------------------*/
   // Setters for the different attributes of metadata

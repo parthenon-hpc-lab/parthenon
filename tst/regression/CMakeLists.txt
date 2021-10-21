@@ -95,9 +95,9 @@ endif()
 list(APPEND REQUIRED_PYTHON_MODULES matplotlib numpy)
 
 # Include test setup functions, and check for python interpreter and modules
-#  setup_test
+#  setup_test_serial
 #  setup_test_coverage
-#  setup_test_mpi
+#  setup_test_parallel
 #  setup_test_mpi_coverage
 include(${PROJECT_SOURCE_DIR}/cmake/TestSetup.cmake)
 
@@ -109,9 +109,9 @@ foreach( index RANGE ${end_index})
   list(GET TEST_PROCS ${index} TEST_PROC)
   list(GET TEST_ARGS ${index} TEST_ARG)
   list(GET EXTRA_TEST_LABELS ${index} TEST_LABELS )
-  setup_test(${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
+  setup_test_serial(${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
   setup_test_coverage(${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
-  setup_test_mpi(${TEST_PROC} ${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
+  setup_test_parallel(${TEST_PROC} ${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
   setup_test_mpi_coverage(${TEST_PROC} ${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
 endforeach()
 

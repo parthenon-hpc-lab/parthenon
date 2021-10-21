@@ -41,7 +41,7 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   ParArrayND<Real> &v = rc->Get("in_or_out").data;
-  const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
+  const auto &radius = pmb->packages.Get("calculate_pi")->Param<Real>("radius");
   auto &coords = pmb->coords;
   // Set an indicator function that indicates whether the cell center
   // is inside or outside of the circle we're interating the area of.
@@ -103,7 +103,7 @@ TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> a
 }
 
 TaskStatus AccumulateAreas(ParArrayHost<Real> areas, Packages_t &packages) {
-  const auto &radius = packages["calculate_pi"]->Param<Real>("radius");
+  const auto &radius = packages.Get("calculate_pi")->Param<Real>("radius");
 
   Real area = 0.0;
   for (int i = 0; i < areas.GetSize(); i++) {
@@ -119,7 +119,7 @@ TaskStatus AccumulateAreas(ParArrayHost<Real> areas, Packages_t &packages) {
   Real pi_val = area;
 #endif
 
-  packages["calculate_pi"]->AddParam("pi_val", pi_val);
+  packages.Get("calculate_pi")->AddParam("pi_val", pi_val);
   return TaskStatus::complete;
 }
 

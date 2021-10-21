@@ -378,13 +378,14 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
 
   GIVEN("MeshBlockData, with a variable with coarse data") {
     constexpr int nside = 16;
-    auto cellbounds = IndexShape(nside, nside, nside, NGHOST);
-    auto c_cellbounds = IndexShape(nside / 2, nside / 2, nside / 2, NGHOST);
+    constexpr int nghost = 2;
+    auto cellbounds = IndexShape(nside, nside, nside, nghost);
+    auto c_cellbounds = IndexShape(nside / 2, nside / 2, nside / 2, nghost);
 
     MeshBlockData<Real> rc;
     Metadata m({Metadata::Independent});
-    std::vector<int> block_size{nside + 2 * NGHOST, nside + 2 * NGHOST,
-                                nside + 2 * NGHOST};
+    std::vector<int> block_size{nside + 2 * nghost, nside + 2 * nghost,
+                                nside + 2 * nghost};
     rc.Add("var", m, block_size);
     auto &var = rc.Get("var");
 
@@ -402,9 +403,9 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
       REQUIRE(var.coarse_s.GetDim(6) == 1);
       REQUIRE(var.coarse_s.GetDim(5) == 1);
       REQUIRE(var.coarse_s.GetDim(4) == 1);
-      REQUIRE(var.coarse_s.GetDim(3) == nside / 2 + 2 * NGHOST);
-      REQUIRE(var.coarse_s.GetDim(2) == nside / 2 + 2 * NGHOST);
-      REQUIRE(var.coarse_s.GetDim(1) == nside / 2 + 2 * NGHOST);
+      REQUIRE(var.coarse_s.GetDim(3) == nside / 2 + 2 * nghost);
+      REQUIRE(var.coarse_s.GetDim(2) == nside / 2 + 2 * nghost);
+      REQUIRE(var.coarse_s.GetDim(1) == nside / 2 + 2 * nghost);
       AND_THEN("We can extract the fine object") {
         auto pack = rc.PackVariables(std::vector<std::string>{"var"}, false);
         REQUIRE(pack.GetDim(4) == 1);

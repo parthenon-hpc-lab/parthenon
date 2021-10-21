@@ -28,19 +28,19 @@ namespace BufferUtility {
 // 2x templated and overloaded functions
 // 4D
 template <typename T>
-void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, int ei,
+void PackData(ParArray4D<T> &src, BufArray1D<T> &buf, int sn, int en, int si, int ei,
               int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb);
 // 3D
 template <typename T>
-void PackData(ParArray3D<T> &src, ParArray1D<T> &buf, int si, int ei, int sj, int ej,
+void PackData(ParArray3D<T> &src, BufArray1D<T> &buf, int si, int ei, int sj, int ej,
               int sk, int ek, int &offset, MeshBlock *pmb);
 // 4D
 template <typename T>
-void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, int ei,
+void UnpackData(BufArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, int ei,
                 int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb);
 // 3D
 template <typename T>
-void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, int ej,
+void UnpackData(BufArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, int ej,
                 int sk, int ek, int &offset, MeshBlock *pmb);
 
 } // namespace BufferUtility

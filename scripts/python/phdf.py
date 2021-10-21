@@ -108,27 +108,28 @@ class phdf:
             self.CellsPerBlock = np.prod(self.MeshBlockSize)
             self.TotalCells = self.NumBlocks * self.CellsPerBlock
 
+            #Read in Params
+            self.Params = dict(f["Params"].attrs)
+
             # Read in coordinates
-            tmpx = f['/Locations/x'][:,:]
-            self.x = np.zeros((self.NumBlocks,self.MeshBlockSize[0]))
-            for bId in range(self.NumBlocks):
-                for cId in range(self.MeshBlockSize[0]):
-                    self.x[bId,cId] = 0.5*(tmpx[bId,cId]+tmpx[bId,cId+1])
-            self.xf = tmpx
+            def load_coord(coord_i):
+                coord_name = ["x","y","z"][coord_i]
 
-            tmpy = f['/Locations/y'][:,:]
-            self.y = np.zeros((self.NumBlocks,self.MeshBlockSize[1]))
-            for bId in range(self.NumBlocks):
-                for cId in range(self.MeshBlockSize[1]):
-                    self.y[bId,cId] = 0.5*(tmpy[bId,cId]+tmpy[bId,cId+1])
-            self.yf = tmpy
+                tmp = f['/Locations/' + coord_name][:,:]
+                vol_loc = '/VolumeLocations/' + coord_name
+                if vol_loc in f:
+                    coord = f[vol_loc][:,:]
+                else:
+                    coord = np.zeros((self.NumBlocks,self.MeshBlockSize[coord_i]))
+                    for bId in range(self.NumBlocks):
+                        for cId in range(self.MeshBlockSize[coord_i]):
+                            coord[bId,cId] = 0.5*(tmp[bId,cId]+tmp[bId,cId+1])
+                coordf=tmp
+                return tmp,coord,coordf
 
-            tmpz = f['/Locations/z'][:,:]
-            self.z = np.zeros((self.NumBlocks,self.MeshBlockSize[2]))
-            for bId in range(self.NumBlocks):
-                for cId in range(self.MeshBlockSize[2]):
-                    self.z[bId,cId] = 0.5*(tmpz[bId,cId]+tmpz[bId,cId+1])
-            self.zf = tmpz
+            tmpx, self.x, self.xf = load_coord(0)
+            tmpy, self.y, self.yf = load_coord(1)
+            tmpz, self.z, self.zf = load_coord(2)
 
             # fill in self.offset and block bounds
             self.offset = [0,0,0]
@@ -151,6 +152,8 @@ class phdf:
                     tmpy[ib,iOffsets[2]]-eps, tmpy[ib,iOffsets[3]]+eps,
                     tmpz[ib,iOffsets[4]]-eps, tmpz[ib,iOffsets[5]]+eps
                     ]
+            #Save info 
+            self.Info = dict(f["/Info"].attrs)
                     
             # generate self.offset, isGhost and BlockIdx arrays
             self.GenAuxData()
@@ -161,6 +164,7 @@ class phdf:
 
             self.Variables = [k for k in f.keys()]
             self.varData = {k:None for k in self.Variables}
+
         except:
             raise FileNotFoundError(
                 errno.ENOENT, os.strerror(errno.ENOENT), filename)
@@ -291,6 +295,25 @@ class phdf:
 
         raise ValueError("Unable to map cell")
 
+    def findBlockIdxInOther(self,other,ib,tol=1e-10,verbose=False):
+        """
+        Given an meshblock index in my data, find the meshblock index in a different file.
+        """
+
+        myibBounds = np.array(self.BlockBounds[ib])
+
+        # now hunt in other file
+        for ib1 in range(other.NumBlocks):
+            ib1Bounds = np.array(other.BlockBounds[ib1])
+
+            if( np.all( np.abs(myibBounds - ib1Bounds) < tol)):
+                return ib1
+
+        if verbose:
+            print(f"Block id: {ib} with bounds {myibBounds} not found in {other.file}")
+        return None #block index not found
+
+
     def Get(self, variable, flatten=True):
         """
         Reads data for the named variable from file.
@@ -386,4 +409,3 @@ if __name__ == "__main__":
         l = ba.Get("c.c.bulk.bulk_modulus")
         print('mod=',l.shape)
         print(help(ba))
-

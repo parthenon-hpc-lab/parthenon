@@ -3,7 +3,7 @@
 #  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -49,6 +49,7 @@ nx3 = 1
 nlim = -1
 tlim = 1.0
 integrator = rk2
+ncycle_out_mesh = -10000
 
 <Advection>
 cfl = 0.45
@@ -60,7 +61,12 @@ profile = hard_sphere
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 compute_error = false
-num_vars = 1 # number of variables in variable vector
+num_vars = 1 # number of variables
+vec_size = 1 # size of each variable
+fill_derived = false # whether to fill one-copy test vars
+buffer_send_pack = false # send all buffers using packs
+buffer_recv_pack = false # receive buffers using packs
+buffer_set_pack = false # set received buffers using packs
 
 <parthenon/output1>
 file_type = rst
@@ -69,6 +75,11 @@ dt = 0.05
 <parthenon/output0>
 file_type = hdf5
 dt = 0.05
-variables = advected, one_minus_advected, & # comments are ok
+variables = advected, advected_1, & # comments are ok
+            one_minus_advected, & 
             one_minus_advected_sq, & # on every (& characters are ok in comments)
             one_minus_sqrt_one_minus_advected_sq # line
+
+<parthenon/output3>
+file_type = hst
+dt = 0.05

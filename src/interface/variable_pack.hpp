@@ -179,10 +179,9 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
 
   int vindex = 0;
   int sparse_start = -22000; // Initialize to an obviously wrong number
-  int sparse_id;
   std::string sparse_name;
   for (const auto v : vars) {
-    sparse_id = v->metadata().GetSparseId();
+    int sparse_id = v->metadata().GetSparseId();
     if (vmap != nullptr) {
       if (v->IsSet(Metadata::Sparse)) {
         std::string sparse_trim = v->label();

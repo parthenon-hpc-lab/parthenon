@@ -74,9 +74,8 @@ class MeshBlockDataIterator {
   /// @param c the container on which you want the iterator
   /// @param flags: a vector of Metadata::flags that you want to match
   MeshBlockDataIterator<T>(const std::shared_ptr<MeshBlockData<T>> &c,
-                           const std::vector<MetadataFlag> &flags,
-                           bool matchAny = false) {
-    allVars_ = c->GetCellVariableVector();
+                           const std::vector<MetadataFlag> &flags, bool matchAny = false)
+      : allVars_(c->GetCellVariableVector()) {
     for (auto &svar : c->GetSparseVector()) {
       CellVariableVector<T> &svec = svar->GetVector();
       allVars_.insert(allVars_.end(), svec.begin(), svec.end());

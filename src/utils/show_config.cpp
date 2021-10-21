@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -32,33 +32,18 @@ namespace parthenon {
 void ShowConfig() {
   // To match configure.py output: use 2 space indent for option, value output starts on
   // column 30
-  std::cout << "This Athena++ executable is configured with:" << std::endl;
+  std::cout << "This Parthenon library is configured with:" << std::endl;
   std::cout << "  Problem generator:          " << PROBLEM_GENERATOR << std::endl;
 
-  // configure.py output: +"Debug flags"
-  // configure.py output: +"Code coverage flags"
-  // configure.py output: +"Linker flags"
   if (SINGLE_PRECISION_ENABLED) {
     std::cout << "  Floating-point precision:   single" << std::endl;
   } else {
     std::cout << "  Floating-point precision:   double" << std::endl;
   }
-  std::cout << "  Number of ghost cells:      " << NGHOST << std::endl;
 #ifdef MPI_PARALLEL
   std::cout << "  MPI parallelism:            ON" << std::endl;
 #else
   std::cout << "  MPI parallelism:            OFF" << std::endl;
-#endif
-#ifdef OPENMP_PARALLEL
-  std::cout << "  OpenMP parallelism:         ON" << std::endl;
-#else
-  std::cout << "  OpenMP parallelism:         OFF" << std::endl;
-#endif
-
-#ifdef FFT
-  std::cout << "  FFT:                        ON" << std::endl;
-#else
-  std::cout << "  FFT:                        OFF" << std::endl;
 #endif
 
 #ifdef HDF5OUTPUT
@@ -74,8 +59,6 @@ void ShowConfig() {
 
   std::cout << std::endl << "# Kokkos configuration" << std::endl;
   Kokkos::print_configuration(std::cout);
-
-  return;
 }
 
 } // namespace parthenon

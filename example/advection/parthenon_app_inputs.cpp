@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -32,10 +32,11 @@ using namespace parthenon;
 namespace advection_example {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
-  auto &rc = pmb->meshblock_data.Get();
-  auto &q = rc->Get("advected").data;
+  using parthenon::MetadataFlag;
 
-  auto pkg = pmb->packages["advection_package"];
+  auto &data = pmb->meshblock_data.Get();
+
+  auto pkg = pmb->packages.Get("advection_package");
   const auto &amp = pkg->Param<Real>("amp");
   const auto &vel = pkg->Param<Real>("vel");
   const auto &k_par = pkg->Param<Real>("k_par");
@@ -45,39 +46,40 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const auto &sin_a3 = pkg->Param<Real>("sin_a3");
   const auto &profile = pkg->Param<std::string>("profile");
 
-  auto q_h = q.GetHostMirror();
-
   auto cellbounds = pmb->cellbounds;
-
   IndexRange ib = cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = cellbounds.GetBoundsK(IndexDomain::entire);
 
   auto coords = pmb->coords;
+  auto q = data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  const auto num_vars = q.GetDim(4);
 
-  for (int k = kb.s; k <= kb.e; k++) {
-    for (int j = jb.s; j <= jb.e; j++) {
-      for (int i = ib.s; i <= ib.e; i++) {
-        if (profile.compare("wave") == 0) {
+  int profile_type;
+  if (profile == "wave") profile_type = 0;
+  if (profile == "smooth_gaussian") profile_type = 1;
+  if (profile == "hard_sphere") profile_type = 2;
+
+  pmb->par_for(
+      "Advection::ProblemGenerator", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        if (profile_type == 0) {
           Real x = cos_a2 * (coords.x1v(i) * cos_a3 + coords.x2v(j) * sin_a3) +
                    coords.x3v(k) * sin_a2;
           Real sn = std::sin(k_par * x);
-          q_h(k, j, i) = 1.0 + amp * sn * vel;
-        } else if (profile.compare("smooth_gaussian") == 0) {
+          q(n, k, j, i) = 1.0 + amp * sn * vel;
+        } else if (profile_type == 1) {
           Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
                      coords.x3v(k) * coords.x3v(k);
-          q_h(k, j, i) = 1. + amp * exp(-100.0 * rsq);
-        } else if (profile.compare("hard_sphere") == 0) {
+          q(n, k, j, i) = 1. + amp * exp(-100.0 * rsq);
+        } else if (profile_type == 2) {
           Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
                      coords.x3v(k) * coords.x3v(k);
-          q_h(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+          q(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
         } else {
-          q_h(k, j, i) = 0.0;
+          q(n, k, j, i) = 0.0;
         }
-      }
-    }
-  }
-  q.DeepCopy(q_h);
+      });
 }
 
 //========================================================================================
@@ -93,7 +95,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   Real max_err = 0.0;
 
   for (auto &pmb : mesh->block_list) {
-    auto pkg = pmb->packages["advection_package"];
+    auto pkg = pmb->packages.Get("advection_package");
 
     auto rc = pmb->meshblock_data.Get(); // get base container
     const auto &amp = pkg->Param<Real>("amp");
@@ -212,12 +214,12 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   auto pkg = advection_package::Initialize(pin.get());
-  packages[pkg->label()] = pkg;
+  packages.Add(pkg);
 
   auto app = std::make_shared<StateDescriptor>("advection_app");
   app->PreFillDerivedBlock = advection_package::PreFill;
   app->PostFillDerivedBlock = advection_package::PostFill;
-  packages[app->label()] = app;
+  packages.Add(app);
 
   return packages;
 }

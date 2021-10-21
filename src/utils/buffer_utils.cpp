@@ -29,14 +29,14 @@ namespace parthenon {
 namespace BufferUtility {
 
 //----------------------------------------------------------------------------------------
-//! \fn template <typename T> void PackData(ParArray4D<T> &src, ParArray1D<T> &buf,
+//! \fn template <typename T> void PackData(ParArray4D<T> &src, BufArray1D<T> &buf,
 //                     int sn, int en,
 //                     int si, int ei, int sj, int ej, int sk, int ek, int &offset,
 //                     MeshBlock *pmb)
 //  \brief pack a 4D ParArray into a one-dimensional buffer
 
 template <typename T>
-void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, int ei,
+void PackData(ParArray4D<T> &src, BufArray1D<T> &buf, int sn, int en, int si, int ei,
               int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb) {
   const int ni = ei + 1 - si;
   const int nj = ej + 1 - sj;
@@ -54,13 +54,13 @@ void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, in
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn template <typename T> void PackData(ParArrayND<T> &src, ParArray1D<T> &buf,
+//! \fn template <typename T> void PackData(ParArrayND<T> &src, BufArray1D<T> &buf,
 //                      int si, int ei, int sj, int ej, int sk, int ek, int &offset,
 //                      MeshBlock *pmb)
 //  \brief pack a 3D ParArray into a one-dimensional buffer
 
 template <typename T>
-void PackData(ParArray3D<T> &src, ParArray1D<T> &buf, int si, int ei, int sj, int ej,
+void PackData(ParArray3D<T> &src, BufArray1D<T> &buf, int si, int ei, int sj, int ej,
               int sk, int ek, int &offset, MeshBlock *pmb) {
   const int ni = ei + 1 - si;
   const int nj = ej + 1 - sj;
@@ -76,13 +76,13 @@ void PackData(ParArray3D<T> &src, ParArray1D<T> &buf, int si, int ei, int sj, in
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn template <typename T> void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst,
+//! \fn template <typename T> void UnpackData(BufArray1D<T> &buf, ParArray4D<T> &dst,
 //                        int sn, int en, int si, int ei, int sj, int ej, int sk, int ek,
 //                        int &offset, MeshBlock *pmb)
 //  \brief unpack a one-dimensional buffer into a ParArray4D
 
 template <typename T>
-void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, int ei,
+void UnpackData(BufArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, int ei,
                 int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb) {
   const int ni = ei + 1 - si;
   const int nj = ej + 1 - sj;
@@ -101,13 +101,13 @@ void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, 
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn template <typename T> void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst,
+//! \fn template <typename T> void UnpackData(BufArray1D<T> &buf, ParArray3D<T> &dst,
 //                        int si, int ei, int sj, int ej, int sk, int ek, int &offset,
 //                        MeshBlock *pmb)
 //  \brief unpack a one-dimensional buffer into a 3D ParArray
 
 template <typename T>
-void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, int ej,
+void UnpackData(BufArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, int ej,
                 int sk, int ek, int &offset, MeshBlock *pmb) {
   const int ni = ei + 1 - si;
   const int nj = ej + 1 - sj;
@@ -127,14 +127,14 @@ void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, 
 // for other TUs during linking time (~13x files include "buffer_utils.hpp")
 
 // 13x files include buffer_utils.hpp
-template void UnpackData<Real>(ParArray1D<Real> &, ParArray4D<Real> &, int, int, int, int,
+template void UnpackData<Real>(BufArray1D<Real> &, ParArray4D<Real> &, int, int, int, int,
                                int, int, int, int, int &, MeshBlock *);
-template void UnpackData<Real>(ParArray1D<Real> &, ParArray3D<Real> &, int, int, int, int,
+template void UnpackData<Real>(BufArray1D<Real> &, ParArray3D<Real> &, int, int, int, int,
                                int, int, int &, MeshBlock *);
 
-template void PackData<Real>(ParArray4D<Real> &, ParArray1D<Real> &, int, int, int, int,
+template void PackData<Real>(ParArray4D<Real> &, BufArray1D<Real> &, int, int, int, int,
                              int, int, int, int, int &, MeshBlock *);
-template void PackData<Real>(ParArray3D<Real> &, ParArray1D<Real> &, int, int, int, int,
+template void PackData<Real>(ParArray3D<Real> &, BufArray1D<Real> &, int, int, int, int,
                              int, int, int &, MeshBlock *);
 
 } // namespace BufferUtility

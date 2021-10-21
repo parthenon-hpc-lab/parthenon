@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -108,7 +108,7 @@ class Mesh {
   DataCollection<MeshData<Real>> mesh_data;
 
   // functions
-  void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
+  void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void OutputCycleDiagnostics();
@@ -167,6 +167,9 @@ class Mesh {
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
+  std::vector<LogicalLocation> GetLocList() const noexcept { return loclist; }
+
+  void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
 
  private:
   // data
@@ -212,11 +215,7 @@ class Mesh {
 
   // functions
   MeshGenFunc MeshGenerator_[4];
-  AMRFlagFunc AMRFlag_;
-  SrcTermFunc UserSourceTerm_;
-  TimeStepFunc UserTimeStep_;
 
-  void OutputMeshStructure(int dim);
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
                             std::vector<int> &nblist);
@@ -233,27 +232,24 @@ class Mesh {
 
   // Mesh::RedistributeAndRefineMeshBlocks() helper functions:
   // step 6: send
-  void PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf);
-  void PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
+  void PrepareSendSameLevel(MeshBlock *pb, BufArray1D<Real> &sendbuf);
+  void PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
                                   LogicalLocation &lloc);
-  void PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf);
+  void PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf);
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // moved public to be called from device
   // step 8: receive
-  void FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf);
-  void FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,
+  void FinishRecvSameLevel(MeshBlock *pb, BufArray1D<Real> &recvbuf);
+  void FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
                                  LogicalLocation &lloc);
-  void FinishRecvCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf);
+  void FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(ParameterInput *pin);
   std::function<void(ParameterInput *)> InitUserMeshData = InitUserMeshDataDefault;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
-  void EnrollUserRefinementCondition(AMRFlagFunc amrflag);
   void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
-  void EnrollUserExplicitSourceFunction(SrcTermFunc my_func);
-  void EnrollUserTimeStepFunction(TimeStepFunc my_func);
 };
 
 //----------------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -47,7 +47,7 @@ template <typename T>
 class CellVariable {
  public:
   /// Initialize a 6D variable
-  CellVariable<T>(const std::string label, const std::array<int, 6> dims,
+  CellVariable<T>(const std::string &label, const std::array<int, 6> dims,
                   const Metadata &metadata)
       : data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
         mpiStatus(false), m_(metadata), label_(label) {
@@ -110,7 +110,7 @@ template <typename T>
 class FaceVariable {
  public:
   /// Initialize a face variable
-  FaceVariable(const std::string label, const std::array<int, 6> ncells,
+  FaceVariable(const std::string &label, const std::array<int, 6> ncells,
                const Metadata &metadata)
       : data(label, ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
         dims_(ncells), m_(metadata), label_(label) {

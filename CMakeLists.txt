@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.12)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.3.0 LANGUAGES C CXX)
+project(parthenon VERSION 0.5.0 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -25,32 +25,29 @@ endif()
 include(CTest)
 
 # Compile time constants
-set(PARTHENON_NGHOST 2 CACHE STRING "Number of ghost cells")
 
 # Compile Options
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
+option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "Allocate communication buffers on host" OFF)
+option(PARTHENON_ENABLE_INIT_PACKING "Use MeshBlockPack based buffer functions in \
+Mesh::Initialize. Does NOT support sparse variables." OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
-option(
-  PARTHENON_LINT_DEFAULT
-  "Sources files are linted when building the default target. Set to OFF to \
-stop linting by default. You can still lint using the \"lint\" target"
-  ON
-)
-option(
-  PARTHENON_DISABLE_EXAMPLES
-  "Example drivers are built by default, set this to True to diable, note if regression tests are \
-built some, drivers needed by the regression tests will still be built."
-  OFF
-)
-
+option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
+this to True to enable linting in the default target" OFF)
+option(PARTHENON_COPYRIGHT_CHECK_DEFAULT "Copyright check is turned off by default, use the \
+\"check-copyright\" target or set this to True to check copyright in the default target" OFF)
+option(PARTHENON_DISABLE_EXAMPLES "Example drivers are built by default, set this to True to disable, \
+note if regression tests are built some, drivers needed by the regression tests will still be built." OFF)
+option(PARTHENON_ENABLE_TESTING "Default for all test types." ${BUILD_TESTING})
+option(PARTHENON_ENABLE_PYTHON_MODULE_CHECK "Check if local python version contains all modules required for running tests." ${PARTHENON_ENABLE_TESTING})
 option(PARTHENON_ENABLE_GPU_MPI_CHECKS "Checks if possible that the mpi num of procs and the number\
-of gpu devices detected are appropriate." ${BUILD_TESTING})
-option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
-option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
-option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${BUILD_TESTING})
-option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
+of gpu devices detected are appropriate." ${PARTHENON_ENABLE_TESTING})
+option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${PARTHENON_ENABLE_TESTING})
+option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${PARTHENON_ENABLE_TESTING})
+option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${PARTHENON_ENABLE_TESTING})
+option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${PARTHENON_ENABLE_TESTING})
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
@@ -67,13 +64,10 @@ endif()
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
-# internal variable for number of ghost cells
-set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST})
-
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 3 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 5 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=2445000a031aafc9a85a684aa7e82fb5ccda05530c5652ab432a8fb254642c7b18252ff55d8306b1120aba898713712b28b804eb30272b06278698046a6461cc"
+  "SHA512=bf5c56e760d44d0266df2f5a5230a834c9477b11d692fa72407672423f4b98cd1a1b7e416fb55ec61e7244fbaa3e8d2c838ad1af899c8487917dacd76c198979"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -264,7 +258,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     # Throw a warning if the number of processors available is less than the number specified for running the tests.
     include(ProcessorCount)
     ProcessorCount(N)
-    if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}") 
+    if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}")
       message(WARNING "Consider changing the number of MPI processors used in testing, currently "
         "NUM_MPI_PROC_TESTING is set to ${NUM_MPI_PROC_TESTING} but cmake has only detected a"
         " total of ${N} available processors")

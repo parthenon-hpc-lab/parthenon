@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -66,17 +66,10 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // ParameterInput constructor
 
-ParameterInput::ParameterInput() : pfirst_block{}, last_filename_{} {
-#ifdef OPENMP_PARALLEL
-  omp_init_lock(&lock_);
-#endif
-}
+ParameterInput::ParameterInput() : pfirst_block{}, last_filename_{} {}
 
 ParameterInput::ParameterInput(std::string input_filename)
     : pfirst_block{}, last_filename_{} {
-#ifdef OPENMP_PARALLEL
-  omp_init_lock(&lock_);
-#endif
   IOWrapper infile;
   infile.Open(input_filename.c_str(), IOWrapper::FileMode::read);
   LoadFromFile(infile);
@@ -94,9 +87,6 @@ ParameterInput::~ParameterInput() {
     pib = pib->pnext;
     delete pold_block;
   }
-#ifdef OPENMP_PARALLEL
-  omp_destroy_lock(&lock_);
-#endif
 }
 
 // InputBlock destructor- iterates through singly linked list of "line" nodes and deletes
@@ -401,8 +391,8 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
 
   for (int i = 1; i < argc; i++) {
     input_text = argv[i];
-    std::size_t slash_posn = input_text.rfind("/");         // find last "/" character
-    std::size_t equal_posn = input_text.find_first_of("="); // find "=" character
+    std::size_t equal_posn = input_text.find_first_of("=");     // first "=" character
+    std::size_t slash_posn = input_text.rfind("/", equal_posn); // last "/" before "="
 
     if (slash_posn > equal_posn) {
       msg << "'/' used as value (rhs of =) when modifying " << input_text << "."
@@ -486,8 +476,6 @@ std::string ParameterInput::GetComment(const std::string &block,
   InputLine *pl;
   std::stringstream msg;
 
-  Lock();
-
   // get pointer to node with same block name in singly linked list of InputBlocks
   pb = GetPtrToBlock(block);
   if (pb == nullptr) {
@@ -506,7 +494,6 @@ std::string ParameterInput::GetComment(const std::string &block,
   }
 
   std::string val = pl->param_comment;
-  Unlock();
   return val;
 }
 
@@ -520,8 +507,6 @@ int ParameterInput::GetInteger(const std::string &block, const std::string &name
   InputLine *pl;
   std::stringstream msg;
 
-  Lock();
-
   // get pointer to node with same block name in singly linked list of InputBlocks
   pb = GetPtrToBlock(block);
   if (pb == nullptr) {
@@ -540,10 +525,9 @@ int ParameterInput::GetInteger(const std::string &block, const std::string &name
   }
 
   std::string val = pl->param_value;
-  Unlock();
 
   // Convert string to integer and return value
-  return atoi(val.c_str());
+  return stoi(val);
 }
 
 //----------------------------------------------------------------------------------------
@@ -555,8 +539,6 @@ Real ParameterInput::GetReal(const std::string &block, const std::string &name) 
   InputLine *pl;
   std::stringstream msg;
 
-  Lock();
-
   // get pointer to node with same block name in singly linked list of InputBlocks
   pb = GetPtrToBlock(block);
   if (pb == nullptr) {
@@ -575,7 +557,6 @@ Real ParameterInput::GetReal(const std::string &block, const std::string &name) 
   }
 
   std::string val = pl->param_value;
-  Unlock();
 
   // Convert string to real and return value
   return static_cast<Real>(atof(val.c_str()));
@@ -591,8 +572,6 @@ bool ParameterInput::GetBoolean(const std::string &block, const std::string &nam
   InputLine *pl;
   std::stringstream msg;
 
-  Lock();
-
   // get pointer to node with same block name in singly linked list of InputBlocks
   pb = GetPtrToBlock(block);
   if (pb == nullptr) {
@@ -611,11 +590,10 @@ bool ParameterInput::GetBoolean(const std::string &block, const std::string &nam
   }
 
   std::string val = pl->param_value;
-  Unlock();
 
   // check is string contains integers 0 or 1 (instead of true or false) and return
   if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
-    return static_cast<bool>(atoi(val.c_str()));
+    return static_cast<bool>(stoi(val));
   }
 
   // convert string to all lower case
@@ -638,8 +616,6 @@ std::string ParameterInput::GetString(const std::string &block, const std::strin
   InputLine *pl;
   std::stringstream msg;
 
-  Lock();
-
   // get pointer to node with same block name in singly linked list of InputBlocks
   pb = GetPtrToBlock(block);
   if (pb == nullptr) {
@@ -658,7 +634,6 @@ std::string ParameterInput::GetString(const std::string &block, const std::strin
   }
 
   std::string val = pl->param_value;
-  Unlock();
 
   // return value
   return val;
@@ -678,19 +653,17 @@ int ParameterInput::GetOrAddInteger(const std::string &block, const std::string 
   std::stringstream ss_value;
   int ret;
 
-  Lock();
   if (DoesParameterExist(block, name)) {
     pb = GetPtrToBlock(block);
     pl = pb->GetPtrToLine(name);
     std::string val = pl->param_value;
-    ret = atoi(val.c_str());
+    ret = stoi(val);
   } else {
     pb = FindOrAddBlock(block);
     ss_value << def_value;
     AddParameter(pb, name, ss_value.str(), "# Default value added at run time");
     ret = def_value;
   }
-  Unlock();
   return ret;
 }
 
@@ -708,7 +681,6 @@ Real ParameterInput::GetOrAddReal(const std::string &block, const std::string &n
   std::stringstream ss_value;
   Real ret;
 
-  Lock();
   if (DoesParameterExist(block, name)) {
     pb = GetPtrToBlock(block);
     pl = pb->GetPtrToLine(name);
@@ -720,7 +692,6 @@ Real ParameterInput::GetOrAddReal(const std::string &block, const std::string &n
     AddParameter(pb, name, ss_value.str(), "# Default value added at run time");
     ret = def_value;
   }
-  Unlock();
   return ret;
 }
 
@@ -739,12 +710,10 @@ Real ParameterInput::GetOrAddPrecise(const std::string &block, const std::string
   Real ret;
 
   if (DoesParameterExist(block, name)) {
-    Lock();
     pb = GetPtrToBlock(block);
     pl = pb->GetPtrToLine(name);
     std::string val = pl->param_value;
     ret = static_cast<Real>(atof(val.c_str()));
-    Unlock();
   } else {
     ret = SetPrecise(block, name, def_value);
   }
@@ -765,13 +734,12 @@ bool ParameterInput::GetOrAddBoolean(const std::string &block, const std::string
   std::stringstream ss_value;
   bool ret;
 
-  Lock();
   if (DoesParameterExist(block, name)) {
     pb = GetPtrToBlock(block);
     pl = pb->GetPtrToLine(name);
     std::string val = pl->param_value;
     if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
-      ret = static_cast<bool>(atoi(val.c_str()));
+      ret = static_cast<bool>(stoi(val));
     } else {
       std::transform(val.begin(), val.end(), val.begin(), ::tolower);
       std::istringstream is(val);
@@ -783,7 +751,6 @@ bool ParameterInput::GetOrAddBoolean(const std::string &block, const std::string
     AddParameter(pb, name, ss_value.str(), "# Default value added at run time");
     ret = def_value;
   }
-  Unlock();
   return ret;
 }
 
@@ -802,7 +769,6 @@ std::string ParameterInput::GetOrAddString(const std::string &block,
   std::stringstream ss_value;
   std::string ret;
 
-  Lock();
   if (DoesParameterExist(block, name)) {
     pb = GetPtrToBlock(block);
     pl = pb->GetPtrToLine(name);
@@ -812,7 +778,6 @@ std::string ParameterInput::GetOrAddString(const std::string &block,
     AddParameter(pb, name, def_value, "# Default value added at run time");
     ret = def_value;
   }
-  Unlock();
   return ret;
 }
 
@@ -826,11 +791,9 @@ int ParameterInput::SetInteger(const std::string &block, const std::string &name
   InputBlock *pb;
   std::stringstream ss_value;
 
-  Lock();
   pb = FindOrAddBlock(block);
   ss_value << value;
   AddParameter(pb, name, ss_value.str(), "# Updated during run time");
-  Unlock();
   return value;
 }
 
@@ -844,11 +807,9 @@ Real ParameterInput::SetReal(const std::string &block, const std::string &name,
   InputBlock *pb;
   std::stringstream ss_value;
 
-  Lock();
   pb = FindOrAddBlock(block);
   ss_value << value;
   AddParameter(pb, name, ss_value.str(), "# Updated during run time");
-  Unlock();
   return value;
 }
 
@@ -862,12 +823,10 @@ Real ParameterInput::SetPrecise(const std::string &block, const std::string &nam
   InputBlock *pb;
   std::stringstream ss_value;
 
-  Lock();
   pb = FindOrAddBlock(block);
   ss_value.precision(std::numeric_limits<double>::max_digits10);
   ss_value << value;
   AddParameter(pb, name, ss_value.str(), "# Updated during run time");
-  Unlock();
   return value;
 }
 
@@ -881,11 +840,9 @@ bool ParameterInput::SetBoolean(const std::string &block, const std::string &nam
   InputBlock *pb;
   std::stringstream ss_value;
 
-  Lock();
   pb = FindOrAddBlock(block);
   ss_value << value;
   AddParameter(pb, name, ss_value.str(), "# Updated during run time");
-  Unlock();
   return value;
 }
 
@@ -899,10 +856,8 @@ std::string ParameterInput::SetString(const std::string &block, const std::strin
                                       const std::string &value) {
   InputBlock *pb;
 
-  Lock();
   pb = FindOrAddBlock(block);
   AddParameter(pb, name, value, "# Updated during run time");
-  Unlock();
   return value;
 }
 
@@ -981,7 +936,7 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
         if (fresh) next_time -= std::fmod(next_time, dt0) + dt0;
       }
       msg << next_time;
-      AddParameter(pb, "next_time", msg.str().c_str(), "# Updated during run time");
+      AddParameter(pb, "next_time", msg.str(), "# Updated during run time");
     }
     pb = pb->pnext;
   }
@@ -1020,7 +975,6 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
               << "Defaulting to <" << block << ">/" << name << " = "
               << GetString(block, name) << std::endl;
   }
-  std::cout << std::endl;
 }
 
 //----------------------------------------------------------------------------------------
@@ -1063,26 +1017,6 @@ InputLine *InputBlock::GetPtrToLine(std::string name) {
     if (name.compare(pl->param_name) == 0) return pl;
   }
   return nullptr;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::Lock()
-//  \brief Lock ParameterInput for reading and writing
-void ParameterInput::Lock() {
-#ifdef OPENMP_PARALLEL
-  omp_set_lock(&lock_);
-#endif
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::Unlock()
-//  \brief Unlock ParameterInput for reading and writing
-void ParameterInput::Unlock() {
-#ifdef OPENMP_PARALLEL
-  omp_unset_lock(&lock_);
-#endif
-  return;
 }
 
 } // namespace parthenon

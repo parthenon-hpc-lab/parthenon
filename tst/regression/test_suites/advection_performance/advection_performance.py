@@ -3,7 +3,7 @@
 # Copyright(C) 2020 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -78,8 +78,13 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         perfs = np.array(perfs)
 
-        # Plot results
+        # Save performance metrics to file
+        with open('performance_metrics.txt', 'w') as writer:
+          writer.write("zone-cycles/s | Normalize Overhead | Meshblock Size\n")
+          for ind, mb_size in enumerate(mb_sizes):
+              writer.write("%.2e %.2e %d\n" % (perfs[ind],perfs[0]/perfs[ind],mb_size))
 
+        # Plot results
         fig, p = plt.subplots(2, 1, figsize = (4,8), sharex=True)
 
         p[0].loglog(mb_sizes, perfs, label = "$256^3$ Mesh")

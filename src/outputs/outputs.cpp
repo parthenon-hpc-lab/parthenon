@@ -141,10 +141,20 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.block_number = atoi(outn.c_str());
       op.block_name.assign(pib->block_name);
 
+      Real dt = 0.0; // default value == 0 means that initial data is written by default
+      // for temporal drivers, setting dt to tlim ensures a final output is also written
+      if (tm != nullptr) {
+        dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
+      }
+      // if this output is "soft-disabled" (negative value) skip processing
+      if (dt < 0.0) {
+        pib = pib->pnext; // move to next input block name
+        continue;
+      }
       // set time of last output, time between outputs
       if (tm != nullptr) {
         op.next_time = pin->GetOrAddReal(op.block_name, "next_time", tm->time);
-        op.dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
+        op.dt = dt;
       }
 
       // set file number, basename, id, and format
@@ -251,7 +261,9 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Executable not configured for HDF5 outputs, but HDF5 file format "
-            << "is requested in output block '" << op.block_name << "'" << std::endl;
+            << "is requested in output block '" << op.block_name << "'. "
+            << "You can disable this block without deleting it by setting a dt < 0."
+            << std::endl;
         PARTHENON_FAIL(msg);
 #endif
       } else {

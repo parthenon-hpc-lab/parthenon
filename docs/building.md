@@ -6,35 +6,51 @@ If you come across a disfunctional setup, please report it by open an issue or p
 
 ## General list of cmake options:
 
-   |           Option                    | Default           | Type   | Description |
-   | ----------------------------------: | :---------------- | :----- | :---------- |
-   |                   PARTHENON\_NGHOST | 2                 | String | Number of ghost cells |
-   |        PARTHENON\_SINGLE\_PRECISION | OFF               | Option | Enable single precision mode if requested |
-   |            PARTHENON\_DISABLE\_HDF5 | OFF               | Option | HDF5 is enabled by default if found, set this to True to disable HDF5 |
-   |             PARTHENON\_DISABLE\_MPI | OFF               | Option | MPI is enabled by default if found, set this to True to disable MPI |
-   |          PARTHENON\_DISABLE\_OPENMP | OFF               | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
-   |          ENABLE\_COMPILER\_WARNINGS | OFF               | Option | Enable compiler warnings |
-   |               TEST\_ERROR\_CHECKING | OFF               | Option | Enables the error checking unit test. This test will FAIL |
-   |           TEST\_INTEL\_OPTIMIZATION | OFF               | Option | Test intel optimization and vectorization |
-   |           CHECK\_REGISTRY\_PRESSURE | OFF               | Option | Check the registry pressure for Kokkos CUDA kernels |
-   |                      BUILD\_TESTING | ON                | Option | Multi-testing enablement |
-   |        PARTHENON\_DISABLE\_EXAMPLES | OFF               | Option | Toggle building of examples, if regression tests are on, drivers needed by the tests will still be built |
-   |          ENABLE\_INTEGRATION\_TESTS | ${BUILD\_TESTING} | Option | Enable integration tests |
-   |           ENABLE\_REGRESSION\_TESTS | ${BUILD\_TESTING} | Option | Enable regression tests |
-   |             NUM\_MPI\_PROC\_TESTING | 4                 | String | Number of MPI ranks used for MPI-enabled regression tests |
-   |        NUM\_GPU\_DEVICES\_PER\_NODE | 1                 | String | Number of GPUs per node to use if built with Kokkos_ENABLE_CUDA |
-   | PARTHENON\_ENABLE\_GPU\_MPI\_CHECKS | ON                | String | Enable pre-test gpu-mpi checks |
-   |     REGRESSION\_GOLD\_STANDARD\_VER | #                 | Int    | Version of current gold standard file used in regression tests. Default is set to latest version matching the source. |
-   |    REGRESSION\_GOLD\_STANDARD\_HASH | SHA512=...        | String | Hash value of gold standard file to be downloaded. Used to ensure that the download is not corrupted. |
-   |    REGRESSION\_GOLD\_STANDARD\_SYNC | ON                | Option | Create `gold_standard` target to download gold standard files |
-   |                 ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
-   |                      CODE\_COVERAGE | OFF               | Option | Builds with code coverage flags |
-   |              CMAKE\_INSTALL\_PREFIX | machine specific  | String | Optional path for library installation |
-   |                        Kokkos\_ROOT | unset             | String | Path to a Kokkos source directory (containing CMakeLists.txt) |
-   |           PARTHENON\_IMPORT\_KOKKOS | ON/OFF            | Option | If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon |
-   |                 BUILD\_SHARED\_LIBS | OFF               | Option | If installing Parthenon, whether to build as shared rather than static |
+   |              Option                    | Default           | Type   | Description |
+   | -------------------------------------: | :---------------- | :----- | :---------- |
+   |           PARTHENON\_SINGLE\_PRECISION | OFF               | Option | Enable single precision mode if requested |
+   |               PARTHENON\_DISABLE\_HDF5 | OFF               | Option | HDF5 is enabled by default if found, set this to True to disable HDF5 |
+   |                PARTHENON\_DISABLE\_MPI | OFF               | Option | MPI is enabled by default if found, set this to True to disable MPI |
+   | PARTHENON\_ENABLE\_HOST\_COMM\_BUFFERS | OFF               | Option | MPI communication buffers are by default allocated on the execution device. This options forces allocation in memory accessible directly by the host. |
+   |       PARTHENON\_ENABLE\_INIT\_PACKING | OFF               | Option | Use MeshBlockPack based buffer functions in Mesh::Initialize. Does NOT support sparse variables. |
+   |             PARTHENON\_DISABLE\_OPENMP | OFF               | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
+   |             ENABLE\_COMPILER\_WARNINGS | OFF               | Option | Enable compiler warnings |
+   |                  TEST\_ERROR\_CHECKING | OFF               | Option | Enables the error checking unit test. This test will FAIL |
+   |              TEST\_INTEL\_OPTIMIZATION | OFF               | Option | Test intel optimization and vectorization |
+   |              CHECK\_REGISTRY\_PRESSURE | OFF               | Option | Check the registry pressure for Kokkos CUDA kernels |
+   |                         BUILD\_TESTING | ON                | Option | Enable test (set by CTest itself) |
+   |           PARTHENON\_DISABLE\_EXAMPLES | OFF               | Option | Toggle building of examples, if regression tests are on, drivers needed by the tests will still be built |
+   |             PARTHENON\_ENABLE\_TESTING | ${BUILD\_TESTING} | Option | Default value to enable Parthenon tests |
+   |  PARTHENON\_ENABLE\_INTEGRATION\_TESTS | ${PARTHENON\_ENABLE\_TESTING} | Option | Enable integration tests |
+   |   PARTHENON\_ENABLE\_REGRESSION\_TESTS | ${PARTHENON\_ENABLE\_TESTING} | Option | Enable regression tests |
+   |         PARTHENON\_ENABLE\_UNIT\_TESTS | ${PARTHENON\_ENABLE\_TESTING} | Option | Enable unit tests |
+   |          PARTHENON\_PERFORMANCE\_TESTS | ${PARTHENON\_ENABLE\_TESTING} | Option | Enable performance tests |
+   |                NUM\_MPI\_PROC\_TESTING | 4                 | String | Number of MPI ranks used for MPI-enabled regression tests |
+   |           NUM\_GPU\_DEVICES\_PER\_NODE | 1                 | String | Number of GPUs per node to use if built with `Kokkos_ENABLE_CUDA` |
+   | PARTHENON\_ENABLE\_PYTHON\_MODULE\_CHECK | ${PARTHENON\_ENABLE\_TESTING} | Option | Enable checking if python modules used in regression tests are available |
+   |    PARTHENON\_ENABLE\_GPU\_MPI\_CHECKS | ON                | Option | Enable pre-test gpu-mpi checks |
+   |        REGRESSION\_GOLD\_STANDARD\_VER | #                 | Int    | Version of current gold standard file used in regression tests. Default is set to latest version matching the source. |
+   |       REGRESSION\_GOLD\_STANDARD\_HASH | SHA512=...        | String | Hash value of gold standard file to be downloaded. Used to ensure that the download is not corrupted. |
+   |       REGRESSION\_GOLD\_STANDARD\_SYNC | ON                | Option | Create `gold_standard` target to download gold standard files |
+   |                         CODE\_COVERAGE | OFF               | Option | Builds with code coverage flags |
+   |               PARTHENON\_LINT\_DEFAULT | OFF               | Option | Lint the code as part of the default target (otherwise use the `lint` target) |
+   |   PARTHENON\_COPYRIGHT\_CHECK\_DEFAULT | OFF               | Option | Check copyright as part of the default target (otherwise use the `check-copyright` target) |
+   |                 CMAKE\_INSTALL\_PREFIX | machine specific  | String | Optional path for library installation |
+   |                           Kokkos\_ROOT | unset             | String | Path to a Kokkos source directory (containing CMakeLists.txt) |
+   |              PARTHENON\_IMPORT\_KOKKOS | ON/OFF            | Option | If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon |
+   |                    BUILD\_SHARED\_LIBS | OFF               | Option | If installing Parthenon, whether to build as shared rather than static |
 
 ### NB: CMake options prefixed with *PARTHENON\_* modify behavior.
+
+### NB: On MPI usage
+
+By default communication buffers are allocated in the execution device's memory,
+e.g., directly on the GPU when using Cuda.
+This requires the MPI library to be compiled with support for directly
+accessing device memory (e.g., often referred to as "Cuda-aware MPI").
+To force buffer allocation in host memory (currently *not* recommended as it
+typically results in a performance degradation) set
+`PARTHENON_ENABLE_HOST_COMM_BUFFERS=ON`.
 
 ## Using Parthenon as a Subdirectory
 
@@ -158,7 +174,7 @@ We set the latter variable for easier reference in out-of-source builds.
 To make the default configuration on widely used systems easier, Parthenon provides machine configuration files that contain default options.
 Defaults options include, but are not limited to setting
 - the compiler (e.g., `nvcc_wrapper` for Cuda builds), or
-- paths to non default package locations (e.g., for a custom HDF5 install), or 
+- paths to non default package locations (e.g., for a custom HDF5 install), or
 - custom MPI related commands used in the Parthenon test suite (e.g., the launch command).
 
 The machine configurations shipped with Parthenon are located in [`PARTHENON_ROOT/cmake/machinecfg`](../cmake/machinecfg) and are named by the machine name.
@@ -197,23 +213,75 @@ ctest -L performance
 
 ### OLCF Summit (Power9+Volta)
 
-Last verified 28 Aug 2020.
+Last verified 01 Feb 2021.
 
 #### Common environment
+
+Load recommended modules:
 
 ```bash
 # setup environment
 $ module restore system
-$ module load cuda gcc cmake/3.14.2 python hdf5
+$ module load cuda gcc cmake python hdf5
 
-# on 28 Aug 2020 that results the following version
+# on 01 Aug 2021 that results the following version
 $ module list
 
 Currently Loaded Modules:
-  1) hsi/5.0.2.p5    4) darshan-runtime/3.1.7   7) gcc/6.4.0                       10) hdf5/1.10.4
-  2) xalt/1.2.0      5) DefApps                 8) cmake/3.14.2                    11) python/3.6.6-anaconda3-5.3.0
-  3) lsf-tools/2.0   6) cuda/10.1.243           9) spectrum-mpi/10.3.1.2-20200121
+  1) hsi/5.0.2.p5    4) darshan-runtime/3.1.7   7) gcc/6.4.0                     10) spectrum-mpi/10.3.1.2-20200121
+  2) xalt/1.2.1      5) DefApps                 8) cmake/3.18.2                  11) hdf5/1.10.4
+  3) lsf-tools/2.0   6) cuda/10.1.243           9) python/3.6.6-anaconda3-5.3.0
 ```
+
+Load the recommended default machine configuration:
+
+```bash
+# assuming PARTHENON_ROOT has been set to the Parthenon folder as mentioned above
+$ export MACHINE_CFG=${PARTHENON_ROOT}/cmake/machinecfg/Summit.cmake
+
+```
+
+#### Build code
+
+#### Cuda with MPI
+
+```bash
+# configure and build. Make sure to build in an directory on the GPFS filesystem if you want to run the regression tests because the home directory is not writeable from the compute nodes (which will result in the regression tests failing)
+$ mkdir build-cuda-mpi && cd build-cuda-mpi
+$ cmake ${PARTHENON_ROOT}
+$ make -j 8
+
+# !!!! The following commands are exepected to be run within job (interactive or scheduled), e.g., via
+# $ bsub -W 0:30 -nnodes 1 -P YOURPROJECTID -Is /bin/bash
+# and make sure to also load the module above, i.e.,
+# $ module load cuda gcc cmake/3.18.2 python hdf5
+
+# run all MPI regression tests (execute from within the build folder)
+$ ctest -L regression -LE mpi-no
+
+# Manually run a simulation (here using 1 node with 6 GPUs and 1 MPI processes per GPU for a total of 6 processes (ranks)).
+# Note the `-M "-gpu"` which is required to enable Cuda aware MPI.
+# Also note the `--kokkos-num-devices=6` that ensures that each process on a node uses a different GPU.
+$ jsrun -n 1 -a 6 -g 6 -c 42 -r 1 -d packed -b packed:7 --smpiargs=-gpu ./example/advection/advection-example -i ${PARTHENON_ROOT}/example/advection/parthinput.advection parthenon/time/nlim=10 parthenon/mesh/nx1=512 parthenon/mesh/nx2=512 parthenon/mesh/nx3=512 parthenon/meshblock/nx1=64 parthenon/meshblock/nx2=64 parthenon/meshblock/nx3=64 --kokkos-num-devices=6
+```
+
+#### Cuda without MPI
+
+```bash
+# configure and build
+$ mkdir build-cuda && cd build-cuda
+$ cmake -DMACHINE_VARIANT=cuda ${PARTHENON_ROOT}
+$ make -j8
+
+# Run unit tests (again assumes running within a job, e.g., via `bsub -W 1:30 -nnodes 1 -P PROJECTID -Is /bin/bash`)
+# - jsrun is required as the test would otherwise be executed on the scheduler node rather than on a compute node
+# - "off" is required as otherwise the implicit PAMI initialization would fail
+$ jsrun -n 1 -g 1 --smpiargs="off" ctest -L unit
+
+# run performance regression test test
+$ jsrun -n 1 -g 1 --smpiargs="off" ctest -R regression_test:advection_performance
+```
+
 
 ### LANL Darwin (Heterogeneous)
 
@@ -268,6 +336,122 @@ Once you've configured your build directory, you can build with
 
 #### Advanced
 LANL Employees - to understand how the project space is built out, see
+https://re-git.lanl.gov/eap-oss/parthenon-project
+
+### LANL Snow (CTS-1)
+
+#### Allocate Node
+
+Snow is a LANL CTS-1 system with dual socket Broadwell Intel CPUs. You can log
+in to `sn-fey`. Nodes are allocated using SLURM.
+
+E.g.
+```bash
+$ salloc -N1
+```
+
+#### Set-Up Environment (Optional, but Recommended)
+
+You can import all tools you need to start building with by sourcing the
+project `.bashrc`:
+
+```bash
+$ source /usr/projects/parthenon/parthenon-project/.bashrc
+```
+
+This .bashrc will set the correct `MACHINE_CFG` file in your environment, import
+an architecture-specific set of recent build tools (currently cmake and ninja),
+and set Ninja as the default CMake generator.
+
+#### Build the Code
+If you followed the "Set-Up Environment" section, configuration requires 0
+additional arguments:
+```bash
+$ cmake -S. -Bbuild
+```
+
+If you didn't follow the "Set-Up Environment" section, you need to specify the
+`MACHINE_CFG` file, as well.
+
+```bash
+$ cmake -S. -Bbuild -DMACHINE_CFG=cmake/machinecfg/Snow.cmake
+```
+
+Parthenon is built with the Intel compilers by default on Snow. To build with
+gcc, specify `-DSNOW_COMPILER=GCC`.
+
+The Snow-specific dependencies, including compilers, system dependencies, and
+python packages, are hard coded in `Snow.cmake`, so you don't need anything
+else in your environment.
+
+Once you've configured your build directory, you can build with
+`cmake --build build`.
+
+#### Advanced
+LANL Employees - to understand how the project space is built out, see
+https://re-git.lanl.gov/eap-oss/parthenon-project
+
+### LNLL RZAnsel (Homogeneous)
+
+Last verified 04 Jan 2021.
+
+#### Allocate Node
+
+[RZAnsel](https://hpc.llnl.gov/hardware/platforms/rzansel) is a homogeneous cluster consisting of 2,376 nodes with the IBM Power9
+architecture with 44 nodes per core and 4 Nvidia Volta GPUs per node. To
+allocate an interactive node:
+
+E.g.
+```bash
+$ lalloc 1
+```
+
+#### Set-Up Environment (Optional, but Still Recommended, for Non-CUDA Builds)
+
+You can import all tools you need to start building with by sourcing the
+project `.bashrc`, to be able to access /usr/gapps/parthenon_shared you will
+need to be added to the parthenon group (contact @agaspar):
+
+```bash
+$ source /usr/gapps/parthenon_shared/parthenon-project/.bashrc
+```
+
+This .bashrc will set the correct `MACHINE_CFG` file in your environment, import
+an architecture-specific set of recent build tools (currently cmake and ninja),
+and set Ninja as the default CMake generator.
+
+This step is required if you intend to build for CUDA (the default on Power9).
+
+#### Build the Code
+If you followed the "Set-Up Environment" section, configuration requires 0
+additional arguments:
+```bash
+$ cmake -S. -Bbuild
+```
+By default cmake will build parthenon with cuda and mpi support. Other machine
+variants exist and can be specified by using the `MACHINE_VARIANT` flag. The
+supported machine variants include:
+
+* cuda-mpi
+* mpi
+* cuda
+
+If you didn't follow the "Set-Up Environment" section, you need to specify the
+`MACHINE_CFG` file, as well.
+
+```bash
+$ cmake -S. -Bbuild -DMACHINE_CFG=cmake/machinecfg/RZAnsel.cmake
+```
+
+The RZAnsel-specific dependencies, including compilers, system dependencies, and
+python packages, are hard coded in `RZAnsel.cmake`, so you don't need anything
+else in your environment.
+
+Once you've configured your build directory, you can build with
+`cmake --build build`.
+
+#### Advanced
+LANL Employees - to understand how the project space is built out, see
 https://xcp-gitlab.lanl.gov/eap-oss/parthenon-project
 
 ### LLNL RZAnsel (Power9+Volta)
@@ -279,7 +463,7 @@ Last verified 02 Sept 2020.
 ```bash
 # setup environment
 $ module restore system
-$ module load cuda gcc/7.3.1 
+$ module load cuda gcc/7.3.1
 
 # on 02 Sept 2020 that results the following version
 $ module list

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -53,7 +53,7 @@ struct ApplicationInput {
                                                    nullptr, nullptr, nullptr};
 
   // MeshBlock functions
-  std::function<std::unique_ptr<MeshBlockApplicationData>(ParameterInput *)>
+  std::function<std::unique_ptr<MeshBlockApplicationData>(MeshBlock *, ParameterInput *)>
       InitApplicationMeshBlockData = nullptr;
   std::function<void(ParameterInput *)> InitUserMeshBlockData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;

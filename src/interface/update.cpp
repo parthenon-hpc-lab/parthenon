@@ -91,6 +91,58 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
   return TaskStatus::complete;
 }
 
+template <>
+TaskStatus UpdateWithFluxDivergence(MeshBlockData<Real> *u0_data,
+                                    MeshBlockData<Real> *u1_data, const Real gam0,
+                                    const Real gam1, const Real beta_dt) {
+  std::shared_ptr<MeshBlock> pmb = u0_data->GetBlockPointer();
+
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ib = u0_data->GetBoundsI(interior);
+  const IndexRange jb = u0_data->GetBoundsJ(interior);
+  const IndexRange kb = u0_data->GetBoundsK(interior);
+
+  auto u0 = u0_data->PackVariablesAndFluxes({Metadata::Independent});
+  const auto &u1 = u1_data->PackVariables({Metadata::Independent});
+
+  const auto &coords = pmb->coords;
+  const int ndim = pmb->pmy_mesh->ndim;
+  pmb->par_for(
+      "UpdateWithFluxDivergenceBlock", 0, u0.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
+      ib.e, KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+        u0(l, k, j, i) = gam0 * u0(l, k, j, i) + gam1 * u1(l, k, j, i) +
+                         beta_dt * FluxDiv_(l, k, j, i, ndim, coords, u0);
+      });
+
+  return TaskStatus::complete;
+}
+
+template <>
+TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_data,
+                                    const Real gam0, const Real gam1,
+                                    const Real beta_dt) {
+  const IndexDomain interior = IndexDomain::interior;
+
+  std::vector<MetadataFlag> flags({Metadata::Independent});
+  auto u0_pack = u0_data->PackVariablesAndFluxes(flags);
+  const auto &u1_pack = u1_data->PackVariables(flags);
+  const IndexRange ib = u0_data->GetBoundsI(interior);
+  const IndexRange jb = u0_data->GetBoundsJ(interior);
+  const IndexRange kb = u0_data->GetBoundsK(interior);
+
+  const int ndim = u0_pack.GetNdim();
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "UpdateWithFluxDivergenceMesh", DevExecSpace(), 0,
+      u0_pack.GetDim(5) - 1, 0, u0_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
+        const auto &coords = u0_pack.coords(m);
+        const auto &u0 = u0_pack(m);
+        u0_pack(m, l, k, j, i) = gam0 * u0(l, k, j, i) + gam1 * u1_pack(m, l, k, j, i) +
+                                 beta_dt * FluxDiv_(l, k, j, i, ndim, coords, u0);
+      });
+  return TaskStatus::complete;
+}
+
 } // namespace Update
 
 } // namespace parthenon

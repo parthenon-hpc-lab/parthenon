@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2020-2021 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
@@ -551,11 +551,10 @@ struct LargeNShortTBufferPack {
   }
 
   template <typename TimeType>
-  static void test_time(const TimeType time_default, const TimeType time_spaces,
-                        const int nspaces) {
-    // Test that streams are not introducing a performance penalty (within 5%
+  static void test_time(const TimeType time_default, const TimeType time_spaces) {
+    // Test that streams are not introducing a performance penalty (within 10%
     // uncertainty). The efficiency here depends on the available HW.
-    REQUIRE(time_spaces < 1.05 * time_default);
+    REQUIRE(time_spaces < 1.10 * time_default);
   }
 };
 
@@ -620,20 +619,20 @@ struct SmallNLongTBufferPack {
   }
 
   template <typename TimeType>
-  static void test_time(const TimeType time_default, const TimeType time_spaces,
-                        const int nspaces) {
-    // make sure the per kernel runtime didn't increase by more than a factor of 2
-    REQUIRE(time_default > (static_cast<Real>(nspaces) / 2.0 * time_spaces));
+  static void test_time(const TimeType time_default, const TimeType time_spaces) {
+    // Test that streams are not introducing a performance penalty (within 10%
+    // uncertainty). The efficiency here depends on the available HW.
+    REQUIRE(time_spaces < 1.10 * time_default);
   }
 };
 
 template <class BufferPack>
-void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test_name) {
+void test_wrapper_buffer_pack_overlapping_space_instances(const std::string &test_name) {
   auto default_exec_space = DevExecSpace();
 
-  const int N = 32;      // ~meshblock size
+  const int N = 24;      // ~meshblock size
   const int M = 5;       // ~nhydro
-  const int nspaces = 8; // number of streams
+  const int nspaces = 2; // number of streams
   const int nghost = 2;  // number of ghost zones
   const int buf_size = M * nghost * (N - 2 * nghost) * (N - 2 * nghost);
 
@@ -685,7 +684,7 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test
   // make sure this test is reasonable IIF streams actually overlap, which is
   // not the case for the OpenMP backend at this point
   if (parthenon::SpaceInstance<DevExecSpace>::overlap()) {
-    BufferPack::test_time(time_default, time_spaces, nspaces);
+    BufferPack::test_time(time_default, time_spaces);
   }
 }
 TEST_CASE("Overlapping SpaceInstances", "[wrapper][performance]") {
@@ -696,5 +695,61 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper][performance]") {
   SECTION("Few Threads Long Kernel") {
     test_wrapper_buffer_pack_overlapping_space_instances<SmallNLongTBufferPack>(
         "Few Threads Long Kernel");
+  }
+}
+
+struct MyTestStruct {
+  int i;
+};
+
+constexpr int test_int = 2;
+
+class MyTestBaseClass {
+  KOKKOS_INLINE_FUNCTION
+  virtual int GetInt() = 0;
+};
+
+struct MyTestDerivedClass : public MyTestBaseClass {
+  KOKKOS_INLINE_FUNCTION
+  int GetInt() { return test_int; }
+};
+
+TEST_CASE("Device Object Allocation", "[wrapper]") {
+  parthenon::ParArray1D<int> buffer("Testing buffer", 1);
+
+  GIVEN("A struct") {
+    THEN("We can create a unique_ptr to this on device") {
+      { auto ptr = parthenon::DeviceAllocate<MyTestStruct>(); }
+    }
+  }
+
+  GIVEN("An initialized host struct") {
+    MyTestStruct s;
+    s.i = 5;
+    THEN("We can create a unique_ptr to a copy on device") {
+      auto ptr = parthenon::DeviceCopy<MyTestStruct>(s);
+      auto devptr = ptr.get();
+
+      Kokkos::parallel_for(
+          Kokkos::RangePolicy<DevExecSpace>(0, 1),
+          KOKKOS_LAMBDA(const int i) { buffer(i) = devptr->i; });
+
+      auto buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), buffer);
+      REQUIRE(buffer_h[0] == s.i);
+    }
+  }
+
+  GIVEN("A derived class") {
+    THEN("We can create a unique_ptr to this on device") {
+      auto ptr = parthenon::DeviceAllocate<MyTestDerivedClass>();
+      auto devptr = ptr.get();
+
+      Kokkos::parallel_for(
+          Kokkos::RangePolicy<DevExecSpace>(0, 1),
+          KOKKOS_LAMBDA(const int i) { buffer(i) = devptr->GetInt(); });
+
+      auto buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), buffer);
+      REQUIRE(buffer_h[0] == test_int);
+    }
   }
 }

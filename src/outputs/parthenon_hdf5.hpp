@@ -1,4 +1,4 @@
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,6 +20,7 @@
 #include <hdf5.h>
 #endif
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
@@ -272,6 +273,28 @@ static void writeH5ASTRING(const char *name, const std::string &pData,
   ::parthenon::H5A const attribute = ::parthenon::H5A::FromHIDCheck(
       H5Acreate(dSet, name, atype, dSpace, H5P_DEFAULT, H5P_DEFAULT));
   PARTHENON_HDF5_CHECK(H5Awrite(attribute, atype, pData.c_str()));
+}
+
+static void writeH5ASTRINGS(const char *name, const std::vector<std::string> &pData,
+                            const hid_t &dSpace, const hid_t &dSet) {
+  int max_name_length = 0;
+  for (const auto &s : pData) {
+    max_name_length = std::max(max_name_length, static_cast<int>(s.length()));
+  }
+
+  std::vector<const char *> c_strs;
+  c_strs.reserve(pData.size());
+  for (int i = 0; i < pData.size(); i++) {
+    // Copy pData[i] into c_strs[i], including a null terminator
+    c_strs.push_back(pData[i].c_str());
+  }
+
+  ::parthenon::H5T const atype = ::parthenon::H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
+  PARTHENON_HDF5_CHECK(H5Tset_size(atype, H5T_VARIABLE));
+
+  ::parthenon::H5A const attribute = ::parthenon::H5A::FromHIDCheck(
+      H5Acreate(dSet, name, atype, dSpace, H5P_DEFAULT, H5P_DEFAULT));
+  PARTHENON_HDF5_CHECK(H5Awrite(attribute, atype, c_strs.data()));
 }
 
 // Static functions to return HDF type

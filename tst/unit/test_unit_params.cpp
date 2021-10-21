@@ -23,32 +23,52 @@
 
 using parthenon::Params;
 
-TEST_CASE("Add and Get is called", "[Add,Get]") {
-  GIVEN("A key") {
+TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
+  GIVEN("A key with some value") {
     Params params;
     std::string key = "test_key";
     double value = -2.0;
-    params.Add(key, value);
-    double output = params.Get<double>(key);
-    REQUIRE(output == Approx(value));
-    WHEN("parameters are immutable") {
-      auto const &const_params = params;
-      REQUIRE(params.Get<double>(key) == Approx(value));
-    }
-    WHEN("the same key is provided a second time") {
-      REQUIRE_THROWS_AS(params.Add(key, value), std::runtime_error);
-    }
-
-    WHEN("attempting to get the key but casting to a different type") {
-      REQUIRE_THROWS_AS(params.Get<int>(key), std::runtime_error);
+    THEN("we can add it to Params") {
+      params.Add(key, value);
+      AND_THEN("and retreive it with Get") {
+        double output = params.Get<double>(key);
+        REQUIRE(output == Approx(value));
+      }
+      AND_THEN("we can update the value") {
+        params.Update<double>(key, 2.0);
+        REQUIRE(params.Get<double>(key) == Approx(2.0));
+      }
+      WHEN("trying to Update with a wrong type") {
+        THEN("an error is thrown") {
+          REQUIRE_THROWS_AS(params.Update<int>(key, 2), std::runtime_error);
+        }
+      }
+      WHEN("the same key is provided a second time") {
+        THEN("an error is thrown") {
+          REQUIRE_THROWS_AS(params.Add(key, value), std::runtime_error);
+        }
+      }
+      WHEN("attempting to get the key but casting to a different type") {
+        THEN("an error is thrown") {
+          REQUIRE_THROWS_AS(params.Get<int>(key), std::runtime_error);
+        }
+      }
     }
   }
 
   GIVEN("An empty params structure") {
     Params params;
+    std::string non_existent_key = "key";
     WHEN(" attempting to get a key that does not exist ") {
-      std::string non_existent_key = "key";
-      REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::runtime_error);
+      THEN("an error is thrown") {
+        REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::runtime_error);
+      }
+    }
+    WHEN(" attempting to update a key that does not exist ") {
+      THEN("an error is thrown") {
+        REQUIRE_THROWS_AS(params.Update<double>(non_existent_key, 2.0),
+                          std::runtime_error);
+      }
     }
   }
 }

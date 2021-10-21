@@ -29,20 +29,19 @@
 
 #include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
-#include "reconstruct/reconstruction.hpp"
 
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseLinearX1()
 //  \brief
-KOKKOS_INLINE_FUNCTION
-void PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const int j,
-                       const int il, const int iu, const Coordinates_t &coords,
-                       const ParArrayND<Real> &q, ScratchPad2D<Real> &ql,
-                       ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
-                       ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
-                       ScratchPad2D<Real> &dqm) {
+template <typename T>
+KOKKOS_INLINE_FUNCTION void
+PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const int j,
+                  const int il, const int iu, const Coordinates_t &coords, const T &q,
+                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
+                  ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
+                  ScratchPad2D<Real> &dqm) {
   const int nu = q.GetDim(4) - 1;
 
   // compute L/R slopes for each variable
@@ -107,19 +106,18 @@ void PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const i
           qc(n, i) - ((coords.x1v(i) - coords.x1f(i)) / coords.dx1f(i)) * dqm(n, i);
     });
   }
-  return;
 }
 
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseLinearX2()
 //  \brief
-KOKKOS_INLINE_FUNCTION
-void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const int j,
-                       const int il, const int iu, const Coordinates_t &coords,
-                       const ParArrayND<Real> &q, ScratchPad2D<Real> &ql,
-                       ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
-                       ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
-                       ScratchPad2D<Real> &dqm) {
+template <typename T>
+KOKKOS_INLINE_FUNCTION void
+PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const int j,
+                  const int il, const int iu, const Coordinates_t &coords, const T &q,
+                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
+                  ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
+                  ScratchPad2D<Real> &dqm) {
   const int nu = q.GetDim(4) - 1;
 
   // compute L/R slopes for each variable
@@ -188,13 +186,13 @@ void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const i
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseLinearX3()
 //  \brief
-KOKKOS_INLINE_FUNCTION
-void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const int j,
-                       const int il, const int iu, const Coordinates_t &coords,
-                       const ParArrayND<Real> &q, ScratchPad2D<Real> &ql,
-                       ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
-                       ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
-                       ScratchPad2D<Real> &dqm) {
+template <typename T>
+KOKKOS_INLINE_FUNCTION void
+PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const int j,
+                  const int il, const int iu, const Coordinates_t &coords, const T &q,
+                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
+                  ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
+                  ScratchPad2D<Real> &dqm) {
   const int nu = q.GetDim(4) - 1;
 
   // compute L/R slopes for each variable

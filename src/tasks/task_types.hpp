@@ -25,7 +25,7 @@ namespace parthenon {
 
 class Task {
  public:
-  Task(TaskID id, TaskID dep, std::function<TaskStatus()> func)
+  Task(const TaskID &id, TaskID dep, std::function<TaskStatus()> func)
       : myid_(id), dep_(dep), func_(std::move(func)) {}
   TaskStatus operator()() { return func_(); }
   TaskID GetID() { return myid_; }

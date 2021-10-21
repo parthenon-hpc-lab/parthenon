@@ -11,6 +11,11 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+# Don't include machine cfg more than once
+if (MACHINE_CFG_FULL)
+  return()
+endif()
+
 # Load machine specific defaults such as architecture and mpi launch command.
 # Command line argument takes precedence over environment variable.
 # Loading this before project definition to allow setting the compiler.
@@ -21,11 +26,15 @@ elseif (DEFINED ENV{MACHINE_CFG})
 endif()
 
 if (USE_MACHINE_CFG)
+  # Get the Parthenon root directory, which is one directory up from
+  # from the "cmake" directory. This is done in-case MachineCfg.cmake is
+  # included from a project using Parthenon.
+  get_filename_component(PAR_ROOT ${CMAKE_CURRENT_LIST_DIR} DIRECTORY)
+
   # The `@PAR_ROOT@` string allows the devleper to specify a relative path to
-  # the project directory via an environment variable.
+  # the parthenon root directory via an environment variable.
   string(
-    REPLACE "@PAR_ROOT@" ${CMAKE_CURRENT_SOURCE_DIR}
-      USE_MACHINE_CFG ${USE_MACHINE_CFG})
+    REPLACE "@PAR_ROOT@" ${PAR_ROOT} USE_MACHINE_CFG ${USE_MACHINE_CFG})
 
   # Resolve path to absolute and cache it
   get_filename_component(MACHINE_CFG_FULL ${USE_MACHINE_CFG} ABSOLUTE)
@@ -40,6 +49,13 @@ if (USE_MACHINE_CFG)
 endif()
 
 if (MACHINE_CFG_FULL)
+  if (CMAKE_PROJECT_NAME)
+    message(WARNING "MachineCfg.cmake should be included before calling the \
+      project() function. If you're using parthenon as a subdirectory, try \
+      adding an include for it in your top level CMakeLists.txt prior to \
+      calling project().")
+  endif()
+
   include(${MACHINE_CFG_FULL})
 else()
   message(WARNING "Not using any machine configuration. Consider creating a configuration "

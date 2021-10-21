@@ -56,6 +56,10 @@ vy = 1.0
 vz = 1.0
 profile = hard_sphere
 
+buffer_send_pack = true
+buffer_recv_pack = true
+buffer_set_pack = true
+
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 compute_error = true
@@ -66,3 +70,7 @@ dt = 1.0
 variables = advected, one_minus_advected, & # comments are ok
             one_minus_advected_sq, & # on every (& characters are ok in comments)
             one_minus_sqrt_one_minus_advected_sq # line
+
+<parthenon/output1>
+file_type = hst
+dt = 0.25

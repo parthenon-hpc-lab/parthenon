@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -28,25 +28,25 @@ namespace parthenon {
 /// The new version of Add that takes the fourth dimension from
 /// the metadata structure
 template <typename T>
-void MeshBlockData<T>::Add(const std::string label, const Metadata &metadata) {
+void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
   // generate the vector and call Add
   const std::vector<int> &dims = metadata.Shape();
   Add(label, metadata, dims);
 }
 
 template <typename T>
-void MeshBlockData<T>::Add(const std::vector<std::string> labelArray,
+void MeshBlockData<T>::Add(const std::vector<std::string> &labelArray,
                            const Metadata &metadata) {
   // generate the vector and call Add
-  for (auto label : labelArray) {
+  for (const auto &label : labelArray) {
     Add(label, metadata);
   }
 }
 
 template <typename T>
-void MeshBlockData<T>::Add(const std::vector<std::string> labelArray,
+void MeshBlockData<T>::Add(const std::vector<std::string> &labelArray,
                            const Metadata &metadata, const std::vector<int> &dims) {
-  for (auto label : labelArray) {
+  for (const auto &label : labelArray) {
     Add(label, metadata, dims);
   }
 }
@@ -59,7 +59,7 @@ void MeshBlockData<T>::Add(const std::vector<std::string> labelArray,
 /// @param dims the size of each element
 /// @param metadata the metadata associated with the variable
 template <typename T>
-void MeshBlockData<T>::Add(const std::string label, const Metadata &metadata,
+void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata,
                            const std::vector<int> &dims) {
   std::array<int, 6> arrDims;
   calcArrDims_(arrDims, dims, metadata);
@@ -519,7 +519,7 @@ template <typename T>
 vpack_types::VarList<T>
 MeshBlockData<T>::MakeList_(const std::vector<std::string> &names,
                             std::vector<std::string> &expanded_names,
-                            const std::vector<int> sparse_ids) {
+                            const std::vector<int> &sparse_ids) {
   vpack_types::VarList<T> vars;
   // for (const auto &name : names) {
   for (auto n = names.rbegin(); n != names.rend(); ++n) {
@@ -627,7 +627,7 @@ TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
 
 template <typename T>
 TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
-  Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers");
+  Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshBlockData");
   // sends the boundary
   debug = 0;
   for (auto &v : varVector_) {
@@ -646,7 +646,7 @@ TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
     }
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SendBoundaryBuffers
+  Kokkos::Profiling::popRegion(); // Task_SendBoundaryBuffers_MeshBlockData
   return TaskStatus::complete;
 }
 
@@ -673,7 +673,7 @@ void MeshBlockData<T>::SetupPersistentMPI() {
 
 template <typename T>
 TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
-  Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers");
+  Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers_MeshBlockData");
   bool ret = true;
   // receives the boundary
   for (auto &v : varVector_) {
@@ -702,7 +702,7 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
     }
   }
 
-  Kokkos::Profiling::popRegion(); // Task_ReceiveBoundaryBuffers
+  Kokkos::Profiling::popRegion(); // Task_ReceiveBoundaryBuffers_MeshBlockData
   if (ret) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
@@ -738,7 +738,7 @@ TaskStatus MeshBlockData<T>::ReceiveAndSetBoundariesWithWait() {
 // bloat.
 template <typename T>
 TaskStatus MeshBlockData<T>::SetBoundaries() {
-  Kokkos::Profiling::pushRegion("Task_SetBoundaries");
+  Kokkos::Profiling::pushRegion("Task_SetBoundaries_MeshBlockData");
   // sets the boundary
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
@@ -755,7 +755,7 @@ TaskStatus MeshBlockData<T>::SetBoundaries() {
       }
     }
   }
-  Kokkos::Profiling::popRegion(); // Task_SetBoundaries
+  Kokkos::Profiling::popRegion(); // Task_SetBoundaries_MeshBlockData
   return TaskStatus::complete;
 }
 
