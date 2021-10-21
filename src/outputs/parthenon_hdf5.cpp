@@ -317,8 +317,10 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     hsize_t sumDim4AllVars = 0;
     for (auto &v : ciX.vars) {
       const size_t vlen = v->GetDim(4);
-      sumDim4AllVars += vlen;
-      maxV = (maxV < vlen ? vlen : maxV);
+      if (!v->metadata().IsSet(Metadata::None)) {
+        sumDim4AllVars += vlen;
+        maxV = (maxV < vlen ? vlen : maxV);
+      }
     }
 
     std::vector<Real> tmpData((nx1 + 1) * (nx2 + 1) * (nx3 + 1) * maxV *
@@ -405,6 +407,9 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       const hsize_t vlen = vwrite->GetDim(4);
       local_count[4] = global_count[4] = vlen;
 
+      if (vwrite->metadata().IsSet(Metadata::None)) {
+        continue;
+      }
       if (vlen == 1) {
         vLocalSpace = local_DSpace;
         vGlobalSpace = global_DSpace;
@@ -426,6 +431,65 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
             auto v_h = v->data.GetHostMirrorAndCopy();
             LOADVARIABLEONE(index, tmpData, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
                             out_kb.s, out_kb.e, vlen);
+            break;
+          }
+        }
+      }
+      // write dataset to file
+      WRITEH5SLAB2(vWriteName.c_str(), tmpData.data(), file, local_start, local_count,
+                   vLocalSpace, vGlobalSpace, property_list);
+    }
+
+    // Block variables
+    for (auto &vwrite : ciX.vars) { // for each variable we write
+      if (!vwrite->metadata().IsSet(Metadata::None)) {
+        continue;
+      }
+      const std::string vWriteName = vwrite->label();
+      hid_t vLocalSpace, vGlobalSpace;
+      H5S vLocalSpaceNew, vGlobalSpaceNew;
+      int spaceCount;
+      spaceCount = 1;
+      std::cout << "VWDIMS=";
+      for (int idim = 0; idim <= 6; idim++) {
+        std::cout << vwrite->GetDim(idim) << " ";
+      }
+      std::cout << std::endl;
+      for (int idim = 3; idim <= 6; idim++) {
+        if (vwrite->GetDim(idim) > 1) {
+          std::cout << "_______ idim=" << idim << ": vdim=" << vwrite->GetDim(idim)
+                    << std::endl;
+          local_count[spaceCount] = global_count[spaceCount] = vwrite->GetDim(idim);
+          spaceCount++;
+        }
+      }
+      {
+        int i = 0;
+        auto v_h = vwrite->data.GetHostMirrorAndCopy();
+
+        std::cout << "row " << i << ":" << v_h(i, 0) << "," << v_h(i, 1) << std::endl;
+        i++;
+        std::cout << "row " << i << ":" << v_h(i, 0) << "," << v_h(i, 1) << std::endl;
+        i++;
+        std::cout << "row " << i << ":" << v_h(i, 0) << "," << v_h(i, 1) << std::endl;
+        i++;
+        std::cout << "hello help:" << spaceCount << std::endl;
+      }
+      vLocalSpace = vLocalSpaceNew =
+          H5S::FromHIDCheck(H5Screate_simple(spaceCount, local_count, NULL));
+      vGlobalSpace = vGlobalSpaceNew =
+          H5S::FromHIDCheck(H5Screate_simple(spaceCount, global_count, NULL));
+
+      hsize_t index = 0;
+      for (auto &pmb : pm->block_list) { // for every block1
+        auto ci = MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(),
+                                              output_params.variables);
+        for (auto &v : ci.vars) {
+          std::string name = v->label();
+          if (name.compare(vWriteName) == 0) {
+            auto v_h = v->data.GetHostMirrorAndCopy();
+            LOADVARIABLERAW(index, tmpData, v_h, v->GetDim(3), v->GetDim(4), v->GetDim(5),
+                            v->GetDim(6));
             break;
           }
         }

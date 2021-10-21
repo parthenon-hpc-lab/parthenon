@@ -112,6 +112,20 @@ using H5T = H5Handle<&H5Tclose>;
 using H5S = H5Handle<&H5Sclose>;
 } // namespace parthenon
 
+#define LOADVARIABLERAW(index, dst, var, i1, i2, i3, i4)                                 \
+  do {                                                                                   \
+    for (int i = 0; i < i1; i++) {                                                       \
+      for (int j = 0; j < i2; j++) {                                                     \
+        for (int k = 0; k < i3; k++) {                                                   \
+          for (int l = 0; l < i4; l++) {                                                 \
+            dst[index] = var(i, j, k, l);                                                \
+            index++;                                                                     \
+          }                                                                              \
+        }                                                                                \
+      }                                                                                  \
+    }                                                                                    \
+  } while (false)
+
 #define LOADVARIABLEONE(index, dst, var, is, ie, js, je, ks, ke, vlen)                   \
   do {                                                                                   \
     for (int k = ks; k <= ke; k++) {                                                     \
