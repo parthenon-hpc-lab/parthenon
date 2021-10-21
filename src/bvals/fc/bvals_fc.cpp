@@ -168,8 +168,8 @@ int FaceCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
 }
 
 /*
- * This block of code uses the old boundary machinery, It is not currently used anymore, but kept
- * here as a guide for when face-centered variables are re-introduced
+ * This block of code uses the old boundary machinery, It is not currently used anymore,
+ * but kept here as a guide for when face-centered variables are re-introduced
  *
 
 //----------------------------------------------------------------------------------------
