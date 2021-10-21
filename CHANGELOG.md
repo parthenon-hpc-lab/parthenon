@@ -86,7 +86,7 @@ Date: 01/19/2021
 - [[PR 387]](https://github.com/lanl/parthenon/pull/387) Add missing const that was needed
 - [[PR 353]](https://github.com/lanl/parthenon/pull/353) Fixed small error in input\_parameter logic
 - [[PR 352]](https://github.com/lanl/parthenon/pull/352) Code compiles cleanly (no warnings) with nvcc_wrapper
-- [[PR 608]](https://github.com/lanl/parthenon/pull/608) Variables with `Metadata::Cell` can now be output to PHDF file
+- [[PR 608]](https://github.com/lanl/parthenon/pull/608) Variables with `Metadata::None` can now be output to PHDF file
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 392]](https://github.com/lanl/parthenon/pull/392) Fix C++ linting for when parthenon is a submodule
