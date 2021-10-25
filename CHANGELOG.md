@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 602]](https://github.com/lanl/parthenon/pull/602) Added tuning functionality for HDF5 output
 
 ### Changed (changing behavior/API/variables/...)
 
