@@ -28,8 +28,8 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "refinement/refinement.hpp"
-#include "utils/utils.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
