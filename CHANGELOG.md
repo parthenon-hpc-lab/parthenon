@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 605]](https://github.com/lanl/parthenon/pull/605) Add output triggering by signaling.
+- [[PR 602]](https://github.com/lanl/parthenon/pull/602) Added tuning functionality for HDF5 output
 
 ### Changed (changing behavior/API/variables/...)
 
