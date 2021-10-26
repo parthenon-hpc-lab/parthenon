@@ -78,11 +78,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
     // if sparse is enabled, we set the first value in the buffer to 1/0 to indicate if
     // the sending block has this variable allocated (1) or not (0)
     if (Globals::sparse_config.enabled) {
-      // making a view to set the first value in sbuf from host
-      BufArray1D<Real> flag_view(sbuf, std::make_pair(0, 1));
-      auto flag_h = Kokkos::create_mirror_view(HostMemSpace(), flag_view);
-      flag_h(0) = is_allocated ? 1.0 : 0.0;
-      Kokkos::deep_copy(flag_view, flag_h);
+      Kokkos::deep_copy(Kokkos::subview(sbuf, 0), is_allocated ? 1.0 : 0.0);
     }
 
     // if this variable is allocated, fill the send buffer
@@ -309,11 +305,9 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
         if (nb.snb.rank == Globals::my_rank) {
           source_allocated = IsLocalNeighborAllocated(n);
         } else {
-          // making a view to read the first value in receive on host
-          BufArray1D<Real> flag_view(rbuf, std::make_pair(0, 1));
-          auto flag_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), flag_view);
-
-          source_allocated = (flag_h(0) == 1.0);
+          Real flag;
+          Kokkos::deep_copy(flag, Kokkos::subview(rbuf, 0));
+          source_allocated = (flag == 1.0);
         }
       }
 #else

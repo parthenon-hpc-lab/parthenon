@@ -194,14 +194,12 @@ bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
         if (!is_allocated) {
           // we have to copy flag at the end of recv buffer to host to read it
           const auto idx = bd_var_.recv_size[nb.bufid] - 1;
-          // the flag lives on the device, make a subview pointing to the flag (just one
-          // Real) so we can copy it to the host
-          BufArray1D<Real> flag_view(bd_var_.recv[nb.bufid],
-                                     std::make_pair(idx, idx + 1));
-          auto flag_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), flag_view);
+          // the flag lives on the device, copy it to host
+          Real flag;
+          Kokkos::deep_copy(flag, Kokkos::subview(bd_var_.recv[nb.bufid], idx));
 
           // check if we need to allocate this variable if it's not allocated
-          if (flag_h(0) == 1.0) {
+          if (flag == 1.0) {
             // we need to allocate this variable
             pmb->AllocateSparse(label());
           }

@@ -153,6 +153,33 @@ boundary exchange mechanism (see [Boundary exchange](#boundary-exchange)) more c
 reason, the current implementation keeps things simpler by always allocating the
 `CellCenteredBoundaryVariable`.
 
+#### Note on always allocating boundary data
+It would be desirable to not always allocate boundary data, since that results in wasted memory for
+unallocated variables. The problem is that we don't know the allocation status of a remote neighbor.
+Suppose a block on rank 0 has variable allocated and it sends a non-zero buffer to neighboring block
+on rank 1 that doesn't have the variable allocated. In the current implementation, the block on rank
+1 still has the boundary buffers allocated, so it can receive the full boundary buffer and then
+check its content. Upon seeing that the values are non-zero, it will then allocate the variable and
+process the content of the buffer. If the block on rank 1 didn't have the buffer allocated, then
+the MPI communication would become more complex. The block on rank 0 would first have to signal to
+the block on rank 1 to allocate the variable, than rank 1 would signal to rank 0 that it's now ready
+for the data, and finally rank 0 would send the data. While such an implementation is possible, it
+would add considerable complexity.
+
+On the other hand, there is absolutely no need to have boundary buffers allocated for local
+neighbors of unallocated variables. Because in those cases, when the buffer is "sent" to the local
+neighbor, the sending block will directly tell the receiving local neighboring block to allocate the
+variable and then the receiving boundary buffer of the target block gets directly filled by the
+sending block without any MPI communication. So for local neighbors, there is no need to have
+boundary buffers always allocated.
+
+The difficulty arises by the fact that `BoundaryData` uses a single `ParArray1D` as the buffer for
+all neighbors (local and non-local). So if an implementation wants to only allocate boundary buffers
+for non-local neighbors, that will introduce complexity into keeping track of individual neighbor
+buffers as well as needing to reallocate the buffers and recreate the persistent MPI communication
+objects every time the allocation status of the variable changes (which may not be often, though).
+
+
 ### Deallocation
 There is a new task called `SparseDealloc` taking a `MeshData` pointer. It is meant to be run after
 the update task for the last stage (of course, it does not have to be run every time step). On every
