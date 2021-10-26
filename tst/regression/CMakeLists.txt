@@ -72,7 +72,7 @@ if (ENABLE_HDF5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/sparse_advection/sparse_advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart/parthinput.restart \
-    --num_steps 2")
+    --num_steps 3")
   list(APPEND EXTRA_TEST_LABELS "")
 
   # Calculate pi example

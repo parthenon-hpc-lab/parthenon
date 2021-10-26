@@ -1,6 +1,6 @@
 # ========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020 The Parthenon collaboration
+# Copyright(C) 2020-2021 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
 # (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
@@ -30,13 +30,23 @@ class TestCase(utils.test_case.TestCaseAbs):
         # files are both read and written
         parameters.coverage_status = "both"
 
+        # run baseline (to the very end)
         if step == 1:
             parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
-        else:
+        # restart from an early snapshot and run for two seconds
+        elif step == 2:
             parameters.driver_cmd_line_args = [
                 "-r",
                 "gold.out0.00001.rhdf",
                 "parthenon/job/problem_id=silver",
+                "-t",
+                "00:00:02",
+            ]
+        # now restart from the walltime based output
+        else:
+            parameters.driver_cmd_line_args = [
+                "-r",
+                "silver.out0.final.rhdf",
             ]
 
         return parameters
@@ -54,12 +64,26 @@ class TestCase(utils.test_case.TestCaseAbs):
             print("Couldn't find module to compare Parthenon hdf5 files.")
             return False
 
+        success = True
+
         delta = compare(
             [
-                "gold.out0.00002.rhdf",
-                "silver.out0.00002.rhdf",
+                "gold.out0.00005.rhdf",
+                "silver.out0.00005.rhdf",
             ],
             one=True,
         )
 
-        return delta == 0
+        if delta != 0:
+            print("ERROR: Found difference between gold and silver output.")
+            success = False
+
+        found_line = False
+        for line in parameters.stdouts[1].decode("utf-8").split("\n"):
+            if "Terminating on wall-time limit" in line:
+                found_line = True
+        if not found_line:
+            print("ERROR: wall-time limit based termination not triggered.")
+            success = False
+
+        return success
