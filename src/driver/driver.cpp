@@ -26,6 +26,8 @@
 #include "utils/utils.hpp"
 
 namespace parthenon {
+using SignalHandler::OutputSignal;
+
 // Declare class static variables
 Kokkos::Timer Driver::timer_main;
 Kokkos::Timer Driver::timer_cycle;
@@ -57,10 +59,12 @@ DriverStatus EvolutionDriver::Execute() {
   PreExecute();
   InitializeBlockTimeSteps();
   SetGlobalTimeStep();
-  pouts->MakeOutputs(pmesh, pinput, &tm);
+  OutputSignal signal = OutputSignal::none;
+  pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
       pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
+
   Kokkos::Profiling::pushRegion("Driver_Main");
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
@@ -87,12 +91,16 @@ DriverStatus EvolutionDriver::Execute() {
     if (pmesh->modified) InitializeBlockTimeSteps();
     time_LBandAMR += timer_LBandAMR.seconds();
     SetGlobalTimeStep();
-    if (tm.time < tm.tlim) // skip the final output as it happens later
-      pouts->MakeOutputs(pmesh, pinput, &tm);
 
     // check for signals
-    if (SignalHandler::CheckSignalFlags() != 0) {
-      return DriverStatus::failed;
+    signal = SignalHandler::CheckSignalFlags();
+
+    if (tm.time < tm.tlim) { // skip the final output as it happens later
+      pouts->MakeOutputs(pmesh, pinput, &tm, signal);
+    }
+
+    if (SignalHandler::CheckSignalFlags() == OutputSignal::final) {
+      break;
     }
     if (tm.ncycle == perf_cycle_offset) {
       pmesh->mbcnt = 0;
@@ -105,7 +113,7 @@ DriverStatus EvolutionDriver::Execute() {
 
   DriverStatus status = DriverStatus::complete;
 
-  pouts->MakeOutputs(pmesh, pinput, &tm);
+  pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   PostExecute(status);
   return status;
 }

@@ -232,7 +232,8 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
   return;
   */
 }
-void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                                const SignalHandler::OutputSignal signal) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
 

@@ -58,4 +58,4 @@ compute_error = false
 
 <parthenon/output0>
 file_type = rst
-dt = 0.25
+dt = 0.10
