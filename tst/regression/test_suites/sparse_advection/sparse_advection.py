@@ -62,6 +62,9 @@ class TestCase(utils.test_case.TestCaseAbs):
             check_metadata=False,
         )
 
+        if delta != 0:
+          return False
+
         if not parameters.sparse_disabled:
             # compare against true sparse, needs to match to machine precision
             delta = compare(

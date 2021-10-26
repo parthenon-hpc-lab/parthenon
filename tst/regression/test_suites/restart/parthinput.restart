@@ -18,13 +18,13 @@ problem_id = restart
 refinement = adaptive
 numlevel = 3
 
-nx1 = 64
+nx1 = 128
 x1min = -1
 x1max = 1
 ix1_bc = outflow
 ox1_bc = reflecting
 
-nx2 = 64
+nx2 = 128
 x2min = -1
 x2max = 1
 ix2_bc = periodic
@@ -36,13 +36,16 @@ x3max = 1
 ix3_bc = periodic
 ox3_bc = periodic
 
+derefine_count = 5  # with larger value test will fail because de-refinement counters
+                    # are reset on restart
+
 <parthenon/meshblock>
 nx1 = 16
 nx2 = 16
 nx3 = 1
 
 <parthenon/time>
-tlim = 0.5
+tlim = 0.3
 integrator = rk2
 
 <sparse_advection>
@@ -55,10 +58,10 @@ vz = 1.0
 profile = hard_sphere
 
 refine_tol = 0.3    # control the package specific refinement tagging function
-derefine_tol = 0.01 # with a larger value there will be bigger diffs due to
-                    # de-refinement counters being reset to 0 at restart
+derefine_tol = 0.01 # with larger value test will fail because de-refinement counters
+                    # are reset on restart
 compute_error = false
 
 <parthenon/output0>
 file_type = rst
-dt = 0.10
+dt = 0.05

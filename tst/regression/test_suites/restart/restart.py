@@ -68,8 +68,8 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         delta = compare(
             [
-                "gold.out0.00005.rhdf",
-                "silver.out0.00005.rhdf",
+                "gold.out0.00006.rhdf",
+                "silver.out0.00006.rhdf",
             ],
             one=True,
         )
