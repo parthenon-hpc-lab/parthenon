@@ -45,7 +45,7 @@ nx2 = 16
 nx3 = 1
 
 <parthenon/time>
-tlim = 0.3
+tlim = 0.5
 integrator = rk2
 
 <sparse_advection>
