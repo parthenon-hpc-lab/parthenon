@@ -95,16 +95,15 @@ DriverStatus EvolutionDriver::Execute() {
     // check for signals
     signal = SignalHandler::CheckSignalFlags();
 
-    if (tm.time < tm.tlim) { // skip the final output as it happens later
-      pouts->MakeOutputs(pmesh, pinput, &tm, signal);
-    }
-
-    // check signal again (it's possible that it has changed while we were writing the
-    // output above)
-    signal = SignalHandler::CheckSignalFlags();
+    // skip the final output as it happens later
     if (signal == OutputSignal::final) {
       break;
     }
+
+    if (tm.time < tm.tlim) {
+      pouts->MakeOutputs(pmesh, pinput, &tm, signal);
+    }
+
     if (tm.ncycle == perf_cycle_offset) {
       pmesh->mbcnt = 0;
       timer_main.reset();
