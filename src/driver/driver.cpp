@@ -95,7 +95,6 @@ DriverStatus EvolutionDriver::Execute() {
     // check for signals
     signal = SignalHandler::CheckSignalFlags();
 
-    // skip the final output as it happens later
     if (signal == OutputSignal::final) {
       break;
     }
