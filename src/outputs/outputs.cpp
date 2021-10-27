@@ -481,8 +481,12 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }
-    ptype = ptype->pnext_type; // move to next OutputType node in signly linked list
+    ptype = ptype->pnext_type; // move to next OutputType node in singly linked list
   }
+#ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+#endif
+
   Kokkos::Profiling::popRegion(); // MakeOutputs
 }
 

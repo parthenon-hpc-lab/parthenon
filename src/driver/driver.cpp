@@ -99,7 +99,10 @@ DriverStatus EvolutionDriver::Execute() {
       pouts->MakeOutputs(pmesh, pinput, &tm, signal);
     }
 
-    if (SignalHandler::CheckSignalFlags() == OutputSignal::final) {
+    // check signal again (it's possible that it has changed while we were writing the
+    // output above)
+    signal = SignalHandler::CheckSignalFlags();
+    if (signal == OutputSignal::final) {
       break;
     }
     if (tm.ncycle == perf_cycle_offset) {
