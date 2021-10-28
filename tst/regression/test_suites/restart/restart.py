@@ -66,28 +66,29 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         success = True
 
-        def compare_files(num):
+        def compare_files(name):
             delta = compare(
                 [
-                    "gold.out0.%05i.rhdf" % num,
-                    "silver.out0.%05i.rhdf" % num,
+                    "gold.out0.%s.rhdf" % name,
+                    "silver.out0.%s.rhdf" % name,
                 ],
                 one=True,
             )
 
             if delta != 0:
                 print(
-                    "ERROR: Found difference between gold and silver output number %05i."
-                    % num
+                    "ERROR: Found difference between gold and silver output '%s'."
+                    % name
                 )
                 return False
 
             return True
 
         # comapre a few files throughout the simulations
-        success &= compare_files(2)
-        success &= compare_files(5)
-        success &= compare_files(10)
+        success &= compare_files('00002')
+        success &= compare_files('00005')
+        success &= compare_files('00009')
+        success &= compare_files('final')
 
         found_line = False
         for line in parameters.stdouts[1].decode("utf-8").split("\n"):
