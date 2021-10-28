@@ -36,13 +36,16 @@ x3max = 0.5
 ix3_bc = periodic
 ox3_bc = periodic
 
+derefine_count = 999999 # disable this since derefinement counter resets on
+                        # restart and thus leads to different results
+
 <parthenon/meshblock>
 nx1 = 16
 nx2 = 16
 nx3 = 1
 
 <parthenon/time>
-tlim = 0.5
+tlim = 1.0  # need enough time here to run for a few seconds at least with MPI
 integrator = rk2
 
 <Advection>
