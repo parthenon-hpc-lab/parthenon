@@ -45,7 +45,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             [
                 "outflow.out0.final.phdf",
                 parameters.parthenon_path
-                + "/tst/regression/gold_standard/outflow.out0.00001.phdf",
+                + "/tst/regression/gold_standard/outflow.out0.final.phdf",
             ]
         )
 
