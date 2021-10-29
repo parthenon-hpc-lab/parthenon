@@ -45,7 +45,7 @@ nx2 = 16
 nx3 = 1
 
 <parthenon/time>
-tlim = 1.0  # need enough time here to run for a few seconds at least with MPI
+tlim = 0.5  # need enough time here to run for a few seconds at least with MPI
 integrator = rk2
 
 <Advection>
