@@ -43,7 +43,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         delta = compare(
             [
-                "outflow.out0.00001.phdf",
+                "outflow.out0.final.phdf",
                 parameters.parthenon_path
                 + "/tst/regression/gold_standard/outflow.out0.00001.phdf",
             ]
