@@ -59,8 +59,8 @@ class TestCase(utils.test_case.TestCaseAbs):
     def Analyse(self, parameters):
         success = True
         # spotcheck one variable
-        goldFile = "gold.out0.00005.rhdf"
-        silverFile = "silver.out0.00005.rhdf"
+        goldFile = "gold.out0.final.rhdf"
+        silverFile = "silver.out0.final.rhdf"
         varName = "advected"
         with h5py.File(goldFile, "r") as gold, h5py.File(silverFile, "r") as silver:
             goldData = np.zeros(gold[varName].shape, dtype=np.float64)
