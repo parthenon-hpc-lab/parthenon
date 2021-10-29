@@ -85,10 +85,10 @@ class TestCase(utils.test_case.TestCaseAbs):
             return True
 
         # comapre a few files throughout the simulations
-        success &= compare_files('00002')
-        success &= compare_files('00005')
-        success &= compare_files('00009')
-        success &= compare_files('final')
+        success &= compare_files("00002")
+        success &= compare_files("00005")
+        success &= compare_files("00009")
+        success &= compare_files("final")
 
         found_line = False
         for line in parameters.stdouts[1].decode("utf-8").split("\n"):
