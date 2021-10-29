@@ -52,9 +52,9 @@ class TestCase(utils.test_case.TestCaseAbs):
         # compare against fake sparse version, needs to match up to tolerance used for sparse allocation
         delta = compare(
             [
-                "sparse.out0.00002.phdf",
+                "sparse.out0.final.phdf",
                 parameters.parthenon_path
-                + "/tst/regression/gold_standard/sparse_fake.out0.00002.phdf",
+                + "/tst/regression/gold_standard/sparse_fake.out0.final.phdf",
             ],
             one=True,
             tol=1e-6,
@@ -69,9 +69,9 @@ class TestCase(utils.test_case.TestCaseAbs):
             # compare against true sparse, needs to match to machine precision
             delta = compare(
                 [
-                    "sparse.out0.00002.phdf",
+                    "sparse.out0.final.phdf",
                     parameters.parthenon_path
-                    + "/tst/regression/gold_standard/sparse_true.out0.00002.phdf",
+                    + "/tst/regression/gold_standard/sparse_true.out0.final.phdf",
                 ],
                 one=True,
             )

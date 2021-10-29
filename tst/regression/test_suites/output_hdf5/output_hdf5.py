@@ -98,7 +98,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             [
                 "advection_2d.out0.final.phdf",
                 parameters.parthenon_path
-                + "/tst/regression/gold_standard/advection_2d.out0.00001.phdf",
+                + "/tst/regression/gold_standard/advection_2d.out0.final.phdf",
             ],
             one=True,
         )
@@ -106,7 +106,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             [
                 "advection_3d.out0.final.phdf",
                 parameters.parthenon_path
-                + "/tst/regression/gold_standard/advection_3d.out0.00001.phdf",
+                + "/tst/regression/gold_standard/advection_3d.out0.final.phdf",
             ],
             one=True,
         )
