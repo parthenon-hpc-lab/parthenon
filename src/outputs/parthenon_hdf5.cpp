@@ -624,7 +624,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       H5S vLocalSpaceNew, vGlobalSpaceNew;
 
       // Count up dimensions to output
-      int spaceCount, startDim;
+      int spaceCount;
       spaceCount = 1;
       for (int idim = 1; idim <= 6; idim++) {
         if (vwrite->GetDim(idim) > 1) {
