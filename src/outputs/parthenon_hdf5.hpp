@@ -102,6 +102,9 @@ static hid_t getHDF5Type(const int32_t *) { return H5T_NATIVE_INT32; }
 static hid_t getHDF5Type(const int64_t *) { return H5T_NATIVE_INT64; }
 static hid_t getHDF5Type(const uint32_t *) { return H5T_NATIVE_UINT32; }
 static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
+#ifdef __APPLE__
+static hid_t getHDF5Type(const size_t *) { return H5T_NATIVE_UINT64; }
+#endif
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
 static H5T getHDF5Type(const char *const *) {
