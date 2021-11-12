@@ -21,6 +21,7 @@ namespace parthenon {
 
 template <>
 ParArray1D<Coordinates_t> GetCoordinates(MeshBlockData<Real> *rc, VariablePack<Real> &p) {
+  // The coordinates array lives on device
   ParArray1D<Coordinates_t> coords("Parthenon::Coordinates_t array", 1);
   auto pmb = rc->GetParentPointer();
   auto pmb_coords = pmb->coords;
