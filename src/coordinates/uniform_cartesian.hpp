@@ -171,6 +171,11 @@ class UniformCartesian {
     return cell_volume_ == other.cell_volume_;
   }
 
+  KOKKOS_INLINE_FUNCTION
+  bool operator!=(const UniformCartesian &other) const {
+    return !(*this == other);
+  }
+
  private:
   std::array<int, 3> istart_;
   std::array<Real, 3> xmin_, dx_, area_;

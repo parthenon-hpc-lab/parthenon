@@ -554,7 +554,14 @@ TEST_CASE("Get coordinates object out of the pack", "[GetCoordinates]") {
     WHEN("We try to access the coordinates") {
       auto coords = GetCoordinates(pmbd.get(), pack);
       THEN("The coordinates object is the one we put into the meshblock") {
-        REQUIRE(coords(0) == pmb->coords);
+        int nwrong = 1;
+        auto pmb_coords = pmb->coords;
+        parthenon::par_reduce(
+            parthenon::loop_pattern_flatrange_tag, "check coords are correct",
+            parthenon::DevExecSpace(), 0, 0,
+            KOKKOS_LAMBDA(const int i, int &nw) { nw += (coords(0) != pmb->coords); },
+            nwrong);
+        REQUIRE(nwrong == 0);
       }
     }
   }

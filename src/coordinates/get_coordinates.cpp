@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -22,7 +22,10 @@ namespace parthenon {
 template <>
 ParArray1D<Coordinates_t> GetCoordinates(MeshBlockData<Real> *rc, VariablePack<Real> &p) {
   ParArray1D<Coordinates_t> coords("Parthenon::Coordinates_t array", 1);
-  coords(0) = rc->GetParentPointer()->coords;
+  auto pmb = rc->GetParentPointer();
+  auto pmb_coords = pmb->coords;
+  pmb->par_for(
+      "fill coords view", 0, 0, KOKKOS_LAMBDA(const int i) { coords(0) = pmb_coords; });
   return coords;
 }
 
