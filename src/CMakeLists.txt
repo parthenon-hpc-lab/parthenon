@@ -118,6 +118,7 @@ add_library(parthenon
   bvals/bvals_swarm.cpp
 
   coordinates/coordinates.hpp
+  coordinates/get_coordinates.cpp
   coordinates/uniform_cartesian.hpp
 
   driver/driver.cpp

@@ -39,3 +39,6 @@ compile_commands.json
 # Files created by bad CMake hygiene
 a.out
 cmake_hdf5_test.o
+
+# Python installation files
+*.egg-info

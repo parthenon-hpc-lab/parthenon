@@ -10,20 +10,25 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef COORDINATES_COORDINATES_HPP_
-#define COORDINATES_COORDINATES_HPP_
 
-#include "config.hpp"
+#include "coordinates/coordinates.hpp"
+#include "interface/mesh_data.hpp"
+#include "interface/meshblock_data.hpp"
 #include "kokkos_abstraction.hpp"
-#include "uniform_cartesian.hpp"
+#include "mesh/meshblock.hpp"
 
 namespace parthenon {
 
-using Coordinates_t = COORDINATE_TYPE;
+template <typename Pack>
+ParArray1D<Coordinates_t> GetCoordinates(MeshBlockData<Real> *rc, Pack &p) {
+  ParArray1D<Coordinates_t> coords("Parthenon::Coordinates_t array", 1);
+  coords(0) = rc->GetParentPointer()->coords;
+  return coords;
+}
 
-template <typename Data, typename Pack>
-ParArray1D<Coordinates_t> GetCoordinates(Data *rc, Pack &p);
+template <typename Pack>
+ParArray1D<Coordinates_t> GetCoordinates(MeshData<Real> *rc, Pack &p) {
+  return p.coords;
+}
 
 } // namespace parthenon
-
-#endif // COORDINATES_COORDINATES_HPP_

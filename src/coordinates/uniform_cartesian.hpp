@@ -155,6 +155,22 @@ class UniformCartesian {
   const std::array<int, 3> &GetStartIndex() const { return istart_; }
   const char *Name() const { return name_; }
 
+  KOKKOS_INLINE_FUNCTION
+  bool operator==(const UniformCartesian &other) const {
+    for (int i = 0; i < 3; ++i) {
+      if (istart_[i] != other.istart_[i]) {
+        return false;
+      }
+      if (dx_[i] != other.dx_[i]) {
+        return false;
+      }
+      if (area_[i] != other.area_[i]) {
+        return false;
+      }
+    }
+    return cell_volume_ == other.cell_volume_;
+  }
+
  private:
   std::array<int, 3> istart_;
   std::array<Real, 3> xmin_, dx_, area_;
