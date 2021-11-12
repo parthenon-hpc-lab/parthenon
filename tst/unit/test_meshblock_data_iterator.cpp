@@ -521,14 +521,14 @@ TEST_CASE("Get the correct access pattern when using FlatIdx", "[FlatIdx]") {
   }
 }
 
-
 TEST_CASE("Get coordinates object out of the pack", "[GetCoordinates]") {
+  using parthenon::Coordinates_t;
+  using parthenon::GetCoordinates;
   using parthenon::ParameterInput;
+  using parthenon::RegionSize;
 
   constexpr int NDIM = 3;
   constexpr int N = 20;
-
-  Globals::nghost = 2;
 
   RegionSize rs;
   rs.x1min = rs.x2min = rs.x3min = 0;
@@ -541,21 +541,20 @@ TEST_CASE("Get coordinates object out of the pack", "[GetCoordinates]") {
   auto pmb = std::make_shared<MeshBlock>(N, NDIM);
   pmb->coords = Coordinates_t(rs, &pin);
 
-  std::vector<int> shape{N + 2 * Globals::nghost, N + 2 * Globals::nghost,
-                         N + 2 * Globals::nghost};
+  std::vector<int> shape{N, N, N};
   Metadata m({Metadata::Independent, Metadata::WithFluxes}, shape);
   pkg->AddField("v1", m);
   pkg->AddField("v2", m);
 
-  auto &pmbd = pmb_>meshblock_data.Get();
+  auto &pmbd = pmb->meshblock_data.Get();
   pmbd->Initialize(pkg, pmb);
 
   GIVEN("A variable pack") {
-    auto pack = pmbd->PackVariables(std::vector<std::string>{"v1","v2"});
+    auto pack = pmbd->PackVariables(std::vector<std::string>{"v1", "v2"});
     WHEN("We try to access the coordinates") {
-      auto coords = GetCoordinates(pmbd, pack);
+      auto coords = GetCoordinates(pmbd.get(), pack);
       THEN("The coordinates object is the one we put into the meshblock") {
-	REQUIRE( coords(0) == pmb->coords );
+        REQUIRE(coords(0) == pmb->coords);
       }
     }
   }

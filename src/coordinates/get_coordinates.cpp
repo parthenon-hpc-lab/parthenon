@@ -19,15 +19,21 @@
 
 namespace parthenon {
 
-template <typename Pack>
-ParArray1D<Coordinates_t> GetCoordinates(MeshBlockData<Real> *rc, Pack &p) {
+template <>
+ParArray1D<Coordinates_t> GetCoordinates(MeshBlockData<Real> *rc, VariablePack<Real> &p) {
   ParArray1D<Coordinates_t> coords("Parthenon::Coordinates_t array", 1);
   coords(0) = rc->GetParentPointer()->coords;
   return coords;
 }
 
-template <typename Pack>
-ParArray1D<Coordinates_t> GetCoordinates(MeshData<Real> *rc, Pack &p) {
+template <>
+ParArray1D<Coordinates_t> GetCoordinates(MeshData<Real> *rc, MeshBlockVarPack<Real> &p) {
+  return p.coords;
+}
+
+template <>
+ParArray1D<Coordinates_t> GetCoordinates(MeshData<Real> *rc,
+                                         MeshBlockVarFluxPack<Real> &p) {
   return p.coords;
 }
 
