@@ -556,7 +556,6 @@ TEST_CASE("Get coordinates object out of the pack", "[GetCoordinates]") {
       THEN("The coordinates object is the one we put into the meshblock") {
         int nwrong = 1;
         auto pmb_coords = pmb->coords;
-	// The coords array lives on device
         parthenon::par_reduce(
             parthenon::loop_pattern_flatrange_tag, "check coords are correct",
             parthenon::DevExecSpace(), 0, 0,
