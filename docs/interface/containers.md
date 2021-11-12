@@ -233,3 +233,25 @@ MeshBlockVarFluxPack<T>
 ```
 which correspond to packs over `MeshBlock`s that contain just variables
 or contain variables and fluxes.
+
+## Packs and Coordinates
+
+The coordinate system for a given `MeshBlock` object is contained in
+`MeshBlock.coords`, a public field. As discussed above,
+`MeshBlockPack` objects contain a 1D array of `coords` objects. The
+difference between these two interfaces... a Kokkos view in one case,
+and a single static object in the other, can cause difficulties when
+writing generic kernels. As such, we provide the free-floating
+dispatch function
+
+```C++
+template<typename Data, typename Pack>
+ParArray1D<Coordinates_t> parthenon::GetCoordinates(Data *rc, Pack &p);
+```
+
+where the first argument is intended to be a `MeshData` or
+`MeshBlockData` object, and the second a `VariablePack` or
+`MeshBlockPack` object. The function always returns a 1D array of
+coordinates objects. In the case when the data is `MeshBlockData` and
+the pack is a `VariablePack`, this will be of size 1. Otherwise it
+will have as many elements as blocks in the `MeshBlockPack`.

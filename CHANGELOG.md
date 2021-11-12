@@ -20,6 +20,7 @@
 Date: 09/22/2021
 
 ### Added (new features/APIs/variables/...)
+- [[PR 614]](https://github.com/lanl/parthenon/pull/614) New generic API for pulling out the coordinates from a variable pack
 - [[PR 563]](https://github.com/lanl/parthenon/pull/563) Physical boundary options for particles
 - [[PR 582]](https://github.com/lanl/parthenon/pull/582) Adding global reductions and basic functionality needed for solvers.
 - [[PR 556]](https://github.com/lanl/parthenon/pull/556) Introduce iterative tasks and regionally dependent tasks
