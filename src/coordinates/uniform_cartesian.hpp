@@ -172,9 +172,7 @@ class UniformCartesian {
   }
 
   KOKKOS_INLINE_FUNCTION
-  bool operator!=(const UniformCartesian &other) const {
-    return !(*this == other);
-  }
+  bool operator!=(const UniformCartesian &other) const { return !(*this == other); }
 
  private:
   std::array<int, 3> istart_;
