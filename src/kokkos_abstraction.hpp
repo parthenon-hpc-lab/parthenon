@@ -94,6 +94,8 @@ using ScratchPad6D = Kokkos::View<T ******, LayoutWrapper, ScratchMemSpace,
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
 
+static struct LoopPatternOpenMP {
+} loop_pattern_openmp_tag;
 // Translates a non-Kokkos standard C++ nested `for` loop where the innermost
 // `for` is decorated with a #pragma omp simd IMPORTANT: This only works on CPUs
 static struct LoopPatternSimdFor {
@@ -155,6 +157,11 @@ struct DispatchType {
 };
 
 template <class... Args>
+inline void openmp_dispatch(ParallelForDispatch, Args &&... args) {
+
+}
+
+template <class... Args>
 inline void kokkos_dispatch(ParallelForDispatch, Args &&... args) {
   Kokkos::parallel_for(std::forward<Args>(args)...);
 }
@@ -164,6 +171,82 @@ inline void kokkos_dispatch(ParallelReduceDispatch, Args &&... args) {
 }
 
 } // namespace dispatch_impl
+
+// 1D loop using OpenMP loops
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_dispatch(LoopPatternOpenMP, const std::string &name, DevExecSpace exec_space,
+             const int &il, const int &iu, const Function &function, Args &&... args) {
+#pragma omp parallel for schedule(static)
+  for (int i = il; i <= iu; i++) function(i);
+}
+// 2D loop using OpenMP loops
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_dispatch(LoopPatternOpenMP, const std::string &name, DevExecSpace exec_space,
+             const int &jl, const int &ju, const int &il, const int &iu,
+             const Function &function, Args &&... args) {
+#pragma omp parallel for schedule(static) collapse(2)
+  for (int i = il; i <= iu; i++)
+    for (int j = jl; j <= ju; j++) function(j,i);
+}
+// 3D loop using OpenMP loops
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_dispatch(LoopPatternOpenMP, const std::string &name, DevExecSpace exec_space,
+             const int &kl, const int &ku, const int &jl, const int &ju, const int &il,
+             const int &iu, const Function &function, Args &&... args) {
+#pragma omp parallel for schedule(static) collapse(3)
+  for (int k = kl; k <= ku; k++)
+    for (int j = jl; j <= ju; j++) 
+      for (int i = il; i <= iu; i++)
+        function(k,j,i);
+}
+// 4D loop using OpenMP loops
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_dispatch(LoopPatternOpenMP, const std::string &name, DevExecSpace exec_space,
+             const int &nl, const int &nu, const int &kl, const int &ku, const int &jl,
+             const int &ju, const int &il, const int &iu, const Function &function,
+             Args &&... args) {
+#pragma omp parallel for schedule(static) collapse(4)
+  for (int n = nl; n <= nu; n++)
+    for (int k = kl; k <= ku; k++)
+      for (int j = jl; j <= ju; j++) 
+        for (int i = il; i <= iu; i++)
+          function(n,k,j,i);
+}
+// 5D loop using OpenMP loops
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_dispatch(LoopPatternOpenMP, const std::string &name, DevExecSpace exec_space,
+             const int &bl, const int &bu, const int &nl, const int &nu, const int &kl,
+             const int &ku, const int &jl, const int &ju, const int &il, const int &iu,
+             const Function &function, Args &&... args) {
+#pragma omp parallel for schedule(static) collapse(5)
+  for (int b = bl; b <= bu; b++)
+    for (int n = nl; n <= nu; n++)
+      for (int k = kl; k <= ku; k++)
+        for (int j = jl; j <= ju; j++) 
+          for (int i = il; i <= iu; i++)
+            function(b,n,k,j,i);
+}
+// 6D loop using OpenMP loops
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_dispatch(LoopPatternOpenMP, const std::string &name, DevExecSpace exec_space,
+             const int &ml, const int &mu, const int &bl, const int &bu, const int &nl,
+             const int &nu, const int &kl, const int &ku, const int &jl, const int &ju,
+             const int &il, const int &iu, const Function &function, Args &&... args) {
+#pragma omp parallel for schedule(static) collapse(6)
+  for (int m = ml; m <= mu; m++)
+    for (int b = bl; b <= bu; b++)
+      for (int n = nl; n <= nu; n++)
+        for (int k = kl; k <= ku; k++)
+          for (int j = jl; j <= ju; j++) 
+            for (int i = il; i <= iu; i++)
+              function(m,b,n,k,j,i);
+}
 
 // 1D loop using RangePolicy loops
 template <typename Function, class... Args>
