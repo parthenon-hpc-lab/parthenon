@@ -559,7 +559,7 @@ TEST_CASE("Get coordinates object out of the pack", "[GetCoordinates]") {
         parthenon::par_reduce(
             parthenon::loop_pattern_flatrange_tag, "check coords are correct",
             parthenon::DevExecSpace(), 0, 0,
-            KOKKOS_LAMBDA(const int i, int &nw) { nw += (coords(0) != pmb->coords); },
+            KOKKOS_LAMBDA(const int i, int &nw) { nw += (coords(0) != pmb_coords); },
             nwrong);
         REQUIRE(nwrong == 0);
       }
