@@ -455,6 +455,9 @@ void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap)
           }
         }
         pvmap->insert(v->base_name(), IndexPair(start, stop), shape);
+        vi = vj;
+      } else {
+        vi++;
       }
     }
   }
