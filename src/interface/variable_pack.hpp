@@ -444,7 +444,7 @@ void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap)
         auto &pair = pvmap->get(v->label());
         start = pair.first;
         stop = pair.second;
-        auto vj = vi+1;
+        auto vj = vi + 1;
         while (vj != vars.end()) {
           auto &q = *vj;
           if (q->base_name() == v->base_name()) {
