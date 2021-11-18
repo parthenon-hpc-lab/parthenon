@@ -104,7 +104,8 @@ struct AllocationStatusCollector<VariableFluxPack<T>> {
 // TODO(JMM): pass the coarse/fine option through the meshblockpack machinery
 template <typename P, typename K, typename M, typename F>
 const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
-                                   F &packing_function, PackIndexMap *map_out) {
+                                   F &packing_function, PackIndexMap *map_out,
+                                   std::vector<std::string> &ordered_list) {
   const auto nblocks = block_data_.size();
 
   // since the pack keys used by MeshBlockData includes the allocation status of each
@@ -147,12 +148,20 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   if (make_new_pack) {
     ParArray1D<P> packs("MeshData::PackVariables::packs", nblocks);
     auto packs_host = Kokkos::create_mirror_view(packs);
-    ParArray2D<int> start("MeshData::PackVariables::start", nblocks, )
+    // does this cost something even when the size is zero?
+    ParArray2D<int> start("MeshData::PackVariables::start", nblocks, ordered_list.size());
+    auto start_host = Kokkos::create_mirror_view(start);
+    ParArray2D<int> stop("MeshData::PackVariables::stop", nblocks, ordered_list.size());
+    auto stop_host = Kokkos::create_mirror_view(stop);
     ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
     auto coords_host = Kokkos::create_mirror_view(coords);
 
     for (size_t i = 0; i < nblocks; i++) {
       const auto &pack = packing_function(block_data_[i], this_map, this_key);
+      for (int j = 0; j < ordered_list.size(); j++) {
+        start_host(i, j) = this_map[ordered_list[j]].first;
+        stop_host(i, j) = this_map[ordered_list[j]].second;
+      }
       packs_host(i) = pack;
       coords_host(i) = block_data_[i]->GetBlockPointer()->coords;
     }
@@ -163,15 +172,19 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
     }
     dims[4] = nblocks;
 
+    // just in case zero size deep_copy calls still incur a penalty
+    if (ordered_list.size()) {
+      Kokkos::deep_copy(start, start_host);
+      Kokkos::deep_copy(stop, stop_host);
+    }
     Kokkos::deep_copy(packs, packs_host);
     Kokkos::deep_copy(coords, coords_host);
 
     typename M::mapped_type new_item;
     new_item.alloc_status = alloc_status_collection;
     new_item.map = pack_idx_map;
-    new_item.pack = MeshBlockPack<P>(packs, block_data_[0]->GetBlockPointer()->cellbounds,
-                                     coords, dims);
-
+    new_item.pack = MeshBlockPack<P>(
+        packs, start, stop, block_data_[0]->GetBlockPointer()->cellbounds, coords, dims);
     itr = map.insert({total_key, new_item}).first;
   }
 
@@ -291,7 +304,8 @@ class MeshData {
 
  private:
   template <typename... Args>
-  const auto &PackVariablesAndFluxesImpl(PackIndexMap *map_out, Args &&... args) {
+  const auto &PackVariablesAndFluxesImpl(std::vector<std::string> ordered_list,
+                                         PackIndexMap *map_out, Args &&... args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
                              PackIndexMap &map, vpack_types::StringPair &key) {
       return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)..., map,
@@ -299,17 +313,18 @@ class MeshData {
     };
 
     return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>, vpack_types::StringPair>(
-        varFluxPackMap_, block_data_, pack_function, map_out);
+        varFluxPackMap_, block_data_, pack_function, map_out, ordered_list);
   }
 
   template <typename... Args>
-  const auto &PackVariablesImpl(PackIndexMap *map_out, bool coarse, Args &&... args) {
+  const auto &PackVariablesImpl(std::vector<std::string> ordered_list,
+                                PackIndexMap *map_out, bool coarse, Args &&... args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
                              PackIndexMap &map, std::vector<std::string> &key) {
       return meshblock_data->PackVariables(std::forward<Args>(args)..., map, key, coarse);
     };
     return pack_on_mesh_impl::PackOnMesh<VariablePack<T>, vpack_types::VPackKey_t>(
-        varPackMap_, block_data_, pack_function, map_out);
+        varPackMap_, block_data_, pack_function, map_out, ordered_list);
   }
 
  public:
@@ -320,96 +335,150 @@ class MeshData {
                                      const std::vector<std::string> &flx_names,
                                      const std::vector<int> &sparse_ids,
                                      PackIndexMap &map) {
-    return PackVariablesAndFluxesImpl(&map, var_names, flx_names, sparse_ids);
+    std::vector<std::string> ord_list;
+    pack_on_mesh_impl::AppendKey(&ord_list, &var_names);
+    pack_on_mesh_impl::AppendKey(&ord_list, &flx_names);
+    return PackVariablesAndFluxesImpl(ord_list, &map, var_names, flx_names, sparse_ids);
   }
   const auto &PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                                      const std::vector<std::string> &flx_names,
                                      const std::vector<int> &sparse_ids) {
-    return PackVariablesAndFluxesImpl(nullptr, var_names, flx_names, sparse_ids);
+    std::vector<std::string> ord_list;
+    pack_on_mesh_impl::AppendKey(&ord_list, &var_names);
+    pack_on_mesh_impl::AppendKey(&ord_list, &flx_names);
+    return PackVariablesAndFluxesImpl(ord_list, nullptr, var_names, flx_names, sparse_ids);
   }
   // no sparse ids
   const auto &PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                                      const std::vector<std::string> &flx_names,
                                      PackIndexMap &map) {
-    return PackVariablesAndFluxesImpl(&map, var_names, flx_names);
+    std::vector<std::string> ord_list;
+    pack_on_mesh_impl::AppendKey(&ord_list, &var_names);
+    pack_on_mesh_impl::AppendKey(&ord_list, &flx_names);
+    return PackVariablesAndFluxesImpl(ord_list, &map, var_names, flx_names);
   }
   const auto &PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                                      const std::vector<std::string> &flx_names) {
-    return PackVariablesAndFluxesImpl(nullptr, var_names, flx_names);
+    std::vector<std::string> ord_list;
+    pack_on_mesh_impl::AppendKey(&ord_list, &var_names);
+    pack_on_mesh_impl::AppendKey(&ord_list, &flx_names);
+    return PackVariablesAndFluxesImpl(ord_list, nullptr, var_names, flx_names);
   }
   // Pack by either the same variable and flux names, or by metadata flags
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags,
+  const auto &PackVariablesAndFluxes(const std::vector<std::string> &names,
                                      const std::vector<int> &sparse_ids,
                                      PackIndexMap &map) {
-    return PackVariablesAndFluxesImpl(&map, names_or_flags, sparse_ids);
+    return PackVariablesAndFluxesImpl(names, &map, names, sparse_ids);
   }
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags,
+  const auto &PackVariablesAndFluxes(const std::vector<std::string> &names,
                                      const std::vector<int> &sparse_ids) {
-    return PackVariablesAndFluxesImpl(nullptr, names_or_flags, sparse_ids);
+    return PackVariablesAndFluxesImpl(names, nullptr, names, sparse_ids);
+  }
+  const auto &PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                     const std::vector<int> &sparse_ids,
+                                     PackIndexMap &map) {
+    std::vector<std::string> names;
+    return PackVariablesAndFluxesImpl(names, &map, flags, sparse_ids);
+  }
+  const auto &PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                     const std::vector<int> &sparse_ids) {
+    std::vector<std::string> names;
+    return PackVariablesAndFluxesImpl(names, nullptr, flags, sparse_ids);
   }
   // no sparse ids
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags,
+  const auto &PackVariablesAndFluxes(const std::vector<std::string> &names,
                                      PackIndexMap &map) {
-    return PackVariablesAndFluxesImpl(&map, names_or_flags);
+    return PackVariablesAndFluxesImpl(names, &map, names);
   }
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags) {
-    return PackVariablesAndFluxesImpl(nullptr, names_or_flags);
+  const auto &PackVariablesAndFluxes(const std::vector<std::string> &names) {
+    return PackVariablesAndFluxesImpl(names, nullptr, names);
+  }
+  const auto &PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                     PackIndexMap &map) {
+    std::vector<std::string> names;
+    return PackVariablesAndFluxesImpl(names, &map, flags);
+  }
+  const auto &PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags) {
+    std::vector<std::string> names;
+    return PackVariablesAndFluxesImpl(names, nullptr, flags);
   }
   // only sparse ids
   const auto &PackVariablesAndFluxes(const std::vector<int> &sparse_ids,
                                      PackIndexMap &map) {
+    std::vector<std::string> names;
     return PackVariablesAndFluxesImpl(&map, sparse_ids);
   }
   const auto &PackVariablesAndFluxes(const std::vector<int> &sparse_ids) {
-    return PackVariablesAndFluxesImpl(nullptr, sparse_ids);
+    std::vector<std::string> names;
+    return PackVariablesAndFluxesImpl(names, nullptr, sparse_ids);
   }
   // No nothing
   const auto &PackVariablesAndFluxes(PackIndexMap &map) {
-    return PackVariablesAndFluxesImpl(&map);
+    std::vector<std::string> names;
+    return PackVariablesAndFluxesImpl(names, &map);
   }
-  const auto &PackVariablesAndFluxes() { return PackVariablesAndFluxesImpl(nullptr); }
+  const auto &PackVariablesAndFluxes() {
+    std::vector<std::string> names;
+    return PackVariablesAndFluxesImpl(names, nullptr);
+  }
 
   // As above, DO NOT use variatic templates here. They shadow each other.
   // covers names and metadata flags
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags,
+  const auto &PackVariables(const std::vector<std::string> names,
                             const std::vector<int> &sparse_ids, PackIndexMap &map,
                             bool coarse = false) {
-    return PackVariablesImpl(&map, coarse, names_or_flags, sparse_ids);
+    return PackVariablesImpl(names, &map, coarse, names, sparse_ids);
   }
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags,
+  const auto &PackVariables(const std::vector<std::string> names,
                             const std::vector<int> &sparse_ids, bool coarse = false) {
-    return PackVariablesImpl(nullptr, coarse, names_or_flags, sparse_ids);
+    return PackVariablesImpl(names, nullptr, coarse, names, sparse_ids);
+  }
+  const auto &PackVariables(const std::vector<MetadataFlag> flags,
+                            const std::vector<int> &sparse_ids, PackIndexMap &map,
+                            bool coarse = false) {
+    std::vector<std::string> names;
+    return PackVariablesImpl(names, &map, coarse, flags, sparse_ids);
+  }
+  const auto &PackVariables(const std::vector<MetadataFlag> flags,
+                            const std::vector<int> &sparse_ids, bool coarse = false) {
+    std::vector<std::string> names;
+    return PackVariablesImpl(names, nullptr, coarse, flags, sparse_ids);
   }
   // no sparse ids
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags, PackIndexMap &map,
+  const auto &PackVariables(const std::vector<std::string> names, PackIndexMap &map,
                             bool coarse = false) {
-    return PackVariablesImpl(&map, coarse, names_or_flags);
+    return PackVariablesImpl(names, &map, coarse, names);
   }
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags, bool coarse = false) {
-    return PackVariablesImpl(nullptr, coarse, names_or_flags);
+  const auto &PackVariables(const std::vector<std::string> names, bool coarse = false) {
+    return PackVariablesImpl(names, nullptr, coarse, names);
+  }
+  const auto &PackVariables(const std::vector<MetadataFlag> flags, PackIndexMap &map,
+                            bool coarse = false) {
+    std::vector<std::string> names;
+    return PackVariablesImpl(names, &map, coarse, flags);
+  }
+  const auto &PackVariables(const std::vector<MetadataFlag> flags, bool coarse = false) {
+    std::vector<std::string> names;
+    return PackVariablesImpl(names, nullptr, coarse, flags);
   }
   // No names or flags
   const auto &PackVariables(const std::vector<int> &sparse_ids, PackIndexMap &map,
                             bool coarse = false) {
-    return PackVariablesImpl(&map, coarse, sparse_ids);
+    std::vector<std::string> names;
+    return PackVariablesImpl(names, &map, coarse, sparse_ids);
   }
   const auto &PackVariables(const std::vector<int> &sparse_ids, bool coarse = false) {
-    return PackVariablesImpl(nullptr, coarse, sparse_ids);
+    std::vector<std::string> names;
+    return PackVariablesImpl(names, nullptr, coarse, sparse_ids);
   }
   // no nothing
   const auto &PackVariables(PackIndexMap &map, bool coarse = false) {
-    return PackVariablesImpl(&map, coarse);
+    std::vector<std::string> names;
+    return PackVariablesImpl(names, &map, coarse);
   }
   const auto &PackVariables(bool coarse = false) {
-    return PackVariablesImpl(nullptr, coarse);
+    std::vector<std::string> names;
+    return PackVariablesImpl(names, nullptr, coarse);
   }
 
   void ClearCaches() {

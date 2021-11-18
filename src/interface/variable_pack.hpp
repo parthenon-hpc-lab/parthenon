@@ -141,9 +141,11 @@ class VarListWithLabels {
            const std::unordered_set<int> &sparse_ids = {}) {
     if (!var->IsSparse() || sparse_ids.empty() ||
         (sparse_ids.count(var->GetSparseID()) > 0)) {
-      vars_.push_back(var);
-      labels_.push_back(var->label());
-      alloc_status_.push_back(var->IsAllocated());
+      if (var->IsAllocated()) {
+        vars_.push_back(var);
+        labels_.push_back(var->label());
+        alloc_status_.push_back(true);
+      }
     }
   }
 
@@ -454,6 +456,8 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
 
           if (v->IsAllocated()) {
             host_cv(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
+          } else {
+            PARTHENON_FAIL("Encountered unallocated variable in FillVarView!");
           }
 
           vindex++;
@@ -523,6 +527,8 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
             host_f1(vindex) = v->flux[X1DIR].Get(k, j, i);
             if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
             if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
+          } else {
+            PARTHENON_FAIL("Encountered unallocated variable in FillFluxViews!");
           }
 
           vindex++;

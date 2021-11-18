@@ -80,9 +80,8 @@ class MeshBlockPack {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNdim() const { return ndim_; }
 
-  // TODO(JCD): this is wrong.  fix it.
   KOKKOS_FORCEINLINE_FUNCTION
-  int GetSparse(const int n) const { return v_(0).GetSparse(n); }
+  int GetSparse(const int b, const int n) const { return v_(b).GetSparse(n); }
 
   // TODO(JMM): Also include mesh domain object?
   IndexShape cellbounds;
