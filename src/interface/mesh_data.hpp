@@ -17,6 +17,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -267,6 +268,23 @@ class MeshData {
   }
   IndexRange GetBoundsK(const IndexDomain &domain) const {
     return block_data_[0]->GetBoundsK(domain);
+  }
+
+  std::vector<std::string> GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
+                                              bool match_all,
+                                              const std::vector<int> &sparse_ids = {}) {
+    std::set<std::string> unique_names;
+    for (int b = 0; b < NumBlocks(); b++) {
+      auto list = block_data_[b]->GetVariablesByFlag(flags, match_all, sparse_ids);
+      for (auto &v : list.vars()) {
+        unique_names.insert(v->base_name());
+      }
+    }
+    std::vector<std::string> total_list;
+    for (auto &name : unique_names) {
+      total_list.push_back(name);
+    }
+    return total_list;
   }
 
   template <class... Args>
