@@ -147,6 +147,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   if (make_new_pack) {
     ParArray1D<P> packs("MeshData::PackVariables::packs", nblocks);
     auto packs_host = Kokkos::create_mirror_view(packs);
+    ParArray2D<int> start("MeshData::PackVariables::start", nblocks, )
     ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
     auto coords_host = Kokkos::create_mirror_view(coords);
 
