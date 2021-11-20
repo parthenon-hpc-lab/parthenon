@@ -239,8 +239,8 @@ or contain variables and fluxes.
 The coordinate system for a given `MeshBlock` object is contained in
 `MeshBlock.coords`, a public field. As discussed above,
 `MeshBlockPack` objects contain a 1D array of `coords` objects. The
-difference between these two interfaces... a Kokkos view in one case,
-and a single static object in the other, can cause difficulties when
+difference between these two interfaces---a Kokkos view in one case,
+and a single static object in the other---can cause difficulties when
 writing generic kernels. As such, we provide the free-floating
 dispatch function
 
