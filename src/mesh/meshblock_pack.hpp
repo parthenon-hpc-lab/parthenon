@@ -41,10 +41,9 @@ class MeshBlockPack {
   using pack_type = T;
 
   MeshBlockPack() = default;
-  MeshBlockPack(const ParArray1D<T> view, const IndexShape shape,
-                const ParArray1D<Coordinates_t> coordinates,
+  MeshBlockPack(const ParArray1D<T> view,
                 const std::array<int, 5> dims)
-      : v_(view), cellbounds(shape), coords(coordinates), dims_(dims),
+      : v_(view), dims_(dims),
         ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -72,9 +71,10 @@ class MeshBlockPack {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetSparse(const int n) const { return v_(0).GetSparse(n); }
 
-  // TODO(JMM): Also include mesh domain object?
-  IndexShape cellbounds;
-  ParArray1D<Coordinates_t> coords;
+  KOKKKOS_FORCEINLINE_FUNCTION
+  Coordinates_t GetCoords(const int i) {
+    return v_(i).GetCoords();
+  }
 
  private:
   ParArray1D<T> v_;
