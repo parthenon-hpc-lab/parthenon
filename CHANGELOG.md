@@ -36,6 +36,7 @@ Date: 09/22/2021
 - [[PR 404]](https://github.com/lanl/parthenon/pull/404) Add capability to communicate particles across meshblocks/MPI processes
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 617]](https://github.com/lanl/parthenon/pull/617) Unify the API for MeshBlockPack and VariablePack
 - [[PR 558]](https://github.com/lanl/parthenon/pull/558) Boundary bugfix(es) incl. regression tests and exposing FluxDiv_ interface
 - [[PR 583]](https://github.com/lanl/parthenon/pull/583) Fix file numbering logic for writing outputs after restarting a simulation.
 - [[PR 581]](https://github.com/lanl/parthenon/pull/581) Change return status of `ArgParse` so that `complete` is returned when passing in the help flag.
