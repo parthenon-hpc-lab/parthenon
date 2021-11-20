@@ -71,7 +71,7 @@ class MeshBlockPack {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetSparse(const int n) const { return v_(0).GetSparse(n); }
 
-  KOKKKOS_FORCEINLINE_FUNCTION
+  KOKKOS_FORCEINLINE_FUNCTION
   Coordinates_t GetCoords(const int i) {
     return v_(i).GetCoords();
   }
