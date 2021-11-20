@@ -41,10 +41,8 @@ class MeshBlockPack {
   using pack_type = T;
 
   MeshBlockPack() = default;
-  MeshBlockPack(const ParArray1D<T> view,
-                const std::array<int, 5> dims)
-      : v_(view), dims_(dims),
-        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
+  MeshBlockPack(const ParArray1D<T> view, const std::array<int, 5> dims)
+      : v_(view), dims_(dims), ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator()(const int block) const { return v_(block); }
@@ -72,9 +70,7 @@ class MeshBlockPack {
   int GetSparse(const int n) const { return v_(0).GetSparse(n); }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  Coordinates_t GetCoords(const int i) {
-    return v_(i).GetCoords();
-  }
+  const Coordinates_t &GetCoords(const int i) const { return v_(i).GetCoords(); }
 
  private:
   ParArray1D<T> v_;

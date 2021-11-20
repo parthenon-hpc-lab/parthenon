@@ -21,12 +21,14 @@
 // Parthenon Includes
 #include <coordinates/coordinates.hpp>
 #include <kokkos_abstraction.hpp>
+#include <mesh/domain.hpp>
 #include <parthenon/package.hpp>
 
 // Local Includes
 #include "calculate_pi.hpp"
 
 using namespace parthenon::package::prelude;
+using parthenon::IndexShape;
 
 // This defines a "physics" package
 // In this case, calculate_pi provides the functions required to set up
@@ -143,10 +145,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 template <typename CheckAllocated>
 Real ComputeAreaInternal(MeshBlockPack<VariablePack<Real>> pack, ParArrayHost<Real> areas,
-                         CheckAllocated &&check_allocated) {
-  const IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
-  const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
-  const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
+                         IndexShape &cellbounds, CheckAllocated &&check_allocated) {
+  const IndexRange ib = cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
 
   Real area = 0.0;
   par_reduce(
@@ -156,7 +158,8 @@ Real ComputeAreaInternal(MeshBlockPack<VariablePack<Real>> pack, ParArrayHost<Re
       KOKKOS_LAMBDA(int b, int v, int k, int j, int i, Real &larea) {
         // Must check if in_or_out is allocated for sparse variables
         if (check_allocated(b, v)) {
-          larea += pack(b, v, k, j, i) * pack.coords(b).Area(parthenon::X3DIR, k, j, i);
+          larea +=
+              pack(b, v, k, j, i) * pack.GetCoords(b).Area(parthenon::X3DIR, k, j, i);
         }
       },
       area);
@@ -168,6 +171,9 @@ TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> a
   bool const use_sparse =
       md->GetMeshPointer()->packages.Get("calculate_pi")->Param<bool>("use_sparse");
 
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+  auto cellbounds = pmb->cellbounds;
+
   PackIndexMap imap; // PackIndex map can be used to get the index in
                      // a pack of a specific variable
   // This call signature works
@@ -178,13 +184,14 @@ TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> a
                          // and so does this one
                          : md->PackVariables(std::vector<std::string>({"in_or_out"}));
 
-  areas(i) = use_sparse ? ComputeAreaInternal(
-                              pack, areas,
-                              KOKKOS_LAMBDA(int const b, int const v) {
-                                return pack.IsSparseIDAllocated(b, v);
-                              })
-                        : ComputeAreaInternal(
-                              pack, areas, KOKKOS_LAMBDA(int, int) { return true; });
+  areas(i) = use_sparse
+                 ? ComputeAreaInternal(
+                       pack, areas, cellbounds,
+                       KOKKOS_LAMBDA(int const b, int const v) {
+                         return pack.IsSparseIDAllocated(b, v);
+                       })
+                 : ComputeAreaInternal(
+                       pack, areas, cellbounds, KOKKOS_LAMBDA(int, int) { return true; });
   return TaskStatus::complete;
 }
 
