@@ -671,7 +671,7 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_m
   Kokkos::parallel_for(
     Kokkos::TeamThreadRange<>(team_member, jl, ju + 1), [&](const int j) {
       Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, il, iu + 1),
-                           [&](const int i) { function(n, k, j, i); });
+                           [&](const int i) { function(j, i); });
     });
 }
 
