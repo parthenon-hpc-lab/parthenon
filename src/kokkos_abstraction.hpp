@@ -657,6 +657,12 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_m
     function(j, i);
   });
 }
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member,
+                                          const int il, const int iu,
+                                          const Function &function) {
+  par_for_inner(inner_loop_pattern_tvr_tag, team_member, il, iu, function);
+}
 // Inner parallel loop using TeamVectorRange
 template <typename Function>
 KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_member,
