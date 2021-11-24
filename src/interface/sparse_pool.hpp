@@ -61,7 +61,7 @@ class SparsePool {
 
   const std::string &base_name() const { return base_name_; }
   const Metadata &shared_metadata() const { return shared_metadata_; }
-  const std::unordered_map<int, Metadata> &pool() const { return pool_; }
+  const std::map<int, Metadata> &pool() const { return pool_; }
   auto size() const { return pool_.size(); }
 
   // Add a new sparse ID to the pool with optional arguments:
