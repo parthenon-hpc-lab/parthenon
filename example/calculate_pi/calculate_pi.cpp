@@ -172,7 +172,7 @@ TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> a
       md->GetMeshPointer()->packages.Get("calculate_pi")->Param<bool>("use_sparse");
 
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  auto cellbounds = pmb->cellbounds;
+  const auto &cellbounds = pmb->cellbounds;
 
   PackIndexMap imap; // PackIndex map can be used to get the index in
                      // a pack of a specific variable
