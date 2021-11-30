@@ -145,7 +145,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 template <typename CheckAllocated>
 Real ComputeAreaInternal(MeshBlockPack<VariablePack<Real>> pack, ParArrayHost<Real> areas,
-                         IndexShape &cellbounds, CheckAllocated &&check_allocated) {
+                         const IndexShape &cellbounds, CheckAllocated &&check_allocated) {
   const IndexRange ib = cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
