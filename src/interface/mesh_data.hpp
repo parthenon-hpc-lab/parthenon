@@ -147,13 +147,10 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   if (make_new_pack) {
     ParArray1D<P> packs("MeshData::PackVariables::packs", nblocks);
     auto packs_host = Kokkos::create_mirror_view(packs);
-    ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
-    auto coords_host = Kokkos::create_mirror_view(coords);
 
     for (size_t i = 0; i < nblocks; i++) {
       const auto &pack = packing_function(block_data_[i], this_map, this_key);
       packs_host(i) = pack;
-      coords_host(i) = block_data_[i]->GetBlockPointer()->coords;
     }
 
     std::array<int, 5> dims;
@@ -163,13 +160,11 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
     dims[4] = nblocks;
 
     Kokkos::deep_copy(packs, packs_host);
-    Kokkos::deep_copy(coords, coords_host);
 
     typename M::mapped_type new_item;
     new_item.alloc_status = alloc_status_collection;
     new_item.map = pack_idx_map;
-    new_item.pack = MeshBlockPack<P>(packs, block_data_[0]->GetBlockPointer()->cellbounds,
-                                     coords, dims);
+    new_item.pack = MeshBlockPack<P>(packs, dims);
 
     itr = map.insert({total_key, new_item}).first;
   }

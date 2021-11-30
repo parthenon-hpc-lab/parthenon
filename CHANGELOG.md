@@ -7,6 +7,7 @@
 - [[PR 602]](https://github.com/lanl/parthenon/pull/602) Added tuning functionality for HDF5 output
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 617]](https://github.com/lanl/parthenon/pull/617) Unify the coordinates API for MeshBlockPack and VariablePack
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 616]](https://github.com/lanl/parthenon/pull/609) Restore sparse base names in PackIndexMap

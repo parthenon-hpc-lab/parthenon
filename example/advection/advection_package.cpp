@@ -381,13 +381,13 @@ template <typename T>
 Real AdvectionHst(MeshData<Real> *md) {
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
 
+  const auto ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const auto jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const auto kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
   // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
   // collection of blocks
   const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
-
-  const auto ib = advected_pack.cellbounds.GetBoundsI(IndexDomain::interior);
-  const auto jb = advected_pack.cellbounds.GetBoundsJ(IndexDomain::interior);
-  const auto kb = advected_pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
   Real result = 0.0;
   T reducer(result);
@@ -400,7 +400,7 @@ Real AdvectionHst(MeshData<Real> *md) {
   pmb->par_reduce(
       "AdvectionHst", 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
-        const auto &coords = advected_pack.coords(b);
+        const auto &coords = advected_pack.GetCoords(b);
         // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same
         // call for different reductions
         const Real vol = volume_weighting ? coords.Volume(k, j, i) : 1.0;
