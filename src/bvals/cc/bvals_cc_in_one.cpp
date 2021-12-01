@@ -544,7 +544,10 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
         const int NvNkNj = Nv * Nk * Nj;
         const int NkNj = Nk * Nj;
 
-        sending_nonzero_flags(b) = false;
+        if (team_member.team_rank() == 0) {
+          sending_nonzero_flags(b) = false;
+        }
+        team_member.team_barrier();
         const bool src_allocated = boundary_info(b).allocated;
 
         Kokkos::parallel_for(
