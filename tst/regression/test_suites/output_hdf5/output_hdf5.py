@@ -96,14 +96,14 @@ class TestCase(utils.test_case.TestCaseAbs):
         # TODO(pgrete) make sure this also works/doesn't fail for the user
         ret_2d = phdf_diff.compare(
             [
-                "advection_2d.out0.00001.phdf",
+                "advection_2d.out0.final.phdf",
                 parameters.parthenon_path
                 + "/tst/regression/gold_standard/advection_2d.out0.00001.phdf",
             ]
         )
         ret_3d = phdf_diff.compare(
             [
-                "advection_3d.out0.00001.phdf",
+                "advection_3d.out0.final.phdf",
                 parameters.parthenon_path
                 + "/tst/regression/gold_standard/advection_3d.out0.00001.phdf",
             ]

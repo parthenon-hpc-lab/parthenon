@@ -333,11 +333,12 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   return;
 }
 
-void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                                  const SignalHandler::OutputSignal signal) {
   if (output_params.single_precision_output) {
-    this->template WriteOutputFileImpl<true>(pm, pin, tm);
+    this->template WriteOutputFileImpl<true>(pm, pin, tm, signal);
   } else {
-    this->template WriteOutputFileImpl<false>(pm, pin, tm);
+    this->template WriteOutputFileImpl<false>(pm, pin, tm, signal);
   }
 }
 
@@ -346,7 +347,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 //  \brief Cycles over all MeshBlocks and writes OutputData in the Parthenon HDF5 format,
 //         one file per output using parallel IO.
 template <bool WRITE_SINGLE_PRECISION>
-void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                                      const SignalHandler::OutputSignal signal) {
   // writes all graphics variables to hdf file
   // HDF5 structures
   // Also writes companion xdmf file
@@ -378,17 +380,28 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   filename.append(".");
   filename.append(output_params.file_id);
   filename.append(".");
-  std::stringstream file_number;
-  file_number << std::setw(5) << std::setfill('0') << output_params.file_number;
-  filename.append(file_number.str());
+  if (signal == SignalHandler::OutputSignal::now) {
+    filename.append("now");
+  } else if (signal == SignalHandler::OutputSignal::final) {
+    filename.append("final");
+    // default time based data dump
+  } else {
+    std::stringstream file_number;
+    file_number << std::setw(5) << std::setfill('0') << output_params.file_number;
+    filename.append(file_number.str());
+  }
   filename.append(restart_ ? ".rhdf" : ".phdf");
 
-  // After file has been opened with the current number, already advance output
-  // parameters so that for restarts the file is not immediatly overwritten again.
-  output_params.file_number++;
-  output_params.next_time += output_params.dt;
-  pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  if (signal == SignalHandler::OutputSignal::none) {
+    // After file has been opened with the current number, already advance output
+    // parameters so that for restarts the file is not immediatly overwritten again.
+    // Only applies to default time-based data dumps, so that writing "now" and "final"
+    // outputs does not change the desired output numbering.
+    output_params.file_number++;
+    output_params.next_time += output_params.dt;
+    pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
+    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  }
 
   // set file access property list
 #ifdef MPI_PARALLEL
@@ -401,8 +414,64 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
      numbers are guesses / experiments, others come from the file system
      documentation.
 
-     The sieve_buf_size should be equal a multiple of the disk block size
      ---------------------------------------------------------------------- */
+
+  // use collective metadata optimizations
+#if H5_VERSION_GE(1, 10, 0)
+  PARTHENON_HDF5_CHECK(H5Pset_coll_metadata_write(acc_file, true));
+  PARTHENON_HDF5_CHECK(H5Pset_all_coll_metadata_ops(acc_file, true));
+#endif
+
+  bool exists, exists2;
+
+  // Set the HDF5 format versions used when creating objects
+  // Note, introducing API calls that create objects or features that are
+  // only available to versions of the library greater than 1.8.x release will fail.
+  // For that case, the highest version value will need to be increased.
+  H5Pset_libver_bounds(acc_file, H5F_LIBVER_V18, H5F_LIBVER_V18);
+
+  // Sets the maximum size of the data sieve buffer, in bytes.
+  // The sieve_buf_size should be equal to a multiple of the disk block size
+  // Default: Disabled
+  size_t sieve_buf_size = Env::get<size_t>("H5_sieve_buf_size", 256 * KiB, exists);
+  if (exists) {
+    PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, sieve_buf_size));
+  }
+
+  // Sets the minimum metadata block size, in bytes.
+  // Default: Disabled
+  hsize_t meta_block_size = Env::get<hsize_t>("H5_meta_block_size", 8 * MiB, exists);
+  if (exists) {
+    PARTHENON_HDF5_CHECK(H5Pset_meta_block_size(acc_file, meta_block_size));
+  }
+
+  // Sets alignment properties of a file access property list.
+  // Choose an alignment which is a multiple of the disk block size.
+  // Default: Disabled
+  hsize_t threshold; // Threshold value. Setting to 0 forces everything to be aligned.
+  hsize_t alignment; // Alignment value.
+
+  threshold = Env::get<hsize_t>("H5_alignment_threshold", 0, exists);
+  alignment = Env::get<hsize_t>("H5_alignment_alignment", 8 * MiB, exists2);
+  if (exists || exists2) {
+    PARTHENON_HDF5_CHECK(H5Pset_alignment(acc_file, threshold, alignment));
+  }
+
+  // Defer metadata flush
+  // Default: Disabled
+  bool defer_metadata_flush = Env::get<bool>("H5_defer_metadata_flush", false, exists);
+  if (defer_metadata_flush) {
+    H5AC_cache_config_t cache_config;
+    cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
+    PARTHENON_HDF5_CHECK(H5Pget_mdc_config(acc_file, &cache_config));
+    cache_config.set_initial_size = 1;
+    cache_config.initial_size = 16 * MiB;
+    cache_config.evictions_enabled = 0;
+    cache_config.incr_mode = H5C_incr__off;
+    cache_config.flash_incr_mode = H5C_flash_incr__off;
+    cache_config.decr_mode = H5C_decr__off;
+    PARTHENON_HDF5_CHECK(H5Pset_mdc_config(acc_file, &cache_config));
+  }
 
   /* create an MPI_INFO object -- on some platforms it is useful to
      pass some information onto the underlying MPI_File_open call */
@@ -415,17 +484,32 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     ~MPI_InfoDeleter() { MPI_Info_free(&info); }
   } delete_info{FILE_INFO_TEMPLATE};
 
-  PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, 262144));
-  PARTHENON_HDF5_CHECK(H5Pset_alignment(acc_file, 524288, 262144));
+  // Hint specifies the manner in which the file will be accessed until the file is closed
+  const auto access_style =
+      Env::get<std::string>("MPI_access_style", "write_once", exists);
+  PARTHENON_MPI_CHECK(
+      MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", access_style.c_str()));
 
-  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", "write_once"));
-  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
-  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", "1048576"));
-  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", "4194304"));
+  // Specifies whether the application may benefit from collective buffering
+  // Default :: collective_buffering is disabled
+  bool collective_buffering = Env::get<bool>("MPI_collective_buffering", false, exists);
+  if (exists) {
+    PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
+    // Specifies the block size to be used for collective buffering file acces
+    const auto cb_block_size =
+        Env::get<std::string>("MPI_cb_block_size", "1048576", exists);
+    PARTHENON_MPI_CHECK(
+        MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", cb_block_size.c_str()));
+    // Specifies the total buffer space that can be used for collective buffering on each
+    // target node, usually a multiple of cb_block_size
+    const auto cb_buffer_size =
+        Env::get<std::string>("MPI_cb_buffer_size", "4194304", exists);
+    PARTHENON_MPI_CHECK(
+        MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", cb_buffer_size.c_str()));
+  }
 
   /* tell the HDF5 library that we want to use MPI-IO to do the writing */
   PARTHENON_HDF5_CHECK(H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, FILE_INFO_TEMPLATE));
-  PARTHENON_HDF5_CHECK(H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, MPI_INFO_NULL));
 #else
   hid_t const acc_file = H5P_DEFAULT;
 #endif // ifdef MPI_PARALLEL
@@ -549,6 +633,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   H5P const pl_xfer = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
   H5P const pl_dcreate = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_CREATE));
+
+  // Never write fill values to the dataset
+  PARTHENON_HDF5_CHECK(H5Pset_fill_time(pl_dcreate, H5D_FILL_TIME_NEVER));
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
   if (output_params.hdf5_compression_level > 0) {
@@ -991,9 +1078,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 }
 
 // explicit template instantiation
-template void PHDF5Output::WriteOutputFileImpl<false>(Mesh *, ParameterInput *,
-                                                      SimTime *);
-template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, SimTime *);
+template void PHDF5Output::WriteOutputFileImpl<false>(Mesh *, ParameterInput *, SimTime *,
+                                                      SignalHandler::OutputSignal);
+template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, SimTime *,
+                                                     SignalHandler::OutputSignal);
 
 } // namespace parthenon
 

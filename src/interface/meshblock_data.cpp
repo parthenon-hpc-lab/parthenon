@@ -239,6 +239,7 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
     new_item.alloc_status = var_list.alloc_status();
     new_item.flux_alloc_status = flux_list.alloc_status();
     new_item.pack = MakeFluxPack(var_list, flux_list, &new_item.map);
+    new_item.pack.coords = GetParentPointer()->coords_device;
     itr = varFluxPackMap_.insert({keys, new_item}).first;
 
     // need to grab pointers here
@@ -289,6 +290,7 @@ MeshBlockData<T>::PackListedVariables(const VarLabelList &var_list, bool coarse,
     PackIndxPair<T> new_item;
     new_item.alloc_status = var_list.alloc_status();
     new_item.pack = MakePack<T>(var_list, coarse, &new_item.map);
+    new_item.pack.coords = GetParentPointer()->coords_device;
 
     itr = packmap.insert({key, new_item}).first;
 

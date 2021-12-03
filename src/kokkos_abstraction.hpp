@@ -56,6 +56,8 @@ template <typename T>
 using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
 
 template <typename T>
+using ParArray0D = Kokkos::View<T, LayoutWrapper, DevMemSpace>;
+template <typename T>
 using ParArray1D = Kokkos::View<T *, LayoutWrapper, DevMemSpace>;
 template <typename T>
 using ParArray2D = Kokkos::View<T **, LayoutWrapper, DevMemSpace>;

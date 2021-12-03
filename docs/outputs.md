@@ -4,6 +4,24 @@ Outputs from Parthenon are controled via `<parthenon/output*>` blocks, where `*`
 
 To disable an output block without removing it from the intput file set the block's `dt < 0.0`.
 
+In addition to time base outputs, two additional options to trigger outputs
+(applies to HDF5 and restart outputs) exist.
+
+- Signaling: If `Parthenon` catches a signal, e.g., `SIGALRM` which is often sent by
+schedulers such as Slurm to signal a job of exceeding the job's allocated walltime,
+`Parthenon` will gracefully terminate and write output files with a `final` id rather
+than a number.
+This also applies to the `Parthenon` internal walltime limit, e.g., when executing an
+application with the `-t HH:MM:SS` parameter on the command line.
+- File trigger: If a user places a file with the name `output_now` in the working
+directory of a running application, `Parthenon` will write output files with a `now` id
+rather than a number.
+After the output is being written the `output_now` file is removed and the simulation
+continues normally.
+The user can repeat the process any time by creating a new `output_now` file.
+
+Note, in both cases the original numbering of the output will be unaffected and the
+`final` and `now` files will be overwritten each time without warning.
 ## HDF5
 
 Parthenon allows users to select which fields are captured in the HDF5 (`.phdf`) dumps at
@@ -31,6 +49,22 @@ decrease I/O performance) without compression. The optional parameter `hdf5_comp
 be used to set the compression level (between 1 and 9, default is 5). Compression can be disabled
 altogether with the CMake build option `PARTHENON_DISABLE_HDF5_COMPRESSION`. See the [build
 doc](building.md) for more details.
+
+## Tuning HDF5 Performance
+
+Tuning IO parameters can be passed to Parthenon through the use of environment variables. Available environment variables are:
+
+|  Environment Variable | Initial State | Value Type | Description |
+|---|---|---|---|
+| H5_sieve_buf_size | disabled | int | Sets the maximum size of the data sieve buffer, in bytes. The value should be equal to a multiple of the disk block size. If no value is set then the default is 256 KiB. |
+| H5_meta_block_size | disabled | int | Sets the minimum metadata block size, in bytes. If no value is set then the default is 8 MiB. May help performance if enabled. |
+| H5_alignment_threshold | disabled | int | The threshold value, in bytes, of H5Pset_alignment. Setting to 0 forces everything to be aligned. If a value is not set then the default is 0. Setting the environment variable automatically enables alignment. |
+| H5_alignment_alignment | disabled | int | The alignment value, in bytes, of H5Pset_alignment. If a value is not set then the default is 8 MiB.  Setting the environment variable automatically enables alignment.  H5Pset_alignment sets the alignment properties of a file access property list. Choose an alignment that is a multiple of the disk block size, enabling this usually shows better performance on parallel file systems. However, enabling may increase the file size significantly. |
+| H5_defer_metadata_flush | disabled | int | Value of 1 enables deferring metadata flush. Value of 0 disables. Experiment with before using. |
+| MPI_access_style | enabled | string | Specifies the manner in which the file will be accessed until the file is closed. Default is "write_once" |
+| MPI_collective_buffering | disabled | int | Value of 1 enables MPI collective buffering. Value of 0 disables. Experiment with before using. |
+| MPI_cb_block_size | N/A | int | Sets the block size, in bytes, to be used for collective buffering file access. Default is 1 MiB. |
+| MPI_cb_buffer_size | N/A | int | Sets the total buffer space, in bytes, that can be used for collective buffering on each target node,  usually a multiple of cb_block_size. Default is 4 MiB. |
 
 ## Restart Files
 

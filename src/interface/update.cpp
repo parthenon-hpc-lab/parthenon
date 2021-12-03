@@ -68,7 +68,7 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
       DEFAULT_LOOP_PATTERN, "FluxDivergenceMesh", DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
       vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
-        const auto &coords = vin.coords(m);
+        const auto &coords = vin.GetCoords(m);
         const auto &v = vin(m);
         dudt(m, l, k, j, i) = FluxDivHelper(l, k, j, i, ndim, coords, v);
       });
@@ -119,7 +119,7 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
       DEFAULT_LOOP_PATTERN, "UpdateWithFluxDivergenceMesh", DevExecSpace(), 0,
       u0_pack.GetDim(5) - 1, 0, u0_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
-        const auto &coords = u0_pack.coords(m);
+        const auto &coords = u0_pack.GetCoords(m);
         const auto &u0 = u0_pack(m);
         u0_pack(m, l, k, j, i) = gam0 * u0(l, k, j, i) + gam1 * u1_pack(m, l, k, j, i) +
                                  beta_dt * FluxDivHelper(l, k, j, i, ndim, coords, u0);

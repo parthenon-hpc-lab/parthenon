@@ -148,6 +148,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::unique_ptr<MeshBlockApplicationData> app;
 
   Coordinates_t coords;
+  ParArray0D<Coordinates_t> coords_device;
 
   // mesh-related objects
   // TODO(jcd): remove all these?
