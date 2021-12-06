@@ -520,7 +520,12 @@ void Swarm::SortParticlesByCell() {
       });
 
   // Sort the list
+#ifdef KOKKOS_ENABLE_CUDA
+  thrust::sort(cellSorted_.data(), cellSorted_.data() + max_active_index_ + 1, SwarmKeyCompare());
+#else
   std::sort(cellSorted_.data(), cellSorted_.data() + max_active_index_ + 1, SwarmKeyCompare());
+#endif
+
 
   printf("extent0: %i (%i)\n", cellSorted_.extent(0), max_active_index_ + 1);
 
