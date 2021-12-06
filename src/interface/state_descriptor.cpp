@@ -264,6 +264,10 @@ bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
   }
 
   sparsePoolMap_.insert({pool.base_name(), pool});
+  // update the inverse map
+  for (auto &s : pool.pool()) {
+    sparseInverseMap_[s.first].push_back(pool.base_name());
+  }
 
   // add all the sparse fields
   for (const auto itr : pool.pool()) {

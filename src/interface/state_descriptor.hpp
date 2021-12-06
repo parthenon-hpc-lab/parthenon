@@ -16,6 +16,7 @@
 #include <functional>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -308,6 +309,8 @@ class StateDescriptor {
 
   // for each sparse base name hold its sparse pool
   Dictionary<SparsePool> sparsePoolMap_;
+
+  std::map<int, std::vector<std::string>> sparseInverseMap_;
 
   Dictionary<Metadata> swarmMetadataMap_;
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
