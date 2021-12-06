@@ -49,6 +49,23 @@ class MeshBlock;
 
 enum class PARTICLE_STATUS { UNALLOCATED, ALIVE, DEAD };
 
+struct SwarmKey {
+  KOKKOS_INLINE_FUNCTION
+  SwarmKey() {}
+  KOKKOS_INLINE_FUNCTION
+  SwarmKey(const int cell_idx_1d, const int swarm_idx_1d) :
+    cell_idx_1d_(cell_idx_1d), swarm_idx_(swarm_idx_1d) {}
+
+  int cell_idx_1d_;
+  int swarm_idx_;
+};
+struct SwarmKeyCompare {
+  KOKKOS_INLINE_FUNCTION
+  bool operator() (const SwarmKey& s1, SwarmKey& s2) {
+    return s1.cell_idx_1d_ < s2.cell_idx_1d_;
+  }
+};
+
 class Swarm {
  private:
   static const int IntVec = 0;
@@ -161,6 +178,10 @@ class Swarm {
   /// memory
   void Defrag();
 
+  /// Sort particle list by cell each particle belongs to, according to 1D cell
+  /// index (i + nx*(j + ny*k))
+  void SortParticlesByCell();
+
   // used in case of swarm boundary communication
   void SetupPersistentMPI();
   std::shared_ptr<BoundarySwarm> vbswarm;
@@ -248,6 +269,12 @@ class Swarm {
   int total_received_particles_;
 
   ParArrayND<int> neighbor_buffer_index_; // Map from neighbor index to neighbor bufid
+
+  ParArray1D<SwarmKey> cellSorted_; // 1D per-cell sorted array of swarm memory indices
+
+  ParArrayND<int> cellSortedBegin_; // Per-cell array of starting indices in cell_sorted_
+
+  ParArrayND<int> cellSortedNumber_; // Per-cell array of number of particles in each cell
 };
 
 template <class T>

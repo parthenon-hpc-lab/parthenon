@@ -21,13 +21,13 @@ problem_id = particles
 <parthenon/mesh>
 refinement = none
 
-nx1 = 16
+nx1 = 4 # 16
 x1min = -0.5
 x1max = 0.5
 ix1_bc = periodic
 ox1_bc = periodic
 
-nx2 = 16
+nx2 = 4 # 16
 x2min = -0.5
 x2max = 0.5
 ix2_bc = periodic
@@ -40,8 +40,8 @@ ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 16
-nx2 = 16
+nx1 = 4 # 16
+nx2 = 4 # 16
 
 <parthenon/output0>
 file_type = hdf5
