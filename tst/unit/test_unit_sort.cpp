@@ -11,6 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <iostream>
+#include <string>
+
 #include <catch2/catch.hpp>
 
 #include "kokkos_abstraction.hpp"
@@ -28,7 +31,9 @@ struct Key {
   Key() {}
   KOKKOS_INLINE_FUNCTION
   Key(const int key, const char value[STRLEN]) : key_(key) {
-    std::copy(value, value + STRLEN, value_);
+    for (int n = 0; n < STRLEN; n++) {
+      value_[n] = value[n];
+    }
   }
 
   int key_;
@@ -53,7 +58,7 @@ TEST_CASE("Sorting", "[sort]") {
         data(n) = 2*N - n;
       });
 
-    sort(data.data(), data.data() + N);
+    sort(data);
 
     auto data_h = Kokkos::create_mirror_view(data);
     Kokkos::deep_copy(data_h, data);
@@ -82,7 +87,7 @@ TEST_CASE("Sorting", "[sort]") {
         }
       });
 
-    sort(data.data(), data.data() + 5, KeyComparator());
+    sort(data, KeyComparator());
 
     auto data_h = Kokkos::create_mirror_view(data);
     Kokkos::deep_copy(data_h, data);
