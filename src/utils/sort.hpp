@@ -15,8 +15,7 @@
 
 //! \file sort.hpp
 //  \brief Contains functions for sorting data according to a provided comparator
-//  See src/interface/swarm.hpp for an example KeyIterator and KeyComparator, SwarmKey and
-//  SwarmKeyCompare
+//  See tst/unit/test_unit_sort.cpp for example usage.
 
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
@@ -57,49 +56,13 @@ void sort(ParArray1D<Key> data, size_t min_idx, size_t max_idx) {
 template<class Key, class KeyComparator>
 void sort(ParArray1D<Key> data, KeyComparator comparator) {
   sort(data, comparator, 0, data.extent(0) - 1);
-/*#ifdef KOKKOS_ENABLE_CUDA
-  thrust::device_ptr<Key> first_d = thrust::device_pointer_cast(data.data());
-  thrust::device_ptr<Key> last_d = thrust::device_pointer_cast(data.data()) + data.extent(0);
-  thrust::sort(first_d, last_d, comparator);
-#else
-  std::sort(data.data(), data.extent(0), comparator);
-#endif // KOKKOS_ENABLE_CUDA*/
 }
 
 template<class Key>
 void sort(ParArray1D<Key> data) {
   sort(data, 0, data.extent(0) - 1);
-/*#ifdef KOKKOS_ENABLE_CUDA
-  thrust::device_ptr<Key> first_d = thrust::device_pointer_cast(data.data());
-  thrust::device_ptr<Key> last_d = thrust::device_pointer_cast(data.data()) + data.extent(0);
-  thrust::sort(first_d, last_d);
-#else
-  std::sort(first, last);
-#endif // KOKKOS_ENABLE_CUDA*/
-}
-/*
-template<class KeyIterator, class KeyComparator>
-void sort(KeyIterator first, KeyIterator last, KeyComparator comparator) {
-#ifdef KOKKOS_ENABLE_CUDA
-  thrust::device_ptr<KeyIterator> first_d = thrust::device_pointer_cast(first);
-  thrust::device_ptr<KeyIterator> last_d = thrust::device_pointer_cast(first) + (last - first);
-  thrust::sort(first_d, last_d, comparator);
-#else
-  std::sort(first, last, comparator);
-#endif // KOKKOS_ENABLE_CUDA
 }
 
-template<class KeyIterator>
-void sort(KeyIterator first, KeyIterator last) {
-#ifdef KOKKOS_ENABLE_CUDA
-  thrust::device_ptr<KeyIterator> first_d = thrust::device_pointer_cast(first);
-  thrust::device_ptr<KeyIterator> last_d = thrust::device_pointer_cast(first) + (last - first);
-  thrust::sort(first_d, last_d);
-#else
-  std::sort(first, last);
-#endif // KOKKOS_ENABLE_CUDA
-}
-*/
 } // namespace parthenon
 
 #endif // UTILS_SORT_HPP_
