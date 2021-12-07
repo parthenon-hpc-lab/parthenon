@@ -53,8 +53,8 @@ struct SwarmKey {
   KOKKOS_INLINE_FUNCTION
   SwarmKey() {}
   KOKKOS_INLINE_FUNCTION
-  SwarmKey(const int cell_idx_1d, const int swarm_idx_1d) :
-    cell_idx_1d_(cell_idx_1d), swarm_idx_(swarm_idx_1d) {}
+  SwarmKey(const int cell_idx_1d, const int swarm_idx_1d)
+      : cell_idx_1d_(cell_idx_1d), swarm_idx_(swarm_idx_1d) {}
 
   int cell_idx_1d_;
   int swarm_idx_;
@@ -62,7 +62,7 @@ struct SwarmKey {
 
 struct SwarmKeyComparator {
   KOKKOS_INLINE_FUNCTION
-  bool operator() (const SwarmKey& s1, const SwarmKey& s2) {
+  bool operator()(const SwarmKey &s1, const SwarmKey &s2) {
     return s1.cell_idx_1d_ < s2.cell_idx_1d_;
   }
 };
