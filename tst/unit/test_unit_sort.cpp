@@ -46,7 +46,6 @@ struct KeyComparator {
 
 TEST_CASE("Sorting", "[sort]") {
   GIVEN("An unordered list of integers") {
-
     ParArray1D<int> data("Data to sort", N);
 
     parthenon::par_for(

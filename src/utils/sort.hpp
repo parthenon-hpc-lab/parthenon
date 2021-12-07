@@ -25,6 +25,8 @@
 #include <thrust/sort.h>
 #endif
 
+#include <algorithm>
+
 namespace parthenon {
 
 template <class Key, class KeyComparator>
