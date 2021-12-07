@@ -101,15 +101,14 @@ class SwarmDeviceContext {
 
   KOKKOS_INLINE_FUNCTION
   int GetParticleCountPerCell(const int k, const int j, const int i) const {
-    return 0;
-    //return cellSortedNumber_(k, j, i);
+    return cellSortedNumber_(k, j, i);
   }
 
   KOKKOS_INLINE_FUNCTION
   int GetFullIndex(const int k, const int j, const int i, const int n) const {
-    return 0;
-    //PARTHENON_DEBUG_REQUIRE(n < cellSortedNumber_(k, j, i), "Particle index out of range!");
-    //return cellSorted_(cellSortedBegin_(k, j, i) + n).swarm_idx_;
+    PARTHENON_DEBUG_REQUIRE(n < cellSortedNumber_(k, j, i),
+                            "Particle index out of range!");
+    return cellSorted_(cellSortedBegin_(k, j, i) + n).swarm_idx_;
   }
 
   // private:
@@ -132,9 +131,9 @@ class SwarmDeviceContext {
   ParArrayND<bool> mask_;
   ParArrayND<int> blockIndex_;
   ParArrayND<int> neighborIndices_; // 4x4x4 array of possible block AMR regions
-  //ParArray1D<SwarmKey> cellSorted_;
-  //ParArrayND<int> cellSortedBegin_;
-  //ParArrayND<int> cellSortedNumber_;
+  ParArray1D<SwarmKey> cellSorted_;
+  ParArrayND<int> cellSortedBegin_;
+  ParArrayND<int> cellSortedNumber_;
   int ndim_;
   friend class Swarm;
   constexpr static int this_block_ = -1; // Mirrors definition in Swarm class

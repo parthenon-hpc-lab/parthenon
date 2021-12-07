@@ -28,9 +28,9 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.mask_ = mask_.data;
   context.blockIndex_ = blockIndex_;
   context.neighborIndices_ = neighborIndices_;
-  //context.cellSorted_ = cellSorted_;
-  //context.cellSortedBegin_ = cellSortedBegin_;
-  //context.cellSortedNumber_ = cellSortedNumber_;
+  context.cellSorted_ = cellSorted_;
+  context.cellSortedBegin_ = cellSortedBegin_;
+  context.cellSortedNumber_ = cellSortedNumber_;
 
   auto pmb = GetBlockPointer();
   auto pmesh = pmb->pmy_mesh;
@@ -67,7 +67,6 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       neighbor_send_index_("nsi", nmax_pool_, Metadata({Metadata::Integer})),
       blockIndex_("blockIndex_", nmax_pool_),
       neighborIndices_("neighborIndices_", 4, 4, 4),
-      //cellSortedMap_("cellSortedMap_", nmax_pool_),
       cellSorted_("cellSorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
@@ -282,7 +281,6 @@ void Swarm::setPoolMax(const int nmax_pool) {
       KOKKOS_LAMBDA(const int n) { marked_for_removal_data(n) = false; });
 
   Kokkos::resize(cellSorted_, nmax_pool);
-  //Kokkos::resize(cellSortedMap_, nmax_pool);
 
   neighbor_send_index_.Get().Resize(nmax_pool);
 
@@ -499,7 +497,6 @@ void Swarm::SortParticlesByCell() {
   const int nx3 = pmb->cellbounds.ncellsk(IndexDomain::entire);
 
   auto cellSorted = cellSorted_;
-  //auto cellSortedMap = cellSortedMap_;
   int ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
   int num_active = num_active_;
   int max_active_index = max_active_index_;
@@ -511,7 +508,6 @@ void Swarm::SortParticlesByCell() {
   }
   auto cellSortedBegin = cellSortedBegin_;
   auto cellSortedNumber = cellSortedNumber_;
-  printf("%s:%i\n", __FILE__, __LINE__);
   auto swarm_d = GetDeviceContext();
 
   // Write an unsorted list
@@ -524,35 +520,11 @@ void Swarm::SortParticlesByCell() {
       });
 
   sort(cellSorted, SwarmKeyComparator(), 0, max_active_index);
-  printf("%s:%i\n", __FILE__, __LINE__);
-
-  //printf("cell map extents: %i %i\n", cellSortedMap.extent(0), cellSorted.extent(0));
-
-//  pmb->par_for(
-//       "Write sorted integer map", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-//         cellSortedMap(n) = cellSorted(n).swarm_idx_;
- //      });
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   // Update per-cell arrays for easier accessing later
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-  printf("extent sort: %i\n", cellSorted.extent(0));
-  printf("extent: %i %i %i %i %i %i\n",
-    cellSortedBegin.GetDim(1),
-    cellSortedBegin.GetDim(2),
-    cellSortedBegin.GetDim(3),
-    cellSortedBegin.GetDim(4),
-    cellSortedBegin.GetDim(5),
-    cellSortedBegin.GetDim(6));
-  printf("extentnum: %i %i %i %i %i %i\n",
-    cellSortedNumber.GetDim(1),
-    cellSortedNumber.GetDim(2),
-    cellSortedNumber.GetDim(3),
-    cellSortedNumber.GetDim(4),
-    cellSortedNumber.GetDim(5),
-    cellSortedNumber.GetDim(6));
   pmb->par_for(
       "Update per-cell arrays", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
@@ -596,7 +568,6 @@ void Swarm::SortParticlesByCell() {
             continue;
           }
         }
-        //printf("i j k : %i %i %i\n", i, j, k);
         cellSortedBegin(k, j, i) = start_index;
         if (start_index == -1) {
           cellSortedNumber(k, j, i) = 0;
@@ -605,14 +576,12 @@ void Swarm::SortParticlesByCell() {
           int current_index = start_index;
           while (current_index <= max_active_index &&
                  cellSorted(current_index).cell_idx_1d_ == cell_idx_1d) {
-            printf("current_index: %i\n", current_index);
             current_index++;
             number++;
             cellSortedNumber(k, j, i) = number;
           }
         }
       });
-  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 ///

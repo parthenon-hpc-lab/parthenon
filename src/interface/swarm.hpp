@@ -253,9 +253,8 @@ class Swarm {
 
   ParArrayND<int> neighbor_buffer_index_; // Map from neighbor index to neighbor bufid
 
-  ParArray1D<SwarmKey> cellSorted_; // 1D per-cell sorted array of key-value swarm memory indices
-
-  ParArray1D<int> cellSortedMap_; // 1D per-cell sorted array of swarm pool indices
+  ParArray1D<SwarmKey>
+      cellSorted_; // 1D per-cell sorted array of key-value swarm memory indices
 
   ParArrayND<int> cellSortedBegin_; // Per-cell array of starting indices in cell_sorted_
 

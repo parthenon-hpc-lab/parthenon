@@ -61,7 +61,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       destroy_particles_frac >= 0. && destroy_particles_frac <= 1.,
       "Fraction of particles to destroy each timestep must be between 0 and 1");
 
-  std::string deposition_method = pin->GetOrAddString("Particles", "deposition_method", "per_particle");
+  std::string deposition_method =
+      pin->GetOrAddString("Particles", "deposition_method", "per_particle");
   pkg->AddParam<>("deposition_method", deposition_method);
 
   bool orbiting_particles =
@@ -143,15 +144,11 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 }
 
 TaskStatus SortParticlesIfNecessary(MeshBlock *pmb) {
-    printf("%s:%i\n", __FILE__, __LINE__);
   auto pkg = pmb->packages.Get("particles_package");
   const auto deposition_method = pkg->Param<std::string>("deposition_method");
   if (deposition_method == "per_cell") {
     auto swarm = pmb->swarm_data.Get()->Get("my particles");
-    printf("%s:%i\n", __FILE__, __LINE__);
     swarm->SortParticlesByCell();
-    printf("sorted!\n");
-    printf("%s:%i\n", __FILE__, __LINE__);
   }
 
   return TaskStatus::complete;
@@ -186,7 +183,6 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const int ndim = pmb->pmy_mesh->ndim;
 
   if (deposition_method == "per_particle") {
-    printf("%s:%i\n", __FILE__, __LINE__);
     // Reset particle count
     pmb->par_for(
         "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -214,20 +210,15 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
           }
         });
   } else if (deposition_method == "per_cell") {
-    printf("%s:%i\n", __FILE__, __LINE__);
-    pmb->par_for("DepositParticlesByCell", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        particle_dep(k, j, i) = 0.;
-        printf("k j i: %i %i %i\n", k, j, i);
-        printf(" count: %i\n", swarm_d.GetParticleCountPerCell(k, j, i));
-        for (int n = 0; n < swarm_d.GetParticleCountPerCell(k, j, i); n++) {
-          printf("  n: %i\n", n);
-          const int idx = swarm_d.GetFullIndex(k, j, i, n);
-          printf("   idx: %i\n", idx);
-          particle_dep(k, j, i) += weight(idx);
-        }
-      });
-    printf("%s:%i\n", __FILE__, __LINE__);
+    pmb->par_for(
+        "DepositParticlesByCell", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          particle_dep(k, j, i) = 0.;
+          for (int n = 0; n < swarm_d.GetParticleCountPerCell(k, j, i); n++) {
+            const int idx = swarm_d.GetFullIndex(k, j, i, n);
+            particle_dep(k, j, i) += weight(idx);
+          }
+        });
   } else {
     PARTHENON_FAIL("deposition_method not recognized!");
   }
@@ -636,8 +627,8 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
 
     auto destroy_some_particles = tl.AddTask(none, DestroySomeParticles, pmb.get());
 
-    auto sort_particles = tl.AddTask(destroy_some_particles,
-                                     SortParticlesIfNecessary, pmb.get());
+    auto sort_particles =
+        tl.AddTask(destroy_some_particles, SortParticlesIfNecessary, pmb.get());
 
     auto deposit_particles = tl.AddTask(sort_particles, DepositParticles, pmb.get());
 
