@@ -16,6 +16,9 @@
 #include <utility>
 #include <vector>
 
+#include <thrust/sort.h>
+#include <thrust/device_ptr.h>
+
 #include "mesh/mesh.hpp"
 #include "swarm.hpp"
 
@@ -521,7 +524,8 @@ void Swarm::SortParticlesByCell() {
 
   // Sort the list
 #ifdef KOKKOS_ENABLE_CUDA
-  thrust::sort(cellSorted_.data(), cellSorted_.data() + max_active_index_ + 1, SwarmKeyCompare());
+  thrust::device_ptr<SwarmKey> d = thrust::device_pointer_cast(cellSorted_.data());
+  thrust::sort(d, d + max_active_index_ + 1, SwarmKeyCompare());
 #else
   std::sort(cellSorted_.data(), cellSorted_.data() + max_active_index_ + 1, SwarmKeyCompare());
 #endif
@@ -601,6 +605,8 @@ void Swarm::SortParticlesByCell() {
       printf("cellSortedBegin_(%i,%i,%i) = %i\n", k,j,i,cellSortedBegin_(k,j,i));
       printf("cellSortedNumber_(%i,%i%i) = %i\n", k,j,i,cellSortedNumber_(k,j,i));
     });
+
+  pmb->exec_space.fence();
 
   exit(-1);
 }
