@@ -16,11 +16,9 @@
 #include <utility>
 #include <vector>
 
-#include <thrust/sort.h>
-#include <thrust/device_ptr.h>
-
 #include "mesh/mesh.hpp"
 #include "swarm.hpp"
+#include "utils/sort.hpp"
 
 namespace parthenon {
 
@@ -523,12 +521,13 @@ void Swarm::SortParticlesByCell() {
       });
 
   // Sort the list
-#ifdef KOKKOS_ENABLE_CUDA
+  sort(cellSorted_.data(), cellSorted_.data() + max_active_index_ + 1, SwarmKeyComparator());
+/*#ifdef KOKKOS_ENABLE_CUDA
   thrust::device_ptr<SwarmKey> d = thrust::device_pointer_cast(cellSorted_.data());
   thrust::sort(d, d + max_active_index_ + 1, SwarmKeyCompare());
 #else
   std::sort(cellSorted_.data(), cellSorted_.data() + max_active_index_ + 1, SwarmKeyCompare());
-#endif
+#endif*/
 
 
   printf("extent0: %i (%i)\n", cellSorted_.extent(0), max_active_index_ + 1);
