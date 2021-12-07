@@ -60,6 +60,10 @@ swarm.pmy_block->par_for("Simple loop", 0, swarm.GetMaxActiveIndex(),
   });
 ```
 
+## Sorting
+
+
+
 ## Defragmenting
 
 Because one typically loops over particles from 0 to `max_active_index`, if only a small
