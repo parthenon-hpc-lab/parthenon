@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 619]](https://github.com/lanl/parthenon/pull/619) Sort particles by cell
 - [[PR 605]](https://github.com/lanl/parthenon/pull/605) Add output triggering by signaling.
 - [[PR 602]](https://github.com/lanl/parthenon/pull/602) Added tuning functionality for HDF5 output
 
