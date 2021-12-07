@@ -64,8 +64,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       neighbor_send_index_("nsi", nmax_pool_, Metadata({Metadata::Integer})),
       blockIndex_("blockIndex_", nmax_pool_),
       neighborIndices_("neighborIndices_", 4, 4, 4),
-      cellSorted_("cellSorted_", nmax_pool_),
-      mpiStatus(true) {
+      cellSorted_("cellSorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
@@ -479,9 +478,9 @@ void Swarm::Defrag() {
 
 ///
 /// Routine to sort particles by cell. Updates internal swarm variables:
-///  cellSorted_: 1D Per-cell sorted array of swarm memory indices (SwarmKey::swarm_index_)
-///  cellSortedBegin_: Per-cell array of starting indices in cellSorted_
-///  cellSortedNumber_: Per-cell array of number of particles in each cell
+///  cellSorted_: 1D Per-cell sorted array of swarm memory indices
+///  (SwarmKey::swarm_index_) cellSortedBegin_: Per-cell array of starting indices in
+///  cellSorted_ cellSortedNumber_: Per-cell array of number of particles in each cell
 ///
 void Swarm::SortParticlesByCell() {
   auto pmb = GetBlockPointer();
@@ -504,120 +503,82 @@ void Swarm::SortParticlesByCell() {
 
   // Allocate data if necessary
   if (cellSortedBegin.GetDim(1) == 0) {
-    cellSortedBegin = ParArrayND<int>("cellSortedBegin_", 0,0,0,nx3,nx2,nx1);
-    cellSortedNumber = ParArrayND<int>("cellSortedEnd_", 0,0,0,nx3,nx2,nx1);
+    cellSortedBegin = ParArrayND<int>("cellSortedBegin_", 0, 0, 0, nx3, nx2, nx1);
+    cellSortedNumber = ParArrayND<int>("cellSortedEnd_", 0, 0, 0, nx3, nx2, nx1);
   }
 
   // Write an unsorted list
   pmb->par_for(
-      "Write unsorted list", 0, max_active_index_,
-      KOKKOS_LAMBDA(const int n) {
+      "Write unsorted list", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         int i, j, k;
         swarm_d.Xtoijk(x(n), y(n), z(n), i, j, k);
         const int cell_idx_1d = i + nx1 * (j + nx2 * k);
-        //int cell_idx_1d = n; // TODO(BRR) calc
         cellSorted(n) = SwarmKey(cell_idx_1d, n);
       });
 
-  // Print the unsorted list
-  pmb->par_for(
-      "Print unsorted list", 0, max_active_index_,
-      KOKKOS_LAMBDA(const int n) {
-      printf("cell(un)Sorted(%i) = cell_idx_1d: %i swarm_idx: %i\n", n, cellSorted(n).cell_idx_1d_,
-        cellSorted(n).swarm_idx_);
-      });
-
-  // Sort the list
   sort(cellSorted, SwarmKeyComparator(), 0, max_active_index);
-  //sort(cellSorted.data(), cellSorted.data() + max_active_index_ + 1, SwarmKeyComparator());
-/*#ifdef KOKKOS_ENABLE_CUDA
-  //thrust::device_ptr<SwarmKey> d = thrust::device_pointer_cast(cellSorted_.data());
-  //thrust::sort(d, d + max_active_index_ + 1, SwarmKeyCompare());
-  thrust::device_ptr<SwarmKey> first = thrust::device_pointer_cast(cellSorted.data());
-  //thrust::device_ptr<SwarmKey> last = thrust::device_pointer_cast(cellSorted.data() + max_active_index_ + 1);
-  thrust::device_ptr<SwarmKey> last = thrust::device_pointer_cast(cellSorted.data()) + max_active_index_ + 1;
-  thrust::sort(first, last, SwarmKeyComparator());
-#else
-  std::sort(cellSorted.data(), cellSorted.data() + max_active_index_ + 1, SwarmKeyCompare());
-#endif*/
-
-
-  printf("extent0: %i (%i)\n", cellSorted.extent(0), max_active_index_ + 1);
-
-  // Print the list
-  pmb->par_for(
-      "Print sorted list", 0, max_active_index_,
-      KOKKOS_LAMBDA(const int n) {
-      printf("cellSorted(%i) = cell_idx_1d: %i swarm_idx: %i\n", n, cellSorted(n).cell_idx_1d_,
-        cellSorted(n).swarm_idx_);
-      });
 
   // Update per-cell arrays for easier accessing later
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-  pmb->par_for("Update per-cell arrays", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-    KOKKOS_LAMBDA(const int k, const int j, const int i) {
-      int cell_idx_1d = i + nx1 * (j + nx2 * k);
-      // Find starting index, first by guessing
-      int start_index = static_cast<int>((cell_idx_1d*num_active/ncells));
-      printf("[%i %i %i] start: %i\n", k, j, i, start_index);
-      int n = 0;
-      while (true) {
-        n++;
-        // Check if we left the list
-        if (start_index < 0 || start_index > max_active_index) {
-          start_index = -1;
-          break;
-        }
+  pmb->par_for(
+      "Update per-cell arrays", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        int cell_idx_1d = i + nx1 * (j + nx2 * k);
+        // Find starting index, first by guessing
+        int start_index = static_cast<int>((cell_idx_1d * num_active / ncells));
+        int n = 0;
+        while (true) {
+          n++;
+          // Check if we left the list
+          if (start_index < 0 || start_index > max_active_index) {
+            start_index = -1;
+            break;
+          }
 
-        if (cellSorted(start_index).cell_idx_1d_ == cell_idx_1d) {
-          if (start_index == 0) {
-            break;
-          } else if (cellSorted(start_index - 1).cell_idx_1d_ != cell_idx_1d) {
-            break;
-          } else {
+          if (cellSorted(start_index).cell_idx_1d_ == cell_idx_1d) {
+            if (start_index == 0) {
+              break;
+            } else if (cellSorted(start_index - 1).cell_idx_1d_ != cell_idx_1d) {
+              break;
+            } else {
+              start_index--;
+              continue;
+            }
+          }
+
+          if (cellSorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
             start_index--;
+            if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+              start_index = -1;
+              break;
+            }
+            continue;
+          }
+          if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+            start_index++;
+            if (cellSorted(start_index).cell_idx_1d_ > cell_idx_1d) {
+              start_index = -1;
+              break;
+            }
             continue;
           }
         }
-
-        if (cellSorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
-          start_index--;
-          if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
-            start_index = -1;
-            break;
+        cellSortedBegin(k, j, i) = start_index;
+        if (start_index == -1) {
+          cellSortedNumber(k, j, i) = 0;
+        } else {
+          int number = 0;
+          int current_index = start_index;
+          while (current_index <= max_active_index &&
+                 cellSorted(current_index).cell_idx_1d_ == cell_idx_1d) {
+            current_index++;
+            number++;
+            cellSortedNumber(k, j, i) = number;
           }
-          continue;
         }
-        if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
-          start_index++;
-          if (cellSorted(start_index).cell_idx_1d_ > cell_idx_1d) {
-            start_index = -1;
-            break;
-          }
-          continue;
-        }
-      }
-      cellSortedBegin(k,j,i) = start_index;
-      if (start_index == -1) {
-        cellSortedNumber(k,j,i) = 0;
-      } else {
-        int number = 0;
-        int current_index = start_index;
-        while (current_index <= max_active_index && cellSorted(current_index).cell_idx_1d_ == cell_idx_1d) {
-          current_index++;
-          number++;
-          cellSortedNumber(k,j,i) = number;
-        }
-      }
-      printf("cellSortedBegin_(%i,%i,%i) = %i\n", k,j,i,cellSortedBegin(k,j,i));
-      printf("cellSortedNumber_(%i,%i%i) = %i\n", k,j,i,cellSortedNumber(k,j,i));
-    });
-
-  pmb->exec_space.fence();
-
-  exit(-1);
+      });
 }
 
 ///

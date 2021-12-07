@@ -20,8 +20,8 @@
 #include "parthenon_arrays.hpp"
 #include "utils/sort.hpp"
 
-using parthenon::sort;
 using parthenon::ParArray1D;
+using parthenon::sort;
 
 constexpr int N = 100;
 constexpr int STRLEN = 1024;
@@ -41,9 +41,7 @@ struct Key {
 };
 struct KeyComparator {
   KOKKOS_INLINE_FUNCTION
-  bool operator() (const Key& s1, const Key& s2) {
-    return s1.key_ < s2.key_;
-  }
+  bool operator()(const Key &s1, const Key &s2) { return s1.key_ < s2.key_; }
 };
 
 TEST_CASE("Sorting", "[sort]") {
@@ -51,12 +49,9 @@ TEST_CASE("Sorting", "[sort]") {
 
     ParArray1D<int> data("Data to sort", N);
 
-
     parthenon::par_for(
-      parthenon::loop_pattern_flatrange_tag, "initial data", parthenon::DevExecSpace(), 0, N - 1,
-      KOKKOS_LAMBDA(const int n) {
-        data(n) = 2*N - n;
-      });
+        parthenon::loop_pattern_flatrange_tag, "initial data", parthenon::DevExecSpace(),
+        0, N - 1, KOKKOS_LAMBDA(const int n) { data(n) = 2 * N - n; });
 
     sort(data);
 
@@ -72,20 +67,20 @@ TEST_CASE("Sorting", "[sort]") {
     ParArray1D<Key> data("Data to sort", 5);
 
     parthenon::par_for(
-      parthenon::loop_pattern_flatrange_tag, "initial data", parthenon::DevExecSpace(), 0, 5 - 1,
-      KOKKOS_LAMBDA(const int n) {
-        if (n == 0) {
-          data(n) = Key(5, "test.");
-        } else if (n == 1) {
-          data(n) = Key(4, "a");
-        } else if (n == 3) {
-          data(n) = Key(3, "is");
-        } else if (n == 2) {
-          data(n) = Key(2, "sentence");
-        } else if (n == 4) {
-          data(n) = Key(1, "This");
-        }
-      });
+        parthenon::loop_pattern_flatrange_tag, "initial data", parthenon::DevExecSpace(),
+        0, 5 - 1, KOKKOS_LAMBDA(const int n) {
+          if (n == 0) {
+            data(n) = Key(5, "test.");
+          } else if (n == 1) {
+            data(n) = Key(4, "a");
+          } else if (n == 3) {
+            data(n) = Key(3, "is");
+          } else if (n == 2) {
+            data(n) = Key(2, "sentence");
+          } else if (n == 4) {
+            data(n) = Key(1, "This");
+          }
+        });
 
     sort(data, KeyComparator());
 

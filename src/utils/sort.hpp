@@ -21,16 +21,19 @@
 #include "parthenon_arrays.hpp"
 
 #ifdef KOKKOS_ENABLE_CUDA
-#include <thrust/sort.h>
 #include <thrust/device_ptr.h>
+#include <thrust/sort.h>
 #endif
 
 namespace parthenon {
 
-template<class Key, class KeyComparator>
-void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx, size_t max_idx) {
-  PARTHENON_DEBUG_REQUIRE(min_idx >= 0 && min_idx < data.extent(0), "Invalid minimum sort index!");
-  PARTHENON_DEBUG_REQUIRE(max_idx >= 0 && max_idx < data.extent(0), "Invalid maximum sort index!");
+template <class Key, class KeyComparator>
+void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx,
+          size_t max_idx) {
+  PARTHENON_DEBUG_REQUIRE(min_idx >= 0 && min_idx < data.extent(0),
+                          "Invalid minimum sort index!");
+  PARTHENON_DEBUG_REQUIRE(max_idx >= 0 && max_idx < data.extent(0),
+                          "Invalid maximum sort index!");
 #ifdef KOKKOS_ENABLE_CUDA
   thrust::device_ptr<Key> first_d = thrust::device_pointer_cast(data.data()) + min_idx;
   thrust::device_ptr<Key> last_d = thrust::device_pointer_cast(data.data()) + max_idx + 1;
@@ -40,10 +43,12 @@ void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx, size_t
 #endif // KOKKOS_ENABLE_CUDA
 }
 
-template<class Key>
+template <class Key>
 void sort(ParArray1D<Key> data, size_t min_idx, size_t max_idx) {
-  PARTHENON_DEBUG_REQUIRE(min_idx >= 0 && min_idx < data.extent(0), "Invalid minimum sort index!");
-  PARTHENON_DEBUG_REQUIRE(max_idx >= 0 && max_idx < data.extent(0), "Invalid maximum sort index!");
+  PARTHENON_DEBUG_REQUIRE(min_idx >= 0 && min_idx < data.extent(0),
+                          "Invalid minimum sort index!");
+  PARTHENON_DEBUG_REQUIRE(max_idx >= 0 && max_idx < data.extent(0),
+                          "Invalid maximum sort index!");
 #ifdef KOKKOS_ENABLE_CUDA
   thrust::device_ptr<Key> first_d = thrust::device_pointer_cast(data.data()) + min_idx;
   thrust::device_ptr<Key> last_d = thrust::device_pointer_cast(data.data()) + max_idx + 1;
@@ -53,12 +58,12 @@ void sort(ParArray1D<Key> data, size_t min_idx, size_t max_idx) {
 #endif // KOKKOS_ENABLE_CUDA
 }
 
-template<class Key, class KeyComparator>
+template <class Key, class KeyComparator>
 void sort(ParArray1D<Key> data, KeyComparator comparator) {
   sort(data, comparator, 0, data.extent(0) - 1);
 }
 
-template<class Key>
+template <class Key>
 void sort(ParArray1D<Key> data) {
   sort(data, 0, data.extent(0) - 1);
 }

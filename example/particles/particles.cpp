@@ -20,71 +20,6 @@
 #include <utility>
 #include <vector>
 
-// TODO(BRR) remove!
-//#include <Kokkos_Sort.hpp>
-/*struct SwarmKey {
-  KOKKOS_INLINE_FUNCTION
-  SwarmKey() {}
-  KOKKOS_INLINE_FUNCTION
-  SwarmKey(const int cell_idx_1d, const int swarm_idx_1d) :
-    cell_idx_1d_(cell_idx_1d), swarm_idx_(swarm_idx_1d) {}
-
-  int cell_idx_1d_;
-  int swarm_idx_;
-};
-struct SwarmKeyCompare {
-  KOKKOS_INLINE_FUNCTION
-  bool operator() (const SwarmKey& s1, SwarmKey& s2) {
-    return s1.cell_idx_1d_ < s2.cell_idx_1d_;
-  }
-};
-
-KOKKOS_INLINE_FUNCTION
-bool operator< (const SwarmKey s1, const SwarmKey s2) {
-  return s1.cell_idx_1d_ < s2.cell_idx_1d_;
-}
-KOKKOS_INLINE_FUNCTION
-bool operator> (const SwarmKey s1, const SwarmKey s2) {
-  return s1.cell_idx_1d_ > s2.cell_idx_1d_;
-}
-KOKKOS_INLINE_FUNCTION
-bool operator== (const SwarmKey s1, const SwarmKey s2) {
-  return s1.cell_idx_1d_ == s2.cell_idx_1d_;
-}
-KOKKOS_INLINE_FUNCTION
-int operator- (const SwarmKey s1, const SwarmKey s2) {
-  return s1.cell_idx_1d_ - s2.cell_idx_1d_;
-}
-namespace Kokkos {
-template<>
-struct reduction_identity<SwarmKey> {
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static int sum() {
-    return static_cast<int>(0);
-  }
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static int prod() {
-    return static_cast<int>(1);
-  }
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static int min() {
-    return INT_MIN;
-  }
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static int max() {
-    return INT_MAX;
-  }
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static int bor() {
-    return static_cast<int>(0x0);
-  }
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static int band() {
-    return ~static_cast<int>(0x0);
-  }
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static int lor() {
-    return static_cast<int>(0);
-  }
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static int land() {
-    return static_cast<int>(1);
-  }
-};
-}*/
-
 // *************************************************//
 // redefine some internal parthenon functions      *//
 // *************************************************//
@@ -235,34 +170,6 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
       });
 
   const int ndim = pmb->pmy_mesh->ndim;
-
-  /*// Practice a sort
-  using KeyType = SwarmKey;
-  //using KeyType = int;
-  using KeyViewType = Kokkos::View<KeyType*, DevExecSpace>;
-  int nkeys = 10;
-  KeyViewType keys("keys", nkeys);
-  pmb->par_for("Set Keys", 0, nkeys-1, KOKKOS_LAMBDA(const int i) {
-    int cell_idx_1d = nkeys - i;
-    if (i == 4) {
-      cell_idx_1d = 5;
-    }
-    keys(i) = SwarmKey(cell_idx_1d, i);
-    //keys(i) = nkeys - i;
-    //if (i == 4) keys(i) = 5;
-  });
-  pmb->par_for("Print Keys", 0, nkeys-1, KOKKOS_LAMBDA(const int i) {
-    printf("key(%i) = %i\n", keys(i).swarm_idx_, keys(i).cell_idx_1d_);
-  });
-  printf("\n");
-  std::sort(keys.data(), keys.data() + keys.extent(0), SwarmKeyCompare());
-  //Kokkos::sort(keys);
-  pmb->par_for("Print Keys", 0, nkeys-1, KOKKOS_LAMBDA(const int i) {
-    //printf("key(%i) = %i\n", i, keys(i));
-    printf("key(%i) = %i\n", keys(i).swarm_idx_, keys(i).cell_idx_1d_);
-  });
-  printf("\n");
-  exit(-1);*/
 
   pmb->par_for(
       "DepositParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
@@ -688,11 +595,10 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
 
     auto destroy_some_particles = tl.AddTask(none, DestroySomeParticles, pmb.get());
 
-    auto sort_particles =
-        tl.AddTask(destroy_some_particles, &SwarmContainer::SortParticlesByCell, sc.get());
+    auto sort_particles = tl.AddTask(destroy_some_particles,
+                                     &SwarmContainer::SortParticlesByCell, sc.get());
 
-    auto deposit_particles =
-        tl.AddTask(sort_particles, DepositParticles, pmb.get());
+    auto deposit_particles = tl.AddTask(sort_particles, DepositParticles, pmb.get());
 
     // Defragment if swarm memory pool occupancy is 90%
     auto defrag = tl.AddTask(deposit_particles, &SwarmContainer::Defrag, sc.get(), 0.9);
