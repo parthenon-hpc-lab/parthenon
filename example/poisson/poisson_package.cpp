@@ -1,4 +1,4 @@
-//========================================================================================
+ //========================================================================================
 // (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -27,7 +27,6 @@
 #include "poisson_package.hpp"
 
 using namespace parthenon::package::prelude;
-
 namespace poisson_package {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
@@ -85,6 +84,21 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
         parthenon::solvers::SparseMatrixAccessor("accessor", nstencil, offsets);
     pkg->AddParam("sparse_accessor", sp_accessor);
   }
+
+  // ParArrays for reductions
+  // We stash the array, which is per MPI rank, in the pkg object.
+  // If we wanted to stash the AllReduce object itself,
+  // we would need to hide it in an object with reference semantics,
+  // such as a ParArray0D to fool the const correctness semantics of
+  // params.
+  HostArray1D view_reduce("Reduce me", 10);
+  for (int i = 0; i < view_reduce.size(); i++) {
+    view_reduce(i) = 0;
+  }
+  for (int i = 0; i < view_reduce.size(); i++) {
+    view_reduce(i) += i;
+  }
+  pkg->AddParam("view_reduce", view_reduce);
 
   return pkg;
 }

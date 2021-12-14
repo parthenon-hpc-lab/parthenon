@@ -17,6 +17,7 @@
 #include <memory>
 #include <vector>
 
+#include <kokkos_abstraction.hpp>
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 
@@ -35,14 +36,24 @@ class PoissonDriver : public Driver {
   DriverStatus Execute() override;
 
  private:
-  // we'll demonstrate doing a global all reduce of a scalar
+  // we'll demonstrate doing a global all reduce of a scalar There
+  // must be one (All)Reduce object per var per rank, and they must be
+  // in appropriate scope so that they don't get
+  // garbage-collected... e.g., the objects persist between and
+  // accross task lists. A natural place is here in the driver. But
+  // the data they point to might need to live in the params of a
+  // package, as we've done here.
   AllReduce<Real> total_mass;
   AllReduce<Real> update_norm;
   // and a reduction onto one rank of a scalar
   Reduce<int> max_rank;
   // and we'll do an all reduce of a vector just for fun
   AllReduce<std::vector<int>> vec_reduce;
+  // And a view. Unfortunately, the driver lives longer than the Kokkos
+  // runtime, therefore it complains at the end of the run if this view is managed.
+  AllReduce<parthenon::ParHostUnmanaged1D<int>> view_reduce;
 };
+
 
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);
 parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);

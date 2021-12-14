@@ -44,6 +44,7 @@ using ScratchMemSpace = DevExecSpace::scratch_memory_space;
 
 using HostExecSpace = Kokkos::DefaultHostExecutionSpace;
 using LayoutWrapper = Kokkos::LayoutRight;
+using MemUnmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
 
 #if defined(KOKKOS_ENABLE_CUDA) && defined(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
 using BufMemSpace = Kokkos::CudaHostPinnedSpace::memory_space;
@@ -72,27 +73,61 @@ using ParArray6D = Kokkos::View<T ******, LayoutWrapper, DevMemSpace>;
 template <typename T>
 using ParArray7D = Kokkos::View<T *******, LayoutWrapper, DevMemSpace>;
 
+template <typename T>
+using ParHostUnmanaged0D = Kokkos::View<T, LayoutWrapper, HostMemSpace, MemUnmanaged>;
+template <typename T>
+using ParHostUnmanaged1D = Kokkos::View<T *, LayoutWrapper, HostMemSpace, MemUnmanaged>;
+template <typename T>
+using ParHostUnmanaged2D = Kokkos::View<T **, LayoutWrapper, HostMemSpace, MemUnmanaged>;
+template <typename T>
+using ParHostUnmanaged3D = Kokkos::View<T ***, LayoutWrapper, HostMemSpace, MemUnmanaged>;
+template <typename T>
+using ParHostUnmanaged4D =
+    Kokkos::View<T ****, LayoutWrapper, HostMemSpace, MemUnmanaged>;
+template <typename T>
+using ParHostUnmanaged5D =
+    Kokkos::View<T *****, LayoutWrapper, HostMemSpace, MemUnmanaged>;
+template <typename T>
+using ParHostUnmanaged6D =
+    Kokkos::View<T ******, LayoutWrapper, HostMemSpace, MemUnmanaged>;
+template <typename T>
+using ParHostUnmanaged7D =
+    Kokkos::View<T *******, LayoutWrapper, HostMemSpace, MemUnmanaged>;
+
+template <typename T>
+using ParDevUnmanaged1D = Kokkos::View<T, LayoutWrapper, DevMemSpace, MemUnmanaged>;
+template <typename T>
+using ParDevUnmanaged2D = Kokkos::View<T *, LayoutWrapper, DevMemSpace, MemUnmanaged>;
+template <typename T>
+using ParDevUnmanaged3D = Kokkos::View<T **, LayoutWrapper, DevMemSpace, MemUnmanaged>;
+template <typename T>
+using ParDevUnmanaged4D = Kokkos::View<T ***, LayoutWrapper, DevMemSpace, MemUnmanaged>;
+template <typename T>
+using ParDevUnmanaged5D = Kokkos::View<T ****, LayoutWrapper, DevMemSpace, MemUnmanaged>;
+template <typename T>
+using ParDevUnmanaged6D = Kokkos::View<T *****, LayoutWrapper, DevMemSpace, MemUnmanaged>;
+template <typename T>
+using ParDevUnmanaged7D =
+    Kokkos::View<T ******, LayoutWrapper, DevMemSpace, MemUnmanaged>;
+template <typename T>
+using ParDevUnmanaged8D =
+    Kokkos::View<T *******, LayoutWrapper, DevMemSpace, MemUnmanaged>;
+
 using team_policy = Kokkos::TeamPolicy<>;
 using team_mbr_t = Kokkos::TeamPolicy<>::member_type;
 
 template <typename T>
-using ScratchPad1D = Kokkos::View<T *, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad1D = Kokkos::View<T *, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
-using ScratchPad2D = Kokkos::View<T **, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad2D = Kokkos::View<T **, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
-using ScratchPad3D = Kokkos::View<T ***, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad3D = Kokkos::View<T ***, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
-using ScratchPad4D = Kokkos::View<T ****, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad4D = Kokkos::View<T ****, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
-using ScratchPad5D = Kokkos::View<T *****, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad5D = Kokkos::View<T *****, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
-using ScratchPad6D = Kokkos::View<T ******, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad6D = Kokkos::View<T ******, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
 
