@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 622]](https://github.com/lanl/parthenon/pull/622) Extend reduction framework to support more general data types
 - [[PR 605]](https://github.com/lanl/parthenon/pull/605) Add output triggering by signaling.
 - [[PR 602]](https://github.com/lanl/parthenon/pull/602) Added tuning functionality for HDF5 output
 
