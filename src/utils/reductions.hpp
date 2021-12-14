@@ -47,7 +47,8 @@ enum MPI_Op {
 
 // Some helper functions
 // Generic for containers with a data() method, including Kokkos::View and std::vector
-template <template<typename U, typename... Args> class Container, typename U, typename... Args>
+template <template <typename U, typename... Args> class Container, typename U,
+          typename... Args>
 void *GetPtr(Container<U, Args...> &v) {
   return v.data();
 }
@@ -57,7 +58,8 @@ void *GetPtr(U &v) {
 }
 
 // Generic for containers with a size() method, including Kokkos::View and std::vector
-template <template<typename U, typename... Args> class Container, typename U, typename... Args>
+template <template <typename U, typename... Args> class Container, typename U,
+          typename... Args>
 int GetSize(Container<U, Args...> &v) {
   return v.size();
 }
@@ -69,7 +71,8 @@ int GetSize(U &v) {
 #ifdef MPI_PARALLEL
 // Generic for containers including Kokkos::View and std::vector
 // strips the pointers off of the type
-template <template<typename U, typename... Args> class Container, typename U, typename... Args>
+template <template <typename U, typename... Args> class Container, typename U,
+          typename... Args>
 MPI_Datatype GetType(Container<U, Args...> &v) {
   return MPITypeMap<typename cleantypes::remove_all_pointers<U>::type>::type();
 }

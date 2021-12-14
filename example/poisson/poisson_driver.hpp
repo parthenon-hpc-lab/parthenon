@@ -54,7 +54,6 @@ class PoissonDriver : public Driver {
   AllReduce<parthenon::ParHostUnmanaged1D<int>> view_reduce;
 };
 
-
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);
 parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);
 
