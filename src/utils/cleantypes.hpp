@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef UTILS_TYPE_CLEANING_HPP_
-#define UTILS_TYPE_CLEANING_HPP_
+#ifndef UTILS_CLEANTYPES_HPP_
+#define UTILS_CLEANTYPES_HPP_
 
 namespace parthenon {
 namespace cleantypes {
@@ -47,4 +47,4 @@ struct remove_all_pointers<T *const volatile> {
 } // namespace cleantypes
 } // namespace parthenon
 
-#endif // UTILS_TYPE_CLEANING_HPP_
+#endif // UTILS_CLEANTYPES_HPP_
