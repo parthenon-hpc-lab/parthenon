@@ -59,7 +59,7 @@ class Params {
                              "WRONG TYPE FOR KEY '" + key + "'");
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
   }
-  
+
   void reset() {
     myParams_.clear();
     myTypes_.clear();
@@ -79,8 +79,7 @@ class Params {
   template <typename T>
   T *GetVolatile(const std::string &key) const {
     auto typed_ptr = GetTypedPointer_<T>(key);
-    PARTHENON_REQUIRE_THROWS(myVolatile_.at(key),
-			     "Parameter must be marked as volatile");
+    PARTHENON_REQUIRE_THROWS(myVolatile_.at(key), "Parameter must be marked as volatile");
     return typed_ptr->pValue.get();
   }
 

@@ -54,24 +54,24 @@ TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
         }
       }
       WHEN("attempting to get the pointer with GetVolatile") {
-	THEN("an error is thrown") {
-	  REQUIRE_THROWS_AS(params.GetVolatile<double>(key), std::runtime_error);
-	}
+        THEN("an error is thrown") {
+          REQUIRE_THROWS_AS(params.GetVolatile<double>(key), std::runtime_error);
+        }
       }
     }
     WHEN("We add it to params as volatile") {
       params.Add(key, value, true);
       THEN("We can retrieve the pointer to the object with GetVolatile") {
-	double *pval = params.GetVolatile<double>(key);
-	REQUIRE(*pval == Approx(value));
-	AND_THEN("We can modify the value by dereferencing the pointer") {
-	  double new_val = 5;
-	  *pval = new_val;
-	  AND_THEN("params.get reflects the new value") {
-	    double output = params.Get<double>(key);
-	    REQUIRE(output == Approx(new_val));
-	  }
-	}
+        double *pval = params.GetVolatile<double>(key);
+        REQUIRE(*pval == Approx(value));
+        AND_THEN("We can modify the value by dereferencing the pointer") {
+          double new_val = 5;
+          *pval = new_val;
+          AND_THEN("params.get reflects the new value") {
+            double output = params.Get<double>(key);
+            REQUIRE(output == Approx(new_val));
+          }
+        }
       }
     }
   }
