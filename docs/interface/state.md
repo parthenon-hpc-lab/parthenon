@@ -19,9 +19,10 @@ The `StateDescriptor` class is intended to be used to inform Parthenon about the
   component names can be specified per sparse id. Currently, sparse variables are allocated on all
   blocks just like dense variables, however, in a future upgrade, they will only be allocated on
   those blocks where the user explicitly allocates them or non-zero values are advected into.
-* `void AddParam<T>(const std::string& key, T& value)` adds a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`.
+* `void AddParam<T>(const std::string& key, T& value, bool make_volatile)` adds a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`. If `make_volatile` is true, parameters can be more easily modified.
 * `void UpdateParam<T>(const std::string& key, T& value)`updates a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`. A parameter of the same type must exist.
 * `const T& Param(const std::string& key)` provides the getter to access parameters previously added by `AddParam`.
+* `T *VolatileParam(const std::string &key)` returns a pointer to a parameter that has been marked volatile when it was added. Note this pointer is *not* marked `const`.
 * `void FillDerivedBlock(MeshBlockData<Real>* rc)` delgates to the `std::function` member `FillDerivedBlock` if set (defaults to `nullptr` and therefore a no-op) that allows an application to provide a function that fills in derived quantities from independent state per `MeshBlockData<Real>`.
 * `void FillDerivedMesh(MeshData<Real>* rc)` delgates to the `std::function` member `FillDerivedMesh` if set (defaults to `nullptr` and therefore a no-op) that allows an application to provide a function that fills in derived quantities from independent state per `MeshData<Real>`.
 * `Real EstimateTimestepBlock(MeshBlockData<Real>* rc)` delgates to the `std::function` member `EstimateTimestepBlock` if set (defaults to `nullptr` and therefore a no-op) that allows an application to provide a means of computing stable/accurate timesteps for a mesh block.

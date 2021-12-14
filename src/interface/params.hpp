@@ -43,10 +43,11 @@ class Params {
   ///
   /// Throws an error if the key is already in use
   template <typename T>
-  void Add(const std::string &key, T value) {
+  void Add(const std::string &key, T value, bool make_volatile = false) {
     PARTHENON_REQUIRE_THROWS(!(hasKey(key)), "Key " + key + " already exists");
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
     myTypes_.emplace(make_pair(key, std::type_index(typeid(value))));
+    myVolatile_[key] = make_volatile;
   }
 
   /// Updates existing object
@@ -58,20 +59,29 @@ class Params {
                              "WRONG TYPE FOR KEY '" + key + "'");
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
   }
-
+  
   void reset() {
     myParams_.clear();
     myTypes_.clear();
+    myVolatile_.clear();
   }
 
   template <typename T>
   const T &Get(const std::string &key) const {
-    auto const it = myParams_.find(key);
-    PARTHENON_REQUIRE_THROWS(it != myParams_.end(), "Key " + key + " doesn't exist");
-    PARTHENON_REQUIRE_THROWS(myTypes_.at(key) == std::type_index(typeid(T)),
-                             "WRONG TYPE FOR KEY '" + key + "'");
-    auto typed_ptr = dynamic_cast<Params::object_t<T> *>((it->second).get());
+    auto typed_ptr = GetTypedPointer_<T>(key);
     return *typed_ptr->pValue;
+  }
+
+  // Returning a pointer feels safer than returning a non-const reference.
+  // Memory is managed by params so we don't want reference counting.
+  // But we also don't want the reference completely re-assigned.
+  // This also avoids extraneous copies.
+  template <typename T>
+  T *GetVolatile(const std::string &key) const {
+    auto typed_ptr = GetTypedPointer_<T>(key);
+    PARTHENON_REQUIRE_THROWS(myVolatile_.at(key),
+			     "Parameter must be marked as volatile");
+    return typed_ptr->pValue.get();
   }
 
   bool hasKey(const std::string &key) const {
@@ -165,8 +175,19 @@ class Params {
     const void *address() { return reinterpret_cast<void *>(pValue.get()); }
   };
 
+  template <typename T>
+  auto GetTypedPointer_(const std::string &key) const {
+    auto const it = myParams_.find(key);
+    PARTHENON_REQUIRE_THROWS(it != myParams_.end(), "Key " + key + " doesn't exist");
+    PARTHENON_REQUIRE_THROWS(myTypes_.at(key) == std::type_index(typeid(T)),
+                             "WRONG TYPE FOR KEY '" + key + "'");
+    auto typed_ptr = dynamic_cast<Params::object_t<T> *>((it->second).get());
+    return typed_ptr;
+  }
+
   std::map<std::string, std::unique_ptr<Params::base_t>> myParams_;
   std::map<std::string, std::type_index> myTypes_;
+  std::map<std::string, bool> myVolatile_;
 };
 
 } // namespace parthenon
