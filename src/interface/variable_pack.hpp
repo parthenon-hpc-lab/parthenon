@@ -168,6 +168,9 @@ class PackIndexMap {
     const auto &key = MakeVarLabel(base_name, sparse_id);
     auto itr = map_.find(key);
     if (itr == map_.end()) {
+      for (auto &pair : map_) {
+        std::cout << pair.first << " " << pair.second.first << " " << pair.second.second << std::endl;
+      }
       PARTHENON_THROW("PackIndexMap does not have key '" + key + "'");
     }
 
@@ -428,7 +431,8 @@ template <typename T>
 using MapToSwarmVariablePack = std::map<std::vector<std::string>, SwarmPackIndxPair<T>>;
 
 template <typename T>
-void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap) {
+void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap,
+                         const std::string &prefix="") {
   using vpack_types::IndexPair;
 
   if (pvmap != nullptr) {
@@ -443,14 +447,14 @@ void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap)
         if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
         if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
         if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
-        auto &pair = pvmap->get(v->label());
+        auto &pair = pvmap->get(prefix + v->label());
         start = pair.first;
         stop = pair.second;
         auto vj = vi + 1;
         while (vj != vars.end()) {
           auto &q = *vj;
           if (q->base_name() == v->base_name()) {
-            stop = pvmap->get(q->label()).second;
+            stop = pvmap->get(prefix + q->label()).second;
             vj++;
           } else {
             break;
@@ -582,11 +586,11 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
     if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
 
     if (pvmap != nullptr) {
-      pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
+      pvmap->insert("flux::"+v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
 
-  AppendSparseBaseMap(vars, pvmap);
+  AppendSparseBaseMap(vars, pvmap, "flux::");
 
   Kokkos::deep_copy(f1_out, host_f1);
   Kokkos::deep_copy(f2_out, host_f2);
