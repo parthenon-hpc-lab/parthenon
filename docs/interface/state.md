@@ -19,7 +19,7 @@ The `StateDescriptor` class is intended to be used to inform Parthenon about the
   component names can be specified per sparse id. Currently, sparse variables are allocated on all
   blocks just like dense variables, however, in a future upgrade, they will only be allocated on
   those blocks where the user explicitly allocates them or non-zero values are advected into.
-* `void AddParam<T>(const std::string& key, T& value, bool make_mutable)` adds a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`. If `make_mutable` is true, parameters can be more easily modified.
+* `void AddParam<T>(const std::string& key, T& value, bool is_mutable)` adds a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`. If `is_mutable` is true, parameters can be more easily modified.
 * `void UpdateParam<T>(const std::string& key, T& value)`updates a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name `key` and value `value`. A parameter of the same type must exist.
 * `const T& Param(const std::string& key)` provides the getter to access parameters previously added by `AddParam`.
 * `T *MutableParam(const std::string &key)` returns a pointer to a parameter that has been marked mutable when it was added. Note this pointer is *not* marked `const`.

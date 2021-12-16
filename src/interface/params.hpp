@@ -43,11 +43,11 @@ class Params {
   ///
   /// Throws an error if the key is already in use
   template <typename T>
-  void Add(const std::string &key, T value, bool make_mutable = false) {
+  void Add(const std::string &key, T value, bool is_mutable = false) {
     PARTHENON_REQUIRE_THROWS(!(hasKey(key)), "Key " + key + " already exists");
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
     myTypes_.emplace(make_pair(key, std::type_index(typeid(value))));
-    myMutable_[key] = make_mutable;
+    myMutable_[key] = is_mutable;
   }
 
   /// Updates existing object
@@ -55,6 +55,8 @@ class Params {
   template <typename T>
   void Update(const std::string &key, T value) {
     PARTHENON_REQUIRE_THROWS((hasKey(key)), "Key " + key + "missing.");
+    PARTHENON_REQUIRE_THROWS(myMutable_.at(key),
+                             "Parameter " + key + " must be marked as mutable");
     PARTHENON_REQUIRE_THROWS(myTypes_.at(key) == std::type_index(typeid(T)),
                              "WRONG TYPE FOR KEY '" + key + "'");
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
@@ -79,7 +81,8 @@ class Params {
   template <typename T>
   T *GetMutable(const std::string &key) const {
     auto typed_ptr = GetTypedPointer_<T>(key);
-    PARTHENON_REQUIRE_THROWS(myMutable_.at(key), "Parameter must be marked as mutable");
+    PARTHENON_REQUIRE_THROWS(myMutable_.at(key),
+                             "Parameter " + key + " must be marked as mutable");
     return typed_ptr->pValue.get();
   }
 

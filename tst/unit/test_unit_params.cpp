@@ -34,13 +34,9 @@ TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
         double output = params.Get<double>(key);
         REQUIRE(output == Approx(value));
       }
-      AND_THEN("we can update the value") {
-        params.Update<double>(key, 2.0);
-        REQUIRE(params.Get<double>(key) == Approx(2.0));
-      }
-      WHEN("trying to Update with a wrong type") {
+      WHEN("Trying to update a non-mutable param") {
         THEN("an error is thrown") {
-          REQUIRE_THROWS_AS(params.Update<int>(key, 2), std::runtime_error);
+          REQUIRE_THROWS_AS(params.Update<double>(key, 2.0), std::runtime_error);
         }
       }
       WHEN("the same key is provided a second time") {
@@ -71,6 +67,18 @@ TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
             double output = params.Get<double>(key);
             REQUIRE(output == Approx(new_val));
           }
+        }
+      }
+      THEN("We can update the mutable param") {
+        params.Update<double>(key, 2.0);
+        AND_THEN("The new value is reflected in Get") {
+          double output = params.Get<double>(key);
+          REQUIRE(output == Approx(2.0));
+        }
+      }
+      WHEN("trying to Update with a wrong type") {
+        THEN("an error is thrown") {
+          REQUIRE_THROWS_AS(params.Update<int>(key, 2), std::runtime_error);
         }
       }
     }
