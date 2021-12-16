@@ -99,8 +99,8 @@ class StateDescriptor {
   CreateResolvedStateDescriptor(Packages_t &packages);
 
   template <typename T>
-  void AddParam(const std::string &key, T value, bool make_volatile = false) {
-    params_.Add<T>(key, value, make_volatile);
+  void AddParam(const std::string &key, T value, bool make_mutable = false) {
+    params_.Add<T>(key, value, make_mutable);
   }
 
   template <typename T>
@@ -114,8 +114,8 @@ class StateDescriptor {
   }
 
   template <typename T>
-  T *VolatileParam(const std::string &key) const {
-    return params_.GetVolatile<T>(key);
+  T *MutableParam(const std::string &key) const {
+    return params_.GetMutable<T>(key);
   }
 
   // Set (if not set) and get simultaneously.

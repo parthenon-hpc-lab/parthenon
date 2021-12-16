@@ -43,11 +43,11 @@ class Params {
   ///
   /// Throws an error if the key is already in use
   template <typename T>
-  void Add(const std::string &key, T value, bool make_volatile = false) {
+  void Add(const std::string &key, T value, bool make_mutable = false) {
     PARTHENON_REQUIRE_THROWS(!(hasKey(key)), "Key " + key + " already exists");
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
     myTypes_.emplace(make_pair(key, std::type_index(typeid(value))));
-    myVolatile_[key] = make_volatile;
+    myMutable_[key] = make_mutable;
   }
 
   /// Updates existing object
@@ -63,7 +63,7 @@ class Params {
   void reset() {
     myParams_.clear();
     myTypes_.clear();
-    myVolatile_.clear();
+    myMutable_.clear();
   }
 
   template <typename T>
@@ -77,9 +77,9 @@ class Params {
   // But we also don't want the reference completely re-assigned.
   // This also avoids extraneous copies.
   template <typename T>
-  T *GetVolatile(const std::string &key) const {
+  T *GetMutable(const std::string &key) const {
     auto typed_ptr = GetTypedPointer_<T>(key);
-    PARTHENON_REQUIRE_THROWS(myVolatile_.at(key), "Parameter must be marked as volatile");
+    PARTHENON_REQUIRE_THROWS(myMutable_.at(key), "Parameter must be marked as mutable");
     return typed_ptr->pValue.get();
   }
 
@@ -186,7 +186,7 @@ class Params {
 
   std::map<std::string, std::unique_ptr<Params::base_t>> myParams_;
   std::map<std::string, std::type_index> myTypes_;
-  std::map<std::string, bool> myVolatile_;
+  std::map<std::string, bool> myMutable_;
 };
 
 } // namespace parthenon
