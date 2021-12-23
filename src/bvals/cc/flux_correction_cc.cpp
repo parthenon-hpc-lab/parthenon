@@ -54,14 +54,40 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
     if (nb.ni.type != NeighborConnect::face) break;
     if (bd_var_flcor_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
     if (nb.snb.level == pmb->loc.level - 1) {
-      int psize = 0;
       IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
       IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
       IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
       int nx1 = pmb->cellbounds.ncellsi(interior);
       int nx2 = pmb->cellbounds.ncellsj(interior);
       int nx3 = pmb->cellbounds.ncellsk(interior);
-      BufArray1D<Real> &sbuf = bd_var_flcor_.send[nb.bufid];
+      BufArray1D<Real> sbuf;
+      // On the same node directly copy to the receiving buffer
+      if (nb.snb.rank == Globals::my_rank) {
+        // Locate target buffer
+        // 1) which MeshBlock?
+        MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
+        // 2) which element in vector of BoundaryVariable *?
+        auto ptarget_bdata = target_block.pbval->bvars[bvar_index]->GetPBdVarFlcor();
+        sbuf = ptarget_bdata->recv[nb.targetid];
+        // Mark completion on the receiving block.
+        // IMPORTANT: Once we start working with multiple execution spaces/streams
+        // this needs to be revisited as this "arrived" implies that all kernels
+        // are executed serially on this device.
+        // In other words, if the ReceiveFluxCorrection task would be called using
+        // a different stream for the same block, then his arrived may (though unlikely)
+        // trigger the unpacking before the sending buffer is actually copied.
+        ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
+        // Mark completion for the sending block so that in the following loop, which only
+        // handles MPI_Start this buffer is not handled.
+        bd_var_flcor_.sflag[nb.bufid] = BoundaryStatus::completed;
+
+        // For receiving meshblocks on a different rank first copy to send buffer.
+        // We first fill all buffer and then start all MPI communication at the end
+        // in order to reduce the number of fences required (waiting for the buffers
+        // to be actually filled) to one.
+      } else {
+        sbuf = bd_var_flcor_.send[nb.bufid];
+      }
       int nl = nl_;
       // x1 direction
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
@@ -72,7 +98,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         int jsize = (jb.e - jb.s + 1) / 2;
         auto &x1flx = x1flux;
         if (pmb->block_size.nx3 > 1) { // 3D
-          psize = jsize * ksize * (nu_ - nl_ + 1);
           pmb->par_for(
               "SendFluxCorrection3D_x1", nl_, nu_, 0, ksize - 1, 0, jsize - 1,
               KOKKOS_LAMBDA(const int nn, const int k, const int j) {
@@ -91,7 +116,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
               });
         } else if (pmb->block_size.nx2 > 1) { // 2D
           int k = kb.s;
-          psize = jsize * (nu_ - nl + 1);
           pmb->par_for(
               "SendFluxCorrection2D_x1", nl_, nu_, 0, jsize - 1,
               KOKKOS_LAMBDA(const int nn, const int j) {
@@ -105,7 +129,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
               });
         } else { // 1D
           int k = kb.s, j = jb.s;
-          psize = nu_ - nl_ + 1;
           pmb->par_for(
               "SendFluxCorrection1D_x1", nl_, nu_,
               KOKKOS_LAMBDA(const int nn) { sbuf(nn - nl) = x1flx(nn, k, j, i); });
@@ -119,7 +142,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         int isize = (ib.e - ib.s + 1) / 2;
         auto &x2flx = x2flux;
         if (pmb->block_size.nx3 > 1) { // 3D
-          psize = isize * ksize * (nu_ - nl_ + 1);
           pmb->par_for(
               "SendFluxCorrection3D_x2", nl_, nu_, 0, ksize - 1, 0, isize - 1,
               KOKKOS_LAMBDA(const int nn, const int k, const int i) {
@@ -139,7 +161,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
               });
         } else if (pmb->block_size.nx2 > 1) { // 2D
           int k = kb.s;
-          psize = isize * (nu_ - nl_ + 1);
           pmb->par_for(
               "SendFluxCorrection2D_x2", nl_, nu_, 0, isize - 1,
               KOKKOS_LAMBDA(const int nn, const int i) {
@@ -161,7 +182,6 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         int jsize = (jb.e - jb.s + 1) / 2;
         int isize = (ib.e - ib.s + 1) / 2;
         auto &x3flx = x3flux;
-        psize = isize * jsize * (nu_ - nl_ + 1);
         pmb->par_for(
             "SendFluxCorrection3D_x3", nl_, nu_, 0, jsize - 1, 0, isize - 1,
             KOKKOS_LAMBDA(const int nn, const int j, const int i) {
@@ -180,18 +200,20 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
                   tarea;
             });
       }
-      pmb->exec_space.fence();
-      if (nb.snb.rank == Globals::my_rank) { // on the same node
-        CopyFluxCorrectionBufferSameProcess(nb, psize);
-      }
+    }
+  }
 #ifdef MPI_PARALLEL
-      else
-        PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_flcor_.req_send[nb.bufid])));
-#endif
+  pmb->exec_space.fence();
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    if (nb.ni.type != NeighborConnect::face) break;
+    if (bd_var_flcor_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
+    if (nb.snb.level == pmb->loc.level - 1) {
+      PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_flcor_.req_send[nb.bufid])));
       bd_var_flcor_.sflag[nb.bufid] = BoundaryStatus::completed;
     }
   }
-  return;
+#endif
 }
 
 //----------------------------------------------------------------------------------------

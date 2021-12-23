@@ -135,19 +135,6 @@ void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb, int ssiz
   return;
 }
 
-// KGF: change ssize to send_count
-
-void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, int ssize) {
-  // Locate target buffer
-  // 1) which MeshBlock?
-  MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
-  // 2) which element in vector of BoundaryVariable *?
-  BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars[bvar_index]->bd_var_flcor_);
-  target_block.deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_flcor_.send[nb.bufid]);
-  ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
-  return;
-}
-
 // Default / shared implementations of 4x BoundaryBuffer public functions
 
 //----------------------------------------------------------------------------------------

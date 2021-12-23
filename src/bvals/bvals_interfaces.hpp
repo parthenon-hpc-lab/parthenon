@@ -258,6 +258,7 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
   void ReceiveAndSetBoundariesWithWait() override;
   void SetBoundaries() override;
   auto GetPBdVar() { return &bd_var_; }
+  auto GetPBdVarFlcor() { return &bd_var_flcor_; }
 
  protected:
   // deferred initialization of BoundaryData objects in derived class constructors
@@ -277,7 +278,6 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
   }
 
   void CopyVariableBufferSameProcess(NeighborBlock &nb, int ssize);
-  void CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, int ssize);
 
   void InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type);
   void DestroyBoundaryData(BoundaryData<> &bd);
