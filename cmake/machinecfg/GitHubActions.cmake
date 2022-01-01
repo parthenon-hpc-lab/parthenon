@@ -19,18 +19,22 @@ message(STATUS "Loading machine configuration for GitHub Actions CI. ")
 
 # common options
 set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
-# variants
+
+set(MACHINE_CXX_FLAGS "")
 if (${MACHINE_VARIANT} MATCHES "cuda")
   # using an arbitrary arch as GitHub Action runners don't have GPUs
   set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "GPU architecture")
   set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Enable Cuda")
   if (${CMAKE_CXX_COMPILER} MATCHES "clang")
-    set(CMAKE_CXX_FLAGS "-Wno-unknown-cuda-version" CACHE STRING "Suppress clang cuda warnings")
+    set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -Wno-unknown-cuda-version")
   endif()
 else()
-  set(CMAKE_CXX_FLAGS "-fopenmp-simd" CACHE STRING "Default opt flags")
+  set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -fopenmp-simd")
 endif()
 
+if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
+  set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -Og")
+endif()
 
 if (${MACHINE_VARIANT} MATCHES "mpi")
   # not using the following as the default is determined correctly
@@ -41,3 +45,5 @@ else()
   set(HDF5_ROOT /usr/local/hdf5/serial CACHE STRING "HDF5 path")
   set(PARTHENON_DISABLE_MPI ON CACHE BOOL "Disable MPI")
 endif()
+
+set(CMAKE_CXX_FLAGS "${MACHINE_CXX_FLAGS}" CACHE STRING "Default flags for this config")
