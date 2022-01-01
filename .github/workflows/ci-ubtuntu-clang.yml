@@ -1,5 +1,12 @@
-name: github-Linux
+name: github-linux
+
 on: [push, pull_request]
+
+# Cancel "duplicated" workflows triggered by pushes to internal
+# branches with associated PRs.
+concurrency:
+  group: ${{ github.ref }}-${{ github.head_ref }}-github-linux
+  cancel-in-progress: true
 
 jobs:
   CI:
@@ -8,8 +15,8 @@ jobs:
       matrix:
         cxx: ['g++', 'clang++-12']
         cmake_build_type: ['Release', 'Debug']
-        cuda: ['yes', 'no']
-        mpi: ['yes', 'no']
+        device: ['cuda', 'host']
+        parallel: ['serial', 'mpi']
     runs-on: ubuntu-latest
     container:
       image: registry.gitlab.com/pgrete/parthenon/cuda11.4.2-mpi-hdf5
@@ -25,7 +32,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
             -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
-            -DMACHINE_VARIANT=cuda-${{ matrix.cuda }}_mpi-${{ matrix.mpi }}
+            -DMACHINE_VARIANT=${{ matrix.device }}_${{ matrix.parallel }}
       - name: Build
         run: |
           cmake --build builddir --parallel 2

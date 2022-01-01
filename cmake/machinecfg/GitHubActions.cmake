@@ -15,21 +15,24 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #========================================================================================
 
-message(STATUS "Loading machine configuration for GitHub Actions CI. "
-  "Supported MACHINE_VARIANT includes 'cuda', 'mpi', and 'cuda-mpi'")
+message(STATUS "Loading machine configuration for GitHub Actions CI. ")
 
 # common options
 set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
 # variants
-if (${MACHINE_VARIANT} MATCHES "cuda-yes")
+if (${MACHINE_VARIANT} MATCHES "cuda")
   # using an arbitrary arch as GitHub Action runners don't have GPUs
   set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "GPU architecture")
   set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Enable Cuda")
+  if (${CMAKE_CXX_COMPILER} MATCHES "clang")
+    CMAKE_CXX_FLAGS="-Wno-unknown-cuda-version"
+  endif()
 else()
   set(CMAKE_CXX_FLAGS "-fopenmp-simd" CACHE STRING "Default opt flags")
 endif()
-  
-if (${MACHINE_VARIANT} MATCHES "mpi-yes")
+
+
+if (${MACHINE_VARIANT} MATCHES "mpi")
   # not using the following as the default is determined correctly
   #set(TEST_MPIEXEC mpiexec CACHE STRING "Command to launch MPI applications")
   list(APPEND TEST_MPIOPTS "--allow-run-as-root")
