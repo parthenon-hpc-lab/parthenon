@@ -275,7 +275,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   else if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "manual")
     lb_manual_ = true;
   lb_tolerance_ = pin->GetOrAddReal("loadbalancing", "tolerance", 0.5);
-  lb_interval_ = pin->GetOrAddReal("loadbalancing", "interval", 10);
+  lb_interval_ = pin->GetOrAddInteger("loadbalancing", "interval", 10);
 
   // SMR / AMR:
   if (adaptive) {
@@ -657,7 +657,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   else if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "manual")
     lb_manual_ = true;
   lb_tolerance_ = pin->GetOrAddReal("loadbalancing", "tolerance", 0.5);
-  lb_interval_ = pin->GetOrAddReal("loadbalancing", "interval", 10);
+  lb_interval_ = pin->GetOrAddInteger("loadbalancing", "interval", 10);
 #endif
 
   // SMR / AMR
