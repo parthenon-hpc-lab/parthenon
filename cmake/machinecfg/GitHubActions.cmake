@@ -25,7 +25,7 @@ if (${MACHINE_VARIANT} MATCHES "cuda")
   set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "GPU architecture")
   set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Enable Cuda")
   if (${CMAKE_CXX_COMPILER} MATCHES "clang")
-    CMAKE_CXX_FLAGS="-Wno-unknown-cuda-version"
+    set(CMAKE_CXX_FLAGS "-Wno-unknown-cuda-version" CACHE STRING "Suppress clang cuda warnings")
   endif()
 else()
   set(CMAKE_CXX_FLAGS "-fopenmp-simd" CACHE STRING "Default opt flags")
