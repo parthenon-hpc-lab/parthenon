@@ -6,8 +6,10 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        cxx: ['g++', 'clang++']
+        cxx: ['g++', 'clang++-12']
         cmake_build_type: ['Release', 'Debug']
+        cuda: ['yes', 'no']
+        mpi: ['yes', 'no']
     runs-on: ubuntu-latest
     container:
       image: registry.gitlab.com/pgrete/parthenon/cuda11.4.2-mpi-hdf5
@@ -22,7 +24,8 @@ jobs:
           cmake -B builddir \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
-            -DHDF5_ROOT=/usr/local/hdf5/parallel
+            -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
+            -DMACHINE_VARIANT=cuda-${{ matrix.cuda }}_mpi-${{ matrix.mpi }}
       - name: Build
         run: |
           cmake --build builddir --parallel 2
