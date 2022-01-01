@@ -1,4 +1,4 @@
-image: cuda11.3-mpi-hdf5
+image: registry.gitlab.com/pgrete/parthenon/cuda11.4.2-mpi-hdf5
 
 # Is performed before the scripts in the stages step
 before_script:
