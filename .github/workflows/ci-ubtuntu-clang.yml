@@ -1,0 +1,28 @@
+name: github-Linux
+on: [push, pull_request]
+
+jobs:
+  CI:
+    continue-on-error: true
+    strategy:
+      matrix:
+        cxx: ['g++', 'clang++']
+        cmake_build_type: ['Release', 'Debug']
+    runs-on: ubuntu-latest
+    container:
+      image: registry.gitlab.com/pgrete/parthenon/cuda11.4.2-mpi-hdf5
+    env:
+      CMAKE_GENERATOR: Ninja
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'true'
+      - name: CMake
+        run: |
+          cmake -B builddir \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -DHDF5_ROOT=/usr/local/hdf5/parallel
+      - name: Build
+        run: |
+          cmake --build builddir --parallel 2
