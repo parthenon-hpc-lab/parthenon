@@ -4,8 +4,6 @@
 However, Parthenon itself, dependencies, and environments constantly changes so that the instruction may not work any more.
 If you come across a disfunctional setup, please report it by open an issue or propose an updated description in a pull request*
 
-See also [FAQ](building.md#FAQ) below.
-
 ## General list of cmake options:
 
    |              Option                    | Default           | Type   | Description |
@@ -518,30 +516,3 @@ $ jsrun -n 1 -g 1 --smpiargs="off" ctest -L unit
 # run convergence test
 $ jsrun -n 1 -g 1 --smpiargs="off" ctest -R regression_test:advection_performance
 ```
-
-## FAQ
-
-Q: Compilation of unit tests with `clang` for Cuda and `Debug` type fails with
-```bash
-ptxas fatal   : Cannot take address of function '__cxa_pure_virtual' 
-clang-13: error: ptxas command failed with exit code 255 (use -v to see invocation)
-clang version 13.0.0
-Target: x86_64-pc-linux-gnu
-Thread model: posix
-InstalledDir: /usr/bin
-clang-13: note: diagnostic msg: 
-********************
-
-PLEASE ATTACH THE FOLLOWING FILES TO THE BUG REPORT:
-Preprocessed source(s) and associated run script(s) are located at:
-clang-13: note: diagnostic msg: /tmp/kokkos_abstraction-5ff6b9.cu
-clang-13: note: diagnostic msg: /tmp/kokkos_abstraction-f6f273.cu
-clang-13: note: diagnostic msg: /tmp/kokkos_abstraction-5ff6b9.sh
-clang-13: note: diagnostic msg: 
-
-********************
-```
-
-A: Try adding `-Og` to the `CMAKE_CXX_FLAGS`.
-
----

@@ -32,10 +32,6 @@ else()
   set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -fopenmp-simd")
 endif()
 
-if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
-  set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -Og")
-endif()
-
 if (${MACHINE_VARIANT} MATCHES "mpi")
   # not using the following as the default is determined correctly
   #set(TEST_MPIEXEC mpiexec CACHE STRING "Command to launch MPI applications")

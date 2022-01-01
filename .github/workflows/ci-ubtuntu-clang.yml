@@ -17,6 +17,12 @@ jobs:
         cmake_build_type: ['Release', 'Debug']
         device: ['cuda', 'host']
         parallel: ['serial', 'mpi']
+        exclude:
+          # Debug cuda clang build fail for the unit test.
+          # Exclude for now until we figure out what's going on.
+          - cxx: clang++-12
+            device: cuda
+            cmake_build_type: Debug
     runs-on: ubuntu-latest
     container:
       image: registry.gitlab.com/pgrete/parthenon/cuda11.4.2-mpi-hdf5
