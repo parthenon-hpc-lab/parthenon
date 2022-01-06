@@ -12,6 +12,7 @@
 //========================================================================================
 #include <algorithm>
 #include <cstdlib>
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
