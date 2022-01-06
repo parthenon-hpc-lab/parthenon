@@ -80,8 +80,6 @@ TaskStatus SwarmContainer::Defrag(double min_occupancy) {
                            "Max fractional occupancy of swarm must be >= 0 and <= 1");
 
   for (auto &s : swarmVector_) {
-    // TODO(BRR) Why is this called?
-    s->SetupPersistentMPI();
     if (s->GetNumActive() > 0 &&
         s->GetNumActive() / (s->GetMaxActiveIndex() + 1.0) < min_occupancy) {
       s->Defrag();

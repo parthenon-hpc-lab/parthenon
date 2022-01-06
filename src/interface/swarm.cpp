@@ -18,6 +18,7 @@
 
 #include "mesh/mesh.hpp"
 #include "swarm.hpp"
+#include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
 
 namespace parthenon {
@@ -515,8 +516,10 @@ void Swarm::SortParticlesByCell() {
       "Write unsorted list", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         int i, j, k;
         swarm_d.Xtoijk(x(n), y(n), z(n), i, j, k);
-        const int cell_idx_1d = i + nx1 * (j + nx2 * k);
-        cellSorted(n) = SwarmKey(cell_idx_1d, n);
+        const int64_t cell_idx_1d = i + nx1 * (j + nx2 * k);
+        PARTHENON_DEBUG_REQUIRE(cell_idx_1d < std::numeric_limits<int>::max(),
+                                "cell_idx_1d exceeds size of int32!");
+        cellSorted(n) = SwarmKey(static_cast<int>(cell_idx_1d), n);
       });
 
   sort(cellSorted, SwarmKeyComparator(), 0, max_active_index);

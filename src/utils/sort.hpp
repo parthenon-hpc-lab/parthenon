@@ -20,6 +20,8 @@
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
 
+#include <Kokkos_Sort.hpp>
+
 #ifdef KOKKOS_ENABLE_CUDA
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>

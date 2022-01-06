@@ -35,6 +35,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // Don't do anything for now
 }
 
+enum class DepositionMethod { per_particle, per_cell };
+
 // *************************************************//
 // define the "physics" package particles_package, *//
 // which includes defining various functions that  *//
@@ -63,7 +65,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::string deposition_method =
       pin->GetOrAddString("Particles", "deposition_method", "per_particle");
-  pkg->AddParam<>("deposition_method", deposition_method);
+  if (deposition_method == "per_particle") {
+    pkg->AddParam<>("deposition_method", DepositionMethod::per_particle);
+  } else if (deposition_method == "per_cell") {
+    pkg->AddParam<>("deposition_method", DepositionMethod::per_cell);
+  } else {
+    PARTHENON_THROW("deposition method not recognized");
+  }
 
   bool orbiting_particles =
       pin->GetOrAddBoolean("Particles", "orbiting_particles", false);
@@ -143,10 +151,10 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
-TaskStatus SortParticlesIfNecessary(MeshBlock *pmb) {
+TaskStatus SortParticlesIfUsingPerCellDeposition(MeshBlock *pmb) {
   auto pkg = pmb->packages.Get("particles_package");
-  const auto deposition_method = pkg->Param<std::string>("deposition_method");
-  if (deposition_method == "per_cell") {
+  const auto deposition_method = pkg->Param<DepositionMethod>("deposition_method");
+  if (deposition_method == DepositionMethod::per_cell) {
     auto swarm = pmb->swarm_data.Get()->Get("my particles");
     swarm->SortParticlesByCell();
   }
@@ -160,7 +168,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   auto pkg = pmb->packages.Get("particles_package");
-  const auto deposition_method = pkg->Param<std::string>("deposition_method");
+  const auto deposition_method = pkg->Param<DepositionMethod>("deposition_method");
 
   // Meshblock geometry
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -182,7 +190,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   auto &particle_dep = pmb->meshblock_data.Get()->Get("particle_deposition").data;
   const int ndim = pmb->pmy_mesh->ndim;
 
-  if (deposition_method == "per_particle") {
+  if (deposition_method == DepositionMethod::per_particle) {
     // Reset particle count
     pmb->par_for(
         "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -209,7 +217,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
             }
           }
         });
-  } else if (deposition_method == "per_cell") {
+  } else if (deposition_method == DepositionMethod::per_cell) {
     pmb->par_for(
         "DepositParticlesByCell", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
@@ -219,8 +227,6 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
             particle_dep(k, j, i) += weight(idx);
           }
         });
-  } else {
-    PARTHENON_FAIL("deposition_method not recognized!");
   }
 
   Kokkos::Profiling::popRegion(); // Task_Particles_DepositParticles
@@ -627,8 +633,8 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
 
     auto destroy_some_particles = tl.AddTask(none, DestroySomeParticles, pmb.get());
 
-    auto sort_particles =
-        tl.AddTask(destroy_some_particles, SortParticlesIfNecessary, pmb.get());
+    auto sort_particles = tl.AddTask(destroy_some_particles,
+                                     SortParticlesIfUsingPerCellDeposition, pmb.get());
 
     auto deposit_particles = tl.AddTask(sort_particles, DepositParticles, pmb.get());
 
