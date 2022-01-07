@@ -22,7 +22,7 @@ endif()
 # The following lines determine the default loop pattern by setting the
 # default defines to the appropriate "tags" in the config.hpp file.
 # See `kokkos_abstraction.hpp` for available tags and what they translate to.
-if (${Kokkos_ENABLE_CUDA})
+if (${Kokkos_ENABLE_CUDA} OR ${Kokkos_ENABLE_HIP})
   set(PAR_LOOP_LAYOUT "MANUAL1D_LOOP" CACHE STRING
     "Default loop layout for parallel_for wrapper")
 
@@ -39,7 +39,7 @@ elseif(${Kokkos_ENABLE_HPX})
   message( FATAL_ERROR "Need to add/fix/test default loop layouts for HPX backend.")
 
 else()
-  # use simd for loop when not using Nvidia GPUs
+  # use simd for loop when running on host
   set(PAR_LOOP_LAYOUT "SIMDFOR_LOOP" CACHE STRING
     "Default loop layout for parallel_for wrapper")
   set(PAR_LOOP_LAYOUT_VALUES "SIMDFOR_LOOP;MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTVR_LOOP;TPTTRTVR_LOOP"

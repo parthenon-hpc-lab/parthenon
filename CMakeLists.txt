@@ -132,8 +132,8 @@ if (NOT PARTHENON_DISABLE_OPENMP)
   # Using Host OpenMP and Cuda with nvcc currently does not compile with C++17 standard.
   # Also there is no proper support for two separate execution spaces in Parthenon right now.
   # We may need to revisit this logic when OpenMP target for devices will be used in the future.
-  if (Kokkos_ENABLE_CUDA)
-    message(STATUS "Parthenon is not using Host OpenMP because Cuda is enabled")
+  if (Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
+    message(STATUS "Parthenon is not using Host OpenMP because Cuda or HIP is enabled")
   else()
     find_package(OpenMP COMPONENTS CXX)
     if (NOT OpenMP_FOUND)

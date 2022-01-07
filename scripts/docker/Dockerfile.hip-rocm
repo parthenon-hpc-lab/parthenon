@@ -17,6 +17,6 @@ RUN cd /tmp && \
 # "mpic++ --showme" forgets open-pal in Ubuntu 20.04 + OpenMPI 4.0.3
 #   https://bugs.launchpad.net/ubuntu/+source/openmpi/+bug/1941786
 #   https://github.com/open-mpi/ompi/issues/9317
-ENV export LDFLAGS="-lopen-pal"
+ENV LDFLAGS="-lopen-pal"
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 10
