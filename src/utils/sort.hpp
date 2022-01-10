@@ -43,7 +43,11 @@ void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx,
   thrust::device_ptr<Key> last_d = thrust::device_pointer_cast(data.data()) + max_idx + 1;
   thrust::sort(first_d, last_d, comparator);
 #else
-  std::sort(data.data() + min_idx, data.data() + max_idx + 1, comparator);
+  if (std::is_same<DevExecSpace, HostExecSpace>::value) {
+    std::sort(data.data() + min_idx, data.data() + max_idx + 1, comparator);
+  } else {
+    PARTHENON_FAIL("sort is not supported outside of CPU or NVIDIA GPU");
+  }
 #endif // KOKKOS_ENABLE_CUDA
 }
 
@@ -58,7 +62,11 @@ void sort(ParArray1D<Key> data, size_t min_idx, size_t max_idx) {
   thrust::device_ptr<Key> last_d = thrust::device_pointer_cast(data.data()) + max_idx + 1;
   thrust::sort(first_d, last_d);
 #else
-  std::sort(data.data() + min_idx, data.data() + max_idx + 1);
+  if (std::is_same<DevExecSpace, HostExecSpace>::value) {
+    std::sort(data.data() + min_idx, data.data() + max_idx + 1);
+  } else {
+    PARTHENON_FAIL("sort is not supported outside of CPU or NVIDIA GPU");
+  }
 #endif // KOKKOS_ENABLE_CUDA
 }
 

@@ -497,6 +497,8 @@ void Swarm::SortParticlesByCell() {
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nx2 = pmb->cellbounds.ncellsj(IndexDomain::entire);
   const int nx3 = pmb->cellbounds.ncellsk(IndexDomain::entire);
+  PARTHENON_REQUIRE(nx1 * nx2 * nx3 < std::numeric_limits<int>::max(),
+                    "Too many cells for an int32 to store cell_idx_1d below!");
 
   auto cellSorted = cellSorted_;
   int ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
@@ -518,8 +520,6 @@ void Swarm::SortParticlesByCell() {
         int i, j, k;
         swarm_d.Xtoijk(x(n), y(n), z(n), i, j, k);
         const int64_t cell_idx_1d = i + nx1 * (j + nx2 * k);
-        PARTHENON_DEBUG_REQUIRE(cell_idx_1d < std::numeric_limits<int>::max(),
-                                "cell_idx_1d exceeds size of int32!");
         cellSorted(n) = SwarmKey(static_cast<int>(cell_idx_1d), n);
       });
 
