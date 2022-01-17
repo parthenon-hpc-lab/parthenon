@@ -24,6 +24,7 @@ list(APPEND unit_tests_SOURCES
     test_unit_params.cpp
     test_unit_constants.cpp
     test_unit_domain.cpp
+    test_unit_sort.cpp
     kokkos_abstraction.cpp
     test_metadata.cpp
     test_pararrays.cpp
