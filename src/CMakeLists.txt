@@ -207,6 +207,7 @@ add_library(parthenon
   utils/reductions.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp
+  utils/sort.hpp
   utils/string_utils.cpp
   utils/string_utils.hpp
   utils/utils.hpp

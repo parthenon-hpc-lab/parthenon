@@ -60,6 +60,16 @@ swarm.pmy_block->par_for("Simple loop", 0, swarm.GetMaxActiveIndex(),
   });
 ```
 
+## Sorting
+
+By default, particles are stored in per-meshblock pools of memory. However, one frequently wants
+convenient access to all the particles in each computational cell separately. To facilitate this,
+the Swarm provides the method `SortParticlesByCell` (and the `SwarmContainer` provides the matching
+task `SortParticlesByCell`). Calling this function populates internal data structures that map from
+per-cell indices to the per-meshblock data array. These are accessed by the `SwarmDeviceContext`
+member functions `GetParticleCountPerCell` and `GetFullIndex`. See `examples/particles` for example
+usage.
+
 ## Defragmenting
 
 Because one typically loops over particles from 0 to `max_active_index`, if only a small

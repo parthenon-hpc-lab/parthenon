@@ -57,4 +57,5 @@ num_particles = 10
 particle_speed = 1.0
 rng_seed = 23487
 const_dt = 0.5
+deposition_method = per_cell
 destroy_particles_frac = 0.1
