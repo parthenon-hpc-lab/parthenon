@@ -56,12 +56,8 @@ class CG_Solver : public CG_Counter {
     Init(pkg);
   }
 
-  enum Precon_Type
-  {
-    NONE=1,DIAG_SCALING=2,ICC=3, ERROR=4
-  };
-  
-    
+  enum Precon_Type { NONE = 1, DIAG_SCALING = 2, ICC = 3, ERROR = 4 };
+
   void Init(StateDescriptor *pkg) {
     // add a couple of vectors for solver..
     auto mcdo = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
@@ -69,8 +65,7 @@ class CG_Solver : public CG_Counter {
     sol_name = pkg->Param<std::string>("sol_name");
     rhs_name = pkg->Param<std::string>("rhs_name");
     pcm_name = "";
-    
-    
+
     const std::string cg_id(std::to_string(global_num_cg_solvers));
     solver_name = "internal_cg_" + cg_id;
     zk = "zk" + cg_id;
@@ -86,31 +81,29 @@ class CG_Solver : public CG_Counter {
     auto mcif = Metadata({Metadata::Cell, Metadata::FillGhost});
     pkg->AddField(pk, mcif);
 
-    //setting up preconditioner.
+    // setting up preconditioner.
     precon_name = pkg->Param<std::string>("precon_name");
-    
-    if(precon_name== "none")
-      precon_type=Precon_Type::NONE;
-    else if(precon_name == "diag")
-      precon_type=Precon_Type::DIAG_SCALING;
-    else if( precon_name == "icc")
-    {
-      
+
+    if (precon_name == "none")
+      precon_type = Precon_Type::NONE;
+    else if (precon_name == "diag")
+      precon_type = Precon_Type::DIAG_SCALING;
+    else if (precon_name == "icc") {
+
       precon_type = Precon_Type::ICC;
       pcm_name = pkg->Param<std::string>("pcm_name");
-    }
-    else
-      precon_type=Precon_Type::ERROR;
-    
+    } else
+      precon_type = Precon_Type::ERROR;
+
     global_num_cg_solvers++;
   }
 
   std::vector<std::string> SolverState() const {
     if (use_sparse_accessor) {
-      if( precon_type == Precon_Type::ICC )
+      if (precon_type == Precon_Type::ICC)
         return std::vector<std::string>({zk, res, apk, pk, spm_name, pcm_name, rhs_name});
       else
-      return std::vector<std::string>({zk, res, apk, pk, spm_name, rhs_name});
+        return std::vector<std::string>({zk, res, apk, pk, spm_name, rhs_name});
     } else {
       return std::vector<std::string>({zk, res, apk, pk, rhs_name});
     }
@@ -126,10 +119,9 @@ class CG_Solver : public CG_Counter {
   bool GetFail() const { return fail_flag; }
   bool GetWarn() const { return warn_flag; }
 
-  TaskID createTaskList(const TaskID &begin, const int i,
-                          TaskRegion &tr,
-                          std::shared_ptr<MeshData<Real>> md,
-                          std::shared_ptr<MeshData<Real>> mout) {
+  TaskID createTaskList(const TaskID &begin, const int i, TaskRegion &tr,
+                        std::shared_ptr<MeshData<Real>> md,
+                        std::shared_ptr<MeshData<Real>> mout) {
     auto &solver = tr[i].AddIteration(solver_name);
     solver.SetMaxIterations(max_iters);
     solver.SetCheckInterval(check_interval);
@@ -138,10 +130,9 @@ class CG_Solver : public CG_Counter {
     return createTaskList(begin, i, tr, solver, md, mout);
   }
 
-  TaskID createTaskList(const TaskID &begin, const int i,
-                          TaskRegion &tr, IterativeTasks &solver,
-                          std::shared_ptr<MeshData<Real>> md,
-                          std::shared_ptr<MeshData<Real>> mout) {
+  TaskID createTaskList(const TaskID &begin, const int i, TaskRegion &tr,
+                        IterativeTasks &solver, std::shared_ptr<MeshData<Real>> md,
+                        std::shared_ptr<MeshData<Real>> mout) {
     TaskID none(0);
     TaskList &tl = tr[i];
     RegionCounter reg(solver_name);
@@ -158,12 +149,12 @@ class CG_Solver : public CG_Counter {
     // z = Minv*r;
     auto init_cg = tl.AddTask(begin, &CG_Solver<SPType>::InitializeCG<MeshData<Real>>,
                               this, md.get(), mout.get());
-    
-    auto precon0 = tl.AddTask(init_cg, &CG_Solver<SPType>::Precon<MeshData<Real>>,
-                              this, md.get());
 
-    auto rdotz0 = tl.AddTask(precon0, &CG_Solver<SPType>::RdotZ<MeshData<Real>>,
-                             this, md.get(),  &r_dot_z.val);
+    auto precon0 =
+        tl.AddTask(init_cg, &CG_Solver<SPType>::Precon<MeshData<Real>>, this, md.get());
+
+    auto rdotz0 = tl.AddTask(precon0, &CG_Solver<SPType>::RdotZ<MeshData<Real>>, this,
+                             md.get(), &r_dot_z.val);
 
     tr.AddRegionalDependencies(reg.ID(), i, rdotz0);
 
@@ -184,8 +175,8 @@ class CG_Solver : public CG_Counter {
     // Iteration starts here.
     // p = beta*p+z; NOTE: at the first iteration, beta=0 so p=z;
     auto axpy1 =
-        solver.AddTask(init_cg | finish_global_rz, &CG_Solver<SPType>::Axpy1<MeshData<Real>>,
-                       this, md.get());
+        solver.AddTask(init_cg | finish_global_rz,
+                       &CG_Solver<SPType>::Axpy1<MeshData<Real>>, this, md.get());
 
     // ghost exchange.
     auto start_recv = solver.AddTask(none, &MeshData<Real>::StartReceiving, md.get(),
@@ -199,8 +190,8 @@ class CG_Solver : public CG_Counter {
     auto clear = solver.AddTask(send | setb, &MeshData<Real>::ClearBoundary, md.get(),
                                 BoundaryCommSubset::all);
     // matvec Ap = J*p
-    auto matvec = solver.AddTask(clear, &CG_Solver<SPType>::MatVec<MeshData<Real>>,
-                                 this, md.get());
+    auto matvec =
+        solver.AddTask(clear, &CG_Solver<SPType>::MatVec<MeshData<Real>>, this, md.get());
     tr.AddRegionalDependencies(reg.ID(), i, matvec);
 
     // reduce p.Ap
@@ -213,7 +204,7 @@ class CG_Solver : public CG_Counter {
 
     // alpha = r.z/p.Ap
     auto alpha = solver.AddTask(finish_global_pAp | finish_global_rz,
-                    &CG_Solver<SPType>::UpdateAlpha, this, i);
+                                &CG_Solver<SPType>::UpdateAlpha, this, i);
     tr.AddRegionalDependencies(reg.ID(), i, alpha);
 
     // x = x+alpha*p
@@ -223,28 +214,28 @@ class CG_Solver : public CG_Counter {
     auto double_axpy =
         solver.AddTask(alpha, &CG_Solver<SPType>::DoubleAxpy<MeshData<Real>>, this,
                        md.get(), mout.get());
-    auto precon =
-        solver.AddTask(double_axpy, &CG_Solver<SPType>::Precon<MeshData<Real>>, this,
-                       md.get());
-    auto rdotz =
-        solver.AddTask(precon, &CG_Solver<SPType>::RdotZ<MeshData<Real>>, this,
-                       md.get(), &r_dot_z_new.val);
+    auto precon = solver.AddTask(double_axpy, &CG_Solver<SPType>::Precon<MeshData<Real>>,
+                                 this, md.get());
+    auto rdotz = solver.AddTask(precon, &CG_Solver<SPType>::RdotZ<MeshData<Real>>, this,
+                                md.get(), &r_dot_z_new.val);
     tr.AddRegionalDependencies(reg.ID(), i, rdotz);
 
     // reduce p.Ap
     auto start_global_rz_new =
-        (i == 0 ? solver.AddTask(rdotz, &AllReduce<Real>::StartReduce, &r_dot_z_new,
-                                 MPI_SUM)
-                : rdotz);
+        (i == 0
+             ? solver.AddTask(rdotz, &AllReduce<Real>::StartReduce, &r_dot_z_new, MPI_SUM)
+             : rdotz);
     auto finish_global_rz_new =
         solver.AddTask(start_global_rz_new, &AllReduce<Real>::CheckReduce, &r_dot_z_new);
 
     // beta= rz_new/rz
     // and check convergence..
-    auto beta = solver.AddTask(finish_global_rz_new, &CG_Solver<SPType>::UpdateInternals, this, i);
+    auto beta = solver.AddTask(finish_global_rz_new, &CG_Solver<SPType>::UpdateInternals,
+                               this, i);
     tr.AddRegionalDependencies(reg.ID(), i, beta);
 
-    auto check = solver.SetCompletionTask(beta, &CG_Solver<SPType>::CheckConvergence, this, i, false);
+    auto check = solver.SetCompletionTask(beta, &CG_Solver<SPType>::CheckConvergence,
+                                          this, i, false);
     tr.AddGlobalDependencies(reg.ID(), i, check);
 
     return check;
@@ -253,7 +244,7 @@ class CG_Solver : public CG_Counter {
   TaskStatus DoNothing() { return TaskStatus::complete; }
   TaskStatus UpdateAlpha(const int &i) {
     if (i == 0) {
-      alphak = r_dot_z.val/p_dot_ap.val;
+      alphak = r_dot_z.val / p_dot_ap.val;
       r_dot_z_new.val = 0.0;
       p_dot_ap.val = 0.0;
     }
@@ -261,7 +252,7 @@ class CG_Solver : public CG_Counter {
   }
   TaskStatus UpdateInternals(const int &i) {
     if (i == 0) {
-      betak = r_dot_z_new.val/r_dot_z.val;
+      betak = r_dot_z_new.val / r_dot_z.val;
       res_global = std::sqrt(r_dot_z.val);
       if (cg_cntr == 0) res_global0 = res_global;
       cg_cntr++;
@@ -274,13 +265,13 @@ class CG_Solver : public CG_Counter {
     if (report) {
       if (parthenon::Globals::my_rank == 0) {
         std::cout << parthenon::Globals::my_rank << " its= " << cg_cntr
-                  << " relative res: " << res_global / res_global0
-                  << " absolute-res " << res_global
-                  << " relerr-tol: " << error_tol << std::endl
+                  << " relative res: " << res_global / res_global0 << " absolute-res "
+                  << res_global << " relerr-tol: " << error_tol << std::endl
                   << std::flush;
       }
     }
-    return (res_global/res_global0 < error_tol ? TaskStatus::complete : TaskStatus::iterate);
+    return (res_global / res_global0 < error_tol ? TaskStatus::complete
+                                                 : TaskStatus::iterate);
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////
@@ -324,8 +315,7 @@ class CG_Solver : public CG_Counter {
     PackIndexMap imap;
     std::vector<std::string> vars({zk, res, spm_name});
 
-    if(precon_type == Precon_Type::ICC)
-      vars.push_back(pcm_name);
+    if (precon_type == Precon_Type::ICC) vars.push_back(pcm_name);
 
     const auto &v = u->PackVariables(vars, imap);
 
@@ -343,20 +333,19 @@ class CG_Solver : public CG_Counter {
 
     Real sum(0);
     Real gsum(0);
-    
-    switch(precon_type)
-    {
+
+    switch (precon_type) {
     case Precon_Type::NONE:
-        parthenon::par_for(
+      parthenon::par_for(
           parthenon::loop_pattern_mdrange_tag, "noprecon", DevExecSpace(), 0,
           v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
             // z=r/J_ii
             v(b, izk, k, j, i) = v(b, ires, k, j, i);
           });
-        break;
+      break;
     case Precon_Type::DIAG_SCALING:
-        parthenon::par_for(
+      parthenon::par_for(
           parthenon::loop_pattern_mdrange_tag, "diag_scaling", DevExecSpace(), 0,
           v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
@@ -365,16 +354,15 @@ class CG_Solver : public CG_Counter {
             v(b, izk, k, j, i) = v(b, ires, k, j, i) / J_ii;
           });
       break;
-    case Precon_Type::ICC:
-    {
-      int nx=(ib.e-ib.s)+1;
-      int ny=(jb.e-jb.s)+1;
-      int nz=(kb.e-kb.s)+1;
-      int nxny = nx*ny;
+    case Precon_Type::ICC: {
+      int nx = (ib.e - ib.s) + 1;
+      int ny = (jb.e - jb.s) + 1;
+      int nz = (kb.e - kb.s) + 1;
+      int nxny = nx * ny;
       const auto ioff = sp_accessor.ioff;
       const auto joff = sp_accessor.joff;
       const auto koff = sp_accessor.koff;
-    
+
       const int ipcm_lo = imap[pcm_name].first;
       const int ipcm_hi = imap[pcm_name].second;
       int pc_diag = sp_accessor.ndiag + ipcm_lo;
@@ -383,46 +371,41 @@ class CG_Solver : public CG_Counter {
 
       // first copy r into z.
       parthenon::par_for(
-        parthenon::loop_pattern_mdrange_tag, "noprecon", DevExecSpace(), 0,
-        v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          // z=r/J_ii
-               int l = (i-ib.s)+nx*(j-jb.s)+nxny*(k-kb.s);
-          v(b, izk, k, j, i) = v(b, ires, k, j, i);
-        });
-      
+          parthenon::loop_pattern_mdrange_tag, "noprecon", DevExecSpace(), 0,
+          v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+            // z=r/J_ii
+            int l = (i - ib.s) + nx * (j - jb.s) + nxny * (k - kb.s);
+            v(b, izk, k, j, i) = v(b, ires, k, j, i);
+          });
+
       // step1: x=(D+L)^-1 *r
-      for(int b=0;b<v.GetDim(5);++b)
-      {
-        for(int k=kb.s;k<kb.e+1;++k)
-        {
-          for(int j=jb.s;j<jb.e+1;++j)
-          {
-            for(int i=ib.s;i<ib.e+1;++i)
-            {
+      for (int b = 0; b < v.GetDim(5); ++b) {
+        for (int k = kb.s; k < kb.e + 1; ++k) {
+          for (int j = jb.s; j < jb.e + 1; ++j) {
+            for (int i = ib.s; i < ib.e + 1; ++i) {
               Real sum(0);
-              
-              int l = (i-ib.s)+nx*(j-jb.s)+nxny*(k-kb.s);
-              for(int col=ipcm_lo; col<=ipcm_hi;col++)// m-loop
+
+              int l = (i - ib.s) + nx * (j - jb.s) + nxny * (k - kb.s);
+              for (int col = ipcm_lo; col <= ipcm_hi; col++) // m-loop
               {
                 // a(l,m) = v(col,k,j,i)
                 // a(m,l) = v(off_inv+ipcm_lo,k2,j2,i2)
                 const int off = col - ipcm_lo;
                 // get neighbor id.
-                int i2 = i+ioff(off);
-                int j2 = j+joff(off);
-                int k2 = k+koff(off);
-                int m = (i2-ib.s)+nx*(j2-jb.s)+nxny*(k2-kb.s);
-                if(  m < l )
-                {
-                  sum += v(b,col,k,j,i)*v(b,izk,k2,j2,i2);
+                int i2 = i + ioff(off);
+                int j2 = j + joff(off);
+                int k2 = k + koff(off);
+                int m = (i2 - ib.s) + nx * (j2 - jb.s) + nxny * (k2 - kb.s);
+                if (m < l) {
+                  sum += v(b, col, k, j, i) * v(b, izk, k2, j2, i2);
                 }
-              }//ncol
-              v(b,izk,k,j,i) = (v(b,izk,k,j,i)-sum)/v(b,pc_diag,k,j,i);
-            }//i
-          }//j
-        }//k
-      }//b
+              } // ncol
+              v(b, izk, k, j, i) = (v(b, izk, k, j, i) - sum) / v(b, pc_diag, k, j, i);
+            } // i
+          }   // j
+        }     // k
+      }       // b
 #if 0
       //step2 y = Dx
       for(int b=0;b<v.GetDim(5);++b)
@@ -440,53 +423,48 @@ class CG_Solver : public CG_Counter {
       }//b
 #endif
       // step3: z=(D+U)^-1 *y
-      for(int b=0;b<v.GetDim(5);++b)
-      {
-        for(int k=kb.e;k>=kb.s;--k)
-        {
-          for(int j=jb.e;j>=jb.s;--j)
-          {
-            for(int i=ib.e; i>= ib.s;--i)
-            {
+      for (int b = 0; b < v.GetDim(5); ++b) {
+        for (int k = kb.e; k >= kb.s; --k) {
+          for (int j = jb.e; j >= jb.s; --j) {
+            for (int i = ib.e; i >= ib.s; --i) {
               Real sum(0);
-              
-              int l = (i-ib.s)+nx*(j-jb.s)+nxny*(k-kb.s);
-              for(int col=ipcm_lo; col<=ipcm_hi;col++)// m-loop
+
+              int l = (i - ib.s) + nx * (j - jb.s) + nxny * (k - kb.s);
+              for (int col = ipcm_lo; col <= ipcm_hi; col++) // m-loop
               {
                 // a(l,m) = v(col,k,j,i)
                 // a(m,l) = v(off_inv+ipcm_lo,k2,j2,i2)
                 const int off = col - ipcm_lo;
                 // get neighbor id.
-                int i2 = i+ioff(off);
-                int j2 = j+joff(off);
-                int k2 = k+koff(off);
-                int m = (i2-ib.s)+nx*(j2-jb.s)+nxny*(k2-kb.s);
-                if(  m > l )
-                  sum += v(b,col,k,j,i)*v(b,izk,k2,j2,i2);
-              }//ncol
-              v(b,izk,k,j,i) = (v(b,izk,k,j,i)-sum)/v(b,pc_diag,k,j,i);
-         //  std::cout<< " step: " << v(b,izk,k,j,i)
-          //   <<" " << v(b,ires,k,j,i)<<std::endl;
-              
-            }//i
-          }//j
-        }//k
-      }//b
+                int i2 = i + ioff(off);
+                int j2 = j + joff(off);
+                int k2 = k + koff(off);
+                int m = (i2 - ib.s) + nx * (j2 - jb.s) + nxny * (k2 - kb.s);
+                if (m > l) sum += v(b, col, k, j, i) * v(b, izk, k2, j2, i2);
+              } // ncol
+              v(b, izk, k, j, i) = (v(b, izk, k, j, i) - sum) / v(b, pc_diag, k, j, i);
+              //  std::cout<< " step: " << v(b,izk,k,j,i)
+              //   <<" " << v(b,ires,k,j,i)<<std::endl;
+
+            } // i
+          }   // j
+        }     // k
+      }       // b
     }
-    
-      break;
-      
-    default :
-      std::cout <<"Preconditiong invalid...."<<std::endl;
+
+    break;
+
+    default:
+      std::cout << "Preconditiong invalid...." << std::endl;
       throw;
       break;
     }
-    
+
     return TaskStatus::complete;
   } // Precon
   /////////////////////////////////////////////////////////////////////////
   template <typename T>
-  TaskStatus RdotZ(T *u,  Real *reduce_sum) {
+  TaskStatus RdotZ(T *u, Real *reduce_sum) {
     auto pm = u->GetParentPointer();
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
@@ -515,7 +493,6 @@ class CG_Solver : public CG_Counter {
     return TaskStatus::complete;
   } // RdotZ
 
-  
   /////////////////////////////////////////////////////////////////////////
   template <typename T>
   TaskStatus InitializeCG(T *u, T *du) {
@@ -524,17 +501,16 @@ class CG_Solver : public CG_Counter {
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
     const auto &kb = u->GetBoundsK(IndexDomain::interior);
 
-    int nx=(ib.e-ib.s)+1;
-    int ny=(jb.e-jb.s)+1;
-    int nz=(kb.e-kb.s)+1;
-    int nxny = nx*ny;
-    
+    int nx = (ib.e - ib.s) + 1;
+    int ny = (jb.e - jb.s) + 1;
+    int nz = (kb.e - kb.s) + 1;
+    int nxny = nx * ny;
+
     PackIndexMap imap;
     std::vector<std::string> vars({zk, pk, res, rhs_name, spm_name});
 
-    if(precon_type == Precon_Type::ICC)
-      vars.push_back(pcm_name);
-    
+    if (precon_type == Precon_Type::ICC) vars.push_back(pcm_name);
+
     const auto &v = u->PackVariables(vars, imap);
 
     // this get cell variable..
@@ -552,7 +528,7 @@ class CG_Solver : public CG_Counter {
     } else {
       diag = stencil.ndiag;
     }
-    
+
     // assume solution is in "dv"
     const std::vector<std::string> var2({sol_name});
     PackIndexMap imap2;
@@ -576,56 +552,53 @@ class CG_Solver : public CG_Counter {
         });
 
     // do incomplete cholesky factorization..
-    //pcm="preconditioning matrix"
-    if(precon_type == Precon_Type::ICC)
-    {
+    // pcm="preconditioning matrix"
+    if (precon_type == Precon_Type::ICC) {
       //  const auto ioff = sp_accessor.ioff;
-      //const auto joff = sp_accessor.joff;
-      //const auto koff = sp_accessor.koff;
-    
-      //const int ipcm_lo = imap[pcm_name].first;
-      //const int ipcm_hi = imap[pcm_name].second;
+      // const auto joff = sp_accessor.joff;
+      // const auto koff = sp_accessor.koff;
+
+      // const int ipcm_lo = imap[pcm_name].first;
+      // const int ipcm_hi = imap[pcm_name].second;
       int pc_diag = sp_accessor.ndiag + ipcm_lo;
 
       int nstencil = sp_accessor.nstencil;
 
       // copy matrix into precon matrix.
       parthenon::par_for(
-        parthenon::loop_pattern_mdrange_tag, "icc_copy", DevExecSpace(), 0,
-        v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          for(int n=ipcm_lo, n2=0; n<=ipcm_hi;n++,n2++)
-          {
-            v(b, n, k, j, i) = v(b,isp_lo+n2,k,j,i);
-          }//n
-        });
+          parthenon::loop_pattern_mdrange_tag, "icc_copy", DevExecSpace(), 0,
+          v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+            for (int n = ipcm_lo, n2 = 0; n <= ipcm_hi; n++, n2++) {
+              v(b, n, k, j, i) = v(b, isp_lo + n2, k, j, i);
+            } // n
+          });
 
-
-// This is only works (for now) for 5pt (2d) or 7pt(3d) stencil ...
-//outer loop.
+      // This is only works (for now) for 5pt (2d) or 7pt(3d) stencil ...
+      // outer loop.
       int left(0), right(2), bottom(3), top(5);
 
-      for(int b=0;b<v.GetDim(5);++b)
-      {
-        for(int k=kb.s;k<kb.e+1;++k)
-        {
-          for(int j=jb.s;j<jb.e+1;++j)
-          {
-            for(int i=ib.s;i<ib.e+1;++i)
-            {
+      for (int b = 0; b < v.GetDim(5); ++b) {
+        for (int k = kb.s; k < kb.e + 1; ++k) {
+          for (int j = jb.s; j < jb.e + 1; ++j) {
+            for (int i = ib.s; i < ib.e + 1; ++i) {
               // recurrance.
               // diag_i=diag_i-left_i*right_i-1/diag_i-1-bottom_i*top_j-1/diag_j-1
-              Real val = v(b,diag,k,j,i);
-              Real val_i =-v(b,ipcm_lo+left,k,j,i)*v(b,ipcm_lo+right,k,j,i-1)/v(b,pc_diag,k,j,i-1);
-              Real val_j =-v(b,ipcm_lo+bottom,k,j,i)*(b,ipcm_lo+top,k,j-1,i)/v(b,pc_diag,k,j-1,i);;
-              if( i == ib.s ) val_i =0;
-              if( j == jb.s ) val_j =0;
-              
-              v(b,diag, k, j, i) = val+val_i+val_j;
-            }//i
-          }//j
-        }//k
-      }//b
+              Real val = v(b, diag, k, j, i);
+              Real val_i = -v(b, ipcm_lo + left, k, j, i) *
+                           v(b, ipcm_lo + right, k, j, i - 1) /
+                           v(b, pc_diag, k, j, i - 1);
+              Real val_j = -v(b, ipcm_lo + bottom, k, j, i) *
+                           (b, ipcm_lo + top, k, j - 1, i) / v(b, pc_diag, k, j - 1, i);
+              ;
+              if (i == ib.s) val_i = 0;
+              if (j == jb.s) val_j = 0;
+
+              v(b, diag, k, j, i) = val + val_i + val_j;
+            } // i
+          }   // j
+        }     // k
+      }       // b
 
 #if 0      
 // This is only works (for now) for 5pt (2d) or 7pt(3d) stencil ...
@@ -703,43 +676,39 @@ class CG_Solver : public CG_Counter {
           }//j
         }//k
       }//b
-#endif      
+#endif
       // because of the sparse matrix, we fill upper trianglar..
       // l<m
-      for(int b=0;b<v.GetDim(5);++b)
-      {
-        for(int k=kb.s;k<kb.e+1;++k)
-        {
-          for(int j=jb.s;j<jb.e+1;++j)
-          {
-            for(int i=ib.s;i<ib.e+1;++i)
-            {
-      
-              int l = (i-ib.s)+nx*(j-jb.s)+nxny*(k-kb.s);
-              for(int col=ipcm_lo; col<=ipcm_hi;col++)// m-loop
+      for (int b = 0; b < v.GetDim(5); ++b) {
+        for (int k = kb.s; k < kb.e + 1; ++k) {
+          for (int j = jb.s; j < jb.e + 1; ++j) {
+            for (int i = ib.s; i < ib.e + 1; ++i) {
+
+              int l = (i - ib.s) + nx * (j - jb.s) + nxny * (k - kb.s);
+              for (int col = ipcm_lo; col <= ipcm_hi; col++) // m-loop
               {
                 // a(l,m) = v(col,k,j,i)
                 // a(m,l) = v(off_inv+ipcm_lo,k2,j2,i2)
                 const int off = col - ipcm_lo;
                 // get neighbor id.
-                int i2 = i+ioff(off);
-                int j2 = j+joff(off);
-                int k2 = k+koff(off);
-                int m = (i2-ib.s)+nx*(j2-jb.s)+nxny*(k2-kb.s);
-                if(  l < m )
-                {
+                int i2 = i + ioff(off);
+                int j2 = j + joff(off);
+                int k2 = k + koff(off);
+                int m = (i2 - ib.s) + nx * (j2 - jb.s) + nxny * (k2 - kb.s);
+                if (l < m) {
                   int off_inv = inv_entries(off);
-                  int col_inv = ipcm_lo+off_inv;
-                  v(b,col,k,j,i) = v(b,col_inv,k2,j2,i2);
-       //           std::cout <<"v-up: " << col << " k " << k << " " << j << " " << i 
-       //            << " "  << v(b,col,k,j,i)<<std::endl;
-                }//m>l
-              }//col
-            }//i
-          }//j
-        }//k
-      }//b
-      
+                  int col_inv = ipcm_lo + off_inv;
+                  v(b, col, k, j, i) = v(b, col_inv, k2, j2, i2);
+                  //           std::cout <<"v-up: " << col << " k " << k << " " << j << "
+                  //           " << i
+                  //            << " "  << v(b,col,k,j,i)<<std::endl;
+                } // m>l
+              }   // col
+            }     // i
+          }       // j
+        }         // k
+      }           // b
+
 #if 0
       parthenon::par_for(
         parthenon::loop_pattern_mdrange_tag, "icc_0", DevExecSpace(), 0,
@@ -834,9 +803,8 @@ class CG_Solver : public CG_Counter {
             }//m>l
           }//col
         });
-      
-        
-#endif    
+
+#endif
     }
     return TaskStatus::complete;
   } // initializeCG;
@@ -894,7 +862,6 @@ class CG_Solver : public CG_Counter {
     return TaskStatus::complete;
   } // MatVec
 
-
   /////////////////////////////////////////////////////////////////////////
   template <typename T>
   TaskStatus DoubleAxpy(T *u, T *du) {
@@ -941,7 +908,7 @@ class CG_Solver : public CG_Counter {
   std::string zk, res, apk, xk, pk;
   std::string spm_name, sol_name, rhs_name, precon_name;
   std::string pcm_name;
-  
+
   Real error_tol;
   Stencil<Real> stencil;
   SparseMatrixAccessor sp_accessor;
@@ -949,7 +916,6 @@ class CG_Solver : public CG_Counter {
   bool fail_flag, warn_flag;
   bool use_sparse_accessor;
   Precon_Type precon_type;
-  
 };
 
 } // namespace solvers

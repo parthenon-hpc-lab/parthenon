@@ -27,7 +27,7 @@ struct SparseMatrixAccessor {
   ParArray1D<int> ioff, joff, koff;
   ParArray1D<int> ioff_inv, joff_inv, koff_inv;
   ParArray1D<int> inv_entries;
-  
+
   const int nstencil;
   int ndiag;
   SparseMatrixAccessor() : nstencil(0), ndiag(0) {}
@@ -37,10 +37,8 @@ struct SparseMatrixAccessor {
   SparseMatrixAccessor(const std::string &label, const int n,
                        std::vector<std::vector<int>> off)
       : ioff(label + "_ioff", n), joff(label + "_joff", n), koff(label + "_koff", n),
-        ioff_inv(label + "_ioff_inv", n),
-        joff_inv(label + "_joff_inv", n),
-        koff_inv(label + "_koff_inv", n),
-        inv_entries(label+"_inv_ent", n),
+        ioff_inv(label + "_ioff_inv", n), joff_inv(label + "_joff_inv", n),
+        koff_inv(label + "_koff_inv", n), inv_entries(label + "_inv_ent", n),
         nstencil(n) {
     PARTHENON_REQUIRE_THROWS(off.size() == 3,
                              "Offset array must have dimensions off[3][*]");
@@ -61,29 +59,25 @@ struct SparseMatrixAccessor {
       ioff_h(i) = off[0][i];
       joff_h(i) = off[1][i];
       koff_h(i) = off[2][i];
-      // this is inverse. 
+      // this is inverse.
       ioff_inv_h(i) = -off[0][i];
       joff_inv_h(i) = -off[1][i];
       koff_inv_h(i) = -off[2][i];
-      
+
       if (off[0][i] == 0 && off[1][i] == 0 && off[2][i] == 0) {
         ndiag = i;
       }
     }
     for (int i = 0; i < n; i++) {
 
-      for(int j=0; j< n ; j++)
-      {
-        if (ioff_h(i)== ioff_inv_h(j) &&
-            joff_h(i)== joff_inv_h(j) &&
-            koff_h(i)== koff_inv_h(j) )
-        {
+      for (int j = 0; j < n; j++) {
+        if (ioff_h(i) == ioff_inv_h(j) && joff_h(i) == joff_inv_h(j) &&
+            koff_h(i) == koff_inv_h(j)) {
           inv_entries(i) = j;
-          std::cout <<"inv_entries:" << i << " " << j <<std::endl;
+          std::cout << "inv_entries:" << i << " " << j << std::endl;
         }
-      }//j
-    }//i
-    
+      } // j
+    }   // i
 
     Kokkos::deep_copy(ioff, ioff_h);
     Kokkos::deep_copy(joff, joff_h);

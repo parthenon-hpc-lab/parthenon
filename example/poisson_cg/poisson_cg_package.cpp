@@ -72,9 +72,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<std::string>("rhs_name", "rhs");
   pkg->AddParam<std::string>("sol_name", "potential");
 
-  std::string precon_name = pin->GetOrAddString("poisson","precon_name", "diag");
+  std::string precon_name = pin->GetOrAddString("poisson", "precon_name", "diag");
   pkg->AddParam<std::string>("precon_name", precon_name);
-
 
   if (use_stencil) {
     std::vector<Real> wgts;
@@ -88,20 +87,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                             std::vector<int>({nstencil}));
     pkg->AddField("poisson_sparse_matrix", msp);
 
-
     auto sp_accessor =
         parthenon::solvers::SparseMatrixAccessor("accessor", nstencil, offsets);
     // pkg->AddParam("sparse_accessor", sp_accessor);
 
-
-    if( precon_name =="icc")
-    {
+    if (precon_name == "icc") {
       // setup the sparse matrix
       pkg->AddField("icc_matrix", msp);
       pkg->AddParam<std::string>("pcm_name", "icc_matrix");
 
       auto spcm_accessor =
-        parthenon::solvers::SparseMatrixAccessor("accessor", nstencil, offsets);
+          parthenon::solvers::SparseMatrixAccessor("accessor", nstencil, offsets);
     }
 
     auto cg_sol = std::make_shared<CG_Solver<SparseMatrixAccessor>>(pkg.get(), err_tol,
@@ -129,7 +125,7 @@ TaskStatus SetMatrixElements(T *u) {
   if (isp_hi < 0) { // must be using the stencil so return
     return TaskStatus::complete;
   }
-  
+
   const int ndim = v.GetNdim();
   const Real w0 = 2.0 * ndim;
   parthenon::par_for(

@@ -48,7 +48,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   TaskID none(0);
 
   auto psn_pkg = pmesh->packages.Get("poisson_package");
-  auto poisson_solver = psn_pkg->Param<std::shared_ptr<NewtonKrylov<CG_Solver<SparseMatrixAccessor>,MeshData<Real>>>>("PoissonSolver");
+  auto poisson_solver = psn_pkg->Param<
+      std::shared_ptr<NewtonKrylov<CG_Solver<SparseMatrixAccessor>, MeshData<Real>>>>(
+      "PoissonSolver");
   std::string solver_name;
   std::vector<std::string> solver_vec_names;
   solver_name = poisson_solver->label();
@@ -70,7 +72,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto &md = pmesh->mesh_data.GetOrAdd(solver_name, i);
 
     // create task list for solver.
-    auto poisson_complete = poisson_solver->createTaskList(none, i, solver_region, base, md);
+    auto poisson_complete =
+        poisson_solver->createTaskList(none, i, solver_region, base, md);
 
     auto print = none;
     if (i == 0) { // only print once

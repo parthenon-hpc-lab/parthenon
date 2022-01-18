@@ -46,9 +46,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   pmb->par_for(
       "Poisson::ProblemGenerator", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        q(iphi, k, j, i) = 0.0;
-      });
+      KOKKOS_LAMBDA(const int k, const int j, const int i) { q(iphi, k, j, i) = 0.0; });
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {

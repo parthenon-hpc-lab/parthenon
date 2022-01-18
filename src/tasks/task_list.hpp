@@ -254,7 +254,7 @@ class TaskList {
   }
   void DoAvailable() {
     auto task = task_list_.begin();
-    //for (auto &task : task_list_) {
+    // for (auto &task : task_list_) {
     while (task != task_list_.end()) {
       // first skip task if it's complete.  Possible for iterative tasks
       if (task->GetStatus() != TaskStatus::incomplete) {
@@ -269,8 +269,7 @@ class TaskList {
         } else if (task->GetStatus() == TaskStatus::skip &&
                    task->GetType() == TaskType::completion_criteria) {
           ResetIteration(task->GetKey());
-        } else if (task->GetStatus() == TaskStatus::iterate &&
-                   !task->IsRegional()) {
+        } else if (task->GetStatus() == TaskStatus::iterate && !task->IsRegional()) {
           ResetIteration(task->GetKey());
         }
       }
@@ -333,7 +332,7 @@ class TaskList {
     int key = iter_tasks.size();
     std::cout << "adding iteration " << key << "   " << label << std::endl;
     iter_tasks[key] = IterativeTasks(this, key);
-    iter_labels[key] = label;//.push_back(label);
+    iter_labels[key] = label; //.push_back(label);
     return iter_tasks[key];
   }
 
@@ -354,8 +353,8 @@ class TaskList {
   }
 
  protected:
-  std::map<int,IterativeTasks> iter_tasks;
-  std::map<int,std::string> iter_labels;
+  std::map<int, IterativeTasks> iter_tasks;
+  std::map<int, std::string> iter_labels;
   std::list<Task> task_list_;
   int tasks_added_ = 0;
   TaskID tasks_completed_;
@@ -364,16 +363,14 @@ class TaskList {
 namespace task_list_impl {
 // helper function to avoid having to call a member function of TaskList from
 // IterativeTasks before TaskList has been defined
-inline TaskID AddTaskHelper(TaskList *tl, Task tsk) { 
-  return tl->AddTask(tsk); }
+inline TaskID AddTaskHelper(TaskList *tl, Task tsk) { return tl->AddTask(tsk); }
 } // namespace task_list_impl
 
 class RegionCounter {
  public:
   explicit RegionCounter(const std::string &base) : base_(base), cnt_(0) {}
-  std::string ID() {
-    return base_+std::to_string(cnt_++);
-  }
+  std::string ID() { return base_ + std::to_string(cnt_++); }
+
  private:
   const std::string base_;
   int cnt_;

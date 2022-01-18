@@ -39,7 +39,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real lambda = pin->GetOrAddReal("poisson", "lambda", 1.5);
   pkg->AddParam<>("lambda", lambda);
 
-  int newton_max_iterations = pin->GetOrAddInteger("poisson", "newton_max_iterations", 10000);
+  int newton_max_iterations =
+      pin->GetOrAddInteger("poisson", "newton_max_iterations", 10000);
   pkg->AddParam<>("newton_max_iterations", newton_max_iterations);
 
   int newton_check_interval = pin->GetOrAddInteger("poisson", "newton_check_interval", 1);
@@ -48,10 +49,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real newt_err_tol = pin->GetOrAddReal("poisson", "newton_error_tolerance", 1.e-8);
   pkg->AddParam<>("newton_error_tolerance", newt_err_tol);
 
-  bool fail_flag = pin->GetOrAddBoolean("poisson", "newton_fail_without_convergence", false);
+  bool fail_flag =
+      pin->GetOrAddBoolean("poisson", "newton_fail_without_convergence", false);
   pkg->AddParam<>("newton_abort_on_fail", fail_flag);
 
-  bool warn_flag = pin->GetOrAddBoolean("poisson", "newton_warn_without_convergence", true);
+  bool warn_flag =
+      pin->GetOrAddBoolean("poisson", "newton_warn_without_convergence", true);
   pkg->AddParam<>("newton_warn_on_fail", warn_flag);
 
   int lin_max_iterations = pin->GetOrAddInteger("poisson", "lin_max_iterations", 10000);
@@ -80,7 +83,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<std::string>("rhs_name", "residual");
   pkg->AddParam<std::string>("sol_name", "potential");
 
-  std::string precon_name = pin->GetOrAddString("poisson","precon_name", "diag");
+  std::string precon_name = pin->GetOrAddString("poisson", "precon_name", "diag");
   pkg->AddParam<std::string>("precon_name", precon_name);
 
   // set up the stencil object corresponding to the finite difference
@@ -91,14 +94,14 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::vector<std::vector<int>> offsets(
       {{-1, 0, 1, 0, 0, 0, 0}, {0, 0, 0, -1, 1, 0, 0}, {0, 0, 0, 0, 0, -1, 1}});
   auto sp_accessor =
-        parthenon::solvers::SparseMatrixAccessor("accessor", nstencil, offsets);
+      parthenon::solvers::SparseMatrixAccessor("accessor", nstencil, offsets);
 
   // setup the sparse matrix
   Metadata msp = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
-                           std::vector<int>({nstencil}));
+                          std::vector<int>({nstencil}));
   pkg->AddField("poisson_jacobian", msp);
 
-  if( precon_name =="icc") {
+  if (precon_name == "icc") {
     // setup the sparse matrix
     pkg->AddField("icc_matrix", msp);
     pkg->AddParam<std::string>("pcm_name", "icc_matrix");
@@ -108,18 +111,19 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
 
   auto cg_sol = std::make_shared<CG_Solver<SparseMatrixAccessor>>(pkg.get(), lin_err_tol,
-                                                                    sp_accessor);
+                                                                  sp_accessor);
 
-
-  pkg->AddParam<std::function<TaskStatus(MeshData<Real>*, Real*)>>("ResidualFunc", Residual<MeshData<Real>>);
-  pkg->AddParam<std::function<TaskStatus(MeshData<Real>*)>>("JacobianFunc", Jacobian<MeshData<Real>>);
-  auto newton_krylov = std::make_shared<NewtonKrylov<CG_Solver<SparseMatrixAccessor>,MeshData<Real>>>(
-    pkg.get(), newt_err_tol, cg_sol);
+  pkg->AddParam<std::function<TaskStatus(MeshData<Real> *, Real *)>>(
+      "ResidualFunc", Residual<MeshData<Real>>);
+  pkg->AddParam<std::function<TaskStatus(MeshData<Real> *)>>("JacobianFunc",
+                                                             Jacobian<MeshData<Real>>);
+  auto newton_krylov =
+      std::make_shared<NewtonKrylov<CG_Solver<SparseMatrixAccessor>, MeshData<Real>>>(
+          pkg.get(), newt_err_tol, cg_sol);
   pkg->AddParam<>("PoissonSolver", newton_krylov);
 
   return pkg;
 }
-
 
 auto &GetCoords(std::shared_ptr<MeshBlock> &pmb) { return pmb->coords; }
 auto &GetCoords(Mesh *pm) { return pm->block_list[0]->coords; }
@@ -157,23 +161,26 @@ TaskStatus Residual(T *u, Real *res) {
     PARTHENON_REQUIRE_THROWS(dx == dy,
                              "Residual requires that DX be equal in all directions.");
   }
-  const Real dx2 = dx*dx;
-  const Real dV = std::pow(dx,ndim);
+  const Real dx2 = dx * dx;
+  const Real dV = std::pow(dx, ndim);
   StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
   const Real lam = pkg->Param<Real>("lambda");
 
   Real local_res(0.0);
   parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, "Residual", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
-      jb.s, jb.e, ib.s, ib.e,
+      parthenon::loop_pattern_mdrange_tag, "Residual", DevExecSpace(), 0, v.GetDim(5) - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lres) {
-        v(b, ires, k, j, i) = dx2 * lam * std::exp(-v(b, iphi, k, j, i))
-                            - 2*ndim*v(b, iphi, k, j, i);
-        v(b, ires, k, j, i) += (v(b, iphi, k, j, i-1) + v(b, iphi, k, j, i+1));
-        if (ndim > 1) v(b, ires, k, j, i) += (v(b, iphi, k, j-1, i) + v(b, iphi, k, j+1, i));
-        if (ndim == 3) v(b, ires, k, j ,i) += (v(b, iphi, k-1, j, i) + v(b, iphi, k+1, j, i));
+        v(b, ires, k, j, i) =
+            dx2 * lam * std::exp(-v(b, iphi, k, j, i)) - 2 * ndim * v(b, iphi, k, j, i);
+        v(b, ires, k, j, i) += (v(b, iphi, k, j, i - 1) + v(b, iphi, k, j, i + 1));
+        if (ndim > 1)
+          v(b, ires, k, j, i) += (v(b, iphi, k, j - 1, i) + v(b, iphi, k, j + 1, i));
+        if (ndim == 3)
+          v(b, ires, k, j, i) += (v(b, iphi, k - 1, j, i) + v(b, iphi, k + 1, j, i));
         lres += dV * v(b, ires, k, j, i) * v(b, ires, k, j, i);
-      }, Kokkos::Sum<Real>(local_res));
+      },
+      Kokkos::Sum<Real>(local_res));
   *res += local_res;
 
   return TaskStatus::complete;
@@ -206,10 +213,10 @@ TaskStatus Jacobian(T *u) {
     PARTHENON_REQUIRE_THROWS(dx == dy,
                              "Residual requires that DX be equal in all directions.");
   }
-  const Real dx2 = dx*dx;
+  const Real dx2 = dx * dx;
   StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
   const Real lam = pkg->Param<Real>("lambda");
-  
+
   const Real w0 = 2.0 * ndim;
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetMatElem", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
@@ -218,7 +225,7 @@ TaskStatus Jacobian(T *u) {
         for (int n = isp_lo; n <= isp_hi; n++) {
           v(b, n, k, j, i) = -1;
         }
-        v(b, isp_lo + 1, k, j, i) = w0 + dx2*lam*std::exp(-v(b, iphi, k, j, i));
+        v(b, isp_lo + 1, k, j, i) = w0 + dx2 * lam * std::exp(-v(b, iphi, k, j, i));
       });
 
   return TaskStatus::complete;
