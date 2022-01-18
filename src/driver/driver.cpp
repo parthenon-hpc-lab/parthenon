@@ -26,6 +26,8 @@
 #include "utils/utils.hpp"
 
 namespace parthenon {
+using SignalHandler::OutputSignal;
+
 // Declare class static variables
 Kokkos::Timer Driver::timer_main;
 Kokkos::Timer Driver::timer_cycle;
@@ -57,10 +59,12 @@ DriverStatus EvolutionDriver::Execute() {
   PreExecute();
   InitializeBlockTimeSteps();
   SetGlobalTimeStep();
-  pouts->MakeOutputs(pmesh, pinput, &tm);
+  OutputSignal signal = OutputSignal::none;
+  pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
       pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
+
   Kokkos::Profiling::pushRegion("Driver_Main");
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
@@ -87,13 +91,18 @@ DriverStatus EvolutionDriver::Execute() {
     if (pmesh->modified) InitializeBlockTimeSteps();
     time_LBandAMR += timer_LBandAMR.seconds();
     SetGlobalTimeStep();
-    if (tm.time < tm.tlim) // skip the final output as it happens later
-      pouts->MakeOutputs(pmesh, pinput, &tm);
 
     // check for signals
-    if (SignalHandler::CheckSignalFlags() != 0) {
-      return DriverStatus::failed;
+    signal = SignalHandler::CheckSignalFlags();
+
+    if (signal == OutputSignal::final) {
+      break;
     }
+    // skip the final (last) output at the end of the simulation time as it happens later
+    if (tm.time < tm.tlim) {
+      pouts->MakeOutputs(pmesh, pinput, &tm, signal);
+    }
+
     if (tm.ncycle == perf_cycle_offset) {
       pmesh->mbcnt = 0;
       timer_main.reset();
@@ -105,7 +114,7 @@ DriverStatus EvolutionDriver::Execute() {
 
   DriverStatus status = DriverStatus::complete;
 
-  pouts->MakeOutputs(pmesh, pinput, &tm);
+  pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
   PostExecute(status);
   return status;
 }
@@ -156,7 +165,9 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 void EvolutionDriver::SetGlobalTimeStep() {
   // don't allow dt to grow by more than 2x
   // consider making this configurable in the input
-  tm.dt *= 2.0;
+  if (tm.dt < 0.1 * std::numeric_limits<Real>::max()) {
+    tm.dt *= 2.0;
+  }
   Real big = std::numeric_limits<Real>::max();
   for (auto const &pmb : pmesh->block_list) {
     tm.dt = std::min(tm.dt, pmb->NewDt());

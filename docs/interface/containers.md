@@ -67,6 +67,19 @@ you can ommit the `map` argument in any of the above calls.
 
 For examples of use, see [here](../../tst/unit/test_meshblock_data_iterator.cpp).
 
+### Coordinates
+
+Variable packs contain a `coords` object, which is the coordinates on
+the meshblock for which the variables were packed. It can be accessed via
+```C++
+pack.GetCoords()
+```
+or
+```C++
+pack.GetCoords(i);
+```
+for any `i`. This latter API is used for consistency with `MeshBlockPack`s.
+
 # `MeshData` and `MeshBlockPack`s
 
 `Kokkos` kernel launches come with an overhead (e.g., about 6 microsecond on a V100).
@@ -200,11 +213,8 @@ Real r = meshblockpack(b,n,k,j,i);
 
 For convenience, `MeshBlockPack` also includes the following methods and fields:
 ```C++
-// the IndexShape object describing the bounds of all blocks in the pack
-IndexShape bounds = meshblockpack.cellbounds;
-
-// a 1D array of coords objects
-auto coords = meshblockpack.coords(m); // gets the Coordinates_t object on the m'th MB
+// An accessor method for the coords object on each meshblock
+auto &coords = meshblockpack.GetCoords(m); // gets the Coordinates_t object on the m'th MB
 
 // The dimensionality of the simulation. Will be 1, 2, or 3.
 // This is needed because components of the flux vector

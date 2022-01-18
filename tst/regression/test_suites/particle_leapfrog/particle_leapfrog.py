@@ -47,10 +47,23 @@ class TestCase(utils.test_case.TestCaseAbs):
                 [-0.1, 0.2, 0.3, 1.0, 0.0, 0.0],
                 [0.4, -0.1, 0.3, 0.0, 1.0, 0.0],
                 [-0.1, 0.3, 0.2, 0.0, 0.0, 0.5],
-                [0.12, 0.2, -0.3, 1.0, 1.0, 1.0],
+                [0.0, 0.0, 0.0, -1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, -1.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
+                [0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+                [0.0, 0.0, 0.0, -1.0, 1.0, 1.0],
+                [0.0, 0.0, 0.0, 1.0, -1.0, 1.0],
+                [0.0, 0.0, 0.0, 1.0, 1.0, -1.0],
+                [0.0, 0.0, 0.0, -1.0, -1.0, 1.0],
+                [0.0, 0.0, 0.0, 1.0, -1.0, -1.0],
+                [0.0, 0.0, 0.0, -1.0, 1.0, -1.0],
+                [0.0, 0.0, 0.0, -1.0, -1.0, -1.0],
             ]
         )
-        return (
-            structured_to_unstructured(final_data[["x", "y", "z", "vx", "vy", "vz"]])
-            == ref_data
-        ).all()
+        final_data = structured_to_unstructured(
+            final_data[["x", "y", "z", "vx", "vy", "vz"]]
+        )
+        if ref_data.shape != final_data.shape:
+            print("TEST FAIL: Mismatch between actual and reference data shape.")
+            return False
+        return (final_data == ref_data).all()

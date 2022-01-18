@@ -20,6 +20,7 @@
 #include "advection_package.hpp"
 #include "config.hpp"
 #include "defs.hpp"
+#include "interface/variable_pack.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -39,6 +40,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("advection_package");
   const auto &amp = pkg->Param<Real>("amp");
   const auto &vel = pkg->Param<Real>("vel");
+  const auto &vx = pkg->Param<Real>("vx");
+  const auto &vy = pkg->Param<Real>("vy");
+  const auto &vz = pkg->Param<Real>("vz");
   const auto &k_par = pkg->Param<Real>("k_par");
   const auto &cos_a2 = pkg->Param<Real>("cos_a2");
   const auto &cos_a3 = pkg->Param<Real>("cos_a3");
@@ -47,18 +51,26 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const auto &profile = pkg->Param<std::string>("profile");
 
   auto cellbounds = pmb->cellbounds;
-  IndexRange ib = cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = cellbounds.GetBoundsK(IndexDomain::entire);
+  IndexRange ib = cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
 
   auto coords = pmb->coords;
-  auto q = data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  PackIndexMap index_map;
+  auto q =
+      data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, index_map);
   const auto num_vars = q.GetDim(4);
+
+  // For non constant velocity, we need the index of the velocity vector as it's part of
+  // the variable pack.
+  const auto idx_v = index_map["v"].first;
+  const auto idx_adv = index_map.get("advected").first;
 
   int profile_type;
   if (profile == "wave") profile_type = 0;
   if (profile == "smooth_gaussian") profile_type = 1;
   if (profile == "hard_sphere") profile_type = 2;
+  if (profile == "block") profile_type = 3;
 
   pmb->par_for(
       "Advection::ProblemGenerator", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -80,6 +92,29 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           q(n, k, j, i) = 0.0;
         }
       });
+
+  const auto block_id = pmb->gid;
+  // initialize some arbitrary cells in the first block that move in all 6 directions
+  if (profile_type == 3 && block_id == 0) {
+    pmb->par_for(
+        "Advection::ProblemGenerator bvals test", 0, 1,
+        KOKKOS_LAMBDA(const int /*unused*/) {
+          q(idx_adv, 4, 4, 4) = 10.0;
+          q(idx_v, 4, 4, 4) = vx;
+          q(idx_adv, 4, 6, 4) = 10.0;
+          q(idx_v, 4, 6, 4) = -vx;
+
+          q(idx_adv, 6, 4, 4) = 10.0;
+          q(idx_v + 1, 6, 4, 4) = vy;
+          q(idx_adv, 6, 6, 6) = 10.0;
+          q(idx_v + 1, 6, 6, 6) = -vy;
+
+          q(idx_adv, 4, 8, 8) = 10.0;
+          q(idx_v + 2, 4, 8, 8) = vz;
+          q(idx_adv, 4, 10, 8) = 10.0;
+          q(idx_v + 2, 4, 10, 8) = -vz;
+        });
+  }
 }
 
 //========================================================================================

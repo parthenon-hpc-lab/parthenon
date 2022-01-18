@@ -25,6 +25,7 @@
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
+#include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
 
@@ -43,6 +44,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   Real cfl = pin->GetOrAddReal("Advection", "cfl", 0.45);
   pkg->AddParam<>("cfl", cfl);
+
+  // Use constant, uniform velocity or vector valued velocity.
+  // Latter is used for testing boundary conditions.
+  auto v_const = pin->GetOrAddBoolean("Advection", "v_const", true);
   Real vx = pin->GetOrAddReal("Advection", "vx", 1.0);
   Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
   Real vz = pin->GetOrAddReal("Advection", "vz", 1.0);
@@ -53,7 +58,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
   if (!((profile_str == "wave") || (profile_str == "smooth_gaussian") ||
-        (profile_str == "hard_sphere"))) {
+        (profile_str == "hard_sphere") || (profile_str == "block"))) {
     PARTHENON_FAIL(("Unknown profile in advection example: " + profile_str).c_str());
   }
   pkg->AddParam<>("profile", profile_str);
@@ -170,6 +175,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                   Metadata::FillGhost},
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
+  }
+  if (!v_const) {
+    m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+                  Metadata::FillGhost, Metadata::Vector},
+                 std::vector<int>({3}), std::vector<std::string>{"vx", "vy", "vz"});
+    pkg->AddField(std::string("v"), m);
   }
   if (fill_derived) {
     field_name = "one_minus_advected";
@@ -304,6 +315,25 @@ void SquareIt(MeshBlockData<Real> *rc) {
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         v(out + n, k, j, i) = v(in + n, k, j, i) * v(in + n, k, j, i);
       });
+
+  // The following block/logic is also just added for regression testing.
+  // More specifically, the "smooth_gaussian" profile is initially != 0 everywhere, but
+  // initialializes IndexDomain::interior.
+  // FillDerived (here, SquareIt) is called after the ghost cells are exchanged and over
+  // IndexDomain::entire.
+  // Thus, no 0 (from initializing Kokkos views) should be left if all faces/corners/edges
+  // are correct, which is what we check in the loop below.
+  auto pkg = pmb->packages.Get("advection_package");
+  const auto &profile = pkg->Param<std::string>("profile");
+  if (profile == "smooth_gaussian") {
+    const auto &advected = rc->Get("advected").data;
+    pmb->par_for(
+        "advection_package::SquareIt bval check", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e,
+        ib.s, ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          PARTHENON_REQUIRE(advected(n, k, j, i) != 0.0,
+                            "Advected not properly initialized.");
+        });
+  }
 }
 
 // demonstrate usage of a "post" fill derived routine
@@ -351,13 +381,13 @@ template <typename T>
 Real AdvectionHst(MeshData<Real> *md) {
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
 
+  const auto ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const auto jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const auto kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
   // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
   // collection of blocks
   const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
-
-  const auto ib = advected_pack.cellbounds.GetBoundsI(IndexDomain::interior);
-  const auto jb = advected_pack.cellbounds.GetBoundsJ(IndexDomain::interior);
-  const auto kb = advected_pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
   Real result = 0.0;
   T reducer(result);
@@ -370,7 +400,7 @@ Real AdvectionHst(MeshData<Real> *md) {
   pmb->par_reduce(
       "AdvectionHst", 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
-        const auto &coords = advected_pack.coords(b);
+        const auto &coords = advected_pack.GetCoords(b);
         // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same
         // call for different reductions
         const Real vol = volume_weighting ? coords.Volume(k, j, i) : 1.0;
@@ -431,7 +461,14 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
 
-  auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes});
+  PackIndexMap index_map;
+  auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes},
+                                      index_map);
+
+  // For non constant velocity, we need the index of the velocity vector as it's part of
+  // the variable pack.
+  const auto idx_v = index_map["v"].first;
+  const auto v_const = idx_v < 0; // using "at own perill" magic number
 
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
@@ -449,15 +486,23 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
         member.team_barrier();
 
         for (int n = 0; n < nvar; n++) {
-          if (vx > 0.0) {
-            par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              v.flux(X1DIR, n, k, j, i) = ql(n, i) * vx;
-            });
-          } else {
-            par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              v.flux(X1DIR, n, k, j, i) = qr(n, i) * vx;
-            });
-          }
+          par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
+            // standard avection with fixed, global vx
+            if (v_const) {
+              if (vx > 0.0) {
+                v.flux(X1DIR, n, k, j, i) = ql(n, i) * vx;
+              } else {
+                v.flux(X1DIR, n, k, j, i) = qr(n, i) * vx;
+              }
+              // Custom flux function to move isolated, cells around. Just used for
+              // bvals testing.
+            } else {
+              v.flux(X1DIR, n, k, j, i) =
+                  ql(idx_v, i) > 0.0 ? ql(n, i) * ql(idx_v, i) : 0.0;
+              v.flux(X1DIR, n, k, j, i) +=
+                  qr(idx_v, i) < 0.0 ? qr(n, i) * qr(idx_v, i) : 0.0;
+            }
+          });
         }
       });
 
@@ -481,15 +526,25 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
-            if (vy > 0.0) {
-              par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X2DIR, n, k, j, i) = ql(n, i) * vy;
-              });
-            } else {
-              par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X2DIR, n, k, j, i) = qr(n, i) * vy;
-              });
-            }
+            par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              // standard avection with fixed, global vy
+              if (v_const) {
+                if (vy > 0.0) {
+                  v.flux(X2DIR, n, k, j, i) = ql(n, i) * vy;
+                } else {
+                  v.flux(X2DIR, n, k, j, i) = qr(n, i) * vy;
+                }
+                // Custom flux function to move isolated, cells around. Just used for
+                // bvals testing.
+              } else {
+                v.flux(X2DIR, n, k, j, i) = ql(idx_v + X2DIR - 1, i) > 0.0
+                                                ? ql(n, i) * ql(idx_v + X2DIR - 1, i)
+                                                : 0.0;
+                v.flux(X2DIR, n, k, j, i) += qr(idx_v + X2DIR - 1, i) < 0.0
+                                                 ? qr(n, i) * qr(idx_v + X2DIR - 1, i)
+                                                 : 0.0;
+              }
+            });
           }
         });
   }
@@ -514,15 +569,25 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
-            if (vz > 0.0) {
-              par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X3DIR, n, k, j, i) = ql(n, i) * vz;
-              });
-            } else {
-              par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                v.flux(X3DIR, n, k, j, i) = qr(n, i) * vz;
-              });
-            }
+            par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              // standard avection with fixed, global vz
+              if (v_const) {
+                if (vz > 0.0) {
+                  v.flux(X3DIR, n, k, j, i) = ql(n, i) * vz;
+                } else {
+                  v.flux(X3DIR, n, k, j, i) = qr(n, i) * vz;
+                }
+                // Custom flux function to move isolated, cells around. Just used for
+                // bvals testing.
+              } else {
+                v.flux(X3DIR, n, k, j, i) = ql(idx_v + X3DIR - 1, i) > 0.0
+                                                ? ql(n, i) * ql(idx_v + X3DIR - 1, i)
+                                                : 0.0;
+                v.flux(X3DIR, n, k, j, i) += qr(idx_v + X3DIR - 1, i) < 0.0
+                                                 ? qr(n, i) * qr(idx_v + X3DIR - 1, i)
+                                                 : 0.0;
+              }
+            });
           }
         });
   }

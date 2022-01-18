@@ -177,19 +177,14 @@ class IndexShape {
     }
   }
 
-  // note ks and ke are different than the others for boundaries.
-  // This is because extending i and j over extra ghost zones
-  // is sufficient to fill whole ghost layer
   KOKKOS_INLINE_FUNCTION int ks(const IndexDomain &domain) const noexcept {
     switch (domain) {
-    case IndexDomain::entire:
-      return 0;
-    case IndexDomain::inner_x3:
-      return 0;
+    case IndexDomain::interior:
+      return x_[2].s;
     case IndexDomain::outer_x3:
       return entire_ncells_[2] == 1 ? 0 : x_[2].e + 1;
-    default: // interior+
-      return x_[2].s;
+    default:
+      return 0;
     }
   }
 
@@ -217,14 +212,12 @@ class IndexShape {
 
   KOKKOS_INLINE_FUNCTION int ke(const IndexDomain &domain) const noexcept {
     switch (domain) {
-    case IndexDomain::entire:
-      return entire_ncells_[2] - 1;
+    case IndexDomain::interior:
+      return x_[2].e;
     case IndexDomain::inner_x3:
       return x_[2].s == 0 ? 0 : x_[2].s - 1;
-    case IndexDomain::outer_x3:
+    default:
       return entire_ncells_[2] - 1;
-    default: // interior+
-      return x_[2].e;
     }
   }
 

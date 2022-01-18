@@ -1,9 +1,9 @@
 # ========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020 The Parthenon collaboration
+# Copyright(C) 2021 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,39 +16,43 @@
 # ========================================================================================
 
 # Modules
+import numpy as np
+from numpy.lib.recfunctions import structured_to_unstructured
+
 import sys
 import utils.test_case
 
-""" To prevent littering up imported folders with .pyc files or __pycache_ folder"""
+# To prevent littering up imported folders with .pyc files or __pycache_ folder
 sys.dont_write_bytecode = True
 
 
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
 
-        parameters.coverage_status = "both"
         return parameters
 
     def Analyse(self, parameters):
 
-        sys.path.insert(
-            1,
-            parameters.parthenon_path
-            + "/scripts/python/packages/parthenon_tools/parthenon_tools",
-        )
+        data = np.genfromtxt("particles.csv", delimiter=",", names=True)
 
-        try:
-            from phdf_diff import compare
-        except ModuleNotFoundError:
-            print("Couldn't find module to compare Parthenon hdf5 files.")
-            return False
+        # pick last cycle (given current parameter file)
+        final_data = data[data["ncycle"] == 49]
+        final_data.sort(order="particles_id")
 
-        delta = compare(
+        # see examples/particle_leapfrog/particle_leapfrog.cpp for reference data
+        # here, outflow boundaries are used such that some of the particles escape
+        # this tests code paths not otherwise present (when blocks have >0 neighbors)
+        ref_data = np.array(
             [
-                "outflow.out0.final.phdf",
-                parameters.parthenon_path
-                + "/tst/regression/gold_standard/outflow.out0.00001.phdf",
+                [0.45, 0.2, 0.3, 1.0, 0.0, 0.0],
+                [0.4, 0.45, 0.3, 0.0, 1.0, 0.0],
+                [-0.1, 0.3, 0.475, 0.0, 0.0, 0.5],
             ]
         )
-
-        return delta == 0
+        final_data = structured_to_unstructured(
+            final_data[["x", "y", "z", "vx", "vy", "vz"]]
+        )
+        if ref_data.shape != final_data.shape:
+            print("TEST FAIL: Mismatch between actual and reference data shape.")
+            return False
+        return (final_data == ref_data).all()

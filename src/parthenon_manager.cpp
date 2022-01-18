@@ -25,6 +25,7 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "refinement/refinement.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -69,16 +70,10 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // pgrete: This is a hack to disable allocation tracking until the Kokkos
   // tools provide a more fine grained control out of the box.
-  auto *env_track_alloc = std::getenv("KOKKOS_TRACK_ALLOC_OFF");
-  if (env_track_alloc != nullptr) {
-    std::string env_str(env_track_alloc); // deep-copies string
-    for (char &c : env_str) {
-      c = toupper(c);
-    }
-    if ((env_str == "TRUE") || (env_str == "ON") || (env_str == "1")) {
-      Kokkos::Profiling::Experimental::set_allocate_data_callback(nullptr);
-      Kokkos::Profiling::Experimental::set_deallocate_data_callback(nullptr);
-    }
+  bool unused;
+  if (Env::get<bool>("KOKKOS_TRACK_ALLOC_OFF", false, unused)) {
+    Kokkos::Profiling::Experimental::set_allocate_data_callback(nullptr);
+    Kokkos::Profiling::Experimental::set_deallocate_data_callback(nullptr);
   }
 
   // parse the input arguments

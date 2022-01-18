@@ -1,9 +1,9 @@
 # ========================================================================================
-#  Athena++ astrophysical MHD code
-#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
-#  Licensed under the 3-clause BSD License, see LICENSE file for details
+# Parthenon performance portable AMR framework
+# Copyright(C) 2021 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,46 +16,59 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = particles
+problem_id = advection
 
 <parthenon/mesh>
 refinement = none
+nghost = 2
 
-nx1 = 16
+nx1 = 20
 x1min = -0.5
 x1max = 0.5
-ix1_bc = periodic
-ox1_bc = periodic
+ix1_bc = reflecting
+ox1_bc = reflecting
 
-nx2 = 16
+nx2 = 20
 x2min = -0.5
 x2max = 0.5
-ix2_bc = periodic
-ox2_bc = periodic
+ix2_bc = reflecting
+ox2_bc = reflecting
 
-nx3 = 1
+nx3 = 20
 x3min = -0.5
 x3max = 0.5
-ix3_bc = periodic
-ox3_bc = periodic
+ix3_bc = reflecting
+ox3_bc = reflecting
 
 <parthenon/meshblock>
-nx1 = 16
-nx2 = 16
+nx1 = 10
+nx2 = 10
+nx3 = 10
+
+<parthenon/time>
+nlim = 40
+tlim = 10.0
+integrator = rk1
+
+<Advection>
+cfl = 1.0 # explicitly using cfl=1 here making advection exact (no numerical diffusion)
+vx = 1.0
+vy = 1.0
+vz = 1.0
+profile = block
+v_const = false
+
+compute_error = false
+num_vars = 1             # number of variables
+vec_size = 1             # size of each variable
+fill_derived = false     # whether to fill one-copy test vars
+buffer_send_pack = true  # send all buffers using packs
+buffer_recv_pack = true  # receive buffers using packs
+buffer_set_pack = true   # set received buffers using packs
+buffer_restrict_pack = false
 
 <parthenon/output0>
 file_type = hdf5
-dt = 1.e1
-variables = particle_deposition
-
-<parthenon/time>
-tlim = 1.e2
-integrator = rk1
-
-<Particles>
-num_particles = 10
-particle_speed = 1.0
-rng_seed = 23487
-const_dt = 0.5
-deposition_method = per_cell
-destroy_particles_frac = 0.1
+dt = 0.5
+variables = advected, v
+id = reflecting

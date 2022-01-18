@@ -55,6 +55,13 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/
 --num_steps 1")
 list(APPEND EXTRA_TEST_LABELS "")
 
+list(APPEND TEST_DIRS particle_leapfrog_outflow)
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/particle-leapfrog \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_leapfrog_outflow/parthinput.particle_leapfrog_outflow \
+--num_steps 1")
+list(APPEND EXTRA_TEST_LABELS "")
+
 if (ENABLE_HDF5)
 
   # h5py is needed for restart and hdff5 test
@@ -65,7 +72,7 @@ if (ENABLE_HDF5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart/parthinput.restart \
-    --num_steps 2")
+    --num_steps 3")
   list(APPEND EXTRA_TEST_LABELS "")
 
   # Calculate pi example
@@ -94,6 +101,13 @@ if (ENABLE_HDF5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_outflow/parthinput.advection_outflow")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  list(APPEND TEST_DIRS bvals)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/bvals/parthinput.advection_bvals \
+    --num_steps 3")
   list(APPEND EXTRA_TEST_LABELS "")
 
   list(APPEND TEST_DIRS poisson)

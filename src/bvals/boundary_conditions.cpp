@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,7 +16,9 @@
 
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals_interfaces.hpp"
+#include "defs.hpp"
 #include "interface/meshblock_data.hpp"
+#include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 
@@ -78,168 +80,104 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
 
 namespace BoundaryFunction {
 
-// TODO(JMM): These are all awfully similar. There's gotta be a way to
-// save some code here.
-void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+enum class BCSide { Inner, Outer };
+enum class BCType { Outflow, Reflect };
+
+template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE>
+void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  // make sure DIR is X[123]DIR so we don't have to check again
+  static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
+
+  // convenient shorthands
+  constexpr bool X1 = (DIR == X1DIR);
+  constexpr bool X2 = (DIR == X2DIR);
+  constexpr bool X3 = (DIR == X3DIR);
+  constexpr bool INNER = (SIDE == BCSide::Inner);
+
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsI(IndexDomain::interior).s;
+  const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+
+  const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior)
+                         : (X2 ? bounds.GetBoundsJ(IndexDomain::interior)
+                               : bounds.GetBoundsK(IndexDomain::interior));
+  const int ref = INNER ? range.s : range.e;
+
   auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
   auto nb = IndexRange{0, q.GetDim(4) - 1};
+
+  std::string label = (TYPE == BCType::Reflect ? "Reflect" : "Outflow");
+  label += (INNER ? "Inner" : "Outer");
+  label += "X" + std::to_string(DIR);
+
+  constexpr IndexDomain domain =
+      INNER ? (X1 ? IndexDomain::inner_x1
+                  : (X2 ? IndexDomain::inner_x2 : IndexDomain::inner_x3))
+            : (X1 ? IndexDomain::outer_x1
+                  : (X2 ? IndexDomain::outer_x2 : IndexDomain::outer_x3));
+
+  // used for reflections
+  const int offset = 2 * ref + (INNER ? -1 : 1);
+
   pmb->par_for_bndry(
-      "OutflowInnerX1", nb, IndexDomain::inner_x1, coarse,
+      label, nb, domain, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        q(l, k, j, i) = q(l, k, j, ref);
+        if (TYPE == BCType::Reflect) {
+          const bool reflect = (q.VectorComponent(l) == DIR);
+          q(l, k, j, i) =
+              (reflect ? -1.0 : 1.0) *
+              q(l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
+        } else {
+          q(l, k, j, i) = q(l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);
+        }
       });
+}
+
+void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  GenericBC<X1DIR, BCSide::Inner, BCType::Outflow>(rc, coarse);
 }
 
 void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsI(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-  pmb->par_for_bndry(
-      "OutflowOuterX1", nb, IndexDomain::outer_x1, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        q(l, k, j, i) = q(l, k, j, ref);
-      });
+  GenericBC<X1DIR, BCSide::Outer, BCType::Outflow>(rc, coarse);
 }
 
 void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsJ(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-  pmb->par_for_bndry(
-      "OutflowInnerX2", nb, IndexDomain::inner_x2, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        q(l, k, j, i) = q(l, k, ref, i);
-      });
+  GenericBC<X2DIR, BCSide::Inner, BCType::Outflow>(rc, coarse);
 }
 
 void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsJ(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-  pmb->par_for_bndry(
-      "OutflowOuterX2", nb, IndexDomain::outer_x2, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        q(l, k, j, i) = q(l, k, ref, i);
-      });
+  GenericBC<X2DIR, BCSide::Outer, BCType::Outflow>(rc, coarse);
 }
 
 void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsJ(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-  pmb->par_for_bndry(
-      "OutflowInnerX3", nb, IndexDomain::inner_x3, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        q(l, k, j, i) = q(l, ref, j, i);
-      });
+  GenericBC<X3DIR, BCSide::Inner, BCType::Outflow>(rc, coarse);
 }
 
 void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsJ(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-  pmb->par_for_bndry(
-      "OutflowOuterX3", nb, IndexDomain::outer_x3, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        q(l, k, j, i) = q(l, ref, j, i);
-      });
+  GenericBC<X3DIR, BCSide::Outer, BCType::Outflow>(rc, coarse);
 }
 
 void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsI(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-  pmb->par_for_bndry(
-      "ReflectInnerX1", nb, IndexDomain::inner_x1, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        Real reflect = q.VectorComponent(l) == X1DIR ? -1.0 : 1.0;
-        q(l, k, j, i) = reflect * q(l, k, j, 2 * ref - i - 1);
-      });
+  GenericBC<X1DIR, BCSide::Inner, BCType::Reflect>(rc, coarse);
 }
 
 void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsI(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-  pmb->par_for_bndry(
-      "ReflectOuterX1", nb, IndexDomain::outer_x1, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        Real reflect = q.VectorComponent(l) == X1DIR ? -1.0 : 1.0;
-        q(l, k, j, i) = reflect * q(l, k, j, 2 * ref - i + 1);
-      });
+  GenericBC<X1DIR, BCSide::Outer, BCType::Reflect>(rc, coarse);
 }
 
 void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsJ(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-  pmb->par_for_bndry(
-      "ReflectInnerX2", nb, IndexDomain::inner_x2, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        Real reflect = q.VectorComponent(l) == X2DIR ? -1.0 : 1.0;
-        q(l, k, j, i) = reflect * q(l, k, 2 * ref - j - 1, i);
-      });
+  GenericBC<X2DIR, BCSide::Inner, BCType::Reflect>(rc, coarse);
 }
 
 void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsJ(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-  pmb->par_for_bndry(
-      "ReflectOuterX2", nb, IndexDomain::outer_x2, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        Real reflect = q.VectorComponent(l) == X2DIR ? -1.0 : 1.0;
-        q(l, k, j, i) = reflect * q(l, k, 2 * ref - j + 1, i);
-      });
+  GenericBC<X2DIR, BCSide::Outer, BCType::Reflect>(rc, coarse);
 }
 
 void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsK(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-  pmb->par_for_bndry(
-      "ReflectInnerX3", nb, IndexDomain::inner_x3, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        Real reflect = q.VectorComponent(l) == X3DIR ? -1.0 : 1.0;
-        q(l, k, j, i) = reflect * q(l, 2 * ref - k - 1, j, i);
-      });
+  GenericBC<X3DIR, BCSide::Inner, BCType::Reflect>(rc, coarse);
 }
 
 void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-  int ref = bounds.GetBoundsK(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-  pmb->par_for_bndry(
-      "ReflectOuterX3", nb, IndexDomain::outer_x3, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        Real reflect = q.VectorComponent(l) == X3DIR ? -1.0 : 1.0;
-        q(l, k, j, i) = reflect * q(l, 2 * ref - k + 1, j, i);
-      });
+  GenericBC<X3DIR, BCSide::Outer, BCType::Reflect>(rc, coarse);
 }
 
 } // namespace BoundaryFunction

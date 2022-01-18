@@ -150,7 +150,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // Add swarm of tracer particles
   std::string swarm_name = "tracers";
-  Metadata swarm_metadata({Metadata::Provides});
+  Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
@@ -303,48 +303,6 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
             x3flux(0, k, j, i) = advected(k, j, i) * vz;
           }
         });
-  }
-
-  return TaskStatus::complete;
-}
-
-// Clean up particle memory pool which can become sparse due to particles removed during
-// communication.
-TaskStatus Defrag(MeshBlock *pmb) {
-  auto s = pmb->swarm_data.Get()->Get("tracers");
-
-  // Only do this if list is getting too sparse. This criterion (whether there
-  // are *any* gaps in the list) is very aggressive
-  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
-    s->Defrag();
-  }
-
-  return TaskStatus::complete;
-}
-
-// Mark all MPI requests as NULL / initialize boundary flags.
-TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
-  // Boundary transfers on same MPI proc are blocking
-#ifdef MPI_PARALLEL
-  for (auto &block : blocks) {
-    auto swarm = block->swarm_data.Get()->Get("tracers");
-    for (int n = 0; n < block->pbval->nneighbor; n++) {
-      NeighborBlock &nb = block->pbval->neighbor[n];
-      swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
-    }
-  }
-#endif
-
-  // Reset boundary statuses
-  for (auto &block : blocks) {
-    auto &pmb = block;
-    auto sc = pmb->swarm_data.Get();
-    auto swarm = sc->Get("tracers");
-
-    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-      auto &nb = pmb->pbval->neighbor[n];
-      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-    }
   }
 
   return TaskStatus::complete;
@@ -519,9 +477,13 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
   if (stage == integrator->nstages) {
     TaskRegion &sync_region0 = tc.AddRegion(1);
     {
-      auto &tl = sync_region0[0];
-      auto initialize_comms =
-          tl.AddTask(none, tracers_example::InitializeCommunicationMesh, blocks);
+      for (int i = 0; i < blocks.size(); i++) {
+        auto &tl = sync_region0[0];
+        auto &pmb = blocks[i];
+        auto &sc = pmb->swarm_data.Get();
+        auto reset_comms =
+            tl.AddTask(none, &SwarmContainer::ResetCommunication, sc.get());
+      }
     }
 
     TaskRegion &async_region1 = tc.AddRegion(nblocks);
@@ -540,7 +502,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
 
       auto deposit = tl.AddTask(receive, tracers_example::DepositTracers, pmb.get());
 
-      auto defrag = tl.AddTask(deposit, tracers_example::Defrag, pmb.get());
+      // Defragment if swarm memory pool occupancy is 90%
+      auto defrag = tl.AddTask(none, &SwarmContainer::Defrag, sc.get(), 0.9);
     }
   }
 

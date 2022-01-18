@@ -26,7 +26,6 @@
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -35,80 +34,20 @@
 #include "metadata.hpp"
 #include "parthenon_arrays.hpp"
 #include "parthenon_mpi.hpp"
+#include "swarm_boundaries.hpp"
+#include "swarm_device_context.hpp"
 #include "variable.hpp"
 #include "variable_pack.hpp"
 
 namespace parthenon {
+
+struct BoundaryDeviceContext {
+  ParticleBound *bounds[6];
+};
+
 class MeshBlock;
 
 enum class PARTICLE_STATUS { UNALLOCATED, ALIVE, DEAD };
-
-class SwarmDeviceContext {
- public:
-  KOKKOS_FUNCTION
-  bool IsActive(int n) const { return mask_(n); }
-
-  KOKKOS_FUNCTION
-  void MarkParticleForRemoval(int n) const { marked_for_removal_(n) = true; }
-
-  KOKKOS_FUNCTION
-  bool IsMarkedForRemoval(const int n) const { return marked_for_removal_(n); }
-
-  KOKKOS_INLINE_FUNCTION
-  int GetNeighborBlockIndex(const int &n, const double &x, const double &y,
-                            const double &z, bool &is_on_current_mesh_block) const {
-    const int i =
-        static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
-    const int j =
-        static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
-    const int k =
-        static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
-
-    // Something went wrong
-    if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
-        ((k < 0 || k > 3) && ndim_ > 2)) {
-      PARTHENON_FAIL("Particle neighbor indices out of bounds");
-    }
-
-    // Ignore k,j indices as necessary based on problem dimension
-    if (ndim_ == 1) {
-      blockIndex_(n) = neighborIndices_(0, 0, i);
-    } else if (ndim_ == 2) {
-      blockIndex_(n) = neighborIndices_(0, j, i);
-    } else {
-      blockIndex_(n) = neighborIndices_(k, j, i);
-    }
-
-    is_on_current_mesh_block = (blockIndex_(n) == this_block_);
-
-    return blockIndex_(n);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  int GetMyRank() const { return my_rank_; }
-
- private:
-  Real x_min_;
-  Real x_max_;
-  Real y_min_;
-  Real y_max_;
-  Real z_min_;
-  Real z_max_;
-  Real x_min_global_;
-  Real x_max_global_;
-  Real y_min_global_;
-  Real y_max_global_;
-  Real z_min_global_;
-  Real z_max_global_;
-  ParArrayND<bool> marked_for_removal_;
-  ParArrayND<bool> mask_;
-  ParArrayND<int> blockIndex_;
-  ParArrayND<int> neighborIndices_; // 4x4x4 array of possible block AMR regions
-  int ndim_;
-  friend class Swarm;
-  constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
-  int my_rank_;
-};
 
 class Swarm {
  private:
@@ -126,6 +65,8 @@ class Swarm {
  public:
   Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
 
+  ~Swarm() = default;
+
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() const {
     if (pmy_block.expired()) {
@@ -135,6 +76,8 @@ class Swarm {
   }
 
   SwarmDeviceContext GetDeviceContext() const;
+
+  void AllocateBoundaries();
 
   // Set the pointer to the mesh block for this swarm
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
@@ -155,6 +98,15 @@ class Swarm {
 
   /// Remote a variable from swarm
   void Remove(const std::string &label);
+
+  /// Set a custom boundary condition
+  void SetBoundary(
+      const int n,
+      std::unique_ptr<ParticleBound, parthenon::DeviceDeleter<parthenon::DevMemSpace>>
+          bc) {
+    bounds_uptrs[n] = std::move(bc);
+    bounds_d.bounds[n] = bounds_uptrs[n].get();
+  }
 
   /// Get particle variable
   template <class T>
@@ -209,6 +161,10 @@ class Swarm {
   /// memory
   void Defrag();
 
+  /// Sort particle list by cell each particle belongs to, according to 1D cell
+  /// index (i + nx*(j + ny*k))
+  void SortParticlesByCell();
+
   // used in case of swarm boundary communication
   void SetupPersistentMPI();
   std::shared_ptr<BoundarySwarm> vbswarm;
@@ -221,9 +177,13 @@ class Swarm {
     return std::get<0>(Vectors_).size() + std::get<1>(Vectors_).size();
   }
 
-  bool Send(BoundaryCommSubset phase);
+  void Send(BoundaryCommSubset phase);
 
   bool Receive(BoundaryCommSubset phase);
+
+  void ResetCommunication();
+
+  bool FinalizeCommunicationIterative();
 
   template <class T>
   SwarmVariablePack<T> PackAllVariables(PackIndexMap &vmap);
@@ -236,8 +196,16 @@ class Swarm {
   int num_particles_sent_;
   bool finished_transport;
 
+  // Class to store raw pointers to boundary conditions on device. Copy locally for
+  // compute kernel capture.
+  BoundaryDeviceContext bounds_d;
+
   void LoadBuffers_(const int max_indices_size);
   void UnloadBuffers_();
+
+  void ApplyBoundaries_(const int nparticles, ParArrayND<int> indices);
+
+  std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds_uptrs[6];
 
  private:
   template <class T>
@@ -282,6 +250,15 @@ class Swarm {
 
   std::vector<int> neighbor_received_particles_;
   int total_received_particles_;
+
+  ParArrayND<int> neighbor_buffer_index_; // Map from neighbor index to neighbor bufid
+
+  ParArray1D<SwarmKey>
+      cellSorted_; // 1D per-cell sorted array of key-value swarm memory indices
+
+  ParArrayND<int> cellSortedBegin_; // Per-cell array of starting indices in cell_sorted_
+
+  ParArrayND<int> cellSortedNumber_; // Per-cell array of number of particles in each cell
 };
 
 template <class T>

@@ -1,9 +1,9 @@
 # ========================================================================================
-#  Athena++ astrophysical MHD code
-#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+#  Parthenon performance portable AMR framework
+#  Copyright(C) 2021 The Parthenon collaboration
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -24,38 +24,31 @@ refinement = none
 nx1 = 16
 x1min = -0.5
 x1max = 0.5
-ix1_bc = periodic
-ox1_bc = periodic
+ix1_bc = outflow
+ox1_bc = outflow
 
 nx2 = 16
 x2min = -0.5
 x2max = 0.5
-ix2_bc = periodic
-ox2_bc = periodic
+ix2_bc = outflow
+ox2_bc = outflow
 
-nx3 = 1
+nx3 = 16
 x3min = -0.5
 x3max = 0.5
-ix3_bc = periodic
-ox3_bc = periodic
+ix3_bc = outflow
+ox3_bc = outflow
 
 <parthenon/meshblock>
-nx1 = 16
-nx2 = 16
-
-<parthenon/output0>
-file_type = hdf5
-dt = 1.e1
-variables = particle_deposition
+nx1 = 8
+nx2 = 8
+nx3 = 8
 
 <parthenon/time>
-tlim = 1.e2
+tlim = 0.55
+nlim = 55
 integrator = rk1
 
 <Particles>
-num_particles = 10
-particle_speed = 1.0
-rng_seed = 23487
-const_dt = 0.5
-deposition_method = per_cell
-destroy_particles_frac = 0.1
+cfl = 0.3
+write_particle_log_nth_cycle = 1

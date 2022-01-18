@@ -26,6 +26,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
@@ -48,6 +49,75 @@ using SwarmVarList = std::forward_list<std::shared_ptr<ParticleVariable<T>>>;
 // Sparse and/or scalar variables are multiple indices in the outer view of a pack
 // the pairs represent interval (inclusive) of those indices
 using IndexPair = std::pair<int, int>;
+
+// Used for storing the shapes of variable fields
+using Shape = std::vector<int>;
+
+// Index arbitrary rank fields into flattened indices in a VariablePack
+class FlatIdx {
+ public:
+  FlatIdx(std::vector<int> shape, int offset) : offset_(offset), ndim_(shape.size()) {
+    if (shape.size() > 3) {
+      PARTHENON_THROW("Requested rank larger than three.");
+    }
+    for (int i = 0; i < shape.size(); ++i)
+      shape_[i] = shape[i];
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  int DimSize(int iDim) const {
+    PARTHENON_DEBUG_REQUIRE(iDim <= ndim_, "Wrong number of dimensions.");
+    return shape_[iDim - 1];
+  }
+
+  IndexRange GetBounds(int iDim) const {
+    if (iDim > ndim_) {
+      PARTHENON_THROW("Dimension " + std::to_string(iDim) + " greater than rank" +
+                      std::to_string(ndim_) + ".");
+    }
+    IndexRange rng;
+    rng.s = 0;
+    rng.e = shape_[iDim - 1] - 1;
+    return rng;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()() const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 0, "Wrong number of dimensions.");
+    return offset_;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 1, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    return offset_ + idx1;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1, const int idx2) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 2, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx2 < shape_[1], "Idx2 too large.");
+    return offset_ + idx1 + shape_[0] * idx2;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1, const int idx2, const int idx3) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 3, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx2 < shape_[1], "Idx2 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx3 < shape_[2], "Idx3 too large.");
+    return offset_ + idx1 + shape_[0] * (idx2 + shape_[1] * idx3);
+  }
+
+ private:
+  // Tensor fields are limited to rank 3 or less, so just use a fixed
+  // length array of for all rank fields so that FlatIdx objects can
+  // easily be captured during Kokkos parallel dispatch
+  int shape_[3];
+  int offset_, ndim_;
+};
 
 // The key for variable packs
 using VPackKey_t = std::vector<std::string>;
@@ -103,7 +173,9 @@ class PackIndexMap {
     return itr->second;
   }
 
-  bool operator==(const PackIndexMap &other) { return map_ == other.map_; }
+  bool operator==(const PackIndexMap &other) {
+    return (map_ == other.map_) && (shape_map_ == other.shape_map_);
+  }
 
   // This is dangerous! Use at your own peril!
   // It will silently return invalid indices if the key doesn't exist (e.g. misspelled or
@@ -118,8 +190,26 @@ class PackIndexMap {
     return itr->second;
   }
 
-  void insert(std::pair<std::string, vpack_types::IndexPair> keyval) {
-    map_.insert(keyval);
+  void insert(std::string key, vpack_types::IndexPair val,
+              vpack_types::Shape shape = vpack_types::Shape()) {
+    map_.insert(std::pair<std::string, vpack_types::IndexPair>(key, val));
+    shape_map_.insert(std::pair<std::string, vpack_types::Shape>(key, shape));
+  }
+
+  vpack_types::FlatIdx GetFlatIdx(const std::string &key) {
+    // Make sure the key exists
+    auto itr = map_.find(key);
+    auto itr_shape = shape_map_.find(key);
+    if ((itr == map_.end()) || (itr_shape == shape_map_.end())) {
+      PARTHENON_THROW("Key " + key + " does not exist.");
+    }
+    return vpack_types::FlatIdx(itr_shape->second, itr->second.first);
+  }
+
+  std::vector<int> GetShape(const std::string &key) {
+    auto itr_shape = shape_map_.find(key);
+    if (itr_shape == shape_map_.end()) return {-1};
+    return itr_shape->second;
   }
 
   bool Has(std::string const &base_name, int sparse_id = InvalidSparseID) const {
@@ -135,6 +225,7 @@ class PackIndexMap {
 
  private:
   std::unordered_map<std::string, vpack_types::IndexPair> map_;
+  std::unordered_map<std::string, vpack_types::Shape> shape_map_;
 };
 
 template <typename T>
@@ -229,6 +320,15 @@ class VariablePack {
 
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNdim() const { return ndim_; }
+
+  // These return coordinates ON DEVICE
+  // This call segfaults on the host.
+  KOKKOS_FORCEINLINE_FUNCTION
+  const Coordinates_t &GetCoords() const { return coords(); }
+  KOKKOS_FORCEINLINE_FUNCTION
+  const Coordinates_t &GetCoords(int) const { return coords(); }
+  // public field, with accessors for convenience
+  ParArray0D<Coordinates_t> coords;
 
  protected:
   ViewOfParArrays<T> v_;
@@ -336,6 +436,44 @@ template <typename T>
 using MapToSwarmVariablePack = std::map<std::vector<std::string>, SwarmPackIndxPair<T>>;
 
 template <typename T>
+void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap) {
+  using vpack_types::IndexPair;
+
+  if (pvmap != nullptr) {
+    // add in start and stop indices for sparse fields based on base_name
+    auto vi = vars.begin();
+    int start, stop;
+    while (vi != vars.end()) {
+      auto &v = *vi;
+      int sparse_id = v->GetSparseID();
+      if (sparse_id != InvalidSparseID) {
+        std::vector<int> shape;
+        if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
+        if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
+        if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+        auto &pair = pvmap->get(v->label());
+        start = pair.first;
+        stop = pair.second;
+        auto vj = vi + 1;
+        while (vj != vars.end()) {
+          auto &q = *vj;
+          if (q->base_name() == v->base_name()) {
+            stop = pvmap->get(q->label()).second;
+            vj++;
+          } else {
+            break;
+          }
+        }
+        pvmap->insert(v->base_name(), IndexPair(start, stop), shape);
+        vi = vj;
+      } else {
+        vi++;
+      }
+    }
+  }
+}
+
+template <typename T>
 void FillVarView(const CellVariableVector<T> &vars, bool coarse,
                  ViewOfParArrays<T> &cv_out, ParArray1D<int> &sparse_id_out,
                  ParArray1D<int> &vector_component_out, PackIndexMap *pvmap) {
@@ -371,11 +509,17 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
       }
     }
 
+    std::vector<int> shape;
+    if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
+    if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
+    if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+
     if (pvmap != nullptr) {
-      pvmap->insert(
-          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
+      pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
+
+  AppendSparseBaseMap(vars, pvmap);
 
   Kokkos::deep_copy(cv_out, host_cv);
   Kokkos::deep_copy(sparse_id_out, host_sp);
@@ -395,16 +539,14 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
   // TODO(BRR) Remove the logic for sparse variables
   for (const auto v : vars) {
     if (vmap != nullptr) {
-      vmap->insert(std::pair<std::string, IndexPair>(
-          sparse_name, IndexPair(sparse_start, vindex - 1)));
+      vmap->insert(sparse_name, IndexPair(sparse_start, vindex - 1));
       sparse_name = "";
     }
     int vstart = vindex;
     // Reusing ViewOfParArrays which expects 3D slices
     host_view(vindex++) = v->data.Get(0, 0, 0);
     if (vmap != nullptr) {
-      vmap->insert(
-          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
+      vmap->insert(v->label(), IndexPair(vstart, vindex - 1));
     }
   }
 
@@ -438,11 +580,17 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
       }
     }
 
+    std::vector<int> shape;
+    if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
+    if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
+    if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+
     if (pvmap != nullptr) {
-      pvmap->insert(
-          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
+      pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
+
+  AppendSparseBaseMap(vars, pvmap);
 
   Kokkos::deep_copy(f1_out, host_f1);
   Kokkos::deep_copy(f2_out, host_f2);

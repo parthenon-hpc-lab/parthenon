@@ -3,6 +3,30 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 619]](https://github.com/lanl/parthenon/pull/619) Sort particles by cell
+- [[PR 605]](https://github.com/lanl/parthenon/pull/605) Add output triggering by signaling.
+- [[PR 602]](https://github.com/lanl/parthenon/pull/602) Added tuning functionality for HDF5 output
+
+### Changed (changing behavior/API/variables/...)
+- [[PR 623]](https://github.com/lanl/parthenon/pull/623) Enable Params to optionally return non-const pointers
+- [[PR 604]](https://github.com/lanl/parthenon/pull/604) Allow modification of SimTime in PreStepUserWorkInLoop
+- [[PR 617]](https://github.com/lanl/parthenon/pull/617) Unify the coordinates API for MeshBlockPack and VariablePack
+
+### Fixed (not changing behavior/API/variables/...)
+- [[PR 618]](https://github.com/lanl/parthenon/pull/618) Fix bug in variable pack performance test
+- [[PR 616]](https://github.com/lanl/parthenon/pull/609) Restore sparse base names in PackIndexMap
+- [[PR 609]](https://github.com/lanl/parthenon/pull/609) Fix bug where .final is not written if signal raised while writing regular output
+- [[PR 595]](https://github.com/lanl/parthenon/pull/595) Fix build options so that non-MPI builds cannot be paired with an MPI HDF5 lib
+
+### Infrastructure (changes irrelevant to downstream codes)
+
+### Removed (removing behavior/API/varaibles/...)
+
+## Release 0.6.1
+Date: 09/22/2021
+
+### Added (new features/APIs/variables/...)
+- [[PR 563]](https://github.com/lanl/parthenon/pull/563) Physical boundary options for particles
 - [[PR 582]](https://github.com/lanl/parthenon/pull/582) Adding global reductions and basic functionality needed for solvers.
 - [[PR 556]](https://github.com/lanl/parthenon/pull/556) Introduce iterative tasks and regionally dependent tasks
 - [[PR 578]](https://github.com/lanl/parthenon/pull/578) Add some profiling regions to tasks in particles example
@@ -17,6 +41,8 @@
 - [[PR 404]](https://github.com/lanl/parthenon/pull/404) Add capability to communicate particles across meshblocks/MPI processes
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 558]](https://github.com/lanl/parthenon/pull/558) Boundary bugfix(es) incl. regression tests and exposing FluxDiv_ interface
+- [[PR 583]](https://github.com/lanl/parthenon/pull/583) Fix file numbering logic for writing outputs after restarting a simulation.
 - [[PR 581]](https://github.com/lanl/parthenon/pull/581) Change return status of `ArgParse` so that `complete` is returned when passing in the help flag.
 - [[PR 580]](https://github.com/lanl/parthenon/pull/580) Hid variable/meshblock pack keys from public API, added unit tests for `MeshBlockData`.
 - [[PR 535]](https://github.com/lanl/parthenon/pull/535) Modify various interfaces connected with
@@ -35,6 +61,7 @@
 - [[PR 522]](https://github.com/lanl/parthenon/pull/522) Corrected ordering of `OutputDatasetNames` to match `ComponentNames`
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 588]](https://github.com/lanl/parthenon/pull/588) Switch from nbmax to nneighbors in particles
 - [[PR 572]](https://github.com/lanl/parthenon/pull/572) Fix meshblockpack issue coming from variatic template shadowing
 - [[PR 569]](https://github.com/lanl/parthenon/pull/569) Fix path to nvcc_wrapper in README example
 - [[PR 551]](https://github.com/lanl/parthenon/pull/551) Hotfix to make particles compile without MPI again

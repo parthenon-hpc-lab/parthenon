@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.5.0 LANGUAGES C CXX)
+project(parthenon VERSION 0.6.1 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -165,8 +165,17 @@ if (NOT PARTHENON_DISABLE_HDF5)
   if (ENABLE_MPI AND (NOT HDF5_IS_PARALLEL))
     message(FATAL_ERROR "Both MPI and HDF5 are enabled but only a serial version of HDF5 "
     "was found. Please install a parallel version of HDF5 (or point CMake to it by adding its path "
-    "to the CMAKE_PREFIX_PATH environment variable), or disable either MPI or HDF5 by rerunning "
+    "to the CMAKE_PREFIX_PATH environment variable or by setting the HDF5_ROOT variable), "
+    "or disable either MPI or HDF5 by rerunning "
     "CMake with -DPARTHENON_DISABLE_MPI=ON or -DPARTHENON_DISABLE_HDF5=ON")
+  endif()
+
+  if ((NOT ENABLE_MPI) AND HDF5_IS_PARALLEL)
+    message(FATAL_ERROR "MPI is disabled and HDF5 is enabled but only a parallel version of HDF5 "
+    "was found. Please install a serial version of HDF5 (or point CMake to it by adding its path "
+    "to the CMAKE_PREFIX_PATH environment variable or by setting the HDF5_ROOT variable), or "
+    "either enable MPI or disable HDF5 by rerunning "
+    "CMake with -DPARTHENON_DISABLE_MPI=OFF or -DPARTHENON_DISABLE_HDF5=ON")
   endif()
 
   if ((NOT PARTHENON_DISABLE_HDF5_COMPRESSION) AND ENABLE_MPI)

@@ -35,6 +35,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // Don't do anything for now
 }
 
+enum class DepositionMethod { per_particle, per_cell };
+
 // *************************************************//
 // define the "physics" package particles_package, *//
 // which includes defining various functions that  *//
@@ -61,6 +63,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       destroy_particles_frac >= 0. && destroy_particles_frac <= 1.,
       "Fraction of particles to destroy each timestep must be between 0 and 1");
 
+  std::string deposition_method =
+      pin->GetOrAddString("Particles", "deposition_method", "per_particle");
+  if (deposition_method == "per_particle") {
+    pkg->AddParam<>("deposition_method", DepositionMethod::per_particle);
+  } else if (deposition_method == "per_cell") {
+    pkg->AddParam<>("deposition_method", DepositionMethod::per_cell);
+  } else {
+    PARTHENON_THROW("deposition method not recognized");
+  }
+
   bool orbiting_particles =
       pin->GetOrAddBoolean("Particles", "orbiting_particles", false);
   pkg->AddParam<>("orbiting_particles", orbiting_particles);
@@ -72,7 +84,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("rng_pool", rng_pool);
 
   std::string swarm_name = "my particles";
-  Metadata swarm_metadata({Metadata::Provides});
+  Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("t", swarm_name, real_swarmvalue_metadata);
@@ -139,10 +151,24 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
+TaskStatus SortParticlesIfUsingPerCellDeposition(MeshBlock *pmb) {
+  auto pkg = pmb->packages.Get("particles_package");
+  const auto deposition_method = pkg->Param<DepositionMethod>("deposition_method");
+  if (deposition_method == DepositionMethod::per_cell) {
+    auto swarm = pmb->swarm_data.Get()->Get("my particles");
+    swarm->SortParticlesByCell();
+  }
+
+  return TaskStatus::complete;
+}
+
 TaskStatus DepositParticles(MeshBlock *pmb) {
   Kokkos::Profiling::pushRegion("Task_Particles_DepositParticles");
 
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
+
+  auto pkg = pmb->packages.Get("particles_package");
+  const auto deposition_method = pkg->Param<DepositionMethod>("deposition_method");
 
   // Meshblock geometry
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -162,34 +188,46 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   auto swarm_d = swarm->GetDeviceContext();
 
   auto &particle_dep = pmb->meshblock_data.Get()->Get("particle_deposition").data;
-  // Reset particle count
-  pmb->par_for(
-      "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        particle_dep(k, j, i) = 0.;
-      });
-
   const int ndim = pmb->pmy_mesh->ndim;
 
-  pmb->par_for(
-      "DepositParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-          int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
-          int j = 0;
-          if (ndim > 1) {
-            j = static_cast<int>(std::floor((y(n) - minx_j) / dx_j) + jb.s);
-          }
-          int k = 0;
-          if (ndim > 2) {
-            k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
-          }
+  if (deposition_method == DepositionMethod::per_particle) {
+    // Reset particle count
+    pmb->par_for(
+        "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          particle_dep(k, j, i) = 0.;
+        });
 
-          if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
-              k <= kb.e) {
-            Kokkos::atomic_add(&particle_dep(k, j, i), weight(n));
+    pmb->par_for(
+        "DepositParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+          if (swarm_d.IsActive(n)) {
+            int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
+            int j = 0;
+            if (ndim > 1) {
+              j = static_cast<int>(std::floor((y(n) - minx_j) / dx_j) + jb.s);
+            }
+            int k = 0;
+            if (ndim > 2) {
+              k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
+            }
+
+            if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
+                k <= kb.e) {
+              Kokkos::atomic_add(&particle_dep(k, j, i), weight(n));
+            }
           }
-        }
-      });
+        });
+  } else if (deposition_method == DepositionMethod::per_cell) {
+    pmb->par_for(
+        "DepositParticlesByCell", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          particle_dep(k, j, i) = 0.;
+          for (int n = 0; n < swarm_d.GetParticleCountPerCell(k, j, i); n++) {
+            const int idx = swarm_d.GetFullIndex(k, j, i, n);
+            particle_dep(k, j, i) += weight(idx);
+          }
+        });
+  }
 
   Kokkos::Profiling::popRegion(); // Task_Particles_DepositParticles
   return TaskStatus::complete;
@@ -432,21 +470,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   return TaskStatus::complete;
 }
 
-TaskStatus Defrag(MeshBlock *pmb) {
-  Kokkos::Profiling::pushRegion("Task_Particles_Defrag");
-
-  auto s = pmb->swarm_data.Get()->Get("my particles");
-
-  // Only do this if list is getting too sparse. This criterion (whether there
-  // are *any* gaps in the list) is very aggressive
-  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
-    s->Defrag();
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_Particles_Defrag
-  return TaskStatus::complete;
-}
-
 // Custom step function to allow for looping over MPI-related tasks until complete
 TaskListStatus ParticleDriver::Step() {
   TaskListStatus status;
@@ -495,7 +518,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     num_sent_local += swarm->num_particles_sent_;
   }
 
-  int num_sent_global = num_sent_local; // potentially overwritte by following Allreduce
+  int num_sent_global = num_sent_local; // potentially overwritten by following Allreduce
 #ifdef MPI_PARALLEL
   for (auto &block : blocks) {
     auto swarm = block->swarm_data.Get()->Get("my particles");
@@ -572,7 +595,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
 
-    auto sc = pmb->swarm_data.Get();
+    auto &sc = pmb->swarm_data.Get();
 
     auto &tl = async_region0[i];
 
@@ -604,15 +627,19 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
 
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
+    auto &sc = pmb->swarm_data.Get();
     auto &sc1 = pmb->meshblock_data.Get();
     auto &tl = async_region1[i];
 
     auto destroy_some_particles = tl.AddTask(none, DestroySomeParticles, pmb.get());
 
-    auto deposit_particles =
-        tl.AddTask(destroy_some_particles, DepositParticles, pmb.get());
+    auto sort_particles = tl.AddTask(destroy_some_particles,
+                                     SortParticlesIfUsingPerCellDeposition, pmb.get());
 
-    auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
+    auto deposit_particles = tl.AddTask(sort_particles, DepositParticles, pmb.get());
+
+    // Defragment if swarm memory pool occupancy is 90%
+    auto defrag = tl.AddTask(deposit_particles, &SwarmContainer::Defrag, sc.get(), 0.9);
 
     // estimate next time step
     auto new_dt = tl.AddTask(
