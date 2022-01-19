@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -49,9 +49,7 @@ class PoissonDriver : public Driver {
   Reduce<int> max_rank;
   // and we'll do an all reduce of a vector just for fun
   AllReduce<std::vector<int>> vec_reduce;
-  // And a view. Unfortunately, the driver lives longer than the Kokkos
-  // runtime, therefore it complains at the end of the run if this view is managed.
-  AllReduce<parthenon::ParHostUnmanaged1D<int>> view_reduce;
+  // We reduce a view too, but it's stored as a param.
 };
 
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);

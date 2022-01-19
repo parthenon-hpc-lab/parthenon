@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,6 +19,7 @@
 #include <vector>
 
 #include <coordinates/coordinates.hpp>
+#include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 #include <solvers/solver_utils.hpp>
 
@@ -85,20 +86,19 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     pkg->AddParam("sparse_accessor", sp_accessor);
   }
 
-  // ParArrays for reductions
-  // We stash the array, which is per MPI rank, in the pkg object.
-  // If we wanted to stash the AllReduce object itself,
-  // we would need to hide it in an object with reference semantics,
-  // such as a ParArray0D to fool the const correctness semantics of
-  // params.
-  HostArray1D view_reduce("Reduce me", 10);
-  for (int i = 0; i < view_reduce.size(); i++) {
-    view_reduce(i) = 0;
+  // ParArrays for reductions We stash the array, and AllReduce
+  // object, which is per MPI rank, in the pkg object.
+  // We must use a mutable Param here so that
+  // the object can be modified by the driver.
+  parthenon::AllReduce<HostArray1D> view_reduce;
+  view_reduce.val = HostArray1D("Reduce me", 10);
+  for (int i = 0; i < view_reduce.val.size(); i++) {
+    view_reduce.val(i) = 0;
   }
-  for (int i = 0; i < view_reduce.size(); i++) {
-    view_reduce(i) += i;
+  for (int i = 0; i < view_reduce.val.size(); i++) {
+    view_reduce.val(i) += i;
   }
-  pkg->AddParam("view_reduce", view_reduce);
+  pkg->AddParam("view_reduce", view_reduce, true);
 
   return pkg;
 }
