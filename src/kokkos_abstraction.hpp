@@ -74,21 +74,21 @@ template <typename T>
 using ParArray7D = Kokkos::View<T *******, LayoutWrapper, DevMemSpace>;
 
 // Host mirrors
-template<typename T>
+template <typename T>
 using HostArray0D = typename ParArray0D<T>::HostMirror;
-template<typename T>
+template <typename T>
 using HostArray1D = typename ParArray1D<T>::HostMirror;
-template<typename T>
+template <typename T>
 using HostArray2D = typename ParArray2D<T>::HostMirror;
-template<typename T>
+template <typename T>
 using HostArray3D = typename ParArray3D<T>::HostMirror;
-template<typename T>
+template <typename T>
 using HostArray4D = typename ParArray4D<T>::HostMirror;
-template<typename T>
+template <typename T>
 using HostArray5D = typename ParArray5D<T>::HostMirror;
-template<typename T>
+template <typename T>
 using HostArray6D = typename ParArray6D<T>::HostMirror;
-template<typename T>
+template <typename T>
 using HostArray7D = typename ParArray7D<T>::HostMirror;
 
 using team_policy = Kokkos::TeamPolicy<>;
