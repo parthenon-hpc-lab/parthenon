@@ -44,6 +44,7 @@ using ScratchMemSpace = DevExecSpace::scratch_memory_space;
 
 using HostExecSpace = Kokkos::DefaultHostExecutionSpace;
 using LayoutWrapper = Kokkos::LayoutRight;
+using MemUnmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
 
 #if defined(KOKKOS_ENABLE_CUDA) && defined(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
 using BufMemSpace = Kokkos::CudaHostPinnedSpace::memory_space;
@@ -72,27 +73,39 @@ using ParArray6D = Kokkos::View<T ******, LayoutWrapper, DevMemSpace>;
 template <typename T>
 using ParArray7D = Kokkos::View<T *******, LayoutWrapper, DevMemSpace>;
 
+// Host mirrors
+template <typename T>
+using HostArray0D = typename ParArray0D<T>::HostMirror;
+template <typename T>
+using HostArray1D = typename ParArray1D<T>::HostMirror;
+template <typename T>
+using HostArray2D = typename ParArray2D<T>::HostMirror;
+template <typename T>
+using HostArray3D = typename ParArray3D<T>::HostMirror;
+template <typename T>
+using HostArray4D = typename ParArray4D<T>::HostMirror;
+template <typename T>
+using HostArray5D = typename ParArray5D<T>::HostMirror;
+template <typename T>
+using HostArray6D = typename ParArray6D<T>::HostMirror;
+template <typename T>
+using HostArray7D = typename ParArray7D<T>::HostMirror;
+
 using team_policy = Kokkos::TeamPolicy<>;
 using team_mbr_t = Kokkos::TeamPolicy<>::member_type;
 
 template <typename T>
-using ScratchPad1D = Kokkos::View<T *, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad1D = Kokkos::View<T *, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
-using ScratchPad2D = Kokkos::View<T **, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad2D = Kokkos::View<T **, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
-using ScratchPad3D = Kokkos::View<T ***, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad3D = Kokkos::View<T ***, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
-using ScratchPad4D = Kokkos::View<T ****, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad4D = Kokkos::View<T ****, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
-using ScratchPad5D = Kokkos::View<T *****, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad5D = Kokkos::View<T *****, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
-using ScratchPad6D = Kokkos::View<T ******, LayoutWrapper, ScratchMemSpace,
-                                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using ScratchPad6D = Kokkos::View<T ******, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
 

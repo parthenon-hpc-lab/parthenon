@@ -10,29 +10,41 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_POISSON_POISSON_PACKAGE_HPP_
-#define EXAMPLE_POISSON_POISSON_PACKAGE_HPP_
 
-#include <memory>
+#ifndef UTILS_CLEANTYPES_HPP_
+#define UTILS_CLEANTYPES_HPP_
 
-#include <kokkos_abstraction.hpp>
-#include <parthenon/package.hpp>
+namespace parthenon {
+namespace cleantypes {
 
-namespace poisson_package {
-using namespace parthenon::package::prelude;
+// From:
+// https://stackoverflow.com/questions/9851594/standard-c11-way-to-remove-all-pointers-of-a-type
+template <typename T>
+struct remove_all_pointers {
+  using type = T;
+};
 
-std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 template <typename T>
-TaskStatus SetMatrixElements(T *u);
-template <typename T>
-TaskStatus SumMass(T *u, Real *sum);
-template <typename T>
-TaskStatus SumDeltaPhi(T *u, Real *sum);
-template <typename T>
-TaskStatus UpdatePhi(T *u, T *du);
-template <typename T>
-TaskStatus CheckConvergence(T *u, T *du);
-TaskStatus PrintComplete();
-} // namespace poisson_package
+struct remove_all_pointers<T *> {
+  using type = typename remove_all_pointers<T>::type;
+};
 
-#endif // EXAMPLE_POISSON_POISSON_PACKAGE_HPP_
+template <typename T>
+struct remove_all_pointers<T *const> {
+  using type = typename remove_all_pointers<T>::type;
+};
+
+template <typename T>
+struct remove_all_pointers<T *volatile> {
+  using type = typename remove_all_pointers<T>::type;
+};
+
+template <typename T>
+struct remove_all_pointers<T *const volatile> {
+  using type = typename remove_all_pointers<T>::type;
+};
+
+} // namespace cleantypes
+} // namespace parthenon
+
+#endif // UTILS_CLEANTYPES_HPP_

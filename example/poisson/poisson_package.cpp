@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,6 +19,7 @@
 #include <vector>
 
 #include <coordinates/coordinates.hpp>
+#include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 #include <solvers/solver_utils.hpp>
 
@@ -27,7 +28,7 @@
 #include "poisson_package.hpp"
 
 using namespace parthenon::package::prelude;
-
+using parthenon::HostArray1D;
 namespace poisson_package {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
@@ -85,6 +86,24 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
         parthenon::solvers::SparseMatrixAccessor("accessor", nstencil, offsets);
     pkg->AddParam("sparse_accessor", sp_accessor);
   }
+
+  // ParArrays for reductions We stash the array, and AllReduce
+  // object, which is per MPI rank, in the pkg object.
+  // We must use a mutable Param here so that
+  // the object can be modified by the driver.
+  parthenon::AllReduce<HostArray1D<Real>> view_reduce;
+  view_reduce.val = HostArray1D<Real>("Reduce me", 10);
+  // First initialize to some values.
+  // This first loop is actually unnecessary,
+  // as Kokkos initializes to zero automatically.
+  // We show it here just for illustration.
+  for (int i = 0; i < view_reduce.val.size(); i++) {
+    view_reduce.val(i) = 0;
+  }
+  for (int i = 0; i < view_reduce.val.size(); i++) {
+    view_reduce.val(i) += i;
+  }
+  pkg->AddParam("view_reduce", view_reduce, true);
 
   return pkg;
 }
