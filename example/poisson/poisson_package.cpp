@@ -28,6 +28,7 @@
 #include "poisson_package.hpp"
 
 using namespace parthenon::package::prelude;
+using parthenon::HostArray1D;
 namespace poisson_package {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
@@ -90,8 +91,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // object, which is per MPI rank, in the pkg object.
   // We must use a mutable Param here so that
   // the object can be modified by the driver.
-  parthenon::AllReduce<HostArray1D> view_reduce;
-  view_reduce.val = HostArray1D("Reduce me", 10);
+  parthenon::AllReduce<HostArray1D<Real>> view_reduce;
+  view_reduce.val = HostArray1D<Real>("Reduce me", 10);
+  // First initialize to some values.
+  // This first loop is actually unnecessary,
+  // as Kokkos initializes to zero automatically.
+  // We show it here just for illustration.
   for (int i = 0; i < view_reduce.val.size(); i++) {
     view_reduce.val(i) = 0;
   }

@@ -21,8 +21,6 @@
 namespace poisson_package {
 using namespace parthenon::package::prelude;
 
-using HostArray1D = typename parthenon::ParArray1D<int>::HostMirror;
-
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 template <typename T>
 TaskStatus SetMatrixElements(T *u);

@@ -40,7 +40,6 @@ parthenon::DriverStatus PoissonDriver::Execute() {
 
 TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   using namespace parthenon;
-  using poisson_package::HostArray1D;
   TaskCollection tc;
   TaskID none(0);
 
@@ -69,8 +68,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   for (int i = 0; i < 10; i++)
     vec_reduce.val[i] = 0;
   // and a kokkos view just for fun
-  AllReduce<HostArray1D> *pview_reduce =
-      pkg->MutableParam<AllReduce<HostArray1D>>("view_reduce");
+  AllReduce<HostArray1D<Real>> *pview_reduce =
+      pkg->MutableParam<AllReduce<HostArray1D<Real>>>("view_reduce");
   int reg_dep_id;
   for (int i = 0; i < num_partitions; i++) {
     reg_dep_id = 0;
@@ -249,19 +248,19 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // And lets do a view reduce too just for fun
     // The views are filled in the package
     TaskID start_view_reduce =
-        (i == 0 ? tl.AddTask(none, &AllReduce<HostArray1D>::StartReduce, pview_reduce,
-                             MPI_SUM)
+        (i == 0 ? tl.AddTask(none, &AllReduce<HostArray1D<Real>>::StartReduce,
+                             pview_reduce, MPI_SUM)
                 : none);
     // test the reduction until it completes
-    TaskID finish_view_reduce =
-        tl.AddTask(start_view_reduce, &AllReduce<HostArray1D>::CheckReduce, pview_reduce);
+    TaskID finish_view_reduce = tl.AddTask(
+        start_view_reduce, &AllReduce<HostArray1D<Real>>::CheckReduce, pview_reduce);
     solver_region.AddRegionalDependencies(reg_dep_id, i, finish_view_reduce);
     reg_dep_id++;
 
     auto report_view = (i == 0 && Globals::my_rank == 0
                             ? tl.AddTask(
                                   finish_view_reduce,
-                                  [num_partitions](HostArray1D *view) {
+                                  [num_partitions](HostArray1D<Real> *view) {
                                     auto &v = *view;
                                     std::cout << "View reduction: ";
                                     for (int n = 0; n < v.size(); n++) {
