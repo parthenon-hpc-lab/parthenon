@@ -129,7 +129,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // set timeout config
   Globals::receive_boundary_buffer_timeout =
-      pinput->GetOrAddReal("parthenon/time", "recv_bdry_buf_timeout_sec", 60);
+      pinput->GetOrAddReal("parthenon/time", "recv_bdry_buf_timeout_sec", -1.0);
 
   return ParthenonStatus::ok;
 }
@@ -301,6 +301,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       auto v_h = v->data.GetHostMirror();
 
       // Note index l transposed to interior
+      // Double note that this also needs to be update in case
+      // we update the HDF5 infrastructure!
       for (int k = out_kb.s; k <= out_kb.e; ++k) {
         for (int j = out_jb.s; j <= out_jb.e; ++j) {
           for (int i = out_ib.s; i <= out_ib.e; ++i) {
