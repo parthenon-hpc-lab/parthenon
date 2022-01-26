@@ -25,7 +25,9 @@
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
+#ifdef ENABLE_HDF5
 #include "outputs/parthenon_hdf5.hpp"
+#endif
 #include "outputs/restart.hpp"
 #include "utils/error_checking.hpp"
 

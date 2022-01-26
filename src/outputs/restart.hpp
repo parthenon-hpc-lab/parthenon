@@ -26,6 +26,17 @@
 #include "outputs/parthenon_hdf5.hpp"
 
 using namespace parthenon::HDF5;
+// TODO(someone) the following "else" is very ugly but fixes missing types when not
+// using hdf5. The issue is that some of the restart machinery lives outside of
+// restart.cpp and restart.hpp and uses the interfaces below. We should overall update
+// the logic to reduce the ifdefs for HDF5 in this (and other restart related) files.
+#else
+class UnusedPlaceholder {};
+using hbool_t = bool;
+using hid_t = int64_t;
+using hsize_t = size_t;
+using H5D = UnusedPlaceholder;
+using H5S = UnusedPlaceholder;
 #endif
 
 #include "mesh/domain.hpp"
