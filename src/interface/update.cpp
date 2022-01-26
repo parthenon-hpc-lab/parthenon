@@ -205,26 +205,29 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   for (int b = 0; b < num_blocks; ++b) {
     for (auto var_itr : map.Map()) {
       const auto label = var_itr.first;
-      auto &counter = md->GetBlockData(b)->Get(label).dealloc_count;
-      bool all_zero = true;
-      for (int v = var_itr.second.first; v <= var_itr.second.second; ++v) {
-        if (!is_zero_h(b, v)) {
-          all_zero = false;
-          break;
+      // skip the entry in the map for the sparse base name
+      if (md->GetBlockData(b)->HasCellVariable(label)) {
+        auto &counter = md->GetBlockData(b)->Get(label).dealloc_count;
+        bool all_zero = true;
+        for (int v = var_itr.second.first; v <= var_itr.second.second; ++v) {
+          if (!is_zero_h(b, v)) {
+            all_zero = false;
+            break;
+          }
         }
-      }
 
-      if (all_zero) {
-        // all components of this var are zero, increment dealloc counter
-        counter += 1;
-      } else {
-        counter = 0;
-      }
+        if (all_zero) {
+          // all components of this var are zero, increment dealloc counter
+          counter += 1;
+        } else {
+          counter = 0;
+        }
 
-      if (counter > Globals::sparse_config.deallocation_count) {
-        // this variable has been flagged for deallocation deallocation_count times in a
-        // row, now deallocate it
-        md->GetBlockData(b)->GetBlockPointer()->DeallocateSparse(label);
+        if (counter > Globals::sparse_config.deallocation_count) {
+          // this variable has been flagged for deallocation deallocation_count times in
+          // a row, now deallocate it
+          md->GetBlockData(b)->GetBlockPointer()->DeallocateSparse(label);
+        }
       }
     }
   }

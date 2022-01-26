@@ -553,9 +553,7 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
     }
   }
 
-  // TODO(someone) temporarily disabling this for now as it breaks sparse
-  // https://github.com/lanl/parthenon/issues/638
-  // AppendSparseBaseMap(vars, pvmap);
+  AppendSparseBaseMap(vars, pvmap);
 
   Kokkos::deep_copy(cv_out, host_cv);
   Kokkos::deep_copy(sparse_id_out, host_sp);
@@ -632,9 +630,7 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
     }
   }
 
-  // TODO(someone) temporarily disabling this for now as it breaks sparse
-  // https://github.com/lanl/parthenon/issues/638
-  // AppendSparseBaseMap(vars, pvmap);
+  AppendSparseBaseMap(vars, pvmap);
 
   Kokkos::deep_copy(f1_out, host_f1);
   Kokkos::deep_copy(f2_out, host_f2);
