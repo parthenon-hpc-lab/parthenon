@@ -506,6 +506,9 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   auto sending_nonzero_flags = md->GetSendingNonzeroFlags();
   auto alloc_status = ResetSendBuffers(md.get());
 
+  // Need to ensure that both the general buffer info is already present
+  // as well as the send buffers themselves (which may have changed due to
+  // sparse allocations).
   if (!boundary_info.is_allocated() || (alloc_status != md->GetSendBufAllocStatus())) {
     ResetSendBufferBoundaryInfo(md.get(), alloc_status);
     boundary_info = md->GetSendBuffers();
@@ -565,6 +568,14 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
                     boundary_info(b).buf(i - si +
                                          Ni * (j - sj + Nj * (k - sk + Nk * v))) = val;
 #ifdef ENABLE_SPARSE
+                    // TODO(someone) BUG: THIS IS UNSAFE FOR DENSE VARIABLES
+                    // The following check should only apply for sparse variables
+                    // and dense should always send.
+                    // Alternatively, this flag shold be igonored for dense variables
+                    // in den receiving functions.
+                    // Another alternative, is to fix this when we have a
+                    // "per variable threshold" which, for dense variables, should
+                    // always be a negative number (or 0).
                     if (std::abs(val) > threshold) {
                       sending_nonzero_flags(b) = true;
                     }
