@@ -74,7 +74,9 @@ void performance_test_wrapper(const std::string &test_name, InitFunc init_func,
   };
 }
 
-static MeshBlockData<Real> createTestContainer() {
+// we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
+// won't be allocated
+static MeshBlockData<Real> createTestContainer(std::shared_ptr<MeshBlock> &dummy_mb) {
   // Make a container for testing performance
   std::vector<int> scalar_shape{N, N, N};
   std::vector<int> vector_shape{N, N, N, 3};
@@ -90,10 +92,6 @@ static MeshBlockData<Real> createTestContainer() {
   pkg->AddField("v3", m_in);
   pkg->AddField("v4", m_in_vec);
   pkg->AddField("v5", m_in);
-
-  // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
-  // won't be allocated
-  auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
 
   MeshBlockData<Real> mbd;
   mbd.Initialize(pkg, dummy_mb);
@@ -197,7 +195,8 @@ TEST_CASE("Catch2 Container Iterator Performance",
 
   SECTION("Iterate Variables") {
     GIVEN("A container.") {
-      MeshBlockData<Real> container = createTestContainer();
+      auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
+      MeshBlockData<Real> container = createTestContainer(dummy_mb);
       auto init_container = createLambdaContainer(container);
 
       // Make a function for initializing the container variables
@@ -215,7 +214,8 @@ TEST_CASE("Catch2 Container Iterator Performance",
       });
     } // GIVEN
     GIVEN("A container cellvar.") {
-      MeshBlockData<Real> container = createTestContainer();
+      auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
+      MeshBlockData<Real> container = createTestContainer(dummy_mb);
       std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
       auto init_container = createLambdaContainerCellVar(container, names);
 
@@ -237,7 +237,8 @@ TEST_CASE("Catch2 Container Iterator Performance",
 
   SECTION("View of Views") {
     GIVEN("A container.") {
-      MeshBlockData<Real> container = createTestContainer();
+      auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
+      MeshBlockData<Real> container = createTestContainer(dummy_mb);
       WHEN("The view of views does not have any names.") {
         parthenon::VariablePack<Real> var_view =
             container.PackVariables({Metadata::Independent});

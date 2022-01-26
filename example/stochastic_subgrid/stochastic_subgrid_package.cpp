@@ -255,9 +255,10 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
   const auto &pool =
       pkg->Param<Kokkos::Random_XorShift64_Pool<parthenon::DevExecSpace>>("random_pool");
 
-  const IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
-  const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
-  const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   auto alias = pkg->Param<AliasMethod>("alias_method");
   int N_min = pkg->Param<int>("N_min");

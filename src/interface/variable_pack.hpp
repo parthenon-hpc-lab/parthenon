@@ -26,6 +26,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
@@ -342,6 +343,15 @@ class VariablePack {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNdim() const { return ndim_; }
 
+  // These return coordinates ON DEVICE
+  // This call segfaults on the host.
+  KOKKOS_FORCEINLINE_FUNCTION
+  const Coordinates_t &GetCoords() const { return coords(); }
+  KOKKOS_FORCEINLINE_FUNCTION
+  const Coordinates_t &GetCoords(int) const { return coords(); }
+  // public field, with accessors for convenience
+  ParArray0D<Coordinates_t> coords;
+
  protected:
   ViewOfParArrays<T> v_;
   ParArray1D<int> sparse_ids_;
@@ -457,6 +467,44 @@ template <typename T>
 using MapToSwarmVariablePack = std::map<std::vector<std::string>, SwarmPackIndxPair<T>>;
 
 template <typename T>
+void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap) {
+  using vpack_types::IndexPair;
+
+  if (pvmap != nullptr) {
+    // add in start and stop indices for sparse fields based on base_name
+    auto vi = vars.begin();
+    int start, stop;
+    while (vi != vars.end()) {
+      auto &v = *vi;
+      int sparse_id = v->GetSparseID();
+      if (sparse_id != InvalidSparseID) {
+        std::vector<int> shape;
+        if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
+        if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
+        if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+        auto &pair = pvmap->get(v->label());
+        start = pair.first;
+        stop = pair.second;
+        auto vj = vi + 1;
+        while (vj != vars.end()) {
+          auto &q = *vj;
+          if (q->base_name() == v->base_name()) {
+            stop = pvmap->get(q->label()).second;
+            vj++;
+          } else {
+            break;
+          }
+        }
+        pvmap->insert(v->base_name(), IndexPair(start, stop), shape);
+        vi = vj;
+      } else {
+        vi++;
+      }
+    }
+  }
+}
+
+template <typename T>
 void FillVarView(const CellVariableVector<T> &vars, bool coarse,
                  ViewOfParArrays<T> &cv_out, ParArray1D<int> &sparse_id_out,
                  ParArray1D<int> &vector_component_out, ParArray1D<bool> &allocated_out,
@@ -504,6 +552,8 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
       pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
+
+  AppendSparseBaseMap(vars, pvmap);
 
   Kokkos::deep_copy(cv_out, host_cv);
   Kokkos::deep_copy(sparse_id_out, host_sp);
@@ -579,6 +629,8 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
       pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
+
+  AppendSparseBaseMap(vars, pvmap);
 
   Kokkos::deep_copy(f1_out, host_f1);
   Kokkos::deep_copy(f2_out, host_f2);

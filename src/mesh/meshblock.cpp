@@ -121,7 +121,12 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // construct objects stored in MeshBlock class.  Note in particular that the initial
   // conditions for the simulation are set in problem generator called from main
 
+  // Coords has host and device objects
   coords = Coordinates_t(block_size, pin);
+  coords_device = ParArray0D<Coordinates_t>("coords on device");
+  auto coords_host_mirror = Kokkos::create_mirror_view(coords_device);
+  coords_host_mirror() = coords;
+  Kokkos::deep_copy(coords_device, coords_host_mirror);
 
   // mesh-related objects
   // Boundary

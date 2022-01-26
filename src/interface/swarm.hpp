@@ -160,6 +160,10 @@ class Swarm {
   /// memory
   void Defrag();
 
+  /// Sort particle list by cell each particle belongs to, according to 1D cell
+  /// index (i + nx*(j + ny*k))
+  void SortParticlesByCell();
+
   // used in case of swarm boundary communication
   void SetupPersistentMPI();
   std::shared_ptr<BoundarySwarm> vbswarm;
@@ -247,6 +251,13 @@ class Swarm {
   int total_received_particles_;
 
   ParArrayND<int> neighbor_buffer_index_; // Map from neighbor index to neighbor bufid
+
+  ParArray1D<SwarmKey>
+      cellSorted_; // 1D per-cell sorted array of key-value swarm memory indices
+
+  ParArrayND<int> cellSortedBegin_; // Per-cell array of starting indices in cell_sorted_
+
+  ParArrayND<int> cellSortedNumber_; // Per-cell array of number of particles in each cell
 };
 
 template <class T>

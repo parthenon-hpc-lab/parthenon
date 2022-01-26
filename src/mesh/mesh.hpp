@@ -147,7 +147,7 @@ class Mesh {
   static void UserWorkInLoopDefault(
       Mesh *, ParameterInput *,
       SimTime const &); // default behavior for pre- and post-step user work
-  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PreStepUserWorkInLoop =
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepUserWorkInLoop =
       &UserWorkInLoopDefault;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
       &UserWorkInLoopDefault;
