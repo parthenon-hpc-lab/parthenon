@@ -61,8 +61,6 @@ ang_2_vert = false
 ang_3_vert = false
 amp = 1e-6
 
-buffer_set_pack = true
-
 refine_tol = 1.01    # control the package specific refinement tagging function
 derefine_tol = 1.001
 compute_error = true

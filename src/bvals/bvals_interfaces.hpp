@@ -166,6 +166,9 @@ struct BoundaryData { // aggregate and POD (even when MPI_PARALLEL is defined)
   BoundaryStatus flag[kMaxNeighbor], sflag[kMaxNeighbor];
   BufArray1D<Real> buffers;
   BufArray1D<Real> send[kMaxNeighbor], recv[kMaxNeighbor];
+  // host mirror view of recv
+  BufArray1D<Real>::host_mirror_type recv_h[kMaxNeighbor];
+  int recv_size[kMaxNeighbor];
 #ifdef MPI_PARALLEL
   MPI_Request req_send[kMaxNeighbor], req_recv[kMaxNeighbor];
 #endif
@@ -188,7 +191,7 @@ class BoundaryCommunication {
  public:
   BoundaryCommunication() {}
   virtual ~BoundaryCommunication() {}
-  // create unique tags for each MeshBlock/buffer/quantity and initalize MPI requests:
+  // create unique tags for each MeshBlock/buffer/quantity and initialize MPI requests:
   virtual void SetupPersistentMPI() = 0;
   // call MPI_Start() on req_recv[]
   virtual void StartReceiving(BoundaryCommSubset phase) = 0;
@@ -209,32 +212,14 @@ class BoundaryBuffer {
   virtual ~BoundaryBuffer() {}
 
   // universal buffer management methods for Cartesian grids (unrefined and SMR/AMR)
-  virtual void SendBoundaryBuffers() = 0;
-  virtual bool ReceiveBoundaryBuffers() = 0;
-  // this next fn is used only during problem initialization in mesh.cpp:
-  virtual void ReceiveAndSetBoundariesWithWait() = 0;
-  virtual void SetBoundaries() = 0;
+  virtual bool ReceiveBoundaryBuffers(bool is_allocated) = 0;
 
-  virtual void SendFluxCorrection() = 0;
-  virtual bool ReceiveFluxCorrection() = 0;
-
- protected:
-  // universal buffer management methods for Cartesian grids (unrefined and SMR/AMR):
-  virtual int LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf,
-                                          const NeighborBlock &nb) = 0;
-  virtual void SetBoundarySameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) = 0;
-
-  // SMR/AMR-exclusive buffer management methods:
-  virtual int LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf,
-                                          const NeighborBlock &nb) = 0;
-  virtual int LoadBoundaryBufferToFiner(BufArray1D<Real> &buf,
-                                        const NeighborBlock &nb) = 0;
-  virtual void SetBoundaryFromCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) = 0;
-  virtual void SetBoundaryFromFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) = 0;
+  virtual void SendFluxCorrection(bool is_allocated) = 0;
+  virtual bool ReceiveFluxCorrection(bool is_allocated) = 0;
 };
 
 //----------------------------------------------------------------------------------------
-// Abstract classes containing mix of pure virtual, virtual, and concrete functoins
+// Abstract classes containing mix of pure virtual, virtual, and concrete functions
 //----------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------
@@ -243,20 +228,31 @@ class BoundaryBuffer {
 
 class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
  public:
-  explicit BoundaryVariable(std::weak_ptr<MeshBlock> pmb);
+  explicit BoundaryVariable(std::weak_ptr<MeshBlock> pmb, bool is_sparse,
+                            const std::string &label);
   virtual ~BoundaryVariable() = default;
 
-  // (usuallly the std::size_t unsigned integer type)
-  std::vector<BoundaryVariable *>::size_type bvar_index;
+#ifdef ENABLE_SPARSE
+  // to flag indicating if a particular neighbor has this variable allocated, only
+  // applicable for sparse variables (dense variables will always have all true)
+  std::array<bool, NMAX_NEIGHBORS> local_neighbor_allocated;
+
+  inline bool IsLocalNeighborAllocated(int n) const {
+    return local_neighbor_allocated[n];
+  }
+#else
+  inline constexpr bool IsLocalNeighborAllocated(int /*n*/) const { return true; }
+#endif
+
+  bool IsSparse() const { return is_sparse_; }
+  // the label of the variable this BoundaryVariable belongs to
+  const auto &label() const { return label_; }
 
   virtual int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) = 0;
   virtual int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) = 0;
 
   // BoundaryBuffer public functions with shared implementations
-  void SendBoundaryBuffers() override;
-  bool ReceiveBoundaryBuffers() override;
-  void ReceiveAndSetBoundariesWithWait() override;
-  void SetBoundaries() override;
+  bool ReceiveBoundaryBuffers(bool is_allocated) override;
   auto GetPBdVar() { return &bd_var_; }
 
  protected:
@@ -276,13 +272,14 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
     return pmy_block_.lock();
   }
 
-  void CopyVariableBufferSameProcess(NeighborBlock &nb, int ssize);
-  void CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, int ssize);
+  void CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb);
 
   void InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type);
   void DestroyBoundaryData(BoundaryData<> &bd);
 
-  // private:
+ private:
+  const bool is_sparse_;
+  const std::string label_;
 };
 
 //----------------------------------------------------------------------------------------

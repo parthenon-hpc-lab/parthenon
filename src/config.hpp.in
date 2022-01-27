@@ -42,14 +42,14 @@
 // define PARTHENON_ENABLE_HOST_COMM_BUFFERS or not at all
 #cmakedefine PARTHENON_ENABLE_HOST_COMM_BUFFERS
 
-// define PARTHENON_ENABLE_INIT_PACKING or not at all
-#cmakedefine PARTHENON_ENABLE_INIT_PACKING
-
 // defne ENABLE_HDF5 or not at all
 #cmakedefine ENABLE_HDF5
 
 // define PARTHENON_DISABLE_HDF5_COMPRESSION or not at all
 #cmakedefine PARTHENON_DISABLE_HDF5_COMPRESSION
+
+// define ENABLE_SPARSE or not at all
+#cmakedefine ENABLE_SPARSE
 
 // Default loop patterns for MeshBlock par_for() wrappers,
 // see kokkos_abstraction.hpp for available tags.

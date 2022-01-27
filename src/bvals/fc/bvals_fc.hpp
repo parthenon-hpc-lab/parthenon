@@ -58,8 +58,8 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
   void ClearBoundary(BoundaryCommSubset phase) final;
 
   // BoundaryBuffer:
-  void SendFluxCorrection() final;
-  bool ReceiveFluxCorrection() final;
+  void SendFluxCorrection(bool is_allocated) final;
+  bool ReceiveFluxCorrection(bool is_allocated) final;
 
  private:
   bool edge_flag_[12];
@@ -72,14 +72,6 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
 #ifdef MPI_PARALLEL
   int fc_phys_id_, fc_flx_phys_id_;
 #endif
-
-  // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundarySameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  int LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  int LoadBoundaryBufferToFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundaryFromCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundaryFromFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
 
   void CountFineEdges(); // called in SetupPersistentMPI()
 

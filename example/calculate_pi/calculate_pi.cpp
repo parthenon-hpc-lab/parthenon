@@ -72,7 +72,7 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
       return;
     }
 
-    rc->AllocSparseID("in_or_out", 0);
+    pmb->AllocSparseID("in_or_out", 0);
     v = rc->Get("in_or_out", 0).data;
   } else {
     v = rc->Get("in_or_out").data;
@@ -188,7 +188,7 @@ TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> a
                  ? ComputeAreaInternal(
                        pack, areas, cellbounds,
                        KOKKOS_LAMBDA(int const b, int const v) {
-                         return pack.IsSparseIDAllocated(b, v);
+                         return pack.IsAllocated(b, v);
                        })
                  : ComputeAreaInternal(
                        pack, areas, cellbounds, KOKKOS_LAMBDA(int, int) { return true; });

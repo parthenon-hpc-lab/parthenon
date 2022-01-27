@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "bvals/cc/bvals_cc.hpp"
+#include "globals.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
@@ -84,21 +85,16 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
     }
     // add a face variable
     auto pfv = std::make_shared<FaceVariable<T>>(
-        base_name, metadata.GetArrayDims(pmy_block), metadata);
+        base_name, metadata.GetArrayDims(pmy_block, false), metadata);
     Add(pfv);
   } else {
     auto pvar =
         std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
     Add(pvar);
 
-    // TODO(JL) For now, allocate sparse and dense fields, because we don't yet have
-    // machinery to deal with non-allocated sparse fields
-    pvar->Allocate(pmy_block);
-
-    // once that machinery is in place, replace the above with this:
-    // if (!var->IsSparse()) {
-    //   var->Allocate(pmy_block);
-    // }
+    if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
+      pvar->Allocate(pmy_block);
+    }
   }
 }
 
@@ -124,7 +120,7 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
     if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
       Add(var);
     } else {
-      Add(var->AllocateCopy(false, pmy_block));
+      Add(var->AllocateCopy(pmy_block));
     }
   };
 
@@ -429,11 +425,45 @@ void MeshBlockData<T>::Remove(const std::string &label) {
 }
 
 template <typename T>
+void MeshBlockData<T>::SetLocalNeighborAllocated() {
+#ifdef ENABLE_SPARSE
+  Kokkos::Profiling::pushRegion("SetLocalNeighborAllocated");
+
+  const auto &bval = pmy_block.lock()->pbval;
+  // set local_neighbor_allocated for each variable
+  for (int n = 0; n < bval->nneighbor; n++) {
+    // find neighbor block
+    if (bval->neighbor[n].snb.rank != Globals::my_rank) {
+      continue;
+    }
+
+    auto neighbor_data = pmy_block.lock()
+                             ->pmy_mesh->FindMeshBlock(bval->neighbor[n].snb.gid)
+                             ->meshblock_data.Get();
+
+    assert(varVector_.size() == neighbor_data->varVector_.size());
+    for (size_t i = 0; i < varVector_.size(); ++i) {
+      assert(varVector_[i]->label() == neighbor_data->varVector_[i]->label());
+      if (!varVector_[i]->IsSet(Metadata::FillGhost)) {
+        continue;
+      }
+
+      varVector_[i]->vbvar->local_neighbor_allocated[n] =
+          neighbor_data->varVector_[i]->IsAllocated();
+    }
+  }
+
+  Kokkos::Profiling::popRegion(); // SetLocalNeighborAllocated
+
+#endif // ENABLE_SPARSE
+}
+
+template <typename T>
 TaskStatus MeshBlockData<T>::SendFluxCorrection() {
   Kokkos::Profiling::pushRegion("Task_SendFluxCorrection");
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
-      v->vbvar->SendFluxCorrection();
+      v->vbvar->SendFluxCorrection(v->IsAllocated());
     }
   }
 
@@ -447,7 +477,7 @@ TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
   int success = 0, total = 0;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
-      if (v->vbvar->ReceiveFluxCorrection()) {
+      if (v->vbvar->ReceiveFluxCorrection(v->IsAllocated())) {
         success++;
       }
       total++;
@@ -457,21 +487,6 @@ TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
   Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrection
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
-}
-
-template <typename T>
-TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
-  Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshBlockData");
-  // sends the boundary
-  for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      v->resetBoundary();
-      v->vbvar->SendBoundaryBuffers();
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_SendBoundaryBuffers_MeshBlockData
-  return TaskStatus::complete;
 }
 
 template <typename T>
@@ -498,7 +513,7 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
         // problems with task status, we should comment one line
         // above and uncomment the if block below
         v->resetBoundary();
-        v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
+        v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers(v->IsAllocated());
         ret = (ret & v->mpiStatus);
       }
     }
@@ -507,39 +522,6 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
   Kokkos::Profiling::popRegion(); // Task_ReceiveBoundaryBuffers_MeshBlockData
   if (ret) return TaskStatus::complete;
   return TaskStatus::incomplete;
-}
-
-template <typename T>
-TaskStatus MeshBlockData<T>::ReceiveAndSetBoundariesWithWait() {
-  Kokkos::Profiling::pushRegion("Task_ReceiveAndSetBoundariesWithWait");
-  for (auto &v : varVector_) {
-    if ((!v->mpiStatus) && v->IsSet(Metadata::FillGhost)) {
-      v->resetBoundary();
-      v->vbvar->ReceiveAndSetBoundariesWithWait();
-      v->mpiStatus = true;
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_ReceiveAndSetBoundariesWithWait
-  return TaskStatus::complete;
-}
-// This really belongs in MeshBlockData.cpp. However if I put it in there,
-// the meshblock file refuses to compile.  Don't know what's going on
-// there, but for now this is the workaround at the expense of code
-// bloat.
-template <typename T>
-TaskStatus MeshBlockData<T>::SetBoundaries() {
-  Kokkos::Profiling::pushRegion("Task_SetBoundaries_MeshBlockData");
-  // sets the boundary
-  for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      v->resetBoundary();
-      v->vbvar->SetBoundaries();
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_SetBoundaries_MeshBlockData
-  return TaskStatus::complete;
 }
 
 template <typename T>
@@ -557,6 +539,9 @@ void MeshBlockData<T>::ResetBoundaryCellVariables() {
 template <typename T>
 TaskStatus MeshBlockData<T>::StartReceiving(BoundaryCommSubset phase) {
   Kokkos::Profiling::pushRegion("Task_StartReceiving");
+
+  SetLocalNeighborAllocated();
+
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
@@ -579,16 +564,6 @@ TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
   }
 
   Kokkos::Profiling::popRegion(); // Task_ClearBoundary
-  return TaskStatus::complete;
-}
-
-template <typename T>
-TaskStatus MeshBlockData<T>::RestrictBoundaries() {
-  Kokkos::Profiling::pushRegion("RestrictBoundaries");
-  // TODO(JMM): Change this upon refactor of BoundaryValues
-  auto pmb = GetBlockPointer();
-  pmb->pbval->RestrictBoundaries();
-  Kokkos::Profiling::popRegion(); // RestrictBoundaries
   return TaskStatus::complete;
 }
 

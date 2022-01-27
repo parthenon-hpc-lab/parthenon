@@ -92,7 +92,7 @@ function(create_pathenon_coverage_targets)
       # Clean
       COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${PROJECT_BINARY_DIR} -b ${PROJECT_SOURCE_DIR} --zerocounters
       # Base report
-      COMMAND ctest -L coverage --verbose
+      COMMAND ctest -L coverage --verbose --timeout 7200
       COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${PROJECT_BINARY_DIR} -b ${PROJECT_SOURCE_DIR} -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
       # Remove Kokkos and tst info from code coverage
       COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old "*/Kokkos/*" "*/tst/*" -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base

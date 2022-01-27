@@ -481,7 +481,7 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }
-    ptype = ptype->pnext_type; // move to next OutputType node in signly linked list
+    ptype = ptype->pnext_type; // move to next OutputType node in singly linked list
   }
   Kokkos::Profiling::popRegion(); // MakeOutputs
 }

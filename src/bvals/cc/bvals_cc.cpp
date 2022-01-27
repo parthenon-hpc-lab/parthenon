@@ -44,11 +44,10 @@
 namespace parthenon {
 
 CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb,
-                                                           ParArrayND<Real> var,
-                                                           ParArrayND<Real> coarse_var,
-                                                           ParArrayND<Real> var_flux[])
-    : BoundaryVariable(pmb), var_cc(var), coarse_buf(coarse_var), x1flux(var_flux[X1DIR]),
-      x2flux(var_flux[X2DIR]), x3flux(var_flux[X3DIR]), nl_(0), nu_(var.GetDim(4) - 1) {
+                                                           bool is_sparse,
+                                                           const std::string &label,
+                                                           int dim4)
+    : BoundaryVariable(pmb, is_sparse, label), nl_(0), nu_(dim4 - 1) {
   // CellCenteredBoundaryVariable should only be used w/ 4D or 3D (nx4=1) ParArrayND
   // For now, assume that full span of 4th dim of input ParArrayND should be used:
   // ---> get the index limits directly from the input ParArrayND
@@ -56,12 +55,13 @@ CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(std::weak_ptr<MeshBlo
   if (nu_ < 0) {
     std::stringstream msg;
     msg << "### FATAL ERROR in CellCenteredBoundaryVariable constructor" << std::endl
-        << "An 'ParArrayND<Real> *var' of nx4_ = " << var.GetDim(4) << " was passed\n"
+        << "An 'ParArrayND<Real> *var' of nx4_ = " << dim4 << " was passed\n"
         << "Should be nx4 >= 1 (likely uninitialized)." << std::endl;
     PARTHENON_FAIL(msg);
   }
 
   InitBoundaryData(bd_var_, BoundaryQuantity::cc);
+
 #ifdef MPI_PARALLEL
   // KGF: dead code, leaving for now:
   // cc_phys_id_ = pmb->pbval->ReserveTagVariableIDs(1);
@@ -82,29 +82,52 @@ CellCenteredBoundaryVariable::~CellCenteredBoundaryVariable() {
   if (pmy_mesh_->multilevel) DestroyBoundaryData(bd_var_flcor_);
 }
 
-int CellCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexes &ni,
-                                                            int cng) {
+void CellCenteredBoundaryVariable::Reset(ParArrayND<Real> var,
+                                         ParArrayND<Real> coarse_var,
+                                         ParArrayND<Real> *var_flux) {
+  var_cc = var;
+  coarse_buf = coarse_var;
+  x1flux = var_flux[X1DIR];
+  x2flux = var_flux[X2DIR];
+  x3flux = var_flux[X3DIR];
+}
+
+CellCenteredBoundaryVariable::VariableBufferSizes
+CellCenteredBoundaryVariable::ComputeVariableBufferSizes(const NeighborIndexes &ni,
+                                                         int cng) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int cng1, cng2, cng3;
   cng1 = cng;
   cng2 = cng * (pmb->block_size.nx2 > 1 ? 1 : 0);
   cng3 = cng * (pmb->block_size.nx3 > 1 ? 1 : 0);
 
-  int size = ((ni.ox1 == 0) ? pmb->block_size.nx1 : Globals::nghost) *
+  VariableBufferSizes res;
+  res.same = ((ni.ox1 == 0) ? pmb->block_size.nx1 : Globals::nghost) *
              ((ni.ox2 == 0) ? pmb->block_size.nx2 : Globals::nghost) *
              ((ni.ox3 == 0) ? pmb->block_size.nx3 : Globals::nghost);
+
+  res.f2c = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : Globals::nghost) *
+            ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : Globals::nghost) *
+            ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : Globals::nghost);
+  res.c2f = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng) *
+            ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng) *
+            ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng);
+
+  return res;
+}
+
+int CellCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexes &ni,
+                                                            int cng) {
+  auto sizes = ComputeVariableBufferSizes(ni, cng);
+  int size = sizes.same;
   if (pmy_mesh_->multilevel) {
-    int f2c = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : Globals::nghost) *
-              ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : Globals::nghost) *
-              ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : Globals::nghost);
-    int c2f = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng) *
-              ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng) *
-              ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng);
-    size = std::max(size, c2f);
-    size = std::max(size, f2c);
+    size = std::max(size, sizes.c2f);
+    size = std::max(size, sizes.f2c);
   }
   size *= nu_ + 1;
-  return size;
+
+  // adding 1 to the size to communicate allocation status
+  return size + 1;
 }
 
 int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
@@ -117,155 +140,9 @@ int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
     size = (pmb->block_size.nx1 + 1) / 2 * (pmb->block_size.nx3 + 1) / 2 * (nu_ + 1);
   if (ni.ox3 != 0)
     size = (pmb->block_size.nx1 + 1) / 2 * (pmb->block_size.nx2 + 1) / 2 * (nu_ + 1);
-  return size;
-}
 
-//----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real>
-//! &buf,
-//                                                                const NeighborBlock& nb)
-//  \brief Set cell-centered boundary buffers for sending to a block on the same level
-
-int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf,
-                                                              const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  int si, sj, sk, ei, ej, ek;
-
-  IndexDomain interior = IndexDomain::interior;
-  const IndexShape &cellbounds = pmb->cellbounds;
-
-  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox1, si, ei,
-                                           cellbounds.GetBoundsI(interior));
-  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox2, sj, ej,
-                                           cellbounds.GetBoundsJ(interior));
-  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox3, sk, ek,
-                                           cellbounds.GetBoundsK(interior));
-  int p = 0;
-
-  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
-  BufferUtility::PackData(var_cc_, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb.get());
-
-  return p;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(BufArray1D<Real>
-//! &buf,
-//                                                                const NeighborBlock& nb)
-//  \brief Set cell-centered boundary buffers for sending to a block on the coarser level
-
-int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf,
-                                                              const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  int si, sj, sk, ei, ej, ek;
-
-  IndexDomain interior = IndexDomain::interior;
-  const IndexShape &c_cellbounds = pmb->c_cellbounds;
-  // "Same" logic is the same for loading to a coarse buffer, just using c_cellbounds
-  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox1, si, ei,
-                                           c_cellbounds.GetBoundsI(interior));
-  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox2, sj, ej,
-                                           c_cellbounds.GetBoundsJ(interior));
-  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox3, sk, ek,
-                                           c_cellbounds.GetBoundsK(interior));
-
-  int p = 0;
-  pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, nl_, nu_, si, ei, sj, ej, sk,
-                                       ek);
-  ParArray4D<Real> coarse_buf_ = coarse_buf.Get<4>(); // auto template deduction fails
-  BufferUtility::PackData(coarse_buf_, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p,
-                          pmb.get());
-  return p;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(BufArray1D<Real> &buf,
-//                                                                const NeighborBlock& nb)
-//  \brief Set cell-centered boundary buffers for sending to a block on the finer level
-
-int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(BufArray1D<Real> &buf,
-                                                            const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  int si, sj, sk, ei, ej, ek;
-
-  cell_centered_bvars::CalcIndicesLoadToFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
-
-  int p = 0;
-  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // auto template deduction fails
-  BufferUtility::PackData(var_cc_, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb.get());
-  return p;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundarySameLevel(BufArray1D<Real> &buf,
-//                                                              const NeighborBlock& nb)
-//  \brief Set cell-centered boundary received from a block on the same level
-
-void CellCenteredBoundaryVariable::SetBoundarySameLevel(BufArray1D<Real> &buf,
-                                                        const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  int si, sj, sk, ei, ej, ek;
-
-  const IndexShape &cellbounds = pmb->cellbounds;
-
-  IndexDomain interior = IndexDomain::interior;
-  cell_centered_bvars::CalcIndicesSetSame(nb.ni.ox1, si, ei,
-                                          cellbounds.GetBoundsI(interior));
-  cell_centered_bvars::CalcIndicesSetSame(nb.ni.ox2, sj, ej,
-                                          cellbounds.GetBoundsJ(interior));
-  cell_centered_bvars::CalcIndicesSetSame(nb.ni.ox3, sk, ek,
-                                          cellbounds.GetBoundsK(interior));
-
-  int p = 0;
-
-  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
-  BufferUtility::UnpackData(buf, var_cc_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb.get());
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(BufArray1D<Real> &buf,
-//                                                                const NeighborBlock& nb)
-//  \brief Set cell-centered prolongation buffer received from a block on a coarser level
-
-void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(BufArray1D<Real> &buf,
-                                                          const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  int si, sj, sk, ei, ej, ek;
-  int cng = pmb->cnghost;
-
-  const IndexShape &c_cellbounds = pmb->c_cellbounds;
-
-  IndexDomain interior = IndexDomain::interior;
-  cell_centered_bvars::CalcIndicesSetFromCoarser(
-      nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior), pmb->loc.lx1, cng, true);
-  cell_centered_bvars::CalcIndicesSetFromCoarser(
-      nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2, cng,
-      pmb->block_size.nx2 > 1);
-  cell_centered_bvars::CalcIndicesSetFromCoarser(
-      nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior), pmb->loc.lx3, cng,
-      pmb->block_size.nx3 > 1);
-
-  int p = 0;
-  ParArray4D<Real> coarse_buf_ = coarse_buf.Get<4>(); // auto template deduction fails
-  BufferUtility::UnpackData(buf, coarse_buf_, nl_, nu_, si, ei, sj, ej, sk, ek, p,
-                            pmb.get());
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
-//                                                              const NeighborBlock& nb)
-//  \brief Set cell-centered boundary received from a block on a finer level
-
-void CellCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
-                                                        const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  // receive already restricted data
-  int si, sj, sk, ei, ej, ek;
-
-  cell_centered_bvars::CalcIndicesSetFromFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
-  int p = 0;
-  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
-  BufferUtility::UnpackData(buf, var_cc_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb.get());
+  // adding 1 to the size to communicate allocation status
+  return size + 1;
 }
 
 void CellCenteredBoundaryVariable::SetupPersistentMPI() {
@@ -273,38 +150,35 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
 
-  int cng, cng1, cng2, cng3;
-  cng = cng1 = pmb->cnghost;
-  cng2 = (pmy_mesh_->ndim >= 2) ? cng : 0;
-  cng3 = (pmy_mesh_->ndim >= 3) ? cng : 0;
   int ssize, rsize;
   int tag;
   // Initialize non-polar neighbor communications to other ranks
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
+      auto sizes = ComputeVariableBufferSizes(nb.ni, pmb->cnghost);
+
       if (nb.snb.level == mylevel) { // same
-        ssize = rsize = ((nb.ni.ox1 == 0) ? pmb->block_size.nx1 : Globals::nghost) *
-                        ((nb.ni.ox2 == 0) ? pmb->block_size.nx2 : Globals::nghost) *
-                        ((nb.ni.ox3 == 0) ? pmb->block_size.nx3 : Globals::nghost);
+        ssize = rsize = sizes.same;
       } else if (nb.snb.level < mylevel) { // coarser
-        ssize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : Globals::nghost) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : Globals::nghost) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : Globals::nghost);
-        rsize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng1) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng2) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng3);
+        ssize = sizes.f2c;
+        rsize = sizes.c2f;
       } else { // finer
-        ssize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng1) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng2) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng3);
-        rsize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : Globals::nghost) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : Globals::nghost) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : Globals::nghost);
+        ssize = sizes.c2f;
+        rsize = sizes.f2c;
       }
       ssize *= (nu_ + 1);
       rsize *= (nu_ + 1);
       // specify the offsets in the view point of the target block: flip ox? signs
+      PARTHENON_DEBUG_REQUIRE(ssize > 0, "Send size is 0");
+      PARTHENON_DEBUG_REQUIRE(rsize > 0, "Receive size is 0");
+
+      // we add one to the send and receive buffer sizes, which will be used to
+      // communicate the allocation status
+      ssize += 1;
+      rsize += 1;
+
+      bd_var_.recv_size[nb.bufid] = rsize;
 
       // Initialize persistent communication requests attached to specific BoundaryData
       tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_phys_id_);
@@ -321,6 +195,8 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
                                         MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid])));
 
       if (pmy_mesh_->multilevel && nb.ni.type == NeighborConnect::face) {
+        // TODO(JL): could we call ComputeFluxCorrectionBufferSize here to reduce code
+        // duplication?
         int size;
         if (nb.fid == 0 || nb.fid == 1)
           size = ((pmb->block_size.nx2 + 1) / 2) * ((pmb->block_size.nx3 + 1) / 2);
@@ -329,6 +205,10 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
         else // (nb.fid == 4 || nb.fid == 5)
           size = ((pmb->block_size.nx1 + 1) / 2) * ((pmb->block_size.nx2 + 1) / 2);
         size *= (nu_ + 1);
+
+        // one more value to communicate if source has variable allocated
+        size += 1;
+
         if (nb.snb.level < mylevel) { // send to coarser
           tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_flx_phys_id_);
           if (bd_var_flcor_.req_send[nb.bufid] != MPI_REQUEST_NULL)
@@ -359,6 +239,9 @@ void CellCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
       pmb->exec_space.fence();
+      PARTHENON_REQUIRE_THROWS(bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL,
+                               "Trying to start a null request");
+
       PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_.req_recv[nb.bufid])));
       if (phase == BoundaryCommSubset::all && nb.ni.type == NeighborConnect::face &&
           nb.snb.level > mylevel) // opposite condition in ClearBoundary()

@@ -98,6 +98,7 @@ DriverStatus EvolutionDriver::Execute() {
     if (signal == OutputSignal::final) {
       break;
     }
+
     // skip the final (last) output at the end of the simulation time as it happens later
     if (tm.time < tm.tlim) {
       pouts->MakeOutputs(pmesh, pinput, &tm, signal);

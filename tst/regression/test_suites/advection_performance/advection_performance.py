@@ -26,7 +26,7 @@ import sys
 import os
 import utils.test_case
 
-""" To prevent littering up imported folders with .pyc files or __pycache_ folder"""
+# To prevent littering up imported folders with .pyc files or __pycache_ folder
 sys.dont_write_bytecode = True
 
 mb_sizes = [256, 128, 64, 32, 16]  # meshblock sizes
@@ -67,6 +67,9 @@ class TestCase(utils.test_case.TestCaseAbs):
             "parthenon/meshblock/nx2=%d" % mb_sizes[step - 1],
             "parthenon/mesh/nx3=%d" % (num_proc_z * 256),
             "parthenon/meshblock/nx3=%d" % mb_sizes[step - 1],
+            "parthenon/sparse/enable_sparse=false"
+            if parameters.sparse_disabled
+            else "",
         ]
 
         return parameters

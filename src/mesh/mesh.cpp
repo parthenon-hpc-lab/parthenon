@@ -1048,7 +1048,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     const int num_partitions = DefaultNumPartitions();
 
-#ifdef PARTHENON_ENABLE_INIT_PACKING
     // send FillGhost variables
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
@@ -1077,24 +1076,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         cell_centered_refinement::RestrictPhysicalBounds(md.get());
       }
     }
-
-#else // PARTHENON_ENABLE_INIT_PACKING -> OFF
-
-    // send FillGhost variables
-    for (int i = 0; i < nmb; ++i) {
-      block_list[i]->meshblock_data.Get()->SendBoundaryBuffers();
-    }
-
-    // wait to receive FillGhost variables
-    for (int i = 0; i < nmb; ++i) {
-      auto &mbd = block_list[i]->meshblock_data.Get();
-      mbd->ReceiveAndSetBoundariesWithWait();
-      if (multilevel) {
-        mbd->RestrictBoundaries();
-      }
-    }
-
-#endif // PARTHENON_ENABLE_INIT_PACKING
 
     for (int i = 0; i < nmb; ++i) {
       block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
@@ -1148,9 +1129,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }
 
-/// Finds location of a block with ID `tgid`. Can provide an optional "hint" to start
-/// the search at.
-std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) {
+/// Finds location of a block with ID `tgid`.
+std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
   // Attempt to simply index into the block list.
   const int nbs = block_list[0]->gid;
   const int i = tgid - nbs;

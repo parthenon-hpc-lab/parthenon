@@ -170,8 +170,7 @@ void Swarm::Add(const std::vector<std::string> &labelArray, const Metadata &meta
   }
 }
 
-std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool /*alloc_separate_fluxes_and_bvar*/,
-                                           MeshBlock * /*pmb*/) {
+std::shared_ptr<Swarm> Swarm::AllocateCopy(MeshBlock * /*pmb*/) {
   Metadata m = m_;
 
   auto swarm = std::make_shared<Swarm>(label(), m, nmax_pool_);

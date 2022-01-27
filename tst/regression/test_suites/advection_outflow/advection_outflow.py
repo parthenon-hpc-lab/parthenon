@@ -19,18 +19,16 @@
 import sys
 import utils.test_case
 
-""" To prevent littering up imported folders with .pyc files or __pycache_ folder"""
+# To prevent littering up imported folders with .pyc files or __pycache_ folder
 sys.dont_write_bytecode = True
 
 
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
-
         parameters.coverage_status = "both"
         return parameters
 
     def Analyse(self, parameters):
-
         sys.path.insert(
             1,
             parameters.parthenon_path
@@ -47,7 +45,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             [
                 "outflow.out0.final.phdf",
                 parameters.parthenon_path
-                + "/tst/regression/gold_standard/outflow.out0.00001.phdf",
+                + "/tst/regression/gold_standard/outflow.out0.final.phdf",
             ]
         )
 

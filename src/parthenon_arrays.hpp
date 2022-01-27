@@ -249,6 +249,11 @@ class ParArrayNDGeneric {
               const int nx1) {
     Kokkos::resize(d6d_, nx6, nx5, nx4, nx3, nx2, nx1);
   }
+
+  // Reset size to 0
+  // Note: Copies of this array won't be affected
+  void Reset() { Kokkos::resize(d6d_, 0, 0, 0, 0, 0, 0); }
+
   // call me as Get<D>();
   template <std::size_t N = 6>
   KOKKOS_INLINE_FUNCTION auto

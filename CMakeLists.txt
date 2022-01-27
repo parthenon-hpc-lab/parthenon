@@ -30,11 +30,10 @@ include(CTest)
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "Allocate communication buffers on host" OFF)
-option(PARTHENON_ENABLE_INIT_PACKING "Use MeshBlockPack based buffer functions in \
-Mesh::Initialize. Does NOT support sparse variables." OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
+option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
 this to True to enable linting in the default target" OFF)
 option(PARTHENON_COPYRIGHT_CHECK_DEFAULT "Copyright check is turned off by default, use the \
@@ -67,9 +66,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 12 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 13 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=d0071f40eec3a793cc188a19587f9dd915dbdc092c17a3aadd4ce82bd90cfb329043a61e194291f4f3c503fc83e7a9288462e89a90136d3d16dce27a1f099383"
+  "SHA512=e7713ea82a389c2ce3929263adcc6292659a8f80dde213dee9ef972a925e287d47db355a51ab94436ecdeec6c9976ed0c534c54ebad87cd9a0910fd5606b7554"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -143,6 +142,11 @@ if (NOT PARTHENON_DISABLE_OPENMP)
     set(ENABLE_OPENMP ON)
     set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP as execution space.")
   endif()
+endif()
+
+set(ENABLE_SPARSE ON)
+if (PARTHENON_DISABLE_SPARSE)
+  set(ENABLE_SPARSE OFF)
 endif()
 
 if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)

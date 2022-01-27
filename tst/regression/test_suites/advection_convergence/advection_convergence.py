@@ -26,7 +26,7 @@ import sys
 import os
 import utils.test_case
 
-""" To prevent littering up imported folders with .pyc files or __pycache_ folder"""
+# To prevent littering up imported folders with .pyc files or __pycache_ folder
 sys.dont_write_bytecode = True
 
 # if this is updated make sure to update the assert statements for the number of MPI ranks, too

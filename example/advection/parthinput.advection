@@ -64,10 +64,6 @@ compute_error = false
 num_vars = 1 # number of variables
 vec_size = 1 # size of each variable
 fill_derived = false # whether to fill one-copy test vars
-buffer_send_pack = false # send all buffers using packs
-buffer_recv_pack = false # receive buffers using packs
-buffer_set_pack = false # set received buffers using packs
-buffer_restrict_pack = false
 
 <parthenon/output1>
 file_type = rst
@@ -77,7 +73,7 @@ dt = 0.05
 file_type = hdf5
 dt = 0.05
 variables = advected, advected_1, & # comments are ok
-            one_minus_advected, & 
+            one_minus_advected, &
             one_minus_advected_sq, & # on every (& characters are ok in comments)
             one_minus_sqrt_one_minus_advected_sq # line
 

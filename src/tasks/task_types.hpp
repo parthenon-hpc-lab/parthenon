@@ -14,12 +14,14 @@
 #ifndef TASKS_TASK_TYPES_HPP_
 #define TASKS_TASK_TYPES_HPP_
 
+#include <chrono> // NOLINT [build/c++11]
 #include <functional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
+#include "globals.hpp"
 
 namespace parthenon {
 
@@ -46,9 +48,24 @@ class Task {
     assert(interval_ > 0);
   }
   void operator()() {
+    if (calls_ == 0) {
+      // on first call, set start time
+      start_time_ = std::chrono::high_resolution_clock::now();
+    }
+
     calls_++;
     if (calls_ % interval_ == 0) {
+      // set total runtime of current task, must go into Global namespace because
+      // functions called by the task functor don't have access to the task itself and
+      // they may want to check if the task has been running for too long indicating that
+      // it got stuck in an infinite loop
+      Globals::current_task_runtime_sec =
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+              std::chrono::high_resolution_clock::now() - start_time_)
+              .count() *
+          1e-9;
       status_ = func_();
+      Globals::current_task_runtime_sec = 0.0;
     } else {
       status_ = TaskStatus::skip;
     }
@@ -74,6 +91,10 @@ class Task {
   std::function<TaskStatus()> func_;
   int calls_ = 0;
   const int interval_;
+
+  // this is used to record the start time of the task so that we can check for how long
+  // the task been running and detect potential hangs, infinite loops, etc.
+  std::chrono::high_resolution_clock::time_point start_time_;
 };
 
 } // namespace parthenon

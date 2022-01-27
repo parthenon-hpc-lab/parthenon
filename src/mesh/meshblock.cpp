@@ -49,15 +49,15 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
-MeshBlock::MeshBlock(const int n_side, const int ndim)
+MeshBlock::MeshBlock(const int n_side, const int ndim, bool init_coarse, bool multilevel)
     : exec_space(DevExecSpace()), pmy_mesh(nullptr), cost_(1.0) {
   // initialize grid indices
   if (ndim == 1) {
-    InitializeIndexShapes(n_side, 0, 0);
+    InitializeIndexShapesImpl(n_side, 0, 0, init_coarse, multilevel);
   } else if (ndim == 2) {
-    InitializeIndexShapes(n_side, n_side, 0);
+    InitializeIndexShapesImpl(n_side, n_side, 0, init_coarse, multilevel);
   } else {
-    InitializeIndexShapes(n_side, n_side, n_side);
+    InitializeIndexShapesImpl(n_side, n_side, n_side, init_coarse, multilevel);
   }
 }
 
@@ -183,14 +183,13 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     // This is very redundant, I think, but necessary for now
     for (int n = 0; n < vars.size(); n++) {
       // These are used for doing refinement
-      pmr->AddToRefinement(vars[n]->data, vars[n]->coarse_s);
+      pmr->AddToRefinement(vars[n]);
     }
   }
 
   // Create user mesh data
   // InitMeshBlockUserData(pin);
   app = InitApplicationMeshBlockData(this, pin);
-  return;
 }
 
 //----------------------------------------------------------------------------------------
@@ -198,17 +197,24 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
 MeshBlock::~MeshBlock() = default;
 
-void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
+void MeshBlock::InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
+                                          bool init_coarse, bool multilevel) {
   cellbounds = IndexShape(nx3, nx2, nx1, Globals::nghost);
 
-  if (pmy_mesh != nullptr) {
-    if (pmy_mesh->multilevel) {
+  if (init_coarse) {
+    if (multilevel) {
       cnghost = (Globals::nghost + 1) / 2 + 1;
       c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, Globals::nghost);
     } else {
       c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
     }
   }
+}
+
+void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
+  const bool init_coarse = (pmy_mesh != nullptr);
+  const bool multilevel = (init_coarse && pmy_mesh->multilevel);
+  InitializeIndexShapesImpl(nx1, nx2, nx3, init_coarse, multilevel);
 }
 
 //----------------------------------------------------------------------------------------
@@ -258,6 +264,41 @@ void MeshBlock::RegisterMeshBlockData(std::shared_ptr<CellVariable<Real>> pvar_c
 void MeshBlock::RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc) {
   vars_fc_.push_back(pvar_fc);
   return;
+}
+
+void MeshBlock::AllocateSparse(std::string const &label) {
+  // first allocate variable in base stage
+  auto base_var = meshblock_data.Get()->AllocateSparse(label);
+
+  // now allocate in all other stages
+  for (auto stage : meshblock_data.Stages()) {
+    if (stage.first == "base") {
+      // we've already done this
+      continue;
+    }
+
+    auto v = stage.second->GetCellVarPtr(label);
+
+    if (v->IsSet(Metadata::OneCopy)) {
+      // nothing to do, we already allocated variable on base stage, and all other
+      // stages share that variable
+      continue;
+    }
+
+    if (!v->IsAllocated()) {
+      // allocate data of target variable
+      v->AllocateData();
+
+      // copy fluxes and boundary variable from variable on base stage
+      v->CopyFluxesAndBdryVar(base_var.get());
+    }
+  }
+}
+
+void MeshBlock::DeallocateSparse(std::string const &label) {
+  for (auto stage : meshblock_data.Stages()) {
+    stage.second->DeallocateSparse(label);
+  }
 }
 
 } // namespace parthenon

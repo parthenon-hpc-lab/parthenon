@@ -37,6 +37,7 @@ DonorCellX1(parthenon::team_mbr_t const &member, const int k, const int j, const
 
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
+    if (!q.IsAllocated(n)) continue;
     parthenon::par_for_inner(
         member, il, iu, [&](const int i) { ql(n, i + 1) = qr(n, i) = q(n, k, j, i); });
   }
@@ -52,6 +53,7 @@ DonorCellX2(parthenon::team_mbr_t const &member, const int k, const int j, const
   const int nu = q.GetDim(4) - 1;
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
+    if (!q.IsAllocated(n)) continue;
     parthenon::par_for_inner(member, il, iu,
                              [&](const int i) { ql(n, i) = qr(n, i) = q(n, k, j, i); });
   }
@@ -67,6 +69,7 @@ DonorCellX3(parthenon::team_mbr_t const &member, const int k, const int j, const
   const int nu = q.GetDim(4) - 1;
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
+    if (!q.IsAllocated(n)) continue;
     parthenon::par_for_inner(member, il, iu,
                              [&](const int i) { ql(n, i) = qr(n, i) = q(n, k, j, i); });
   }
