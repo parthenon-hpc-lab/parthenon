@@ -15,6 +15,7 @@
 - [[PR 617]](https://github.com/lanl/parthenon/pull/617) Unify the coordinates API for MeshBlockPack and VariablePack
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 629]](https://github.com/lanl/parthenon/pull/629) Fix HIP backend (config and tests) and extend build coverage
 - [[PR 618]](https://github.com/lanl/parthenon/pull/618) Fix bug in variable pack performance test
 - [[PR 616]](https://github.com/lanl/parthenon/pull/609) Restore sparse base names in PackIndexMap
 - [[PR 609]](https://github.com/lanl/parthenon/pull/609) Fix bug where .final is not written if signal raised while writing regular output

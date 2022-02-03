@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
@@ -43,8 +43,10 @@ constexpr int NT = 100;
 constexpr int NARRAYS = 64;
 constexpr int NS = 2;
 
-#ifdef KOKKOS_ENABLE_CUDA
+#if defined(KOKKOS_ENABLE_CUDA)
 using UVMSpace = Kokkos::CudaUVMSpace;
+#elif defined(KOKKOS_ENABLE_HIP)
+using UVMSpace = Kokkos::Experimental::HIPHostPinnedSpace;
 #else // all on host
 using UVMSpace = DevMemSpace;
 #endif
@@ -460,7 +462,7 @@ TEST_CASE("Time simple stencil operations", "[ParArrayND][performance]") {
   //   profile_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag);
   // }
 
-#ifndef KOKKOS_ENABLE_CUDA
+#if !(defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP))
   // SECTION("tptvr") {
   //   std::cout << "tptvr range:" << std::endl;
   //   profile_wrapper_3d(parthenon::loop_pattern_tptvr_tag);
