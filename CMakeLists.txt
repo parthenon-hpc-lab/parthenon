@@ -274,6 +274,14 @@ if (NOT TARGET Kokkos::kokkos)
   endif()
 endif()
 
+if (Kokkos_ENABLE_SYCL)
+  message(WARNING
+    "SYCL backend is currently NOT tested in Parthenon due to lack of access to hardware. "
+    "It may or may not work. Use at your own risk. "
+    "Please get in contact for support."
+  )
+endif()
+
 # Build Tests and download Catch2
 if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
 
