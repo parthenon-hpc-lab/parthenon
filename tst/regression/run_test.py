@@ -30,7 +30,7 @@ try:
 except ImportError:
     ()
 
-""" To prevent littering up imported folders with .pyc files"""
+# To prevent littering up imported folders with .pyc files
 sys.dont_write_bytecode = True
 
 # Parthenon modules
@@ -191,6 +191,12 @@ if __name__ == "__main__":
         "-a",
         action="store_true",
         help="Skip to analysis, assumes test data already exists",
+    )
+
+    parser.add_argument(
+        "--sparse_disabled",
+        action="store_true",
+        help="Signal that sparse is compile-time disabled",
     )
 
     args = parser.parse_args()

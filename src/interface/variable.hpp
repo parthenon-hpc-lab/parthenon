@@ -44,6 +44,8 @@
 namespace parthenon {
 
 class MeshBlock;
+template <typename T>
+class MeshBlockData;
 
 static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
 
@@ -54,33 +56,24 @@ inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
 
 template <typename T>
 class CellVariable {
+  // so that MeshBlock and MeshBlockData can call Allocate* and Deallocate
+  friend class MeshBlock;
+  friend class MeshBlockData<T>;
+
  public:
-  /// Initialize a 6D variable
   CellVariable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
-                  std::weak_ptr<MeshBlock> wpmb)
-      : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
-        dims_(m_.GetArrayDims(wpmb)) {
-    PARTHENON_REQUIRE_THROWS(
-        m_.IsSet(Metadata::Real),
-        "Only Real data type is currently supported for CellVariable");
+                  std::weak_ptr<MeshBlock> wpmb);
 
-    PARTHENON_REQUIRE_THROWS(IsSparse() == (sparse_id_ != InvalidSparseID),
-                             "Mismatch between sparse flag and sparse ID");
-
-    if (m_.getAssociated() == "") {
-      m_.Associate(label());
-    }
-  }
+  // copy fluxes and boundary variable from src CellVariable (shallow copy)
+  void CopyFluxesAndBdryVar(const CellVariable<T> *src);
 
   // make a new CellVariable based on an existing one
-  std::shared_ptr<CellVariable<T>>
-  AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
-               std::weak_ptr<MeshBlock> wpmb = {});
+  std::shared_ptr<CellVariable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb);
 
   // accessors
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
-    assert(is_allocated_);
+    assert(IsAllocated());
     return data(std::forward<Args>(args)...);
   }
 
@@ -89,6 +82,13 @@ class CellVariable {
     // we can't query data.GetDim() here because data may be unallocated
     assert(0 < i && i <= 6 && "ParArrayNDGenerics are max 6D");
     return dims_[i - 1];
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetCoarseDim(const int i) const {
+    // we can't query coarse_s.GetDim() here because it may be unallocated
+    assert(0 < i && i <= 6 && "ParArrayNDGenerics are max 6D");
+    return coarse_dims_[i - 1];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -111,10 +111,11 @@ class CellVariable {
   /// return information string
   std::string info();
 
-  bool IsAllocated() const { return is_allocated_; }
-
-  // allocate data
-  void Allocate(std::weak_ptr<MeshBlock> wpmb);
+#ifdef ENABLE_SPARSE
+  inline bool IsAllocated() const { return is_allocated_; }
+#else
+  inline constexpr bool IsAllocated() const { return true; }
+#endif
 
   /// Repoint vbvar's var_cc array at the current variable
   inline void resetBoundary() { vbvar->var_cc = data; }
@@ -128,18 +129,26 @@ class CellVariable {
   std::shared_ptr<CellCenteredBoundaryVariable> vbvar;
   bool mpiStatus = false;
 
+  int dealloc_count = 0;
+
  private:
+  // allocate data, fluxes, and boundary variable
+  void Allocate(std::weak_ptr<MeshBlock> wpmb);
+
   // allocate data only
   void AllocateData();
+
+  // deallocate data, fluxes, and boundary variable
+  void Deallocate();
 
   /// allocate fluxes (if Metadata::WithFluxes is set) and boundary variable if
   /// (Metadata::FillGhost is set)
   void AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb);
 
   Metadata m_;
-  std::string base_name_;
-  int sparse_id_ = InvalidSparseID;
-  const std::array<int, 6> dims_;
+  const std::string base_name_;
+  const int sparse_id_;
+  const std::array<int, 6> dims_, coarse_dims_;
 
   bool is_allocated_ = false;
   ParArray7D<T> flux_data_; // unified par array for the fluxes
@@ -166,9 +175,7 @@ class FaceVariable {
   FaceVariable(const std::string &label, FaceVariable<T> &src)
       : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
 
-  std::shared_ptr<FaceVariable<T>>
-  AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
-               std::weak_ptr<MeshBlock> wpmb = {}) {
+  std::shared_ptr<FaceVariable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
     PARTHENON_THROW("FaceVariable::AllocateCopy is not implemented yet");
   }
 

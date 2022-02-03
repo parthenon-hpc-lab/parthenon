@@ -46,7 +46,6 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // Step 0. Apply necessary variable restrictions when ghost-ghost zone is on same lvl
   // Handled elsewhere now
-  // rc->RestrictBoundaries();
 
   // Step 1. Apply physical boundaries on the coarse boundary,
   ApplyBoundaryConditionsOnCoarseOrFine(rc, true);
@@ -121,6 +120,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   pmb->par_for_bndry(
       label, nb, domain, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        if (!q.IsAllocated(l)) return;
         if (TYPE == BCType::Reflect) {
           const bool reflect = (q.VectorComponent(l) == DIR);
           q(l, k, j, i) =

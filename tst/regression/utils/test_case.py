@@ -114,6 +114,7 @@ class TestManager:
         self.parameters.mpi_ranks_flag = kwargs.pop("mpirun_ranks_flag")
         self.parameters.num_ranks = int(kwargs.pop("mpirun_ranks_num"))
         self.parameters.mpi_opts = kwargs.pop("mpirun_opts")
+        self.parameters.sparse_disabled = kwargs.pop("sparse_disabled")
 
         module_root_path = os.path.join(test_path, "..", "..")
         if module_root_path not in sys.path:

@@ -172,11 +172,11 @@ def compare_attribute_group(f0, f1, name):
 
             print("\nFirst file:")
             for k in diffs:
-                print("%20s: " % k, group0[k])
+                print("%20s: " % k, group0[k] if k in group0 else "<does not exist>")
 
             print("\nSecond file:")
             for k in diffs:
-                print("%20s: " % k, group1[k])
+                print("%20s: " % k, group1[k] if k in group1 else "<does not exist>")
         else:
             print("  %20s: no diffs" % name)
 

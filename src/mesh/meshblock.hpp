@@ -30,6 +30,7 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "domain.hpp"
+#include "globals.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -68,7 +69,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
  public:
   MeshBlock() = default;
-  MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
+  MeshBlock(const int n_side, const int ndim, bool init_coarse = true,
+            bool multilevel = true); // for Kokkos testing with ghost
   ~MeshBlock();
 
   // Factory method deals with initialization for you
@@ -167,6 +169,33 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void deep_copy(const DstType &dst, const SrcType &src) {
     Kokkos::deep_copy(exec_space, dst, src);
   }
+
+  void AllocateSparse(std::string const &label);
+
+  void AllocSparseID(std::string const &base_name, const int sparse_id) {
+    AllocateSparse(MakeVarLabel(base_name, sparse_id));
+  }
+
+  void DeallocateSparse(std::string const &label);
+
+#ifdef ENABLE_SPARSE
+  inline bool IsAllocated(std::string const &label) const noexcept {
+    return meshblock_data.Get()->IsAllocated(label);
+  }
+
+  inline bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
+    return IsAllocated(MakeVarLabel(base_name, sparse_id));
+  }
+#else
+  inline constexpr bool IsAllocated(std::string const & /*label*/) const noexcept {
+    return true;
+  }
+
+  inline constexpr bool IsAllocated(std::string const & /*base_name*/,
+                                    int /*sparse_id*/) const noexcept {
+    return true;
+  }
+#endif
 
   template <class... Args>
   inline void par_for(Args &&... args) {
@@ -376,6 +405,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                   ApplicationInput *app_in, Packages_t &packages, int igflag,
                   double icost = 1.0);
 
+  void InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
+                                 bool init_coarse, bool multilevel);
   void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
   // functions
   void SetCostForLoadBalancing(double cost);

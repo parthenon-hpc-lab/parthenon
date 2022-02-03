@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -21,6 +21,7 @@
 //         quantity indexed along / located around cell-centers
 
 #include <memory>
+#include <string>
 
 #include "parthenon_mpi.hpp"
 
@@ -35,8 +36,8 @@ namespace parthenon {
 
 class CellCenteredBoundaryVariable : public BoundaryVariable {
  public:
-  CellCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb, ParArrayND<Real> var,
-                               ParArrayND<Real> coarse_var, ParArrayND<Real> *var_flux);
+  CellCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb, bool is_sparse,
+                               const std::string &label, int dim4);
   ~CellCenteredBoundaryVariable();
 
   // may want to rebind var_cc to u,u1,u2,w,w1, etc. registers for time integrator logic.
@@ -53,7 +54,14 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   // must correspond to the # of "int *phys_id_" private members, below. Convert to array?
   static constexpr int max_phys_id = 3;
 
+  void Reset(ParArrayND<Real> var, ParArrayND<Real> coarse_var,
+             ParArrayND<Real> *var_flux);
+
   // BoundaryVariable:
+  struct VariableBufferSizes {
+    int same, c2f, f2c;
+  };
+  VariableBufferSizes ComputeVariableBufferSizes(const NeighborIndexes &ni, int cng);
   int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) final;
   int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) final;
 
@@ -63,22 +71,11 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   void ClearBoundary(BoundaryCommSubset phase) final;
 
   // BoundaryBuffer:
-  void SendFluxCorrection() final;
-  bool ReceiveFluxCorrection() final;
+  void SendFluxCorrection(bool is_allocated) final;
+  bool ReceiveFluxCorrection(bool is_allocated) final;
 
  protected:
   int nl_, nu_;
-
- private:
-  // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundarySameLevel(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-
-  int LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  int LoadBoundaryBufferToFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-
-  void SetBoundaryFromCoarser(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
-  void SetBoundaryFromFiner(BufArray1D<Real> &buf, const NeighborBlock &nb) final;
 
 #ifdef MPI_PARALLEL
   int cc_phys_id_, cc_flx_phys_id_;

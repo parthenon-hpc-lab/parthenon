@@ -13,7 +13,10 @@
 
 #include "parthenon_manager.hpp"
 
+#include <algorithm>
+#include <exception>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -25,6 +28,7 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "refinement/refinement.hpp"
+#include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -106,6 +110,26 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   pinput->ModifyFromCmdline(argc, argv);
   // Set the global number of ghost zones
   Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
+
+  // set sparse config
+  Globals::sparse_config.enabled = pinput->GetOrAddBoolean(
+      "parthenon/sparse", "enable_sparse", Globals::sparse_config.enabled);
+#ifndef ENABLE_SPARSE
+  PARTHENON_REQUIRE_THROWS(
+      !Globals::sparse_config.enabled,
+      "Sparse is compile-time disabled but was requested to be enabled in input file");
+#endif
+  Globals::sparse_config.allocation_threshold = pinput->GetOrAddReal(
+      "parthenon/sparse", "alloc_threshold", Globals::sparse_config.allocation_threshold);
+  Globals::sparse_config.deallocation_threshold =
+      pinput->GetOrAddReal("parthenon/sparse", "dealloc_threshold",
+                           Globals::sparse_config.deallocation_threshold);
+  Globals::sparse_config.deallocation_count = pinput->GetOrAddInteger(
+      "parthenon/sparse", "dealloc_count", Globals::sparse_config.deallocation_count);
+
+  // set timeout config
+  Globals::receive_boundary_buffer_timeout =
+      pinput->GetOrAddReal("parthenon/time", "recv_bdry_buf_timeout_sec", -1.0);
 
   return ParthenonStatus::ok;
 }
@@ -204,69 +228,92 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   size_t nCells = bsize[0] * bsize[1] * bsize[2];
 
-  // Get list of variables, assumed same for all blocks
-
-  // TODO(JL) this won't work when reading true sparse variables, will be updated in PR
-  // #383
+  // Get list of variables, they are the same for all blocks (since all blocks have the
+  // same variable metadata)
   const auto indep_restart_vars =
       mb.meshblock_data.Get()
           ->GetVariablesByFlag(
               {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, false)
           .vars();
 
-  // Allocate space based on largest vector
-  size_t vlen = 1;
-  for (auto &v : indep_restart_vars) {
-    if (v->GetDim(4) > vlen) {
-      vlen = v->GetDim(4);
-    }
+  const auto sparse_info = resfile.GetSparseInfo();
+  // create map of sparse field labels to index in the SparseInfo table
+  std::unordered_map<std::string, int> sparse_idxs;
+  for (int i = 0; i < sparse_info.num_sparse; ++i) {
+    sparse_idxs.insert({sparse_info.labels[i], i});
   }
-  std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * vlen);
-  for (auto &v : indep_restart_vars) {
-    const size_t v4 = v->GetDim(4);
-    const std::string vName = v->label();
 
-    if (Globals::my_rank == 0) std::cout << "Var:" << vName << ":" << v4 << std::endl;
-    // Read relevant data from the hdf file
-    int stat = resfile.ReadBlocks(vName.c_str(), myBlocks, tmp, bsize, v4);
-    if (stat < 0) {
-      std::cout << " WARNING: Variable " << v->label() << " Not found in restart file";
+  // Allocate space based on largest vector
+  int max_vlen = 1;
+  int num_sparse = 0;
+  for (auto &v_info : indep_restart_vars) {
+    const auto &label = v_info->label();
+
+    // check that variable is in the list of sparse fields if and only if it is sparse
+    if (v_info->IsSparse()) {
+      ++num_sparse;
+      PARTHENON_REQUIRE_THROWS(sparse_idxs.count(label) == 1,
+                               "Sparse field " + label +
+                                   " is not marked as sparse in restart file");
+    } else {
+      PARTHENON_REQUIRE_THROWS(sparse_idxs.count(label) == 0,
+                               "Dense field " + label +
+                                   " is marked as sparse in restart file");
+    }
+    max_vlen = std::max(max_vlen, v_info->NumComponents());
+  }
+
+  // make sure we have all sparse variables that are in the restart file
+  PARTHENON_REQUIRE_THROWS(
+      num_sparse == sparse_info.num_sparse,
+      "Mismatch between sparse fields in simulation and restart file");
+
+  std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * max_vlen);
+  for (auto &v_info : indep_restart_vars) {
+    const auto vlen = v_info->NumComponents();
+    const auto &label = v_info->label();
+
+    if (Globals::my_rank == 0) std::cout << "Var:" << label << ":" << vlen << std::endl;
+    // Read relevant data from the hdf file, this works for dense and sparse variables
+    try {
+      resfile.ReadBlocks(label, myBlocks, tmp, bsize, vlen);
+    } catch (std::exception &ex) {
+      std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
+                << label << " from restart file:" << std::endl
+                << ex.what() << std::endl;
       continue;
     }
 
     size_t index = 0;
     for (auto &pmb : rm.block_list) {
-      bool found = false;
-      const auto this_indep_restart_vars =
-          pmb->meshblock_data.Get()
-              ->GetVariablesByFlag(
-                  {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, false)
-              .vars();
-      for (auto &v : this_indep_restart_vars) {
-        if (vName.compare(v->label()) == 0) {
-          auto v_h = v->data.GetHostMirror();
-
-          // Note index l transposed to interior
-          for (int k = out_kb.s; k <= out_kb.e; ++k) {
-            for (int j = out_jb.s; j <= out_jb.e; ++j) {
-              for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                for (int l = 0; l < v_h.GetDim(4); ++l) {
-                  v_h(l, k, j, i) = tmp[index++];
-                }
-              }
-            }
-          }
-
-          v->data.DeepCopy(v_h);
-          found = true;
-          break;
+      if (v_info->IsSparse()) {
+        // check if the sparse variable is allocated on this block
+        if (sparse_info.IsAllocated(pmb->gid, sparse_idxs.at(label))) {
+          pmb->AllocateSparse(label);
+        } else {
+          // nothing to read for this block, advance reading index
+          index += nCells * vlen;
+          continue;
         }
       }
-      if (!found) {
-        std::stringstream msg;
-        msg << "### ERROR: Unable to find variable " << vName << std::endl;
-        PARTHENON_FAIL(msg);
+
+      auto v = pmb->meshblock_data.Get()->GetCellVarPtr(label);
+      auto v_h = v->data.GetHostMirror();
+
+      // Note index l transposed to interior
+      // Double note that this also needs to be update in case
+      // we update the HDF5 infrastructure!
+      for (int k = out_kb.s; k <= out_kb.e; ++k) {
+        for (int j = out_jb.s; j <= out_jb.e; ++j) {
+          for (int i = out_ib.s; i <= out_ib.e; ++i) {
+            for (int l = 0; l < vlen; ++l) {
+              v_h(l, k, j, i) = tmp[index++];
+            }
+          }
+        }
       }
+
+      v->data.DeepCopy(v_h);
     }
   }
 }

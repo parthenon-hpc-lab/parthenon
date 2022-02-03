@@ -12,6 +12,7 @@ debug*
 # editor temp files
 *~
 *.swp
+\#*\#
 
 # Gcov: GCC coverage testing tool- data files
 *.gcno

@@ -18,6 +18,7 @@
 //========================================================================================
 
 #include "mesh/refinement_cc_in_one.hpp"
+
 #include "kokkos_abstraction.hpp"
 
 namespace parthenon {
@@ -42,7 +43,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues3d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).restriction) {
+          if (info(buf).allocated && info(buf).restriction) {
             par_for_inner(
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
                 info(buf).sk, info(buf).ek, info(buf).sj, info(buf).ej, info(buf).si,
@@ -83,7 +84,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues2d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).restriction) {
+          if (info(buf).allocated && info(buf).restriction) {
             const int k = kb.s;
             par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
                           info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
@@ -115,7 +116,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues1d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).restriction) {
+          if (info(buf).allocated && info(buf).restriction) {
             const int ck = ckb.s;
             const int cj = cjb.s;
             const int k = kb.s;
@@ -137,16 +138,37 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
   }
 }
 
-void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
-              IndexShape &c_cellbounds);
+std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md) {
+  Kokkos::Profiling::pushRegion("ComputePhysicalRestrictBoundsAllocStatus_MeshData");
+  std::vector<bool> alloc_status;
+  for (int block = 0; block < md->NumBlocks(); ++block) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
+    int nrestrictions = pmb->pbval->NumRestrictions();
+    for (auto &v : rc->GetCellVariableVector()) {
+      if (v->IsSet(parthenon::Metadata::FillGhost)) {
+        int num_bufs = nrestrictions * (v->GetDim(6)) * (v->GetDim(5));
+        for (int i = 0; i < num_bufs; ++i) {
+          alloc_status.push_back(v->IsAllocated());
+        }
+      }
+    }
+  }
+
+  Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBoundsAllocStatus_MeshData
+  return alloc_status;
+}
+
 TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
   Kokkos::Profiling::pushRegion("Task_RestrictPhysicalBounds_MeshData");
 
+  // get alloc status
+  auto alloc_status = ComputePhysicalRestrictBoundsAllocStatus(md);
+
   auto info = md->GetRestrictBuffers();
-  bool cache_is_valid = info.is_allocated();
-  if (!cache_is_valid) {
-    info = ComputePhysicalRestrictBounds(md);
-    md->SetRestrictBuffers(info);
+  if (!info.is_allocated() || (alloc_status != md->GetRestrictBufAllocStatus())) {
+    ComputePhysicalRestrictBounds(md);
+    info = md->GetRestrictBuffers();
   }
 
   auto &rc = md->GetBlockData(0);
@@ -160,21 +182,12 @@ TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
   return TaskStatus::complete;
 }
 
-cell_centered_bvars::BufferCache_t ComputePhysicalRestrictBounds(MeshData<Real> *md) {
+void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
   Kokkos::Profiling::pushRegion("ComputePhysicalRestrictBounds_MeshData");
-  int nbuffs = 0;
-  for (int block = 0; block < md->NumBlocks(); ++block) {
-    auto &rc = md->GetBlockData(block);
-    auto pmb = rc->GetBlockPointer();
-    int nrestrictions = pmb->pbval->NumRestrictions();
-    for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(parthenon::Metadata::FillGhost)) {
-        nbuffs += nrestrictions * (v->GetDim(6)) * (v->GetDim(5));
-      }
-    }
-  }
+  auto alloc_status = ComputePhysicalRestrictBoundsAllocStatus(md);
 
-  cell_centered_bvars::BufferCache_t info("physical restriction bounds", nbuffs);
+  cell_centered_bvars::BufferCache_t info("physical restriction bounds",
+                                          alloc_status.size());
   auto info_h = Kokkos::create_mirror_view(info);
   int idx = 0;
   for (int block = 0; block < md->NumBlocks(); ++block) {
@@ -182,20 +195,16 @@ cell_centered_bvars::BufferCache_t ComputePhysicalRestrictBounds(MeshData<Real> 
     auto pmb = rc->GetBlockPointer();
     for (auto &v : rc->GetCellVariableVector()) {
       if (v->IsSet(parthenon::Metadata::FillGhost)) {
-        for (int l = 0; l < v->GetDim(6); ++l) {
-          for (int m = 0; m < v->GetDim(5); ++m) {
-            ParArray4D<Real> fine = v->data.Get(l, m);
-            ParArray4D<Real> coarse = v->vbvar->coarse_buf.Get(l, m);
-            pmb->pbval->FillRestrictionMetadata(info_h, idx, fine, coarse, v->GetDim(4));
-          }
-        }
+        pmb->pbval->FillRestrictionMetadata(info_h, idx, v);
       }
     }
   }
-  PARTHENON_DEBUG_REQUIRE(idx == nbuffs, "All buffers accounted for");
+  PARTHENON_DEBUG_REQUIRE(idx == alloc_status.size(), "All buffers accounted for");
   Kokkos::deep_copy(info, info_h);
+
+  md->SetRestrictBuffers(info, alloc_status);
+
   Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBounds_MeshData
-  return info;
 }
 
 } // namespace cell_centered_refinement

@@ -136,6 +136,9 @@ class SwarmContainer {
   // Defragmentation task
   TaskStatus Defrag(double min_occupancy);
 
+  // Sort-by-cell task
+  TaskStatus SortParticlesByCell();
+
   // Communication routines
   void SetupPersistentMPI();
   [[deprecated("Not yet implemented")]] void SetBoundaries();

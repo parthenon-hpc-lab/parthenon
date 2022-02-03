@@ -12,12 +12,15 @@
 //========================================================================================
 #include <algorithm>
 #include <cstdlib>
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "mesh/mesh.hpp"
 #include "swarm.hpp"
+#include "utils/error_checking.hpp"
+#include "utils/sort.hpp"
 
 namespace parthenon {
 
@@ -27,6 +30,9 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.mask_ = mask_.data;
   context.blockIndex_ = blockIndex_;
   context.neighborIndices_ = neighborIndices_;
+  context.cellSorted_ = cellSorted_;
+  context.cellSortedBegin_ = cellSortedBegin_;
+  context.cellSortedNumber_ = cellSortedNumber_;
 
   auto pmb = GetBlockPointer();
   auto pmesh = pmb->pmy_mesh;
@@ -62,7 +68,8 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       marked_for_removal_("mfr", nmax_pool_, Metadata({Metadata::Boolean})),
       neighbor_send_index_("nsi", nmax_pool_, Metadata({Metadata::Integer})),
       blockIndex_("blockIndex_", nmax_pool_),
-      neighborIndices_("neighborIndices_", 4, 4, 4), mpiStatus(true) {
+      neighborIndices_("neighborIndices_", 4, 4, 4),
+      cellSorted_("cellSorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
@@ -163,8 +170,7 @@ void Swarm::Add(const std::vector<std::string> &labelArray, const Metadata &meta
   }
 }
 
-std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool /*alloc_separate_fluxes_and_bvar*/,
-                                           MeshBlock * /*pmb*/) {
+std::shared_ptr<Swarm> Swarm::AllocateCopy(MeshBlock * /*pmb*/) {
   Metadata m = m_;
 
   auto swarm = std::make_shared<Swarm>(label(), m, nmax_pool_);
@@ -274,6 +280,8 @@ void Swarm::setPoolMax(const int nmax_pool) {
   pmb->par_for(
       "setPoolMax_marked_for_removal", nmax_pool_, nmax_pool - 1,
       KOKKOS_LAMBDA(const int n) { marked_for_removal_data(n) = false; });
+
+  Kokkos::resize(cellSorted_, nmax_pool);
 
   neighbor_send_index_.Get().Resize(nmax_pool);
 
@@ -470,6 +478,113 @@ void Swarm::Defrag() {
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
+}
+
+///
+/// Routine to sort particles by cell. Updates internal swarm variables:
+///  cellSorted_: 1D Per-cell sorted array of swarm memory indices
+///  (SwarmKey::swarm_index_) cellSortedBegin_: Per-cell array of starting indices in
+///  cellSorted_ cellSortedNumber_: Per-cell array of number of particles in each cell
+///
+void Swarm::SortParticlesByCell() {
+  auto pmb = GetBlockPointer();
+
+  auto &x = Get<Real>("x").Get();
+  auto &y = Get<Real>("y").Get();
+  auto &z = Get<Real>("z").Get();
+
+  const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
+  const int nx2 = pmb->cellbounds.ncellsj(IndexDomain::entire);
+  const int nx3 = pmb->cellbounds.ncellsk(IndexDomain::entire);
+  PARTHENON_REQUIRE(nx1 * nx2 * nx3 < std::numeric_limits<int>::max(),
+                    "Too many cells for an int32 to store cell_idx_1d below!");
+
+  auto cellSorted = cellSorted_;
+  int ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
+  int num_active = num_active_;
+  int max_active_index = max_active_index_;
+
+  // Allocate data if necessary
+  if (cellSortedBegin_.GetDim(1) == 0) {
+    cellSortedBegin_ = ParArrayND<int>("cellSortedBegin_", nx3, nx2, nx1);
+    cellSortedNumber_ = ParArrayND<int>("cellSortedNumber_", nx3, nx2, nx1);
+  }
+  auto cellSortedBegin = cellSortedBegin_;
+  auto cellSortedNumber = cellSortedNumber_;
+  auto swarm_d = GetDeviceContext();
+
+  // Write an unsorted list
+  pmb->par_for(
+      "Write unsorted list", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+        int i, j, k;
+        swarm_d.Xtoijk(x(n), y(n), z(n), i, j, k);
+        const int64_t cell_idx_1d = i + nx1 * (j + nx2 * k);
+        cellSorted(n) = SwarmKey(static_cast<int>(cell_idx_1d), n);
+      });
+
+  sort(cellSorted, SwarmKeyComparator(), 0, max_active_index);
+
+  // Update per-cell arrays for easier accessing later
+  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+  pmb->par_for(
+      "Update per-cell arrays", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        int cell_idx_1d = i + nx1 * (j + nx2 * k);
+        // Find starting index, first by guessing
+        int start_index = static_cast<int>((cell_idx_1d * num_active / ncells));
+        int n = 0;
+        while (true) {
+          n++;
+          // Check if we left the list
+          if (start_index < 0 || start_index > max_active_index) {
+            start_index = -1;
+            break;
+          }
+
+          if (cellSorted(start_index).cell_idx_1d_ == cell_idx_1d) {
+            if (start_index == 0) {
+              break;
+            } else if (cellSorted(start_index - 1).cell_idx_1d_ != cell_idx_1d) {
+              break;
+            } else {
+              start_index--;
+              continue;
+            }
+          }
+
+          if (cellSorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
+            start_index--;
+            if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+              start_index = -1;
+              break;
+            }
+            continue;
+          }
+          if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+            start_index++;
+            if (cellSorted(start_index).cell_idx_1d_ > cell_idx_1d) {
+              start_index = -1;
+              break;
+            }
+            continue;
+          }
+        }
+        cellSortedBegin(k, j, i) = start_index;
+        if (start_index == -1) {
+          cellSortedNumber(k, j, i) = 0;
+        } else {
+          int number = 0;
+          int current_index = start_index;
+          while (current_index <= max_active_index &&
+                 cellSorted(current_index).cell_idx_1d_ == cell_idx_1d) {
+            current_index++;
+            number++;
+            cellSortedNumber(k, j, i) = number;
+          }
+        }
+      });
 }
 
 ///

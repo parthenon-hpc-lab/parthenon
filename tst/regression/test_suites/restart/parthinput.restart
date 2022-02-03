@@ -14,25 +14,29 @@
 <parthenon/job>
 problem_id = restart
 
+<parthenon/sparse>
+dealloc_count = 999999 # disable this since deallcoation counter resets on
+                       # restart and thus leads to different results
+
 <parthenon/mesh>
 refinement = adaptive
 numlevel = 3
 
-nx1 = 64
-x1min = -0.5
-x1max = 0.5
-ix1_bc = periodic
-ox1_bc = periodic
+nx1 = 128
+x1min = -1
+x1max = 1
+ix1_bc = outflow
+ox1_bc = reflecting
 
-nx2 = 64
-x2min = -0.5
-x2max = 0.5
+nx2 = 128
+x2min = -1
+x2max = 1
 ix2_bc = periodic
 ox2_bc = periodic
 
 nx3 = 1
-x3min = -0.5
-x3max = 0.5
+x3min = -1
+x3max = 1
 ix3_bc = periodic
 ox3_bc = periodic
 
@@ -48,7 +52,9 @@ nx3 = 1
 tlim = 0.5  # need enough time here to run for a few seconds at least with MPI
 integrator = rk2
 
-<Advection>
+<sparse_advection>
+restart_test = true
+
 cfl = 0.45
 vx = 1.0
 vy = 1.0
@@ -56,9 +62,10 @@ vz = 1.0
 profile = hard_sphere
 
 refine_tol = 0.3    # control the package specific refinement tagging function
-derefine_tol = 0.03
+derefine_tol = 0.01 # with larger value test will fail because de-refinement counters
+                    # are reset on restart
 compute_error = false
 
 <parthenon/output0>
 file_type = rst
-dt = 0.10
+dt = 0.05

@@ -3,8 +3,11 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 622]](https://github.com/lanl/parthenon/pull/622) Extend reduction framework to support more general data types. Now uses PR 623.
+- [[PR 619]](https://github.com/lanl/parthenon/pull/619) Sort particles by cell
 - [[PR 605]](https://github.com/lanl/parthenon/pull/605) Add output triggering by signaling.
 - [[PR 602]](https://github.com/lanl/parthenon/pull/602) Added tuning functionality for HDF5 output
+- [[PR 586]](https://github.com/lanl/parthenon/pull/586) Implement true sparse capability with automatic allocation and deallocation of sparse
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 623]](https://github.com/lanl/parthenon/pull/623) Enable Params to optionally return non-const pointers

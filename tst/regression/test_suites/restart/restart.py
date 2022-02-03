@@ -16,21 +16,16 @@
 # ========================================================================================
 
 # Modules
-import h5py
-import math
-import numpy as np
 import sys
-import os
 import utils.test_case
 
 
-""" To prevent littering up imported folders with .pyc files or __pycache_ folder"""
+# To prevent littering up imported folders with .pyc files or __pycache_ folder
 sys.dont_write_bytecode = True
 
 
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
-
         # enable coverage testing on pass where restart
         # files are both read and written
         parameters.coverage_status = "both"
@@ -57,22 +52,43 @@ class TestCase(utils.test_case.TestCaseAbs):
         return parameters
 
     def Analyse(self, parameters):
-        success = True
-        # spotcheck one variable
-        goldFile = "gold.out0.final.rhdf"
-        silverFile = "silver.out0.final.rhdf"
-        varName = "advected"
-        with h5py.File(goldFile, "r") as gold, h5py.File(silverFile, "r") as silver:
-            goldData = np.zeros(gold[varName].shape, dtype=np.float64)
-            gold[varName].read_direct(goldData)
-            silverData = np.zeros(silver[varName].shape, dtype=np.float64)
-            silver[varName].read_direct(silverData)
+        sys.path.insert(
+            1,
+            parameters.parthenon_path
+            + "/scripts/python/packages/parthenon_tools/parthenon_tools",
+        )
 
-        maxdiff = np.abs(goldData - silverData).max()
-        print("Variable: %s, diff=%g, N=%d" % (varName, maxdiff, len(goldData)))
-        if maxdiff != 0.0:
-            print("ERROR: Found difference between gold and silver output.")
-            success = False
+        try:
+            from phdf_diff import compare
+        except ModuleNotFoundError:
+            print("Couldn't find module to compare Parthenon hdf5 files.")
+            return False
+
+        success = True
+
+        def compare_files(name):
+            delta = compare(
+                [
+                    "gold.out0.%s.rhdf" % name,
+                    "silver.out0.%s.rhdf" % name,
+                ],
+                one=True,
+            )
+
+            if delta != 0:
+                print(
+                    "ERROR: Found difference between gold and silver output '%s'."
+                    % name
+                )
+                return False
+
+            return True
+
+        # comapre a few files throughout the simulations
+        success &= compare_files("00002")
+        success &= compare_files("00005")
+        success &= compare_files("00009")
+        success &= compare_files("final")
 
         found_line = False
         for line in parameters.stdouts[1].decode("utf-8").split("\n"):

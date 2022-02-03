@@ -26,6 +26,35 @@
 namespace parthenon {
 
 template <typename T>
+CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &metadata,
+                              int sparse_id, std::weak_ptr<MeshBlock> wpmb)
+    : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
+      dims_(m_.GetArrayDims(wpmb, false)), coarse_dims_(m_.GetArrayDims(wpmb, true)) {
+  PARTHENON_REQUIRE_THROWS(m_.IsSet(Metadata::Real),
+                           "Only Real data type is currently supported for CellVariable");
+
+  PARTHENON_REQUIRE_THROWS(IsSparse() == (sparse_id_ != InvalidSparseID),
+                           "Mismatch between sparse flag and sparse ID");
+
+  if (m_.getAssociated() == "") {
+    m_.Associate(label());
+  }
+
+  if (IsSet(Metadata::FillGhost)) {
+    auto pmb = wpmb.lock();
+    PARTHENON_REQUIRE_THROWS(
+        GetDim(4) == NumComponents(),
+        "CellCenteredBoundaryVariable currently only supports rank-1 variables");
+    vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, IsSparse(), label(),
+                                                           GetDim(4));
+    auto res = pmb->pbval->bvars.insert({label(), vbvar});
+    PARTHENON_REQUIRE_THROWS(
+        res.second || (pmb->pbval->bvars.at(label()).get(), vbvar.get()),
+        "A boundary variable already existed and it's different from the new one.")
+  }
+}
+
+template <typename T>
 std::string CellVariable<T>::info() {
   char tmp[100] = "";
   char *stmp = tmp;
@@ -48,11 +77,36 @@ std::string CellVariable<T>::info() {
   return s;
 }
 
-// copy constructor
+// Makes a shallow copy of the boundary buffer and fluxes of the source variable and
+// assign them to this variable
+template <typename T>
+void CellVariable<T>::CopyFluxesAndBdryVar(const CellVariable<T> *src) {
+  if (IsSet(Metadata::WithFluxes)) {
+    // fluxes, coarse buffers, etc., are always a copy
+    // Rely on reference counting and shallow copy of kokkos views
+    flux_data_ = src->flux_data_; // reference counted
+    int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
+    for (int i = X1DIR; i <= n_outer; i++) {
+      flux[i] = src->flux[i]; // these are subviews
+    }
+  }
+
+  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+    // no need to check mesh->multilevel, if false, we're just making a shallow copy of
+    // an empty ParArrayND
+    coarse_s = src->coarse_s;
+
+    if (IsSet(Metadata::FillGhost)) {
+      // set data pointer for the boundary communication
+      // Note that vbvar->var_cc will be set when stage is selected
+      vbvar = src->vbvar;
+    }
+  }
+}
+
 template <typename T>
 std::shared_ptr<CellVariable<T>>
-CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
-                              std::weak_ptr<MeshBlock> wpmb) {
+CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
   // copy the Metadata
   Metadata m = m_;
 
@@ -63,30 +117,7 @@ CellVariable<T>::AllocateCopy(const bool alloc_separate_fluxes_and_bvar,
     cv->AllocateData();
   }
 
-  if (alloc_separate_fluxes_and_bvar) {
-    cv->AllocateFluxesAndBdryVar(wpmb);
-  } else {
-    if (IsSet(Metadata::WithFluxes)) {
-      // fluxes, coarse buffers, etc., are always a copy
-      // Rely on reference counting and shallow copy of kokkos views
-      cv->flux_data_ = flux_data_; // reference counted
-      for (int i = 1; i <= 3; i++) {
-        cv->flux[i] = flux[i]; // these are subviews
-      }
-    }
-
-    if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
-      // no need to check mesh->multilevel, if false, we're just making a shallow copy of
-      // an empty ParArrayND
-      cv->coarse_s = coarse_s;
-
-      if (IsSet(Metadata::FillGhost)) {
-        // set data pointer for the boundary communication
-        // Note that vbvar->var_cc will be set when stage is selected
-        cv->vbvar = vbvar;
-      }
-    }
-  }
+  cv->CopyFluxesAndBdryVar(this);
 
   return cv;
 }
@@ -109,6 +140,7 @@ void CellVariable<T>::AllocateData() {
 
   data =
       ParArrayND<T>(label(), dims_[5], dims_[4], dims_[3], dims_[2], dims_[1], dims_[0]);
+
   is_allocated_ = true;
 }
 
@@ -117,7 +149,7 @@ void CellVariable<T>::AllocateData() {
 template <typename T>
 void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
   PARTHENON_REQUIRE_THROWS(
-      is_allocated_, "Tried to allocate comms for un-allocated variable " + label());
+      IsAllocated(), "Tried to allocate comms for un-allocated variable " + label());
   std::string base_name = label();
 
   // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise
@@ -145,28 +177,55 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
     if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
-      coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
-                               pmb->c_cellbounds.ncellsk(IndexDomain::entire),
-                               pmb->c_cellbounds.ncellsj(IndexDomain::entire),
-                               pmb->c_cellbounds.ncellsi(IndexDomain::entire));
+      coarse_s = ParArrayND<T>(base_name + ".coarse", coarse_dims_[5], coarse_dims_[4],
+                               coarse_dims_[3], coarse_dims_[2], coarse_dims_[1],
+                               coarse_dims_[0]);
     }
 
     if (IsSet(Metadata::FillGhost)) {
-      vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
+      vbvar->Reset(data, coarse_s, flux);
 
-      // enroll CellCenteredBoundaryVariable object
-      vbvar->bvar_index = pmb->pbval->bvars.size();
       // TODO(JMM): This means RestrictBoundaries()
       // is called on EVERY stage, regardless of what
       // stage needs it.
       // The fix is to refactor BoundaryValues
       // to expose calls at either the `Variable`
       // or `MeshBlockData` and `MeshData` level.
-      pmb->pbval->bvars.push_back(vbvar);
+      auto res = pmb->pbval->bvars.insert({label(), vbvar});
+      PARTHENON_REQUIRE_THROWS(
+          res.second || (pmb->pbval->bvars.at(label()).get(), vbvar.get()),
+          "A boundary variable already existed and it's different from the new one.")
     }
   }
 
   mpiStatus = false;
+}
+
+template <typename T>
+void CellVariable<T>::Deallocate() {
+#ifdef ENABLE_SPARSE
+  if (!IsAllocated()) {
+    return;
+  }
+
+  data.Reset();
+
+  if (IsSet(Metadata::WithFluxes)) {
+    Kokkos::resize(flux_data_, 0, 0, 0, 0, 0, 0, 0);
+    int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
+    for (int d = X1DIR; d <= n_outer; ++d) {
+      flux[d].Reset();
+    }
+  }
+
+  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+    coarse_s.Reset();
+  }
+
+  is_allocated_ = false;
+#else
+  PARTHENON_THROW("CellVariable<T>::Deallocate(): Sparse is compile-time disabled");
+#endif
 }
 
 // TODO(jcd): clean these next two info routines up

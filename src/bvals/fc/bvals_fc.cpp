@@ -46,7 +46,11 @@ FaceCenteredBoundaryVariable::FaceCenteredBoundaryVariable(std::weak_ptr<MeshBlo
                                                            FaceField *var,
                                                            FaceField &coarse_buf,
                                                            EdgeField &var_flux)
-    : BoundaryVariable(pmb), var_fc(var), coarse_buf(coarse_buf) {
+    // TODO(JL): Add a label for face variables
+    : BoundaryVariable(
+          pmb, false,
+          "TODO: Give label to face variables"), // sparse variables are not supported yet
+      var_fc(var), coarse_buf(coarse_buf) {
   // assuming Field, not generic FaceCenteredBoundaryVariable:
 
   InitBoundaryData(bd_var_, BoundaryQuantity::fc);
@@ -163,12 +167,16 @@ int FaceCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
   return size;
 }
 
+/*
+ * This block of code uses the old boundary machinery, It is not currently used anymore,
+ * but kept here as a guide for when face-centered variables are re-introduced
+ *
+
 //----------------------------------------------------------------------------------------
 //! \fn int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real>
 //! &buf,
 //                                                               const NeighborBlock& nb)
 //  \brief Set face-centered boundary buffers for sending to a block on the same level
-
 int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
@@ -949,6 +957,8 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
   }
   return;
 }
+
+*/
 
 void FaceCenteredBoundaryVariable::CountFineEdges() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();

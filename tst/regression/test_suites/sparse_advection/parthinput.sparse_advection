@@ -1,0 +1,71 @@
+# ========================================================================================
+#  Athena++ astrophysical MHD code
+#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+#  Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+#  (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+#
+#  This program was produced under U.S. Government contract 89233218CNA000001 for Los
+#  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+#  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+#  in the program are reserved by Triad National Security, LLC, and the U.S. Department
+#  of Energy/National Nuclear Security Administration. The Government is granted for
+#  itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+#  license in this material to reproduce, prepare derivative works, distribute copies to
+#  the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+
+<parthenon/job>
+problem_id = sparse
+
+<parthenon/sparse>
+enable_sparse = true
+alloc_threshold = 1e-6
+dealloc_threshold = 1e-7
+dealloc_count = 5
+
+<parthenon/mesh>
+refinement = adaptive
+numlevel = 3
+
+nx1 = 64
+x1min = -1.0
+x1max = 1.0
+ix1_bc = periodic
+ox1_bc = periodic
+
+nx2 = 64
+x2min = -1.0
+x2max = 1.0
+ix2_bc = reflecting
+ox2_bc = outflow
+
+nx3 = 1
+x3min = -1.0
+x3max = 1.0
+ix3_bc = periodic
+ox3_bc = periodic
+
+<parthenon/meshblock>
+nx1 = 8
+nx2 = 8
+nx3 = 1
+
+<parthenon/time>
+recv_bdry_buf_timeout_sec = 10
+nlim = -1
+tlim = 1.0
+integrator = rk2
+ncycle_out_mesh = -10000
+
+<sparse_advection>
+cfl = 0.45
+speed = 1.5
+
+refine_tol = 0.3    # control the package specific refinement tagging function
+derefine_tol = 0.03
+
+<parthenon/output0>
+file_type = hdf5
+dt = 0.5
+variables = sparse

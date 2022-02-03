@@ -15,6 +15,7 @@
 
 #include <memory>
 
+#include <kokkos_abstraction.hpp>
 #include <parthenon/package.hpp>
 
 namespace poisson_package {

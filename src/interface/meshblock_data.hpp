@@ -48,9 +48,10 @@ class StateDescriptor;
 template <typename T>
 class MeshBlockData {
  public:
-  // So that `MeshData` can access private packing functions
-  // that have the Cache key
+  // So that `MeshData` can access private packing functions that have the Cache key
   friend class MeshData<T>;
+  // So that `MeshBlock` can call AllocateSparse and DeallocateSparse
+  friend class MeshBlock;
 
   //-----------------
   // Public Methods
@@ -142,10 +143,8 @@ class MeshBlockData {
 
   std::shared_ptr<CellVariable<T>> GetCellVarPtr(const std::string &label) const {
     auto it = varMap_.find(label);
-    if (it == varMap_.end()) {
-      PARTHENON_THROW(std::string("\n") + std::string(label) +
-                      std::string(" array not found in Get()\n"));
-    }
+    PARTHENON_REQUIRE_THROWS(it != varMap_.end(),
+                             "Couldn't find variable '" + label + "'");
     return it->second;
   }
 
@@ -162,27 +161,8 @@ class MeshBlockData {
     return -1;
   }
 
-  std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label) {
-    if (!HasCellVariable(label)) {
-      PARTHENON_THROW("Tried to allocate sparse variable '" + label +
-                      "', but no such sparse variable exists");
-    }
-
-    auto var = GetCellVarPtr(label);
-    PARTHENON_REQUIRE_THROWS(var->IsSparse(),
-                             "Tried to allocate non-sparse variable " + label);
-
-    var->Allocate(pmy_block);
-
-    return var;
-  }
-
-  std::shared_ptr<CellVariable<T>> AllocSparseID(std::string const &base_name,
-                                                 const int sparse_id) {
-    return AllocateSparse(MakeVarLabel(base_name, sparse_id));
-  }
-
-  bool IsAllocated(std::string const &label) const noexcept {
+#ifdef ENABLE_SPARSE
+  inline bool IsAllocated(std::string const &label) const noexcept {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
       return false;
@@ -190,9 +170,19 @@ class MeshBlockData {
     return it->second->IsAllocated();
   }
 
-  bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
+  inline bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
     return IsAllocated(MakeVarLabel(base_name, sparse_id));
   }
+#else
+  constexpr inline bool IsAllocated(std::string const & /*label*/) const noexcept {
+    return true;
+  }
+
+  constexpr inline bool IsAllocated(std::string const & /*base_name*/,
+                                    int /*sparse_id*/) const noexcept {
+    return true;
+  }
+#endif
 
   //
   // Queries related to FaceVariable objects
@@ -399,11 +389,9 @@ class MeshBlockData {
   int Size() noexcept { return varVector_.size(); }
 
   // Communication routines
+  void SetLocalNeighborAllocated();
   void ResetBoundaryCellVariables();
   void SetupPersistentMPI();
-  TaskStatus SetBoundaries();
-  TaskStatus SendBoundaryBuffers();
-  TaskStatus ReceiveAndSetBoundariesWithWait();
   TaskStatus ReceiveBoundaryBuffers();
   TaskStatus StartReceiving(BoundaryCommSubset phase);
   TaskStatus ClearBoundary(BoundaryCommSubset phase);
@@ -411,7 +399,6 @@ class MeshBlockData {
   TaskStatus ReceiveFluxCorrection();
 
   // physical boundary routines
-  TaskStatus RestrictBoundaries();
   void ProlongateBoundaries();
 
   bool operator==(const MeshBlockData<T> &cmp) {
@@ -458,6 +445,40 @@ class MeshBlockData {
   void Add(std::shared_ptr<FaceVariable<T>> var) noexcept {
     faceVector_.push_back(var);
     faceMap_[var->label()] = var;
+  }
+
+  std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label) {
+    if (!HasCellVariable(label)) {
+      PARTHENON_THROW("Tried to allocate sparse variable '" + label +
+                      "', but no such sparse variable exists");
+    }
+
+    auto var = GetCellVarPtr(label);
+    PARTHENON_REQUIRE_THROWS(var->IsSparse(),
+                             "Tried to allocate non-sparse variable " + label);
+
+    var->Allocate(pmy_block);
+
+    return var;
+  }
+
+  std::shared_ptr<CellVariable<T>> AllocSparseID(std::string const &base_name,
+                                                 const int sparse_id) {
+    return AllocateSparse(MakeVarLabel(base_name, sparse_id));
+  }
+
+  void DeallocateSparse(std::string const &label) {
+    PARTHENON_REQUIRE_THROWS(HasCellVariable(label),
+                             "Tried to deallocate sparse variable '" + label +
+                                 "', but no such sparse variable exists");
+
+    auto var = GetCellVarPtr(label);
+    PARTHENON_REQUIRE_THROWS(var->IsSparse(),
+                             "Tried to deallocate non-sparse variable " + label);
+
+    if (var->IsAllocated()) {
+      var->Deallocate();
+    }
   }
 
   std::weak_ptr<MeshBlock> pmy_block;

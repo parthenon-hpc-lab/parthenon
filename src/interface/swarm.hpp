@@ -83,8 +83,7 @@ class Swarm {
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
 
   /// Make a new Swarm based on an existing one
-  std::shared_ptr<Swarm> AllocateCopy(const bool alloc_separate_fluxes_and_bvar = false,
-                                      MeshBlock *pmb = nullptr);
+  std::shared_ptr<Swarm> AllocateCopy(MeshBlock *pmb);
 
   /// Add variable of given type to swarm
   template <class T>
@@ -160,6 +159,10 @@ class Swarm {
   /// Defragment the list by moving active particles so they are contiguous in
   /// memory
   void Defrag();
+
+  /// Sort particle list by cell each particle belongs to, according to 1D cell
+  /// index (i + nx*(j + ny*k))
+  void SortParticlesByCell();
 
   // used in case of swarm boundary communication
   void SetupPersistentMPI();
@@ -248,6 +251,13 @@ class Swarm {
   int total_received_particles_;
 
   ParArrayND<int> neighbor_buffer_index_; // Map from neighbor index to neighbor bufid
+
+  ParArray1D<SwarmKey>
+      cellSorted_; // 1D per-cell sorted array of key-value swarm memory indices
+
+  ParArrayND<int> cellSortedBegin_; // Per-cell array of starting indices in cell_sorted_
+
+  ParArrayND<int> cellSortedNumber_; // Per-cell array of number of particles in each cell
 };
 
 template <class T>

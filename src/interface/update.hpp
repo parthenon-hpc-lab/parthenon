@@ -29,6 +29,7 @@
 #include "interface/state_descriptor.hpp"
 
 #include "kokkos_abstraction.hpp"
+#include "mesh/domain.hpp"
 
 namespace parthenon {
 
@@ -74,7 +75,12 @@ TaskStatus WeightedSumData(const std::vector<F> &flags, T *in1, T *in2, const Re
       DEFAULT_LOOP_PATTERN, "WeightedSumData", DevExecSpace(), 0, x.GetDim(5) - 1, 0,
       x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0, x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
+        // TOOD(someone) This is potentially dangerous and/or not intended behavior
+        // as we still may want to update (or populate) z if any of those vars are
+        // not allocated yet.
+        if (x.IsAllocated(b, l) && y.IsAllocated(b, l) && z.IsAllocated(b, l)) {
+          z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
+        }
       });
   Kokkos::Profiling::popRegion(); // Task_WeightedSumData
   return TaskStatus::complete;
@@ -143,6 +149,8 @@ TaskStatus FillDerived(T *rc) {
   Kokkos::Profiling::popRegion(); // Task_FillDerived
   return TaskStatus::complete;
 }
+
+TaskStatus SparseDealloc(MeshData<Real> *md);
 
 } // namespace Update
 

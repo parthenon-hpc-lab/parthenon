@@ -22,9 +22,11 @@
 
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 
+#include "bvals/cc/bvals_cc.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "globals.hpp"
@@ -34,8 +36,19 @@
 
 namespace parthenon {
 
-BoundaryVariable::BoundaryVariable(std::weak_ptr<MeshBlock> pmb)
-    : bvar_index(), pmy_block_(pmb), pmy_mesh_(pmb.lock()->pmy_mesh) {}
+BoundaryVariable::BoundaryVariable(std::weak_ptr<MeshBlock> pmb, bool is_sparse,
+                                   const std::string &label)
+    : pmy_block_(pmb), pmy_mesh_(pmb.lock()->pmy_mesh), is_sparse_(is_sparse),
+      label_(label) {
+#ifdef ENABLE_SPARSE
+  // if this is a sparse variable, local neighbor allocation status will be set later, we
+  // initialize it to false here. For dense variable we initialize to true, as all local
+  // neighbors will always have this variable allocated
+  for (int i = 0; i < NMAX_NEIGHBORS; ++i) {
+    local_neighbor_allocated[i] = !is_sparse_;
+  }
+#endif
+}
 
 //----------------------------------------------------------------------------------------
 //! \fn void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type)
@@ -97,6 +110,7 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
     bd.recv[n] =
         BufArray1D<Real>(bd.buffers, std::make_pair(offsets.at(n) + total_size,
                                                     offsets.at(n + 1) + total_size));
+    bd.recv_h[n] = Kokkos::create_mirror_view(bd.recv[n]);
   }
 }
 
@@ -113,36 +127,12 @@ void BoundaryVariable::DestroyBoundaryData(BoundaryData<> &bd) {
   }
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock& nb, int ssize)
-//  \brief
-
-//  Called in BoundaryVariable::SendBoundaryBuffer(), SendFluxCorrection() calls when the
-//  destination neighbor block is on the same MPI rank as the sending MeshBlock. So
-//  std::memcpy() call requires pointer to "void *dst" corresponding to
-//  bd_var_.recv[nb.targetid] in separate BoundaryVariable object in separate vector in
-//  separate BoundaryValues
-
-void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb, int ssize) {
+void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb) {
   // Locate target buffer
   // 1) which MeshBlock?
   MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
   // 2) which element in vector of BoundaryVariable *?
-  BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars[bvar_index]->bd_var_);
-  target_block.deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_.send[nb.bufid]);
-  // finally, set the BoundaryStatus flag on the destination buffer
-  ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
-  return;
-}
-
-// KGF: change ssize to send_count
-
-void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, int ssize) {
-  // Locate target buffer
-  // 1) which MeshBlock?
-  MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
-  // 2) which element in vector of BoundaryVariable *?
-  BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars[bvar_index]->bd_var_flcor_);
+  BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars.at(label_)->bd_var_flcor_);
   target_block.deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_flcor_.send[nb.bufid]);
   ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
   return;
@@ -151,43 +141,10 @@ void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, in
 // Default / shared implementations of 4x BoundaryBuffer public functions
 
 //----------------------------------------------------------------------------------------
-//! \fn void BoundaryVariable::SendBoundaryBuffers()
-//  \brief Send boundary buffers of variables
-
-void BoundaryVariable::SendBoundaryBuffers() {
-  auto pmb = GetBlockPointer();
-  int mylevel = pmb->loc.level;
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-    if (bd_var_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
-    int ssize;
-    if (nb.snb.level == mylevel)
-      ssize = LoadBoundaryBufferSameLevel(bd_var_.send[nb.bufid], nb);
-    else if (nb.snb.level < mylevel)
-      ssize = LoadBoundaryBufferToCoarser(bd_var_.send[nb.bufid], nb);
-    else
-      ssize = LoadBoundaryBufferToFiner(bd_var_.send[nb.bufid], nb);
-    // fence to make sure buffers are loaded and ready to send
-    pmb->exec_space.fence();
-    if (nb.snb.rank == Globals::my_rank) {
-      // on the same process
-      CopyVariableBufferSameProcess(nb, ssize);
-    } else {
-#ifdef MPI_PARALLEL
-      PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_.req_send[nb.bufid])));
-#endif
-    }
-
-    bd_var_.sflag[nb.bufid] = BoundaryStatus::completed;
-  }
-  return;
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn bool BoundaryVariable::ReceiveBoundaryBuffers()
 //  \brief receive the boundary data
 
-bool BoundaryVariable::ReceiveBoundaryBuffers() {
+bool BoundaryVariable::ReceiveBoundaryBuffers(bool is_allocated) {
   bool bflag = true;
 
   auto pmb = GetBlockPointer();
@@ -196,12 +153,34 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::arrived) continue;
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::waiting) {
       if (nb.snb.rank == Globals::my_rank) { // on the same process
-        bflag = false;
-        continue;
-      }
+        // if this variable is allocated, we wait to get boundary data, otherwise we don't
+        // care and we'll mark this boundary as complete at the bottom
+        if (is_allocated) {
+          bflag = false;
+          continue;
+        }
+      } else {
 #ifdef MPI_PARALLEL
-      else { // NOLINT // MPI boundary
         int test;
+        // Comment from original Athena++ code about the MPI_Iprobe call:
+        //
+        // Although MPI_Iprobe does nothing for us (it checks arrival of any message but
+        // we do not use the result), this is ABSOLUTELY NECESSARY for the performance of
+        // Athena++. Although non-blocking MPI communications look like multi-tasking
+        // running behind our code, actually they are not. The network interface card can
+        // run autonomously from the CPU, but to move the data between the memory and the
+        // network interface and initiate/complete communications, MPI has to do something
+        // using CPU. So to process communications, we have to allow MPI to use CPU.
+        // Theoretically MPI can use multi-thread for this (OpenMPI can be configured so)
+        // but it is not common because of performance and compatibility issues. Instead,
+        // MPI processes communications whenever any MPI function is called. MPI_Iprobe is
+        // one of the cheapest function in MPI and by calling this occasionally MPI can
+        // process communications "as if it is in the background". Using only MPI_Test,
+        // the communications were very slow. I suspect that MPI_Test changes the ordering
+        // of the messages internally (I guess it tries to promote the message it is
+        // Testing), and if we call MPI_Test for different messages, they are left half
+        // done. So if we remove them, I am sure we will see significant performance drop.
+        // I could not dig it up right now, Collela or Woodward mentioned this in a paper.
         PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
                                        MPI_STATUS_IGNORE));
         PARTHENON_MPI_CHECK(
@@ -210,61 +189,27 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
           bflag = false;
           continue;
         }
-        bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
-      }
 #endif
+
+        if (!is_allocated) {
+          // we have to copy flag at the end of recv buffer to host to read it
+          const auto idx = bd_var_.recv_size[nb.bufid] - 1;
+          // the flag lives on the device, copy it to host
+          Real flag;
+          Kokkos::deep_copy(flag, Kokkos::subview(bd_var_.recv[nb.bufid], idx));
+
+          // check if we need to allocate this variable if it's not allocated
+          if (flag == 1.0) {
+            // we need to allocate this variable
+            pmb->AllocateSparse(label());
+          }
+        }
+      }
+
+      bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
     }
   }
   return bflag;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void BoundaryVariable::SetBoundaries()
-//  \brief set the boundary data
-
-void BoundaryVariable::SetBoundaries() {
-  auto pmb = GetBlockPointer();
-  int mylevel = pmb->loc.level;
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-    if (nb.snb.level == mylevel)
-      // TODO(pgrete) FIX interface
-      SetBoundarySameLevel(bd_var_.recv[nb.bufid], nb);
-    else if (nb.snb.level < mylevel) // only sets the prolongation buffer
-      SetBoundaryFromCoarser(bd_var_.recv[nb.bufid], nb);
-    else
-      SetBoundaryFromFiner(bd_var_.recv[nb.bufid], nb);
-    bd_var_.flag[nb.bufid] = BoundaryStatus::completed; // completed
-  }
-
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void BoundaryVariable::ReceiveAndSetBoundariesWithWait()
-//  \brief receive and set the boundary data for initialization
-
-void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
-  auto pmb = GetBlockPointer();
-  int mylevel = pmb->loc.level;
-  pmb->exec_space.fence();
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-#ifdef MPI_PARALLEL
-    if (nb.snb.rank != Globals::my_rank) {
-      PARTHENON_MPI_CHECK(MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE));
-    }
-#endif
-    if (nb.snb.level == mylevel)
-      SetBoundarySameLevel(bd_var_.recv[nb.bufid], nb);
-    else if (nb.snb.level < mylevel)
-      SetBoundaryFromCoarser(bd_var_.recv[nb.bufid], nb);
-    else
-      SetBoundaryFromFiner(bd_var_.recv[nb.bufid], nb);
-    bd_var_.flag[nb.bufid] = BoundaryStatus::completed; // completed
-  }
-
-  return;
 }
 
 } // namespace parthenon

@@ -22,7 +22,7 @@ import sys
 import os
 import utils.test_case
 
-""" To prevent littering up imported folders with .pyc files or __pycache_ folder"""
+# To prevent littering up imported folders with .pyc files or __pycache_ folder
 sys.dont_write_bytecode = True
 
 
@@ -98,15 +98,17 @@ class TestCase(utils.test_case.TestCaseAbs):
             [
                 "advection_2d.out0.final.phdf",
                 parameters.parthenon_path
-                + "/tst/regression/gold_standard/advection_2d.out0.00001.phdf",
-            ]
+                + "/tst/regression/gold_standard/advection_2d.out0.final.phdf",
+            ],
+            one=True,
         )
         ret_3d = phdf_diff.compare(
             [
                 "advection_3d.out0.final.phdf",
                 parameters.parthenon_path
-                + "/tst/regression/gold_standard/advection_3d.out0.00001.phdf",
-            ]
+                + "/tst/regression/gold_standard/advection_3d.out0.final.phdf",
+            ],
+            one=True,
         )
 
         if ret_2d != 0 or ret_3d != 0:
@@ -119,7 +121,11 @@ class TestCase(utils.test_case.TestCaseAbs):
             ["dt", 1.75781e-03, 3.12500e-03],
             ["total", 7.06177e-02, 1.39160e-02],
             ["max", 9.43685e-01, 4.80914e-01],
-            ["min", 1.67180e-10, 1.45889e-07],
+            [
+                "min",
+                1.67180e-10 if parameters.sparse_disabled else 1.67171e-10,
+                1.45889e-07,
+            ],
         ]
         # check results in last row (at the final time of the sim)
         for i, val in enumerate(ref_results):

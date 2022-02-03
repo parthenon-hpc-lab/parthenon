@@ -139,3 +139,6 @@ The `Add(const std::string& label, MeshBlockData<T>& src)` member function creat
 The overload `Add(const std::string &label, MeshBlockData<T> &src, const std::vector<std::string> &names)` provides the same functionality as the above `Add` function, but for a subset of variables provided in the vector of names.  This feature allows downstream applications to allocate storage in a more targeted fashion, as might be desirable to hold source terms for particular equations, for example.
 
 Two simple examples of usage of these new containers are 1) to provide storage for multistage integration schemes and 2) to provide a mechanism to allocate storage for right hand sides, deltas, etc.  Both of these usages are demonstrated in the advection example that ships with Parthenon.
+
+Note that in multistage integrator the fluxes and `bvars` of a variable
+are shared by default across all stages.

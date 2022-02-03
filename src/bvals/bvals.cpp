@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -101,7 +101,7 @@ BoundaryValues::BoundaryValues(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
 
 void BoundaryValues::SetupPersistentMPI() {
   for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
-    (*bvars_it)->SetupPersistentMPI();
+    (*bvars_it).second->SetupPersistentMPI();
   }
 }
 
@@ -111,7 +111,7 @@ void BoundaryValues::SetupPersistentMPI() {
 
 void BoundaryValues::StartReceiving(BoundaryCommSubset phase) {
   for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
-    (*bvars_it)->StartReceiving(phase);
+    (*bvars_it).second->StartReceiving(phase);
   }
 }
 
@@ -123,7 +123,7 @@ void BoundaryValues::ClearBoundary(BoundaryCommSubset phase) {
   // Note BoundaryCommSubset::mesh_init corresponds to initial exchange of conserved fluid
   // variables and magentic fields
   for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
-    (*bvars_it)->ClearBoundary(phase);
+    (*bvars_it).second->ClearBoundary(phase);
   }
 }
 
