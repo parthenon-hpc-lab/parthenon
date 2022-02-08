@@ -694,7 +694,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     for (auto idx = 0; idx < sb_idx; idx++) {
       PARTHENON_MPI_CHECK(MPI_Isend(sendbuf[idx].data(), count[idx], MPI_PARTHENON_REAL,
                                     dest[idx], tags[idx], MPI_COMM_WORLD,
-                                    &(req_send[sb_idx])));
+                                    &(req_send[idx])));
     }
   }                               // if (nsend !=0)
   Kokkos::Profiling::popRegion(); // Step 7
@@ -814,8 +814,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         }
       }
       // rb_idx is a running index, so we repeat the loop until all vals are true
-    } while (std::all_of(received.begin(), received.begin() + rb_idx,
-                         [](bool v) { return v; }));
+    } while (!std::all_of(received.begin(), received.begin() + rb_idx,
+                          [](bool v) { return v; }));
     Kokkos::fence();
   }
 #endif
