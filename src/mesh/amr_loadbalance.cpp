@@ -768,31 +768,55 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // This is a test: try MPI_Waitall later.
 #ifdef MPI_PARALLEL
   if (nrecv != 0) {
-    int rb_idx = 0; // recv buffer index
-    for (int n = nbs; n <= nbe; n++) {
-      int on = newtoold[n];
-      LogicalLocation &oloc = loclist[on];
-      LogicalLocation &nloc = newloc[n];
-      auto pb = FindMeshBlock(n);
-      if (oloc.level == nloc.level) { // same
-        if (ranklist[on] == Globals::my_rank) continue;
-        PARTHENON_MPI_CHECK(MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE));
-        FinishRecvSameLevel(pb.get(), recvbuf[rb_idx]);
-        rb_idx++;
-      } else if (oloc.level > nloc.level) { // f2c
-        for (int l = 0; l < nleaf; l++) {
-          if (ranklist[on + l] == Globals::my_rank) continue;
-          PARTHENON_MPI_CHECK(MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE));
-          FinishRecvFineToCoarseAMR(pb.get(), recvbuf[rb_idx], loclist[on + l]);
+    int test;
+    std::vector<bool> received(nrecv, false);
+    int rb_idx;
+    do {
+      rb_idx = 0; // recv buffer index
+      for (int n = nbs; n <= nbe; n++) {
+        int on = newtoold[n];
+        LogicalLocation &oloc = loclist[on];
+        LogicalLocation &nloc = newloc[n];
+        auto pb = FindMeshBlock(n);
+        if (oloc.level == nloc.level) { // same
+          if (ranklist[on] == Globals::my_rank) continue;
+          if (!received[rb_idx]) {
+            PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
+            if (static_cast<bool>(test)) {
+              FinishRecvSameLevel(pb.get(), recvbuf[rb_idx]);
+              received[rb_idx] = true;
+            }
+          }
+          rb_idx++;
+        } else if (oloc.level > nloc.level) { // f2c
+          for (int l = 0; l < nleaf; l++) {
+            if (ranklist[on + l] == Globals::my_rank) continue;
+            if (!received[rb_idx]) {
+              PARTHENON_MPI_CHECK(
+                  MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
+              if (static_cast<bool>(test)) {
+                FinishRecvFineToCoarseAMR(pb.get(), recvbuf[rb_idx], loclist[on + l]);
+                received[rb_idx] = true;
+              }
+            }
+            rb_idx++;
+          }
+        } else { // c2f
+          if (ranklist[on] == Globals::my_rank) continue;
+          if (!received[rb_idx]) {
+            PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
+            if (static_cast<bool>(test)) {
+              FinishRecvCoarseToFineAMR(pb.get(), recvbuf[rb_idx]);
+              received[rb_idx] = true;
+            }
+          }
           rb_idx++;
         }
-      } else { // c2f
-        if (ranklist[on] == Globals::my_rank) continue;
-        PARTHENON_MPI_CHECK(MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE));
-        FinishRecvCoarseToFineAMR(pb.get(), recvbuf[rb_idx]);
-        rb_idx++;
       }
-    }
+      // rb_idx is a running index, so we repeat the loop until all vals are true
+    } while (std::all_of(received.begin(), received.begin() + rb_idx,
+                         [](bool v) { return v; }));
+    Kokkos::fence();
   }
 #endif
 
