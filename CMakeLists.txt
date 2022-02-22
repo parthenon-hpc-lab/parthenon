@@ -311,7 +311,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
   endif()
 
   # Try finding an installed Catch2 first
-  find_package(Catch2 2.11.1 QUIET)
+  find_package(Catch2 2.13.8 QUIET)
 
   if (NOT Catch2_FOUND)
     # If Catch2 is not found, instead use the git submodule
@@ -327,7 +327,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/Catch2/contrib")
   endif()
 
-  include(ParseAndAddCatchTests)
+  include(Catch)
   add_subdirectory(tst)
 endif()
 
