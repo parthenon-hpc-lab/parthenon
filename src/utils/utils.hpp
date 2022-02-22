@@ -68,7 +68,7 @@ template <typename T,
 #ifdef ENABLE_HDF5
           ,
           typename std::enable_if<!std::is_same<T, hsize_t>::value, bool>::type = true>
-#endif
+#endif // ENABLE_HDF5
 T parse_value(std::string &strvalue);
 
 // Parse env. variable expected to hold a bool value allowing for different conventions.
@@ -111,7 +111,7 @@ template <typename T, std::enable_if<std::is_same<T, hsize_t>::value, bool>::typ
 inline T parse_value(std::string &strvalue) {
   return parse_unsigned<hsize_t>(strvalue);
 }
-#Endif // ifdef ENABLE_HDF5
+#endif // ifdef ENABLE_HDF5
 } // namespace Impl
 
 // Get environment variables of various types (with checks).
