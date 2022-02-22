@@ -106,7 +106,8 @@ inline T parse_value(std::string &strvalue) {
 }
 
 #ifdef ENABLE_HDF5
-template <typename T, std::enable_if<std::is_same<T, hsize_t>::value, bool>::type = true,
+template <typename T,
+          typename std::enable_if<std::is_same<T, hsize_t>::value, bool>::type = true,
           typename std::enable_if<!std::is_same<T, size_t>::value, bool>::type = true>
 inline T parse_value(std::string &strvalue) {
   return parse_unsigned<hsize_t>(strvalue);
