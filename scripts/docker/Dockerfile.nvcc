@@ -1,7 +1,15 @@
 FROM nvidia/cuda:11.4.2-devel-ubuntu20.04
 
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib lcov curl nsight-systems-2021.3.3 cmake ninja-build clang-12 llvm-12 libomp-12-dev
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib lcov curl nsight-systems-2021.3.3 cmake ninja-build
+
+RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
+    echo "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main" > /etc/apt/sources.list.d/llvm.list
+
+RUN apt-get clean && apt-get update -y && \
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends clang-13 llvm-13 libomp-13-dev && \
+    rm -rf /var/lib/apt/lists/*
+
 
 RUN cd /tmp && \
     wget https://download.open-mpi.org/release/open-mpi/v3.1/openmpi-3.1.6.tar.bz2 && \
