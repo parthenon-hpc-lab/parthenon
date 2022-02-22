@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 #include "constants.hpp"
 #include "error_checking.hpp"
@@ -62,7 +63,12 @@ namespace Env {
 
 namespace Impl {
 // TODO(the person bumping standard to C++17) Clean up this mess and use constexpr if
-template <typename T>
+template <typename T,
+          typename std::enable_if<!std::is_same<T, size_t>::value, bool>::type = true
+#ifdef ENABLE_HDF5
+          ,
+          typename std::enable_if<!std::is_same<T, hsize_t>::value, bool>::type = true>
+#endif
 T parse_value(std::string &strvalue);
 
 // Parse env. variable expected to hold a bool value allowing for different conventions.
@@ -93,14 +99,16 @@ T parse_unsigned(const std::string &strvalue) {
   return res;
 }
 
-template <>
-inline size_t parse_value<size_t>(std::string &strvalue) {
+template <typename T,
+          typename std::enable_if<std::is_same<T, size_t>::value, bool>::type = true>
+inline T parse_value(std::string &strvalue) {
   return parse_unsigned<size_t>(strvalue);
 }
 
 #ifdef ENABLE_HDF5
-template <>
-inline hsize_t parse_value<hsize_t>(std::string &strvalue) {
+template <std::enable_if<std::is_same<T, hsize_t>::value, bool>::type = true,
+          typename std::enable_if<!std::is_same<T, size_t>::value, bool>::type = true>
+inline T parse_value(std::string &strvalue) {
   return parse_unsigned<hsize_t>(strvalue);
 }
 #endif // ifdef ENABLE_HDF5
