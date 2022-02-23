@@ -520,6 +520,14 @@ TEST_CASE("Get the correct access pattern when using FlatIdx", "[FlatIdx]") {
 
         REQUIRE(err3 == 0.0);
       }
+
+      THEN("We can ask for FlatIdxs of fields that don't exist in the pack") {
+        PackIndexMap imap;
+        auto v = pmbd->PackVariables(std::vector<std::string>{"v2", "v3"}, imap);
+        auto idx_v4 = imap.GetFlatIdx("v4", false);
+        REQUIRE(idx_v4() == -1);
+        REQUIRE(!idx_v4.IsValid());
+      }
     }
   }
 }
