@@ -63,6 +63,21 @@ namespace Env {
 
 namespace Impl {
 // TODO(the person bumping standard to C++17) Clean up this mess and use constexpr if
+
+// TODO(JMM): We use template specialization below to parse
+// information from environment variables
+// where we template on return type. We hit an issue with HDF5's hsize_t, becuase:
+// (a) sometimes HDF5 is disabled, so hsize_t isn't always present
+// (b) hsize_t's type is system/compiler-dependent. Sometimes it's the same as size_t,
+//     but it doesn't have to be. If you define a specialization for size_t
+//     and hsize_t on a system where they are not the same,
+//     the compiler will see a duplicate function and complain.
+// To resolve this issue, we use SFINAE. The std::enable_ifs mean the
+// templated functions are enabled only if the appropriate conditions are met.
+// In particular, the prototype is enabled only for types that are
+// not size_t or hsize_t.
+// Then the implementation for size_t is always enabled and the implementation
+// for hsize_t is enabled ONLY if HDF5 is available, and hsize_t != size_t.
 template <typename T,
           typename std::enable_if<!std::is_same<T, size_t>::value, bool>::type = true
 #ifdef ENABLE_HDF5
