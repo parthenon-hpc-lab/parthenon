@@ -83,8 +83,7 @@ class FlatIdx {
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsValid() const {
-    if (offset_ >= 0) return true;
-    return false;
+    return (offset_ >= 0);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
