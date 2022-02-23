@@ -26,8 +26,8 @@ namespace parthenon {
 
 SwarmDeviceContext Swarm::GetDeviceContext() const {
   SwarmDeviceContext context;
-  context.marked_for_removal_ = marked_for_removal_.data;
-  context.mask_ = mask_.data;
+  context.marked_for_removal_ = marked_for_removal_;
+  context.mask_ = mask_;
   context.blockIndex_ = blockIndex_;
   context.neighborIndices_ = neighborIndices_;
   context.cellSorted_ = cellSorted_;
@@ -64,8 +64,8 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
 
 Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
-      mask_("mask", nmax_pool_, Metadata({Metadata::Boolean})),
-      marked_for_removal_("mfr", nmax_pool_, Metadata({Metadata::Boolean})),
+      mask_("mask", nmax_pool_),
+      marked_for_removal_("mfr", nmax_pool_),
       neighbor_send_index_("nsi", nmax_pool_, Metadata({Metadata::Integer})),
       blockIndex_("blockIndex_", nmax_pool_),
       neighborIndices_("neighborIndices_", 4, 4, 4),
@@ -79,8 +79,8 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   num_active_ = 0;
   max_active_index_ = 0;
 
-  auto mask_h = mask_.data.GetHostMirror();
-  auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
+  auto mask_h = Kokkos::create_mirror_view(HostMemSpace(), mask_);
+  auto marked_for_removal_h = Kokkos::create_mirror_view(HostMemSpace(), marked_for_removal_);
 
   for (int n = 0; n < nmax_pool_; n++) {
     mask_h(n) = false;
@@ -88,8 +88,8 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
     free_indices_.push_back(n);
   }
 
-  mask_.data.DeepCopy(mask_h);
-  marked_for_removal_.data.DeepCopy(marked_for_removal_h);
+  Kokkos::deep_copy(mask_, mask_h);
+  Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
 }
 
 void Swarm::AllocateBoundaries() {
@@ -269,7 +269,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
   }
 
   // Resize and copy data
-  mask_.Get().Resize(nmax_pool);
+  /*mask_.Get().Resize(nmax_pool);
   auto mask_data = mask_.Get();
   pmb->par_for(
       "setPoolMax_mask", nmax_pool_, nmax_pool - 1,
@@ -279,7 +279,17 @@ void Swarm::setPoolMax(const int nmax_pool) {
   auto marked_for_removal_data = marked_for_removal_.Get();
   pmb->par_for(
       "setPoolMax_marked_for_removal", nmax_pool_, nmax_pool - 1,
-      KOKKOS_LAMBDA(const int n) { marked_for_removal_data(n) = false; });
+      KOKKOS_LAMBDA(const int n) { marked_for_removal_data(n) = false; });*/
+
+  Kokkos::resize(mask_, nmax_pool);
+  Kokkos::resize(marked_for_removal_, nmax_pool);
+  // TODO(BRR) Does Kokkos::resize already set these values to false?
+  pmb->par_for(
+      "setPoolMax_marked_for_removal", nmax_pool_, nmax_pool - 1,
+      KOKKOS_LAMBDA(const int n) {
+        mask_(n) = false;
+        marked_for_removal_(n) = false;
+      });
 
   Kokkos::resize(cellSorted_, nmax_pool);
 
@@ -323,25 +333,29 @@ void Swarm::setPoolMax(const int nmax_pool) {
   nmax_pool_ = nmax_pool;
 }
 
-ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
+ParArray1D<bool> Swarm::AddEmptyParticles(const int num_to_add,
                                           ParArrayND<int> &new_indices) {
   if (num_to_add <= 0) {
     new_indices = ParArrayND<int>();
-    return ParArrayND<bool>();
+    return ParArray1D<bool>();
   }
 
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
+  //auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
 
-  ParArrayND<bool> new_mask("Newly created particles", nmax_pool_);
-  auto new_mask_h = new_mask.GetHostMirror();
+  ParArray1D<bool> new_mask("Newly created particles", nmax_pool_);
+  auto new_mask_h = Kokkos::create_mirror_view(HostMemSpace(), new_mask);
+  //auto new_mask_h = new_mask.GetHostMirror();
   for (int n = 0; n < nmax_pool_; n++) {
     new_mask_h(n) = false;
   }
 
-  auto mask_h = mask_.data.GetHostMirror();
-  mask_h.DeepCopy(mask_.data);
+  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+
+  //auto mask_h = mask_.data.GetHostMirror();
+  //mask_h.DeepCopy(mask_.data);
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
 
   auto free_index = free_indices_.begin();
@@ -364,8 +378,10 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
 
   num_active_ += num_to_add;
 
-  new_mask.DeepCopy(new_mask_h);
-  mask_.data.DeepCopy(mask_h);
+  Kokkos::deep_copy(new_mask, new_mask_h);
+  Kokkos::deep_copy(mask_, mask_h);
+  //new_mask.DeepCopy(new_mask_h);
+  //mask_.data.DeepCopy(mask_h);
   blockIndex_.DeepCopy(blockIndex_h);
 
   return new_mask;
@@ -375,9 +391,11 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
-  auto mask_h = mask_.data.GetHostMirrorAndCopy();
-  auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
-  marked_for_removal_h.DeepCopy(marked_for_removal_.data);
+  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+  auto marked_for_removal_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), marked_for_removal_);
+  //auto mask_h = mask_.data.GetHostMirrorAndCopy();
+  //auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
+  //marked_for_removal_h.DeepCopy(marked_for_removal_.data);
 
   // loop backwards to keep free_indices_ updated correctly
   for (int n = max_active_index_; n >= 0; n--) {
@@ -394,8 +412,10 @@ void Swarm::RemoveMarkedParticles() {
     }
   }
 
-  mask_.data.DeepCopy(mask_h);
-  marked_for_removal_.data.DeepCopy(marked_for_removal_h);
+  Kokkos::deep_copy(mask_, mask_h);
+  Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
+  //mask_.data.DeepCopy(mask_h);
+  //marked_for_removal_.data.DeepCopy(marked_for_removal_h);
 }
 
 void Swarm::Defrag() {
@@ -410,7 +430,8 @@ void Swarm::Defrag() {
   ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
   auto from_to_indices_h = from_to_indices.GetHostMirror();
 
-  auto mask_h = mask_.data.GetHostMirrorAndCopy();
+  //auto mask_h = mask_.data.GetHostMirrorAndCopy();
+  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
 
   for (int n = 0; n <= max_active_index_; n++) {
     from_to_indices_h(n) = unset_index_;
@@ -444,12 +465,11 @@ void Swarm::Defrag() {
 
   from_to_indices.DeepCopy(from_to_indices_h);
 
-  auto mask = mask_.Get();
   pmb->par_for(
       "Swarm::DefragMask", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         if (from_to_indices(n) >= 0) {
-          mask(from_to_indices(n)) = mask(n);
-          mask(n) = false;
+          mask_(from_to_indices(n)) = mask_(n);
+          mask_(n) = false;
         }
       });
 
@@ -893,7 +913,8 @@ void Swarm::SetupPersistentMPI() {
 
 int Swarm::CountParticlesToSend_() {
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
-  auto mask_h = mask_.data.GetHostMirrorAndCopy();
+  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+  //auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int nbmax = vbswarm->bd_var_.nbmax;
@@ -1008,7 +1029,8 @@ void Swarm::Send(BoundaryCommSubset phase) {
   if (nneighbor == 0) {
     // Process physical boundary conditions on "sent" particles
     auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
-    auto mask_h = mask_.data.GetHostMirrorAndCopy();
+    auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+    //auto mask_h = mask_.data.GetHostMirrorAndCopy();
 
     int total_sent_particles = 0;
     pmb->par_reduce(

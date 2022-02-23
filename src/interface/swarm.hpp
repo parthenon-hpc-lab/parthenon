@@ -154,7 +154,7 @@ class Swarm {
   void RemoveMarkedParticles();
 
   /// Open up memory for new empty particles, return a mask to these particles
-  ParArrayND<bool> AddEmptyParticles(const int num_to_add, ParArrayND<int> &new_indices);
+  ParArray1D<bool> AddEmptyParticles(const int num_to_add, ParArrayND<int> &new_indices);
 
   /// Defragment the list by moving active particles so they are contiguous in
   /// memory
@@ -234,8 +234,10 @@ class Swarm {
   std::tuple<MapToParticle<int>, MapToParticle<Real>> Maps_;
 
   std::list<int> free_indices_;
-  ParticleVariable<bool> mask_;
-  ParticleVariable<bool> marked_for_removal_;
+  ParArray1D<bool> mask_;
+  ParArray1D<bool> marked_for_removal_;
+  //ParticleVariable<bool> mask_;
+  //ParticleVariable<bool> marked_for_removal_;
   ParticleVariable<int> neighbor_send_index_; // -1 means no send
   ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
                                     // k,j indices unused in 3D&2D, 2D, respectively

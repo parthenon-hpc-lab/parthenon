@@ -136,8 +136,8 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
     auto &pmb = blocks[i];
 
     auto swarm = pmb->swarm_data.Get()->Get("my particles");
-    const auto &is_active = swarm->GetMask().Get().GetHostMirrorAndCopy();
-    for (auto n = 0; n < is_active.GetSize(); n++) {
+    const auto &is_active = Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
+    for (auto n = 0; n <= swarm->GetMaxActiveIndex(); n++) {
       if (is_active(n)) {
         num_particles_this_rank += 1;
       }
@@ -162,8 +162,8 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
     const auto &vy = swarm->Get<Real>("vy").Get().GetHostMirrorAndCopy();
     const auto &vz = swarm->Get<Real>("vz").Get().GetHostMirrorAndCopy();
 
-    const auto &is_active = swarm->GetMask().Get().GetHostMirrorAndCopy();
-    for (auto n = 0; n < is_active.GetSize(); n++) {
+    const auto &is_active = Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
+    for (auto n = 0; n <= swarm->GetMaxActiveIndex(); n++) {
       if (is_active(n)) {
         particle_output_this_rank(offset++) = static_cast<Real>(pmb->gid);
         particle_output_this_rank(offset++) = static_cast<Real>(id(n));

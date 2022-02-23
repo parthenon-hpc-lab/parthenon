@@ -375,8 +375,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
 
   ParArrayND<int> new_indices;
-  const auto new_particles_mask =
-      swarm->AddEmptyParticles(num_tracers_meshblock, new_indices);
+  swarm->AddEmptyParticles(num_tracers_meshblock, new_indices);
 
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();

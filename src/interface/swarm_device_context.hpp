@@ -127,8 +127,8 @@ class SwarmDeviceContext {
   Real y_max_global_;
   Real z_min_global_;
   Real z_max_global_;
-  ParArrayND<bool> marked_for_removal_;
-  ParArrayND<bool> mask_;
+  ParArray1D<bool> mask_;
+  ParArray1D<bool> marked_for_removal_;
   ParArrayND<int> blockIndex_;
   ParArrayND<int> neighborIndices_; // 4x4x4 array of possible block AMR regions
   ParArray1D<SwarmKey> cellSorted_;

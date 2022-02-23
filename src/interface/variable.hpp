@@ -270,8 +270,7 @@ template <typename T>
 class ParticleVariable {
  public:
   /// Initialize a particle variable
-  ParticleVariable(const std::string &label, const int npool, const Metadata &metadata)
-      : data(label, npool), npool_(npool), m_(metadata), label_(label) {}
+  ParticleVariable(const std::string &label, const int npool, const Metadata &metadata);
 
   // accessors
   KOKKOS_FORCEINLINE_FUNCTION
@@ -282,7 +281,13 @@ class ParticleVariable {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  auto GetDim(const int i) const { return data.GetDim(i); }
+  auto GetDim(const int i) const {
+    PARTHENON_REQUIRE(0 < i && i <= 6, "ParArrayNDGenerics are max 6D");
+    return dims_[i-1];
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto NumComponents() const { return dims_[5]*dims_[4]*dims_[3]*dims_[2]*dims_[1]; }
 
   ///< retrieve metadata for variable
   inline const Metadata metadata() const { return m_; }
@@ -298,9 +303,9 @@ class ParticleVariable {
   ParArrayND<T> data;
 
  private:
-  int npool_;
   Metadata m_;
   std::string label_;
+  std::array<int, 6> dims_;
 };
 
 template <typename T>
