@@ -44,6 +44,8 @@ class ParArrayNDGeneric {
   ParArrayNDGeneric() = default;
   ParArrayNDGeneric(const std::string &label, int nx6, int nx5, int nx4, int nx3, int nx2,
                     int nx1) {
+    printf("label: %s\n", label.c_str());
+    printf("ns: %i %i %i %i %i %i\n", nx6, nx5, nx4, nx3, nx2, nx1);
     assert(nx6 > 0 && nx5 > 0 && nx4 > 0 && nx3 > 0 && nx2 > 0 && nx1 > 0);
     d6d_ = Data(label, nx6, nx5, nx4, nx3, nx2, nx1);
   }

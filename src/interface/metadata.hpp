@@ -49,6 +49,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Edge)                                                      \
   /** node variable */                                                                   \
   PARTHENON_INTERNAL_FOR_FLAG(Node)                                                      \
+  /** particle variable */                                                               \
+  PARTHENON_INTERNAL_FOR_FLAG(Particle)                                                  \
   /************************************************/                                     \
   /** ROLE: Exactly one must be specified (default is Provides) */                       \
   /** Private to a package */                                                            \
@@ -325,6 +327,8 @@ class Metadata {
       return Edge;
     } else if (IsSet(Node)) {
       return Node;
+    } else if (IsSet(Particle)) {
+      return Particle;
     } else if (IsSet(None)) {
       return None;
     }
@@ -332,7 +336,7 @@ class Metadata {
     PARTHENON_THROW("No topology flag set");
   }
 
-  bool IsMeshTied() const { return Where() != None; }
+  bool IsMeshTied() const { return (Where() != None && Where() != Particle); }
 
   /// returns the type of the variable
   MetadataFlag Type() const {

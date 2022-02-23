@@ -86,9 +86,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::string swarm_name = "my particles";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
-  Metadata real_swarmvalue_metadata({Metadata::Real});
+  Metadata real_swarmvalue_metadata({Metadata::Real, Metadata::Particle});
   pkg->AddSwarmValue("t", swarm_name, real_swarmvalue_metadata);
-  Metadata real_vec_swarmvalue_metadata({Metadata::Real}, std::vector<int>{3});
+  Metadata real_vec_swarmvalue_metadata({Metadata::Real, Metadata::Particle}, std::vector<int>{3});
   //pkg->AddSwarmValue("vx", swarm_name, real_swarmvalue_metadata);
   //pkg->AddSwarmValue("vy", swarm_name, real_swarmvalue_metadata);
   //pkg->AddSwarmValue("vz", swarm_name, real_swarmvalue_metadata);
@@ -291,20 +291,20 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
             // Randomly sample direction perpendicular to origin
             Real theta = acos(2. * rng_gen.drand() - 1.);
             Real phi = 2. * M_PI * rng_gen.drand();
-            v(n, 0) = sin(theta) * cos(phi);
-            v(n, 1) = sin(theta) * sin(phi);
-            v(n, 2) = cos(theta);
+            v(0, n) = sin(theta) * cos(phi);
+            v(1, n) = sin(theta) * sin(phi);
+            v(2, n) = cos(theta);
             // Project v onto plane normal to sphere
-            Real vdN = v(n, 0) * x(n) + v(n, 1) * y(n) + v(n, 2) * z(n);
+            Real vdN = v(0, n) * x(n) + v(1, n) * y(n) + v(2, n) * z(n);
             Real NdN = r * r;
-            v(n, 0) = v(n, 0) - vdN / NdN * x(n);
-            v(n, 1) = v(n, 1) - vdN / NdN * y(n);
-            v(n, 2) = v(n, 2) - vdN / NdN * z(n);
+            v(0, n) = v(0, n) - vdN / NdN * x(n);
+            v(1, n) = v(1, n) - vdN / NdN * y(n);
+            v(2, n) = v(2, n) - vdN / NdN * z(n);
 
             // Normalize
-            Real v_tmp = sqrt(v(n, 0) * v(n, 0) + v(n, 1) * v(n, 1) + v(n, 2) * v(n, 2));
+            Real v_tmp = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
             for (int ii = 0; ii < 3; ii++) {
-              v(n, ii) *= vel / v_tmp;
+              v(ii, n) *= vel / v_tmp;
             }
 
             // Create particles at the beginning of the timestep
@@ -329,9 +329,9 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
             // Randomly sample direction on the unit sphere, fixing speed
             Real theta = acos(2. * rng_gen.drand() - 1.);
             Real phi = 2. * M_PI * rng_gen.drand();
-            v(n, 0) = vel * sin(theta) * cos(phi);
-            v(n, 1) = vel * sin(theta) * sin(phi);
-            v(n, 2) = vel * cos(theta);
+            v(0, n) = vel * sin(theta) * cos(phi);
+            v(1, n) = vel * sin(theta) * sin(phi);
+            v(2, n) = vel * cos(theta);
 
             // Create particles at the beginning of the timestep
             t(n) = t0;
@@ -390,7 +390,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
     pmb->par_for(
         "TransportOrbitingParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
-            Real vel = sqrt(v(n, 0) * v(n, 0) + v(n, 1) * v(n, 1) + v(n, 2) * v(n, 2));
+            Real vel = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
             while (t(n) < t0 + dt) {
               Real dt_cell = dx_push / vel;
               Real dt_end = t0 + dt - t(n);
@@ -398,9 +398,9 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
 
               Real r = sqrt(x(n) * x(n) + y(n) * y(n) + z(n) * z(n));
 
-              x(n) += v(n, 0) * dt_push;
-              y(n) += v(n, 1) * dt_push;
-              z(n) += v(n, 2) * dt_push;
+              x(n) += v(0, n) * dt_push;
+              y(n) += v(1, n) * dt_push;
+              z(n) += v(2, n) * dt_push;
               t(n) += dt_push;
 
               // Force point back onto spherical shell
@@ -410,16 +410,16 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               z(n) *= r / r_tmp;
 
               // Project v onto plane normal to sphere
-              Real vdN = v(n, 0) * x(n) + v(n, 1) * y(n) + v(n, 2) * z(n);
+              Real vdN = v(0, n) * x(n) + v(1, n) * y(n) + v(2, n) * z(n);
               Real NdN = r * r;
-              v(n, 0) = v(n, 0) - vdN / NdN * x(n);
-              v(n, 1) = v(n, 1) - vdN / NdN * y(n);
-              v(n, 2) = v(n, 2) - vdN / NdN * z(n);
+              v(0, n) = v(0, n) - vdN / NdN * x(n);
+              v(1, n) = v(1, n) - vdN / NdN * y(n);
+              v(2, n) = v(2, n) - vdN / NdN * z(n);
 
               // Normalize
-              Real v_tmp = sqrt(v(n, 0) * v(n, 0) + v(n, 1) * v(n, 1) + v(n, 2) * v(n, 2));
+              Real v_tmp = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
               for (int ii = 0; ii < 3; ii++) {
-                v(n, ii) *= vel / v_tmp;
+                v(ii, n) *= vel / v_tmp;
               }
 
               bool on_current_mesh_block = true;
@@ -438,7 +438,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
     pmb->par_for(
         "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
-            Real vel = sqrt(v(n, 0) * v(n, 0) + v(n, 1) * v(n, 1) + v(n, 2) * v(n, 2));
+            Real vel = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
             while (t(n) < t0 + dt) {
               Real dt_cell = dx_push / vel;
               Real dt_end = t0 + dt - t(n);

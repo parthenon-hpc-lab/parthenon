@@ -220,12 +220,13 @@ class FaceVariable {
   inline bool IsSparse() const { return false; }
   inline int GetSparseID() const { return InvalidSparseID; }
 
-  FaceArray<T> data;
-
  private:
-  std::array<int, 6> dims_;
-  Metadata m_;
-  std::string label_;
+   Metadata m_;
+   std::string label_;
+   std::array<int, 6> dims_;
+
+ public:
+  FaceArray<T> data;
 };
 
 ///
@@ -300,12 +301,13 @@ class ParticleVariable {
   /// return information string
   std::string info() const;
 
-  ParArrayND<T> data;
-
  private:
   Metadata m_;
   std::string label_;
   std::array<int, 6> dims_;
+
+ public:
+  ParArrayND<T> data;
 };
 
 template <typename T>

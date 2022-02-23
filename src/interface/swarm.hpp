@@ -87,7 +87,7 @@ class Swarm {
 
   /// Add variable of given type to swarm
   template <class T>
-  void Add_(const std::string &label);
+  void Add_(const std::string &label, const Metadata &m);
 
   /// Add variable to swarm
   void Add(const std::string &label, const Metadata &metadata);
@@ -167,7 +167,6 @@ class Swarm {
   // used in case of swarm boundary communication
   void SetupPersistentMPI();
   std::shared_ptr<BoundarySwarm> vbswarm;
-  bool mpiStatus;
   void AllocateComms(std::weak_ptr<MeshBlock> wpmb);
 
   // This is the particle data size for indexing boundary data buffers, for which
@@ -222,11 +221,11 @@ class Swarm {
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
 
-  int nmax_pool_;
   int max_active_index_ = 0;
   int num_active_ = 0;
-  Metadata m_;
   std::string label_;
+  Metadata m_;
+  int nmax_pool_;
   std::string info_;
   std::shared_ptr<ParArrayND<PARTICLE_STATUS>> pstatus_;
   std::tuple<ParticleVariableVector<int>, ParticleVariableVector<Real>> Vectors_;
@@ -239,9 +238,9 @@ class Swarm {
   //ParticleVariable<bool> mask_;
   //ParticleVariable<bool> marked_for_removal_;
   ParticleVariable<int> neighbor_send_index_; // -1 means no send
+  ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
   ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
                                     // k,j indices unused in 3D&2D, 2D, respectively
-  ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
 
   constexpr static int this_block_ = -1;
   constexpr static int unset_index_ = -1;
@@ -260,6 +259,9 @@ class Swarm {
   ParArrayND<int> cellSortedBegin_; // Per-cell array of starting indices in cell_sorted_
 
   ParArrayND<int> cellSortedNumber_; // Per-cell array of number of particles in each cell
+
+ public:
+  bool mpiStatus;
 };
 
 template <class T>
@@ -297,8 +299,8 @@ inline SwarmVariablePack<T> Swarm::PackAllVariables(PackIndexMap &vmap) {
 }
 
 template <class T>
-inline void Swarm::Add_(const std::string &label) {
-  ParticleVariable<T> pvar(label, nmax_pool_, m_);
+inline void Swarm::Add_(const std::string &label, const Metadata &m) {
+  ParticleVariable<T> pvar(label, nmax_pool_, m);
   auto var = std::make_shared<ParticleVariable<T>>(pvar);
 
   std::get<getType<T>()>(Vectors_).push_back(var);

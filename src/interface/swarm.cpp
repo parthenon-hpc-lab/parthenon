@@ -66,16 +66,16 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
       mask_("mask", nmax_pool_),
       marked_for_removal_("mfr", nmax_pool_),
-      neighbor_send_index_("nsi", nmax_pool_, Metadata({Metadata::Integer})),
+      neighbor_send_index_("nsi", nmax_pool_, Metadata({Metadata::Integer, Metadata::Particle})),
       blockIndex_("blockIndex_", nmax_pool_),
       neighborIndices_("neighborIndices_", 4, 4, 4),
       cellSorted_("cellSorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
-  Add("x", Metadata({Metadata::Real}));
-  Add("y", Metadata({Metadata::Real}));
-  Add("z", Metadata({Metadata::Real}));
+  Add("x", Metadata({Metadata::Real, Metadata::Particle}));
+  Add("y", Metadata({Metadata::Real, Metadata::Particle}));
+  Add("z", Metadata({Metadata::Real, Metadata::Particle}));
   num_active_ = 0;
   max_active_index_ = 0;
 
@@ -193,9 +193,9 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
   }
 
   if (metadata.Type() == Metadata::Integer) {
-    Add_<int>(label);
+    Add_<int>(label, metadata);
   } else if (metadata.Type() == Metadata::Real) {
-    Add_<Real>(label);
+    Add_<Real>(label, metadata);
   } else {
     throw std::invalid_argument("swarm variable " + label +
                                 " does not have a valid type during Add()");
