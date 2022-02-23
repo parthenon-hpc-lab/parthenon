@@ -82,9 +82,7 @@ class FlatIdx {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  bool IsValid() const {
-    return (offset_ >= 0);
-  }
+  bool IsValid() const { return (offset_ >= 0); }
 
   KOKKOS_FORCEINLINE_FUNCTION
   int operator()() const {
@@ -204,12 +202,12 @@ class PackIndexMap {
   }
 
   vpack_types::FlatIdx GetFlatIdx(const std::string &key,
-                                  bool ThrowInvalidKeyError = true) {
+                                  bool throw_invalid_key_error = true) {
     // Make sure the key exists
     auto itr = map_.find(key);
     auto itr_shape = shape_map_.find(key);
     if ((itr == map_.end()) || (itr_shape == shape_map_.end())) {
-      if (ThrowInvalidKeyError) {
+      if (throw_invalid_key_error) {
         PARTHENON_THROW("Key " + key + " does not exist.");
       } else {
         return vpack_types::FlatIdx({}, -1);
