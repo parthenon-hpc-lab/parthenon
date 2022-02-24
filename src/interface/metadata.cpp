@@ -123,10 +123,6 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
   const auto &shape = shape_;
   const int N = shape.size();
 
-  printf("%s:%i\n", __FILE__, __LINE__);
-  printf("shape_.size(): %i\n", shape_.size());
-  printf("shape_[0] = %i\n", shape_[0]);
-
   if (IsMeshTied()) {
     // Let the FaceVariable, EdgeVariable, and NodeVariable
     // classes add the +1's where needed.  They all expect
@@ -146,7 +142,6 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
     for (int i = N; i < 3; i++)
       arrDims[i + 3] = 1;
   } else if (Where() == Particle) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     assert(N >= 1 && N <= 5);
     arrDims[0] = 1; // To be updated by swarm based on pool size before allocation
     for (int i = 0; i < N; i++)
@@ -154,7 +149,6 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
     for (int i = N; i < 5; i++)
       arrDims[i + 1] = 1;
   } else {
-    printf("%s:%i\n", __FILE__, __LINE__);
     // This variable is not necessarily tied to any specific
     // mesh element, so dims will be used as the actual array
     // size in each dimension
@@ -165,7 +159,7 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
       arrDims[i] = 1;
   }
 
-  printf("arrDims: %i %i %i %i %i %i\n", arrDims[0], arrDims[1], arrDims[2], arrDims[3], arrDims[4], arrDims[5]);
+  printf("shape: %i %i %i %i %i %i\n", shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
 
   return arrDims;
 }

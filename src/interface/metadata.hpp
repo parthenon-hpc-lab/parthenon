@@ -365,7 +365,7 @@ class Metadata {
     PARTHENON_THROW("No role flag set");
   }
 
-  const std::vector<int> &Shape() const { return shape_; }
+  const std::vector<int> &Shape() const { printf("shape0: %i\n", shape_[0]); return shape_; }
 
   /*--------------------------------------------------------*/
   // Utility functions

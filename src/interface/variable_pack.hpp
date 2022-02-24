@@ -194,6 +194,9 @@ class PackIndexMap {
 
   void insert(std::string key, vpack_types::IndexPair val,
               vpack_types::Shape shape = vpack_types::Shape()) {
+    printf("inserting %s...\n", key.c_str());
+    printf("indexpair: %i %i\n", val.first, val.second);
+    printf("shape.size: %i\n", shape.size());
     map_.insert(std::pair<std::string, vpack_types::IndexPair>(key, val));
     shape_map_.insert(std::pair<std::string, vpack_types::Shape>(key, shape));
   }
@@ -374,6 +377,8 @@ class SwarmVariablePack {
   ParArray3D<T> &operator()(const int n) const { return v_(n); }
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(const int n, const int i) const { return v_(n)(0, 0, i); }
+  KOKKOS_FORCEINLINE_FUNCTION
+  T &operator()(const int n, const int j, const int i) const { return v_(n)(0, j, i); }
 
  private:
   ViewOfParArrays<T> v_;
@@ -575,15 +580,25 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
   std::string sparse_name;
   // TODO(BRR) Remove the logic for sparse variables
   for (const auto v : vars) {
-    if (vmap != nullptr) {
-      vmap->insert(sparse_name, IndexPair(sparse_start, vindex - 1));
-      sparse_name = "";
-    }
+    //if (vmap != nullptr) {
+    //  // TODO(BRR) add shape!
+    //  vmap->insert(sparse_name, IndexPair(sparse_start, vindex - 1));
+    //  sparse_name = "";
+    //}
     int vstart = vindex;
     // Reusing ViewOfParArrays which expects 3D slices
     host_view(vindex++) = v->data.Get(0, 0, 0);
+
+    std::vector<int> shape;
+    if (v->GetDim(2) > 1) shape.push_back(v->GetDim(2));
+    if (v->GetDim(3) > 1) shape.push_back(v->GetDim(3));
+    if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
+    if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
+    if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+    printf("this shape.size: %i\n", shape.size());
+
     if (vmap != nullptr) {
-      vmap->insert(v->label(), IndexPair(vstart, vindex - 1));
+      vmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
 

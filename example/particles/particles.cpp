@@ -89,9 +89,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata real_swarmvalue_metadata({Metadata::Real, Metadata::Particle});
   pkg->AddSwarmValue("t", swarm_name, real_swarmvalue_metadata);
   Metadata real_vec_swarmvalue_metadata({Metadata::Real, Metadata::Particle}, std::vector<int>{3});
-  //pkg->AddSwarmValue("vx", swarm_name, real_swarmvalue_metadata);
-  //pkg->AddSwarmValue("vy", swarm_name, real_swarmvalue_metadata);
-  //pkg->AddSwarmValue("vz", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("v", swarm_name, real_vec_swarmvalue_metadata);
   pkg->AddSwarmValue("weight", swarm_name, real_swarmvalue_metadata);
 
