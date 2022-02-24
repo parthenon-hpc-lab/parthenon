@@ -519,9 +519,12 @@ void Swarm::SortParticlesByCell() {
   pmb->par_for(
       "Update per-cell arrays", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        printf("k j i = %i %i %i nx1 = %i nx2 = %i\n", k, j, i, nx1, nx2);
         int cell_idx_1d = i + nx1 * (j + nx2 * k);
         // Find starting index, first by guessing
-        int start_index = static_cast<int>((cell_idx_1d * num_active / ncells));
+        int start_index = static_cast<int>((cell_idx_1d * float(num_active) / ncells));
+        printf("start_index: %i cell_idx_1d: %i num_active: %i ncells: %i\n",
+          start_index, cell_idx_1d, num_active, ncells);
         int n = 0;
         while (true) {
           n++;
@@ -541,10 +544,17 @@ void Swarm::SortParticlesByCell() {
               continue;
             }
           }
-
+          printf("[%i] start_index = %i cell_idx_1d = %i\n", __LINE__, start_index, cell_idx_1d);
+          printf("cellSorted(%i).cell_idx_1d_ = %i\n", start_index, cellSorted(start_index).cell_idx_1d_);
           if (cellSorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
+          printf("[%i] start_index = %i cell_idx_1d = %i\n", __LINE__, start_index, cell_idx_1d);
             start_index--;
+            if (start_index < 0) {
+              start_index = -1;
+              break;
+            }
             if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+          printf("[%i] start_index = %i cell_idx_1d = %i\n", __LINE__, start_index, cell_idx_1d);
               start_index = -1;
               break;
             }
@@ -552,6 +562,11 @@ void Swarm::SortParticlesByCell() {
           }
           if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
             start_index++;
+            if (start_index > max_active_index)
+            {
+              start_index = -1;
+              break;
+            }
             if (cellSorted(start_index).cell_idx_1d_ > cell_idx_1d) {
               start_index = -1;
               break;
@@ -1140,17 +1155,17 @@ void Swarm::UnloadBuffers_() {
   if (total_received_particles_ > 0) {
     ParArrayND<int> new_indices;
     auto new_mask = AddEmptyParticles(total_received_particles_, new_indices);
-    SwarmVariablePack<Real> vreal;
-    SwarmVariablePack<int> vint;
-    PackIndexMap rmap;
-    PackIndexMap imap;
-    vreal = PackAllVariables<Real>(rmap);
-    vint = PackAllVariables<int>(imap);
-    int real_vars_size = std::get<RealVec>(Vectors_).size();
-    int int_vars_size = std::get<IntVec>(Vectors_).size();
-    const int ix = rmap["x"].first;
-    const int iy = rmap["y"].first;
-    const int iz = rmap["z"].first;
+//    SwarmVariablePack<Real> vreal;
+//    SwarmVariablePack<int> vint;
+//    PackIndexMap rmap;
+//    PackIndexMap imap;
+//    vreal = PackAllVariables<Real>(rmap);
+//    vint = PackAllVariables<int>(imap);
+//    int real_vars_size = std::get<RealVec>(Vectors_).size();
+//    int int_vars_size = std::get<IntVec>(Vectors_).size();
+//    const int ix = rmap["x"].first;
+//    const int iy = rmap["y"].first;
+//    const int iz = rmap["z"].first;
 
     ParArrayND<int> neighbor_index("Neighbor index", total_received_particles_);
     ParArrayND<int> buffer_index("Buffer index", total_received_particles_);
@@ -1215,14 +1230,31 @@ void Swarm::UnloadBuffers_() {
         "Unload buffers", 0, total_received_particles_ - 1, KOKKOS_LAMBDA(const int n) {
           const int sid = new_indices(n);
           const int nid = neighbor_index(n);
-          const int bid = buffer_index(n);
+          //const int bid = buffer_index(n);
+          int bid = buffer_index(n)*particle_size;
           const int nbid = neighbor_buffer_index(nid);
+//          for (int i = 0; i < real_vars_size; i++) {
+//            vreal(i, sid) = bdvar.recv[nbid](bid * particle_size + i);
+//          }
+//          for (int i = 0; i < int_vars_size; i++) {
+//            vint(i, sid) = static_cast<int>(
+//                bdvar.recv[nbid](real_vars_size + bid * particle_size + i));
+//          }
           for (int i = 0; i < real_vars_size; i++) {
-            vreal(i, sid) = bdvar.recv[nbid](bid * particle_size + i);
+            for (int j = 0; j < pack_indices_shapes(1, i); j++) {
+              //bdvar.send[bufid](buffer_index) =
+              //    static_cast<Real>(vint(pack_indices_shapes(2, i), j, sidx));
+              vreal(pack_indices_shapes(0, i), j, sid) = bdvar.recv[nbid](bid);
+              bid++;
+            }
           }
           for (int i = 0; i < int_vars_size; i++) {
-            vint(i, sid) = static_cast<int>(
-                bdvar.recv[nbid](real_vars_size + bid * particle_size + i));
+            for (int j = 0; j < pack_indices_shapes(3, i); j++) {
+              //bdvar.send[bufid](buffer_index) =
+              //    static_cast<Real>(vint(pack_indices_shapes(2, i), j, sidx));
+              vint(pack_indices_shapes(2, i) , j, sid) = static_cast<int>(bdvar.recv[nbid](bid));
+              bid++;
+            }
           }
         });
 
