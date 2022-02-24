@@ -952,37 +952,97 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
-  PackIndexMap rmap;
-  PackIndexMap imap;
-  vreal = PackAllVariables<Real>(rmap);
-  vint = PackAllVariables<int>(imap);
+  PackIndexMap real_imap;
+  PackIndexMap int_imap;
+  vreal = PackAllVariables<Real>(real_imap);
+  vint = PackAllVariables<int>(int_imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
 
-  auto shape = rmap.GetShape("t");
-  auto has = rmap.Has("t");
-  auto first = rmap["t"].first;
-  auto second = rmap["t"].second;
+  auto shape = real_imap.GetShape("t");
+  auto has = real_imap.Has("t");
+  auto first = real_imap["t"].first;
+  auto second = real_imap["t"].second;
   printf("has: %i\n", static_cast<int>(has));
   printf("first: %i second: %i\n", first, second);
   printf("shape.size: %i\n", shape.size());
-  has = rmap.Has("v");
-  first = rmap["v"].first;
-  second = rmap["v"].second;
-  shape = rmap.GetShape("v");
+  has = real_imap.Has("v");
+  first = real_imap["v"].first;
+  second = real_imap["v"].second;
+  shape = real_imap.GetShape("v");
   printf("has: %i\n", static_cast<int>(has));
   printf("first: %i second: %i\n", first, second);
   printf("shape.size: %i\n", shape.size());
   printf("shape[0] = %i\n", shape[0]);
   //printf("%i %i %i %i %i %i\n", shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
-  shape = rmap.GetShape("t");
+  shape = real_imap.GetShape("t");
   printf("shape.size: %i\n", shape.size());
-  auto fi = rmap.GetFlatIdx("v");
+  auto fi = real_imap.GetFlatIdx("v");
+
+  auto real_map = real_imap.Map();
+  auto int_map = int_imap.Map();
+  printf("real_map.size(): %i\n", real_map.size());
+  for (auto &rm : real_map) {
+    printf("  %s\n", rm.first.c_str());
+  }
 
   auto &v = Get<Real>("v").Get();
   printf("v(*, 0) = %e %e %e\n", v(0,0), v(1,0), v(2,0));
   printf("vreal(v.first, *) = %e %e %e\n", vreal(first, 0), vreal(first, 1), vreal(first,2));
   printf("vreal(*, v.first, 0) = %e %e %e\n", vreal(first, 0, 0), vreal(first, 1, 0), vreal(first, 2, 0));
+
+  ParArray1D<int> real_pack_indices("Real pack indices", real_map.size());
+  ParArray1D<int> real_pack_shapes("Real pack shapes", real_map.size());
+  int real_pack_size = real_map.size();
+  auto real_pack_indices_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), real_pack_indices);
+  auto real_pack_shapes_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), real_pack_shapes);
+  {
+    int n = 0;
+    for (auto &rm : real_map) {
+      real_pack_indices(n) = rm.second.first;
+      real_pack_shapes(n) = 1;
+      auto shape = real_imap.GetShape(rm.first);
+      if (shape.size() > 0) {
+        real_pack_shapes(n) = shape[0];
+      }
+      n++;
+    }
+  }
+  Kokkos::deep_copy(real_pack_indices, real_pack_indices_h);
+  Kokkos::deep_copy(real_pack_shapes, real_pack_shapes_h);
+
+  // TODO(BRR) Is ordering of *_map guaranteed?
+
+  PARTHENON_REQUIRE(real_vars_size == real_map.size(), "Mismatch between real vars and real pack!");
+  PARTHENON_REQUIRE(int_vars_size == int_map.size(), "Mismatch between int vars and int pack!");
+  // [ real pack indices, real pack shapes, int pack indices, int pack shapes ] x [ max var size ]
+  ParArrayND<int> pack_indices_shapes("Pack indices and shapes", 4, std::max<int>(real_vars_size, int_vars_size));
+  auto pack_indices_shapes_h = pack_indices_shapes.GetHostMirrorAndCopy();
+  int n = 0;
+  for (auto &rm : real_map) {
+    pack_indices_shapes_h(0, n) = rm.second.first;
+    pack_indices_shapes_h(1, n) = 1;
+    auto shape = real_imap.GetShape(rm.first);
+    PARTHENON_REQUIRE(shape.size() <= 1, "Only 0-, 1-D data supported for packing now!")
+    if (shape.size() > 0) {
+      pack_indices_shapes_h(1, n) = shape[0];
+    }
+    n++;
+  }
+  n = 0;
+  for (auto &im : int_map) {
+    pack_indices_shapes_h(2, n) = im.second.first;
+    pack_indices_shapes_h(3, n) = 1;
+    auto shape = int_imap.GetShape(im.first);
+    PARTHENON_REQUIRE(shape.size() <= 1, "Only 0-, 1-D data supported for packing now!")
+    if (shape.size() > 0) {
+      pack_indices_shapes_h(3, n) = shape[0];
+    }
+    n++;
+  }
+  pack_indices_shapes.DeepCopy(pack_indices_shapes_h);
+
+
 
   auto &bdvar = vbswarm->bd_var_;
   auto num_particles_to_send = num_particles_to_send_;
@@ -998,10 +1058,17 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
             int buffer_index = n * particle_size;
             swarm_d.MarkParticleForRemoval(sidx);
             for (int i = 0; i < real_vars_size; i++) {
-              bdvar.send[bufid](buffer_index) = vreal(i, sidx);
-              printf("val: %e\n", vreal(i, sidx));
+              //for (int j = 0; j < real_pack_shapes(i); j++) {
+              for (int j = 0; j < pack_indices_shapes(1, i); j++) {
+                //bdvar.send[bufid](buffer_index) = vreal(real_pack_indices(i), j, sidx);
+                bdvar.send[bufid](buffer_index) = vreal(pack_indices_shapes(0, i), j, sidx);
+                printf("[%i %i] = %e\n", i, j, bdvar.send[bufid](buffer_index));
+                buffer_index++;
+              }
+              //bdvar.send[bufid](buffer_index) = vreal(i, sidx);
+              //printf("val: %e\n", vreal(i, sidx));
               //printf("val+1: %e\n", vreal(i, sidx+1));
-              buffer_index++;
+              //buffer_index++;
             }
             for (int i = 0; i < int_vars_size; i++) {
               bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, sidx));
