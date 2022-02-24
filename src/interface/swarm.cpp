@@ -1071,8 +1071,12 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
               //buffer_index++;
             }
             for (int i = 0; i < int_vars_size; i++) {
-              bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, sidx));
-              buffer_index++;
+              for (int j = 0; j < pack_indices_shapes(3, i); j++) {
+                bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(pack_indices_shapes(2, i), j, sidx));
+                buffer_index++;
+              }
+              //bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, sidx));
+              //buffer_index++;
             }
           }
         }

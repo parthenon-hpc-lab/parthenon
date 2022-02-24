@@ -441,9 +441,9 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               Real dt_end = t0 + dt - t(n);
               Real dt_push = std::min<Real>(dt_cell, dt_end);
 
-              x(n) += v(n, 0) * dt_push;
-              y(n) += v(n, 1) * dt_push;
-              z(n) += v(n, 2) * dt_push;
+              x(n) += v(0, n) * dt_push;
+              y(n) += v(1, n) * dt_push;
+              z(n) += v(2, n) * dt_push;
               t(n) += dt_push;
 
               bool on_current_mesh_block = true;
