@@ -519,12 +519,9 @@ void Swarm::SortParticlesByCell() {
   pmb->par_for(
       "Update per-cell arrays", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        printf("k j i = %i %i %i nx1 = %i nx2 = %i\n", k, j, i, nx1, nx2);
         int cell_idx_1d = i + nx1 * (j + nx2 * k);
         // Find starting index, first by guessing
         int start_index = static_cast<int>((cell_idx_1d * float(num_active) / ncells));
-        printf("start_index: %i cell_idx_1d: %i num_active: %i ncells: %i\n",
-          start_index, cell_idx_1d, num_active, ncells);
         int n = 0;
         while (true) {
           n++;
@@ -544,17 +541,13 @@ void Swarm::SortParticlesByCell() {
               continue;
             }
           }
-          printf("[%i] start_index = %i cell_idx_1d = %i\n", __LINE__, start_index, cell_idx_1d);
-          printf("cellSorted(%i).cell_idx_1d_ = %i\n", start_index, cellSorted(start_index).cell_idx_1d_);
           if (cellSorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
-          printf("[%i] start_index = %i cell_idx_1d = %i\n", __LINE__, start_index, cell_idx_1d);
             start_index--;
             if (start_index < 0) {
               start_index = -1;
               break;
             }
             if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
-          printf("[%i] start_index = %i cell_idx_1d = %i\n", __LINE__, start_index, cell_idx_1d);
               start_index = -1;
               break;
             }
@@ -562,8 +555,7 @@ void Swarm::SortParticlesByCell() {
           }
           if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
             start_index++;
-            if (start_index > max_active_index)
-            {
+            if (start_index > max_active_index) {
               start_index = -1;
               break;
             }
@@ -1034,7 +1026,8 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
                 // bdvar.send[bufid](buffer_index) = vreal(real_pack_indices(i), j, sidx);
                 bdvar.send[bufid](buffer_index) =
                     vreal(pack_indices_shapes(0, i), j, sidx);
-                printf("[%i %i] = %e\n", i, j, bdvar.send[bufid](buffer_index));
+                printf("[%i %i] = %e = vreal(%i %i %i)\n", i, j, bdvar.send[bufid](buffer_index),
+                  pack_indices_shapes(0, i), j, sidx);
                 buffer_index++;
               }
               // bdvar.send[bufid](buffer_index) = vreal(i, sidx);
@@ -1245,6 +1238,8 @@ void Swarm::UnloadBuffers_() {
               //bdvar.send[bufid](buffer_index) =
               //    static_cast<Real>(vint(pack_indices_shapes(2, i), j, sidx));
               vreal(pack_indices_shapes(0, i), j, sid) = bdvar.recv[nbid](bid);
+              printf("UNPACK [%i %i] = %e = vreal(%i %i %i)\n", i, j, bdvar.recv[nbid](bid),
+                pack_indices_shapes(0,i), j, sid);
               bid++;
             }
           }
