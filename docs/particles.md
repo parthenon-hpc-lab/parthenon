@@ -10,8 +10,12 @@ A `Swarm` contains all the particle data for all particles of a given species. I
 set of `ParticleVariable`s, one for each value of each particle. For example, the spatial
 positions `x`, `y`, and `z` of the particles in a swarm are three separate
 `ParticleVariable`s. `ParticleVariable`s can be either `Real`- or `int`-valued, which is
-specified by the metadata values `Metadata::Real` and `Metadata::Integer`. All `Swarm`s by
-default contain `x`, `y`, and `z` `ParticleVariable`s; additional fields can be added as:
+specified by the metadata values `Metadata::Real` and `Metadata::Integer`.
+`ParticleVariable`s should also contain the `Metadata::Particle` flag. By default,
+`ParticleVariable`s provide one scalar quantity per particle, but 1D data per particle is
+currently supported, by passing `std::vector<int>{N}` as the second argument to the
+`ParticleVariable` `Metadata`. All `Swarm`s by default contain `x`, `y`, and `z`
+`ParticleVariable`s; additional fields can be added as:
 ```c++
 Swarm.Add(name, metadata)
 ```
@@ -26,10 +30,10 @@ Hereafter we refer to it as `swarm_d`.
 
 To add particles to a `Swarm`, one calls
 ```c++
-ParArrayND<bool> new_particles_mask = swarm->AddEmptyParticles(num_to_add, new_indices)
+ParArray1D<bool> new_particles_mask = swarm->AddEmptyParticles(num_to_add, new_indices)
 ```
 This call automatically resizes the memory pools as necessary and returns a
-`ParArrayND<bool>` mask indicating which indices in the `ParticleVariable`s are newly
+`ParArray1D<bool>` mask indicating which indices in the `ParticleVariable`s are newly
 available. `new_indices` is a reference to a `ParArrayND<int>` of size `num_to_add` which
 contains the indices of each newly added particle.
 

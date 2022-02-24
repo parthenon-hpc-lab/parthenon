@@ -159,8 +159,6 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
       arrDims[i] = 1;
   }
 
-  printf("shape: %i %i %i %i %i %i\n", shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
-
   return arrDims;
 }
 

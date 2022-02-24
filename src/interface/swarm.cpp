@@ -64,10 +64,7 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
 
 Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in), mask_("mask", nmax_pool_),
-      marked_for_removal_("mfr", nmax_pool_),
-      neighbor_send_index_("nsi", nmax_pool_,
-                           Metadata({Metadata::Integer, Metadata::Particle})),
-      blockIndex_("blockIndex_", nmax_pool_),
+      marked_for_removal_("mfr", nmax_pool_), blockIndex_("blockIndex_", nmax_pool_),
       neighborIndices_("neighborIndices_", 4, 4, 4),
       cellSorted_("cellSorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
@@ -269,19 +266,11 @@ void Swarm::setPoolMax(const int nmax_pool) {
     free_indices_.push_back(n + n_new_begin);
   }
 
+  // Rely on Kokkos setting the newly added values to false for these arrays
   Kokkos::resize(mask_, nmax_pool);
   Kokkos::resize(marked_for_removal_, nmax_pool);
-  // TODO(BRR) Does Kokkos::resize already set these values to false?
-  pmb->par_for(
-      "setPoolMax_marked_for_removal", nmax_pool_, nmax_pool - 1,
-      KOKKOS_LAMBDA(const int n) {
-        mask_(n) = false;
-        marked_for_removal_(n) = false;
-      });
 
   Kokkos::resize(cellSorted_, nmax_pool);
-
-  neighbor_send_index_.Get().Resize(nmax_pool);
 
   blockIndex_.Resize(nmax_pool);
 
@@ -398,7 +387,6 @@ void Swarm::Defrag() {
   ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
   auto from_to_indices_h = from_to_indices.GetHostMirror();
 
-  // auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
 
   for (int n = 0; n <= max_active_index_; n++) {
@@ -1021,19 +1009,11 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
             int buffer_index = n * particle_size;
             swarm_d.MarkParticleForRemoval(sidx);
             for (int i = 0; i < real_vars_size; i++) {
-              // for (int j = 0; j < real_pack_shapes(i); j++) {
               for (int j = 0; j < pack_indices_shapes(1, i); j++) {
-                // bdvar.send[bufid](buffer_index) = vreal(real_pack_indices(i), j, sidx);
                 bdvar.send[bufid](buffer_index) =
                     vreal(pack_indices_shapes(0, i), j, sidx);
-                printf("[%i %i] = %e = vreal(%i %i %i)\n", i, j, bdvar.send[bufid](buffer_index),
-                  pack_indices_shapes(0, i), j, sidx);
                 buffer_index++;
               }
-              // bdvar.send[bufid](buffer_index) = vreal(i, sidx);
-              // printf("val: %e\n", vreal(i, sidx));
-              // printf("val+1: %e\n", vreal(i, sidx+1));
-              // buffer_index++;
             }
             for (int i = 0; i < int_vars_size; i++) {
               for (int j = 0; j < pack_indices_shapes(3, i); j++) {
@@ -1041,8 +1021,6 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
                     static_cast<Real>(vint(pack_indices_shapes(2, i), j, sidx));
                 buffer_index++;
               }
-              // bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, sidx));
-              // buffer_index++;
             }
           }
         }
@@ -1060,7 +1038,6 @@ void Swarm::Send(BoundaryCommSubset phase) {
     // Process physical boundary conditions on "sent" particles
     auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
     auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
-    // auto mask_h = mask_.data.GetHostMirrorAndCopy();
 
     int total_sent_particles = 0;
     pmb->par_reduce(
@@ -1148,72 +1125,61 @@ void Swarm::UnloadBuffers_() {
   if (total_received_particles_ > 0) {
     ParArrayND<int> new_indices;
     auto new_mask = AddEmptyParticles(total_received_particles_, new_indices);
-//    SwarmVariablePack<Real> vreal;
-//    SwarmVariablePack<int> vint;
-//    PackIndexMap rmap;
-//    PackIndexMap imap;
-//    vreal = PackAllVariables<Real>(rmap);
-//    vint = PackAllVariables<int>(imap);
-//    int real_vars_size = std::get<RealVec>(Vectors_).size();
-//    int int_vars_size = std::get<IntVec>(Vectors_).size();
-//    const int ix = rmap["x"].first;
-//    const int iy = rmap["y"].first;
-//    const int iz = rmap["z"].first;
 
     ParArrayND<int> neighbor_index("Neighbor index", total_received_particles_);
     ParArrayND<int> buffer_index("Buffer index", total_received_particles_);
     UpdateNeighborBufferReceiveIndices_(neighbor_index, buffer_index);
     auto neighbor_buffer_index = neighbor_buffer_index_;
 
-  auto &intVector_ = std::get<getType<int>()>(Vectors_);
-  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
-  SwarmVariablePack<Real> vreal;
-  SwarmVariablePack<int> vint;
-  PackIndexMap real_imap;
-  PackIndexMap int_imap;
-  vreal = PackAllVariables<Real>(real_imap);
-  vint = PackAllVariables<int>(int_imap);
-  int real_vars_size = realVector_.size();
-  int int_vars_size = intVector_.size();
+    auto &intVector_ = std::get<getType<int>()>(Vectors_);
+    auto &realVector_ = std::get<getType<Real>()>(Vectors_);
+    SwarmVariablePack<Real> vreal;
+    SwarmVariablePack<int> vint;
+    PackIndexMap real_imap;
+    PackIndexMap int_imap;
+    vreal = PackAllVariables<Real>(real_imap);
+    vint = PackAllVariables<int>(int_imap);
+    int real_vars_size = realVector_.size();
+    int int_vars_size = intVector_.size();
 
-  // TODO(BRR) Is ordering of variables when iterating over *_map guaranteed?
-  auto real_map = real_imap.Map();
-  auto int_map = int_imap.Map();
+    // TODO(BRR) Is ordering of variables when iterating over *_map guaranteed?
+    auto real_map = real_imap.Map();
+    auto int_map = int_imap.Map();
 
-  PARTHENON_REQUIRE(real_vars_size == real_map.size(),
-                    "Mismatch between real vars and real pack!");
-  PARTHENON_REQUIRE(int_vars_size == int_map.size(),
-                    "Mismatch between int vars and int pack!");
+    PARTHENON_REQUIRE(real_vars_size == real_map.size(),
+                      "Mismatch between real vars and real pack!");
+    PARTHENON_REQUIRE(int_vars_size == int_map.size(),
+                      "Mismatch between int vars and int pack!");
 
-  // [ real pack indices, real pack shapes, int pack indices, int pack shapes ] x [ max
-  // var size ]
-  // TODO(BRR) Calculate pack_indices_shapes once per swarm resize?
-  ParArrayND<int> pack_indices_shapes("Pack indices and shapes", 4,
-                                      std::max<int>(real_vars_size, int_vars_size));
-  auto pack_indices_shapes_h = pack_indices_shapes.GetHostMirrorAndCopy();
-  int n = 0;
-  for (auto &rm : real_map) {
-    pack_indices_shapes_h(0, n) = rm.second.first;
-    pack_indices_shapes_h(1, n) = 1;
-    auto shape = real_imap.GetShape(rm.first);
-    PARTHENON_REQUIRE(shape.size() <= 1, "Only 0-, 1-D data supported for packing now!")
-    if (shape.size() > 0) {
-      pack_indices_shapes_h(1, n) = shape[0];
+    // [ real pack indices, real pack shapes, int pack indices, int pack shapes ] x [ max
+    // var size ]
+    // TODO(BRR) Calculate pack_indices_shapes once per swarm resize?
+    ParArrayND<int> pack_indices_shapes("Pack indices and shapes", 4,
+                                        std::max<int>(real_vars_size, int_vars_size));
+    auto pack_indices_shapes_h = pack_indices_shapes.GetHostMirrorAndCopy();
+    int n = 0;
+    for (auto &rm : real_map) {
+      pack_indices_shapes_h(0, n) = rm.second.first;
+      pack_indices_shapes_h(1, n) = 1;
+      auto shape = real_imap.GetShape(rm.first);
+      PARTHENON_REQUIRE(shape.size() <= 1, "Only 0-, 1-D data supported for packing now!")
+      if (shape.size() > 0) {
+        pack_indices_shapes_h(1, n) = shape[0];
+      }
+      n++;
     }
-    n++;
-  }
-  n = 0;
-  for (auto &im : int_map) {
-    pack_indices_shapes_h(2, n) = im.second.first;
-    pack_indices_shapes_h(3, n) = 1;
-    auto shape = int_imap.GetShape(im.first);
-    PARTHENON_REQUIRE(shape.size() <= 1, "Only 0-, 1-D data supported for packing now!")
-    if (shape.size() > 0) {
-      pack_indices_shapes_h(3, n) = shape[0];
+    n = 0;
+    for (auto &im : int_map) {
+      pack_indices_shapes_h(2, n) = im.second.first;
+      pack_indices_shapes_h(3, n) = 1;
+      auto shape = int_imap.GetShape(im.first);
+      PARTHENON_REQUIRE(shape.size() <= 1, "Only 0-, 1-D data supported for packing now!")
+      if (shape.size() > 0) {
+        pack_indices_shapes_h(3, n) = shape[0];
+      }
+      n++;
     }
-    n++;
-  }
-  pack_indices_shapes.DeepCopy(pack_indices_shapes_h);
+    pack_indices_shapes.DeepCopy(pack_indices_shapes_h);
 
     // construct map from buffer index to swarm index (or just return vector of indices!)
     const int particle_size = GetParticleDataSize();
@@ -1223,31 +1189,18 @@ void Swarm::UnloadBuffers_() {
         "Unload buffers", 0, total_received_particles_ - 1, KOKKOS_LAMBDA(const int n) {
           const int sid = new_indices(n);
           const int nid = neighbor_index(n);
-          //const int bid = buffer_index(n);
-          int bid = buffer_index(n)*particle_size;
+          int bid = buffer_index(n) * particle_size;
           const int nbid = neighbor_buffer_index(nid);
-//          for (int i = 0; i < real_vars_size; i++) {
-//            vreal(i, sid) = bdvar.recv[nbid](bid * particle_size + i);
-//          }
-//          for (int i = 0; i < int_vars_size; i++) {
-//            vint(i, sid) = static_cast<int>(
-//                bdvar.recv[nbid](real_vars_size + bid * particle_size + i));
-//          }
           for (int i = 0; i < real_vars_size; i++) {
             for (int j = 0; j < pack_indices_shapes(1, i); j++) {
-              //bdvar.send[bufid](buffer_index) =
-              //    static_cast<Real>(vint(pack_indices_shapes(2, i), j, sidx));
               vreal(pack_indices_shapes(0, i), j, sid) = bdvar.recv[nbid](bid);
-              printf("UNPACK [%i %i] = %e = vreal(%i %i %i)\n", i, j, bdvar.recv[nbid](bid),
-                pack_indices_shapes(0,i), j, sid);
               bid++;
             }
           }
           for (int i = 0; i < int_vars_size; i++) {
             for (int j = 0; j < pack_indices_shapes(3, i); j++) {
-              //bdvar.send[bufid](buffer_index) =
-              //    static_cast<Real>(vint(pack_indices_shapes(2, i), j, sidx));
-              vint(pack_indices_shapes(2, i) , j, sid) = static_cast<int>(bdvar.recv[nbid](bid));
+              vint(pack_indices_shapes(2, i), j, sid) =
+                  static_cast<int>(bdvar.recv[nbid](bid));
               bid++;
             }
           }

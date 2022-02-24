@@ -88,7 +88,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real, Metadata::Particle});
   pkg->AddSwarmValue("t", swarm_name, real_swarmvalue_metadata);
-  Metadata real_vec_swarmvalue_metadata({Metadata::Real, Metadata::Particle}, std::vector<int>{3});
+  Metadata real_vec_swarmvalue_metadata({Metadata::Real, Metadata::Particle},
+                                        std::vector<int>{3});
   pkg->AddSwarmValue("v", swarm_name, real_vec_swarmvalue_metadata);
   pkg->AddSwarmValue("weight", swarm_name, real_swarmvalue_metadata);
 
@@ -414,7 +415,8 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               v(2, n) = v(2, n) - vdN / NdN * z(n);
 
               // Normalize
-              Real v_tmp = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
+              Real v_tmp =
+                  sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
               for (int ii = 0; ii < 3; ii++) {
                 v(ii, n) *= vel / v_tmp;
               }

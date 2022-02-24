@@ -69,8 +69,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::string swarm_name = "my particles";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
-  Metadata real_swarmvalue_metadata({Metadata::Real});
-  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
+  Metadata real_swarmvalue_metadata({Metadata::Real, Metadata::Particle});
+  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer, Metadata::Particle}));
   pkg->AddSwarmValue("vx", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("vy", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("vz", swarm_name, real_swarmvalue_metadata);
@@ -136,7 +136,8 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
     auto &pmb = blocks[i];
 
     auto swarm = pmb->swarm_data.Get()->Get("my particles");
-    const auto &is_active = Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
+    const auto &is_active =
+        Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
     for (auto n = 0; n <= swarm->GetMaxActiveIndex(); n++) {
       if (is_active(n)) {
         num_particles_this_rank += 1;
@@ -162,7 +163,8 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
     const auto &vy = swarm->Get<Real>("vy").Get().GetHostMirrorAndCopy();
     const auto &vz = swarm->Get<Real>("vz").Get().GetHostMirrorAndCopy();
 
-    const auto &is_active = Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
+    const auto &is_active =
+        Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
     for (auto n = 0; n <= swarm->GetMaxActiveIndex(); n++) {
       if (is_active(n)) {
         particle_output_this_rank(offset++) = static_cast<Real>(pmb->gid);

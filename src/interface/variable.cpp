@@ -275,7 +275,7 @@ ParticleVariable<T>::ParticleVariable(const std::string &label, const int npool,
     : m_(metadata), label_(label),
       dims_(m_.GetArrayDims(std::weak_ptr<MeshBlock>(), false)),
       data(label_, dims_[5], dims_[4], dims_[3], dims_[2], dims_[1], npool) {
-        dims_[0] = npool;
+  dims_[0] = npool;
   printf("dims: %i %i %i %i %i %i\n", dims_[5], dims_[4], dims_[3], dims_[2], dims_[1],
          dims_[0]);
 }

@@ -243,9 +243,6 @@ class Swarm {
   std::list<int> free_indices_;
   ParArray1D<bool> mask_;
   ParArray1D<bool> marked_for_removal_;
-  //ParticleVariable<bool> mask_;
-  //ParticleVariable<bool> marked_for_removal_;
-  ParticleVariable<int> neighbor_send_index_; // -1 means no send
   ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
   ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
                                     // k,j indices unused in 3D&2D, 2D, respectively

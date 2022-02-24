@@ -221,9 +221,9 @@ class FaceVariable {
   inline int GetSparseID() const { return InvalidSparseID; }
 
  private:
-   Metadata m_;
-   std::string label_;
-   std::array<int, 6> dims_;
+  Metadata m_;
+  std::string label_;
+  std::array<int, 6> dims_;
 
  public:
   FaceArray<T> data;
@@ -284,11 +284,13 @@ class ParticleVariable {
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
     PARTHENON_REQUIRE(0 < i && i <= 6, "ParArrayNDGenerics are max 6D");
-    return dims_[i-1];
+    return dims_[i - 1];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  auto NumComponents() const { return dims_[5]*dims_[4]*dims_[3]*dims_[2]*dims_[1]; }
+  auto NumComponents() const {
+    return dims_[5] * dims_[4] * dims_[3] * dims_[2] * dims_[1];
+  }
 
   ///< retrieve metadata for variable
   inline const Metadata metadata() const { return m_; }
