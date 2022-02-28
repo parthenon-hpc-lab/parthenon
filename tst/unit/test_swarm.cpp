@@ -88,7 +88,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   std::vector<std::string> labelVector(2);
   labelVector[0] = "i";
   labelVector[1] = "j";
-  Metadata m_integer({Metadata::Integer});
+  Metadata m_integer({Metadata::Integer, Metadata::Particle});
   swarm->Add(labelVector, m_integer);
 
   ParArrayND<int> new_indices;
