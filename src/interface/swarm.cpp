@@ -421,11 +421,12 @@ void Swarm::Defrag() {
 
   from_to_indices.DeepCopy(from_to_indices_h);
 
+  auto &mask = mask_;
   pmb->par_for(
       "Swarm::DefragMask", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         if (from_to_indices(n) >= 0) {
-          mask_(from_to_indices(n)) = mask_(n);
-          mask_(n) = false;
+          mask(from_to_indices(n)) = mask(n);
+          mask(n) = false;
         }
       });
 
