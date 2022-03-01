@@ -192,7 +192,7 @@ class Swarm {
   bool FinalizeCommunicationIterative();
 
   template <class T>
-  SwarmVariablePack<T> PackAllVariables(PackIndexMap &vmap);
+  SwarmVariablePack<T> PackAllVariables(PackIndexMap &vmap, ParArrayND<int> &pack_indices_shapes);
 
   template <class T>
   SwarmVariablePack<T> PackVariables(const std::vector<std::string> &name,
@@ -294,13 +294,33 @@ inline SwarmVariablePack<T> Swarm::PackVariables(const std::vector<std::string> 
 }
 
 template <class T>
-inline SwarmVariablePack<T> Swarm::PackAllVariables(PackIndexMap &vmap) {
+inline SwarmVariablePack<T> Swarm::PackAllVariables(PackIndexMap &vmap, ParArrayND<int> &pack_indices_shapes) {
   std::vector<std::string> names;
   names.reserve(std::get<getType<T>()>(Vectors_).size());
   for (const auto &v : std::get<getType<T>()>(Vectors_)) {
     names.push_back(v->label());
   }
-  return PackVariables<T>(names, vmap);
+
+  auto ret = PackVariables<T>(names, vmap);
+  auto map = vmap.Map();
+
+  // Get shape of packed variables
+  pack_indices_shapes = ParArrayND<int>("Pack indices and shapes", 2, names.size());
+  auto pack_indices_shapes_h = pack_indices_shapes.GetHostMirrorAndCopy();
+  int n = 0;
+  for (auto &m : map) {
+    pack_indices_shapes_h(0, n) = m.second.first;
+    pack_indices_shapes_h(1, n) = 1;
+    auto shape = vmap.GetShape(m.first);
+    PARTHENON_REQUIRE(shape.size() <= 1, "Only 0-, 1-D data supported for packing now!")
+    if (shape.size() > 0) {
+      pack_indices_shapes_h(1, n) = shape[0];
+    }
+    n++;
+  }
+  pack_indices_shapes.DeepCopy(pack_indices_shapes_h);
+
+  return ret;
 }
 
 template <class T>
