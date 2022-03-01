@@ -256,7 +256,6 @@ void Swarm::Remove(const std::string &label) {
 }
 
 void Swarm::setPoolMax(const int nmax_pool) {
-  printf("Set pool max! gid: %i\n", GetBlockPointer()->gid);
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
   int n_new_begin = nmax_pool_;
   int n_new = nmax_pool - nmax_pool_;
@@ -377,7 +376,6 @@ void Swarm::RemoveMarkedParticles() {
 }
 
 void Swarm::Defrag() {
-  printf("Defrag [gid: %i]\n", GetBlockPointer()->gid);
   if (GetNumActive() == 0) {
     return;
   }
@@ -450,12 +448,14 @@ void Swarm::Defrag() {
         if (from_to_indices(n) >= 0) {
           for (int i = 0; i < real_vars_size; i++) {
             for (int j = 0; j < rpack_indices_shapes(1, i); j++) {
-              vreal(rpack_indices_shapes(0, i), j, from_to_indices(n)) = vreal(rpack_indices_shapes(0, i), j, n);
+              vreal(rpack_indices_shapes(0, i), j, from_to_indices(n)) =
+                  vreal(rpack_indices_shapes(0, i), j, n);
             }
           }
           for (int i = 0; i < int_vars_size; i++) {
             for (int j = 0; j < ipack_indices_shapes(1, i); j++) {
-              vint(ipack_indices_shapes(0, i), j, from_to_indices(n)) = vint(ipack_indices_shapes(0, i), j, n);
+              vint(ipack_indices_shapes(0, i), j, from_to_indices(n)) =
+                  vint(ipack_indices_shapes(0, i), j, n);
             }
           }
         }
@@ -966,61 +966,6 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
 
-  // TODO(BRR) Is ordering of variables when iterating over *_map guaranteed?
-  /*auto real_map = real_imap.Map();
-  auto int_map = int_imap.Map();
-
-  PARTHENON_REQUIRE(real_vars_size == real_map.size(),
-                    "Mismatch between real vars and real pack!");
-  PARTHENON_REQUIRE(int_vars_size == int_map.size(),
-                    "Mismatch between int vars and int pack!");
-
-    // Test
-    auto &v = Get<Real>("v").Get();
-    auto &id = Get<int>("id").Get();
-    pmb->par_for("Test", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-      printf("BEFORE SEND [gid: %i][%i] v = %e %e %e\n", pmb->gid, id(n), v(0,n), v(1,n), v(2,n));
-    });
-
-  // [ real pack indices, real pack shapes, int pack indices, int pack shapes ] x [ max
-  // var size ]
-  // TODO(BRR) Calculate pack_indices_shapes once per swarm resize?
-  ParArrayND<int> pack_indices_shapes("Pack indices and shapes", 4,
-                                      std::max<int>(real_vars_size, int_vars_size));
-  auto pack_indices_shapes_h = pack_indices_shapes.GetHostMirrorAndCopy();
-  int n = 0;
-  for (auto &rm : real_map) {
-    pack_indices_shapes_h(0, n) = rm.second.first;
-    pack_indices_shapes_h(1, n) = 1;
-    auto shape = real_imap.GetShape(rm.first);
-    PARTHENON_REQUIRE(shape.size() <= 1, "Only 0-, 1-D data supported for packing now!")
-    if (shape.size() > 0) {
-      pack_indices_shapes_h(1, n) = shape[0];
-    }
-    n++;
-  }
-  n = 0;
-  for (auto &im : int_map) {
-    pack_indices_shapes_h(2, n) = im.second.first;
-    pack_indices_shapes_h(3, n) = 1;
-    auto shape = int_imap.GetShape(im.first);
-    PARTHENON_REQUIRE(shape.size() <= 1, "Only 0-, 1-D data supported for packing now!")
-    if (shape.size() > 0) {
-      pack_indices_shapes_h(3, n) = shape[0];
-    }
-    n++;
-  }
-  pack_indices_shapes.DeepCopy(pack_indices_shapes_h);*/
-
-    // Test
-    {
-    auto &v = Get<Real>("v").Get();
-    auto &id = Get<int>("id").Get();
-    pmb->par_for("Test", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-      printf("BEFORE SEND [gid: %i][%i] v = %e %e %e\n", pmb->gid, id(n), v(0,n), v(1,n), v(2,n));
-    });
-    }
-
   auto &bdvar = vbswarm->bd_var_;
   auto num_particles_to_send = num_particles_to_send_;
   auto particle_indices_to_send = particle_indices_to_send_;
@@ -1147,7 +1092,6 @@ void Swarm::UnloadBuffers_() {
   CountReceivedParticles_();
 
   auto &bdvar = vbswarm->bd_var_;
-  printf("[gid %i]  Unload buffers: n particles %i\n", pmb->gid, total_received_particles_);
 
   if (total_received_particles_ > 0) {
     ParArrayND<int> new_indices;
@@ -1168,45 +1112,6 @@ void Swarm::UnloadBuffers_() {
     auto vint = PackAllVariables<int>(int_imap, ipack_indices_shapes);
     int real_vars_size = realVector_.size();
     int int_vars_size = intVector_.size();
-
-    // TODO(BRR) Is ordering of variables when iterating over *_map guaranteed?
-    /*auto real_map = real_imap.Map();
-    auto int_map = int_imap.Map();
-
-    PARTHENON_REQUIRE(real_vars_size == real_map.size(),
-                      "Mismatch between real vars and real pack!");
-    PARTHENON_REQUIRE(int_vars_size == int_map.size(),
-                      "Mismatch between int vars and int pack!");
-
-    // [ real pack indices, real pack shapes, int pack indices, int pack shapes ] x [ max
-    // var size ]
-    // TODO(BRR) Calculate pack_indices_shapes once per swarm resize?
-    ParArrayND<int> pack_indices_shapes("Pack indices and shapes", 4,
-                                        std::max<int>(real_vars_size, int_vars_size));
-    auto pack_indices_shapes_h = pack_indices_shapes.GetHostMirrorAndCopy();
-    int n = 0;
-    for (auto &rm : real_map) {
-      pack_indices_shapes_h(0, n) = rm.second.first;
-      pack_indices_shapes_h(1, n) = 1;
-      auto shape = real_imap.GetShape(rm.first);
-      PARTHENON_REQUIRE(shape.size() <= 1, "Only 0-, 1-D data supported for packing now!")
-      if (shape.size() > 0) {
-        pack_indices_shapes_h(1, n) = shape[0];
-      }
-      n++;
-    }
-    n = 0;
-    for (auto &im : int_map) {
-      pack_indices_shapes_h(2, n) = im.second.first;
-      pack_indices_shapes_h(3, n) = 1;
-      auto shape = int_imap.GetShape(im.first);
-      PARTHENON_REQUIRE(shape.size() <= 1, "Only 0-, 1-D data supported for packing now!")
-      if (shape.size() > 0) {
-        pack_indices_shapes_h(3, n) = shape[0];
-      }
-      n++;
-    }
-    pack_indices_shapes.DeepCopy(pack_indices_shapes_h);*/
 
     // construct map from buffer index to swarm index (or just return vector of indices!)
     const int particle_size = GetParticleDataSize();
@@ -1232,13 +1137,6 @@ void Swarm::UnloadBuffers_() {
             }
           }
         });
-
-    // Test
-    auto &v = Get<Real>("v").Get();
-    auto &id = Get<int>("id").Get();
-    pmb->par_for("Test", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-      printf("AFTER RECV [gid: %i][%i] v = %e %e %e\n", pmb->gid, id(n), v(0,n), v(1,n), v(2,n));
-    });
 
     ApplyBoundaries_(total_received_particles_, new_indices);
   }

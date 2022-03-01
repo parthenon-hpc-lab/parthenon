@@ -192,7 +192,8 @@ class Swarm {
   bool FinalizeCommunicationIterative();
 
   template <class T>
-  SwarmVariablePack<T> PackAllVariables(PackIndexMap &vmap, ParArrayND<int> &pack_indices_shapes);
+  SwarmVariablePack<T> PackAllVariables(PackIndexMap &vmap,
+                                        ParArrayND<int> &pack_indices_shapes);
 
   template <class T>
   SwarmVariablePack<T> PackVariables(const std::vector<std::string> &name,
@@ -294,7 +295,8 @@ inline SwarmVariablePack<T> Swarm::PackVariables(const std::vector<std::string> 
 }
 
 template <class T>
-inline SwarmVariablePack<T> Swarm::PackAllVariables(PackIndexMap &vmap, ParArrayND<int> &pack_indices_shapes) {
+inline SwarmVariablePack<T>
+Swarm::PackAllVariables(PackIndexMap &vmap, ParArrayND<int> &pack_indices_shapes) {
   std::vector<std::string> names;
   names.reserve(std::get<getType<T>()>(Vectors_).size());
   for (const auto &v : std::get<getType<T>()>(Vectors_)) {
