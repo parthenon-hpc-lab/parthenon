@@ -510,7 +510,8 @@ void Swarm::SortParticlesByCell() {
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         int cell_idx_1d = i + nx1 * (j + nx2 * k);
         // Find starting index, first by guessing
-        int start_index = static_cast<int>((cell_idx_1d * float(num_active) / ncells));
+        int start_index =
+            static_cast<int>((cell_idx_1d * static_cast<Real>(num_active) / ncells));
         int n = 0;
         while (true) {
           n++;
