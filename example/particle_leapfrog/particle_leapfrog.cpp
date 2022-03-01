@@ -47,6 +47,25 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
+// initial particle position: x,y,z,vx,vy,vz
+constexpr int num_test_particles = 14;
+const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
+    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
+    {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},   // along y direction
+    {-0.1, 0.3, 0.2, 0.0, 0.0, 0.5},   // along z direction
+    {0.0, 0.0, 0.0, -1.0, 0.0, 0.0},   // along -x direction
+    {0.0, 0.0, 0.0, 0.0, -1.0, 0.0},   // along -y direction
+    {0.0, 0.0, 0.0, 0.0, 0.0, -1.0},   // along -z direction
+    {0.0, 0.0, 0.0, 1.0, 1.0, 1.0},    // along xyz diagonal
+    {0.0, 0.0, 0.0, -1.0, 1.0, 1.0},   // along -xyz diagonal
+    {0.0, 0.0, 0.0, 1.0, -1.0, 1.0},   // along x-yz diagonal
+    {0.0, 0.0, 0.0, 1.0, 1.0, -1.0},   // along xy-z diagonal
+    {0.0, 0.0, 0.0, -1.0, -1.0, 1.0},  // along -x-yz diagonal
+    {0.0, 0.0, 0.0, 1.0, -1.0, -1.0},  // along x-y-z diagonal
+    {0.0, 0.0, 0.0, -1.0, 1.0, -1.0},  // along -xy-z diagonal
+    {0.0, 0.0, 0.0, -1.0, -1.0, -1.0}, // along -x-y-z diagonal
+}};
+
 // *************************************************//
 // define the "physics" package particles_package, *//
 // which includes defining various functions that  *//
@@ -88,6 +107,29 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   int max_active_index = swarm->GetMaxActiveIndex();
 
   const auto &v = swarm->Get<Real>("v").Get();
+  // Test, check particles
+
+
+  {
+    const auto &id = swarm->Get<int>("id").Get();
+  auto swarm_d = swarm->GetDeviceContext();
+  pmb->par_for("TEST", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+    if (swarm_d.IsActive(n)) {
+      bool is_good = true;
+      if (particles_ic[id(n)][3] != v(0,n)) is_good = false;
+      if (particles_ic[id(n)][4] != v(1,n)) is_good = false;
+      if (particles_ic[id(n)][5] != v(2,n)) is_good = false;
+      if (!is_good) {
+        printf("%s:%i\n", __FILE__, __LINE__);
+        printf("Particle %i velocity is bad! gid: %i\n", id(n), pmb->gid);
+        printf("v: %e %e %e\n", v(0,n), v(1,n), v(2,n));
+        printf("v true: %e %e %e\n", particles_ic[id(n)][3],
+          particles_ic[id(n)][4], particles_ic[id(n)][5]);
+        exit(-1);
+      }
+    }
+  });
+  }
 
   // Assumes a grid with constant dx, dy, dz within a block
   const Real &dx_i = pmb->coords.dx1f(0);
@@ -159,6 +201,27 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
     const auto &y = swarm->Get<Real>("y").Get().GetHostMirrorAndCopy();
     const auto &z = swarm->Get<Real>("z").Get().GetHostMirrorAndCopy();
     const auto &v = swarm->Get<Real>("v").Get().GetHostMirrorAndCopy();
+  // Test, check particles
+  {
+  auto swarm_d = swarm->GetDeviceContext();
+  int max_active_index = swarm->GetMaxActiveIndex();
+  pmb->par_for("TEST", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+    if (swarm_d.IsActive(n)) {
+      bool is_good = true;
+      if (particles_ic[id(n)][3] != v(0,n)) is_good = false;
+      if (particles_ic[id(n)][4] != v(1,n)) is_good = false;
+      if (particles_ic[id(n)][5] != v(2,n)) is_good = false;
+      if (!is_good) {
+        printf("%s:%i\n", __FILE__, __LINE__);
+        printf("Particle %i velocity is bad! gid: %i\n", id(n), pmb->gid);
+        printf("v: %e %e %e\n", v(0,n), v(1,n), v(2,n));
+        printf("v true: %e %e %e\n", particles_ic[id(n)][3],
+          particles_ic[id(n)][4], particles_ic[id(n)][5]);
+        exit(-1);
+      }
+    }
+  });
+  }
 
     const auto &is_active =
         Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
@@ -257,25 +320,6 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
   return TaskStatus::complete;
 }
 
-// initial particle position: x,y,z,vx,vy,vz
-constexpr int num_test_particles = 14;
-const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
-    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
-    {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},   // along y direction
-    {-0.1, 0.3, 0.2, 0.0, 0.0, 0.5},   // along z direction
-    {0.0, 0.0, 0.0, -1.0, 0.0, 0.0},   // along -x direction
-    {0.0, 0.0, 0.0, 0.0, -1.0, 0.0},   // along -y direction
-    {0.0, 0.0, 0.0, 0.0, 0.0, -1.0},   // along -z direction
-    {0.0, 0.0, 0.0, 1.0, 1.0, 1.0},    // along xyz diagonal
-    {0.0, 0.0, 0.0, -1.0, 1.0, 1.0},   // along -xyz diagonal
-    {0.0, 0.0, 0.0, 1.0, -1.0, 1.0},   // along x-yz diagonal
-    {0.0, 0.0, 0.0, 1.0, 1.0, -1.0},   // along xy-z diagonal
-    {0.0, 0.0, 0.0, -1.0, -1.0, 1.0},  // along -x-yz diagonal
-    {0.0, 0.0, 0.0, 1.0, -1.0, -1.0},  // along x-y-z diagonal
-    {0.0, 0.0, 0.0, -1.0, 1.0, -1.0},  // along -xy-z diagonal
-    {0.0, 0.0, 0.0, -1.0, -1.0, -1.0}, // along -x-y-z diagonal
-}};
-
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
@@ -356,6 +400,27 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   auto &z = swarm->Get<Real>("z").Get();
   auto &v = swarm->Get<Real>("v").Get();
 
+  // Test, check particles
+  {
+  auto swarm_d = swarm->GetDeviceContext();
+  pmb->par_for("TEST", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+    if (swarm_d.IsActive(n)) {
+      bool is_good = true;
+      if (particles_ic[id(n)][3] != v(0,n)) is_good = false;
+      if (particles_ic[id(n)][4] != v(1,n)) is_good = false;
+      if (particles_ic[id(n)][5] != v(2,n)) is_good = false;
+      if (!is_good) {
+        printf("%s:%i\n", __FILE__, __LINE__);
+        printf("Particle %i velocity is bad! gid: %i\n", id(n), pmb->gid);
+        printf("v: %e %e %e\n", v(0,n), v(1,n), v(2,n));
+        printf("v true: %e %e %e\n", particles_ic[id(n)][3],
+          particles_ic[id(n)][4], particles_ic[id(n)][5]);
+        exit(-1);
+      }
+    }
+  });
+  }
+
   auto swarm_d = swarm->GetDeviceContext();
   // keep particles on existing trajectory for now
   const Real ax = 0.0;
@@ -383,6 +448,27 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
           swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
         }
       });
+
+  // Test, check particles
+  {
+  auto swarm_d = swarm->GetDeviceContext();
+  pmb->par_for("TEST", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+    if (swarm_d.IsActive(n)) {
+      bool is_good = true;
+      if (particles_ic[id(n)][3] != v(0,n)) is_good = false;
+      if (particles_ic[id(n)][4] != v(1,n)) is_good = false;
+      if (particles_ic[id(n)][5] != v(2,n)) is_good = false;
+      if (!is_good) {
+        printf("%s:%i\n", __FILE__, __LINE__);
+        printf("Particle %i velocity is bad! gid: %i\n", id(n), pmb->gid);
+        printf("v: %e %e %e\n", v(0,n), v(1,n), v(2,n));
+        printf("v true: %e %e %e\n", particles_ic[id(n)][3],
+          particles_ic[id(n)][4], particles_ic[id(n)][5]);
+        exit(-1);
+      }
+    }
+  });
+  }
 
   return TaskStatus::complete;
 }
