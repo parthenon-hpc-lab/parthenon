@@ -38,10 +38,14 @@ int main(int argc, char *argv[]) {
   if (pman.pinput->GetString("parthenon/mesh", "ix1_bc") == "user") {
     pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] =
         parthenon::BoundaryFunction::OutflowInnerX1;
+    pman.app_input->swarm_boundary_conditions[parthenon::BoundaryFace::inner_x1] =
+      particles_example::SetSwarmIx1UserBC;
   }
   if (pman.pinput->GetString("parthenon/mesh", "ox1_bc") == "user") {
     pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x1] =
         parthenon::BoundaryFunction::OutflowOuterX1;
+    pman.app_input->swarm_boundary_conditions[parthenon::BoundaryFace::outer_x1] =
+      particles_example::SetSwarmOx1UserBC;
   }
   pman.ParthenonInitPackagesAndMesh();
 

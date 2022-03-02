@@ -140,6 +140,7 @@ class Mesh {
 
   // Boundary Functions
   BValFunc MeshBndryFnctn[6];
+  SBValFunc SwarmBndryFnctn[6];
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,

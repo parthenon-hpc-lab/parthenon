@@ -25,16 +25,6 @@
 // *************************************************//
 namespace particles_example {
 
-std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-SetSwarmIx1UserBC() {
-  return DeviceAllocate<ParticleBoundIX1Outflow>();
-}
-
-std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-SetSwarmOx1UserBC() {
-  return DeviceAllocate<ParticleBoundOX1Outflow>();
-}
-
 void InitUserMeshData(Mesh *mesh, ParameterInput *pin) {
   if (pin->GetString("parthenon/mesh", "ix1_bc") == "user") {
     mesh->swarm_bc_funcs[0] = SetSwarmIx1UserBC;

@@ -182,7 +182,7 @@ void Swarm::AllocateBoundaries() {
     bounds_uptrs[5] = DeviceAllocate<ParticleBoundOX3Outflow>();
   } else if (bcs[5] == BoundaryFlag::periodic) {
     bounds_uptrs[5] = DeviceAllocate<ParticleBoundOX3Periodic>();
-  } else if (bcs[5] != BoundaryFlag::user) {
+  } else if (bcs[5] == BoundaryFlag::user) {
     if (pmb->pmy_mesh->swarm_bc_funcs[5] != nullptr) {
       bounds_uptrs[5] = pmb->pmy_mesh->swarm_bc_funcs[5]();
     } else {

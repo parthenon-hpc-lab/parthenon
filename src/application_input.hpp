@@ -46,8 +46,8 @@ struct ApplicationInput {
       PostStepDiagnosticsInLoop = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
-  BValFunc boundary_conditions[BOUNDARY_NFACES] = {nullptr, nullptr, nullptr,
-                                                   nullptr, nullptr, nullptr};
+  BValFunc boundary_conditions[BOUNDARY_NFACES] = {nullptr};
+  SBValFunc swarm_boundary_conditions[BOUNDARY_NFACES] = {nullptr};
 
   // MeshBlock functions
   std::function<std::unique_ptr<MeshBlockApplicationData>(MeshBlock *, ParameterInput *)>
