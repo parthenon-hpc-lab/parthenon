@@ -33,7 +33,7 @@ struct ApplicationInput {
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages = nullptr;
 
   // Mesh functions
-  std::function<void(ParameterInput *)> InitUserMeshData = nullptr;
+  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepMeshUserWorkInLoop =
       nullptr;

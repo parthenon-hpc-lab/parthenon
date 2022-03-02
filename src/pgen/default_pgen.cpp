@@ -39,7 +39,7 @@ namespace parthenon {
 //  functions in this file.  Called in Mesh constructor.
 //========================================================================================
 
-void Mesh::InitUserMeshDataDefault(ParameterInput *pin) {
+void Mesh::InitUserMeshDataDefault(Mesh *, ParameterInput *) {
   // do nothing
   return;
 }
