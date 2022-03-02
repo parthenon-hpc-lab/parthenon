@@ -41,6 +41,7 @@ class ParticleDriver : public EvolutionDriver {
   StagedIntegrator integrator;
 };
 
+void InitUserMeshData(Mesh *mesh, ParameterInput *pin);
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 

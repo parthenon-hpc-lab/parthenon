@@ -24,8 +24,8 @@ refinement = none
 nx1 = 16
 x1min = -0.5
 x1max = 0.5
-ix1_bc = periodic
-ox1_bc = periodic
+ix1_bc = user
+ox1_bc = user
 
 nx2 = 16
 x2min = -0.5

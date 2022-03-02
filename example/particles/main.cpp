@@ -20,12 +20,8 @@ int main(int argc, char *argv[]) {
   using parthenon::ParthenonStatus;
   ParthenonManager pman;
 
-  // Redefine parthenon defaults
-  pman.app_input->ProcessPackages = particles_example::ProcessPackages;
-  pman.app_input->ProblemGenerator = particles_example::ProblemGenerator;
-
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
-  auto manager_status = pman.ParthenonInit(argc, argv);
+  auto manager_status = pman.ParthenonInitEnv(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
     pman.ParthenonFinalize();
     return 0;
@@ -34,8 +30,20 @@ int main(int argc, char *argv[]) {
     pman.ParthenonFinalize();
     return 1;
   }
-  // Now that ParthenonInit has been called and setup succeeded, the code can now
-  // make use of MPI and Kokkos
+
+  // Redefine parthenon defaults
+  pman.app_input->ProcessPackages = particles_example::ProcessPackages;
+  pman.app_input->ProblemGenerator = particles_example::ProblemGenerator;
+  pman.app_input->InitUserMeshData = particles_example::InitUserMeshData;
+  if (pman.pinput->GetString("parthenon/mesh", "ix1_bc") == "user") {
+    pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] =
+        parthenon::BoundaryFunction::OutflowInnerX1;
+  }
+  if (pman.pinput->GetString("parthenon/mesh", "ox1_bc") == "user") {
+    pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x1] =
+        parthenon::BoundaryFunction::OutflowOuterX1;
+  }
+  pman.ParthenonInitPackagesAndMesh();
 
   // Initialize the driver
   particles_example::ParticleDriver driver(pman.pinput.get(), pman.app_input.get(),

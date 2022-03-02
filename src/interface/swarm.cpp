@@ -102,7 +102,14 @@ void Swarm::AllocateBoundaries() {
     bounds_uptrs[0] = DeviceAllocate<ParticleBoundIX1Outflow>();
   } else if (bcs[0] == BoundaryFlag::periodic) {
     bounds_uptrs[0] = DeviceAllocate<ParticleBoundIX1Periodic>();
-  } else if (bcs[0] != BoundaryFlag::user) {
+  } else if (bcs[0] == BoundaryFlag::user) {
+    if (pmb->pmy_mesh->swarm_bc_funcs[0] != nullptr) {
+      bounds_uptrs[0] = pmb->pmy_mesh->swarm_bc_funcs[0]();
+    } else {
+      msg << "ix1 user boundary requested but provided function is null!";
+      PARTHENON_THROW(msg);
+    }
+  } else {
     msg << "ix1 boundary flag " << static_cast<int>(bcs[0]) << " not supported!";
     PARTHENON_THROW(msg);
   }
@@ -111,7 +118,14 @@ void Swarm::AllocateBoundaries() {
     bounds_uptrs[1] = DeviceAllocate<ParticleBoundOX1Outflow>();
   } else if (bcs[1] == BoundaryFlag::periodic) {
     bounds_uptrs[1] = DeviceAllocate<ParticleBoundOX1Periodic>();
-  } else if (bcs[1] != BoundaryFlag::user) {
+  } else if (bcs[1] == BoundaryFlag::user) {
+    if (pmb->pmy_mesh->swarm_bc_funcs[1] != nullptr) {
+      bounds_uptrs[1] = pmb->pmy_mesh->swarm_bc_funcs[1]();
+    } else {
+      msg << "ox1 user boundary requested but provided function is null!";
+      PARTHENON_THROW(msg);
+    }
+  } else {
     msg << "ox1 boundary flag " << static_cast<int>(bcs[1]) << " not supported!";
     PARTHENON_THROW(msg);
   }
@@ -120,7 +134,14 @@ void Swarm::AllocateBoundaries() {
     bounds_uptrs[2] = DeviceAllocate<ParticleBoundIX2Outflow>();
   } else if (bcs[2] == BoundaryFlag::periodic) {
     bounds_uptrs[2] = DeviceAllocate<ParticleBoundIX2Periodic>();
-  } else if (bcs[2] != BoundaryFlag::user) {
+  } else if (bcs[2] == BoundaryFlag::user) {
+    if (pmb->pmy_mesh->swarm_bc_funcs[2] != nullptr) {
+      bounds_uptrs[2] = pmb->pmy_mesh->swarm_bc_funcs[2]();
+    } else {
+      msg << "ix2 user boundary requested but provided function is null!";
+      PARTHENON_THROW(msg);
+    }
+  } else {
     msg << "ix2 boundary flag " << static_cast<int>(bcs[2]) << " not supported!";
     PARTHENON_THROW(msg);
   }
@@ -129,7 +150,14 @@ void Swarm::AllocateBoundaries() {
     bounds_uptrs[3] = DeviceAllocate<ParticleBoundOX2Outflow>();
   } else if (bcs[3] == BoundaryFlag::periodic) {
     bounds_uptrs[3] = DeviceAllocate<ParticleBoundOX2Periodic>();
-  } else if (bcs[3] != BoundaryFlag::user) {
+  } else if (bcs[3] == BoundaryFlag::user) {
+    if (pmb->pmy_mesh->swarm_bc_funcs[3] != nullptr) {
+      bounds_uptrs[3] = pmb->pmy_mesh->swarm_bc_funcs[3]();
+    } else {
+      msg << "ox2 user boundary requested but provided function is null!";
+      PARTHENON_THROW(msg);
+    }
+  } else {
     msg << "ox2 boundary flag " << static_cast<int>(bcs[3]) << " not supported!";
     PARTHENON_THROW(msg);
   }
@@ -138,7 +166,14 @@ void Swarm::AllocateBoundaries() {
     bounds_uptrs[4] = DeviceAllocate<ParticleBoundIX3Outflow>();
   } else if (bcs[4] == BoundaryFlag::periodic) {
     bounds_uptrs[4] = DeviceAllocate<ParticleBoundIX3Periodic>();
-  } else if (bcs[4] != BoundaryFlag::user) {
+  } else if (bcs[4] == BoundaryFlag::user) {
+    if (pmb->pmy_mesh->swarm_bc_funcs[4] != nullptr) {
+      bounds_uptrs[4] = pmb->pmy_mesh->swarm_bc_funcs[4]();
+    } else {
+      msg << "ix3 user boundary requested but provided function is null!";
+      PARTHENON_THROW(msg);
+    }
+  } else {
     msg << "ix3 boundary flag " << static_cast<int>(bcs[4]) << " not supported!";
     PARTHENON_THROW(msg);
   }
@@ -148,6 +183,13 @@ void Swarm::AllocateBoundaries() {
   } else if (bcs[5] == BoundaryFlag::periodic) {
     bounds_uptrs[5] = DeviceAllocate<ParticleBoundOX3Periodic>();
   } else if (bcs[5] != BoundaryFlag::user) {
+    if (pmb->pmy_mesh->swarm_bc_funcs[5] != nullptr) {
+      bounds_uptrs[5] = pmb->pmy_mesh->swarm_bc_funcs[5]();
+    } else {
+      msg << "ox3 user boundary requested but provided function is null!";
+      PARTHENON_THROW(msg);
+    }
+  } else {
     msg << "ox3 boundary flag " << static_cast<int>(bcs[5]) << " not supported!";
     PARTHENON_THROW(msg);
   }
@@ -556,6 +598,10 @@ void Swarm::SortParticlesByCell() {
 
           if (cellSorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
             start_index--;
+            if (start_index < 0) {
+              start_index = -1;
+              break;
+            }
             if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
               start_index = -1;
               break;
@@ -564,6 +610,10 @@ void Swarm::SortParticlesByCell() {
           }
           if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
             start_index++;
+            if (start_index > max_active_index) {
+              start_index = -1;
+              break;
+            }
             if (cellSorted(start_index).cell_idx_1d_ > cell_idx_1d) {
               start_index = -1;
               break;

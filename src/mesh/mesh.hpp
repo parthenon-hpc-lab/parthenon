@@ -92,6 +92,8 @@ class Mesh {
   bool modified;
   RegionSize mesh_size;
   BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
+  std::function<std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>()>
+      swarm_bc_funcs[BOUNDARY_NFACES] = {nullptr};
   const int ndim; // number of dimensions
   const bool adaptive, multilevel;
   int nbtotal, nbnew, nbdel;
