@@ -11,6 +11,7 @@
 - [[PR 586]](https://github.com/lanl/parthenon/pull/586) Implement true sparse capability with automatic allocation and deallocation of sparse
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 655]](https://github.com/lanl/parthenon/pull/655) Add Mesh pointer to InitUserMeshData
 - [[PR 623]](https://github.com/lanl/parthenon/pull/623) Enable Params to optionally return non-const pointers
 - [[PR 604]](https://github.com/lanl/parthenon/pull/604) Allow modification of SimTime in PreStepUserWorkInLoop
 - [[PR 617]](https://github.com/lanl/parthenon/pull/617) Unify the coordinates API for MeshBlockPack and VariablePack
