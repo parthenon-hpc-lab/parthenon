@@ -112,4 +112,5 @@ when they are in boundary regions are allocated depending on the boundary flags 
 in the input file. Currently, outflow and periodic boundaries are supported natively.
 User-specified boundary conditions must be set by specifying the "user" flag in the input
 parameter file and then updating the appropriate Swarm::bounds array entries to separately
-allocated boundary condition objects.
+allocated boundary condition objects. An example is given in the `particles` example when
+ix1 and ox1 are set to `user` in the input parameter file.
