@@ -20,15 +20,16 @@
 
 #include "basic_types.hpp"
 #include "interface/meshblock_data.hpp"
-#include "mesh/domain.hpp"
 #include "interface/swarm_boundaries.hpp"
+#include "mesh/domain.hpp"
 
 namespace parthenon {
 
 // Physical boundary conditions
 
 using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
-using SBValFunc = std::function<std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>()>;
+using SBValFunc = std::function<
+    std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>()>;
 
 TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc);
 
