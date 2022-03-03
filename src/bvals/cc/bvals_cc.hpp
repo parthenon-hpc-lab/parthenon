@@ -37,7 +37,7 @@ namespace parthenon {
 class CellCenteredBoundaryVariable : public BoundaryVariable {
  public:
   CellCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb, bool is_sparse,
-                               const std::string &label, int dim4);
+                               const std::string &label, int dim4, int dim5, intdim6);
   ~CellCenteredBoundaryVariable();
 
   // may want to rebind var_cc to u,u1,u2,w,w1, etc. registers for time integrator logic.
@@ -75,7 +75,7 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   bool ReceiveFluxCorrection(bool is_allocated) final;
 
  protected:
-  int nl_, nu_;
+  int ll_, lu_, ml_, mu_, nl_, nu_;
 
 #ifdef MPI_PARALLEL
   int cc_phys_id_, cc_flx_phys_id_;
