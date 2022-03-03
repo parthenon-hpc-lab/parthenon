@@ -376,6 +376,10 @@ class SwarmVariablePack {
   T &operator()(const int n, const int i) const { return v_(n)(0, 0, i); }
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(const int n, const int j, const int i) const { return v_(n)(0, j, i); }
+  KOKKOS_FORCEINLINE_FUNCTION
+  T &operator()(const int n, const int k, const int j, const int i) const {
+    return v_(n)(k, j, i);
+  }
 
  private:
   ViewOfParArrays<T> v_;

@@ -448,14 +448,18 @@ void Swarm::Defrag() {
         if (from_to_indices(n) >= 0) {
           for (int i = 0; i < real_vars_size; i++) {
             for (int j = 0; j < rpack_indices_shapes(1, i); j++) {
-              vreal(rpack_indices_shapes(0, i), j, from_to_indices(n)) =
-                  vreal(rpack_indices_shapes(0, i), j, n);
+              for (int k = 0; k < rpack_indices_shapes(2, i); k++) {
+                vreal(rpack_indices_shapes(0, i), k, j, from_to_indices(n)) =
+                    vreal(rpack_indices_shapes(0, i), k, j, n);
+              }
             }
           }
           for (int i = 0; i < int_vars_size; i++) {
             for (int j = 0; j < ipack_indices_shapes(1, i); j++) {
-              vint(ipack_indices_shapes(0, i), j, from_to_indices(n)) =
-                  vint(ipack_indices_shapes(0, i), j, n);
+              for (int k = 0; k < ipack_indices_shapes(2, i); j++) {
+                vint(ipack_indices_shapes(0, i), k, j, from_to_indices(n)) =
+                    vint(ipack_indices_shapes(0, i), k, j, n);
+              }
             }
           }
         }
@@ -981,16 +985,20 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
             swarm_d.MarkParticleForRemoval(sidx);
             for (int i = 0; i < real_vars_size; i++) {
               for (int j = 0; j < rpack_indices_shapes(1, i); j++) {
-                bdvar.send[bufid](buffer_index) =
-                    vreal(rpack_indices_shapes(0, i), j, sidx);
-                buffer_index++;
+                for (int k = 0; k < rpack_indices_shapes(2, i); k++) {
+                  bdvar.send[bufid](buffer_index) =
+                      vreal(rpack_indices_shapes(0, i), k, j, sidx);
+                  buffer_index++;
+                }
               }
             }
             for (int i = 0; i < int_vars_size; i++) {
               for (int j = 0; j < ipack_indices_shapes(1, i); j++) {
-                bdvar.send[bufid](buffer_index) =
-                    static_cast<Real>(vint(ipack_indices_shapes(0, i), j, sidx));
-                buffer_index++;
+                for (int k = 0; k < ipack_indices_shapes(2, i); k++) {
+                  bdvar.send[bufid](buffer_index) =
+                      static_cast<Real>(vint(ipack_indices_shapes(0, i), k, j, sidx));
+                  buffer_index++;
+                }
               }
             }
           }
@@ -1125,15 +1133,19 @@ void Swarm::UnloadBuffers_() {
           const int nbid = neighbor_buffer_index(nid);
           for (int i = 0; i < real_vars_size; i++) {
             for (int j = 0; j < rpack_indices_shapes(1, i); j++) {
-              vreal(rpack_indices_shapes(0, i), j, sid) = bdvar.recv[nbid](bid);
-              bid++;
+              for (int k = 0; k < rpack_indices_shapes(2, i); k++) {
+                vreal(rpack_indices_shapes(0, i), k, j, sid) = bdvar.recv[nbid](bid);
+                bid++;
+              }
             }
           }
           for (int i = 0; i < int_vars_size; i++) {
             for (int j = 0; j < ipack_indices_shapes(1, i); j++) {
-              vint(ipack_indices_shapes(0, i), j, sid) =
-                  static_cast<int>(bdvar.recv[nbid](bid));
-              bid++;
+              for (int k = 0; k < ipack_indices_shapes(1, i); k++) {
+                vint(ipack_indices_shapes(0, i), k, j, sid) =
+                    static_cast<int>(bdvar.recv[nbid](bid));
+                bid++;
+              }
             }
           }
         });
