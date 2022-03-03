@@ -103,8 +103,8 @@ void Swarm::AllocateBoundaries() {
   } else if (bcs[0] == BoundaryFlag::periodic) {
     bounds_uptrs[0] = DeviceAllocate<ParticleBoundIX1Periodic>();
   } else if (bcs[0] == BoundaryFlag::user) {
-    if (pmb->pmy_mesh->swarm_bc_funcs[0] != nullptr) {
-      bounds_uptrs[0] = pmb->pmy_mesh->swarm_bc_funcs[0]();
+    if (pmb->pmy_mesh->SwarmBndryFnctn[0] != nullptr) {
+      bounds_uptrs[0] = pmb->pmy_mesh->SwarmBndryFnctn[0]();
     } else {
       msg << "ix1 user boundary requested but provided function is null!";
       PARTHENON_THROW(msg);
@@ -119,8 +119,8 @@ void Swarm::AllocateBoundaries() {
   } else if (bcs[1] == BoundaryFlag::periodic) {
     bounds_uptrs[1] = DeviceAllocate<ParticleBoundOX1Periodic>();
   } else if (bcs[1] == BoundaryFlag::user) {
-    if (pmb->pmy_mesh->swarm_bc_funcs[1] != nullptr) {
-      bounds_uptrs[1] = pmb->pmy_mesh->swarm_bc_funcs[1]();
+    if (pmb->pmy_mesh->SwarmBndryFnctn[1] != nullptr) {
+      bounds_uptrs[1] = pmb->pmy_mesh->SwarmBndryFnctn[1]();
     } else {
       msg << "ox1 user boundary requested but provided function is null!";
       PARTHENON_THROW(msg);
@@ -135,8 +135,8 @@ void Swarm::AllocateBoundaries() {
   } else if (bcs[2] == BoundaryFlag::periodic) {
     bounds_uptrs[2] = DeviceAllocate<ParticleBoundIX2Periodic>();
   } else if (bcs[2] == BoundaryFlag::user) {
-    if (pmb->pmy_mesh->swarm_bc_funcs[2] != nullptr) {
-      bounds_uptrs[2] = pmb->pmy_mesh->swarm_bc_funcs[2]();
+    if (pmb->pmy_mesh->SwarmBndryFnctn[2] != nullptr) {
+      bounds_uptrs[2] = pmb->pmy_mesh->SwarmBndryFnctn[2]();
     } else {
       msg << "ix2 user boundary requested but provided function is null!";
       PARTHENON_THROW(msg);
@@ -151,8 +151,8 @@ void Swarm::AllocateBoundaries() {
   } else if (bcs[3] == BoundaryFlag::periodic) {
     bounds_uptrs[3] = DeviceAllocate<ParticleBoundOX2Periodic>();
   } else if (bcs[3] == BoundaryFlag::user) {
-    if (pmb->pmy_mesh->swarm_bc_funcs[3] != nullptr) {
-      bounds_uptrs[3] = pmb->pmy_mesh->swarm_bc_funcs[3]();
+    if (pmb->pmy_mesh->SwarmBndryFnctn[3] != nullptr) {
+      bounds_uptrs[3] = pmb->pmy_mesh->SwarmBndryFnctn[3]();
     } else {
       msg << "ox2 user boundary requested but provided function is null!";
       PARTHENON_THROW(msg);
@@ -167,8 +167,8 @@ void Swarm::AllocateBoundaries() {
   } else if (bcs[4] == BoundaryFlag::periodic) {
     bounds_uptrs[4] = DeviceAllocate<ParticleBoundIX3Periodic>();
   } else if (bcs[4] == BoundaryFlag::user) {
-    if (pmb->pmy_mesh->swarm_bc_funcs[4] != nullptr) {
-      bounds_uptrs[4] = pmb->pmy_mesh->swarm_bc_funcs[4]();
+    if (pmb->pmy_mesh->SwarmBndryFnctn[4] != nullptr) {
+      bounds_uptrs[4] = pmb->pmy_mesh->SwarmBndryFnctn[4]();
     } else {
       msg << "ix3 user boundary requested but provided function is null!";
       PARTHENON_THROW(msg);
@@ -183,8 +183,8 @@ void Swarm::AllocateBoundaries() {
   } else if (bcs[5] == BoundaryFlag::periodic) {
     bounds_uptrs[5] = DeviceAllocate<ParticleBoundOX3Periodic>();
   } else if (bcs[5] == BoundaryFlag::user) {
-    if (pmb->pmy_mesh->swarm_bc_funcs[5] != nullptr) {
-      bounds_uptrs[5] = pmb->pmy_mesh->swarm_bc_funcs[5]();
+    if (pmb->pmy_mesh->SwarmBndryFnctn[5] != nullptr) {
+      bounds_uptrs[5] = pmb->pmy_mesh->SwarmBndryFnctn[5]();
     } else {
       msg << "ox3 user boundary requested but provided function is null!";
       PARTHENON_THROW(msg);

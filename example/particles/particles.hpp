@@ -41,19 +41,12 @@ class ParticleDriver : public EvolutionDriver {
   StagedIntegrator integrator;
 };
 
-void InitUserMeshData(Mesh *mesh, ParameterInput *pin);
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 
-std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-SetSwarmIx1UserBC() {
-  return DeviceAllocate<ParticleBoundIX1Outflow>();
-}
+std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> SetSwarmIx1UserBC();
 
-std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-SetSwarmOx1UserBC() {
-  return DeviceAllocate<ParticleBoundOX1Outflow>();
-}
+std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> SetSwarmOx1UserBC();
 
 namespace Particles {
 

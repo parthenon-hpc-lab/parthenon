@@ -25,13 +25,14 @@
 // *************************************************//
 namespace particles_example {
 
-void InitUserMeshData(Mesh *mesh, ParameterInput *pin) {
-  if (pin->GetString("parthenon/mesh", "ix1_bc") == "user") {
-    mesh->swarm_bc_funcs[0] = SetSwarmIx1UserBC;
-  }
-  if (pin->GetString("parthenon/mesh", "ox1_bc") == "user") {
-    mesh->swarm_bc_funcs[1] = SetSwarmOx1UserBC;
-  }
+std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
+SetSwarmIx1UserBC() {
+  return DeviceAllocate<ParticleBoundIX1Outflow>();
+}
+
+std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
+SetSwarmOx1UserBC() {
+  return DeviceAllocate<ParticleBoundOX1Outflow>();
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
