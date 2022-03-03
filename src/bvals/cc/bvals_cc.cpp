@@ -122,7 +122,7 @@ int CellCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexe
     size = std::max(size, sizes.c2f);
     size = std::max(size, sizes.f2c);
   }
-  size *= (lu_ + 1)*(mu_ + 1)*(nu_ + 1);
+  size *= (lu_ + 1) * (mu_ + 1) * (nu_ + 1);
 
   // adding 1 to the size to communicate allocation status
   return size + 1;
@@ -133,11 +133,14 @@ int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int size = 0;
   if (ni.ox1 != 0)
-    size = (pmb->block_size.nx2 + 1) / 2 * (pmb->block_size.nx3 + 1) / 2 * (lu_ + 1)*(mu_ + 1)*(nu_ + 1);
+    size = (pmb->block_size.nx2 + 1) / 2 * (pmb->block_size.nx3 + 1) / 2 * (lu_ + 1) *
+           (mu_ + 1) * (nu_ + 1);
   if (ni.ox2 != 0)
-    size = (pmb->block_size.nx1 + 1) / 2 * (pmb->block_size.nx3 + 1) / 2 * (lu_ + 1)*(mu_ + 1)*(nu_ + 1);
+    size = (pmb->block_size.nx1 + 1) / 2 * (pmb->block_size.nx3 + 1) / 2 * (lu_ + 1) *
+           (mu_ + 1) * (nu_ + 1);
   if (ni.ox3 != 0)
-    size = (pmb->block_size.nx1 + 1) / 2 * (pmb->block_size.nx2 + 1) / 2 * (lu_ + 1)*(mu_ + 1)*(nu_ + 1);
+    size = (pmb->block_size.nx1 + 1) / 2 * (pmb->block_size.nx2 + 1) / 2 * (lu_ + 1) *
+           (mu_ + 1) * (nu_ + 1);
 
   // adding 1 to the size to communicate allocation status
   return size + 1;
@@ -165,8 +168,8 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
         ssize = sizes.c2f;
         rsize = sizes.f2c;
       }
-      ssize *= (lu_ + 1)*(mu_ + 1)*(nu_ + 1);
-      rsize *= (lu_ + 1)*(mu_ + 1)*(nu_ + 1);
+      ssize *= (lu_ + 1) * (mu_ + 1) * (nu_ + 1);
+      rsize *= (lu_ + 1) * (mu_ + 1) * (nu_ + 1);
       // specify the offsets in the view point of the target block: flip ox? signs
       PARTHENON_DEBUG_REQUIRE(ssize > 0, "Send size is 0");
       PARTHENON_DEBUG_REQUIRE(rsize > 0, "Receive size is 0");
@@ -202,7 +205,7 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
           size = ((pmb->block_size.nx1 + 1) / 2) * ((pmb->block_size.nx3 + 1) / 2);
         else // (nb.fid == 4 || nb.fid == 5)
           size = ((pmb->block_size.nx1 + 1) / 2) * ((pmb->block_size.nx2 + 1) / 2);
-        size *= (lu_ + 1)*(mu_ + 1)*(nu_ + 1);
+        size *= (lu_ + 1) * (mu_ + 1) * (nu_ + 1);
 
         // one more value to communicate if source has variable allocated
         size += 1;

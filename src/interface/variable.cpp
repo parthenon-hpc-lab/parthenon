@@ -45,8 +45,8 @@ CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &meta
     PARTHENON_REQUIRE_THROWS(
         GetDim(4) == NumComponents(),
         "CellCenteredBoundaryVariable currently only supports rank-1 variables");
-    vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, IsSparse(), label(),
-                                                           GetDim(4));
+    vbvar = std::make_shared<CellCenteredBoundaryVariable>(
+        pmb, IsSparse(), label(), GetDim(4), GetDim(5), GetDim(6));
     auto res = pmb->pbval->bvars.insert({label(), vbvar});
     PARTHENON_REQUIRE_THROWS(
         res.second || (pmb->pbval->bvars.at(label()).get(), vbvar.get()),
