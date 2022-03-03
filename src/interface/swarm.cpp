@@ -456,7 +456,7 @@ void Swarm::Defrag() {
           }
           for (int i = 0; i < int_vars_size; i++) {
             for (int j = 0; j < ipack_indices_shapes(1, i); j++) {
-              for (int k = 0; k < ipack_indices_shapes(2, i); j++) {
+              for (int k = 0; k < ipack_indices_shapes(2, i); k++) {
                 vint(ipack_indices_shapes(0, i), k, j, from_to_indices(n)) =
                     vint(ipack_indices_shapes(0, i), k, j, n);
               }
