@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2022 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -45,6 +49,8 @@ struct KeyComparator {
 };
 
 TEST_CASE("Sorting", "[sort]") {
+// No sort support on HIP at the moment
+#if !defined(KOKKOS_ENABLE_HIP)
   GIVEN("An unordered list of integers") {
     ParArray1D<int> data("Data to sort", N);
 
@@ -92,4 +98,5 @@ TEST_CASE("Sorting", "[sort]") {
     REQUIRE(data_h(3).value_ == std::string("a"));
     REQUIRE(data_h(4).value_ == std::string("test."));
   }
+#endif // !defined(KOKKOS_ENABLE_HIP)
 }

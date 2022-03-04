@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -80,6 +80,9 @@ class FlatIdx {
     rng.e = shape_[iDim - 1] - 1;
     return rng;
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  bool IsValid() const { return (offset_ >= 0); }
 
   KOKKOS_FORCEINLINE_FUNCTION
   int operator()() const {
@@ -198,12 +201,17 @@ class PackIndexMap {
     shape_map_.insert(std::pair<std::string, vpack_types::Shape>(key, shape));
   }
 
-  vpack_types::FlatIdx GetFlatIdx(const std::string &key) {
+  vpack_types::FlatIdx GetFlatIdx(const std::string &key,
+                                  bool throw_invalid_key_error = true) {
     // Make sure the key exists
     auto itr = map_.find(key);
     auto itr_shape = shape_map_.find(key);
     if ((itr == map_.end()) || (itr_shape == shape_map_.end())) {
-      PARTHENON_THROW("Key " + key + " does not exist.");
+      if (throw_invalid_key_error) {
+        PARTHENON_THROW("Key " + key + " does not exist.");
+      } else {
+        return vpack_types::FlatIdx({}, -1);
+      }
     }
     return vpack_types::FlatIdx(itr_shape->second, itr->second.first);
   }

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -519,6 +519,14 @@ TEST_CASE("Get the correct access pattern when using FlatIdx", "[FlatIdx]") {
             err3);
 
         REQUIRE(err3 == 0.0);
+      }
+
+      THEN("We can ask for FlatIdxs of fields that don't exist in the pack") {
+        PackIndexMap imap;
+        auto v = pmbd->PackVariables(std::vector<std::string>{"v2", "v3"}, imap);
+        auto idx_v4 = imap.GetFlatIdx("v4", false);
+        REQUIRE(idx_v4() == -1);
+        REQUIRE(!idx_v4.IsValid());
       }
     }
   }

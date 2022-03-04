@@ -86,12 +86,17 @@ Kokkos can be configured through `cmake` options, see https://github.com/kokkos/
 For example to build with the OpenMP backend for Intel Skylake architecture using Intel compilers
 
     mkdir build-omp-skx && cd build-omp-skx
-    cmake -DKokkos_ENABLE_OPENMP=On -DCMAKE_CXX_COMPILER=icpc -DKokkos_ARCH_SKX=On ../
+    cmake -DKokkos_ENABLE_OPENMP=ON -DCMAKE_CXX_COMPILER=icpc -DKokkos_ARCH_SKX=ON ../
 
-or to build for NVIDIA V100 GPUs (using `nvcc` compiler for GPU code)
+or to build for NVIDIA V100 GPUs (using `nvcc` compiler for GPU code, which is automatically picked up by `Kokkos`)
 
     mkdir build-cuda-v100 && cd build-cuda-v100
-    cmake -DKokkos_ENABLE_CUDA=On -DCMAKE_CXX_COMPILER=$(pwd)/../external/Kokkos/bin/nvcc_wrapper -DKokkos_ARCH_VOLTA70=On ../
+    cmake -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_VOLTA70=On ../
+
+or to build for AMD MI100 GPUs (using `hipcc` compiler)
+
+    mkdir build-hip-mi100 && cd build-hip-mi100
+    cmake -DKokkos_ENABLE_HIP=ON -DCMAKE_CXX_COMPILER=hipcc -DKokkos_ARCH_VOLTA70=ON ../
 
 # Developing/Contributing
 
