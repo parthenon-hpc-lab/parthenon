@@ -26,6 +26,28 @@ using namespace parthenon;
 
 namespace particles_example {
 
+// Duplicates of ParticleBoundIX1Outflow and ParticleBoundOX1Outflow to illustrate custom
+// particle boundary conditions
+class ParticleBoundIX1User : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) const override {
+    if (x < swarm_d.x_min_global_) {
+      swarm_d.MarkParticleForRemoval(n);
+    }
+  }
+};
+
+class ParticleBoundOX1User : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) const override {
+    if (x > swarm_d.x_max_global_) {
+      swarm_d.MarkParticleForRemoval(n);
+    }
+  }
+};
+
 typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
 
 class ParticleDriver : public EvolutionDriver {
