@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 #include "constants.hpp"
 #include "error_checking.hpp"
@@ -62,7 +63,27 @@ namespace Env {
 
 namespace Impl {
 // TODO(the person bumping standard to C++17) Clean up this mess and use constexpr if
-template <typename T>
+
+// TODO(JMM): We use template specialization below to parse
+// information from environment variables
+// where we template on return type. We hit an issue with HDF5's hsize_t, becuase:
+// (a) sometimes HDF5 is disabled, so hsize_t isn't always present
+// (b) hsize_t's type is system/compiler-dependent. Sometimes it's the same as size_t,
+//     but it doesn't have to be. If you define a specialization for size_t
+//     and hsize_t on a system where they are not the same,
+//     the compiler will see a duplicate function and complain.
+// To resolve this issue, we use SFINAE. The std::enable_ifs mean the
+// templated functions are enabled only if the appropriate conditions are met.
+// In particular, the prototype is enabled only for types that are
+// not size_t or hsize_t.
+// Then the implementation for size_t is always enabled and the implementation
+// for hsize_t is enabled ONLY if HDF5 is available, and hsize_t != size_t.
+template <typename T,
+          typename std::enable_if<!std::is_same<T, size_t>::value, bool>::type = true
+#ifdef ENABLE_HDF5
+          ,
+          typename std::enable_if<!std::is_same<T, hsize_t>::value, bool>::type = true>
+#endif // ENABLE_HDF5
 T parse_value(std::string &strvalue);
 
 // Parse env. variable expected to hold a bool value allowing for different conventions.
@@ -93,14 +114,17 @@ T parse_unsigned(const std::string &strvalue) {
   return res;
 }
 
-template <>
-inline size_t parse_value<size_t>(std::string &strvalue) {
+template <typename T,
+          typename std::enable_if<std::is_same<T, size_t>::value, bool>::type = true>
+inline T parse_value(std::string &strvalue) {
   return parse_unsigned<size_t>(strvalue);
 }
 
 #ifdef ENABLE_HDF5
-template <>
-inline hsize_t parse_value<hsize_t>(std::string &strvalue) {
+template <typename T,
+          typename std::enable_if<std::is_same<T, hsize_t>::value, bool>::type = true,
+          typename std::enable_if<!std::is_same<T, size_t>::value, bool>::type = true>
+inline T parse_value(std::string &strvalue) {
   return parse_unsigned<hsize_t>(strvalue);
 }
 #endif // ifdef ENABLE_HDF5
