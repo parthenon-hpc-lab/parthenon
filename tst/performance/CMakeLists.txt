@@ -1,7 +1,7 @@
 
 ##========================================================================================
-## Athena++ astrophysical MHD code
-## Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+## Parthenon performance portable AMR framework
+## Copyright(C) 2020-2022 The Parthenon collaboration
 ## Licensed under the 3-clause BSD License, see LICENSE file for details
 ##========================================================================================
 ## (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
@@ -20,4 +20,4 @@ add_executable(performance_tests test_meshblock_data_iterator.cpp)
 target_link_libraries(performance_tests PRIVATE Parthenon::parthenon catch2_define Kokkos::kokkos)
 lint_target(performance_tests)
 
-catch_discover_tests(performance_tests)
+catch_discover_tests(performance_tests EXTRA_ARGS "--kokkos-disable-warnings")

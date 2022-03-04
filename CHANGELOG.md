@@ -25,6 +25,7 @@
 - [[PR 595]](https://github.com/lanl/parthenon/pull/595) Fix build options so that non-MPI builds cannot be paired with an MPI HDF5 lib
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 651]](https://github.com/lanl/parthenon/pull/651) Bump Catch2 version due to GCC11.2 incompatibility
 
 ### Removed (removing behavior/API/varaibles/...)
 
