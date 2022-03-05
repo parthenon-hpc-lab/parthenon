@@ -48,7 +48,7 @@ endif()
 
 lint_target(unit_tests)
 
-catch_discover_tests(unit_tests EXTRA_ARGS "--kokkos-disable-warnings")
+catch_discover_tests(unit_tests)
 
 get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)
 
