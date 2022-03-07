@@ -48,7 +48,10 @@ endif()
 
 lint_target(unit_tests)
 
-catch_discover_tests(unit_tests)
+# separating test cases here because performance tests should (later) only be run
+# for Release build types.
+catch_discover_tests(unit_tests TEST_SPEC "~[performance]" PROPERTIES LABELS "unit")
+catch_discover_tests(unit_tests TEST_SPEC "[performance]" PROPERTIES LABELS "performance")
 
 get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)
 
