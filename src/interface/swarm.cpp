@@ -70,9 +70,9 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
-  Add("x", Metadata({Metadata::Real, Metadata::Particle}));
-  Add("y", Metadata({Metadata::Real, Metadata::Particle}));
-  Add("z", Metadata({Metadata::Real, Metadata::Particle}));
+  Add("x", Metadata({Metadata::Real}));
+  Add("y", Metadata({Metadata::Real}));
+  Add("z", Metadata({Metadata::Real}));
   num_active_ = 0;
   max_active_index_ = 0;
 

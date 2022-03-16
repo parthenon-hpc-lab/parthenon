@@ -307,24 +307,26 @@ Swarm::PackAllVariables(PackIndexMap &vmap, ParArrayND<int> &pack_indices_shapes
   auto map = vmap.Map();
 
   // Get shape of packed variables
-  pack_indices_shapes = ParArrayND<int>("Pack indices and shapes", 6, names.size());
-  auto pack_indices_shapes_h = pack_indices_shapes.GetHostMirrorAndCopy();
-  int n = 0;
-  for (auto &m : map) {
-    pack_indices_shapes_h(0, n) = m.second.first;
-    for (int idx = 1; idx < 6; idx++) {
-      auto shape = vmap.GetShape(m.first);
-      PARTHENON_REQUIRE(shape.size() <= 2,
-                        "Flat packs only support 2 indices + swarm index!");
-      if (shape.size() >= idx) {
-        pack_indices_shapes_h(idx, n) = shape[idx - 1];
-      } else {
-        pack_indices_shapes_h(idx, n) = 1;
+  if (names.size() > 0) {
+    pack_indices_shapes = ParArrayND<int>("Pack indices and shapes", 6, names.size());
+    auto pack_indices_shapes_h = pack_indices_shapes.GetHostMirrorAndCopy();
+    int n = 0;
+    for (auto &m : map) {
+      pack_indices_shapes_h(0, n) = m.second.first;
+      for (int idx = 1; idx < 6; idx++) {
+        auto shape = vmap.GetShape(m.first);
+        PARTHENON_REQUIRE(shape.size() <= 2,
+                          "Flat packs only support 2 indices + swarm index!");
+        if (shape.size() >= idx) {
+          pack_indices_shapes_h(idx, n) = shape[idx - 1];
+        } else {
+          pack_indices_shapes_h(idx, n) = 1;
+        }
       }
+      n++;
     }
-    n++;
+    pack_indices_shapes.DeepCopy(pack_indices_shapes_h);
   }
-  pack_indices_shapes.DeepCopy(pack_indices_shapes_h);
 
   return ret;
 }
