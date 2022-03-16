@@ -89,11 +89,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
-  Metadata vreal_swarmvalue_metadata({Metadata::Real},
-                                     std::vector<int>{3});
+  Metadata vreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{3});
   pkg->AddSwarmValue("v", swarm_name, vreal_swarmvalue_metadata);
-  Metadata vvreal_swarmvalue_metadata({Metadata::Real},
-                                      std::vector<int>{2, 2});
+  Metadata vvreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{2, 2});
   pkg->AddSwarmValue("vv", swarm_name, vvreal_swarmvalue_metadata);
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
