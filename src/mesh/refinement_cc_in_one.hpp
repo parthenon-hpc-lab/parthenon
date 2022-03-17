@@ -29,7 +29,7 @@
 
 namespace parthenon {
 namespace cell_centered_refinement {
-void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
+void Restrict(cell_centered_bvars::RefineBufferCache_t &info, IndexShape &cellbounds,
               IndexShape &c_cellbounds);
 TaskStatus RestrictPhysicalBounds(MeshData<Real> *md);
 

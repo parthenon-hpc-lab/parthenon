@@ -186,7 +186,7 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   void ProlongateBoundaries();
 
   int NumRestrictions();
-  void FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
+  void FillRestrictionMetadata(cell_centered_bvars::RefineBufferCacheHost_t &info,
                                int &idx_start, std::shared_ptr<CellVariable<Real>> v);
 
   int AdvanceCounterPhysID(int num_phys);

@@ -23,7 +23,7 @@
 
 namespace parthenon {
 namespace cell_centered_refinement {
-void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
+void Restrict(cell_centered_bvars::RefineBufferCache_t &info, IndexShape &cellbounds,
               IndexShape &c_cellbounds) {
   const IndexDomain interior = IndexDomain::interior;
   const IndexDomain entire = IndexDomain::entire;
@@ -45,9 +45,9 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
           if (info(buf).allocated && info(buf).restriction) {
             par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sk, info(buf).ek,
-                info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
+                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
+                info(buf).sk, info(buf).ek, info(buf).sj, info(buf).ej, info(buf).si,
+                info(buf).ei,
                 [&](const int l, const int m, const int n, const int ck, const int cj,
                     const int ci) {
                   const int k = (ck - ckb.s) * 2 + kb.s;
@@ -69,15 +69,14 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
                   // symmetry
                   auto &coarse = info(buf).coarse;
                   auto &fine = info(buf).fine;
-                  coarse(l, m, n, ck, cj, ci) =
-                      (((fine(l, m, n, k, j, i) * vol000 +
-                         fine(l, m, n, k, j + 1, i) * vol010) +
-                        (fine(l, m, n, k, j, i + 1) * vol001 +
-                         fine(l, m, n, k, j + 1, i + 1) * vol011)) +
-                       ((fine(l, m, n, k + 1, j, i) * vol100 +
-                         fine(l, m, n, k + 1, j + 1, i) * vol110) +
-                        (fine(l, m, n, k + 1, j, i + 1) * vol101 +
-                         fine(l, m, n, k + 1, j + 1, i + 1) * vol111))) /
+                  coarse(n, ck, cj, ci) =
+                      (((fine(n, k, j, i) * vol000 + fine(n, k, j + 1, i) * vol010) +
+                        (fine(n, k, j, i + 1) * vol001 +
+                         fine(n, k, j + 1, i + 1) * vol011)) +
+                       ((fine(n, k + 1, j, i) * vol100 +
+                         fine(n, k + 1, j + 1, i) * vol110) +
+                        (fine(n, k + 1, j, i + 1) * vol101 +
+                         fine(n, k + 1, j + 1, i + 1) * vol111))) /
                       tvol;
                 });
           }
@@ -90,9 +89,8 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
           if (info(buf).allocated && info(buf).restriction) {
             const int k = kb.s;
             par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sj, info(buf).ej,
-                info(buf).si, info(buf).ei,
+                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
+                info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
                 [&](const int l, const int m, const int n, const int cj, const int ci) {
                   const int j = (cj - cjb.s) * 2 + jb.s;
                   const int i = (ci - cib.s) * 2 + ib.s;
@@ -108,11 +106,10 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
                   // symmetry
                   auto &coarse = info(buf).coarse;
                   auto &fine = info(buf).fine;
-                  coarse(l, m, n, 0, cj, ci) =
-                      ((fine(l, m, n, 0, j, i) * vol00 +
-                        fine(l, m, n, 0, j + 1, i) * vol10) +
-                       (fine(l, m, n, 0, j, i + 1) * vol01 +
-                        fine(l, m, n, 0, j + 1, i + 1) * vol11)) /
+                  coarse(n, 0, cj, ci) =
+                      ((fine(n, 0, j, i) * vol00 + fine(n, 0, j + 1, i) * vol10) +
+                       (fine(n, 0, j, i + 1) * vol01 +
+                        fine(n, 0, j + 1, i + 1) * vol11)) /
                       tvol;
                 });
           }
@@ -127,20 +124,19 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
             const int cj = cjb.s;
             const int k = kb.s;
             const int j = jb.s;
-            par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si, info(buf).ei,
-                [&](const int l, const int m, const int n, const int ci) {
-                  const int i = (ci - cib.s) * 2 + ib.s;
-                  const Real vol0 = info(buf).coords.Volume(k, j, i);
-                  const Real vol1 = info(buf).coords.Volume(k, j, i + 1);
-                  Real tvol = vol0 + vol1;
-                  auto &coarse = info(buf).coarse;
-                  auto &fine = info(buf).fine;
-                  coarse(l, m, n, ck, cj, ci) = (fine(l, m, n, k, j, i) * vol0 +
-                                                 fine(l, m, n, k, j, i + 1) * vol1) /
-                                                tvol;
-                });
+            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
+                          info(buf).si, info(buf).ei,
+                          [&](const int l, const int m, const int n, const int ci) {
+                            const int i = (ci - cib.s) * 2 + ib.s;
+                            const Real vol0 = info(buf).coords.Volume(k, j, i);
+                            const Real vol1 = info(buf).coords.Volume(k, j, i + 1);
+                            Real tvol = vol0 + vol1;
+                            auto &coarse = info(buf).coarse;
+                            auto &fine = info(buf).fine;
+                            coarse(n, ck, cj, ci) =
+                                (fine(n, k, j, i) * vol0 + fine(n, k, j, i + 1) * vol1) /
+                                tvol;
+                          });
           }
         });
   }
@@ -194,8 +190,8 @@ void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
   Kokkos::Profiling::pushRegion("ComputePhysicalRestrictBounds_MeshData");
   auto alloc_status = ComputePhysicalRestrictBoundsAllocStatus(md);
 
-  cell_centered_bvars::BufferCache_t info("physical restriction bounds",
-                                          alloc_status.size());
+  cell_centered_bvars::RefineBufferCache_t info("physical restriction bounds",
+                                                alloc_status.size());
   auto info_h = Kokkos::create_mirror_view(info);
   int idx = 0;
   for (int block = 0; block < md->NumBlocks(); ++block) {

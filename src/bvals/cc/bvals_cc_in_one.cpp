@@ -279,7 +279,7 @@ auto ResetSendBuffers(MeshData<Real> *md) {
 void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_status) {
   Kokkos::Profiling::pushRegion("Create send_boundary_info");
 
-  auto boundary_info = BufferCache_t("send_boundary_info", alloc_status.size());
+  auto boundary_info = CommBufferCache_t("send_boundary_info", alloc_status.size());
   auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
 
   // we only allocate this array here, no need to initialize its values, since they will
@@ -394,6 +394,9 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
                      alloc_status);
 
   // Restrict whichever buffers need restriction.
+  // TODO(BRR) mismatch between boundary_info types here
+  // TODO(BRR) just loop over boundary info and create restrict bnd info structs for whichever
+  // boundaries need restriction?
   cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
 
   Kokkos::Profiling::popRegion(); // Create send_boundary_info
@@ -692,7 +695,7 @@ void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_
 
   IndexDomain interior = IndexDomain::interior;
 
-  auto boundary_info = BufferCache_t("set_boundary_info", alloc_status.size());
+  auto boundary_info = CommBufferCache_t("set_boundary_info", alloc_status.size());
   auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
   // now fill the buffer info
   int b = 0;
