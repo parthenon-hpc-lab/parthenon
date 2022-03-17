@@ -83,8 +83,8 @@ void BoundaryValues::FillRestrictionMetadata(cell_centered_bvars::BufferCacheHos
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   MeshRefinement *pmr = pmb->pmr.get();
   int &mylevel = pmb->loc.level;
-  for (int l = 0; l < v->GetDim(6); ++l) {
-    for (int m = 0; m < v->GetDim(5); ++m) {
+  //for (int l = 0; l < v->GetDim(6); ++l) {
+  //  for (int m = 0; m < v->GetDim(5); ++m) {
       for (int n = 0; n < nneighbor; n++) {
         NeighborBlock &nb = neighbor[n];
         if (nb.snb.level >= mylevel) continue;
@@ -105,18 +105,22 @@ void BoundaryValues::FillRestrictionMetadata(cell_centered_bvars::BufferCacheHos
               info(idx).coarse_coords = pmb->pmr->coarse_coords;
               info(idx).allocated = v->IsAllocated();
               if (v->IsAllocated()) {
-                info(idx).fine = v->data.Get(l, m);
-                info(idx).coarse = v->vbvar->coarse_buf.Get(l, m);
+                //info(idx).fine = v->data.Get(l, m);
+                //info(idx).coarse = v->vbvar->coarse_buf.Get(l, m);
+                info(idx).fine = v->data.Get();
+                info(idx).coarse = v->vbvar->coarse_buf.Get();
               }
               info(idx).restriction = true;
+              info(idx).Nt = v->GetDim(6);
+              info(idx).Nu = v->GetDim(5);
               info(idx).Nv = v->GetDim(4);
               idx++;
             }
           }
         }
       }
-    }
-  }
+  //  }
+  //}
 }
 
 void BoundaryValues::ProlongateBoundaries() {
