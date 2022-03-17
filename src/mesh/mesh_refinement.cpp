@@ -91,7 +91,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
       info_h(b).restriction = true;
       info_h(b).coords = pmb->coords;
       info_h(b).coarse_coords = this->coarse_coords;
-      info_h(b).fine = fine.Get();
+      info_h(b).fine = fine.Get(l, m);
       info_h(b).coarse = coarse.Get(l, m);
       ++b;
     }
