@@ -329,8 +329,9 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
           auto &ej = boundary_info_h(b).ej;
           auto &sk = boundary_info_h(b).sk;
           auto &ek = boundary_info_h(b).ek;
+          auto &Nt = boundary_info_h(b).Nt;
+          auto &Nu = boundary_info_h(b).Nu;
           auto &Nv = boundary_info_h(b).Nv;
-          Nv = v->GetDim(4);
 
           boundary_info_h(b).coords = pmb->coords;
           if (multilevel) {
@@ -341,16 +342,16 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
             IndexDomain interior = IndexDomain::interior;
             auto &var_cc = v->data;
             boundary_info_h(b).fine =
-                var_cc.Get<4>(); // TODO(JMM) in general should be a loop
+                var_cc.Get(); // TODO(JMM) in general should be a loop
             if (multilevel) {
-              boundary_info_h(b).coarse = v->vbvar->coarse_buf.Get<4>();
+              boundary_info_h(b).coarse = v->vbvar->coarse_buf.Get();
             }
             if (nb.snb.level == mylevel) {
               const parthenon::IndexShape &cellbounds = pmb->cellbounds;
               CalcIndicesLoadSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
               CalcIndicesLoadSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
               CalcIndicesLoadSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
-              boundary_info_h(b).var = var_cc.Get<4>();
+              boundary_info_h(b).var = var_cc.Get();
 
             } else if (nb.snb.level < mylevel) {
               const IndexShape &c_cellbounds = pmb->c_cellbounds;
@@ -543,7 +544,11 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
         const int Ni = ei + 1 - si;
         const int Nj = ej + 1 - sj;
         const int Nk = ek + 1 - sk;
+        const int &Nt = boundary_info(b).Nt;
+        const int &Nu = boundary_info(b).Nu;
         const int &Nv = boundary_info(b).Nv;
+        const int NtNuNvNkNj = Nt * Nu * Nv * Nk * Nj;
+        const int NuNvNkNj = Nu * Nv * Nk * Nj;
         const int NvNkNj = Nv * Nk * Nj;
         const int NkNj = Nk * Nj;
 
@@ -555,6 +560,11 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange<>(team_member, NvNkNj), [&](const int idx) {
+              const int t = idx / NuNvNkNj;
+              const int u = (idx - t * NuNvNkNj) / Nv;
+              const int v = idx - t * NuNvNkNj - u*Nv;
+              int k =
+              //int
               const int v = idx / NkNj;
               int k = (idx - v * NkNj) / Nj;
               int j = idx - v * NkNj - k * Nj;
@@ -564,7 +574,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
               Kokkos::parallel_for(
                   Kokkos::ThreadVectorRange(team_member, si, ei + 1), [&](const int i) {
                     const Real val =
-                        src_allocated ? boundary_info(b).var(v, k, j, i) : 0.0;
+                        src_allocated ? boundary_info(b).var(t, u, v, k, j, i) : 0.0;
                     boundary_info(b).buf(i - si +
                                          Ni * (j - sj + Nj * (k - sk + Nk * v))) = val;
 #ifdef ENABLE_SPARSE
@@ -695,8 +705,12 @@ void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_
           auto &ej = boundary_info_h(b).ej;
           auto &sk = boundary_info_h(b).sk;
           auto &ek = boundary_info_h(b).ek;
+          auto &Nt = boundary_info_h(b).Nt;
+          auto &Nu = boundary_info_h(b).Nu;
           auto &Nv = boundary_info_h(b).Nv;
           Nv = v->GetDim(4);
+          Nu = v->GetDim(5);
+          Nt = v->GetDim(6);
 
           boundary_info_h(b).allocated = v->IsAllocated();
 
