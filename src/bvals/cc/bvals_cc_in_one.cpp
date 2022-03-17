@@ -397,7 +397,59 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
   // TODO(BRR) mismatch between boundary_info types here
   // TODO(BRR) just loop over boundary info and create restrict bnd info structs for whichever
   // boundaries need restriction?
-  cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
+  b = 0; // buffer index
+  int n_refine_buf = 0;
+  for (auto block = 0; block < md->NumBlocks(); block++) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
+    for (auto &v : rc->GetCellVariableVector()) {
+      if (v->IsSet(Metadata::FillGhost)) {
+        for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+          n_refine_buf += boundary_info_h(b).Nt*boundary_info_h(b).Nu;
+        }
+      }
+    }
+  }
+  auto refine_info = RefineBufferCache_t("refine_boundary_info", n_refine_buf);
+  auto refine_info_h = Kokkos::create_mirror_view(refine_info);
+  b = 0; // Index of refine_info
+  int bb = 0; // Index of boundary_info
+  for (auto block = 0; block < md->NumBlocks(); block++) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
+    for (auto &v : rc->GetCellVariableVector()) {
+      if (v->IsSet(Metadata::FillGhost)) {
+        for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+          for (int t = 0; t < boundary_info_h(bb).Nt; t++) {
+            for (int u = 0; u < boundary_info_h(bb).Nu; u++) {
+              refine_info_h(b).si = boundary_info_h(bb).si;
+              refine_info_h(b).ei = boundary_info_h(bb).ei;
+              refine_info_h(b).sj = boundary_info_h(bb).sj;
+              refine_info_h(b).ej = boundary_info_h(bb).ej;
+              refine_info_h(b).sk = boundary_info_h(bb).sk;
+              refine_info_h(b).ek = boundary_info_h(bb).ek;
+              refine_info_h(b).Nv = boundary_info_h(bb).Nv;
+              refine_info_h(b).allocated = boundary_info_h(bb).allocated;
+              refine_info_h(b).restriction = boundary_info_h(bb).restriction;
+              refine_info_h(b).coarse_coords = boundary_info_h(bb).coarse_coords;
+              refine_info_h(b).buf = boundary_info_h(bb).buf;
+              refine_info_h(b).var = Kokkos::subview(boundary_info_h(bb).var, t, u, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              refine_info_h(b).fine = Kokkos::subview(boundary_info_h(bb).fine, t, u, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              refine_info_h(b).coarse = Kokkos::subview(boundary_info_h(bb).coarse, t, u, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              //.Get<4>(t, u);
+              //refine_info_h(b).fine = boundary_info_h(bb).fine.Get(t, u);
+              //refine_info_h(b).coarse = boundary_info_h(bb).coarse.Get(t, u);
+              b++;
+            }
+          }
+          bb++;
+        }
+      }
+    }
+  }
+  Kokkos::deep_copy(refine_info, refine_info_h);
+
+  cell_centered_refinement::Restrict(refine_info, cellbounds, c_cellbounds);
 
   Kokkos::Profiling::popRegion(); // Create send_boundary_info
 }
