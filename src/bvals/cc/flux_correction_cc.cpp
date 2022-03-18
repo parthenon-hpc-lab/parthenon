@@ -92,9 +92,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
       int ll = ll_;
       int ml = ml_;
       int nl = nl_;
-      int lsize = lu_ - ll_;
-      int msize = mu_ - ml_;
-      int nsize = nu_ - nl_;
+      int msize = mu_ - ml_ + 1;
+      int nsize = nu_ - nl_ + 1;
       // x1 direction
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
         int i = ib.s + nx1 * nb.fid;
@@ -355,9 +354,8 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
       int ll = ll_;
       int ml = ml_;
       int nl = nl_;
-      int lsize = lu_ - ll_;
-      int msize = mu_ - ml_;
-      int nsize = nu_ - nl_;
+      int msize = mu_ - ml_ + 1;
+      int nsize = nu_ - nl_ + 1;
       const IndexDomain interior = IndexDomain::interior;
       IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
       IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);

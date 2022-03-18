@@ -562,16 +562,12 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
         const bool src_allocated = boundary_info(b).allocated;
 
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange<>(team_member, NvNkNj), [&](const int idx) {
+            Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNj), [&](const int idx) {
               const int t = idx / NuNvNkNj;
               const int u = (idx - t * NuNvNkNj) / NvNkNj;
               const int v = (idx - t * NuNvNkNj - u * NvNkNj) / NkNj;
               int k = (idx - t * NuNvNkNj - u * NvNkNj - v * NkNj) / Nj;
               int j = idx - t * NuNvNkNj - u * NvNkNj - v * NkNj - k * Nj;
-
-              // const int v = idx / NkNj;
-              // int k = (idx - v * NkNj) / Nj;
-              // int j = idx - v * NkNj - k * Nj;
               k += sk;
               j += sj;
 
@@ -579,8 +575,6 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
                   Kokkos::ThreadVectorRange(team_member, si, ei + 1), [&](const int i) {
                     const Real val =
                         src_allocated ? boundary_info(b).var(t, u, v, k, j, i) : 0.0;
-                    // boundary_info(b).buf(i - si +
-                    //                     Ni * (j - sj + Nj * (k - sk + Nk * v))) = val;
                     boundary_info(b).buf(
                         i - si +
                         Ni * (j - sj + Nj * (k - sk + Nk * (v + Nv * (u + Nu * t))))) =
@@ -826,7 +820,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
 #endif
 
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange<>(team_member, NvNkNj), [&](const int idx) {
+            Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNj), [&](const int idx) {
               const int t = idx / NuNvNkNj;
               const int u = (idx - t * NuNvNkNj) / NvNkNj;
               const int v = (idx - t * NuNvNkNj - u * NvNkNj) / NkNj;

@@ -24,6 +24,8 @@
 namespace parthenon {
 namespace cell_centered_refinement {
 
+// For CommBufferCache, convert to RefineBufferCache and then call Restrict to account for
+// different ParArray shapes
 void Restrict(cell_centered_bvars::CommBufferCache_t &comm_info, IndexShape &cellbounds,
               IndexShape &c_cellbounds, MeshData<Real> *md) {
   auto comm_info_h = Kokkos::create_mirror_view(comm_info);
@@ -36,6 +38,7 @@ void Restrict(cell_centered_bvars::CommBufferCache_t &comm_info, IndexShape &cel
       if (v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; n++) {
           n_refine_buf += comm_info_h(b).Nt * comm_info_h(b).Nu;
+          b++;
         }
       }
     }
