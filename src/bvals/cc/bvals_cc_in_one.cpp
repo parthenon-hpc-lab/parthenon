@@ -571,27 +571,11 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
               k += sk;
               j += sj;
 
-              // TODO(BRR) CHECKING
-              const int oldv = idx / NkNj;
-              int oldk = (idx - v * NkNj) / Nj + sk;
-              int oldj = idx - v * NkNj - k * Nj + sj;
-              PARTHENON_REQUIRE(t == 0 && u == 0, "");
-              PARTHENON_REQUIRE(v == oldv, "");
-              PARTHENON_REQUIRE(k == oldk, "");
-              PARTHENON_REQUIRE(j == oldj, "");
-
               Kokkos::parallel_for(
                   Kokkos::ThreadVectorRange(team_member, si, ei + 1), [&](const int i) {
                     const Real val =
                         src_allocated ? boundary_info(b).var(t, u, v, k, j, i) : 0.0;
 
-                        // TODO(BRR) CHECKING
-                        int oldidx = i - si +
-                                         Ni * (j - sj + Nj * (k - sk + Nk * v));
-                        int newidx =
-                        i - si +
-                        Ni * (j - sj + Nj * (k - sk + Nk * (v + Nv * (u + Nu * t))));
-                        PARTHENON_REQUIRE(oldidx == newidx, "");
                     boundary_info(b).buf(
                         i - si +
                         Ni * (j - sj + Nj * (k - sk + Nk * (v + Nv * (u + Nu * t))))) =
@@ -846,24 +830,8 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
               k += sk;
               j += sj;
 
-              // TODO(BRR) CHECKING
-              int oldv = idx / NkNj;
-              int oldk = (idx - v * NkNj) / Nj + sk;
-              int oldj = idx - v * NkNj - k * Nj + sj;
-              PARTHENON_REQUIRE(t == 0 && u == 0, "");
-              PARTHENON_REQUIRE(v == oldv, "");
-              PARTHENON_REQUIRE(k == oldk, "");
-              PARTHENON_REQUIRE(j == oldj, "");
-
               Kokkos::parallel_for(
                   Kokkos::ThreadVectorRange(team_member, si, ei + 1), [&](const int i) {
-                    // TODO(BRR) CHECKING
-                    int oldi = i - si + Ni * (j - sj + Nj * (k - sk + Nk * v));
-                    int newi =
-                        i - si +
-                        Ni * (j - sj + Nj * (k - sk + Nk * (v + Nv * (u + Nu * t))));
-                    PARTHENON_REQUIRE(oldi == newi, "");
-
                     boundary_info(b).var(t, u, v, k, j, i) =
                         read_buffer
                             ? boundary_info(b).buf(
