@@ -110,6 +110,7 @@ void BoundaryValues::FillRestrictionMetadata(
               }
               info(idx).restriction = true;
               info(idx).Nv = v->GetDim(4);
+              info(idx).Nv2 = v->GetDim(5);
               idx++;
             }
           }
