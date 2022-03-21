@@ -714,8 +714,6 @@ void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_
           Nt = v->GetDim(6);
           Nu = v->GetDim(5);
           Nv = v->GetDim(4);
-          Nu = v->GetDim(5);
-          Nt = v->GetDim(6);
 
           boundary_info_h(b).allocated = v->IsAllocated();
 
