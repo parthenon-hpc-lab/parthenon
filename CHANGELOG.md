@@ -17,6 +17,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 656]](https://github.com/lanl/partheon/pull/656) Extend CC bvars to 5-, 6-D ParArrays
+- [[PR 629]](https://github.com/lanl/parthenon/pull/629) Fix HIP backend (config and tests) and extend build coverage
 - [[PR 652]](https://github.com/lanl/parthenon/pull/652) Fix issue with hsize_t and size_t in utils parser
 - [[PR 649]](https://github.com/lanl/parthenon/pull/649) Ensure LoadBalancing send buffers are filled and allow async recv LB
 - [[PR 618]](https://github.com/lanl/parthenon/pull/618) Fix bug in variable pack performance test

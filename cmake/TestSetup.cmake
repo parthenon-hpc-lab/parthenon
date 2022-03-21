@@ -151,7 +151,7 @@ function(setup_test_parallel nproc dir arg extra_labels)
     list(APPEND labels "regression;mpi-yes")
     list(APPEND labels "${extra_labels}")
 
-    if(Kokkos_ENABLE_CUDA)
+    if(Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
       set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_PER_NODE}")
       list(APPEND labels "cuda")
     endif()
@@ -167,7 +167,7 @@ function(setup_test_parallel nproc dir arg extra_labels)
 
     # When targeting CUDA we don't have a great way of controlling how tests
     # get mapped to GPUs, so just enforce serial execution
-    if (Kokkos_ENABLE_CUDA)
+    if (Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
       set(TEST_PROPERTIES
         RUN_SERIAL ON)
     else()
