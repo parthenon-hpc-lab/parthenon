@@ -24,6 +24,10 @@
 namespace parthenon {
 namespace cell_centered_refinement {
 
+// TODO(BRR) experiment
+void Restrict(cell_centered_bvars::CommBufferCache_t &comm_info, IndexShape &cellbounds,
+              IndexShape &c_cellbounds, cell_centered_bvars::RefineBufferCache_t &refine_info);
+
 // For CommBufferCache, convert to RefineBufferCache and then call Restrict to account for
 // different ParArray shapes
 void Restrict(cell_centered_bvars::CommBufferCache_t &comm_info, IndexShape &cellbounds,
@@ -43,6 +47,7 @@ void Restrict(cell_centered_bvars::CommBufferCache_t &comm_info, IndexShape &cel
       }
     }
   }
+
   auto refine_info =
       cell_centered_bvars::RefineBufferCache_t("refine_boundary_info", n_refine_buf);
   auto refine_info_h = Kokkos::create_mirror_view(refine_info);
@@ -65,6 +70,7 @@ void Restrict(cell_centered_bvars::CommBufferCache_t &comm_info, IndexShape &cel
               refine_info_h(b).Nv = comm_info_h(bb).Nv;
               refine_info_h(b).allocated = comm_info_h(bb).allocated;
               refine_info_h(b).restriction = comm_info_h(bb).restriction;
+              refine_info_h(b).coords = comm_info_h(bb).coords;
               refine_info_h(b).coarse_coords = comm_info_h(bb).coarse_coords;
               refine_info_h(b).buf = comm_info_h(bb).buf;
               refine_info_h(b).var =
@@ -86,7 +92,141 @@ void Restrict(cell_centered_bvars::CommBufferCache_t &comm_info, IndexShape &cel
   }
   Kokkos::deep_copy(refine_info, refine_info_h);
 
+  //Restrict(comm_info, cellbounds, c_cellbounds, refine_info);
+  //return;
+
   Restrict(refine_info, cellbounds, c_cellbounds);
+}
+
+void Restrict(cell_centered_bvars::CommBufferCache_t &info, IndexShape &cellbounds,
+              IndexShape &c_cellbounds,
+              cell_centered_bvars::RefineBufferCache_t &rinfo) {
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexDomain entire = IndexDomain::entire;
+  auto ckb = c_cellbounds.GetBoundsK(interior);
+  auto cjb = c_cellbounds.GetBoundsJ(interior);
+  auto cib = c_cellbounds.GetBoundsI(interior);
+  auto kb = cellbounds.GetBoundsK(interior);
+  auto jb = cellbounds.GetBoundsJ(interior);
+  auto ib = cellbounds.GetBoundsI(interior);
+
+  const int nbuffers = info.extent_int(0);
+  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
+  size_t scratch_size_in_bytes = 1;
+
+  if (cellbounds.ncellsk(entire) > 1) { // 3D
+    par_for_outer(
+        DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues3d", DevExecSpace(),
+        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
+        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
+          if (info(buf).allocated && info(buf).restriction) {
+            par_for_inner(
+                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
+                info(buf).sk, info(buf).ek, info(buf).sj, info(buf).ej, info(buf).si,
+                info(buf).ei, [&](const int n, const int ck, const int cj, const int ci) {
+                  const int k = (ck - ckb.s) * 2 + kb.s;
+                  const int j = (cj - cjb.s) * 2 + jb.s;
+                  const int i = (ci - cib.s) * 2 + ib.s;
+                  // KGF: add the off-centered quantities first to preserve FP
+                  // symmetry
+                  const Real vol000 = info(buf).coords.Volume(k, j, i);
+                  const Real vol001 = info(buf).coords.Volume(k, j, i + 1);
+                  const Real vol010 = info(buf).coords.Volume(k, j + 1, i);
+                  const Real vol011 = info(buf).coords.Volume(k, j + 1, i + 1);
+                  const Real vol100 = info(buf).coords.Volume(k + 1, j, i);
+                  const Real vol101 = info(buf).coords.Volume(k + 1, j, i + 1);
+                  const Real vol110 = info(buf).coords.Volume(k + 1, j + 1, i);
+                  const Real vol111 = info(buf).coords.Volume(k + 1, j + 1, i + 1);
+                  Real tvol = ((vol000 + vol010) + (vol001 + vol011)) +
+                              ((vol100 + vol110) + (vol101 + vol111));
+                  // KGF: add the off-centered quantities first to preserve FP
+                  // symmetry
+                  auto &coarse = info(buf).coarse;
+                  auto &fine = info(buf).fine;
+
+                  coarse(0,0,n, ck, cj, ci) =
+                      (((fine(0,0,n, k, j, i) * vol000 + fine(0,0,n, k, j + 1, i) * vol010) +
+                        (fine(0,0,n, k, j, i + 1) * vol001 +
+                         fine(0,0,n, k, j + 1, i + 1) * vol011)) +
+                       ((fine(0,0,n, k + 1, j, i) * vol100 +
+                         fine(0,0,n, k + 1, j + 1, i) * vol110) +
+                        (fine(0,0,n, k + 1, j, i + 1) * vol101 +
+                         fine(0,0,n, k + 1, j + 1, i + 1) * vol111))) /
+                      tvol;
+                });
+          }
+        });
+  } else if (cellbounds.ncellsj(entire) > 1) { // 2D
+    par_for_outer(
+        DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues2d", DevExecSpace(),
+        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
+        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
+          if (info(buf).allocated && info(buf).restriction) {
+            const int k = kb.s;
+            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
+                          info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
+                          [&](const int n, const int cj, const int ci) {
+                            const int j = (cj - cjb.s) * 2 + jb.s;
+                            const int i = (ci - cib.s) * 2 + ib.s;
+                            // KGF: add the off-centered quantities first to preserve FP
+                            // symmetry
+                            const Real vol00 = info(buf).coords.Volume(k, j, i);
+                            const Real vol10 = info(buf).coords.Volume(k, j + 1, i);
+                            const Real vol01 = info(buf).coords.Volume(k, j, i + 1);
+                            const Real vol11 = info(buf).coords.Volume(k, j + 1, i + 1);
+                            Real tvol = (vol00 + vol10) + (vol01 + vol11);
+
+                            // KGF: add the off-centered quantities first to preserve FP
+                            // symmetry
+                            auto &coarse = info(buf).coarse;
+                            auto &fine = info(buf).fine;
+                  // TODO(BRR) CHECK
+                  auto &rcoarse = rinfo(buf).coarse;
+                  auto &rfine = rinfo(buf).fine;
+                  PARTHENON_REQUIRE(fine(0,0,n, 0, j, i) == rfine(n,0,j,i), "");
+                  PARTHENON_REQUIRE(fine(0,0,n, 0, j+1, i) == rfine(n,0,j+1,i), "");
+                  PARTHENON_REQUIRE(fine(0,0,n, 0, j, i+1) == rfine(n,0,j,i+1), "");
+                  PARTHENON_REQUIRE(fine(0,0,n, 0, j+1, i+1) == rfine(n,0,j+1,i+1), "");
+                            const Real rvol00 = rinfo(buf).coords.Volume(k, j, i);
+                            const Real rvol10 = rinfo(buf).coords.Volume(k, j + 1, i);
+                            const Real rvol01 = rinfo(buf).coords.Volume(k, j, i + 1);
+                            const Real rvol11 = rinfo(buf).coords.Volume(k, j + 1, i + 1);
+                            Real rtvol = (rvol00 + rvol10) + (rvol01 + rvol11);
+                            PARTHENON_REQUIRE(rvol00 == vol00 && rvol10 == vol10 && rvol01 == vol01 && rvol11 == vol11, "");
+                            coarse(0,0,n, 0, cj, ci) = ((fine(0,0,n, 0, j, i) * vol00 +
+                                                     fine(0,0,n, 0, j + 1, i) * vol10) +
+                                                    (fine(0,0,n, 0, j, i + 1) * vol01 +
+                                                     fine(0,0,n, 0, j + 1, i + 1) * vol11)) /
+                                                   tvol;
+                                                   PARTHENON_REQUIRE(coarse(0,0,n,0,cj,ci) == rcoarse(n,0,cj,ci), "");
+                          });
+          }
+        });
+  } else if (cellbounds.ncellsi(entire) > 1) { // 1D
+    par_for_outer(
+        DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues1d", DevExecSpace(),
+        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
+        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
+          if (info(buf).allocated && info(buf).restriction) {
+            const int ck = ckb.s;
+            const int cj = cjb.s;
+            const int k = kb.s;
+            const int j = jb.s;
+            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
+                          info(buf).si, info(buf).ei, [&](const int n, const int ci) {
+                            const int i = (ci - cib.s) * 2 + ib.s;
+                            const Real vol0 = info(buf).coords.Volume(k, j, i);
+                            const Real vol1 = info(buf).coords.Volume(k, j, i + 1);
+                            Real tvol = vol0 + vol1;
+                            auto &coarse = info(buf).coarse;
+                            auto &fine = info(buf).fine;
+                            coarse(0,0,n, ck, cj, ci) =
+                                (fine(0,0,n, k, j, i) * vol0 + fine(0,0,n, k, j, i + 1) * vol1) /
+                                tvol;
+                          });
+          }
+        });
+  }
 }
 
 void Restrict(cell_centered_bvars::RefineBufferCache_t &info, IndexShape &cellbounds,

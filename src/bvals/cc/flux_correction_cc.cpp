@@ -140,6 +140,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
                 const int n = nn - nl;
                 // add 1 because index 0 is used for allocation flag
                 const int p = 1 + j + jsize * (n + nsize * (m + msize * l));
+                const int oldp = 1 + j + jsize * (nn - nl);
+                PARTHENON_REQUIRE(p == oldp, "");
                 sbuf(p) = (x1flx(lll, mm, nn, k, jf, i) * am +
                            x1flx(lll, mm, nn, k, jf + 1, i) * ap) /
                           tarea;
@@ -203,6 +205,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
                 const int n = nn - nl;
                 // add 1 because index 0 is used for allocation flag
                 const int p = 1 + i + isize * (n + nsize * (m + msize * l));
+                const int oldp = 1 + i + isize * (nn - nl);
+                PARTHENON_REQUIRE(p == oldp, "");
                 sbuf(p) = (x2flx(lll, mm, nn, k, j, ii) * area0 +
                            x2flx(lll, mm, nn, k, j, ii + 1) * area1) /
                           tarea;
@@ -384,6 +388,10 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
               // add 1 because index 0 is used for allocation flag
               const int p =
                   1 + j - jl + jsize * ((k - kl) + ksize * (n + nsize * (m + msize * l)));
+                 // TODO(BRR) CHECKING
+                 const int oldp = 1 + j - jl + jsize * ((k - kl) + ksize * (nn - nl));
+                  PARTHENON_REQUIRE(p == oldp, "");
+                  PARTHENON_REQUIRE(lll == 0 && mm == 0, "");
               x1flx(lll, mm, nn, k, j, il) = source_allocated ? rbuf(p) : 0.0;
             });
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
@@ -410,6 +418,9 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
               // add 1 because index 0 is used for allocation flag
               const int p =
                   1 + i - il + isize * ((k - kl) + ksize * (n + nsize * (m + msize * l)));
+                  // TODO(BRR) CHECKING
+                  const int oldp = 1 + i - il + isize * ((k - kl) + ksize * (nn - nl));
+                  PARTHENON_REQUIRE(p == oldp && lll == 0 && mm == 0, "");
               x2flx(lll, mm, nn, k, jl, i) = source_allocated ? rbuf(p) : 0.0;
             });
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
