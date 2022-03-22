@@ -28,7 +28,7 @@ namespace cell_centered_refinement {
 // different ParArray shapes
 void Restrict(cell_centered_bvars::CommBufferCache_t &comm_info, IndexShape &cellbounds,
               IndexShape &c_cellbounds, MeshData<Real> *md) {
-  auto comm_info_h = Kokkos::create_mirror_view(comm_info);
+  auto comm_info_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), comm_info);
   int b = 0; // buffer index
   int n_refine_buf = 0;
   for (auto block = 0; block < md->NumBlocks(); block++) {
