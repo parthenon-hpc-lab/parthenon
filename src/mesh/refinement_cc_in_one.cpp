@@ -66,18 +66,20 @@ void Restrict(cell_centered_bvars::CommBufferCache_t &comm_info, IndexShape &cel
               refine_info_h(b).Nv = comm_info_h(bb).Nv;
               refine_info_h(b).allocated = comm_info_h(bb).allocated;
               refine_info_h(b).restriction = comm_info_h(bb).restriction;
-              refine_info_h(b).coords = comm_info_h(bb).coords;
-              refine_info_h(b).coarse_coords = comm_info_h(bb).coarse_coords;
-              refine_info_h(b).buf = comm_info_h(bb).buf;
-              refine_info_h(b).var =
-                  Kokkos::subview(comm_info_h(bb).var, t, u, Kokkos::ALL(), Kokkos::ALL(),
-                                  Kokkos::ALL(), Kokkos::ALL());
-              refine_info_h(b).fine =
-                  Kokkos::subview(comm_info_h(bb).fine, t, u, Kokkos::ALL(),
-                                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
-              refine_info_h(b).coarse =
-                  Kokkos::subview(comm_info_h(bb).coarse, t, u, Kokkos::ALL(),
-                                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              if (refine_info_h(b).allocated && refine_info_h(b).restriction) {
+                refine_info_h(b).coords = comm_info_h(bb).coords;
+                refine_info_h(b).coarse_coords = comm_info_h(bb).coarse_coords;
+                refine_info_h(b).buf = comm_info_h(bb).buf;
+                refine_info_h(b).var =
+                    Kokkos::subview(comm_info_h(bb).var, t, u, Kokkos::ALL(),
+                                    Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+                refine_info_h(b).fine =
+                    Kokkos::subview(comm_info_h(bb).fine, t, u, Kokkos::ALL(),
+                                    Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+                refine_info_h(b).coarse =
+                    Kokkos::subview(comm_info_h(bb).coarse, t, u, Kokkos::ALL(),
+                                    Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              }
               b++;
             }
           }
