@@ -87,17 +87,21 @@ struct VarInfo {
   std::string label;
   std::vector<std::string> component_labels;
   int vlen;
+  int nx6;
+  int nx5;
+  int nx4;
   bool is_sparse;
   bool is_vector;
 
   VarInfo() = delete;
 
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels,
-          int vlen, bool is_sparse, bool is_vector)
+          int vlen, int nx6, int nx5, int nx4, bool is_sparse, bool is_vector)
       : label(label),
         component_labels(component_labels.size() > 0 ? component_labels
                                                      : std::vector<std::string>{label}),
-        vlen(vlen), is_sparse(is_sparse), is_vector(is_vector) {
+        vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), is_sparse(is_sparse),
+        is_vector(is_vector) {
     if (vlen <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with length " << vlen
@@ -108,7 +112,8 @@ struct VarInfo {
 
   explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
-                var->IsSparse(), var->IsSet(Metadata::Vector)) {}
+                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->IsSparse(),
+                var->IsSet(Metadata::Vector)) {}
 };
 
 // XDMF subroutine to write a dataitem that refers to an HDF array
@@ -814,6 +819,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     const std::string var_name = vinfo.label;
     const hsize_t vlen = vinfo.vlen;
+    const hsize_t nx6 = vinfo.nx6;
+    const hsize_t nx5 = vinfo.nx5;
+    const hsize_t nx4 = vinfo.nx4;
 
     local_count[4] = global_count[4] = vlen;
 
@@ -836,8 +844,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
           for (int k = out_kb.s; k <= out_kb.e; ++k) {
             for (int j = out_jb.s; j <= out_jb.e; ++j) {
               for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                for (int l = 0; l < vlen; ++l) {
-                  tmpData[index++] = static_cast<OutT>(v_h(l, k, j, i));
+                for (int l = 0; l < nx6; ++l) {
+                  for (int m = 0; m < nx5; ++m) {
+                    for (int n = 0; n < nx4; ++n) {
+                      tmpData[index++] = static_cast<OutT>(v_h(l, m, n, k, j, i));
+                    }
+                  }
                 }
               }
             }
