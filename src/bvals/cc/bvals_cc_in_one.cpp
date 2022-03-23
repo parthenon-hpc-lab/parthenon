@@ -601,7 +601,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
         // set flag indicating if this is zero or non-zero
         if (team_member.team_rank() == 0) {
-          boundary_info(b).buf(NvNkNj * Ni) = (sending_nonzero_flags(b) ? 1.0 : 0.0);
+          boundary_info(b).buf(NtNuNvNkNj * Ni) = (sending_nonzero_flags(b) ? 1.0 : 0.0);
         }
 #endif
       });
@@ -814,7 +814,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
         }
 
         // check if this buffer contains nonzero values
-        const auto nonzero_flag = boundary_info(b).buf(NvNkNj * Ni);
+        const auto nonzero_flag = boundary_info(b).buf(NtNuNvNkNj * Ni);
         const bool read_buffer = !sparse_enabled || (nonzero_flag != 0.0);
 #else
         constexpr bool read_buffer = true;
