@@ -131,8 +131,8 @@ if (NOT PARTHENON_DISABLE_OPENMP)
   # Using Host OpenMP and Cuda with nvcc currently does not compile with C++17 standard.
   # Also there is no proper support for two separate execution spaces in Parthenon right now.
   # We may need to revisit this logic when OpenMP target for devices will be used in the future.
-  if (Kokkos_ENABLE_CUDA)
-    message(STATUS "Parthenon is not using Host OpenMP because Cuda is enabled")
+  if (Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
+    message(STATUS "Parthenon is not using Host OpenMP because Cuda or HIP is enabled")
   else()
     find_package(OpenMP COMPONENTS CXX)
     if (NOT OpenMP_FOUND)
@@ -272,6 +272,14 @@ if (NOT TARGET Kokkos::kokkos)
       message(FATAL_ERROR "Could not find Kokkos source. Consider running `git submodule update --init`, providing the path to a Kokkos source directory with Kokkos_ROOT, or setting PARTHENON_IMPORT_KOKKOS=ON to link to an external Kokkos installation.")
     endif()
   endif()
+endif()
+
+if (Kokkos_ENABLE_SYCL)
+  message(WARNING
+    "SYCL backend is currently NOT tested in Parthenon due to lack of access to hardware. "
+    "It may or may not work. Use at your own risk. "
+    "Please get in contact for support."
+  )
 endif()
 
 # Build Tests and download Catch2
