@@ -17,9 +17,9 @@
 
 message(STATUS "Loading machine configuration for OLCF's Spock.\n"
   "Supported MACHINE_VARIANT includes 'hip', 'mpi', and 'hip-mpi'\n"
-  "This configuration has been tested using the following modules: \n"
-  "module load PrgEnv-amd craype-accel-amd-gfx908 cmake cray-hdf5-parallel\n"
-  "and environment varables:\n"
+  "This configuration has been tested (on 2022-03-24) using the following modules: \n"
+  "module load PrgEnv-amd craype-accel-amd-gfx908 cmake hdf5 cray-python\n"
+  "and environment variables:\n"
   "export MPIR_CVAR_GPU_EAGER_DEVICE_MEM=0\n"
   "export MPICH_GPU_SUPPORT_ENABLED=1\n"
   "export MPICH_SMP_SINGLE_COPY_MODE=CMA\n")
@@ -46,11 +46,13 @@ endif()
 # compute nodes.
 set(TEST_MPIEXEC srun CACHE STRING "Command to launch MPI applications")
 set(TEST_NUMPROC_FLAG "-n" CACHE STRING "Flag to set number of processes")
-set(NUM_GPU_DEVICES_PER_NODE "4" CACHE STRING "6x V100 per node")
+set(NUM_GPU_DEVICES_PER_NODE "4" CACHE STRING "4x MI100 per node")
 set(PARTHENON_ENABLE_GPU_MPI_CHECKS OFF CACHE BOOL "Disable check by default")
 
 if (${MACHINE_VARIANT} MATCHES "mpi")
-  set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -I$ENV{MPICH_DIR}/include -L$ENV{MPICH_DIR}/lib -lmpi -L$ENV{CRAY_MPICH_ROOTDIR}/gtl/lib -lmpi_gtl_hsa")
+  # need to set include flags here as the target is not know yet when this file is parsed
+  set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -I$ENV{MPICH_DIR}/include")
+  set(CMAKE_EXE_LINKER_FLAGS "-L$ENV{MPICH_DIR}/lib -lmpi -L$ENV{CRAY_MPICH_ROOTDIR}/gtl/lib -lmpi_gtl_hsa" CACHE STRING "Default flags for this config")
 else()
   set(PARTHENON_DISABLE_MPI ON CACHE BOOL "Disable MPI")
 endif()
