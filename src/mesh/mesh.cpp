@@ -968,7 +968,7 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
       } else {
         std::stringstream msg;
         msg << "A user boundary condition for face " << f
-            << " was requested, but not swarm condition was enrolled." << std::endl;
+            << " was requested, but no swarm condition was enrolled." << std::endl;
         PARTHENON_THROW(msg);
       }
       break;
