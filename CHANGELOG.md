@@ -26,6 +26,7 @@
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 651]](https://github.com/lanl/parthenon/pull/651) Bump Catch2 version due to GCC11.2 incompatibility
+- [[PR 646]](https://github.com/lanl/parthenon/pull/646) Add machine configuration file for Stony Brook's Ookami A64FX and OLCF's Spock AMD systems.
 
 ### Removed (removing behavior/API/varaibles/...)
 
