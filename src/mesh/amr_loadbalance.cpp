@@ -1502,7 +1502,7 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
 // See comments on BoundaryBase::CreateBvalsMPITag()
 
 int Mesh::CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
-  // former "AthenaTagMPI" AthenaTagMPI::amr=8 redefined to 0
+  // the trailing zero is used as "id" to indicate an AMR related tag
   return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
 }
 

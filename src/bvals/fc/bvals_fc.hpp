@@ -44,10 +44,6 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
   // a reference member: ---> must be initialized in initializer list; cannot pass nullptr
   FaceField &coarse_buf;
 
-  // maximum number of reserved unique "physics ID" component of MPI tag bitfield
-  // must correspond to the # of "int *phys_id_" private members, below. Convert to array?
-  static constexpr int max_phys_id = 5;
-
   // BoundaryVariable:
   int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) final;
   int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) final;

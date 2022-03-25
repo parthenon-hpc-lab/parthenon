@@ -57,10 +57,8 @@ FaceCenteredBoundaryVariable::FaceCenteredBoundaryVariable(std::weak_ptr<MeshBlo
   InitBoundaryData(bd_var_flcor_, BoundaryQuantity::fc_flcor);
 
 #ifdef MPI_PARALLEL
-  // KGF: dead code, leaving for now:
-  // fc_phys_id_ = pmb->pbval->ReserveTagVariableIDs(2);
-  fc_phys_id_ = pmb.lock()->pbval->bvars_next_phys_id_;
-  fc_flx_phys_id_ = fc_phys_id_ + 1;
+  fc_phys_id_ = pmb.lock()->pbval->AdvanceCounterPhysID(1);
+  fc_flx_phys_id_ = pmb.lock()->pbval->AdvanceCounterPhysID(1);
 #endif
 }
 

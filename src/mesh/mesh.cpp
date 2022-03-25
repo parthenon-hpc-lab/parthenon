@@ -94,7 +94,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                      : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
-      next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),
@@ -108,12 +107,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
-
-#ifdef MPI_PARALLEL
-  // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
-  next_phys_id_ = 1;
-  ReserveMeshBlockPhysIDs();
-#endif
 
   // check number of OpenMP threads for mesh
   if (num_mesh_threads_ < 1) {
@@ -546,7 +539,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                      : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
-      next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),
@@ -559,12 +551,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
-
-#ifdef MPI_PARALLEL
-  // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
-  next_phys_id_ = 1;
-  ReserveMeshBlockPhysIDs();
-#endif
 
   // check the number of OpenMP threads for mesh
   if (num_mesh_threads_ < 1) {
@@ -1226,34 +1212,7 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
   block_size.x1rat = mesh_size.x1rat;
   block_size.x2rat = mesh_size.x2rat;
   block_size.x3rat = mesh_size.x3rat;
-
-  return;
 }
-
-// Public function for advancing next_phys_id_ counter
-
-// Store signed, but positive, integer corresponding to the next unused value to be used
-// as unique ID for a BoundaryVariable object's single set of MPI calls (formerly "enum
-// AthenaTagMPI"). 5 bits of unsigned integer representation are currently reserved
-// for this "phys" part of the bitfield tag, making 0, ..., 31 legal values
-
-int Mesh::ReserveTagPhysIDs(int num_phys) {
-  // TODO(felker): add safety checks? input, output are positive, obey <= 31=
-  // MAX_NUM_PHYS
-  int start_id = next_phys_id_;
-  next_phys_id_ += num_phys;
-  return start_id;
-}
-
-// private member fn, called in Mesh() ctor
-
-// depending on compile- and runtime options, reserve the maximum number of "int physid"
-// that might be necessary for each MeshBlock's BoundaryValues object to perform MPI
-// communication for all BoundaryVariable objects
-
-// TODO(felker): deduplicate this logic, which combines conditionals in MeshBlock ctor
-
-void Mesh::ReserveMeshBlockPhysIDs() { return; }
 
 std::int64_t Mesh::GetTotalCells() {
   auto &pmb = block_list.front();

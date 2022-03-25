@@ -49,11 +49,6 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   // nullptr is not allowed
   ParArrayND<Real> x1flux, x2flux, x3flux;
 
-  // maximum number of reserved unique "physics ID" component of MPI tag bitfield
-  // (CellCenteredBoundaryVariable only actually uses 1x if multilevel==false)
-  // must correspond to the # of "int *phys_id_" private members, below. Convert to array?
-  static constexpr int max_phys_id = 3;
-
   void Reset(ParArrayND<Real> var, ParArrayND<Real> coarse_var,
              ParArrayND<Real> *var_flux);
 

@@ -132,10 +132,6 @@ class Mesh {
 
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
 
-  // function for distributing unique "phys" bitfield IDs to BoundaryVariable objects and
-  // other categories of MPI communication for generating unique MPI_TAGs
-  int ReserveTagPhysIDs(int num_phys);
-
   // Boundary Functions
   BValFunc MeshBndryFnctn[6];
 
@@ -171,7 +167,6 @@ class Mesh {
 
  private:
   // data
-  int next_phys_id_; // next unused value for encoding final component of MPI tag bitfield
   int root_level, max_level, current_level;
   int num_mesh_threads_;
   /// Maps Global Block IDs to which rank the block is mapped to.
@@ -218,8 +213,6 @@ class Mesh {
                             std::vector<int> &ranklist, std::vector<int> &nslist,
                             std::vector<int> &nblist);
   void ResetLoadBalanceVariables();
-
-  void ReserveMeshBlockPhysIDs();
 
   // Mesh::LoadBalancingAndAdaptiveMeshRefinement() helper functions:
   void UpdateCostList();

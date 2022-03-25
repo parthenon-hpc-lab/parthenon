@@ -39,19 +39,6 @@ CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &meta
   if (m_.getAssociated() == "") {
     m_.Associate(label());
   }
-
-  if (IsSet(Metadata::FillGhost)) {
-    auto pmb = wpmb.lock();
-    PARTHENON_REQUIRE_THROWS(
-        GetDim(4) == NumComponents(),
-        "CellCenteredBoundaryVariable currently only supports rank-1 variables");
-    vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, IsSparse(), label(),
-                                                           GetDim(4));
-    auto res = pmb->pbval->bvars.insert({label(), vbvar});
-    PARTHENON_REQUIRE_THROWS(
-        res.second || (pmb->pbval->bvars.at(label()).get(), vbvar.get()),
-        "A boundary variable already existed and it's different from the new one.")
-  }
 }
 
 template <typename T>
@@ -183,6 +170,13 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
     }
 
     if (IsSet(Metadata::FillGhost)) {
+
+      PARTHENON_REQUIRE_THROWS(
+          GetDim(4) == NumComponents(),
+          "CellCenteredBoundaryVariable currently only supports rank-1 variables");
+      vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, IsSparse(), label(),
+                                                             GetDim(4));
+
       vbvar->Reset(data, coarse_s, flux);
 
       // TODO(JMM): This means RestrictBoundaries()
@@ -193,7 +187,7 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
       // or `MeshBlockData` and `MeshData` level.
       auto res = pmb->pbval->bvars.insert({label(), vbvar});
       PARTHENON_REQUIRE_THROWS(
-          res.second || (pmb->pbval->bvars.at(label()).get(), vbvar.get()),
+          res.second || (pmb->pbval->bvars.at(label()).get() == vbvar.get()),
           "A boundary variable already existed and it's different from the new one.")
     }
   }

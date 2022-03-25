@@ -88,8 +88,7 @@ BoundaryValues::BoundaryValues(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
   // std::vector<BoundaryVariable *>.push_back() in Field, PassiveScalars
   bvars.reserve(3);
 
-  // Matches initial value of Mesh::next_phys_id_
-  // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
+  // reserve phys=0 for hard-coded AMR tag in Mesh::CreateAMRMPITag()
   bvars_next_phys_id_ = 1;
 }
 
@@ -189,8 +188,7 @@ BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
   // TOOD(KGF): rename to "bvars_time_int"? What about a std::vector for bvars_sts?
   // bvars_main_int.reserve(2);
 
-  // Matches initial value of Mesh::next_phys_id_
-  // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
+  // reserve phys=0 for hard-coded AMR tag in Mesh::CreateAMRMPITag()
   bvars_next_phys_id_ = 1;
 }
 
