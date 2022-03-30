@@ -41,6 +41,7 @@
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -132,9 +133,13 @@ void BoundaryValues::ClearBoundary(BoundaryCommSubset phase) {
 
 int BoundaryValues::AdvanceCounterPhysID(int num_phys) {
 #ifdef MPI_PARALLEL
-  // TODO(felker): add safety checks? input, output are positive, obey <= 31= MAX_NUM_PHYS
   int start_id = bvars_next_phys_id_;
   bvars_next_phys_id_ += num_phys;
+  PARTHENON_REQUIRE_THROWS(
+      bvars_next_phys_id_ < 32,
+      "Next phys_id would be >= 32, which is currently not supported as Parthenon only "
+      "reserves 5 bits for phys_id. Please open an issue on GitHub if you see this "
+      "message to discuss options.")
   return start_id;
 #else
   return 0;

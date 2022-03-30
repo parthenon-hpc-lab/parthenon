@@ -41,7 +41,7 @@ namespace parthenon {
 BoundarySwarm::BoundarySwarm(std::weak_ptr<MeshBlock> pmb)
     : bswarm_index(), pmy_block(pmb), pmy_mesh_(pmb.lock()->pmy_mesh) {
 #ifdef MPI_PARALLEL
-    swarm_id_ = pmb.lock()->pbval->AdvanceCounterPhysID(1);
+  swarm_id_ = pmb.lock()->pbval->AdvanceCounterPhysID(1);
 #endif
 
   InitBoundaryData(bd_var_);
