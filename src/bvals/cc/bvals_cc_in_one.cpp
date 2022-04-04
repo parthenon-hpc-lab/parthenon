@@ -279,7 +279,7 @@ auto ResetSendBuffers(MeshData<Real> *md) {
 void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_status) {
   Kokkos::Profiling::pushRegion("Create send_boundary_info");
 
-  auto boundary_info = CommBufferCache_t("send_boundary_info", alloc_status.size());
+  auto boundary_info = BufferCache_t("send_boundary_info", alloc_status.size());
   auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
 
   // we only allocate this array here, no need to initialize its values, since they will
@@ -394,7 +394,7 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
                      alloc_status);
 
   // Restrict whichever buffers need restriction.
-  cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds, md);
+  cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
 
   Kokkos::Profiling::popRegion(); // Create send_boundary_info
 }
@@ -527,7 +527,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
     // Need to restrict here only if cached boundary_info is reused
     // Otherwise restriction happens when the new boundary_info is created
-    cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds, md.get());
+    cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
     Kokkos::Profiling::popRegion(); // Reset boundaries
   }
 
@@ -687,7 +687,7 @@ void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_
 
   IndexDomain interior = IndexDomain::interior;
 
-  auto boundary_info = CommBufferCache_t("set_boundary_info", alloc_status.size());
+  auto boundary_info = BufferCache_t("set_boundary_info", alloc_status.size());
   auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
   // now fill the buffer info
   int b = 0;

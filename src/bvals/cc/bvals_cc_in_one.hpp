@@ -55,10 +55,6 @@ struct BndInfo {
   bool restriction = false;
   Coordinates_t coords, coarse_coords; // coords
   parthenon::BufArray1D<Real> buf;     // comm buffer
-};
-
-// We have one CommBndInfo per variable per neighbor per block
-struct CommBndInfo : public BndInfo {
   int Nt = 0;
   int Nu = 0;
   int Nv = 0;
@@ -67,19 +63,8 @@ struct CommBndInfo : public BndInfo {
   parthenon::ParArray6D<Real> coarse; // coarse data variable for prolongation/restriction
 };
 
-// We have one RefineBndInfo per (l, m, :, :, :, :) element per variable per neighbor per
-// block
-struct RefineBndInfo : public BndInfo {
-  int Nv = 0;
-  parthenon::ParArray4D<Real> var;    // data variable used for comms
-  parthenon::ParArray4D<Real> fine;   // fine data variable for prolongation/restriction
-  parthenon::ParArray4D<Real> coarse; // coarse data variable for prolongation/restriction
-};
-
-using CommBufferCache_t = ParArray1D<CommBndInfo>;
-using CommBufferCacheHost_t = typename CommBufferCache_t::HostMirror;
-using RefineBufferCache_t = ParArray1D<RefineBndInfo>;
-using RefineBufferCacheHost_t = typename RefineBufferCache_t::HostMirror;
+using BufferCache_t = ParArray1D<BndInfo>;
+using BufferCacheHost_t = typename BufferCache_t::HostMirror;
 
 } // namespace cell_centered_bvars
 } // namespace parthenon
