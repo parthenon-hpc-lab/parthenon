@@ -24,6 +24,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "bvals/bvals_interfaces.hpp"
 #include "interface/swarm.hpp"
 #include "mesh/mesh.hpp"
 
@@ -32,6 +33,7 @@
 
 using Real = double;
 using parthenon::ApplicationInput;
+using parthenon::BoundaryFlag;
 using parthenon::Mesh;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
@@ -61,10 +63,14 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   Packages_t packages;
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
   auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
+  for (int i = 0; i < 6; i++) {
+    mesh->mesh_bcs[i] = BoundaryFlag::outflow;
+  }
   meshblock->pmy_mesh = mesh.get();
   Metadata m;
   auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
   swarm->SetBlockPointer(meshblock);
+  swarm->AllocateBoundaries();
   auto swarm_d = swarm->GetDeviceContext();
   REQUIRE(swarm->GetNumActive() == 0);
   REQUIRE(swarm->GetMaxActiveIndex() == 0);
