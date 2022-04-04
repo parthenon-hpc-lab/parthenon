@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 654]](https://github.com/lanl/parthenon/pull/654) Add option for returning FlatIdx when requested variable doesn't exist
 - [[PR 653]](https://github.com/lanl/parthenon/pull/653) Allow for multi-D particle variables
 - [[PR 622]](https://github.com/lanl/parthenon/pull/622) Extend reduction framework to support more general data types. Now uses PR 623.
 - [[PR 619]](https://github.com/lanl/parthenon/pull/619) Sort particles by cell
@@ -16,6 +17,7 @@
 - [[PR 617]](https://github.com/lanl/parthenon/pull/617) Unify the coordinates API for MeshBlockPack and VariablePack
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 629]](https://github.com/lanl/parthenon/pull/629) Fix HIP backend (config and tests) and extend build coverage
 - [[PR 652]](https://github.com/lanl/parthenon/pull/652) Fix issue with hsize_t and size_t in utils parser
 - [[PR 649]](https://github.com/lanl/parthenon/pull/649) Ensure LoadBalancing send buffers are filled and allow async recv LB
 - [[PR 618]](https://github.com/lanl/parthenon/pull/618) Fix bug in variable pack performance test
@@ -24,6 +26,7 @@
 - [[PR 595]](https://github.com/lanl/parthenon/pull/595) Fix build options so that non-MPI builds cannot be paired with an MPI HDF5 lib
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 646]](https://github.com/lanl/parthenon/pull/646) Add machine configuration file for Stony Brook's Ookami A64FX and OLCF's Spock AMD systems.
 
 ### Removed (removing behavior/API/varaibles/...)
 
