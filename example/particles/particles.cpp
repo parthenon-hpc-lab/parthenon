@@ -26,12 +26,12 @@
 namespace particles_example {
 
 std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-SetSwarmIx1UserBC() {
+SetSwarmIX1UserBC() {
   return DeviceAllocate<ParticleBoundIX1User>();
 }
 
 std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-SetSwarmOx1UserBC() {
+SetSwarmOX1UserBC() {
   return DeviceAllocate<ParticleBoundOX1User>();
 }
 
