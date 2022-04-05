@@ -598,7 +598,7 @@ void Swarm::SetNeighborIndices1D_() {
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        neighborIndices_h(k, j, i) = 0;
+        neighborIndices_h(k, j, i) = no_block_;
       }
     }
   }
@@ -647,7 +647,7 @@ void Swarm::SetNeighborIndices2D_() {
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        neighborIndices_h(k, j, i) = 0;
+        neighborIndices_h(k, j, i) = no_block_;
       }
     }
   }
@@ -715,7 +715,7 @@ void Swarm::SetNeighborIndices3D_() {
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        neighborIndices_h(k, j, i) = 0;
+        neighborIndices_h(k, j, i) = no_block_;
       }
     }
   }
@@ -879,13 +879,15 @@ void Swarm::SetupPersistentMPI() {
   neighbor_received_particles_.resize(nbmax);
 
   // Build device array mapping neighbor index to neighbor bufid
-  ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->pbval->nneighbor);
-  auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    neighbor_buffer_index_h(n) = pmb->pbval->neighbor[n].bufid;
+  if (pmb->pbval->nneighbor > 0) {
+    ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->pbval->nneighbor);
+    auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
+    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+      neighbor_buffer_index_h(n) = pmb->pbval->neighbor[n].bufid;
+    }
+    neighbor_buffer_index.DeepCopy(neighbor_buffer_index_h);
+    neighbor_buffer_index_ = neighbor_buffer_index;
   }
-  neighbor_buffer_index.DeepCopy(neighbor_buffer_index_h);
-  neighbor_buffer_index_ = neighbor_buffer_index;
 }
 
 int Swarm::CountParticlesToSend_() {

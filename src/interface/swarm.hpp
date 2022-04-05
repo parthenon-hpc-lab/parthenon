@@ -248,6 +248,7 @@ class Swarm {
   ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
                                     // k,j indices unused in 3D&2D, 2D, respectively
 
+  constexpr static int no_block_ = -2;
   constexpr static int this_block_ = -1;
   constexpr static int unset_index_ = -1;
 
