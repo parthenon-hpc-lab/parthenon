@@ -154,8 +154,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::string swarm_name = "tracers";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
-  Metadata real_swarmvalue_metadata({Metadata::Real, Metadata::Particle});
-  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer, Metadata::Particle}));
+  Metadata real_swarmvalue_metadata({Metadata::Real});
+  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 

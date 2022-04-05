@@ -192,10 +192,6 @@ class Swarm {
   bool FinalizeCommunicationIterative();
 
   template <class T>
-  SwarmVariablePack<T> PackAllVariables(PackIndexMap &vmap,
-                                        ParArrayND<int> &pack_indices_shapes);
-
-  template <class T>
   SwarmVariablePack<T> PackVariables(const std::vector<std::string> &name,
                                      PackIndexMap &vmap);
 
@@ -226,6 +222,10 @@ class Swarm {
   void CountReceivedParticles_();
   void UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
                                            ParArrayND<int> &buffer_index);
+
+  template <class T>
+  SwarmVariablePack<T> PackAllVariables_(PackIndexMap &vmap,
+                                         ParArrayND<int> &pack_indices_shapes);
 
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
@@ -297,7 +297,7 @@ inline SwarmVariablePack<T> Swarm::PackVariables(const std::vector<std::string> 
 
 template <class T>
 inline SwarmVariablePack<T>
-Swarm::PackAllVariables(PackIndexMap &vmap, ParArrayND<int> &pack_indices_shapes) {
+Swarm::PackAllVariables_(PackIndexMap &vmap, ParArrayND<int> &pack_indices_shapes) {
   std::vector<std::string> names;
   names.reserve(std::get<getType<T>()>(Vectors_).size());
   for (const auto &v : std::get<getType<T>()>(Vectors_)) {
@@ -307,25 +307,38 @@ Swarm::PackAllVariables(PackIndexMap &vmap, ParArrayND<int> &pack_indices_shapes
   auto ret = PackVariables<T>(names, vmap);
   auto map = vmap.Map();
 
+  // Pack variables in terms of
+  // [variable_start] [dim2] [dim1] [swarm idx]
+  // for conveniently looping over all variables to fill buffers.
+  // Note that this supports up to 2D ParticleVariable data.
+  // The structure of the pack is stored in pack_indices_shapes.
+  // pack_indices_shapes(0, n) is [variable_start] for the nth variable
+  // pack_indices_shapes(1, n) is [dim1] for the nth variable
+  // pack_indices_shapes(2, n) is [dim2] for the nth variable
+  // Currently, pack_indices_shapes([3,4,5], n) = 1 i.e. these dimensions are not used in
+  // ParticleVariables.
+
   // Get shape of packed variables
-  pack_indices_shapes = ParArrayND<int>("Pack indices and shapes", 6, names.size());
-  auto pack_indices_shapes_h = pack_indices_shapes.GetHostMirrorAndCopy();
-  int n = 0;
-  for (auto &m : map) {
-    pack_indices_shapes_h(0, n) = m.second.first;
-    for (int idx = 1; idx < 6; idx++) {
-      auto shape = vmap.GetShape(m.first);
-      PARTHENON_REQUIRE(shape.size() <= 2,
-                        "Flat packs only support 2 indices + swarm index!");
-      if (shape.size() >= idx) {
-        pack_indices_shapes_h(idx, n) = shape[idx - 1];
-      } else {
-        pack_indices_shapes_h(idx, n) = 1;
+  if (names.size() > 0) {
+    pack_indices_shapes = ParArrayND<int>("Pack indices and shapes", 6, names.size());
+    auto pack_indices_shapes_h = pack_indices_shapes.GetHostMirror();
+    int n = 0;
+    for (auto &m : map) {
+      pack_indices_shapes_h(0, n) = m.second.first;
+      for (int idx = 1; idx < 6; idx++) {
+        auto shape = vmap.GetShape(m.first);
+        PARTHENON_REQUIRE(shape.size() <= 2,
+                          "Flat packs only support 2 indices + swarm index!");
+        if (shape.size() >= idx) {
+          pack_indices_shapes_h(idx, n) = shape[idx - 1];
+        } else {
+          pack_indices_shapes_h(idx, n) = 1;
+        }
       }
+      n++;
     }
-    n++;
+    pack_indices_shapes.DeepCopy(pack_indices_shapes_h);
   }
-  pack_indices_shapes.DeepCopy(pack_indices_shapes_h);
 
   return ret;
 }

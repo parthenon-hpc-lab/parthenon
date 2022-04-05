@@ -220,13 +220,12 @@ class FaceVariable {
   inline bool IsSparse() const { return false; }
   inline int GetSparseID() const { return InvalidSparseID; }
 
+  FaceArray<T> data;
+
  private:
   Metadata m_;
   std::string label_;
   std::array<int, 6> dims_;
-
- public:
-  FaceArray<T> data;
 };
 
 ///
@@ -283,7 +282,7 @@ class ParticleVariable {
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
-    PARTHENON_REQUIRE(0 < i && i <= 6, "ParArrayNDGenerics are max 6D");
+    PARTHENON_DEBUG_REQUIRE(0 < i && i <= 6, "ParArrayNDGenerics are max 6D");
     return dims_[i - 1];
   }
 

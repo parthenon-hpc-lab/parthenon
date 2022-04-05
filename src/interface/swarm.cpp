@@ -70,9 +70,9 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
-  Add("x", Metadata({Metadata::Real, Metadata::Particle}));
-  Add("y", Metadata({Metadata::Real, Metadata::Particle}));
-  Add("z", Metadata({Metadata::Real, Metadata::Particle}));
+  Add("x", Metadata({Metadata::Real}));
+  Add("y", Metadata({Metadata::Real}));
+  Add("z", Metadata({Metadata::Real}));
   num_active_ = 0;
   max_active_index_ = 0;
 
@@ -279,22 +279,14 @@ void Swarm::setPoolMax(const int nmax_pool) {
   auto &realMap_ = std::get<getType<Real>()>(Maps_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
 
-  for (int n = 0; n < intVector_.size(); n++) {
-    auto &data = intVector_[n]->data;
-    std::array<int, 6> dim;
-    for (int i = 0; i < 6; i++) {
-      dim[i] = data.GetDim(6 - i);
-    }
-    data.Resize(dim[0], dim[1], dim[2], dim[3], dim[4], nmax_pool);
+  for (auto &d : intVector_) {
+    d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
+                   d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
   }
 
-  for (int n = 0; n < realVector_.size(); n++) {
-    auto &data = realVector_[n]->data;
-    std::array<int, 6> dim;
-    for (int i = 0; i < 6; i++) {
-      dim[i] = data.GetDim(6 - i);
-    }
-    data.Resize(dim[0], dim[1], dim[2], dim[3], dim[4], nmax_pool);
+  for (auto &d : realVector_) {
+    d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
+                   d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
   }
 
   nmax_pool_ = nmax_pool;
@@ -436,8 +428,8 @@ void Swarm::Defrag() {
   PackIndexMap int_imap;
   ParArrayND<int> rpack_indices_shapes;
   ParArrayND<int> ipack_indices_shapes;
-  auto vreal = PackAllVariables<Real>(real_imap, rpack_indices_shapes);
-  auto vint = PackAllVariables<int>(int_imap, ipack_indices_shapes);
+  auto vreal = PackAllVariables_<Real>(real_imap, rpack_indices_shapes);
+  auto vint = PackAllVariables_<int>(int_imap, ipack_indices_shapes);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
   auto real_map = real_imap.Map();
@@ -893,7 +885,6 @@ void Swarm::SetupPersistentMPI() {
 int Swarm::CountParticlesToSend_() {
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
-  // auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int nbmax = vbswarm->bd_var_.nbmax;
@@ -967,10 +958,13 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   PackIndexMap int_imap;
   ParArrayND<int> rpack_indices_shapes;
   ParArrayND<int> ipack_indices_shapes;
-  auto vreal = PackAllVariables<Real>(real_imap, rpack_indices_shapes);
-  auto vint = PackAllVariables<int>(int_imap, ipack_indices_shapes);
+  auto vreal = PackAllVariables_<Real>(real_imap, rpack_indices_shapes);
+  auto vint = PackAllVariables_<int>(int_imap, ipack_indices_shapes);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
+
+  // Pack index:
+  // [variable start] [dim2] [dim1] [swarm idx]
 
   auto &bdvar = vbswarm->bd_var_;
   auto num_particles_to_send = num_particles_to_send_;
@@ -1118,8 +1112,8 @@ void Swarm::UnloadBuffers_() {
     PackIndexMap int_imap;
     ParArrayND<int> rpack_indices_shapes;
     ParArrayND<int> ipack_indices_shapes;
-    auto vreal = PackAllVariables<Real>(real_imap, rpack_indices_shapes);
-    auto vint = PackAllVariables<int>(int_imap, ipack_indices_shapes);
+    auto vreal = PackAllVariables_<Real>(real_imap, rpack_indices_shapes);
+    auto vint = PackAllVariables_<int>(int_imap, ipack_indices_shapes);
     int real_vars_size = realVector_.size();
     int int_vars_size = intVector_.size();
 

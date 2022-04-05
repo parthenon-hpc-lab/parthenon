@@ -47,25 +47,6 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
-// initial particle position: x,y,z,vx,vy,vz
-constexpr int num_test_particles = 14;
-const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
-    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
-    {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},   // along y direction
-    {-0.1, 0.3, 0.2, 0.0, 0.0, 0.5},   // along z direction
-    {0.0, 0.0, 0.0, -1.0, 0.0, 0.0},   // along -x direction
-    {0.0, 0.0, 0.0, 0.0, -1.0, 0.0},   // along -y direction
-    {0.0, 0.0, 0.0, 0.0, 0.0, -1.0},   // along -z direction
-    {0.0, 0.0, 0.0, 1.0, 1.0, 1.0},    // along xyz diagonal
-    {0.0, 0.0, 0.0, -1.0, 1.0, 1.0},   // along -xyz diagonal
-    {0.0, 0.0, 0.0, 1.0, -1.0, 1.0},   // along x-yz diagonal
-    {0.0, 0.0, 0.0, 1.0, 1.0, -1.0},   // along xy-z diagonal
-    {0.0, 0.0, 0.0, -1.0, -1.0, 1.0},  // along -x-yz diagonal
-    {0.0, 0.0, 0.0, 1.0, -1.0, -1.0},  // along x-y-z diagonal
-    {0.0, 0.0, 0.0, -1.0, 1.0, -1.0},  // along -xy-z diagonal
-    {0.0, 0.0, 0.0, -1.0, -1.0, -1.0}, // along -x-y-z diagonal
-}};
-
 // *************************************************//
 // define the "physics" package particles_package, *//
 // which includes defining various functions that  *//
@@ -88,12 +69,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::string swarm_name = "my particles";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
-  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer, Metadata::Particle}));
-  Metadata vreal_swarmvalue_metadata({Metadata::Real, Metadata::Particle},
-                                     std::vector<int>{3});
+  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
+  Metadata vreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{3});
   pkg->AddSwarmValue("v", swarm_name, vreal_swarmvalue_metadata);
-  Metadata vvreal_swarmvalue_metadata({Metadata::Real, Metadata::Particle},
-                                      std::vector<int>{2, 2});
+  Metadata vvreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{2, 2});
   pkg->AddSwarmValue("vv", swarm_name, vvreal_swarmvalue_metadata);
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
@@ -278,6 +257,25 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
   return TaskStatus::complete;
 }
 
+// initial particle position: x,y,z,vx,vy,vz
+constexpr int num_test_particles = 14;
+const Kokkos::Array<Kokkos::Array<Real, 6>, num_test_particles> particles_ic = {{
+    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
+    {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},   // along y direction
+    {-0.1, 0.3, 0.2, 0.0, 0.0, 0.5},   // along z direction
+    {0.0, 0.0, 0.0, -1.0, 0.0, 0.0},   // along -x direction
+    {0.0, 0.0, 0.0, 0.0, -1.0, 0.0},   // along -y direction
+    {0.0, 0.0, 0.0, 0.0, 0.0, -1.0},   // along -z direction
+    {0.0, 0.0, 0.0, 1.0, 1.0, 1.0},    // along xyz diagonal
+    {0.0, 0.0, 0.0, -1.0, 1.0, 1.0},   // along -xyz diagonal
+    {0.0, 0.0, 0.0, 1.0, -1.0, 1.0},   // along x-yz diagonal
+    {0.0, 0.0, 0.0, 1.0, 1.0, -1.0},   // along xy-z diagonal
+    {0.0, 0.0, 0.0, -1.0, -1.0, 1.0},  // along -x-yz diagonal
+    {0.0, 0.0, 0.0, 1.0, -1.0, -1.0},  // along x-y-z diagonal
+    {0.0, 0.0, 0.0, -1.0, 1.0, -1.0},  // along -xy-z diagonal
+    {0.0, 0.0, 0.0, -1.0, -1.0, -1.0}, // along -x-y-z diagonal
+}};
+
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
@@ -304,9 +302,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       Kokkos::create_mirror_view_and_copy(HostMemSpace(), ids_this_block);
 
   for (auto n = 0; n < num_test_particles; n++) {
-    const Real &x_ = ic.at(n).at(0);
-    const Real &y_ = ic.at(n).at(1);
-    const Real &z_ = ic.at(n).at(2);
+    const Real &x_ = ic[n][0];
+    const Real &y_ = ic[n][1];
+    const Real &z_ = ic[n][2];
 
     if ((x_ >= x_min) && (x_ < x_max) && (y_ >= y_min) && (y_ < y_max) && (z_ >= z_min) &&
         (z_ < z_max)) {
@@ -335,12 +333,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         const auto &m = ids_this_block(n);
 
         id(n) = m; // global unique id
-        x(n) = ic.at(m).at(0);
-        y(n) = ic.at(m).at(1);
-        z(n) = ic.at(m).at(2);
-        v(0, n) = ic.at(m).at(3);
-        v(1, n) = ic.at(m).at(4);
-        v(2, n) = ic.at(m).at(5);
+        x(n) = ic[m][0];
+        y(n) = ic[m][1];
+        z(n) = ic[m][2];
+        v(0, n) = ic[m][3];
+        v(1, n) = ic[m][4];
+        v(2, n) = ic[m][5];
       });
 }
 
