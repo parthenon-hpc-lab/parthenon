@@ -170,7 +170,6 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
     }
 
     if (IsSet(Metadata::FillGhost)) {
-
       PARTHENON_REQUIRE_THROWS(
           GetDim(4) == NumComponents(),
           "CellCenteredBoundaryVariable currently only supports rank-1 variables");

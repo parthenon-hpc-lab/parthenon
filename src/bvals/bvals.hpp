@@ -122,7 +122,7 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
   void StartReceiving(BoundaryCommSubset phase) final {}
   void ClearBoundary(BoundaryCommSubset phase) final {}
 
-  int AdvanceCounterPhysID(int num_phys) { return 0; }
+  int AdvanceCounterPhysID();
 
  private:
   // ptr to MeshBlock containing this BoundaryValues

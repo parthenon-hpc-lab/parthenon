@@ -206,5 +206,21 @@ void BoundarySwarms::SetupPersistentMPI() {
     (*bswarms_it)->SetupPersistentMPI();
   }
 }
+// TODO(someone) PG is not a big fan of this code duplication and we should consider
+// moving this functionality to BoundaryBase if it gets further reused.
+int BoundarySwarms::AdvanceCounterPhysID() {
+#ifdef MPI_PARALLEL
+  int start_id = bvars_next_phys_id_;
+  bvars_next_phys_id_ += 1;
+  PARTHENON_REQUIRE_THROWS(
+      bvars_next_phys_id_ < 32,
+      "Next phys_id for swarms would be >= 32, which is currently not supported as "
+      "Parthenon only reserves 5 bits for phys_id. Please open an issue on GitHub if you "
+      "see this message to discuss options.")
+  return start_id;
+#else
+  return 0;
+#endif
+}
 
 } // namespace parthenon
