@@ -21,6 +21,7 @@
 //         quantity indexed along / located around cell-centers
 
 #include <memory>
+#include <mpi.h>
 #include <string>
 
 #include "parthenon_mpi.hpp"
@@ -73,7 +74,8 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   int nl_, nu_;
 
 #ifdef MPI_PARALLEL
-  int cc_phys_id_, cc_flx_phys_id_;
+  // Unique communicator for this cell centered var
+  MPI_Comm cc_var_comm, cc_flcor_comm;
 #endif
 
   void RemapFlux(const int n, const int k, const int jinner, const int jouter,

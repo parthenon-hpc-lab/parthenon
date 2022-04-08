@@ -31,6 +31,7 @@
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "utils/buffer_utils.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -272,22 +273,23 @@ int BoundaryBase::FindBufferID(int ox1, int ox2, int ox3, int fi1, int fi2) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int BoundaryBase::CreateBvalsMPITag(int lid, int bufid, int phys)
+//! \fn int BoundaryBase::CreateBvalsMPITag(int lid, int bufid)
 //  \brief calculate an MPI tag for Bval communications
-//  MPI tag = local id of destination (remaining bits) + bufid(6 bits) + physics(5 bits)
+//  MPI tag = local id of destination (remaining bits) + bufid(6 bits)
 
 // WARN: The below procedure of generating unsigned integer bitfields from signed integer
 // types and converting output to signed integer tags (required by MPI) is tricky and may
 // lead to unsafe conversions (and overflows from built-in types and MPI_TAG_UB).  Note,
 // the MPI standard requires signed int tag, with MPI_TAG_UB>= 2^15-1 = 32,767 (inclusive)
 
-// TODO(felker) Consider adding safety check: if (tag > MPI_TAG_UB) PARTHENON_FAIL();
-// TODO(felker) Consider adding safety check: signed int inputs & outputs are positive
-// TODO(felker) Store # of bits for each bitfield component in preprocessor macros
-//              TAG_BITS_PHYS=5, MAX_NUM_PHYS=31
-
-int BoundaryBase::CreateBvalsMPITag(int lid, int bufid, int phys) {
-  return (lid << 11) | (bufid << 5) | phys;
+int BoundaryBase::CreateBvalsMPITag(int lid, int bufid) {
+  PARTHENON_REQUIRE_THROWS(lid >= 0 && bufid >= 0, "Ids are expected to be positive.")
+  int tag = (lid << 6) | bufid;
+  // Technically we could query MPI_TAG_UB here. However, using a fixed (lower) bound
+  // guaranteed by the standard for now to reduce the additional functions calls or
+  // adding a new internal upper lim variable.
+  PARTHENON_REQUIRE_THROWS(tag >= 0 && tag < 32768, "MPI tag out of bounds.")
+  return tag;
 }
 
 //----------------------------------------------------------------------------------------

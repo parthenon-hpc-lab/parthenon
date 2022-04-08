@@ -325,9 +325,8 @@ class BoundarySwarm : public BoundaryCommunication {
   }
 
 #ifdef MPI_PARALLEL
-  // separate MPI communicator to get around tag limit
-  MPI_Comm MPI_COMM_SWARM;
-  int swarm_id_;
+  // Unique communicator for this swarm.
+  MPI_Comm swarm_comm;
 #endif
 };
 

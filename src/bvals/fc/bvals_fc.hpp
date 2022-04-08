@@ -21,6 +21,7 @@
 //         quantity indexed along / located around face-centers of cells
 
 #include <memory>
+#include <mpi.h>
 
 #include "parthenon_mpi.hpp"
 
@@ -66,7 +67,8 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
   bool recv_flx_same_lvl_;
 
 #ifdef MPI_PARALLEL
-  int fc_phys_id_, fc_flx_phys_id_;
+  // Unique communicator for this face-centerd var
+  MPI_Comm fc_var_comm, fc_flcor_comm;
 #endif
 
   void CountFineEdges(); // called in SetupPersistentMPI()

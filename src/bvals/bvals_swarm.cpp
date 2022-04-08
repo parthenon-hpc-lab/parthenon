@@ -41,11 +41,8 @@ namespace parthenon {
 BoundarySwarm::BoundarySwarm(std::weak_ptr<MeshBlock> pmb)
     : bswarm_index(), pmy_block(pmb), pmy_mesh_(pmb.lock()->pmy_mesh) {
 #ifdef MPI_PARALLEL
-  // Technically, we don't need both (a separate communicator and a tag)
-  // anymore if we use a single communicator per swarm.
-  // TODO(someone) cleanup this and also COMM logic for other vars.
-  PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &MPI_COMM_SWARM));
-  swarm_id_ = pmb.lock()->pbswarm->AdvanceCounterPhysID();
+  // Create unique communicator for this swarm
+  PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &swarm_comm));
 #endif
 
   InitBoundaryData(bd_var_);
@@ -76,9 +73,8 @@ void BoundarySwarm::SetupPersistentMPI() {
 
     // Neighbor on different MPI process
     if (nb.snb.rank != Globals::my_rank) {
-      send_tag[nb.bufid] =
-          pmb->pbswarm->CreateBvalsMPITag(nb.snb.lid, nb.targetid, swarm_id_);
-      recv_tag[nb.bufid] = pmb->pbswarm->CreateBvalsMPITag(pmb->lid, nb.bufid, swarm_id_);
+      send_tag[nb.bufid] = pmb->pbswarm->CreateBvalsMPITag(nb.snb.lid, nb.targetid);
+      recv_tag[nb.bufid] = pmb->pbswarm->CreateBvalsMPITag(pmb->lid, nb.bufid);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL) {
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
       }
@@ -104,7 +100,7 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
                         "Trying to create a new send before previous send completes!");
       PARTHENON_MPI_CHECK(MPI_Isend(bd_var_.send[nb.bufid].data(), send_size[nb.bufid],
                                     MPI_PARTHENON_REAL, nb.snb.rank, send_tag[nb.bufid],
-                                    MPI_COMM_SWARM, &(bd_var_.req_send[nb.bufid])));
+                                    swarm_comm, &(bd_var_.req_send[nb.bufid])));
 #endif // MPI_PARALLEL
     } else {
       MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
@@ -142,8 +138,8 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
       MPI_Status status;
 
       if (bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], MPI_COMM_SWARM,
-                                       &test, &status));
+        PARTHENON_MPI_CHECK(
+            MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], swarm_comm, &test, &status));
         if (!static_cast<bool>(test)) {
           bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
         } else {
@@ -157,7 +153,7 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
           }
           PARTHENON_MPI_CHECK(MPI_Recv(bd_var_.recv[nb.bufid].data(), recv_size[nb.bufid],
                                        MPI_PARTHENON_REAL, nb.snb.rank,
-                                       recv_tag[nb.bufid], MPI_COMM_SWARM, &status));
+                                       recv_tag[nb.bufid], swarm_comm, &status));
         }
       }
     }

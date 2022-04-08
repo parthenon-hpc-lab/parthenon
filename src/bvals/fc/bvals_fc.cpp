@@ -57,8 +57,8 @@ FaceCenteredBoundaryVariable::FaceCenteredBoundaryVariable(std::weak_ptr<MeshBlo
   InitBoundaryData(bd_var_flcor_, BoundaryQuantity::fc_flcor);
 
 #ifdef MPI_PARALLEL
-  fc_phys_id_ = pmb.lock()->pbval->AdvanceCounterPhysID(1);
-  fc_flx_phys_id_ = pmb.lock()->pbval->AdvanceCounterPhysID(1);
+  PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &fc_var_comm));
+  PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &fc_flcor_comm));
 #endif
 }
 
@@ -1094,18 +1094,18 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
         ssize = csize, rsize = fsize;
 
       // face-centered field: bd_var_
-      tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, fc_phys_id_);
+      tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
       PARTHENON_MPI_CHECK(MPI_Send_init(bd_var_.send[nb.bufid].data(), ssize,
-                                        MPI_PARTHENON_REAL, nb.snb.rank, tag,
-                                        MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid])));
-      tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, fc_phys_id_);
+                                        MPI_PARTHENON_REAL, nb.snb.rank, tag, fc_var_comm,
+                                        &(bd_var_.req_send[nb.bufid])));
+      tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid);
       if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
       PARTHENON_MPI_CHECK(MPI_Recv_init(bd_var_.recv[nb.bufid].data(), rsize,
-                                        MPI_PARTHENON_REAL, nb.snb.rank, tag,
-                                        MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid])));
+                                        MPI_PARTHENON_REAL, nb.snb.rank, tag, fc_var_comm,
+                                        &(bd_var_.req_recv[nb.bufid])));
 
       // set up flux correction MPI communication buffers
       int f2csize;
@@ -1157,35 +1157,35 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
       if (nb.snb.level == mylevel) { // the same level
         if ((nb.ni.type == NeighborConnect::face) ||
             ((nb.ni.type == NeighborConnect::edge) && (edge_flag_[nb.eid]))) {
-          tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, fc_flx_phys_id_);
+          tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid);
           if (bd_var_flcor_.req_send[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_send[nb.bufid]);
           PARTHENON_MPI_CHECK(MPI_Send_init(
               bd_var_flcor_.send[nb.bufid].data(), size, MPI_PARTHENON_REAL, nb.snb.rank,
-              tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_send[nb.bufid])));
-          tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, fc_flx_phys_id_);
+              tag, fc_flcor_comm, &(bd_var_flcor_.req_send[nb.bufid])));
+          tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid);
           if (bd_var_flcor_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_recv[nb.bufid]);
           PARTHENON_MPI_CHECK(MPI_Recv_init(
               bd_var_flcor_.recv[nb.bufid].data(), size, MPI_PARTHENON_REAL, nb.snb.rank,
-              tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_recv[nb.bufid])));
+              tag, fc_flcor_comm, &(bd_var_flcor_.req_recv[nb.bufid])));
         }
       }
       if (nb.snb.level > mylevel) { // finer neighbor
-        tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, fc_flx_phys_id_);
+        tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid);
         if (bd_var_flcor_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
           MPI_Request_free(&bd_var_flcor_.req_recv[nb.bufid]);
         PARTHENON_MPI_CHECK(MPI_Recv_init(
             bd_var_flcor_.recv[nb.bufid].data(), f2csize, MPI_PARTHENON_REAL, nb.snb.rank,
-            tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_recv[nb.bufid])));
+            tag, fc_flcor_comm, &(bd_var_flcor_.req_recv[nb.bufid])));
       }
       if (nb.snb.level < mylevel) { // coarser neighbor
-        tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, fc_flx_phys_id_);
+        tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid);
         if (bd_var_flcor_.req_send[nb.bufid] != MPI_REQUEST_NULL)
           MPI_Request_free(&bd_var_flcor_.req_send[nb.bufid]);
         PARTHENON_MPI_CHECK(MPI_Send_init(
             bd_var_flcor_.send[nb.bufid].data(), f2csize, MPI_PARTHENON_REAL, nb.snb.rank,
-            tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_send[nb.bufid])));
+            tag, fc_flcor_comm, &(bd_var_flcor_.req_send[nb.bufid])));
       }
     } // neighbor block is on separate MPI process
   }   // end loop over neighbors
