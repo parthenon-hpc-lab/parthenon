@@ -95,7 +95,11 @@ parthenon-cuda-short:
       ../
     - make -j${J} advection-example
     - export OMPI_MCA_mpi_common_cuda_event_max=1000
+    # Run one example with variables
     - ctest -R regression_mpi_test:output_hdf5
+    # and one that uses swarms
+    - make -j${J} particle-leapfrog
+    - ctest -R regression_mpi_test:particle_leapfrog
     # Now testing if there are no hidden memcopies between host and device.
     # Using a static grid (i.e., not AMR) as additional transfers are expected
     # during loadbalance and refinement, but not for a static grid. We also need to
@@ -126,8 +130,12 @@ parthenon-cpu-short:
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DMACHINE_VARIANT=mpi
       ../
+    # Run one example with variables
     - make -j${J} advection-example
     - ctest -R regression_mpi_test:output_hdf5
+    # and one that uses swarms
+    - make -j${J} particle-leapfrog
+    - ctest -R regression_mpi_test:particle_leapfrog
   artifacts:
     when: always
     expire_in: 3 days
