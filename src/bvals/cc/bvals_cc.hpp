@@ -21,7 +21,6 @@
 //         quantity indexed along / located around cell-centers
 
 #include <memory>
-#include <mpi.h>
 #include <string>
 
 #include "parthenon_mpi.hpp"

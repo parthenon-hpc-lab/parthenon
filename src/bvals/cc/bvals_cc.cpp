@@ -26,7 +26,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <mpi.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -189,6 +188,7 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid);
       if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
+      std::cout << "source: " << nb.snb.rank << std::endl;
       PARTHENON_MPI_CHECK(MPI_Recv_init(bd_var_.recv[nb.bufid].data(), rsize,
                                         MPI_PARTHENON_REAL, nb.snb.rank, tag, cc_var_comm,
                                         &(bd_var_.req_recv[nb.bufid])));
