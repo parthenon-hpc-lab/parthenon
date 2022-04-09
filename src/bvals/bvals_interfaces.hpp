@@ -300,6 +300,7 @@ class BoundarySwarm : public BoundaryCommunication {
   std::vector<BoundaryVariable *>::size_type bswarm_index;
 
   // BoundaryCommunication
+  void SetComm(MPI_Comm mpi_comm);
   void SetupPersistentMPI() final;
   void StartReceiving(BoundaryCommSubset phase) final{};
   void ClearBoundary(BoundaryCommSubset phase) final{};

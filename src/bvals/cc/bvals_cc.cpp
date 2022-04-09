@@ -62,14 +62,8 @@ CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(std::weak_ptr<MeshBlo
 
   InitBoundaryData(bd_var_, BoundaryQuantity::cc);
 
-#ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &cc_var_comm));
-#endif
   if (pmy_mesh_->multilevel) { // SMR or AMR
     InitBoundaryData(bd_var_flcor_, BoundaryQuantity::cc_flcor);
-#ifdef MPI_PARALLEL
-    PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &cc_flcor_comm));
-#endif
   }
 }
 
@@ -146,6 +140,8 @@ int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
 void CellCenteredBoundaryVariable::SetupPersistentMPI() {
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  // TODO(PG) move to constructor once MPI_Comm_dup is in Mesh constructor
+  cc_var_comm = pmb->pmy_mesh->mpi_comm_map[label()];
   int &mylevel = pmb->loc.level;
 
   int ssize, rsize;
@@ -188,12 +184,13 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid);
       if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
-      std::cout << "source: " << nb.snb.rank << std::endl;
       PARTHENON_MPI_CHECK(MPI_Recv_init(bd_var_.recv[nb.bufid].data(), rsize,
                                         MPI_PARTHENON_REAL, nb.snb.rank, tag, cc_var_comm,
                                         &(bd_var_.req_recv[nb.bufid])));
 
       if (pmy_mesh_->multilevel && nb.ni.type == NeighborConnect::face) {
+        // TODO(PG) move to constructor once MPI_Comm_dup is in Mesh constructor
+        cc_flcor_comm = pmb->pmy_mesh->mpi_comm_map[label() + "_flcor"];
         // TODO(JL): could we call ComputeFluxCorrectionBufferSize here to reduce code
         // duplication?
         int size;
@@ -221,7 +218,7 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
             MPI_Request_free(&bd_var_flcor_.req_recv[nb.bufid]);
           PARTHENON_MPI_CHECK(MPI_Recv_init(
               bd_var_flcor_.recv[nb.bufid].data(), size, MPI_PARTHENON_REAL, nb.snb.rank,
-              tag, cc_var_comm, &(bd_var_flcor_.req_recv[nb.bufid])));
+              tag, cc_flcor_comm, &(bd_var_flcor_.req_recv[nb.bufid])));
         }
       }
     }

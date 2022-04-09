@@ -1018,11 +1018,52 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
 
+#ifdef MPI_PARALLEL
+    // Create separate communicators for all variables. Needs to be done at the mesh
+    // level so that the communicators for each variable across all blocks is consistent.
+    // As variables are identical across all blocks, we just use the info from the first.
+    // TODO(pgrete) cleanup technically not needed if the creation is moved to the Mesh
+    // constructor and not in Mesh::Initialize. As variables don't change during a sim,
+    // the Mesh contructor would e a better place.
+    for (auto &elem : mpi_comm_map) {
+      PARTHENON_MPI_CHECK(MPI_Comm_free(&(elem.second)));
+    }
+    mpi_comm_map.clear();
+
+    for (auto &v : block_list[0]->meshblock_data.Get()->GetCellVariableVector()) {
+      if (v->IsSet(Metadata::FillGhost)) {
+        MPI_Comm mpi_comm;
+        PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+        const auto ret = mpi_comm_map.insert({v->label(), mpi_comm});
+        PARTHENON_REQUIRE_THROWS(ret.second,
+                                 "Communicator with same name already in map");
+        if (multilevel) {
+          MPI_Comm mpi_comm_flcor;
+          PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm_flcor));
+          const auto ret = mpi_comm_map.insert({v->label() + "_flcor", mpi_comm_flcor});
+          PARTHENON_REQUIRE_THROWS(
+              ret.second, "Flux corr. communicator with same name already in map");
+        }
+      }
+    }
+    for (auto &s : block_list[0]->swarm_data.Get()->GetSwarmVector()) {
+      MPI_Comm mpi_comm;
+      PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+      const auto ret = mpi_comm_map.insert({s->label(), mpi_comm});
+      PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
+    }
+    // TODO(everying during a sync) we should discuss what to do with face vars as they
+    // are currently not handled in pmb->meshblock_data.Get()->SetupPersistentMPI(); nor
+    // inserted into pmb->pbval->bvars.
+#endif
+
     // Create send/recv MPI_Requests for all BoundaryData objects
     for (int i = 0; i < nmb; ++i) {
       auto &pmb = block_list[i];
+      // TODO(mpi people) do we still need the pbval part? Discuss also in the context of
+      // other than cellvariables, see comment above on communicators.
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
-      pmb->pbval->SetupPersistentMPI();
+      // pmb->pbval->SetupPersistentMPI();
       pmb->meshblock_data.Get()->SetupPersistentMPI();
       pmb->swarm_data.Get()->SetupPersistentMPI();
     }

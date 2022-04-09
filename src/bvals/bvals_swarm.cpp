@@ -40,11 +40,6 @@ namespace parthenon {
 
 BoundarySwarm::BoundarySwarm(std::weak_ptr<MeshBlock> pmb)
     : bswarm_index(), pmy_block(pmb), pmy_mesh_(pmb.lock()->pmy_mesh) {
-#ifdef MPI_PARALLEL
-  // Create unique communicator for this swarm
-  PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &swarm_comm));
-#endif
-
   InitBoundaryData(bd_var_);
 }
 
@@ -62,6 +57,8 @@ void BoundarySwarm::InitBoundaryData(BoundaryData<> &bd) {
 #endif
   }
 }
+
+void BoundarySwarm::SetComm(MPI_Comm mpi_comm) { swarm_comm = mpi_comm; }
 
 void BoundarySwarm::SetupPersistentMPI() {
 #ifdef MPI_PARALLEL

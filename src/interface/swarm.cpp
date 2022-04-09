@@ -859,9 +859,10 @@ void Swarm::SetNeighborIndices3D_() {
 }
 
 void Swarm::SetupPersistentMPI() {
-  vbswarm->SetupPersistentMPI();
-
   auto pmb = GetBlockPointer();
+  // TODO(PG) move to constructor once MPI_Comm_dup is in Mesh constructor
+  vbswarm->SetComm(pmb->pmy_mesh->mpi_comm_map[label()]);
+  vbswarm->SetupPersistentMPI();
 
   const int ndim = pmb->pmy_mesh->ndim;
 

@@ -104,7 +104,10 @@ class Mesh {
   Packages_t packages;
 
   DataCollection<MeshData<Real>> mesh_data;
-
+#ifdef MPI_PARALLEL
+  // Global map of MPI comms for separate variables
+  std::map<std::string, MPI_Comm> mpi_comm_map;
+#endif
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
