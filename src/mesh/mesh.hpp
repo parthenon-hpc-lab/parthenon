@@ -166,7 +166,9 @@ class Mesh {
 
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
 
+#ifdef MPI_PARALLEL
   MPI_Comm const GetMPIComm(const std::string &label) { return mpi_comm_map_.at(label); }
+#endif
 
  private:
   // data

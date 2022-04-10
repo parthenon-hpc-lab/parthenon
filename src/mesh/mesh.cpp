@@ -779,11 +779,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 // destructor
 
 Mesh::~Mesh() {
+#ifdef MPI_PARALLEL
   // Cleanup MPI comms
   for (auto &pair : mpi_comm_map_) {
     PARTHENON_MPI_CHECK(MPI_Comm_free(&(pair.second)));
   }
   mpi_comm_map_.clear();
+#endif
 }
 
 //----------------------------------------------------------------------------------------

@@ -39,6 +39,7 @@
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -57,8 +58,9 @@ FaceCenteredBoundaryVariable::FaceCenteredBoundaryVariable(std::weak_ptr<MeshBlo
   InitBoundaryData(bd_var_flcor_, BoundaryQuantity::fc_flcor);
 
 #ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &fc_var_comm));
-  PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &fc_flcor_comm));
+  PARTHENON_FAIL("FaceCenteredBoundaryVariales are not properly implemented/tested yet.")
+  fc_var_comm = pmy_mesh_->GetMPIComm("TODO: Give label to face variables");
+  fc_flcor_comm = pmy_mesh_->GetMPIComm("TODO: Give label to face variables_flcor");
 #endif
 }
 
