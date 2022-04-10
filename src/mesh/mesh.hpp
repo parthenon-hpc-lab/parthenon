@@ -102,12 +102,10 @@ class Mesh {
 
   BlockList_t block_list;
   Packages_t packages;
+  std::shared_ptr<StateDescriptor> resolved_packages;
 
   DataCollection<MeshData<Real>> mesh_data;
-#ifdef MPI_PARALLEL
-  // Global map of MPI comms for separate variables
-  std::map<std::string, MPI_Comm> mpi_comm_map;
-#endif
+
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
@@ -168,6 +166,8 @@ class Mesh {
 
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
 
+  MPI_Comm const GetMPIComm(const std::string &label) { return mpi_comm_map_.at(label); }
+
  private:
   // data
   int root_level, max_level, current_level;
@@ -209,6 +209,11 @@ class Mesh {
   // size of default MeshBlockPacks
   int default_pack_size_;
 
+#ifdef MPI_PARALLEL
+  // Global map of MPI comms for separate variables
+  std::map<std::string, MPI_Comm> mpi_comm_map_;
+#endif
+
   // functions
   MeshGenFunc MeshGenerator_[4];
 
@@ -244,6 +249,8 @@ class Mesh {
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
   void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
+
+  void SetupMPIComms();
 };
 
 //----------------------------------------------------------------------------------------

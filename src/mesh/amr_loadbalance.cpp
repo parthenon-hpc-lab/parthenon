@@ -718,7 +718,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         // append new block to list of MeshBlocks
         new_block_list[n - nbs] =
             MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
-                            app_in, packages, gflag);
+                            app_in, packages, resolved_packages, gflag);
         // fill the conservative variables
         if ((loclist[on].level > newloc[n].level)) { // fine to coarse (f2c)
           for (int ll = 0; ll < nleaf; ll++) {
