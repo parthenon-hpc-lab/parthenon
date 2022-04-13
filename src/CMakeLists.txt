@@ -199,9 +199,11 @@ add_library(parthenon
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
+  utils/communication_buffer.hpp
   utils/cleantypes.hpp
   utils/error_checking.hpp
   utils/error_checking.cpp
+  utils/memory_pool.hpp
   utils/mpi_types.hpp
   utils/partition_stl_containers.hpp
   utils/reductions.hpp
