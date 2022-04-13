@@ -40,6 +40,7 @@ void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &e
 void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds);
 void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
                             const NeighborBlock &nb, MeshBlock *pmb);
+
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md);
