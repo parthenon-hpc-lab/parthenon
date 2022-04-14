@@ -46,6 +46,8 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/partition_stl_containers.hpp"
+#include "utils/memory_pool.hpp"
+#include "utils/communication_buffer.hpp"
 
 namespace parthenon {
 
@@ -168,7 +170,16 @@ class Mesh {
   std::vector<LogicalLocation> GetLocList() const noexcept { return loclist; }
 
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
-
+  
+  // Structures for reusable memory pools and communication 
+  using pool_t = Pool<BufArray1D<Real>>;  
+  using channel_key_t = std::tuple<int, int, std::string>;  
+  
+  // Ordering here is important to prevent deallocation of pools before boundary 
+  // communication buffers 
+  std::map<int, pool_t> pool_map;
+  std::map<channel_key_t, CommBuffer<pool_t::weak_t>> boundary_comm_map;
+ 
  private:
   // data
   int next_phys_id_; // next unused value for encoding final component of MPI tag bitfield

@@ -36,6 +36,7 @@ template <class T, class KEY_T = unsigned long int>
 class Pool
 {
 public:
+  using base_t = T;
   // Forward declarations of pool types
   class weak_t;
   class owner_t;

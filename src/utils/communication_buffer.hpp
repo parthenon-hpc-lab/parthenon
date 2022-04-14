@@ -168,8 +168,10 @@ public:
 
   void Allocate()
   {
-    T::operator=(get_resource_());
-    active_ = true;
+    if (!active_) { 
+      T::operator=(get_resource_());
+      active_ = true;
+    }
   }
 
   void Free()
