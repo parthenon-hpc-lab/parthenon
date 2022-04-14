@@ -29,6 +29,8 @@
 #include "mesh/meshblock_pack.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
+#include "utils/memory_pool.hpp"
+#include "utils/communication_buffer.hpp"
 
 namespace parthenon {
 
@@ -459,7 +461,7 @@ class MeshData {
     }
     return true;
   }
-
+  
  private:
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
@@ -477,6 +479,9 @@ class MeshData {
 
   std::vector<bool> send_buf_alloc_status_, set_buf_alloc_status_,
       restrict_buf_alloc_status_;
+ public: 
+  std::vector<CommBuffer<Pool<BufArray1D<Real>>::owner_t>> owner_send; 
+  std::vector<CommBuffer<Pool<BufArray1D<Real>>::owner_t>> owner_recv; 
 };
 
 } // namespace parthenon

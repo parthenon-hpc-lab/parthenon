@@ -35,6 +35,32 @@
 namespace parthenon {
 namespace cell_centered_bvars {
 
+namespace detail { 
+template<class F>
+void IterateBoundaries(std::shared_ptr<MeshData<Real>> &md, F func) {
+  for (int block = 0; block < md->NumBlocks(); ++block) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
+    for (auto &v : rc->GetCellVariableVector()) {
+      if (v->IsSet(Metadata::FillGhost)) {
+        for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
+          auto& nb = pmb->pbval->neighbor[n];
+          func(pmb, rc, nb, v);
+        }
+      }
+    }
+  }
+}
+
+using sp_mb_t = std::shared_ptr<MeshBlock>; 
+using sp_mbd_t = std::shared_ptr<MeshBlockData<Real>>; 
+using sp_cv_t = std::shared_ptr<CellVariable<Real>>; 
+using nb_t = NeighborBlock; 
+
+}
+
+using namespace detail;
+
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundaryBuffers"); 
   Mesh* pmesh = md->GetMeshPointer(); 
@@ -53,76 +79,79 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   } 
 
   // Build buffers 
-  for (int block = 0; block < md->NumBlocks(); ++block) {
-    auto &rc = md->GetBlockData(block);
-    auto pmb = rc->GetBlockPointer();
-    for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(Metadata::FillGhost)) {
-        for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
-          auto& nb = pmb->pbval->neighbor[n];
+  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+     // Calculate the buffer size, this should be safe even for unsame levels 
+     int buf_size = (nb.ni.ox1 == 0 ? isize : Globals::nghost) 
+                  * (nb.ni.ox2 == 0 ? jsize : Globals::nghost)
+                  * (nb.ni.ox3 == 0 ? ksize : Globals::nghost);
 
-          // Calculate the buffer size, this should be safe even for unsame levels 
-          int buf_size = (nb.ni.ox1 == 0 ? isize : Globals::nghost) 
-                       * (nb.ni.ox2 == 0 ? jsize : Globals::nghost)
-                       * (nb.ni.ox3 == 0 ? ksize : Globals::nghost);
+     // Add a buffer pool if one does not exist for this size  
+     if (pmesh->pool_map.count(buf_size) == 0) {
+       pmesh->pool_map.emplace(std::make_pair(buf_size, Mesh::pool_t([buf_size]() {
+                                                return Mesh::pool_t::base_t("pool buffer", buf_size);
+                                              })));
+     } 
+     
+     const int sender_id = pmb->gid; 
+     const int receiver_id = nb.snb.gid;
+     // This tag is still pretty limiting, since 2^7 = 128 
+     int tag = (nb.snb.lid << 7) | pmb->lid; 
 
-          // Add a buffer pool if one does not exist for this size  
-          if (pmesh->pool_map.count(buf_size) == 0) {
-            pmesh->pool_map.emplace(std::make_pair(buf_size, Mesh::pool_t([buf_size]() {
-                                                     return Mesh::pool_t::base_t("pool buffer", buf_size);
-                                                   })));
-          } 
-          
-          const int sender_id = pmb->gid; 
-          const int receiver_id = nb.snb.gid;
-          // This tag is still pretty limiting, since 2^7 = 128 
-          int tag = (nb.snb.lid << 7) | pmb->lid; 
+     const int receiver_rank = nb.snb.rank;
+     const int sender_rank = Globals::my_rank; 
 
-          const int receiver_rank = nb.snb.rank;
-          const int sender_rank = Globals::my_rank; 
+     // TODO: Fix this to use Philipp's communicators and deal with mpi or no mpi
+     const int comm = 0; 
 
-          // TODO: Fix this to use Philipp's communicators and deal with mpi or no mpi
-          const int comm = 0; 
-          
-
-          // Build sending buffers  
-          pmesh->boundary_comm_map[{sender_id, receiver_id, v->label()}] = 
-                                                 CommBuffer<Mesh::pool_t::weak_t>(tag, sender_rank, receiver_rank, comm,
-                                                 [&pmesh, buf_size]()
-                                                 { return pmesh->pool_map.at(buf_size).Get();});
-          
-          // Also build the non-local receive buffers here          
-          if (sender_rank != receiver_rank) {
-            int tag = (pmb->lid << 7) | nb.snb.lid; 
-            pmesh->boundary_comm_map[{receiver_id, sender_id, v->label()}] = 
-                                                 CommBuffer<Mesh::pool_t::weak_t>(tag, receiver_rank, sender_rank, comm,
-                                                 [&pmesh, buf_size]()
-                                                 { return pmesh->pool_map.at(buf_size).Get();});
-          }
-        }
-      }
-    }
-  }
+     // Build sending buffers  
+     pmesh->boundary_comm_map[{sender_id, receiver_id, v->label()}] = 
+                                            CommBuffer<Mesh::pool_t::weak_t>(tag, sender_rank, receiver_rank, comm,
+                                            [&pmesh, buf_size]()
+                                            { return pmesh->pool_map.at(buf_size).Get();});
+     
+     // Also build the non-local receive buffers here          
+     if (sender_rank != receiver_rank) {
+       int tag = (pmb->lid << 7) | nb.snb.lid; 
+       pmesh->boundary_comm_map[{receiver_id, sender_id, v->label()}] = 
+                                            CommBuffer<Mesh::pool_t::weak_t>(tag, receiver_rank, sender_rank, comm,
+                                            [&pmesh, buf_size]()
+                                            { return pmesh->pool_map.at(buf_size).Get();});
+     }
+  });
 
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
 
 TaskStatus LoadAndSendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundaryBuffers"); 
-  // Allocate buffers as necessary 
-  for (int block = 0; block < md->NumBlocks(); ++block) {
-    auto &rc = md->GetBlockData(block);
-    auto pmb = rc->GetBlockPointer();
-    for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(Metadata::FillGhost)) {
-        for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
-          auto& nb = pmb->pbval->neighbor[n];
-        }
+  Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundaryBuffers");
+  
+  Mesh* pmesh = md->GetMeshPointer(); 
+  
+  // Need to check if rebuild is necessary and count active channels
+  bool rebuild = false; 
+
+  if (rebuild) {
+    md->owner_send.clear();
+    int iarr = 0;
+    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+      auto& buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+      if (v->IsAllocated()) { 
+        buf.Allocate(); 
+        // Fill boundary info object 
+        // bnd_info_h(iarr).buf = buf; etc.  
+        ++iarr; 
       }
-    }
-  }
-   
+      md->owner_send.push_back(buf); 
+    });
+    // Kokkos::deep_copy(bnd_info, bnd_info_h); 
+  }   
+  // Restrict 
+
+  // Load buffer data 
+  
+  // Send buffers
+
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
