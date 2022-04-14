@@ -96,7 +96,6 @@ class ParameterInput {
   Real GetOrAddReal(const std::string &block, const std::string &name, Real value);
   Real GetOrAddPrecise(const std::string &block, const std::string &name, Real value);
   Real SetReal(const std::string &block, const std::string &name, Real value);
-  Real SetPrecise(const std::string &block, const std::string &name, Real value);
   bool GetBoolean(const std::string &block, const std::string &name);
   bool GetOrAddBoolean(const std::string &block, const std::string &name, bool value);
   bool SetBoolean(const std::string &block, const std::string &name, bool value);

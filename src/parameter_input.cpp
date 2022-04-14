@@ -715,7 +715,7 @@ Real ParameterInput::GetOrAddPrecise(const std::string &block, const std::string
     std::string val = pl->param_value;
     ret = static_cast<Real>(atof(val.c_str()));
   } else {
-    ret = SetPrecise(block, name, def_value);
+    ret = SetReal(block, name, def_value);
   }
   return ret;
 }
@@ -798,28 +798,12 @@ int ParameterInput::SetInteger(const std::string &block, const std::string &name
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn Real ParameterInput::SetReal(const std::string & block, const std::string & name,
-//! Real value)
-//  \brief updates a real parameter; creates it if it does not exist
-
-Real ParameterInput::SetReal(const std::string &block, const std::string &name,
-                             Real value) {
-  InputBlock *pb;
-  std::stringstream ss_value;
-
-  pb = FindOrAddBlock(block);
-  ss_value << value;
-  AddParameter(pb, name, ss_value.str(), "# Updated during run time");
-  return value;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn Real ParameterInput::SetPrecise(const std::string & block, const std::string &
+//! \fn Real ParameterInput::SetReal(const std::string & block, const std::string &
 //! name, Real value)
 //  \brief updates a real parameter with full precision; creates it if it does not exist
 
-Real ParameterInput::SetPrecise(const std::string &block, const std::string &name,
-                                Real value) {
+Real ParameterInput::SetReal(const std::string &block, const std::string &name,
+                             Real value) {
   InputBlock *pb;
   std::stringstream ss_value;
 
