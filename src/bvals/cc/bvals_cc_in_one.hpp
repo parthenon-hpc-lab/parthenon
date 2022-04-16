@@ -24,6 +24,8 @@
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "coordinates/coordinates.hpp"
+#include "utils/memory_pool.hpp" 
+#include "utils/communication_buffer.hpp"
 
 namespace parthenon {
 
@@ -57,7 +59,7 @@ struct BndInfo {
   bool allocated = true;
   bool restriction = false;
   Coordinates_t coords, coarse_coords; // coords
-  parthenon::BufArray1D<Real> buf;     // comm buffer
+  buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
   parthenon::ParArray4D<Real> var;     // data variable used for comms
   parthenon::ParArray4D<Real> fine;    // fine data variable for prolongation/restriction
   parthenon::ParArray4D<Real> coarse; // coarse data variable for prolongation/restriction
