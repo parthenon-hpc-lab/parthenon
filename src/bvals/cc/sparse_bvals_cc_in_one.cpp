@@ -65,8 +65,6 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundaryBuffers"); 
   Mesh* pmesh = md->GetMeshPointer(); 
 
-  // Check if mesh topology changed 
-  
   int isize, jsize, ksize; 
   {
     auto& rc = md->GetBlockData(0);
@@ -83,12 +81,12 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
      // Calculate the buffer size, this should be safe even for unsame levels 
      int buf_size = (nb.ni.ox1 == 0 ? isize : Globals::nghost) 
                   * (nb.ni.ox2 == 0 ? jsize : Globals::nghost)
-                  * (nb.ni.ox3 == 0 ? ksize : Globals::nghost);
+                  * (nb.ni.ox3 == 0 ? ksize : Globals::nghost) + 1;
 
      // Add a buffer pool if one does not exist for this size  
      if (pmesh->pool_map.count(buf_size) == 0) {
-       pmesh->pool_map.emplace(std::make_pair(buf_size, Mesh::pool_t([buf_size]() {
-                                                return Mesh::pool_t::base_t("pool buffer", buf_size);
+       pmesh->pool_map.emplace(std::make_pair(buf_size, buf_pool_t<Real>([buf_size]() {
+                                                return buf_pool_t<Real>::base_t("pool buffer", buf_size);
                                               })));
      } 
      
@@ -105,7 +103,7 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
      // Build sending buffers  
      pmesh->boundary_comm_map[{sender_id, receiver_id, v->label()}] = 
-                                            CommBuffer<Mesh::pool_t::weak_t>(tag, sender_rank, receiver_rank, comm,
+                                            CommBuffer<buf_pool_t<Real>::owner_t>(tag, sender_rank, receiver_rank, comm,
                                             [&pmesh, buf_size]()
                                             { return pmesh->pool_map.at(buf_size).Get();});
      
@@ -113,7 +111,7 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
      if (sender_rank != receiver_rank) {
        int tag = (pmb->lid << 7) | nb.snb.lid; 
        pmesh->boundary_comm_map[{receiver_id, sender_id, v->label()}] = 
-                                            CommBuffer<Mesh::pool_t::weak_t>(tag, receiver_rank, sender_rank, comm,
+                                            CommBuffer<buf_pool_t<Real>::owner_t>(tag, receiver_rank, sender_rank, comm,
                                             [&pmesh, buf_size]()
                                             { return pmesh->pool_map.at(buf_size).Get();});
      }
@@ -127,30 +125,110 @@ TaskStatus LoadAndSendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundaryBuffers");
   
   Mesh* pmesh = md->GetMeshPointer(); 
-  
-  // Need to check if rebuild is necessary and count active channels
-  bool rebuild = false; 
+
+  // Allocate channels sending from active data and then check to see if 
+  // if buffers have changed
+  bool rebuild = false;
+  int nbound = 0; 
+  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    auto& buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+    
+    if (v->IsAllocated()) {
+      buf.Allocate();
+    } else { 
+      buf.Free();
+    }
+
+    if (nbound < md->send_bnd_info_h.size()) {    
+      rebuild = rebuild || !UsingSameResource(md->send_bnd_info_h(nbound).buf, buf);
+    } else { 
+      rebuild = true; 
+    }
+
+    ++nbound;
+  });
+
 
   if (rebuild) {
-    md->owner_send.clear();
+    md->send_bnd_info = BufferCache_t("send_boundary_info", nbound);
+    md->send_bnd_info_h = Kokkos::create_mirror_view(md->send_bnd_info);
+
     int iarr = 0;
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       auto& buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
-      if (v->IsAllocated()) { 
-        buf.Allocate(); 
-        // Fill boundary info object 
-        // bnd_info_h(iarr).buf = buf; etc.  
-        ++iarr; 
-      }
-      md->owner_send.push_back(buf); 
+      md->send_bnd_info_h(iarr).buf = buf; 
+      md->send_bnd_info_h(iarr).allocated = v->IsAllocated();
+      
+      // TODO: fill the rest 
+       
+      ++iarr;
     });
-    // Kokkos::deep_copy(bnd_info, bnd_info_h); 
+    Kokkos::deep_copy(md->send_bnd_info, md->send_bnd_info_h); 
   }   
+  
   // Restrict 
+  {
+    auto &rc = md->GetBlockData(0);
+    auto pmb = rc->GetBlockPointer();
+    IndexShape cellbounds = pmb->cellbounds;
+    IndexShape c_cellbounds = pmb->c_cellbounds;
+    cell_centered_refinement::Restrict(md->send_bnd_info, cellbounds, c_cellbounds);
+  } 
 
   // Load buffer data 
-  
+  const Real threshold = Globals::sparse_config.allocation_threshold;
+  auto& bnd_info = md->send_bnd_info; 
+
+  ParArray1D<bool> sending_nonzero_flags("sending_nonzero_flags", nbound);
+  auto sending_nonzero_flags_h = Kokkos::create_mirror_view(sending_nonzero_flags);
+  Kokkos::parallel_for(
+    "SendBoundaryBuffers",
+    Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
+    KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+      const int b = team_member.league_rank();
+      
+      sending_nonzero_flags(b) = false;
+      if (!bnd_info(b).allocated) return;
+
+      const int &si = bnd_info(b).si;
+      const int &ei = bnd_info(b).ei;
+      const int &sj = bnd_info(b).sj;
+      const int &ej = bnd_info(b).ej;
+      const int &sk = bnd_info(b).sk;
+      const int &ek = bnd_info(b).ek;
+      const int Ni = ei + 1 - si;
+      const int Nj = ej + 1 - sj;
+      const int Nk = ek + 1 - sk;
+      const int &Nv = bnd_info(b).Nv;
+      const int NjNi = Nj * Ni;
+      const int NkNjNi = Nk * NjNi;
+      const int NvNkNjNi = Nv * NkNjNi;
+
+      Kokkos::parallel_for(
+        Kokkos::TeamThreadRange<>(team_member, NvNkNjNi), [&](const int idx) {
+          const int v = idx / NkNjNi;
+          const int k = (idx % NkNjNi) / NjNi + sk; 
+          const int j = (idx % NjNi) / Ni + sj; 
+          const int i = idx % Ni + si; 
+
+          const Real val = bnd_info(b).var(v, k, j, i);
+          bnd_info(b).buf(i - si + Ni * (j - sj + Nj * (k - sk + Nk * v))) = val;
+          if (std::abs(val) > threshold) sending_nonzero_flags(b) = true;
+      });
+
+  });
+
   // Send buffers
+  Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);
+  Kokkos::fence();
+
+  int iarr = 0;
+  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    auto& buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+    if ( sending_nonzero_flags(iarr) ) buf.Send();
+    else buf.SendNull();
+    ++iarr;
+  });
 
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
@@ -158,20 +236,119 @@ TaskStatus LoadAndSendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers"); 
+  
+  bool all_received = true;
+  Mesh* pmesh = md->GetMeshPointer(); 
+  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    auto& buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
+    all_received = all_received && buf.TryReceive(); 
 
+    // Allocate variable if it is receiving actual data in any boundary
+    // (the state could also be BufferState::received_null, which corresponds to no data)  
+    if (buf.GetState() == BufferState::received && !v->IsAllocated()) {
+      pmb->AllocateSparse(v->label());
+      // TODO: Need to flag this so that the array gets filled with something sensible
+    }
+  });
+  
   Kokkos::Profiling::popRegion();
-  return TaskStatus::complete;
-}
 
-TaskStatus ActivateBasedOnBoundaries(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_ActivateBasedOnBoundaries"); 
+  if (all_received) return TaskStatus::complete;
+  return TaskStatus::incomplete;
 
-  Kokkos::Profiling::popRegion();
-  return TaskStatus::complete;
 }
 
 TaskStatus SetInternalBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetInternalBoundaries");  
+  
+  Mesh* pmesh = md->GetMeshPointer();
+  
+  // Check for rebuild 
+  bool rebuild = false;
+  int nbound = 0; 
+  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    auto& buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
+    if (nbound < md->recv_bnd_info_h.size()) {    
+      rebuild = rebuild || !UsingSameResource(md->recv_bnd_info_h(nbound).buf, buf);
+    } else { 
+      rebuild = true; 
+    }
+    ++nbound;
+  });
+  
+  if (rebuild) {
+    md->recv_bnd_info = BufferCache_t("recv_boundary_info", nbound);
+    md->recv_bnd_info_h = Kokkos::create_mirror_view(md->recv_bnd_info); 
+    int iarr = 0;
+    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+      auto& buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
+      
+      md->recv_bnd_info_h(iarr).buf = buf; 
+      if (buf.GetState() == BufferState::received) {
+        md->recv_bnd_info_h(iarr).allocated = true;
+      } else { 
+        md->recv_bnd_info_h(iarr).allocated = false;
+      }
+      // TODO: Set indices 
+
+      ++iarr;
+    }); 
+    Kokkos::deep_copy(md->recv_bnd_info, md->recv_bnd_info_h); 
+  }
+
+  //const Real threshold = Globals::sparse_config.allocation_threshold;
+  auto& bnd_info = md->recv_bnd_info;
+
+  Kokkos::parallel_for(
+    "SendBoundaryBuffers",
+    Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
+    KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+      const int b = team_member.league_rank();
+      
+      const int &si = bnd_info(b).si;
+      const int &ei = bnd_info(b).ei;
+      const int &sj = bnd_info(b).sj;
+      const int &ej = bnd_info(b).ej;
+      const int &sk = bnd_info(b).sk;
+      const int &ek = bnd_info(b).ek;
+
+      const int Ni = ei + 1 - si;
+      const int Nj = ej + 1 - sj;
+      const int Nk = ek + 1 - sk;
+      const int &Nv = bnd_info(b).Nv;
+      const int NjNi = Nj * Ni;
+      const int NkNjNi = Nk * NjNi;
+      const int NvNkNjNi = Nv * NkNjNi;
+      
+      if (bnd_info(b).allocated) {
+        Kokkos::parallel_for(
+          Kokkos::TeamThreadRange<>(team_member, NvNkNjNi), [&](const int idx) {
+            const int v = idx / NkNjNi;
+            const int k = (idx % NkNjNi) / NjNi + sk; 
+            const int j = (idx % NjNi) / Ni + sj; 
+            const int i = idx % Ni + si; 
+
+            const Real val = bnd_info(b).buf(i - si + Ni * (j - sj + Nj * (k - sk + Nk * v)));
+            bnd_info(b).var(v, k, j, i) = val;
+            
+        });
+      } else { 
+        Kokkos::parallel_for(
+          Kokkos::TeamThreadRange<>(team_member, NvNkNjNi), [&](const int idx) {
+            const int v = idx / NkNjNi;
+            const int k = (idx % NkNjNi) / NjNi + sk; 
+            const int j = (idx % NjNi) / Ni + sj; 
+            const int i = idx % Ni + si; 
+
+            bnd_info(b).var(v, k, j, i) = 0.0;
+        });
+      }
+
+  });
+
+  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}].Stale();
+  });
 
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;

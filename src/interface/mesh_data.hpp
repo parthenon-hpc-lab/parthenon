@@ -479,9 +479,14 @@ class MeshData {
 
   std::vector<bool> send_buf_alloc_status_, set_buf_alloc_status_,
       restrict_buf_alloc_status_;
+ 
  public: 
-  std::vector<CommBuffer<Pool<BufArray1D<Real>>::owner_t>> owner_send; 
-  std::vector<CommBuffer<Pool<BufArray1D<Real>>::owner_t>> owner_recv; 
+  
+  cell_centered_bvars::BufferCache_t send_bnd_info{}; 
+  cell_centered_bvars::BufferCache_t::host_mirror_type send_bnd_info_h{}; 
+  
+  cell_centered_bvars::BufferCache_t recv_bnd_info{}; 
+  cell_centered_bvars::BufferCache_t::host_mirror_type recv_bnd_info_h{}; 
 };
 
 } // namespace parthenon
