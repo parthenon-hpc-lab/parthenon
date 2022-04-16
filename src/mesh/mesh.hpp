@@ -171,14 +171,13 @@ class Mesh {
 
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
   
-  // Structures for reusable memory pools and communication 
-  using pool_t = Pool<BufArray1D<Real>>;  
-  using channel_key_t = std::tuple<int, int, std::string>;  
+    
   
   // Ordering here is important to prevent deallocation of pools before boundary 
   // communication buffers 
-  std::map<int, pool_t> pool_map;
-  std::map<channel_key_t, CommBuffer<pool_t::weak_t>> boundary_comm_map;
+  using channel_key_t = std::tuple<int, int, std::string>;
+  std::map<int, buf_pool_t<Real>> pool_map;
+  std::map<channel_key_t, CommBuffer<buf_pool_t<Real>::owner_t>> boundary_comm_map;
  
  private:
   // data
