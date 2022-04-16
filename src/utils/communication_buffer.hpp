@@ -150,7 +150,7 @@ class CommBuffer : public T
   std::function<T()> get_resource_;
 
 public:
-
+  
   CommBuffer()
 #ifdef MPI_PARALLEL
       : my_request_(std::make_shared<MPI_Request>(MPI_REQUEST_NULL))
@@ -179,6 +179,8 @@ public:
     T::operator=(T());
     active_ = false;
   }
+  
+  BufferState GetState() {return *state_;}
 
   bool IsActive() const { return active_; }
 

@@ -152,6 +152,13 @@ public:
 
   KOKKOS_DEFAULTED_FUNCTION
   weak_t &operator=(weak_t &&) = default;
+  
+  // Allow this to point at an unmanaged object of type T
+  KOKKOS_FUNCTION 
+  weak_t &operator=(const T& in) {
+    T::operator=(in);
+    return *this;
+  }
 
 protected:
   KEY_T key_ = 0;
