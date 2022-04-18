@@ -60,7 +60,8 @@ using nb_t = NeighborBlock;
 }
 
 using namespace detail;
-
+ 
+// TODO: Need to call pmesh->boundary_comm_map.clear() after every remesh 
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundaryBuffers"); 
   Mesh* pmesh = md->GetMeshPointer(); 
@@ -147,7 +148,6 @@ TaskStatus LoadAndSendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
     ++nbound;
   });
-
 
   if (rebuild) {
     md->send_bnd_info = BufferCache_t("send_boundary_info", nbound);
