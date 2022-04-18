@@ -131,8 +131,8 @@ if (NOT PARTHENON_DISABLE_OPENMP)
   # Using Host OpenMP and Cuda with nvcc currently does not compile with C++17 standard.
   # Also there is no proper support for two separate execution spaces in Parthenon right now.
   # We may need to revisit this logic when OpenMP target for devices will be used in the future.
-  if (Kokkos_ENABLE_CUDA)
-    message(STATUS "Parthenon is not using Host OpenMP because Cuda is enabled")
+  if (Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
+    message(STATUS "Parthenon is not using Host OpenMP because Cuda or HIP is enabled")
   else()
     find_package(OpenMP COMPONENTS CXX)
     if (NOT OpenMP_FOUND)
@@ -274,6 +274,14 @@ if (NOT TARGET Kokkos::kokkos)
   endif()
 endif()
 
+if (Kokkos_ENABLE_SYCL)
+  message(WARNING
+    "SYCL backend is currently NOT tested in Parthenon due to lack of access to hardware. "
+    "It may or may not work. Use at your own risk. "
+    "Please get in contact for support."
+  )
+endif()
+
 # Build Tests and download Catch2
 if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
 
@@ -311,7 +319,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
   endif()
 
   # Try finding an installed Catch2 first
-  find_package(Catch2 2.11.1 QUIET)
+  find_package(Catch2 2.13.8 QUIET)
 
   if (NOT Catch2_FOUND)
     # If Catch2 is not found, instead use the git submodule
@@ -327,7 +335,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/Catch2/contrib")
   endif()
 
-  include(ParseAndAddCatchTests)
+  include(Catch)
   add_subdirectory(tst)
 endif()
 
