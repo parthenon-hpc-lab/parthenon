@@ -71,36 +71,6 @@ namespace impl
 
 using namespace impl;
 
-class VariableCommMap
-{
-public:
-  // This needs to be called in the same order on every process
-  // TODO: Come up with a more robust scheme for creating variable communicators
-  void AddVariable(const std::string &var_name)
-  {
-    if (map_.count(var_name) > 0)
-      return; // Variable is already in map
-#ifdef MPI_PARALLEL
-    comm_t temp;
-    MPI_Comm_dup(MPI_COMM_WORLD, &temp);
-    map_[var_name] = temp;
-#else
-    map_[var_name] = current_idx_;
-    ++current_idx_;
-#endif
-    return;
-  }
-
-  comm_t GetCommunicator(const std::string &var_name)
-  {
-    return map_[var_name];
-  }
-
-private:
-  comm_t current_idx_; // Only needed when there is no MPI
-  std::unordered_map<std::string, comm_t> map_;
-};
-
 enum class BufferState
 {
   stale,
