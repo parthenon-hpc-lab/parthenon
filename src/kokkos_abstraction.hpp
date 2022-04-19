@@ -28,7 +28,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "utils/error_checking.hpp"
-#include "utils/memory_pool.hpp"
+#include "utils/object_pool.hpp"
 
 namespace parthenon {
 
@@ -59,7 +59,7 @@ using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
 
 // Structures for reusable memory pools and communication 
 template<typename T>
-using buf_pool_t = Pool<BufArray1D<T>>;  
+using buf_pool_t = ObjectPool<BufArray1D<T>>;  
 
 template <typename T>
 using ParArray0D = Kokkos::View<T, LayoutWrapper, DevMemSpace>;

@@ -29,7 +29,7 @@
 #include "mesh/meshblock_pack.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
-#include "utils/memory_pool.hpp"
+#include "utils/object_pool.hpp"
 #include "utils/communication_buffer.hpp"
 
 namespace parthenon {

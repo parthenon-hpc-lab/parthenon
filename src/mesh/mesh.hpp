@@ -46,7 +46,7 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/partition_stl_containers.hpp"
-#include "utils/memory_pool.hpp"
+#include "utils/object_pool.hpp"
 #include "utils/communication_buffer.hpp"
 
 namespace parthenon {

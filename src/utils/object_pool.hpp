@@ -33,7 +33,7 @@ namespace parthenon {
 // Object for managing a pool of Kokkos::Views that
 // have the same instantiation call signature
 template <class T, class KEY_T = unsigned long int>
-class Pool
+class ObjectPool
 {
 public:
   using base_t = T;
@@ -50,7 +50,7 @@ private:
 
 public:
   template <class... Ts>
-  Pool(std::function<T()> get_resource) : get_resource_(get_resource),
+  ObjectPool(std::function<T()> get_resource) : get_resource_(get_resource),
                                           available_(),
                                           inuse_(),
                                           keyc_(default_key_) {}
@@ -103,9 +103,9 @@ private:
 // is in use or if it has been freed and allows
 // freeing of the storage.
 template <class T, class KEY_T>
-struct Pool<T, KEY_T>::weak_t : public T
+struct ObjectPool<T, KEY_T>::weak_t : public T
 {
-  friend class Pool;
+  friend class ObjectPool;
 
 protected:
   template <class... Ts>
@@ -162,14 +162,14 @@ public:
 
 protected:
   KEY_T key_ = 0;
-  Pool *pool_ = nullptr;
+  ObjectPool *pool_ = nullptr;
 };
 
 // Reference counted version of pool member that has ownership over a resource
 // and sends it back to the pool when its destructor is called and it is the
 // last owner that holds that resource. Cannot be on device
 template <class T, class KEY_T>
-class Pool<T, KEY_T>::owner_t : public Pool<T, KEY_T>::weak_t
+class ObjectPool<T, KEY_T>::owner_t : public ObjectPool<T, KEY_T>::weak_t
 {
 public:
   KOKKOS_DEFAULTED_FUNCTION
@@ -237,7 +237,7 @@ private:
 };
 
 template <class T, class KEY_T>
-typename Pool<T, KEY_T>::weak_t Pool<T, KEY_T>::Get()
+typename ObjectPool<T, KEY_T>::weak_t ObjectPool<T, KEY_T>::Get()
 {
   weak_t out;
   if (available_.size() > 0)
