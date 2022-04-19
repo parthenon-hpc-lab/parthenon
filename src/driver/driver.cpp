@@ -17,6 +17,7 @@
 
 #include "driver/driver.hpp"
 
+#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -57,7 +58,7 @@ void Driver::PostExecute(DriverStatus status) {
 
 DriverStatus EvolutionDriver::Execute() {
   PreExecute();
-  InitializeBlockTimeSteps();
+  InitializeBlockTimeStepsAndBoundaries();
   SetGlobalTimeStep();
   OutputSignal signal = OutputSignal::none;
   pouts->MakeOutputs(pmesh, pinput, &tm, signal);
@@ -88,7 +89,7 @@ DriverStatus EvolutionDriver::Execute() {
 
     timer_LBandAMR.reset();
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
-    if (pmesh->modified) InitializeBlockTimeSteps();
+    if (pmesh->modified) InitializeBlockTimeStepsAndBoundaries();
     time_LBandAMR += timer_LBandAMR.seconds();
     SetGlobalTimeStep();
 
@@ -146,16 +147,18 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
   Driver::PostExecute(status);
 }
 
-void EvolutionDriver::InitializeBlockTimeSteps() {
+void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
   // calculate the first time step using Block function
   for (auto &pmb : pmesh->block_list) {
     Update::EstimateTimestep(pmb->meshblock_data.Get().get());
   }
   // calculate the first time step using Mesh function
+  pmesh->boundary_comm_map.clear();
   const int num_partitions = pmesh->DefaultNumPartitions();
   for (int i = 0; i < num_partitions; i++) {
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
     Update::EstimateTimestep(mbase.get());
+    cell_centered_bvars::BuildSparseBoundaryBuffers(mbase);
   }
 }
 
