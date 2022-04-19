@@ -62,7 +62,7 @@ using nb_t = NeighborBlock;
 using namespace detail;
  
 // TODO: Need to call pmesh->boundary_comm_map.clear() after every remesh 
-TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundaryBuffers"); 
   Mesh* pmesh = md->GetMeshPointer(); 
 
@@ -122,7 +122,7 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-TaskStatus LoadAndSendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundaryBuffers");
   
   Mesh* pmesh = md->GetMeshPointer(); 
@@ -156,10 +156,10 @@ TaskStatus LoadAndSendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     int iarr = 0;
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       auto& buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+      
+      md->send_bnd_info_h(iarr) = BndInfo::Sender(pmb, nb, v); 
       md->send_bnd_info_h(iarr).buf = buf; 
       md->send_bnd_info_h(iarr).allocated = v->IsAllocated();
-      
-      // TODO: fill the rest 
        
       ++iarr;
     });
@@ -234,7 +234,7 @@ TaskStatus LoadAndSendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers"); 
   
   bool all_received = true;
@@ -258,7 +258,7 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
 }
 
-TaskStatus SetInternalBoundaries(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetInternalBoundaries");  
   
   Mesh* pmesh = md->GetMeshPointer();
@@ -283,13 +283,13 @@ TaskStatus SetInternalBoundaries(std::shared_ptr<MeshData<Real>> &md) {
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       auto& buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
       
+      md->send_bnd_info_h(iarr) = BndInfo::Setter(pmb, nb, v); 
       md->recv_bnd_info_h(iarr).buf = buf; 
       if (buf.GetState() == BufferState::received) {
         md->recv_bnd_info_h(iarr).allocated = true;
       } else { 
         md->recv_bnd_info_h(iarr).allocated = false;
       }
-      // TODO: Set indices 
 
       ++iarr;
     }); 

@@ -236,5 +236,77 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
   }
 }
 
+BndInfo BndInfo::Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb, 
+                        std::shared_ptr<CellVariable<Real>> v) {
+  BndInfo out;
+  out.Nv = v->GetDim(4);
+  
+  int mylevel = pmb->loc.level;
+  out.coords = pmb->coords;
+  
+  if (pmb->pmr)
+    out.coarse_coords = pmb->pmr->GetCoarseCoords();
+
+  out.fine = v->data.Get<4>();
+  out.coarse = v->vbvar->coarse_buf.Get<4>();
+
+  IndexDomain interior = IndexDomain::interior;
+  if (nb.snb.level == mylevel) {
+    const parthenon::IndexShape &cellbounds = pmb->cellbounds;
+    CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, cellbounds.GetBoundsI(interior));
+    CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, cellbounds.GetBoundsJ(interior));
+    CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, cellbounds.GetBoundsK(interior));
+    out.var = v->data.Get<4>();
+  } else if (nb.snb.level < mylevel) {
+    // "Same" logic is the same for loading to a coarse buffer, just using
+    // c_cellbounds
+    const IndexShape &c_cellbounds = pmb->c_cellbounds;
+    CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, c_cellbounds.GetBoundsI(interior));
+    CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, c_cellbounds.GetBoundsJ(interior));
+    CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, c_cellbounds.GetBoundsK(interior));
+    out.restriction = true;
+    out.var = v->vbvar->coarse_buf.Get<4>(); 
+  } else {
+    CalcIndicesLoadToFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb, pmb.get());
+    out.var = v->data.Get<4>();
+  }
+  return out; 
+}
+
+BndInfo BndInfo::Setter(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb, 
+                        std::shared_ptr<CellVariable<Real>> v) {
+  BndInfo out; 
+
+  out.Nv = v->GetDim(4); 
+  int mylevel = pmb->loc.level; 
+  IndexDomain interior = IndexDomain::interior;
+  if (nb.snb.level == mylevel) {
+    const parthenon::IndexShape &cellbounds = pmb->cellbounds;
+    CalcIndicesSetSame(nb.ni.ox1, out.si, out.ei, cellbounds.GetBoundsI(interior));
+    CalcIndicesSetSame(nb.ni.ox2, out.sj, out.ej, cellbounds.GetBoundsJ(interior));
+    CalcIndicesSetSame(nb.ni.ox3, out.sk, out.ek, cellbounds.GetBoundsK(interior));
+    out.var = v->data.Get<4>();
+  } else if (nb.snb.level < mylevel) {
+    const IndexShape &c_cellbounds = pmb->c_cellbounds;
+    const auto &cng = pmb->cnghost;
+    CalcIndicesSetFromCoarser(nb.ni.ox1, out.si, out.ei,
+                              c_cellbounds.GetBoundsI(interior), pmb->loc.lx1,
+                              cng, true);
+    CalcIndicesSetFromCoarser(nb.ni.ox2, out.sj, out.ej,
+                              c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2,
+                              cng, pmb->block_size.nx2 > 1);
+    CalcIndicesSetFromCoarser(nb.ni.ox3, out.sk, out.ek,
+                              c_cellbounds.GetBoundsK(interior), pmb->loc.lx3,
+                              cng, pmb->block_size.nx3 > 1);
+
+    out.var = v->vbvar->coarse_buf.Get<4>();
+  } else {
+    CalcIndicesSetFromFiner(out.si, out.ei, out.sj, out.ej, 
+                            out.sk, out.ek, nb, pmb.get());
+    out.var = v->data.Get<4>();
+  }
+  return out; 
+}
+
 } // namespace cell_centered_bvars
 } // namespace parthenon

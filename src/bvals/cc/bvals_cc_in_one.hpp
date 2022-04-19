@@ -33,6 +33,9 @@ template <typename T>
 class MeshData;
 class IndexRange;
 class NeighborBlock;
+template <typename T> 
+class CellVariable; 
+
 namespace cell_centered_bvars {
 void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds);
 void CalcIndicesSetFromCoarser(const int &ox, int &s, int &e, const IndexRange &bounds,
@@ -46,6 +49,11 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md);
+
+TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
 // We have one BndInfo per variable per neighbor per block
 struct BndInfo {
@@ -63,6 +71,15 @@ struct BndInfo {
   parthenon::ParArray4D<Real> var;     // data variable used for comms
   parthenon::ParArray4D<Real> fine;    // fine data variable for prolongation/restriction
   parthenon::ParArray4D<Real> coarse; // coarse data variable for prolongation/restriction
+
+  static BndInfo Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb, 
+                        std::shared_ptr<CellVariable<Real>> v);
+  static BndInfo Setter(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb, 
+                        std::shared_ptr<CellVariable<Real>> v);
+  
+  KOKKOS_INLINE_FUNCTION 
+  int GetBufferSize() const { return 1 + Nv * (ei - si + 1) * (ej - sj + 1) * (ek - sk + 1);}
+
 };
 
 using BufferCache_t = ParArray1D<BndInfo>;
