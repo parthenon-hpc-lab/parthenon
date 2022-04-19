@@ -31,7 +31,7 @@
 #endif
 
 namespace parthenon { 
-namespace detail
+namespace impl
 {
 
 #ifdef MPI_PARALLEL
@@ -73,9 +73,9 @@ namespace detail
     MPI_Datatype static value() noexcept { return MPI_CXX_BOOL; }
   };
 #endif
-}
+} // namespace impl
 
-using namespace detail;
+using namespace impl;
 
 class VariableCommMap
 {
