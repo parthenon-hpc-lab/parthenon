@@ -15,24 +15,19 @@
 #define UTILS_MEMORY_POOL_HPP_
 
 #include <iostream>
-#include <Kokkos_Core.hpp>
-#include <string>
-#include <vector>
-#include <iostream>
+#include <math.h>
 #include <memory>
 #include <stack>
-#include <map>
-#include <unordered_map>
 #include <type_traits>
-#include <math.h>
-#include <tuple>
+#include <unordered_map>
 #include <utility>
+#include <Kokkos_Core.hpp>
 
 namespace parthenon { 
 
 // Object for managing a pool of Kokkos::Views that
 // have the same instantiation call signature
-template <class T, class KEY_T = unsigned long int>
+template <class T>
 class ObjectPool
 {
 public:
@@ -42,6 +37,7 @@ public:
   class owner_t;
 
 private:
+  using KEY_T = unsigned long int; 
   std::function<T()> get_resource_;
   std::stack<weak_t> available_;
   std::unordered_map<KEY_T, std::pair<weak_t, int>> inuse_;
@@ -102,16 +98,16 @@ private:
 // that can be used to query if its storage
 // is in use or if it has been freed and allows
 // freeing of the storage.
-template <class T, class KEY_T>
-struct ObjectPool<T, KEY_T>::weak_t : public T
+template <class T>
+struct ObjectPool<T>::weak_t : public T
 {
   friend class ObjectPool;
 
 protected:
-  template <class... Ts>
-  KOKKOS_IMPL_HOST_FUNCTION static weak_t make(int key, Ts &&...args)
+  template <class... ARGs>
+  KOKKOS_IMPL_HOST_FUNCTION static weak_t make(int key, ARGs &&...args)
   {
-    weak_t out(args...);
+    weak_t out(std::forward<ARGs>(args)...);
     out.key_ = key;
     return out;
   }
@@ -168,8 +164,8 @@ protected:
 // Reference counted version of pool member that has ownership over a resource
 // and sends it back to the pool when its destructor is called and it is the
 // last owner that holds that resource. Cannot be on device
-template <class T, class KEY_T>
-class ObjectPool<T, KEY_T>::owner_t : public ObjectPool<T, KEY_T>::weak_t
+template <class T>
+class ObjectPool<T>::owner_t : public ObjectPool<T>::weak_t
 {
 public:
   KOKKOS_DEFAULTED_FUNCTION
@@ -236,8 +232,8 @@ private:
   }
 };
 
-template <class T, class KEY_T>
-typename ObjectPool<T, KEY_T>::weak_t ObjectPool<T, KEY_T>::Get()
+template <class T>
+typename ObjectPool<T>::weak_t ObjectPool<T>::Get()
 {
   weak_t out;
   if (available_.size() > 0)
