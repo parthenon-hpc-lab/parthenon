@@ -56,12 +56,6 @@ namespace impl
   };
 
   template <class T>
-  struct MPIType<T, bool_t<MPI_type_check<Real, T>::value>>
-  {
-    MPI_Datatype static value() noexcept { return MPI_PARTHENON_REAL; }
-  };
-
-  template <class T>
   struct MPIType<T, bool_t<MPI_type_check<int, T>::value>>
   {
     MPI_Datatype static value() noexcept { return MPI_INT; }
