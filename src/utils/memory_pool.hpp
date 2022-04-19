@@ -237,7 +237,7 @@ private:
 };
 
 template <class T, class KEY_T>
-Pool<T, KEY_T>::weak_t Pool<T, KEY_T>::Get()
+typename Pool<T, KEY_T>::weak_t Pool<T, KEY_T>::Get()
 {
   weak_t out;
   if (available_.size() > 0)
