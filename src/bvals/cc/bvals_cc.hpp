@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -37,7 +37,7 @@ namespace parthenon {
 class CellCenteredBoundaryVariable : public BoundaryVariable {
  public:
   CellCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb, bool is_sparse,
-                               const std::string &label, int dim4);
+                               const std::string &label, int dim4, int dim5, int dim6);
   ~CellCenteredBoundaryVariable();
 
   // may want to rebind var_cc to u,u1,u2,w,w1, etc. registers for time integrator logic.
@@ -75,7 +75,7 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   bool ReceiveFluxCorrection(bool is_allocated) final;
 
  protected:
-  int nl_, nu_;
+  int ll_, lu_, ml_, mu_, nl_, nu_;
 
 #ifdef MPI_PARALLEL
   int cc_phys_id_, cc_flx_phys_id_;
