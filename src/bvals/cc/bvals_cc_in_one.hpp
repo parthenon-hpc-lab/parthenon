@@ -44,7 +44,6 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md);
 
-// We have one BndInfo per variable per neighbor per block
 struct BndInfo {
   int si = 0;
   int ei = 0;
@@ -52,14 +51,16 @@ struct BndInfo {
   int ej = 0;
   int sk = 0;
   int ek = 0;
-  int Nv = 0;
   bool allocated = true;
   bool restriction = false;
   Coordinates_t coords, coarse_coords; // coords
   parthenon::BufArray1D<Real> buf;     // comm buffer
-  parthenon::ParArray4D<Real> var;     // data variable used for comms
-  parthenon::ParArray4D<Real> fine;    // fine data variable for prolongation/restriction
-  parthenon::ParArray4D<Real> coarse; // coarse data variable for prolongation/restriction
+  int Nt = 0;
+  int Nu = 0;
+  int Nv = 0;
+  parthenon::ParArray6D<Real> var;    // data variable used for comms
+  parthenon::ParArray6D<Real> fine;   // fine data variable for prolongation/restriction
+  parthenon::ParArray6D<Real> coarse; // coarse data variable for prolongation/restriction
 };
 
 using BufferCache_t = ParArray1D<BndInfo>;
