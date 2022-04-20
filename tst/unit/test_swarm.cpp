@@ -210,4 +210,24 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(x_h(4) == 1.1);
   i_h = swarm->Get<int>("i").Get().GetHostMirrorAndCopy();
   REQUIRE(i_h(1) == 2);
+
+  // "Transport" a particle across the IX1 (custom) boundary
+  ParArrayND<int> bc_indices("Boundary indices", 1);
+  meshblock->par_for(
+      "Transport", 0, 0, KOKKOS_LAMBDA(const int n) {
+        x_d(0) = -0.6;
+        bc_indices(0) = 0;
+      });
+  swarm->ApplyBoundaries_(1, bc_indices);
+  swarm->RemoveMarkedParticles();
+
+  // Check that particle that crossed boundary has been removed
+  meshblock->par_for(
+      "Check boundary", 0, 0, KOKKOS_LAMBDA(const int n) {
+        if (swarm_d.IsActive(0)) {
+          Kokkos::atomic_add(&failures_d(0), 1);
+        }
+      });
+  failures_h = failures_d.GetHostMirrorAndCopy();
+  REQUIRE(failures_h(0) == 0);
 }
