@@ -162,11 +162,15 @@ static struct ParallelForDispatch {
 } parallel_for_dispatch_tag;
 static struct ParallelReduceDispatch {
 } parallel_reduce_dispatch_tag;
+static struct ParallelScanDispatch {
+} parallel_scan_dispatch_tag;
 
 template <class... Args>
 struct DispatchType {
-  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
-                                    ParallelReduceDispatch>::type type;
+  typedef typename std::conditional<
+      sizeof...(Args) == 0, ParallelForDispatch,
+      typename std::conditional<sizeof...(Args) == 1, ParallelReduceDispatch,
+                                ParallelScanDispatch>::type>::type type;
 };
 
 template <class... Args>
@@ -177,12 +181,16 @@ template <class... Args>
 inline void kokkos_dispatch(ParallelReduceDispatch, Args &&... args) {
   Kokkos::parallel_reduce(std::forward<Args>(args)...);
 }
+template <class... Args>
+inline void kokkos_dispatch(ParallelScanDispatch, Args &&... args) {
+  Kokkos::parallel_scan(std::forward<Args>(args)...);
+}
 
 } // namespace dispatch_impl
 
 // 1D loop using RangePolicy loops
 template <typename Function, class... Args>
-inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+inline typename std::enable_if<sizeof...(Args) <= 2, void>::type
 par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
              const int &il, const int &iu, const Function &function, Args &&... args) {
   using namespace dispatch_impl;
@@ -541,6 +549,11 @@ inline void par_for(Args &&... args) {
 
 template <class... Args>
 inline void par_reduce(Args &&... args) {
+  par_dispatch(std::forward<Args>(args)...);
+}
+
+template <class... Args>
+inline void par_scan(Args &&... args) {
   par_dispatch(std::forward<Args>(args)...);
 }
 
