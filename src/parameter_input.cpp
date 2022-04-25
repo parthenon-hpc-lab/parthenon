@@ -696,31 +696,6 @@ Real ParameterInput::GetOrAddReal(const std::string &block, const std::string &n
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn Real ParameterInput::GetOrAddPrecise(const std::string & block, const std::string
-//! & name,
-//    Real def_value)
-//  \brief returns real value stored in block/name if it exists, or creates and sets
-//  value to def_value if it does not exist.  Value is read with full precision.
-
-Real ParameterInput::GetOrAddPrecise(const std::string &block, const std::string &name,
-                                     Real def_value) {
-  InputBlock *pb;
-  InputLine *pl;
-  std::stringstream ss_value;
-  Real ret;
-
-  if (DoesParameterExist(block, name)) {
-    pb = GetPtrToBlock(block);
-    pl = pb->GetPtrToLine(name);
-    std::string val = pl->param_value;
-    ret = static_cast<Real>(atof(val.c_str()));
-  } else {
-    ret = SetReal(block, name, def_value);
-  }
-  return ret;
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn bool ParameterInput::GetOrAddBoolean(const std::string & block, const std::string
 //! & name,
 //    bool def_value)
@@ -808,6 +783,7 @@ Real ParameterInput::SetReal(const std::string &block, const std::string &name,
   std::stringstream ss_value;
 
   pb = FindOrAddBlock(block);
+  static_assert(sizeof(Real) <= sizeof(double), "Real is greater than double!");
   ss_value.precision(std::numeric_limits<double>::max_digits10);
   ss_value << value;
   AddParameter(pb, name, ss_value.str(), "# Updated during run time");
