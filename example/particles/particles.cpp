@@ -1,8 +1,4 @@
 //========================================================================================
-// Parthenon performance portable AMR framework
-// Copyright(C) 2021-2022 The Parthenon collaboration
-// Licensed under the 3-clause BSD License, see LICENSE file for details
-//========================================================================================
 // (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -28,6 +24,16 @@
 // redefine some internal parthenon functions      *//
 // *************************************************//
 namespace particles_example {
+
+std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
+SetSwarmIX1UserBC() {
+  return DeviceAllocate<ParticleBoundIX1User>();
+}
+
+std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
+SetSwarmOX1UserBC() {
+  return DeviceAllocate<ParticleBoundOX1User>();
+}
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
