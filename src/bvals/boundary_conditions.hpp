@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,6 +20,7 @@
 
 #include "basic_types.hpp"
 #include "interface/meshblock_data.hpp"
+#include "interface/swarm_boundaries.hpp"
 #include "mesh/domain.hpp"
 
 namespace parthenon {
@@ -27,6 +28,8 @@ namespace parthenon {
 // Physical boundary conditions
 
 using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
+using SBValFunc = std::function<
+    std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>()>;
 
 TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc);
 
