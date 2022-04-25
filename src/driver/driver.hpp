@@ -64,11 +64,11 @@ class EvolutionDriver : public Driver {
  public:
   EvolutionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : Driver(pin, app_in, pm) {
-    Real start_time = pinput->GetOrAddPrecise("parthenon/time", "start_time", 0.0);
-    Real tstop = pinput->GetOrAddPrecise("parthenon/time", "tlim",
-                                         std::numeric_limits<Real>::infinity());
+    Real start_time = pinput->GetOrAddReal("parthenon/time", "start_time", 0.0);
+    Real tstop = pinput->GetOrAddReal("parthenon/time", "tlim",
+                                      std::numeric_limits<Real>::infinity());
     Real dt =
-        pinput->GetOrAddPrecise("parthenon/time", "dt", std::numeric_limits<Real>::max());
+        pinput->GetOrAddReal("parthenon/time", "dt", std::numeric_limits<Real>::max());
     const auto ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
     const auto nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
     const auto nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
