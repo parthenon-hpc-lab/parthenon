@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -283,7 +283,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     max_level = 63;
   }
 
-  InitUserMeshData(pin);
+  InitUserMeshData(this, pin);
 
   if (multilevel) {
     if (block_size.nx1 % 2 == 1 || (block_size.nx2 % 2 == 1 && (ndim >= 2)) ||
@@ -666,7 +666,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     max_level = 63;
   }
 
-  InitUserMeshData(pin);
+  InitUserMeshData(this, pin);
 
   // Populate logical locations
   auto lx123 = rr.ReadDataset<int64_t>("/Blocks/loc.lx123");
@@ -961,6 +961,21 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
       }
       break;
     default: // periodic/block BCs handled elsewhere.
+      break;
+    }
+
+    switch (mesh_bcs[f]) {
+    case BoundaryFlag::user:
+      if (app_in->swarm_boundary_conditions[f] != nullptr) {
+        SwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
+      } else {
+        std::stringstream msg;
+        msg << "A user boundary condition for face " << f
+            << " was requested, but no swarm condition was enrolled." << std::endl;
+        PARTHENON_THROW(msg);
+      }
+      break;
+    default: // Default BCs handled elsewhere
       break;
     }
   }

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -26,6 +26,28 @@ using namespace parthenon;
 
 namespace particles_example {
 
+// Duplicates of ParticleBoundIX1Outflow and ParticleBoundOX1Outflow to illustrate custom
+// particle boundary conditions
+class ParticleBoundIX1User : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) const override {
+    if (x < swarm_d.x_min_global_) {
+      swarm_d.MarkParticleForRemoval(n);
+    }
+  }
+};
+
+class ParticleBoundOX1User : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) const override {
+    if (x > swarm_d.x_max_global_) {
+      swarm_d.MarkParticleForRemoval(n);
+    }
+  }
+};
+
 typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
 
 class ParticleDriver : public EvolutionDriver {
@@ -43,6 +65,10 @@ class ParticleDriver : public EvolutionDriver {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
+
+std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> SetSwarmIX1UserBC();
+
+std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> SetSwarmOX1UserBC();
 
 namespace Particles {
 

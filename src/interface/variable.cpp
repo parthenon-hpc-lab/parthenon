@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -45,17 +45,14 @@ CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &meta
   // always depends on boundary comm even if the sparse data itself is not allocated.
   if (IsSet(Metadata::FillGhost)) {
     auto pmb = wpmb.lock();
-    PARTHENON_REQUIRE_THROWS(
-        GetDim(4) == NumComponents(),
-        "CellCenteredBoundaryVariable currently only supports rank-1 variables");
     auto it = pmb->pbval->bvars.find(label());
     // Reuse existing vbar for this variable
     if (it != pmb->pbval->bvars.end()) {
       vbvar = std::static_pointer_cast<CellCenteredBoundaryVariable>(it->second);
       // Create new vbvar for this variable
     } else {
-      vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, IsSparse(), label(),
-                                                             GetDim(4));
+      vbvar = std::make_shared<CellCenteredBoundaryVariable>(
+          pmb, IsSparse(), label(), GetDim(4), GetDim(5), GetDim(6));
       auto res = pmb->pbval->bvars.insert({label(), vbvar});
     }
   }

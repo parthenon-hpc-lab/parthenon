@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -135,6 +135,7 @@ class Mesh {
 
   // Boundary Functions
   BValFunc MeshBndryFnctn[6];
+  SBValFunc SwarmBndryFnctn[6];
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
@@ -246,8 +247,9 @@ class Mesh {
   void FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void InitUserMeshDataDefault(ParameterInput *pin);
-  std::function<void(ParameterInput *)> InitUserMeshData = InitUserMeshDataDefault;
+  static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
+  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
+      InitUserMeshDataDefault;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
   void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
