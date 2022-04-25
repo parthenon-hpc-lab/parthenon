@@ -429,6 +429,52 @@ TEST_CASE("nested par_for loops", "[wrapper]") {
   }
 }
 
+template <class T>
+bool test_wrapper_scan_1d(T loop_pattern, DevExecSpace exec_space) {
+  const int N = 10;
+  parthenon::ParArray1D<int> buffer("Testing buffer", N);
+  // Initialize data
+  parthenon::par_for(
+      loop_pattern, "Initialize parallel scan array", exec_space, 0, N - 1,
+      KOKKOS_LAMBDA(const int i) { buffer(i) = i; });
+
+  parthenon::ParArray1D<int> scanned("Result of scan", N);
+  int result;
+  parthenon::par_scan(
+      loop_pattern, "Parallel scan", exec_space, 0, N - 1,
+      KOKKOS_LAMBDA(const int i, int &partial_sum, bool is_final) {
+        if (is_final) {
+          scanned(i) = partial_sum;
+        }
+        partial_sum += buffer(i);
+      },
+      result);
+
+  // compare data on the host
+  bool all_same = true;
+  auto scanned_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), scanned);
+  for (int i = 0; i < N; i++) {
+    int ans = 0;
+    for (int j = 0; j < i; j++) {
+      ans += j;
+    }
+    if (scanned_h(i) != ans) {
+      all_same = false;
+    }
+  }
+
+  return all_same;
+}
+
+TEST_CASE("Parallel scan", "[par_scan]") {
+  auto default_exec_space = DevExecSpace();
+
+  SECTION("1D loops") {
+    REQUIRE(test_wrapper_scan_1d(parthenon::loop_pattern_flatrange_tag,
+                                 default_exec_space) == true);
+  }
+}
+
 struct LargeNShortTBufferPack {
   int nghost;
   int ncells; // number of cells in the linear dimension - very simplistic
@@ -695,50 +741,6 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper][performance]") {
   SECTION("Few Threads Long Kernel") {
     test_wrapper_buffer_pack_overlapping_space_instances<SmallNLongTBufferPack>(
         "Few Threads Long Kernel");
-  }
-}
-
-template <class T>
-bool test_wrapper_scan_1d(T loop_pattern, DevExecSpace exec_space) {
-  const int N = 10;
-  parthenon::ParArray1D<int> buffer("Testing buffer", N);
-  // Initialize data
-  parthenon::par_for(
-      loop_pattern, "Initialize parallel scan array", exec_space, 0, N - 1,
-      KOKKOS_LAMBDA(const int i) { buffer(i) = i; });
-
-  parthenon::ParArray1D<int> scanned("Result of scan", N);
-  parthenon::par_scan(
-      loop_pattern, "Parallel scan", exec_space, 0, N - 1,
-      KOKKOS_LAMBDA(const int i, int &partial_sum, bool is_final) {
-        if (is_final) {
-          scanned(i) = partial_sum;
-        }
-        partial_sum += buffer(i);
-      });
-
-  // compare data on the host
-  bool all_same = true;
-  auto scanned_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), scanned);
-  for (int i = 0; i < N; i++) {
-    int ans = 0;
-    for (int j = 0; j < i; j++) {
-      ans += j;
-    }
-    if (scanned_h(i) != ans) {
-      all_same = false;
-    }
-  }
-
-  return all_same;
-}
-
-TEST_CASE("Parallel scan", "[par_scan]") {
-  auto default_exec_space = DevExecSpace();
-
-  SECTION("1D loops") {
-    REQUIRE(test_wrapper_scan_1d(parthenon::loop_pattern_flatrange_tag,
-                                 default_exec_space) == true);
   }
 }
 
