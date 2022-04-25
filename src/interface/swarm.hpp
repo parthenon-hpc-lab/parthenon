@@ -210,6 +210,9 @@ class Swarm {
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarListAll_();
 
+  template <class BOutflow, class BPeriodic, int iFace>
+  void AllocateBoundariesImpl_(MeshBlock *pmb);
+
   void SetNeighborIndices1D_();
   void SetNeighborIndices2D_();
   void SetNeighborIndices3D_();
