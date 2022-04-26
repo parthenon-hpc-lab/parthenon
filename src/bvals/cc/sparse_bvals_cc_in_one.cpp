@@ -35,7 +35,7 @@
 namespace parthenon {
 namespace cell_centered_bvars {
 
-namespace detail { 
+namespace impl { 
 template<class F>
 void IterateBoundaries(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
@@ -67,9 +67,9 @@ class WriteRegion {
   }
 };
 
-}
+} // namespace impl
 
-using namespace detail;
+using namespace impl;
  
 // TODO: Need to call pmesh->boundary_comm_map.clear() after every remesh 
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
@@ -78,13 +78,14 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
   int isize, jsize, ksize; 
   {
+    WriteRegion region("domain size");
     auto& rc = md->GetBlockData(0);
     auto pmb = rc->GetBlockPointer(); 
     auto& cb = pmb->cellbounds; 
     IndexDomain in = IndexDomain::interior;
-     isize = cb.ie(in) - cb.is(in) + 1;
-     jsize = cb.je(in) - cb.js(in) + 1; 
-     ksize = cb.ke(in) - cb.ks(in) + 1;  
+    isize = cb.ie(in) - cb.is(in) + 1;
+    jsize = cb.je(in) - cb.js(in) + 1; 
+    ksize = cb.ke(in) - cb.ks(in) + 1;  
   } 
   
   {
@@ -111,9 +112,14 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
      const int receiver_rank = nb.snb.rank;
      const int sender_rank = Globals::my_rank; 
 
+#ifdef MPI_PARALLEL
      // TODO: Fix this to use Philipp's communicators and deal with mpi or no mpi
-     const int comm = 0; 
-
+     const comm_t comm = MPI_COMM_WORLD; 
+#else 
+     // Setting to zero is fine here since this doesn't actually get used when everything
+     // is on the same rank 
+     const comm_t comm = 0;
+#endif
      // Build sending buffers  
      pmesh->boundary_comm_map[{sender_id, receiver_id, v->label()}] = 
                                             CommBuffer<buf_pool_t<Real>::owner_t>(tag, sender_rank, receiver_rank, comm,
@@ -174,11 +180,13 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
 
     int iarr = 0;
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      auto& buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
       
-      md->send_bnd_info_h(iarr) = BndInfo::Sender(pmb, nb, v); 
-      md->send_bnd_info_h(iarr).buf = buf; 
       md->send_bnd_info_h(iarr).allocated = v->IsAllocated();
+      if (v->IsAllocated()) {
+        md->send_bnd_info_h(iarr) = BndInfo::Sender(pmb, nb, v); 
+        auto& buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+        md->send_bnd_info_h(iarr).buf = buf; 
+      }
        
       ++iarr;
     });
@@ -198,7 +206,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
   // Load buffer data 
   const Real threshold = Globals::sparse_config.allocation_threshold;
   auto& bnd_info = md->send_bnd_info; 
-  
+  PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   ParArray1D<bool> sending_nonzero_flags("sending_nonzero_flags", nbound);
   auto sending_nonzero_flags_h = Kokkos::create_mirror_view(sending_nonzero_flags);
   {
@@ -239,7 +247,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
       });
 
   });
-
+  
   // Send buffers
   Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);
   Kokkos::fence();
@@ -306,6 +314,7 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
     ++nbound;
   });
   }
+
   if (rebuild) {
     WriteRegion region("rebuild receive"); 
     md->recv_bnd_info = BufferCache_t("recv_boundary_info", nbound);
@@ -314,17 +323,19 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       auto& buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
       
-      md->recv_bnd_info_h(iarr) = BndInfo::Setter(pmb, nb, v); 
+      if (v->IsAllocated()) md->recv_bnd_info_h(iarr) = BndInfo::Setter(pmb, nb, v); 
+      
       md->recv_bnd_info_h(iarr).buf = buf; 
       if (buf.GetState() == BufferState::received) {
         md->recv_bnd_info_h(iarr).allocated = true;
+        PARTHENON_DEBUG_REQUIRE(v->IsAllocated(), "Variable must be allocated to receive");
       } 
       else if (buf.GetState() == BufferState::received_null) { 
         md->recv_bnd_info_h(iarr).allocated = false;
       } else {
-        PARTHENON_FAIL("Buffer should be in received state.");
+        PARTHENON_FAIL("Buffer should be in a received state.");
       }
-
+    
       ++iarr;
     }); 
     Kokkos::deep_copy(md->recv_bnd_info, md->recv_bnd_info_h); 
@@ -381,10 +392,13 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
 
   });
   }
+
+  {
+  WriteRegion region("stale");
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}].Stale();
   });
-
+  }
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
