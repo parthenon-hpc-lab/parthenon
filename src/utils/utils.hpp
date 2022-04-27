@@ -82,8 +82,9 @@ template <typename T,
           typename std::enable_if<!std::is_same<T, size_t>::value, bool>::type = true
 #ifdef ENABLE_HDF5
           ,
-          typename std::enable_if<!std::is_same<T, hsize_t>::value, bool>::type = true>
+          typename std::enable_if<!std::is_same<T, hsize_t>::value, bool>::type = true
 #endif // ENABLE_HDF5
+          >
 T parse_value(std::string &strvalue);
 
 // Parse env. variable expected to hold a bool value allowing for different conventions.
