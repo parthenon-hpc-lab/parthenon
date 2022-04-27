@@ -34,9 +34,9 @@ namespace parthenon {
 template <class Key, class KeyComparator>
 void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx,
           size_t max_idx) {
-  PARTHENON_DEBUG_REQUIRE(min_idx >= 0 && min_idx < data.extent(0),
+  PARTHENON_DEBUG_REQUIRE(/*min_idx >= 0 &&*/ min_idx < data.extent(0),
                           "Invalid minimum sort index!");
-  PARTHENON_DEBUG_REQUIRE(max_idx >= 0 && max_idx < data.extent(0),
+  PARTHENON_DEBUG_REQUIRE(/*max_idx >= 0 &&*/ max_idx < data.extent(0),
                           "Invalid maximum sort index!");
 #ifdef KOKKOS_ENABLE_CUDA
 #ifdef __clang__
@@ -64,9 +64,9 @@ void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx,
 
 template <class Key>
 void sort(ParArray1D<Key> data, size_t min_idx, size_t max_idx) {
-  PARTHENON_DEBUG_REQUIRE(min_idx >= 0 && min_idx < data.extent(0),
+  PARTHENON_DEBUG_REQUIRE(/*min_idx >= 0 &&*/ min_idx < data.extent(0),
                           "Invalid minimum sort index!");
-  PARTHENON_DEBUG_REQUIRE(max_idx >= 0 && max_idx < data.extent(0),
+  PARTHENON_DEBUG_REQUIRE(/*max_idx >= 0 &&*/ max_idx < data.extent(0),
                           "Invalid maximum sort index!");
 #ifdef KOKKOS_ENABLE_CUDA
 #ifdef __clang__
