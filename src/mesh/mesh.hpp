@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -104,6 +104,7 @@ class Mesh {
 
   BlockList_t block_list;
   Packages_t packages;
+  std::shared_ptr<StateDescriptor> resolved_packages;
 
   DataCollection<MeshData<Real>> mesh_data;
 
@@ -134,12 +135,9 @@ class Mesh {
 
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
 
-  // function for distributing unique "phys" bitfield IDs to BoundaryVariable objects and
-  // other categories of MPI communication for generating unique MPI_TAGs
-  int ReserveTagPhysIDs(int num_phys);
-
   // Boundary Functions
   BValFunc MeshBndryFnctn[6];
+  SBValFunc SwarmBndryFnctn[6];
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
@@ -179,9 +177,13 @@ class Mesh {
   std::map<int, buf_pool_t<Real>> pool_map;
   std::map<channel_key_t, CommBuffer<buf_pool_t<Real>::owner_t>> boundary_comm_map;
  
+
+#ifdef MPI_PARALLEL
+  MPI_Comm const GetMPIComm(const std::string &label) { return mpi_comm_map_.at(label); }
+#endif
+
  private:
   // data
-  int next_phys_id_; // next unused value for encoding final component of MPI tag bitfield
   int root_level, max_level, current_level;
   int num_mesh_threads_;
   /// Maps Global Block IDs to which rank the block is mapped to.
@@ -221,6 +223,11 @@ class Mesh {
   // size of default MeshBlockPacks
   int default_pack_size_;
 
+#ifdef MPI_PARALLEL
+  // Global map of MPI comms for separate variables
+  std::map<std::string, MPI_Comm> mpi_comm_map_;
+#endif
+
   // functions
   MeshGenFunc MeshGenerator_[4];
 
@@ -228,8 +235,6 @@ class Mesh {
                             std::vector<int> &ranklist, std::vector<int> &nslist,
                             std::vector<int> &nblist);
   void ResetLoadBalanceVariables();
-
-  void ReserveMeshBlockPhysIDs();
 
   // Mesh::LoadBalancingAndAdaptiveMeshRefinement() helper functions:
   void UpdateCostList();
@@ -253,11 +258,14 @@ class Mesh {
   void FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void InitUserMeshDataDefault(ParameterInput *pin);
-  std::function<void(ParameterInput *)> InitUserMeshData = InitUserMeshDataDefault;
+  static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
+  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
+      InitUserMeshDataDefault;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
   void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
+
+  void SetupMPIComms();
 };
 
 //----------------------------------------------------------------------------------------

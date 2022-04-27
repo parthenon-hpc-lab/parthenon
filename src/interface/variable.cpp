@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,7 @@
 #include "interface/variable.hpp"
 
 #include <iostream>
+#include <memory>
 #include <utility>
 
 #include "bvals/cc/bvals_cc.hpp"
@@ -40,17 +41,20 @@ CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &meta
     m_.Associate(label());
   }
 
+  // Need to allocate/reuse boundary variable here as the current sparse infrastructure
+  // always depends on boundary comm even if the sparse data itself is not allocated.
   if (IsSet(Metadata::FillGhost)) {
     auto pmb = wpmb.lock();
-    PARTHENON_REQUIRE_THROWS(
-        GetDim(4) == NumComponents(),
-        "CellCenteredBoundaryVariable currently only supports rank-1 variables");
-    vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, IsSparse(), label(),
-                                                           GetDim(4));
-    auto res = pmb->pbval->bvars.insert({label(), vbvar});
-    PARTHENON_REQUIRE_THROWS(
-        res.second || (pmb->pbval->bvars.at(label()).get(), vbvar.get()),
-        "A boundary variable already existed and it's different from the new one.")
+    auto it = pmb->pbval->bvars.find(label());
+    // Reuse existing vbar for this variable
+    if (it != pmb->pbval->bvars.end()) {
+      vbvar = std::static_pointer_cast<CellCenteredBoundaryVariable>(it->second);
+      // Create new vbvar for this variable
+    } else {
+      vbvar = std::make_shared<CellCenteredBoundaryVariable>(
+          pmb, IsSparse(), label(), GetDim(4), GetDim(5), GetDim(6));
+      auto res = pmb->pbval->bvars.insert({label(), vbvar});
+    }
   }
 }
 
@@ -129,7 +133,7 @@ void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
   }
 
   AllocateData();
-  AllocateFluxesAndBdryVar(wpmb);
+  AllocateFluxesAndCoarse(wpmb);
 }
 
 template <typename T>
@@ -147,7 +151,7 @@ void CellVariable<T>::AllocateData() {
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
-void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
+void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
   PARTHENON_REQUIRE_THROWS(
       IsAllocated(), "Tried to allocate comms for un-allocated variable " + label());
   std::string base_name = label();
@@ -183,18 +187,19 @@ void CellVariable<T>::AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb) {
     }
 
     if (IsSet(Metadata::FillGhost)) {
+      // Ensure data of boundary variable points to the newly allocated data.
       vbvar->Reset(data, coarse_s, flux);
 
+      // TODO(someone): double check if following todo is still applicable with the
+      // "restrict-in-one" machinery. The original code added `vbvar` to
+      // `pmb->pbval->bvars`, but we already do this in the constructor. Also, we
+      // potentially don't iterate over `bvars` any more in the "restrict-in-one" case.
       // TODO(JMM): This means RestrictBoundaries()
       // is called on EVERY stage, regardless of what
       // stage needs it.
       // The fix is to refactor BoundaryValues
       // to expose calls at either the `Variable`
       // or `MeshBlockData` and `MeshData` level.
-      auto res = pmb->pbval->bvars.insert({label(), vbvar});
-      PARTHENON_REQUIRE_THROWS(
-          res.second || (pmb->pbval->bvars.at(label()).get(), vbvar.get()),
-          "A boundary variable already existed and it's different from the new one.")
     }
   }
 

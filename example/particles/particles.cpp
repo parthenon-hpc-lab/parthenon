@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -24,6 +24,16 @@
 // redefine some internal parthenon functions      *//
 // *************************************************//
 namespace particles_example {
+
+std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
+SetSwarmIX1UserBC() {
+  return DeviceAllocate<ParticleBoundIX1User>();
+}
+
+std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
+SetSwarmOX1UserBC() {
+  return DeviceAllocate<ParticleBoundOX1User>();
+}
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
