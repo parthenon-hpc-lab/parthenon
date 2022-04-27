@@ -179,7 +179,7 @@ class Mesh {
  
 
 #ifdef MPI_PARALLEL
-  MPI_Comm const GetMPIComm(const std::string &label) { return mpi_comm_map_.at(label); }
+  MPI_Comm GetMPIComm(const std::string &label) { return mpi_comm_map_.at(label); }
 #endif
 
  private:
