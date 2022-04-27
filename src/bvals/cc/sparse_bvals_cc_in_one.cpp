@@ -114,7 +114,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
 #ifdef MPI_PARALLEL
      // TODO: Fix this to use Philipp's communicators and deal with mpi or no mpi
-     const comm_t comm = MPI_COMM_WORLD; 
+     const comm_t comm = pmesh->GetMPIComm(v->label()); 
 #else 
      // Setting to zero is fine here since this doesn't actually get used when everything
      // is on the same rank 
