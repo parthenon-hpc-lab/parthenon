@@ -240,6 +240,8 @@ BndInfo BndInfo::Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb,
                         std::shared_ptr<CellVariable<Real>> v) {
   BndInfo out;
   out.Nv = v->GetDim(4);
+  out.Nu = v->GetDim(5);
+  out.Nt = v->GetDim(6);
   
   int mylevel = pmb->loc.level;
   out.coords = pmb->coords;
@@ -247,8 +249,8 @@ BndInfo BndInfo::Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb,
   if (pmb->pmr)
     out.coarse_coords = pmb->pmr->GetCoarseCoords();
 
-  out.fine = v->data.Get<4>();
-  out.coarse = v->vbvar->coarse_buf.Get<4>();
+  out.fine = v->data.Get();
+  out.coarse = v->vbvar->coarse_buf.Get();
 
   IndexDomain interior = IndexDomain::interior;
   if (nb.snb.level == mylevel) {
@@ -256,7 +258,7 @@ BndInfo BndInfo::Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb,
     CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, cellbounds.GetBoundsI(interior));
     CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, cellbounds.GetBoundsJ(interior));
     CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, cellbounds.GetBoundsK(interior));
-    out.var = v->data.Get<4>();
+    out.var = v->data.Get();
   } else if (nb.snb.level < mylevel) {
     // "Same" logic is the same for loading to a coarse buffer, just using
     // c_cellbounds
@@ -265,10 +267,10 @@ BndInfo BndInfo::Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb,
     CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, c_cellbounds.GetBoundsJ(interior));
     CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, c_cellbounds.GetBoundsK(interior));
     out.restriction = true;
-    out.var = v->vbvar->coarse_buf.Get<4>(); 
+    out.var = v->vbvar->coarse_buf.Get(); 
   } else {
     CalcIndicesLoadToFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb, pmb.get());
-    out.var = v->data.Get<4>();
+    out.var = v->data.Get();
   }
   return out; 
 }
@@ -277,7 +279,10 @@ BndInfo BndInfo::Setter(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb,
                         std::shared_ptr<CellVariable<Real>> v) {
   BndInfo out; 
 
-  out.Nv = v->GetDim(4); 
+  out.Nv = v->GetDim(4);
+  out.Nu = v->GetDim(5);
+  out.Nt = v->GetDim(6);
+  
   int mylevel = pmb->loc.level; 
   IndexDomain interior = IndexDomain::interior;
   if (nb.snb.level == mylevel) {
@@ -285,7 +290,7 @@ BndInfo BndInfo::Setter(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb,
     CalcIndicesSetSame(nb.ni.ox1, out.si, out.ei, cellbounds.GetBoundsI(interior));
     CalcIndicesSetSame(nb.ni.ox2, out.sj, out.ej, cellbounds.GetBoundsJ(interior));
     CalcIndicesSetSame(nb.ni.ox3, out.sk, out.ek, cellbounds.GetBoundsK(interior));
-    out.var = v->data.Get<4>();
+    out.var = v->data.Get();
   } else if (nb.snb.level < mylevel) {
     const IndexShape &c_cellbounds = pmb->c_cellbounds;
     const auto &cng = pmb->cnghost;
@@ -299,11 +304,11 @@ BndInfo BndInfo::Setter(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb,
                               c_cellbounds.GetBoundsK(interior), pmb->loc.lx3,
                               cng, pmb->block_size.nx3 > 1);
 
-    out.var = v->vbvar->coarse_buf.Get<4>();
+    out.var = v->vbvar->coarse_buf.Get();
   } else {
     CalcIndicesSetFromFiner(out.si, out.ei, out.sj, out.ej, 
                             out.sk, out.ek, nb, pmb.get());
-    out.var = v->data.Get<4>();
+    out.var = v->data.Get();
   }
   return out; 
 }

@@ -55,7 +55,6 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
 TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
-// We have one BndInfo per variable per neighbor per block
 struct BndInfo {
   int si = 0;
   int ei = 0;
@@ -63,14 +62,19 @@ struct BndInfo {
   int ej = 0;
   int sk = 0;
   int ek = 0;
+  
+  int Nt = 0;
+  int Nu = 0;
   int Nv = 0;
+  
   bool allocated = true;
   bool restriction = false;
   Coordinates_t coords, coarse_coords; // coords
+  
   buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
-  parthenon::ParArray4D<Real> var;     // data variable used for comms
-  parthenon::ParArray4D<Real> fine;    // fine data variable for prolongation/restriction
-  parthenon::ParArray4D<Real> coarse; // coarse data variable for prolongation/restriction
+  parthenon::ParArray6D<Real> var;    // data variable used for comms
+  parthenon::ParArray6D<Real> fine;   // fine data variable for prolongation/restriction
+  parthenon::ParArray6D<Real> coarse; // coarse data variable for prolongation/restriction
 
   static BndInfo Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb, 
                         std::shared_ptr<CellVariable<Real>> v);
@@ -78,8 +82,9 @@ struct BndInfo {
                         std::shared_ptr<CellVariable<Real>> v);
   
   KOKKOS_INLINE_FUNCTION 
-  int GetBufferSize() const { return 1 + Nv * (ei - si + 1) * (ej - sj + 1) * (ek - sk + 1);}
+  int GetBufferSize() const { return 1 + Nv * Nt * Nu * (ei - si + 1) * (ej - sj + 1) * (ek - sk + 1);}
 
+  
 };
 
 using BufferCache_t = ParArray1D<BndInfo>;
