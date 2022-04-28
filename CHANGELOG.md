@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 667]](https://github.com/lanl/parthenon/pull/667) Add parallel scan
 - [[PR 654]](https://github.com/lanl/parthenon/pull/654) Add option for returning FlatIdx when requested variable doesn't exist
 - [[PR 622]](https://github.com/lanl/parthenon/pull/622) Extend reduction framework to support more general data types. Now uses PR 623.
 - [[PR 619]](https://github.com/lanl/parthenon/pull/619) Sort particles by cell
