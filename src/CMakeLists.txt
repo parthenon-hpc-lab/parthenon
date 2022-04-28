@@ -205,6 +205,7 @@ add_library(parthenon
   utils/cleantypes.hpp
   utils/error_checking.hpp
   utils/error_checking.cpp
+  utils/hash.hpp
   utils/mpi_types.hpp
   utils/object_pool.hpp
   utils/partition_stl_containers.hpp

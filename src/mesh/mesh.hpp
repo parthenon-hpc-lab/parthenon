@@ -24,8 +24,10 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <unordered_map>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -45,9 +47,10 @@
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/partition_stl_containers.hpp"
-#include "utils/object_pool.hpp"
 #include "utils/communication_buffer.hpp"
+#include "utils/object_pool.hpp"
+#include "utils/partition_stl_containers.hpp"
+#include "utils/hash.hpp"
 
 namespace parthenon {
 
@@ -174,9 +177,10 @@ class Mesh {
   // Ordering here is important to prevent deallocation of pools before boundary 
   // communication buffers 
   using channel_key_t = std::tuple<int, int, std::string>;
-  std::map<int, buf_pool_t<Real>> pool_map;
-  std::map<channel_key_t, CommBuffer<buf_pool_t<Real>::owner_t>> boundary_comm_map;
- 
+  std::unordered_map<int, buf_pool_t<Real>> pool_map;
+  std::unordered_map<channel_key_t, CommBuffer<buf_pool_t<Real>::owner_t>,
+                     tuple_hash<channel_key_t>>
+      boundary_comm_map;
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) { return mpi_comm_map_.at(label); }
