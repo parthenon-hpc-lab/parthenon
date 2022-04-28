@@ -41,6 +41,7 @@
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -87,10 +88,6 @@ BoundaryValues::BoundaryValues(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
   // prevent reallocation of contiguous memory space for each of 4x possible calls to
   // std::vector<BoundaryVariable *>.push_back() in Field, PassiveScalars
   bvars.reserve(3);
-
-  // Matches initial value of Mesh::next_phys_id_
-  // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
-  bvars_next_phys_id_ = 1;
 }
 
 // destructor
@@ -125,21 +122,6 @@ void BoundaryValues::ClearBoundary(BoundaryCommSubset phase) {
   for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
     (*bvars_it).second->ClearBoundary(phase);
   }
-}
-
-// Public function, to be called in MeshBlock ctor for keeping MPI tag bitfields
-// consistent across MeshBlocks, even if certain MeshBlocks only construct a subset of
-// physical variable classes
-
-int BoundaryValues::AdvanceCounterPhysID(int num_phys) {
-#ifdef MPI_PARALLEL
-  // TODO(felker): add safety checks? input, output are positive, obey <= 31= MAX_NUM_PHYS
-  int start_id = bvars_next_phys_id_;
-  bvars_next_phys_id_ += num_phys;
-  return start_id;
-#else
-  return 0;
-#endif
 }
 
 // BoundarySwarms constructor (the first object constructed inside the MeshBlock()
@@ -182,16 +164,6 @@ BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
     CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x3], CoordinateDirection::X3DIR);
     CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x3], CoordinateDirection::X3DIR);
   }
-
-  // prevent reallocation of contiguous memory space for each of 4x possible calls to
-  // std::vector<BoundaryVariable *>.push_back() in Field, PassiveScalars
-  // bvars.reserve(3);
-  // TOOD(KGF): rename to "bvars_time_int"? What about a std::vector for bvars_sts?
-  // bvars_main_int.reserve(2);
-
-  // Matches initial value of Mesh::next_phys_id_
-  // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
-  bvars_next_phys_id_ = 1;
 }
 
 //----------------------------------------------------------------------------------------

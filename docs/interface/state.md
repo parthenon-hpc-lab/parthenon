@@ -140,5 +140,8 @@ The overload `Add(const std::string &label, MeshBlockData<T> &src, const std::ve
 
 Two simple examples of usage of these new containers are 1) to provide storage for multistage integration schemes and 2) to provide a mechanism to allocate storage for right hand sides, deltas, etc.  Both of these usages are demonstrated in the advection example that ships with Parthenon.
 
-Note that in multistage integrator the fluxes and `bvars` of a variable
+Note that in multistage integrator the fluxes and `bvars` (and their MPI communicator) of a variable
 are shared by default across all stages.
+This means that any kind of communication (most prominently flux correction and ghost zone
+exchange) of a given variable at a given stage should not be interleaved with any other
+modifications/communication of said variable as it may result in undefined behavior.
