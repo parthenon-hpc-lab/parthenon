@@ -24,6 +24,7 @@
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -62,22 +63,24 @@ MeshBlock::MeshBlock(const int n_side, const int ndim, bool init_coarse, bool mu
 }
 
 // Factory method deals with initialization for you
-std::shared_ptr<MeshBlock> MeshBlock::Make(int igid, int ilid, LogicalLocation iloc,
-                                           RegionSize input_block,
-                                           BoundaryFlag *input_bcs, Mesh *pm,
-                                           ParameterInput *pin, ApplicationInput *app_in,
-                                           Packages_t &packages, int igflag,
-                                           double icost) {
+std::shared_ptr<MeshBlock>
+MeshBlock::Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
+                BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
+                ApplicationInput *app_in, Packages_t &packages,
+                std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
+                double icost) {
   auto pmb = std::make_shared<MeshBlock>();
   pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, packages,
-                  igflag, icost);
+                  resolved_packages, igflag, icost);
   return pmb;
 }
 
 void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
                            RegionSize input_block, BoundaryFlag *input_bcs, Mesh *pm,
                            ParameterInput *pin, ApplicationInput *app_in,
-                           Packages_t &packages, int igflag, double icost) {
+                           Packages_t &packages,
+                           std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
+                           double icost) {
   exec_space = DevExecSpace();
   pmy_mesh = pm;
   loc = iloc;
@@ -86,6 +89,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   lid = ilid;
   gflag = igflag;
   this->packages = packages;
+  this->resolved_packages = resolved_packages;
   cost_ = icost;
 
   // initialize grid indices
@@ -137,8 +141,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // Add physics data, including dense, sparse, and swarm variables.
   // Resolve issues.
-  // TODO(JL) This should probably be moved to Mesh and only done once per mesh init
-  resolved_packages = ResolvePackages(packages);
 
   auto &real_container = meshblock_data.Get();
   auto &swarm_container = swarm_data.Get();

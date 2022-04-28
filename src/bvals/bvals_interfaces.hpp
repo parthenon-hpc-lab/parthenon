@@ -290,7 +290,7 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
 //! \class BoundarySwarm
 class BoundarySwarm : public BoundaryCommunication {
  public:
-  explicit BoundarySwarm(std::weak_ptr<MeshBlock> pmb);
+  explicit BoundarySwarm(std::weak_ptr<MeshBlock> pmb, const std::string &label);
   ~BoundarySwarm() = default;
 
   std::vector<ParArrayND<int>> vars_int;
@@ -325,7 +325,8 @@ class BoundarySwarm : public BoundaryCommunication {
   }
 
 #ifdef MPI_PARALLEL
-  int swarm_id_;
+  // Unique communicator for this swarm.
+  MPI_Comm swarm_comm;
 #endif
 };
 
