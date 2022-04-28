@@ -89,7 +89,7 @@ enum class BuffCommType
 };
 
 template <class T>
-class CommBuffer : public T
+class CommBuffer
 {
 
   // Need specializations to be friends with each other
@@ -113,6 +113,8 @@ class CommBuffer : public T
 
   std::function<T()> get_resource_;
 
+  T buf_;
+
 public:
   
   CommBuffer()
@@ -129,18 +131,21 @@ public:
 
   template <class U>
   CommBuffer &operator=(const CommBuffer<U> &in);
+  
+  operator T&() { return buf_;}
+  operator const T&() const { return buf_;}
 
   void Allocate()
   {
     if (!active_) { 
-      T::operator=(get_resource_());
+      buf_ = get_resource_();
       active_ = true;
     }
   }
 
   void Free()
   {
-    T::operator=(T());
+    buf_ = T();
     active_ = false;
   }
   
@@ -184,7 +189,7 @@ CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm, st
       recv_rank_(recv_rank),
       comm_(comm),
       get_resource_(get_resource),
-      T()
+      buf_()
 {
 
 // Set up persistent communication
@@ -215,7 +220,7 @@ CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm, st
 
 template <class T>
 template <class U>
-CommBuffer<T>::CommBuffer(const CommBuffer<U> &in) : T(in),
+CommBuffer<T>::CommBuffer(const CommBuffer<U> &in) : buf_(in.buf_),
                                                      state_(in.state_),
                                                      comm_type_(in.comm_type_),
                                                      recv_start_called_(in.recv_start_called_),
@@ -237,7 +242,7 @@ template <class T>
 template <class U>
 CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in)
 {
-  T::operator=(static_cast<U>(in));
+  buf_ = in.buf_;
   state_ = in.state_;
   comm_type_ = in.comm_type_;
   recv_start_called_ = in.recv_start_called_;
@@ -269,7 +274,7 @@ void CommBuffer<T>::Send() noexcept
 // this could be blocking
 #ifdef MPI_PARALLEL
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
-    PARTHENON_MPI_CHECK(MPI_Isend(T::data(), T::size(), MPIType<buf_base_t>::value(),
+    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(), MPIType<buf_base_t>::value(),
               recv_rank_, tag_, comm_, my_request_.get()));
 #endif
   }
@@ -331,7 +336,7 @@ bool CommBuffer<T>::TryReceive() noexcept
       {
         if (!active_)
           Allocate();
-        PARTHENON_MPI_CHECK(MPI_Recv(T::data(), T::size(), MPIType<buf_base_t>::value(), send_rank_,
+        PARTHENON_MPI_CHECK(MPI_Recv(buf_.data(), buf_.size(), MPIType<buf_base_t>::value(), send_rank_,
                  tag_, comm_, MPI_STATUS_IGNORE));
         *state_ = BufferState::received;
       }
