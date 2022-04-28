@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,10 +20,6 @@ find_program(
         clang-format-mp-12.0 # MacPorts
         clang-format-11 # Debian package manager, among others, provide this name
         clang-format-mp-11.0 # MacPorts
-        clang-format-10 # Debian package manager, among others, provide this name
-        clang-format-mp-10.0 # MacPorts
-        clang-format-9 # Debian package manager, among others, provide this name
-        clang-format-mp-9.0 # MacPorts
         clang-format # Default name
     )
 
@@ -56,14 +52,14 @@ endif()
 if (NOT CLANG_FORMAT_VERSION)
     message(
         WARNING
-        "Couldn't determine clang-format version. clang-format >=9.0 is \
+        "Couldn't determine clang-format version. clang-format >=11.0 is \
         required - results on previous versions may not be stable")
 
     set(CLANG_FORMAT_VERSION "0.0.0" CACHE STRING "clang-format version not found")
-elseif (CLANG_FORMAT_VERSION VERSION_LESS "9.0")
+elseif (CLANG_FORMAT_VERSION VERSION_LESS "11.0")
     message(
         WARNING
-        "clang-format version >=9.0 is required - results on previous \
+        "clang-format version >=11.0 is required - results on previous \
         versions may not be stable")
 endif()
 
