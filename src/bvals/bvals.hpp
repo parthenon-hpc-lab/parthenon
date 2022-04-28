@@ -73,7 +73,7 @@ class BoundaryBase {
   LogicalLocation loc;
   BoundaryFlag block_bcs[6];
 
-  static int CreateBvalsMPITag(int lid, int bufid, int phys);
+  static int CreateBvalsMPITag(int lid, int bufid);
   static int CreateBufferID(int ox1, int ox2, int ox3, int fi1, int fi2);
   static int BufferID(int dim, bool multilevel);
   static int FindBufferID(int ox1, int ox2, int ox3, int fi1, int fi2);
@@ -122,8 +122,6 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
   void StartReceiving(BoundaryCommSubset phase) final {}
   void ClearBoundary(BoundaryCommSubset phase) final {}
 
-  int AdvanceCounterPhysID(int num_phys) { return 0; }
-
  private:
   // ptr to MeshBlock containing this BoundaryValues
   std::weak_ptr<MeshBlock> pmy_block_;
@@ -133,10 +131,6 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
   // false --> e.g. block, polar, periodic boundaries
   // bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
   // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
-
-  // local counter for generating unique MPI tags for per-MeshBlock BoundarySwarm
-  // communication (subset of Mesh::next_phys_id_)
-  int bvars_next_phys_id_;
 
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {
@@ -189,8 +183,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   void FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
                                int &idx_start, std::shared_ptr<CellVariable<Real>> v);
 
-  int AdvanceCounterPhysID(int num_phys);
-
  private:
   // ptr to MeshBlock containing this BoundaryValues
   std::weak_ptr<MeshBlock> pmy_block_;
@@ -200,10 +192,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // false --> e.g. block, polar, periodic boundaries
   bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
   // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
-
-  // local counter for generating unique MPI tags for per-MeshBlock BoundaryVariable
-  // communication (subset of Mesh::next_phys_id_)
-  int bvars_next_phys_id_;
 
   // ProlongateBoundaries() wraps the following S/AMR-operations (within neighbor loop):
   // (the next function is also called within 3x nested loops over nk,nj,ni)
