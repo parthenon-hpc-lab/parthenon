@@ -688,6 +688,8 @@ Real ParameterInput::GetOrAddReal(const std::string &block, const std::string &n
     ret = static_cast<Real>(atof(val.c_str()));
   } else {
     pb = FindOrAddBlock(block);
+    static_assert(sizeof(Real) <= sizeof(double), "Real is greater than double!");
+    ss_value.precision(std::numeric_limits<double>::max_digits10);
     ss_value << def_value;
     AddParameter(pb, name, ss_value.str(), "# Default value added at run time");
     ret = def_value;
