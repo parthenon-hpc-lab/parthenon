@@ -849,9 +849,8 @@ void Swarm::SetNeighborIndices3D_() {
 }
 
 void Swarm::SetupPersistentMPI() {
-  vbswarm->SetupPersistentMPI();
-
   auto pmb = GetBlockPointer();
+  vbswarm->SetupPersistentMPI();
 
   const int ndim = pmb->pmy_mesh->ndim;
 
@@ -1204,7 +1203,7 @@ void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
   // Create the boundary object
-  vbswarm = std::make_shared<BoundarySwarm>(pmb);
+  vbswarm = std::make_shared<BoundarySwarm>(pmb, label_);
 
   // Enroll SwarmVariable object
   vbswarm->bswarm_index = pmb->pbswarm->bswarms.size();

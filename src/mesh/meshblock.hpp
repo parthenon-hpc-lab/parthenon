@@ -74,11 +74,11 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   ~MeshBlock();
 
   // Factory method deals with initialization for you
-  static std::shared_ptr<MeshBlock> Make(int igid, int ilid, LogicalLocation iloc,
-                                         RegionSize input_block, BoundaryFlag *input_bcs,
-                                         Mesh *pm, ParameterInput *pin,
-                                         ApplicationInput *app_in, Packages_t &packages,
-                                         int igflag, double icost = 1.0);
+  static std::shared_ptr<MeshBlock>
+  Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
+       BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
+       Packages_t &packages, std::shared_ptr<StateDescriptor> resolved_packages,
+       int igflag, double icost = 1.0);
 
   // Kokkos execution space for this MeshBlock
   DevExecSpace exec_space;
@@ -408,7 +408,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // the block is allocated.
   void Initialize(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                   BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                  ApplicationInput *app_in, Packages_t &packages, int igflag,
+                  ApplicationInput *app_in, Packages_t &packages,
+                  std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
                   double icost = 1.0);
 
   void InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
