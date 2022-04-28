@@ -14,8 +14,16 @@
 find_program(
     CLANG_FORMAT
     NAMES
-        clang-format-8 # Debian package manager, among others, provide this name
-        clang-format-mp-8.0 # MacPorts
+        clang-format-13 # Debian package manager, among others, provide this name
+        clang-format-mp-13.0 # MacPorts
+        clang-format-12 # Debian package manager, among others, provide this name
+        clang-format-mp-12.0 # MacPorts
+        clang-format-11 # Debian package manager, among others, provide this name
+        clang-format-mp-11.0 # MacPorts
+        clang-format-10 # Debian package manager, among others, provide this name
+        clang-format-mp-10.0 # MacPorts
+        clang-format-9 # Debian package manager, among others, provide this name
+        clang-format-mp-9.0 # MacPorts
         clang-format # Default name
     )
 
@@ -48,15 +56,14 @@ endif()
 if (NOT CLANG_FORMAT_VERSION)
     message(
         WARNING
-        "Couldn't determine clang-format version. clang-format 8.0 is \
-        required - results on other versions may not be stable")
+        "Couldn't determine clang-format version. clang-format >=9.0 is \
+        required - results on previous versions may not be stable")
 
     set(CLANG_FORMAT_VERSION "0.0.0" CACHE STRING "clang-format version not found")
-elseif (NOT (CLANG_FORMAT_VERSION VERSION_GREATER_EQUAL "8.0" AND
-         CLANG_FORMAT_VERSION VERSION_LESS "9.0"))
+elseif (CLANG_FORMAT_VERSION VERSION_LESS "9.0")
     message(
         WARNING
-        "clang-format version 8.0 is required - results on other \
+        "clang-format version >=9.0 is required - results on previous \
         versions may not be stable")
 endif()
 

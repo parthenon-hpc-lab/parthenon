@@ -7,5 +7,5 @@ jobs:
     steps:
     - uses: JoshuaSBrown/cpp-py-formatter/check@v0.2.3
       with:
-        clangFormatVersion: 8
+        clangFormatVersion: 10
         token: ${{ secrets.GITHUB_TOKEN }}

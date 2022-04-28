@@ -11,5 +11,5 @@ jobs:
     - uses: JoshuaSBrown/cpp-py-formatter/command@v0.2.3
       with:
         botName: par-hermes
-        clangFormatVersion: 8
+        clangFormatVersion: 10
         token: ${{ secrets.GITHUB_TOKEN }}
