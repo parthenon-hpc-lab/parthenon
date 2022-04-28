@@ -107,14 +107,15 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
      const int sender_id = pmb->gid; 
      const int receiver_id = nb.snb.gid;
      // This tag is still pretty limiting, since 2^7 = 128 
-     int tag = (nb.snb.lid << 7) | pmb->lid; 
+     //int tag = (nb.snb.lid << 10) | pmb->lid; 
+     int tag = 512*nb.snb.lid + pmb->lid;
 
      const int receiver_rank = nb.snb.rank;
      const int sender_rank = Globals::my_rank; 
 
 #ifdef MPI_PARALLEL
      // TODO: Fix this to use Philipp's communicators and deal with mpi or no mpi
-     const comm_t comm = pmesh->GetMPIComm(v->label()); 
+     const comm_t comm = pmesh->GetMPIComm(v->label() + "_sparse_comm"); 
 #else 
      // Setting to zero is fine here since this doesn't actually get used when everything
      // is on the same rank 
@@ -128,9 +129,10 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
      
      // Also build the non-local receive buffers here          
      if (sender_rank != receiver_rank) {
-       int tag = (pmb->lid << 7) | nb.snb.lid; 
+       //int tag = (pmb->lid << 10) | nb.snb.lid; 
+       int tag_r = 512*pmb->lid + nb.snb.lid;
        pmesh->boundary_comm_map[{receiver_id, sender_id, v->label()}] = 
-                                            CommBuffer<buf_pool_t<Real>::owner_t>(tag, receiver_rank, sender_rank, comm,
+                                            CommBuffer<buf_pool_t<Real>::owner_t>(tag_r, receiver_rank, sender_rank, comm,
                                             [pmesh, buf_size]()
                                             { return pmesh->pool_map.at(buf_size).Get();});
      }
@@ -267,6 +269,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
   int iarr = 0;
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     auto& buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+    buf.IsSentGuard();
     if ( sending_nonzero_flags_h(iarr) ) buf.Send();
     else buf.SendNull();
     ++iarr;
@@ -279,7 +282,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
 
 TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers"); 
-  WriteRegion region("Receive sparse boundary");
+  //WriteRegion region("Receive sparse boundary");
   bool all_received = true;
   Mesh* pmesh = md->GetMeshPointer(); 
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
