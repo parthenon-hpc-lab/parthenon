@@ -158,7 +158,7 @@ public:
 #ifdef MPI_PARALLEL
     if (*comm_type_ == BuffCommType::sender)
     {
-      MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE);
+      PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
     }
 #endif
   }
@@ -189,7 +189,7 @@ CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm, st
 
 // Set up persistent communication
 #ifdef MPI_PARALLEL
-  MPI_Comm_rank(comm_, &my_rank);
+  PARTHENON_MPI_CHECK(MPI_Comm_rank(comm_, &my_rank));
 #else
   my_rank = 0;
 #endif
@@ -227,7 +227,7 @@ CommBuffer<T>::CommBuffer(const CommBuffer<U> &in) : T(in),
                                                      active_(in.active_)
 {
 #ifdef MPI_PARALLEL
-  MPI_Comm_rank(comm_, &my_rank);
+  PARTHENON_MPI_CHECK(MPI_Comm_rank(comm_, &my_rank));
 #else
   my_rank = 0;
 #endif
@@ -248,7 +248,7 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in)
   comm_ = in.comm_;
   active_ = in.active_;
 #ifdef MPI_PARALLEL
-  MPI_Comm_rank(comm_, &my_rank);
+  PARTHENON_MPI_CHECK(MPI_Comm_rank(comm_, &my_rank));
 #else
   my_rank = 0;
 #endif
@@ -268,9 +268,9 @@ void CommBuffer<T>::Send() noexcept
 // Make sure that this request isn't still out,
 // this could be blocking
 #ifdef MPI_PARALLEL
-    MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE);
-    MPI_Isend(T::data(), T::size(), MPIType<buf_base_t>::value(),
-              recv_rank_, tag_, comm_, my_request_.get());
+    PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
+    PARTHENON_MPI_CHECK(MPI_Isend(T::data(), T::size(), MPIType<buf_base_t>::value(),
+              recv_rank_, tag_, comm_, my_request_.get()));
 #endif
   }
   *state_ = BufferState::sending;
@@ -289,9 +289,9 @@ void CommBuffer<T>::SendNull() noexcept
 // Make sure that this request isn't still out,
 // this could be blocking
 #ifdef MPI_PARALLEL
-    MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE);
-    MPI_Isend(&null_buf_, 0, MPIType<buf_base_t>::value(),
-              recv_rank_, tag_, comm_, my_request_.get());
+    PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
+    PARTHENON_MPI_CHECK(MPI_Isend(&null_buf_, 0, MPIType<buf_base_t>::value(),
+              recv_rank_, tag_, comm_, my_request_.get()));
 #endif
   }
   *state_ = BufferState::sending_null;
@@ -315,27 +315,32 @@ bool CommBuffer<T>::TryReceive() noexcept
     }
 #ifdef MPI_PARALLEL
     int test;
+    // This is the crazy thing mentioned in Athena++, including this supposedly do 
+    // nothing call speeds up the MPI performance by a factor of a few.
+    PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD,
+                                         &test, MPI_STATUS_IGNORE));
+    
     MPI_Status status;
-    MPI_Iprobe(send_rank_, tag_, comm_, &test, &status);
+    PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank_, tag_, comm_, &test, &status));
 
     if (test)
     {
       int size;
-      MPI_Get_count(&status, MPIType<buf_base_t>::value(), &size);
+      PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPIType<buf_base_t>::value(), &size));
       if (size > 0)
       {
         if (!active_)
           Allocate();
-        MPI_Recv(T::data(), T::size(), MPIType<buf_base_t>::value(), send_rank_,
-                 tag_, comm_, MPI_STATUS_IGNORE);
+        PARTHENON_MPI_CHECK(MPI_Recv(T::data(), T::size(), MPIType<buf_base_t>::value(), send_rank_,
+                 tag_, comm_, MPI_STATUS_IGNORE));
         *state_ = BufferState::received;
       }
       else
       {
         if (active_)
           Free();
-        MPI_Recv(&null_buf_, 0, MPIType<buf_base_t>::value(), send_rank_,
-                 tag_, comm_, MPI_STATUS_IGNORE);
+        PARTHENON_MPI_CHECK(MPI_Recv(&null_buf_, 0, MPIType<buf_base_t>::value(), send_rank_,
+                 tag_, comm_, MPI_STATUS_IGNORE));
         *state_ = BufferState::received_null;
       }
       *recv_start_called_ = false;
