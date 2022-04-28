@@ -23,10 +23,10 @@
 
 #include <cstdint>
 #include <functional>
-#include <map>
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -168,7 +168,7 @@ class Mesh {
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
 
 #ifdef MPI_PARALLEL
-  MPI_Comm const GetMPIComm(const std::string &label) { return mpi_comm_map_.at(label); }
+  MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
 #endif
 
  private:
@@ -214,7 +214,7 @@ class Mesh {
 
 #ifdef MPI_PARALLEL
   // Global map of MPI comms for separate variables
-  std::map<std::string, MPI_Comm> mpi_comm_map_;
+  std::unordered_map<std::string, MPI_Comm> mpi_comm_map_;
 #endif
 
   // functions
