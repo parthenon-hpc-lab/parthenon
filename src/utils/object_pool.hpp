@@ -90,7 +90,7 @@ struct ObjectPool<T>::weak_t : public T {
 
  protected:
   template <class... ARGs>
-  KOKKOS_IMPL_HOST_FUNCTION static weak_t make(int key, ARGs &&...args) {
+  KOKKOS_IMPL_HOST_FUNCTION static weak_t make(int key, ARGs &&... args) {
     weak_t out(std::forward<ARGs>(args)...);
     out.key_ = key;
     return out;
@@ -98,7 +98,7 @@ struct ObjectPool<T>::weak_t : public T {
 
  public:
   template <class... Ts>
-  KOKKOS_IMPL_HOST_FUNCTION weak_t(Ts &&...args)
+  KOKKOS_IMPL_HOST_FUNCTION weak_t(Ts &&... args)
       : T(std::forward<Ts>(args)...), key_(default_key_){};
 
   KOKKOS_IMPL_HOST_FUNCTION

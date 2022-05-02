@@ -57,9 +57,9 @@ using BufMemSpace = Kokkos::DefaultExecutionSpace::memory_space;
 template <typename T>
 using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
 
-// Structures for reusable memory pools and communication 
-template<typename T>
-using buf_pool_t = ObjectPool<BufArray1D<T>>;  
+// Structures for reusable memory pools and communication
+template <typename T>
+using buf_pool_t = ObjectPool<BufArray1D<T>>;
 
 template <typename T>
 using ParArray0D = Kokkos::View<T, LayoutWrapper, DevMemSpace>;
