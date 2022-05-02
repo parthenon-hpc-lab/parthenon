@@ -173,7 +173,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
         rebuild =
             rebuild || !UsingSameResource(
                            md->send_bnd_info_h(nbound).buf,
-                           static_cast<decltype(md->send_bnd_info_h(nbound).buf)>(buf));
+                           buf.buffer());
       } else {
         rebuild = true;
       }
@@ -193,7 +193,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
       if (v->IsAllocated()) {
         md->send_bnd_info_h(iarr) = BndInfo::Sender(pmb, nb, v);
         auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
-        md->send_bnd_info_h(iarr).buf = buf;
+        md->send_bnd_info_h(iarr).buf = buf.buffer();
       }
 
       ++iarr;
@@ -327,7 +327,7 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
         rebuild =
             rebuild || !UsingSameResource(
                            md->recv_bnd_info_h(nbound).buf,
-                           static_cast<decltype(md->recv_bnd_info_h(nbound).buf)>(buf));
+                           buf.buffer());
         if ((buf.GetState() == BufferState::received) &&
             !md->recv_bnd_info_h(nbound).allocated) {
           rebuild = true;
@@ -353,7 +353,7 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
 
       if (v->IsAllocated()) md->recv_bnd_info_h(iarr) = BndInfo::Setter(pmb, nb, v);
 
-      md->recv_bnd_info_h(iarr).buf = buf;
+      md->recv_bnd_info_h(iarr).buf = buf.buffer();
       if (buf.GetState() == BufferState::received) {
         md->recv_bnd_info_h(iarr).allocated = true;
         PARTHENON_DEBUG_REQUIRE(v->IsAllocated(),

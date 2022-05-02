@@ -121,7 +121,10 @@ class CommBuffer {
 
   operator T &() { return buf_; }
   operator const T &() const { return buf_; }
-
+  
+  T& buffer() {return buf_;}
+  const T& buffer() const {return buf_;}
+  
   void Allocate() {
     if (!active_) {
       buf_ = get_resource_();
