@@ -236,18 +236,17 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
   }
 }
 
-BndInfo BndInfo::Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb, 
+BndInfo BndInfo::Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                         std::shared_ptr<CellVariable<Real>> v) {
   BndInfo out;
   out.Nv = v->GetDim(4);
   out.Nu = v->GetDim(5);
   out.Nt = v->GetDim(6);
-  
+
   int mylevel = pmb->loc.level;
   out.coords = pmb->coords;
-  
-  if (pmb->pmr)
-    out.coarse_coords = pmb->pmr->GetCoarseCoords();
+
+  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
 
   out.fine = v->data.Get();
   out.coarse = v->vbvar->coarse_buf.Get();
@@ -267,23 +266,23 @@ BndInfo BndInfo::Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb,
     CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, c_cellbounds.GetBoundsJ(interior));
     CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, c_cellbounds.GetBoundsK(interior));
     out.restriction = true;
-    out.var = v->vbvar->coarse_buf.Get(); 
+    out.var = v->vbvar->coarse_buf.Get();
   } else {
     CalcIndicesLoadToFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb, pmb.get());
     out.var = v->data.Get();
   }
-  return out; 
+  return out;
 }
 
-BndInfo BndInfo::Setter(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb, 
+BndInfo BndInfo::Setter(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                         std::shared_ptr<CellVariable<Real>> v) {
-  BndInfo out; 
+  BndInfo out;
 
   out.Nv = v->GetDim(4);
   out.Nu = v->GetDim(5);
   out.Nt = v->GetDim(6);
-  
-  int mylevel = pmb->loc.level; 
+
+  int mylevel = pmb->loc.level;
   IndexDomain interior = IndexDomain::interior;
   if (nb.snb.level == mylevel) {
     const parthenon::IndexShape &cellbounds = pmb->cellbounds;
@@ -295,22 +294,21 @@ BndInfo BndInfo::Setter(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb,
     const IndexShape &c_cellbounds = pmb->c_cellbounds;
     const auto &cng = pmb->cnghost;
     CalcIndicesSetFromCoarser(nb.ni.ox1, out.si, out.ei,
-                              c_cellbounds.GetBoundsI(interior), pmb->loc.lx1,
-                              cng, true);
+                              c_cellbounds.GetBoundsI(interior), pmb->loc.lx1, cng, true);
     CalcIndicesSetFromCoarser(nb.ni.ox2, out.sj, out.ej,
-                              c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2,
-                              cng, pmb->block_size.nx2 > 1);
+                              c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2, cng,
+                              pmb->block_size.nx2 > 1);
     CalcIndicesSetFromCoarser(nb.ni.ox3, out.sk, out.ek,
-                              c_cellbounds.GetBoundsK(interior), pmb->loc.lx3,
-                              cng, pmb->block_size.nx3 > 1);
+                              c_cellbounds.GetBoundsK(interior), pmb->loc.lx3, cng,
+                              pmb->block_size.nx3 > 1);
 
     out.var = v->vbvar->coarse_buf.Get();
   } else {
-    CalcIndicesSetFromFiner(out.si, out.ei, out.sj, out.ej, 
-                            out.sk, out.ek, nb, pmb.get());
+    CalcIndicesSetFromFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb,
+                            pmb.get());
     out.var = v->data.Get();
   }
-  return out; 
+  return out;
 }
 
 } // namespace cell_centered_bvars

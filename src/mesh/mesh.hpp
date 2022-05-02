@@ -24,11 +24,11 @@
 #include <cstdint>
 #include <functional>
 #include <map>
-#include <unordered_map>
 #include <memory>
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -48,9 +48,9 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/communication_buffer.hpp"
+#include "utils/hash.hpp"
 #include "utils/object_pool.hpp"
 #include "utils/partition_stl_containers.hpp"
-#include "utils/hash.hpp"
 
 namespace parthenon {
 
@@ -171,11 +171,9 @@ class Mesh {
   std::vector<LogicalLocation> GetLocList() const noexcept { return loclist; }
 
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
-  
-    
-  
-  // Ordering here is important to prevent deallocation of pools before boundary 
-  // communication buffers 
+
+  // Ordering here is important to prevent deallocation of pools before boundary
+  // communication buffers
   using channel_key_t = std::tuple<int, int, std::string>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
   std::unordered_map<channel_key_t, CommBuffer<buf_pool_t<Real>::owner_t>,

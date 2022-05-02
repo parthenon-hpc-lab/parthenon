@@ -24,8 +24,8 @@
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "coordinates/coordinates.hpp"
-#include "utils/object_pool.hpp" 
 #include "utils/communication_buffer.hpp"
+#include "utils/object_pool.hpp"
 
 namespace parthenon {
 
@@ -33,8 +33,8 @@ template <typename T>
 class MeshData;
 class IndexRange;
 class NeighborBlock;
-template <typename T> 
-class CellVariable; 
+template <typename T>
+class CellVariable;
 
 namespace cell_centered_bvars {
 void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds);
@@ -62,29 +62,29 @@ struct BndInfo {
   int ej = 0;
   int sk = 0;
   int ek = 0;
-  
+
   int Nt = 0;
   int Nu = 0;
   int Nv = 0;
-  
+
   bool allocated = true;
   bool restriction = false;
   Coordinates_t coords, coarse_coords; // coords
-  
-  buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
+
+  buf_pool_t<Real>::weak_t buf;       // comm buffer from pool
   parthenon::ParArray6D<Real> var;    // data variable used for comms
   parthenon::ParArray6D<Real> fine;   // fine data variable for prolongation/restriction
   parthenon::ParArray6D<Real> coarse; // coarse data variable for prolongation/restriction
 
-  static BndInfo Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb, 
+  static BndInfo Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                         std::shared_ptr<CellVariable<Real>> v);
-  static BndInfo Setter(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb, 
+  static BndInfo Setter(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                         std::shared_ptr<CellVariable<Real>> v);
-  
-  KOKKOS_INLINE_FUNCTION 
-  int GetBufferSize() const { return 1 + Nv * Nt * Nu * (ei - si + 1) * (ej - sj + 1) * (ek - sk + 1);}
 
-  
+  KOKKOS_INLINE_FUNCTION
+  int GetBufferSize() const {
+    return 1 + Nv * Nt * Nu * (ei - si + 1) * (ej - sj + 1) * (ek - sk + 1);
+  }
 };
 
 using BufferCache_t = ParArray1D<BndInfo>;

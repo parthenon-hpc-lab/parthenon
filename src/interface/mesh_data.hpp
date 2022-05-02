@@ -27,10 +27,10 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "utils/error_checking.hpp"
-#include "utils/utils.hpp"
-#include "utils/object_pool.hpp"
 #include "utils/communication_buffer.hpp"
+#include "utils/error_checking.hpp"
+#include "utils/object_pool.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -271,7 +271,7 @@ class MeshData {
   }
 
   template <class... Args>
-  void Add(Args &&... args) {
+  void Add(Args &&...args) {
     for (const auto &pbd : block_data_) {
       pbd->Add(std::forward<Args>(args)...);
     }
@@ -288,7 +288,7 @@ class MeshData {
   }
 
   template <typename... Args>
-  void Copy(const std::shared_ptr<MeshData<T>> src, Args &&... args) {
+  void Copy(const std::shared_ptr<MeshData<T>> src, Args &&...args) {
     if (src.get() == nullptr) {
       PARTHENON_THROW("src points at null");
     }
@@ -306,7 +306,7 @@ class MeshData {
 
  private:
   template <typename... Args>
-  const auto &PackVariablesAndFluxesImpl(PackIndexMap *map_out, Args &&... args) {
+  const auto &PackVariablesAndFluxesImpl(PackIndexMap *map_out, Args &&...args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
                              PackIndexMap &map, vpack_types::StringPair &key) {
       return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)..., map,
@@ -318,7 +318,7 @@ class MeshData {
   }
 
   template <typename... Args>
-  const auto &PackVariablesImpl(PackIndexMap *map_out, bool coarse, Args &&... args) {
+  const auto &PackVariablesImpl(PackIndexMap *map_out, bool coarse, Args &&...args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
                              PackIndexMap &map, std::vector<std::string> &key) {
       return meshblock_data->PackVariables(std::forward<Args>(args)..., map, key, coarse);
@@ -461,7 +461,7 @@ class MeshData {
     }
     return true;
   }
-  
+
  private:
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
@@ -479,14 +479,13 @@ class MeshData {
 
   std::vector<bool> send_buf_alloc_status_, set_buf_alloc_status_,
       restrict_buf_alloc_status_;
- 
- public: 
-  
-  cell_centered_bvars::BufferCache_t send_bnd_info{}; 
-  cell_centered_bvars::BufferCache_t::host_mirror_type send_bnd_info_h{}; 
-  
-  cell_centered_bvars::BufferCache_t recv_bnd_info{}; 
-  cell_centered_bvars::BufferCache_t::host_mirror_type recv_bnd_info_h{}; 
+
+ public:
+  cell_centered_bvars::BufferCache_t send_bnd_info{};
+  cell_centered_bvars::BufferCache_t::host_mirror_type send_bnd_info_h{};
+
+  cell_centered_bvars::BufferCache_t recv_bnd_info{};
+  cell_centered_bvars::BufferCache_t::host_mirror_type recv_bnd_info_h{};
 };
 
 } // namespace parthenon

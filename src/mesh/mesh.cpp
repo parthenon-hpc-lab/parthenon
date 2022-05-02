@@ -1062,7 +1062,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
 
     // prepare to receive conserved variables
-    //for (int i = 0; i < nmb; ++i) {
+    // for (int i = 0; i < nmb; ++i) {
     //  block_list[i]->meshblock_data.Get()->StartReceiving(BoundaryCommSubset::mesh_init);
     //}
 
@@ -1073,7 +1073,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       auto &md = mesh_data.GetOrAdd("base", i);
       cell_centered_bvars::BuildSparseBoundaryBuffers(md);
       cell_centered_bvars::LoadAndSendSparseBoundaryBuffers(md);
-      //cell_centered_bvars::SendBoundaryBuffers(md);
+      // cell_centered_bvars::SendBoundaryBuffers(md);
     }
 
     // wait to receive FillGhost variables
@@ -1084,10 +1084,11 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       all_received = true;
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
-        //if (cell_centered_bvars::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
-        //  all_received = false;
-        //}
-        if (cell_centered_bvars::ReceiveSparseBoundaryBuffers(md) != TaskStatus::complete) {
+        // if (cell_centered_bvars::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
+        //   all_received = false;
+        // }
+        if (cell_centered_bvars::ReceiveSparseBoundaryBuffers(md) !=
+            TaskStatus::complete) {
           all_received = false;
         }
       }
@@ -1096,17 +1097,17 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // unpack FillGhost variables
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
-      //cell_centered_bvars::SetBoundaries(md);
+      // cell_centered_bvars::SetBoundaries(md);
       cell_centered_bvars::SetInternalSparseBoundaryBuffers(md);
       if (multilevel) {
         cell_centered_refinement::RestrictPhysicalBounds(md.get());
       }
     }
 
-    //for (int i = 0; i < nmb; ++i) {
-    //  block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
-    //}
-    // Now do prolongation, compute primitives, apply BCs
+    // for (int i = 0; i < nmb; ++i) {
+    //   block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
+    // }
+    //  Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
       auto &mbd = block_list[i]->meshblock_data.Get();
       if (multilevel) {
@@ -1275,17 +1276,20 @@ void Mesh::SetupMPIComms() {
     auto &metadata = pair.second;
     if (metadata.IsSet(Metadata::FillGhost)) {
       {
-      MPI_Comm mpi_comm;
-      PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
-      const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});
-      PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
+        MPI_Comm mpi_comm;
+        PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+        const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});
+        PARTHENON_REQUIRE_THROWS(ret.second,
+                                 "Communicator with same name already in map");
       }
 
       {
-      MPI_Comm mpi_comm;
-      PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
-      const auto ret = mpi_comm_map_.insert({pair.first.label() + "_sparse_comm", mpi_comm});
-      PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
+        MPI_Comm mpi_comm;
+        PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+        const auto ret =
+            mpi_comm_map_.insert({pair.first.label() + "_sparse_comm", mpi_comm});
+        PARTHENON_REQUIRE_THROWS(ret.second,
+                                 "Communicator with same name already in map");
       }
 
       if (multilevel) {
