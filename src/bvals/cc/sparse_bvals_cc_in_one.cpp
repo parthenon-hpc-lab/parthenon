@@ -71,7 +71,8 @@ class WriteRegion {
 
 using namespace impl;
 
-// TODO: Need to call pmesh->boundary_comm_map.clear() after every remesh
+// pmesh->boundary_comm_map.clear() after every remesh 
+// in InitializeBlockTimeStepsAndBoundaries()
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundaryBuffers");
   Mesh *pmesh = md->GetMeshPointer();
