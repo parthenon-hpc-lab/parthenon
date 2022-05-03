@@ -301,7 +301,8 @@ TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     // (the state could also be BufferState::received_null, which corresponds to no data)
     if (buf.GetState() == BufferState::received && !v->IsAllocated()) {
       pmb->AllocateSparse(v->label());
-      // TODO: Need to flag this so that the array gets filled with something sensible
+      // TODO: Need to flag this so that the array gets filled with something sensible,
+      //       currently just defaulted to zero. 
     }
   });
 
