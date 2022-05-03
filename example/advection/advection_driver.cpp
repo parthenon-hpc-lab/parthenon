@@ -123,11 +123,20 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
+    /*
     auto send =
         tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
     auto recv =
         tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
     auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
+    */
+   
+    auto send = tl.AddTask(
+        update, parthenon::cell_centered_bvars::LoadAndSendSparseBoundaryBuffers, mc1);
+    auto recv = tl.AddTask(
+        update, parthenon::cell_centered_bvars::ReceiveSparseBoundaryBuffers, mc1);
+    auto set = tl.AddTask(
+        recv, parthenon::cell_centered_bvars::SetInternalSparseBoundaryBuffers, mc1);    
     if (pmesh->multilevel) {
       tl.AddTask(set, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
                  mc1.get());
