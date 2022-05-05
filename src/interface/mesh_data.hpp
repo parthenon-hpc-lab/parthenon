@@ -269,7 +269,7 @@ class MeshData {
   }
 
   template <class... Args>
-  void Add(Args &&...args) {
+  void Add(Args &&... args) {
     for (const auto &pbd : block_data_) {
       pbd->Add(std::forward<Args>(args)...);
     }
@@ -286,7 +286,7 @@ class MeshData {
   }
 
   template <typename... Args>
-  void Copy(const std::shared_ptr<MeshData<T>> src, Args &&...args) {
+  void Copy(const std::shared_ptr<MeshData<T>> src, Args &&... args) {
     if (src.get() == nullptr) {
       PARTHENON_THROW("src points at null");
     }
@@ -304,7 +304,7 @@ class MeshData {
 
  private:
   template <typename... Args>
-  const auto &PackVariablesAndFluxesImpl(PackIndexMap *map_out, Args &&...args) {
+  const auto &PackVariablesAndFluxesImpl(PackIndexMap *map_out, Args &&... args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
                              PackIndexMap &map, vpack_types::StringPair &key) {
       return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)..., map,
@@ -316,7 +316,7 @@ class MeshData {
   }
 
   template <typename... Args>
-  const auto &PackVariablesImpl(PackIndexMap *map_out, bool coarse, Args &&...args) {
+  const auto &PackVariablesImpl(PackIndexMap *map_out, bool coarse, Args &&... args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
                              PackIndexMap &map, std::vector<std::string> &key) {
       return meshblock_data->PackVariables(std::forward<Args>(args)..., map, key, coarse);
