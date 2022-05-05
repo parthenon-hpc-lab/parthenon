@@ -83,6 +83,8 @@ template <typename T,
 #ifdef ENABLE_HDF5
           ,
           typename std::enable_if<!std::is_same<T, hsize_t>::value, bool>::type = true>
+#else
+          >
 #endif // ENABLE_HDF5
 T parse_value(std::string &strvalue);
 
