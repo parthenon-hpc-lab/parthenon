@@ -1,8 +1,8 @@
 # Sparse boundary communication 
 
-Communication between meshblocks at all stages is required to synchronize fields that include ghost zones. For each pair of meshblocks **a** and **b** that share a boundary, we define two *communication channel*s (**a**->**b** and **b**->**a**) for each field that communicates ghost zone data. This communication channel can be shared amongst all stages contained in the `MeshBlock` field `DataCollection<MeshBlockData<Real>> meshblock_data`, since the communication during different stages doesn't overlap. A communication channel needs to contain some state that indicates if information has been sent from block **a** but not received on block **b**, or if the information has been received. Additionally, the communication channel should contain storage if data is being communicated (which may not always be the case for sparse variables). 
+Communication between meshblocks at all stages is required to synchronize fields that include ghost zones. For each pair of meshblocks **a** and **b** that share a boundary, we define two *communication channel*s (**a**->**b** and **b**->**a**) for each field that communicates ghost zone data. This communication channel can be shared amongst all stages contained in the `MeshBlock` field `DataCollection<MeshBlockData<Real>> meshblock_data`, since the communication during different stages doesn't overlap. A communication channel needs to contain some state that indicates if information has been sent from block **a** but not received on block **b**, or if the information has been received. Additionally, the communication channel should contain storage if data is being communicated, which may not always be the case for sparse variables. When the sender is sparse and unallocated, no storage communication buffer storage is required since the ghost zones of the receiver should be filled with default values. When the sender is allocated, we always allocate buffer storage. 
 
-When the sender is sparse and unallocated, no storage communication buffer storage is required since the ghost zones of the receiver should be filled with default values. When the sender is allocated, we always allocate buffer storage  When sparse variables are considered, there should be five possible states of the buffer:
+For (potentially) sparse variables, there should be five possible states of the buffer:
 
 - `sending`: The sender has filled the buffer with data meets the threshold for sparse allocation.
 - `sending_null`: The sender is either unallocated, so that it just contains default data, or the sender is allocated and but all of the values in the communicated region fall below the sparse threshold. 
@@ -54,8 +54,7 @@ Pool<dev_arr_t<double>>([N](){ return dev_arr_t<double>("test pool", N); });
 A lot of this functionality could be replicated with `shared_ptr` I think, but it is somewhat useful for these objects to be able to exist on device (even though the reference counting doesn't work there). 
 
 ## Sparse boundary communication tasks 
-The tasks for sparse boundary communication pretty closely mirror the `bvals_in_one` tasks but allow 
-for allocation and deallocation of the communication buffers and do not reference the `BoundaryVariable` associated classes. We also add an object to `Mesh` mapping from communication channel key (denoted by a tuple{send_gid, receive_gid, var_name}) to the associated `CommBuffer` associated with that channel. We also add a map of object pools containing pools for various buffer sizes.
+The tasks for sparse cell centered variable boundary communication pretty closely mirror the `bvals_in_one` tasks but allow for allocation and deallocation of the communication buffers and do not reference the `BoundaryVariable` associated classes. The `BndInfo` class is reused and a view of `BndInfo` is stored in `MeshData` for senders and receivers, `MeshData::send_bnd_info` and `MeshData::recv_bnd_info` respectively. We also add an object to `Mesh` mapping from communication channel key (denoted by a tuple{send_gid, receive_gid, var_name}) to the associated `CommBuffer` associated with that channel. We also add a map of object pools containing pools for various buffer sizes.
 ```c++
 using channel_key_t = std::tuple<int, int, std::string>;
 std::unordered_map<channel_key_t, CommBuffer<buf_pool_t<Real>::owner_t>> boundary_comm_map;
@@ -69,16 +68,18 @@ Note that every stage shares the same `CommBuffer`s.
 
 This works with old code with the replacements 
 ```c++
-cell_centered_bvars::SendBoundaryBuffers -> cell_centered_bvars::LoadAndSendSparseBoundaryBuffers
-cell_centered_bvars::ReceiveBoundaryBuffers -> cell_centered_bvars::ReceiveSparseBoundaryBuffers
-cell_centered_bvars::SetBoundaries -> cell_centered_bvars::SetInternalSparseBoundaryBuffers
+SendBoundaryBuffers -> LoadAndSendSparseBoundaryBuffers
+
+ReceiveBoundaryBuffers -> ReceiveSparseBoundaryBuffers
+
+SetBoundaries -> SetInternalSparseBoundaryBuffers
 ```
-and for dense variables gives bitwise agreement. 
+and gives bitwise agreement on `advection-example`. 
 
 ### `BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>>& md)`
-Iterates over communication channels sending or receiving from blocks in `md`. For every sending channel it creates a communication channel for each in the `Mesh::boundary_comm_map`. For receiving channels where the blocks are on different ranks, it also creates a receiving channel in `Mesh::boundary_comm_map` since the sender will not add this channel on the current rank. Also creates new `buf_pool_t`s for the required buffer sizes if they don't already exist. Note that no memory is saved for the communication buffers at this point. 
+- Iterates over communication channels sending or receiving from blocks in `md`. For every sending channel it creates a communication channel for each in the `Mesh::boundary_comm_map`. For receiving channels where the blocks are on different ranks, it also creates a receiving channel in `Mesh::boundary_comm_map` since the sender will not add this channel on the current rank. Also creates new `buf_pool_t`s for the required buffer sizes if they don't already exist. Note that no memory is saved for the communication buffers at this point. 
 
-This is called during `Mesh::Initialize(...)` and during `EvolutionDriver::InitializeBlockTimeStepsAndBoundaries()` and before this task is called `Mesh::boundary_comm_map` is cleared. This should not be called in downstream code. 
+- This is called during `Mesh::Initialize(...)` and during `EvolutionDriver::InitializeBlockTimeStepsAndBoundaries()` and before this task is called `Mesh::boundary_comm_map` is cleared. This should not be called in downstream code. 
 
 ### `LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>>& md)`
 - Allocates buffers if necessary based on allocation status of block fields and checks if `MeshData::send_bnd_info` objects are stale. 
