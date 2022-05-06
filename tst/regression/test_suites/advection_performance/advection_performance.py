@@ -3,7 +3,7 @@
 # Copyright(C) 2020 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -29,7 +29,7 @@ import utils.test_case
 # To prevent littering up imported folders with .pyc files or __pycache_ folder
 sys.dont_write_bytecode = True
 
-mb_sizes = [256, 128, 64, 32, 16]  # meshblock sizes
+mb_sizes = [256, 128, 64, 32]  # meshblock sizes
 
 
 class TestCase(utils.test_case.TestCaseAbs):
