@@ -12,12 +12,14 @@
 - [[PR 586]](https://github.com/lanl/parthenon/pull/586) Implement true sparse capability with automatic allocation and deallocation of sparse
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 673]](https://github.com/lanl/parthenon/pull/673) Remove smallest meshblock case from advection_performance
 - [[PR 655]](https://github.com/lanl/parthenon/pull/655) Enable user boundary conditions for particles
 - [[PR 623]](https://github.com/lanl/parthenon/pull/623) Enable Params to optionally return non-const pointers
 - [[PR 604]](https://github.com/lanl/parthenon/pull/604) Allow modification of SimTime in PreStepUserWorkInLoop
 - [[PR 617]](https://github.com/lanl/parthenon/pull/617) Unify the coordinates API for MeshBlockPack and VariablePack
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 670]](https://github.com/lanl/partheon/pull/670) Fix typo in `parse_value` for non-hdf5 builds
 - [[PR 656]](https://github.com/lanl/partheon/pull/656) Extend CC bvars to 5-, 6-D ParArrays
 - [[PR 629]](https://github.com/lanl/parthenon/pull/629) Fix HIP backend (config and tests) and extend build coverage
 - [[PR 652]](https://github.com/lanl/parthenon/pull/652) Fix issue with hsize_t and size_t in utils parser
