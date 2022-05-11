@@ -137,6 +137,7 @@ class SwarmDeviceContext {
   int ndim_;
   friend class Swarm;
   constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
+  constexpr static int no_block_ = -2;   // Mirrors definition in Swarm class
   int my_rank_;
   Coordinates_t coords_;
 };

@@ -899,6 +899,7 @@ int Swarm::CountParticlesToSend_() {
   vbswarm->particle_size = particle_size;
 
   int max_indices_size = 0;
+  int total_noblock_particles = 0;
   for (int n = 0; n <= max_active_index_; n++) {
     if (mask_h(n)) {
       // This particle should be sent
@@ -908,12 +909,32 @@ int Swarm::CountParticlesToSend_() {
           max_indices_size = num_particles_to_send_h(blockIndex_h(n));
         }
       }
+      if (blockIndex_h(n) == no_block_) {
+        total_noblock_particles++;
+      }
     }
   }
   // Size-0 arrays not permitted but we don't want to short-circuit subsequent logic that
   // indicates completed communications
   max_indices_size = std::max<int>(1, max_indices_size);
+
   // Not a ragged-right array, just for convenience
+  if (total_noblock_particles > 0) {
+    auto noblock_indices =
+        ParArrayND<int>("Particles with no block", total_noblock_particles);
+    auto noblock_indices_h = noblock_indices.GetHostMirror();
+    int counter = 0;
+    for (int n = 0; n <= max_active_index_; n++) {
+      if (mask_h(n)) {
+        if (blockIndex_h(n) == no_block_) {
+          noblock_indices_h(counter) = n;
+          counter++;
+        }
+      }
+    }
+    noblock_indices.DeepCopy(noblock_indices_h);
+    ApplyBoundaries_(total_noblock_particles, noblock_indices);
+  }
 
   particle_indices_to_send_ =
       ParArrayND<int>("Particle indices to send", nbmax, max_indices_size);
@@ -1032,7 +1053,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
       int sent_particle_index = 0;
       for (int n = 0; n <= max_active_index_; n++) {
         if (mask_h(n)) {
-          if (blockIndex_h(n) >= 0) {
+          if (blockIndex_h(n) >= 0 || blockIndex_h(n) == no_block_) {
             new_indices_h(sent_particle_index) = n;
             sent_particle_index++;
           }
