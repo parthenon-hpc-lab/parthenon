@@ -239,17 +239,23 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     
-    // Check if this boundary requires flux correction 
-    if (nb.snb.level - 1 != pmb->loc.level) return; 
-    // No flux correction required unless boundaries share a face
-    if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return;
-
+    if ((nb.snb.level - 1 != pmb->loc.level) ||
+        (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)) {
+      return;
+    }
+    
     PARTHENON_DEBUG_REQUIRE(
         pmesh->boundary_comm_map.count({nb.snb.gid, pmb->gid, v->label()}) > 0,
         "Boundary communicator does not exist");
     auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
 
-    
+    // Check if this boundary requires flux correction 
+    if ((!v->IsAllocated()) || 
+        buf.GetState() == BufferState::received_null) {
+      buf.Stale();
+      return;
+    }
+
     // Need to caculate these bounds based on mesh position
     // Average fluxes over area and load buffer 
     IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -308,6 +314,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     if (nl*NmNnNkNjNi > buf_arr.size()) {
       PARTHENON_FAIL("Buffer to small")
     }
+    
     Kokkos::parallel_for("SendFluxCorrection",
         Kokkos::RangePolicy<>(parthenon::DevExecSpace(), 0, nl*NmNnNkNjNi), 
         KOKKOS_LAMBDA(const int loop_idx) { 
