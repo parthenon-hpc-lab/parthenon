@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -89,7 +89,11 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
       int nx1 = pmb->cellbounds.ncellsi(interior);
       int nx2 = pmb->cellbounds.ncellsj(interior);
       int nx3 = pmb->cellbounds.ncellsk(interior);
+      int ll = ll_;
+      int ml = ml_;
       int nl = nl_;
+      int msize = mu_ - ml_ + 1;
+      int nsize = nu_ - nl_ + 1;
       // x1 direction
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
         int i = ib.s + nx1 * nb.fid;
@@ -100,8 +104,10 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
         auto &x1flx = x1flux;
         if (pmb->block_size.nx3 > 1) { // 3D
           pmb->par_for(
-              "SendFluxCorrection3D_x1", nl_, nu_, 0, ksize - 1, 0, jsize - 1,
-              KOKKOS_LAMBDA(const int nn, const int k, const int j) {
+              "SendFluxCorrection3D_x1", ll_, lu_, ml_, mu_, nl_, nu_, 0, ksize - 1, 0,
+              jsize - 1,
+              KOKKOS_LAMBDA(const int lll, const int mm, const int nn, const int k,
+                            const int j) {
                 const int kf = 2 * k + ks;
                 const int jf = 2 * j + js;
                 const Real amm = coords.Area(X1DIR, kf, jf, i);
@@ -109,33 +115,46 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
                 const Real apm = coords.Area(X1DIR, kf + 1, jf, i);
                 const Real app = coords.Area(X1DIR, kf + 1, jf + 1, i);
                 const Real tarea = amm + amp + apm + app;
+                const int l = lll - ll;
+                const int m = mm - ml;
+                const int n = nn - nl;
                 // add 1 because index 0 is used for allocation flag
-                const int p = 1 + j + jsize * (k + ksize * (nn - nl));
-                sbuf(p) = (x1flx(nn, kf, jf, i) * amm + x1flx(nn, kf, jf + 1, i) * amp +
-                           x1flx(nn, kf + 1, jf, i) * apm +
-                           x1flx(nn, kf + 1, jf + 1, i) * app) /
+                const int p = 1 + j + jsize * (k + ksize * (n + nsize * (m + msize * l)));
+                sbuf(p) = (x1flx(lll, mm, nn, kf, jf, i) * amm +
+                           x1flx(lll, mm, nn, kf, jf + 1, i) * amp +
+                           x1flx(lll, mm, nn, kf + 1, jf, i) * apm +
+                           x1flx(lll, mm, nn, kf + 1, jf + 1, i) * app) /
                           tarea;
               });
         } else if (pmb->block_size.nx2 > 1) { // 2D
           int k = kb.s;
           pmb->par_for(
-              "SendFluxCorrection2D_x1", nl_, nu_, 0, jsize - 1,
-              KOKKOS_LAMBDA(const int nn, const int j) {
+              "SendFluxCorrection2D_x1", ll_, lu_, ml_, mu_, nl_, nu_, 0, jsize - 1,
+              KOKKOS_LAMBDA(const int lll, const int mm, const int nn, const int j) {
                 const int jf = 2 * j + js;
                 const Real am = coords.Area(X1DIR, k, jf, i);
                 const Real ap = coords.Area(X1DIR, k, jf + 1, i);
                 const Real tarea = am + ap;
+                const int l = lll - ll;
+                const int m = mm - ml;
+                const int n = nn - nl;
                 // add 1 because index 0 is used for allocation flag
-                const int p = 1 + j + jsize * (nn - nl);
-                sbuf(p) =
-                    (x1flx(nn, k, jf, i) * am + x1flx(nn, k, jf + 1, i) * ap) / tarea;
+                const int p = 1 + j + jsize * (n + nsize * (m + msize * l));
+                sbuf(p) = (x1flx(lll, mm, nn, k, jf, i) * am +
+                           x1flx(lll, mm, nn, k, jf + 1, i) * ap) /
+                          tarea;
               });
         } else { // 1D
           int k = kb.s, j = jb.s;
           pmb->par_for(
-              "SendFluxCorrection1D_x1", nl_, nu_, KOKKOS_LAMBDA(const int nn) {
+              "SendFluxCorrection1D_x1", ll_, lu_, ml_, mu_, nl_, nu_,
+              KOKKOS_LAMBDA(const int lll, const int mm, const int nn) {
+                const int l = lll - ll;
+                const int m = mm - ml;
+                const int n = nn - nl;
                 // add 1 because index 0 is used for allocation flag
-                sbuf(1 + nn - nl) = x1flx(nn, k, j, i);
+                const int p = 1 + n + nsize * (m + msize * l);
+                sbuf(p) = x1flx(lll, mm, nn, k, j, i);
               });
         }
         // x2 direction
@@ -148,8 +167,10 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
         auto &x2flx = x2flux;
         if (pmb->block_size.nx3 > 1) { // 3D
           pmb->par_for(
-              "SendFluxCorrection3D_x2", nl_, nu_, 0, ksize - 1, 0, isize - 1,
-              KOKKOS_LAMBDA(const int nn, const int k, const int i) {
+              "SendFluxCorrection3D_x2", ll_, lu_, ml_, mu_, nl_, nu_, 0, ksize - 1, 0,
+              isize - 1,
+              KOKKOS_LAMBDA(const int lll, const int mm, const int nn, const int k,
+                            const int i) {
                 const int kf = 2 * k + ks;
                 const int ii = 2 * i + is;
                 const Real area00 = coords.Area(X2DIR, kf, j, ii);
@@ -157,28 +178,34 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
                 const Real area10 = coords.Area(X2DIR, kf + 1, j, ii);
                 const Real area11 = coords.Area(X2DIR, kf + 1, j, ii + 1);
                 const Real tarea = area00 + area01 + area10 + area11;
+                const int l = lll - ll;
+                const int m = mm - ml;
+                const int n = nn - nl;
                 // add 1 because index 0 is used for allocation flag
-                const int p = 1 + i + isize * (k + ksize * (nn - nl));
-                sbuf(p) =
-                    (x2flx(nn, kf, j, ii) * area00 + x2flx(nn, kf, j, ii + 1) * area01 +
-                     x2flx(nn, kf + 1, j, ii) * area10 +
-                     x2flx(nn, kf + 1, j, ii + 1) * area11) /
-                    tarea;
+                const int p = 1 + i + isize * (k + ksize * (n + nsize * (m + msize * l)));
+                sbuf(p) = (x2flx(lll, mm, nn, kf, j, ii) * area00 +
+                           x2flx(lll, mm, nn, kf, j, ii + 1) * area01 +
+                           x2flx(lll, mm, nn, kf + 1, j, ii) * area10 +
+                           x2flx(lll, mm, nn, kf + 1, j, ii + 1) * area11) /
+                          tarea;
               });
         } else if (pmb->block_size.nx2 > 1) { // 2D
           int k = kb.s;
           pmb->par_for(
-              "SendFluxCorrection2D_x2", nl_, nu_, 0, isize - 1,
-              KOKKOS_LAMBDA(const int nn, const int i) {
+              "SendFluxCorrection2D_x2", ll_, lu_, ml_, mu_, nl_, nu_, 0, isize - 1,
+              KOKKOS_LAMBDA(const int lll, const int mm, const int nn, const int i) {
                 const int ii = 2 * i + is;
                 const Real area0 = coords.Area(X2DIR, k, j, ii);
                 const Real area1 = coords.Area(X2DIR, k, j, ii + 1);
                 const Real tarea = area0 + area1;
+                const int l = lll - ll;
+                const int m = mm - ml;
+                const int n = nn - nl;
                 // add 1 because index 0 is used for allocation flag
-                const int p = 1 + i + isize * (nn - nl);
-                sbuf(p) =
-                    (x2flx(nn, k, j, ii) * area0 + x2flx(nn, k, j, ii + 1) * area1) /
-                    tarea;
+                const int p = 1 + i + isize * (n + nsize * (m + msize * l));
+                sbuf(p) = (x2flx(lll, mm, nn, k, j, ii) * area0 +
+                           x2flx(lll, mm, nn, k, j, ii + 1) * area1) /
+                          tarea;
               });
         }
         // x3 direction - 3D only
@@ -190,8 +217,10 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
         int isize = (ib.e - ib.s + 1) / 2;
         auto &x3flx = x3flux;
         pmb->par_for(
-            "SendFluxCorrection3D_x3", nl_, nu_, 0, jsize - 1, 0, isize - 1,
-            KOKKOS_LAMBDA(const int nn, const int j, const int i) {
+            "SendFluxCorrection3D_x3", ll_, lu_, ml_, mu_, nl_, nu_, 0, jsize - 1, 0,
+            isize - 1,
+            KOKKOS_LAMBDA(const int lll, const int mm, const int nn, const int j,
+                          const int i) {
               const int jf = 2 * j + js;
               const int ii = 2 * i + is;
               const Real area00 = coords.Area(X3DIR, k, jf, ii);
@@ -199,13 +228,16 @@ void CellCenteredBoundaryVariable::SendFluxCorrection(bool is_allocated) {
               const Real area10 = coords.Area(X3DIR, k, jf + 1, ii);
               const Real area11 = coords.Area(X3DIR, k, jf + 1, ii + 1);
               const Real tarea = area00 + area01 + area10 + area11;
+              const int l = lll - ll;
+              const int m = mm - ml;
+              const int n = nn - nl;
               // add 1 because index 0 is used for allocation flag
-              const int p = 1 + i + isize * (j + jsize * (nn - nl));
-              sbuf(p) =
-                  (x3flx(nn, k, jf, ii) * area00 + x3flx(nn, k, jf, ii + 1) * area01 +
-                   x3flx(nn, k, jf + 1, ii) * area10 +
-                   x3flx(nn, k, jf + 1, ii + 1) * area11) /
-                  tarea;
+              const int p = 1 + i + isize * (j + jsize * (n + nsize * (m + msize * l)));
+              sbuf(p) = (x3flx(lll, mm, nn, k, jf, ii) * area00 +
+                         x3flx(lll, mm, nn, k, jf, ii + 1) * area01 +
+                         x3flx(lll, mm, nn, k, jf + 1, ii) * area10 +
+                         x3flx(lll, mm, nn, k, jf + 1, ii + 1) * area11) /
+                        tarea;
             });
       }
     }
@@ -319,7 +351,11 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
                                "CellCenteredBoundaryVariable::ReceiveFluxCorrection: "
                                "Unexpected unallocated variable");
 
+      int ll = ll_;
+      int ml = ml_;
       int nl = nl_;
+      int msize = mu_ - ml_ + 1;
+      int nsize = nu_ - nl_ + 1;
       const IndexDomain interior = IndexDomain::interior;
       IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
       IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
@@ -339,11 +375,16 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
         int ksize = ku - kl + 1;
         auto &x1flx = x1flux;
         pmb->par_for(
-            "ReceiveFluxCorrection_x1", nl_, nu_, kl, ku, jl, ju,
-            KOKKOS_LAMBDA(const int nn, const int k, const int j) {
+            "ReceiveFluxCorrection_x1", ll_, lu_, ml_, mu_, nl_, nu_, kl, ku, jl, ju,
+            KOKKOS_LAMBDA(const int lll, const int mm, const int nn, const int k,
+                          const int j) {
+              const int l = lll - ll;
+              const int m = mm - ml;
+              const int n = nn - nl;
               // add 1 because index 0 is used for allocation flag
-              const int p = 1 + j - jl + jsize * ((k - kl) + ksize * (nn - nl));
-              x1flx(nn, k, j, il) = source_allocated ? rbuf(p) : 0.0;
+              const int p =
+                  1 + j - jl + jsize * ((k - kl) + ksize * (n + nsize * (m + msize * l)));
+              x1flx(lll, mm, nn, k, j, il) = source_allocated ? rbuf(p) : 0.0;
             });
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
         int jl = jb.s + (jb.e - jb.s) * (nb.fid & 1) + (nb.fid & 1);
@@ -360,11 +401,16 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
         int isize = iu - il + 1;
         auto &x2flx = x2flux;
         pmb->par_for(
-            "ReceiveFluxCorrection_x2", nl_, nu_, kl, ku, il, iu,
-            KOKKOS_LAMBDA(const int nn, const int k, const int i) {
+            "ReceiveFluxCorrection_x2", ll_, lu_, ml_, mu_, nl_, nu_, kl, ku, il, iu,
+            KOKKOS_LAMBDA(const int lll, const int mm, const int nn, const int k,
+                          const int i) {
+              const int l = lll - ll;
+              const int m = mm - ml;
+              const int n = nn - nl;
               // add 1 because index 0 is used for allocation flag
-              const int p = 1 + i - il + isize * ((k - kl) + ksize * (nn - nl));
-              x2flx(nn, k, jl, i) = source_allocated ? rbuf(p) : 0.0;
+              const int p =
+                  1 + i - il + isize * ((k - kl) + ksize * (n + nsize * (m + msize * l)));
+              x2flx(lll, mm, nn, k, jl, i) = source_allocated ? rbuf(p) : 0.0;
             });
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
         int kl = kb.s + (kb.e - kb.s) * (nb.fid & 1) + (nb.fid & 1);
@@ -381,11 +427,16 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection(bool is_allocated) {
         int isize = iu - il + 1;
         auto &x3flx = x3flux;
         pmb->par_for(
-            "ReceiveFluxCorrection_x1", nl_, nu_, jl, ju, il, iu,
-            KOKKOS_LAMBDA(const int nn, const int j, const int i) {
+            "ReceiveFluxCorrection_x3", ll_, lu_, ml_, mu_, nl_, nu_, jl, ju, il, iu,
+            KOKKOS_LAMBDA(const int lll, const int mm, const int nn, const int j,
+                          const int i) {
+              const int l = lll - ll;
+              const int m = mm - ml;
+              const int n = nn - nl;
               // add 1 because index 0 is used for allocation flag
-              const int p = 1 + i - il + isize * ((j - jl) + jsize * (nn - nl));
-              x3flx(nn, kl, j, i) = source_allocated ? rbuf(p) : 0.0;
+              const int p =
+                  1 + i - il + isize * ((j - jl) + jsize * (n + nsize * (m + msize * l)));
+              x3flx(lll, mm, nn, kl, j, i) = source_allocated ? rbuf(p) : 0.0;
             });
       }
       bd_var_flcor_.flag[nb.bufid] = BoundaryStatus::completed;

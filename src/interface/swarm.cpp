@@ -90,65 +90,47 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
 }
 
+template <class BOutflow, class BPeriodic, int iFace>
+void Swarm::AllocateBoundariesImpl_(MeshBlock *pmb) {
+  std::stringstream msg;
+  auto &bcs = pmb->pmy_mesh->mesh_bcs;
+  if (bcs[iFace] == BoundaryFlag::outflow) {
+    bounds_uptrs[iFace] = DeviceAllocate<BOutflow>();
+  } else if (bcs[iFace] == BoundaryFlag::periodic) {
+    bounds_uptrs[iFace] = DeviceAllocate<BPeriodic>();
+  } else if (bcs[iFace] == BoundaryFlag::user) {
+    if (pmb->pmy_mesh->SwarmBndryFnctn[iFace] != nullptr) {
+      bounds_uptrs[iFace] = pmb->pmy_mesh->SwarmBndryFnctn[iFace]();
+    } else {
+      msg << "ix" << iFace + 1
+          << " user boundary requested but provided function is null!";
+      PARTHENON_THROW(msg);
+    }
+  } else {
+    msg << "ix" << iFace + 1 << " boundary flag " << static_cast<int>(bcs[iFace])
+        << " not supported!";
+    PARTHENON_THROW(msg);
+  }
+}
+
 void Swarm::AllocateBoundaries() {
   auto pmb = GetBlockPointer();
   std::stringstream msg;
 
   auto &bcs = pmb->pmy_mesh->mesh_bcs;
 
-  if (bcs[0] == BoundaryFlag::outflow) {
-    bounds_uptrs[0] = DeviceAllocate<ParticleBoundIX1Outflow>();
-  } else if (bcs[0] == BoundaryFlag::periodic) {
-    bounds_uptrs[0] = DeviceAllocate<ParticleBoundIX1Periodic>();
-  } else if (bcs[0] != BoundaryFlag::user) {
-    msg << "ix1 boundary flag " << static_cast<int>(bcs[0]) << " not supported!";
-    PARTHENON_THROW(msg);
-  }
-
-  if (bcs[1] == BoundaryFlag::outflow) {
-    bounds_uptrs[1] = DeviceAllocate<ParticleBoundOX1Outflow>();
-  } else if (bcs[1] == BoundaryFlag::periodic) {
-    bounds_uptrs[1] = DeviceAllocate<ParticleBoundOX1Periodic>();
-  } else if (bcs[1] != BoundaryFlag::user) {
-    msg << "ox1 boundary flag " << static_cast<int>(bcs[1]) << " not supported!";
-    PARTHENON_THROW(msg);
-  }
-
-  if (bcs[2] == BoundaryFlag::outflow) {
-    bounds_uptrs[2] = DeviceAllocate<ParticleBoundIX2Outflow>();
-  } else if (bcs[2] == BoundaryFlag::periodic) {
-    bounds_uptrs[2] = DeviceAllocate<ParticleBoundIX2Periodic>();
-  } else if (bcs[2] != BoundaryFlag::user) {
-    msg << "ix2 boundary flag " << static_cast<int>(bcs[2]) << " not supported!";
-    PARTHENON_THROW(msg);
-  }
-
-  if (bcs[3] == BoundaryFlag::outflow) {
-    bounds_uptrs[3] = DeviceAllocate<ParticleBoundOX2Outflow>();
-  } else if (bcs[3] == BoundaryFlag::periodic) {
-    bounds_uptrs[3] = DeviceAllocate<ParticleBoundOX2Periodic>();
-  } else if (bcs[3] != BoundaryFlag::user) {
-    msg << "ox2 boundary flag " << static_cast<int>(bcs[3]) << " not supported!";
-    PARTHENON_THROW(msg);
-  }
-
-  if (bcs[4] == BoundaryFlag::outflow) {
-    bounds_uptrs[4] = DeviceAllocate<ParticleBoundIX3Outflow>();
-  } else if (bcs[4] == BoundaryFlag::periodic) {
-    bounds_uptrs[4] = DeviceAllocate<ParticleBoundIX3Periodic>();
-  } else if (bcs[4] != BoundaryFlag::user) {
-    msg << "ix3 boundary flag " << static_cast<int>(bcs[4]) << " not supported!";
-    PARTHENON_THROW(msg);
-  }
-
-  if (bcs[5] == BoundaryFlag::outflow) {
-    bounds_uptrs[5] = DeviceAllocate<ParticleBoundOX3Outflow>();
-  } else if (bcs[5] == BoundaryFlag::periodic) {
-    bounds_uptrs[5] = DeviceAllocate<ParticleBoundOX3Periodic>();
-  } else if (bcs[5] != BoundaryFlag::user) {
-    msg << "ox3 boundary flag " << static_cast<int>(bcs[5]) << " not supported!";
-    PARTHENON_THROW(msg);
-  }
+  AllocateBoundariesImpl_<ParticleBoundIX1Outflow, ParticleBoundIX1Periodic, 0>(
+      pmb.get());
+  AllocateBoundariesImpl_<ParticleBoundOX1Outflow, ParticleBoundOX1Periodic, 1>(
+      pmb.get());
+  AllocateBoundariesImpl_<ParticleBoundIX2Outflow, ParticleBoundIX2Periodic, 2>(
+      pmb.get());
+  AllocateBoundariesImpl_<ParticleBoundOX2Outflow, ParticleBoundOX2Periodic, 3>(
+      pmb.get());
+  AllocateBoundariesImpl_<ParticleBoundIX3Outflow, ParticleBoundIX3Periodic, 4>(
+      pmb.get());
+  AllocateBoundariesImpl_<ParticleBoundOX3Outflow, ParticleBoundOX3Periodic, 5>(
+      pmb.get());
 
   for (int n = 0; n < 6; n++) {
     bounds_d.bounds[n] = bounds_uptrs[n].get();
@@ -848,9 +830,8 @@ void Swarm::SetNeighborIndices3D_() {
 }
 
 void Swarm::SetupPersistentMPI() {
-  vbswarm->SetupPersistentMPI();
-
   auto pmb = GetBlockPointer();
+  vbswarm->SetupPersistentMPI();
 
   const int ndim = pmb->pmy_mesh->ndim;
 
@@ -1249,7 +1230,7 @@ void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
   // Create the boundary object
-  vbswarm = std::make_shared<BoundarySwarm>(pmb);
+  vbswarm = std::make_shared<BoundarySwarm>(pmb, label_);
 
   // Enroll SwarmVariable object
   vbswarm->bswarm_index = pmb->pbswarm->bswarms.size();

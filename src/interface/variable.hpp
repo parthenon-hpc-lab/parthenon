@@ -141,9 +141,9 @@ class CellVariable {
   // deallocate data, fluxes, and boundary variable
   void Deallocate();
 
-  /// allocate fluxes (if Metadata::WithFluxes is set) and boundary variable if
+  /// allocate fluxes (if Metadata::WithFluxes is set) and coarse data if
   /// (Metadata::FillGhost is set)
-  void AllocateFluxesAndBdryVar(std::weak_ptr<MeshBlock> wpmb);
+  void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
 
   Metadata m_;
   const std::string base_name_;

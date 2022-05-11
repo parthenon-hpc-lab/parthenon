@@ -513,7 +513,7 @@ TEST_CASE("Get the correct access pattern when using FlatIdx", "[FlatIdx]") {
                 Real n_expected =
                     i + N * (j + N * (k + N1 * (idx1 + N2 * (idx2 + N3 * idx3))));
                 Real n_actual = v(idx_v3(idx1, idx2, idx3), k, j, i);
-                lerr += abs(n_actual - n_expected);
+                lerr += std::abs(n_actual - n_expected);
               }
             },
             err3);
