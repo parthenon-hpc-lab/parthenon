@@ -51,9 +51,14 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md);
 
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+
 TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+
+TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 
 struct BndInfo {
   int si = 0;

@@ -102,7 +102,8 @@ add_library(parthenon
   bvals/cc/calc_indices.cpp
   bvals/cc/flux_correction_cc.cpp
   bvals/cc/sparse_bvals_cc_in_one.cpp
-
+  bvals/cc/sparse_flux_correction_cc_in_one.cpp 
+  
   bvals/fc/bvals_fc.cpp
   bvals/fc/bvals_fc.hpp
   bvals/fc/flux_correction_fc.cpp
