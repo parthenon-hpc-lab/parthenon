@@ -94,11 +94,12 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                                  BoundaryCommSubset::all);
 
     auto advect_flux = tl.AddTask(none, advection_package::CalculateFluxes, sc0);
-
+    /*
     auto send_flux =
         tl.AddTask(advect_flux, &MeshBlockData<Real>::SendFluxCorrection, sc0.get());
     auto recv_flux =
         tl.AddTask(advect_flux, &MeshBlockData<Real>::ReceiveFluxCorrection, sc0.get());
+    */
   }
 
   const int num_partitions = pmesh->DefaultNumPartitions();
@@ -111,10 +112,17 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
     auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
+    
+    auto send_flx = tl.AddTask(none,
+        parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers, mc0); 
+    auto recv_flx = tl.AddTask(none,
+        parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers, mc0); 
+    auto set_flx = tl.AddTask(recv_flx,
+        parthenon::cell_centered_bvars::SetFluxCorrections, mc0); 
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
-        tl.AddTask(none, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
+        tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
 
     auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
                                mc0.get(), mbase.get(), beta);
