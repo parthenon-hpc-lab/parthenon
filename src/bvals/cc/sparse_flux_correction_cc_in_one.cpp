@@ -214,7 +214,7 @@ TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &m
     if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return;
     
      PARTHENON_DEBUG_REQUIRE(
-        pmesh->boundary_comm_map.count({pmb->gid, nb.snb.gid, v->label()}) > 0,
+        pmesh->boundary_comm_map.count({nb.snb.gid, pmb->gid, v->label()}) > 0,
         "Boundary communicator does not exist");
     auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
     all_received = all_received && buf.TryReceive();
@@ -245,9 +245,9 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return;
 
     PARTHENON_DEBUG_REQUIRE(
-        pmesh->boundary_comm_map.count({pmb->gid, nb.snb.gid, v->label()}) > 0,
+        pmesh->boundary_comm_map.count({nb.snb.gid, pmb->gid, v->label()}) > 0,
         "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+    auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
 
     
     // Need to caculate these bounds based on mesh position
@@ -266,27 +266,27 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) { 
       dir = X1DIR;
       if (nb.fid == BoundaryFace::inner_x1) ie = is; 
-      if (nb.fid == BoundaryFace::inner_x1) {++ie; is = ie;}  
+      else is = ++ie;
       if (nb.ni.fi1 == 0) je -= pmb->block_size.nx2 / 2; 
       else js += pmb->block_size.nx2 / 2; 
-      if (nb.ni.fi2 == 0) ke -= pmb->block_size.nx2 / 2; 
-      else ks += pmb->block_size.nx2 / 2; 
+      if (nb.ni.fi2 == 0) ke -= pmb->block_size.nx3 / 2; 
+      else ks += pmb->block_size.nx3 / 2; 
     }
     else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) { 
       dir = X2DIR;
       if (nb.fid == BoundaryFace::inner_x2) je = js; 
-      if (nb.fid == BoundaryFace::inner_x2) {++je; js = je;}  
-      if (nb.ni.fi1 == 0) ie -= pmb->block_size.nx2 / 2; 
-      else is += pmb->block_size.nx2 / 2; 
-      if (nb.ni.fi2 == 0) ke -= pmb->block_size.nx2 / 2; 
-      else ks += pmb->block_size.nx2 / 2; 
+      else js = ++je;
+      if (nb.ni.fi1 == 0) ie -= pmb->block_size.nx1 / 2; 
+      else is += pmb->block_size.nx1 / 2; 
+      if (nb.ni.fi2 == 0) ke -= pmb->block_size.nx3 / 2; 
+      else ks += pmb->block_size.nx3 / 2; 
     }
     else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) { 
       dir = X3DIR;
       if (nb.fid == BoundaryFace::inner_x3) ke = ks; 
-      if (nb.fid == BoundaryFace::inner_x3) {++ke; ks = ke;}  
-      if (nb.ni.fi1 == 0) ie -= pmb->block_size.nx2 / 2; 
-      else is += pmb->block_size.nx2 / 2; 
+      else ks = ++ke;
+      if (nb.ni.fi1 == 0) ie -= pmb->block_size.nx1 / 2; 
+      else is += pmb->block_size.nx1 / 2; 
       if (nb.ni.fi2 == 0) je -= pmb->block_size.nx2 / 2; 
       else js += pmb->block_size.nx2 / 2; 
     } else { 
@@ -305,6 +305,9 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     const int NkNjNi = nk * NjNi; 
     const int NnNkNjNi = nn * NkNjNi; 
     const int NmNnNkNjNi = nm * NnNkNjNi; 
+    if (nl*NmNnNkNjNi > buf_arr.size()) {
+      PARTHENON_FAIL("Buffer to small")
+    }
     Kokkos::parallel_for("SendFluxCorrection",
         Kokkos::RangePolicy<>(parthenon::DevExecSpace(), 0, nl*NmNnNkNjNi), 
         KOKKOS_LAMBDA(const int loop_idx) { 
