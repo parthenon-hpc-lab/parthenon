@@ -16,6 +16,7 @@
 
 #include <math.h>
 
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <stack>
@@ -38,7 +39,7 @@ class ObjectPool {
   class owner_t;
 
  private:
-  using KEY_T = unsigned int64;
+  using KEY_T = uint64_t;
   std::function<T(ObjectPool *)> get_resource_;
   std::stack<weak_t> available_;
   std::unordered_map<KEY_T, std::pair<weak_t, int>> inuse_;
