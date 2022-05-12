@@ -71,7 +71,7 @@ class WriteRegion {
 
 using namespace impl;
 
-// pmesh->boundary_comm_map.clear() after every remesh 
+// pmesh->boundary_comm_map.clear() after every remesh
 // in InitializeBlockTimeStepsAndBoundaries()
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundaryBuffers");
@@ -101,15 +101,17 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
       // Add a buffer pool if one does not exist for this size
       if (pmesh->pool_map.count(buf_size) == 0) {
-        pmesh->pool_map.emplace(std::make_pair(buf_size, buf_pool_t<Real>([buf_size](buf_pool_t<Real>* pool) {
-                                                 using buf_t = buf_pool_t<Real>::base_t;
-                                                 const int nbuf = 200;
-                                                 buf_t chunk("pool buffer", buf_size * nbuf); 
-                                                 for (int i=1; i<nbuf; ++i) {
-                                                   pool->AddFreeObjectToPool(buf_t(chunk, std::make_pair(i*buf_size, (i+1)*buf_size)));
-                                                 }
-                                                 return buf_t(chunk, std::make_pair(0, buf_size));
-                                               })));
+        pmesh->pool_map.emplace(std::make_pair(
+            buf_size, buf_pool_t<Real>([buf_size](buf_pool_t<Real> *pool) {
+              using buf_t = buf_pool_t<Real>::base_t;
+              const int nbuf = 200;
+              buf_t chunk("pool buffer", buf_size * nbuf);
+              for (int i = 1; i < nbuf; ++i) {
+                pool->AddFreeObjectToPool(
+                    buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
+              }
+              return buf_t(chunk, std::make_pair(0, buf_size));
+            })));
       }
 
       const int sender_id = pmb->gid;
@@ -176,9 +178,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
 
       if (nbound < md->send_bnd_info_h.size()) {
         rebuild =
-            rebuild || !UsingSameResource(
-                           md->send_bnd_info_h(nbound).buf,
-                           buf.buffer());
+            rebuild || !UsingSameResource(md->send_bnd_info_h(nbound).buf, buf.buffer());
       } else {
         rebuild = true;
       }
@@ -307,7 +307,7 @@ TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     if (buf.GetState() == BufferState::received && !v->IsAllocated()) {
       pmb->AllocateSparse(v->label());
       // TODO: Need to flag this so that the array gets filled with something sensible,
-      //       currently just defaulted to zero. 
+      //       currently just defaulted to zero.
     }
   });
 
@@ -331,9 +331,7 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
       auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
       if (nbound < md->recv_bnd_info_h.size()) {
         rebuild =
-            rebuild || !UsingSameResource(
-                           md->recv_bnd_info_h(nbound).buf,
-                           buf.buffer());
+            rebuild || !UsingSameResource(md->recv_bnd_info_h(nbound).buf, buf.buffer());
         if ((buf.GetState() == BufferState::received) &&
             !md->recv_bnd_info_h(nbound).allocated) {
           rebuild = true;

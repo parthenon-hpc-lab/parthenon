@@ -80,72 +80,74 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
   // if buffers have changed
   bool rebuild = false;
   int nbound = 0;
-  
+
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    
-    // Check if this boundary requires flux correction 
-    if (nb.snb.level != pmb->loc.level - 1) return; 
+    // Check if this boundary requires flux correction
+    if (nb.snb.level != pmb->loc.level - 1) return;
     // No flux correction required unless boundaries share a face
-    if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return; 
+    if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return;
 
     PARTHENON_DEBUG_REQUIRE(
         pmesh->boundary_comm_map.count({pmb->gid, nb.snb.gid, v->label()}) > 0,
         "Boundary communicator does not exist");
     auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
-    
+
     if (!v->IsAllocated()) {
-      // This free really shouldn't do anything 
+      // This free really shouldn't do anything
       buf.Free();
       buf.SendNull();
-      return; // Cycle to the next boundary 
+      return; // Cycle to the next boundary
     }
-    
-    // This allocate shouldn't do anything, since the buffer should already 
-    // be allocated if the variable is allocated 
+
+    // This allocate shouldn't do anything, since the buffer should already
+    // be allocated if the variable is allocated
     buf.Allocate();
-    
-    // Average fluxes over area and load buffer 
+
+    // Average fluxes over area and load buffer
     IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
     IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-    CoordinateDirection dir; 
-    int ni = std::max((ib.e - ib.s + 1)/2, 1);
-    int nj = std::max((jb.e - jb.s + 1)/2, 1); 
-    int nk = std::max((kb.e - kb.s + 1)/2, 1); 
-    const int ndim = 1 + (jb.e - jb.s > 0 ? 1 : 0) 
-                       + (kb.e - kb.s > 0 ? 1 : 0);
-    
+    CoordinateDirection dir;
+    int ni = std::max((ib.e - ib.s + 1) / 2, 1);
+    int nj = std::max((jb.e - jb.s + 1) / 2, 1);
+    int nk = std::max((kb.e - kb.s + 1) / 2, 1);
+    const int ndim = 1 + (jb.e - jb.s > 0 ? 1 : 0) + (kb.e - kb.s > 0 ? 1 : 0);
+
     int ks = kb.s;
     int js = jb.s;
     int is = ib.s;
 
     int ioff = 1;
-    int joff = ndim > 1 ? 1 : 0; 
+    int joff = ndim > 1 ? 1 : 0;
     int koff = ndim > 2 ? 1 : 0;
 
     if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
       dir = X1DIR;
       ni = 1;
-      ioff = 0; 
-      if (nb.fid == BoundaryFace::inner_x1) is = ib.s;
-      else is = ib.e + 1;
-    } 
-    else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
+      ioff = 0;
+      if (nb.fid == BoundaryFace::inner_x1)
+        is = ib.s;
+      else
+        is = ib.e + 1;
+    } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
       dir = X2DIR;
       nj = 1;
-      joff = 0; 
-      if (nb.fid == BoundaryFace::inner_x2) js = jb.s;
-      else js = jb.e + 1;
-    } 
-    else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
+      joff = 0;
+      if (nb.fid == BoundaryFace::inner_x2)
+        js = jb.s;
+      else
+        js = jb.e + 1;
+    } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
       dir = X3DIR;
       nk = 1;
-      koff = 0; 
-      if (nb.fid == BoundaryFace::inner_x2) ks = kb.s;
-      else ks = kb.e + 1;
-    } else { 
-      PARTHENON_FAIL("Flux corrections only occur on faces for CC variables."); 
+      koff = 0;
+      if (nb.fid == BoundaryFace::inner_x2)
+        ks = kb.s;
+      else
+        ks = kb.e + 1;
+    } else {
+      PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
     }
 
     auto &flx = v->flux[dir];
@@ -155,46 +157,46 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
     const int nl = flx.GetDim(6);
     const int nm = flx.GetDim(5);
     const int nn = flx.GetDim(4);
-    
-    const int NjNi = nj * ni; 
-    const int NkNjNi = nk * NjNi; 
-    const int NnNkNjNi = nn * NkNjNi; 
-    const int NmNnNkNjNi = nm * NnNkNjNi; 
-    Kokkos::parallel_for("SendFluxCorrection",
-        Kokkos::RangePolicy<>(parthenon::DevExecSpace(), 0, nl*NmNnNkNjNi), 
-        KOKKOS_LAMBDA(const int loop_idx) { 
-          const int l = loop_idx / NmNnNkNjNi;
-          const int m = (loop_idx % NmNnNkNjNi) / NnNkNjNi; 
-          const int n = (loop_idx % NnNkNjNi) / NkNjNi; 
-          const int ck = (loop_idx % NkNjNi) / NjNi; 
-          const int cj = (loop_idx % NjNi) / ni ; 
-          const int ci = loop_idx % ni; 
-   
-          const int k = ks + 2*ck; 
-          const int j = js + 2*cj;
-          const int i = is + 2*ci;
 
-          // For the given set of offsets, etc. this should work for any 
-          // dimensionality since the same flux will be included multiple times 
-          // in the average       
+    const int NjNi = nj * ni;
+    const int NkNjNi = nk * NjNi;
+    const int NnNkNjNi = nn * NkNjNi;
+    const int NmNnNkNjNi = nm * NnNkNjNi;
+    Kokkos::parallel_for(
+        "SendFluxCorrection",
+        Kokkos::RangePolicy<>(parthenon::DevExecSpace(), 0, nl * NmNnNkNjNi),
+        KOKKOS_LAMBDA(const int loop_idx) {
+          const int l = loop_idx / NmNnNkNjNi;
+          const int m = (loop_idx % NmNnNkNjNi) / NnNkNjNi;
+          const int n = (loop_idx % NnNkNjNi) / NkNjNi;
+          const int ck = (loop_idx % NkNjNi) / NjNi;
+          const int cj = (loop_idx % NjNi) / ni;
+          const int ci = loop_idx % ni;
+
+          const int k = ks + 2 * ck;
+          const int j = js + 2 * cj;
+          const int i = is + 2 * ci;
+
+          // For the given set of offsets, etc. this should work for any
+          // dimensionality since the same flux will be included multiple times
+          // in the average
           const Real area00 = coords.Area(dir, k, j, i);
           const Real area01 = coords.Area(dir, k, j + joff, i + ioff);
           const Real area10 = coords.Area(dir, k + koff, j + joff, i);
           const Real area11 = coords.Area(dir, k + koff, j, i + ioff);
-          
-          Real avg_flx = area00 * flx(l, m, n, k, j, i); 
-          avg_flx += area01 * flx(l, m, n, k + koff, j + joff, i); 
-          avg_flx += area10 * flx(l, m, n, k, j + joff, i + ioff); 
-          avg_flx += area11 * flx(l, m, n, k + koff, j, i + ioff);  
-            
-          avg_flx /= area00 + area01 + area10 + area11; 
+
+          Real avg_flx = area00 * flx(l, m, n, k, j, i);
+          avg_flx += area01 * flx(l, m, n, k + koff, j + joff, i);
+          avg_flx += area10 * flx(l, m, n, k, j + joff, i + ioff);
+          avg_flx += area11 * flx(l, m, n, k + koff, j, i + ioff);
+
+          avg_flx /= area00 + area01 + area10 + area11;
           const int idx = ci + ni * (cj + nj * (ck + nk * (n + nn * (m + nm * l))));
-          buf_arr(idx) = avg_flx; 
-        });                                          
-    
+          buf_arr(idx) = avg_flx;
+        });
+
     // Send the buffer
     buf.Send();
-
   });
 
   Kokkos::Profiling::popRegion();
@@ -207,13 +209,12 @@ TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &m
   bool all_received = true;
   Mesh *pmesh = md->GetMeshPointer();
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    
-    // Check if this boundary requires flux correction 
-    if (nb.snb.level - 1 != pmb->loc.level) return; 
+    // Check if this boundary requires flux correction
+    if (nb.snb.level - 1 != pmb->loc.level) return;
     // No flux correction required unless boundaries share a face
     if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return;
-    
-     PARTHENON_DEBUG_REQUIRE(
+
+    PARTHENON_DEBUG_REQUIRE(
         pmesh->boundary_comm_map.count({nb.snb.gid, pmb->gid, v->label()}) > 0,
         "Boundary communicator does not exist");
     auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
@@ -226,7 +227,6 @@ TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &m
   return TaskStatus::incomplete;
 }
 
-
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("SetFluxCorrections");
 
@@ -236,107 +236,121 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   // if buffers have changed
   bool rebuild = false;
   int nbound = 0;
-  
+
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    
     if ((nb.snb.level - 1 != pmb->loc.level) ||
         (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)) {
       return;
     }
-    
+
     PARTHENON_DEBUG_REQUIRE(
         pmesh->boundary_comm_map.count({nb.snb.gid, pmb->gid, v->label()}) > 0,
         "Boundary communicator does not exist");
     auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
 
-    // Check if this boundary requires flux correction 
-    if ((!v->IsAllocated()) || 
-        buf.GetState() == BufferState::received_null) {
+    // Check if this boundary requires flux correction
+    if ((!v->IsAllocated()) || buf.GetState() == BufferState::received_null) {
       buf.Stale();
       return;
     }
 
     // Need to caculate these bounds based on mesh position
-    // Average fluxes over area and load buffer 
+    // Average fluxes over area and load buffer
     IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
     IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior); 
-    
+    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
     int ks = kb.s;
-    int js = jb.s; 
+    int js = jb.s;
     int is = ib.s;
     int ke = kb.e;
     int je = jb.e;
-    int ie = ib.e; 
-    CoordinateDirection dir;  
-    if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) { 
+    int ie = ib.e;
+    CoordinateDirection dir;
+    if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
       dir = X1DIR;
-      if (nb.fid == BoundaryFace::inner_x1) ie = is; 
-      else is = ++ie;
-      if (nb.ni.fi1 == 0) je -= pmb->block_size.nx2 / 2; 
-      else js += pmb->block_size.nx2 / 2; 
-      if (nb.ni.fi2 == 0) ke -= pmb->block_size.nx3 / 2; 
-      else ks += pmb->block_size.nx3 / 2; 
-    }
-    else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) { 
+      if (nb.fid == BoundaryFace::inner_x1)
+        ie = is;
+      else
+        is = ++ie;
+      if (nb.ni.fi1 == 0)
+        je -= pmb->block_size.nx2 / 2;
+      else
+        js += pmb->block_size.nx2 / 2;
+      if (nb.ni.fi2 == 0)
+        ke -= pmb->block_size.nx3 / 2;
+      else
+        ks += pmb->block_size.nx3 / 2;
+    } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
       dir = X2DIR;
-      if (nb.fid == BoundaryFace::inner_x2) je = js; 
-      else js = ++je;
-      if (nb.ni.fi1 == 0) ie -= pmb->block_size.nx1 / 2; 
-      else is += pmb->block_size.nx1 / 2; 
-      if (nb.ni.fi2 == 0) ke -= pmb->block_size.nx3 / 2; 
-      else ks += pmb->block_size.nx3 / 2; 
-    }
-    else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) { 
+      if (nb.fid == BoundaryFace::inner_x2)
+        je = js;
+      else
+        js = ++je;
+      if (nb.ni.fi1 == 0)
+        ie -= pmb->block_size.nx1 / 2;
+      else
+        is += pmb->block_size.nx1 / 2;
+      if (nb.ni.fi2 == 0)
+        ke -= pmb->block_size.nx3 / 2;
+      else
+        ks += pmb->block_size.nx3 / 2;
+    } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
       dir = X3DIR;
-      if (nb.fid == BoundaryFace::inner_x3) ke = ks; 
-      else ks = ++ke;
-      if (nb.ni.fi1 == 0) ie -= pmb->block_size.nx1 / 2; 
-      else is += pmb->block_size.nx1 / 2; 
-      if (nb.ni.fi2 == 0) je -= pmb->block_size.nx2 / 2; 
-      else js += pmb->block_size.nx2 / 2; 
-    } else { 
+      if (nb.fid == BoundaryFace::inner_x3)
+        ke = ks;
+      else
+        ks = ++ke;
+      if (nb.ni.fi1 == 0)
+        ie -= pmb->block_size.nx1 / 2;
+      else
+        is += pmb->block_size.nx1 / 2;
+      if (nb.ni.fi2 == 0)
+        je -= pmb->block_size.nx2 / 2;
+      else
+        js += pmb->block_size.nx2 / 2;
+    } else {
       PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
     }
- 
+
     auto &flx = v->flux[dir];
     auto &buf_arr = buf.buffer();
     const int nl = flx.GetDim(6);
     const int nm = flx.GetDim(5);
     const int nn = flx.GetDim(4);
-    const int nk = ke - ks + 1; 
+    const int nk = ke - ks + 1;
     const int nj = je - js + 1;
     const int ni = ie - is + 1;
-    const int NjNi = nj * ni; 
-    const int NkNjNi = nk * NjNi; 
-    const int NnNkNjNi = nn * NkNjNi; 
-    const int NmNnNkNjNi = nm * NnNkNjNi; 
-    if (nl*NmNnNkNjNi > buf_arr.size()) {
+    const int NjNi = nj * ni;
+    const int NkNjNi = nk * NjNi;
+    const int NnNkNjNi = nn * NkNjNi;
+    const int NmNnNkNjNi = nm * NnNkNjNi;
+    if (nl * NmNnNkNjNi > buf_arr.size()) {
       PARTHENON_FAIL("Buffer to small")
     }
-    
-    Kokkos::parallel_for("SendFluxCorrection",
-        Kokkos::RangePolicy<>(parthenon::DevExecSpace(), 0, nl*NmNnNkNjNi), 
-        KOKKOS_LAMBDA(const int loop_idx) { 
+
+    Kokkos::parallel_for(
+        "SendFluxCorrection",
+        Kokkos::RangePolicy<>(parthenon::DevExecSpace(), 0, nl * NmNnNkNjNi),
+        KOKKOS_LAMBDA(const int loop_idx) {
           const int l = loop_idx / NmNnNkNjNi;
-          const int m = (loop_idx % NmNnNkNjNi) / NnNkNjNi; 
-          const int n = (loop_idx % NnNkNjNi) / NkNjNi; 
-          const int k = (loop_idx % NkNjNi) / NjNi + ks; 
-          const int j = (loop_idx % NjNi) / ni + js; 
-          const int i = loop_idx % ni + is; 
+          const int m = (loop_idx % NmNnNkNjNi) / NnNkNjNi;
+          const int n = (loop_idx % NnNkNjNi) / NkNjNi;
+          const int k = (loop_idx % NkNjNi) / NjNi + ks;
+          const int j = (loop_idx % NjNi) / ni + js;
+          const int i = loop_idx % ni + is;
 
-          const int idx = i - is + ni * (j - js + nj * (k - ks + nk * (n + nn * (m + nm * l))));
-          flx(l, m, n, k, j, i) = buf_arr(idx); 
-        });     
+          const int idx =
+              i - is + ni * (j - js + nj * (k - ks + nk * (n + nn * (m + nm * l))));
+          flx(l, m, n, k, j, i) = buf_arr(idx);
+        });
 
-    
     buf.Stale();
   });
 
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
-
 
 } // namespace cell_centered_bvars
 } // namespace parthenon

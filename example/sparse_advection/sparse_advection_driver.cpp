@@ -110,13 +110,14 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
     auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
-    
-    auto send_flx = tl.AddTask(none,
-        parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers, mc0); 
-    auto recv_flx = tl.AddTask(none,
-        parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers, mc0); 
-    auto set_flx = tl.AddTask(recv_flx,
-        parthenon::cell_centered_bvars::SetFluxCorrections, mc0); 
+
+    auto send_flx = tl.AddTask(
+        none, parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers,
+        mc0);
+    auto recv_flx = tl.AddTask(
+        none, parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers, mc0);
+    auto set_flx =
+        tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =

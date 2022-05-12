@@ -37,7 +37,7 @@ class ObjectPool {
 
  private:
   using KEY_T = unsigned long int;
-  std::function<T(ObjectPool*)> get_resource_;
+  std::function<T(ObjectPool *)> get_resource_;
   std::stack<weak_t> available_;
   std::unordered_map<KEY_T, std::pair<weak_t, int>> inuse_;
   static const KEY_T default_key_ = KEY_T();
@@ -45,7 +45,7 @@ class ObjectPool {
 
  public:
   template <class... Ts>
-  ObjectPool(std::function<T(ObjectPool*)> get_resource)
+  ObjectPool(std::function<T(ObjectPool *)> get_resource)
       : get_resource_(get_resource), available_(), inuse_(), keyc_(default_key_) {}
 
   weak_t Get();
@@ -55,11 +55,11 @@ class ObjectPool {
     std::cout << inuse_.size() << " used objects." << std::endl;
   }
 
-  // This should be used with care since it can't generically be 
-  // checked that the input object has the same size as other objects 
+  // This should be used with care since it can't generically be
+  // checked that the input object has the same size as other objects
   // in the pool
-  void AddFreeObjectToPool(const T& in) { available_.push(in); }
-  void AddFreeObjectToPool(T&& in) { available_.emplace(in); }
+  void AddFreeObjectToPool(const T &in) { available_.push(in); }
+  void AddFreeObjectToPool(T &&in) { available_.emplace(in); }
 
  private:
   bool IsValid(const weak_t &in) const { return inuse_.count(in.key_); }
@@ -96,7 +96,7 @@ struct ObjectPool<T>::weak_t : public T {
 
  protected:
   template <class... ARGs>
-  KOKKOS_IMPL_HOST_FUNCTION static weak_t make(int key, ARGs &&... args) {
+  KOKKOS_IMPL_HOST_FUNCTION static weak_t make(int key, ARGs &&...args) {
     weak_t out(std::forward<ARGs>(args)...);
     out.key_ = key;
     return out;
@@ -104,7 +104,7 @@ struct ObjectPool<T>::weak_t : public T {
 
  public:
   template <class... Ts>
-  KOKKOS_IMPL_HOST_FUNCTION weak_t(Ts &&... args)
+  KOKKOS_IMPL_HOST_FUNCTION weak_t(Ts &&...args)
       : T(std::forward<Ts>(args)...), key_(default_key_){};
 
   KOKKOS_IMPL_HOST_FUNCTION
