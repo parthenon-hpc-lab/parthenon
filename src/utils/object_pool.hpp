@@ -11,17 +11,20 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef UTILS_MEMORY_POOL_HPP_
-#define UTILS_MEMORY_POOL_HPP_
+#ifndef UTILS_OBJECT_POOL_HPP_
+#define UTILS_OBJECT_POOL_HPP_
 
-#include <Kokkos_Core.hpp>
-#include <iostream>
+
 #include <math.h>
+
+#include <iostream>
 #include <memory>
 #include <stack>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
+
+#include <Kokkos_Core.hpp>
 
 namespace parthenon {
 
@@ -36,7 +39,7 @@ class ObjectPool {
   class owner_t;
 
  private:
-  using KEY_T = unsigned long int;
+  using KEY_T = unsigned int64;
   std::function<T(ObjectPool *)> get_resource_;
   std::stack<weak_t> available_;
   std::unordered_map<KEY_T, std::pair<weak_t, int>> inuse_;
@@ -45,7 +48,7 @@ class ObjectPool {
 
  public:
   template <class... Ts>
-  ObjectPool(std::function<T(ObjectPool *)> get_resource)
+  explicit ObjectPool(std::function<T(ObjectPool *)> get_resource)
       : get_resource_(get_resource), available_(), inuse_(), keyc_(default_key_) {}
 
   weak_t Get();
@@ -105,7 +108,7 @@ struct ObjectPool<T>::weak_t : public T {
  public:
   template <class... Ts>
   KOKKOS_IMPL_HOST_FUNCTION weak_t(Ts &&...args)
-      : T(std::forward<Ts>(args)...), key_(default_key_){};
+      : T(std::forward<Ts>(args)...), key_(default_key_) {}
 
   KOKKOS_IMPL_HOST_FUNCTION
   inline void Free() { (*pool_).Free(*this); }
@@ -239,4 +242,4 @@ bool UsingSameResource(const T &lhs, const U &rhs) {
 
 } // namespace parthenon
 
-#endif // UTILS_MEMORY_POOL_HPP_
+#endif // UTILS_OBJECT_POOL_HPP_

@@ -59,7 +59,7 @@ using nb_t = NeighborBlock;
 
 class WriteRegion {
  public:
-  WriteRegion(std::string region_name) {
+  explicit WriteRegion(std::string region_name) {
     // std::cout << "Running " << region_name << "... " << std::flush;
   }
   ~WriteRegion() {

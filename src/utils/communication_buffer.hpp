@@ -78,7 +78,6 @@ enum class BuffCommType { sender, receiver, both };
 
 template <class T>
 class CommBuffer {
-
   // Need specializations to be friends with each other
   template <typename U>
   friend class CommBuffer;
@@ -170,7 +169,6 @@ CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm,
 #endif
       tag_(tag), send_rank_(send_rank), recv_rank_(recv_rank), comm_(comm),
       get_resource_(get_resource), buf_() {
-
 // Set up persistent communication
 #ifdef MPI_PARALLEL
   PARTHENON_MPI_CHECK(MPI_Comm_rank(comm_, &my_rank));

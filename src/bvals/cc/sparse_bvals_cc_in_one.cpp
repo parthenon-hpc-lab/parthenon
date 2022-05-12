@@ -59,7 +59,7 @@ using nb_t = NeighborBlock;
 
 class WriteRegion {
  public:
-  WriteRegion(std::string region_name) {
+  explicit WriteRegion(std::string region_name) {
     // std::cout << "Running " << region_name << "... " << std::flush;
   }
   ~WriteRegion() {
@@ -124,11 +124,10 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
       const int sender_rank = Globals::my_rank;
 
 #ifdef MPI_PARALLEL
-      // TODO: Fix this to use Philipp's communicators and deal with mpi or no mpi
       const comm_t comm = pmesh->GetMPIComm(v->label() + "_sparse_comm");
-#else 
+#else
      // Setting to zero is fine here since this doesn't actually get used when everything
-     // is on the same rank 
+     // is on the same rank
      const comm_t comm = 0;
 #endif
       // Build sending buffers
@@ -306,8 +305,8 @@ TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     // (the state could also be BufferState::received_null, which corresponds to no data)
     if (buf.GetState() == BufferState::received && !v->IsAllocated()) {
       pmb->AllocateSparse(v->label());
-      // TODO: Need to flag this so that the array gets filled with something sensible,
-      //       currently just defaulted to zero.
+      // TODO(lfroberts): Need to flag this so that the array gets filled with
+      //                  something sensible, currently just defaulted to zero.
     }
   });
 
