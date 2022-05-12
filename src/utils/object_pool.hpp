@@ -37,7 +37,7 @@ class ObjectPool {
 
  private:
   using KEY_T = unsigned long int;
-  std::function<T()> get_resource_;
+  std::function<T(ObjectPool*)> get_resource_;
   std::stack<weak_t> available_;
   std::unordered_map<KEY_T, std::pair<weak_t, int>> inuse_;
   static const KEY_T default_key_ = KEY_T();
@@ -45,7 +45,7 @@ class ObjectPool {
 
  public:
   template <class... Ts>
-  ObjectPool(std::function<T()> get_resource)
+  ObjectPool(std::function<T(ObjectPool*)> get_resource)
       : get_resource_(get_resource), available_(), inuse_(), keyc_(default_key_) {}
 
   weak_t Get();
@@ -54,6 +54,12 @@ class ObjectPool {
     std::cout << available_.size() << " unused objects." << std::endl;
     std::cout << inuse_.size() << " used objects." << std::endl;
   }
+
+  // This should be used with care since it can't generically be 
+  // checked that the input object has the same size as other objects 
+  // in the pool
+  void AddFreeObjectToPool(const T& in) { available_.push(in); }
+  void AddFreeObjectToPool(T&& in) { available_.emplace(in); }
 
  private:
   bool IsValid(const weak_t &in) const { return inuse_.count(in.key_); }
@@ -210,7 +216,7 @@ typename ObjectPool<T>::weak_t ObjectPool<T>::Get() {
     out = available_.top();
     available_.pop();
   } else {
-    out = weak_t(get_resource_());
+    out = weak_t(get_resource_(this));
   }
   // Find an unused key that is not the default key
   while (inuse_.count(++keyc_) != 0 || keyc_ == default_key_) {

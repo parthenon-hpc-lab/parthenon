@@ -101,9 +101,14 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
       // Add a buffer pool if one does not exist for this size
       if (pmesh->pool_map.count(buf_size) == 0) {
-        pmesh->pool_map.emplace(std::make_pair(buf_size, buf_pool_t<Real>([buf_size]() {
-                                                 return buf_pool_t<Real>::base_t(
-                                                     "pool buffer", buf_size);
+        pmesh->pool_map.emplace(std::make_pair(buf_size, buf_pool_t<Real>([buf_size](buf_pool_t<Real>* pool) {
+                                                 using buf_t = buf_pool_t<Real>::base_t;
+                                                 const int nbuf = 200;
+                                                 buf_t chunk("pool buffer", buf_size * nbuf); 
+                                                 for (int i=1; i<nbuf; ++i) {
+                                                   pool->AddFreeObjectToPool(buf_t(chunk, std::make_pair(i*buf_size, (i+1)*buf_size)));
+                                                 }
+                                                 return buf_t(chunk, std::make_pair(0, buf_size));
                                                })));
       }
 
