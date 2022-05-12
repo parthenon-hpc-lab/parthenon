@@ -14,7 +14,6 @@
 #ifndef UTILS_OBJECT_POOL_HPP_
 #define UTILS_OBJECT_POOL_HPP_
 
-
 #include <math.h>
 
 #include <iostream>
