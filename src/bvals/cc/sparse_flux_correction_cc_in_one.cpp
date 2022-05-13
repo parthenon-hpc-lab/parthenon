@@ -142,7 +142,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
       dir = X3DIR;
       nk = 1;
       koff = 0;
-      if (nb.fid == BoundaryFace::inner_x2)
+      if (nb.fid == BoundaryFace::inner_x3)
         ks = kb.s;
       else
         ks = kb.e + 1;
