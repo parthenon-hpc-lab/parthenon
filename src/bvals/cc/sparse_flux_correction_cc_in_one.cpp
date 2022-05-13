@@ -76,11 +76,6 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
 
   Mesh *pmesh = md->GetMeshPointer();
 
-  // Allocate channels sending from active data and then check to see if
-  // if buffers have changed
-  bool rebuild = false;
-  int nbound = 0;
-
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     // Check if this boundary requires flux correction
     if (nb.snb.level != pmb->loc.level - 1) return;
@@ -152,7 +147,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
 
     auto &flx = v->flux[dir];
     auto &coords = pmb->coords;
-    auto &buf_arr = buf.buffer();
+    buf_pool_t<Real>::weak_t &buf_arr = buf.buffer();
 
     const int nl = flx.GetDim(6);
     const int nm = flx.GetDim(5);
@@ -232,10 +227,6 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
   Mesh *pmesh = md->GetMeshPointer();
 
-  // Allocate channels sending from active data and then check to see if
-  // if buffers have changed
-  bool rebuild = false;
-  int nbound = 0;
 
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     if ((nb.snb.level - 1 != pmb->loc.level) ||
@@ -314,7 +305,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     }
 
     auto &flx = v->flux[dir];
-    auto &buf_arr = buf.buffer();
+    buf_pool_t<Real>::weak_t &buf_arr = buf.buffer();
     const int nl = flx.GetDim(6);
     const int nm = flx.GetDim(5);
     const int nn = flx.GetDim(4);
