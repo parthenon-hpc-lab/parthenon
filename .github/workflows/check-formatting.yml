@@ -5,7 +5,7 @@ jobs:
     name: Check Python and C++ Formatting
     runs-on: ubuntu-latest
     steps:
-    - uses: JoshuaSBrown/cpp-py-formatter/check@v0.2.3
+    - uses: pgrete/cpp-py-formatter/check@v0.3.0
       with:
-        clangFormatVersion: 8
+        clangFormatVersion: 11
         token: ${{ secrets.GITHUB_TOKEN }}
