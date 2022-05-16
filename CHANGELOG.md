@@ -11,6 +11,7 @@
 - [[PR 586]](https://github.com/lanl/parthenon/pull/586) Implement true sparse capability with automatic allocation and deallocation of sparse
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 662]](https://github.com/lanl/parthenon/pull/662) Remove SetPrecise
 - [[PR 673]](https://github.com/lanl/parthenon/pull/673) Remove smallest meshblock case from advection_performance
 - [[PR 655]](https://github.com/lanl/parthenon/pull/655) Enable user boundary conditions for particles
 - [[PR 623]](https://github.com/lanl/parthenon/pull/623) Enable Params to optionally return non-const pointers
