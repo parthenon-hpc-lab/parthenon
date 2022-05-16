@@ -968,11 +968,6 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
     case BoundaryFlag::user:
       if (app_in->swarm_boundary_conditions[f] != nullptr) {
         SwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
-      } else {
-        std::stringstream msg;
-        msg << "A user boundary condition for face " << f
-            << " was requested, but no swarm condition was enrolled." << std::endl;
-        PARTHENON_THROW(msg);
       }
       break;
     default: // Default BCs handled elsewhere
