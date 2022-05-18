@@ -140,18 +140,18 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsI(const IndexDomain &domain) const
-      noexcept {
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetBoundsI(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::interior) ? x_[0] : IndexRange{is(domain), ie(domain)};
   }
 
-  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsJ(const IndexDomain &domain) const
-      noexcept {
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetBoundsJ(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::interior) ? x_[1] : IndexRange{js(domain), je(domain)};
   }
 
-  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsK(const IndexDomain &domain) const
-      noexcept {
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetBoundsK(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::interior) ? x_[2] : IndexRange{ks(domain), ke(domain)};
   }
 
