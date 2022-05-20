@@ -160,6 +160,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
   // Allocate channels sending from active data and then check to see if
   // if buffers have changed
   bool rebuild = false;
+  bool other_communication_unfinished = false;
   int nbound = 0;
   {
     WriteRegion region("allocate send resource");
@@ -168,6 +169,8 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
           pmesh->boundary_comm_map.count({pmb->gid, nb.snb.gid, v->label()}) > 0,
           "Boundary communicator does not exist");
       auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+      
+      if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
 
       if (v->IsAllocated()) {
         buf.Allocate();
@@ -185,6 +188,8 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
       ++nbound;
     });
   }
+
+  if (other_communication_unfinished) return TaskStatus::incomplete;
 
   if (rebuild) {
     WriteRegion region("rebuild send_bnd_info");
@@ -279,7 +284,6 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
     int iarr = 0;
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
-      buf.IsSentGuard();
       if (sending_nonzero_flags_h(iarr))
         buf.Send();
       else
@@ -298,6 +302,11 @@ TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   bool all_received = true;
   Mesh *pmesh = md->GetMeshPointer();
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    
+    PARTHENON_DEBUG_REQUIRE(
+        pmesh->boundary_comm_map.count({nb.snb.gid, pmb->gid, v->label()}) > 0,
+        "Buffer that should exist does not exist.");
+
     auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
     all_received = all_received && buf.TryReceive();
 
@@ -313,6 +322,7 @@ TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::popRegion();
 
   if (all_received) return TaskStatus::complete;
+  
   return TaskStatus::incomplete;
 }
 

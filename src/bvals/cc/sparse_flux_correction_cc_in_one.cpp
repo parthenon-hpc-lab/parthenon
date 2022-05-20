@@ -19,6 +19,7 @@
 #include <iostream> // debug
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "bvals_cc_in_one.hpp"
@@ -36,6 +37,29 @@ namespace parthenon {
 namespace cell_centered_bvars {
 
 namespace impl {
+
+using sp_mb_t = std::shared_ptr<MeshBlock>;
+using sp_mbd_t = std::shared_ptr<MeshBlockData<Real>>;
+using sp_cv_t = std::shared_ptr<CellVariable<Real>>;
+using nb_t = NeighborBlock;
+
+template <class F, class ... Args>  
+auto func_caller(F func, Args&&... args) -> 
+typename std::enable_if<
+    std::is_same<decltype(func(std::declval<Args>()...)), bool>::value,
+    bool>::type {
+  return func(std::forward<Args>(args)...);
+}
+
+template <class F, class ... Args> 
+auto func_caller(F func, Args&&... args) -> 
+typename std::enable_if<
+    !std::is_same<decltype(func(std::declval<Args>()...)), bool>::value,
+    bool>::type {
+  func(std::forward<Args>(args)...);
+  return false;
+}
+
 template <class F>
 void IterateBoundaries(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
@@ -45,17 +69,14 @@ void IterateBoundaries(std::shared_ptr<MeshData<Real>> &md, F func) {
       if (v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
           auto &nb = pmb->pbval->neighbor[n];
-          func(pmb, rc, nb, v);
+          if (func_caller(func, pmb, rc, nb, v)) return;
         }
       }
     }
   }
 }
 
-using sp_mb_t = std::shared_ptr<MeshBlock>;
-using sp_mbd_t = std::shared_ptr<MeshBlockData<Real>>;
-using sp_cv_t = std::shared_ptr<CellVariable<Real>>;
-using nb_t = NeighborBlock;
+
 
 class WriteRegion {
  public:
@@ -75,6 +96,21 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
   Kokkos::Profiling::pushRegion("Task_LoadAndSendFluxCorrectionBuffers");
 
   Mesh *pmesh = md->GetMeshPointer();
+  
+  bool all_available = true;
+  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) -> bool {
+    // Check if this boundary requires flux correction
+    if (nb.snb.level != pmb->loc.level - 1) return false;
+    // No flux correction required unless boundaries share a face
+    if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return false;
+    auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}]; 
+    if (!buf.IsAvailableForWrite()) {  
+      all_available = false;
+      return true; // Breaks the loop
+    }
+    return false; // continue to next loop iteration
+  });
+  if (!all_available) return TaskStatus::incomplete;
 
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     // Check if this boundary requires flux correction
@@ -89,7 +125,8 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
 
     if (!v->IsAllocated()) {
       // This free really shouldn't do anything
-      buf.Free();
+      PARTHENON_DEBUG_REQUIRE(buf.IsActive() == v->IsAllocated(), "Buffer has different allocation status than variable");
+      //buf.Free();
       buf.SendNull();
       return; // Cycle to the next boundary
     }
