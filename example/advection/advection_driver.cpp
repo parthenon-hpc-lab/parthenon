@@ -112,7 +112,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
     auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
-
+    
     auto send_flx = tl.AddTask(
         none, parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers,
         mc0);
@@ -120,7 +120,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         none, parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers, mc0);
     auto set_flx =
         tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
-
+    
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
         tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
@@ -140,12 +140,14 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
     */
 
+    
     auto send = tl.AddTask(
         update, parthenon::cell_centered_bvars::LoadAndSendSparseBoundaryBuffers, mc1);
     auto recv = tl.AddTask(
         update, parthenon::cell_centered_bvars::ReceiveSparseBoundaryBuffers, mc1);
     auto set = tl.AddTask(
         recv, parthenon::cell_centered_bvars::SetInternalSparseBoundaryBuffers, mc1);
+       
     if (pmesh->multilevel) {
       tl.AddTask(set, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
                  mc1.get());
