@@ -154,12 +154,15 @@ class CommBuffer {
 
   bool IsAvailableForWrite() {
     if (*comm_type_ == BuffCommType::sender) {
-#ifdef MPI_PARALLEL
+#ifdef MPI_PARALLEL 
       // We do not check stale status here since the receiving end should be the one 
       // setting the buffer to stale, all we care about for a pure sender is wether 
       // or not its last send message has been completed 
+      if (*state_ == BufferState::stale) return true;
       if (*my_request_ == MPI_REQUEST_NULL) return true; 
-      int flag;
+      int flag, test;
+      PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+                                   MPI_STATUS_IGNORE));
       PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, MPI_STATUS_IGNORE));
       if (flag) *state_ = BufferState::stale;
       return flag; 
@@ -178,6 +181,10 @@ class CommBuffer {
   void Stale() {
 #ifdef MPI_PARALLEL
     if (*comm_type_ == BuffCommType::sender) {
+      PARTHENON_FAIL("Should never get here.");
+      int test;
+      PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+                                   MPI_STATUS_IGNORE));
       PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
     }
 #endif 
