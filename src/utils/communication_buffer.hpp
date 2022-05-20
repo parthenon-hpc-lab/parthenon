@@ -66,16 +66,10 @@ struct MPIType<T, bool_t<MPI_type_check<bool, T>::value>> {
 using namespace impl;
 
 //             Read    Write
-//    stale:             X         
-// sending*:    
-// received:     X         
-enum class BufferState {
-  stale,
-  sending,
-  sending_null,
-  received,
-  received_null
-};
+//    stale:             X
+// sending*:
+// received:     X
+enum class BufferState { stale, sending, sending_null, received, received_null };
 
 enum class BuffCommType { sender, receiver, both };
 
@@ -121,12 +115,8 @@ class CommBuffer {
   template <class U>
   CommBuffer &operator=(const CommBuffer<U> &in);
 
-  operator T &() { 
-    return buf_; 
-  }
-  operator const T &() const { 
-    return buf_; 
-  }
+  operator T &() { return buf_; }
+  operator const T &() const { return buf_; }
 
   T &buffer() { return buf_; }
   const T &buffer() const { return buf_; }
@@ -154,25 +144,24 @@ class CommBuffer {
 
   bool IsAvailableForWrite() {
     if (*comm_type_ == BuffCommType::sender) {
-#ifdef MPI_PARALLEL 
-      // We do not check stale status here since the receiving end should be the one 
-      // setting the buffer to stale, all we care about for a pure sender is wether 
-      // or not its last send message has been completed 
+#ifdef MPI_PARALLEL
+      // We do not check stale status here since the receiving end should be the one
+      // setting the buffer to stale, all we care about for a pure sender is wether
+      // or not its last send message has been completed
       if (*state_ == BufferState::stale) return true;
-      if (*my_request_ == MPI_REQUEST_NULL) return true; 
+      if (*my_request_ == MPI_REQUEST_NULL) return true;
       int flag, test;
       PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-                                   MPI_STATUS_IGNORE));
+                                     MPI_STATUS_IGNORE));
       PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, MPI_STATUS_IGNORE));
       if (flag) *state_ = BufferState::stale;
-      return flag; 
+      return flag;
 #else
-      PARTHENON_FAIL("Should not have a sending buffer when MPI is not enabled."); 
+      PARTHENON_FAIL("Should not have a sending buffer when MPI is not enabled.");
 #endif
-    }
-    else if (*comm_type_ == BuffCommType::both) { 
-      if (*state_ == BufferState::stale) return true; 
-      return false; 
+    } else if (*comm_type_ == BuffCommType::both) {
+      if (*state_ == BufferState::stale) return true;
+      return false;
     } else {
       PARTHENON_FAIL("Receiving buffer is never available for write.");
     }
@@ -184,13 +173,13 @@ class CommBuffer {
       PARTHENON_FAIL("Should never get here.");
       int test;
       PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-                                   MPI_STATUS_IGNORE));
+                                     MPI_STATUS_IGNORE));
       PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
     }
-#endif 
+#endif
     if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
-       PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");
-    *state_ = BufferState::stale; 
+      PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");
+    *state_ = BufferState::stale;
   }
 };
 
@@ -267,7 +256,8 @@ void CommBuffer<T>::Send() noexcept {
     SendNull();
     return;
   }
-  PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale, "Trying to send from buffer that hasn't been staled.");
+  PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
+                          "Trying to send from buffer that hasn't been staled.");
   if (*comm_type_ == BuffCommType::sender) {
 // Make sure that this request isn't still out,
 // this could be blocking
@@ -286,7 +276,8 @@ void CommBuffer<T>::Send() noexcept {
 
 template <class T>
 void CommBuffer<T>::SendNull() noexcept {
-  PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale, "Trying to send_null from buffer that hasn't been staled.");
+  PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
+                          "Trying to send_null from buffer that hasn't been staled.");
   if (*comm_type_ == BuffCommType::sender) {
 // Make sure that this request isn't still out,
 // this could be blocking

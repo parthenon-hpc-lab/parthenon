@@ -169,7 +169,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
           pmesh->boundary_comm_map.count({pmb->gid, nb.snb.gid, v->label()}) > 0,
           "Boundary communicator does not exist");
       auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
-      
+
       if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
 
       if (v->IsAllocated()) {
@@ -302,7 +302,6 @@ TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   bool all_received = true;
   Mesh *pmesh = md->GetMeshPointer();
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    
     PARTHENON_DEBUG_REQUIRE(
         pmesh->boundary_comm_map.count({nb.snb.gid, pmb->gid, v->label()}) > 0,
         "Buffer that should exist does not exist.");
@@ -322,7 +321,7 @@ TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::popRegion();
 
   if (all_received) return TaskStatus::complete;
-  
+
   return TaskStatus::incomplete;
 }
 
