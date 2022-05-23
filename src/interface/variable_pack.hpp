@@ -493,9 +493,10 @@ void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap)
       int sparse_id = v->GetSparseID();
       if (sparse_id != InvalidSparseID) {
         std::vector<int> shape;
-        if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
-        if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
-        if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+        auto mshape = v->metadata().Shape();
+        if (mshape.size() > 0) shape.push_back(v->GetDim(4));
+        if (mshape.size() > 1) shape.push_back(v->GetDim(5));
+        if (mshape.size() > 2) shape.push_back(v->GetDim(6));
         auto &pair = pvmap->get(v->label());
         start = pair.first;
         stop = pair.second;
@@ -558,9 +559,10 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
     }
 
     std::vector<int> shape;
-    if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
-    if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
-    if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+    auto mshape = v->metadata().Shape();
+    if (mshape.size() > 0) shape.push_back(v->GetDim(4));
+    if (mshape.size() > 1) shape.push_back(v->GetDim(5));
+    if (mshape.size() > 2) shape.push_back(v->GetDim(6));
 
     if (pvmap != nullptr) {
       pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
@@ -638,9 +640,10 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
     }
 
     std::vector<int> shape;
-    if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
-    if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
-    if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+    auto mshape = v->metadata().Shape();
+    if (mshape.size() > 0) shape.push_back(v->GetDim(4));
+    if (mshape.size() > 1) shape.push_back(v->GetDim(5));
+    if (mshape.size() > 2) shape.push_back(v->GetDim(6));
 
     if (pvmap != nullptr) {
       pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
