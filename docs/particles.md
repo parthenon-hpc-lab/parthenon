@@ -110,12 +110,9 @@ AMR is currently not supported, but support will be added in the future.
 
 ## Variable Packing
 
-Similarly to grid variables, particle swarms support `ParticleVariable` packing, by the function
-`Swarm::PackVariables`.
-
-Note that higher-dimensional (more than one element per particle) ParticleVariables are
-currently untested with this function; in particular, `FlatIdx` is not guaranteed to work
-correctly.
+Similarly to grid variables, particle swarms support `ParticleVariable` packing, by the
+function `Swarm::PackVariables`. This also supports `FlatIdx` for indexing; see the
+`particle_leapfrog` example for usage.
 
 ## Boundary conditions
 
