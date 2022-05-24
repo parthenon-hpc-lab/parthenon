@@ -606,7 +606,6 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
         }
       }
     }
-    // host_cv(vindex++) = v->data.Get(0);
 
     std::vector<int> shape;
     auto mshape = v->metadata().Shape();
