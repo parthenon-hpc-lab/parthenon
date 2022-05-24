@@ -786,7 +786,6 @@ SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
 
   // make the outer view
   ViewOfParArrays1D<T> cv("MakePack::cv", vsize);
-  ParArray1D<int> sparse_id("MakePack::sparse_id", vsize);
 
   std::array<int, 2> cv_size{0, 0};
   if (vsize > 0) {

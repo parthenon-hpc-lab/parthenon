@@ -278,7 +278,6 @@ class Swarm {
 template <class T>
 inline vpack_types::SwarmVarList<T>
 Swarm::MakeVarList_(const std::vector<std::string> &names) {
-  int size = 0;
   vpack_types::SwarmVarList<T> vars;
   auto variables = std::get<getType<T>()>(Maps_);
 

@@ -223,9 +223,9 @@ class FaceVariable {
   FaceArray<T> data;
 
  private:
+  std::array<int, 6> dims_;
   Metadata m_;
   std::string label_;
-  std::array<int, 6> dims_;
 };
 
 ///
