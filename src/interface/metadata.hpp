@@ -327,8 +327,6 @@ class Metadata {
       return Edge;
     } else if (IsSet(Node)) {
       return Node;
-    } else if (IsSet(Particle)) {
-      return Particle;
     } else if (IsSet(None)) {
       return None;
     }

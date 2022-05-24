@@ -72,7 +72,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
   Metadata vreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{3});
   pkg->AddSwarmValue("v", swarm_name, vreal_swarmvalue_metadata);
-  Metadata vvreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{2, 2});
+  Metadata vvreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{3, 3});
   pkg->AddSwarmValue("vv", swarm_name, vvreal_swarmvalue_metadata);
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
@@ -159,6 +159,15 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
     const auto &y = swarm->Get<Real>("y").Get().GetHostMirrorAndCopy();
     const auto &z = swarm->Get<Real>("z").Get().GetHostMirrorAndCopy();
     const auto &v = swarm->Get<Real>("v").Get().GetHostMirrorAndCopy();
+    const auto &vv = swarm->Get<Real>("vv").Get().GetHostMirrorAndCopy();
+
+    PackIndexMap imap;
+    std::vector<std::string> pack_names = {"v", "vv"};
+    printf("PACK VARIABLES!!!!\n");
+    auto vp = swarm->PackVariables<Real>(pack_names, imap);
+    printf("DONE PACKING!\n");
+    auto iv = imap.GetFlatIdx("v");
+    auto ivv = imap.GetFlatIdx("vv");
 
     const auto &is_active =
         Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
@@ -172,6 +181,26 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
         particle_output_this_rank(offset++) = v(0, n);
         particle_output_this_rank(offset++) = v(1, n);
         particle_output_this_rank(offset++) = v(2, n);
+
+        // Check that vv is still consistent with v
+        for (int i = 0; i < 3; i++) {
+          for (int j = 0; j < 3; j++) {
+            printf("[%i %i] ivv: %i iv: %i %i\n",
+              i, j, ivv(i,j), iv(i), iv(j));
+            printf("vv: %e v*v: %e\n", vv(i, j, n), v(i,n)*v(j,n));
+            printf("vvp: %e vp*vp: %e\n", vp(ivv(i, j), n), vp(iv(i), n)*vp(iv(j), n));
+            if (std::fabs(vv(i,j,n)) > 1.e-10) {
+              //PARTHENON_REQUIRE(
+              //    2. * std::fabs(vp(ivv(i, j), n) - vp(iv(i), n) * vp(iv(j), n)) <
+              //        1.e-10 * (std::fabs(vp(ivv(i, j), n)) + std::fabs(v(i, n) * v(j, n))),
+              //    "packed vv not consistent with v*v!");
+              PARTHENON_REQUIRE(
+                  2. * std::fabs(vv(i, j, n) - v(i, n) * v(j, n)) <
+                      1.e-10 * (std::fabs(vv(i, j, n)) + std::fabs(v(i, n) * v(j, n))),
+                  "vv not consistent with v*v!");
+            }
+          }
+        }
       }
     }
   }
@@ -324,6 +353,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &y = swarm->Get<Real>("y").Get();
   auto &z = swarm->Get<Real>("z").Get();
   auto &v = swarm->Get<Real>("v").Get();
+  auto &vv = swarm->Get<Real>("vv").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
   // This hardcoded implementation should only used in PGEN and not during runtime
@@ -339,6 +369,11 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         v(0, n) = ic[m][3];
         v(1, n) = ic[m][4];
         v(2, n) = ic[m][5];
+        for (int i = 0; i < 3; i++) {
+          for (int j = 0; j < 3; j++) {
+            vv(i, j, n) = v(i, n) * v(j, n);
+          }
+        }
       });
 }
 

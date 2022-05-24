@@ -141,7 +141,7 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
       arrDims[i + 3] = shape[i];
     for (int i = N; i < 3; i++)
       arrDims[i + 3] = 1;
-  } else if (Where() == Particle) {
+  } else if (IsSet(Particle)) {
     assert(N >= 1 && N <= 5);
     arrDims[0] = 1; // To be updated by swarm based on pool size before allocation
     for (int i = 0; i < N; i++)

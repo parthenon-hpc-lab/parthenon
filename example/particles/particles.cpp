@@ -310,6 +310,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
 
             // Normalize
             Real v_tmp = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
+            PARTHENON_DEBUG_REQUIRE(v_tmp > 0., "Speed must be > 0!");
             for (int ii = 0; ii < 3; ii++) {
               v(ii, n) *= vel / v_tmp;
             }
@@ -398,6 +399,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
         "TransportOrbitingParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
             Real vel = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
+            PARTHENON_DEBUG_REQUIRE(vel > 1.e-10, "Speed must be > 0!");
             while (t(n) < t0 + dt) {
               Real dt_cell = dx_push / vel;
               Real dt_end = t0 + dt - t(n);
@@ -412,6 +414,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
 
               // Force point back onto spherical shell
               Real r_tmp = sqrt(x(n) * x(n) + y(n) * y(n) + z(n) * z(n));
+              PARTHENON_DEBUG_REQUIRE(r_tmp > 0., "r_tmp must be > 0 for division!");
               x(n) *= r / r_tmp;
               y(n) *= r / r_tmp;
               z(n) *= r / r_tmp;
@@ -419,6 +422,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               // Project v onto plane normal to sphere
               Real vdN = v(0, n) * x(n) + v(1, n) * y(n) + v(2, n) * z(n);
               Real NdN = r * r;
+              PARTHENON_DEBUG_REQUIRE(NdN > 0., "NdN must be > 0 for division!");
               v(0, n) = v(0, n) - vdN / NdN * x(n);
               v(1, n) = v(1, n) - vdN / NdN * y(n);
               v(2, n) = v(2, n) - vdN / NdN * z(n);
@@ -426,6 +430,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               // Normalize
               Real v_tmp =
                   sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
+              PARTHENON_DEBUG_REQUIRE(v_tmp > 0., "v_tmp must be > 0 for division!");
               for (int ii = 0; ii < 3; ii++) {
                 v(ii, n) *= vel / v_tmp;
               }
@@ -447,6 +452,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
         "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
             Real vel = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
+            PARTHENON_DEBUG_REQUIRE(vel > 0., "vel must be > 0 for division!");
             while (t(n) < t0 + dt) {
               Real dt_cell = dx_push / vel;
               Real dt_end = t0 + dt - t(n);

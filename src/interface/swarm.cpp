@@ -420,19 +420,19 @@ void Swarm::Defrag() {
   pmb->par_for(
       "Swarm::DefragVariables", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         if (from_to_indices(n) >= 0) {
-          for (int i = 0; i < real_vars_size; i++) {
-            for (int j = 0; j < rpack_indices_shapes(1, i); j++) {
-              for (int k = 0; k < rpack_indices_shapes(2, i); k++) {
-                vreal(rpack_indices_shapes(0, i), k, j, from_to_indices(n)) =
-                    vreal(rpack_indices_shapes(0, i), k, j, n);
+          for (int vidx = 0; vidx < real_vars_size; vidx++) {
+            for (int l = 0; l < rpack_indices_shapes(2, vidx); l++) {
+              for (int m = 0; m < rpack_indices_shapes(1, vidx); m++) {
+                vreal(rpack_indices_shapes(0, vidx), l, m, from_to_indices(n)) =
+                    vreal(rpack_indices_shapes(0, vidx), l, m, n);
               }
             }
           }
-          for (int i = 0; i < int_vars_size; i++) {
-            for (int j = 0; j < ipack_indices_shapes(1, i); j++) {
-              for (int k = 0; k < ipack_indices_shapes(2, i); k++) {
-                vint(ipack_indices_shapes(0, i), k, j, from_to_indices(n)) =
-                    vint(ipack_indices_shapes(0, i), k, j, n);
+          for (int vidx = 0; vidx < int_vars_size; vidx++) {
+            for (int l = 0; l < ipack_indices_shapes(2, vidx); l++) {
+              for (int m = 0; m < ipack_indices_shapes(1, vidx); m++) {
+                vint(ipack_indices_shapes(0, vidx), l, m, from_to_indices(n)) =
+                    vint(ipack_indices_shapes(0, vidx), l, m, n);
               }
             }
           }

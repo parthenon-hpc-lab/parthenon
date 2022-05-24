@@ -376,12 +376,14 @@ template <typename T>
 class SwarmVariablePack {
  public:
   SwarmVariablePack() = default;
-  SwarmVariablePack(const ViewOfParArrays<T> view, const std::array<int, 2> dims)
+  SwarmVariablePack(const ViewOfParArrays<T> view, const std::array<int, 4> dims)
       : v_(view), dims_(dims) {}
   KOKKOS_FORCEINLINE_FUNCTION
   ParArray3D<T> &operator()(const int n) const { return v_(n); }
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(const int n, const int i) const { return v_(n)(0, 0, i); }
+  T &operator()(const int n, const int i) const {
+    printf("dims: %i %i %i %i\n", dims_[0], dims_[1], dims_[2], dims_[3]);
+    return v_(n)(0, 0, i); }
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(const int n, const int j, const int i) const { return v_(n)(0, j, i); }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -391,7 +393,7 @@ class SwarmVariablePack {
 
  private:
   ViewOfParArrays<T> v_;
-  std::array<int, 2> dims_;
+  std::array<int, 4> dims_;
 };
 
 template <typename T>
@@ -595,11 +597,12 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
     host_view(vindex++) = v->data.Get(0, 0, 0);
 
     std::vector<int> shape;
-    if (v->GetDim(2) > 1) shape.push_back(v->GetDim(2));
-    if (v->GetDim(3) > 1) shape.push_back(v->GetDim(3));
-    if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
-    if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
-    if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+    auto mshape = v->metadata().Shape();
+    if (mshape.size() > 0) shape.push_back(v->GetDim(2));
+    if (mshape.size() > 1) shape.push_back(v->GetDim(3));
+    if (mshape.size() > 2) shape.push_back(v->GetDim(4));
+    if (mshape.size() > 3) shape.push_back(v->GetDim(5));
+    if (mshape.size() > 4) shape.push_back(v->GetDim(6));
 
     if (vmap != nullptr) {
       vmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
@@ -762,9 +765,21 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
 template <typename T>
 SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
                                    PackIndexMap *vmap = nullptr) {
+  {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
+    // we also count unallocated vars because the total size needs to be uniform across
+    // meshblocks that meshblock packs will work
+    vsize += v->NumComponents();
+  }
+  return;
+  }
+
+  // count up the size
+  int vsize = 0;
+  for (const auto &v : vars) {
+    printf("label: %s\n", v->label().c_str());
     vsize++;
   }
 
@@ -779,8 +794,24 @@ SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
     return SwarmVariablePack<T>();
   }
 
-  auto fvar = vars.front()->data;
-  std::array<int, 2> cv_size = {fvar.GetDim(1), vsize};
+  std::array<int, 4> cv_size{0, 0, 0, 0};
+  if (vsize > 0) {
+    // get dimension from first variable, they must all be the same
+    // TODO(JL): maybe verify this?
+    const auto &var = vars.front();
+    for (int i = 0; i < 3; ++i) {
+      cv_size[i] = var->GetDim(i + 1);
+    }
+    cv_size[3] = vsize;
+  }
+    for (auto &var : vars) {
+  printf("dim: %i %i %i %i %i %i\n", var->GetDim(1),
+    var->GetDim(2), var->GetDim(3), var->GetDim(4), var->GetDim(5), var->GetDim(6));
+  printf("cv_size: %i %i %i %i\n", cv_size[0], cv_size[1], cv_size[2], cv_size[3]);
+ }
+
+  //auto fvar = vars.front()->data;
+  //std::array<int, 2> cv_size = {fvar.GetDim(1), vsize};
   return SwarmVariablePack<T>(cv, cv_size);
 }
 

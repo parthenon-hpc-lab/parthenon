@@ -213,6 +213,8 @@ class Swarm {
  private:
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarListAll_();
+  template <class T>
+  vpack_types::SwarmVarList<T> MakeVarList_(const std::vector<std::string> &names);
 
   template <class BOutflow, class BPeriodic, int iFace>
   void AllocateBoundariesImpl_(MeshBlock *pmb);
@@ -275,6 +277,27 @@ class Swarm {
 };
 
 template <class T>
+inline vpack_types::SwarmVarList<T> Swarm::MakeVarList_(const std::vector<std::string> &names) {
+  int size = 0;
+  vpack_types::SwarmVarList<T> vars;
+  //auto variables = std::get<getType<T>()>(Vectors_);
+  auto variables = std::get<getType<T>()>(Maps_);
+
+  for (auto name : names) {
+     vars.push_front(variables[name]);
+     //size++;
+  }
+  return vars;
+
+ /* for (auto it = variables.rbegin(); it != variables.rend(); ++it) {
+    auto v = *it;
+    vars.push_front(v);
+    size++;
+  }
+  return vars;*/
+}
+
+template <class T>
 inline vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_() {
   int size = 0;
   vpack_types::SwarmVarList<T> vars;
@@ -290,7 +313,7 @@ inline vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_() {
 template <class T>
 inline SwarmVariablePack<T> Swarm::PackVariables(const std::vector<std::string> &names,
                                                  PackIndexMap &vmap) {
-  vpack_types::SwarmVarList<T> vars = MakeVarListAll_<T>();
+  vpack_types::SwarmVarList<T> vars = MakeVarList_<T>(names);
   auto pack = MakeSwarmPack<T>(vars, &vmap);
   SwarmPackIndxPair<T> value;
   value.pack = pack;
