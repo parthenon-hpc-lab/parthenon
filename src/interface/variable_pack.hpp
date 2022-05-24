@@ -241,6 +241,9 @@ class PackIndexMap {
 template <typename T>
 using ViewOfParArrays = ParArray1D<ParArray3D<T>>;
 
+template <typename T>
+using ViewOfParArrays1D = ParArray1D<ParArray1D<T>>;
+
 // forward declaration
 template <typename T>
 class MeshBlockData;
@@ -376,24 +379,27 @@ template <typename T>
 class SwarmVariablePack {
  public:
   SwarmVariablePack() = default;
-  SwarmVariablePack(const ViewOfParArrays<T> view, const std::array<int, 4> dims)
+  SwarmVariablePack(const ViewOfParArrays1D<T> view, const std::array<int, 2> dims)
       : v_(view), dims_(dims) {}
+
   KOKKOS_FORCEINLINE_FUNCTION
-  ParArray3D<T> &operator()(const int n) const { return v_(n); }
+  ParArray1D<T> &operator()(const int n) const { return v_(n); }
+
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(const int n, const int i) const {
     printf("dims: %i %i %i %i\n", dims_[0], dims_[1], dims_[2], dims_[3]);
-    return v_(n)(0, 0, i); }
+    return v_(n)(i);
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(const int n, const int j, const int i) const { return v_(n)(0, j, i); }
-  KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(const int n, const int k, const int j, const int i) const {
-    return v_(n)(k, j, i);
+  int GetDim(const int i) const {
+    PARTHENON_REQUIRE(i > 0 && i < 3, "SwarmVariablePack dimensionality is 2!");
+    return dims_[i - 1];
   }
 
  private:
-  ViewOfParArrays<T> v_;
-  std::array<int, 4> dims_;
+  ViewOfParArrays1D<T> v_;
+  std::array<int, 2> dims_;
 };
 
 template <typename T>
@@ -582,19 +588,29 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
 }
 
 template <typename T>
-void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vmap,
-                      ViewOfParArrays<T> &cv) {
+void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
+                      ViewOfParArrays1D<T> &cv_out,
+                 PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
-  auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv);
+  auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
 
   int vindex = 0;
-  int sparse_start;
-  std::string sparse_name;
   for (const auto v : vars) {
     int vstart = vindex;
-    // Reusing ViewOfParArrays which expects 3D slices
-    host_view(vindex++) = v->data.Get(0, 0, 0);
+    for (int l = 0; l < v->GetDim(6); l++) {
+      for (int m = 0; m < v->GetDim(5); m++) {
+        for (int n = 0; n < v->GetDim(4); n++) {
+          for (int t = 0; t < v->GetDim(3); t++) {
+            for (int u = 0; u < v->GetDim(2); u++) {
+              host_cv(vindex) = v->data.Get(l,m,n,t,u);
+              vindex++;
+            }
+          }
+        }
+      }
+    }
+    //host_cv(vindex++) = v->data.Get(0);
 
     std::vector<int> shape;
     auto mshape = v->metadata().Shape();
@@ -604,12 +620,12 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
     if (mshape.size() > 3) shape.push_back(v->GetDim(5));
     if (mshape.size() > 4) shape.push_back(v->GetDim(6));
 
-    if (vmap != nullptr) {
-      vmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
+    if (pvmap != nullptr) {
+      pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
 
-  Kokkos::deep_copy(cv, host_view);
+  Kokkos::deep_copy(cv_out, host_cv);
 }
 
 template <typename T>
@@ -764,7 +780,7 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
 
 template <typename T>
 SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
-                                   PackIndexMap *vmap = nullptr) {
+                                   PackIndexMap *pvmap = nullptr) {
   {
   // count up the size
   int vsize = 0;
@@ -773,9 +789,25 @@ SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
     // meshblocks that meshblock packs will work
     vsize += v->NumComponents();
   }
-  return;
+
+  // make the outer view
+  ViewOfParArrays1D<T> cv("MakePack::cv", vsize);
+  ParArray1D<int> sparse_id("MakePack::sparse_id", vsize);
+
+  std::array<int, 2> cv_size{0, 0};
+  if (vsize > 0) {
+    // get dimension from first variable, they must all be the same
+    // TODO(JL): maybe verify this?
+    const auto &var = vars.front();
+    cv_size[0] = var->GetDim(1);
+    cv_size[1] = vsize;
+
+    FillSwarmVarView(vars, cv, pvmap);
   }
 
+  return SwarmVariablePack<T>(cv, cv_size);
+  }
+/*
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -812,7 +844,7 @@ SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
 
   //auto fvar = vars.front()->data;
   //std::array<int, 2> cv_size = {fvar.GetDim(1), vsize};
-  return SwarmVariablePack<T>(cv, cv_size);
+  return SwarmVariablePack<T>(cv, cv_size);*/
 }
 
 } // namespace parthenon
