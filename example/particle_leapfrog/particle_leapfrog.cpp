@@ -193,24 +193,24 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
         }
       }
     }
-  
+
     const auto is_active_d = swarm->GetMask();
     pmb->par_for(
-      "CheckParticlePacks", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
-      if (is_active_d(n)) {
-        for (int i = 0; i < 3; i++) {
-          for (int j = 0; j < 3; j++) {
-            if (std::fabs(vp(ivv(i, j), n)) > 1.e-10) {
-              PARTHENON_REQUIRE(
-                  2. * std::fabs(vp(ivv(i, j), n) - vp(iv(i), n) * vp(iv(j), n)) <
-                      1.e-10 * (std::fabs(vp(ivv(i, j), n)) +
-                                std::fabs(vp(iv(i), n) * vp(iv(j), n))),
-                  "packed vv not consistent with packed v*v!");
+        "CheckParticlePacks", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+          if (is_active_d(n)) {
+            for (int i = 0; i < 3; i++) {
+              for (int j = 0; j < 3; j++) {
+                if (std::fabs(vp(ivv(i, j), n)) > 1.e-10) {
+                  PARTHENON_REQUIRE(
+                      2. * std::fabs(vp(ivv(i, j), n) - vp(iv(i), n) * vp(iv(j), n)) <
+                          1.e-10 * (std::fabs(vp(ivv(i, j), n)) +
+                                    std::fabs(vp(iv(i), n) * vp(iv(j), n))),
+                      "packed vv not consistent with packed v*v!");
+                }
+              }
             }
           }
-        }
-      }
-    });
+        });
   }
 
   // Step 2b. Gather data on root process
