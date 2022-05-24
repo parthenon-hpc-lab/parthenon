@@ -387,7 +387,6 @@ class SwarmVariablePack {
 
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(const int n, const int i) const {
-    printf("dims: %i %i %i %i\n", dims_[0], dims_[1], dims_[2], dims_[3]);
     return v_(n)(i);
   }
 
