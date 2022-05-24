@@ -408,10 +408,8 @@ void Swarm::Defrag() {
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
-  ParArrayND<int> rpack_indices_shapes;
-  ParArrayND<int> ipack_indices_shapes;
-  auto vreal = PackAllVariables_<Real>(real_imap, rpack_indices_shapes);
-  auto vint = PackAllVariables_<int>(int_imap, ipack_indices_shapes);
+  auto vreal = PackAllVariables_<Real>(real_imap);
+  auto vint = PackAllVariables_<int>(int_imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
   auto real_map = real_imap.Map();
@@ -422,25 +420,11 @@ void Swarm::Defrag() {
   pmb->par_for(
       "Swarm::DefragVariables", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         if (from_to_indices(n) >= 0) {
-          //for (int vidx = 0; vidx < real_vars_size; vidx++) {
           for (int vidx = 0; vidx < realPackDim; vidx++) {
-            //for (int l = 0; l < rpack_indices_shapes(2, vidx); l++) {
-              //for (int m = 0; m < rpack_indices_shapes(1, vidx); m++) {
-                //vreal(/*rpack_indices_shapes(0, vidx), l,*/ m, from_to_indices(n)) =
-                //    vreal(/*rpack_indices_shapes(0, vidx), l,*/ m, n);
-                vreal(vidx, from_to_indices(n)) = vreal(vidx, n);
-              //}
-            //}
+            vreal(vidx, from_to_indices(n)) = vreal(vidx, n);
           }
-          //for (int vidx = 0; vidx < int_vars_size; vidx++) {
           for (int vidx = 0; vidx < intPackDim; vidx++) {
-            //for (int l = 0; l < ipack_indices_shapes(2, vidx); l++) {
-              //for (int m = 0; m < ipack_indices_shapes(1, vidx); m++) {
-              //  vint(/*ipack_indices_shapes(0, vidx), l,*/ m, from_to_indices(n)) =
-              //      vint(/*ipack_indices_shapes(0, vidx), l,*/ m, n);
-                vint(vidx, from_to_indices(n)) = vint(vidx, n);
-        //      }
-            //}
+            vint(vidx, from_to_indices(n)) = vint(vidx, n);
           }
         }
       });
@@ -964,17 +948,13 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
-  ParArrayND<int> rpack_indices_shapes;
-  ParArrayND<int> ipack_indices_shapes;
-  auto vreal = PackAllVariables_<Real>(real_imap, rpack_indices_shapes);
-  auto vint = PackAllVariables_<int>(int_imap, ipack_indices_shapes);
-  //int real_vars_size = realVector_.size();
-  //int int_vars_size = intVector_.size();
+  auto vreal = PackAllVariables_<Real>(real_imap);
+  auto vint = PackAllVariables_<int>(int_imap);
   const int realPackDim = vreal.GetDim(2);
   const int intPackDim = vint.GetDim(2);
 
   // Pack index:
-  // [variable start] [dim2] [dim1] [swarm idx]
+  // [variable start] [swarm idx]
 
   auto &bdvar = vbswarm->bd_var_;
   auto num_particles_to_send = num_particles_to_send_;
@@ -990,22 +970,12 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
             int buffer_index = n * particle_size;
             swarm_d.MarkParticleForRemoval(sidx);
             for (int i = 0; i < realPackDim; i++) {
-  //            for (int j = 0; j < rpack_indices_shapes(1, i); j++) {
-  //              for (int k = 0; k < rpack_indices_shapes(2, i); k++) {
-                  bdvar.send[bufid](buffer_index) = vreal(i, sidx);
-       //               vreal(rpack_indices_shapes(0, i), k, j, sidx);
-                  buffer_index++;
-    //            }
-     //         }
+              bdvar.send[bufid](buffer_index) = vreal(i, sidx);
+              buffer_index++;
             }
             for (int i = 0; i < intPackDim; i++) {
-  //            for (int j = 0; j < ipack_indices_shapes(1, i); j++) {
-  //              for (int k = 0; k < ipack_indices_shapes(2, i); k++) {
-                  bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, sidx));
-//                      static_cast<Real>(vint(ipack_indices_shapes(0, i), k, j, sidx));
-                  buffer_index++;
-//                }
-//              }
+              bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, sidx));
+              buffer_index++;
             }
           }
         }
@@ -1120,12 +1090,8 @@ void Swarm::UnloadBuffers_() {
     auto &realVector_ = std::get<getType<Real>()>(Vectors_);
     PackIndexMap real_imap;
     PackIndexMap int_imap;
-    ParArrayND<int> rpack_indices_shapes;
-    ParArrayND<int> ipack_indices_shapes;
-    auto vreal = PackAllVariables_<Real>(real_imap, rpack_indices_shapes);
-    auto vint = PackAllVariables_<int>(int_imap, ipack_indices_shapes);
-    //int real_vars_size = realVector_.size();
-    //int int_vars_size = intVector_.size();
+    auto vreal = PackAllVariables_<Real>(real_imap);
+    auto vint = PackAllVariables_<int>(int_imap);
     int realPackDim = vreal.GetDim(2);
     int intPackDim = vint.GetDim(2);
 
@@ -1140,21 +1106,12 @@ void Swarm::UnloadBuffers_() {
           int bid = buffer_index(n) * particle_size;
           const int nbid = neighbor_buffer_index(nid);
           for (int i = 0; i < realPackDim; i++) {
-            //for (int j = 0; j < rpack_indices_shapes(1, i); j++) {
-            //  for (int k = 0; k < rpack_indices_shapes(2, i); k++) {
-                vreal(i, sid) = bdvar.recv[nbid](bid);
-                bid++;
-            //  }
-            //}
+            vreal(i, sid) = bdvar.recv[nbid](bid);
+            bid++;
           }
           for (int i = 0; i < intPackDim; i++) {
-            //for (int j = 0; j < ipack_indices_shapes(1, i); j++) {
-             // for (int k = 0; k < ipack_indices_shapes(1, i); k++) {
-                vint(i, sid) =
-                    static_cast<int>(bdvar.recv[nbid](bid));
-                bid++;
-           //   }
-           // }
+            vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
+            bid++;
           }
         });
 

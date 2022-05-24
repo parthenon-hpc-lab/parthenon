@@ -386,9 +386,7 @@ class SwarmVariablePack {
   ParArray1D<T> &operator()(const int n) const { return v_(n); }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(const int n, const int i) const {
-    return v_(n)(i);
-  }
+  T &operator()(const int n, const int i) const { return v_(n)(i); }
 
   KOKKOS_FORCEINLINE_FUNCTION
   int GetDim(const int i) const {
@@ -588,8 +586,7 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
 
 template <typename T>
 void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
-                      ViewOfParArrays1D<T> &cv_out,
-                 PackIndexMap *pvmap) {
+                      ViewOfParArrays1D<T> &cv_out, PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
   auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
@@ -602,14 +599,14 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
         for (int n = 0; n < v->GetDim(4); n++) {
           for (int t = 0; t < v->GetDim(3); t++) {
             for (int u = 0; u < v->GetDim(2); u++) {
-              host_cv(vindex) = v->data.Get(l,m,n,t,u);
+              host_cv(vindex) = v->data.Get(l, m, n, t, u);
               vindex++;
             }
           }
         }
       }
     }
-    //host_cv(vindex++) = v->data.Get(0);
+    // host_cv(vindex++) = v->data.Get(0);
 
     std::vector<int> shape;
     auto mshape = v->metadata().Shape();
@@ -780,7 +777,6 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
 template <typename T>
 SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
                                    PackIndexMap *pvmap = nullptr) {
-  {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -795,8 +791,7 @@ SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
 
   std::array<int, 2> cv_size{0, 0};
   if (vsize > 0) {
-    // get dimension from first variable, they must all be the same
-    // TODO(JL): maybe verify this?
+    // Assume all variables have the same first dimension (same swarm pool)
     const auto &var = vars.front();
     cv_size[0] = var->GetDim(1);
     cv_size[1] = vsize;
@@ -805,45 +800,6 @@ SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
   }
 
   return SwarmVariablePack<T>(cv, cv_size);
-  }
-/*
-  // count up the size
-  int vsize = 0;
-  for (const auto &v : vars) {
-    printf("label: %s\n", v->label().c_str());
-    vsize++;
-  }
-
-  // make the outer view
-  ViewOfParArrays<T> cv("MakeSwarmPack::cv", vsize);
-  ParArray1D<int> sparse_assoc("MakeSwarmPack::sparse_assoc", vsize); // Unused
-
-  FillSwarmVarView(vars, vmap, cv);
-
-  // If no vars, return empty pack
-  if (vars.empty()) {
-    return SwarmVariablePack<T>();
-  }
-
-  std::array<int, 4> cv_size{0, 0, 0, 0};
-  if (vsize > 0) {
-    // get dimension from first variable, they must all be the same
-    // TODO(JL): maybe verify this?
-    const auto &var = vars.front();
-    for (int i = 0; i < 3; ++i) {
-      cv_size[i] = var->GetDim(i + 1);
-    }
-    cv_size[3] = vsize;
-  }
-    for (auto &var : vars) {
-  printf("dim: %i %i %i %i %i %i\n", var->GetDim(1),
-    var->GetDim(2), var->GetDim(3), var->GetDim(4), var->GetDim(5), var->GetDim(6));
-  printf("cv_size: %i %i %i %i\n", cv_size[0], cv_size[1], cv_size[2], cv_size[3]);
- }
-
-  //auto fvar = vars.front()->data;
-  //std::array<int, 2> cv_size = {fvar.GetDim(1), vsize};
-  return SwarmVariablePack<T>(cv, cv_size);*/
 }
 
 } // namespace parthenon

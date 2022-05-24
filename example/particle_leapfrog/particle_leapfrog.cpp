@@ -163,9 +163,7 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
 
     PackIndexMap imap;
     std::vector<std::string> pack_names = {"v", "vv"};
-    printf("PACK VARIABLES!!!!\n");
     auto vp = swarm->PackVariables<Real>(pack_names, imap);
-    printf("DONE PACKING!\n");
     auto iv = imap.GetFlatIdx("v");
     auto ivv = imap.GetFlatIdx("vv");
 
@@ -185,15 +183,12 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
         // Check that vv is still consistent with v
         for (int i = 0; i < 3; i++) {
           for (int j = 0; j < 3; j++) {
-            printf("[%i %i] ivv: %i iv: %i %i\n",
-              i, j, ivv(i,j), iv(i), iv(j));
-            printf("vv: %e v*v: %e\n", vv(i, j, n), v(i,n)*v(j,n));
-            printf("vvp: %e vp*vp: %e\n", vp(ivv(i, j), n), vp(iv(i), n)*vp(iv(j), n));
-            if (std::fabs(vv(i,j,n)) > 1.e-10) {
-              //PARTHENON_REQUIRE(
-              //    2. * std::fabs(vp(ivv(i, j), n) - vp(iv(i), n) * vp(iv(j), n)) <
-              //        1.e-10 * (std::fabs(vp(ivv(i, j), n)) + std::fabs(v(i, n) * v(j, n))),
-              //    "packed vv not consistent with v*v!");
+            if (std::fabs(vv(i, j, n)) > 1.e-10) {
+              PARTHENON_REQUIRE(
+                  2. * std::fabs(vp(ivv(i, j), n) - vp(iv(i), n) * vp(iv(j), n)) <
+                      1.e-10 * (std::fabs(vp(ivv(i, j), n)) +
+                                std::fabs(vp(iv(i), n) * vp(iv(j), n))),
+                  "packed vv not consistent with packed v*v!");
               PARTHENON_REQUIRE(
                   2. * std::fabs(vv(i, j, n) - v(i, n) * v(j, n)) <
                       1.e-10 * (std::fabs(vv(i, j, n)) + std::fabs(v(i, n) * v(j, n))),
