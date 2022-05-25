@@ -184,10 +184,8 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
         for (int i = 0; i < 3; i++) {
           for (int j = 0; j < 3; j++) {
             if (std::fabs(vv(i, j, n)) > 1.e-10) {
-              PARTHENON_REQUIRE(
-                  2. * std::fabs(vv(i, j, n) - v(i, n) * v(j, n)) <
-                      1.e-10 * (std::fabs(vv(i, j, n)) + std::fabs(v(i, n) * v(j, n))),
-                  "vv not consistent with v*v!");
+              PARTHENON_REQUIRE(vv(i, j, n) == v(i, n) * v(j, n),
+                                "vv not consistent with v*v!");
             }
           }
         }
@@ -201,11 +199,8 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
             for (int i = 0; i < 3; i++) {
               for (int j = 0; j < 3; j++) {
                 if (std::fabs(vp(ivv(i, j), n)) > 1.e-10) {
-                  PARTHENON_REQUIRE(
-                      2. * std::fabs(vp(ivv(i, j), n) - vp(iv(i), n) * vp(iv(j), n)) <
-                          1.e-10 * (std::fabs(vp(ivv(i, j), n)) +
-                                    std::fabs(vp(iv(i), n) * vp(iv(j), n))),
-                      "packed vv not consistent with packed v*v!");
+                  PARTHENON_REQUIRE(vp(ivv(i, j), n) == vp(iv(i), n) * vp(iv(j), n),
+                                    "packed vv not consistent with packed v*v!");
                 }
               }
             }
