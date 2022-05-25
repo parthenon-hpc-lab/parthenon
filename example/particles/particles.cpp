@@ -399,7 +399,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
         "TransportOrbitingParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
             Real vel = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
-            PARTHENON_DEBUG_REQUIRE(vel > 1.e-10, "Speed must be > 0!");
+            PARTHENON_DEBUG_REQUIRE(vel > 0., "Speed must be > 0!");
             while (t(n) < t0 + dt) {
               Real dt_cell = dx_push / vel;
               Real dt_end = t0 + dt - t(n);
