@@ -26,8 +26,8 @@ namespace parthenon {
 
 SwarmDeviceContext Swarm::GetDeviceContext() const {
   SwarmDeviceContext context;
-  context.marked_for_removal_ = marked_for_removal_.data;
-  context.mask_ = mask_.data;
+  context.marked_for_removal_ = marked_for_removal_;
+  context.mask_ = mask_;
   context.blockIndex_ = blockIndex_;
   context.neighborIndices_ = neighborIndices_;
   context.cellSorted_ = cellSorted_;
@@ -63,11 +63,8 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
 }
 
 Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in)
-    : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
-      mask_("mask", nmax_pool_, Metadata({Metadata::Boolean})),
-      marked_for_removal_("mfr", nmax_pool_, Metadata({Metadata::Boolean})),
-      neighbor_send_index_("nsi", nmax_pool_, Metadata({Metadata::Integer})),
-      blockIndex_("blockIndex_", nmax_pool_),
+    : label_(label), m_(metadata), nmax_pool_(nmax_pool_in), mask_("mask", nmax_pool_),
+      marked_for_removal_("mfr", nmax_pool_), blockIndex_("blockIndex_", nmax_pool_),
       neighborIndices_("neighborIndices_", 4, 4, 4),
       cellSorted_("cellSorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
@@ -79,8 +76,9 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   num_active_ = 0;
   max_active_index_ = 0;
 
-  auto mask_h = mask_.data.GetHostMirror();
-  auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
+  auto mask_h = Kokkos::create_mirror_view(HostMemSpace(), mask_);
+  auto marked_for_removal_h =
+      Kokkos::create_mirror_view(HostMemSpace(), marked_for_removal_);
 
   for (int n = 0; n < nmax_pool_; n++) {
     mask_h(n) = false;
@@ -88,8 +86,8 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
     free_indices_.push_back(n);
   }
 
-  mask_.data.DeepCopy(mask_h);
-  marked_for_removal_.data.DeepCopy(marked_for_removal_h);
+  Kokkos::deep_copy(mask_, mask_h);
+  Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
 }
 
 template <class BOutflow, class BPeriodic, int iFace>
@@ -175,9 +173,9 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
   }
 
   if (metadata.Type() == Metadata::Integer) {
-    Add_<int>(label);
+    Add_<int>(label, metadata);
   } else if (metadata.Type() == Metadata::Real) {
-    Add_<Real>(label);
+    Add_<Real>(label, metadata);
   } else {
     throw std::invalid_argument("swarm variable " + label +
                                 " does not have a valid type during Add()");
@@ -250,22 +248,11 @@ void Swarm::setPoolMax(const int nmax_pool) {
     free_indices_.push_back(n + n_new_begin);
   }
 
-  // Resize and copy data
-  mask_.Get().Resize(nmax_pool);
-  auto mask_data = mask_.Get();
-  pmb->par_for(
-      "setPoolMax_mask", nmax_pool_, nmax_pool - 1,
-      KOKKOS_LAMBDA(const int n) { mask_data(n) = 0; });
-
-  marked_for_removal_.Get().Resize(nmax_pool);
-  auto marked_for_removal_data = marked_for_removal_.Get();
-  pmb->par_for(
-      "setPoolMax_marked_for_removal", nmax_pool_, nmax_pool - 1,
-      KOKKOS_LAMBDA(const int n) { marked_for_removal_data(n) = false; });
+  // Rely on Kokkos setting the newly added values to false for these arrays
+  Kokkos::resize(mask_, nmax_pool);
+  Kokkos::resize(marked_for_removal_, nmax_pool);
 
   Kokkos::resize(cellSorted_, nmax_pool);
-
-  neighbor_send_index_.Get().Resize(nmax_pool);
 
   blockIndex_.Resize(nmax_pool);
 
@@ -274,56 +261,38 @@ void Swarm::setPoolMax(const int nmax_pool) {
   auto &realMap_ = std::get<getType<Real>()>(Maps_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
 
-  // TODO(BRR) Use ParticleVariable packs to reduce kernel launches
-  for (int n = 0; n < intVector_.size(); n++) {
-    auto oldvar = intVector_[n];
-    auto newvar = std::make_shared<ParticleVariable<int>>(oldvar->label(), nmax_pool,
-                                                          oldvar->metadata());
-    auto oldvar_data = oldvar->data;
-    auto newvar_data = newvar->data;
-    pmb->par_for(
-        "setPoolMax_int", 0, nmax_pool_ - 1,
-        KOKKOS_LAMBDA(const int m) { newvar_data(m) = oldvar_data(m); });
-
-    intVector_[n] = newvar;
-    intMap_[oldvar->label()] = newvar;
+  for (auto &d : intVector_) {
+    d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
+                   d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
   }
 
-  for (int n = 0; n < realVector_.size(); n++) {
-    auto oldvar = realVector_[n];
-    auto newvar = std::make_shared<ParticleVariable<Real>>(oldvar->label(), nmax_pool,
-                                                           oldvar->metadata());
-    auto oldvar_data = oldvar->data;
-    auto newvar_data = newvar->data;
-    pmb->par_for(
-        "setPoolMax_real", 0, nmax_pool_ - 1,
-        KOKKOS_LAMBDA(const int m) { newvar_data(m) = oldvar_data(m); });
-    realVector_[n] = newvar;
-    realMap_[oldvar->label()] = newvar;
+  for (auto &d : realVector_) {
+    d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
+                   d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
   }
 
   nmax_pool_ = nmax_pool;
 }
 
-ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
+ParArray1D<bool> Swarm::AddEmptyParticles(const int num_to_add,
                                           ParArrayND<int> &new_indices) {
   if (num_to_add <= 0) {
     new_indices = ParArrayND<int>();
-    return ParArrayND<bool>();
+    return ParArray1D<bool>();
   }
 
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
 
-  ParArrayND<bool> new_mask("Newly created particles", nmax_pool_);
-  auto new_mask_h = new_mask.GetHostMirror();
+  ParArray1D<bool> new_mask("Newly created particles", nmax_pool_);
+  auto new_mask_h = Kokkos::create_mirror_view(HostMemSpace(), new_mask);
   for (int n = 0; n < nmax_pool_; n++) {
     new_mask_h(n) = false;
   }
 
-  auto mask_h = mask_.data.GetHostMirror();
-  mask_h.DeepCopy(mask_.data);
+  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
 
   auto free_index = free_indices_.begin();
@@ -346,8 +315,8 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
 
   num_active_ += num_to_add;
 
-  new_mask.DeepCopy(new_mask_h);
-  mask_.data.DeepCopy(mask_h);
+  Kokkos::deep_copy(new_mask, new_mask_h);
+  Kokkos::deep_copy(mask_, mask_h);
   blockIndex_.DeepCopy(blockIndex_h);
 
   return new_mask;
@@ -357,9 +326,9 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
-  auto mask_h = mask_.data.GetHostMirrorAndCopy();
-  auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
-  marked_for_removal_h.DeepCopy(marked_for_removal_.data);
+  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+  auto marked_for_removal_h =
+      Kokkos::create_mirror_view_and_copy(HostMemSpace(), marked_for_removal_);
 
   // loop backwards to keep free_indices_ updated correctly
   for (int n = max_active_index_; n >= 0; n--) {
@@ -376,8 +345,8 @@ void Swarm::RemoveMarkedParticles() {
     }
   }
 
-  mask_.data.DeepCopy(mask_h);
-  marked_for_removal_.data.DeepCopy(marked_for_removal_h);
+  Kokkos::deep_copy(mask_, mask_h);
+  Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
 }
 
 void Swarm::Defrag() {
@@ -392,7 +361,7 @@ void Swarm::Defrag() {
   ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
   auto from_to_indices_h = from_to_indices.GetHostMirror();
 
-  auto mask_h = mask_.data.GetHostMirrorAndCopy();
+  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
 
   for (int n = 0; n <= max_active_index_; n++) {
     from_to_indices_h(n) = unset_index_;
@@ -426,7 +395,7 @@ void Swarm::Defrag() {
 
   from_to_indices.DeepCopy(from_to_indices_h);
 
-  auto mask = mask_.Get();
+  auto &mask = mask_;
   pmb->par_for(
       "Swarm::DefragMask", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         if (from_to_indices(n) >= 0) {
@@ -437,23 +406,25 @@ void Swarm::Defrag() {
 
   auto &intVector_ = std::get<getType<int>()>(Vectors_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
-  SwarmVariablePack<Real> vreal;
-  SwarmVariablePack<int> vint;
-  PackIndexMap rmap;
-  PackIndexMap imap;
-  vreal = PackAllVariables<Real>(rmap);
-  vint = PackAllVariables<int>(imap);
+  PackIndexMap real_imap;
+  PackIndexMap int_imap;
+  auto vreal = PackAllVariables_<Real>(real_imap);
+  auto vint = PackAllVariables_<int>(int_imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
+  auto real_map = real_imap.Map();
+  auto int_map = int_imap.Map();
+  const int realPackDim = vreal.GetDim(2);
+  const int intPackDim = vint.GetDim(2);
 
   pmb->par_for(
       "Swarm::DefragVariables", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         if (from_to_indices(n) >= 0) {
-          for (int i = 0; i < real_vars_size; i++) {
-            vreal(i, from_to_indices(n)) = vreal(i, n);
+          for (int vidx = 0; vidx < realPackDim; vidx++) {
+            vreal(vidx, from_to_indices(n)) = vreal(vidx, n);
           }
-          for (int i = 0; i < int_vars_size; i++) {
-            vint(i, from_to_indices(n)) = vint(i, n);
+          for (int vidx = 0; vidx < intPackDim; vidx++) {
+            vint(vidx, from_to_indices(n)) = vint(vidx, n);
           }
         }
       });
@@ -515,7 +486,8 @@ void Swarm::SortParticlesByCell() {
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         int cell_idx_1d = i + nx1 * (j + nx2 * k);
         // Find starting index, first by guessing
-        int start_index = static_cast<int>((cell_idx_1d * num_active / ncells));
+        int start_index =
+            static_cast<int>((cell_idx_1d * static_cast<Real>(num_active) / ncells));
         int n = 0;
         while (true) {
           n++;
@@ -535,7 +507,6 @@ void Swarm::SortParticlesByCell() {
               continue;
             }
           }
-
           if (cellSorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
             start_index--;
             if (start_index < 0) {
@@ -591,7 +562,7 @@ void Swarm::SetNeighborIndices1D_() {
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        neighborIndices_h(k, j, i) = 0;
+        neighborIndices_h(k, j, i) = no_block_;
       }
     }
   }
@@ -640,7 +611,7 @@ void Swarm::SetNeighborIndices2D_() {
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        neighborIndices_h(k, j, i) = 0;
+        neighborIndices_h(k, j, i) = no_block_;
       }
     }
   }
@@ -708,7 +679,7 @@ void Swarm::SetNeighborIndices3D_() {
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        neighborIndices_h(k, j, i) = 0;
+        neighborIndices_h(k, j, i) = no_block_;
       }
     }
   }
@@ -871,18 +842,20 @@ void Swarm::SetupPersistentMPI() {
   neighbor_received_particles_.resize(nbmax);
 
   // Build device array mapping neighbor index to neighbor bufid
-  ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->pbval->nneighbor);
-  auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    neighbor_buffer_index_h(n) = pmb->pbval->neighbor[n].bufid;
+  if (pmb->pbval->nneighbor > 0) {
+    ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->pbval->nneighbor);
+    auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
+    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+      neighbor_buffer_index_h(n) = pmb->pbval->neighbor[n].bufid;
+    }
+    neighbor_buffer_index.DeepCopy(neighbor_buffer_index_h);
+    neighbor_buffer_index_ = neighbor_buffer_index;
   }
-  neighbor_buffer_index.DeepCopy(neighbor_buffer_index_h);
-  neighbor_buffer_index_ = neighbor_buffer_index;
 }
 
 int Swarm::CountParticlesToSend_() {
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
-  auto mask_h = mask_.data.GetHostMirrorAndCopy();
+  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int nbmax = vbswarm->bd_var_.nbmax;
@@ -897,6 +870,7 @@ int Swarm::CountParticlesToSend_() {
   vbswarm->particle_size = particle_size;
 
   int max_indices_size = 0;
+  int total_noblock_particles = 0;
   for (int n = 0; n <= max_active_index_; n++) {
     if (mask_h(n)) {
       // This particle should be sent
@@ -906,12 +880,32 @@ int Swarm::CountParticlesToSend_() {
           max_indices_size = num_particles_to_send_h(blockIndex_h(n));
         }
       }
+      if (blockIndex_h(n) == no_block_) {
+        total_noblock_particles++;
+      }
     }
   }
   // Size-0 arrays not permitted but we don't want to short-circuit subsequent logic that
   // indicates completed communications
   max_indices_size = std::max<int>(1, max_indices_size);
+
   // Not a ragged-right array, just for convenience
+  if (total_noblock_particles > 0) {
+    auto noblock_indices =
+        ParArrayND<int>("Particles with no block", total_noblock_particles);
+    auto noblock_indices_h = noblock_indices.GetHostMirror();
+    int counter = 0;
+    for (int n = 0; n <= max_active_index_; n++) {
+      if (mask_h(n)) {
+        if (blockIndex_h(n) == no_block_) {
+          noblock_indices_h(counter) = n;
+          counter++;
+        }
+      }
+    }
+    noblock_indices.DeepCopy(noblock_indices_h);
+    ApplyBoundaries_(total_noblock_particles, noblock_indices);
+  }
 
   particle_indices_to_send_ =
       ParArrayND<int>("Particle indices to send", nbmax, max_indices_size);
@@ -952,14 +946,15 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
 
   auto &intVector_ = std::get<getType<int>()>(Vectors_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
-  SwarmVariablePack<Real> vreal;
-  SwarmVariablePack<int> vint;
-  PackIndexMap rmap;
-  PackIndexMap imap;
-  vreal = PackAllVariables<Real>(rmap);
-  vint = PackAllVariables<int>(imap);
-  int real_vars_size = realVector_.size();
-  int int_vars_size = intVector_.size();
+  PackIndexMap real_imap;
+  PackIndexMap int_imap;
+  auto vreal = PackAllVariables_<Real>(real_imap);
+  auto vint = PackAllVariables_<int>(int_imap);
+  const int realPackDim = vreal.GetDim(2);
+  const int intPackDim = vint.GetDim(2);
+
+  // Pack index:
+  // [variable start] [swarm idx]
 
   auto &bdvar = vbswarm->bd_var_;
   auto num_particles_to_send = num_particles_to_send_;
@@ -974,11 +969,11 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
             const int sidx = particle_indices_to_send(m, n);
             int buffer_index = n * particle_size;
             swarm_d.MarkParticleForRemoval(sidx);
-            for (int i = 0; i < real_vars_size; i++) {
+            for (int i = 0; i < realPackDim; i++) {
               bdvar.send[bufid](buffer_index) = vreal(i, sidx);
               buffer_index++;
             }
-            for (int i = 0; i < int_vars_size; i++) {
+            for (int i = 0; i < intPackDim; i++) {
               bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, sidx));
               buffer_index++;
             }
@@ -997,7 +992,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
   if (nneighbor == 0) {
     // Process physical boundary conditions on "sent" particles
     auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
-    auto mask_h = mask_.data.GetHostMirrorAndCopy();
+    auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
 
     int total_sent_particles = 0;
     pmb->par_reduce(
@@ -1017,7 +1012,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
       int sent_particle_index = 0;
       for (int n = 0; n <= max_active_index_; n++) {
         if (mask_h(n)) {
-          if (blockIndex_h(n) >= 0) {
+          if (blockIndex_h(n) >= 0 || blockIndex_h(n) == no_block_) {
             new_indices_h(sent_particle_index) = n;
             sent_particle_index++;
           }
@@ -1085,22 +1080,20 @@ void Swarm::UnloadBuffers_() {
   if (total_received_particles_ > 0) {
     ParArrayND<int> new_indices;
     auto new_mask = AddEmptyParticles(total_received_particles_, new_indices);
-    SwarmVariablePack<Real> vreal;
-    SwarmVariablePack<int> vint;
-    PackIndexMap rmap;
-    PackIndexMap imap;
-    vreal = PackAllVariables<Real>(rmap);
-    vint = PackAllVariables<int>(imap);
-    int real_vars_size = std::get<RealVec>(Vectors_).size();
-    int int_vars_size = std::get<IntVec>(Vectors_).size();
-    const int ix = rmap["x"].first;
-    const int iy = rmap["y"].first;
-    const int iz = rmap["z"].first;
 
     ParArrayND<int> neighbor_index("Neighbor index", total_received_particles_);
     ParArrayND<int> buffer_index("Buffer index", total_received_particles_);
     UpdateNeighborBufferReceiveIndices_(neighbor_index, buffer_index);
     auto neighbor_buffer_index = neighbor_buffer_index_;
+
+    auto &intVector_ = std::get<getType<int>()>(Vectors_);
+    auto &realVector_ = std::get<getType<Real>()>(Vectors_);
+    PackIndexMap real_imap;
+    PackIndexMap int_imap;
+    auto vreal = PackAllVariables_<Real>(real_imap);
+    auto vint = PackAllVariables_<int>(int_imap);
+    int realPackDim = vreal.GetDim(2);
+    int intPackDim = vint.GetDim(2);
 
     // construct map from buffer index to swarm index (or just return vector of indices!)
     const int particle_size = GetParticleDataSize();
@@ -1110,14 +1103,15 @@ void Swarm::UnloadBuffers_() {
         "Unload buffers", 0, total_received_particles_ - 1, KOKKOS_LAMBDA(const int n) {
           const int sid = new_indices(n);
           const int nid = neighbor_index(n);
-          const int bid = buffer_index(n);
+          int bid = buffer_index(n) * particle_size;
           const int nbid = neighbor_buffer_index(nid);
-          for (int i = 0; i < real_vars_size; i++) {
-            vreal(i, sid) = bdvar.recv[nbid](bid * particle_size + i);
+          for (int i = 0; i < realPackDim; i++) {
+            vreal(i, sid) = bdvar.recv[nbid](bid);
+            bid++;
           }
-          for (int i = 0; i < int_vars_size; i++) {
-            vint(i, sid) = static_cast<int>(
-                bdvar.recv[nbid](real_vars_size + bid * particle_size + i));
+          for (int i = 0; i < intPackDim; i++) {
+            vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
+            bid++;
           }
         });
 
