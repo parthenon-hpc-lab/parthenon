@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -127,8 +127,8 @@ class SwarmDeviceContext {
   Real y_max_global_;
   Real z_min_global_;
   Real z_max_global_;
-  ParArrayND<bool> marked_for_removal_;
-  ParArrayND<bool> mask_;
+  ParArray1D<bool> mask_;
+  ParArray1D<bool> marked_for_removal_;
   ParArrayND<int> blockIndex_;
   ParArrayND<int> neighborIndices_; // 4x4x4 array of possible block AMR regions
   ParArray1D<SwarmKey> cellSorted_;
@@ -137,6 +137,7 @@ class SwarmDeviceContext {
   int ndim_;
   friend class Swarm;
   constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
+  constexpr static int no_block_ = -2;   // Mirrors definition in Swarm class
   int my_rank_;
   Coordinates_t coords_;
 };

@@ -226,13 +226,17 @@ class SwarmProvider : public VariableProvider {
 
 bool StateDescriptor::AddSwarmValue(const std::string &value_name,
                                     const std::string &swarm_name, const Metadata &m) {
+  // Swarm variables are always Metadata::Particle
+  Metadata newm(m);
+  newm.Set(Metadata::Particle);
+
   if (swarmMetadataMap_.count(swarm_name) == 0) {
     throw std::invalid_argument("Swarm " + swarm_name + " does not exist!");
   }
   if (swarmValueMetadataMap_[swarm_name].count(value_name) > 0) {
     throw std::invalid_argument("Swarm value " + value_name + " already exists!");
   }
-  swarmValueMetadataMap_[swarm_name][value_name] = m;
+  swarmValueMetadataMap_[swarm_name][value_name] = newm;
 
   return true;
 }

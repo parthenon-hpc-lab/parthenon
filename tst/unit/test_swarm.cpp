@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -115,7 +115,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   std::vector<std::string> labelVector(2);
   labelVector[0] = "i";
   labelVector[1] = "j";
-  Metadata m_integer({Metadata::Integer});
+  Metadata m_integer({Metadata::Integer, Metadata::Particle});
   swarm->Add(labelVector, m_integer);
 
   ParArrayND<int> new_indices;
