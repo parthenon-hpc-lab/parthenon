@@ -119,8 +119,6 @@ struct VarInfo {
     if (vlen == 1 || is_vector) {
       component_labels.push_back(label);
     } else {
-      PARTHENON_DEBUG_REQUIRE(vlen == component_labels_.size(),
-                              "Component labels provided but in an incorrect amount!");
       for (int i = 0; i < vlen; i++) {
         component_labels.push_back(
             label + "_" +
@@ -168,8 +166,13 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   // writes a slab reference to file
   std::vector<std::string> names;
   int nentries = 1;
-  for (int i = 0; i < vlen; i++) {
-    names.push_back(component_labels[i]);
+  if (vlen == 1 || isVector) {
+    // we only make one entry, because either vlen == 1, or we write this as a vector
+    names.push_back(name);
+  } else {
+    for (int i = 0; i < vlen; i++) {
+      names.push_back(component_labels[i]);
+    }
   }
   const int vector_size = isVector ? vlen : 1;
 
