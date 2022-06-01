@@ -106,43 +106,27 @@ struct VarInfo {
       PARTHENON_FAIL(msg);
     }
 
-    printf("label: %s\n", label.c_str());
-    printf("vlen: %i\n", vlen);
-    printf("component_labels_.size() = %i\n", component_labels_.size());
-    for (auto &newlabel : component_labels_) {
-      printf("  %s\n", newlabel.c_str());
-    }
-    printf("is_vector: %i\n", is_vector);
-
-    printf("NEW\n");
-    // Note that this logic does not subscript components without component_labels if there is only
-    // one component. Component names will be e.g.
+    // Note that this logic does not subscript components without component_labels if
+    // there is only one component. Component names will be e.g.
     //   my_scalar
     // or
-    //   my_vector_0
-    //   my_vector_1
-    // Note that this means the subscript will be dropped for vector quantities if their Nx6, Nx5, Nx4
-    // are set to 1 at runtime.
+    //   my_non-vector_set_0
+    //   my_non-vector_set_1
+    // Note that this means the subscript will be dropped for multidim quantities if their
+    // Nx6, Nx5, Nx4 are set to 1 at runtime e.g.
+    //   my_non-vector_set
     component_labels = {};
-    //if (component_labels.empty() && vlen == 1) {
     if (vlen == 1 || is_vector) {
       component_labels.push_back(label);
-      printf("  %s\n", label.c_str());
     } else {
-      PARTHENON_DEBUG_REQUIRE(vlen == component_labels_.size(), "Component labels provided but in an incorrect amount!");
+      PARTHENON_DEBUG_REQUIRE(vlen == component_labels_.size(),
+                              "Component labels provided but in an incorrect amount!");
       for (int i = 0; i < vlen; i++) {
         component_labels.push_back(
             label + "_" +
             (component_labels_.empty() ? std::to_string(i) : component_labels_[i]));
-      printf("  %s\n", (label + "_" +                                                                              (component_labels_.empty() ? std::to_string(i) : component_labels_[i])).c_str());
       }
     }
-    /*for (int i = 0; i < vlen; i++) {
-      component_labels.push_back(
-          label + "_" +
-          (component_labels_.empty() ? std::to_string(i) : component_labels_[i]));
-      printf("  %s\n", (label + "_" +                                                                              (component_labels_.empty() ? std::to_string(i) : component_labels_[i])).c_str());
-    }*/
   }
 
   explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
@@ -184,19 +168,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   // writes a slab reference to file
   std::vector<std::string> names;
   int nentries = 1;
-  /*if (vlen == 1 || isVector) {
-    // we only make one entry, because either vlen == 1, or we write this as a vector
-    names.push_back(name);
-  } else {
-    nentries = vlen;
-    for (int i = 0; i < vlen; i++) {
-      names.push_back(component_labels[i]);
-      printf("names: %s\n", component_labels[i].c_str());
-    }
-  }*/
   for (int i = 0; i < vlen; i++) {
     names.push_back(component_labels[i]);
-    printf("names: %s\n", component_labels[i].c_str());
   }
   const int vector_size = isVector ? vlen : 1;
 
