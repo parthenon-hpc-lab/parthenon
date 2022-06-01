@@ -158,9 +158,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   } else {
     nentries = vlen;
     for (int i = 0; i < vlen; i++) {
-      names.push_back(
-          name + "_" +
-          (component_labels.empty() ? std::to_string(i) : component_labels[i]));
+      names.push_back(component_labels[i]);
     }
   }
   const int vector_size = isVector ? vlen : 1;
