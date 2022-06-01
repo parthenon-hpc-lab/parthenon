@@ -31,6 +31,21 @@ CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &meta
                               int sparse_id, std::weak_ptr<MeshBlock> wpmb)
     : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
       dims_(m_.GetArrayDims(wpmb, false)), coarse_dims_(m_.GetArrayDims(wpmb, true)) {
+        if (base_name == "one_minus_sqrt_one_minus_advected_sq") {
+        printf("%s:%i\n", __FILE__, __LINE__);
+        printf("base_name: %s\n", base_name.c_str());
+        printf("sparse_id: %i\n", sparse_id);
+        auto labels = metadata.getComponentLabels();
+        printf("labels size: %i\n", labels.size());
+        for (auto label : labels) {
+          printf("  %s\n", label.c_str());
+        }
+        auto shape = metadata.Shape();
+        printf("shape size: %i\n", shape.size());
+        for (auto num : shape) {
+          printf("  %i\n", num);
+        }
+        }
   PARTHENON_REQUIRE_THROWS(m_.IsSet(Metadata::Real),
                            "Only Real data type is currently supported for CellVariable");
 

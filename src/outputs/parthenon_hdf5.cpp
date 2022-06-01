@@ -106,12 +106,41 @@ struct VarInfo {
       PARTHENON_FAIL(msg);
     }
 
+    printf("label: %s\n", label.c_str());
+    printf("vlen: %i\n", vlen);
+    printf("component_labels_.size() = %i\n", component_labels_.size());
+    for (auto &newlabel : component_labels_) {
+      printf("  %s\n", newlabel.c_str());
+    }
+
+    printf("NEW\n");
+    // Note that this logic does not subscript components without component_labels if there is only
+    // one component. Component names will be e.g.
+    //   my_scalar
+    // or
+    //   my_vector_0
+    //   my_vector_1
+    // Note that this means the subscript will be dropped for vector quantities if their Nx6, Nx5, Nx4
+    // are set to 1 at runtime.
     component_labels = {};
-    for (int i = 0; i < vlen; i++) {
+    if (component_labels.empty() && vlen == 1) {
+      component_labels.push_back(label);
+      printf("  %s\n", label.c_str());
+    } else {
+      PARTHENON_DEBUG_REQUIRE(vlen == component_labels_.size(), "Component labels provided but in an incorrect amount!");
+      for (int i = 0; i < vlen; i++) {
+        component_labels.push_back(
+            label + "_" +
+            (component_labels_.empty() ? std::to_string(i) : component_labels_[i]));
+      printf("  %s\n", (label + "_" +                                                                              (component_labels_.empty() ? std::to_string(i) : component_labels_[i])).c_str());
+      }
+    }
+    /*for (int i = 0; i < vlen; i++) {
       component_labels.push_back(
           label + "_" +
           (component_labels_.empty() ? std::to_string(i) : component_labels_[i]));
-    }
+      printf("  %s\n", (label + "_" +                                                                              (component_labels_.empty() ? std::to_string(i) : component_labels_[i])).c_str());
+    }*/
   }
 
   explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
@@ -160,6 +189,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     nentries = vlen;
     for (int i = 0; i < vlen; i++) {
       names.push_back(component_labels[i]);
+      printf("names: %s\n", component_labels[i].c_str());
     }
   }
   const int vector_size = isVector ? vlen : 1;
