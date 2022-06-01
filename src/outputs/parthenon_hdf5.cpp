@@ -106,7 +106,8 @@ struct VarInfo {
       PARTHENON_FAIL(msg);
     }
 
-    component_labels = {} for (int i = 0; i < vlen; i++) {
+    component_labels = {};
+    for (int i = 0; i < vlen; i++) {
       component_labels.push_back(
           label + "_" +
           (component_labels_.empty() ? std::to_string(i) : component_labels_[i]));
