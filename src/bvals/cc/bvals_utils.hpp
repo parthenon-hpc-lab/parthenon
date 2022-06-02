@@ -68,8 +68,8 @@ inline void IterateBoundaries(std::shared_ptr<MeshData<Real>> &md, F func) {
 }
 
 inline std::tuple<int, int, std::string, int>
-SendKey(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-        std::shared_ptr<CellVariable<Real>> pcv) {
+SendKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
+        const std::shared_ptr<CellVariable<Real>> &pcv) {
   const int sender_id = pmb->gid;
   const int receiver_id = nb.snb.gid;
   const int location_idx = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
@@ -77,8 +77,8 @@ SendKey(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
 }
 
 inline std::tuple<int, int, std::string, int>
-ReceiveKey(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-           std::shared_ptr<CellVariable<Real>> pcv) {
+ReceiveKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
+           const std::shared_ptr<CellVariable<Real>> &pcv) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.snb.gid;
   const int location_idx = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
