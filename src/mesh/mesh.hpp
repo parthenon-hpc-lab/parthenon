@@ -173,7 +173,7 @@ class Mesh {
 
   // Ordering here is important to prevent deallocation of pools before boundary
   // communication buffers
-  using channel_key_t = std::tuple<int, int, std::string>;
+  using channel_key_t = std::tuple<int, int, std::string, int>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
   std::unordered_map<channel_key_t, CommBuffer<buf_pool_t<Real>::owner_t>,
                      tuple_hash<channel_key_t>>

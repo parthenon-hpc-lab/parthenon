@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "bvals_cc_in_one.hpp"
+#include "bvals_utils.hpp" 
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -33,56 +34,10 @@
 #include "mesh/refinement_cc_in_one.hpp"
 #include "utils/error_checking.hpp"
 
+
 namespace parthenon {
 namespace cell_centered_bvars {
 
-namespace impl {
-
-using sp_mb_t = std::shared_ptr<MeshBlock>;
-using sp_mbd_t = std::shared_ptr<MeshBlockData<Real>>;
-using sp_cv_t = std::shared_ptr<CellVariable<Real>>;
-using nb_t = NeighborBlock;
-
-template <class F, class... Args>
-auto func_caller(F func, Args &&...args) -> typename std::enable_if<
-    std::is_same<decltype(func(std::declval<Args>()...)), bool>::value, bool>::type {
-  return func(std::forward<Args>(args)...);
-}
-
-template <class F, class... Args>
-auto func_caller(F func, Args &&...args) -> typename std::enable_if<
-    !std::is_same<decltype(func(std::declval<Args>()...)), bool>::value, bool>::type {
-  func(std::forward<Args>(args)...);
-  return false;
-}
-
-template <class F>
-void IterateBoundaries(std::shared_ptr<MeshData<Real>> &md, F func) {
-  for (int block = 0; block < md->NumBlocks(); ++block) {
-    auto &rc = md->GetBlockData(block);
-    auto pmb = rc->GetBlockPointer();
-    for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(Metadata::FillGhost)) {
-        for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
-          auto &nb = pmb->pbval->neighbor[n];
-          if (func_caller(func, pmb, rc, nb, v)) return;
-        }
-      }
-    }
-  }
-}
-
-class WriteRegion {
- public:
-  explicit WriteRegion(std::string region_name) {
-    // std::cout << "Running " << region_name << "... " << std::flush;
-  }
-  ~WriteRegion() {
-    // std::cout << "done." << std::endl;
-  }
-};
-
-} // namespace impl
 
 using namespace impl;
 
@@ -98,7 +53,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
     // No flux correction required unless boundaries share a face
     if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
       return false;
-    auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+    auto &buf = pmesh->boundary_comm_map[SendTag(pmb, nb, v)];
     if (!buf.IsAvailableForWrite()) {
       all_available = false;
       return true; // Breaks the loop
@@ -114,9 +69,9 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
     if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return;
 
     PARTHENON_DEBUG_REQUIRE(
-        pmesh->boundary_comm_map.count({pmb->gid, nb.snb.gid, v->label()}) > 0,
+        pmesh->boundary_comm_map.count(SendTag(pmb, nb, v)) > 0,
         "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+    auto &buf = pmesh->boundary_comm_map[SendTag(pmb, nb, v)];
 
     if (!v->IsAllocated()) {
       // This free really shouldn't do anything
@@ -224,6 +179,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
         });
 
     // Send the buffer
+    PARTHENON_REQUIRE(buf.GetState() == BufferState::stale, "Not sure how I got here."); 
     buf.Send();
   });
 
@@ -243,9 +199,9 @@ TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &m
     if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return;
 
     PARTHENON_DEBUG_REQUIRE(
-        pmesh->boundary_comm_map.count({nb.snb.gid, pmb->gid, v->label()}) > 0,
+        pmesh->boundary_comm_map.count(ReceiveTag(pmb, nb, v)) > 0,
         "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
+    auto &buf = pmesh->boundary_comm_map[ReceiveTag(pmb, nb, v)];
     all_received = all_received && buf.TryReceive();
   });
 
@@ -267,9 +223,9 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     }
 
     PARTHENON_DEBUG_REQUIRE(
-        pmesh->boundary_comm_map.count({nb.snb.gid, pmb->gid, v->label()}) > 0,
+        pmesh->boundary_comm_map.count(ReceiveTag(pmb, nb, v)) > 0,
         "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
+    auto &buf = pmesh->boundary_comm_map[ReceiveTag(pmb, nb, v)];
 
     // Check if this boundary requires flux correction
     if ((!v->IsAllocated()) || buf.GetState() == BufferState::received_null) {

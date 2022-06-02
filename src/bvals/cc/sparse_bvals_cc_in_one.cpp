@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "bvals_cc_in_one.hpp"
+#include "bvals_utils.hpp" 
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -34,40 +35,6 @@
 
 namespace parthenon {
 namespace cell_centered_bvars {
-
-namespace impl {
-template <class F>
-void IterateBoundaries(std::shared_ptr<MeshData<Real>> &md, F func) {
-  for (int block = 0; block < md->NumBlocks(); ++block) {
-    auto &rc = md->GetBlockData(block);
-    auto pmb = rc->GetBlockPointer();
-    for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(Metadata::FillGhost)) {
-        for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
-          auto &nb = pmb->pbval->neighbor[n];
-          func(pmb, rc, nb, v);
-        }
-      }
-    }
-  }
-}
-
-using sp_mb_t = std::shared_ptr<MeshBlock>;
-using sp_mbd_t = std::shared_ptr<MeshBlockData<Real>>;
-using sp_cv_t = std::shared_ptr<CellVariable<Real>>;
-using nb_t = NeighborBlock;
-
-class WriteRegion {
- public:
-  explicit WriteRegion(std::string region_name) {
-    // std::cout << "Running " << region_name << "... " << std::flush;
-  }
-  ~WriteRegion() {
-    // std::cout << "done." << std::endl;
-  }
-};
-
-} // namespace impl
 
 using namespace impl;
 
@@ -114,10 +81,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
             })));
       }
 
-      const int sender_id = pmb->gid;
-      const int receiver_id = nb.snb.gid;
       // This tag is still pretty limiting, since 2^7 = 128
-      // int tag = (nb.snb.lid << 10) | pmb->lid;
       int tag = 512 * nb.snb.lid + pmb->lid;
 
       const int receiver_rank = nb.snb.rank;
@@ -130,17 +94,28 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
      // is on the same rank
      const comm_t comm = 0;
 #endif
+      
+      auto s_tag = SendTag(pmb, nb, v);
+
       // Build sending buffers
-      pmesh->boundary_comm_map[{sender_id, receiver_id, v->label()}] =
+      if (pmesh->boundary_comm_map.count(s_tag) > 0) {
+        std::cout << " sender_id: " << std::get<0>(s_tag) 
+                  << " receiver_id: " << std::get<1>(s_tag)
+                  << " variable: " << std::get<2>(s_tag) 
+                  << " sender_rank: " << sender_rank 
+                  << " receiver_rank: " << receiver_rank 
+                  << std::endl;
+        PARTHENON_FAIL("Two communication buffers have the same key.");
+      }
+      pmesh->boundary_comm_map[s_tag] =
           CommBuffer<buf_pool_t<Real>::owner_t>(
               tag, sender_rank, receiver_rank, comm,
               [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
 
       // Also build the non-local receive buffers here
       if (sender_rank != receiver_rank) {
-        // int tag = (pmb->lid << 10) | nb.snb.lid;
         int tag_r = 512 * pmb->lid + nb.snb.lid;
-        pmesh->boundary_comm_map[{receiver_id, sender_id, v->label()}] =
+        pmesh->boundary_comm_map[ReceiveTag(pmb, nb, v)] =
             CommBuffer<buf_pool_t<Real>::owner_t>(
                 tag_r, receiver_rank, sender_rank, comm,
                 [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
@@ -166,9 +141,9 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
     WriteRegion region("allocate send resource");
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       PARTHENON_DEBUG_REQUIRE(
-          pmesh->boundary_comm_map.count({pmb->gid, nb.snb.gid, v->label()}) > 0,
+          pmesh->boundary_comm_map.count(SendTag(pmb, nb, v)) > 0,
           "Boundary communicator does not exist");
-      auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+      auto &buf = pmesh->boundary_comm_map[SendTag(pmb, nb, v)];
 
       if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
 
@@ -201,7 +176,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
       md->send_bnd_info_h(iarr).allocated = v->IsAllocated();
       if (v->IsAllocated()) {
         md->send_bnd_info_h(iarr) = BndInfo::Sender(pmb, nb, v);
-        auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+        auto &buf = pmesh->boundary_comm_map[SendTag(pmb, nb, v)];
         md->send_bnd_info_h(iarr).buf = buf.buffer();
       }
 
@@ -283,7 +258,18 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
     WriteRegion region("sending boundaries");
     int iarr = 0;
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      auto &buf = pmesh->boundary_comm_map[{pmb->gid, nb.snb.gid, v->label()}];
+      auto &buf = pmesh->boundary_comm_map[SendTag(pmb, nb, v)];
+      /* 
+      std::cout << " s_gid : " << pmb->gid 
+                << " r_gid: " << nb.snb.gid 
+                << " label: " << v->label() 
+                << " rank: " << Globals::my_rank 
+                << " state: " << static_cast<int>(buf.GetState())  
+                << " iarr: " << iarr
+                << std::endl;
+      */
+      
+      PARTHENON_REQUIRE(buf.GetState() == BufferState::stale, "Not sure how I got here."); 
       if (sending_nonzero_flags_h(iarr))
         buf.Send();
       else
@@ -303,10 +289,10 @@ TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     PARTHENON_DEBUG_REQUIRE(
-        pmesh->boundary_comm_map.count({nb.snb.gid, pmb->gid, v->label()}) > 0,
+        pmesh->boundary_comm_map.count(ReceiveTag(pmb, nb, v)) > 0,
         "Buffer that should exist does not exist.");
 
-    auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
+    auto &buf = pmesh->boundary_comm_map[ReceiveTag(pmb, nb, v)];
     all_received = all_received && buf.TryReceive();
 
     // Allocate variable if it is receiving actual data in any boundary
@@ -336,7 +322,7 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
   {
     WriteRegion region("check for rebuild receive");
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
+      auto &buf = pmesh->boundary_comm_map[ReceiveTag(pmb, nb, v)];
       if (nbound < md->recv_bnd_info_h.size()) {
         rebuild =
             rebuild || !UsingSameResource(md->recv_bnd_info_h(nbound).buf, buf.buffer());
@@ -361,7 +347,7 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
     md->recv_bnd_info_h = Kokkos::create_mirror_view(md->recv_bnd_info);
     int iarr = 0;
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      auto &buf = pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}];
+      auto &buf = pmesh->boundary_comm_map[ReceiveTag(pmb, nb, v)];
 
       if (v->IsAllocated()) md->recv_bnd_info_h(iarr) = BndInfo::Setter(pmb, nb, v);
 
@@ -445,7 +431,7 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
   {
     WriteRegion region("stale");
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      pmesh->boundary_comm_map[{nb.snb.gid, pmb->gid, v->label()}].Stale();
+      pmesh->boundary_comm_map[ReceiveTag(pmb, nb, v)].Stale();
     });
   }
   Kokkos::Profiling::popRegion();
