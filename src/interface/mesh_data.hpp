@@ -481,6 +481,8 @@ class MeshData {
       restrict_buf_alloc_status_;
 
  public:
+  std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
+
   cell_centered_bvars::BufferCache_t send_bnd_info{};
   cell_centered_bvars::BufferCache_t::host_mirror_type send_bnd_info_h{};
 

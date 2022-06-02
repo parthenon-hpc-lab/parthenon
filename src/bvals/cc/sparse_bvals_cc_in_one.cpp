@@ -44,6 +44,9 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundaryBuffers");
   Mesh *pmesh = md->GetMeshPointer();
 
+  md->send_buf_vec.clear();
+  md->recv_buf_vec.clear();
+
   int isize, jsize, ksize;
   {
     WriteRegion region("domain size");
@@ -94,18 +97,11 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
      // is on the same rank
      const comm_t comm = 0;
 #endif
-
-      auto s_tag = SendKey(pmb, nb, v);
-
       // Build sending buffers
-      if (pmesh->boundary_comm_map.count(s_tag) > 0) {
-        std::cout << " sender_id: " << std::get<0>(s_tag)
-                  << " receiver_id: " << std::get<1>(s_tag)
-                  << " variable: " << std::get<2>(s_tag)
-                  << " sender_rank: " << sender_rank
-                  << " receiver_rank: " << receiver_rank << std::endl;
-        PARTHENON_FAIL("Two communication buffers have the same key.");
-      }
+      auto s_tag = SendKey(pmb, nb, v);
+      PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(s_tag) == 0,
+                              "Two communication buffers have the same key.");
+
       pmesh->boundary_comm_map[s_tag] = CommBuffer<buf_pool_t<Real>::owner_t>(
           tag, sender_rank, receiver_rank, comm,
           [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
@@ -130,6 +126,14 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
 
   Mesh *pmesh = md->GetMeshPointer();
 
+  if (md->send_buf_vec.size() == 0) {
+    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+      PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(SendKey(pmb, nb, v)) > 0,
+                              "Boundary communicator does not exist");
+      md->send_buf_vec.push_back(&(pmesh->boundary_comm_map[SendKey(pmb, nb, v)]));
+    });
+  }
+
   // Allocate channels sending from active data and then check to see if
   // if buffers have changed
   bool rebuild = false;
@@ -138,9 +142,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
   {
     WriteRegion region("allocate send resource");
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(SendKey(pmb, nb, v)) > 0,
-                              "Boundary communicator does not exist");
-      auto &buf = pmesh->boundary_comm_map[SendKey(pmb, nb, v)];
+      auto &buf = *md->send_buf_vec[nbound];
 
       if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
 
@@ -173,10 +175,9 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
       md->send_bnd_info_h(iarr).allocated = v->IsAllocated();
       if (v->IsAllocated()) {
         md->send_bnd_info_h(iarr) = BndInfo::Sender(pmb, nb, v);
-        auto &buf = pmesh->boundary_comm_map[SendKey(pmb, nb, v)];
+        auto &buf = *md->send_buf_vec[iarr];
         md->send_bnd_info_h(iarr).buf = buf.buffer();
       }
-
       ++iarr;
     });
     Kokkos::deep_copy(md->send_bnd_info, md->send_bnd_info_h);
@@ -231,6 +232,8 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
 
           Kokkos::parallel_for(
               Kokkos::TeamThreadRange<>(team_member, NuNtNvNkNjNi), [&](const int idx) {
+                // TODO(LFR): Make sure the tuv indexing is correct, what is currently
+                // here doesn't seem right.
                 const int u = idx / NtNvNkNjNi;
                 const int t = (idx % NtNvNkNjNi) / NvNkNjNi;
                 const int v = (idx % NvNkNjNi) / NkNjNi;
@@ -247,27 +250,19 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
         });
 
     // Send buffers
-    Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);
+    if (Globals::sparse_config.enabled)
+      Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);
+#ifdef MPI_PARALLEL
     Kokkos::fence();
+#endif
   }
 
   {
     WriteRegion region("sending boundaries");
     int iarr = 0;
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      auto &buf = pmesh->boundary_comm_map[SendKey(pmb, nb, v)];
-      /*
-      std::cout << " s_gid : " << pmb->gid
-                << " r_gid: " << nb.snb.gid
-                << " label: " << v->label()
-                << " rank: " << Globals::my_rank
-                << " state: " << static_cast<int>(buf.GetState())
-                << " iarr: " << iarr
-                << std::endl;
-      */
-
-      PARTHENON_REQUIRE(buf.GetState() == BufferState::stale, "Not sure how I got here.");
-      if (sending_nonzero_flags_h(iarr))
+      auto &buf = *md->send_buf_vec[iarr];
+      if (sending_nonzero_flags_h(iarr) || !Globals::sparse_config.enabled)
         buf.Send();
       else
         buf.SendNull();
@@ -284,20 +279,30 @@ TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   // WriteRegion region("Receive sparse boundary");
   bool all_received = true;
   Mesh *pmesh = md->GetMeshPointer();
-  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
-                            "Buffer that should exist does not exist.");
 
-    auto &buf = pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)];
+  if (md->recv_buf_vec.size() == 0) {
+    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+      PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
+                              "Boundary communicator does not exist");
+      md->recv_buf_vec.push_back(&(pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)]));
+    });
+  }
+
+  int ibound = 0;
+  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    auto &buf = *md->recv_buf_vec[ibound];
+
     all_received = all_received && buf.TryReceive();
 
     // Allocate variable if it is receiving actual data in any boundary
     // (the state could also be BufferState::received_null, which corresponds to no data)
-    if (buf.GetState() == BufferState::received && !v->IsAllocated()) {
+    if (Globals::sparse_config.enabled && buf.GetState() == BufferState::received &&
+        !v->IsAllocated()) {
       pmb->AllocateSparse(v->label());
       // TODO(lfroberts): Need to flag this so that the array gets filled with
       //                  something sensible, currently just defaulted to zero.
     }
+    ++ibound;
   });
 
   Kokkos::Profiling::popRegion();
@@ -315,10 +320,11 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
   // Check for rebuild
   bool rebuild = false;
   int nbound = 0;
+
   {
     WriteRegion region("check for rebuild receive");
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      auto &buf = pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)];
+      auto &buf = *md->recv_buf_vec[nbound];
       if (nbound < md->recv_bnd_info_h.size()) {
         rebuild =
             rebuild || !UsingSameResource(md->recv_bnd_info_h(nbound).buf, buf.buffer());
@@ -343,8 +349,7 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
     md->recv_bnd_info_h = Kokkos::create_mirror_view(md->recv_bnd_info);
     int iarr = 0;
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      auto &buf = pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)];
-
+      auto &buf = *md->recv_buf_vec[iarr];
       if (v->IsAllocated()) md->recv_bnd_info_h(iarr) = BndInfo::Setter(pmb, nb, v);
 
       md->recv_bnd_info_h(iarr).buf = buf.buffer();
@@ -398,6 +403,8 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
           if (bnd_info(b).allocated) {
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange<>(team_member, NuNtNvNkNjNi), [&](const int idx) {
+                  // TODO(LFR): Make sure the tuv indexing is correct, what is currently
+                  // here doesn't seem right.
                   const int u = idx / NtNvNkNjNi;
                   const int t = (idx % NtNvNkNjNi) / NvNkNjNi;
                   const int v = (idx % NvNkNjNi) / NkNjNi;
@@ -426,8 +433,10 @@ TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
 
   {
     WriteRegion region("stale");
+    int iarr = 0;
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)].Stale();
+      md->recv_buf_vec[iarr]->Stale();
+      ++iarr;
     });
   }
   Kokkos::Profiling::popRegion();
