@@ -117,7 +117,8 @@ struct VarInfo {
     //   my_non-vector_set
     component_labels = {};
     if (vlen == 1 || is_vector) {
-      component_labels.push_back(label);
+      component_labels = component_labels_.size() > 0 ? component_labels_
+                                                      : std::vector<std::string>({label});
     } else {
       for (int i = 0; i < vlen; i++) {
         component_labels.push_back(
