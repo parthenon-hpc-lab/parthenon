@@ -174,9 +174,9 @@ class Mesh {
   // Ordering here is important to prevent deallocation of pools before boundary
   // communication buffers
   using channel_key_t = std::tuple<int, int, std::string, int>;
+  using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
-  std::unordered_map<channel_key_t, CommBuffer<buf_pool_t<Real>::owner_t>,
-                     tuple_hash<channel_key_t>>
+  std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>
       boundary_comm_map;
 
 #ifdef MPI_PARALLEL
