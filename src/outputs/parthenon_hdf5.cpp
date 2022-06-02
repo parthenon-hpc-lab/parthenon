@@ -170,6 +170,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     // we only make one entry, because either vlen == 1, or we write this as a vector
     names.push_back(name);
   } else {
+    nentries = vlen;
     for (int i = 0; i < vlen; i++) {
       names.push_back(component_labels[i]);
     }
