@@ -16,7 +16,11 @@
 //========================================================================================
 #ifndef BVALS_CC_BVALS_UTILS_HPP_
 #define BVALS_CC_BVALS_UTILS_HPP_
+
+#include <memory>
 #include <string>
+#include <tuple>
+#include <utility>
 
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -63,19 +67,21 @@ inline void IterateBoundaries(std::shared_ptr<MeshData<Real>> &md, F func) {
   }
 }
 
-inline std::tuple<int, int, std::string, int> SendTag(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb, 
-                                          std::shared_ptr<CellVariable<Real>> pcv) { 
+inline std::tuple<int, int, std::string, int>
+SendKey(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+        std::shared_ptr<CellVariable<Real>> pcv) {
   const int sender_id = pmb->gid;
   const int receiver_id = nb.snb.gid;
-  const int location_idx = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3)); 
+  const int location_idx = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
   return {sender_id, receiver_id, pcv->label(), location_idx};
 }
 
-inline std::tuple<int, int, std::string, int> ReceiveTag(std::shared_ptr<MeshBlock> pmb, const NeighborBlock& nb, 
-                                             std::shared_ptr<CellVariable<Real>> pcv) { 
+inline std::tuple<int, int, std::string, int>
+ReceiveKey(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+           std::shared_ptr<CellVariable<Real>> pcv) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.snb.gid;
-  const int location_idx = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3)); 
+  const int location_idx = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
   return {sender_id, receiver_id, pcv->label(), location_idx};
 }
 

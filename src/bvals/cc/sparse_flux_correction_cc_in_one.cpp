@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "bvals_cc_in_one.hpp"
-#include "bvals_utils.hpp" 
+#include "bvals_utils.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -34,10 +34,8 @@
 #include "mesh/refinement_cc_in_one.hpp"
 #include "utils/error_checking.hpp"
 
-
 namespace parthenon {
 namespace cell_centered_bvars {
-
 
 using namespace impl;
 
@@ -53,7 +51,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
     // No flux correction required unless boundaries share a face
     if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
       return false;
-    auto &buf = pmesh->boundary_comm_map[SendTag(pmb, nb, v)];
+    auto &buf = pmesh->boundary_comm_map[SendKey(pmb, nb, v)];
     if (!buf.IsAvailableForWrite()) {
       all_available = false;
       return true; // Breaks the loop
@@ -68,10 +66,9 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
     // No flux correction required unless boundaries share a face
     if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return;
 
-    PARTHENON_DEBUG_REQUIRE(
-        pmesh->boundary_comm_map.count(SendTag(pmb, nb, v)) > 0,
-        "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_map[SendTag(pmb, nb, v)];
+    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(SendKey(pmb, nb, v)) > 0,
+                            "Boundary communicator does not exist");
+    auto &buf = pmesh->boundary_comm_map[SendKey(pmb, nb, v)];
 
     if (!v->IsAllocated()) {
       // This free really shouldn't do anything
@@ -179,7 +176,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
         });
 
     // Send the buffer
-    PARTHENON_REQUIRE(buf.GetState() == BufferState::stale, "Not sure how I got here."); 
+    PARTHENON_REQUIRE(buf.GetState() == BufferState::stale, "Not sure how I got here.");
     buf.Send();
   });
 
@@ -198,10 +195,9 @@ TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &m
     // No flux correction required unless boundaries share a face
     if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return;
 
-    PARTHENON_DEBUG_REQUIRE(
-        pmesh->boundary_comm_map.count(ReceiveTag(pmb, nb, v)) > 0,
-        "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_map[ReceiveTag(pmb, nb, v)];
+    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
+                            "Boundary communicator does not exist");
+    auto &buf = pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)];
     all_received = all_received && buf.TryReceive();
   });
 
@@ -222,10 +218,9 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
       return;
     }
 
-    PARTHENON_DEBUG_REQUIRE(
-        pmesh->boundary_comm_map.count(ReceiveTag(pmb, nb, v)) > 0,
-        "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_map[ReceiveTag(pmb, nb, v)];
+    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
+                            "Boundary communicator does not exist");
+    auto &buf = pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)];
 
     // Check if this boundary requires flux correction
     if ((!v->IsAllocated()) || buf.GetState() == BufferState::received_null) {
