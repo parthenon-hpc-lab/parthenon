@@ -275,6 +275,15 @@ std::string EdgeVariable<T>::info() {
 }
 
 template <typename T>
+ParticleVariable<T>::ParticleVariable(const std::string &label, const int npool,
+                                      const Metadata &metadata)
+    : m_(metadata), label_(label),
+      dims_(m_.GetArrayDims(std::weak_ptr<MeshBlock>(), false)),
+      data(label_, dims_[5], dims_[4], dims_[3], dims_[2], dims_[1], npool) {
+  dims_[0] = npool;
+}
+
+template <typename T>
 std::string ParticleVariable<T>::info() const {
   std::stringstream ss;
 
@@ -291,5 +300,8 @@ std::string ParticleVariable<T>::info() const {
 template class CellVariable<Real>;
 template class FaceVariable<Real>;
 template class EdgeVariable<Real>;
+template class ParticleVariable<Real>;
+template class ParticleVariable<int>;
+template class ParticleVariable<bool>;
 
 } // namespace parthenon

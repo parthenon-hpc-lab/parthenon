@@ -198,17 +198,17 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 #endif
 
   template <class... Args>
-  inline void par_for(Args &&... args) {
+  inline void par_for(Args &&...args) {
     par_dispatch_<dispatch_impl::ParallelForDispatch>(std::forward<Args>(args)...);
   }
 
   template <class... Args>
-  inline void par_reduce(Args &&... args) {
+  inline void par_reduce(Args &&...args) {
     par_dispatch_<dispatch_impl::ParallelReduceDispatch>(std::forward<Args>(args)...);
   }
 
   template <class... Args>
-  inline void par_scan(Args &&... args) {
+  inline void par_scan(Args &&...args) {
     par_dispatch_<dispatch_impl::ParallelScanDispatch>(std::forward<Args>(args)...);
   }
 
@@ -283,7 +283,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const int &il, const int &iu,
-                const Function &function, Args &&... args) {
+                const Function &function, Args &&...args) {
     // using loop_pattern_flatrange_tag instead of DEFAULT_LOOP_PATTERN for now
     // as the other wrappers are not implemented yet for 1D loops
     parthenon::par_dispatch<Tag>(loop_pattern_flatrange_tag, name, exec_space, il, iu,
@@ -294,7 +294,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &ib, const Function &function,
-                Args &&... args) {
+                Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
     parthenon::par_dispatch<Tag>(loop_type, name, exec_space, ib.s, ib.e, function,
@@ -305,7 +305,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const int &jl, const int &ju, const int &il,
-                const int &iu, const Function &function, Args &&... args) {
+                const int &iu, const Function &function, Args &&...args) {
     // using loop_pattern_mdrange_tag instead of DEFAULT_LOOP_PATTERN for now
     // as the other wrappers are not implemented yet for 1D loops
     parthenon::par_dispatch<Tag>(loop_pattern_mdrange_tag, name, exec_space, jl, ju, il,
@@ -316,7 +316,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &jb, const IndexRange &ib,
-                const Function &function, Args &&... args) {
+                const Function &function, Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
     parthenon::par_dispatch<Tag>(loop_type, name, exec_space, jb.s, jb.e, ib.s, ib.e,
@@ -328,7 +328,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const int &kl, const int &ku, const int &jl,
                 const int &ju, const int &il, const int &iu, const Function &function,
-                Args &&... args) {
+                Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
     parthenon::par_dispatch<Tag>(loop_type, name, exec_space, kl, ku, jl, ju, il, iu,
@@ -339,7 +339,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &kb, const IndexRange &jb,
-                const IndexRange &ib, const Function &function, Args &&... args) {
+                const IndexRange &ib, const Function &function, Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
     parthenon::par_dispatch<Tag>(loop_type, name, exec_space, kb.s, kb.e, jb.s, jb.e,
@@ -351,7 +351,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const int &nl, const int &nu, const int &kl,
                 const int &ku, const int &jl, const int &ju, const int &il, const int &iu,
-                const Function &function, Args &&... args) {
+                const Function &function, Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
     parthenon::par_dispatch<Tag>(loop_type, name, exec_space, nl, nu, kl, ku, jl, ju, il,
@@ -363,7 +363,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &nb, const IndexRange &kb,
                 const IndexRange &jb, const IndexRange &ib, const Function &function,
-                Args &&... args) {
+                Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
     parthenon::par_dispatch<Tag>(loop_type, name, exec_space, nb.s, nb.e, kb.s, kb.e,
@@ -376,7 +376,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const int &bl, const int &bu, const int &nl,
                 const int &nu, const int &kl, const int &ku, const int &jl, const int &ju,
-                const int &il, const int &iu, const Function &function, Args &&... args) {
+                const int &il, const int &iu, const Function &function, Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
     parthenon::par_dispatch<Tag>(loop_type, name, exec_space, bl, bu, nl, nu, kl, ku, jl,
@@ -388,7 +388,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &bb, const IndexRange &nb,
                 const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
-                const Function &function, Args &&... args) {
+                const Function &function, Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
     parthenon::par_dispatch<Tag>(loop_type, name, exec_space, bb.s, bb.e, nb.s, nb.e,

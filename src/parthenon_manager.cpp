@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -156,10 +156,10 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
 
     // Read simulation time and cycle from restart file and set in input
     Real tNow = restartReader->GetAttr<Real>("Info", "Time");
-    pinput->SetPrecise("parthenon/time", "start_time", tNow);
+    pinput->SetReal("parthenon/time", "start_time", tNow);
 
     Real dt = restartReader->GetAttr<Real>("Info", "dt");
-    pinput->SetPrecise("parthenon/time", "dt", dt);
+    pinput->SetReal("parthenon/time", "dt", dt);
 
     int ncycle = restartReader->GetAttr<int>("Info", "NCycle");
     pinput->SetInteger("parthenon/time", "ncycle", ncycle);
