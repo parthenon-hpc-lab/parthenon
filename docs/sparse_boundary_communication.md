@@ -66,16 +66,6 @@ std::unordered_map<int, buf_pool_t<Real>> pool_map;
 
 Note that every stage shares the same `CommBuffer`s. 
 
-This works with old code with the replacements 
-```c++
-SendBoundaryBuffers -> LoadAndSendSparseBoundaryBuffers
-
-ReceiveBoundaryBuffers -> ReceiveSparseBoundaryBuffers
-
-SetBoundaries -> SetInternalSparseBoundaryBuffers
-```
-and gives bitwise agreement on `advection-example`. 
-
 ### `BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>>& md)`
 - Iterates over communication channels sending or receiving from blocks in `md`. For every sending channel it creates a communication channel for each in the `Mesh::boundary_comm_map`. For receiving channels where the blocks are on different ranks, it also creates a receiving channel in `Mesh::boundary_comm_map` since the sender will not add this channel on the current rank. Also creates new `buf_pool_t`s for the required buffer sizes if they don't already exist. Note that no memory is saved for the communication buffers at this point. 
 
