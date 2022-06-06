@@ -71,10 +71,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
     auto &buf = pmesh->boundary_comm_map[SendKey(pmb, nb, v)];
 
     if (!v->IsAllocated()) {
-      // This free really shouldn't do anything
-      PARTHENON_DEBUG_REQUIRE(buf.IsActive() == v->IsAllocated(),
-                              "Buffer has different allocation status than variable");
-      // buf.Free();
+      buf.Free();
       buf.SendNull();
       return; // Cycle to the next boundary
     }
