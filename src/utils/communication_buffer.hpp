@@ -21,6 +21,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "utils/mpi_types.hpp" 
+
 #ifdef MPI_PARALLEL
 #include <mpi.h>
 
@@ -32,39 +34,6 @@
 #endif
 
 namespace parthenon {
-namespace impl {
-
-#ifdef MPI_PARALLEL
-// MPIType<A> -> MPIType<A, bool_t<true>> and then
-// specialization checks are performed. This is why the
-// default parameter is required.
-template <bool>
-struct bool_t {};
-
-template <class T, class = bool_t<true>>
-struct MPIType;
-
-template <class U, class T>
-using MPI_type_check = std::is_same<U, std::remove_pointer_t<T>>;
-
-template <class T>
-struct MPIType<T, bool_t<MPI_type_check<double, T>::value>> {
-  MPI_Datatype static value() noexcept { return MPI_DOUBLE; }
-};
-
-template <class T>
-struct MPIType<T, bool_t<MPI_type_check<int, T>::value>> {
-  MPI_Datatype static value() noexcept { return MPI_INT; }
-};
-
-template <class T>
-struct MPIType<T, bool_t<MPI_type_check<bool, T>::value>> {
-  MPI_Datatype static value() noexcept { return MPI_CXX_BOOL; }
-};
-#endif
-} // namespace impl
-
-using namespace impl;
 
 //             Read    Write
 //    stale:             X
@@ -267,7 +236,7 @@ void CommBuffer<T>::Send() noexcept {
         buf_.size() > 0,
         "Trying to send zero size buffer, which will be interpreted as sending_null.");
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
-    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(), MPIType<buf_base_t>::value(),
+    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(), MPITypeMap<buf_base_t>::type(),
                                   recv_rank_, tag_, comm_, my_request_.get()));
 #endif
   }
@@ -287,7 +256,7 @@ void CommBuffer<T>::SendNull() noexcept {
 // this could be blocking
 #ifdef MPI_PARALLEL
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
-    PARTHENON_MPI_CHECK(MPI_Isend(&null_buf_, 0, MPIType<buf_base_t>::value(), recv_rank_,
+    PARTHENON_MPI_CHECK(MPI_Isend(&null_buf_, 0, MPITypeMap<buf_base_t>::type(), recv_rank_,
                                   tag_, comm_, my_request_.get()));
 #endif
   }
@@ -318,16 +287,16 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
     if (test) {
       int size;
-      PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPIType<buf_base_t>::value(), &size));
+      PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
       if (size > 0) {
         if (!active_) Allocate();
         PARTHENON_MPI_CHECK(MPI_Recv(buf_.data(), buf_.size(),
-                                     MPIType<buf_base_t>::value(), send_rank_, tag_,
+                                     MPITypeMap<buf_base_t>::type(), send_rank_, tag_,
                                      comm_, MPI_STATUS_IGNORE));
         *state_ = BufferState::received;
       } else {
         if (active_) Free();
-        PARTHENON_MPI_CHECK(MPI_Recv(&null_buf_, 0, MPIType<buf_base_t>::value(),
+        PARTHENON_MPI_CHECK(MPI_Recv(&null_buf_, 0, MPITypeMap<buf_base_t>::type(),
                                      send_rank_, tag_, comm_, MPI_STATUS_IGNORE));
         *state_ = BufferState::received_null;
       }
