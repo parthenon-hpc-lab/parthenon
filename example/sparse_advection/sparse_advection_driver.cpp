@@ -88,16 +88,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     // effectively, sc1 = sc0 + dudt*dt
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    // auto start_recv = tl.AddTask(none, &MeshBlockData<Real>::StartReceiving, sc1.get(),
-    //                             BoundaryCommSubset::all);
-
     auto advect_flux = tl.AddTask(none, sparse_advection_package::CalculateFluxes, sc0);
-    /*
-    auto send_flux =
-        tl.AddTask(advect_flux, &MeshBlockData<Real>::SendFluxCorrection, sc0.get());
-    auto recv_flux =
-        tl.AddTask(advect_flux, &MeshBlockData<Real>::ReceiveFluxCorrection, sc0.get());
-    */
+
   }
 
   const int num_partitions = pmesh->DefaultNumPartitions();
