@@ -88,8 +88,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     // effectively, sc1 = sc0 + dudt*dt
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto start_recv = tl.AddTask(none, &MeshBlockData<Real>::StartReceiving, sc1.get(),
-                                 BoundaryCommSubset::all);
+    // auto start_recv = tl.AddTask(none, &MeshBlockData<Real>::StartReceiving, sc1.get(),
+    //                             BoundaryCommSubset::all);
 
     auto advect_flux = tl.AddTask(none, sparse_advection_package::CalculateFluxes, sc0);
     /*
@@ -129,18 +129,12 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
                              mdudt.get(), beta * dt, mc1.get());
 
-    // if this is the last stage, check if we can deallocate any sparse variables
-    auto dealloc = none;
-    if (stage == integrator->nstages) {
-      dealloc = tl.AddTask(update, SparseDealloc, mc1.get());
-    }
-
     // do boundary exchange
 
     auto send2 = tl.AddTask(
-        dealloc, parthenon::cell_centered_bvars::LoadAndSendSparseBoundaryBuffers, mc1);
+        update, parthenon::cell_centered_bvars::LoadAndSendSparseBoundaryBuffers, mc1);
     auto recv2 = tl.AddTask(
-        dealloc, parthenon::cell_centered_bvars::ReceiveSparseBoundaryBuffers, mc1);
+        update, parthenon::cell_centered_bvars::ReceiveSparseBoundaryBuffers, mc1);
     /*
     auto send =
         tl.AddTask(recv2, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
@@ -152,9 +146,15 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto set2 = tl.AddTask(
         recv2, parthenon::cell_centered_bvars::SetInternalSparseBoundaryBuffers, mc1);
 
+    auto restrict = set2;
     if (pmesh->multilevel) {
-      tl.AddTask(set2, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
-                 mc1.get());
+      restrict = tl.AddTask(
+          set2, parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
+    }
+
+    // if this is the last stage, check if we can deallocate any sparse variables
+    if (stage == integrator->nstages) {
+      tl.AddTask(restrict, SparseDealloc, mc1.get());
     }
   }
 
