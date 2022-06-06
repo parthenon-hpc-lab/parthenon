@@ -89,7 +89,6 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
     auto advect_flux = tl.AddTask(none, sparse_advection_package::CalculateFluxes, sc0);
-
   }
 
   const int num_partitions = pmesh->DefaultNumPartitions();

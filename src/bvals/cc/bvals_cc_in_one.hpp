@@ -78,9 +78,9 @@ struct BndInfo {
   parthenon::ParArray6D<Real> coarse; // coarse data variable for prolongation/restriction
 
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                        std::shared_ptr<CellVariable<Real>> v);
+                                std::shared_ptr<CellVariable<Real>> v);
   static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                        std::shared_ptr<CellVariable<Real>> v);
+                               std::shared_ptr<CellVariable<Real>> v);
 
   KOKKOS_INLINE_FUNCTION
   int GetBufferSize() const {

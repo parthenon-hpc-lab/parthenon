@@ -263,7 +263,9 @@ void CommBuffer<T>::Send() noexcept {
 // Make sure that this request isn't still out,
 // this could be blocking
 #ifdef MPI_PARALLEL
-    PARTHENON_REQUIRE(buf_.size() > 0, "Trying to send zero size buffer, which will be interpreted as sending_null.");
+    PARTHENON_REQUIRE(
+        buf_.size() > 0,
+        "Trying to send zero size buffer, which will be interpreted as sending_null.");
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
     PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(), MPIType<buf_base_t>::value(),
                                   recv_rank_, tag_, comm_, my_request_.get()));
