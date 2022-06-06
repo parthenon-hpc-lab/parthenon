@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include "utils/mpi_types.hpp" 
+#include "utils/mpi_types.hpp"
 
 #ifdef MPI_PARALLEL
 #include <mpi.h>
@@ -236,8 +236,9 @@ void CommBuffer<T>::Send() noexcept {
         buf_.size() > 0,
         "Trying to send zero size buffer, which will be interpreted as sending_null.");
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
-    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(), MPITypeMap<buf_base_t>::type(),
-                                  recv_rank_, tag_, comm_, my_request_.get()));
+    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(),
+                                  MPITypeMap<buf_base_t>::type(), recv_rank_, tag_, comm_,
+                                  my_request_.get()));
 #endif
   }
   *state_ = BufferState::sending;
@@ -256,8 +257,8 @@ void CommBuffer<T>::SendNull() noexcept {
 // this could be blocking
 #ifdef MPI_PARALLEL
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
-    PARTHENON_MPI_CHECK(MPI_Isend(&null_buf_, 0, MPITypeMap<buf_base_t>::type(), recv_rank_,
-                                  tag_, comm_, my_request_.get()));
+    PARTHENON_MPI_CHECK(MPI_Isend(&null_buf_, 0, MPITypeMap<buf_base_t>::type(),
+                                  recv_rank_, tag_, comm_, my_request_.get()));
 #endif
   }
   *state_ = BufferState::sending_null;
