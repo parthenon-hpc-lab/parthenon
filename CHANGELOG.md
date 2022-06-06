@@ -35,6 +35,7 @@
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 669]](https://github.com/lanl/parthenon/pull/669) Bump clang-format version (and checks) to >=11.0
+- [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 - [[PR 661]](https://github.com/lanl/parthenon/pull/661) Replaced ids in MPI tags with separate `MPI_Comms` for each variable/swarm
 - [[PR 651]](https://github.com/lanl/parthenon/pull/651) Bump Catch2 version due to GCC11.2 incompatibility
 - [[PR 646]](https://github.com/lanl/parthenon/pull/646) Add machine configuration file for Stony Brook's Ookami A64FX and OLCF's Spock AMD systems.
