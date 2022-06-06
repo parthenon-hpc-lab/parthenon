@@ -236,7 +236,7 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
   }
 }
 
-BndInfo BndInfo::Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                         std::shared_ptr<CellVariable<Real>> v) {
   BndInfo out;
   out.Nv = v->GetDim(4);
@@ -274,7 +274,7 @@ BndInfo BndInfo::Sender(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
   return out;
 }
 
-BndInfo BndInfo::Setter(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                         std::shared_ptr<CellVariable<Real>> v) {
   BndInfo out;
 

@@ -176,7 +176,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       md->send_bnd_info_h(iarr).allocated = v->IsAllocated();
       if (v->IsAllocated()) {
-        md->send_bnd_info_h(iarr) = BndInfo::Sender(pmb, nb, v);
+        md->send_bnd_info_h(iarr) = BndInfo::GetSendBndInfo(pmb, nb, v);
         auto &buf = *md->send_buf_vec[iarr];
         md->send_bnd_info_h(iarr).buf = buf.buffer();
       }
@@ -352,7 +352,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
     int iarr = 0;
     IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       auto &buf = *md->recv_buf_vec[iarr];
-      if (v->IsAllocated()) md->recv_bnd_info_h(iarr) = BndInfo::Setter(pmb, nb, v);
+      if (v->IsAllocated()) md->recv_bnd_info_h(iarr) = BndInfo::GetSetBndInfo(pmb, nb, v);
 
       md->recv_bnd_info_h(iarr).buf = buf.buffer();
       if (buf.GetState() == BufferState::received) {
