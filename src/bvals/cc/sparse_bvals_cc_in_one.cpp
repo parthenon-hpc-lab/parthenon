@@ -43,7 +43,9 @@ using namespace impl;
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundaryBuffers");
   Mesh *pmesh = md->GetMeshPointer();
-
+  
+  // Clear the fast access vectors for this block since they are no longer valid 
+  // after all MeshData call BuildSparseBoundaryBuffers
   md->send_buf_vec.clear();
   md->recv_buf_vec.clear();
 
@@ -121,7 +123,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundaryBuffers");
 
   Mesh *pmesh = md->GetMeshPointer();
@@ -274,7 +276,7 @@ TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
   return TaskStatus::complete;
 }
 
-TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers");
   // WriteRegion region("Receive sparse boundary");
   bool all_received = true;
@@ -312,7 +314,7 @@ TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::incomplete;
 }
 
-TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetInternalBoundaries");
 
   Mesh *pmesh = md->GetMeshPointer();

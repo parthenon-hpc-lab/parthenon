@@ -1053,15 +1053,15 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       // TODO(mpi people) do we still need the pbval part? Discuss also in the context of
       // other than cellvariables, see comment above on communicators.
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
-      // pmb->pbval->SetupPersistentMPI();
+      pmb->pbval->SetupPersistentMPI();
       pmb->meshblock_data.Get()->SetupPersistentMPI();
       pmb->swarm_data.Get()->SetupPersistentMPI();
     }
 
     // prepare to receive conserved variables
-    // for (int i = 0; i < nmb; ++i) {
-    //  block_list[i]->meshblock_data.Get()->StartReceiving(BoundaryCommSubset::mesh_init);
-    //}
+    for (int i = 0; i < nmb; ++i) {
+      block_list[i]->meshblock_data.Get()->StartReceiving(BoundaryCommSubset::mesh_init);
+    }
 
     const int num_partitions = DefaultNumPartitions();
 
@@ -1070,8 +1070,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       cell_centered_bvars::BuildSparseBoundaryBuffers(md);
-      cell_centered_bvars::LoadAndSendSparseBoundaryBuffers(md);
-      // cell_centered_bvars::SendBoundaryBuffers(md);
+      cell_centered_bvars::SendBoundaryBuffers(md);
     }
 
     // wait to receive FillGhost variables
@@ -1082,12 +1081,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       all_received = true;
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
-        // if (cell_centered_bvars::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
-        //   all_received = false;
-        // }
-        if (cell_centered_bvars::ReceiveSparseBoundaryBuffers(md) !=
-            TaskStatus::complete) {
-          all_received = false;
+        if (cell_centered_bvars::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
+           all_received = false;
         }
       }
     } while (!all_received);
@@ -1095,8 +1090,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // unpack FillGhost variables
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
-      // cell_centered_bvars::SetBoundaries(md);
-      cell_centered_bvars::SetInternalSparseBoundaryBuffers(md);
+      cell_centered_bvars::SetBoundaries(md);
       if (multilevel) {
         cell_centered_refinement::RestrictPhysicalBounds(md.get());
       }

@@ -130,26 +130,17 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-
-    auto send2 = tl.AddTask(
-        update, parthenon::cell_centered_bvars::LoadAndSendSparseBoundaryBuffers, mc1);
-    auto recv2 = tl.AddTask(
-        update, parthenon::cell_centered_bvars::ReceiveSparseBoundaryBuffers, mc1);
-    /*
     auto send =
-        tl.AddTask(recv2, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
+        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
     auto recv =
-        tl.AddTask(recv2, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
+        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
 
     auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
-    */
-    auto set2 = tl.AddTask(
-        recv2, parthenon::cell_centered_bvars::SetInternalSparseBoundaryBuffers, mc1);
 
-    auto restrict = set2;
+    auto restrict = set;
     if (pmesh->multilevel) {
       restrict = tl.AddTask(
-          set2, parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
+          set, parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
     }
 
     // if this is the last stage, check if we can deallocate any sparse variables

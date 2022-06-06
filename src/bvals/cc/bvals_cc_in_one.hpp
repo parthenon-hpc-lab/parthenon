@@ -46,15 +46,11 @@ void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds);
 void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
                             const NeighborBlock &nb, MeshBlock *pmb);
 
+TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md);
-
-TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
-
-TaskStatus LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
 TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md);
