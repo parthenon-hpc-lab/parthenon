@@ -43,8 +43,8 @@ using namespace impl;
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundaryBuffers");
   Mesh *pmesh = md->GetMeshPointer();
-  
-  // Clear the fast access vectors for this block since they are no longer valid 
+
+  // Clear the fast access vectors for this block since they are no longer valid
   // after all MeshData call BuildSparseBoundaryBuffers
   md->send_buf_vec.clear();
   md->recv_buf_vec.clear();

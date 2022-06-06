@@ -1082,7 +1082,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
         if (cell_centered_bvars::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
-           all_received = false;
+          all_received = false;
         }
       }
     } while (!all_received);
