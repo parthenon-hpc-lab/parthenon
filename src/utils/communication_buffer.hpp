@@ -15,6 +15,7 @@
 #define UTILS_COMMUNICATION_BUFFER_HPP_
 
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <type_traits>
 #include <unordered_map>
@@ -91,7 +92,7 @@ class CommBuffer {
   comm_t comm_;
 
   using buf_base_t = std::remove_pointer_t<decltype(std::declval<T>().data())>;
-  buf_base_t null_buf_;
+  buf_base_t null_buf_ = std::numeric_limits<buf_base_t>::signaling_NaN();
   bool active_ = false;
 
   std::function<T()> get_resource_;
@@ -262,6 +263,7 @@ void CommBuffer<T>::Send() noexcept {
 // Make sure that this request isn't still out,
 // this could be blocking
 #ifdef MPI_PARALLEL
+    PARTHENON_REQUIRE(buf_.size() > 0, "Trying to send zero size buffer, which will be interpreted as sending_null.");
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
     PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(), MPIType<buf_base_t>::value(),
                                   recv_rank_, tag_, comm_, my_request_.get()));
