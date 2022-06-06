@@ -28,7 +28,6 @@ using parthenon::ParArray1D;
 using parthenon::sort;
 
 constexpr int N = 100;
-constexpr int STRLEN = 1024;
 
 struct Key {
   KOKKOS_INLINE_FUNCTION
