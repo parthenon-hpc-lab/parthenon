@@ -48,12 +48,17 @@ bool all_greater_than(T val, Arg v, Args... args) {
   return (v > val) && all_greater_than(val, args...);
 }
 
+template <class... Ts>
+using enable_if_all_integral = std::enable_if<are_all_integral<Ts...>::value>; 
+
 // API designed with Data = Kokkos::View<T******> in mind
 template <typename Data>
 class ParArrayGeneric {
  public:
   using index_pair_t = std::pair<size_t, size_t>;
-  
+  using base_t = Data;
+  using HostMirror = ParArrayGeneric<typename Data::HostMirror>; 
+
   ParArrayGeneric() = default;
   __attribute__((nothrow)) ParArrayGeneric(const ParArrayGeneric<Data> &t) = default;
   __attribute__((nothrow)) ~ParArrayGeneric() = default;
@@ -65,13 +70,12 @@ class ParArrayGeneric {
 
   KOKKOS_INLINE_FUNCTION
   explicit ParArrayGeneric(const Data &v) : data_(v) {}
-
-  // Allow a ParArrayGeneric to be cast to its underlying Kokkos view 
-  KOKKOS_FORCEINLINE_FUNCTION
-  operator Data() { return data_; }
   
-  template<class... Args, 
-           class = typename std::enable_if<are_all_integral<Args...>::value>::type>
+  // Allow a ParArrayGeneric to be cast to any compatible Kokkos view 
+  template<class... Ts> 
+  operator Kokkos::View<Ts...>() const { return data_; }
+
+  template<class... Args, class = typename enable_if_all_integral<Args...>::type>
   ParArrayGeneric(const std::string &label, Args... args) : 
       ParArrayGeneric(label, std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...)
   {
@@ -79,31 +83,34 @@ class ParArrayGeneric {
     static_assert(Data::rank - sizeof...(Args) >= 0);
   }
 
-  template<class... Args, 
-           class = typename std::enable_if<are_all_integral<Args...>::value>::type>
+  template<class... Args, class = typename enable_if_all_integral<Args...>::type>
   void NewParArrayND(Args... args, const std::string &label = "ParArrayND") {
     assert(all_greater_than(0, args...));
     static_assert(Data::rank - sizeof...(Args) >= 0);
     NewParArrayND(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args..., label);
   }
 
-  template<class... Args, 
-           class = typename std::enable_if<are_all_integral<Args...>::value>::type>
+  template<class... Args, class = typename enable_if_all_integral<Args...>::type>
   KOKKOS_FORCEINLINE_FUNCTION  
   auto Get(Args... args) const {
     static_assert(Data::rank - sizeof...(Args) >= 0);
     return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
   }
-  
-  template<class... Args, 
-           class = typename std::enable_if<are_all_integral<Args...>::value>::type> 
+
+  // call me as Get<D>();
+  template <std::size_t N>
+  KOKKOS_INLINE_FUNCTION auto
+  Get() const {
+    return Get_TemplateVersion_impl(std::make_index_sequence<Data::rank - N>{}); 
+  }
+
+  template<class... Args, class = typename enable_if_all_integral<Args...>::type>
   void Resize(Args... args) {
     static_assert(Data::rank - sizeof...(Args) >= 0);
     Resize(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
   }
   
-  template<class... Args, 
-           class = typename std::enable_if<are_all_integral<Args...>::value>::type> 
+  template<class... Args, class = typename enable_if_all_integral<Args...>::type>
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator() (Args... args) const {
     static_assert(Data::rank - sizeof...(Args) >= 0);
@@ -136,7 +143,7 @@ class ParArrayGeneric {
 
   template <typename Other>
   void DeepCopy(const Other &src) {
-    Kokkos::deep_copy(data_, src.Get());
+    Kokkos::deep_copy(data_, src.data_);
   }
 
   template <typename MemSpace>
@@ -171,20 +178,10 @@ class ParArrayGeneric {
   // Reset size to 0
   // Note: Copies of this array won't be affected
   void Reset() { data_ = Data(); }
-
-  template <std::size_t... I>
-  KOKKOS_FORCEINLINE_FUNCTION auto
-  GetTemplate_impl(std::index_sequence<I...>) const {
-    return Get(((void) I, 0)...);
-  } 
-
-  // call me as Get<D>();
-  template <std::size_t N>
-  KOKKOS_INLINE_FUNCTION auto
-  Get() const {
-    return GetTemplate_impl(std::make_index_sequence<Data::rank - N>{}); 
-  }
   
+  template <class T2> 
+  friend class ParArrayGeneric; 
+   
  private:
   // The stupid void casts below are to suppress compiler warnings about 
   // an unused value. Found this trick buried deep in the gcc documentation 
@@ -199,8 +196,15 @@ class ParArrayGeneric {
 
   template<class... Args, std::size_t... I>
   KOKKOS_FORCEINLINE_FUNCTION  
-  auto Get(std::index_sequence<I...>, Args... args) const { 
-    return Kokkos::subview(data_, args..., ((void) I, Kokkos::ALL())...);
+  auto Get(std::index_sequence<I...>, Args... args) const {
+    using view_t = decltype(Kokkos::subview(data_, args..., ((void) I, Kokkos::ALL())...)); 
+    return ParArrayGeneric<view_t>(Kokkos::subview(data_, args..., ((void) I, Kokkos::ALL())...));
+  }
+ 
+  template <std::size_t... I>
+  KOKKOS_FORCEINLINE_FUNCTION 
+  auto Get_TemplateVersion_impl(std::index_sequence<I...>) const {
+    return Get(((void) I, 0)...);
   }
 
   template<class... Args, std::size_t... I>
@@ -224,17 +228,12 @@ class ParArrayGeneric {
 
 template <typename T, typename Layout = LayoutWrapper>
 using device_view_t = Kokkos::View<T ******, Layout, DevMemSpace>;
-template <typename T, typename Layout = LayoutWrapper>
-using device_view4_t = Kokkos::View<T ****, Layout, DevMemSpace>;
 
 template <typename T, typename Layout = LayoutWrapper>
 using host_view_t = typename device_view_t<T, Layout>::HostMirror;
 
 template <typename T, typename Layout = LayoutWrapper>
 using ParArrayND = ParArrayGeneric<device_view_t<T, Layout>>;
-
-template <typename T, typename Layout = LayoutWrapper>
-using ParArray4ND = ParArrayGeneric<device_view4_t<T, Layout>>;
 
 template <typename T, typename Layout = LayoutWrapper>
 using ParArrayHost = ParArrayGeneric<host_view_t<T, Layout>>;

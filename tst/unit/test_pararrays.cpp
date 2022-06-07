@@ -171,8 +171,8 @@ TEST_CASE("ParArrayND", "[ParArrayND][Kokkos]") {
           a(k, j, i) = static_cast<Real>(k * j * i);
         });
 
-    auto a_host_raw = Kokkos::create_mirror_view(a.Get<3>());
-    Kokkos::deep_copy(a_host_raw, a.Get<3>());
+    auto a_host_raw = Kokkos::create_mirror_view(static_cast<decltype(a.Get<3>())::base_t>(a.Get<3>()));
+    Kokkos::deep_copy(a_host_raw, static_cast<decltype(a.Get<3>())::base_t>(a.Get<3>()));
 
     THEN("The GetHostMirrorAndCopy is identical") {
       auto a_host_wrap = a.GetHostMirrorAndCopy();
