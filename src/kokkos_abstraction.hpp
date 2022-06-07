@@ -27,6 +27,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -63,15 +64,15 @@ using ParArray1D = Kokkos::View<T *, LayoutWrapper, DevMemSpace>;
 template <typename T>
 using ParArray2D = Kokkos::View<T **, LayoutWrapper, DevMemSpace>;
 template <typename T>
-using ParArray3D = Kokkos::View<T ***, LayoutWrapper, DevMemSpace>;
+using ParArray3D = ParArrayGeneric<Kokkos::View<T ***, LayoutWrapper, DevMemSpace>>;
 template <typename T>
-using ParArray4D = Kokkos::View<T ****, LayoutWrapper, DevMemSpace>;
+using ParArray4D = ParArrayGeneric<Kokkos::View<T ****, LayoutWrapper, DevMemSpace>>;
 template <typename T>
-using ParArray5D = Kokkos::View<T *****, LayoutWrapper, DevMemSpace>;
+using ParArray5D = ParArrayGeneric<Kokkos::View<T *****, LayoutWrapper, DevMemSpace>>;
 template <typename T>
-using ParArray6D = Kokkos::View<T ******, LayoutWrapper, DevMemSpace>;
+using ParArray6D = ParArrayGeneric<Kokkos::View<T ******, LayoutWrapper, DevMemSpace>>;
 template <typename T>
-using ParArray7D = Kokkos::View<T *******, LayoutWrapper, DevMemSpace>;
+using ParArray7D = ParArrayGeneric<Kokkos::View<T *******, LayoutWrapper, DevMemSpace>>;
 
 // Host mirrors
 template <typename T>

@@ -169,9 +169,7 @@ void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
                                GetDim(4), GetDim(3), GetDim(2), GetDim(1));
     // set up fluxes
     for (int d = X1DIR; d <= n_outer; ++d) {
-      flux[d] = ParArrayND<T>(Kokkos::subview(flux_data_, d - 1, Kokkos::ALL(),
-                                              Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
-                                              Kokkos::ALL(), Kokkos::ALL()));
+      flux[d] = flux_data_.Get(d-1);
     }
   }
 
@@ -216,7 +214,7 @@ void CellVariable<T>::Deallocate() {
   data.Reset();
 
   if (IsSet(Metadata::WithFluxes)) {
-    Kokkos::resize(flux_data_, 0, 0, 0, 0, 0, 0, 0);
+    flux_data_.Reset();
     int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
     for (int d = X1DIR; d <= n_outer; ++d) {
       flux[d].Reset();

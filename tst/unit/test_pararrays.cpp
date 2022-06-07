@@ -487,8 +487,9 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
 
   // view of views. See:
   // https://github.com/kokkos/kokkos/wiki/View#6232-whats-the-problem-with-a-view-of-views
+  using view_3d_t = Kokkos::View<Real ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;
   using arrays_t = Kokkos::View<ParArrayND<Real> *, UVMSpace>;
-  using views_t = Kokkos::View<ParArray3D<Real> *, UVMSpace>;
+  using views_t = Kokkos::View<view_3d_t *, UVMSpace>;
   using device_view_t = parthenon::device_view_t<Real>;
   arrays_t arrays(Kokkos::view_alloc(std::string("arrays"), Kokkos::WithoutInitializing),
                   NARRAYS);
@@ -500,7 +501,7 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
         Kokkos::view_alloc(label, Kokkos::WithoutInitializing), 1, 1, 1, N, N, N));
     label = std::string("view ") + std::to_string(n);
     new (&views[n])
-        ParArray3D<Real>(Kokkos::view_alloc(label, Kokkos::WithoutInitializing), N, N, N);
+        view_3d_t(Kokkos::view_alloc(label, Kokkos::WithoutInitializing), N, N, N);
     auto a_h = arrays(n).GetHostMirror();
     auto v_h = Kokkos::create_mirror_view(views(n));
     for (int k = 0; k < N; k++) {
