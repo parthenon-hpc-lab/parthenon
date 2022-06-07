@@ -171,7 +171,8 @@ TEST_CASE("ParArrayND", "[ParArrayND][Kokkos]") {
           a(k, j, i) = static_cast<Real>(k * j * i);
         });
 
-    auto a_host_raw = Kokkos::create_mirror_view(static_cast<decltype(a.Get<3>())::base_t>(a.Get<3>()));
+    auto a_host_raw =
+        Kokkos::create_mirror_view(static_cast<decltype(a.Get<3>())::base_t>(a.Get<3>()));
     Kokkos::deep_copy(a_host_raw, static_cast<decltype(a.Get<3>())::base_t>(a.Get<3>()));
 
     THEN("The GetHostMirrorAndCopy is identical") {
@@ -487,7 +488,8 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
 
   // view of views. See:
   // https://github.com/kokkos/kokkos/wiki/View#6232-whats-the-problem-with-a-view-of-views
-  using view_3d_t = Kokkos::View<Real ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;
+  using view_3d_t =
+      Kokkos::View<Real ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;
   using arrays_t = Kokkos::View<ParArrayND<Real> *, UVMSpace>;
   using views_t = Kokkos::View<view_3d_t *, UVMSpace>;
   using device_view_t = parthenon::device_view_t<Real>;

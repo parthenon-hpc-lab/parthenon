@@ -169,7 +169,7 @@ void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
                                GetDim(4), GetDim(3), GetDim(2), GetDim(1));
     // set up fluxes
     for (int d = X1DIR; d <= n_outer; ++d) {
-      flux[d] = flux_data_.Get(d-1);
+      flux[d] = flux_data_.Get(d - 1);
     }
   }
 

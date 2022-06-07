@@ -26,9 +26,9 @@
 
 #include <Kokkos_Core.hpp>
 
-#include "parthenon_array_generic.hpp"
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
+#include "parthenon_array_generic.hpp"
 
 // Macro for automatically creating a useful name
 #define PARARRAY_TEMP                                                                    \
