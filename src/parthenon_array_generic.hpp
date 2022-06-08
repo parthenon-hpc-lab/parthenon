@@ -51,16 +51,19 @@ struct empty_state_t {
   template<class... Args>
   KOKKOS_INLINE_FUNCTION 
   empty_state_t(Args&&...) {}
+  
 };
 
 // API designed with Data = Kokkos::View<T******> in mind
 template <typename Data, typename State = empty_state_t>
-class ParArrayGeneric : public State {
+class ParArrayGeneric {
  public:
   using index_pair_t = std::pair<size_t, size_t>;
   using base_t = Data;
   using HostMirror = ParArrayGeneric<typename Data::HostMirror>;
   using host_mirror_type = HostMirror;
+  
+  State state; 
 
   ParArrayGeneric() = default;
   __attribute__((nothrow)) ~ParArrayGeneric() = default;
@@ -72,12 +75,12 @@ class ParArrayGeneric : public State {
   operator=(ParArrayGeneric<Data, State> &&t) = default;
   
   KOKKOS_INLINE_FUNCTION
-  explicit ParArrayGeneric(const Data &v, const State& state = State()) : State(state), data_(v) {}
+  explicit ParArrayGeneric(const Data &v, const State& state = State()) : state(state), data_(v) {}
 
   // Allow a ParArrayGeneric to be cast to any compatible Kokkos view
   template <class State2, class... Ts>
   operator ParArrayGeneric<Kokkos::View<Ts...>, State2>() const {
-    return ParArrayGeneric<Kokkos::View<Ts...>, State2>(data_, *this);
+    return ParArrayGeneric<Kokkos::View<Ts...>, State2>(data_, state);
   }
 
   template <class... Ts>
@@ -87,7 +90,15 @@ class ParArrayGeneric : public State {
 
   template <class... Args, class = typename enable_if_all_integral<Args...>::type>
   ParArrayGeneric(const std::string &label, Args... args)
-      : ParArrayGeneric(label, std::make_index_sequence<Data::rank - sizeof...(Args)>{},
+      : ParArrayGeneric(label, State(), std::make_index_sequence<Data::rank - sizeof...(Args)>{},
+                        args...) {
+    assert(all_greater_than(0, args...));
+    static_assert(Data::rank - sizeof...(Args) >= 0);
+  }
+  
+  template <class... Args, class = typename enable_if_all_integral<Args...>::type>
+  ParArrayGeneric(const std::string &label, const State& state, Args... args)
+      : ParArrayGeneric(label, state, std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                         args...) {
     assert(all_greater_than(0, args...));
     static_assert(Data::rank - sizeof...(Args) >= 0);
@@ -156,7 +167,7 @@ class ParArrayGeneric : public State {
   template <typename MemSpace>
   auto GetMirror(MemSpace const &memspace) {
     auto mirror = Kokkos::create_mirror_view(memspace, data_);
-    return ParArrayGeneric<decltype(mirror), State>(mirror, *this);
+    return ParArrayGeneric<decltype(mirror), State>(mirror, state);
   }
   auto GetHostMirror() { return GetMirror(Kokkos::HostSpace()); }
   auto GetDeviceMirror() { return GetMirror(Kokkos::DefaultExecutionSpace()); }
@@ -169,14 +180,14 @@ class ParArrayGeneric : public State {
   template <typename MemSpace>
   auto GetMirrorAndCopy(MemSpace const &memspace) {
     auto mirror = Kokkos::create_mirror_view_and_copy(memspace, data_);
-    return ParArrayGeneric<decltype(mirror), State>(mirror, *this);
+    return ParArrayGeneric<decltype(mirror), State>(mirror, state);
   }
   auto GetHostMirrorAndCopy() { return GetMirrorAndCopy(Kokkos::HostSpace()); }
 
   template <typename... Args>
   KOKKOS_INLINE_FUNCTION auto Slice(Args... args) const {
     auto v = Kokkos::subview(data_, std::forward<Args>(args)...);
-    return ParArrayGeneric<decltype(v), State>(v, *this);
+    return ParArrayGeneric<decltype(v), State>(v, state);
   }
 
   // AthenaArray.InitWithShallowSlice(src,dim,indx,nvar)
@@ -214,8 +225,8 @@ class ParArrayGeneric : public State {
   // The stupid void casts below are to suppress compiler warnings about
   // an unused value. Found this trick buried deep in the gcc documentation
   template <class... Args, std::size_t... I>
-  ParArrayGeneric(const std::string &label, std::index_sequence<I...>, Args... args)
-      : data_(label, ((void)I, 1)..., args...) {}
+  ParArrayGeneric(const std::string &label, const State& state, std::index_sequence<I...>, Args... args)
+      : state(state), data_(label, ((void)I, 1)..., args...) {}
 
   template <class... Args, std::size_t... I>
   void NewParArrayND(std::index_sequence<I...>, Args... args, const std::string &label) {
@@ -226,7 +237,7 @@ class ParArrayGeneric : public State {
   KOKKOS_FORCEINLINE_FUNCTION auto Get(std::index_sequence<I...>, Args... args) const {
     using view_t = decltype(Kokkos::subview(data_, args..., ((void)I, Kokkos::ALL())...));
     return ParArrayGeneric<view_t, State>(
-        Kokkos::subview(data_, args..., ((void)I, Kokkos::ALL())...), *this);
+        Kokkos::subview(data_, args..., ((void)I, Kokkos::ALL())...), state);
   }
 
   template <std::size_t... I>
