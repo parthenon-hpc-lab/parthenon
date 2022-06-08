@@ -63,16 +63,16 @@ template <typename T>
 using ParArray1D = Kokkos::View<T *, LayoutWrapper, DevMemSpace>;
 template <typename T>
 using ParArray2D = Kokkos::View<T **, LayoutWrapper, DevMemSpace>;
-template <typename T>
-using ParArray3D = ParArrayGeneric<Kokkos::View<T ***, LayoutWrapper, DevMemSpace>>;
-template <typename T>
-using ParArray4D = ParArrayGeneric<Kokkos::View<T ****, LayoutWrapper, DevMemSpace>>;
-template <typename T>
-using ParArray5D = ParArrayGeneric<Kokkos::View<T *****, LayoutWrapper, DevMemSpace>>;
-template <typename T>
-using ParArray6D = ParArrayGeneric<Kokkos::View<T ******, LayoutWrapper, DevMemSpace>>;
-template <typename T>
-using ParArray7D = ParArrayGeneric<Kokkos::View<T *******, LayoutWrapper, DevMemSpace>>;
+template <typename T, typename State = empty_state_t>
+using ParArray3D = ParArrayGeneric<Kokkos::View<T ***, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray4D = ParArrayGeneric<Kokkos::View<T ****, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray5D = ParArrayGeneric<Kokkos::View<T *****, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray6D = ParArrayGeneric<Kokkos::View<T ******, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray7D = ParArrayGeneric<Kokkos::View<T *******, LayoutWrapper, DevMemSpace>, State>;
 
 // Host mirrors
 template <typename T>
