@@ -46,9 +46,16 @@ using enable_if_all_integral = std::enable_if<are_all_integral<Ts...>::value>;
 
 using namespace impl;
 
+struct empty_state_t {
+  // Allow this to be constructed with anything
+  template<class... Args>
+  KOKKOS_INLINE_FUNCTION 
+  empty_state_t(Args&&...) {}
+};
+
 // API designed with Data = Kokkos::View<T******> in mind
-template <typename Data>
-class ParArrayGeneric {
+template <typename Data, typename State = empty_state_t>
+class ParArrayGeneric : public State {
  public:
   using index_pair_t = std::pair<size_t, size_t>;
   using base_t = Data;
@@ -57,20 +64,20 @@ class ParArrayGeneric {
 
   ParArrayGeneric() = default;
   __attribute__((nothrow)) ~ParArrayGeneric() = default;
-  __attribute__((nothrow)) ParArrayGeneric(const ParArrayGeneric<Data> &t) = default;
-  __attribute__((nothrow)) ParArrayGeneric<Data> &
-  operator=(const ParArrayGeneric<Data> &t) = default;
-  __attribute__((nothrow)) ParArrayGeneric(ParArrayGeneric<Data> &&t) = default;
-  __attribute__((nothrow)) ParArrayGeneric<Data> &
-  operator=(ParArrayGeneric<Data> &&t) = default;
+  __attribute__((nothrow)) ParArrayGeneric(const ParArrayGeneric<Data, State> &t) = default;
+  __attribute__((nothrow)) ParArrayGeneric<Data, State> &
+  operator=(const ParArrayGeneric<Data, State> &t) = default;
+  __attribute__((nothrow)) ParArrayGeneric(ParArrayGeneric<Data, State> &&t) = default;
+  __attribute__((nothrow)) ParArrayGeneric<Data, State> &
+  operator=(ParArrayGeneric<Data, State> &&t) = default;
   
   KOKKOS_INLINE_FUNCTION
-  explicit ParArrayGeneric(const Data &v) : data_(v) {}
+  explicit ParArrayGeneric(const Data &v, const State& state = State()) : State(state), data_(v) {}
 
   // Allow a ParArrayGeneric to be cast to any compatible Kokkos view
-  template <class... Ts>
-  operator ParArrayGeneric<Kokkos::View<Ts...>>() const {
-    return ParArrayGeneric<Kokkos::View<Ts...>>(data_);
+  template <class State2, class... Ts>
+  operator ParArrayGeneric<Kokkos::View<Ts...>, State2>() const {
+    return ParArrayGeneric<Kokkos::View<Ts...>, State2>(data_, *this);
   }
 
   template <class... Ts>
@@ -149,7 +156,7 @@ class ParArrayGeneric {
   template <typename MemSpace>
   auto GetMirror(MemSpace const &memspace) {
     auto mirror = Kokkos::create_mirror_view(memspace, data_);
-    return ParArrayGeneric<decltype(mirror)>(mirror);
+    return ParArrayGeneric<decltype(mirror), State>(mirror, *this);
   }
   auto GetHostMirror() { return GetMirror(Kokkos::HostSpace()); }
   auto GetDeviceMirror() { return GetMirror(Kokkos::DefaultExecutionSpace()); }
@@ -162,14 +169,14 @@ class ParArrayGeneric {
   template <typename MemSpace>
   auto GetMirrorAndCopy(MemSpace const &memspace) {
     auto mirror = Kokkos::create_mirror_view_and_copy(memspace, data_);
-    return ParArrayGeneric<decltype(mirror)>(mirror);
+    return ParArrayGeneric<decltype(mirror), State>(mirror, *this);
   }
   auto GetHostMirrorAndCopy() { return GetMirrorAndCopy(Kokkos::HostSpace()); }
 
   template <typename... Args>
   KOKKOS_INLINE_FUNCTION auto Slice(Args... args) const {
     auto v = Kokkos::subview(data_, std::forward<Args>(args)...);
-    return ParArrayGeneric<decltype(v)>(v);
+    return ParArrayGeneric<decltype(v), State>(v, *this);
   }
 
   // AthenaArray.InitWithShallowSlice(src,dim,indx,nvar)
@@ -200,7 +207,7 @@ class ParArrayGeneric {
   bool is_allocated() const { return data_.is_allocated(); }
 
   // Want to be friends with all other specializations of ParArrayGeneric
-  template <class T2>
+  template <class Data2, class State2>
   friend class ParArrayGeneric;
 
  private:
@@ -218,8 +225,8 @@ class ParArrayGeneric {
   template <class... Args, std::size_t... I>
   KOKKOS_FORCEINLINE_FUNCTION auto Get(std::index_sequence<I...>, Args... args) const {
     using view_t = decltype(Kokkos::subview(data_, args..., ((void)I, Kokkos::ALL())...));
-    return ParArrayGeneric<view_t>(
-        Kokkos::subview(data_, args..., ((void)I, Kokkos::ALL())...));
+    return ParArrayGeneric<view_t, State>(
+        Kokkos::subview(data_, args..., ((void)I, Kokkos::ALL())...), *this);
   }
 
   template <std::size_t... I>
