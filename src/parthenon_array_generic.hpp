@@ -56,7 +56,7 @@ class ParArrayGeneric {
   using host_mirror_type = HostMirror;
 
   ParArrayGeneric() = default;
-  __attribute__((nothrow)) virtual ~ParArrayGeneric() = default;
+  __attribute__((nothrow)) ~ParArrayGeneric() = default;
   __attribute__((nothrow)) ParArrayGeneric(const ParArrayGeneric<Data> &t) = default;
   __attribute__((nothrow)) ParArrayGeneric<Data> &
   operator=(const ParArrayGeneric<Data> &t) = default;
