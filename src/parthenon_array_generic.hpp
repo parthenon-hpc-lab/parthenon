@@ -48,16 +48,15 @@ using namespace impl;
 
 struct empty_state_t {
   // Allow this to be constructed with anything
-  template<class... Args>
-  KOKKOS_INLINE_FUNCTION 
-  empty_state_t(Args&&...) {}
-  
+  template <class... Args>
+  KOKKOS_INLINE_FUNCTION empty_state_t(Args &&...) {}
+
   // LFR: We can't easily have virtual destructors on device, see Kokkos issue #1591.
-  // It is non-ideal for there not to be a virtual destructor on this and other 
-  // state structs that ParArrayGeneric ends up inheriting from, but it is unlikely 
-  // that there will be a need to use these with runtime polymorphism. 
-  //KOKKOS_INLINE_FUNCTION
-  //virtual ~empty_state_t() {};
+  // It is non-ideal for there not to be a virtual destructor on this and other
+  // state structs that ParArrayGeneric ends up inheriting from, but it is unlikely
+  // that there will be a need to use these with runtime polymorphism.
+  // KOKKOS_INLINE_FUNCTION
+  // virtual ~empty_state_t() {};
 };
 
 // API designed with Data = Kokkos::View<T******> in mind
@@ -66,26 +65,28 @@ class ParArrayGeneric : public State {
  public:
   using index_pair_t = std::pair<size_t, size_t>;
   using base_t = Data;
-  using state_t = State; 
+  using state_t = State;
   using HostMirror = ParArrayGeneric<typename Data::HostMirror, State>;
   using host_mirror_type = HostMirror;
 
   ParArrayGeneric() = default;
   __attribute__((nothrow)) ~ParArrayGeneric() = default;
-  __attribute__((nothrow)) ParArrayGeneric(const ParArrayGeneric<Data, State> &t) = default;
+  __attribute__((nothrow))
+  ParArrayGeneric(const ParArrayGeneric<Data, State> &t) = default;
   __attribute__((nothrow)) ParArrayGeneric<Data, State> &
   operator=(const ParArrayGeneric<Data, State> &t) = default;
   __attribute__((nothrow)) ParArrayGeneric(ParArrayGeneric<Data, State> &&t) = default;
   __attribute__((nothrow)) ParArrayGeneric<Data, State> &
   operator=(ParArrayGeneric<Data, State> &&t) = default;
-  
+
   KOKKOS_INLINE_FUNCTION
-  explicit ParArrayGeneric(const Data &v, const State& state = State()) : State(state), data_(v) {}
+  explicit ParArrayGeneric(const Data &v, const State &state = State())
+      : State(state), data_(v) {}
 
   template <class Data2, class State2>
-  KOKKOS_INLINE_FUNCTION 
-  explicit ParArrayGeneric(const ParArrayGeneric<Data2, State2>& arr_in) 
-      : State(static_cast<State2>(arr_in)), data_(arr_in.data_) {}  
+  KOKKOS_INLINE_FUNCTION explicit ParArrayGeneric(
+      const ParArrayGeneric<Data2, State2> &arr_in)
+      : State(static_cast<State2>(arr_in)), data_(arr_in.data_) {}
 
   template <class State2, class... Ts>
   operator ParArrayGeneric<Kokkos::View<Ts...>, State2>() const {
@@ -100,15 +101,17 @@ class ParArrayGeneric : public State {
 
   template <class... Args, class = typename enable_if_all_integral<Args...>::type>
   ParArrayGeneric(const std::string &label, Args... args)
-      : ParArrayGeneric(label, State(), std::make_index_sequence<Data::rank - sizeof...(Args)>{},
+      : ParArrayGeneric(label, State(),
+                        std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                         args...) {
     assert(all_greater_than(0, args...));
     static_assert(Data::rank - sizeof...(Args) >= 0);
   }
-  
+
   template <class... Args, class = typename enable_if_all_integral<Args...>::type>
-  ParArrayGeneric(const std::string &label, const State& state, Args... args)
-      : ParArrayGeneric(label, state, std::make_index_sequence<Data::rank - sizeof...(Args)>{},
+  ParArrayGeneric(const std::string &label, const State &state, Args... args)
+      : ParArrayGeneric(label, state,
+                        std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                         args...) {
     assert(all_greater_than(0, args...));
     static_assert(Data::rank - sizeof...(Args) >= 0);
@@ -220,7 +223,7 @@ class ParArrayGeneric : public State {
   // Reset size to 0
   // Note: Copies of this array won't be affected
   void Reset() { data_ = Data(); }
-  
+
   KOKKOS_INLINE_FUNCTION
   bool IsAllocated() const { return data_.size() > 0; }
 
@@ -235,7 +238,8 @@ class ParArrayGeneric : public State {
   // The stupid void casts below are to suppress compiler warnings about
   // an unused value. Found this trick buried deep in the gcc documentation
   template <class... Args, std::size_t... I>
-  ParArrayGeneric(const std::string &label, const State& state, std::index_sequence<I...>, Args... args)
+  ParArrayGeneric(const std::string &label, const State &state, std::index_sequence<I...>,
+                  Args... args)
       : State(state), data_(label, ((void)I, 1)..., args...) {}
 
   template <class... Args, std::size_t... I>
@@ -282,7 +286,8 @@ class ParArrayGeneric : public State {
 namespace Kokkos {
 
 template <class Space, class U, class SU>
-inline auto create_mirror_view_and_copy(Space const& space, const parthenon::ParArrayGeneric<U, SU> &arr) {
+inline auto create_mirror_view_and_copy(Space const &space,
+                                        const parthenon::ParArrayGeneric<U, SU> &arr) {
   return Kokkos::create_mirror_view_and_copy(space, static_cast<U>(arr));
 }
 
@@ -292,7 +297,8 @@ inline auto create_mirror_view_and_copy(const parthenon::ParArrayGeneric<U, SU> 
 }
 
 template <class Space, class U, class SU>
-inline auto create_mirror_view(Space const& space, const parthenon::ParArrayGeneric<U, SU> &arr) {
+inline auto create_mirror_view(Space const &space,
+                               const parthenon::ParArrayGeneric<U, SU> &arr) {
   return Kokkos::create_mirror_view(space, static_cast<U>(arr));
 }
 
@@ -302,7 +308,8 @@ inline auto create_mirror_view(const parthenon::ParArrayGeneric<U, SU> &arr) {
 }
 
 template <class Space, class U, class SU>
-inline auto create_mirror(Space const& space, const parthenon::ParArrayGeneric<U, SU> &arr) {
+inline auto create_mirror(Space const &space,
+                          const parthenon::ParArrayGeneric<U, SU> &arr) {
   return Kokkos::create_mirror(space, static_cast<U>(arr));
 }
 
