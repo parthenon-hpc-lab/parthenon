@@ -54,15 +54,23 @@ inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
          (sparse_id == InvalidSparseID ? "" : "_" + std::to_string(sparse_id));
 }
 
-struct CellVariableState : public empty_state_t {
+struct VariableState : public empty_state_t {
+  
+  KOKKOS_INLINE_FUNCTION 
+  VariableState(double alloc, double dealloc) 
+      : sparse_allocation_threshold(alloc), sparse_deallocation_threshold(dealloc) {}
+
   KOKKOS_DEFAULTED_FUNCTION
-  CellVariableState() = default;
+  VariableState() = default;
   KOKKOS_INLINE_FUNCTION
-  CellVariableState(const empty_state_t&) {}
+  VariableState(const empty_state_t&) {}
+  // TODO(LFR) : Figure out why virtual destructors cause issues on GPU
   //KOKKOS_INLINE_FUNCTION
-  //virtual ~CellVariableState() {}; 
+  //virtual ~VariableState() {}; 
+
   double sparse_allocation_threshold; // = Globals::sparse_config.allocation_threshold;
   double sparse_deallocation_threshold; // = Globals::sparse_config.deallocation_threshold;
+
 }; 
 
 template <typename T>
@@ -133,9 +141,9 @@ class CellVariable {
 
   inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
-  ParArrayND<T, CellVariableState> data;
+  ParArrayND<T> data;
   ParArrayND<T> flux[4];  // used for boundary calculation
-  ParArrayND<T, CellVariableState> coarse_s; // used for sending coarse boundary calculation
+  ParArrayND<T> coarse_s; // used for sending coarse boundary calculation
   // used in case of cell boundary communication
   std::shared_ptr<CellCenteredBoundaryVariable> vbvar;
   bool mpiStatus = false;

@@ -51,7 +51,8 @@ struct empty_state_t {
   template<class... Args>
   KOKKOS_INLINE_FUNCTION 
   empty_state_t(Args&&...) {}
-
+  
+  // TODO(LFR) : Figure out why virtual destructors cause issues on GPU
   //KOKKOS_INLINE_FUNCTION
   //virtual ~empty_state_t() {};
 };
