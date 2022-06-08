@@ -441,6 +441,45 @@ TEST_CASE("ParArray resizing", "[ParArrayND]") {
   }
 }
 
+struct state_t : public parthenon::empty_state_t {
+  explicit state_t(double val) : state_val(val) {}
+  double state_val;
+};
+
+TEST_CASE("ParArray state", "[ParArrayND]") {
+  GIVEN("A ParArray4D with some associated state and a ParArray3D gotten from it") {
+    const double test_value = 5.0;
+    state_t state(test_value);
+    parthenon::ParArray4D<double, state_t> pa4("4D", state, 4, N, N, N);
+
+    auto pa3 = pa4.Get(1);
+
+    THEN("The lower dimensional ParArray should have the same state.") {
+      REQUIRE(pa3.state_val == test_value);
+    }
+
+    Kokkos::parallel_for(
+        policy3d({0, 0, 0}, {N, N, N}),
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          pa3(k, j, i) = pa3.state_val;
+        });
+
+    auto pa3_h = pa3.GetHostMirrorAndCopy();
+
+    THEN("The array should be filled with the value contained in the state") {
+      for (int k = 0; k < N; ++k)
+        for (int j = 0; j < N; ++j)
+          for (int i = 0; i < N; ++i) {
+            REQUIRE(pa3_h(k, j, i) == test_value);
+          }
+    }
+
+    THEN("We should be able to copy into a stateless ParArray") {
+      ParArray3D<double> pa3_stateless = pa3;
+    }
+  }
+}
+
 // clang-format gets confused by the #ifndef inside the TEST_CASE
 // clang-format off
 TEST_CASE("Time simple stencil operations", "[ParArrayND][performance]") {

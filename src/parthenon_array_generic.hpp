@@ -52,7 +52,10 @@ struct empty_state_t {
   KOKKOS_INLINE_FUNCTION 
   empty_state_t(Args&&...) {}
   
-  // TODO(LFR) : Figure out why virtual destructors cause issues on GPU
+  // LFR: We can't easily have virtual destructors on device, see Kokkos issue #1591.
+  // It is non-ideal for there not to be a virtual destructor on this and other 
+  // state structs that ParArrayGeneric ends up inheriting from, but it is unlikely 
+  // that there will be a need to use these with runtime polymorphism. 
   //KOKKOS_INLINE_FUNCTION
   //virtual ~empty_state_t() {};
 };
@@ -79,12 +82,17 @@ class ParArrayGeneric : public State {
   KOKKOS_INLINE_FUNCTION
   explicit ParArrayGeneric(const Data &v, const State& state = State()) : State(state), data_(v) {}
 
-  // Allow a ParArrayGeneric to be cast to any compatible Kokkos view
+  template <class Data2, class State2>
+  KOKKOS_INLINE_FUNCTION 
+  explicit ParArrayGeneric(const ParArrayGeneric<Data2, State2>& arr_in) 
+      : State(static_cast<State2>(arr_in)), data_(arr_in.data_) {}  
+
   template <class State2, class... Ts>
   operator ParArrayGeneric<Kokkos::View<Ts...>, State2>() const {
     return ParArrayGeneric<Kokkos::View<Ts...>, State2>(data_, static_cast<State>(*this));
   }
 
+  // Allow a ParArrayGeneric to be cast to any compatible Kokkos view
   template <class... Ts>
   operator Kokkos::View<Ts...>() const {
     return data_;

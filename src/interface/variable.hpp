@@ -55,23 +55,18 @@ inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
 }
 
 struct VariableState : public empty_state_t {
-  
-  KOKKOS_INLINE_FUNCTION 
-  VariableState(double alloc, double dealloc) 
+  KOKKOS_INLINE_FUNCTION
+  VariableState(double alloc, double dealloc)
       : sparse_allocation_threshold(alloc), sparse_deallocation_threshold(dealloc) {}
 
   KOKKOS_DEFAULTED_FUNCTION
   VariableState() = default;
   KOKKOS_INLINE_FUNCTION
-  VariableState(const empty_state_t&) {}
-  // TODO(LFR) : Figure out why virtual destructors cause issues on GPU
-  //KOKKOS_INLINE_FUNCTION
-  //virtual ~VariableState() {}; 
+  explicit VariableState(const empty_state_t &) {}
 
-  double sparse_allocation_threshold; // = Globals::sparse_config.allocation_threshold;
-  double sparse_deallocation_threshold; // = Globals::sparse_config.deallocation_threshold;
-
-}; 
+  double sparse_allocation_threshold;
+  double sparse_deallocation_threshold;
+};
 
 template <typename T>
 class CellVariable {
