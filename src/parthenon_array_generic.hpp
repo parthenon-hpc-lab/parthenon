@@ -51,19 +51,20 @@ struct empty_state_t {
   template<class... Args>
   KOKKOS_INLINE_FUNCTION 
   empty_state_t(Args&&...) {}
-  
+
+  //KOKKOS_INLINE_FUNCTION
+  //virtual ~empty_state_t() {};
 };
 
 // API designed with Data = Kokkos::View<T******> in mind
 template <typename Data, typename State = empty_state_t>
-class ParArrayGeneric {
+class ParArrayGeneric : public State {
  public:
   using index_pair_t = std::pair<size_t, size_t>;
   using base_t = Data;
-  using HostMirror = ParArrayGeneric<typename Data::HostMirror>;
+  using state_t = State; 
+  using HostMirror = ParArrayGeneric<typename Data::HostMirror, State>;
   using host_mirror_type = HostMirror;
-  
-  State state; 
 
   ParArrayGeneric() = default;
   __attribute__((nothrow)) ~ParArrayGeneric() = default;
@@ -75,12 +76,12 @@ class ParArrayGeneric {
   operator=(ParArrayGeneric<Data, State> &&t) = default;
   
   KOKKOS_INLINE_FUNCTION
-  explicit ParArrayGeneric(const Data &v, const State& state = State()) : state(state), data_(v) {}
+  explicit ParArrayGeneric(const Data &v, const State& state = State()) : State(state), data_(v) {}
 
   // Allow a ParArrayGeneric to be cast to any compatible Kokkos view
   template <class State2, class... Ts>
   operator ParArrayGeneric<Kokkos::View<Ts...>, State2>() const {
-    return ParArrayGeneric<Kokkos::View<Ts...>, State2>(data_, state);
+    return ParArrayGeneric<Kokkos::View<Ts...>, State2>(data_, static_cast<State>(*this));
   }
 
   template <class... Ts>
@@ -167,7 +168,7 @@ class ParArrayGeneric {
   template <typename MemSpace>
   auto GetMirror(MemSpace const &memspace) {
     auto mirror = Kokkos::create_mirror_view(memspace, data_);
-    return ParArrayGeneric<decltype(mirror), State>(mirror, state);
+    return ParArrayGeneric<decltype(mirror), State>(mirror, *this);
   }
   auto GetHostMirror() { return GetMirror(Kokkos::HostSpace()); }
   auto GetDeviceMirror() { return GetMirror(Kokkos::DefaultExecutionSpace()); }
@@ -180,14 +181,14 @@ class ParArrayGeneric {
   template <typename MemSpace>
   auto GetMirrorAndCopy(MemSpace const &memspace) {
     auto mirror = Kokkos::create_mirror_view_and_copy(memspace, data_);
-    return ParArrayGeneric<decltype(mirror), State>(mirror, state);
+    return ParArrayGeneric<decltype(mirror), State>(mirror, *this);
   }
   auto GetHostMirrorAndCopy() { return GetMirrorAndCopy(Kokkos::HostSpace()); }
 
   template <typename... Args>
   KOKKOS_INLINE_FUNCTION auto Slice(Args... args) const {
     auto v = Kokkos::subview(data_, std::forward<Args>(args)...);
-    return ParArrayGeneric<decltype(v), State>(v, state);
+    return ParArrayGeneric<decltype(v), State>(v, *this);
   }
 
   // AthenaArray.InitWithShallowSlice(src,dim,indx,nvar)
@@ -226,7 +227,7 @@ class ParArrayGeneric {
   // an unused value. Found this trick buried deep in the gcc documentation
   template <class... Args, std::size_t... I>
   ParArrayGeneric(const std::string &label, const State& state, std::index_sequence<I...>, Args... args)
-      : state(state), data_(label, ((void)I, 1)..., args...) {}
+      : State(state), data_(label, ((void)I, 1)..., args...) {}
 
   template <class... Args, std::size_t... I>
   void NewParArrayND(std::index_sequence<I...>, Args... args, const std::string &label) {
@@ -237,7 +238,7 @@ class ParArrayGeneric {
   KOKKOS_FORCEINLINE_FUNCTION auto Get(std::index_sequence<I...>, Args... args) const {
     using view_t = decltype(Kokkos::subview(data_, args..., ((void)I, Kokkos::ALL())...));
     return ParArrayGeneric<view_t, State>(
-        Kokkos::subview(data_, args..., ((void)I, Kokkos::ALL())...), state);
+        Kokkos::subview(data_, args..., ((void)I, Kokkos::ALL())...), *this);
   }
 
   template <std::size_t... I>
@@ -271,49 +272,49 @@ class ParArrayGeneric {
 
 namespace Kokkos {
 
-template <class Space, class U>
-inline auto create_mirror_view_and_copy(Space const& space, const parthenon::ParArrayGeneric<U> &arr) {
+template <class Space, class U, class SU>
+inline auto create_mirror_view_and_copy(Space const& space, const parthenon::ParArrayGeneric<U, SU> &arr) {
   return Kokkos::create_mirror_view_and_copy(space, static_cast<U>(arr));
 }
 
-template <class U>
-inline auto create_mirror_view_and_copy(const parthenon::ParArrayGeneric<U> &arr) {
+template <class U, class SU>
+inline auto create_mirror_view_and_copy(const parthenon::ParArrayGeneric<U, SU> &arr) {
   return Kokkos::create_mirror_view_and_copy(static_cast<U>(arr));
 }
 
-template <class Space, class U>
-inline auto create_mirror_view(Space const& space, const parthenon::ParArrayGeneric<U> &arr) {
+template <class Space, class U, class SU>
+inline auto create_mirror_view(Space const& space, const parthenon::ParArrayGeneric<U, SU> &arr) {
   return Kokkos::create_mirror_view(space, static_cast<U>(arr));
 }
 
-template <class U>
-inline auto create_mirror_view(const parthenon::ParArrayGeneric<U> &arr) {
+template <class U, class SU>
+inline auto create_mirror_view(const parthenon::ParArrayGeneric<U, SU> &arr) {
   return Kokkos::create_mirror_view(static_cast<U>(arr));
 }
 
-template <class Space, class U>
-inline auto create_mirror(Space const& space, const parthenon::ParArrayGeneric<U> &arr) {
+template <class Space, class U, class SU>
+inline auto create_mirror(Space const& space, const parthenon::ParArrayGeneric<U, SU> &arr) {
   return Kokkos::create_mirror(space, static_cast<U>(arr));
 }
 
-template <class U>
-inline auto create_mirror(const parthenon::ParArrayGeneric<U> &arr) {
+template <class U, class SU>
+inline auto create_mirror(const parthenon::ParArrayGeneric<U, SU> &arr) {
   return Kokkos::create_mirror(static_cast<U>(arr));
 }
 
-template <class T, class U>
-inline void deep_copy(const T &dest, const parthenon::ParArrayGeneric<U> &src) {
+template <class T, class U, class SU>
+inline void deep_copy(const T &dest, const parthenon::ParArrayGeneric<U, SU> &src) {
   Kokkos::deep_copy(dest, static_cast<U>(src));
 }
 
-template <class T, class U>
-inline void deep_copy(const parthenon::ParArrayGeneric<T> &dest, const U &src) {
+template <class T, class ST, class U>
+inline void deep_copy(const parthenon::ParArrayGeneric<T, ST> &dest, const U &src) {
   Kokkos::deep_copy(static_cast<T>(dest), src);
 }
 
-template <class T, class U>
-inline void deep_copy(const parthenon::ParArrayGeneric<T> &dest,
-                      const parthenon::ParArrayGeneric<U> &src) {
+template <class T, class ST, class U, class SU>
+inline void deep_copy(const parthenon::ParArrayGeneric<T, ST> &dest,
+                      const parthenon::ParArrayGeneric<U, SU> &src) {
   Kokkos::deep_copy(static_cast<T>(dest), static_cast<U>(src));
 }
 
