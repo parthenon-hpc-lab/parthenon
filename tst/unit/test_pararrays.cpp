@@ -447,8 +447,9 @@ struct state_t : public parthenon::empty_state_t {
   state_t() : state_val_(0.0) {}
   KOKKOS_INLINE_FUNCTION
   explicit state_t(double val) : state_val_(val) {}
-  KOKKOS_INLINE_FUNCTION 
-  double val() {return state_val_;}
+  KOKKOS_INLINE_FUNCTION
+  double val() { return state_val_; }
+
  private:
   double state_val_;
 };
@@ -467,7 +468,7 @@ TEST_CASE("ParArray state", "[ParArrayND]") {
       REQUIRE(pa3.val() == test_value);
     }
   }
-  
+
   GIVEN("A state type that inherits from empty_state_t") {
     arr3d_t pa3("3D", state_t(5.0), N, N, N);
     THEN("We should be able to copy into a stateless ParArray") {
@@ -476,23 +477,23 @@ TEST_CASE("ParArray state", "[ParArrayND]") {
   }
 
   GIVEN("An array of ParArrays filled with the values contained in their state") {
-    parthenon::ParArray1D<arr3d_t> pack("test pack", NS); 
-    auto pack_h = Kokkos::create_mirror_view(pack); 
+    parthenon::ParArray1D<arr3d_t> pack("test pack", NS);
+    auto pack_h = Kokkos::create_mirror_view(pack);
 
-    for (int b=0; b < NS; ++b) {
-      state_t state(static_cast<double>(b)); 
-      pack_h(b) = arr3d_t("3D", state, N, N, N); 
-    }   
-    Kokkos::deep_copy(pack, pack_h); 
+    for (int b = 0; b < NS; ++b) {
+      state_t state(static_cast<double>(b));
+      pack_h(b) = arr3d_t("3D", state, N, N, N);
+    }
+    Kokkos::deep_copy(pack, pack_h);
 
     Kokkos::parallel_for(
         policy4d({0, 0, 0, 0}, {NS, N, N, N}),
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           pack(b)(k, j, i) = pack(b).val();
         });
-    
+
     THEN("The arrays should contain the value contained in the state") {
-      for (int b=0; b < NS; ++b) {
+      for (int b = 0; b < NS; ++b) {
         auto pa3_h = pack_h(b).GetHostMirrorAndCopy();
 
         for (int k = 0; k < N; ++k)
@@ -502,7 +503,6 @@ TEST_CASE("ParArray state", "[ParArrayND]") {
             }
       }
     }
-    
   }
 }
 
