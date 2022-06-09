@@ -34,6 +34,7 @@ using parthenon::ParArrayND;
 using Real = double;
 
 using policy6d = Kokkos::MDRangePolicy<Kokkos::Rank<6>>;
+using policy4d = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
 using policy3d = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
 using policy2d = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
 
@@ -442,41 +443,66 @@ TEST_CASE("ParArray resizing", "[ParArrayND]") {
 }
 
 struct state_t : public parthenon::empty_state_t {
-  explicit state_t(double val) : state_val(val) {}
-  double state_val;
+  KOKKOS_INLINE_FUNCTION
+  state_t() : state_val_(0.0) {}
+  KOKKOS_INLINE_FUNCTION
+  explicit state_t(double val) : state_val_(val) {}
+  KOKKOS_INLINE_FUNCTION 
+  double val() {return state_val_;}
+ private:
+  double state_val_;
 };
 
 TEST_CASE("ParArray state", "[ParArrayND]") {
+  using arr4d_t = parthenon::ParArray4D<double, state_t>;
+  using arr3d_t = parthenon::ParArray3D<double, state_t>;
   GIVEN("A ParArray4D with some associated state and a ParArray3D gotten from it") {
     const double test_value = 5.0;
     state_t state(test_value);
-    parthenon::ParArray4D<double, state_t> pa4("4D", state, 4, N, N, N);
 
-    auto pa3 = pa4.Get(1);
+    arr4d_t pa4("4D", state, 4, N, N, N);
+    arr3d_t pa3 = pa4.Get(1);
 
     THEN("The lower dimensional ParArray should have the same state.") {
-      REQUIRE(pa3.state_val == test_value);
+      REQUIRE(pa3.val() == test_value);
     }
-
-    Kokkos::parallel_for(
-        policy3d({0, 0, 0}, {N, N, N}),
-        KOKKOS_LAMBDA(const int k, const int j, const int i) {
-          pa3(k, j, i) = pa3.state_val;
-        });
-
-    auto pa3_h = pa3.GetHostMirrorAndCopy();
-
-    THEN("The array should be filled with the value contained in the state") {
-      for (int k = 0; k < N; ++k)
-        for (int j = 0; j < N; ++j)
-          for (int i = 0; i < N; ++i) {
-            REQUIRE(pa3_h(k, j, i) == test_value);
-          }
-    }
-
+  }
+  
+  GIVEN("A state type that inherits from empty_state_t") {
+    arr3d_t pa3("3D", state_t(5.0), N, N, N);
     THEN("We should be able to copy into a stateless ParArray") {
       ParArray3D<double> pa3_stateless = pa3;
     }
+  }
+
+  GIVEN("An array of ParArrays filled with the values contained in their state") {
+    parthenon::ParArray1D<arr3d_t> pack("test pack", NS); 
+    auto pack_h = Kokkos::create_mirror_view(pack); 
+
+    for (int b=0; b < NS; ++b) {
+      state_t state(static_cast<double>(b)); 
+      pack_h(b) = arr3d_t("3D", state, N, N, N); 
+    }   
+    Kokkos::deep_copy(pack, pack_h); 
+
+    Kokkos::parallel_for(
+        policy4d({0, 0, 0, 0}, {NS, N, N, N}),
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          pack(b)(k, j, i) = pack(b).val();
+        });
+    
+    THEN("The arrays should contain the value contained in the state") {
+      for (int b=0; b < NS; ++b) {
+        auto pa3_h = pack_h(b).GetHostMirrorAndCopy();
+
+        for (int k = 0; k < N; ++k)
+          for (int j = 0; j < N; ++j)
+            for (int i = 0; i < N; ++i) {
+              REQUIRE(pa3_h(k, j, i) == static_cast<double>(b));
+            }
+      }
+    }
+    
   }
 }
 
