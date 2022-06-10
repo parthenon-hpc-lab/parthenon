@@ -14,8 +14,27 @@
 #define INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
 
 #include "coordinates/coordinates.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
+
+struct SwarmKey {
+  KOKKOS_INLINE_FUNCTION
+  SwarmKey() {}
+  KOKKOS_INLINE_FUNCTION
+  SwarmKey(const int cell_idx_1d, const int swarm_idx_1d)
+      : cell_idx_1d_(cell_idx_1d), swarm_idx_(swarm_idx_1d) {}
+
+  int cell_idx_1d_;
+  int swarm_idx_;
+};
+
+struct SwarmKeyComparator {
+  KOKKOS_INLINE_FUNCTION
+  bool operator()(const SwarmKey &s1, const SwarmKey &s2) {
+    return s1.cell_idx_1d_ < s2.cell_idx_1d_;
+  }
+};
 
 // TODO(BRR) Template this class on coordinates/pass appropriate additional args to e.g.
 // coords_.Dx()
@@ -80,6 +99,18 @@ class SwarmDeviceContext {
                     : kb_s_;
   }
 
+  KOKKOS_INLINE_FUNCTION
+  int GetParticleCountPerCell(const int k, const int j, const int i) const {
+    return cellSortedNumber_(k, j, i);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  int GetFullIndex(const int k, const int j, const int i, const int n) const {
+    PARTHENON_DEBUG_REQUIRE(n < cellSortedNumber_(k, j, i),
+                            "Particle index out of range!");
+    return cellSorted_(cellSortedBegin_(k, j, i) + n).swarm_idx_;
+  }
+
   // private:
   int ib_s_;
   int jb_s_;
@@ -100,6 +131,9 @@ class SwarmDeviceContext {
   ParArrayND<bool> mask_;
   ParArrayND<int> blockIndex_;
   ParArrayND<int> neighborIndices_; // 4x4x4 array of possible block AMR regions
+  ParArray1D<SwarmKey> cellSorted_;
+  ParArrayND<int> cellSortedBegin_;
+  ParArrayND<int> cellSortedNumber_;
   int ndim_;
   friend class Swarm;
   constexpr static int this_block_ = -1; // Mirrors definition in Swarm class

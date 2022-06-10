@@ -190,6 +190,9 @@ add_library(parthenon
   refinement/refinement.hpp
 
   solvers/solver_utils.hpp
+  solvers/cg_solver.hpp
+  solvers/newton_krylov.hpp
+  solvers/solvers.cpp
 
   tasks/task_id.cpp
   tasks/task_id.hpp
@@ -208,6 +211,7 @@ add_library(parthenon
   utils/reductions.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp
+  utils/sort.hpp
   utils/string_utils.cpp
   utils/string_utils.hpp
   utils/utils.hpp

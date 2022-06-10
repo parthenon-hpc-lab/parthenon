@@ -26,6 +26,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
@@ -324,6 +325,15 @@ class VariablePack {
 
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNdim() const { return ndim_; }
+
+  // These return coordinates ON DEVICE
+  // This call segfaults on the host.
+  KOKKOS_FORCEINLINE_FUNCTION
+  const Coordinates_t &GetCoords() const { return coords(); }
+  KOKKOS_FORCEINLINE_FUNCTION
+  const Coordinates_t &GetCoords(int) const { return coords(); }
+  // public field, with accessors for convenience
+  ParArray0D<Coordinates_t> coords;
 
  protected:
   ViewOfParArrays<T> v_;

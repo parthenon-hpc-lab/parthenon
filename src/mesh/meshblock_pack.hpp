@@ -83,9 +83,8 @@ class MeshBlockPack {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetSparse(const int b, const int n) const { return v_(b).GetSparse(n); }
 
-  // TODO(JMM): Also include mesh domain object?
-  IndexShape cellbounds;
-  ParArray1D<Coordinates_t> coords;
+  KOKKOS_FORCEINLINE_FUNCTION
+  const Coordinates_t &GetCoords(const int i) const { return v_(i).GetCoords(); }
 
  private:
   ParArray1D<T> v_;

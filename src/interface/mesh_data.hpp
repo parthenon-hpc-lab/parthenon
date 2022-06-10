@@ -169,7 +169,6 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
         stop_host(i, j) = this_map["flux::" + ordered_list[j]].second;
       }
       packs_host(i) = pack;
-      coords_host(i) = block_data_[i]->GetBlockPointer()->coords;
     }
 
     std::array<int, 5> dims;
@@ -189,7 +188,6 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
       Kokkos::deep_copy(stop, stop_host);
     }
     Kokkos::deep_copy(packs, packs_host);
-    Kokkos::deep_copy(coords, coords_host);
 
     typename M::mapped_type new_item;
     new_item.alloc_status = alloc_status_collection;

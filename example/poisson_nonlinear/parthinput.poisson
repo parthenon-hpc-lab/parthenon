@@ -3,7 +3,7 @@
 #  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 21. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,22 +16,21 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = particles
+problem_id = poisson
 
 <parthenon/mesh>
-refinement = none
+pack_size = 1
+nx1 = 128
+x1min = -1.0
+x1max = 1.0
+ix1_bc = outflow
+ox1_bc = outflow
 
-nx1 = 16
-x1min = -0.5
-x1max = 0.5
-ix1_bc = periodic
-ox1_bc = periodic
-
-nx2 = 16
-x2min = -0.5
-x2max = 0.5
-ix2_bc = periodic
-ox2_bc = periodic
+nx2 = 128
+x2min = -1.0
+x2max = 1.0
+ix2_bc = outflow
+ox2_bc = outflow
 
 nx3 = 1
 x3min = -0.5
@@ -39,23 +38,28 @@ x3max = 0.5
 ix3_bc = periodic
 ox3_bc = periodic
 
-<parthenon/meshblock>
-nx1 = 16
-nx2 = 16
+#<parthenon/meshblock>
+#nx1 = 64
+#nx2 = 64
+#nx3 = 1
+
+<parthenon/time>
+#nlim = -1
+#tlim = 1.0
+#integrator = rk2
+#ncycle_out_mesh = -10000
 
 <parthenon/output0>
 file_type = hdf5
-dt = 1.e1
-variables = particle_deposition
+dt = 0.05
+variables = potential, residual, delta
 
-<parthenon/time>
-tlim = 1.e2
-integrator = rk1
-
-<Particles>
-num_particles = 10
-particle_speed = 1.0
-rng_seed = 23487
-const_dt = 0.5
-deposition_method = per_cell
-destroy_particles_frac = 0.1
+<poisson>
+lambda = 0.1
+newton_max_iterations = 200
+lin_max_iterations = 50000
+#lin_check_interval = 1
+newton_error_tolerance = 1.e-28
+#fail_without_convergence = false
+#warn_without_convergence = true
+#precon_name = icc 
