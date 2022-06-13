@@ -59,10 +59,10 @@ using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
 
 template <typename T>
 using ParArray0D = Kokkos::View<T, LayoutWrapper, DevMemSpace>;
-template <typename T>
-using ParArray1D = Kokkos::View<T *, LayoutWrapper, DevMemSpace>;
-template <typename T>
-using ParArray2D = Kokkos::View<T **, LayoutWrapper, DevMemSpace>;
+template <typename T, typename State = empty_state_t>
+using ParArray1D = ParArrayGeneric<Kokkos::View<T *, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray2D = ParArrayGeneric<Kokkos::View<T **, LayoutWrapper, DevMemSpace>, State>;
 template <typename T, typename State = empty_state_t>
 using ParArray3D =
     ParArrayGeneric<Kokkos::View<T ***, LayoutWrapper, DevMemSpace>, State>;
