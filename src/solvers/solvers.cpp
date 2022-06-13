@@ -18,6 +18,7 @@ namespace parthenon {
 namespace solvers {
 
 int CG_Counter::global_num_cg_solvers = 0;
+int BiCGStabCounter::global_num_bicgstab_solvers = 0;
 int NewtonKrylov_Counter::global_num_newton_solvers = 0;
 
 } // namespace solvers
