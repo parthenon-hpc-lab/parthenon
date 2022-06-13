@@ -54,20 +54,6 @@ inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
          (sparse_id == InvalidSparseID ? "" : "_" + std::to_string(sparse_id));
 }
 
-struct VariableState : public empty_state_t {
-  KOKKOS_INLINE_FUNCTION
-  VariableState(double alloc, double dealloc)
-      : sparse_allocation_threshold(alloc), sparse_deallocation_threshold(dealloc) {}
-
-  KOKKOS_DEFAULTED_FUNCTION
-  VariableState() = default;
-  KOKKOS_INLINE_FUNCTION
-  explicit VariableState(const empty_state_t &) {}
-
-  double sparse_allocation_threshold;
-  double sparse_deallocation_threshold;
-};
-
 template <typename T>
 class CellVariable {
   // so that MeshBlock and MeshBlockData can call Allocate* and Deallocate
