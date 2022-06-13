@@ -23,14 +23,6 @@
 namespace parthenon {
 
 namespace impl {
-template <bool...>
-struct bool_pack;
-template <bool... bs>
-using all_true = std::is_same<bool_pack<bs..., true>, bool_pack<true, bs...>>;
-
-template <class... Ts>
-using are_all_integral = all_true<std::is_integral<Ts>::value...>;
-
 template <class T>
 bool all_greater_than(T) {
   return true;
@@ -39,9 +31,6 @@ template <class T, class Arg, class... Args>
 bool all_greater_than(T val, Arg v, Args... args) {
   return (v > val) && all_greater_than(val, args...);
 }
-
-template <class... Ts>
-using enable_if_all_integral = std::enable_if<are_all_integral<Ts...>::value>;
 } // namespace impl
 
 using namespace impl;
@@ -99,16 +88,15 @@ class ParArrayGeneric : public State {
     return data_;
   }
 
-  template <class... Args, class = typename enable_if_all_integral<Args...>::type>
+  template <class... Args>
   ParArrayGeneric(const std::string &label, Args... args)
       : ParArrayGeneric(label, State(),
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                         args...) {
-    assert(all_greater_than(0, args...));
     static_assert(Data::rank - sizeof...(Args) >= 0);
   }
 
-  template <class... Args, class = typename enable_if_all_integral<Args...>::type>
+  template <class... Args>
   ParArrayGeneric(const std::string &label, const State &state, Args... args)
       : ParArrayGeneric(label, state,
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
@@ -117,7 +105,7 @@ class ParArrayGeneric : public State {
     static_assert(Data::rank - sizeof...(Args) >= 0);
   }
 
-  template <class... Args, class = typename enable_if_all_integral<Args...>::type>
+  template <class... Args>
   void NewParArrayND(Args... args, const std::string &label = "ParArrayND") {
     assert(all_greater_than(0, args...));
     static_assert(Data::rank - sizeof...(Args) >= 0);
@@ -125,7 +113,7 @@ class ParArrayGeneric : public State {
                   label);
   }
 
-  template <class... Args, class = typename enable_if_all_integral<Args...>::type>
+  template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION auto Get(Args... args) const {
     static_assert(Data::rank - sizeof...(Args) >= 0);
     return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
@@ -137,13 +125,13 @@ class ParArrayGeneric : public State {
     return Get_TemplateVersion_impl(std::make_index_sequence<Data::rank - N>{});
   }
 
-  template <class... Args, class = typename enable_if_all_integral<Args...>::type>
+  template <class... Args>
   void Resize(Args... args) {
     static_assert(Data::rank - sizeof...(Args) >= 0);
     Resize(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
   }
 
-  template <class... Args, class = typename enable_if_all_integral<Args...>::type>
+  template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) const {
     static_assert(Data::rank - sizeof...(Args) >= 0);
     return _operator_impl(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
@@ -152,7 +140,7 @@ class ParArrayGeneric : public State {
 
   // This operator is only defined for one dimensional Kokkos arrays
   template <typename I0>
-  KOKKOS_INLINE_FUNCTION auto operator[](const I0 &i0) const {
+  KOKKOS_INLINE_FUNCTION auto &operator[](const I0 &i0) const {
     return data_[i0];
   }
 
