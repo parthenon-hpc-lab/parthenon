@@ -57,8 +57,8 @@ using BufMemSpace = Kokkos::DefaultExecutionSpace::memory_space;
 template <typename T>
 using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
 
-template <typename T>
-using ParArray0D = Kokkos::View<T, LayoutWrapper, DevMemSpace>;
+template <typename T, typename State = empty_state_t>
+using ParArray0D = ParArrayGeneric<Kokkos::View<T, LayoutWrapper, DevMemSpace>, State>;
 template <typename T, typename State = empty_state_t>
 using ParArray1D = ParArrayGeneric<Kokkos::View<T *, LayoutWrapper, DevMemSpace>, State>;
 template <typename T, typename State = empty_state_t>
