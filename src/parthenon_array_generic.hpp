@@ -37,8 +37,8 @@ using namespace impl;
 
 struct empty_state_t {
   // Allow this to be constructed with anything
-  template <class... Args>
-  KOKKOS_INLINE_FUNCTION empty_state_t(Args &&...) {}
+  //template <class... Args>
+  //KOKKOS_INLINE_FUNCTION empty_state_t(Args &&...) {}
 
   // LFR: We can't easily have virtual destructors on device, see Kokkos issue #1591.
   // It is non-ideal for there not to be a virtual destructor on this and other
@@ -88,7 +88,21 @@ class ParArrayGeneric : public State {
     return data_;
   }
 
-  template <class... Args>
+  // Construct with an unallocated view when no shape arguments are given 
+  // Rank zero arrays are a special case, so should not be set up with default 
+  // constructor. The first template parameter here is to get Data into the 
+  // immediate context of the function template so that it can be used in the 
+  // enable_if sfinae
+  template<class D = Data, class = typename std::enable_if<(D::rank > 0)>::type> 
+  explicit ParArrayGeneric(const std::string & /*label*/, const State &state = State())
+      : State(state), data_() {}
+  
+  template<class D = Data, class = typename std::enable_if<(D::rank > 0)>::type> 
+  explicit ParArrayGeneric(const State &state)
+      : State(state), data_() {}
+  
+  // Otherwise, assume leading dimensions are not given and set sizes of them to one    
+  template <class... Args, class = typename std::enable_if<(sizeof...(Args) > 0) || (Data::rank == 0)>::type>
   ParArrayGeneric(const std::string &label, Args... args)
       : ParArrayGeneric(label, State(),
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
@@ -96,7 +110,7 @@ class ParArrayGeneric : public State {
     static_assert(Data::rank - sizeof...(Args) >= 0);
   }
 
-  template <class... Args>
+  template <class... Args, class = typename std::enable_if<(sizeof...(Args) > 0) || (Data::rank == 0)>::type>
   ParArrayGeneric(const std::string &label, const State &state, Args... args)
       : ParArrayGeneric(label, state,
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
