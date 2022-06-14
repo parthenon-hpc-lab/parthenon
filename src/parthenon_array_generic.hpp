@@ -79,7 +79,7 @@ class ParArrayGeneric : public State {
 
   template <class State2, class... Ts>
   operator ParArrayGeneric<Kokkos::View<Ts...>, State2>() const {
-    return ParArrayGeneric<Kokkos::View<Ts...>, State2>(data_, static_cast<State>(*this));
+    return ParArrayGeneric<Kokkos::View<Ts...>, State2>(data_, State2(static_cast<State>(*this)));
   }
 
   // Allow a ParArrayGeneric to be cast to any compatible Kokkos view
