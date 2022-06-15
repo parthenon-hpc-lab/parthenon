@@ -36,8 +36,14 @@ class BiCGStabSolver : BiCGStabCounter {
   }
   std::vector<std::string> SolverState() const {
     return std::vector<std::string>(
-      {spm_name, sol_name, rhs_name, res, res0, vk, pk, tk}
+      {spm_name, rhs_name, res, res0, vk, pk, tk}
     );
+  }
+  std::string label() const {
+    std::string lab;
+    for (const auto &s : SolverState())
+      lab += s;
+    return lab;
   }
 
   TaskID CreateTaskList(const TaskID &begin, const int i, TaskRegion &tr,
@@ -421,7 +427,8 @@ class BiCGStabSolver : BiCGStabCounter {
     return converged ? TaskStatus::complete : TaskStatus::iterate;
   }
 
-  Real error_tol;  
+  Real error_tol;
+  SparseMatrixAccessor sp_accessor;
   int max_iters, check_interval, bicgstab_cntr;
   bool fail_flag, warn_flag;
   std::string spm_name, sol_name, rhs_name, res, res0, vk, pk, tk, solver_name;

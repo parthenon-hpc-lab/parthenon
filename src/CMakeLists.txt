@@ -189,6 +189,7 @@ add_library(parthenon
   refinement/refinement.cpp
   refinement/refinement.hpp
 
+  solvers/bicgstab_solver.hpp
   solvers/solver_utils.hpp
   solvers/cg_solver.hpp
   solvers/newton_krylov.hpp
