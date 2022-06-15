@@ -191,7 +191,7 @@ class BiCGStabSolver : BiCGStabCounter {
                                 BoundaryCommSubset::all);
 
     // 9. t = A s
-    auto get_t = solver.AddTask(clear2, &Solver_t::MatVec, this, md.get(),
+    auto get_t = solver.AddTask(clear2, &Solver_t::MatVec<MD_t>, this, md.get(),
       res, tk);
 
     // 10. omega = (t \cdot s) / (t \cdot t)
