@@ -99,6 +99,7 @@ class BiCGStabSolver : BiCGStabCounter {
                         IterativeTasks &solver, std::shared_ptr<MeshData<Real>> md,
                         std::shared_ptr<MeshData<Real>> mout) {
     using Solver_t = BiCGStabSolver<SPType>;
+    using MD_t = MeshData<Real>;
     TaskID none(0);
     TaskList &tl = tr[i];
     RegionCounter reg(solver_name);
@@ -113,7 +114,7 @@ class BiCGStabSolver : BiCGStabCounter {
     t_dot_t.val = 0.0;
   
     auto init_bicgstab = tl.AddTask(begin,
-      &Solver_t::InitializeBiCGStab<MeshData<Real>>,
+      &Solver_t::InitializeBiCGStab<MD_t>,
       this, md.get(), mout.get(), &global_res0.val);
     tr.AddRegionalDependencies(reg.ID(), i, init_bicgstab);
     // global reduction for initial residual 
@@ -124,7 +125,7 @@ class BiCGStabSolver : BiCGStabCounter {
       &AllReduce<Real>::CheckReduce, &global_res0);
 
     // 1. \hat{r}_0 \cdot r_{i-1}
-    auto get_rhoi = solver.AddTask(init_bicgstab, &Solver_t::DotProduct, this,
+    auto get_rhoi = solver.AddTask(init_bicgstab, &Solver_t::DotProduct<MD_t>, this,
       md.get(), res0, res, &rhoi.val);
     tr.AddRegionalDependencies(reg.ID(), i, get_rhoi);
 
@@ -137,7 +138,7 @@ class BiCGStabSolver : BiCGStabCounter {
 
     // 2. \beta = (rho_i/rho_{i-1}) (\alpha / \omega_{i-1})
     // 3. p_i = r_{i-1} + \beta (p_{i-1} - \omega_{i-1} v_{i-1})
-    auto update_pk = solver.AddTask(finish_global_rhoi, &Solver_t::Compute_pk, this,
+    auto update_pk = solver.AddTask(finish_global_rhoi, &Solver_t::Compute_pk<MD_t>, this,
       md.get());
 
     // ghost exchange for pk
@@ -153,10 +154,10 @@ class BiCGStabSolver : BiCGStabCounter {
                                 BoundaryCommSubset::all);
 
     // 4. v = A p
-    auto get_v = solver.AddTask(clear1, &Solver_t::MatVec, this, md.get(), pk, vk);
+    auto get_v = solver.AddTask(clear1, &Solver_t::MatVec<MD_t>, this, md.get(), pk, vk);
 
     // 5. alpha = rho_i / (\hat{r}_0 \cdot v_i)
-    auto get_r0dotv = solver.AddTask(get_v, &Solver_t::DotProduct, this,
+    auto get_r0dotv = solver.AddTask(get_v, &Solver_t::DotProduct<MD_t>, this,
       md.get(), res0, vk, &r0_dot_vk.val);
     tr.AddRegionalDependencies(reg.ID(), i, get_r0dotv);
     auto start_global_r0dotv = (i == 0 ?
@@ -167,14 +168,14 @@ class BiCGStabSolver : BiCGStabCounter {
     // alpha is actually updated in this next task
 
     // 6. h = x_{i-1} + alpha p
-    auto get_h = solver.AddTask(finish_global_r0dotv, &Solver_t::Update_h, this,
+    auto get_h = solver.AddTask(finish_global_r0dotv, &Solver_t::Update_h<MD_t>, this,
       md.get(), mout.get());
 
     // 7. check for convergence
 
 
     // 8. s = r_{i-1} - alpha v
-    auto get_s = solver.AddTask(finish_global_r0dotv, &Solver_t::Update_s, this,
+    auto get_s = solver.AddTask(finish_global_r0dotv, &Solver_t::Update_s<MD_t>, this,
       md.get());
 
     // ghost exchange for sk
@@ -211,7 +212,7 @@ class BiCGStabSolver : BiCGStabCounter {
 
     // 11. update x and residual
     auto update_x = solver.AddTask(finish_global_tdots | finish_global_tdott,
-      &Solver_t::Update_x_res, this, md.get(), mout.get(), &global_res.val);
+      &Solver_t::Update_x_res<MD_t>, this, md.get(), mout.get(), &global_res.val);
     tr.AddRegionalDependencies(reg.ID(), i, update_x);
     auto start_global_res = (i == 0 ?
       solver.AddTask(update_x, &AllReduce<Real>::StartReduce, &global_res, MPI_SUM) :
@@ -220,7 +221,7 @@ class BiCGStabSolver : BiCGStabCounter {
       &AllReduce<Real>::CheckReduce, &global_res);
 
     // 12. check for convergence
-    auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence, this, i, true);
+    auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence<MD_t>, this, i, true);
     tr.AddGlobalDependencies(reg.ID(), i, check);
 
     return check;
