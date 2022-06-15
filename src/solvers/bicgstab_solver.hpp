@@ -96,7 +96,7 @@ class BiCGStabSolver : BiCGStabCounter {
   }
 
   TaskID CreateTaskList(const TaskID &begin, const int i, TaskRegion &tr,
-                        IterativeTasks &solver, std::shared_ptr<MeshData<Real> md,
+                        IterativeTasks &solver, std::shared_ptr<MeshData<Real>> md,
                         std::shared_ptr<MeshData<Real>> mout) {
     using Solver_t = BiCGStabSolver<SPType>;
     TaskID none(0);
