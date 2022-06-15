@@ -434,12 +434,13 @@ class BiCGStabSolver : BiCGStabCounter {
       }
     }
     bool converged = global_res.val / global_res0.val < error_tol;
+    bool stop = bicgstab_cntr == max_iters;
     global_res.val = 0.0;
     rhoi.val = 0.0;
     r0_dot_vk.val = 0.0;
     t_dot_s.val = 0.0;
     t_dot_t.val = 0.0;
-    return converged ? TaskStatus::complete : TaskStatus::iterate;
+    return converged || stop ? TaskStatus::complete : TaskStatus::iterate;
   }
 
   Real error_tol;
