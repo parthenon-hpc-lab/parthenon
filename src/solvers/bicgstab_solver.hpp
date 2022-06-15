@@ -182,7 +182,7 @@ class BiCGStabSolver : BiCGStabCounter {
                                      BoundaryCommSubset::all);
     auto send2 =
         solver.AddTask(get_s, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
-    auto recv1 = solver.AddTask(
+    auto recv2 = solver.AddTask(
         start_recv2, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
     auto setb2 =
         solver.AddTask(recv2 | get_s, parthenon::cell_centered_bvars::SetBoundaries, md);
@@ -200,7 +200,7 @@ class BiCGStabSolver : BiCGStabCounter {
     auto start_global_tdots = (i == 0 ?
       solver.AddTask(get_tdots, &AllReduce<Real>::StartReduce, &t_dot_s, MPI_SUM) :
       get_tdots);
-    auto finish_global_r0dotv = solver.AddTask(start_global_tdots,
+    auto finish_global_tdots = solver.AddTask(start_global_tdots,
       &AllReduce<Real>::CheckReduce, &t_dot_s);
     auto start_global_tdott = (i == 0 ?
       solver.AddTask(get_tdots, &AllReduce<Real>::StartReduce, &t_dot_t, MPI_SUM) :
@@ -220,7 +220,7 @@ class BiCGStabSolver : BiCGStabCounter {
       &AllReduce<Real>::CheckReduce, &global_res);
 
     // 12. check for convergence
-    auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence, this, i, true)
+    auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence, this, i, true);
     tr.AddGlobalDependencies(reg.ID(), i, check);
 
     return check;
@@ -337,7 +337,8 @@ class BiCGStabSolver : BiCGStabCounter {
 
     auto &v = u->PackVariables(std::vector<std::string>({pk}));
     auto &dv = u->PackVariables(std::vector<std::string>({sol_name}));
-    const Real a = rhoi.val / r0_dot_vk.val;
+    alpha = rhoi.val / r0_dot_vk.val;
+    const Real a = alpha;
     par_for(DEFAULT_LOOP_PATTERN, "Update_h", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
@@ -355,7 +356,8 @@ class BiCGStabSolver : BiCGStabCounter {
     auto &v = u->PackVariables(std::vector<std::string>({res, vk}), imap);
     const int ires = imap[res].first;
     const int ivk = imap[vk].first;
-    const Real a = rhoi.val / r0_dot_vk.val;
+    alpha = rhoi.val / r0_dot_vk.val;
+    const Real a = alpha;
     par_for(DEFAULT_LOOP_PATTERN, "Update_s", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
@@ -445,7 +447,7 @@ class BiCGStabSolver : BiCGStabCounter {
   bool fail_flag, warn_flag;
   std::string spm_name, sol_name, rhs_name, res, res0, vk, pk, tk, solver_name;
 
-  Real rhoi_old, omega;
+  Real rhoi_old, alpha, omega;
   AllReduce<Real> global_res0;
   AllReduce<Real> global_res;
   AllReduce<Real> rhoi;
