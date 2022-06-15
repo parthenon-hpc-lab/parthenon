@@ -193,7 +193,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
     new_item.alloc_status = alloc_status_collection;
     new_item.map = pack_idx_map;
     new_item.pack = MeshBlockPack<P>(
-        packs, start, stop, block_data_[0]->GetBlockPointer()->cellbounds, coords, dims);
+        packs, start, stop, dims);
     itr = map.insert({total_key, new_item}).first;
   }
 
