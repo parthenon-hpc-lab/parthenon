@@ -236,7 +236,7 @@ class ParArrayGeneric : public State {
   void Reset() { data_ = Data(); }
 
   KOKKOS_INLINE_FUNCTION
-  bool IsAllocated() const { return data_.size() > 0; }
+  bool IsAllocated() const { return data_.is_allocated(); }
 
   KOKKOS_INLINE_FUNCTION
   bool is_allocated() const { return data_.is_allocated(); }
