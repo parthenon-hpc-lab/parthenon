@@ -458,4 +458,4 @@ class BiCGStabSolver : BiCGStabCounter {
 
 } // namespace parthenon
 
-#undef SOLVERS_BICGSTAB_SOLVER_HPP_
+#endif // SOLVERS_BICGSTAB_SOLVER_HPP_
