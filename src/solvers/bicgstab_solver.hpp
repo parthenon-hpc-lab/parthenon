@@ -221,7 +221,7 @@ class BiCGStabSolver : BiCGStabCounter {
       &AllReduce<Real>::CheckReduce, &global_res);
 
     // 12. check for convergence
-    auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence<MD_t>, this, i, true);
+    auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence, this, i, true);
     tr.AddGlobalDependencies(reg.ID(), i, check);
 
     return check;
