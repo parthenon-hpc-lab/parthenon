@@ -43,7 +43,7 @@ class MeshBlockPack {
   MeshBlockPack() = default;
   MeshBlockPack(const ParArray1D<T> view, const ParArray2D<int> start,
                 const ParArray2D<int> stop, const std::array<int, 5> dims)
-      : v_(view), start_(start), stop_(stop), cellbounds(shape), coords(coordinates),
+      : v_(view), start_(start), stop_(stop),
         dims_(dims), ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
