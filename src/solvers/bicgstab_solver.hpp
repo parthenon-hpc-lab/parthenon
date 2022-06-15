@@ -423,9 +423,9 @@ class BiCGStabSolver : BiCGStabCounter {
   TaskStatus CheckConvergence(const int &i, bool report) {
     if (i != 0) return TaskStatus::complete;
     bicgstab_cntr++;
-    if (bicgstab_cntr == 1) global_res0.val = std::sqrt(global_res0.val);
+    global_res.val = std::sqrt(global_res.val);
+    if (bicgstab_cntr == 1) global_res0.val = global_res0.val;
     if (report) {
-      global_res.val = std::sqrt(global_res.val);
       if (Globals::my_rank == 0) {
         std::cout << parthenon::Globals::my_rank << " its= " << bicgstab_cntr
                   << " relative res: " << global_res.val / global_res0.val << " absolute-res "
