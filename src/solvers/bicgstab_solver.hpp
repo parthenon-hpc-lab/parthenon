@@ -33,7 +33,7 @@ struct BiCGStabCounter {
   static int global_num_bicgstab_solvers;
 };
 
-template <Typename SPType>
+template <typename SPType>
 class BiCGStabSolver : BiCGStabCounter {
  public:
   BiCGStabSolver() = default;
@@ -60,7 +60,7 @@ class BiCGStabSolver : BiCGStabCounter {
 
   TaskID CreateTaskList(const TaskID &begin, const int i, TaskRegion &tr,
                         std::shared_ptr<MeshData<Real>> md,
-                        std::shared_ptr<Meshdata<Real>> mout) {
+                        std::shared_ptr<MeshData<Real>> mout) {
     auto &solver = tr[i].AddIteration(solver_name);
     solver.SetMaxIterations(max_iters);
     solver.SetCheckInterval(check_interval);
@@ -329,7 +329,7 @@ class BiCGStabSolver : BiCGStabCounter {
     return TaskStatus::complete;
   }
 
-  template <typenVame T>
+  template <typename T>
   TaskStatus Update_h(T *u, T *du) {
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
@@ -392,7 +392,7 @@ class BiCGStabSolver : BiCGStabCounter {
     return TaskStatus::complete;
   }
 
-  template <typenVame T>
+  template <typename T>
   TaskStatus Update_x_res(T *u, T *du, Real *gres) {
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
