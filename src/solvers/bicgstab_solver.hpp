@@ -195,7 +195,7 @@ class BiCGStabSolver : BiCGStabCounter {
       res, tk);
 
     // 10. omega = (t \cdot s) / (t \cdot t)
-    auto get_tdots = solver.AddTask(get_t, &Solver_t::OmegaDotProd<MD_t>, this,
+    auto get_tdots = solver.AddTask(get_t, &Solver_t::OmegaDotProd<MD_t>, this, md.get(),
       &t_dot_s.val, &t_dot_t.val);
     tr.AddRegionalDependencies(reg.ID(), i, get_tdots);
     auto start_global_tdots = (i == 0 ?
