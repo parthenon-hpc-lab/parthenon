@@ -11,6 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "bicgstab_solver.hpp"
 #include "cg_solver.hpp"
 #include "newton_krylov.hpp"
 
