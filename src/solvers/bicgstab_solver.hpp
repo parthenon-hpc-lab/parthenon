@@ -19,7 +19,7 @@ namespace solvers {
 
 struct BiCGStabCounter {
   static int global_num_bicgstab_solvers;
-}
+};
 
 template <Typename SPType>
 class BiCGStabSolver : BiCGStabCounter {
