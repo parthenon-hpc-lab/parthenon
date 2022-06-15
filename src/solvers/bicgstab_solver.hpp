@@ -66,7 +66,7 @@ class BiCGStabSolver : BiCGStabCounter {
     solver.SetCheckInterval(check_interval);
     solver.SetFailWithMaxIterations(fail_flag);
     solver.SetWarnWithMaxIterations(warn_flag);
-    return createTaskList(begin, i, tr, solver, md, mout);
+    return CreateTaskList(begin, i, tr, solver, md, mout);
   }
 
  private:
