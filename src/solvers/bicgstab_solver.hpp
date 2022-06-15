@@ -157,7 +157,7 @@ class BiCGStabSolver : BiCGStabCounter {
 
     // 5. alpha = rho_i / (\hat{r}_0 \cdot v_i)
     auto get_r0dotv = solver.AddTask(get_v, &Solver_t::DotProduct, this,
-      res0, vk, &r0_dot_vk.val);
+      md.get(), res0, vk, &r0_dot_vk.val);
     tr.AddRegionalDependencies(reg.ID(), i, get_r0dotv);
     auto start_global_r0dotv = (i == 0 ?
       solver.AddTask(get_r0dotv, &AllReduce<Real>::StartReduce, &r0_dot_vk, MPI_SUM) :
