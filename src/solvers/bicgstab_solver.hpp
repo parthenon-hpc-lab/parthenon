@@ -125,7 +125,7 @@ class BiCGStabSolver : BiCGStabCounter {
 
     // 1. \hat{r}_0 \cdot r_{i-1}
     auto get_rhoi = solver.AddTask(init_bicgstab, &Solver_t::DotProduct, this,
-      res0, res, &rhoi.val);
+      md.get(), res0, res, &rhoi.val);
     tr.AddRegionalDependencies(reg.ID(), i, get_rhoi);
 
     // global reduction for rhoi
