@@ -337,7 +337,7 @@ class BiCGStabSolver : BiCGStabCounter {
     const auto &kb = u->GetBoundsK(IndexDomain::interior);
 
     auto &v = u->PackVariables(std::vector<std::string>({pk}));
-    auto &dv = u->PackVariables(std::vector<std::string>({sol_name}));
+    auto &dv = du->PackVariables(std::vector<std::string>({sol_name}));
     alpha = rhoi.val / r0_dot_vk.val;
     const Real a = alpha;
     par_for(DEFAULT_LOOP_PATTERN, "Update_h", DevExecSpace(), 0,
@@ -405,7 +405,7 @@ class BiCGStabSolver : BiCGStabCounter {
     auto &v = u->PackVariables(std::vector<std::string>({res, tk}), imap);
     const int ires = imap[res].first;
     const int itk = imap[tk].first;
-    auto &dv = u->PackVariables(std::vector<std::string>({sol_name}));
+    auto &dv = du->PackVariables(std::vector<std::string>({sol_name}));
     omega = t_dot_s.val / t_dot_t.val;
     const Real w = omega;
     Real err(0);
