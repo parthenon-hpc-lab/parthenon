@@ -248,7 +248,7 @@ class BiCGStabSolver : BiCGStabCounter {
     omega = 1.0;
 
     Real err(0);
-    par_reduce(DEFAULT_LOOP_PATTERN, "initialize bicgstab", DevExecSpace(), 0,
+    par_reduce(loop_pattern_mdrange_tag, "initialize bicgstab", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lerr) {
         v(b, ires, k, j, i) = v(b, irhs, k, j, i);
@@ -408,7 +408,7 @@ class BiCGStabSolver : BiCGStabCounter {
     omega = t_dot_s.val / t_dot_t.val;
     const Real w = omega;
     Real err(0);
-    par_reduce(DEFAULT_LOOP_PATTERN, "Update_x", DevExecSpace(), 0,
+    par_reduce(loop_pattern_mdrange_tag, "Update_x", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lerr) {
         dv(b, 0, k, j, i) += w * v(b, ires, k, j, i);
