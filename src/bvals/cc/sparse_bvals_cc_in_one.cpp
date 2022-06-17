@@ -64,7 +64,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   {
     WriteRegion region("sparse buffers");
     // Build buffers
-    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       // Calculate the buffer size, this should be safe even for unsame levels
       int buf_size = (nb.ni.ox1 == 0 ? isize : Globals::nghost) *
                          (nb.ni.ox2 == 0 ? jsize : Globals::nghost) *
@@ -129,7 +129,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
 
   if (md->send_buf_vec.size() == 0) {
-    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(SendKey(pmb, nb, v)) > 0,
                               "Boundary communicator does not exist");
       md->send_buf_vec.push_back(&(pmesh->boundary_comm_map[SendKey(pmb, nb, v)]));
@@ -143,7 +143,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   int nbound = 0;
   {
     WriteRegion region("allocate send resource");
-    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       auto &buf = *md->send_buf_vec[nbound];
 
       if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
@@ -173,7 +173,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     md->send_bnd_info_h = Kokkos::create_mirror_view(md->send_bnd_info);
 
     int iarr = 0;
-    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       md->send_bnd_info_h(iarr).allocated = v->IsAllocated();
       if (v->IsAllocated()) {
         md->send_bnd_info_h(iarr) = BndInfo::GetSendBndInfo(pmb, nb, v);
@@ -262,7 +262,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   {
     WriteRegion region("sending boundaries");
     int iarr = 0;
-    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       auto &buf = *md->send_buf_vec[iarr];
       if (sending_nonzero_flags_h(iarr) || !Globals::sparse_config.enabled)
         buf.Send();
@@ -283,7 +283,7 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
 
   if (md->recv_buf_vec.size() == 0) {
-    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
                               "Boundary communicator does not exist");
       md->recv_buf_vec.push_back(&(pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)]));
@@ -291,7 +291,7 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   }
 
   int ibound = 0;
-  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     auto &buf = *md->recv_buf_vec[ibound];
 
     all_received = all_received && buf.TryReceive();
@@ -325,7 +325,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
 
   {
     WriteRegion region("check for rebuild receive");
-    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       auto &buf = *md->recv_buf_vec[nbound];
       if (nbound < md->recv_bnd_info_h.size()) {
         rebuild =
@@ -350,7 +350,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
     md->recv_bnd_info = BufferCache_t("recv_boundary_info", nbound);
     md->recv_bnd_info_h = Kokkos::create_mirror_view(md->recv_bnd_info);
     int iarr = 0;
-    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       auto &buf = *md->recv_buf_vec[iarr];
       if (v->IsAllocated())
         md->recv_bnd_info_h(iarr) = BndInfo::GetSetBndInfo(pmb, nb, v);
@@ -437,7 +437,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   {
     WriteRegion region("stale");
     int iarr = 0;
-    IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       md->recv_buf_vec[iarr]->Stale();
       ++iarr;
     });

@@ -52,7 +52,7 @@ inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
 }
 
 template <class F>
-inline void IterateBoundaries(std::shared_ptr<MeshData<Real>> &md, F func) {
+inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();

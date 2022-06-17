@@ -45,7 +45,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
   Mesh *pmesh = md->GetMeshPointer();
 
   bool all_available = true;
-  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) -> bool {
+  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) -> bool {
     // Check if this boundary requires flux correction
     if (nb.snb.level != pmb->loc.level - 1) return false;
     // No flux correction required unless boundaries share a face
@@ -60,7 +60,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
   });
   if (!all_available) return TaskStatus::incomplete;
 
-  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     // Check if this boundary requires flux correction
     if (nb.snb.level != pmb->loc.level - 1) return;
     // No flux correction required unless boundaries share a face
@@ -186,7 +186,7 @@ TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &m
   // WriteRegion region("Receive sparse boundary");
   bool all_received = true;
   Mesh *pmesh = md->GetMeshPointer();
-  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     // Check if this boundary requires flux correction
     if (nb.snb.level - 1 != pmb->loc.level) return;
     // No flux correction required unless boundaries share a face
@@ -209,7 +209,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
   Mesh *pmesh = md->GetMeshPointer();
 
-  IterateBoundaries(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     if ((nb.snb.level - 1 != pmb->loc.level) ||
         (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)) {
       return;
