@@ -317,12 +317,14 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
       info_h(b).ej = ej;
       info_h(b).sk = sk;
       info_h(b).ek = ek;
+      info_h(b).Nt = coarse.GetDim(6);
+      info_h(b).Nu = coarse.GetDim(5);
       info_h(b).Nv = nvars;
       info_h(b).refinement_op = RefinementOp_t::Prolongation;
       info_h(b).coords = pmb->coords;
       info_h(b).coarse_coords = this->coarse_coords;
-      info_h(b).fine = fine.Get(l, m);
-      info_h(b).coarse = coarse.Get(l, m);
+      info_h(b).fine = fine.Get();
+      info_h(b).coarse = coarse.Get();
       ++b;
     }
   }
