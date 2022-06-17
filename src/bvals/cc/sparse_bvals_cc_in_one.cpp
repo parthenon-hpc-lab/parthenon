@@ -242,9 +242,9 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
                 const int i = idx % Ni + si;
 
                 const Real val = bnd_info(b).var(t, u, v, k, j, i);
-                const size_t idx = i - si + Ni * (j - sj) + NjNi * (k - sk) 
-                                 + NkNjNi * v + NvNkNjNi * u + NuNvNkNjNi * t;
-                bnd_info(b).buf(idx) = val; 
+                const size_t idx = i - si + Ni * (j - sj) + NjNi * (k - sk) + NkNjNi * v +
+                                   NvNkNjNi * u + NuNvNkNjNi * t;
+                bnd_info(b).buf(idx) = val;
                 if (std::abs(val) > threshold) sending_nonzero_flags(b) = true;
               });
         });
@@ -411,9 +411,9 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
                   const int j = (idx % NjNi) / Ni + sj;
                   const int i = idx % Ni + si;
 
-                  const size_t idx = i - si + Ni * (j - sj) + NjNi * (k - sk) 
-                                 + NkNjNi * v + NvNkNjNi * u + NuNvNkNjNi * t;
-                                  
+                  const size_t idx = i - si + Ni * (j - sj) + NjNi * (k - sk) +
+                                     NkNjNi * v + NvNkNjNi * u + NuNvNkNjNi * t;
+
                   const Real val = bnd_info(b).buf(idx);
                   bnd_info(b).var(t, u, v, k, j, i) = val;
                 });
