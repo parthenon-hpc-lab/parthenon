@@ -85,16 +85,6 @@ ReceiveKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
   return {sender_id, receiver_id, pcv->label(), location_idx};
 }
 
-class WriteRegion {
- public:
-  explicit WriteRegion(std::string region_name) {
-    // std::cout << "Running " << region_name << "... " << std::flush;
-  }
-  ~WriteRegion() {
-    // std::cout << "done." << std::endl;
-  }
-};
-
 } // namespace impl
 } // namespace cell_centered_bvars
 } // namespace parthenon
