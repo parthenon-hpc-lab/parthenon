@@ -52,21 +52,21 @@ class IterativeTasks {
   // NOTE: we must capture the object pointer
   template <class T, class U, class... Args>
   TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), U *obj,
-                 Args &&... args) {
+                 Args &&...args) {
     return this->AddTask_(TaskType::iterative, 1, dep, [=]() mutable -> TaskStatus {
       return (obj->*func)(std::forward<Args>(args)...);
     });
   }
 
   template <class T, class... Args>
-  TaskID AddTask(TaskID const &dep, T &&func, Args &&... args) {
+  TaskID AddTask(TaskID const &dep, T &&func, Args &&...args) {
     return AddTask_(TaskType::iterative, 1, dep, std::forward<T>(func),
                     std::forward<Args>(args)...);
   }
 
   template <class T, class U, class... Args>
   TaskID SetCompletionTask(TaskID const &dep, TaskStatus (T::*func)(Args...), U *obj,
-                           Args &&... args) {
+                           Args &&...args) {
     return AddTask_(TaskType::completion_criteria, check_interval_, dep,
                     [=]() mutable -> TaskStatus {
                       return (obj->*func)(std::forward<Args>(args)...);
@@ -74,7 +74,7 @@ class IterativeTasks {
   }
 
   template <class T, class... Args>
-  TaskID SetCompletionTask(TaskID const &dep, T &&func, Args &&... args) {
+  TaskID SetCompletionTask(TaskID const &dep, T &&func, Args &&...args) {
     return AddTask_(TaskType::completion_criteria, check_interval_, dep,
                     std::forward<T>(func), std::forward<Args>(args)...);
   }
@@ -98,7 +98,7 @@ class IterativeTasks {
  private:
   template <class F, class... Args>
   TaskID AddTask_(const TaskType &type, const int interval, TaskID const &dep, F &&func,
-                  Args &&... args) {
+                  Args &&...args) {
     TaskID id(0);
     id = task_list_impl::AddTaskHelper(
         tl_, Task(
@@ -286,14 +286,14 @@ class TaskList {
   // NOTE: we must capture the object pointer
   template <class T, class U, class... Args>
   TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), U *obj,
-                 Args &&... args) {
+                 Args &&...args) {
     return this->AddTask(dep, [=]() mutable -> TaskStatus {
       return (obj->*func)(std::forward<Args>(args)...);
     });
   }
 
   template <class F, class... Args>
-  TaskID AddTask(TaskID const &dep, F &&func, Args &&... args) {
+  TaskID AddTask(TaskID const &dep, F &&func, Args &&...args) {
     TaskID id(tasks_added_ + 1);
     task_list_.push_back(
         Task(id, dep, [=, func = std::forward<F>(func)]() mutable -> TaskStatus {

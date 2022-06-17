@@ -17,6 +17,8 @@
 // so.
 //========================================================================================
 
+#include <algorithm>
+
 #include "mesh/refinement_cc_in_one.hpp"
 
 #include "kokkos_abstraction.hpp"
