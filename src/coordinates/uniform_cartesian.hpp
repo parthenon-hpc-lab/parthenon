@@ -42,7 +42,6 @@ class UniformCartesian {
     xmin_[1] = rs.x2min - istart_[1] * dx_[1];
     xmin_[2] = rs.x3min - istart_[2] * dx_[2];
   }
-  // Enable coarsening of coords
   UniformCartesian(const UniformCartesian &src, int coarsen)
       : istart_(src.GetStartIndex()) {
     dx_ = src.Dx_();
