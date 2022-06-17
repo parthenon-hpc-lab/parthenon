@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -49,6 +49,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Edge)                                                      \
   /** node variable */                                                                   \
   PARTHENON_INTERNAL_FOR_FLAG(Node)                                                      \
+  /** particle variable */                                                               \
+  PARTHENON_INTERNAL_FOR_FLAG(Particle)                                                  \
   /************************************************/                                     \
   /** ROLE: Exactly one must be specified (default is Provides) */                       \
   /** Private to a package */                                                            \
@@ -332,7 +334,7 @@ class Metadata {
     PARTHENON_THROW("No topology flag set");
   }
 
-  bool IsMeshTied() const { return Where() != None; }
+  bool IsMeshTied() const { return (Where() != None); }
 
   /// returns the type of the variable
   MetadataFlag Type() const {

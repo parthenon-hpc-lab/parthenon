@@ -105,10 +105,12 @@ void BoundaryValues::FillRestrictionMetadata(cell_centered_bvars::BufferCacheHos
               info(idx).coarse_coords = pmb->pmr->coarse_coords;
               info(idx).allocated = v->IsAllocated();
               if (v->IsAllocated()) {
-                info(idx).fine = v->data.Get(l, m);
-                info(idx).coarse = v->vbvar->coarse_buf.Get(l, m);
+                info(idx).fine = v->data.Get();
+                info(idx).coarse = v->vbvar->coarse_buf.Get();
               }
               info(idx).refinement_op = RefinementOp_t::Restriction;
+              info(idx).Nt = v->GetDim(6);
+              info(idx).Nu = v->GetDim(5);
               info(idx).Nv = v->GetDim(4);
               idx++;
             }

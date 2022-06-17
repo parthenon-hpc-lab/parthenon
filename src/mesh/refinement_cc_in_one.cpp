@@ -25,6 +25,7 @@
 
 namespace parthenon {
 namespace cell_centered_refinement {
+
 void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
               IndexShape &c_cellbounds) {
   const IndexDomain interior = IndexDomain::interior;
@@ -36,6 +37,8 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
   auto jb = cellbounds.GetBoundsJ(interior);
   auto ib = cellbounds.GetBoundsI(interior);
 
+  // TODO(BRR) nbuffers is currently always 1. In the future nbuffers could be > 1 to
+  // improve performance.
   const int nbuffers = info.extent_int(0);
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   size_t scratch_size_in_bytes = 1;
@@ -48,9 +51,11 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
           if (info(buf).allocated &&
               info(buf).refinement_op == RefinementOp_t::Restriction) {
             par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
-                info(buf).sk, info(buf).ek, info(buf).sj, info(buf).ej, info(buf).si,
-                info(buf).ei, [&](const int n, const int ck, const int cj, const int ci) {
+                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
+                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sk, info(buf).ek,
+                info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
+                [&](const int l, const int m, const int n, const int ck, const int cj,
+                    const int ci) {
                   const int k = (ck - ckb.s) * 2 + kb.s;
                   const int j = (cj - cjb.s) * 2 + jb.s;
                   const int i = (ci - cib.s) * 2 + ib.s;
@@ -70,14 +75,15 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
                   // symmetry
                   auto &coarse = info(buf).coarse;
                   auto &fine = info(buf).fine;
-                  coarse(n, ck, cj, ci) =
-                      (((fine(n, k, j, i) * vol000 + fine(n, k, j + 1, i) * vol010) +
-                        (fine(n, k, j, i + 1) * vol001 +
-                         fine(n, k, j + 1, i + 1) * vol011)) +
-                       ((fine(n, k + 1, j, i) * vol100 +
-                         fine(n, k + 1, j + 1, i) * vol110) +
-                        (fine(n, k + 1, j, i + 1) * vol101 +
-                         fine(n, k + 1, j + 1, i + 1) * vol111))) /
+                  coarse(l, m, n, ck, cj, ci) =
+                      (((fine(l, m, n, k, j, i) * vol000 +
+                         fine(l, m, n, k, j + 1, i) * vol010) +
+                        (fine(l, m, n, k, j, i + 1) * vol001 +
+                         fine(l, m, n, k, j + 1, i + 1) * vol011)) +
+                       ((fine(l, m, n, k + 1, j, i) * vol100 +
+                         fine(l, m, n, k + 1, j + 1, i) * vol110) +
+                        (fine(l, m, n, k + 1, j, i + 1) * vol101 +
+                         fine(l, m, n, k + 1, j + 1, i + 1) * vol111))) /
                       tvol;
                 });
           }
@@ -90,29 +96,32 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
           if (info(buf).allocated &&
               info(buf).refinement_op == RefinementOp_t::Restriction) {
             const int k = kb.s;
-            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
-                          info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
-                          [&](const int n, const int cj, const int ci) {
-                            const int j = (cj - cjb.s) * 2 + jb.s;
-                            const int i = (ci - cib.s) * 2 + ib.s;
-                            // KGF: add the off-centered quantities first to preserve FP
-                            // symmetry
-                            const Real vol00 = info(buf).coords.Volume(k, j, i);
-                            const Real vol10 = info(buf).coords.Volume(k, j + 1, i);
-                            const Real vol01 = info(buf).coords.Volume(k, j, i + 1);
-                            const Real vol11 = info(buf).coords.Volume(k, j + 1, i + 1);
-                            Real tvol = (vol00 + vol10) + (vol01 + vol11);
+            par_for_inner(
+                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
+                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sj, info(buf).ej,
+                info(buf).si, info(buf).ei,
+                [&](const int l, const int m, const int n, const int cj, const int ci) {
+                  const int j = (cj - cjb.s) * 2 + jb.s;
+                  const int i = (ci - cib.s) * 2 + ib.s;
+                  // KGF: add the off-centered quantities first to preserve FP
+                  // symmetry
+                  const Real vol00 = info(buf).coords.Volume(k, j, i);
+                  const Real vol10 = info(buf).coords.Volume(k, j + 1, i);
+                  const Real vol01 = info(buf).coords.Volume(k, j, i + 1);
+                  const Real vol11 = info(buf).coords.Volume(k, j + 1, i + 1);
+                  Real tvol = (vol00 + vol10) + (vol01 + vol11);
 
-                            // KGF: add the off-centered quantities first to preserve FP
-                            // symmetry
-                            auto &coarse = info(buf).coarse;
-                            auto &fine = info(buf).fine;
-                            coarse(n, 0, cj, ci) = ((fine(n, 0, j, i) * vol00 +
-                                                     fine(n, 0, j + 1, i) * vol10) +
-                                                    (fine(n, 0, j, i + 1) * vol01 +
-                                                     fine(n, 0, j + 1, i + 1) * vol11)) /
-                                                   tvol;
-                          });
+                  // KGF: add the off-centered quantities first to preserve FP
+                  // symmetry
+                  auto &coarse = info(buf).coarse;
+                  auto &fine = info(buf).fine;
+                  coarse(l, m, n, 0, cj, ci) =
+                      ((fine(l, m, n, 0, j, i) * vol00 +
+                        fine(l, m, n, 0, j + 1, i) * vol10) +
+                       (fine(l, m, n, 0, j, i + 1) * vol01 +
+                        fine(l, m, n, 0, j + 1, i + 1) * vol11)) /
+                      tvol;
+                });
           }
         });
   } else if (cellbounds.ncellsi(entire) > 1) { // 1D
@@ -126,18 +135,20 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
             const int cj = cjb.s;
             const int k = kb.s;
             const int j = jb.s;
-            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nv - 1,
-                          info(buf).si, info(buf).ei, [&](const int n, const int ci) {
-                            const int i = (ci - cib.s) * 2 + ib.s;
-                            const Real vol0 = info(buf).coords.Volume(k, j, i);
-                            const Real vol1 = info(buf).coords.Volume(k, j, i + 1);
-                            Real tvol = vol0 + vol1;
-                            auto &coarse = info(buf).coarse;
-                            auto &fine = info(buf).fine;
-                            coarse(n, ck, cj, ci) =
-                                (fine(n, k, j, i) * vol0 + fine(n, k, j, i + 1) * vol1) /
-                                tvol;
-                          });
+            par_for_inner(
+                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
+                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si, info(buf).ei,
+                [&](const int l, const int m, const int n, const int ci) {
+                  const int i = (ci - cib.s) * 2 + ib.s;
+                  const Real vol0 = info(buf).coords.Volume(k, j, i);
+                  const Real vol1 = info(buf).coords.Volume(k, j, i + 1);
+                  Real tvol = vol0 + vol1;
+                  auto &coarse = info(buf).coarse;
+                  auto &fine = info(buf).fine;
+                  coarse(l, m, n, ck, cj, ci) = (fine(l, m, n, k, j, i) * vol0 +
+                                                 fine(l, m, n, k, j, i + 1) * vol1) /
+                                                tvol;
+                });
           }
         });
   }

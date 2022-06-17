@@ -59,7 +59,7 @@ RestartReader::SparseInfo RestartReader::GetSparseInfo() const {
 
   // check if SparseInfo exists, if not, return the default-constructed SparseInfo
   // instance
-  auto status = PARTHENON_HDF5_CHECK(H5Oexists_by_name(fh_, "SparseInfo", H5P_DEFAULT));
+  auto status = PARTHENON_HDF5_CHECK(H5Lexists(fh_, "SparseInfo", H5P_DEFAULT));
   if (status > 0) {
     // SparseInfo exists, read its contents
     auto hdl = OpenDataset<bool>("SparseInfo");

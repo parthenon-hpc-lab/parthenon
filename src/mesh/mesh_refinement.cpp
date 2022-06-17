@@ -74,7 +74,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
 
   int b = 0;
-  int nbuffers = fine.GetDim(6) * fine.GetDim(5);
+  int nbuffers = 1;
   int nvars = fine.GetDim(4);
   cell_centered_bvars::BufferCache_t info("refinement info", nbuffers);
   auto info_h = Kokkos::create_mirror_view(info);
@@ -87,12 +87,14 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
       info_h(b).ej = cej;
       info_h(b).sk = csk;
       info_h(b).ek = cek;
+      info_h(b).Nt = fine.GetDim(6);
+      info_h(b).Nu = fine.GetDim(5);
       info_h(b).Nv = nvars;
       info_h(b).refinement_op = RefinementOp_t::Restriction;
       info_h(b).coords = pmb->coords;
       info_h(b).coarse_coords = this->coarse_coords;
-      info_h(b).fine = fine.Get(l, m);
-      info_h(b).coarse = coarse.Get(l, m);
+      info_h(b).fine = fine.Get();
+      info_h(b).coarse = coarse.Get();
       ++b;
     }
   }

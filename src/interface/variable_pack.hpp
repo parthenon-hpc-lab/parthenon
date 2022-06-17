@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -80,6 +80,9 @@ class FlatIdx {
     rng.e = shape_[iDim - 1] - 1;
     return rng;
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  bool IsValid() const { return (offset_ >= 0); }
 
   KOKKOS_FORCEINLINE_FUNCTION
   int operator()() const {
@@ -198,12 +201,17 @@ class PackIndexMap {
     shape_map_.insert(std::pair<std::string, vpack_types::Shape>(key, shape));
   }
 
-  vpack_types::FlatIdx GetFlatIdx(const std::string &key) {
+  vpack_types::FlatIdx GetFlatIdx(const std::string &key,
+                                  bool throw_invalid_key_error = true) {
     // Make sure the key exists
     auto itr = map_.find(key);
     auto itr_shape = shape_map_.find(key);
     if ((itr == map_.end()) || (itr_shape == shape_map_.end())) {
-      PARTHENON_THROW("Key " + key + " does not exist.");
+      if (throw_invalid_key_error) {
+        PARTHENON_THROW("Key " + key + " does not exist.");
+      } else {
+        return vpack_types::FlatIdx({}, -1);
+      }
     }
     return vpack_types::FlatIdx(itr_shape->second, itr->second.first);
   }
@@ -232,6 +240,9 @@ class PackIndexMap {
 
 template <typename T>
 using ViewOfParArrays = ParArray1D<ParArray3D<T>>;
+
+template <typename T>
+using ViewOfParArrays1D = ParArray1D<ParArray1D<T>>;
 
 // forward declaration
 template <typename T>
@@ -368,15 +379,23 @@ template <typename T>
 class SwarmVariablePack {
  public:
   SwarmVariablePack() = default;
-  SwarmVariablePack(const ViewOfParArrays<T> view, const std::array<int, 2> dims)
+  SwarmVariablePack(const ViewOfParArrays1D<T> view, const std::array<int, 2> dims)
       : v_(view), dims_(dims) {}
+
   KOKKOS_FORCEINLINE_FUNCTION
-  ParArray3D<T> &operator()(const int n) const { return v_(n); }
+  ParArray1D<T> &operator()(const int n) const { return v_(n); }
+
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(const int n, const int i) const { return v_(n)(0, 0, i); }
+  T &operator()(const int n, const int i) const { return v_(n)(i); }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetDim(const int i) const {
+    PARTHENON_REQUIRE(i > 0 && i < 3, "SwarmVariablePack dimensionality is 2!");
+    return dims_[i - 1];
+  }
 
  private:
-  ViewOfParArrays<T> v_;
+  ViewOfParArrays1D<T> v_;
   std::array<int, 2> dims_;
 };
 
@@ -479,9 +498,10 @@ void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap)
       int sparse_id = v->GetSparseID();
       if (sparse_id != InvalidSparseID) {
         std::vector<int> shape;
-        if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
-        if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
-        if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+        auto mshape = v->metadata().Shape();
+        if (mshape.size() > 0) shape.push_back(v->GetDim(4));
+        if (mshape.size() > 1) shape.push_back(v->GetDim(5));
+        if (mshape.size() > 2) shape.push_back(v->GetDim(6));
         auto &pair = pvmap->get(v->label());
         start = pair.first;
         stop = pair.second;
@@ -544,9 +564,10 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
     }
 
     std::vector<int> shape;
-    if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
-    if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
-    if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+    auto mshape = v->metadata().Shape();
+    if (mshape.size() > 0) shape.push_back(v->GetDim(4));
+    if (mshape.size() > 1) shape.push_back(v->GetDim(5));
+    if (mshape.size() > 2) shape.push_back(v->GetDim(6));
 
     if (pvmap != nullptr) {
       pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
@@ -564,30 +585,42 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
 }
 
 template <typename T>
-void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vmap,
-                      ViewOfParArrays<T> &cv) {
+void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
+                      ViewOfParArrays1D<T> &cv_out, PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
-  auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv);
+  auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
 
   int vindex = 0;
-  int sparse_start;
-  std::string sparse_name;
-  // TODO(BRR) Remove the logic for sparse variables
   for (const auto v : vars) {
-    if (vmap != nullptr) {
-      vmap->insert(sparse_name, IndexPair(sparse_start, vindex - 1));
-      sparse_name = "";
-    }
     int vstart = vindex;
-    // Reusing ViewOfParArrays which expects 3D slices
-    host_view(vindex++) = v->data.Get(0, 0, 0);
-    if (vmap != nullptr) {
-      vmap->insert(v->label(), IndexPair(vstart, vindex - 1));
+    for (int l = 0; l < v->GetDim(6); l++) {
+      for (int m = 0; m < v->GetDim(5); m++) {
+        for (int n = 0; n < v->GetDim(4); n++) {
+          for (int t = 0; t < v->GetDim(3); t++) {
+            for (int u = 0; u < v->GetDim(2); u++) {
+              host_cv(vindex) = v->data.Get(l, m, n, t, u);
+              vindex++;
+            }
+          }
+        }
+      }
+    }
+
+    std::vector<int> shape;
+    auto mshape = v->metadata().Shape();
+    if (mshape.size() > 0) shape.push_back(v->GetDim(2));
+    if (mshape.size() > 1) shape.push_back(v->GetDim(3));
+    if (mshape.size() > 2) shape.push_back(v->GetDim(4));
+    if (mshape.size() > 3) shape.push_back(v->GetDim(5));
+    if (mshape.size() > 4) shape.push_back(v->GetDim(6));
+
+    if (pvmap != nullptr) {
+      pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
 
-  Kokkos::deep_copy(cv, host_view);
+  Kokkos::deep_copy(cv_out, host_cv);
 }
 
 template <typename T>
@@ -621,9 +654,10 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
     }
 
     std::vector<int> shape;
-    if (v->GetDim(4) > 1) shape.push_back(v->GetDim(4));
-    if (v->GetDim(5) > 1) shape.push_back(v->GetDim(5));
-    if (v->GetDim(6) > 1) shape.push_back(v->GetDim(6));
+    auto mshape = v->metadata().Shape();
+    if (mshape.size() > 0) shape.push_back(v->GetDim(4));
+    if (mshape.size() > 1) shape.push_back(v->GetDim(5));
+    if (mshape.size() > 2) shape.push_back(v->GetDim(6));
 
     if (pvmap != nullptr) {
       pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
@@ -741,26 +775,28 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
 
 template <typename T>
 SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
-                                   PackIndexMap *vmap = nullptr) {
+                                   PackIndexMap *pvmap = nullptr) {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
-    vsize++;
+    // we also count unallocated vars because the total size needs to be uniform across
+    // meshblocks that meshblock packs will work
+    vsize += v->NumComponents();
   }
 
   // make the outer view
-  ViewOfParArrays<T> cv("MakeSwarmPack::cv", vsize);
-  ParArray1D<int> sparse_assoc("MakeSwarmPack::sparse_assoc", vsize); // Unused
+  ViewOfParArrays1D<T> cv("MakePack::cv", vsize);
 
-  FillSwarmVarView(vars, vmap, cv);
+  std::array<int, 2> cv_size{0, 0};
+  if (vsize > 0) {
+    // Assume all variables have the same first dimension (same swarm pool)
+    const auto &var = vars.front();
+    cv_size[0] = var->GetDim(1);
+    cv_size[1] = vsize;
 
-  // If no vars, return empty pack
-  if (vars.empty()) {
-    return SwarmVariablePack<T>();
+    FillSwarmVarView(vars, cv, pvmap);
   }
 
-  auto fvar = vars.front()->data;
-  std::array<int, 2> cv_size = {fvar.GetDim(1), vsize};
   return SwarmVariablePack<T>(cv, cv_size);
 }
 

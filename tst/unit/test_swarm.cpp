@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -24,6 +24,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "bvals/bvals_interfaces.hpp"
 #include "interface/swarm.hpp"
 #include "mesh/mesh.hpp"
 
@@ -32,16 +33,36 @@
 
 using Real = double;
 using parthenon::ApplicationInput;
+using parthenon::BoundaryFlag;
+using parthenon::DeviceAllocate;
+using parthenon::DeviceDeleter;
 using parthenon::Mesh;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
 using parthenon::Packages_t;
 using parthenon::ParameterInput;
 using parthenon::ParArrayND;
+using parthenon::ParticleBound;
 using parthenon::Swarm;
+using parthenon::SwarmDeviceContext;
 using std::endl;
 
 constexpr int NUMINIT = 10;
+
+class ParticleBoundIX1User : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) const override {
+    if (x < swarm_d.x_min_global_) {
+      swarm_d.MarkParticleForRemoval(n);
+    }
+  }
+};
+
+std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
+SetSwarmIX1UserBC() {
+  return DeviceAllocate<ParticleBoundIX1User>();
+}
 
 TEST_CASE("Swarm memory management", "[Swarm]") {
   std::stringstream is;
@@ -61,10 +82,16 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   Packages_t packages;
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
   auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
+  mesh->mesh_bcs[0] = BoundaryFlag::user;
+  mesh->SwarmBndryFnctn[0] = SetSwarmIX1UserBC;
+  for (int i = 1; i < 6; i++) {
+    mesh->mesh_bcs[i] = BoundaryFlag::outflow;
+  }
   meshblock->pmy_mesh = mesh.get();
   Metadata m;
   auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
   swarm->SetBlockPointer(meshblock);
+  swarm->AllocateBoundaries();
   auto swarm_d = swarm->GetDeviceContext();
   REQUIRE(swarm->GetNumActive() == 0);
   REQUIRE(swarm->GetMaxActiveIndex() == 0);
@@ -88,7 +115,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   std::vector<std::string> labelVector(2);
   labelVector[0] = "i";
   labelVector[1] = "j";
-  Metadata m_integer({Metadata::Integer});
+  Metadata m_integer({Metadata::Integer, Metadata::Particle});
   swarm->Add(labelVector, m_integer);
 
   ParArrayND<int> new_indices;
@@ -183,4 +210,24 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(x_h(4) == 1.1);
   i_h = swarm->Get<int>("i").Get().GetHostMirrorAndCopy();
   REQUIRE(i_h(1) == 2);
+
+  // "Transport" a particle across the IX1 (custom) boundary
+  ParArrayND<int> bc_indices("Boundary indices", 1);
+  meshblock->par_for(
+      "Transport", 0, 0, KOKKOS_LAMBDA(const int n) {
+        x_d(0) = -0.6;
+        bc_indices(0) = 0;
+      });
+  swarm->ApplyBoundaries_(1, bc_indices);
+  swarm->RemoveMarkedParticles();
+
+  // Check that particle that crossed boundary has been removed
+  meshblock->par_for(
+      "Check boundary", 0, 0, KOKKOS_LAMBDA(const int n) {
+        if (swarm_d.IsActive(0)) {
+          Kokkos::atomic_add(&failures_d(0), 1);
+        }
+      });
+  failures_h = failures_d.GetHostMirrorAndCopy();
+  REQUIRE(failures_h(0) == 0);
 }
