@@ -95,8 +95,8 @@ class ParArrayGeneric : public State {
       : State(state), data_() {}
 
   template <class D = Data, class = typename std::enable_if<(D::rank > 0)>::type>
-  KOKKOS_INLINE_FUNCTION
-  explicit ParArrayGeneric(const State &state) : State(state), data_() {}
+  KOKKOS_INLINE_FUNCTION explicit ParArrayGeneric(const State &state)
+      : State(state), data_() {}
 
   // Otherwise, assume leading dimensions are not given and set sizes of them to one
   template <class... Args, class = typename std::enable_if<(sizeof...(Args) > 0) ||
@@ -245,7 +245,7 @@ class ParArrayGeneric : public State {
   // Want to be friends with all other specializations of ParArrayGeneric
   template <class Data2, class State2>
   friend class ParArrayGeneric;
-  
+
  private:
   // The stupid void casts below are to suppress compiler warnings about
   // an unused value. Found this trick buried deep in the gcc documentation
@@ -265,7 +265,7 @@ class ParArrayGeneric : public State {
     if (IsAllocated()) {
       return ParArrayGeneric<view_t, State>(
           Kokkos::subview(data_, args..., ((void)I, Kokkos::ALL())...), *this);
-    } else { 
+    } else {
       return ParArrayGeneric<view_t, State>(static_cast<State>(*this));
     }
   }
@@ -294,18 +294,16 @@ class ParArrayGeneric : public State {
   }
 
   Data data_;
-  
-  template<class PA> 
-  friend inline bool UseSameResource(const PA& pa1, const PA& pa2);
 
+  template <class PA>
+  friend inline bool UseSameResource(const PA &pa1, const PA &pa2);
 };
 
-
-template<class PA> 
-inline bool UseSameResource(const PA& pa1, const PA& pa2) {
-  // This should just check to see if the underlying data pointers are the same 
-  // need to test how this work on device 
-  return pa1.data_.data() == pa2.data_.data();  
+template <class PA>
+inline bool UseSameResource(const PA &pa1, const PA &pa2) {
+  // This should just check to see if the underlying data pointers are the same
+  // need to test how this work on device
+  return pa1.data_.data() == pa2.data_.data();
 }
 
 } // namespace parthenon

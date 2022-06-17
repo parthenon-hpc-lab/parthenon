@@ -468,19 +468,16 @@ TEST_CASE("ParArray state", "[ParArrayND]") {
       REQUIRE(pa3.val() == test_value);
     }
   }
-  
+
   GIVEN("A ParArray4D and another ParArray4D copied from it") {
     const double test_value = 5.0;
     state_t state(test_value);
 
     arr4d_t pa4("4D", state, 4, N, N, N);
 
-    arr4d_t pa4_copy = pa4; 
+    arr4d_t pa4_copy = pa4;
 
-
-    THEN("They point to the same resource") { 
-      REQUIRE(UseSameResource(pa4, pa4_copy));
-    }
+    THEN("They point to the same resource") { REQUIRE(UseSameResource(pa4, pa4_copy)); }
   }
 
   GIVEN("A state type that inherits from empty_state_t") {
@@ -489,7 +486,7 @@ TEST_CASE("ParArray state", "[ParArrayND]") {
       ParArray3D<double> pa3_stateless = pa3;
     }
   }
-  
+
   GIVEN("An array of ParArrays filled with the values contained in their state") {
     parthenon::ParArray1D<arr3d_t> pack("test pack", NS);
     auto pack_h = Kokkos::create_mirror_view(pack);
