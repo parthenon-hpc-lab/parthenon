@@ -84,7 +84,7 @@ struct BndInfo {
 
   KOKKOS_INLINE_FUNCTION
   int GetBufferSize() const {
-    return 1 + Nv * Nt * Nu * (ei - si + 1) * (ej - sj + 1) * (ek - sk + 1);
+    return Nt * Nu * Nv * (ei - si + 1) * (ej - sj + 1) * (ek - sk + 1);
   }
 };
 
