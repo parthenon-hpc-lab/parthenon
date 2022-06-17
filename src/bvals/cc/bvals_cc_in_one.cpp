@@ -362,7 +362,7 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
 
               auto &coarse_buf = v->vbvar->coarse_buf;
               boundary_info_h(b).var = coarse_buf.Get<4>();
-              boundary_info_h(b).restriction = true;
+              boundary_info_h(b).refinement_op = RefinementOp_t::Restriction;
 
             } else {
               CalcIndicesLoadToFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());

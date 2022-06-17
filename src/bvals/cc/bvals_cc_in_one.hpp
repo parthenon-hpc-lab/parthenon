@@ -54,7 +54,7 @@ struct BndInfo {
   int ek = 0;
   int Nv = 0;
   bool allocated = true;
-  bool restriction = false;
+  RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
   parthenon::BufArray1D<Real> buf;     // comm buffer
   parthenon::ParArray4D<Real> var;     // data variable used for comms
