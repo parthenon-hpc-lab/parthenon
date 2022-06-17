@@ -43,7 +43,6 @@ class UniformCartesian {
     xmin_[2] = rs.x3min - istart_[2] * dx_[2];
   }
   // Enable coarsening of coords
-  KOKKOS_INLINE_FUNCTION
   UniformCartesian(const UniformCartesian &src, int coarsen)
       : istart_(src.GetStartIndex()) {
     dx_ = src.Dx_();
