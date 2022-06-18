@@ -21,6 +21,7 @@
 - [[PR 617]](https://github.com/lanl/parthenon/pull/617) Unify the coordinates API for MeshBlockPack and VariablePack
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 679]](https://github.com/lanl/parthenon/pull/679) Handle case of multidim var labeling for output
 - [[PR 680]](https://github.com/lanl/partheon/pull/680) Fix hanging compilation for sort unit test
 - [[PR 678]](https://github.com/lanl/partheon/pull/678) Fix FlatIdx packing for size-1 dimensions
 - [[PR 677]](https://github.com/lanl/partheon/pull/677) Fix restart without `SparseInfo` object
