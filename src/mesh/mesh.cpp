@@ -1018,7 +1018,7 @@ void Mesh::EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg) {
 
 void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
   for (auto &pmb : block_list) {
-    pmb->UserWorkBeforeOutput(pin);
+    pmb->UserWorkBeforeOutput(pmb.get(), pin);
   }
 }
 
