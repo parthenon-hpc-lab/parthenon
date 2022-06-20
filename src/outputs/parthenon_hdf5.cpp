@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -85,28 +85,46 @@ using namespace HDF5;
 // Helper struct containing some information about a variable
 struct VarInfo {
   std::string label;
-  std::vector<std::string> component_labels;
   int vlen;
   int nx6;
   int nx5;
   int nx4;
   bool is_sparse;
   bool is_vector;
+  std::vector<std::string> component_labels;
 
   VarInfo() = delete;
 
-  VarInfo(const std::string &label, const std::vector<std::string> &component_labels,
+  VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
           int vlen, int nx6, int nx5, int nx4, bool is_sparse, bool is_vector)
-      : label(label),
-        component_labels(component_labels.size() > 0 ? component_labels
-                                                     : std::vector<std::string>{label}),
-        vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), is_sparse(is_sparse),
+      : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), is_sparse(is_sparse),
         is_vector(is_vector) {
     if (vlen <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with length " << vlen
           << ". vlen must be greater than 0" << std::endl;
       PARTHENON_FAIL(msg);
+    }
+
+    // Note that this logic does not subscript components without component_labels if
+    // there is only one component. Component names will be e.g.
+    //   my_scalar
+    // or
+    //   my_non-vector_set_0
+    //   my_non-vector_set_1
+    // Note that this means the subscript will be dropped for multidim quantities if their
+    // Nx6, Nx5, Nx4 are set to 1 at runtime e.g.
+    //   my_non-vector_set
+    component_labels = {};
+    if (vlen == 1 || is_vector) {
+      component_labels = component_labels_.size() > 0 ? component_labels_
+                                                      : std::vector<std::string>({label});
+    } else {
+      for (int i = 0; i < vlen; i++) {
+        component_labels.push_back(
+            label + "_" +
+            (component_labels_.empty() ? std::to_string(i) : component_labels_[i]));
+      }
     }
   }
 
@@ -155,9 +173,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   } else {
     nentries = vlen;
     for (int i = 0; i < vlen; i++) {
-      names.push_back(
-          name + "_" +
-          (component_labels.empty() ? std::to_string(i) : component_labels[i]));
+      names.push_back(component_labels[i]);
     }
   }
   const int vector_size = isVector ? vlen : 1;
