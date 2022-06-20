@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -426,6 +426,52 @@ TEST_CASE("nested par_for loops", "[wrapper]") {
                                    parthenon::inner_loop_pattern_simdfor_tag,
                                    default_exec_space) == true);
 #endif
+  }
+}
+
+template <class T>
+bool test_wrapper_scan_1d(T loop_pattern, DevExecSpace exec_space) {
+  const int N = 10;
+  parthenon::ParArray1D<int> buffer("Testing buffer", N);
+  // Initialize data
+  parthenon::par_for(
+      loop_pattern, "Initialize parallel scan array", exec_space, 0, N - 1,
+      KOKKOS_LAMBDA(const int i) { buffer(i) = i; });
+
+  parthenon::ParArray1D<int> scanned("Result of scan", N);
+  int result;
+  parthenon::par_scan(
+      loop_pattern, "Parallel scan", exec_space, 0, N - 1,
+      KOKKOS_LAMBDA(const int i, int &partial_sum, bool is_final) {
+        if (is_final) {
+          scanned(i) = partial_sum;
+        }
+        partial_sum += buffer(i);
+      },
+      result);
+
+  // compare data on the host
+  bool all_same = true;
+  auto scanned_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), scanned);
+  for (int i = 0; i < N; i++) {
+    int ans = 0;
+    for (int j = 0; j < i; j++) {
+      ans += j;
+    }
+    if (scanned_h(i) != ans) {
+      all_same = false;
+    }
+  }
+
+  return all_same;
+}
+
+TEST_CASE("Parallel scan", "[par_scan]") {
+  auto default_exec_space = DevExecSpace();
+
+  SECTION("1D loops") {
+    REQUIRE(test_wrapper_scan_1d(parthenon::loop_pattern_flatrange_tag,
+                                 default_exec_space) == true);
   }
 }
 
