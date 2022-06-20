@@ -49,22 +49,10 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   md->send_buf_vec.clear();
   md->recv_buf_vec.clear();
 
-  int isize, jsize, ksize;
-  auto &rc = md->GetBlockData(0);
-  auto pmb = rc->GetBlockPointer();
-  auto &cb = pmb->cellbounds;
-  IndexDomain in = IndexDomain::interior;
-  isize = cb.ie(in) - cb.is(in) + 1;
-  jsize = cb.je(in) - cb.js(in) + 1;
-  ksize = cb.ke(in) - cb.ks(in) + 1;
-
   // Build buffers
   ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    // Calculate the buffer size, this should be safe even for unsame levels
-    int buf_size = (nb.ni.ox1 == 0 ? isize : Globals::nghost) *
-                       (nb.ni.ox2 == 0 ? jsize : Globals::nghost) *
-                       (nb.ni.ox3 == 0 ? ksize : Globals::nghost) +
-                   1;
+    // Calculate the required size of the buffer for this boundary
+    int buf_size = GetBufferSize(pmb, nb, v);
 
     // Add a buffer pool if one does not exist for this size
     if (pmesh->pool_map.count(buf_size) == 0) {

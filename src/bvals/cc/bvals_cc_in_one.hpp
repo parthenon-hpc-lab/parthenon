@@ -46,6 +46,9 @@ void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds);
 void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
                             const NeighborBlock &nb, MeshBlock *pmb);
 
+int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                  std::shared_ptr<CellVariable<Real>> v);
+
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
@@ -81,12 +84,10 @@ struct BndInfo {
                                 std::shared_ptr<CellVariable<Real>> v);
   static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<CellVariable<Real>> v);
-
-  KOKKOS_INLINE_FUNCTION
-  int GetBufferSize() const {
-    return Nt * Nu * Nv * (ei - si + 1) * (ej - sj + 1) * (ek - sk + 1);
-  }
 };
+
+int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                  std::shared_ptr<CellVariable<Real>> v);
 
 using BufferCache_t = ParArray1D<BndInfo>;
 using BufferCacheHost_t = typename BufferCache_t::HostMirror;
