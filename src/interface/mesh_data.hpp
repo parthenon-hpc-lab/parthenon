@@ -481,7 +481,10 @@ class MeshData {
       restrict_buf_alloc_status_;
 
  public:
+  // These three arrays are just for performance 
   std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
+  ParArray1D<bool> sending_non_zero_flags; 
+  ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h; 
 
   cell_centered_bvars::BufferCache_t send_bnd_info{};
   cell_centered_bvars::BufferCache_t::host_mirror_type send_bnd_info_h{};
