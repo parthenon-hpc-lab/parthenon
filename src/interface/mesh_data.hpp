@@ -206,32 +206,8 @@ class MeshData {
     }
   }
 
-  void SetSendBuffers(const cell_centered_bvars::BufferCache_t &send_buffers,
-                      const ParArray1D<bool> &sending_nonzero_flags,
-                      const ParArray1D<bool>::host_mirror_type &sending_nonzero_flags_h,
-                      const std::vector<bool> &send_buf_alloc_status) {
-    send_buffers_ = send_buffers;
-    sending_nonzero_flags_ = sending_nonzero_flags;
-    sending_nonzero_flags_h_ = sending_nonzero_flags_h;
-    send_buf_alloc_status_ = send_buf_alloc_status;
-  }
-
-  auto &GetSendBuffers() const { return send_buffers_; }
-  auto &GetSendingNonzeroFlags() const { return sending_nonzero_flags_; }
-  auto &GetSendingNonzeroFlagsHost() const { return sending_nonzero_flags_h_; }
-
-  const auto &GetSendBufAllocStatus() const { return send_buf_alloc_status_; }
-  const auto &GetSetBufAllocStatus() const { return set_buf_alloc_status_; }
   const auto &GetRestrictBufAllocStatus() const { return restrict_buf_alloc_status_; }
-
-  void SetSetBuffers(const cell_centered_bvars::BufferCache_t &set_buffers,
-                     const std::vector<bool> &set_buf_alloc_status) {
-    set_buffers_ = set_buffers;
-    set_buf_alloc_status_ = set_buf_alloc_status;
-  }
-
-  auto &GetSetBuffers() const { return set_buffers_; }
-
+  
   void SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers,
                           const std::vector<bool> &restrict_buf_alloc_status) {
     restrict_buffers_ = restrict_buffers;
@@ -239,7 +215,7 @@ class MeshData {
   }
 
   auto &GetRestrictBuffers() const { return restrict_buffers_; }
-
+  
   TaskStatus StartReceiving(BoundaryCommSubset phase) {
     for (const auto &pbd : block_data_) {
       auto status = pbd->StartReceiving(phase);
@@ -428,17 +404,7 @@ class MeshData {
   }
 
   void ClearCaches() {
-    block_data_.clear();
-    varPackMap_.clear();
-    varFluxPackMap_.clear();
-    sending_nonzero_flags_ = ParArray1D<bool>();
-    sending_nonzero_flags_h_ = ParArray1D<bool>::host_mirror_type();
-    send_buffers_ = cell_centered_bvars::BufferCache_t{};
-    set_buffers_ = cell_centered_bvars::BufferCache_t{};
     restrict_buffers_ = cell_centered_bvars::BufferCache_t{};
-
-    send_buf_alloc_status_.clear();
-    set_buf_alloc_status_.clear();
     restrict_buf_alloc_status_.clear();
   }
 
@@ -470,15 +436,9 @@ class MeshData {
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   // caches for boundary information
-  ParArray1D<bool> sending_nonzero_flags_{};
-  ParArray1D<bool>::host_mirror_type sending_nonzero_flags_h_{};
-  ParArray1D<bool>::host_mirror_type send_buffers_allocation_status_h_{};
-  cell_centered_bvars::BufferCache_t send_buffers_{};
-  cell_centered_bvars::BufferCache_t set_buffers_{};
   cell_centered_bvars::BufferCache_t restrict_buffers_{};
 
-  std::vector<bool> send_buf_alloc_status_, set_buf_alloc_status_,
-      restrict_buf_alloc_status_;
+  std::vector<bool> restrict_buf_alloc_status_;
 
  public:
   // These three arrays are just for performance 
