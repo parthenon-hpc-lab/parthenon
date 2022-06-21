@@ -166,6 +166,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
   }
+  if (app_in->MeshProblemGenerator != nullptr) {
+    ProblemGenerator = app_in->MeshProblemGenerator;
+  }
   if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
     PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
   }
@@ -1039,11 +1042,28 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       pmb->InitMeshBlockUserData(pmb, pin);
     }
 
+    const int num_partitions = DefaultNumPartitions();
+
     // problem generator
     if (init_problem) {
-      for (int i = 0; i < nmb; ++i) {
-        auto &pmb = block_list[i];
-        pmb->ProblemGenerator(pmb.get(), pin);
+      PARTHENON_REQUIRE_THROWS(
+          !(ProblemGenerator != nullptr && block_list[0]->ProblemGenerator != nullptr),
+          "Mesh and MeshBlock ProblemGenerators are defined. Please use only one.");
+
+      // Call Mesh ProblemGenerator
+      if (ProblemGenerator != nullptr) {
+        PARTHENON_REQUIRE(num_partitions == 1,
+                          "Mesh ProblemGenerator requires parthenon/mesh/pack_size=-1 "
+                          "during first initialization.");
+
+        auto &md = mesh_data.GetOrAdd("base", 0);
+        ProblemGenerator(this, pin, md.get());
+        // Call individual MeshBlock ProblemGenerator
+      } else {
+        for (int i = 0; i < nmb; ++i) {
+          auto &pmb = block_list[i];
+          pmb->ProblemGenerator(pmb.get(), pin);
+        }
       }
     }
 
@@ -1062,8 +1082,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < nmb; ++i) {
       block_list[i]->meshblock_data.Get()->StartReceiving(BoundaryCommSubset::mesh_init);
     }
-
-    const int num_partitions = DefaultNumPartitions();
 
     // send FillGhost variables
     for (int i = 0; i < num_partitions; i++) {
