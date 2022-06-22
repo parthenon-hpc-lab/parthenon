@@ -115,15 +115,17 @@ struct VarInfo {
     // Note that this means the subscript will be dropped for multidim quantities if their
     // Nx6, Nx5, Nx4 are set to 1 at runtime e.g.
     //   my_non-vector_set
+    // Similarly, if component labels are given for all components, those will be used
+    // without the prefixed label.
     component_labels = {};
     if (vlen == 1 || is_vector) {
       component_labels = component_labels_.size() > 0 ? component_labels_
                                                       : std::vector<std::string>({label});
+    } else if (component_labels_.size() == vlen) {
+      component_labels = component_labels_;
     } else {
       for (int i = 0; i < vlen; i++) {
-        component_labels.push_back(
-            label + "_" +
-            (component_labels_.empty() ? std::to_string(i) : component_labels_[i]));
+        component_labels.push_back(label + "_" + std::to_string(i));
       }
     }
   }
