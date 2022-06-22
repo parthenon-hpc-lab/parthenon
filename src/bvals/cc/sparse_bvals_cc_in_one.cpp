@@ -111,17 +111,17 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
 
   if (md->send_buf_vec.size() == 0) {
-    int nbound = 0; 
+    int nbound = 0;
     ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
       PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(SendKey(pmb, nb, v)) > 0,
                               "Boundary communicator does not exist");
       md->send_buf_vec.push_back(&(pmesh->boundary_comm_map[SendKey(pmb, nb, v)]));
-      nbound++; 
+      nbound++;
     });
     md->sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
-    md->sending_non_zero_flags_h = Kokkos::create_mirror_view(md->sending_non_zero_flags); 
+    md->sending_non_zero_flags_h = Kokkos::create_mirror_view(md->sending_non_zero_flags);
   } else {
-    assert(md->send_buf_vec.size() == md->sending_non_zero_flags.size()); 
+    assert(md->send_buf_vec.size() == md->sending_non_zero_flags.size());
     assert(md->send_buf_vec.size() == md->sending_non_zero_flags_h.size());
   }
 
@@ -181,8 +181,8 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = md->send_bnd_info;
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
-  auto& sending_nonzero_flags = md->sending_non_zero_flags; 
-  auto& sending_nonzero_flags_h = md->sending_non_zero_flags_h;
+  auto &sending_nonzero_flags = md->sending_non_zero_flags;
+  auto &sending_nonzero_flags_h = md->sending_non_zero_flags_h;
   Kokkos::parallel_for(
       "SendBoundaryBuffers",
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),

@@ -207,7 +207,7 @@ class MeshData {
   }
 
   const auto &GetRestrictBufAllocStatus() const { return restrict_buf_alloc_status_; }
-  
+
   void SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers,
                           const std::vector<bool> &restrict_buf_alloc_status) {
     restrict_buffers_ = restrict_buffers;
@@ -215,7 +215,7 @@ class MeshData {
   }
 
   auto &GetRestrictBuffers() const { return restrict_buffers_; }
-  
+
   TaskStatus StartReceiving(BoundaryCommSubset phase) {
     for (const auto &pbd : block_data_) {
       auto status = pbd->StartReceiving(phase);
@@ -441,10 +441,10 @@ class MeshData {
   std::vector<bool> restrict_buf_alloc_status_;
 
  public:
-  // These three arrays are just for performance 
+  // These three arrays are just for performance
   std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
-  ParArray1D<bool> sending_non_zero_flags; 
-  ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h; 
+  ParArray1D<bool> sending_non_zero_flags;
+  ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h;
 
   cell_centered_bvars::BufferCache_t send_bnd_info{};
   cell_centered_bvars::BufferCache_t::host_mirror_type send_bnd_info_h{};
