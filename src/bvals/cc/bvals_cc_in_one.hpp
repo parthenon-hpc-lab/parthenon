@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
@@ -91,6 +92,19 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
 
 using BufferCache_t = ParArray1D<BndInfo>;
 using BufferCacheHost_t = typename BufferCache_t::HostMirror;
+
+struct BvarsCache_t {
+ public:
+  std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
+  ParArray1D<bool> sending_non_zero_flags;
+  ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h;
+
+  BufferCache_t send_bnd_info{};
+  BufferCache_t::host_mirror_type send_bnd_info_h{};
+
+  BufferCache_t recv_bnd_info{};
+  BufferCache_t::host_mirror_type recv_bnd_info_h{};
+};
 
 } // namespace cell_centered_bvars
 } // namespace parthenon

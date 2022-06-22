@@ -205,7 +205,6 @@ class MeshData {
       pbd->SetAllowedDt(std::min(dt, pbd->GetBlockPointer()->NewDt()));
     }
   }
-
   const auto &GetRestrictBufAllocStatus() const { return restrict_buf_alloc_status_; }
 
   void SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers,
@@ -214,6 +213,7 @@ class MeshData {
     restrict_buf_alloc_status_ = restrict_buf_alloc_status;
   }
 
+  auto &GetBvarsCache() { return bvars_cache_; }
   auto &GetRestrictBuffers() const { return restrict_buffers_; }
 
   TaskStatus StartReceiving(BoundaryCommSubset phase) {
@@ -435,22 +435,11 @@ class MeshData {
   // caches for packs
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
+
   // caches for boundary information
+  cell_centered_bvars::BvarsCache_t bvars_cache_;
   cell_centered_bvars::BufferCache_t restrict_buffers_{};
-
   std::vector<bool> restrict_buf_alloc_status_;
-
- public:
-  // These three arrays are just for performance
-  std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
-  ParArray1D<bool> sending_non_zero_flags;
-  ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h;
-
-  cell_centered_bvars::BufferCache_t send_bnd_info{};
-  cell_centered_bvars::BufferCache_t::host_mirror_type send_bnd_info_h{};
-
-  cell_centered_bvars::BufferCache_t recv_bnd_info{};
-  cell_centered_bvars::BufferCache_t::host_mirror_type recv_bnd_info_h{};
 };
 
 } // namespace parthenon
