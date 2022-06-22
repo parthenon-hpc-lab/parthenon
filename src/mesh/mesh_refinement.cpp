@@ -75,29 +75,23 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
 
   int b = 0;
   int nbuffers = 1;
-  int nvars = fine.GetDim(4);
   cell_centered_bvars::BufferCache_t info("refinement info", nbuffers);
   auto info_h = Kokkos::create_mirror_view(info);
-  for (int l = 0; l < fine.GetDim(6); ++l) {
-    for (int m = 0; m < fine.GetDim(5); ++m) {
-      // buff and var unused.
-      info_h(b).si = csi;
-      info_h(b).ei = cei;
-      info_h(b).sj = csj;
-      info_h(b).ej = cej;
-      info_h(b).sk = csk;
-      info_h(b).ek = cek;
-      info_h(b).Nt = fine.GetDim(6);
-      info_h(b).Nu = fine.GetDim(5);
-      info_h(b).Nv = nvars;
-      info_h(b).refinement_op = RefinementOp_t::Restriction;
-      info_h(b).coords = pmb->coords;
-      info_h(b).coarse_coords = this->coarse_coords;
-      info_h(b).fine = fine.Get();
-      info_h(b).coarse = coarse.Get();
-      ++b;
-    }
-  }
+  // buff and var unused.
+  info_h(b).si = csi;
+  info_h(b).ei = cei;
+  info_h(b).sj = csj;
+  info_h(b).ej = cej;
+  info_h(b).sk = csk;
+  info_h(b).ek = cek;
+  info_h(b).Nt = fine.GetDim(6);
+  info_h(b).Nu = fine.GetDim(5);
+  info_h(b).Nv = fine.GetDim(4);
+  info_h(b).refinement_op = RefinementOp_t::Restriction;
+  info_h(b).coords = pmb->coords;
+  info_h(b).coarse_coords = this->coarse_coords;
+  info_h(b).fine = fine.Get();
+  info_h(b).coarse = coarse.Get();
   Kokkos::deep_copy(info, info_h);
 
   cell_centered_refinement::Restrict(info, pmb->cellbounds, pmb->c_cellbounds);
@@ -304,30 +298,24 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
                                                   int ek) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int b = 0;
-  int nbuffers = coarse.GetDim(6) * coarse.GetDim(5);
-  int nvars = coarse.GetDim(4);
+  int nbuffers = 1;
   cell_centered_bvars::BufferCache_t info("refinement info", nbuffers);
   auto info_h = Kokkos::create_mirror_view(info);
-  for (int l = 0; l < coarse.GetDim(6); ++l) {
-    for (int m = 0; m < coarse.GetDim(5); ++m) {
-      // buff and var unused
-      info_h(b).si = si;
-      info_h(b).ei = ei;
-      info_h(b).sj = sj;
-      info_h(b).ej = ej;
-      info_h(b).sk = sk;
-      info_h(b).ek = ek;
-      info_h(b).Nt = coarse.GetDim(6);
-      info_h(b).Nu = coarse.GetDim(5);
-      info_h(b).Nv = nvars;
-      info_h(b).refinement_op = RefinementOp_t::Prolongation;
-      info_h(b).coords = pmb->coords;
-      info_h(b).coarse_coords = this->coarse_coords;
-      info_h(b).fine = fine.Get();
-      info_h(b).coarse = coarse.Get();
-      ++b;
-    }
-  }
+  // buff and var unused
+  info_h(b).si = si;
+  info_h(b).ei = ei;
+  info_h(b).sj = sj;
+  info_h(b).ej = ej;
+  info_h(b).sk = sk;
+  info_h(b).ek = ek;
+  info_h(b).Nt = coarse.GetDim(6);
+  info_h(b).Nu = coarse.GetDim(5);
+  info_h(b).Nv = coarse.GetDim(4);
+  info_h(b).refinement_op = RefinementOp_t::Prolongation;
+  info_h(b).coords = pmb->coords;
+  info_h(b).coarse_coords = this->coarse_coords;
+  info_h(b).fine = fine.Get();
+  info_h(b).coarse = coarse.Get();
   Kokkos::deep_copy(info, info_h);
   cell_centered_refinement::Prolongate(info, pmb->cellbounds, pmb->c_cellbounds);
 }
