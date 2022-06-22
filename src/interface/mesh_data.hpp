@@ -407,7 +407,7 @@ class MeshData {
     block_data_.clear();
     varPackMap_.clear();
     varFluxPackMap_.clear();
-    
+
     bvars_cache_.clear();
     restrict_buffers_ = cell_centered_bvars::BufferCache_t{};
     restrict_buf_alloc_status_.clear();
