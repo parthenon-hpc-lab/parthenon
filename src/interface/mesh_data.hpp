@@ -404,6 +404,11 @@ class MeshData {
   }
 
   void ClearCaches() {
+    block_data_.clear();
+    varPackMap_.clear();
+    varFluxPackMap_.clear();
+    
+    bvars_cache_.clear();
     restrict_buffers_ = cell_centered_bvars::BufferCache_t{};
     restrict_buf_alloc_status_.clear();
   }
@@ -432,6 +437,7 @@ class MeshData {
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
   std::string stage_name_;
+
   // caches for packs
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
