@@ -111,11 +111,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   if (app_in->ProblemGenerator != nullptr) {
     ProblemGenerator = app_in->ProblemGenerator;
   }
-  if (app_in->MeshBlockUserWorkInLoop != nullptr) {
-    UserWorkInLoop = app_in->MeshBlockUserWorkInLoop;
-  }
-  if (app_in->UserWorkBeforeOutput != nullptr) {
-    UserWorkBeforeOutput = app_in->UserWorkBeforeOutput;
+  if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
+    UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;
   }
 
   // (probably don't need to preallocate space for references in these vectors)
