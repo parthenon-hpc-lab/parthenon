@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 689]](https://github.com/lanl/parthenon/pull/689) Add `Mesh::ProblemGenerator` (allows reductions during init)
 - [[PR 667]](https://github.com/lanl/parthenon/pull/667) Add parallel scan
 - [[PR 654]](https://github.com/lanl/parthenon/pull/654) Add option for returning FlatIdx when requested variable doesn't exist
 - [[PR 653]](https://github.com/lanl/parthenon/pull/653) Allow for multi-D particle variables

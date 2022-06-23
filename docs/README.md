@@ -122,6 +122,15 @@ To redefine these functions, the user sets the respective function pointers in t
 ApplicationInput member app_input of the ParthenonManager class prior to calling
 `ParthenonInit`. This is demonstrated in the `main()` functions in the examples.
 
+Note that the `ProblemGenerator`s of `Mesh` and `MeshBlock` are mutually exclusive.
+Moreover, the `Mesh` one requires `parthenon/mesh/pack_size=-1` during initialization,
+i.e., all blocks on a rank need to be in a single pack.
+This allows to use MPI reductions inside the function, for example, to globally
+normalize quantities.
+The `parthenon/mesh/pack_size=-1` exists only during problem inititalization, i.e.,
+simulations can be restarted with an arbitrary `pack_size`.
+For an example of the `Mesh` version, see the [Poisson example](../example/poisson/parthenon_app_inputs.cpp).
+
 ### Error checking
 
 Macros for causing execution to throw an exception are provided [here](../src/utils/error_checking.hpp)
