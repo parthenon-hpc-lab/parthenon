@@ -108,15 +108,14 @@ be redefined by an application. Currently, these functions are, by class:
 
 #### Mesh
 * `InitUserMeshData`
-* `MeshUserWorkInLoop`
-* `ProblemGenerator`
+* `PreStepUserWorkInLoop`
+* `PostStepUserWorkInLoop`
 * `UserWorkAfterLoop`
 
 #### MeshBlock
 * `InitApplicationMeshBlockData`
 * `InitMeshBlockUserData`
 * `ProblemGenerator`
-* `MeshBlockUserWorkInLoop`
 * `UserWorkBeforeOutput`
 
 To redefine these functions, the user sets the respective function pointers in the

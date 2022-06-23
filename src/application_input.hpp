@@ -56,8 +56,8 @@ struct ApplicationInput {
       InitApplicationMeshBlockData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
-  std::function<void()> MeshBlockUserWorkInLoop = nullptr;
-  std::function<void(ParameterInput *)> UserWorkBeforeOutput = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> MeshBlockUserWorkBeforeOutput =
+      nullptr;
 };
 
 } // namespace parthenon

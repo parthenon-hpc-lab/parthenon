@@ -14,6 +14,7 @@
 - [[PR 586]](https://github.com/lanl/parthenon/pull/586) Implement true sparse capability with automatic allocation and deallocation of sparse
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 685]](https://github.com/lanl/parthenon/pull/685) Add `*pmb` to `MeshBlockUserWorkBeforeOutput`. Remove unused `MeshBlockUserWorkInLoop`.
 - [[PR 676]](https://github.com/lanl/parthenon/pull/662) Remove broken swarm user boundary check
 - [[PR 662]](https://github.com/lanl/parthenon/pull/662) Remove SetPrecise
 - [[PR 673]](https://github.com/lanl/parthenon/pull/673) Remove smallest meshblock case from advection_performance
