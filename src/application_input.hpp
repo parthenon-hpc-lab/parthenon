@@ -34,6 +34,8 @@ struct ApplicationInput {
 
   // Mesh functions
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshProblemGenerator =
+      nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepMeshUserWorkInLoop =
       nullptr;
