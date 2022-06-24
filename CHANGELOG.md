@@ -40,6 +40,7 @@
 - [[PR 595]](https://github.com/lanl/parthenon/pull/595) Fix build options so that non-MPI builds cannot be paired with an MPI HDF5 lib
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 686]](https://github.com/lanl/parthenon/pull/686) Remove coverage CI stage and add key features to README
 - [[PR 669]](https://github.com/lanl/parthenon/pull/669) Bump clang-format version (and checks) to >=11.0
 - [[PR 661]](https://github.com/lanl/parthenon/pull/661) Replaced ids in MPI tags with separate `MPI_Comms` for each variable/swarm
 - [[PR 651]](https://github.com/lanl/parthenon/pull/651) Bump Catch2 version due to GCC11.2 incompatibility
