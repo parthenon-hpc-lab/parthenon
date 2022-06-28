@@ -71,10 +71,12 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     }
 
     // This tag is still pretty limiting, since 2^7 = 128
-    int tag = 512 * nb.snb.lid + pmb->lid;
 
     const int receiver_rank = nb.snb.rank;
     const int sender_rank = Globals::my_rank;
+
+    int tag = 0;
+    if (receiver_rank != sender_rank) tag = SendMPITag(pmb, nb, v);
 
 #ifdef MPI_PARALLEL
     const comm_t comm = pmesh->GetMPIComm(v->label() + "_sparse_comm");
@@ -94,7 +96,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
     // Also build the non-local receive buffers here
     if (sender_rank != receiver_rank) {
-      int tag_r = 512 * pmb->lid + nb.snb.lid;
+      int tag_r = ReceiveMPITag(pmb, nb, v);
       pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)] =
           CommBuffer<buf_pool_t<Real>::owner_t>(
               tag_r, receiver_rank, sender_rank, comm,
@@ -272,7 +274,7 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     auto &buf = *cache.recv_buf_vec[ibound];
 
     all_received = all_received && buf.TryReceive();
-
+    
     // Allocate variable if it is receiving actual data in any boundary
     // (the state could also be BufferState::received_null, which corresponds to no data)
     if (Globals::sparse_config.enabled && buf.GetState() == BufferState::received &&
@@ -283,7 +285,6 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     }
     ++ibound;
   });
-
   Kokkos::Profiling::popRegion();
 
   if (all_received) return TaskStatus::complete;
