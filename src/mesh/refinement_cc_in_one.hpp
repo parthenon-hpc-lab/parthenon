@@ -60,8 +60,8 @@ KOKKOS_FORCEINLINE_FUNCTION Real GetX(const Coordinates_t &coords, int i) {
 template <int DIM>
 KOKKOS_FORCEINLINE_FUNCTION void
 GetSlopes(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-          const IndexRange &cib, const IndexRange &ib, int i, int &fi, Real &dxm, Real &dxp,
-          Real &dxfm, Real &dxfp) {
+          const IndexRange &cib, const IndexRange &ib, int i, int &fi, Real &dxm,
+          Real &dxp, Real &dxfm, Real &dxfp) {
   fi = (i - cib.s) * 2 + ib.s;
   const Real xm = GetX<DIM>(coarse_coords, i - 1);
   const Real xc = GetX<DIM>(coarse_coords, i);

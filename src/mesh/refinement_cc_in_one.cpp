@@ -255,9 +255,9 @@ void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds
                 info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
                 [&](const int l, const int m, const int n, const int k, const int j,
                     const int i) {
-		  impl::ProlongateCellMinMod<3>(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
-						info(buf).coords, info(buf).coarse_coords,
-						info(buf).coarse, info(buf).fine);
+                  impl::ProlongateCellMinMod<3>(
+                      l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib, info(buf).coords,
+                      info(buf).coarse_coords, info(buf).coarse, info(buf).fine);
                 });
           }
         });
@@ -274,9 +274,9 @@ void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds
                 info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sj, info(buf).ej,
                 info(buf).si, info(buf).ei,
                 [&](const int l, const int m, const int n, const int j, const int i) {
-		  impl::ProlongateCellMinMod<2>(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
-						info(buf).coords, info(buf).coarse_coords,
-						info(buf).coarse, info(buf).fine);
+                  impl::ProlongateCellMinMod<2>(
+                      l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib, info(buf).coords,
+                      info(buf).coarse_coords, info(buf).coarse, info(buf).fine);
                 });
           }
         });
@@ -293,9 +293,9 @@ void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
                 info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si, info(buf).ei,
                 [&](const int l, const int m, const int n, const int i) {
-		  impl::ProlongateCellMinMod<1>(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
-						info(buf).coords, info(buf).coarse_coords,
-						info(buf).coarse, info(buf).fine);
+                  impl::ProlongateCellMinMod<1>(
+                      l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib, info(buf).coords,
+                      info(buf).coarse_coords, info(buf).coarse, info(buf).fine);
                 });
           }
         });
