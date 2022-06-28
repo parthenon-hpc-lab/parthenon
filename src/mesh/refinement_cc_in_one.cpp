@@ -26,6 +26,7 @@
 namespace parthenon {
 namespace cell_centered_refinement {
 
+// TODO(JMM): Do the same thing with restriction that we do with prolongation
 void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
               IndexShape &c_cellbounds) {
   const IndexDomain interior = IndexDomain::interior;
@@ -223,6 +224,9 @@ void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
   Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBounds_MeshData
 }
 
+// TODO(JMM): In a future version of the code, we could template on
+// the inner loop function, ProlongateCellMinMod to support other
+// prolongation operations.
 void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
                 IndexShape &c_cellbounds) {
   const IndexDomain interior = IndexDomain::interior;
@@ -245,86 +249,16 @@ void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
           if (info(buf).allocated &&
               info(buf).refinement_op == RefinementOp_t::Prolongation) {
-            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                          info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sk,
-                          info(buf).ek, info(buf).sj, info(buf).ej, info(buf).si,
-                          info(buf).ei,
-                          [&](const int l, const int m, const int n, const int k,
-                              const int j, const int i) {
-                            // x3 direction
-                            int fk = (k - ckb.s) * 2 + kb.s;
-                            const Real x3m = info(buf).coarse_coords.x3v(k - 1);
-                            const Real x3c = info(buf).coarse_coords.x3v(k);
-                            const Real x3p = info(buf).coarse_coords.x3v(k + 1);
-                            Real dx3m = x3c - x3m;
-                            Real dx3p = x3p - x3c;
-                            const Real fx3m = info(buf).coords.x3v(fk);
-                            const Real fx3p = info(buf).coords.x3v(fk + 1);
-                            Real dx3fm = x3c - fx3m;
-                            Real dx3fp = fx3p - x3c;
-
-                            // x2 direction
-                            int fj = (j - cjb.s) * 2 + jb.s;
-                            const Real x2m = info(buf).coarse_coords.x2v(j - 1);
-                            const Real x2c = info(buf).coarse_coords.x2v(j);
-                            const Real x2p = info(buf).coarse_coords.x2v(j + 1);
-                            Real dx2m = x2c - x2m;
-                            Real dx2p = x2p - x2c;
-                            const Real fx2m = info(buf).coords.x2v(fj);
-                            const Real fx2p = info(buf).coords.x2v(fj + 1);
-                            Real dx2fm = x2c - fx2m;
-                            Real dx2fp = fx2p - x2c;
-
-                            // x1 direction
-                            int fi = (i - cib.s) * 2 + ib.s;
-                            const Real x1m = info(buf).coarse_coords.x1v(i - 1);
-                            const Real x1c = info(buf).coarse_coords.x1v(i);
-                            const Real x1p = info(buf).coarse_coords.x1v(i + 1);
-                            Real dx1m = x1c - x1m;
-                            Real dx1p = x1p - x1c;
-                            const Real fx1m = info(buf).coords.x1v(fi);
-                            const Real fx1p = info(buf).coords.x1v(fi + 1);
-                            Real dx1fm = x1c - fx1m;
-                            Real dx1fp = fx1p - x1c;
-
-                            auto &coarse = info(buf).coarse;
-                            auto &fine = info(buf).fine;
-
-                            Real ccval = coarse(l, m, n, k, j, i);
-
-                            // calculate 3D gradients using the minmod limiter
-                            Real gx1m = (ccval - coarse(l, m, n, k, j, i - 1)) / dx1m;
-                            Real gx1p = (coarse(l, m, n, k, j, i + 1) - ccval) / dx1p;
-                            Real gx1c = 0.5 * (SIGN(gx1m) + SIGN(gx1p)) *
-                                        std::min(std::abs(gx1m), std::abs(gx1p));
-                            Real gx2m = (ccval - coarse(l, m, n, k, j - 1, i)) / dx2m;
-                            Real gx2p = (coarse(l, m, n, k, j + 1, i) - ccval) / dx2p;
-                            Real gx2c = 0.5 * (SIGN(gx2m) + SIGN(gx2p)) *
-                                        std::min(std::abs(gx2m), std::abs(gx2p));
-                            Real gx3m = (ccval - coarse(l, m, n, k - 1, j, i)) / dx3m;
-                            Real gx3p = (coarse(l, m, n, k + 1, j, i) - ccval) / dx3p;
-                            Real gx3c = 0.5 * (SIGN(gx3m) + SIGN(gx3p)) *
-                                        std::min(std::abs(gx3m), std::abs(gx3p));
-
-                            // KGF: add the off-centered quantities first to preserve FP
-                            // symmetry interpolate onto the finer grid
-                            fine(l, m, n, fk, fj, fi) =
-                                ccval - (gx1c * dx1fm + gx2c * dx2fm + gx3c * dx3fm);
-                            fine(l, m, n, fk, fj, fi + 1) =
-                                ccval + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
-                            fine(l, m, n, fk, fj + 1, fi) =
-                                ccval - (gx1c * dx1fm - gx2c * dx2fp + gx3c * dx3fm);
-                            fine(l, m, n, fk, fj + 1, fi + 1) =
-                                ccval + (gx1c * dx1fp + gx2c * dx2fp - gx3c * dx3fm);
-                            fine(l, m, n, fk + 1, fj, fi) =
-                                ccval - (gx1c * dx1fm + gx2c * dx2fm - gx3c * dx3fp);
-                            fine(l, m, n, fk + 1, fj, fi + 1) =
-                                ccval + (gx1c * dx1fp - gx2c * dx2fm + gx3c * dx3fp);
-                            fine(l, m, n, fk + 1, fj + 1, fi) =
-                                ccval - (gx1c * dx1fm - gx2c * dx2fp - gx3c * dx3fp);
-                            fine(l, m, n, fk + 1, fj + 1, fi + 1) =
-                                ccval + (gx1c * dx1fp + gx2c * dx2fp + gx3c * dx3fp);
-                          });
+            par_for_inner(
+                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
+                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sk, info(buf).ek,
+                info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
+                [&](const int l, const int m, const int n, const int k, const int j,
+                    const int i) {
+		  impl::ProlongateCellMinMod<3>(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
+						info(buf).coords, info(buf).coarse_coords,
+						info(buf).coarse, info(buf).fine);
+                });
           }
         });
   } else if (cellbounds.ncellsj(entire) > 1) { // 2D
@@ -335,58 +269,14 @@ void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds
           if (info(buf).allocated &&
               info(buf).refinement_op == RefinementOp_t::Prolongation) {
             const int k = ckb.s;
-            const int fk = kb.s;
             par_for_inner(
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
                 info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sj, info(buf).ej,
                 info(buf).si, info(buf).ei,
                 [&](const int l, const int m, const int n, const int j, const int i) {
-                  // x2 direction
-                  int fj = (j - cjb.s) * 2 + jb.s;
-                  const Real x2m = info(buf).coarse_coords.x2v(j - 1);
-                  const Real x2c = info(buf).coarse_coords.x2v(j);
-                  const Real x2p = info(buf).coarse_coords.x2v(j + 1);
-                  Real dx2m = x2c - x2m;
-                  Real dx2p = x2p - x2c;
-                  const Real fx2m = info(buf).coords.x2v(fj);
-                  const Real fx2p = info(buf).coords.x2v(fj + 1);
-                  Real dx2fm = x2c - fx2m;
-                  Real dx2fp = fx2p - x2c;
-
-                  // x1 direction
-                  int fi = (i - cib.s) * 2 + ib.s;
-                  const Real x1m = info(buf).coarse_coords.x1v(i - 1);
-                  const Real x1c = info(buf).coarse_coords.x1v(i);
-                  const Real x1p = info(buf).coarse_coords.x1v(i + 1);
-                  Real dx1m = x1c - x1m;
-                  Real dx1p = x1p - x1c;
-                  const Real fx1m = info(buf).coords.x1v(fi);
-                  const Real fx1p = info(buf).coords.x1v(fi + 1);
-                  Real dx1fm = x1c - fx1m;
-                  Real dx1fp = fx1p - x1c;
-
-                  auto &coarse = info(buf).coarse;
-                  auto &fine = info(buf).fine;
-
-                  Real ccval = coarse(l, m, n, k, j, i);
-
-                  // calculate 2D gradients using the minmod limiter
-                  Real gx1m = (ccval - coarse(l, m, n, k, j, i - 1)) / dx1m;
-                  Real gx1p = (coarse(l, m, n, k, j, i + 1) - ccval) / dx1p;
-                  Real gx1c = 0.5 * (SIGN(gx1m) + SIGN(gx1p)) *
-                              std::min(std::abs(gx1m), std::abs(gx1p));
-                  Real gx2m = (ccval - coarse(l, m, n, k, j - 1, i)) / dx2m;
-                  Real gx2p = (coarse(l, m, n, k, j + 1, i) - ccval) / dx2p;
-                  Real gx2c = 0.5 * (SIGN(gx2m) + SIGN(gx2p)) *
-                              std::min(std::abs(gx2m), std::abs(gx2p));
-
-                  // KGF: add the off-centered quantities first to preserve FP symmetry
-                  // interpolate onto the finer grid
-                  fine(l, m, n, fk, fj, fi) = ccval - (gx1c * dx1fm + gx2c * dx2fm);
-                  fine(l, m, n, fk, fj, fi + 1) = ccval + (gx1c * dx1fp - gx2c * dx2fm);
-                  fine(l, m, n, fk, fj + 1, fi) = ccval - (gx1c * dx1fm - gx2c * dx2fp);
-                  fine(l, m, n, fk, fj + 1, fi + 1) =
-                      ccval + (gx1c * dx1fp + gx2c * dx2fp);
+		  impl::ProlongateCellMinMod<2>(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
+						info(buf).coords, info(buf).coarse_coords,
+						info(buf).coarse, info(buf).fine);
                 });
           }
         });
@@ -398,39 +288,15 @@ void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds
           if (info(buf).allocated &&
               info(buf).refinement_op == RefinementOp_t::Prolongation) {
             const int k = ckb.s;
-            const int fk = kb.s;
             const int j = cjb.s;
-            const int fj = jb.s;
-            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                          info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si,
-                          info(buf).ei,
-                          [&](const int l, const int m, const int n, const int i) {
-                            int fi = (i - cib.s) * 2 + ib.s;
-                            const Real x1m = info(buf).coarse_coords.x1v(i - 1);
-                            const Real x1c = info(buf).coarse_coords.x1v(i);
-                            const Real x1p = info(buf).coarse_coords.x1v(i + 1);
-                            Real dx1m = x1c - x1m;
-                            Real dx1p = x1p - x1c;
-                            const Real fx1m = info(buf).coords.x1v(fi);
-                            const Real fx1p = info(buf).coords.x1v(fi + 1);
-                            Real dx1fm = x1c - fx1m;
-                            Real dx1fp = fx1p - x1c;
-
-                            auto &coarse = info(buf).coarse;
-                            auto &fine = info(buf).fine;
-
-                            Real ccval = coarse(l, m, n, k, j, i);
-
-                            // calculate 1D gradient using the min-mod limiter
-                            Real gx1m = (ccval - coarse(l, m, n, k, j, i - 1)) / dx1m;
-                            Real gx1p = (coarse(l, m, n, k, j, i + 1) - ccval) / dx1p;
-                            Real gx1c = 0.5 * (SIGN(gx1m) + SIGN(gx1p)) *
-                                        std::min(std::abs(gx1m), std::abs(gx1p));
-
-                            // interpolate on to the finer grid
-                            fine(l, m, n, fk, fj, fi) = ccval - gx1c * dx1fm;
-                            fine(l, m, n, fk, fj, fi + 1) = ccval + gx1c * dx1fp;
-                          });
+            par_for_inner(
+                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
+                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si, info(buf).ei,
+                [&](const int l, const int m, const int n, const int i) {
+		  impl::ProlongateCellMinMod<1>(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
+						info(buf).coords, info(buf).coarse_coords,
+						info(buf).coarse, info(buf).fine);
+                });
           }
         });
   }
