@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
 
   // Redefine parthenon defaults
   pman.app_input->ProcessPackages = poisson_example::ProcessPackages;
-  pman.app_input->ProblemGenerator = poisson_example::ProblemGenerator;
+  pman.app_input->MeshProblemGenerator = poisson_example::ProblemGenerator;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);

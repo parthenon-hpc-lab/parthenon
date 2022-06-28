@@ -259,8 +259,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   }
 
-  void ResetToIC() { ProblemGenerator(nullptr, nullptr); }
-
   // inform MeshBlock which arrays contained in member Field, Particles,
   // ... etc. classes are the "primary" representations of a quantity. when registered,
   // that data are used for (1) load balancing (2) (future) dumping to restart file
@@ -269,11 +267,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void
-  UserWorkBeforeOutputDefault(ParameterInput *pin); // called in Mesh fn (friend class)
-  std::function<void(ParameterInput *)> UserWorkBeforeOutput =
+  UserWorkBeforeOutputDefault(MeshBlock *pmb,
+                              ParameterInput *pin); // called in Mesh fn (friend class)
+  std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeOutput =
       &UserWorkBeforeOutputDefault;
-  static void UserWorkInLoopDefault(); // called in TimeIntegratorTaskList
-  std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
   void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }
@@ -420,8 +417,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin);
-  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator =
-      &ProblemGeneratorDefault;
+  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
   static pMeshBlockApplicationData_t
   InitApplicationMeshBlockDataDefault(MeshBlock *, ParameterInput *pin);
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>

@@ -18,7 +18,6 @@ variables:
 stages:
   - short
   - performance_and_regression
-  - coverage
   - style
 
 style-check:
@@ -243,26 +242,4 @@ parthenon-cpu-performance_and_regression-mpi:
       - build-perf-mpi/CMakeFiles/CMakeOutput.log
       - build-perf-mpi/tst/regression/outputs/advection_convergence_mpi/advection-errors.dat
       - build-perf-mpi/tst/regression/outputs/advection_convergence_mpi/advection-errors.png
-
-# run unit suite on CPUs with code coverage
-parthenon-cpu-coverage:
-  only:
-    - schedules
-    - develop
-    - web
-  tags:
-    - cpu
-  stage: coverage
-  script:
-    - mkdir build-debug-coverage
-    - cd build-debug-coverage
-    - cmake -DCMAKE_BUILD_TYPE=Debug
-      -DCODE_COVERAGE=ON
-      -DMACHINE_VARIANT=mpi
-      ../ && make -j${J} && make coverage && make coverage-upload
-  artifacts:
-    when: always
-    expire_in: 3 days
-    paths:
-      - build-debug-coverage/CMakeFiles/CMakeOutput.log
 
