@@ -95,7 +95,9 @@ using BufferCacheHost_t = typename BufferCache_t::HostMirror;
 
 // This is just a struct to cleanly hold all of the information it is useful to cache
 // for the block boundary communication routines. A copy of it is contained in MeshData.
-struct BvarsCache_t {
+
+
+struct BvarsSubCache_t {
   void clear() {
     send_buf_vec.clear();
     recv_buf_vec.clear();
@@ -106,7 +108,7 @@ struct BvarsCache_t {
     recv_bnd_info = BufferCache_t{};
     recv_bnd_info_h = BufferCache_t::host_mirror_type{};
   }
-
+  
   std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
   ParArray1D<bool> sending_non_zero_flags;
   ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h;
@@ -116,6 +118,16 @@ struct BvarsCache_t {
 
   BufferCache_t recv_bnd_info{};
   BufferCache_t::host_mirror_type recv_bnd_info_h{};
+};
+
+struct BvarsCache_t {
+  std::array<BvarsSubCache_t, 3> caches; 
+  auto& operator[](BoundaryType boundType) {
+    return caches[static_cast<int>(boundType)];
+  }
+  void clear() { 
+    for (int i=0; i<caches.size(); ++i) caches[i].clear(); 
+  }
 };
 
 } // namespace cell_centered_bvars
