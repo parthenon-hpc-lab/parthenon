@@ -51,9 +51,7 @@ inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
   return false;
 }
 
-enum class BoundType {local, nonlocal, any};
-
-template <BoundType bound = BoundType::any, class F>
+template <BoundaryType bound = BoundaryType::any, class F>
 inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
@@ -62,10 +60,10 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
       if (v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
           auto &nb = pmb->pbval->neighbor[n];
-          if (bound == BoundType::local) {
+          if (bound == BoundaryType::local) {
             if (nb.snb.rank != Globals::my_rank) continue;  
           } 
-          else if (bound == BoundType::nonlocal) { 
+          else if (bound == BoundaryType::nonlocal) { 
             if (nb.snb.rank == Globals::my_rank) continue;  
           }
           if (func_caller(func, pmb, rc, nb, v)) return;
