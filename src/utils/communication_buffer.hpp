@@ -43,6 +43,8 @@ enum class BufferState { stale, sending, sending_null, received, received_null }
 
 enum class BuffCommType { sender, receiver, both };
 
+enum class BoundaryType : int {local, nonlocal, any};
+
 template <class T>
 class CommBuffer {
   // Need specializations to be friends with each other
