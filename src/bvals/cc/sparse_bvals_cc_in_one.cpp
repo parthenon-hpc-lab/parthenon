@@ -44,14 +44,13 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundaryBuffers");
   Mesh *pmesh = md->GetMeshPointer();
   auto &all_caches = md->GetBvarsCache();
-  const BoundaryType bound_type = BoundaryType::any;
   
   // Clear the fast access vectors for this block since they are no longer valid
   // after all MeshData call BuildSparseBoundaryBuffers
   all_caches.clear();
 
-  // Build buffers
-  ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  // Build buffers for all boundaries, both local and nonlocal 
+  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
 
@@ -69,8 +68,6 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
             return buf_t(chunk, std::make_pair(0, buf_size));
           })));
     }
-
-    // This tag is still pretty limiting, since 2^7 = 128
 
     const int receiver_rank = nb.snb.rank;
     const int sender_rank = Globals::my_rank;
@@ -239,7 +236,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   if (Globals::sparse_config.enabled)
     Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);
 #ifdef MPI_PARALLEL
-  Kokkos::fence();
+  if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal) Kokkos::fence();
 #endif
 
   int iarr = 0;
