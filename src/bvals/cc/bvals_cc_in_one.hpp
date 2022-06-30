@@ -52,24 +52,22 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
 
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
-template <BoundaryType bound_type> 
+template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md);
-template <BoundaryType bound_type> 
+template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md);
-template <BoundaryType bound_type> 
+template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md);
 
-inline TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) { 
-  return SendBoundBufs<BoundaryType::any>(md); 
+inline TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  return SendBoundBufs<BoundaryType::any>(md);
 }
-inline TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) { 
-  return ReceiveBoundBufs<BoundaryType::any>(md); 
+inline TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  return ReceiveBoundBufs<BoundaryType::any>(md);
 }
-inline TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) { 
-  return SetBounds<BoundaryType::any>(md); 
+inline TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
+  return SetBounds<BoundaryType::any>(md);
 }
-
-
 
 TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md);
@@ -111,7 +109,6 @@ using BufferCacheHost_t = typename BufferCache_t::HostMirror;
 // This is just a struct to cleanly hold all of the information it is useful to cache
 // for the block boundary communication routines. A copy of it is contained in MeshData.
 
-
 struct BvarsSubCache_t {
   void clear() {
     send_buf_vec.clear();
@@ -123,7 +120,7 @@ struct BvarsSubCache_t {
     recv_bnd_info = BufferCache_t{};
     recv_bnd_info_h = BufferCache_t::host_mirror_type{};
   }
-  
+
   std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
   ParArray1D<bool> sending_non_zero_flags;
   ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h;
@@ -136,12 +133,11 @@ struct BvarsSubCache_t {
 };
 
 struct BvarsCache_t {
-  std::array<BvarsSubCache_t, 3> caches; 
-  auto& operator[](BoundaryType boundType) {
-    return caches[static_cast<int>(boundType)];
-  }
-  void clear() { 
-    for (int i=0; i<caches.size(); ++i) caches[i].clear(); 
+  std::array<BvarsSubCache_t, 3> caches;
+  auto &operator[](BoundaryType boundType) { return caches[static_cast<int>(boundType)]; }
+  void clear() {
+    for (int i = 0; i < caches.size(); ++i)
+      caches[i].clear();
   }
 };
 

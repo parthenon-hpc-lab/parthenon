@@ -45,26 +45,28 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
   Mesh *pmesh = md->GetMeshPointer();
 
   bool all_available = true;
-  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) -> bool {
-    // Check if this boundary requires flux correction
-    if (nb.snb.level != pmb->loc.level - 1) return false;
-    // No flux correction required unless boundaries share a face
-    if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
-      return false;
-    auto &buf = pmesh->boundary_comm_map[SendKey(pmb, nb, v)];
-    if (!buf.IsAvailableForWrite()) {
-      all_available = false;
-      return true; // Breaks the loop
-    }
-    return false; // continue to next loop iteration
-  });
+  ForEachBoundary(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) -> LoopControl {
+        // Check if this boundary requires flux correction
+        if (nb.snb.level != pmb->loc.level - 1) return LoopControl::cont;
+        // No flux correction required unless boundaries share a face
+        if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
+          return LoopControl::cont;
+        auto &buf = pmesh->boundary_comm_map[SendKey(pmb, nb, v)];
+        if (!buf.IsAvailableForWrite()) {
+          all_available = false;
+          return LoopControl::break_out;
+        }
+        return LoopControl::cont;
+      });
   if (!all_available) return TaskStatus::incomplete;
 
   ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     // Check if this boundary requires flux correction
-    if (nb.snb.level != pmb->loc.level - 1) return;
+    if (nb.snb.level != pmb->loc.level - 1) return LoopControl::cont;
     // No flux correction required unless boundaries share a face
-    if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return;
+    if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
+      return LoopControl::cont;
 
     PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(SendKey(pmb, nb, v)) > 0,
                             "Boundary communicator does not exist");
@@ -73,7 +75,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
     if (!v->IsAllocated()) {
       buf.Free();
       buf.SendNull();
-      return; // Cycle to the next boundary
+      return LoopControl::cont; // Cycle to the next boundary
     }
 
     // This allocate shouldn't do anything, since the buffer should already
@@ -175,6 +177,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
     // Send the buffer
     PARTHENON_REQUIRE(buf.GetState() == BufferState::stale, "Not sure how I got here.");
     buf.Send();
+    return LoopControl::cont;
   });
 
   Kokkos::Profiling::popRegion();
@@ -187,14 +190,16 @@ TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &m
   Mesh *pmesh = md->GetMeshPointer();
   ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     // Check if this boundary requires flux correction
-    if (nb.snb.level - 1 != pmb->loc.level) return;
+    if (nb.snb.level - 1 != pmb->loc.level) return LoopControl::cont;
     // No flux correction required unless boundaries share a face
-    if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1) return;
+    if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
+      return LoopControl::cont;
 
     PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
                             "Boundary communicator does not exist");
     auto &buf = pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)];
     all_received = all_received && buf.TryReceive();
+    return LoopControl::cont;
   });
 
   Kokkos::Profiling::popRegion();
@@ -211,7 +216,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     if ((nb.snb.level - 1 != pmb->loc.level) ||
         (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)) {
-      return;
+      return LoopControl::cont;
     }
 
     PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
@@ -221,7 +226,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     // Check if this boundary requires flux correction
     if ((!v->IsAllocated()) || buf.GetState() == BufferState::received_null) {
       buf.Stale();
-      return;
+      return LoopControl::cont;
     }
 
     // Need to caculate these bounds based on mesh position
@@ -316,6 +321,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
         });
 
     buf.Stale();
+    return LoopControl::cont;
   });
 
   Kokkos::Profiling::popRegion();

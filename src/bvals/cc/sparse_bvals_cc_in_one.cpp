@@ -44,12 +44,12 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
   Mesh *pmesh = md->GetMeshPointer();
   auto &all_caches = md->GetBvarsCache();
-  
+
   // Clear the fast access vectors for this block since they are no longer valid
   // after all MeshData call BuildSparseBoundaryBuffers
   all_caches.clear();
 
-  // Build buffers for all boundaries, both local and nonlocal 
+  // Build buffers for all boundaries, both local and nonlocal
   ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
@@ -105,21 +105,22 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-template <BoundaryType bound_type> 
+template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundBufs");
-  
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
 
   if (cache.send_buf_vec.size() == 0) {
     int nbound = 0;
-    ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(SendKey(pmb, nb, v)) > 0,
-                              "Boundary communicator does not exist");
-      cache.send_buf_vec.push_back(&(pmesh->boundary_comm_map[SendKey(pmb, nb, v)]));
-      nbound++;
-    });
+    ForEachBoundary<bound_type>(
+        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+          PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(SendKey(pmb, nb, v)) > 0,
+                                  "Boundary communicator does not exist");
+          cache.send_buf_vec.push_back(&(pmesh->boundary_comm_map[SendKey(pmb, nb, v)]));
+          nbound++;
+        });
     cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
     cache.sending_non_zero_flags_h =
         Kokkos::create_mirror_view(cache.sending_non_zero_flags);
@@ -133,26 +134,27 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   bool rebuild = false;
   bool other_communication_unfinished = false;
   int nbound = 0;
-  ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    auto &buf = *cache.send_buf_vec[nbound];
+  ForEachBoundary<bound_type>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        auto &buf = *cache.send_buf_vec[nbound];
 
-    if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
+        if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
 
-    if (v->IsAllocated()) {
-      buf.Allocate();
-    } else {
-      buf.Free();
-    }
+        if (v->IsAllocated()) {
+          buf.Allocate();
+        } else {
+          buf.Free();
+        }
 
-    if (nbound < cache.send_bnd_info_h.size()) {
-      rebuild =
-          rebuild || !UsingSameResource(cache.send_bnd_info_h(nbound).buf, buf.buffer());
-    } else {
-      rebuild = true;
-    }
+        if (nbound < cache.send_bnd_info_h.size()) {
+          rebuild = rebuild ||
+                    !UsingSameResource(cache.send_bnd_info_h(nbound).buf, buf.buffer());
+        } else {
+          rebuild = true;
+        }
 
-    ++nbound;
-  });
+        ++nbound;
+      });
 
   if (other_communication_unfinished) return TaskStatus::incomplete;
 
@@ -161,15 +163,16 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     cache.send_bnd_info_h = Kokkos::create_mirror_view(cache.send_bnd_info);
 
     int iarr = 0;
-    ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      cache.send_bnd_info_h(iarr).allocated = v->IsAllocated();
-      if (v->IsAllocated()) {
-        cache.send_bnd_info_h(iarr) = BndInfo::GetSendBndInfo(pmb, nb, v);
-        auto &buf = *cache.send_buf_vec[iarr];
-        cache.send_bnd_info_h(iarr).buf = buf.buffer();
-      }
-      ++iarr;
-    });
+    ForEachBoundary<bound_type>(
+        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+          cache.send_bnd_info_h(iarr).allocated = v->IsAllocated();
+          if (v->IsAllocated()) {
+            cache.send_bnd_info_h(iarr) = BndInfo::GetSendBndInfo(pmb, nb, v);
+            auto &buf = *cache.send_buf_vec[iarr];
+            cache.send_bnd_info_h(iarr).buf = buf.buffer();
+          }
+          ++iarr;
+        });
     Kokkos::deep_copy(cache.send_bnd_info, cache.send_bnd_info_h);
   }
 
@@ -236,37 +239,40 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (Globals::sparse_config.enabled)
     Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);
 #ifdef MPI_PARALLEL
-  if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal) Kokkos::fence();
+  if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal)
+    Kokkos::fence();
 #endif
 
   int iarr = 0;
-  ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    auto &buf = *cache.send_buf_vec[iarr];
-    if (sending_nonzero_flags_h(iarr) || !Globals::sparse_config.enabled)
-      buf.Send();
-    else
-      buf.SendNull();
-    ++iarr;
-  });
+  ForEachBoundary<bound_type>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        auto &buf = *cache.send_buf_vec[iarr];
+        if (sending_nonzero_flags_h(iarr) || !Globals::sparse_config.enabled)
+          buf.Send();
+        else
+          buf.SendNull();
+        ++iarr;
+      });
 
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
 
 template TaskStatus SendBoundBufs<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus SendBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &); 
-template TaskStatus SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &); 
+template TaskStatus SendBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
-template <BoundaryType bound_type> 
+template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundBufs");
-  
-  
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
-  
+
   if (cache.recv_buf_vec.size() == 0) {
-    ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
+                                        const sp_cv_t v) {
       PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
                               "Boundary communicator does not exist");
       cache.recv_buf_vec.push_back(&(pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)]));
@@ -275,21 +281,23 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
   int ibound = 0;
   bool all_received = true;
-  ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    auto &buf = *cache.recv_buf_vec[ibound];
+  ForEachBoundary<bound_type>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        auto &buf = *cache.recv_buf_vec[ibound];
 
-    all_received = all_received && buf.TryReceive();
-    
-    // Allocate variable if it is receiving actual data in any boundary
-    // (the state could also be BufferState::received_null, which corresponds to no data)
-    if (Globals::sparse_config.enabled && buf.GetState() == BufferState::received &&
-        !v->IsAllocated()) {
-      pmb->AllocateSparse(v->label());
-      // TODO(lfroberts): Need to flag this so that the array gets filled with
-      //                  something sensible, currently just defaulted to zero.
-    }
-    ++ibound;
-  });
+        all_received = all_received && buf.TryReceive();
+
+        // Allocate variable if it is receiving actual data in any boundary
+        // (the state could also be BufferState::received_null, which corresponds to no
+        // data)
+        if (Globals::sparse_config.enabled && buf.GetState() == BufferState::received &&
+            !v->IsAllocated()) {
+          pmb->AllocateSparse(v->label());
+          // TODO(lfroberts): Need to flag this so that the array gets filled with
+          //                  something sensible, currently just defaulted to zero.
+        }
+        ++ibound;
+      });
   Kokkos::Profiling::popRegion();
 
   if (all_received) return TaskStatus::complete;
@@ -297,14 +305,17 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::incomplete;
 }
 
-template TaskStatus ReceiveBoundBufs<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus ReceiveBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &); 
-template TaskStatus ReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &); 
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
-template <BoundaryType bound_type> 
+template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetInternalBoundaries");
-  
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
 
@@ -312,47 +323,49 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   bool rebuild = false;
   int nbound = 0;
 
-  ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    auto &buf = *cache.recv_buf_vec[nbound];
-    if (nbound < cache.recv_bnd_info_h.size()) {
-      rebuild =
-          rebuild || !UsingSameResource(cache.recv_bnd_info_h(nbound).buf, buf.buffer());
-      if ((buf.GetState() == BufferState::received) &&
-          !cache.recv_bnd_info_h(nbound).allocated) {
-        rebuild = true;
-      }
-      if ((buf.GetState() == BufferState::received_null) &&
-          cache.recv_bnd_info_h(nbound).allocated) {
-        rebuild = true;
-      }
-    } else {
-      rebuild = true;
-    }
-    ++nbound;
-  });
+  ForEachBoundary<bound_type>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        auto &buf = *cache.recv_buf_vec[nbound];
+        if (nbound < cache.recv_bnd_info_h.size()) {
+          rebuild = rebuild ||
+                    !UsingSameResource(cache.recv_bnd_info_h(nbound).buf, buf.buffer());
+          if ((buf.GetState() == BufferState::received) &&
+              !cache.recv_bnd_info_h(nbound).allocated) {
+            rebuild = true;
+          }
+          if ((buf.GetState() == BufferState::received_null) &&
+              cache.recv_bnd_info_h(nbound).allocated) {
+            rebuild = true;
+          }
+        } else {
+          rebuild = true;
+        }
+        ++nbound;
+      });
 
   if (rebuild) {
     cache.recv_bnd_info = BufferCache_t("recv_boundary_info", nbound);
     cache.recv_bnd_info_h = Kokkos::create_mirror_view(cache.recv_bnd_info);
     int iarr = 0;
-    ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-      auto &buf = *cache.recv_buf_vec[iarr];
-      if (v->IsAllocated())
-        cache.recv_bnd_info_h(iarr) = BndInfo::GetSetBndInfo(pmb, nb, v);
+    ForEachBoundary<bound_type>(
+        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+          auto &buf = *cache.recv_buf_vec[iarr];
+          if (v->IsAllocated())
+            cache.recv_bnd_info_h(iarr) = BndInfo::GetSetBndInfo(pmb, nb, v);
 
-      cache.recv_bnd_info_h(iarr).buf = buf.buffer();
-      if (buf.GetState() == BufferState::received) {
-        cache.recv_bnd_info_h(iarr).allocated = true;
-        PARTHENON_DEBUG_REQUIRE(v->IsAllocated(),
-                                "Variable must be allocated to receive");
-      } else if (buf.GetState() == BufferState::received_null) {
-        cache.recv_bnd_info_h(iarr).allocated = false;
-      } else {
-        PARTHENON_FAIL("Buffer should be in a received state.");
-      }
+          cache.recv_bnd_info_h(iarr).buf = buf.buffer();
+          if (buf.GetState() == BufferState::received) {
+            cache.recv_bnd_info_h(iarr).allocated = true;
+            PARTHENON_DEBUG_REQUIRE(v->IsAllocated(),
+                                    "Variable must be allocated to receive");
+          } else if (buf.GetState() == BufferState::received_null) {
+            cache.recv_bnd_info_h(iarr).allocated = false;
+          } else {
+            PARTHENON_FAIL("Buffer should be in a received state.");
+          }
 
-      ++iarr;
-    });
+          ++iarr;
+        });
     Kokkos::deep_copy(cache.recv_bnd_info, cache.recv_bnd_info_h);
   }
 
@@ -417,18 +430,19 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
       });
 
   int iarr = 0;
-  ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    cache.recv_buf_vec[iarr]->Stale();
-    ++iarr;
-  });
+  ForEachBoundary<bound_type>(md,
+                              [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+                                cache.recv_buf_vec[iarr]->Stale();
+                                ++iarr;
+                              });
 
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
 
 template TaskStatus SetBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus SetBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &); 
-template TaskStatus SetBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &); 
+template TaskStatus SetBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus SetBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
 } // namespace cell_centered_bvars
 } // namespace parthenon

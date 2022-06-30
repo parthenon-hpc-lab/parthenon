@@ -38,19 +38,21 @@ using sp_mbd_t = std::shared_ptr<MeshBlockData<Real>>;
 using sp_cv_t = std::shared_ptr<CellVariable<Real>>;
 using nb_t = NeighborBlock;
 
-enum class LoopControl {cont, break_out}; 
+enum class LoopControl { cont, break_out };
 
 template <class F, class... Args>
 inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
-    std::is_same<decltype(func(std::declval<Args>()...)), bool>::value, bool>::type {
+    std::is_same<decltype(func(std::declval<Args>()...)), bool>::value,
+    LoopControl>::type {
   return func(std::forward<Args>(args)...);
 }
 
 template <class F, class... Args>
 inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
-    !std::is_same<decltype(func(std::declval<Args>()...)), bool>::value, bool>::type {
+    !std::is_same<decltype(func(std::declval<Args>()...)), bool>::value,
+    LoopControl>::type {
   func(std::forward<Args>(args)...);
-  return false;
+  return LoopControl::cont;
 }
 
 template <BoundaryType bound = BoundaryType::any, class F>
@@ -63,12 +65,11 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
         for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
           auto &nb = pmb->pbval->neighbor[n];
           if (bound == BoundaryType::local) {
-            if (nb.snb.rank != Globals::my_rank) continue;  
-          } 
-          else if (bound == BoundaryType::nonlocal) { 
-            if (nb.snb.rank == Globals::my_rank) continue;  
+            if (nb.snb.rank != Globals::my_rank) continue;
+          } else if (bound == BoundaryType::nonlocal) {
+            if (nb.snb.rank == Globals::my_rank) continue;
           }
-          if (func_caller(func, pmb, rc, nb, v)) return;
+          if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
         }
       }
     }
@@ -93,9 +94,8 @@ ReceiveKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
   return {sender_id, receiver_id, pcv->label(), location_idx};
 }
 
-inline int
-SendMPITag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-        const std::shared_ptr<CellVariable<Real>> &pcv) {
+inline int SendMPITag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
+                      const std::shared_ptr<CellVariable<Real>> &pcv) {
   const int sender_id = pmb->lid;
   const int receiver_id = nb.snb.lid;
   const int location_idx = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
@@ -103,9 +103,8 @@ SendMPITag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
   return tag;
 }
 
-inline int
-ReceiveMPITag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-        const std::shared_ptr<CellVariable<Real>> &pcv) {
+inline int ReceiveMPITag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
+                         const std::shared_ptr<CellVariable<Real>> &pcv) {
   const int sender_id = nb.snb.lid;
   const int receiver_id = pmb->lid;
   const int location_idx = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
