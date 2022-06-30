@@ -38,6 +38,8 @@ using sp_mbd_t = std::shared_ptr<MeshBlockData<Real>>;
 using sp_cv_t = std::shared_ptr<CellVariable<Real>>;
 using nb_t = NeighborBlock;
 
+enum class LoopControl {cont, break_out}; 
+
 template <class F, class... Args>
 inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
     std::is_same<decltype(func(std::declval<Args>()...)), bool>::value, bool>::type {
