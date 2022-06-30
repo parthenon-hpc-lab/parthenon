@@ -264,6 +264,41 @@ template TaskStatus
 SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
+TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_StartReceiveBoundBufs");
+
+  Mesh *pmesh = md->GetMeshPointer();
+  auto &cache = md->GetBvarsCache()[bound_type];
+
+  if (cache.recv_buf_vec.size() == 0) {
+    ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
+                                        const sp_cv_t v) {
+      PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
+                              "Boundary communicator does not exist");
+      cache.recv_buf_vec.push_back(&(pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)]));
+    });
+  }
+
+  int ibound = 0;
+  ForEachBoundary<bound_type>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        auto &buf = *cache.recv_buf_vec[ibound];
+        buf.StartReceive(); 
+        ++ibound;
+      });
+  Kokkos::Profiling::popRegion();
+
+  return TaskStatus::complete;
+}
+
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+
+template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundBufs");
 
@@ -284,9 +319,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   ForEachBoundary<bound_type>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
         auto &buf = *cache.recv_buf_vec[ibound];
-
+        
         all_received = all_received && buf.TryReceive();
-
         // Allocate variable if it is receiving actual data in any boundary
         // (the state could also be BufferState::received_null, which corresponds to no
         // data)

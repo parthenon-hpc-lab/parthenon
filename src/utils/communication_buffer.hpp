@@ -113,7 +113,8 @@ class CommBuffer {
 
   void Send() noexcept;
   void SendNull() noexcept;
-
+  
+  void StartReceive() noexcept;
   bool TryReceive() noexcept;
 
   bool IsAvailableForWrite() {
@@ -280,17 +281,35 @@ void CommBuffer<T>::SendNull() noexcept {
 }
 
 template <class T>
+void CommBuffer<T>::StartReceive() noexcept {
+#ifdef MPI_PARALLEL
+  if (*comm_type_ == BuffCommType::receiver) {
+    Allocate();
+    PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
+                                  MPITypeMap<buf_base_t>::type(), send_rank_, tag_,                                 
+                                  comm_, my_request_.get()));
+    *started_irecv_ = true;
+  }
+#endif
+}
+
+template <class T>
 bool CommBuffer<T>::TryReceive() noexcept {
   if (*state_ == BufferState::received || *state_ == BufferState::received_null)
     return true;
+
   if (*comm_type_ == BuffCommType::receiver) {
     if (!*recv_start_called_) {
       *recv_start_called_ = true;
-      *started_irecv_ = false;
       *nrecv_tries_ = 0;
     }
 
     (*nrecv_tries_)++;
+    if (*nrecv_tries_ > 1e6) {
+      printf("[Receive failed] send_rank: %i recv_rank: %i tag: %i comm: %i\n",
+             send_rank_, my_rank, tag_, comm_);
+      PARTHENON_FAIL("MPI Hang.");
+    }
 
 #ifdef MPI_PARALLEL
     if (*started_irecv_) {
@@ -298,19 +317,24 @@ bool CommBuffer<T>::TryReceive() noexcept {
       // This is the crazy extra MPI call that impacts performance mentioned in Athena++
       PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
                                      MPI_STATUS_IGNORE));
-      PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, MPI_STATUS_IGNORE));
+      MPI_Status status;
+      PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
       if (flag) {
+        int size;
+        PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
         *started_irecv_ = false;
         *recv_start_called_ = false;
-        if (active_)
+        if (size > 0)
           *state_ = BufferState::received;
         else
           *state_ = BufferState::received_null;
         return true;
       }
       return false;
+    } else { 
+      StartReceive();
     }
-
+    /*
     int test;
 
     // PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
@@ -335,12 +359,9 @@ bool CommBuffer<T>::TryReceive() noexcept {
       return false;
     }
 
-    if (*nrecv_tries_ > 1e6) {
-      printf("[Receive failed] send_rank: %i recv_rank: %i tag: %i comm: %i\n",
-             send_rank_, my_rank, tag_, comm_);
-      PARTHENON_FAIL("MPI Hang.");
-    }
+    
     return false;
+    */
 #else
     return true;
 #endif

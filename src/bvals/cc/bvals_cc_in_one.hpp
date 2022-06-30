@@ -55,6 +55,8 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md);
 template <BoundaryType bound_type>
+TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md);
+template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md);
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md);
