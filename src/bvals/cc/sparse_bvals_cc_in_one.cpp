@@ -41,7 +41,7 @@ using namespace impl;
 // pmesh->boundary_comm_map.clear() after every remesh
 // in InitializeBlockTimeStepsAndBoundaries()
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_BuildSendBoundaryBuffers");
+  Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
   Mesh *pmesh = md->GetMeshPointer();
   auto &all_caches = md->GetBvarsCache();
   
@@ -105,10 +105,10 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundaryBuffers");
+template <BoundaryType bound_type> 
+TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundBufs");
   
-  const BoundaryType bound_type = BoundaryType::any;
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
 
@@ -187,7 +187,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
   Kokkos::parallel_for(
-      "SendBoundaryBuffers",
+      "SendBoundBufs",
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
@@ -253,10 +253,15 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers");
-  const BoundaryType bound_type = BoundaryType::any;
-  bool all_received = true;
+template TaskStatus SendBoundBufs<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus SendBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &); 
+template TaskStatus SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &); 
+
+template <BoundaryType bound_type> 
+TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_ReceiveBoundBufs");
+  
+  
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
   
@@ -269,6 +274,7 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   }
 
   int ibound = 0;
+  bool all_received = true;
   ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     auto &buf = *cache.recv_buf_vec[ibound];
 
@@ -291,9 +297,14 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::incomplete;
 }
 
-TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
+template TaskStatus ReceiveBoundBufs<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus ReceiveBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &); 
+template TaskStatus ReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &); 
+
+template <BoundaryType bound_type> 
+TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetInternalBoundaries");
-   const BoundaryType bound_type = BoundaryType::any;
+  
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
 
@@ -414,6 +425,10 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
+
+template TaskStatus SetBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus SetBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &); 
+template TaskStatus SetBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &); 
 
 } // namespace cell_centered_bvars
 } // namespace parthenon
