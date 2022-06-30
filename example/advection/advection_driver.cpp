@@ -104,10 +104,10 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // pull out the container that will hold the updated state
     // effectively, sc1 = sc0 + dudt*dt
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
-    /*
+    
     auto start_recv = tl.AddTask(none, &MeshBlockData<Real>::StartReceiving, sc1.get(),
                                  BoundaryCommSubset::all);
-    */
+    
     auto advect_flux = tl.AddTask(none, advection_package::CalculateFluxes, sc0);
 
     auto send_flux =
