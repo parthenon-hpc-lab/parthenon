@@ -143,15 +143,15 @@ class CommBuffer {
   }
 
   void Stale() {
-#ifdef MPI_PARALLEL
     if (*comm_type_ == BuffCommType::sender) {
       PARTHENON_FAIL("Should never get here.");
+#ifdef MPI_PARALLEL
       int test;
       PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
                                      MPI_STATUS_IGNORE));
       PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
-    }
 #endif
+    }
     if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
       PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");
     *state_ = BufferState::stale;
@@ -238,8 +238,10 @@ void CommBuffer<T>::Send() noexcept {
     SendNull();
     return;
   }
+
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send from buffer that hasn't been staled.");
+  *state_ = BufferState::sending;
   if (*comm_type_ == BuffCommType::sender) {
 // Make sure that this request isn't still out,
 // this could be blocking
@@ -253,7 +255,6 @@ void CommBuffer<T>::Send() noexcept {
                                   my_request_.get()));
 #endif
   }
-  *state_ = BufferState::sending;
   if (*comm_type_ == BuffCommType::receiver) {
     // This is an error
     Kokkos::abort("Trying to send from a receiver");
@@ -264,6 +265,7 @@ template <class T>
 void CommBuffer<T>::SendNull() noexcept {
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send_null from buffer that hasn't been staled.");
+  *state_ = BufferState::sending_null;
   if (*comm_type_ == BuffCommType::sender) {
 // Make sure that this request isn't still out,
 // this could be blocking
@@ -273,7 +275,6 @@ void CommBuffer<T>::SendNull() noexcept {
                                   recv_rank_, tag_, comm_, my_request_.get()));
 #endif
   }
-  *state_ = BufferState::sending_null;
   if (*comm_type_ == BuffCommType::receiver) {
     // This is an error
     Kokkos::abort("Trying to send from a receiver");
@@ -284,6 +285,7 @@ template <class T>
 void CommBuffer<T>::StartReceive() noexcept {
 #ifdef MPI_PARALLEL
   if (*comm_type_ == BuffCommType::receiver) {
+    PARTHENON_REQUIRE(!*started_irecv_, "Trying to start Irecv when this buffer is already trying to receive."); 
     Allocate();
     PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
                                   MPITypeMap<buf_base_t>::type(), send_rank_, tag_,                                 
@@ -313,28 +315,26 @@ bool CommBuffer<T>::TryReceive() noexcept {
     }
 
 #ifdef MPI_PARALLEL
-    if (*started_irecv_) {
-      int flag;
-      // This is the crazy extra MPI call that impacts performance mentioned in Athena++
-      PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
-                                     MPI_STATUS_IGNORE));
-      MPI_Status status;
-      PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
-      if (flag) {
-        int size;
-        PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
-        *started_irecv_ = false;
-        *recv_start_called_ = false;
-        if (size > 0)
-          *state_ = BufferState::received;
-        else
-          *state_ = BufferState::received_null;
-        return true;
-      }
-      return false;
-    } else { 
-      StartReceive();
+    if (!*started_irecv_) StartReceive(); 
+    int flag;
+    // This is the crazy extra MPI call that impacts performance mentioned in Athena++
+    PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
+                                   MPI_STATUS_IGNORE));
+    MPI_Status status;
+    PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
+    if (flag) {
+      int size;
+      PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
+      *started_irecv_ = false;
+      *recv_start_called_ = false;
+      if (size > 0)
+        *state_ = BufferState::received;
+      else
+        *state_ = BufferState::received_null;
+      return true;
     }
+    return false;
+    
     /*
     // Older, slower way of receiving which only allocated data where necessary. It is 
     // possible that we want to switch back to this at some point since the current 
@@ -383,7 +383,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
     return false;
   } else {
     // This is an error since this is a purely send buffer
-    Kokkos::abort("Trying to receive on a sender");
+    PARTHENON_FAIL("Trying to receive on a sender");
   }
   return false;
 }
