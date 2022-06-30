@@ -305,6 +305,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
     }
 
     (*nrecv_tries_)++;
+
     if (*nrecv_tries_ > 1e6) {
       printf("[Receive failed] send_rank: %i recv_rank: %i tag: %i comm: %i\n",
              send_rank_, my_rank, tag_, comm_);
@@ -335,6 +336,10 @@ bool CommBuffer<T>::TryReceive() noexcept {
       StartReceive();
     }
     /*
+    // Older, slower way of receiving which only allocated data where necessary. It is 
+    // possible that we want to switch back to this at some point since the current 
+    // choices are made for MPI performance, but the performance issues seem to be 
+    // due to the properties of the MPI implementation not some fundamental limit.  
     int test;
 
     // PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
