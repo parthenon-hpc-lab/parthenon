@@ -154,6 +154,8 @@ class CommBuffer {
     if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
       PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");
     *state_ = BufferState::stale;
+    *started_irecv_ = false;
+    *recv_start_called_ = false;
   }
 };
 
@@ -245,8 +247,8 @@ void CommBuffer<T>::Send() noexcept {
         buf_.size() > 0,
         "Trying to send zero size buffer, which will be interpreted as sending_null.");
     int test;
-    PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-                                   MPI_STATUS_IGNORE));
+    //PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+    //                               MPI_STATUS_IGNORE));
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
     PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(),
                                   MPITypeMap<buf_base_t>::type(), recv_rank_, tag_, comm_,
@@ -269,8 +271,8 @@ void CommBuffer<T>::SendNull() noexcept {
 // this could be blocking
 #ifdef MPI_PARALLEL
     int test;
-    PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-                                   MPI_STATUS_IGNORE));
+    //PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+    //                               MPI_STATUS_IGNORE));
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
     PARTHENON_MPI_CHECK(MPI_Isend(&null_buf_, 0, MPITypeMap<buf_base_t>::type(),
                                   recv_rank_, tag_, comm_, my_request_.get()));
@@ -285,9 +287,7 @@ void CommBuffer<T>::SendNull() noexcept {
 
 template <class T>
 bool CommBuffer<T>::TryReceive() noexcept {
-  if (*state_ == BufferState::received || *state_ == BufferState::received_null)
-    return true;
-
+  
   if (*comm_type_ == BuffCommType::receiver) {
     
     if (!*recv_start_called_) {
@@ -305,8 +305,9 @@ bool CommBuffer<T>::TryReceive() noexcept {
                                        MPI_STATUS_IGNORE));
       PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, MPI_STATUS_IGNORE)); 
       if (flag) {
-        *started_irecv_ = false;
-        *recv_start_called_ = false;
+        //*started_irecv_ = false;
+        //*recv_start_called_ = false;
+        if (BufferState::received != *state_) printf("Last necessary test after %i calls.\n", *nrecv_tries_); 
         if (active_) *state_ = BufferState::received; 
         else *state_ = BufferState::received_null; 
         return true; 
@@ -317,8 +318,8 @@ bool CommBuffer<T>::TryReceive() noexcept {
     int test;
     // This is the crazy thing mentioned in Athena++, including this supposedly do
     // nothing call speeds up the MPI performance by a factor of a few.
-    // PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-    //                                MPI_STATUS_IGNORE));
+    //PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+    //                               MPI_STATUS_IGNORE));
     MPI_Status status;
     PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank_, tag_, comm_, &test, &status));
     
@@ -327,28 +328,27 @@ bool CommBuffer<T>::TryReceive() noexcept {
       PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
       if (size > 0) {
         if (!active_) Allocate();
-        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
-                                       MPI_STATUS_IGNORE));
+        //PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+        //                               MPI_STATUS_IGNORE));
         PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
                                      MPITypeMap<buf_base_t>::type(), send_rank_, tag_,
                                      comm_, my_request_.get()));
-        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
-                                       MPI_STATUS_IGNORE));        
         //*state_ = BufferState::received;
       } else {
         if (active_) Free();
-        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
-                                       MPI_STATUS_IGNORE));
+        //PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+        //                               MPI_STATUS_IGNORE));
         PARTHENON_MPI_CHECK(MPI_Irecv(&null_buf_, 0, MPITypeMap<buf_base_t>::type(),
                                      send_rank_, tag_, comm_, my_request_.get()));
-        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
-                                       MPI_STATUS_IGNORE));
         //*state_ = BufferState::received_null;
       }
-      
-      
+      //
+      PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, MPI_STATUS_IGNORE)); 
+
       //*nrecv_tries_ = 0;
       *started_irecv_ = true;
+      //*recv_start_called_ = false;
+      //printf("First test on call %i.\n", *nrecv_tries_ + 1); 
       return false;
     }
 
@@ -361,6 +361,8 @@ bool CommBuffer<T>::TryReceive() noexcept {
     return true;
 #endif
   } else if (*comm_type_ == BuffCommType::both) {
+    if (*state_ == BufferState::received || *state_ == BufferState::received_null)
+      return true;
     if (*state_ == BufferState::sending) {
       *state_ = BufferState::received;
       // Memory should already be available, since both
