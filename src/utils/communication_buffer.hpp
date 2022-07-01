@@ -113,7 +113,7 @@ class CommBuffer {
 
   void Send() noexcept;
   void SendNull() noexcept;
-  
+
   void StartReceive() noexcept;
   bool TryReceive() noexcept;
 
@@ -285,11 +285,13 @@ template <class T>
 void CommBuffer<T>::StartReceive() noexcept {
 #ifdef MPI_PARALLEL
   if (*comm_type_ == BuffCommType::receiver) {
-    PARTHENON_REQUIRE(!*started_irecv_, "Trying to start Irecv when this buffer is already trying to receive."); 
+    PARTHENON_REQUIRE(
+        !*started_irecv_,
+        "Trying to start Irecv when this buffer is already trying to receive.");
     Allocate();
     PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
-                                  MPITypeMap<buf_base_t>::type(), send_rank_, tag_,                                 
-                                  comm_, my_request_.get()));
+                                  MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
+                                  my_request_.get()));
     *started_irecv_ = true;
   }
 #endif
@@ -315,7 +317,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
     }
 
 #ifdef MPI_PARALLEL
-    if (!*started_irecv_) StartReceive(); 
+    if (!*started_irecv_) StartReceive();
     int flag;
     // This is the crazy extra MPI call that impacts performance mentioned in Athena++
     PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
@@ -334,12 +336,12 @@ bool CommBuffer<T>::TryReceive() noexcept {
       return true;
     }
     return false;
-    
+
     /*
-    // Older, slower way of receiving which only allocated data where necessary. It is 
-    // possible that we want to switch back to this at some point since the current 
-    // choices are made for MPI performance, but the performance issues seem to be 
-    // due to the properties of the MPI implementation not some fundamental limit.  
+    // Older, slower way of receiving which only allocated data where necessary. It is
+    // possible that we want to switch back to this at some point since the current
+    // choices are made for MPI performance, but the performance issues seem to be
+    // due to the properties of the MPI implementation not some fundamental limit.
     int test;
 
     // PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
@@ -364,7 +366,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
       return false;
     }
 
-    
+
     return false;
     */
 #else

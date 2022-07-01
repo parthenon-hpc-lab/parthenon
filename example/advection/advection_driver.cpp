@@ -61,7 +61,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
   const auto &stage_name = integrator->stage_name;
-  
+
   // first make other useful containers
   if (stage == 1) {
     for (int i = 0; i < blocks.size(); i++) {
@@ -84,9 +84,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     const auto nonlocal = parthenon::BoundaryType::nonlocal;
     const auto any = parthenon::BoundaryType::any;
-    
-    auto start_nonloc = tl.AddTask(
-        none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
+
+    auto start_nonloc =
+        tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
   }
 
   // Number of task lists that can be executed independently and thus *may*
@@ -109,10 +109,10 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // pull out the container that will hold the updated state
     // effectively, sc1 = sc0 + dudt*dt
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
-    
+
     auto start_recv = tl.AddTask(none, &MeshBlockData<Real>::StartReceiving, sc1.get(),
                                  BoundaryCommSubset::all);
-    
+
     auto advect_flux = tl.AddTask(none, advection_package::CalculateFluxes, sc0);
 
     auto send_flux =
@@ -121,7 +121,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         tl.AddTask(advect_flux, &MeshBlockData<Real>::ReceiveFluxCorrection, sc0.get());
   }
 
-  //const int num_partitions = pmesh->DefaultNumPartitions();
+  // const int num_partitions = pmesh->DefaultNumPartitions();
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
@@ -135,8 +135,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     const auto any = parthenon::BoundaryType::any;
     const auto local = parthenon::BoundaryType::local;
     const auto nonlocal = parthenon::BoundaryType::nonlocal;
-    
-    //auto start_nonloc = tl.AddTask(
+
+    // auto start_nonloc = tl.AddTask(
     //    none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<nonlocal>, mc1);
     /*
     auto send_flx = tl.AddTask(
@@ -159,8 +159,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    //auto send_nonloc = 
-    //    tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<nonlocal>, mc1); 
+    // auto send_nonloc =
+    //    tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<nonlocal>,
+    //    mc1);
 
     auto send_loc =
         tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<any>, mc1);
@@ -168,11 +169,13 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<any>, mc1);
     auto set_loc =
         tl.AddTask(recv_loc, parthenon::cell_centered_bvars::SetBounds<any>, mc1);
-    
-    //auto recv_nonloc = 
-    //    tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>, mc1);
-    //auto set_nonloc = 
-    //    tl.AddTask(recv_nonloc, parthenon::cell_centered_bvars::SetBounds<nonlocal>, mc1);
+
+    // auto recv_nonloc =
+    //    tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>,
+    //    mc1);
+    // auto set_nonloc =
+    //    tl.AddTask(recv_nonloc, parthenon::cell_centered_bvars::SetBounds<nonlocal>,
+    //    mc1);
 
     if (pmesh->multilevel) {
       tl.AddTask(set_loc, parthenon::cell_centered_refinement::RestrictPhysicalBounds,

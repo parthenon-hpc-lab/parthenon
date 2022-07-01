@@ -280,12 +280,12 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   }
 
   int ibound = 0;
-  ForEachBoundary<bound_type>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        auto &buf = *cache.recv_buf_vec[ibound];
-        buf.StartReceive(); 
-        ++ibound;
-      });
+  ForEachBoundary<bound_type>(md,
+                              [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+                                auto &buf = *cache.recv_buf_vec[ibound];
+                                buf.StartReceive();
+                                ++ibound;
+                              });
   Kokkos::Profiling::popRegion();
 
   return TaskStatus::complete;
@@ -319,7 +319,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   ForEachBoundary<bound_type>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
         auto &buf = *cache.recv_buf_vec[ibound];
-        
+
         all_received = all_received && buf.TryReceive();
         // Allocate variable if it is receiving actual data in any boundary
         // (the state could also be BufferState::received_null, which corresponds to no
