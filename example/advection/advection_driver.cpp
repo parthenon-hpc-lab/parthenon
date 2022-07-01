@@ -62,6 +62,18 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   const Real dt = integrator->dt;
   const auto &stage_name = integrator->stage_name;
   
+  // first make other useful containers
+  if (stage == 1) {
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &pmb = blocks[i];
+      // first make other useful containers
+      auto &base = pmb->meshblock_data.Get();
+      pmb->meshblock_data.Add("dUdt", base);
+      for (int s = 1; s < integrator->nstages; s++)
+        pmb->meshblock_data.Add(stage_name[s], base);
+    }
+  }
+
   const int num_partitions = pmesh->DefaultNumPartitions();
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
@@ -88,13 +100,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region1[i];
-    // first make other useful containers
-    if (stage == 1) {
-      auto &base = pmb->meshblock_data.Get();
-      pmb->meshblock_data.Add("dUdt", base);
-      for (int i = 1; i < integrator->nstages; i++)
-        pmb->meshblock_data.Add(stage_name[i], base);
-    }
 
     // pull out the container we'll use to get fluxes and/or compute RHSs
     auto &sc0 = pmb->meshblock_data.Get(stage_name[stage - 1]);
