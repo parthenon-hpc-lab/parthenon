@@ -41,7 +41,7 @@ namespace parthenon {
 // received:     X
 enum class BufferState { stale, sending, sending_null, received, received_null };
 
-enum class BuffCommType { sender, receiver, both, sparse_receiver};
+enum class BuffCommType { sender, receiver, both, sparse_receiver };
 
 enum class BoundaryType : int { local, nonlocal, any, reflux_send, reflux_recv };
 
@@ -81,7 +81,7 @@ class CommBuffer {
   }
 
   CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm_,
-             std::function<T()> get_resource);
+             std::function<T()> get_resource, bool do_sparse_allocation = false);
 
   ~CommBuffer();
 
@@ -128,7 +128,7 @@ class CommBuffer {
 
 template <class T>
 CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm,
-                          std::function<T()> get_resource)
+                          std::function<T()> get_resource, bool do_sparse_allocation)
     : state_(std::make_shared<BufferState>(BufferState::stale)),
       comm_type_(std::make_shared<BuffCommType>(BuffCommType::both)),
       started_irecv_(std::make_shared<bool>(false)),
@@ -150,7 +150,8 @@ CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm,
   } else if (my_rank == send_rank) {
     *comm_type_ = BuffCommType::sender;
   } else if (my_rank == recv_rank) {
-    *comm_type_ = BuffCommType::sparse_receiver;
+    *comm_type_ = BuffCommType::receiver;
+    if (do_sparse_allocation) *comm_type_ = BuffCommType::sparse_receiver;
   } else {
     // This is an error
     std::cout << "CommBuffer initialization error" << std::endl;
@@ -161,10 +162,9 @@ template <class T>
 template <class U>
 CommBuffer<T>::CommBuffer(const CommBuffer<U> &in)
     : buf_(in.buf_), state_(in.state_), comm_type_(in.comm_type_),
-      started_irecv_(in.started_irecv_), nrecv_tries_(in.nrecv_tries_), 
-      my_request_(in.my_request_), tag_(in.tag_),
-      send_rank_(in.send_rank_), recv_rank_(in.recv_rank_), comm_(in.comm_),
-      active_(in.active_) {
+      started_irecv_(in.started_irecv_), nrecv_tries_(in.nrecv_tries_),
+      my_request_(in.my_request_), tag_(in.tag_), send_rank_(in.send_rank_),
+      recv_rank_(in.recv_rank_), comm_(in.comm_), active_(in.active_) {
 #ifdef MPI_PARALLEL
   PARTHENON_MPI_CHECK(MPI_Comm_rank(comm_, &my_rank));
 #else
@@ -301,29 +301,28 @@ void CommBuffer<T>::TryStartReceive() noexcept {
                                   MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
                                   my_request_.get()));
     *started_irecv_ = true;
-  }
-  else if (*comm_type_ == BuffCommType::sparse_receiver && !*started_irecv_) {
+  } else if (*comm_type_ == BuffCommType::sparse_receiver && !*started_irecv_) {
     int test;
     MPI_Status status;
     // This is the extra MPI call that impacts performance mentioned in Athena++
     PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-                                   MPI_STATUS_IGNORE)); 
+                                   MPI_STATUS_IGNORE));
     // Check if our message is available so that we can use the correct buffer size
     PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank_, tag_, comm_, &test, &status));
     if (test) {
-      // For optimal buffer memory useage, we can only post the Irecv once we know the 
+      // For optimal buffer memory useage, we can only post the Irecv once we know the
       // size of the incoming buffer
       int size;
       PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
       if (size > 0) {
         if (!active_) Allocate();
         PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
-                                     MPITypeMap<buf_base_t>::type(), send_rank_, tag_,
-                                     comm_, my_request_.get()));
+                                      MPITypeMap<buf_base_t>::type(), send_rank_, tag_,
+                                      comm_, my_request_.get()));
       } else {
         if (active_) Free();
         PARTHENON_MPI_CHECK(MPI_Irecv(&null_buf_, 0, MPITypeMap<buf_base_t>::type(),
-                                     send_rank_, tag_, comm_, my_request_.get()));
+                                      send_rank_, tag_, comm_, my_request_.get()));
       }
       *started_irecv_ = true;
     }
@@ -336,10 +335,12 @@ bool CommBuffer<T>::TryReceive() noexcept {
   if (*state_ == BufferState::received || *state_ == BufferState::received_null)
     return true;
 
-  if (*comm_type_ == BuffCommType::receiver || *comm_type_ == BuffCommType::sparse_receiver) {
+  if (*comm_type_ == BuffCommType::receiver ||
+      *comm_type_ == BuffCommType::sparse_receiver) {
 #ifdef MPI_PARALLEL
     (*nrecv_tries_)++;
-    if (*nrecv_tries_ > 1e6) PARTHENON_FAIL("MPI probably hanging after 1e6 receive tries.");
+    if (*nrecv_tries_ > 1e6)
+      PARTHENON_FAIL("MPI probably hanging after 1e6 receive tries.");
 
     TryStartReceive();
 
@@ -347,7 +348,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
     // This is the extra MPI call that (maybe) impacts performance mentioned in Athena++
     PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
                                    MPI_STATUS_IGNORE));
-   
+
     if (*started_irecv_) {
       MPI_Status status;
       PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
@@ -355,7 +356,8 @@ bool CommBuffer<T>::TryReceive() noexcept {
         // Check the size of the message, it will be zero if the sender wants you to use
         // default buffer data
         int size;
-        PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
+        PARTHENON_MPI_CHECK(
+            MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
 
         PARTHENON_REQUIRE(*my_request_ == MPI_REQUEST_NULL,
                           "MPI request should be finished to get here.");

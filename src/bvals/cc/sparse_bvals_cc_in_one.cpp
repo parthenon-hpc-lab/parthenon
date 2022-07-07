@@ -91,31 +91,33 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(s_tag) == 0,
                             "Two communication buffers have the same key.");
 
+    auto get_resource_method = [pmesh, buf_size]() {
+      return pmesh->pool_map.at(buf_size).Get();
+    };
+    bool use_sparse_buffers = v->IsSet(Metadata::SparseCommunication);
     pmesh->boundary_comm_map[s_tag] = CommBuffer<buf_pool_t<Real>::owner_t>(
-        tag, sender_rank, receiver_rank, comm,
-        [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
+        tag, sender_rank, receiver_rank, comm, get_resource_method, use_sparse_buffers);
 
     // Separate reflux buffer if needed
     if ((nb.snb.level == pmb->loc.level - 1) &&
         (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
       pmesh->boundary_comm_reflux_map[s_tag] = CommBuffer<buf_pool_t<Real>::owner_t>(
-          tag, sender_rank, receiver_rank, comm_reflux,
-          [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
+          tag, sender_rank, receiver_rank, comm_reflux, get_resource_method,
+          use_sparse_buffers);
 
     // Also build the non-local receive buffers here
     if (sender_rank != receiver_rank) {
       int tag_r = ReceiveMPITag(pmb, nb, v);
       pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)] =
-          CommBuffer<buf_pool_t<Real>::owner_t>(
-              tag_r, receiver_rank, sender_rank, comm,
-              [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
+          CommBuffer<buf_pool_t<Real>::owner_t>(tag_r, receiver_rank, sender_rank, comm,
+                                                get_resource_method, use_sparse_buffers);
       // Separate reflux buffer if needed
       if ((nb.snb.level - 1 == pmb->loc.level) &&
           (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
         pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)] =
-            CommBuffer<buf_pool_t<Real>::owner_t>(
-                tag_r, receiver_rank, sender_rank, comm_reflux,
-                [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
+            CommBuffer<buf_pool_t<Real>::owner_t>(tag_r, receiver_rank, sender_rank,
+                                                  comm_reflux, get_resource_method,
+                                                  use_sparse_buffers);
     }
   });
 
