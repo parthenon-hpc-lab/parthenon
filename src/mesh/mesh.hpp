@@ -177,7 +177,7 @@ class Mesh {
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
   std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>
-      boundary_comm_map;
+      boundary_comm_map, boundary_comm_reflux_map;
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }

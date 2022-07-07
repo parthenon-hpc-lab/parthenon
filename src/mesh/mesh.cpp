@@ -1067,6 +1067,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     // send FillGhost variables
     boundary_comm_map.clear();
+    boundary_comm_reflux_map.clear();
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       cell_centered_bvars::BuildSparseBoundaryBuffers(md);
@@ -1291,6 +1292,13 @@ void Mesh::SetupMPIComms() {
         const auto ret =
             mpi_comm_map_.insert({pair.first.label() + "_flcor", mpi_comm_flcor});
         PARTHENON_REQUIRE_THROWS(ret.second,
+                                 "Flux corr. communicator with same name already in map");
+        
+        MPI_Comm mpi_comm_sparse_flcor;
+        PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm_sparse_flcor));
+        const auto ret_sparse =
+            mpi_comm_map_.insert({pair.first.label() + "_flcor_sparse_comm", mpi_comm_sparse_flcor});
+        PARTHENON_REQUIRE_THROWS(ret_sparse.second,
                                  "Flux corr. communicator with same name already in map");
       }
     }
