@@ -59,7 +59,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             one=True,
             tol=1e-6,
             # don't check metadata, because SparseInfo will differ
-            check_metadata=False,
+            check_metadata=False
         )
 
         if delta != 0:
