@@ -200,6 +200,12 @@ void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds
   auto jb = cellbounds.GetBoundsJ(interior);
   auto ib = cellbounds.GetBoundsI(interior);
 
+  // TODO(BRR) nbuffers is currently always 1. In the future nbuffers could be > 1 to
+  // improve performance.
+  // JMM: Pretty sure this is only true for the per-meshblock calls,
+  // but for bvals_in_one, this is not the case. I think
+  // nbuffers/variable is 1, but there is one buffer per variable per
+  // meshblock/neighbor pair when doing boundary comms in-one.
   const int nbuffers = info.extent_int(0);
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   size_t scratch_size_in_bytes = 1;
