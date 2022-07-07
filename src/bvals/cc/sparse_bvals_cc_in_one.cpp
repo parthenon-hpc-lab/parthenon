@@ -77,8 +77,9 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
 #ifdef MPI_PARALLEL
     comm_t comm = pmesh->GetMPIComm(v->label() + "_sparse_comm");
-    comm_t comm_reflux = comm; 
-    if (nb.snb.level != pmb->loc.level) comm_reflux = pmesh->GetMPIComm(v->label() + "_flcor_sparse_comm");
+    comm_t comm_reflux = comm;
+    if (nb.snb.level != pmb->loc.level)
+      comm_reflux = pmesh->GetMPIComm(v->label() + "_flcor_sparse_comm");
 #else
     // Setting to zero is fine here since this doesn't actually get used when everything
     // is on the same rank
@@ -93,12 +94,13 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     pmesh->boundary_comm_map[s_tag] = CommBuffer<buf_pool_t<Real>::owner_t>(
         tag, sender_rank, receiver_rank, comm,
         [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
-    
-    // Separate reflux buffer if needed        
-    if ((nb.snb.level == pmb->loc.level - 1) && (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
+
+    // Separate reflux buffer if needed
+    if ((nb.snb.level == pmb->loc.level - 1) &&
+        (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
       pmesh->boundary_comm_reflux_map[s_tag] = CommBuffer<buf_pool_t<Real>::owner_t>(
-        tag, sender_rank, receiver_rank, comm_reflux,
-        [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); }); 
+          tag, sender_rank, receiver_rank, comm_reflux,
+          [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
 
     // Also build the non-local receive buffers here
     if (sender_rank != receiver_rank) {
@@ -107,12 +109,13 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
           CommBuffer<buf_pool_t<Real>::owner_t>(
               tag_r, receiver_rank, sender_rank, comm,
               [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
-      // Separate reflux buffer if needed        
-      if ((nb.snb.level - 1 == pmb->loc.level) && (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
+      // Separate reflux buffer if needed
+      if ((nb.snb.level - 1 == pmb->loc.level) &&
+          (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
         pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)] =
-          CommBuffer<buf_pool_t<Real>::owner_t>(
-              tag_r, receiver_rank, sender_rank, comm_reflux,
-              [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); }); 
+            CommBuffer<buf_pool_t<Real>::owner_t>(
+                tag_r, receiver_rank, sender_rank, comm_reflux,
+                [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
     }
   });
 
@@ -278,7 +281,7 @@ template TaskStatus SendBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<
 template TaskStatus
 SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
-template <BoundaryType bound_type> 
+template <BoundaryType bound_type>
 void BuildReceiveCache(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
@@ -295,7 +298,7 @@ template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_StartReceiveBoundBufs");
   auto &cache = md->GetBvarsCache()[bound_type];
-  if (cache.recv_buf_vec.size() == 0) BuildReceiveCache<bound_type>(md); 
+  if (cache.recv_buf_vec.size() == 0) BuildReceiveCache<bound_type>(md);
 
   int ibound = 0;
   ForEachBoundary<bound_type>(md,
@@ -321,7 +324,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundBufs");
 
   auto &cache = md->GetBvarsCache()[bound_type];
-  if (cache.recv_buf_vec.size() == 0) BuildReceiveCache<bound_type>(md); 
+  if (cache.recv_buf_vec.size() == 0) BuildReceiveCache<bound_type>(md);
 
   int ibound = 0;
   bool all_received = true;
@@ -471,9 +474,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                                });
         }
       });
-#ifdef MPI_PARALLEL  
+#ifdef MPI_PARALLEL
   Kokkos::fence();
-#endif 
+#endif
   int iarr = 0;
   ForEachBoundary<bound_type>(md,
                               [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {

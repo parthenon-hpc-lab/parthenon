@@ -56,9 +56,10 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
       });
   if (!all_available) return TaskStatus::incomplete;
 
-  ForEachBoundary<BoundaryType::reflux_send>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_reflux_map.count(SendKey(pmb, nb, v)) > 0,
+  ForEachBoundary<BoundaryType::reflux_send>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
+                                                     const sp_cv_t v) {
+    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_reflux_map.count(SendKey(pmb, nb, v)) >
+                                0,
                             "Boundary communicator does not exist");
     auto &buf = pmesh->boundary_comm_reflux_map[SendKey(pmb, nb, v)];
 
@@ -168,7 +169,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
     PARTHENON_REQUIRE(buf.GetState() == BufferState::stale, "Not sure how I got here.");
 #ifdef MPI_PARALLEL
     Kokkos::fence();
-#endif   
+#endif
     buf.Send();
     return LoopControl::cont;
   });
@@ -180,14 +181,14 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
 TaskStatus StartReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrectionBuffers");
   Mesh *pmesh = md->GetMeshPointer();
-  ForEachBoundary<BoundaryType::reflux_recv>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_reflux_map.count(ReceiveKey(pmb, nb, v)) > 0,
-                            "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)];
-    buf.StartReceive();
-
-  });
+  ForEachBoundary<BoundaryType::reflux_recv>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        PARTHENON_DEBUG_REQUIRE(
+            pmesh->boundary_comm_reflux_map.count(ReceiveKey(pmb, nb, v)) > 0,
+            "Boundary communicator does not exist");
+        auto &buf = pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)];
+        buf.StartReceive();
+      });
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
@@ -196,14 +197,14 @@ TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &m
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrectionBuffers");
   bool all_received = true;
   Mesh *pmesh = md->GetMeshPointer();
-  ForEachBoundary<BoundaryType::reflux_recv>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_reflux_map.count(ReceiveKey(pmb, nb, v)) > 0,
-                            "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)];
-    all_received = all_received && buf.TryReceive();
-
-  });
+  ForEachBoundary<BoundaryType::reflux_recv>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        PARTHENON_DEBUG_REQUIRE(
+            pmesh->boundary_comm_reflux_map.count(ReceiveKey(pmb, nb, v)) > 0,
+            "Boundary communicator does not exist");
+        auto &buf = pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)];
+        all_received = all_received && buf.TryReceive();
+      });
 
   Kokkos::Profiling::popRegion();
 
@@ -216,114 +217,115 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
   Mesh *pmesh = md->GetMeshPointer();
 
-  ForEachBoundary<BoundaryType::reflux_recv>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BoundaryType::reflux_recv>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        PARTHENON_DEBUG_REQUIRE(
+            pmesh->boundary_comm_reflux_map.count(ReceiveKey(pmb, nb, v)) > 0,
+            "Boundary communicator does not exist");
+        auto &buf = pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)];
 
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_reflux_map.count(ReceiveKey(pmb, nb, v)) > 0,
-                            "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)];
+        // Check if this boundary requires flux correction
+        if ((!v->IsAllocated()) || buf.GetState() == BufferState::received_null) {
+          buf.Stale();
+          return LoopControl::cont;
+        }
 
-    // Check if this boundary requires flux correction
-    if ((!v->IsAllocated()) || buf.GetState() == BufferState::received_null) {
-      buf.Stale();
-      return LoopControl::cont;
-    }
+        // Need to caculate these bounds based on mesh position
+        // Average fluxes over area and load buffer
+        IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+        IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+        IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-    // Need to caculate these bounds based on mesh position
-    // Average fluxes over area and load buffer
-    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+        int ks = kb.s;
+        int js = jb.s;
+        int is = ib.s;
+        int ke = kb.e;
+        int je = jb.e;
+        int ie = ib.e;
+        CoordinateDirection dir;
+        if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
+          dir = X1DIR;
+          if (nb.fid == BoundaryFace::inner_x1)
+            ie = is;
+          else
+            is = ++ie;
+          if (nb.ni.fi1 == 0)
+            je -= pmb->block_size.nx2 / 2;
+          else
+            js += pmb->block_size.nx2 / 2;
+          if (nb.ni.fi2 == 0)
+            ke -= pmb->block_size.nx3 / 2;
+          else
+            ks += pmb->block_size.nx3 / 2;
+        } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
+          dir = X2DIR;
+          if (nb.fid == BoundaryFace::inner_x2)
+            je = js;
+          else
+            js = ++je;
+          if (nb.ni.fi1 == 0)
+            ie -= pmb->block_size.nx1 / 2;
+          else
+            is += pmb->block_size.nx1 / 2;
+          if (nb.ni.fi2 == 0)
+            ke -= pmb->block_size.nx3 / 2;
+          else
+            ks += pmb->block_size.nx3 / 2;
+        } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
+          dir = X3DIR;
+          if (nb.fid == BoundaryFace::inner_x3)
+            ke = ks;
+          else
+            ks = ++ke;
+          if (nb.ni.fi1 == 0)
+            ie -= pmb->block_size.nx1 / 2;
+          else
+            is += pmb->block_size.nx1 / 2;
+          if (nb.ni.fi2 == 0)
+            je -= pmb->block_size.nx2 / 2;
+          else
+            js += pmb->block_size.nx2 / 2;
+        } else {
+          PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
+        }
 
-    int ks = kb.s;
-    int js = jb.s;
-    int is = ib.s;
-    int ke = kb.e;
-    int je = jb.e;
-    int ie = ib.e;
-    CoordinateDirection dir;
-    if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
-      dir = X1DIR;
-      if (nb.fid == BoundaryFace::inner_x1)
-        ie = is;
-      else
-        is = ++ie;
-      if (nb.ni.fi1 == 0)
-        je -= pmb->block_size.nx2 / 2;
-      else
-        js += pmb->block_size.nx2 / 2;
-      if (nb.ni.fi2 == 0)
-        ke -= pmb->block_size.nx3 / 2;
-      else
-        ks += pmb->block_size.nx3 / 2;
-    } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
-      dir = X2DIR;
-      if (nb.fid == BoundaryFace::inner_x2)
-        je = js;
-      else
-        js = ++je;
-      if (nb.ni.fi1 == 0)
-        ie -= pmb->block_size.nx1 / 2;
-      else
-        is += pmb->block_size.nx1 / 2;
-      if (nb.ni.fi2 == 0)
-        ke -= pmb->block_size.nx3 / 2;
-      else
-        ks += pmb->block_size.nx3 / 2;
-    } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
-      dir = X3DIR;
-      if (nb.fid == BoundaryFace::inner_x3)
-        ke = ks;
-      else
-        ks = ++ke;
-      if (nb.ni.fi1 == 0)
-        ie -= pmb->block_size.nx1 / 2;
-      else
-        is += pmb->block_size.nx1 / 2;
-      if (nb.ni.fi2 == 0)
-        je -= pmb->block_size.nx2 / 2;
-      else
-        js += pmb->block_size.nx2 / 2;
-    } else {
-      PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
-    }
+        auto &flx = v->flux[dir];
+        buf_pool_t<Real>::weak_t &buf_arr = buf.buffer();
+        const int nl = flx.GetDim(6);
+        const int nm = flx.GetDim(5);
+        const int nn = flx.GetDim(4);
+        const int nk = ke - ks + 1;
+        const int nj = je - js + 1;
+        const int ni = ie - is + 1;
+        const int NjNi = nj * ni;
+        const int NkNjNi = nk * NjNi;
+        const int NnNkNjNi = nn * NkNjNi;
+        const int NmNnNkNjNi = nm * NnNkNjNi;
+        if (nl * NmNnNkNjNi > buf_arr.size()) {
+          PARTHENON_FAIL("Buffer to small")
+        }
 
-    auto &flx = v->flux[dir];
-    buf_pool_t<Real>::weak_t &buf_arr = buf.buffer();
-    const int nl = flx.GetDim(6);
-    const int nm = flx.GetDim(5);
-    const int nn = flx.GetDim(4);
-    const int nk = ke - ks + 1;
-    const int nj = je - js + 1;
-    const int ni = ie - is + 1;
-    const int NjNi = nj * ni;
-    const int NkNjNi = nk * NjNi;
-    const int NnNkNjNi = nn * NkNjNi;
-    const int NmNnNkNjNi = nm * NnNkNjNi;
-    if (nl * NmNnNkNjNi > buf_arr.size()) {
-      PARTHENON_FAIL("Buffer to small")
-    }
+        Kokkos::parallel_for(
+            "SendFluxCorrection",
+            Kokkos::RangePolicy<>(parthenon::DevExecSpace(), 0, nl * NmNnNkNjNi),
+            KOKKOS_LAMBDA(const int loop_idx) {
+              const int l = loop_idx / NmNnNkNjNi;
+              const int m = (loop_idx % NmNnNkNjNi) / NnNkNjNi;
+              const int n = (loop_idx % NnNkNjNi) / NkNjNi;
+              const int k = (loop_idx % NkNjNi) / NjNi + ks;
+              const int j = (loop_idx % NjNi) / ni + js;
+              const int i = loop_idx % ni + is;
 
-    Kokkos::parallel_for(
-        "SendFluxCorrection",
-        Kokkos::RangePolicy<>(parthenon::DevExecSpace(), 0, nl * NmNnNkNjNi),
-        KOKKOS_LAMBDA(const int loop_idx) {
-          const int l = loop_idx / NmNnNkNjNi;
-          const int m = (loop_idx % NmNnNkNjNi) / NnNkNjNi;
-          const int n = (loop_idx % NnNkNjNi) / NkNjNi;
-          const int k = (loop_idx % NkNjNi) / NjNi + ks;
-          const int j = (loop_idx % NjNi) / ni + js;
-          const int i = loop_idx % ni + is;
-
-          const int idx =
-              i - is + ni * (j - js + nj * (k - ks + nk * (n + nn * (m + nm * l))));
-          flx(l, m, n, k, j, i) = buf_arr(idx);
-        });
+              const int idx =
+                  i - is + ni * (j - js + nj * (k - ks + nk * (n + nn * (m + nm * l))));
+              flx(l, m, n, k, j, i) = buf_arr(idx);
+            });
 #ifdef MPI_PARALLEL
-    Kokkos::fence();
-#endif 
-    buf.Stale();
-    return LoopControl::cont;
-  });
+        Kokkos::fence();
+#endif
+        buf.Stale();
+        return LoopControl::cont;
+      });
 
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;

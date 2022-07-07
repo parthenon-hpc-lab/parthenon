@@ -83,7 +83,7 @@ class CommBuffer {
 
   CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm_,
              std::function<T()> get_resource);
-  
+
   ~CommBuffer();
 
   template <class U>
@@ -91,8 +91,6 @@ class CommBuffer {
 
   template <class U>
   CommBuffer &operator=(const CommBuffer<U> &in);
-  
-
 
   operator T &() { return buf_; }
   operator const T &() const { return buf_; }
@@ -111,15 +109,15 @@ class CommBuffer {
     buf_ = T();
     active_ = false;
   }
-  
+
   bool IsActive() const { return active_; }
 
   BufferState GetState() { return *state_; }
 
   void Send() noexcept;
   void SendNull() noexcept;
-  
-  bool IsAvailableForWrite(); 
+
+  bool IsAvailableForWrite();
 
   void StartReceive() noexcept;
   bool TryReceive() noexcept;
@@ -177,19 +175,20 @@ CommBuffer<T>::CommBuffer(const CommBuffer<U> &in)
 }
 
 template <class T>
-CommBuffer<T>::~CommBuffer() {   
-#ifdef MPI_PARALLEL   
+CommBuffer<T>::~CommBuffer() {
+#ifdef MPI_PARALLEL
   if (my_request_.use_count() == 1) { // This is the last shallow copy of this buffer
     int flag;
     MPI_Status status;
-    PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status)); 
+    PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
     if (!flag) {
-      // Don't warn for receiver since stale creates a request that may not need to be filled
+      // Don't warn for receiver since stale creates a request that may not need to be
+      // filled
       if (*comm_type_ == BuffCommType::sender) {
-        PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));   
+        PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
       } else {
         PARTHENON_MPI_CHECK(MPI_Cancel(my_request_.get()));
-        PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE)); 
+        PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
       }
     }
   }
@@ -267,7 +266,7 @@ void CommBuffer<T>::SendNull() noexcept {
     Kokkos::abort("Trying to send from a receiver");
   }
 }
- 
+
 template <class T>
 bool CommBuffer<T>::IsAvailableForWrite() {
   if (*comm_type_ == BuffCommType::sender) {
@@ -294,14 +293,15 @@ bool CommBuffer<T>::IsAvailableForWrite() {
   }
 }
 
-
 template <class T>
 void CommBuffer<T>::StartReceive() noexcept {
 #ifdef MPI_PARALLEL
   if (*comm_type_ == BuffCommType::receiver && !*started_irecv_) {
-    PARTHENON_REQUIRE(*my_request_ == MPI_REQUEST_NULL, 
+    PARTHENON_REQUIRE(
+        *my_request_ == MPI_REQUEST_NULL,
         "Cannot have another pending request in a buffer that is starting to receive.");
-    if (!IsActive()) Allocate(); // For early start of Irecv, always need storage space even if not used
+    if (!IsActive())
+      Allocate(); // For early start of Irecv, always need storage space even if not used
     PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
                                   MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
                                   my_request_.get()));
@@ -338,13 +338,14 @@ bool CommBuffer<T>::TryReceive() noexcept {
     MPI_Status status;
     PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
     if (flag) {
-      // Check the size of the message, it will be zero if the sender wants you to use default 
-      // buffer data
+      // Check the size of the message, it will be zero if the sender wants you to use
+      // default buffer data
       int size;
       PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
-      
-      PARTHENON_REQUIRE(*my_request_ == MPI_REQUEST_NULL, "MPI request should be finished to get here.");
-      // Set flags based on a finished receive 
+
+      PARTHENON_REQUIRE(*my_request_ == MPI_REQUEST_NULL,
+                        "MPI request should be finished to get here.");
+      // Set flags based on a finished receive
       *started_irecv_ = false;
       *recv_start_called_ = false;
       if (size > 0)
@@ -378,9 +379,8 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
 template <class T>
 void CommBuffer<T>::Stale() {
-  if (*comm_type_ == BuffCommType::sender) 
-    PARTHENON_FAIL("Should never get here.");
-  
+  if (*comm_type_ == BuffCommType::sender) PARTHENON_FAIL("Should never get here.");
+
   if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
     PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");
 #ifdef MPI_PARALLEL
@@ -389,7 +389,6 @@ void CommBuffer<T>::Stale() {
 #endif
   *state_ = BufferState::stale;
   *recv_start_called_ = false;
-
 }
 
 } // namespace parthenon
