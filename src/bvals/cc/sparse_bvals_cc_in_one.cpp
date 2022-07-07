@@ -304,7 +304,7 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   ForEachBoundary<bound_type>(md,
                               [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
                                 auto &buf = *cache.recv_buf_vec[ibound];
-                                buf.StartReceive();
+                                buf.TryStartReceive();
                                 ++ibound;
                               });
   Kokkos::Profiling::popRegion();

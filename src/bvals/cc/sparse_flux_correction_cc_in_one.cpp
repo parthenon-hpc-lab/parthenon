@@ -187,7 +187,7 @@ TaskStatus StartReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real
             pmesh->boundary_comm_reflux_map.count(ReceiveKey(pmb, nb, v)) > 0,
             "Boundary communicator does not exist");
         auto &buf = pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)];
-        buf.StartReceive();
+        buf.TryStartReceive();
       });
   Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
