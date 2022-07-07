@@ -63,15 +63,16 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
           if (impl::DoRefinementOp(info(buf), RefinementOp_t::Restriction)) {
-            par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sk, info(buf).ek,
-                info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
-                [&](const int l, const int m, const int n, const int ck, const int cj,
-                    const int ci) {
-		  impl::RestrictCellAverage<3>(l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb, ib,
-					       info(buf).coords, info(buf).coarse, info(buf).fine);
-                });
+            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
+                          info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sk,
+                          info(buf).ek, info(buf).sj, info(buf).ej, info(buf).si,
+                          info(buf).ei,
+                          [&](const int l, const int m, const int n, const int ck,
+                              const int cj, const int ci) {
+                            impl::RestrictCellAverage<3>(
+                                l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb, ib,
+                                info(buf).coords, info(buf).coarse, info(buf).fine);
+                          });
           }
         });
   } else if (cellbounds.ncellsj(entire) > 1) { // 2D
@@ -80,15 +81,16 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
           if (impl::DoRefinementOp(info(buf), RefinementOp_t::Restriction)) {
-	    const int ck = ckb.s;
+            const int ck = ckb.s;
             const int k = kb.s;
             par_for_inner(
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
                 info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sj, info(buf).ej,
                 info(buf).si, info(buf).ei,
                 [&](const int l, const int m, const int n, const int cj, const int ci) {
-		  impl::RestrictCellAverage<2>(l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb, ib,
-		 			       info(buf).coords, info(buf).coarse, info(buf).fine);
+                  impl::RestrictCellAverage<2>(l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb,
+                                               ib, info(buf).coords, info(buf).coarse,
+                                               info(buf).fine);
                 });
           }
         });
@@ -102,13 +104,14 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
             const int cj = cjb.s;
             const int k = kb.s;
             const int j = jb.s;
-            par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si, info(buf).ei,
-                [&](const int l, const int m, const int n, const int ci) {
-		  impl::RestrictCellAverage<1>(l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb, ib,
-					       info(buf).coords, info(buf).coarse, info(buf).fine);
-                });
+            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
+                          info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si,
+                          info(buf).ei,
+                          [&](const int l, const int m, const int n, const int ci) {
+                            impl::RestrictCellAverage<1>(
+                                l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb, ib,
+                                info(buf).coords, info(buf).coarse, info(buf).fine);
+                          });
           }
         });
   }

@@ -48,13 +48,13 @@ bool DoRefinementOp(cell_centered_bvars::BndInfo &info, RefinementOp_t op) {
   return (info.allocated && info.refinement_op == op);
 }
 
-template<int DIM>
-KOKKOS_FORCEINLINE_FUNCTION
-void RestrictCellAverage(const int l, const int m, const int n, const int ck, const int cj,
-			 const int ci, const IndexRange &ckb, const IndexRange &cjb,
-			 const IndexRange &cib, const IndexRange &kb, const IndexRange &jb,
-			 const IndexRange &ib, const Coordinates_t &coords,
-			 const ParArray6D<Real> &coarse, const ParArray6D<Real> &fine) {
+template <int DIM>
+KOKKOS_FORCEINLINE_FUNCTION void
+RestrictCellAverage(const int l, const int m, const int n, const int ck, const int cj,
+                    const int ci, const IndexRange &ckb, const IndexRange &cjb,
+                    const IndexRange &cib, const IndexRange &kb, const IndexRange &jb,
+                    const IndexRange &ib, const Coordinates_t &coords,
+                    const ParArray6D<Real> &coarse, const ParArray6D<Real> &fine) {
   const int i = (ci - cib.s) * 2 + ib.s;
   int j = jb.s;
   if (DIM > 1) {
@@ -66,14 +66,14 @@ void RestrictCellAverage(const int l, const int m, const int n, const int ck, co
   }
   // JMM: If dimensionality is wrong, accesses are out of bounds. Only
   // access cells if dimensionality is correct.
-   const Real vol000 = coords.Volume(k, j, i);
+  const Real vol000 = coords.Volume(k, j, i);
   const Real vol001 = coords.Volume(k, j, i + 1);
   const Real fine000 = fine(l, m, n, k, j, i);
   const Real fine001 = fine(l, m, n, k, j, i + 1);
   Real vol010, vol011, vol100, vol101, vol110, vol111;
   Real fine010, fine011, fine100, fine101, fine110, fine111;
   vol010 = vol011 = vol100 = vol101 = vol110 = vol111 = 0;
-  fine010 = fine011 = fine100 = fine101 = fine110 = fine111 =0;
+  fine010 = fine011 = fine100 = fine101 = fine110 = fine111 = 0;
   if (DIM > 1) {
     vol010 = coords.Volume(k, j + 1, i);
     vol011 = coords.Volume(k, j + 1, i + 1);
@@ -92,14 +92,12 @@ void RestrictCellAverage(const int l, const int m, const int n, const int ck, co
   }
   // KGF: add the off-centered quantities first to preserve FP
   // symmetry
-  const Real tvol = ((vol000 + vol010) + (vol001 + vol011)) +
-    ((vol100 + vol110) + (vol101 + vol111));
+  const Real tvol =
+      ((vol000 + vol010) + (vol001 + vol011)) + ((vol100 + vol110) + (vol101 + vol111));
   coarse(l, m, n, ck, cj, ci) =
-    (((fine000 * vol000 + fine010 * vol010) +
-      (fine001 * vol001 + fine011 * vol011)) +
-     ((fine100 * vol100 + fine110 * vol110) +
-      (fine101 * vol101 + fine111 * vol111))) /
-    tvol;
+      (((fine000 * vol000 + fine010 * vol010) + (fine001 * vol001 + fine011 * vol011)) +
+       ((fine100 * vol100 + fine110 * vol110) + (fine101 * vol101 + fine111 * vol111))) /
+      tvol;
 }
 
 KOKKOS_FORCEINLINE_FUNCTION
