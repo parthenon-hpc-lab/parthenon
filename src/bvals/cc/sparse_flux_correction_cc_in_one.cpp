@@ -179,7 +179,6 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
 
 TaskStatus StartReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrectionBuffers");
-  bool all_received = true;
   Mesh *pmesh = md->GetMeshPointer();
   ForEachBoundary<BoundaryType::reflux_recv>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
 

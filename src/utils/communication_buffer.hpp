@@ -177,7 +177,8 @@ CommBuffer<T>::CommBuffer(const CommBuffer<U> &in)
 }
 
 template <class T>
-CommBuffer<T>::~CommBuffer() {     
+CommBuffer<T>::~CommBuffer() {   
+#ifdef MPI_PARALLEL   
   if (my_request_.use_count() == 1) { // This is the last shallow copy of this buffer
     int flag;
     MPI_Status status;
@@ -192,6 +193,7 @@ CommBuffer<T>::~CommBuffer() {
       }
     }
   }
+#endif
 }
 
 template <class T>
@@ -381,9 +383,10 @@ void CommBuffer<T>::Stale() {
   
   if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
     PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");
-  
+#ifdef MPI_PARALLEL
   if (MPI_REQUEST_NULL != *my_request_)
     PARTHENON_WARN("Staling buffer with pending request.");
+#endif
   *state_ = BufferState::stale;
   *recv_start_called_ = false;
 
