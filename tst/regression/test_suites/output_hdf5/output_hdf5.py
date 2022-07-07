@@ -130,10 +130,10 @@ class TestCase(utils.test_case.TestCaseAbs):
         # check results in last row (at the final time of the sim)
         for i, val in enumerate(ref_results):
             if hst_2d[-1:, i] != val[1]:
-                print("Wrong", val[0], "in hst output of 2D problem")
+                print("Wrong", val[0], "in hst output of 2D problem:", hst_2d[-1:, i], val[1])
                 analyze_status = False
             if hst_3d[-1:, i] != val[2]:
-                print("Wrong", val[0], "in hst output of 3D problem")
+                print("Wrong", val[0], "in hst output of 3D problem:", hst_3d[-1:, i], val[2])
                 analyze_status = False
 
         return analyze_status
