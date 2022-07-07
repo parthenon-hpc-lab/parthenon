@@ -20,18 +20,21 @@ This general idea is implemented in the `CommBuffer<T>` class template, which co
 - `T& buffer()`: Gives access to the the actual data buffer for filling and reading. 
 - `void Allocate()`: Which allocates storage for the buffer and can be called internally by `TryReceive()` when non-null data is being communicated by a block on a different rank. 
 - `void Send()`: If the underlying storage buffer is allocated, sets the state of the buffer to `sending`. If the underlying storage buffer is unallocated, set the state of the buffer to `sending_null`. Also starts asynchronous MPI send if sender and receiver are on separate ranks.  
-- `void SendNull()`: Sets the buffer state to `sending_null`. Also starts asynchronous MPI send of a zero length buffer if sender and receiver are on separate ranks. 
-- `bool TryReceive()`: If on same rank, checks if state is `sending` or `sending_null` and sets to `received` or `received_null`, respectively, and returns `true`. If on different ranks, checks to see if MPI message is available, returns `false` if it is not. If it is, it checks the size of the incoming message, allocates buffer storage if necessary, sets the state of the `CommBuffer` to `received` or `received_null` and returns `true`.
-- `Stale()`: Sets the state to `stale`; 
+- `void SendNull()`: Sets the buffer state to `sending_null`. Also starts asynchronous MPI send of a zero length buffer if sender and receiver are on separate ranks.
+- `void TryStartReceive()`: If on same rank, this does nothing. If on different ranks and irecv_started flag is set, does nothing. If on different ranks and it is a receiving buffer and `do_sparse_allocation = false` for the buffer, posts an `MPI_Irecv` right away, allocates the buffer if it is not already allocated, and flags that `MPI_Irecv` has been called. If on different ranks and it is a receiving buffer and `do_sparse_allocation = true`, calls `MPI_Iprobe` to see if a message is available. If there is a message, check it is sending data or sending null, allocates or deallocates the buffer as necessary, and then posts an `MPI_Irecv` and sets the `MPI_Irecv` flag.
+- `bool TryReceive()`: If on same rank, checks if state is `sending` or `sending_null` and sets to `received` or `received_null`, respectively, and returns `true`. If on different ranks, first calls `TryStartReceive()` then, if the `MPI_Irecv` has been posted tests wether or not it has been completed. If it has, sets the buffer state to `received` or `received_null` depending on the size of the incoming message and returns `true`. Otherwise returns `false`. 
+- `Stale()`: Sets the state to `stale`.
 
 as well as copy constructors, assignment operators, etc. The constructor of `CommBuffer` is called as 
 ```c++
 CommBuffer<T>(mpi_message_tag, sender_rank, receiver_rank, mpi_communicator,
             [...capture necessary stuff...](){ 
               return ...allocated object of type T that has the desired size...; 
-            });
+            }, do_sparse_allocation);
 ```
 The lambda passed to the constructor is stored as a field in the class and is called when the internal storage buffer needs to be allocated (see `BuildSparseBoundaryBuffers` in `sparse_bvals_cc_in_one.cpp` for an example usage). Aside from during construction, there should be no difference in useage between a same rank to same rank `CommBuffer` and a separate rank `CommBuffer`. 
+
+*Note that setting `do_sparse_allocation = true` minimizes the memory allocated for sparse variables but results in substantially slower MPI communication since `MPI_Irecv` can't be posted until the incoming message size is known. There is a flag Metadata::SparseCommunication that can be set for variables to make them use this memory minimizing communication pattern.* 
 
 ### `class ObjectPool<T>` 
 
@@ -56,7 +59,7 @@ A lot of this functionality could be replicated with `shared_ptr` I think, but i
 ## Sparse boundary communication tasks 
 The tasks for sparse cell centered variable boundary communication pretty closely mirror the `bvals_in_one` tasks but allow for allocation and deallocation of the communication buffers and do not reference the `BoundaryVariable` associated classes. The `BndInfo` class is reused and a view of `BndInfo` is stored in `MeshData` for senders and receivers, `MeshData::send_bnd_info` and `MeshData::recv_bnd_info` respectively. We also add an object to `Mesh` mapping from communication channel key (denoted by a tuple{send_gid, receive_gid, var_name}) to the associated `CommBuffer` associated with that channel. We also add a map of object pools containing pools for various buffer sizes.
 ```c++
-using channel_key_t = std::tuple<int, int, std::string>;
+using channel_key_t = std::tuple<int, int, std::string, int>;
 std::unordered_map<channel_key_t, CommBuffer<buf_pool_t<Real>::owner_t>> boundary_comm_map;
 
 template <typename T>
@@ -71,18 +74,36 @@ Note that every stage shares the same `CommBuffer`s.
 
 - This is called during `Mesh::Initialize(...)` and during `EvolutionDriver::InitializeBlockTimeStepsAndBoundaries()` and before this task is called `Mesh::boundary_comm_map` is cleared. This should not be called in downstream code. 
 
-### `LoadAndSendSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>>& md)`
+### `SendBoundBufs<bound_type>(std::shared_ptr<MeshData<Real>>& md)`
+- Iterates over boundaries of `bound_type`, which now supports `any`, `local` which implies the communicating blocks are on the same 
+  rank, and `nonlocal` which implies differing ranks for the two blocks. Could have one task with `any` or split communication into separate 
+  `local` and `nonlocal` tasks.
+- `SendBoundaryBuffers` is just an alias for `SendBoundBufs<any>` to ensure backward compatibility.  
 - Allocates buffers if necessary based on allocation status of block fields and checks if `MeshData::send_bnd_info` objects are stale. 
 - Rebuilds the `MeshData::send_bnd_info` objects if they are stale 
 - Restricts where necessary 
 - Launches kernels to load data from fields into buffers, checks whether any of the data is above the sparse allocation threshold. 
 - Calls `Send()` or `SendNull()` from all of the boundary buffers depending on their status.   
 
-### `ReceiveSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>>& md)` 
-- Tries to receive from each of the receive channels associated with `md`. 
-- If the receive is succesful, and allocation of the associated field is required, allocate it 
+### `StartReceiveBoundBufs<bound_type>(std::shared_ptr<MeshData<Real>>& md)` 
+- Iterates over boundaries of `bound_type`, which now supports `any`, `local` which implies the communicating blocks are on the same 
+  rank, and `nonlocal` which implies differing ranks for the two blocks. This is a no-op for `local` boundaries.
+- Posts/tries to post an `MPI_Irecv` for receiving buffers. For performance, it is necessary to call this early in the task list before 
+  the rest of the communication routines get called. Codes will produce correct results without ever calling this task though.  
 
-### `SetInternalSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>>& md)` 
+### `ReceiveBoundBufs<bound_type>(std::shared_ptr<MeshData<Real>> &md)`
+- Iterates over boundaries of `bound_type`, which now supports `any`, `local` which implies the communicating blocks are on the same 
+  rank, and `nonlocal` which implies differing ranks for the two blocks. Could have one task with `any` or split communication into separate 
+  `local` and `nonlocal` tasks.
+- `ReceiveBoundaryBuffers` is just an alias for `ReceiveBoundBufs<any>` to ensure backward compatibility.  
+- Tries to receive from each of the receive channels associated with `md` of the chosen boundary type. 
+- If the receive is succesful, and allocation of the associated field is required, allocate it. 
+
+### `SetBounds<bound_type>(std::shared_ptr<MeshData<Real>>& md)`
+- Iterates over boundaries of `bound_type`, which now supports `any`, `local` which implies the communicating blocks are on the same 
+  rank, and `nonlocal` which implies differing ranks for the two blocks. Could have one task with `any` or split communication into separate 
+  `local` and `nonlocal` tasks.
+- `SetBoundaries` is just an alias for `SetBounds<any>` to ensure backward compatibility.
 - Check if `MeshData::recv_bnd_info` needs to be rebuilt because of changed allocation status. 
 - Rebuild `MeshData::recv_bnd_info` if necessary. 
 - Launch kernels to copy from buffers into fields or copy default data into fields if sending null. 
