@@ -101,12 +101,16 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
     auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
+    
+    const auto any = parthenon::BoundaryType::any;
+    auto start_reflux = tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveSparseFluxCorrectionBuffers, mc0);
+    auto start_bound = tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
 
     auto send_flx = tl.AddTask(
-        none, parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers,
+        start_reflux, parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers,
         mc0);
     auto recv_flx = tl.AddTask(
-        none, parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers, mc0);
+        start_reflux, parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers, mc0);
     auto set_flx =
         tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
 
@@ -124,7 +128,7 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto send =
         tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
     auto recv =
-        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
+        tl.AddTask(update | start_bound, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
 
     auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
 
