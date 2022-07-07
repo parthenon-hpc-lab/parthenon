@@ -68,8 +68,8 @@ GetSlopes(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
   const Real xp = GetX<DIM>(coarse_coords, i + 1);
   dxm = xc - xm;
   dxp = xp - xc;
-  const Real fxm = GetX<DIM>(coords, i);
-  const Real fxp = GetX<DIM>(coords, i + 1);
+  const Real fxm = GetX<DIM>(coords, fi);
+  const Real fxp = GetX<DIM>(coords, fi + 1);
   dxfm = xc - fxm;
   dxfp = fxp - xc;
 }
