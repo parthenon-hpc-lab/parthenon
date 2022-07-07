@@ -47,6 +47,7 @@ enum class BoundaryType : int { local, nonlocal, any, reflux };
 
 template <class T>
 class CommBuffer {
+ private:
   // Need specializations to be friends with each other
   template <typename U>
   friend class CommBuffer;
@@ -82,12 +83,16 @@ class CommBuffer {
 
   CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm_,
              std::function<T()> get_resource);
+  
+  ~CommBuffer();
 
   template <class U>
   CommBuffer(const CommBuffer<U> &in);
 
   template <class U>
   CommBuffer &operator=(const CommBuffer<U> &in);
+  
+
 
   operator T &() { return buf_; }
   operator const T &() const { return buf_; }
@@ -106,61 +111,23 @@ class CommBuffer {
     buf_ = T();
     active_ = false;
   }
+  
+  bool IsActive() const { return active_; }
 
   BufferState GetState() { return *state_; }
 
-  bool IsActive() const { return active_; }
-
   void Send() noexcept;
   void SendNull() noexcept;
+  
+  bool IsAvailableForWrite(); 
 
   void StartReceive() noexcept;
   bool TryReceive() noexcept;
 
-  bool IsAvailableForWrite() {
-    if (*comm_type_ == BuffCommType::sender) {
-#ifdef MPI_PARALLEL
-      // We do not check stale status here since the receiving end should be the one
-      // setting the buffer to stale, all we care about for a pure sender is wether
-      // or not its last send message has been completed
-      if (*state_ == BufferState::stale) return true;
-      if (*my_request_ == MPI_REQUEST_NULL) return true;
-      int flag, test;
-      PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-                                     MPI_STATUS_IGNORE));
-      PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, MPI_STATUS_IGNORE));
-      if (flag) *state_ = BufferState::stale;
-      return flag;
-#else
-      PARTHENON_FAIL("Should not have a sending buffer when MPI is not enabled.");
-#endif
-    } else if (*comm_type_ == BuffCommType::both) {
-      if (*state_ == BufferState::stale) return true;
-      return false;
-    } else {
-      PARTHENON_FAIL("Receiving buffer is never available for write.");
-    }
-  }
-
-  void Stale() {
-    if (*comm_type_ == BuffCommType::sender) {
-      PARTHENON_FAIL("Should never get here.");
-#ifdef MPI_PARALLEL
-      int test;
-      PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-                                     MPI_STATUS_IGNORE));
-      PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
-#endif
-    }
-    if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
-      PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");
-    *state_ = BufferState::stale;
-    *started_irecv_ = false;
-    *recv_start_called_ = false;
-  }
+  void Stale();
 };
 
-// Definitions below
+// Method definitions below
 
 template <class T>
 CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm,
@@ -207,6 +174,24 @@ CommBuffer<T>::CommBuffer(const CommBuffer<U> &in)
 #else
   my_rank = 0;
 #endif
+}
+
+template <class T>
+CommBuffer<T>::~CommBuffer() {     
+  if (my_request_.use_count() == 1) { // This is the last shallow copy of this buffer
+    int flag;
+    MPI_Status status;
+    PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status)); 
+    if (!flag) {
+      // Don't warn for receiver since stale creates a request that may not need to be filled
+      if (*comm_type_ == BuffCommType::sender) {
+        PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));   
+      } else {
+        PARTHENON_MPI_CHECK(MPI_Cancel(my_request_.get()));
+        PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE)); 
+      }
+    }
+  }
 }
 
 template <class T>
@@ -280,15 +265,41 @@ void CommBuffer<T>::SendNull() noexcept {
     Kokkos::abort("Trying to send from a receiver");
   }
 }
+ 
+template <class T>
+bool CommBuffer<T>::IsAvailableForWrite() {
+  if (*comm_type_ == BuffCommType::sender) {
+#ifdef MPI_PARALLEL
+    // We do not check stale status here since the receiving end should be the one
+    // setting the buffer to stale, all we care about for a pure sender is wether
+    // or not its last send message has been completed
+    if (*state_ == BufferState::stale) return true;
+    if (*my_request_ == MPI_REQUEST_NULL) return true;
+    int flag, test;
+    PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+                                   MPI_STATUS_IGNORE));
+    PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, MPI_STATUS_IGNORE));
+    if (flag) *state_ = BufferState::stale;
+    return flag;
+#else
+    PARTHENON_FAIL("Should not have a sending buffer when MPI is not enabled.");
+#endif
+  } else if (*comm_type_ == BuffCommType::both) {
+    if (*state_ == BufferState::stale) return true;
+    return false;
+  } else {
+    PARTHENON_FAIL("Receiving buffer is never available for write.");
+  }
+}
+
 
 template <class T>
 void CommBuffer<T>::StartReceive() noexcept {
 #ifdef MPI_PARALLEL
-  if (*comm_type_ == BuffCommType::receiver) {
-    PARTHENON_REQUIRE(
-        !*started_irecv_,
-        "Trying to start Irecv when this buffer is already trying to receive.");
-    Allocate();
+  if (*comm_type_ == BuffCommType::receiver && !*started_irecv_) {
+    PARTHENON_REQUIRE(*my_request_ == MPI_REQUEST_NULL, 
+        "Cannot have another pending request in a buffer that is starting to receive.");
+    if (!IsActive()) Allocate(); // For early start of Irecv, always need storage space even if not used
     PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
                                   MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
                                   my_request_.get()));
@@ -310,14 +321,14 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
     (*nrecv_tries_)++;
 
-    if (*nrecv_tries_ > 1e6) {
+    if (*nrecv_tries_ > 1e4) {
       printf("[Receive failed] send_rank: %i recv_rank: %i tag: %i comm: %i\n",
              send_rank_, my_rank, tag_, comm_);
       PARTHENON_FAIL("MPI Hang.");
     }
 
 #ifdef MPI_PARALLEL
-    if (!*started_irecv_) StartReceive();
+    StartReceive();
     int flag;
     // This is the crazy extra MPI call that impacts performance mentioned in Athena++
     PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
@@ -325,50 +336,23 @@ bool CommBuffer<T>::TryReceive() noexcept {
     MPI_Status status;
     PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
     if (flag) {
+      // Check the size of the message, it will be zero if the sender wants you to use default 
+      // buffer data
       int size;
       PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
+      
+      PARTHENON_REQUIRE(*my_request_ == MPI_REQUEST_NULL, "MPI request should be finished to get here.");
+      // Set flags based on a finished receive 
       *started_irecv_ = false;
       *recv_start_called_ = false;
       if (size > 0)
         *state_ = BufferState::received;
       else
         *state_ = BufferState::received_null;
+
       return true;
     }
     return false;
-
-    /*
-    // Older, slower way of receiving which only allocated data where necessary. It is
-    // possible that we want to switch back to this at some point since the current
-    // choices are made for MPI performance, but the performance issues seem to be
-    // due to the properties of the MPI implementation not some fundamental limit.
-    int test;
-
-    // PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-    //                               MPI_STATUS_IGNORE));
-    MPI_Status status;
-    PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank_, tag_, comm_, &test, &status));
-
-    if (test) {
-      int size;
-      PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
-      if (size > 0) {
-        if (!active_) Allocate();
-        PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
-                                      MPITypeMap<buf_base_t>::type(), send_rank_, tag_,
-                                      comm_, my_request_.get()));
-      } else {
-        if (active_) Free();
-        PARTHENON_MPI_CHECK(MPI_Irecv(&null_buf_, 0, MPITypeMap<buf_base_t>::type(),
-                                      send_rank_, tag_, comm_, my_request_.get()));
-      }
-      *started_irecv_ = true;
-      return false;
-    }
-
-
-    return false;
-    */
 #else
     return true;
 #endif
@@ -389,5 +373,21 @@ bool CommBuffer<T>::TryReceive() noexcept {
   }
   return false;
 }
+
+template <class T>
+void CommBuffer<T>::Stale() {
+  if (*comm_type_ == BuffCommType::sender) 
+    PARTHENON_FAIL("Should never get here.");
+  
+  if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
+    PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");
+  
+  if (MPI_REQUEST_NULL != *my_request_)
+    PARTHENON_WARN("Staling buffer with pending request.");
+  *state_ = BufferState::stale;
+  *recv_start_called_ = false;
+
+}
+
 } // namespace parthenon
 #endif // UTILS_COMMUNICATION_BUFFER_HPP_
