@@ -74,6 +74,8 @@ class TestCase(utils.test_case.TestCaseAbs):
                     + "/tst/regression/gold_standard/sparse_true.out0.final.phdf",
                 ],
                 one=True,
+                tol=1.e-6,
+                check_metadata=False
             )
 
         return delta == 0
