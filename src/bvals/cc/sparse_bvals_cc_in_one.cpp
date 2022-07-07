@@ -47,6 +47,11 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
   // Clear the fast access vectors for this block since they are no longer valid
   // after all MeshData call BuildSparseBoundaryBuffers
+//#ifdef MPI_PARALLEL
+//  // Barrier is necessary here so Irecvs posted by Stale() on the old mesh get canceled 
+//  // before Isends get triggered from the new mesh 
+//  PARTHENON_MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+//#endif
   all_caches.clear();
 
   // Build buffers for all boundaries, both local and nonlocal
@@ -263,21 +268,24 @@ template TaskStatus SendBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<
 template TaskStatus
 SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
-template <BoundaryType bound_type>
-TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_StartReceiveBoundBufs");
-
+template <BoundaryType bound_type> 
+void BuildReceiveCache(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
 
-  if (cache.recv_buf_vec.size() == 0) {
-    ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
-                                        const sp_cv_t v) {
-      PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
-                              "Boundary communicator does not exist");
-      cache.recv_buf_vec.push_back(&(pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)]));
-    });
-  }
+  ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
+                                      const sp_cv_t v) {
+    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
+                            "Boundary communicator does not exist");
+    cache.recv_buf_vec.push_back(&(pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)]));
+  });
+}
+
+template <BoundaryType bound_type>
+TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_StartReceiveBoundBufs");
+  auto &cache = md->GetBvarsCache()[bound_type];
+  if (cache.recv_buf_vec.size() == 0) BuildReceiveCache<bound_type>(md); 
 
   int ibound = 0;
   ForEachBoundary<bound_type>(md,
@@ -302,17 +310,8 @@ template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundBufs");
 
-  Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
-
-  if (cache.recv_buf_vec.size() == 0) {
-    ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
-                                        const sp_cv_t v) {
-      PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
-                              "Boundary communicator does not exist");
-      cache.recv_buf_vec.push_back(&(pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)]));
-    });
-  }
+  if (cache.recv_buf_vec.size() == 0) BuildReceiveCache<bound_type>(md); 
 
   int ibound = 0;
   bool all_received = true;
@@ -462,7 +461,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                                });
         }
       });
-
+#ifdef MPI_PARALLEL  
+  Kokkos::fence();
+#endif 
   int iarr = 0;
   ForEachBoundary<bound_type>(md,
                               [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
