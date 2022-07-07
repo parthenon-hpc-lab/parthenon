@@ -34,7 +34,7 @@ CommBuffer<T>(mpi_message_tag, sender_rank, receiver_rank, mpi_communicator,
 ```
 The lambda passed to the constructor is stored as a field in the class and is called when the internal storage buffer needs to be allocated (see `BuildSparseBoundaryBuffers` in `sparse_bvals_cc_in_one.cpp` for an example usage). Aside from during construction, there should be no difference in useage between a same rank to same rank `CommBuffer` and a separate rank `CommBuffer`. 
 
-*Note that setting `do_sparse_allocation = true` minimizes the memory allocated for sparse variables but results in substantially slower MPI communication since `MPI_Irecv` can't be posted until the incoming message size is known. There is a flag Metadata::SparseCommunication that can be set for variables to make them use this memory minimizing communication pattern.* 
+*Note that setting `do_sparse_allocation = true` minimizes the memory allocated for sparse variables but results in substantially slower MPI communication since `MPI_Irecv` can't be posted until the incoming message size is known. There is a flag, `Metadata::SparseCommunication`, that can be set for variables to make them use this memory minimizing communication pattern.* 
 
 ### `class ObjectPool<T>` 
 
