@@ -71,6 +71,7 @@ inline TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   return SetBounds<BoundaryType::any>(md);
 }
 
+TaskStatus StartReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);

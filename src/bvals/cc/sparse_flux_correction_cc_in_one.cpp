@@ -45,9 +45,9 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
   Mesh *pmesh = md->GetMeshPointer();
 
   bool all_available = true;
-  ForEachBoundary<BoundaryType::reflux>(
+  ForEachBoundary<BoundaryType::reflux_send>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) -> LoopControl {
-        auto &buf = pmesh->boundary_comm_map[SendKey(pmb, nb, v)];
+        auto &buf = pmesh->boundary_comm_reflux_map[SendKey(pmb, nb, v)];
         if (!buf.IsAvailableForWrite()) {
           all_available = false;
           return LoopControl::break_out;
@@ -56,11 +56,11 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
       });
   if (!all_available) return TaskStatus::incomplete;
 
-  ForEachBoundary<BoundaryType::reflux>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BoundaryType::reflux_send>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(SendKey(pmb, nb, v)) > 0,
+    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_reflux_map.count(SendKey(pmb, nb, v)) > 0,
                             "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_map[SendKey(pmb, nb, v)];
+    auto &buf = pmesh->boundary_comm_reflux_map[SendKey(pmb, nb, v)];
 
     if (!v->IsAllocated()) {
       buf.Free();
@@ -166,6 +166,9 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
 
     // Send the buffer
     PARTHENON_REQUIRE(buf.GetState() == BufferState::stale, "Not sure how I got here.");
+#ifdef MPI_PARALLEL
+    Kokkos::fence();
+#endif   
     buf.Send();
     return LoopControl::cont;
   });
@@ -174,15 +177,31 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
   return TaskStatus::complete;
 }
 
+TaskStatus StartReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrectionBuffers");
+  bool all_received = true;
+  Mesh *pmesh = md->GetMeshPointer();
+  ForEachBoundary<BoundaryType::reflux_recv>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+
+    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_reflux_map.count(ReceiveKey(pmb, nb, v)) > 0,
+                            "Boundary communicator does not exist");
+    auto &buf = pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)];
+    buf.StartReceive();
+
+  });
+  Kokkos::Profiling::popRegion();
+  return TaskStatus::complete;
+}
+
 TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrectionBuffers");
   bool all_received = true;
   Mesh *pmesh = md->GetMeshPointer();
-  ForEachBoundary<BoundaryType::reflux>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BoundaryType::reflux_recv>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
 
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
+    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_reflux_map.count(ReceiveKey(pmb, nb, v)) > 0,
                             "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)];
+    auto &buf = pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)];
     all_received = all_received && buf.TryReceive();
 
   });
@@ -198,11 +217,11 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
   Mesh *pmesh = md->GetMeshPointer();
 
-  ForEachBoundary<BoundaryType::reflux>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BoundaryType::reflux_recv>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
 
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(ReceiveKey(pmb, nb, v)) > 0,
+    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_reflux_map.count(ReceiveKey(pmb, nb, v)) > 0,
                             "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)];
+    auto &buf = pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)];
 
     // Check if this boundary requires flux correction
     if ((!v->IsAllocated()) || buf.GetState() == BufferState::received_null) {
@@ -300,7 +319,9 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
               i - is + ni * (j - js + nj * (k - ks + nk * (n + nn * (m + nm * l))));
           flx(l, m, n, k, j, i) = buf_arr(idx);
         });
-
+#ifdef MPI_PARALLEL
+    Kokkos::fence();
+#endif 
     buf.Stale();
     return LoopControl::cont;
   });

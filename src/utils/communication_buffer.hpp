@@ -43,7 +43,7 @@ enum class BufferState { stale, sending, sending_null, received, received_null }
 
 enum class BuffCommType { sender, receiver, both };
 
-enum class BoundaryType : int { local, nonlocal, any, reflux };
+enum class BoundaryType : int { local, nonlocal, any, reflux_send, reflux_recv };
 
 template <class T>
 class CommBuffer {
@@ -321,7 +321,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
     (*nrecv_tries_)++;
 
-    if (*nrecv_tries_ > 1e4) {
+    if (*nrecv_tries_ > 1e6) {
       printf("[Receive failed] send_rank: %i recv_rank: %i tag: %i comm: %i\n",
              send_rank_, my_rank, tag_, comm_);
       PARTHENON_FAIL("MPI Hang.");

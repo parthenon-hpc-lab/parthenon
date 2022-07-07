@@ -47,11 +47,6 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
   // Clear the fast access vectors for this block since they are no longer valid
   // after all MeshData call BuildSparseBoundaryBuffers
-//#ifdef MPI_PARALLEL
-//  // Barrier is necessary here so Irecvs posted by Stale() on the old mesh get canceled 
-//  // before Isends get triggered from the new mesh 
-//  PARTHENON_MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
-//#endif
   all_caches.clear();
 
   // Build buffers for all boundaries, both local and nonlocal
@@ -81,11 +76,14 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     if (receiver_rank != sender_rank) tag = SendMPITag(pmb, nb, v);
 
 #ifdef MPI_PARALLEL
-    const comm_t comm = pmesh->GetMPIComm(v->label() + "_sparse_comm");
+    comm_t comm = pmesh->GetMPIComm(v->label() + "_sparse_comm");
+    comm_t comm_reflux = comm; 
+    if (nb.snb.level != pmb->loc.level) comm_reflux = pmesh->GetMPIComm(v->label() + "_flcor_sparse_comm");
 #else
     // Setting to zero is fine here since this doesn't actually get used when everything
     // is on the same rank
-    const comm_t comm = 0;
+    comm_t comm = 0;
+    comm_t comm_reflux = 0;
 #endif
     // Build sending buffers
     auto s_tag = SendKey(pmb, nb, v);
@@ -95,6 +93,12 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     pmesh->boundary_comm_map[s_tag] = CommBuffer<buf_pool_t<Real>::owner_t>(
         tag, sender_rank, receiver_rank, comm,
         [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
+    
+    // Separate reflux buffer if needed        
+    if ((nb.snb.level == pmb->loc.level - 1) && (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
+      pmesh->boundary_comm_reflux_map[s_tag] = CommBuffer<buf_pool_t<Real>::owner_t>(
+        tag, sender_rank, receiver_rank, comm_reflux,
+        [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); }); 
 
     // Also build the non-local receive buffers here
     if (sender_rank != receiver_rank) {
@@ -103,6 +107,12 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
           CommBuffer<buf_pool_t<Real>::owner_t>(
               tag_r, receiver_rank, sender_rank, comm,
               [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); });
+      // Separate reflux buffer if needed        
+      if ((nb.snb.level - 1 == pmb->loc.level) && (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
+        pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)] =
+          CommBuffer<buf_pool_t<Real>::owner_t>(
+              tag_r, receiver_rank, sender_rank, comm_reflux,
+              [pmesh, buf_size]() { return pmesh->pool_map.at(buf_size).Get(); }); 
     }
   });
 
