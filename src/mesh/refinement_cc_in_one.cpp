@@ -26,7 +26,16 @@
 namespace parthenon {
 namespace cell_centered_refinement {
 
-// TODO(JMM): Do the same thing with restriction that we do with prolongation
+/*
+ * TODO(JMM): At some point we will want to be able to register
+ * alternative prolongation/restriction operators per variable. For
+ * example, face-centered fields, for higher-order
+ * prolongation/restriction.
+ * In this case, the restriction stencil, e.g., RestrictCellAverage<int>
+ * should become a functor, on which the restriction loop can be templated.
+ * Then users can register a restriction loop specialized to a given functor.
+ */
+
 void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
               IndexShape &c_cellbounds) {
   const IndexDomain interior = IndexDomain::interior;
@@ -40,6 +49,10 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
 
   // TODO(BRR) nbuffers is currently always 1. In the future nbuffers could be > 1 to
   // improve performance.
+  // JMM: Pretty sure this is only true for the per-meshblock calls,
+  // but for bvals_in_one, this is not the case. I think
+  // nbuffers/variable is 1, but there is one buffer per variable per
+  // meshblock/neighbor pair when doing boundary comms in-one.
   const int nbuffers = info.extent_int(0);
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   size_t scratch_size_in_bytes = 1;
@@ -49,43 +62,15 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues3d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).allocated &&
-              info(buf).refinement_op == RefinementOp_t::Restriction) {
+          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Restriction)) {
             par_for_inner(
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
                 info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sk, info(buf).ek,
                 info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
                 [&](const int l, const int m, const int n, const int ck, const int cj,
                     const int ci) {
-                  const int k = (ck - ckb.s) * 2 + kb.s;
-                  const int j = (cj - cjb.s) * 2 + jb.s;
-                  const int i = (ci - cib.s) * 2 + ib.s;
-                  // KGF: add the off-centered quantities first to preserve FP
-                  // symmetry
-                  const Real vol000 = info(buf).coords.Volume(k, j, i);
-                  const Real vol001 = info(buf).coords.Volume(k, j, i + 1);
-                  const Real vol010 = info(buf).coords.Volume(k, j + 1, i);
-                  const Real vol011 = info(buf).coords.Volume(k, j + 1, i + 1);
-                  const Real vol100 = info(buf).coords.Volume(k + 1, j, i);
-                  const Real vol101 = info(buf).coords.Volume(k + 1, j, i + 1);
-                  const Real vol110 = info(buf).coords.Volume(k + 1, j + 1, i);
-                  const Real vol111 = info(buf).coords.Volume(k + 1, j + 1, i + 1);
-                  Real tvol = ((vol000 + vol010) + (vol001 + vol011)) +
-                              ((vol100 + vol110) + (vol101 + vol111));
-                  // KGF: add the off-centered quantities first to preserve FP
-                  // symmetry
-                  auto &coarse = info(buf).coarse;
-                  auto &fine = info(buf).fine;
-                  coarse(l, m, n, ck, cj, ci) =
-                      (((fine(l, m, n, k, j, i) * vol000 +
-                         fine(l, m, n, k, j + 1, i) * vol010) +
-                        (fine(l, m, n, k, j, i + 1) * vol001 +
-                         fine(l, m, n, k, j + 1, i + 1) * vol011)) +
-                       ((fine(l, m, n, k + 1, j, i) * vol100 +
-                         fine(l, m, n, k + 1, j + 1, i) * vol110) +
-                        (fine(l, m, n, k + 1, j, i + 1) * vol101 +
-                         fine(l, m, n, k + 1, j + 1, i + 1) * vol111))) /
-                      tvol;
+		  impl::RestrictCellAverage<3>(l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb, ib,
+					       info(buf).coords, info(buf).coarse, info(buf).fine);
                 });
           }
         });
@@ -94,34 +79,16 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues2d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).allocated &&
-              info(buf).refinement_op == RefinementOp_t::Restriction) {
+          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Restriction)) {
+	    const int ck = ckb.s;
             const int k = kb.s;
             par_for_inner(
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
                 info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sj, info(buf).ej,
                 info(buf).si, info(buf).ei,
                 [&](const int l, const int m, const int n, const int cj, const int ci) {
-                  const int j = (cj - cjb.s) * 2 + jb.s;
-                  const int i = (ci - cib.s) * 2 + ib.s;
-                  // KGF: add the off-centered quantities first to preserve FP
-                  // symmetry
-                  const Real vol00 = info(buf).coords.Volume(k, j, i);
-                  const Real vol10 = info(buf).coords.Volume(k, j + 1, i);
-                  const Real vol01 = info(buf).coords.Volume(k, j, i + 1);
-                  const Real vol11 = info(buf).coords.Volume(k, j + 1, i + 1);
-                  Real tvol = (vol00 + vol10) + (vol01 + vol11);
-
-                  // KGF: add the off-centered quantities first to preserve FP
-                  // symmetry
-                  auto &coarse = info(buf).coarse;
-                  auto &fine = info(buf).fine;
-                  coarse(l, m, n, 0, cj, ci) =
-                      ((fine(l, m, n, 0, j, i) * vol00 +
-                        fine(l, m, n, 0, j + 1, i) * vol10) +
-                       (fine(l, m, n, 0, j, i + 1) * vol01 +
-                        fine(l, m, n, 0, j + 1, i + 1) * vol11)) /
-                      tvol;
+		  impl::RestrictCellAverage<2>(l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb, ib,
+		 			       info(buf).coords, info(buf).coarse, info(buf).fine);
                 });
           }
         });
@@ -130,8 +97,7 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues1d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).allocated &&
-              info(buf).refinement_op == RefinementOp_t::Restriction) {
+          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Restriction)) {
             const int ck = ckb.s;
             const int cj = cjb.s;
             const int k = kb.s;
@@ -140,15 +106,8 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
                 info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si, info(buf).ei,
                 [&](const int l, const int m, const int n, const int ci) {
-                  const int i = (ci - cib.s) * 2 + ib.s;
-                  const Real vol0 = info(buf).coords.Volume(k, j, i);
-                  const Real vol1 = info(buf).coords.Volume(k, j, i + 1);
-                  Real tvol = vol0 + vol1;
-                  auto &coarse = info(buf).coarse;
-                  auto &fine = info(buf).fine;
-                  coarse(l, m, n, ck, cj, ci) = (fine(l, m, n, k, j, i) * vol0 +
-                                                 fine(l, m, n, k, j, i + 1) * vol1) /
-                                                tvol;
+		  impl::RestrictCellAverage<1>(l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb, ib,
+					       info(buf).coords, info(buf).coarse, info(buf).fine);
                 });
           }
         });
@@ -247,8 +206,7 @@ void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds
         DEFAULT_OUTER_LOOP_PATTERN, "ProlongateCellCenteredValues3d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).allocated &&
-              info(buf).refinement_op == RefinementOp_t::Prolongation) {
+          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Prolongation)) {
             par_for_inner(
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
                 info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sk, info(buf).ek,
@@ -266,8 +224,7 @@ void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds
         DEFAULT_OUTER_LOOP_PATTERN, "ProlongateCellCenteredValues2d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).allocated &&
-              info(buf).refinement_op == RefinementOp_t::Prolongation) {
+          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Prolongation)) {
             const int k = ckb.s;
             par_for_inner(
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
@@ -285,8 +242,7 @@ void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds
         DEFAULT_OUTER_LOOP_PATTERN, "ProlongateCellCenteredValues1d", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).allocated &&
-              info(buf).refinement_op == RefinementOp_t::Prolongation) {
+          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Prolongation)) {
             const int k = ckb.s;
             const int j = cjb.s;
             par_for_inner(
