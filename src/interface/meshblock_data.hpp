@@ -473,7 +473,7 @@ class MeshBlockData {
                                  "', but no such sparse variable exists");
 
     auto var = GetCellVarPtr(label);
-    //PARTHENON_REQUIRE_THROWS(var->IsSparse(),
+    // PARTHENON_REQUIRE_THROWS(var->IsSparse(),
     //                         "Tried to deallocate non-sparse variable " + label);
 
     if (var->IsAllocated()) {

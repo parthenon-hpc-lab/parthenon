@@ -20,9 +20,9 @@
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
+#include "interface/sparse_pack.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock.hpp"
-#include "interface/sparse_pack.hpp"
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"
@@ -55,22 +55,22 @@ BlockList_t MakeBlockList(const std::shared_ptr<StateDescriptor> pkg, const int 
 }
 
 struct v1 : public parthenon::variable_t<false> {
-  static std::string name() {return "v1";} 
-}; 
+  static std::string name() { return "v1"; }
+};
 
 struct v3 : public parthenon::variable_t<false, 3> {
-  static std::string name() {return "v3";} 
-}; 
+  static std::string name() { return "v3"; }
+};
 
 struct v5 : public parthenon::variable_t<false> {
-  static std::string name() {return "v5";} 
+  static std::string name() { return "v5"; }
 };
 
 struct vall : public parthenon::variable_t<true> {
-  static std::string name() {return "v[0-9]+";} 
-}; 
+  static std::string name() { return "v[0-9]+"; }
+};
 
-}
+} // namespace
 
 TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
   GIVEN("A set of meshblocks and meshblock and mesh data") {
@@ -92,8 +92,6 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
     MeshData<Real> mesh_data;
     mesh_data.Set(block_list, "base");
 
-    THEN("The number of blocks is correct") { REQUIRE(mesh_data.NumBlocks() == NBLOCKS); }
-
     WHEN("We initialize the independent variables by hand and deallocate one") {
       auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
       auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -111,19 +109,39 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               loop_pattern_mdrange_tag, "initialize " + vnam, DevExecSpace(), kb.s, kb.e,
               jb.s, jb.e, ib.s, ib.e, KOKKOS_LAMBDA(int k, int j, int i) {
                 for (int c = 0; c < num_components; ++c) {
-                  Real n = i + 1e1 * j + 1e2 * k + 1e3 * c + 1e4 * v + 1e5 * b;
+                  Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
                   var4(c, k, j, i) = n;
                 }
               });
         }
       }
-      
+      // Deallocate a variable on an arbitrary block
       block_list[2]->DeallocateSparse("v3");
 
-      THEN("A sparse pack correctly loads this data and can be read from") {
-        parthenon::SparsePack<vall> sparse_pack(&mesh_data);  
-        
+      THEN("A sparse pack correctly loads this data and can be read from v3 on all "
+           "blocks") {
+        parthenon::SparsePack<v1, v3, v5> sparse_pack(&mesh_data);
+
         const int v = 1;
+        int nwrong = 0;
+        par_reduce(
+            loop_pattern_mdrange_tag, "check imap, scalar", DevExecSpace(), 0,
+            NBLOCKS - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              int lo = sparse_pack.GetLowerBound(v3(), b);
+              int hi = sparse_pack.GetUpperBound(v3(), b);
+              for (int c = 0; c <= hi - lo; ++c) {
+                Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+                if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+
+      THEN("A sparse pack correctly reads based on a regex variable") {
+        parthenon::SparsePack<vall> sparse_pack(&mesh_data);
+
         int nwrong = 0;
         par_reduce(
             loop_pattern_mdrange_tag, "check imap, scalar", DevExecSpace(), 0,
@@ -131,10 +149,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
               int lo = sparse_pack.GetLowerBound(vall(), b);
               int hi = sparse_pack.GetUpperBound(vall(), b);
-              printf("b : %i v3lo : %i v3hi : %i  (%i, %i, %i)\n", b, v3lo, v3hi, k, j, i);
               for (int c = 0; c <= hi - lo; ++c) {
-                Real n = i + 1e1 * j + 1e2 * k + 1e3 * c + 1e4 * v + 1e5 * b;
-                if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
+                Real n = i + 1e1 * j + 1e2 * k + 1e3 * b;
+                if (n != std::fmod(sparse_pack(b, lo + c, k, j, i), 1e4)) ltot += 1;
               }
             },
             nwrong);

@@ -17,33 +17,33 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <regex>
 #include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include <regex>
 
 #include "bvals/cc/bvals_cc_in_one.hpp"
+#include "interface/mesh_data.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
-#include "interface/mesh_data.hpp"
 
 namespace parthenon {
 namespace impl {
-template <int idx, class TIn, class T0, class... Tl> 
+template <int idx, class TIn, class T0, class... Tl>
 struct GetIdxImpl {
   KOKKOS_FORCEINLINE_FUNCTION
   static int val() {
-    if (std::is_same<TIn, T0>::value) return idx; 
-    return GetIdxImpl<idx+1, TIn, Tl...>::val();  
+    if (std::is_same<TIn, T0>::value) return idx;
+    return GetIdxImpl<idx + 1, TIn, Tl...>::val();
   }
 };
 
-template <int idx, class TIn, class T0> 
+template <int idx, class TIn, class T0>
 struct GetIdxImpl<idx, TIn, T0> {
   KOKKOS_FORCEINLINE_FUNCTION
   static int val() {
@@ -51,140 +51,139 @@ struct GetIdxImpl<idx, TIn, T0> {
     return -1;
   }
 };
-}
+} // namespace impl
 
-template <int... IN> struct multiply;
+template <int... IN>
+struct multiply;
 
-template<int I0, int... IN>
-struct multiply<I0, IN...>{ 
-    constexpr static int val() { return I0 * multiply<IN...>::val();}
+template <int I0, int... IN>
+struct multiply<I0, IN...> {
+  constexpr static int val() { return I0 * multiply<IN...>::val(); }
 };
 
-template<>
+template <>
 struct multiply<> {
-  constexpr static int val() {return 1;}
+  constexpr static int val() { return 1; }
 };
 
-template <class TIn, class... Tl> 
-KOKKOS_FORCEINLINE_FUNCTION
-int GetTypeIdx() { 
+template <class TIn, class... Tl>
+KOKKOS_FORCEINLINE_FUNCTION int GetTypeIdx() {
   return impl::GetIdxImpl<0, TIn, Tl...>::val();
 }
 
-template <bool REGEX, int... NCOMP> 
-struct variable_t { 
+// Struct that all variables types should inherit from
+template <bool REGEX, int... NCOMP>
+struct variable_t {
   KOKKOS_FUNCTION
-  variable_t() : idx(0){
-    assert(0 == ndim);
-  }
+  variable_t() : idx(0) { assert(0 == ndim); }
   KOKKOS_FUNCTION
-  variable_t(int idx1) : idx(idx1){
-    assert(1 == ndim);
-  }
-  
+  explicit variable_t(int idx1) : idx(idx1) { assert(1 == ndim); }
+
   virtual ~variable_t() = default;
 
-  static std::string name() { PARTHENON_FAIL("Need to implement your own name method."); return "error"; } 
-  static bool regex() { return REGEX;}
+  static std::string name() {
+    PARTHENON_FAIL("Need to implement your own name method.");
+    return "error";
+  }
+  static bool regex() { return REGEX; }
   static int ndim() { return sizeof...(NCOMP); }
-  
-  const int idx; 
+  static int size() { return multiply<NCOMP...>::val(); }
+  const int idx;
 };
 
-template <class... Ts> 
+// Pack only allocated variables at the meshdata level
+template <class... Ts>
 class SparsePack {
  public:
-  SparsePack(MeshData<Real>* pmd) {
+  explicit SparsePack(MeshData<Real> *pmd) {
     const std::vector<std::string> names{Ts::name()...};
     const std::vector<std::regex> regexes{std::regex(Ts::name())...};
     const std::vector<bool> use_regex{Ts::regex()...};
-    
-    auto include_variable = [&](int vidx, const std::shared_ptr<CellVariable<Real>>& pv) {
-      if (!pv->IsAllocated()) return false; 
-      // TODO (LFR): Check that the shapes agree 
+
+    auto include_variable = [&](int vidx, const std::shared_ptr<CellVariable<Real>> &pv) {
+      if (!pv->IsAllocated()) return false;
+      // TODO(LFR): Check that the shapes agree
       if (use_regex[vidx]) {
-        if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true; 
+        if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
       } else {
         if (names[vidx] == pv->label()) return true;
       }
       return false;
     };
-    printf("Starting count.\n");
-    // Count up the size of the array that is required 
+
+    // Count up the size of the array that is required
     int max_size = 0;
-    for (int b=0; b < pmd->NumBlocks(); ++b) {
-      auto& pmb = pmd->GetBlockData(b);
+    for (int b = 0; b < pmd->NumBlocks(); ++b) {
+      auto &pmb = pmd->GetBlockData(b);
       int size = 0;
-      for (auto& pv : pmb->GetCellVariableVector()) {
-        for (int i=0; i<names.size(); ++i) {
+      for (auto &pv : pmb->GetCellVariableVector()) {
+        for (int i = 0; i < names.size(); ++i) {
           if (include_variable(i, pv)) {
-            size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4); 
+            size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
           }
-        } 
+        }
       }
-      std::cout << b << " " << size << std::endl; 
       max_size = std::max(size, max_size);
-    } 
-    
+    }
+
     pack_ = ParArray2D<ParArray3D<Real>>("data_ptr", pmd->NumBlocks(), max_size);
-    auto pack_h = Kokkos::create_mirror_view(pack_); 
-    
-    for (int b=0; b < pmd->NumBlocks(); ++b) {
-      auto& pmb = pmd->GetBlockData(b);
+    auto pack_h = Kokkos::create_mirror_view(pack_);
+
+    for (int b = 0; b < pmd->NumBlocks(); ++b) {
+      auto &pmb = pmd->GetBlockData(b);
       int idx = 0;
-      for (int i=0; i<names.size(); ++i) {
+      for (int i = 0; i < names.size(); ++i) {
         hlo_[b][i] = idx;
-        for (auto& pv : pmb->GetCellVariableVector()) {
+        for (auto &pv : pmb->GetCellVariableVector()) {
           if (include_variable(i, pv)) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
                 for (int v = 0; v < pv->GetDim(4); ++v) {
                   pack_h(b, idx) = pv->data.Get(t, u, v);
-                  idx++; 
+                  idx++;
                 }
               }
-            } 
+            }
           }
         }
 
         hhi_[b][i] = idx - 1;
-        
-        if (hhi_[b][i] < hlo_[b][i]) {
-          // Did not find any allocated variables meeting our criteria 
-          hlo_[b][i] = -1; 
-          hhi_[b][i] = -2; // Make the upper bound more negative so a for loop won't iterate once 
-        }
 
-      } 
-    } 
+        if (hhi_[b][i] < hlo_[b][i]) {
+          // Did not find any allocated variables meeting our criteria
+          hlo_[b][i] = -1;
+          hhi_[b][i] =
+              -2; // Make the upper bound more negative so a for loop won't iterate once
+        }
+      }
+    }
 
     Kokkos::deep_copy(pack_, pack_h);
   }
-  
-  //auto GetDim(int i) { 
+
+  // auto GetDim(int i) {
   //  return pack_.GetDim(i);
   //}
 
-  template<class TIn>
-  KOKKOS_INLINE_FUNCTION 
-  int GetLowerBound(const TIn&, const int b) const {
-    return hlo_[b][GetTypeIdx<TIn, Ts...>()]; 
+  template <class TIn>
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const TIn &, const int b) const {
+    return hlo_[b][GetTypeIdx<TIn, Ts...>()];
   }
 
-  template<class TIn>
-  KOKKOS_INLINE_FUNCTION 
-  int GetUpperBound(const TIn&, const int b) const {
-    return hhi_[b][GetTypeIdx<TIn, Ts...>()]; 
+  template <class TIn>
+  KOKKOS_INLINE_FUNCTION int GetUpperBound(const TIn &, const int b) const {
+    return hhi_[b][GetTypeIdx<TIn, Ts...>()];
   }
-  
+
   KOKKOS_INLINE_FUNCTION
-  Real& operator() (const int b, const int idx, const int k, const int j, const int i) const {
+  Real &operator()(const int b, const int idx, const int k, const int j,
+                   const int i) const {
     return pack_(b, idx)(k, j, i);
   }
 
-  template<class TIn>
-  KOKKOS_INLINE_FUNCTION
-  Real& operator() (const int b, const TIn& t, const int k, const int j, const int i) const {
+  template <class TIn>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int k,
+                                          const int j, const int i) const {
     return pack_(b, hlo_[b][GetTypeIdx<TIn, Ts...>()] + t.idx)(k, j, i);
   }
 
@@ -194,7 +193,7 @@ class SparsePack {
 
   ParArray2D<ParArray3D<Real>> pack_;
 };
- 
+
 } // namespace parthenon
 
 #endif // INTERFACE_SPARSE_PACK_HPP_
