@@ -19,6 +19,7 @@
 #include "basic_types.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
+#include "interface/mesh_data.hpp"
 #include "interface/metadata.hpp"
 #include "interface/sparse_pack.hpp"
 #include "kokkos_abstraction.hpp"
@@ -122,7 +123,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "
            "blocks") {
-        auto sparse_pack = parthenon::SparsePack<v5, v3>::MakeWithFluxes(&mesh_data, &cache, {Metadata::WithFluxes});
+        auto sparse_pack = parthenon::SparsePack<v5, v3>::Make(&mesh_data, {Metadata::WithFluxes});
 
         const int v = 1; // v3 is the second variable in the loop above so v = 1 there
         int nwrong = 0;
@@ -132,7 +133,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
               int lo = sparse_pack.GetLowerBound(v3(), b);
               int hi = sparse_pack.GetUpperBound(v3(), b);
-              printf("b : %i lo : %i hi : %i (%i, %i, %i)\n", b, lo, hi, k, j, i);
+              //printf("b : %i lo : %i hi : %i (%i, %i, %i)\n", b, lo, hi, k, j, i);
               for (int c = 0; c <= hi - lo; ++c) {
                 Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
                 if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
