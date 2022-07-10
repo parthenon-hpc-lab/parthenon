@@ -54,19 +54,19 @@ BlockList_t MakeBlockList(const std::shared_ptr<StateDescriptor> pkg, const int 
   return block_list;
 }
 
-struct v1 : public parthenon::variable_t<false> {
+struct v1 : public parthenon::variables::base_t<false> {
   static std::string name() { return "v1"; }
 };
 
-struct v3 : public parthenon::variable_t<false, 3> {
+struct v3 : public parthenon::variables::base_t<false, 3> {
   static std::string name() { return "v3"; }
 };
 
-struct v5 : public parthenon::variable_t<false> {
+struct v5 : public parthenon::variables::base_t<false> {
   static std::string name() { return "v5"; }
 };
 
-struct vall : public parthenon::variable_t<true> {
+struct vall : public parthenon::variables::base_t<true> {
   static std::string name() { return "v[0-9]+"; }
 };
 
@@ -122,17 +122,17 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "
            "blocks") {
-        parthenon::SparsePack<v5, v3> sparse_pack(&mesh_data, &cache);
+        auto sparse_pack = parthenon::SparsePack<v5, v3>::MakeWithFluxes(&mesh_data, &cache, {Metadata::WithFluxes});
 
         const int v = 1; // v3 is the second variable in the loop above so v = 1 there
         int nwrong = 0;
         par_reduce(
             loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
-            NBLOCKS - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
               int lo = sparse_pack.GetLowerBound(v3(), b);
               int hi = sparse_pack.GetUpperBound(v3(), b);
-               //printf("b : %i lo : %i hi : %i (%i, %i, %i)\n", b, lo, hi, k, j, i);
+              printf("b : %i lo : %i hi : %i (%i, %i, %i)\n", b, lo, hi, k, j, i);
               for (int c = 0; c <= hi - lo; ++c) {
                 Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
                 if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
@@ -143,15 +143,15 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       }
            
       THEN("A sparse pack correctly reads based on a regex variable") {
-        parthenon::SparsePack<vall> sparse_pack(&mesh_data, &cache);
+        auto sparse_pack = parthenon::SparsePack<parthenon::variables::any>::Make(&mesh_data, &cache);
 
         int nwrong = 0;
         par_reduce(
             loop_pattern_mdrange_tag, "check all", DevExecSpace(), 0,
             NBLOCKS - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
-              int lo = sparse_pack.GetLowerBound(vall(), b);
-              int hi = sparse_pack.GetUpperBound(vall(), b);
+              int lo = sparse_pack.GetLowerBound(parthenon::variables::any(), b);
+              int hi = sparse_pack.GetUpperBound(parthenon::variables::any(), b);
               for (int c = 0; c <= hi - lo; ++c) {
                 Real n = i + 1e1 * j + 1e2 * k + 1e3 * b;
                 if (std::abs(n - std::fmod(sparse_pack(b, lo + c, k, j, i), 1e4)) > 1.e-12) ltot += 1;
