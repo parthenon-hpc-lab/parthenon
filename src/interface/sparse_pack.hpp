@@ -23,13 +23,7 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/cc/bvals_cc_in_one.hpp"
-#include "interface/mesh_data.hpp"
-#include "interface/variable_pack.hpp"
-#include "mesh/domain.hpp"
-#include "mesh/meshblock.hpp"
-#include "mesh/meshblock_pack.hpp"
-#include "utils/error_checking.hpp"
+#include "interface/variable.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -54,21 +48,32 @@ struct GetTypeIdx<T, T, Ts...> : std::integral_constant<std::size_t, 0> {};
 template <typename T, typename U, typename... Ts>
 struct GetTypeIdx<T, U, Ts...> : std::integral_constant<std::size_t, 1 + GetTypeIdx<T, Ts...>::value> {};
 
-template<class T, class F> 
-void IterateBlocks(T*, F func); 
-
-template <class F> 
-void IterateBlocks(MeshData<Real> * pmd, F func) {
+// SFINAE for block iteration so that sparse packs can work for MeshBlockData and MeshData 
+template <class T, class F> 
+inline auto IterateBlocks(T *pmd, F func) -> decltype(T().GetBlockData(0), void()) {
   for (int b = 0; b < pmd->NumBlocks(); ++b) {
     auto &pmb = pmd->GetBlockData(b);
     func(b, pmb.get());
   } 
 }
 
-template <class F> 
-void IterateBlocks(MeshBlockData<Real> * pmb, F func) {
+template <class T, class F> 
+inline auto IterateBlocks(T *pmb, F func) -> decltype(T().GetBlockPointer(), void()) {
   func(0, pmb);
 }
+
+// This is some awful SFINAE so that we can get the MeshBlockData type using 
+// decltype around this function without including meshblock_data.hpp
+template <class T> 
+auto MeshBlockDataTypeHack() -> typename std::remove_reference_t<decltype(T().GetBlockData(0))>::element_type {
+  return decltype(std::declval<T>().GetBlockData(0))();  
+}
+
+template <class T> 
+auto MeshBlockDataTypeHack() -> decltype(T().GetBlockPointer(), T()) {
+  return T();  
+}
+
 
 } // namepace impl 
 
@@ -107,6 +112,9 @@ struct any : public base_t<true> {
 };
 }
 
+template <class T>
+class MeshBlockData;
+
 class SparsePackBase { 
  protected:
 
@@ -142,7 +150,8 @@ class SparsePackCache {
 
   template<class T> 
   bool TryLoad(T* ppack);
-
+  
+  void clear() { pack_map.clear(); }
  protected: 
   std::unordered_map<std::string, SparsePackBase> pack_map; 
 };
@@ -150,6 +159,7 @@ class SparsePackCache {
 template <class... Ts>
 class SparsePack : public SparsePackBase {
  public:
+  SparsePack() = default;
 
   template <class T>
   explicit SparsePack(T *pmd, const std::vector<MetadataFlag> &flags = {}, bool with_fluxes = false) 
@@ -168,10 +178,10 @@ class SparsePack : public SparsePackBase {
   }
   
   explicit SparsePack(const SparsePackBase& spb) : SparsePackBase(spb) {}
-
+  
   template <class T>
   static SparsePack Make(T* pmd, const std::vector<MetadataFlag> &flags = {}) {
-    return SparsePack(pmd, flags, false); 
+    return MakeImpl(pmd, flags, false, static_cast<int>(0)); 
   }
 
   template <class T>
@@ -181,7 +191,7 @@ class SparsePack : public SparsePackBase {
 
   template <class T>
   static SparsePack MakeWithFluxes(T* pmd, const std::vector<MetadataFlag> &flags = {}) {
-    return SparsePack(pmd, flags, true); 
+    return MakeImpl(pmd, flags, true, static_cast<int>(0)); 
   }
   
   template <class T>
@@ -237,6 +247,17 @@ class SparsePack : public SparsePackBase {
   }
 
  protected:
+  
+  template <class T>
+  static auto MakeImpl(T* pmd, const std::vector<MetadataFlag> &flags, bool fluxes, int) 
+      -> decltype(T().GetSparsePackCache(), SparsePack()) {
+    return SparsePack(pmd, &(pmd->GetSparsePackCache()), flags, fluxes); 
+  }
+
+  template <class T>
+  static SparsePack MakeImpl(T* pmd, const std::vector<MetadataFlag> &flags, bool fluxes, double) {
+    return SparsePack(pmd, flags, fluxes); 
+  }
 
   static auto GetTestFunction(const std::vector<MetadataFlag> &flags = {}) { 
     const std::vector<std::string> names{Ts::name()...};
@@ -271,9 +292,11 @@ class SparsePack : public SparsePackBase {
 //-----------------------------------------------------------------------------
 template <class T, class F> 
 SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd, int nvar, const F &include_variable) {
+  
+  using mb_t = decltype(MeshBlockDataTypeHack<T>());
 
   std::vector<bool> astat; 
-  IterateBlocks(pmd, [&](int b, MeshBlockData<Real> *pmb) {
+  IterateBlocks(pmd, [&](int b, mb_t *pmb) {
     for (int i = 0; i < nvar; ++i) {
       for (auto &pv : pmb->GetCellVariableVector()) {
         if (include_variable(i, pv)) {
@@ -291,6 +314,8 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd, int nvar, const F
 template <class T, class F> 
 SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable, bool with_fluxes) {
   
+  using mb_t = decltype(MeshBlockDataTypeHack<T>());
+
   SparsePackBase pack; 
   pack.alloc_status_h_ = GetAllocStatus(pmd, nvar, include_variable);
   pack.with_fluxes_ = with_fluxes;
@@ -298,7 +323,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable
   // Count up the size of the array that is required
   int max_size = 0;
   int nblocks = 0;
-  IterateBlocks(pmd, [&](int b, MeshBlockData<Real> *pmb) {
+  IterateBlocks(pmd, [&](int b, mb_t *pmb) {
     int size = 0;
     nblocks++;
     for (auto &pv : pmb->GetCellVariableVector()) {
@@ -320,7 +345,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable
   pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar); 
   auto bounds_h = Kokkos::create_mirror_view(pack.bounds_);
    
-  IterateBlocks(pmd, [&](int b, MeshBlockData<Real> *pmb) {
+  IterateBlocks(pmd, [&](int b, mb_t *pmb) {
     int idx = 0;
     for (int i = 0; i < nvar; ++i) {
       bounds_h(0, b, i) = idx;
