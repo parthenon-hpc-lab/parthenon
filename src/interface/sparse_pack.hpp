@@ -74,16 +74,17 @@ void IterateBlocks(MeshBlockData<Real> * pmb, F func) {
 
 using namespace impl;
 
+namespace variables { 
 // Struct that all variables types should inherit from
 template <bool REGEX, int... NCOMP>
-struct variable_t {
+struct base_t {
   KOKKOS_FUNCTION
-  variable_t() : idx(0) {}
+  base_t() : idx(0) {}
   
   KOKKOS_FUNCTION
-  explicit variable_t(int idx1) : idx(idx1) {}
+  explicit base_t(int idx1) : idx(idx1) {}
 
-  virtual ~variable_t() = default;
+  virtual ~base_t() = default;
   
   // All of these are just static methods so that there is no 
   // extra storage in the struct
@@ -101,89 +102,92 @@ struct variable_t {
   const int idx;
 };
 
+struct any : public base_t<true> {
+  static std::string name() { return ".*"; }
+};
+}
+
 class SparsePackBase { 
  protected:
 
   friend class SparsePackCache;
 
-  using pack_t = ParArray2D<ParArray3D<Real>>;
+  using pack_t = ParArray3D<ParArray3D<Real>>;
   using bounds_t = ParArray3D<int>;
   using alloc_t = ParArray1D<bool>::host_mirror_type; 
   
   pack_t pack_;
   bounds_t bounds_;
-  alloc_t alloc_status_h_;
-  
+  alloc_t alloc_status_h_; 
+  bool with_fluxes_;
+  int nblocks_; 
+
   template <class T, class F>
   static alloc_t GetAllocStatus(T *pmd, int nvar, const F& include_variable);
   
   template <class T, class F>
-  static SparsePackBase Build(T *pmd, int nvar, const F& include_variable); 
+  static SparsePackBase Build(T *pmd, int nvar, const F& include_variable, bool with_fluxes = false); 
   
  public: 
   SparsePackBase() = default;
-  SparsePackBase(const pack_t& pack, const bounds_t& bounds) : pack_(pack), bounds_(bounds) {} 
   virtual ~SparsePackBase() = default; 
-
+  
+  int GetNBlocks() {return nblocks_;}
 }; 
 
 class SparsePackCache { 
  public: 
   template<class T> 
-  bool Add(T* ppack) { 
-    std::string ident = ppack->GetIdentifier(); 
-    bool preexists = pack_map.count(ident); 
-    pack_map[ident] = static_cast<SparsePackBase>(*ppack);
-    return preexists;
-  }
+  bool Add(T* ppack);
 
   template<class T> 
-  bool TryLoad(T* ppack) {
-    std::string ident = ppack->GetIdentifier();
-    if (pack_map.count(ident) > 0) {
-      if (ppack->alloc_status_h_.size() != pack_map[ident].alloc_status_h_.size()) {
-        printf("Did not find a pre-existing cache that matches (%s).\n", ident.c_str()); 
-        return false;
-      }
-      for (int i=0; i<ppack->alloc_status_h_.size(); ++i) {
-        if (ppack->alloc_status_h_(i) != pack_map[ident].alloc_status_h_(i)) {
-          printf("Did not find a pre-existing cache that matches (%s).\n", ident.c_str()); 
-          return false;
-        }
-      }
-
-      *ppack = T(pack_map[ident]);
-      printf("Found a pre-existing cache that matches (%s).\n", ident.c_str());
-      return true;
-    }
-    printf("Did not find a pre-existing cache that matches (%s).\n", ident.c_str()); 
-    return false;
-  }
+  bool TryLoad(T* ppack);
 
  protected: 
   std::unordered_map<std::string, SparsePackBase> pack_map; 
 };
 
-// Pack only allocated variables at the meshdata level
 template <class... Ts>
 class SparsePack : public SparsePackBase {
  public:
-  template <class T>
-  explicit SparsePack(T *pmd) 
-    : SparsePackBase(Build(pmd, sizeof...(Ts), GetTestFunction())) {}
 
+  template <class T>
+  explicit SparsePack(T *pmd, const std::vector<MetadataFlag> &flags = {}, bool with_fluxes = false) 
+    : SparsePackBase(Build(pmd, sizeof...(Ts), GetTestFunction(flags), with_fluxes)) {}
+  
   template <class T> 
-  SparsePack(T *pmd, SparsePackCache* pcache) {
-    auto include_variable = GetTestFunction();
+  SparsePack(T *pmd, SparsePackCache* pcache, const std::vector<MetadataFlag> &flags = {}, bool with_fluxes = false) {
+    auto include_variable = GetTestFunction(flags);
     alloc_status_h_ = GetAllocStatus(pmd, sizeof...(Ts), include_variable); 
+    with_fluxes_ = with_fluxes;
     if (!pcache->TryLoad(this)) {
       // Ok since there should be no data members of SparsePack itself
       static_cast<SparsePackBase&>(*this) = Build(pmd, sizeof...(Ts), include_variable);
       pcache->Add(this);
     }
   }
-
+  
   explicit SparsePack(const SparsePackBase& spb) : SparsePackBase(spb) {}
+
+  template <class T>
+  static SparsePack Make(T* pmd, const std::vector<MetadataFlag> &flags = {}) {
+    return SparsePack(pmd, flags, false); 
+  }
+
+  template <class T>
+  static SparsePack Make(T* pmd, SparsePackCache* pcache, const std::vector<MetadataFlag> &flags = {}) {
+    return SparsePack(pmd, pcache, flags, false); 
+  }
+
+  template <class T>
+  static SparsePack MakeWithFluxes(T* pmd, const std::vector<MetadataFlag> &flags = {}) {
+    return SparsePack(pmd, flags, true); 
+  }
+  
+  template <class T>
+  static SparsePack MakeWithFluxes(T* pmd, SparsePackCache* pcache, const std::vector<MetadataFlag> &flags = {}) {
+    return SparsePack(pmd, pcache, flags, true); 
+  } 
 
   std::string GetIdentifier() const {
     const std::vector<std::string> idents{(Ts::name() + std::to_string(Ts::regex()))...}; 
@@ -207,24 +211,51 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION
   Real &operator()(const int b, const int idx, const int k, const int j,
                    const int i) const {
-    return pack_(b, idx)(k, j, i);
+    return pack_(0, b, idx)(k, j, i);
   }
 
   template <class TIn, class = typename std::enable_if<!std::is_integral<TIn>::value>::type>
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int k,
                                           const int j, const int i) const {
     const int vidx = GetLowerBound(t, b) + t.idx;
-    return pack_(b, vidx)(k, j, i);
+    return pack_(0, b, vidx)(k, j, i);
   }
+
+  KOKKOS_INLINE_FUNCTION
+  Real &flux(const int b, const int dir, const int idx, const int k, const int j,
+                   const int i) const {
+    assert(dir > 0 && dir < 4 && with_fluxes_); 
+    return pack_(dir, b, idx)(k, j, i);
+  }
+  
+  template <class TIn, class = typename std::enable_if<!std::is_integral<TIn>::value>::type>
+  KOKKOS_INLINE_FUNCTION Real &flux(const int b, const int dir, const TIn &t, const int k,
+                                          const int j, const int i) const {
+    assert(dir > 0 && dir < 4 && with_fluxes_); 
+    const int vidx = GetLowerBound(t, b) + t.idx;
+    return pack_(dir, b, vidx)(k, j, i);
+  }
+
  protected:
 
-  static auto GetTestFunction() { 
+  static auto GetTestFunction(const std::vector<MetadataFlag> &flags = {}) { 
     const std::vector<std::string> names{Ts::name()...};
     const std::vector<std::regex> regexes{std::regex(Ts::name())...};
     const std::vector<bool> use_regex{Ts::regex()...};
-
+    
+    // Lambda for testing wether or not we want to include cellvariable pv 
+    // in the index range of the type variable with index vidx 
     return [=](int vidx, const std::shared_ptr<CellVariable<Real>> &pv) {
       // TODO(LFR): Check that the shapes agree
+      
+      if (flags.size() > 0) {
+        for (const auto& flag : flags) {
+          if (!pv->IsSet(flag)) {
+            return false;
+          }
+        }
+      }
+      
       if (use_regex[vidx]) {
         if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
       } else {
@@ -235,7 +266,9 @@ class SparsePack : public SparsePackBase {
   }
 };
 
+//-----------------------------------------------------------------------------
 // Declarations below 
+//-----------------------------------------------------------------------------
 template <class T, class F> 
 SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd, int nvar, const F &include_variable) {
 
@@ -256,10 +289,11 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd, int nvar, const F
 } 
 
 template <class T, class F> 
-SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable) {
+SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable, bool with_fluxes) {
   
   SparsePackBase pack; 
   pack.alloc_status_h_ = GetAllocStatus(pmd, nvar, include_variable);
+  pack.with_fluxes_ = with_fluxes;
 
   // Count up the size of the array that is required
   int max_size = 0;
@@ -276,8 +310,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable
     }
     max_size = std::max(size, max_size);
   });
+  pack.nblocks_ = nblocks; 
 
-  pack.pack_ = pack_t("data_ptr", nblocks, max_size);
+  int leading_dim = 1; 
+  if (with_fluxes) leading_dim += 3;
+  pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
   auto pack_h = Kokkos::create_mirror_view(pack.pack_);
   
   pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar); 
@@ -293,7 +330,13 @@ SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
                 for (int v = 0; v < pv->GetDim(4); ++v) {
-                  pack_h(b, idx) = pv->data.Get(t, u, v);
+                  pack_h(0, b, idx) = pv->data.Get(t, u, v);
+                  if (with_fluxes) {
+                    // TODO (LFR): Need to add some checks for flux allocation 
+                    pack_h(1, b, idx) = pv->flux[1].Get(t, u, v); 
+                    pack_h(2, b, idx) = pv->flux[2].Get(t, u, v); 
+                    pack_h(3, b, idx) = pv->flux[3].Get(t, u, v); 
+                  }
                   idx++;
                 }
               }
@@ -317,6 +360,42 @@ SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable
   Kokkos::deep_copy(pack.bounds_, bounds_h);
   
   return pack;
+}
+
+template<class T> 
+bool SparsePackCache::Add(T* ppack) { 
+  std::string ident = ppack->GetIdentifier(); 
+  bool preexists = pack_map.count(ident); 
+  pack_map[ident] = static_cast<SparsePackBase>(*ppack);
+  return preexists;
+}
+
+template<class T> 
+bool SparsePackCache::TryLoad(T* ppack) {
+  std::string ident = ppack->GetIdentifier();
+  if (pack_map.count(ident) > 0) {
+    auto& pack = pack_map[ident];
+    if (ppack->with_fluxes_ != pack.with_fluxes_) { 
+      printf("Did not find a pre-existing cache that matches (%s).\n", ident.c_str()); 
+      return false; 
+    }
+    if (ppack->alloc_status_h_.size() != pack.alloc_status_h_.size()) {
+      printf("Did not find a pre-existing cache that matches (%s).\n", ident.c_str()); 
+      return false;
+    }
+    for (int i=0; i<ppack->alloc_status_h_.size(); ++i) {
+      if (ppack->alloc_status_h_(i) != pack.alloc_status_h_(i)) {
+        printf("Did not find a pre-existing cache that matches (%s).\n", ident.c_str()); 
+        return false;
+      }
+    }
+
+    *ppack = T(pack);
+    printf("Found a pre-existing cache that matches (%s).\n", ident.c_str());
+    return true;
+  }
+  printf("Did not find a pre-existing cache that matches (%s).\n", ident.c_str()); 
+  return false;
 }
 
 } // namespace parthenon
