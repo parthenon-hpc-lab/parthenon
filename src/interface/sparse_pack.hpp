@@ -177,8 +177,38 @@ class SparsePackCache {
   template<class T> 
   bool TryLoad(T* ppack);
   
+  // TODO (LFR) : Finish writing this code so that logic for finding cached pack is entirely within SparsePackCache 
+  //template <class T> 
+  //SparsePackBase &Get(T* pmd, const std::vector<std::string> &vars, const std::vector<bool> &use_regex, 
+  //                   const std::vector<MetadataFlag> &flags, bool with_fluxes) {
+  //  std::string ident = GetIdentifier(vars, use_regex, flags, with_fluxes); 
+  //  if (pack_map.count(ident) > 0) {
+  //    auto& pack = pack_map[ident];
+  //    if (with_fluxes != pack.with_fluxes_) goto make_new_pack;  
+  //    if (alloc_status_h.size() != pack.alloc_status_h_.size()) goto make_new_pack;
+  //    for (int i=0; i<alloc_status_h.size(); ++i) {
+  //      if (alloc_status_h(i) != pack.alloc_status_h_(i)) goto make_new_pack;
+  //    } 
+  //    return pack_map[ident]; 
+  //  }
+
+  //make_new_pack:
+  //  SparsePackBase pack = SparsePackBase::Build(pmd, vars, use_regex, flags, with_fluxes); 
+  //  pack_map[ident] = pack; 
+  //  return pack;
+  //}
+  
   void clear() { pack_map.clear(); }
+ 
  protected: 
+  std::string GetIdentifier(const std::vector<std::string> &vars, const std::vector<bool> &use_regex, const std::vector<MetadataFlag> &flags) const {
+    std::string identifier("");
+    for (const auto& flag : flags) identifier += flag.Name();
+    identifier += "____";  
+    for (int i=0; i < vars.size(); ++i) identifier += vars[i] + std::to_string(use_regex[i]); 
+    return identifier;
+  } 
+
   std::unordered_map<std::string, SparsePackBase> pack_map; 
 };
 
