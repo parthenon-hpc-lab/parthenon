@@ -67,7 +67,7 @@
 # is designed to test the performance we have opted for a release build.
 #
 variables:
-  SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci'
+  SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9'
   GIT_SUBMODULE_STRATEGY: recursive
   CMAKE_CXX_COMPILER: ${CI_PROJECT_DIR}/external/Kokkos/bin/nvcc_wrapper
   CMAKE_BUILD_TYPE: 'Release'
