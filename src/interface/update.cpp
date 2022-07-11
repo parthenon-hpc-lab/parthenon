@@ -80,16 +80,12 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), Nb, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank(); 
-        const int vidx_lo = vin.GetLowerBound(variables::any(), b); 
-        const int vidx_hi = vin.GetUpperBound(variables::any(), b); 
+        const int vidx_lo = vin.GetLowerBound(b, variables::any()); 
+        const int vidx_hi = vin.GetUpperBound(b, variables::any()); 
         const int Nv = vidx_hi - vidx_lo + 1; 
-
-        const int comp_lo = dudt.GetLowerBound(variables::any(), b); 
-        const int comp_hi = dudt.GetUpperBound(variables::any(), b);
-        PARTHENON_DEBUG_REQUIRE(comp_lo == vidx_lo, "Different size packs");
-        PARTHENON_DEBUG_REQUIRE(comp_hi == vidx_hi, "Different size packs");
         
         const auto &coords = vin.GetCoordinates(b);
+        
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange<>(team_member, Nv*NkNjNi), [&](const int idx) {
           
@@ -110,6 +106,7 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
           du = -du / coords.Volume(k, j, i);
         });
       });
+
   return TaskStatus::complete;
 }
 

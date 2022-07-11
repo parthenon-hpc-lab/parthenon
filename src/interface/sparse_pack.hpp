@@ -128,8 +128,12 @@ class SparsePackBase {
 
   pack_t pack_;
   bounds_t bounds_;
-  alloc_t alloc_status_h_; 
   coords_t coords_;
+
+  ParArray1D<std::string>::host_mirror_type names_h_;
+  ParArray1D<bool>::host_mirror_type use_regex_h_; 
+  alloc_t alloc_status_h_; 
+  
   bool with_fluxes_;
   int nblocks_; 
   int ndim_;
@@ -146,6 +150,23 @@ class SparsePackBase {
   
   int GetNBlocks() const {return nblocks_;}
   int GetNDim() const {return ndim_;}
+
+  KOKKOS_INLINE_FUNCTION
+  const Coordinates_t& GetCoordinates(const int b) const { return coords_(b)(); }
+  
+  KOKKOS_INLINE_FUNCTION
+  Real &operator()(const int b, const int idx, const int k, const int j,
+                   const int i) const {
+    return pack_(0, b, idx)(k, j, i);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real &flux(const int b, const int dir, const int idx, const int k, const int j,
+                   const int i) const {
+    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call"); 
+    return pack_(dir, b, idx)(k, j, i);
+  }
+
 }; 
 
 class SparsePackCache { 
@@ -212,17 +233,19 @@ class SparsePack : public SparsePackBase {
   }
 
   template <class TIn>
-  KOKKOS_INLINE_FUNCTION int GetLowerBound(const TIn &, const int b) const {
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(0, b, vidx);
   }
 
   template <class TIn>
-  KOKKOS_INLINE_FUNCTION int GetUpperBound(const TIn &, const int b) const {
+  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(1, b, vidx);
   }
   
+  // This has to be defined here since the base class operator is apparently 
+  // covered by the template operator below even if std::enable_if fails
   KOKKOS_INLINE_FUNCTION
   Real &operator()(const int b, const int idx, const int k, const int j,
                    const int i) const {
@@ -251,8 +274,7 @@ class SparsePack : public SparsePackBase {
     return pack_(dir, b, vidx)(k, j, i);
   }
 
-  KOKKOS_INLINE_FUNCTION
-  const Coordinates_t& GetCoordinates(const int b) const { return coords_(b)(); }
+
 
  protected:
   
