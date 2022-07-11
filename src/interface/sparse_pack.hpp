@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "coordinates/coordinates.hpp"
 #include "interface/variable.hpp"
 #include "utils/utils.hpp"
 
@@ -52,14 +53,14 @@ struct GetTypeIdx<T, U, Ts...> : std::integral_constant<std::size_t, 1 + GetType
 template <class T, class F> 
 inline auto IterateBlocks(T *pmd, F func) -> decltype(T().GetBlockData(0), void()) {
   for (int b = 0; b < pmd->NumBlocks(); ++b) {
-    auto &pmb = pmd->GetBlockData(b);
-    func(b, pmb.get());
+    auto &pmbd = pmd->GetBlockData(b);
+    func(b, pmbd.get());
   } 
 }
 
 template <class T, class F> 
-inline auto IterateBlocks(T *pmb, F func) -> decltype(T().GetBlockPointer(), void()) {
-  func(0, pmb);
+inline auto IterateBlocks(T *pmbd, F func) -> decltype(T().GetBlockPointer(), void()) {
+  func(0, pmbd);
 }
 
 // This is some awful SFINAE so that we can get the MeshBlockData type using 
@@ -123,24 +124,28 @@ class SparsePackBase {
   using pack_t = ParArray3D<ParArray3D<Real>>;
   using bounds_t = ParArray3D<int>;
   using alloc_t = ParArray1D<bool>::host_mirror_type; 
-  
+  using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
+
   pack_t pack_;
   bounds_t bounds_;
   alloc_t alloc_status_h_; 
+  coords_t coords_;
   bool with_fluxes_;
   int nblocks_; 
+  int ndim_;
 
   template <class T, class F>
   static alloc_t GetAllocStatus(T *pmd, int nvar, const F& include_variable);
   
   template <class T, class F>
-  static SparsePackBase Build(T *pmd, int nvar, const F& include_variable, bool with_fluxes = false); 
+  static SparsePackBase Build(T *pmd, int nvar, const F& include_variable, bool with_fluxes); 
   
  public: 
   SparsePackBase() = default;
   virtual ~SparsePackBase() = default; 
   
-  int GetNBlocks() {return nblocks_;}
+  int GetNBlocks() const {return nblocks_;}
+  int GetNDim() const {return ndim_;}
 }; 
 
 class SparsePackCache { 
@@ -172,7 +177,7 @@ class SparsePack : public SparsePackBase {
     with_fluxes_ = with_fluxes;
     if (!pcache->TryLoad(this)) {
       // Ok since there should be no data members of SparsePack itself
-      static_cast<SparsePackBase&>(*this) = Build(pmd, sizeof...(Ts), include_variable);
+      static_cast<SparsePackBase&>(*this) = Build(pmd, sizeof...(Ts), include_variable, with_fluxes);
       pcache->Add(this);
     }
   }
@@ -234,17 +239,20 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION
   Real &flux(const int b, const int dir, const int idx, const int k, const int j,
                    const int i) const {
-    assert(dir > 0 && dir < 4 && with_fluxes_); 
+    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call"); 
     return pack_(dir, b, idx)(k, j, i);
   }
   
   template <class TIn, class = typename std::enable_if<!std::is_integral<TIn>::value>::type>
   KOKKOS_INLINE_FUNCTION Real &flux(const int b, const int dir, const TIn &t, const int k,
                                           const int j, const int i) const {
-    assert(dir > 0 && dir < 4 && with_fluxes_); 
+    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call"); 
     const int vidx = GetLowerBound(t, b) + t.idx;
     return pack_(dir, b, vidx)(k, j, i);
   }
+
+  KOKKOS_INLINE_FUNCTION
+  const Coordinates_t& GetCoordinates(const int b) const { return coords_(b)(); }
 
  protected:
   
@@ -293,12 +301,12 @@ class SparsePack : public SparsePackBase {
 template <class T, class F> 
 SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd, int nvar, const F &include_variable) {
   
-  using mb_t = decltype(MeshBlockDataTypeHack<T>());
+  using mbd_t = decltype(MeshBlockDataTypeHack<T>());
 
   std::vector<bool> astat; 
-  IterateBlocks(pmd, [&](int b, mb_t *pmb) {
+  IterateBlocks(pmd, [&](int b, mbd_t *pmbd) {
     for (int i = 0; i < nvar; ++i) {
-      for (auto &pv : pmb->GetCellVariableVector()) {
+      for (auto &pv : pmbd->GetCellVariableVector()) {
         if (include_variable(i, pv)) {
           astat.push_back(pv->IsAllocated());
         }
@@ -314,7 +322,7 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd, int nvar, const F
 template <class T, class F> 
 SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable, bool with_fluxes) {
   
-  using mb_t = decltype(MeshBlockDataTypeHack<T>());
+  using mbd_t = decltype(MeshBlockDataTypeHack<T>());
 
   SparsePackBase pack; 
   pack.alloc_status_h_ = GetAllocStatus(pmd, nvar, include_variable);
@@ -323,13 +331,19 @@ SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable
   // Count up the size of the array that is required
   int max_size = 0;
   int nblocks = 0;
-  IterateBlocks(pmd, [&](int b, mb_t *pmb) {
+  int ndim = 3;
+  IterateBlocks(pmd, [&](int b, mbd_t *pmbd) {
     int size = 0;
     nblocks++;
-    for (auto &pv : pmb->GetCellVariableVector()) {
+    for (auto &pv : pmbd->GetCellVariableVector()) {
       for (int i = 0; i < nvar; ++i) {
         if (include_variable(i, pv)) {
-          if (pv->IsAllocated()) size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
+          if (pv->IsAllocated()) {
+            size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
+            ndim = (pv->GetDim(1) > 1 ? 1 : 0) 
+                 + (pv->GetDim(2) > 1 ? 1 : 0) 
+                 + (pv->GetDim(3) > 1 ? 1 : 0);
+          }
         }
       }
     }
@@ -344,23 +358,37 @@ SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable
   
   pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar); 
   auto bounds_h = Kokkos::create_mirror_view(pack.bounds_);
-   
-  IterateBlocks(pmd, [&](int b, mb_t *pmb) {
+  
+  pack.coords_ = coords_t("coords", nblocks); 
+  auto coords_h = Kokkos::create_mirror_view(pack.coords_);
+  
+  IterateBlocks(pmd, [&](int b, mbd_t *pmbd) {
     int idx = 0;
+    coords_h(b) = pmbd->GetBlockPointer()->coords_device;
+
     for (int i = 0; i < nvar; ++i) {
       bounds_h(0, b, i) = idx;
-      for (auto &pv : pmb->GetCellVariableVector()) {
+    
+      for (auto &pv : pmbd->GetCellVariableVector()) {
         if (include_variable(i, pv)) {
           if (pv->IsAllocated()) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
                 for (int v = 0; v < pv->GetDim(4); ++v) {
                   pack_h(0, b, idx) = pv->data.Get(t, u, v);
-                  if (with_fluxes) {
+                  PARTHENON_REQUIRE(pack_h(0, b, idx).size() > 10, "Seems like this pack might not actually be allocated.");
+                  if (with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
                     // TODO (LFR): Need to add some checks for flux allocation 
                     pack_h(1, b, idx) = pv->flux[1].Get(t, u, v); 
-                    pack_h(2, b, idx) = pv->flux[2].Get(t, u, v); 
-                    pack_h(3, b, idx) = pv->flux[3].Get(t, u, v); 
+                    PARTHENON_REQUIRE(pack_h(1, b, idx).size() == pack_h(0, b, idx).size(), "Different size fluxes.");
+                    if (ndim > 1) { 
+                      pack_h(2, b, idx) = pv->flux[2].Get(t, u, v); 
+                      PARTHENON_REQUIRE(pack_h(2, b, idx).size() == pack_h(0, b, idx).size(), "Different size fluxes.");
+                    }
+                    if (ndim > 2) { 
+                      pack_h(3, b, idx) = pv->flux[3].Get(t, u, v); 
+                      PARTHENON_REQUIRE(pack_h(3, b, idx).size() == pack_h(0, b, idx).size(), "Different size fluxes.");
+                    }
                   }
                   idx++;
                 }
@@ -383,7 +411,9 @@ SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable
 
   Kokkos::deep_copy(pack.pack_, pack_h);
   Kokkos::deep_copy(pack.bounds_, bounds_h);
-  
+  Kokkos::deep_copy(pack.coords_, coords_h);
+  pack.ndim_ = ndim;
+
   return pack;
 }
 
@@ -400,26 +430,15 @@ bool SparsePackCache::TryLoad(T* ppack) {
   std::string ident = ppack->GetIdentifier();
   if (pack_map.count(ident) > 0) {
     auto& pack = pack_map[ident];
-    if (ppack->with_fluxes_ != pack.with_fluxes_) { 
-      printf("Did not find a pre-existing cache that matches (%s).\n", ident.c_str()); 
-      return false; 
-    }
-    if (ppack->alloc_status_h_.size() != pack.alloc_status_h_.size()) {
-      printf("Did not find a pre-existing cache that matches (%s).\n", ident.c_str()); 
-      return false;
-    }
+    if (ppack->with_fluxes_ != pack.with_fluxes_) return false; 
+    if (ppack->alloc_status_h_.size() != pack.alloc_status_h_.size()) return false;
     for (int i=0; i<ppack->alloc_status_h_.size(); ++i) {
-      if (ppack->alloc_status_h_(i) != pack.alloc_status_h_(i)) {
-        printf("Did not find a pre-existing cache that matches (%s).\n", ident.c_str()); 
-        return false;
-      }
+      if (ppack->alloc_status_h_(i) != pack.alloc_status_h_(i)) return false;
     }
 
     *ppack = T(pack);
-    printf("Found a pre-existing cache that matches (%s).\n", ident.c_str());
     return true;
   }
-  printf("Did not find a pre-existing cache that matches (%s).\n", ident.c_str()); 
   return false;
 }
 
