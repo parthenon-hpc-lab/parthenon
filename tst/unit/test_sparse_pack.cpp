@@ -131,9 +131,29 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
             sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
-              int lo = sparse_pack.GetLowerBound(v3(), b);
-              int hi = sparse_pack.GetUpperBound(v3(), b);
-              //printf("b : %i lo : %i hi : %i (%i, %i, %i)\n", b, lo, hi, k, j, i);
+              int lo = sparse_pack.GetLowerBound(b, v3());
+              int hi = sparse_pack.GetUpperBound(b, v3());
+              for (int c = 0; c <= hi - lo; ++c) {
+                Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+                if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+
+      THEN("A sparse pack correctly loads this data and can be read from v3 on a single block") {
+        auto sparse_pack = parthenon::SparsePack<v5, v3>::Make(block_list[0]->meshblock_data.Get().get());
+
+        const int v = 1; // v3 is the second variable in the loop above so v = 1 there
+        int nwrong = 0;
+        int b = 0;
+        par_reduce(
+            loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 
+            kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(int k, int j, int i, int &ltot) {
+              int lo = sparse_pack.GetLowerBound(b, v3());
+              int hi = sparse_pack.GetUpperBound(b, v3());
               for (int c = 0; c <= hi - lo; ++c) {
                 Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
                 if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
@@ -151,8 +171,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             loop_pattern_mdrange_tag, "check all", DevExecSpace(), 0,
             NBLOCKS - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
-              int lo = sparse_pack.GetLowerBound(parthenon::variables::any(), b);
-              int hi = sparse_pack.GetUpperBound(parthenon::variables::any(), b);
+              int lo = sparse_pack.GetLowerBound(b, parthenon::variables::any());
+              int hi = sparse_pack.GetUpperBound(b, parthenon::variables::any());
               for (int c = 0; c <= hi - lo; ++c) {
                 Real n = i + 1e1 * j + 1e2 * k + 1e3 * b;
                 if (std::abs(n - std::fmod(sparse_pack(b, lo + c, k, j, i), 1e4)) > 1.e-12) ltot += 1;
