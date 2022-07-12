@@ -116,6 +116,13 @@ struct any : public base_t<true> {
 template <class T>
 class MeshBlockData;
 
+struct PackDescriptor { 
+  std::vector<std::string> vars; 
+  std::vector<bool> use_regex; 
+  std::vector<MetadataFlag> flags; 
+  bool with_fluxes; 
+}; 
+
 class SparsePackBase { 
  protected:
 
@@ -138,12 +145,38 @@ class SparsePackBase {
   int nblocks_; 
   int ndim_;
 
-  template <class T, class F>
-  static alloc_t GetAllocStatus(T *pmd, int nvar, const F& include_variable);
+  template <class T>
+  static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
   
-  template <class T, class F>
-  static SparsePackBase Build(T *pmd, int nvar, const F& include_variable, bool with_fluxes); 
-  
+  template <class T>
+  static SparsePackBase Build(T *pmd, const PackDescriptor &desc); 
+
+  static auto GetTestFunction(const PackDescriptor &desc) { 
+    std::vector<std::regex> regexes; 
+    for (const auto& var : desc.vars) regexes.push_back(std::regex(var)); 
+
+    // Lambda for testing wether or not we want to include cellvariable pv 
+    // in the index range of the type variable with index vidx 
+    return [=](int vidx, const std::shared_ptr<CellVariable<Real>> &pv) {
+      // TODO(LFR): Check that the shapes agree
+      
+      if (desc.flags.size() > 0) {
+        for (const auto& flag : desc.flags) {
+          if (!pv->IsSet(flag)) {
+            return false;
+          }
+        }
+      }
+      
+      if (desc.use_regex[vidx]) {
+        if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
+      } else {
+        if (desc.vars[vidx] == pv->label()) return true;
+      }
+      return false;
+    };
+  }
+
  public: 
   SparsePackBase() = default;
   virtual ~SparsePackBase() = default; 
@@ -178,34 +211,34 @@ class SparsePackCache {
   bool TryLoad(T* ppack);
   
   // TODO (LFR) : Finish writing this code so that logic for finding cached pack is entirely within SparsePackCache 
-  //template <class T> 
-  //SparsePackBase &Get(T* pmd, const std::vector<std::string> &vars, const std::vector<bool> &use_regex, 
-  //                   const std::vector<MetadataFlag> &flags, bool with_fluxes) {
-  //  std::string ident = GetIdentifier(vars, use_regex, flags, with_fluxes); 
-  //  if (pack_map.count(ident) > 0) {
-  //    auto& pack = pack_map[ident];
-  //    if (with_fluxes != pack.with_fluxes_) goto make_new_pack;  
-  //    if (alloc_status_h.size() != pack.alloc_status_h_.size()) goto make_new_pack;
-  //    for (int i=0; i<alloc_status_h.size(); ++i) {
-  //      if (alloc_status_h(i) != pack.alloc_status_h_(i)) goto make_new_pack;
-  //    } 
-  //    return pack_map[ident]; 
-  //  }
+  template <class T> 
+  SparsePackBase &Get(T* pmd, const PackDescriptor& desc) {
+    std::string ident = GetIdentifier(desc); 
+    if (pack_map.count(ident) > 0) {
+      auto& pack = pack_map[ident];
+      if (desc.with_fluxes != pack.with_fluxes_) goto make_new_pack;  
+      auto alloc_status_h = SparsePackBase::GetAllocStatus(pmd, desc); 
+      if (alloc_status_h.size() != pack.alloc_status_h_.size()) goto make_new_pack;
+      for (int i=0; i<alloc_status_h.size(); ++i) {
+        if (alloc_status_h(i) != pack.alloc_status_h_(i)) goto make_new_pack;
+      } 
+      return pack_map[ident]; 
+    }
 
-  //make_new_pack:
-  //  SparsePackBase pack = SparsePackBase::Build(pmd, vars, use_regex, flags, with_fluxes); 
-  //  pack_map[ident] = pack; 
-  //  return pack;
-  //}
+  make_new_pack:
+    SparsePackBase pack = SparsePackBase::Build(pmd, desc); 
+    pack_map[ident] = pack; 
+    return pack;
+  }
   
   void clear() { pack_map.clear(); }
  
  protected: 
-  std::string GetIdentifier(const std::vector<std::string> &vars, const std::vector<bool> &use_regex, const std::vector<MetadataFlag> &flags) const {
+  std::string GetIdentifier(const PackDescriptor &desc) const {
     std::string identifier("");
-    for (const auto& flag : flags) identifier += flag.Name();
+    for (const auto& flag : desc.flags) identifier += flag.Name();
     identifier += "____";  
-    for (int i=0; i < vars.size(); ++i) identifier += vars[i] + std::to_string(use_regex[i]); 
+    for (int i=0; i < desc.vars.size(); ++i) identifier += desc.vars[i] + std::to_string(desc.use_regex[i]); 
     return identifier;
   } 
 
@@ -219,16 +252,17 @@ class SparsePack : public SparsePackBase {
 
   template <class T>
   explicit SparsePack(T *pmd, const std::vector<MetadataFlag> &flags = {}, bool with_fluxes = false) 
-    : SparsePackBase(Build(pmd, sizeof...(Ts), GetTestFunction(flags), with_fluxes)) {}
+    : SparsePackBase(Build(pmd, PackDescriptor{std::vector<std::string>{Ts::name()...}, std::vector<bool>{Ts::regex()...}, flags, with_fluxes})) {}
   
   template <class T> 
   SparsePack(T *pmd, SparsePackCache* pcache, const std::vector<MetadataFlag> &flags = {}, bool with_fluxes = false) {
-    auto include_variable = GetTestFunction(flags);
-    alloc_status_h_ = GetAllocStatus(pmd, sizeof...(Ts), include_variable); 
+    PackDescriptor desc{std::vector<std::string>{Ts::name()...}, std::vector<bool>{Ts::regex()...}, flags, with_fluxes};
+    auto include_variable = SparsePackBase::GetTestFunction(desc);
+    alloc_status_h_ = GetAllocStatus(pmd, desc); 
     with_fluxes_ = with_fluxes;
     if (!pcache->TryLoad(this)) {
       // Ok since there should be no data members of SparsePack itself
-      static_cast<SparsePackBase&>(*this) = Build(pmd, sizeof...(Ts), include_variable, with_fluxes);
+      static_cast<SparsePackBase&>(*this) = Build(pmd, desc);
       pcache->Add(this);
     }
   }
@@ -350,11 +384,14 @@ class SparsePack : public SparsePackBase {
 //-----------------------------------------------------------------------------
 // Declarations below 
 //-----------------------------------------------------------------------------
-template <class T, class F> 
-SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd, int nvar, const F &include_variable) {
+template <class T> 
+SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd, const PackDescriptor &desc) {
   
   using mbd_t = decltype(MeshBlockDataTypeHack<T>());
 
+  int nvar = desc.vars.size();
+  auto include_variable = GetTestFunction(desc);
+  
   std::vector<bool> astat; 
   IterateBlocks(pmd, [&](int b, mbd_t *pmbd) {
     for (int i = 0; i < nvar; ++i) {
@@ -371,14 +408,16 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd, int nvar, const F
   return alloc_status_h;
 } 
 
-template <class T, class F> 
-SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable, bool with_fluxes) {
+template <class T> 
+SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   
   using mbd_t = decltype(MeshBlockDataTypeHack<T>());
-
+  int nvar = desc.vars.size();
+  
+  auto include_variable = GetTestFunction(desc);
   SparsePackBase pack; 
-  pack.alloc_status_h_ = GetAllocStatus(pmd, nvar, include_variable);
-  pack.with_fluxes_ = with_fluxes;
+  pack.alloc_status_h_ = GetAllocStatus(pmd, desc);
+  pack.with_fluxes_ = desc.with_fluxes;
 
   // Count up the size of the array that is required
   int max_size = 0;
@@ -404,7 +443,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable
   pack.nblocks_ = nblocks; 
 
   int leading_dim = 1; 
-  if (with_fluxes) leading_dim += 3;
+  if (desc.with_fluxes) leading_dim += 3;
   pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
   auto pack_h = Kokkos::create_mirror_view(pack.pack_);
   
@@ -429,7 +468,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, int nvar, const F &include_variable
                 for (int v = 0; v < pv->GetDim(4); ++v) {
                   pack_h(0, b, idx) = pv->data.Get(t, u, v);
                   PARTHENON_REQUIRE(pack_h(0, b, idx).size() > 10, "Seems like this pack might not actually be allocated.");
-                  if (with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
+                  if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
                     // TODO (LFR): Need to add some checks for flux allocation 
                     pack_h(1, b, idx) = pv->flux[1].Get(t, u, v); 
                     PARTHENON_REQUIRE(pack_h(1, b, idx).size() == pack_h(0, b, idx).size(), "Different size fluxes.");
