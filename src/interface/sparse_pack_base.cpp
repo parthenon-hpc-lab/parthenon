@@ -137,10 +137,10 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
           if (pv->IsAllocated()) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
-                for (int v = 0; v < pv->GetDim(4); ++v) { 
-                  if (pack.coarse_) { 
+                for (int v = 0; v < pv->GetDim(4); ++v) {
+                  if (pack.coarse_) {
                     pack_h(0, b, idx) = pv->coarse_s.Get(t, u, v);
-                  } else { 
+                  } else {
                     pack_h(0, b, idx) = pv->data.Get(t, u, v);
                   }
                   PARTHENON_REQUIRE(

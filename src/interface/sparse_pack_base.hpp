@@ -37,10 +37,13 @@ struct PackDescriptor {
   std::vector<MetadataFlag> flags;
   bool with_fluxes;
   bool coarse = false;
-  PackDescriptor(const std::vector<std::string>& vars, const std::vector<bool>& use_regex, const std::vector<MetadataFlag>& flags, bool with_fluxes, bool coarse) :
-    vars(vars), use_regex(use_regex), flags(flags), with_fluxes(with_fluxes), coarse(coarse) { 
-      PARTHENON_REQUIRE(!(with_fluxes && coarse), "Probably shouldn't be making a coarse pack with fine fluxes.");
-    }
+  PackDescriptor(const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
+                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse)
+      : vars(vars), use_regex(use_regex), flags(flags), with_fluxes(with_fluxes),
+        coarse(coarse) {
+    PARTHENON_REQUIRE(!(with_fluxes && coarse),
+                      "Probably shouldn't be making a coarse pack with fine fluxes.");
+  }
 };
 
 class SparsePackBase {
