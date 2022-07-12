@@ -73,14 +73,15 @@ struct IncludesType<T, U, Ts...> : IncludesType<T, Ts...> {};
 
 using namespace impl;
 
+
 namespace variables {
 // Struct that all variables types should inherit from
 template <bool REGEX, int... NCOMP>
 struct base_t {
-  KOKKOS_FUNCTION
+  KOKKOS_INLINE_FUNCTION
   base_t() : idx(0) {}
 
-  KOKKOS_FUNCTION
+  KOKKOS_INLINE_FUNCTION
   explicit base_t(int idx1) : idx(idx1) {}
 
   virtual ~base_t() = default;
@@ -102,6 +103,9 @@ struct base_t {
 };
 
 struct any : public base_t<true> {
+  template<class... Ts>
+  KOKKOS_INLINE_FUNCTION
+  any(Ts&&... args) : parthenon::variables::base_t<true>(std::forward<Ts>(args)...) {}
   static std::string name() { return ".*"; }
 };
 } // namespace variables
@@ -149,19 +153,19 @@ class SparsePack : public SparsePackBase {
   }
 
   template <class TIn,
-            class = typename std::enable_if<IncludesType<TIn, Ts...>::value>::type>
+            class = typename std::enable_if<!std::is_integral<TIn>::value>::type>
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int k,
                                           const int j, const int i) const {
-    const int vidx = GetLowerBound(t, b) + t.idx;
+    const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(0, b, vidx)(k, j, i);
   }
 
   template <class TIn,
-            class = typename std::enable_if<IncludesType<TIn, Ts...>::value>::type>
+            class = typename std::enable_if<!std::is_integral<TIn>::value>::type>
   KOKKOS_INLINE_FUNCTION Real &flux(const int b, const int dir, const TIn &t, const int k,
                                     const int j, const int i) const {
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
-    const int vidx = GetLowerBound(t, b) + t.idx;
+    const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(dir, b, vidx)(k, j, i);
   }
 

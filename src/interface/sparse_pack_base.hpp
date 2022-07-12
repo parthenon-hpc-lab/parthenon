@@ -71,6 +71,34 @@ struct PackDescriptor {
 
 using namespace impl;
 
+class PackIdx { 
+  const std::size_t vidx;
+  const int off; 
+ public:
+  KOKKOS_INLINE_FUNCTION
+  PackIdx(std::size_t var_idx) : vidx(var_idx), off(0) {}
+  KOKKOS_INLINE_FUNCTION
+  PackIdx(std::size_t var_idx, int off) : vidx(var_idx), off(off) {}
+  KOKKOS_INLINE_FUNCTION
+  std::size_t Vidx() {return vidx;}
+  KOKKOS_INLINE_FUNCTION
+  int Off() {return off;} 
+};
+
+template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
+KOKKOS_INLINE_FUNCTION
+PackIdx operator+(PackIdx idx, T off) {
+  return PackIdx(idx.Vidx(), idx.Off() + off); 
+} 
+
+template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
+KOKKOS_INLINE_FUNCTION
+PackIdx operator+(T off, PackIdx idx) {
+  return idx + off; 
+} 
+
+using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>; 
+
 class SparsePackBase {
  protected:
   friend class SparsePackCache;
@@ -93,6 +121,7 @@ class SparsePackBase {
   int nblocks_;
   int ndim_;
   int dims_[6];
+  int nvar_;
 
   template <class T>
   static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
@@ -112,15 +141,22 @@ class SparsePackBase {
   //   2) std::vector<std::pair<std::string, bool>> of (variable name, treat name as
   //   regex) pairs
   template <class T, class VAR_VEC>
-  static SparsePackBase Make(T *pmd, const VAR_VEC &vars,
+  static std::tuple<SparsePackBase, SparsePackIdxMap> Make(T *pmd, const VAR_VEC &vars,
                              const std::vector<MetadataFlag> &flags = {},
                              bool fluxes = false, bool coarse = false) {
     auto &cache = pmd->GetSparsePackCache();
-    return cache.Get(pmd, PackDescriptor(vars, fluxes, coarse));
+    auto desc = PackDescriptor(vars, flags, fluxes, coarse); 
+    SparsePackIdxMap map; 
+    std::size_t idx = 0;
+    for (const auto& var : desc.vars) { 
+      map[var] = idx;
+      ++idx; 
+    }
+    return {cache.Get(pmd, desc), map};
   }
 
   template <class T, class VAR_VEC>
-  static SparsePackBase MakeWithFluxes(T *pmd, const VAR_VEC &vars,
+  static std::tuple<SparsePackBase, SparsePackIdxMap> MakeWithFluxes(T *pmd, const VAR_VEC &vars,
                                        const std::vector<MetadataFlag> &flags = {}) {
     const bool fluxes = true;
     const bool coarse = false;
@@ -128,13 +164,13 @@ class SparsePackBase {
   }
 
   template <class T, class VAR_VEC>
-  static SparsePackBase MakeWithCoarse(T *pmd, const VAR_VEC &vars,
+  static std::tuple<SparsePackBase, SparsePackIdxMap> MakeWithCoarse(T *pmd, const VAR_VEC &vars,
                                        const std::vector<MetadataFlag> &flags = {}) {
     const bool fluxes = false;
     const bool coarse = true;
     return Make(pmd, vars, flags, fluxes, coarse);
   }
-
+  
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNBlocks() const { return nblocks_; }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -143,17 +179,37 @@ class SparsePackBase {
   int GetDim(const int i) const {
     assert(i > 0 && i < 6);
     PARTHENON_REQUIRE(
-        i != 2, "Should not ask for the second dimension since it is logically ragged ");
+        i != 2, "Should not ask for the second dimension since it is logically ragged");
     return dims_[i];
   }
 
   KOKKOS_INLINE_FUNCTION
   const Coordinates_t &GetCoordinates(const int b) const { return coords_(b)(); }
 
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const { return bounds_(0, b, 0); }
+
+  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b) const {
+    return bounds_(1, b, nvar_ - 1);
+  }
+  
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const { return bounds_(0, b, idx.Vidx()); }
+
+  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, PackIdx idx) const {
+    return bounds_(1, b, idx.Vidx());
+  }
+
+
   KOKKOS_INLINE_FUNCTION
   Real &operator()(const int b, const int idx, const int k, const int j,
                    const int i) const {
     return pack_(0, b, idx)(k, j, i);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real &operator()(const int b, PackIdx idx, const int k, const int j,
+                   const int i) const {
+    const int n = bounds_(0, b, idx.Vidx()) + idx.Off();
+    return pack_(0, b, n)(k, j, i);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -164,6 +220,14 @@ class SparsePackBase {
              const int i) const {
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     return pack_(dir, b, idx)(k, j, i);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real &flux(const int b, const int dir, PackIdx idx, const int k, const int j,
+             const int i) const {
+    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
+    const int n = bounds_(0, b, idx.Vidx()) + idx.Off();
+    return pack_(dir, b, n)(k, j, i);
   }
 
   KOKKOS_INLINE_FUNCTION

@@ -56,19 +56,24 @@ BlockList_t MakeBlockList(const std::shared_ptr<StateDescriptor> pkg, const int 
 }
 
 struct v1 : public parthenon::variables::base_t<false> {
+  template<class... Ts>
+  KOKKOS_INLINE_FUNCTION
+  v1(Ts&&... args) : parthenon::variables::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v1"; }
 };
 
 struct v3 : public parthenon::variables::base_t<false, 3> {
+  template<class... Ts>
+  KOKKOS_INLINE_FUNCTION
+  v3(Ts&&... args) : parthenon::variables::base_t<false, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v3"; }
 };
 
 struct v5 : public parthenon::variables::base_t<false> {
+  template<class... Ts>
+  KOKKOS_INLINE_FUNCTION
+  v5(Ts&&... args) : parthenon::variables::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v5"; }
-};
-
-struct vall : public parthenon::variables::base_t<true> {
-  static std::string name() { return "v[0-9]+"; }
 };
 
 } // namespace
@@ -121,20 +126,44 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "
            "blocks") {
+        // Create a pack use type variables
         auto sparse_pack =
             parthenon::SparsePack<v5, v3>::Make(&mesh_data, {Metadata::WithFluxes});
-
+        // Create the same pack using strings 
+        auto tup = parthenon::SparsePackBase::Make(&mesh_data, std::vector<std::string>{"v5", "v3"}, 
+                                            std::vector<parthenon::MetadataFlag>{Metadata::WithFluxes});
+        auto sparse_pack_notype = std::get<0>(tup);
+        auto pack_map = std::get<1>(tup);
+        parthenon::PackIdx iv3 = pack_map["v3"];            
+        
+        // Make sure that we have only cached one pack, since these should be the 
+        // same base pack
+        REQUIRE(mesh_data.GetSparsePackCache().size() == 1);
+        
         const int v = 1; // v3 is the second variable in the loop above so v = 1 there
         int nwrong = 0;
         par_reduce(
             loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
             sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
-              int lo = sparse_pack.GetLowerBound(b, v3());
-              int hi = sparse_pack.GetUpperBound(b, v3());
-              for (int c = 0; c <= hi - lo; ++c) {
-                Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
-                if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
+              {
+                int lo = sparse_pack.GetLowerBound(b, v3());
+                int hi = sparse_pack.GetUpperBound(b, v3());
+                for (int c = 0; c <= hi - lo; ++c) {
+                  Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+                  if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
+                  if (n != sparse_pack(b, v3(c), k, j, i)) ltot += 1;
+                }
+              }
+
+              {
+                int lo = sparse_pack_notype.GetLowerBound(b, iv3);
+                int hi = sparse_pack_notype.GetUpperBound(b, iv3);
+                for (int c = 0; c <= hi - lo; ++c) {
+                  Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+                  if (n != sparse_pack_notype(b, lo + c, k, j, i)) ltot += 1;
+                  if (n != sparse_pack_notype(b, iv3 + c, k, j, i)) ltot += 1;
+                }
               }
             },
             nwrong);
