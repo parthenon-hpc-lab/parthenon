@@ -139,6 +139,8 @@ add_library(parthenon
   interface/metadata.hpp
   interface/params.hpp
   interface/sparse_pack.hpp
+  interface/sparse_pack_base.cpp
+  interface/sparse_pack_base.hpp
   interface/sparse_pool.cpp
   interface/sparse_pool.hpp
   interface/state_descriptor.hpp
