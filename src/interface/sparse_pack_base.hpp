@@ -108,8 +108,9 @@ class SparsePackBase {
 
   // VAR_VEC can be:
   //   1) std::vector<std::string> of variable names (in which case they are all assumed
-  //   not to be regexs) 2) std::vector<std::pair<std::string, bool>> of (variable name,
-  //   treat name as regex) pairs
+  //   not to be regexs)
+  //   2) std::vector<std::pair<std::string, bool>> of (variable name, treat name as
+  //   regex) pairs
   template <class T, class VAR_VEC>
   static SparsePackBase Make(T *pmd, const VAR_VEC &vars,
                              const std::vector<MetadataFlag> &flags = {},
