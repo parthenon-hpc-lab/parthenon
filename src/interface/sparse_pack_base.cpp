@@ -187,6 +187,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   Kokkos::deep_copy(pack.bounds_, bounds_h);
   Kokkos::deep_copy(pack.coords_, coords_h);
   pack.ndim_ = ndim;
+  pack.dims_[1] = pack.nblocks_; 
+  pack.dims_[2] = -1; // Not allowed to ask for the ragged dimension anyway
+  pack.dims_[3] = pack_h(0, 0, 0).extent_int(0);
+  pack.dims_[4] = pack_h(0, 0, 0).extent_int(2);
+  pack.dims_[5] = pack_h(0, 0, 0).extent_int(3);
 
   return pack;
 }

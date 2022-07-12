@@ -60,14 +60,13 @@ class SparsePackBase {
   bounds_t bounds_;
   coords_t coords_;
 
-  ParArray1D<std::string>::host_mirror_type names_h_;
-  ParArray1D<bool>::host_mirror_type use_regex_h_;
   alloc_t alloc_status_h_;
 
   bool with_fluxes_;
   bool coarse_;
   int nblocks_;
   int ndim_;
+  int dims_[6]; 
 
   template <class T>
   static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
@@ -81,8 +80,16 @@ class SparsePackBase {
   SparsePackBase() = default;
   virtual ~SparsePackBase() = default;
 
+  KOKKOS_FORCEINLINE_FUNCTION
   int GetNBlocks() const { return nblocks_; }
+  KOKKOS_FORCEINLINE_FUNCTION
   int GetNDim() const { return ndim_; }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetDim(const int i) const { 
+    assert(i > 0 && i < 6);
+    PARTHENON_REQUIRE(i != 2, "Should not ask for the second dimension since it is logically ragged "); 
+    return dims_[i];
+  }
 
   KOKKOS_INLINE_FUNCTION
   const Coordinates_t &GetCoordinates(const int b) const { return coords_(b)(); }
