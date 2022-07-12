@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "bvals/cc/bvals_cc_in_one.hpp"
-#include "interface/sparse_pack.hpp"
+#include "interface/sparse_pack_base.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
