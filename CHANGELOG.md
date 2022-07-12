@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 690]](https://github.com/lanl/parthenon/pull/690) Use power9 partition for Darwin CI
 - [[PR 689]](https://github.com/lanl/parthenon/pull/689) Add `Mesh::ProblemGenerator` (allows reductions during init)
 - [[PR 667]](https://github.com/lanl/parthenon/pull/667) Add parallel scan
 - [[PR 654]](https://github.com/lanl/parthenon/pull/654) Add option for returning FlatIdx when requested variable doesn't exist
