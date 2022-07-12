@@ -82,7 +82,6 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
         KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
           if (impl::DoRefinementOp(info(buf), RefinementOp_t::Restriction)) {
             const int ck = ckb.s;
-            const int k = kb.s;
             par_for_inner(
                 inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
                 info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sj, info(buf).ej,
