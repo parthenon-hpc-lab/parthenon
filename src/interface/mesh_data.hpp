@@ -461,7 +461,7 @@ class MeshData {
     }
     return true;
   }
-  
+
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
  private:

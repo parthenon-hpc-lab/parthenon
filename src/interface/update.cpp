@@ -20,8 +20,8 @@
 #include "globals.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
-#include "interface/variable_pack.hpp"
 #include "interface/sparse_pack.hpp"
+#include "interface/variable_pack.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 
@@ -64,47 +64,49 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
   const IndexRange ib = in_obj->GetBoundsI(interior);
   const IndexRange jb = in_obj->GetBoundsJ(interior);
   const IndexRange kb = in_obj->GetBoundsK(interior);
-  
-  auto vin = SparsePack<variables::any>::MakeWithFluxes(in_obj, {Metadata::WithFluxes}); 
-  auto dudt = SparsePack<variables::any>::Make(dudt_obj, {Metadata::WithFluxes}); 
-  
+
+  auto vin = SparsePack<variables::any>::MakeWithFluxes(in_obj, {Metadata::WithFluxes});
+  auto dudt = SparsePack<variables::any>::Make(dudt_obj, {Metadata::WithFluxes});
+
   const int Ni = ib.e - ib.s + 1;
   const int Nj = jb.e - jb.s + 1;
   const int Nk = kb.e - kb.s + 1;
   const int Nb = vin.GetNBlocks();
-  const int NjNi = Nj * Ni; 
-  const int NkNjNi = Nk * NjNi; 
-  
+  const int NjNi = Nj * Ni;
+  const int NkNjNi = Nk * NjNi;
+
   const int ndim = vin.GetNDim();
-  Kokkos::parallel_for("FluxDivergenceMesh", 
+  Kokkos::parallel_for(
+      "FluxDivergenceMesh",
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), Nb, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank(); 
-        const int vidx_lo = vin.GetLowerBound(b, variables::any()); 
-        const int vidx_hi = vin.GetUpperBound(b, variables::any()); 
-        const int Nv = vidx_hi - vidx_lo + 1; 
-        
+        const int b = team_member.league_rank();
+        const int vidx_lo = vin.GetLowerBound(b, variables::any());
+        const int vidx_hi = vin.GetUpperBound(b, variables::any());
+        const int Nv = vidx_hi - vidx_lo + 1;
+
         const auto &coords = vin.GetCoordinates(b);
-        
+
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange<>(team_member, Nv*NkNjNi), [&](const int idx) {
-          
-          const int l = vidx_lo + idx / NkNjNi; 
-          const int k = kb.s + (idx % NkNjNi) / NjNi; 
-          const int j = jb.s + (idx % NjNi) / Ni;
-          const int i = ib.s +  idx % Ni;
-          auto& du = dudt(b, l, k, j, i);
-          
-          du = (coords.Area(X1DIR, k, j, i + 1) * vin.flux(b, X1DIR, l, k, j, i + 1) -
-                coords.Area(X1DIR, k, j, i) * vin.flux(b, X1DIR, l, k, j, i));
-          if (ndim > 1)
-            du += (coords.Area(X2DIR, k, j + 1, i) * vin.flux(b, X2DIR, l, k, j + 1, i) -
-                   coords.Area(X2DIR, k, j, i) * vin.flux(b, X2DIR, l, k, j, i));
-          if (ndim > 2)
-            du += (coords.Area(X3DIR, k + 1, j, i) * vin.flux(b, X3DIR, l, k + 1, j, i) -
-                   coords.Area(X3DIR, k, j, i) * vin.flux(b, X3DIR, l, k, j, i));
-          du = -du / coords.Volume(k, j, i);
-        });
+            Kokkos::TeamThreadRange<>(team_member, Nv * NkNjNi), [&](const int idx) {
+              const int l = vidx_lo + idx / NkNjNi;
+              const int k = kb.s + (idx % NkNjNi) / NjNi;
+              const int j = jb.s + (idx % NjNi) / Ni;
+              const int i = ib.s + idx % Ni;
+              auto &du = dudt(b, l, k, j, i);
+
+              du = (coords.Area(X1DIR, k, j, i + 1) * vin.flux(b, X1DIR, l, k, j, i + 1) -
+                    coords.Area(X1DIR, k, j, i) * vin.flux(b, X1DIR, l, k, j, i));
+              if (ndim > 1)
+                du += (coords.Area(X2DIR, k, j + 1, i) *
+                           vin.flux(b, X2DIR, l, k, j + 1, i) -
+                       coords.Area(X2DIR, k, j, i) * vin.flux(b, X2DIR, l, k, j, i));
+              if (ndim > 2)
+                du += (coords.Area(X3DIR, k + 1, j, i) *
+                           vin.flux(b, X3DIR, l, k + 1, j, i) -
+                       coords.Area(X3DIR, k, j, i) * vin.flux(b, X3DIR, l, k, j, i));
+              du = -du / coords.Volume(k, j, i);
+            });
       });
 
   return TaskStatus::complete;
