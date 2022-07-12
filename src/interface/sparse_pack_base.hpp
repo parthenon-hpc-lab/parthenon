@@ -66,7 +66,7 @@ class SparsePackBase {
   bool coarse_;
   int nblocks_;
   int ndim_;
-  int dims_[6]; 
+  int dims_[6];
 
   template <class T>
   static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
@@ -85,9 +85,10 @@ class SparsePackBase {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNDim() const { return ndim_; }
   KOKKOS_FORCEINLINE_FUNCTION
-  int GetDim(const int i) const { 
+  int GetDim(const int i) const {
     assert(i > 0 && i < 6);
-    PARTHENON_REQUIRE(i != 2, "Should not ask for the second dimension since it is logically ragged "); 
+    PARTHENON_REQUIRE(
+        i != 2, "Should not ask for the second dimension since it is logically ragged ");
     return dims_[i];
   }
 

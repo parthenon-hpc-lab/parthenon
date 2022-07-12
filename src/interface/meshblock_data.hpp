@@ -243,7 +243,7 @@ class MeshBlockData {
   /// always included (if they match name or flags), but sparse variables are only
   /// included if sparse_ids is not empty and contains the sparse id of the sparse
   /// variable
-  
+
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
   /// Pack variables and fluxes by separate variables and fluxes names
@@ -498,7 +498,7 @@ class MeshBlockData {
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
-  
+
   // These functions have private scope and are visible only to MeshData
   const VariableFluxPack<T> &
   PackVariablesAndFluxes(const std::vector<std::string> &var_names,
