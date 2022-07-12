@@ -94,32 +94,27 @@ class SparsePack : public SparsePackBase {
  public:
   SparsePack() = default;
 
-  template <class T>
-  explicit SparsePack(T *pmd, const std::vector<MetadataFlag> &flags = {},
-                      bool with_fluxes = false)
-      : SparsePackBase(Build(pmd, GetDescriptor(flags, with_fluxes))) {}
-
-  template <class T>
-  SparsePack(T *pmd, SparsePackCache *pcache, const std::vector<MetadataFlag> &flags = {},
-             bool with_fluxes = false)
-      : SparsePackBase(pcache->Get(pmd, GetDescriptor(flags, with_fluxes))) {}
-
   explicit SparsePack(const SparsePackBase &spb) : SparsePackBase(spb) {}
-
-  static PackDescriptor GetDescriptor(const std::vector<MetadataFlag> &flags,
-                                      bool with_fluxes) {
-    return PackDescriptor{std::vector<std::string>{Ts::name()...},
-                          std::vector<bool>{Ts::regex()...}, flags, with_fluxes};
-  }
 
   template <class T>
   static SparsePack Make(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
-    return MakeImpl(pmd, flags, false, static_cast<int>(0));
+    const bool coarse = false; 
+    const bool fluxes = false;
+    return MakeImpl(pmd, flags, fluxes, coarse, static_cast<int>(0));
   }
 
   template <class T>
   static SparsePack MakeWithFluxes(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
-    return MakeImpl(pmd, flags, true, static_cast<int>(0));
+    const bool coarse = false; 
+    const bool fluxes = true;
+    return MakeImpl(pmd, flags, fluxes, coarse, static_cast<int>(0));
+  }
+
+  template <class T>
+  static SparsePack MakeWithCoarse(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
+    const bool coarse = true; 
+    const bool fluxes = false;
+    return MakeImpl(pmd, flags, fluxes, coarse, static_cast<int>(0));
   }
 
   template <class TIn>
@@ -167,16 +162,33 @@ class SparsePack : public SparsePackBase {
   }
 
  protected:
-  template <class T>
-  static auto MakeImpl(T *pmd, const std::vector<MetadataFlag> &flags, bool fluxes, int)
-      -> decltype(T().GetSparsePackCache(), SparsePack()) {
-    return SparsePack(pmd, &(pmd->GetSparsePackCache()), flags, fluxes);
+  static PackDescriptor GetDescriptor(const std::vector<MetadataFlag> &flags,
+                                      bool with_fluxes, bool coarse) {
+    return PackDescriptor(std::vector<std::string>{Ts::name()...},
+                          std::vector<bool>{Ts::regex()...}, flags, 
+                          with_fluxes, coarse);
   }
 
   template <class T>
-  static SparsePack MakeImpl(T *pmd, const std::vector<MetadataFlag> &flags, bool fluxes,
+  explicit SparsePack(T *pmd, const std::vector<MetadataFlag> &flags,
+                      bool with_fluxes, bool coarse)
+      : SparsePackBase(Build(pmd, GetDescriptor(flags, with_fluxes, coarse))) {}
+
+  template <class T>
+  SparsePack(T *pmd, SparsePackCache *pcache, const std::vector<MetadataFlag> &flags,
+             bool with_fluxes, bool coarse)
+      : SparsePackBase(pcache->Get(pmd, GetDescriptor(flags, with_fluxes, coarse))) {}
+
+  template <class T>
+  static auto MakeImpl(T *pmd, const std::vector<MetadataFlag> &flags, bool fluxes, bool coarse, int)
+      -> decltype(T().GetSparsePackCache(), SparsePack()) {
+    return SparsePack(pmd, &(pmd->GetSparsePackCache()), flags, fluxes, coarse);
+  }
+
+  template <class T>
+  static SparsePack MakeImpl(T *pmd, const std::vector<MetadataFlag> &flags, bool fluxes, bool coarse,
                              double) {
-    return SparsePack(pmd, flags, fluxes);
+    return SparsePack(pmd, flags, fluxes, coarse);
   }
 };
 

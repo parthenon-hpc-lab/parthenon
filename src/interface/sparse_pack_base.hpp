@@ -36,6 +36,11 @@ struct PackDescriptor {
   std::vector<bool> use_regex;
   std::vector<MetadataFlag> flags;
   bool with_fluxes;
+  bool coarse = false;
+  PackDescriptor(const std::vector<std::string>& vars, const std::vector<bool>& use_regex, const std::vector<MetadataFlag>& flags, bool with_fluxes, bool coarse) :
+    vars(vars), use_regex(use_regex), flags(flags), with_fluxes(with_fluxes), coarse(coarse) { 
+      PARTHENON_REQUIRE(!(with_fluxes && coarse), "Probably shouldn't be making a coarse pack with fine fluxes.");
+    }
 };
 
 class SparsePackBase {
@@ -57,6 +62,7 @@ class SparsePackBase {
   alloc_t alloc_status_h_;
 
   bool with_fluxes_;
+  bool coarse_;
   int nblocks_;
   int ndim_;
 
@@ -100,6 +106,7 @@ class SparsePackCache {
     if (pack_map.count(ident) > 0) {
       auto &pack = pack_map[ident];
       if (desc.with_fluxes != pack.with_fluxes_) goto make_new_pack;
+      if (desc.coarse != pack.coarse_) goto make_new_pack;
       auto alloc_status_h = SparsePackBase::GetAllocStatus(pmd, desc);
       if (alloc_status_h.size() != pack.alloc_status_h_.size()) goto make_new_pack;
       for (int i = 0; i < alloc_status_h.size(); ++i) {

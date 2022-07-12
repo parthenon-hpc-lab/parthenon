@@ -88,6 +88,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   SparsePackBase pack;
   pack.alloc_status_h_ = GetAllocStatus(pmd, desc);
   pack.with_fluxes_ = desc.with_fluxes;
+  pack.coarse_ = desc.coarse;
 
   // Count up the size of the array that is required
   int max_size = 0;
@@ -136,8 +137,12 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
           if (pv->IsAllocated()) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
-                for (int v = 0; v < pv->GetDim(4); ++v) {
-                  pack_h(0, b, idx) = pv->data.Get(t, u, v);
+                for (int v = 0; v < pv->GetDim(4); ++v) { 
+                  if (pack.coarse_) { 
+                    pack_h(0, b, idx) = pv->coarse_s.Get(t, u, v);
+                  } else { 
+                    pack_h(0, b, idx) = pv->data.Get(t, u, v);
+                  }
                   PARTHENON_REQUIRE(
                       pack_h(0, b, idx).size() > 10,
                       "Seems like this pack might not actually be allocated.");
