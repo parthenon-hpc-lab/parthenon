@@ -47,11 +47,28 @@ template <typename T, typename... Ts>
 struct GetTypeIdx;
 
 template <typename T, typename... Ts>
-struct GetTypeIdx<T, T, Ts...> : std::integral_constant<std::size_t, 0> {};
+struct GetTypeIdx<T, T, Ts...> : std::integral_constant<std::size_t, 0> {
+  using type = void;
+};
 
 template <typename T, typename U, typename... Ts>
 struct GetTypeIdx<T, U, Ts...>
-    : std::integral_constant<std::size_t, 1 + GetTypeIdx<T, Ts...>::value> {};
+    : std::integral_constant<std::size_t, 1 + GetTypeIdx<T, Ts...>::value> {
+  using type = void;
+};
+
+template <class T, class... Ts>
+struct IncludesType;
+
+template <typename T, typename... Ts>
+struct IncludesType<T, T, Ts...> : std::true_type {};
+
+template <typename T, typename U>
+struct IncludesType<T, U> : std::false_type {};
+
+template <typename T, typename U, typename... Ts>
+struct IncludesType<T, U, Ts...> : IncludesType<T, Ts...> {};
+
 } // namespace impl
 
 using namespace impl;
@@ -131,6 +148,23 @@ class SparsePack : public SparsePackBase {
     return bounds_(1, b, vidx);
   }
 
+  template <class TIn,
+            class = typename std::enable_if<IncludesType<TIn, Ts...>::value>::type>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int k,
+                                          const int j, const int i) const {
+    const int vidx = GetLowerBound(t, b) + t.idx;
+    return pack_(0, b, vidx)(k, j, i);
+  }
+
+  template <class TIn,
+            class = typename std::enable_if<IncludesType<TIn, Ts...>::value>::type>
+  KOKKOS_INLINE_FUNCTION Real &flux(const int b, const int dir, const TIn &t, const int k,
+                                    const int j, const int i) const {
+    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
+    const int vidx = GetLowerBound(t, b) + t.idx;
+    return pack_(dir, b, vidx)(k, j, i);
+  }
+
   // This has to be defined here since the base class operator is apparently
   // covered by the template operator below even if std::enable_if fails
   KOKKOS_INLINE_FUNCTION
@@ -139,28 +173,11 @@ class SparsePack : public SparsePackBase {
     return pack_(0, b, idx)(k, j, i);
   }
 
-  template <class TIn,
-            class = typename std::enable_if<!std::is_integral<TIn>::value>::type>
-  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int k,
-                                          const int j, const int i) const {
-    const int vidx = GetLowerBound(t, b) + t.idx;
-    return pack_(0, b, vidx)(k, j, i);
-  }
-
   KOKKOS_INLINE_FUNCTION
   Real &flux(const int b, const int dir, const int idx, const int k, const int j,
              const int i) const {
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     return pack_(dir, b, idx)(k, j, i);
-  }
-
-  template <class TIn,
-            class = typename std::enable_if<!std::is_integral<TIn>::value>::type>
-  KOKKOS_INLINE_FUNCTION Real &flux(const int b, const int dir, const TIn &t, const int k,
-                                    const int j, const int i) const {
-    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
-    const int vidx = GetLowerBound(t, b) + t.idx;
-    return pack_(dir, b, vidx)(k, j, i);
   }
 };
 
