@@ -73,7 +73,6 @@ struct IncludesType<T, U, Ts...> : IncludesType<T, Ts...> {};
 
 using namespace impl;
 
-
 namespace variables {
 // Struct that all variables types should inherit from
 template <bool REGEX, int... NCOMP>
@@ -103,9 +102,9 @@ struct base_t {
 };
 
 struct any : public base_t<true> {
-  template<class... Ts>
-  KOKKOS_INLINE_FUNCTION
-  any(Ts&&... args) : parthenon::variables::base_t<true>(std::forward<Ts>(args)...) {}
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION any(Ts &&...args)
+      : parthenon::variables::base_t<true>(std::forward<Ts>(args)...) {}
   static std::string name() { return ".*"; }
 };
 } // namespace variables

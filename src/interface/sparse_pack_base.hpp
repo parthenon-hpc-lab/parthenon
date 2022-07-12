@@ -20,6 +20,7 @@
 #include <memory>
 #include <regex>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -71,33 +72,32 @@ struct PackDescriptor {
 
 using namespace impl;
 
-class PackIdx { 
+class PackIdx {
   const std::size_t vidx;
-  const int off; 
+  const int off;
+
  public:
   KOKKOS_INLINE_FUNCTION
-  PackIdx(std::size_t var_idx) : vidx(var_idx), off(0) {}
+  explicit PackIdx(std::size_t var_idx) : vidx(var_idx), off(0) {}
   KOKKOS_INLINE_FUNCTION
   PackIdx(std::size_t var_idx, int off) : vidx(var_idx), off(off) {}
   KOKKOS_INLINE_FUNCTION
-  std::size_t Vidx() {return vidx;}
+  std::size_t Vidx() { return vidx; }
   KOKKOS_INLINE_FUNCTION
-  int Off() {return off;} 
+  int Off() { return off; }
 };
 
 template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
-KOKKOS_INLINE_FUNCTION
-PackIdx operator+(PackIdx idx, T off) {
-  return PackIdx(idx.Vidx(), idx.Off() + off); 
-} 
+KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T off) {
+  return PackIdx(idx.Vidx(), idx.Off() + off);
+}
 
 template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
-KOKKOS_INLINE_FUNCTION
-PackIdx operator+(T off, PackIdx idx) {
-  return idx + off; 
-} 
+KOKKOS_INLINE_FUNCTION PackIdx operator+(T off, PackIdx idx) {
+  return idx + off;
+}
 
-using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>; 
+using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
 
 class SparsePackBase {
  protected:
@@ -141,36 +141,38 @@ class SparsePackBase {
   //   2) std::vector<std::pair<std::string, bool>> of (variable name, treat name as
   //   regex) pairs
   template <class T, class VAR_VEC>
-  static std::tuple<SparsePackBase, SparsePackIdxMap> Make(T *pmd, const VAR_VEC &vars,
-                             const std::vector<MetadataFlag> &flags = {},
-                             bool fluxes = false, bool coarse = false) {
+  static std::tuple<SparsePackBase, SparsePackIdxMap>
+  Make(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
+       bool fluxes = false, bool coarse = false) {
     auto &cache = pmd->GetSparsePackCache();
-    auto desc = PackDescriptor(vars, flags, fluxes, coarse); 
-    SparsePackIdxMap map; 
+    auto desc = PackDescriptor(vars, flags, fluxes, coarse);
+    SparsePackIdxMap map;
     std::size_t idx = 0;
-    for (const auto& var : desc.vars) { 
+    for (const auto &var : desc.vars) {
       map[var] = idx;
-      ++idx; 
+      ++idx;
     }
     return {cache.Get(pmd, desc), map};
   }
 
   template <class T, class VAR_VEC>
-  static std::tuple<SparsePackBase, SparsePackIdxMap> MakeWithFluxes(T *pmd, const VAR_VEC &vars,
-                                       const std::vector<MetadataFlag> &flags = {}) {
+  static std::tuple<SparsePackBase, SparsePackIdxMap>
+  MakeWithFluxes(T *pmd, const VAR_VEC &vars,
+                 const std::vector<MetadataFlag> &flags = {}) {
     const bool fluxes = true;
     const bool coarse = false;
     return Make(pmd, vars, flags, fluxes, coarse);
   }
 
   template <class T, class VAR_VEC>
-  static std::tuple<SparsePackBase, SparsePackIdxMap> MakeWithCoarse(T *pmd, const VAR_VEC &vars,
-                                       const std::vector<MetadataFlag> &flags = {}) {
+  static std::tuple<SparsePackBase, SparsePackIdxMap>
+  MakeWithCoarse(T *pmd, const VAR_VEC &vars,
+                 const std::vector<MetadataFlag> &flags = {}) {
     const bool fluxes = false;
     const bool coarse = true;
     return Make(pmd, vars, flags, fluxes, coarse);
   }
-  
+
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNBlocks() const { return nblocks_; }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -191,13 +193,14 @@ class SparsePackBase {
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b) const {
     return bounds_(1, b, nvar_ - 1);
   }
-  
-  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const { return bounds_(0, b, idx.Vidx()); }
+
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const {
+    return bounds_(0, b, idx.Vidx());
+  }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, PackIdx idx) const {
     return bounds_(1, b, idx.Vidx());
   }
-
 
   KOKKOS_INLINE_FUNCTION
   Real &operator()(const int b, const int idx, const int k, const int j,

@@ -90,7 +90,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   pack.with_fluxes_ = desc.with_fluxes;
   pack.coarse_ = desc.coarse;
   pack.nvar_ = desc.vars.size();
-  
+
   // Count up the size of the array that is required
   int max_size = 0;
   int nblocks = 0;
