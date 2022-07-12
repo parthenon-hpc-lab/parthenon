@@ -30,25 +30,51 @@
 #include "utils/utils.hpp"
 
 namespace parthenon {
-
+namespace impl {
 struct PackDescriptor {
   std::vector<std::string> vars;
   std::vector<bool> use_regex;
   std::vector<MetadataFlag> flags;
   bool with_fluxes;
-  bool coarse = false;
+  bool coarse;
+
   PackDescriptor(const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
                  const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse)
       : vars(vars), use_regex(use_regex), flags(flags), with_fluxes(with_fluxes),
         coarse(coarse) {
+    PARTHENON_REQUIRE(use_regex.size() == vars.size(),
+                      "Must have a regex flag for each variable.");
+    PARTHENON_REQUIRE(!(with_fluxes && coarse),
+                      "Probably shouldn't be making a coarse pack with fine fluxes.");
+  }
+
+  PackDescriptor(const std::vector<std::pair<std::string, bool>> &vars_in,
+                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse)
+      : flags(flags), with_fluxes(with_fluxes), coarse(coarse) {
+    for (auto var : vars_in) {
+      vars.push_back(var.first);
+      use_regex.push_back(var.second);
+    }
+    PARTHENON_REQUIRE(!(with_fluxes && coarse),
+                      "Probably shouldn't be making a coarse pack with fine fluxes.");
+  }
+
+  PackDescriptor(const std::vector<std::string> &vars_in,
+                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse)
+      : vars(vars_in), use_regex(vars_in.size(), false), flags(flags),
+        with_fluxes(with_fluxes), coarse(coarse) {
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
   }
 };
+} // namespace impl
+
+using namespace impl;
 
 class SparsePackBase {
  protected:
   friend class SparsePackCache;
+
   using test_func_t =
       std::function<bool(int, const std::shared_ptr<CellVariable<Real>> &)>;
   using pack_t = ParArray3D<ParArray3D<Real>>;
@@ -80,6 +106,34 @@ class SparsePackBase {
   SparsePackBase() = default;
   virtual ~SparsePackBase() = default;
 
+  // VAR_VEC can be:
+  //   1) std::vector<std::string> of variable names (in which case they are all assumed
+  //   not to be regexs) 2) std::vector<std::pair<std::string, bool>> of (variable name,
+  //   treat name as regex) pairs
+  template <class T, class VAR_VEC>
+  static SparsePackBase Make(T *pmd, const VAR_VEC &vars,
+                             const std::vector<MetadataFlag> &flags = {},
+                             bool fluxes = false, bool coarse = false) {
+    auto &cache = pmd->GetSparsePackCache();
+    return cache.Get(pmd, PackDescriptor(vars, fluxes, coarse));
+  }
+
+  template <class T, class VAR_VEC>
+  static SparsePackBase MakeWithFluxes(T *pmd, const VAR_VEC &vars,
+                                       const std::vector<MetadataFlag> &flags = {}) {
+    const bool fluxes = true;
+    const bool coarse = false;
+    return Make(pmd, vars, flags, fluxes, coarse);
+  }
+
+  template <class T, class VAR_VEC>
+  static SparsePackBase MakeWithCoarse(T *pmd, const VAR_VEC &vars,
+                                       const std::vector<MetadataFlag> &flags = {}) {
+    const bool fluxes = false;
+    const bool coarse = true;
+    return Make(pmd, vars, flags, fluxes, coarse);
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNBlocks() const { return nblocks_; }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -102,10 +156,19 @@ class SparsePackBase {
   }
 
   KOKKOS_INLINE_FUNCTION
+  auto &operator()(const int b, const int idx) const { return pack_(0, b, idx); }
+
+  KOKKOS_INLINE_FUNCTION
   Real &flux(const int b, const int dir, const int idx, const int k, const int j,
              const int i) const {
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     return pack_(dir, b, idx)(k, j, i);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  auto &flux(const int b, const int dir, const int idx) const {
+    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
+    return pack_(dir, b, idx);
   }
 };
 
@@ -130,6 +193,8 @@ class SparsePackCache {
     pack_map[ident] = SparsePackBase::Build(pmd, desc);
     return pack_map[ident];
   }
+
+  std::size_t size() const { return pack_map.size(); }
 
   void clear() { pack_map.clear(); }
 
