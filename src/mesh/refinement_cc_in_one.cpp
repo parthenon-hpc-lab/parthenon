@@ -101,8 +101,6 @@ void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
           if (impl::DoRefinementOp(info(buf), RefinementOp_t::Restriction)) {
             const int ck = ckb.s;
             const int cj = cjb.s;
-            const int k = kb.s;
-            const int j = jb.s;
             par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
                           info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si,
                           info(buf).ei,
