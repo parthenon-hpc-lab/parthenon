@@ -14,6 +14,7 @@
 #define INTERFACE_SPARSE_PACK_HPP_
 
 #include <algorithm>
+#include <functional>
 #include <limits>
 #include <map>
 #include <memory>
@@ -127,7 +128,7 @@ class SparsePackBase {
  protected:
 
   friend class SparsePackCache;
-
+  using test_func_t = std::function<bool(int, const std::shared_ptr<CellVariable<Real>> &)>; 
   using pack_t = ParArray3D<ParArray3D<Real>>;
   using bounds_t = ParArray3D<int>;
   using alloc_t = ParArray1D<bool>::host_mirror_type; 
@@ -151,31 +152,7 @@ class SparsePackBase {
   template <class T>
   static SparsePackBase Build(T *pmd, const PackDescriptor &desc); 
 
-  static auto GetTestFunction(const PackDescriptor &desc) { 
-    std::vector<std::regex> regexes; 
-    for (const auto& var : desc.vars) regexes.push_back(std::regex(var)); 
-
-    // Lambda for testing wether or not we want to include cellvariable pv 
-    // in the index range of the type variable with index vidx 
-    return [=](int vidx, const std::shared_ptr<CellVariable<Real>> &pv) {
-      // TODO(LFR): Check that the shapes agree
-      
-      if (desc.flags.size() > 0) {
-        for (const auto& flag : desc.flags) {
-          if (!pv->IsSet(flag)) {
-            return false;
-          }
-        }
-      }
-      
-      if (desc.use_regex[vidx]) {
-        if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
-      } else {
-        if (desc.vars[vidx] == pv->label()) return true;
-      }
-      return false;
-    };
-  }
+  static test_func_t GetTestFunction(const PackDescriptor &desc);
 
  public: 
   SparsePackBase() = default;
@@ -204,13 +181,6 @@ class SparsePackBase {
 
 class SparsePackCache { 
  public: 
-  template<class T> 
-  bool Add(T* ppack);
-
-  template<class T> 
-  bool TryLoad(T* ppack);
-  
-  // TODO (LFR) : Finish writing this code so that logic for finding cached pack is entirely within SparsePackCache 
   template <class T> 
   SparsePackBase &Get(T* pmd, const PackDescriptor& desc) {
     std::string ident = GetIdentifier(desc); 
@@ -226,9 +196,8 @@ class SparsePackCache {
     }
 
   make_new_pack:
-    SparsePackBase pack = SparsePackBase::Build(pmd, desc); 
-    pack_map[ident] = pack; 
-    return pack;
+    pack_map[ident] = SparsePackBase::Build(pmd, desc); 
+    return pack_map[ident];
   }
   
   void clear() { pack_map.clear(); }
@@ -252,48 +221,26 @@ class SparsePack : public SparsePackBase {
 
   template <class T>
   explicit SparsePack(T *pmd, const std::vector<MetadataFlag> &flags = {}, bool with_fluxes = false) 
-    : SparsePackBase(Build(pmd, PackDescriptor{std::vector<std::string>{Ts::name()...}, std::vector<bool>{Ts::regex()...}, flags, with_fluxes})) {}
+    : SparsePackBase(Build(pmd, GetDescriptor(flags, with_fluxes))) {}
   
   template <class T> 
-  SparsePack(T *pmd, SparsePackCache* pcache, const std::vector<MetadataFlag> &flags = {}, bool with_fluxes = false) {
-    PackDescriptor desc{std::vector<std::string>{Ts::name()...}, std::vector<bool>{Ts::regex()...}, flags, with_fluxes};
-    auto include_variable = SparsePackBase::GetTestFunction(desc);
-    alloc_status_h_ = GetAllocStatus(pmd, desc); 
-    with_fluxes_ = with_fluxes;
-    if (!pcache->TryLoad(this)) {
-      // Ok since there should be no data members of SparsePack itself
-      static_cast<SparsePackBase&>(*this) = Build(pmd, desc);
-      pcache->Add(this);
-    }
-  }
+  SparsePack(T *pmd, SparsePackCache* pcache, const std::vector<MetadataFlag> &flags = {}, bool with_fluxes = false) 
+    : SparsePackBase(pcache->Get(pmd, GetDescriptor(flags, with_fluxes))) {}
   
   explicit SparsePack(const SparsePackBase& spb) : SparsePackBase(spb) {}
   
+  static PackDescriptor GetDescriptor(const std::vector<MetadataFlag> &flags, bool with_fluxes) {
+    return PackDescriptor{std::vector<std::string>{Ts::name()...}, std::vector<bool>{Ts::regex()...}, flags, with_fluxes};
+  } 
+
   template <class T>
   static SparsePack Make(T* pmd, const std::vector<MetadataFlag> &flags = {}) {
     return MakeImpl(pmd, flags, false, static_cast<int>(0)); 
   }
 
   template <class T>
-  static SparsePack Make(T* pmd, SparsePackCache* pcache, const std::vector<MetadataFlag> &flags = {}) {
-    return SparsePack(pmd, pcache, flags, false); 
-  }
-
-  template <class T>
   static SparsePack MakeWithFluxes(T* pmd, const std::vector<MetadataFlag> &flags = {}) {
     return MakeImpl(pmd, flags, true, static_cast<int>(0)); 
-  }
-  
-  template <class T>
-  static SparsePack MakeWithFluxes(T* pmd, SparsePackCache* pcache, const std::vector<MetadataFlag> &flags = {}) {
-    return SparsePack(pmd, pcache, flags, true); 
-  } 
-
-  std::string GetIdentifier() const {
-    const std::vector<std::string> idents{(Ts::name() + std::to_string(Ts::regex()))...}; 
-    std::string identifier(""); 
-    for (const auto &str : idents) identifier += str;
-    return identifier;
   }
 
   template <class TIn>
@@ -338,10 +285,7 @@ class SparsePack : public SparsePackBase {
     return pack_(dir, b, vidx)(k, j, i);
   }
 
-
-
  protected:
-  
   template <class T>
   static auto MakeImpl(T* pmd, const std::vector<MetadataFlag> &flags, bool fluxes, int) 
       -> decltype(T().GetSparsePackCache(), SparsePack()) {
@@ -353,32 +297,6 @@ class SparsePack : public SparsePackBase {
     return SparsePack(pmd, flags, fluxes); 
   }
 
-  static auto GetTestFunction(const std::vector<MetadataFlag> &flags = {}) { 
-    const std::vector<std::string> names{Ts::name()...};
-    const std::vector<std::regex> regexes{std::regex(Ts::name())...};
-    const std::vector<bool> use_regex{Ts::regex()...};
-    
-    // Lambda for testing wether or not we want to include cellvariable pv 
-    // in the index range of the type variable with index vidx 
-    return [=](int vidx, const std::shared_ptr<CellVariable<Real>> &pv) {
-      // TODO(LFR): Check that the shapes agree
-      
-      if (flags.size() > 0) {
-        for (const auto& flag : flags) {
-          if (!pv->IsSet(flag)) {
-            return false;
-          }
-        }
-      }
-      
-      if (use_regex[vidx]) {
-        if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
-      } else {
-        if (names[vidx] == pv->label()) return true;
-      }
-      return false;
-    };
-  }
 };
 
 //-----------------------------------------------------------------------------
@@ -441,7 +359,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
     max_size = std::max(size, max_size);
   });
   pack.nblocks_ = nblocks; 
-
+  
+  // Allocate the views 
   int leading_dim = 1; 
   if (desc.with_fluxes) leading_dim += 3;
   pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
@@ -453,6 +372,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   pack.coords_ = coords_t("coords", nblocks); 
   auto coords_h = Kokkos::create_mirror_view(pack.coords_);
   
+  // Fill the views
   IterateBlocks(pmd, [&](int b, mbd_t *pmbd) {
     int idx = 0;
     coords_h(b) = pmbd->GetBlockPointer()->coords_device;
@@ -508,30 +428,32 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   return pack;
 }
 
-template<class T> 
-bool SparsePackCache::Add(T* ppack) { 
-  std::string ident = ppack->GetIdentifier(); 
-  bool preexists = pack_map.count(ident); 
-  pack_map[ident] = static_cast<SparsePackBase>(*ppack);
-  return preexists;
-}
+inline SparsePackBase::test_func_t SparsePackBase::GetTestFunction(const PackDescriptor &desc) { 
+    std::vector<std::regex> regexes; 
+    for (const auto& var : desc.vars) regexes.push_back(std::regex(var)); 
 
-template<class T> 
-bool SparsePackCache::TryLoad(T* ppack) {
-  std::string ident = ppack->GetIdentifier();
-  if (pack_map.count(ident) > 0) {
-    auto& pack = pack_map[ident];
-    if (ppack->with_fluxes_ != pack.with_fluxes_) return false; 
-    if (ppack->alloc_status_h_.size() != pack.alloc_status_h_.size()) return false;
-    for (int i=0; i<ppack->alloc_status_h_.size(); ++i) {
-      if (ppack->alloc_status_h_(i) != pack.alloc_status_h_(i)) return false;
-    }
-
-    *ppack = T(pack);
-    return true;
+    // Lambda for testing wether or not we want to include cellvariable pv 
+    // in the index range of the type variable with index vidx 
+    return [=](int vidx, const std::shared_ptr<CellVariable<Real>> &pv) {
+      // TODO(LFR): Check that the shapes agree
+      
+      if (desc.flags.size() > 0) {
+        for (const auto& flag : desc.flags) {
+          if (!pv->IsSet(flag)) {
+            return false;
+          }
+        }
+      }
+      
+      if (desc.use_regex[vidx]) {
+        if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
+      } else {
+        if (desc.vars[vidx] == pv->label()) return true;
+      }
+      return false;
+    };
   }
-  return false;
-}
+
 
 } // namespace parthenon
 

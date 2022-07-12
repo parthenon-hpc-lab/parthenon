@@ -119,8 +119,6 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       // Deallocate a variable on an arbitrary block
       block_list[2]->DeallocateSparse("v3");
       
-      parthenon::SparsePackCache cache;
-
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "
            "blocks") {
         auto sparse_pack = parthenon::SparsePack<v5, v3>::Make(&mesh_data, {Metadata::WithFluxes});
@@ -164,7 +162,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       }
            
       THEN("A sparse pack correctly reads based on a regex variable") {
-        auto sparse_pack = parthenon::SparsePack<parthenon::variables::any>::Make(&mesh_data, &cache);
+        auto sparse_pack = parthenon::SparsePack<parthenon::variables::any>::Make(&mesh_data);
 
         int nwrong = 0;
         par_reduce(
