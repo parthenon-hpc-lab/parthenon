@@ -193,6 +193,12 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       THEN("A sparse pack correctly reads based on a regex variable") {
         auto sparse_pack =
             parthenon::SparsePack<parthenon::variables::any>::Make(&mesh_data);
+        
+        auto tup =
+            parthenon::SparsePack<>::Make(&mesh_data,std::vector<std::pair<std::string, bool>>{{".*", true}});
+        auto sparse_pack_notype = std::get<0>(tup); 
+        auto pack_map = std::get<1>(tup);
+        parthenon::PackIdx iall(pack_map[".*"]);
 
         int nwrong = 0;
         par_reduce(
@@ -206,7 +212,15 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
                 if (std::abs(n - std::fmod(sparse_pack(b, lo + c, k, j, i), 1e4)) >
                     1.e-12)
                   ltot += 1;
-                sparse_pack(b, lo + c, k, j, i) = 0.0;
+              }
+              lo = sparse_pack_notype.GetLowerBound(b, iall);
+              hi = sparse_pack_notype.GetUpperBound(b, iall);
+              for (int c = 0; c <= hi - lo; ++c) {
+                Real n = i + 1e1 * j + 1e2 * k + 1e3 * b;
+                if (std::abs(n - std::fmod(sparse_pack_notype(b, lo + c, k, j, i), 1e4)) >
+                    1.e-12)
+                  ltot += 1;
+                sparse_pack_notype(b, lo + c, k, j, i) = 0.0;
               }
             },
             nwrong);
