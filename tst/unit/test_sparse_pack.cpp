@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -129,11 +129,12 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         // Create a pack use type variables
         auto sparse_pack =
             parthenon::SparsePack<v5, v3>::Make(&mesh_data, {Metadata::WithFluxes});
+        
         // Create the same pack using strings
-        auto tup = parthenon::SparsePack::Make(
+        auto tup = parthenon::SparsePack<>::Make(
             &mesh_data, std::vector<std::string>{"v5", "v3"},
             std::vector<parthenon::MetadataFlag>{Metadata::WithFluxes});
-        auto sparse_pack_notype = std::get<0>(tup);
+        parthenon::SparsePack<> sparse_pack_notype = std::get<0>(tup);
         auto pack_map = std::get<1>(tup);
         parthenon::PackIdx iv3 = pack_map["v3"];
 

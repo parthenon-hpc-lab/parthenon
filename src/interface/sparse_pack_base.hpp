@@ -73,12 +73,18 @@ struct PackDescriptor {
 using namespace impl;
 
 class PackIdx {
-  const std::size_t vidx;
-  const int off;
+  std::size_t vidx;
+  int off;
 
  public:
   KOKKOS_INLINE_FUNCTION
-  explicit PackIdx(std::size_t var_idx) : vidx(var_idx), off(0) {}
+  PackIdx(std::size_t var_idx) : vidx(var_idx), off(0) {}
+  KOKKOS_INLINE_FUNCTION
+  PackIdx& operator=(std::size_t var_idx) {
+    vidx = var_idx; 
+    off = 0; 
+    return *this;
+  } 
   KOKKOS_INLINE_FUNCTION
   PackIdx(std::size_t var_idx, int off) : vidx(var_idx), off(off) {}
   KOKKOS_INLINE_FUNCTION
@@ -171,72 +177,6 @@ class SparsePackBase {
     const bool fluxes = false;
     const bool coarse = true;
     return Make(pmd, vars, flags, fluxes, coarse);
-  }
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  int GetNBlocks() const { return nblocks_; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  int GetNDim() const { return ndim_; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  int GetDim(const int i) const {
-    assert(i > 0 && i < 6);
-    PARTHENON_REQUIRE(
-        i != 2, "Should not ask for the second dimension since it is logically ragged");
-    return dims_[i];
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  const Coordinates_t &GetCoordinates(const int b) const { return coords_(b)(); }
-
-  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const { return bounds_(0, b, 0); }
-
-  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b) const {
-    return bounds_(1, b, nvar_ - 1);
-  }
-
-  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const {
-    return bounds_(0, b, idx.Vidx());
-  }
-
-  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, PackIdx idx) const {
-    return bounds_(1, b, idx.Vidx());
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  Real &operator()(const int b, const int idx, const int k, const int j,
-                   const int i) const {
-    return pack_(0, b, idx)(k, j, i);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  Real &operator()(const int b, PackIdx idx, const int k, const int j,
-                   const int i) const {
-    const int n = bounds_(0, b, idx.Vidx()) + idx.Off();
-    return pack_(0, b, n)(k, j, i);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  auto &operator()(const int b, const int idx) const { return pack_(0, b, idx); }
-
-  KOKKOS_INLINE_FUNCTION
-  Real &flux(const int b, const int dir, const int idx, const int k, const int j,
-             const int i) const {
-    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
-    return pack_(dir, b, idx)(k, j, i);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  Real &flux(const int b, const int dir, PackIdx idx, const int k, const int j,
-             const int i) const {
-    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
-    const int n = bounds_(0, b, idx.Vidx()) + idx.Off();
-    return pack_(dir, b, n)(k, j, i);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  auto &flux(const int b, const int dir, const int idx) const {
-    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
-    return pack_(dir, b, idx);
   }
 };
 
