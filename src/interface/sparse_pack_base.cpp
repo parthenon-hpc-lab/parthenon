@@ -145,8 +145,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                     pack_h(0, b, idx) = pv->data.Get(t, u, v);
                   }
                   PARTHENON_REQUIRE(
-                      pack_h(0, b, idx).size() > 10,
-                      "Seems like this pack might not actually be allocated.");
+                      pack_h(0, b, idx).size() > 0,
+                      "Seems like this variable might not actually be allocated.");
                   if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
                     pack_h(1, b, idx) = pv->flux[1].Get(t, u, v);
                     PARTHENON_REQUIRE(pack_h(1, b, idx).size() ==
