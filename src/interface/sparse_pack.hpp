@@ -145,11 +145,29 @@ class SparsePack : public SparsePackBase {
     return Make(pmd, flags, fluxes, coarse);
   }
 
+  template <class T, class VAR_VEC>
+  static std::tuple<SparsePack, SparsePackIdxMap>
+  MakeWithFluxes(T *pmd, const VAR_VEC &vars,
+                 const std::vector<MetadataFlag> &flags = {}) {
+    const bool coarse = false;
+    const bool fluxes = true;
+    Make(pmd, vars, flags, fluxes, coarse);
+  }
+
   template <class T>
   static SparsePack MakeWithCoarse(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
     const bool coarse = true;
     const bool fluxes = false;
     return Make(pmd, flags, fluxes, coarse);
+  }
+
+  template <class T, class VAR_VEC>
+  static std::tuple<SparsePack, SparsePackIdxMap>
+  MakeWithCoarse(T *pmd, const VAR_VEC &vars,
+                 const std::vector<MetadataFlag> &flags = {}) {
+    const bool coarse = true;
+    const bool fluxes = false;
+    Make(pmd, vars, flags, fluxes, coarse);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
