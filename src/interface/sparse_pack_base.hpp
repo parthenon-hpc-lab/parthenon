@@ -113,14 +113,12 @@ class SparsePackBase {
       std::function<bool(int, const std::shared_ptr<CellVariable<Real>> &)>;
   using pack_t = ParArray3D<ParArray3D<Real>>;
   using bounds_t = ParArray3D<int>;
-  using alloc_t = ParArray1D<bool>::host_mirror_type;
+  using alloc_t = std::vector<bool>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 
   pack_t pack_;
   bounds_t bounds_;
   coords_t coords_;
-
-  alloc_t alloc_status_h_;
 
   bool with_fluxes_;
   bool coarse_;
@@ -183,41 +181,17 @@ class SparsePackBase {
 class SparsePackCache {
  public:
   template <class T>
-  SparsePackBase &Get(T *pmd, const PackDescriptor &desc) {
-    std::string ident = GetIdentifier(desc);
-    if (pack_map.count(ident) > 0) {
-      auto &pack = pack_map[ident];
-      if (desc.with_fluxes != pack.with_fluxes_) goto make_new_pack;
-      if (desc.coarse != pack.coarse_) goto make_new_pack;
-      auto alloc_status_h = SparsePackBase::GetAllocStatus(pmd, desc);
-      if (alloc_status_h.size() != pack.alloc_status_h_.size()) goto make_new_pack;
-      for (int i = 0; i < alloc_status_h.size(); ++i) {
-        if (alloc_status_h(i) != pack.alloc_status_h_(i)) goto make_new_pack;
-      }
-      return pack_map[ident];
-    }
-
-  make_new_pack:
-    pack_map[ident] = SparsePackBase::Build(pmd, desc);
-    return pack_map[ident];
-  }
+  SparsePackBase &Get(T *pmd, const PackDescriptor &desc);
 
   std::size_t size() const { return pack_map.size(); }
 
   void clear() { pack_map.clear(); }
 
  protected:
-  std::string GetIdentifier(const PackDescriptor &desc) const {
-    std::string identifier("");
-    for (const auto &flag : desc.flags)
-      identifier += flag.Name();
-    identifier += "____";
-    for (int i = 0; i < desc.vars.size(); ++i)
-      identifier += desc.vars[i] + std::to_string(desc.use_regex[i]);
-    return identifier;
-  }
+  std::string GetIdentifier(const PackDescriptor &desc) const;
 
-  std::unordered_map<std::string, SparsePackBase> pack_map;
+  std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
+      pack_map;
 };
 
 } // namespace parthenon

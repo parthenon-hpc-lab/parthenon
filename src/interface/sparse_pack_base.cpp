@@ -65,11 +65,7 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
       }
     }
   });
-
-  alloc_t alloc_status_h("alloc", astat.size());
-  for (int i = 0; i < astat.size(); ++i)
-    alloc_status_h(i) = astat[i];
-  return alloc_status_h;
+  return astat;
 }
 
 // Specialize for the only two types this should work for
@@ -86,7 +82,6 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
 
   auto include_variable = GetTestFunction(desc);
   SparsePackBase pack;
-  pack.alloc_status_h_ = GetAllocStatus(pmd, desc);
   pack.with_fluxes_ = desc.with_fluxes;
   pack.coarse_ = desc.coarse;
   pack.nvar_ = desc.vars.size();
@@ -229,6 +224,42 @@ SparsePackBase::GetTestFunction(const PackDescriptor &desc) {
     }
     return false;
   };
+}
+
+template <class T>
+SparsePackBase &SparsePackCache::Get(T *pmd, const PackDescriptor &desc) {
+  std::string ident = GetIdentifier(desc);
+  if (pack_map.count(ident) > 0) {
+    auto &pack = pack_map[ident].first;
+    if (desc.with_fluxes != pack.with_fluxes_) goto make_new_pack;
+    if (desc.coarse != pack.coarse_) goto make_new_pack;
+    auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc);
+    auto &alloc_status = pack_map[ident].second;
+    if (alloc_status.size() != alloc_status_in.size()) goto make_new_pack;
+    for (int i = 0; i < alloc_status_in.size(); ++i) {
+      if (alloc_status[i] != alloc_status_in[i]) goto make_new_pack;
+    }
+    return pack_map[ident].first;
+  }
+
+make_new_pack:
+  pack_map[ident] = {SparsePackBase::Build(pmd, desc),
+                     SparsePackBase::GetAllocStatus(pmd, desc)};
+  return pack_map[ident].first;
+}
+template SparsePackBase &SparsePackCache::Get<MeshData<Real>>(MeshData<Real> *,
+                                                              const PackDescriptor &);
+template SparsePackBase &
+SparsePackCache::Get<MeshBlockData<Real>>(MeshBlockData<Real> *, const PackDescriptor &);
+
+std::string SparsePackCache::GetIdentifier(const PackDescriptor &desc) const {
+  std::string identifier("");
+  for (const auto &flag : desc.flags)
+    identifier += flag.Name();
+  identifier += "____";
+  for (int i = 0; i < desc.vars.size(); ++i)
+    identifier += desc.vars[i] + std::to_string(desc.use_regex[i]);
+  return identifier;
 }
 
 } // namespace parthenon
