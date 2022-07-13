@@ -86,7 +86,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     comm_t comm = 0;
     comm_t comm_reflux = 0;
 #endif
-    // Build sending buffers
+    // Build send buffers
     auto s_tag = SendKey(pmb, nb, v);
     PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(s_tag) == 0,
                             "Two communication buffers have the same key.");
