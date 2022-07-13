@@ -129,14 +129,14 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         // Create a pack use type variables
         auto sparse_pack =
             parthenon::SparsePack<v5, v3>::Make(&mesh_data, {Metadata::WithFluxes});
-        
+
         // Create the same pack using strings
         auto tup = parthenon::SparsePack<>::Make(
             &mesh_data, std::vector<std::string>{"v5", "v3"},
             std::vector<parthenon::MetadataFlag>{Metadata::WithFluxes});
         parthenon::SparsePack<> sparse_pack_notype = std::get<0>(tup);
         auto pack_map = std::get<1>(tup);
-        parthenon::PackIdx iv3 = pack_map["v3"];
+        parthenon::PackIdx iv3(pack_map["v3"]);
 
         // Make sure that we have only cached one pack, since these should be the
         // same base pack

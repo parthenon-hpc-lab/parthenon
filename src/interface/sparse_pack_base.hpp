@@ -78,13 +78,13 @@ class PackIdx {
 
  public:
   KOKKOS_INLINE_FUNCTION
-  PackIdx(std::size_t var_idx) : vidx(var_idx), off(0) {}
+  explicit PackIdx(std::size_t var_idx) : vidx(var_idx), off(0) {}
   KOKKOS_INLINE_FUNCTION
-  PackIdx& operator=(std::size_t var_idx) {
-    vidx = var_idx; 
-    off = 0; 
+  PackIdx &operator=(std::size_t var_idx) {
+    vidx = var_idx;
+    off = 0;
     return *this;
-  } 
+  }
   KOKKOS_INLINE_FUNCTION
   PackIdx(std::size_t var_idx, int off) : vidx(var_idx), off(off) {}
   KOKKOS_INLINE_FUNCTION
