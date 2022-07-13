@@ -74,13 +74,13 @@ RestrictCellAverage(const int l, const int m, const int n, const int ck, const i
   Real fine010, fine011, fine100, fine101, fine110, fine111;
   vol010 = vol011 = vol100 = vol101 = vol110 = vol111 = 0;
   fine010 = fine011 = fine100 = fine101 = fine110 = fine111 = 0;
-  if (DIM > 1) {
+  if (DIM > 1) { // TODO(c++17) make constexpr
     vol010 = coords.Volume(k, j + 1, i);
     vol011 = coords.Volume(k, j + 1, i + 1);
     fine010 = fine(l, m, n, k, j + 1, i);
     fine011 = fine(l, m, n, k, j + 1, i + 1);
   }
-  if (DIM > 2) {
+  if (DIM > 2) { // TODO(c++17) make constexpr
     vol100 = coords.Volume(k + 1, j, i);
     vol101 = coords.Volume(k + 1, j, i + 1);
     vol110 = coords.Volume(k + 1, j + 1, i);
@@ -109,13 +109,24 @@ Real GradMinMod(const Real ccval, const Real fm, const Real fp, const Real dxm,
 }
 
 // TODO(JMM): this could be simplified if grid spacing was always uniform
-template <int DIM>
-KOKKOS_FORCEINLINE_FUNCTION Real GetX(const Coordinates_t &coords, int i) {
-  if (DIM == 1) return coords.x1v(i);
-  if (DIM == 2) return coords.x2v(i);
-  if (DIM == 3) return coords.x3v(i);
-  PARTHENON_FAIL("Unknown dimension");
+template<int DIM>
+KOKKOS_INLINE_FUNCTION Real GetX(const Coordinates_t &coords, int i);
+
+template<>
+KOKKOS_INLINE_FUNCTION Real GetX<1>(const Coordinates_t &coords, int i) {
+  return coords.x1v(i);
 }
+
+template<>
+KOKKOS_INLINE_FUNCTION Real GetX<2>(const Coordinates_t &coords, int i) {
+  return coords.x2v(i);
+}
+
+template<>
+KOKKOS_INLINE_FUNCTION Real GetX<3>(const Coordinates_t &coords, int i) {
+  return coords.x3v(i);
+}
+
 template <int DIM>
 KOKKOS_FORCEINLINE_FUNCTION void
 GetSlopes(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
@@ -140,8 +151,8 @@ GetSlopes(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
 // TODO(JMM): Compared to the previous version of the code, this one
 // multiplies by zero sometimes.
 
-// In the absence of constexpr if, use template DIM to resolve ifs at
-// compile time and avoid branching.
+// use template DIM to resolve ifs at compile time and avoid
+// branching.
 template <int DIM>
 KOKKOS_FORCEINLINE_FUNCTION void
 ProlongateCellMinMod(const int l, const int m, const int n, const int k, const int j,
@@ -162,7 +173,7 @@ ProlongateCellMinMod(const int l, const int m, const int n, const int k, const i
   Real dx2fm = 0;
   Real dx2fp = 0;
   Real gx2c = 0;
-  if (DIM > 1) {
+  if (DIM > 1) { // TODO(c++17) make constexpr
     Real dx2m, dx2p;
     GetSlopes<2>(coords, coarse_coords, cjb, jb, j, fj, dx2m, dx2p, dx2fm, dx2fp);
     gx2c = GradMinMod(ccval, coarse(l, m, n, k, j - 1, i), coarse(l, m, n, k, j + 1, i),
@@ -172,7 +183,7 @@ ProlongateCellMinMod(const int l, const int m, const int n, const int k, const i
   Real dx3fm = 0;
   Real dx3fp = 0;
   Real gx3c = 0;
-  if (DIM > 2) {
+  if (DIM > 2) { // TODO(c++17) make constexpr
     Real dx3m, dx3p;
     GetSlopes<3>(coords, coarse_coords, ckb, kb, k, fk, dx3m, dx3p, dx3fm, dx3fp);
     gx3c = GradMinMod(ccval, coarse(l, m, n, k - 1, j, i), coarse(l, m, n, k + 1, j, i),
@@ -183,12 +194,12 @@ ProlongateCellMinMod(const int l, const int m, const int n, const int k, const i
   // JMM: Extraneous quantities are zero
   fine(l, m, n, fk, fj, fi) = ccval - (gx1c * dx1fm + gx2c * dx2fm + gx3c * dx3fm);
   fine(l, m, n, fk, fj, fi + 1) = ccval + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
-  if (DIM > 1) {
+  if (DIM > 1) { // TODO(c++17) make constexpr
     fine(l, m, n, fk, fj + 1, fi) = ccval - (gx1c * dx1fm - gx2c * dx2fp + gx3c * dx3fm);
     fine(l, m, n, fk, fj + 1, fi + 1) =
         ccval + (gx1c * dx1fp + gx2c * dx2fp - gx3c * dx3fm);
   }
-  if (DIM > 2) {
+  if (DIM > 2) { // TODO(c++17) make constexpr
     fine(l, m, n, fk + 1, fj, fi) = ccval - (gx1c * dx1fm + gx2c * dx2fm - gx3c * dx3fp);
     fine(l, m, n, fk + 1, fj, fi + 1) =
         ccval + (gx1c * dx1fp - gx2c * dx2fm + gx3c * dx3fp);
