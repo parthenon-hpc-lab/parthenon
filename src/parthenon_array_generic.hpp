@@ -215,7 +215,6 @@ class ParArrayGeneric : public State {
     return ParArrayGeneric<decltype(v), State>(v, *this);
   }
 
-  // AthenaArray.InitWithShallowSlice(src,dim,indx,nvar)
   // translates into auto dest = src.SliceD<dim>(std::make_pair(indx,indx+nvar))
   template <std::size_t N = Data::rank>
   auto SliceD(index_pair_t slc) const {
