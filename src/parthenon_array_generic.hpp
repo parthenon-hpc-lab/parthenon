@@ -224,7 +224,6 @@ class ParArrayGeneric : public State {
                   std::make_index_sequence<N - 1>{}, slc);
   }
 
-  // AthenaArray.InitWithShallowSlice(src,dim,indx,nvar)
   // translates into auto dest = src.SliceD<dim>(indx,nvar)
   template <std::size_t N = Data::rank>
   auto SliceD(const int indx, const int nvar) {
