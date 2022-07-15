@@ -53,6 +53,7 @@ class ParArrayGeneric : public State {
   using state_t = State;
   using HostMirror = ParArrayGeneric<typename Data::HostMirror, State>;
   using host_mirror_type = HostMirror;
+  using value_type = typename Data::value_type; // To conform to vector and View types
 
   ParArrayGeneric() = default;
   __attribute__((nothrow)) ~ParArrayGeneric() = default;
