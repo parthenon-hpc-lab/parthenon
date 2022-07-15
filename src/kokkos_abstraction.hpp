@@ -527,6 +527,80 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
   Kokkos::Profiling::popRegion();
 }
 
+// 6D loop using MDRange loops
+template <typename Tag, typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
+             const int ll, const int lu, const int ml, const int mu, const int nl,
+             const int nu, const int kl, const int ku, const int jl, const int ju,
+             const int il, const int iu, const Function &function, Args &&...args) {
+  Tag tag;
+  kokkos_dispatch(tag, name,
+                  Kokkos::Experimental::require(
+                      Kokkos::MDRangePolicy<Kokkos::Rank<6>>(
+                          exec_space, {ll, ml, nl, kl, jl, il},
+                          {lu + 1, mu + 1, nu + 1, ku + 1, ju + 1, iu + 1},
+                          {1, 1, 1, 1, 1, iu + 1 - il}),
+                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+                  function, std::forward<Args>(args)...);
+}
+
+// 6D loop using Kokkos 1D Range
+template <typename Tag, typename Function>
+inline void par_dispatch(LoopPatternFlatRange, const std::string &name,
+                         DevExecSpace exec_space, const int ll, const int lu,
+                         const int ml, const int mu, const int nl, const int nu,
+                         const int kl, const int ku, const int jl, const int ju,
+                         const int il, const int iu, const Function &function) {
+  const int Nl = lu - ll + 1;
+  const int Nm = mu - ml + 1;
+  const int Nn = nu - nl + 1;
+  const int Nk = ku - kl + 1;
+  const int Nj = ju - jl + 1;
+  const int Ni = iu - il + 1;
+  const int NjNi = Nj * Ni;
+  const int NkNjNi = Nk * NjNi;
+  const int NnNkNjNi = Nn * NkNjNi;
+  const int NmNnNkNjNi = Nm * NnNkNjNi;
+  const int NlNmNnNkNjNi = Nl * NmNnNkNjNi;
+  Kokkos::parallel_for(
+      name, Kokkos::RangePolicy<>(exec_space, 0, NlNmNnNkNjNi),
+      KOKKOS_LAMBDA(const int &idx) {
+        int l = idx / NmNnNkNjNi;
+        int m = (idx - l * NmNnNkNjNi) / NnNkNjNi;
+        int n = (idx - l * NmNnNkNjNi - m * NnNkNjNi) / NkNjNi;
+        int k = (idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi) / NjNi;
+        int j = (idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi - k * NkNjNi) / Ni;
+        int i = idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi - k * NkNjNi - j * Ni;
+        l += ll;
+        m += ml;
+        n += nl;
+        k += kl;
+        j += jl;
+        i += il;
+        function(l, m, n, k, j, i);
+      });
+}
+
+// 6D loop using SIMD FOR loops
+template <typename Tag, typename Function>
+inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
+                         DevExecSpace exec_space, const int ll, const int lu,
+                         const int ml, const int mu, const int nl, const int nu,
+                         const int kl, const int ku, const int jl, const int ju,
+                         const int il, const int iu, const Function &function) {
+  Kokkos::Profiling::pushRegion(name);
+  for (auto l = ll; l <= lu; l++)
+    for (auto m = ml; m <= mu; m++)
+      for (auto n = nl; n <= nu; n++)
+        for (auto k = kl; k <= ku; k++)
+          for (auto j = jl; j <= ju; j++)
+#pragma omp simd
+            for (auto i = il; i <= iu; i++)
+              function(l, m, n, k, j, i);
+  Kokkos::Profiling::popRegion();
+}
+
 template <class... Args>
 inline void par_for(Args &&...args) {
   par_dispatch<dispatch_impl::ParallelForDispatch>(std::forward<Args>(args)...);
