@@ -63,16 +63,16 @@ namespace impl {
 // use hierarchical parallelism.
 constexpr int MIN_NUM_BUFS = 1;
 
-KOKKOS_FORCEINLINE_FUNCTION
-bool DoRefinementOp(const cell_centered_bvars::BndInfo &info, const RefinementOp_t op) {
+template <typename Info_t>
+KOKKOS_FORCEINLINE_FUNCTION bool DoRefinementOp(const Info_t &info,
+                                                const RefinementOp_t op) {
   return (info.allocated && info.refinement_op == op);
 }
 
-template <int DIM>
+template <int DIM, typename Info_t>
 KOKKOS_FORCEINLINE_FUNCTION void
-GetLoopBoundsFromBndInfo(const cell_centered_bvars::BndInfo &info, const int ckbs,
-                         const int cjbs, int &sk, int &ek, int &sj, int &ej, int &si,
-                         int &ei) {
+GetLoopBoundsFromBndInfo(const Info_t &info, const int ckbs, const int cjbs, int &sk,
+                         int &ek, int &sj, int &ej, int &si, int &ei) {
   sk = info.sk;
   ek = info.ek;
   sj = info.sj;
@@ -107,25 +107,52 @@ void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
   auto ib = cellbounds.GetBoundsI(interior);
 
   const int nbuffers = info.extent_int(0);
-  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
-  size_t scratch_size_in_bytes = 1;
-  par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues",
-      DevExecSpace(), scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
-      KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-        if (DoRefinementOp(info(buf), op)) {
-          int sk, ek, sj, ej, si, ei;
-          GetLoopBoundsFromBndInfo<DIM>(info(buf), ckb.s, cjb.s, sk, ek, sj, ej, si, ei);
-          par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                        info(buf).Nu - 1, 0, info(buf).Nv - 1, sk, ek, sj, ej, si, ei,
-                        [&](const int l, const int m, const int n, const int k,
-                            const int j, const int i) {
-                          Stencil<DIM>::Do(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
-                                           info(buf).coords, info(buf).coarse_coords,
-                                           info(buf).coarse, info(buf).fine);
-                        });
-        }
-      });
+
+  if (nbuffers > MIN_NUM_BUFS) {
+    const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
+    size_t scratch_size_in_bytes = 1;
+    par_for_outer(
+        DEFAULT_OUTER_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues",
+        DevExecSpace(), scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
+        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
+          if (DoRefinementOp(info(buf), op)) {
+            int sk, ek, sj, ej, si, ei;
+            GetLoopBoundsFromBndInfo<DIM>(info(buf), ckb.s, cjb.s, sk, ek, sj, ej, si,
+                                          ei);
+            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
+                          info(buf).Nu - 1, 0, info(buf).Nv - 1, sk, ek, sj, ej, si, ei,
+                          [&](const int l, const int m, const int n, const int k,
+                              const int j, const int i) {
+                            Stencil<DIM>::Do(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
+                                             info(buf).coords, info(buf).coarse_coords,
+                                             info(buf).coarse, info(buf).fine);
+                          });
+          }
+        });
+  } else {
+    // TODO(JMM): This implies both an extra DtoH and an extra HtoD
+    // copy. If this turns out to be a serious problem, we can resolve
+    // by always passing around both host and device copies of the
+    // `BufferCache_t` object, or by making it host-pinned memory.
+    auto info_h = Kokkos::create_mirror_view(info);
+    Kokkos::deep_copy(info_h, info);
+    for (int buf = 0; buf < nbuffers; ++buf) {
+      if (DoRefinementOp(info(buf), op)) {
+        int sk, ek, sj, ej, si, ei;
+        GetLoopBoundsFromBndInfo<DIM>(info_h(buf), ckb.s, cjb.s, sk, ek, sj, ej, si, ei);
+        par_for(
+            DEFAULT_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues",
+            DevExecSpace(), 0, info_h(buf).Nt - 1, 0, info_h(buf).Nu - 1, 0,
+            info_h(buf).Nv - 1, sk, ek, sj, ej, si, ei,
+            KOKKOS_LAMBDA(const int l, const int m, const int n, const int k, const int j,
+                          const int i) {
+              Stencil<DIM>::Do(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
+                               info_h(buf).coords, info_h(buf).coarse_coords,
+                               info_h(buf).coarse, info_h(buf).fine);
+            });
+      }
+    }
+  }
 }
 
 } // namespace impl
