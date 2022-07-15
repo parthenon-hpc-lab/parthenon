@@ -30,184 +30,102 @@
 
 namespace parthenon {
 namespace cell_centered_refinement {
-void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
-              IndexShape &c_cellbounds);
+void Restrict(const cell_centered_bvars::BufferCache_t &info,
+              const IndexShape &cellbounds, const IndexShape &c_cellbounds);
 TaskStatus RestrictPhysicalBounds(MeshData<Real> *md);
 
 std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md);
 void ComputePhysicalRestrictBounds(MeshData<Real> *md);
 
-void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
-                IndexShape &c_cellbounds);
+void Prolongate(const cell_centered_bvars::BufferCache_t &info,
+                const IndexShape &cellbounds, const IndexShape &c_cellbounds);
 
 // TODO(JMM): We may wish to expose some of these impl functions eventually.
 namespace impl {
 
+// If the info object has more buffers than this, do
+// hierarchical parallelism. If it does not, loop over buffers on the
+// host and launch kernels manually.
+//
+// TODO(JMM): Experiment here? We could expose this as a run-time or
+// compile-time parameter, if it ends up being hardware dependent. My
+// suspicion is that, given kernel launch latencies, MIN_NUM_BUFS
+// should be either 1 or 6.
+//
+// MIN_NUM_BUFS = 1 implies that the old per-buffer machinery doesn't
+// use hierarchical parallelism. This also means that for
+// prolongation/restriction over a whole meshblock, hierarchical
+// parallelism is not used, which is probably important for
+// re-meshing.
+//
+// MIN_NUM_BUFS = 6 implies that in a unigrid sim a meshblock pack of
+// size 1 would be looped over manually while a pack of size 2 would
+// use hierarchical parallelism.
+constexpr int MIN_NUM_BUFS = 1;
+
 KOKKOS_FORCEINLINE_FUNCTION
-bool DoRefinementOp(cell_centered_bvars::BndInfo &info, RefinementOp_t op) {
+bool DoRefinementOp(const cell_centered_bvars::BndInfo &info, const RefinementOp_t op) {
   return (info.allocated && info.refinement_op == op);
 }
 
 template <int DIM>
 KOKKOS_FORCEINLINE_FUNCTION void
-RestrictCellAverage(const int l, const int m, const int n, const int ck, const int cj,
-                    const int ci, const IndexRange &ckb, const IndexRange &cjb,
-                    const IndexRange &cib, const IndexRange &kb, const IndexRange &jb,
-                    const IndexRange &ib, const Coordinates_t &coords,
-                    const ParArray6D<Real> &coarse, const ParArray6D<Real> &fine) {
-  const int i = (ci - cib.s) * 2 + ib.s;
-  int j = jb.s;
-  if (DIM > 1) {
-    j = (cj - cjb.s) * 2 + jb.s;
-  }
-  int k = kb.s;
-  if (DIM > 2) {
-    k = (ck - ckb.s) * 2 + kb.s;
-  }
-  // JMM: If dimensionality is wrong, accesses are out of bounds. Only
-  // access cells if dimensionality is correct.
-  const Real vol000 = coords.Volume(k, j, i);
-  const Real vol001 = coords.Volume(k, j, i + 1);
-  const Real fine000 = fine(l, m, n, k, j, i);
-  const Real fine001 = fine(l, m, n, k, j, i + 1);
-  Real vol010, vol011, vol100, vol101, vol110, vol111;
-  Real fine010, fine011, fine100, fine101, fine110, fine111;
-  vol010 = vol011 = vol100 = vol101 = vol110 = vol111 = 0;
-  fine010 = fine011 = fine100 = fine101 = fine110 = fine111 = 0;
-  if (DIM > 1) { // TODO(c++17) make constexpr
-    vol010 = coords.Volume(k, j + 1, i);
-    vol011 = coords.Volume(k, j + 1, i + 1);
-    fine010 = fine(l, m, n, k, j + 1, i);
-    fine011 = fine(l, m, n, k, j + 1, i + 1);
-  }
-  if (DIM > 2) { // TODO(c++17) make constexpr
-    vol100 = coords.Volume(k + 1, j, i);
-    vol101 = coords.Volume(k + 1, j, i + 1);
-    vol110 = coords.Volume(k + 1, j + 1, i);
-    vol111 = coords.Volume(k + 1, j + 1, i + 1);
-    fine100 = fine(l, m, n, k + 1, j, i);
-    fine101 = fine(l, m, n, k + 1, j, i + 1);
-    fine110 = fine(l, m, n, k + 1, j + 1, i);
-    fine111 = fine(l, m, n, k + 1, j + 1, i + 1);
-  }
-  // KGF: add the off-centered quantities first to preserve FP
-  // symmetry
-  const Real tvol =
-      ((vol000 + vol010) + (vol001 + vol011)) + ((vol100 + vol110) + (vol101 + vol111));
-  coarse(l, m, n, ck, cj, ci) =
-      (((fine000 * vol000 + fine010 * vol010) + (fine001 * vol001 + fine011 * vol011)) +
-       ((fine100 * vol100 + fine110 * vol110) + (fine101 * vol101 + fine111 * vol111))) /
-      tvol;
+GetLoopBoundsFromBndInfo(const cell_centered_bvars::BndInfo &info, const int ckbs,
+                         const int cjbs, int &sk, int &ek, int &sj, int &ej, int &si,
+                         int &ei) {
+  sk = info.sk;
+  ek = info.ek;
+  sj = info.sj;
+  ej = info.ej;
+  si = info.si;
+  ei = info.ei;
+  if (DIM < 3) sk = ek = ckbs; // TODO(C++17) make constexpr
+  if (DIM < 2) sj = ej = cjbs;
 }
 
-KOKKOS_FORCEINLINE_FUNCTION
-Real GradMinMod(const Real ccval, const Real fm, const Real fp, const Real dxm,
-                const Real dxp) {
-  const Real gxm = (ccval - fm) / dxm;
-  const Real gxp = (fp - ccval) / dxp;
-  return 0.5 * (SIGN(gxm) + SIGN(gxp)) * std::min(std::abs(gxm), std::abs(gxp));
-}
+// JMM: A single prolongation/restriction loop template without
+// specializations is possible, if we're willing to always do the 6D
+// loop with different specialized loop bounds. The danger of that
+// approach is that if, e.g., a TVVR loop pattern is utilized at lower
+// dimensionality but not higher-dimensionality, the pattern may not
+// work out optimally. I have implemented it here, but we may wish to
+// revert to separate loops per dimension, if the performance hit is
+// too large.
+template <int DIM, template <int> typename Stencil>
+void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
+                                 const IndexShape &cellbounds,
+                                 const IndexShape &c_cellbounds,
+                                 const RefinementOp_t op) {
 
-// TODO(JMM): this could be simplified if grid spacing was always uniform
-template<int DIM>
-KOKKOS_INLINE_FUNCTION Real GetX(const Coordinates_t &coords, int i);
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexDomain entire = IndexDomain::entire;
+  auto ckb = c_cellbounds.GetBoundsK(interior);
+  auto cjb = c_cellbounds.GetBoundsJ(interior);
+  auto cib = c_cellbounds.GetBoundsI(interior);
+  auto kb = cellbounds.GetBoundsK(interior);
+  auto jb = cellbounds.GetBoundsJ(interior);
+  auto ib = cellbounds.GetBoundsI(interior);
 
-template<>
-KOKKOS_INLINE_FUNCTION Real GetX<1>(const Coordinates_t &coords, int i) {
-  return coords.x1v(i);
-}
-
-template<>
-KOKKOS_INLINE_FUNCTION Real GetX<2>(const Coordinates_t &coords, int i) {
-  return coords.x2v(i);
-}
-
-template<>
-KOKKOS_INLINE_FUNCTION Real GetX<3>(const Coordinates_t &coords, int i) {
-  return coords.x3v(i);
-}
-
-template <int DIM>
-KOKKOS_FORCEINLINE_FUNCTION void
-GetSlopes(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-          const IndexRange &cib, const IndexRange &ib, int i, int &fi, Real &dxm,
-          Real &dxp, Real &dxfm, Real &dxfp) {
-  fi = (i - cib.s) * 2 + ib.s;
-  const Real xm = GetX<DIM>(coarse_coords, i - 1);
-  const Real xc = GetX<DIM>(coarse_coords, i);
-  const Real xp = GetX<DIM>(coarse_coords, i + 1);
-  dxm = xc - xm;
-  dxp = xp - xc;
-  const Real fxm = GetX<DIM>(coords, fi);
-  const Real fxp = GetX<DIM>(coords, fi + 1);
-  dxfm = xc - fxm;
-  dxfp = fxp - xc;
-}
-
-// TODO(JMM): This function signature is real gross. Might be worth
-// coalescing some of this stuff into structs, rather than unpacking
-// it and then passing it in.
-
-// TODO(JMM): Compared to the previous version of the code, this one
-// multiplies by zero sometimes.
-
-// use template DIM to resolve ifs at compile time and avoid
-// branching.
-template <int DIM>
-KOKKOS_FORCEINLINE_FUNCTION void
-ProlongateCellMinMod(const int l, const int m, const int n, const int k, const int j,
-                     const int i, const IndexRange &ckb, const IndexRange &cjb,
-                     const IndexRange &cib, const IndexRange &kb, const IndexRange &jb,
-                     const IndexRange &ib, const Coordinates_t &coords,
-                     const Coordinates_t &coarse_coords, const ParArray6D<Real> &coarse,
-                     const ParArray6D<Real> &fine) {
-  const Real ccval = coarse(l, m, n, k, j, i);
-
-  int fi;
-  Real dx1fm, dx1fp, dx1m, dx1p;
-  GetSlopes<1>(coords, coarse_coords, cib, ib, i, fi, dx1m, dx1p, dx1fm, dx1fp);
-  const Real gx1c = GradMinMod(ccval, coarse(l, m, n, k, j, i - 1),
-                               coarse(l, m, n, k, j, i + 1), dx1m, dx1p);
-
-  int fj = jb.s; // overwritten as needed
-  Real dx2fm = 0;
-  Real dx2fp = 0;
-  Real gx2c = 0;
-  if (DIM > 1) { // TODO(c++17) make constexpr
-    Real dx2m, dx2p;
-    GetSlopes<2>(coords, coarse_coords, cjb, jb, j, fj, dx2m, dx2p, dx2fm, dx2fp);
-    gx2c = GradMinMod(ccval, coarse(l, m, n, k, j - 1, i), coarse(l, m, n, k, j + 1, i),
-                      dx2m, dx2p);
-  }
-  int fk = kb.s;
-  Real dx3fm = 0;
-  Real dx3fp = 0;
-  Real gx3c = 0;
-  if (DIM > 2) { // TODO(c++17) make constexpr
-    Real dx3m, dx3p;
-    GetSlopes<3>(coords, coarse_coords, ckb, kb, k, fk, dx3m, dx3p, dx3fm, dx3fp);
-    gx3c = GradMinMod(ccval, coarse(l, m, n, k - 1, j, i), coarse(l, m, n, k + 1, j, i),
-                      dx3m, dx3p);
-  }
-
-  // KGF: add the off-centered quantities first to preserve FP symmetry
-  // JMM: Extraneous quantities are zero
-  fine(l, m, n, fk, fj, fi) = ccval - (gx1c * dx1fm + gx2c * dx2fm + gx3c * dx3fm);
-  fine(l, m, n, fk, fj, fi + 1) = ccval + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
-  if (DIM > 1) { // TODO(c++17) make constexpr
-    fine(l, m, n, fk, fj + 1, fi) = ccval - (gx1c * dx1fm - gx2c * dx2fp + gx3c * dx3fm);
-    fine(l, m, n, fk, fj + 1, fi + 1) =
-        ccval + (gx1c * dx1fp + gx2c * dx2fp - gx3c * dx3fm);
-  }
-  if (DIM > 2) { // TODO(c++17) make constexpr
-    fine(l, m, n, fk + 1, fj, fi) = ccval - (gx1c * dx1fm + gx2c * dx2fm - gx3c * dx3fp);
-    fine(l, m, n, fk + 1, fj, fi + 1) =
-        ccval + (gx1c * dx1fp - gx2c * dx2fm + gx3c * dx3fp);
-    fine(l, m, n, fk + 1, fj + 1, fi) =
-        ccval - (gx1c * dx1fm - gx2c * dx2fp - gx3c * dx3fp);
-    fine(l, m, n, fk + 1, fj + 1, fi + 1) =
-        ccval + (gx1c * dx1fp + gx2c * dx2fp + gx3c * dx3fp);
-  }
+  const int nbuffers = info.extent_int(0);
+  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
+  size_t scratch_size_in_bytes = 1;
+  par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues",
+      DevExecSpace(), scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
+      KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
+        if (DoRefinementOp(info(buf), op)) {
+          int sk, ek, sj, ej, si, ei;
+          GetLoopBoundsFromBndInfo<DIM>(info(buf), ckb.s, cjb.s, sk, ek, sj, ej, si, ei);
+          par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
+                        info(buf).Nu - 1, 0, info(buf).Nv - 1, sk, ek, sj, ej, si, ei,
+                        [&](const int l, const int m, const int n, const int k,
+                            const int j, const int i) {
+                          Stencil<DIM>::Do(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
+                                           info(buf).coords, info(buf).coarse_coords,
+                                           info(buf).coarse, info(buf).fine);
+                        });
+        }
+      });
 }
 
 } // namespace impl

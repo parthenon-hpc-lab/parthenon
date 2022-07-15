@@ -19,9 +19,9 @@
 
 #include <algorithm>
 
-#include "mesh/refinement_cc_in_one.hpp"
-
 #include "kokkos_abstraction.hpp"
+#include "mesh/mesh_refinement_ops.hpp"
+#include "mesh/refinement_cc_in_one.hpp"
 
 namespace parthenon {
 namespace cell_centered_refinement {
@@ -36,81 +36,19 @@ namespace cell_centered_refinement {
  * Then users can register a restriction loop specialized to a given functor.
  */
 
-void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
-              IndexShape &c_cellbounds) {
-  const IndexDomain interior = IndexDomain::interior;
+void Restrict(const cell_centered_bvars::BufferCache_t &info, const IndexShape &cellbnds,
+              const IndexShape &c_cellbnds) {
+  using namespace impl;
+  using namespace refinement_ops;
   const IndexDomain entire = IndexDomain::entire;
-  auto ckb = c_cellbounds.GetBoundsK(interior);
-  auto cjb = c_cellbounds.GetBoundsJ(interior);
-  auto cib = c_cellbounds.GetBoundsI(interior);
-  auto kb = cellbounds.GetBoundsK(interior);
-  auto jb = cellbounds.GetBoundsJ(interior);
-  auto ib = cellbounds.GetBoundsI(interior);
+  const auto op = RefinementOp_t::Restriction;
 
-  // TODO(BRR) nbuffers is currently always 1. In the future nbuffers could be > 1 to
-  // improve performance.
-  // JMM: Pretty sure this is only true for the per-meshblock calls,
-  // but for bvals_in_one, this is not the case. I think
-  // nbuffers/variable is 1, but there is one buffer per variable per
-  // meshblock/neighbor pair when doing boundary comms in-one.
-  const int nbuffers = info.extent_int(0);
-  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
-  size_t scratch_size_in_bytes = 1;
-
-  if (cellbounds.ncellsk(entire) > 1) { // 3D
-    par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues3d", DevExecSpace(),
-        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
-        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Restriction)) {
-            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                          info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sk,
-                          info(buf).ek, info(buf).sj, info(buf).ej, info(buf).si,
-                          info(buf).ei,
-                          [&](const int l, const int m, const int n, const int ck,
-                              const int cj, const int ci) {
-                            impl::RestrictCellAverage<3>(
-                                l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb, ib,
-                                info(buf).coords, info(buf).coarse, info(buf).fine);
-                          });
-          }
-        });
-  } else if (cellbounds.ncellsj(entire) > 1) { // 2D
-    par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues2d", DevExecSpace(),
-        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
-        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Restriction)) {
-            const int ck = ckb.s;
-            par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sj, info(buf).ej,
-                info(buf).si, info(buf).ei,
-                [&](const int l, const int m, const int n, const int cj, const int ci) {
-                  impl::RestrictCellAverage<2>(l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb,
-                                               ib, info(buf).coords, info(buf).coarse,
-                                               info(buf).fine);
-                });
-          }
-        });
-  } else if (cellbounds.ncellsi(entire) > 1) { // 1D
-    par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues1d", DevExecSpace(),
-        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
-        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Restriction)) {
-            const int ck = ckb.s;
-            const int cj = cjb.s;
-            par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                          info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si,
-                          info(buf).ei,
-                          [&](const int l, const int m, const int n, const int ci) {
-                            impl::RestrictCellAverage<1>(
-                                l, m, n, ck, cj, ci, ckb, cjb, cib, kb, jb, ib,
-                                info(buf).coords, info(buf).coarse, info(buf).fine);
-                          });
-          }
-        });
+  if (cellbnds.ncellsk(entire) > 1) { // 3D
+    ProlongationRestrictionLoop<3, RestrictCellAverage>(info, cellbnds, c_cellbnds, op);
+  } else if (cellbnds.ncellsj(entire) > 1) { // 2D
+    ProlongationRestrictionLoop<2, RestrictCellAverage>(info, cellbnds, c_cellbnds, op);
+  } else if (cellbnds.ncellsi(entire) > 1) { // 1D
+    ProlongationRestrictionLoop<1, RestrictCellAverage>(info, cellbnds, c_cellbnds, op);
   }
 }
 
@@ -186,81 +124,19 @@ void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
 // TODO(JMM): In a future version of the code, we could template on
 // the inner loop function, ProlongateCellMinMod to support other
 // prolongation operations.
-void Prolongate(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
-                IndexShape &c_cellbounds) {
-  const IndexDomain interior = IndexDomain::interior;
+void Prolongate(const cell_centered_bvars::BufferCache_t &info,
+                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+  using namespace impl;
+  using namespace refinement_ops;
   const IndexDomain entire = IndexDomain::entire;
-  auto ckb = c_cellbounds.GetBoundsK(interior);
-  auto cjb = c_cellbounds.GetBoundsJ(interior);
-  auto cib = c_cellbounds.GetBoundsI(interior);
-  auto kb = cellbounds.GetBoundsK(interior);
-  auto jb = cellbounds.GetBoundsJ(interior);
-  auto ib = cellbounds.GetBoundsI(interior);
+  const auto op = RefinementOp_t::Prolongation;
 
-  // TODO(BRR) nbuffers is currently always 1. In the future nbuffers could be > 1 to
-  // improve performance.
-  // JMM: Pretty sure this is only true for the per-meshblock calls,
-  // but for bvals_in_one, this is not the case. I think
-  // nbuffers/variable is 1, but there is one buffer per variable per
-  // meshblock/neighbor pair when doing boundary comms in-one.
-  const int nbuffers = info.extent_int(0);
-  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
-  size_t scratch_size_in_bytes = 1;
-
-  if (cellbounds.ncellsk(entire) > 1) { // 3D
-    par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, "ProlongateCellCenteredValues3d", DevExecSpace(),
-        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
-        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Prolongation)) {
-            par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sk, info(buf).ek,
-                info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
-                [&](const int l, const int m, const int n, const int k, const int j,
-                    const int i) {
-                  impl::ProlongateCellMinMod<3>(
-                      l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib, info(buf).coords,
-                      info(buf).coarse_coords, info(buf).coarse, info(buf).fine);
-                });
-          }
-        });
-  } else if (cellbounds.ncellsj(entire) > 1) { // 2D
-    par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, "ProlongateCellCenteredValues2d", DevExecSpace(),
-        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
-        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Prolongation)) {
-            const int k = ckb.s;
-            par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sj, info(buf).ej,
-                info(buf).si, info(buf).ei,
-                [&](const int l, const int m, const int n, const int j, const int i) {
-                  impl::ProlongateCellMinMod<2>(
-                      l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib, info(buf).coords,
-                      info(buf).coarse_coords, info(buf).coarse, info(buf).fine);
-                });
-          }
-        });
+  if (cellbnds.ncellsk(entire) > 1) { // 3D
+    ProlongationRestrictionLoop<3, ProlongateCellMinMod>(info, cellbnds, c_cellbnds, op);
+  } else if (cellbnds.ncellsj(entire) > 1) { // 2D
+    ProlongationRestrictionLoop<2, ProlongateCellMinMod>(info, cellbnds, c_cellbnds, op);
   } else { // 1D
-    par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, "ProlongateCellCenteredValues1d", DevExecSpace(),
-        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
-        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (impl::DoRefinementOp(info(buf), RefinementOp_t::Prolongation)) {
-            const int k = ckb.s;
-            const int j = cjb.s;
-            par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si, info(buf).ei,
-                [&](const int l, const int m, const int n, const int i) {
-                  impl::ProlongateCellMinMod<1>(
-                      l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib, info(buf).coords,
-                      info(buf).coarse_coords, info(buf).coarse, info(buf).fine);
-                });
-          }
-        });
+    ProlongationRestrictionLoop<1, ProlongateCellMinMod>(info, cellbnds, c_cellbnds, op);
   }
 }
 
