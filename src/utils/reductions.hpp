@@ -70,18 +70,24 @@ int GetSize(U &v) {
 
 #ifdef MPI_PARALLEL
 // Generic for containers including Kokkos::View and std::vector
-template <class T, class = typename T::value_type> 
-struct value_type_test {using void_t = void;};
+template <class T, class = typename T::value_type>
+struct value_type_test {
+  using void_t = void;
+};
 
-template <class T, class void_t = void> 
-struct get_value_type { using type = T; };
+template <class T, class void_t = void>
+struct get_value_type {
+  using type = T;
+};
 
-template <class T> 
-struct get_value_type<T, typename value_type_test<T>::void_t> { using type = typename T::value_type; };
+template <class T>
+struct get_value_type<T, typename value_type_test<T>::void_t> {
+  using type = typename T::value_type;
+};
 
-template <class U> 
-MPI_Datatype GetType(const U&) { 
-  return MPITypeMap<typename get_value_type<U>::type>::type(); 
+template <class U>
+MPI_Datatype GetType(const U &) {
+  return MPITypeMap<typename get_value_type<U>::type>::type();
 }
 
 #endif
