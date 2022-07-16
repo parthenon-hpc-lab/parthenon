@@ -75,7 +75,7 @@ struct implements<Concept(Ts...), void_t<decltype(std::declval<Concept>().requir
 // Concept for a general container, not necessarily with
 // contiguous data storage
 struct container {
-  // Every concept needs a requires_ method declaration, no 
+  // Every concept needs a requires_ method declaration, no
   // implementation of requires_ is necessary though.
   // requires_ should be well formed if the object T matches the
   // concept of the struct (in this case a contiguous container).
