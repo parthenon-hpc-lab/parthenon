@@ -15,8 +15,9 @@
 
 #include <type_traits>
 
-// This macro is just to make code more readable and self-explanatory
+// These macros are just to make code more readable and self-explanatory
 #define REQUIRES(...) typename std::enable_if<(__VA_ARGS__), int>::type = 0
+#define ENABLEIF(...) typename std::enable_if<(__VA_ARGS__), int>::type
 
 // This is a variadic template class that accepts any set of types
 // and is always equal to void as long as the types are well formed.
@@ -72,6 +73,14 @@ struct implements<Concept(Ts...), void_t<decltype(std::declval<Concept>().requir
 // we use value everywhere even though it is slightly more verbose.
 //---------------------------
 
+// This trying to use c-style arrays in the concepts pattern below seems not
+// to work for reasons I don't understand
+template <class T, class = void>
+struct is_fundamental_c_array : std::false_type {};
+template <class T, std::size_t N>
+struct is_fundamental_c_array<T[N], void_t<ENABLEIF(std::is_fundamental<T>::value)>>
+    : std::true_type {};
+
 // Concept for a general container, not necessarily with
 // contiguous data storage
 struct container {
@@ -112,9 +121,15 @@ struct contiguous_container {
     return x.size();
   }
 
-  template <class T, REQUIRES(!implements<container(T)>::value)>
+  template <class T,
+            REQUIRES(!implements<container(T)>::value && std::is_fundamental<T>::value)>
   static std::size_t size(const T &x) {
     return 1;
+  }
+
+  template <class T, std::size_t N, REQUIRES(is_fundamental_c_array<T[N]>::value)>
+  static std::size_t size(const T (&)[N]) {
+    return N;
   }
 
   template <class T, REQUIRES(implements<contiguous_container(T)>::value)>
@@ -122,16 +137,26 @@ struct contiguous_container {
     return x.data();
   }
 
-  template <class T, REQUIRES(!implements<container(T)>::value)>
+  template <class T,
+            REQUIRES(!implements<container(T)>::value && std::is_fundamental<T>::value)>
   static T *data(T &x) {
     return &x;
+  }
+
+  template <class T, std::size_t N, REQUIRES(is_fundamental_c_array<T[N]>::value)>
+  static T *data(T (&x)[N]) {
+    return x;
   }
 
   template <class T, REQUIRES(implements<contiguous_container(T)>::value)>
   static typename T::value_type value_type(T &);
 
-  template <class T, REQUIRES(!implements<container(T)>::value)>
+  template <class T,
+            REQUIRES(!implements<container(T)>::value && std::is_fundamental<T>::value)>
   static T value_type(T &);
+
+  template <class T, std::size_t N, REQUIRES(is_fundamental_c_array<T[N]>::value)>
+  static T value_type(T (&)[N]);
 };
 
 #endif // UTILS_CONCEPTS_LITE_HPP_

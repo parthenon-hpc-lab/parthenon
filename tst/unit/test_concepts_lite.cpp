@@ -38,10 +38,13 @@ bool SatisfiesContainerRequirements(T &&in, VAL_TYPE val, int size_in) {
 
 TEST_CASE("Check that the contiguous container concept works", "") {
   GIVEN("Some containers and some data") {
-    int SIZE = 10;
+    constexpr const int SIZE = 10;
     int val = 2;
 
     int my_int = val;
+    int my_c_array[SIZE];
+    for (int i = 0; i < SIZE; ++i)
+      my_c_array[i] = val;
     std::vector<int> my_vec(SIZE, val);
     // This should also work fine for objects defined on device, but
     // it is more work to write a generic function for checking values
@@ -58,6 +61,7 @@ TEST_CASE("Check that the contiguous container concept works", "") {
     }
 
     REQUIRE(SatisfiesContainerRequirements(my_int, val, 1));
+    REQUIRE(SatisfiesContainerRequirements(my_c_array, val, SIZE));
     REQUIRE(SatisfiesContainerRequirements(my_vec, val, SIZE));
     REQUIRE(SatisfiesContainerRequirements(my_view, val, SIZE));
     REQUIRE(SatisfiesContainerRequirements(my_pararr, val, SIZE));
