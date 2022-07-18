@@ -30,14 +30,33 @@
 
 namespace parthenon {
 namespace cell_centered_refinement {
+// The existence of this overload allows us to avoid a deep-copy in
+// the per-meshblock calls
+// TODO(JMM): I don't love having two overloads here.  However when
+// we shift entirely to in-one machinery, the info_h only overload
+// will go away.
 void Restrict(const cell_centered_bvars::BufferCache_t &info,
+              const cell_centered_bvars::BufferCacheHost_t &info_h,
               const IndexShape &cellbounds, const IndexShape &c_cellbounds);
+// The existence of this overload allows us to avoid a deep-copy in
+// the per-meshblock calls
+void Restrict(const cell_centered_bvars::BufferCacheHost_t &info_h,
+              const IndexShape &cellbounds, const IndexShape &c_cellbounds);
+
 TaskStatus RestrictPhysicalBounds(MeshData<Real> *md);
 
 std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md);
 void ComputePhysicalRestrictBounds(MeshData<Real> *md);
 
+// TODO(JMM): I don't love having two overloads here.  However when
+// we shift entirely to in-one machinery, the info_h only overload
+// will go away.
 void Prolongate(const cell_centered_bvars::BufferCache_t &info,
+                const cell_centered_bvars::BufferCacheHost_t &info_h,
+                const IndexShape &cellbounds, const IndexShape &c_cellbounds);
+// The existence of this overload allows us to avoid a deep-copy in
+// the per-meshblock calls
+void Prolongate(const cell_centered_bvars::BufferCacheHost_t &info_h,
                 const IndexShape &cellbounds, const IndexShape &c_cellbounds);
 
 // TODO(JMM): We may wish to expose some of these impl functions eventually.
@@ -61,7 +80,7 @@ namespace impl {
 // MIN_NUM_BUFS = 6 implies that in a unigrid sim a meshblock pack of
 // size 1 would be looped over manually while a pack of size 2 would
 // use hierarchical parallelism.
-constexpr int MIN_NUM_BUFS = 1;
+constexpr int MIN_NUM_BUFS = 6;
 
 template <typename Info_t>
 KOKKOS_FORCEINLINE_FUNCTION bool DoRefinementOp(const Info_t &info,
@@ -91,25 +110,25 @@ GetLoopBoundsFromBndInfo(const Info_t &info, const int ckbs, const int cjbs, int
 // work out optimally. I have implemented it here, but we may wish to
 // revert to separate loops per dimension, if the performance hit is
 // too large.
+//
+// There's a host version of the loop, which only requires buffer cache host,
+// a device version, which requires the buffer cache device only,
+// and a version that automatically swaps between them depending on
+// the size of the buffer cache.
 template <int DIM, template <int> typename Stencil>
-void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
-                                 const IndexShape &cellbounds,
-                                 const IndexShape &c_cellbounds,
-                                 const RefinementOp_t op) {
-
+inline void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
+                                        const IndexShape &cellbounds,
+                                        const IndexShape &c_cellbounds,
+                                        const RefinementOp_t op) {
   const IndexDomain interior = IndexDomain::interior;
-  const IndexDomain entire = IndexDomain::entire;
   auto ckb = c_cellbounds.GetBoundsK(interior);
   auto cjb = c_cellbounds.GetBoundsJ(interior);
   auto cib = c_cellbounds.GetBoundsI(interior);
   auto kb = cellbounds.GetBoundsK(interior);
   auto jb = cellbounds.GetBoundsJ(interior);
   auto ib = cellbounds.GetBoundsI(interior);
-
   const int nbuffers = info.extent_int(0);
-
-  if (nbuffers > MIN_NUM_BUFS) {
-    const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
+  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
     size_t scratch_size_in_bytes = 1;
     par_for_outer(
         DEFAULT_OUTER_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues",
@@ -129,17 +148,28 @@ void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
                           });
           }
         });
-  } else {
-    // TODO(JMM): This implies both an extra DtoH and an extra HtoD
-    // copy. If this turns out to be a serious problem, we can resolve
-    // by always passing around both host and device copies of the
-    // `BufferCache_t` object, or by making it host-pinned memory.
-    auto info_h = Kokkos::create_mirror_view(info);
-    Kokkos::deep_copy(info_h, info);
-    for (int buf = 0; buf < nbuffers; ++buf) {
-      if (DoRefinementOp(info(buf), op)) {
+}
+template <int DIM, template <int> typename Stencil>
+inline void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h,
+                                        const IndexShape &cellbounds,
+                                        const IndexShape &c_cellbounds,
+                                        const RefinementOp_t op) {
+  const IndexDomain interior = IndexDomain::interior;
+  auto ckb = c_cellbounds.GetBoundsK(interior);
+  auto cjb = c_cellbounds.GetBoundsJ(interior);
+  auto cib = c_cellbounds.GetBoundsI(interior);
+  auto kb = cellbounds.GetBoundsK(interior);
+  auto jb = cellbounds.GetBoundsJ(interior);
+  auto ib = cellbounds.GetBoundsI(interior);
+  const int nbuffers = info_h.extent_int(0);
+  for (int buf = 0; buf < nbuffers; ++buf) {
+      if (DoRefinementOp(info_h(buf), op)) {
         int sk, ek, sj, ej, si, ei;
         GetLoopBoundsFromBndInfo<DIM>(info_h(buf), ckb.s, cjb.s, sk, ek, sj, ej, si, ei);
+        auto coords = info_h(buf).coords;
+        auto coarse_coords = info_h(buf).coarse_coords;
+        auto coarse = info_h(buf).coarse;
+        auto fine = info_h(buf).fine;
         par_for(
             DEFAULT_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues",
             DevExecSpace(), 0, info_h(buf).Nt - 1, 0, info_h(buf).Nu - 1, 0,
@@ -147,11 +177,34 @@ void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
             KOKKOS_LAMBDA(const int l, const int m, const int n, const int k, const int j,
                           const int i) {
               Stencil<DIM>::Do(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
-                               info_h(buf).coords, info_h(buf).coarse_coords,
-                               info_h(buf).coarse, info_h(buf).fine);
+                               coords, coarse_coords, coarse, fine);
             });
       }
     }
+}
+template <int DIM, template <int> typename Stencil>
+inline void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
+                                        const cell_centered_bvars::BufferCacheHost_t &info_h,
+                                        const IndexShape &cellbounds,
+                                        const IndexShape &c_cellbounds,
+                                        const RefinementOp_t op) {
+  const int nbuffers = info_h.extent_int(0);
+  if (nbuffers > MIN_NUM_BUFS) {
+    ProlongationRestrictionLoop<DIM, Stencil>(info, cellbounds, c_cellbounds, op);
+  } else {
+    ProlongationRestrictionLoop<DIM, Stencil>(info_h, cellbounds, c_cellbounds, op);
+  }
+}
+
+template<template<int> typename Stencil, typename... Args>
+inline void DoProlongationRestrictionOp(const IndexShape &cellbnds, Args &&...args) {
+  const IndexDomain entire = IndexDomain::entire;
+  if (cellbnds.ncellsk(entire) > 1) { // 3D
+    ProlongationRestrictionLoop<3, Stencil>(std::forward<Args>(args)...);
+  } else if (cellbnds.ncellsj(entire) > 1) { // 2D
+    ProlongationRestrictionLoop<2, Stencil>(std::forward<Args>(args)...);
+  } else if (cellbnds.ncellsi(entire) > 1) { // 1D
+    ProlongationRestrictionLoop<1, Stencil>(std::forward<Args>(args)...);
   }
 }
 

@@ -18,6 +18,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <utility>
 
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh_refinement_ops.hpp"
@@ -36,20 +37,18 @@ namespace cell_centered_refinement {
  * Then users can register a restriction loop specialized to a given functor.
  */
 
-void Restrict(const cell_centered_bvars::BufferCache_t &info, const IndexShape &cellbnds,
+void Restrict(const cell_centered_bvars::BufferCache_t &info,
+              const cell_centered_bvars::BufferCacheHost_t &info_h,
+              const IndexShape &cellbnds,
               const IndexShape &c_cellbnds) {
-  using namespace impl;
-  using namespace refinement_ops;
-  const IndexDomain entire = IndexDomain::entire;
   const auto op = RefinementOp_t::Restriction;
-
-  if (cellbnds.ncellsk(entire) > 1) { // 3D
-    ProlongationRestrictionLoop<3, RestrictCellAverage>(info, cellbnds, c_cellbnds, op);
-  } else if (cellbnds.ncellsj(entire) > 1) { // 2D
-    ProlongationRestrictionLoop<2, RestrictCellAverage>(info, cellbnds, c_cellbnds, op);
-  } else if (cellbnds.ncellsi(entire) > 1) { // 1D
-    ProlongationRestrictionLoop<1, RestrictCellAverage>(info, cellbnds, c_cellbnds, op);
-  }
+  impl::DoProlongationRestrictionOp<refinement_ops::RestrictCellAverage>(cellbnds, info, info_h, cellbnds, c_cellbnds, op);
+}
+void Restrict(const cell_centered_bvars::BufferCacheHost_t &info_h,
+              const IndexShape &cellbnds,
+              const IndexShape &c_cellbnds) {
+  const auto op = RefinementOp_t::Restriction;
+  impl::DoProlongationRestrictionOp<refinement_ops::RestrictCellAverage>(cellbnds, info_h, cellbnds, c_cellbnds, op);
 }
 
 std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md) {
@@ -79,10 +78,14 @@ TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
   // get alloc status
   auto alloc_status = ComputePhysicalRestrictBoundsAllocStatus(md);
 
-  auto info = md->GetRestrictBuffers();
+  auto info_pair = md->GetRestrictBuffers();
+  auto info = std::get<0>(info_pair);
+  auto info_h = std::get<1>(info_pair);
   if (!info.is_allocated() || (alloc_status != md->GetRestrictBufAllocStatus())) {
     ComputePhysicalRestrictBounds(md);
-    info = md->GetRestrictBuffers();
+    info_pair = md->GetRestrictBuffers();
+    info = std::get<0>(info_pair);
+    info_h = std::get<1>(info_pair);
   }
 
   auto &rc = md->GetBlockData(0);
@@ -90,7 +93,7 @@ TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
   IndexShape cellbounds = pmb->cellbounds;
   IndexShape c_cellbounds = pmb->c_cellbounds;
 
-  Restrict(info, cellbounds, c_cellbounds);
+  Restrict(info, info_h, cellbounds, c_cellbounds);
 
   Kokkos::Profiling::popRegion(); // Task_RestrictPhysicalBounds_MeshData
   return TaskStatus::complete;
@@ -116,28 +119,21 @@ void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
   PARTHENON_DEBUG_REQUIRE(idx == alloc_status.size(), "All buffers accounted for");
   Kokkos::deep_copy(info, info_h);
 
-  md->SetRestrictBuffers(info, alloc_status);
+  md->SetRestrictBuffers(info, info_h, alloc_status);
 
   Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBounds_MeshData
 }
 
-// TODO(JMM): In a future version of the code, we could template on
-// the inner loop function, ProlongateCellMinMod to support other
-// prolongation operations.
 void Prolongate(const cell_centered_bvars::BufferCache_t &info,
+                const cell_centered_bvars::BufferCacheHost_t &info_h,
                 const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-  using namespace impl;
-  using namespace refinement_ops;
-  const IndexDomain entire = IndexDomain::entire;
   const auto op = RefinementOp_t::Prolongation;
-
-  if (cellbnds.ncellsk(entire) > 1) { // 3D
-    ProlongationRestrictionLoop<3, ProlongateCellMinMod>(info, cellbnds, c_cellbnds, op);
-  } else if (cellbnds.ncellsj(entire) > 1) { // 2D
-    ProlongationRestrictionLoop<2, ProlongateCellMinMod>(info, cellbnds, c_cellbnds, op);
-  } else { // 1D
-    ProlongationRestrictionLoop<1, ProlongateCellMinMod>(info, cellbnds, c_cellbnds, op);
-  }
+  impl::DoProlongationRestrictionOp<refinement_ops::ProlongateCellMinMod>(cellbnds, info, info_h, cellbnds, c_cellbnds, op);
+}
+void Prolongate(const cell_centered_bvars::BufferCacheHost_t &info_h,
+                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+  const auto op = RefinementOp_t::Prolongation;
+  impl::DoProlongationRestrictionOp<refinement_ops::ProlongateCellMinMod>(cellbnds, info_h, cellbnds, c_cellbnds, op);
 }
 
 } // namespace cell_centered_refinement

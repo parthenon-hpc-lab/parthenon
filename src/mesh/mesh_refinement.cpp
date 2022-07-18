@@ -75,8 +75,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
 
   int b = 0;
   int nbuffers = 1;
-  cell_centered_bvars::BufferCache_t info("refinement info", nbuffers);
-  auto info_h = Kokkos::create_mirror_view(info);
+  cell_centered_bvars::BufferCacheHost_t info_h("refinement info", nbuffers);
   // buff and var unused.
   info_h(b).si = csi;
   info_h(b).ei = cei;
@@ -92,9 +91,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
   info_h(b).coarse_coords = this->coarse_coords;
   info_h(b).fine = fine.Get();
   info_h(b).coarse = coarse.Get();
-  Kokkos::deep_copy(info, info_h);
-
-  cell_centered_refinement::Restrict(info, pmb->cellbounds, pmb->c_cellbounds);
+  cell_centered_refinement::Restrict(info_h, pmb->cellbounds, pmb->c_cellbounds);
 }
 
 //----------------------------------------------------------------------------------------
@@ -299,8 +296,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int b = 0;
   int nbuffers = 1;
-  cell_centered_bvars::BufferCache_t info("refinement info", nbuffers);
-  auto info_h = Kokkos::create_mirror_view(info);
+  cell_centered_bvars::BufferCacheHost_t info_h("refinement info", nbuffers);
   // buff and var unused
   info_h(b).si = si;
   info_h(b).ei = ei;
@@ -316,8 +312,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
   info_h(b).coarse_coords = this->coarse_coords;
   info_h(b).fine = fine.Get();
   info_h(b).coarse = coarse.Get();
-  Kokkos::deep_copy(info, info_h);
-  cell_centered_refinement::Prolongate(info, pmb->cellbounds, pmb->c_cellbounds);
+  cell_centered_refinement::Prolongate(info_h, pmb->cellbounds, pmb->c_cellbounds);
 }
 
 //----------------------------------------------------------------------------------------
