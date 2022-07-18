@@ -219,6 +219,7 @@ class FaceVariable {
   // implemented
   inline bool IsSparse() const { return false; }
   inline int GetSparseID() const { return InvalidSparseID; }
+  inline constexpr bool IsAllocated() const { return true; }
 
   FaceArray<T> data;
 
@@ -242,7 +243,7 @@ class EdgeVariable {
       : data(label, ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
         dims_(ncells), m_(metadata), label_(label) {
     assert(!metadata.IsSet(Metadata::Sparse) &&
-           "Sparse not implemented yet for FaceVariable");
+           "Sparse not implemented yet for EdgeVariable");
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
@@ -258,8 +259,78 @@ class EdgeVariable {
   /// return information string
   std::string info();
 
+  // TODO(JMM): should this be 0,1,2?
+  // Should we return the reference? Or something else?
+  KOKKOS_FORCEINLINE_FUNCTION
+  ParArrayND<T> &Get(int i) {
+    assert(1 <= i && i <= 3);
+    if (i == 1) return (data.x1e);
+    if (i == 2)
+      return (data.x2e);
+    else // i == 3
+      return (data.x3e);
+  }
+  template <typename... Args>
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(int dir, Args... args) const {
+    assert(1 <= dir && dir <= 3);
+    if (dir == 1) return data.x1e(std::forward<Args>(args)...);
+    if (dir == 2)
+      return data.x2e(std::forward<Args>(args)...);
+    else // dir == 3
+      return data.x3e(std::forward<Args>(args)...);
+  }
+
+  // to mimick interface of CellVariable, currently sparse FaceVariables are not
+  // implemented
+  inline bool IsSparse() const { return false; }
+  inline int GetSparseID() const { return InvalidSparseID; }
+  inline constexpr bool IsAllocated() const { return true; }
+
   EdgeArray<Real> data;
 
+ private:
+  std::array<int, 6> dims_;
+  Metadata m_;
+  std::string label_;
+};
+
+///
+/// NodeVariable extends the NodeField struct to include the metadata
+/// and label so that we can refer to variables by name. We only allow scalar
+/// edge fields for now
+//FIXME(forrestglines): Is this last statement true?
+template <typename T>
+class NodeVariable {
+ public:
+  /// Initialize an edge variable
+  NodeVariable(const std::string &label, const std::array<int, 6> ncells,
+               const Metadata &metadata)
+      : data(label, ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
+        dims_(ncells), m_(metadata), label_(label) {
+    assert(!metadata.IsSet(Metadata::Sparse) &&
+           "Sparse not implemented yet for NodeVariable");
+  }
+
+  /// Create an alias for the variable by making a shallow slice with max dim
+  NodeVariable(const std::string &label, NodeVariable<T> &src)
+      : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
+  ///< retrieve metadata for variable
+  inline const Metadata metadata() const { return m_; }
+
+  inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+  ///< retrieve label for variable
+  inline std::string label() { return label_; }
+
+  /// return information string
+  std::string info();
+
+  // to mimick interface of CellVariable, currently sparse FaceVariables are not
+  // implemented
+  inline bool IsSparse() const { return false; }
+  inline int GetSparseID() const { return InvalidSparseID; }
+  inline constexpr bool IsAllocated() const { return true; }
+
+  ParArrayND<T> data;
  private:
   std::array<int, 6> dims_;
   Metadata m_;
@@ -310,6 +381,9 @@ class ParticleVariable {
  public:
   ParArrayND<T> data;
 };
+
+template <typename T,typename VarType>
+using VarsVector = std::vector<std::shared_ptr<VarType<T>>>;
 
 template <typename T>
 using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;

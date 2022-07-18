@@ -244,6 +244,29 @@ class SparsePack : public SparsePackBase {
     return pack_(0, b, vidx)(k, j, i);
   }
 
+  KOKKOS_INLINE_FUNCTION
+  Real &operator()(const int dir, const int b, const int idx, const int k, const int j,
+                   const int i) const {
+    return pack_(dir, b, idx)(k, j, i);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real &operator()(const int dir, const int b, PackIdx idx, const int k, const int j,
+                   const int i) const {
+    static_assert(sizeof...(Ts) == 0);
+    const int n = bounds_(0, b, idx.Vidx()) + idx.Off();
+    return pack_(dir, b, n)(k, j, i);
+  }
+
+  template <class TIn,
+            class = typename std::enable_if<IncludesType<TIn, Ts...>::value>::type>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int dir, const int b, const TIn &t, const int k,
+                                          const int j, const int i) const {
+    const int vidx = GetLowerBound(b, t) + t.idx;
+    return pack_(dir, b, vidx)(k, j, i);
+  }
+
+
   // flux() overloads
   KOKKOS_INLINE_FUNCTION
   auto &flux(const int b, const int dir, const int idx) const {
@@ -263,6 +286,29 @@ class SparsePack : public SparsePackBase {
              const int i) const {
     static_assert(sizeof...(Ts) == 0);
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
+    const int n = bounds_(0, b, idx.Vidx()) + idx.Off();
+    return pack_(dir, b, n)(k, j, i);
+  }
+
+  // edge() overloads
+  KOKKOS_INLINE_FUNCTION
+  auto &edge(const int b, const int dir, const int idx) const {
+    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to edge call");
+    return pack_(dir, b, idx);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real &edge(const int b, const int dir, const int idx, const int k, const int j,
+             const int i) const {
+    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to edge call");
+    return pack_(dir, b, idx)(k, j, i);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real &edge(const int b, const int dir, PackIdx idx, const int k, const int j,
+             const int i) const {
+    static_assert(sizeof...(Ts) == 0);
+    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to edge call");
     const int n = bounds_(0, b, idx.Vidx()) + idx.Off();
     return pack_(dir, b, n)(k, j, i);
   }

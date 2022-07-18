@@ -67,6 +67,26 @@ struct PackDescriptor {
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
   }
+
+  // Determine whether the variable at index vidx with given label and metadata is
+  // included in this PackDescriptor
+  tempate<typename VarType>
+  const bool IncludeVariable(const int vidx, const VarType var) const {
+    if (flags.size() > 0) {
+      for (const auto &flag : flags) {
+        if (!var.IsSet(flag)) {
+          return false;
+        }
+      }
+    }
+
+    if (use_regex[vidx]) {
+      if (std::regex_match(var.label(), std::regex(vars[vidx]))) return true;
+    } else {
+      if (vars[vidx] == var.label)() return true;
+    }
+    return false;
+  }
 };
 } // namespace impl
 
@@ -120,6 +140,7 @@ class SparsePackBase {
   bounds_t bounds_;
   coords_t coords_;
 
+  bool with_directed_data_;
   bool with_fluxes_;
   bool coarse_;
   int nblocks_;
