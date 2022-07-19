@@ -100,6 +100,8 @@ add_library(parthenon
   bvals/cc/calc_indices.cpp
   bvals/cc/sparse_bvals_cc_in_one.cpp
   bvals/cc/sparse_flux_correction_cc_in_one.cpp 
+  bvals/cc/tag_map.cpp 
+  bvals/cc/tag_map.hpp 
   
   bvals/fc/bvals_fc.cpp
   bvals/fc/bvals_fc.hpp
