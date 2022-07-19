@@ -190,14 +190,6 @@ class SparsePack : public SparsePackBase {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNDim() const { return ndim_; }
 
-  KOKKOS_FORCEINLINE_FUNCTION
-  int GetDim(const int i) const {
-    assert(i > 0 && i < 6);
-    PARTHENON_REQUIRE(
-        i != 2, "Should not ask for the second dimension since it is logically ragged");
-    return dims_[i];
-  }
-
   KOKKOS_INLINE_FUNCTION
   const Coordinates_t &GetCoordinates(const int b) const { return coords_(b)(); }
 
