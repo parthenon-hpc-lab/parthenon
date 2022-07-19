@@ -32,7 +32,7 @@
 namespace {
 // SFINAE for block iteration so that sparse packs can work for MeshBlockData and MeshData
 template <class T, class F>
-inline auto IterateBlocks(T *pmd, F func) -> decltype(T().GetBlockData(0), void()) {
+inline auto ForEachBlock(T *pmd, F func) -> decltype(T().GetBlockData(0), void()) {
   for (int b = 0; b < pmd->NumBlocks(); ++b) {
     auto &pmbd = pmd->GetBlockData(b);
     func(b, pmbd.get());
@@ -40,7 +40,7 @@ inline auto IterateBlocks(T *pmd, F func) -> decltype(T().GetBlockData(0), void(
 }
 
 template <class T, class F>
-inline auto IterateBlocks(T *pmbd, F func) -> decltype(T().GetBlockPointer(), void()) {
+inline auto ForEachBlock(T *pmbd, F func) -> decltype(T().GetBlockPointer(), void()) {
   func(0, pmbd);
 }
 } // namespace
@@ -58,7 +58,7 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
   auto include_variable = GetTestFunction(desc);
 
   std::vector<bool> astat;
-  IterateBlocks(pmd, [&](int b, mbd_t *pmbd) {
+  ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     for (int i = 0; i < nvar; ++i) {
       for (auto &pv : pmbd->GetCellVariableVector()) {
         if (include_variable(i, pv)) {
@@ -92,7 +92,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   int max_size = 0;
   int nblocks = 0;
   int ndim = 3;
-  IterateBlocks(pmd, [&](int b, mbd_t *pmbd) {
+  ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     int size = 0;
     nblocks++;
     for (auto &pv : pmbd->GetCellVariableVector()) {
@@ -123,7 +123,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   auto coords_h = Kokkos::create_mirror_view(pack.coords_);
 
   // Fill the views
-  IterateBlocks(pmd, [&](int b, mbd_t *pmbd) {
+  ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     int idx = 0;
     coords_h(b) = pmbd->GetBlockPointer()->coords_device;
 
