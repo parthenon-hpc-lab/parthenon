@@ -131,6 +131,7 @@ class SparsePackBase {
   template <class T>
   static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
 
+  //Build a usable `SparsePackBase` from the variables specified in desc contained in the blocks  in a MeshBlockData/MeshBlock with a variable pack allocated on the device.
   template <class T>
   static SparsePackBase Build(T *pmd, const PackDescriptor &desc);
 
