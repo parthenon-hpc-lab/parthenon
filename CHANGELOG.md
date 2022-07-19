@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 692]](https://github.com/lanl/parthenon/pull/692) Add SparsePack machinery
 - [[PR 690]](https://github.com/lanl/parthenon/pull/690) Use power9 partition for Darwin CI
 - [[PR 689]](https://github.com/lanl/parthenon/pull/689) Add `Mesh::ProblemGenerator` (allows reductions during init)
 - [[PR 667]](https://github.com/lanl/parthenon/pull/667) Add parallel scan
