@@ -47,6 +47,8 @@ inline auto IterateBlocks(T *pmbd, F func) -> decltype(T().GetBlockPointer(), vo
 
 namespace parthenon {
 
+using namespace impl;
+
 template <class T>
 SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
                                                        const PackDescriptor &desc) {

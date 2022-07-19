@@ -31,6 +31,48 @@
 #include "utils/utils.hpp"
 
 namespace parthenon {
+class SparsePackCache;
+
+// Map for going from variable names to sparse pack variable indices
+using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
+
+// Sparse pack index type which allows for relatively simple indexing 
+// into non-variable name type based SparsePacks
+class PackIdx {
+ public:
+  KOKKOS_INLINE_FUNCTION
+  explicit PackIdx(std::size_t var_idx) : vidx(var_idx), offset(0) {}
+  KOKKOS_INLINE_FUNCTION
+  PackIdx(std::size_t var_idx, int off) : vidx(var_idx), offset(off) {}
+
+  KOKKOS_INLINE_FUNCTION
+  PackIdx &operator=(std::size_t var_idx) {
+    vidx = var_idx;
+    offset = 0;
+    return *this;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  std::size_t VariableIdx() { return vidx; }
+  KOKKOS_INLINE_FUNCTION
+  int Offset() { return offset; }
+
+ private:
+  std::size_t vidx;
+  int offset;
+};
+
+// Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work 
+template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
+KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T offset) {
+  return PackIdx(idx.VariableIdx(), idx.Offset() + offset);
+}
+
+template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
+KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
+  return idx + offset;
+}
+
 namespace impl {
 struct PackDescriptor {
   PackDescriptor(const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
@@ -70,69 +112,32 @@ struct PackDescriptor {
 };
 } // namespace impl
 
-class PackIdx {
- public:
-  KOKKOS_INLINE_FUNCTION
-  explicit PackIdx(std::size_t var_idx) : vidx(var_idx), offset(0) {}
-  KOKKOS_INLINE_FUNCTION
-  PackIdx(std::size_t var_idx, int off) : vidx(var_idx), offset(off) {}
-
-  KOKKOS_INLINE_FUNCTION
-  PackIdx &operator=(std::size_t var_idx) {
-    vidx = var_idx;
-    offset = 0;
-    return *this;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  std::size_t VariableIdx() { return vidx; }
-  KOKKOS_INLINE_FUNCTION
-  int Offset() { return offset; }
-
- private:
-  std::size_t vidx;
-  int offset;
-};
-
-template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
-KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T offset) {
-  return PackIdx(idx.VariableIdx(), idx.Offset() + offset);
-}
-
-template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
-KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
-  return idx + offset;
-}
-
-using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
-
-using namespace impl;
-
 class SparsePackBase {
  public:
   SparsePackBase() = default;
   virtual ~SparsePackBase() = default;
 
+
  protected:
   friend class SparsePackCache;
 
+  using alloc_t = std::vector<bool>;
   using test_func_t =
       std::function<bool(int, const std::shared_ptr<CellVariable<Real>> &)>;
   using pack_t = ParArray3D<ParArray3D<Real>>;
   using bounds_t = ParArray3D<int>;
-  using alloc_t = std::vector<bool>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 
   // Returns a SparsePackBase object that is either newly created or taken 
   // from the cache in pmd. The cache itself handles the all of this logic
   template <class T>
-  static SparsePackBase GetPack(T *pmd, const PackDescriptor &desc) {
+  static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc) {
     auto &cache = pmd->GetSparsePackCache();
     return cache.Get(pmd, desc);
   }
 
   // Return a map from variable names to pack variable indices
-  static SparsePackIdxMap GetIdxMap(const PackDescriptor &desc) {
+  static SparsePackIdxMap GetIdxMap(const impl::PackDescriptor &desc) {
     SparsePackIdxMap map;
     std::size_t idx = 0;
     for (const auto &var : desc.vars) {
@@ -145,15 +150,15 @@ class SparsePackBase {
   // Get a list of booleans of the allocation status of every variable in pmd matching the
   // PackDescriptor desc
   template <class T>
-  static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
+  static alloc_t GetAllocStatus(T *pmd, const impl::PackDescriptor &desc);
 
   // Actually build a `SparsePackBase` (i.e. create a view of views, fill on host, and
   // deep copy the view of views to device) from the variables specified in desc contained
   // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
   template <class T>
-  static SparsePackBase Build(T *pmd, const PackDescriptor &desc);
+  static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc);
 
-  static test_func_t GetTestFunction(const PackDescriptor &desc);
+  static test_func_t GetTestFunction(const impl::PackDescriptor &desc);
 
   pack_t pack_;
   bounds_t bounds_;
@@ -171,20 +176,22 @@ class SparsePackBase {
 // handles checking for a pre-existing pack and creating a new SparsePackBase if
 // a cached pack is unavailable. Essentially, this operates as a map from
 // `PackDescriptor` to `SparsePackBase`
-class SparsePackCache {
+class SparsePackCache { 
  public:
-  template <class T>
-  SparsePackBase &Get(T *pmd, const PackDescriptor &desc);
-
   std::size_t size() const { return pack_map.size(); }
 
   void clear() { pack_map.clear(); }
 
  protected:
-  std::string GetIdentifier(const PackDescriptor &desc) const;
+  template <class T>
+  SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
+  
+  std::string GetIdentifier(const impl::PackDescriptor &desc) const;
 
   std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
       pack_map;
+  
+  friend class SparsePackBase;
 };
 
 } // namespace parthenon

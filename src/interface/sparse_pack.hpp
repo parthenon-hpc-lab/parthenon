@@ -29,53 +29,9 @@
 #include "interface/sparse_pack_base.hpp"
 #include "interface/variable.hpp"
 #include "utils/utils.hpp"
+#include "utils/variadic_template_utils.hpp"
 
 namespace parthenon {
-
-namespace impl {
-template <int... IN>
-struct multiply;
-
-template <>
-struct multiply<> : std::integral_constant<std::size_t, 1> {};
-
-template <int I0, int... IN>
-struct multiply<I0, IN...> : std::integral_constant<int, I0 * multiply<IN...>::value> {};
-
-// GetTypeIdx is taken from Stack Overflow 26169198, should cause compile time failure if
-// type is not in list
-template <typename T, typename... Ts>
-struct GetTypeIdx;
-
-template <typename T, typename... Ts>
-struct GetTypeIdx<T, T, Ts...> : std::integral_constant<std::size_t, 0> {
-  using type = void;
-};
-
-template <typename T, typename U, typename... Ts>
-struct GetTypeIdx<T, U, Ts...>
-    : std::integral_constant<std::size_t, 1 + GetTypeIdx<T, Ts...>::value> {
-  using type = void;
-};
-
-template <class T, class... Ts>
-struct IncludesType;
-
-template <typename T>
-struct IncludesType<T, T> : std::true_type {};
-
-template <typename T, typename... Ts>
-struct IncludesType<T, T, Ts...> : std::true_type {};
-
-template <typename T, typename U>
-struct IncludesType<T, U> : std::false_type {};
-
-template <typename T, typename U, typename... Ts>
-struct IncludesType<T, U, Ts...> : IncludesType<T, Ts...> {};
-
-} // namespace impl
-
-using namespace impl;
 
 namespace variables {
 // Struct that all variables types should inherit from
@@ -127,9 +83,9 @@ class SparsePack : public SparsePackBase {
   template <class T>
   static SparsePack Make(T *pmd, const std::vector<MetadataFlag> &flags = {},
                          bool fluxes = false, bool coarse = false) {
-    const PackDescriptor desc(std::vector<std::string>{Ts::name()...},
-                              std::vector<bool>{Ts::regex()...}, 
-                              flags, fluxes, coarse); 
+    const impl::PackDescriptor desc(std::vector<std::string>{Ts::name()...},
+                                    std::vector<bool>{Ts::regex()...}, 
+                                    flags, fluxes, coarse); 
     return SparsePack(SparsePackBase::GetPack(pmd, desc)); 
   }
 
@@ -146,7 +102,7 @@ class SparsePack : public SparsePackBase {
   Make(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
        bool fluxes = false, bool coarse = false) {
     static_assert(sizeof...(Ts) == 0);
-    PackDescriptor desc(vars, flags, fluxes, coarse);
+    impl::PackDescriptor desc(vars, flags, fluxes, coarse);
     return {SparsePack(SparsePackBase::GetPack(pmd, desc)), 
             SparsePackBase::GetIdxMap(desc)};
   }
