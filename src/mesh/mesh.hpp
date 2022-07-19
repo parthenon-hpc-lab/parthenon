@@ -33,6 +33,7 @@
 
 #include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
+#include "bvals/cc/tag_map.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
@@ -180,7 +181,8 @@ class Mesh {
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
   std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>
       boundary_comm_map, boundary_comm_reflux_map;
-
+  TagMap tag_map; 
+  
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
 #endif

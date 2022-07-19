@@ -105,23 +105,6 @@ ReceiveKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
   return {sender_id, receiver_id, pcv->label(), location_idx};
 }
 
-inline int SendMPITag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-                      const std::shared_ptr<CellVariable<Real>> &pcv) {
-  const int sender_id = pmb->lid;
-  const int receiver_id = nb.snb.lid;
-  const int location_idx = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
-  const int tag = (64 * receiver_id + sender_id) * 27 + location_idx;
-  return tag;
-}
-
-inline int ReceiveMPITag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-                         const std::shared_ptr<CellVariable<Real>> &pcv) {
-  const int sender_id = nb.snb.lid;
-  const int receiver_id = pmb->lid;
-  const int location_idx = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
-  const int tag = (64 * receiver_id + sender_id) * 27 + location_idx;
-  return tag;
-}
 } // namespace impl
 } // namespace cell_centered_bvars
 } // namespace parthenon

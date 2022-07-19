@@ -38,74 +38,13 @@ namespace cell_centered_bvars {
 
 using namespace impl;
 
-struct BlockGeometricElementId {
-  int gid;
-  int orientation;  
-};
-bool operator<(BlockGeometricElementId a, BlockGeometricElementId b) {
-  if (a.gid == b.gid) return a.orientation < b.orientation;  
-  return a.gid < b.gid; 
-}
-bool operator>(BlockGeometricElementId a, BlockGeometricElementId b) {
-  if (a.gid == b.gid) return a.orientation > b.orientation;  
-  return a.gid > b.gid; 
-}
-bool operator==(BlockGeometricElementId a, BlockGeometricElementId b) {
-  if (a.gid==b.gid && a.orientation == b.orientation) return true;
-  return false;
-}
-
-template<class T>
-struct UnorderedPair { 
-  UnorderedPair(T in1, T in2) 
-      : first(in1 < in2 ? in1 : in2), 
-        second(in1 > in2 ? in1 : in2) {} 
-  T first, second;
-};
-template<class T> 
-bool operator<(UnorderedPair<T> a, UnorderedPair<T> b) {
-  if (a.first == b.first) return a.second < b.second; 
-  return a.first < b.first; 
-}
-template<class T> 
-bool operator>(UnorderedPair<T> a, UnorderedPair<T> b) {
-  if (a.first == b.first) return a.second > b.second; 
-  return a.first > b.first; 
-}
-
-using rank_pair_map_t = std::map<UnorderedPair<BlockGeometricElementId>, int>; 
-using tag_map_t = std::map<UnorderedPair<int>, rank_pair_map_t>; 
-
-void BuildTagMap(std::shared_ptr<MeshData<Real>> &md, tag_map_t* map) { 
-  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    const int receiver_rank = nb.snb.rank;
-    const int sender_rank = Globals::my_rank;
-    UnorderedPair<int> rank_pair(receiver_rank, sender_rank); 
-    if (map->count(rank_pair) < 1) (*map)[rank_pair] = rank_pair_map_t(); 
-    auto& pair_map = (*map)[rank_pair]; 
-    
-    const int location_idx_me = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
-    const int location_idx_nb = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
-    BlockGeometricElementId bgei_me{pmb->gid, location_idx_me}; 
-    BlockGeometricElementId bgei_nb{nb.snb.gid, location_idx_nb}; 
-    pair_map[UnorderedPair<BlockGeometricElementId>(bgei_me, bgei_nb)] = 0; 
-  }); 
-}
-
-void FillTagMap(tag_map_t* map) {
-  for (auto it = map->begin(); it != map->end(); ++it) { 
-    auto& pair_map = it->second; 
-    int idx = 0; 
-    std::for_each(pair_map.begin(), pair_map.end(), [&idx](auto& pair){ pair.second = idx++;});
-  }
-}
-
 // pmesh->boundary_comm_map.clear() after every remesh
 // in InitializeBlockTimeStepsAndBoundaries()
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
   Mesh *pmesh = md->GetMeshPointer();
   auto &all_caches = md->GetBvarsCache();
+  auto& tag_map = pmesh->tag_map; 
 
   // Clear the fast access vectors for this block since they are no longer valid
   // after all MeshData call BuildSparseBoundaryBuffers
@@ -134,16 +73,15 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     const int receiver_rank = nb.snb.rank;
     const int sender_rank = Globals::my_rank;
 
-    int tag = 0;
-    if (receiver_rank != sender_rank) {
-      tag = SendMPITag(pmb, nb, v);
-      printf("tag : %i \n", tag);
-    }
+    int tag = 0; 
 #ifdef MPI_PARALLEL
-    comm_t comm = pmesh->GetMPIComm(v->label() + "_sparse_comm");
+    // Get a bi-directional mpi tag for this pair of blocks
+    tag = tag_map.GetTag(pmb, nb);
+    
+    comm_t comm = pmesh->GetMPIComm(v->label());
     comm_t comm_reflux = comm;
     if (nb.snb.level != pmb->loc.level)
-      comm_reflux = pmesh->GetMPIComm(v->label() + "_flcor_sparse_comm");
+      comm_reflux = pmesh->GetMPIComm(v->label() + "_flcor");
 #else
     // Setting to zero is fine here since this doesn't actually get used when everything
     // is on the same rank
@@ -151,35 +89,36 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     comm_t comm_reflux = 0;
 #endif
     // Build send buffers
-    auto s_tag = SendKey(pmb, nb, v);
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(s_tag) == 0,
+    auto s_key = SendKey(pmb, nb, v);
+    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(s_key) == 0,
                             "Two communication buffers have the same key.");
 
     auto get_resource_method = [pmesh, buf_size]() {
       return pmesh->pool_map.at(buf_size).Get();
     };
+    
     bool use_sparse_buffers = v->IsSet(Metadata::SparseCommunication);
-    pmesh->boundary_comm_map[s_tag] = CommBuffer<buf_pool_t<Real>::owner_t>(
+    pmesh->boundary_comm_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
         tag, sender_rank, receiver_rank, comm, get_resource_method, use_sparse_buffers);
 
     // Separate reflux buffer if needed
     if ((nb.snb.level == pmb->loc.level - 1) &&
         (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
-      pmesh->boundary_comm_reflux_map[s_tag] = CommBuffer<buf_pool_t<Real>::owner_t>(
+      pmesh->boundary_comm_reflux_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
           tag, sender_rank, receiver_rank, comm_reflux, get_resource_method,
           use_sparse_buffers);
 
     // Also build the non-local receive buffers here
     if (sender_rank != receiver_rank) {
-      int tag_r = ReceiveMPITag(pmb, nb, v);
-      pmesh->boundary_comm_map[ReceiveKey(pmb, nb, v)] =
-          CommBuffer<buf_pool_t<Real>::owner_t>(tag_r, receiver_rank, sender_rank, comm,
+      auto r_key = ReceiveKey(pmb, nb, v);
+      pmesh->boundary_comm_map[r_key] =
+          CommBuffer<buf_pool_t<Real>::owner_t>(tag, receiver_rank, sender_rank, comm,
                                                 get_resource_method, use_sparse_buffers);
       // Separate reflux buffer if needed
       if ((nb.snb.level - 1 == pmb->loc.level) &&
           (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
-        pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)] =
-            CommBuffer<buf_pool_t<Real>::owner_t>(tag_r, receiver_rank, sender_rank,
+        pmesh->boundary_comm_reflux_map[r_key] =
+            CommBuffer<buf_pool_t<Real>::owner_t>(tag, receiver_rank, sender_rank,
                                                   comm_reflux, get_resource_method,
                                                   use_sparse_buffers);
     }
