@@ -178,7 +178,7 @@ class SparsePackBase {
     return Make(pmd, vars, flags, fluxes, coarse);
   }
 };
-
+//Map of `PackDescriptor` to `SparsePackBase`
 class SparsePackCache {
  public:
   template <class T>
