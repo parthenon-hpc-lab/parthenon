@@ -127,11 +127,13 @@ class SparsePackBase {
   int dims_[6];
   int nvar_;
 
-//Get a list of booleans of the allocation status of every variable in pmd matching the PackDescriptor desc
+  // Get a list of booleans of the allocation status of every variable in pmd matching the
+  // PackDescriptor desc
   template <class T>
   static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
 
-  //Build a usable `SparsePackBase` from the variables specified in desc contained in the blocks  in a MeshBlockData/MeshBlock with a variable pack allocated on the device.
+  // Build a usable `SparsePackBase` from the variables specified in desc contained in the
+  // blocks  in a MeshBlockData/MeshBlock with a variable pack allocated on the device.
   template <class T>
   static SparsePackBase Build(T *pmd, const PackDescriptor &desc);
 
@@ -179,7 +181,7 @@ class SparsePackBase {
     return Make(pmd, vars, flags, fluxes, coarse);
   }
 };
-//Map of `PackDescriptor` to `SparsePackBase`
+// Map of `PackDescriptor` to `SparsePackBase`
 class SparsePackCache {
  public:
   template <class T>
