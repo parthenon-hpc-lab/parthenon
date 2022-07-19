@@ -33,9 +33,9 @@
 
 namespace parthenon {
 
-// Sparse pack index type which allows for relatively simple indexing 
-// into non-variable name type based SparsePacks (i.e. objects of 
-// type SparsePack<> which are created with a vector of variable 
+// Sparse pack index type which allows for relatively simple indexing
+// into non-variable name type based SparsePacks (i.e. objects of
+// type SparsePack<> which are created with a vector of variable
 // names and/or regexes)
 class PackIdx {
  public:
@@ -61,7 +61,7 @@ class PackIdx {
   int offset;
 };
 
-// Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work 
+// Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work
 template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
 KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T offset) {
   return PackIdx(idx.VariableIdx(), idx.Offset() + offset);
@@ -72,9 +72,9 @@ KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
   return idx + offset;
 }
 
-// Namespace in which to put variable name types that are used for 
-// indexing into SparsePack<[type list of variable name types]> on 
-// device 
+// Namespace in which to put variable name types that are used for
+// indexing into SparsePack<[type list of variable name types]> on
+// device
 namespace variable_names {
 // Struct that all variable_name types should inherit from
 template <bool REGEX, int... NCOMP>
@@ -103,12 +103,11 @@ struct base_t {
   const int idx;
 };
 
-// An example variable name type that selects all variables available 
-// on Mesh*Data 
+// An example variable name type that selects all variables available
+// on Mesh*Data
 struct any : public base_t<true> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION any(Ts &&...args)
-      : base_t<true>(std::forward<Ts>(args)...) {}
+  KOKKOS_INLINE_FUNCTION any(Ts &&...args) : base_t<true>(std::forward<Ts>(args)...) {}
   static std::string name() { return ".*"; }
 };
 } // namespace variable_names
@@ -125,12 +124,12 @@ class SparsePack : public SparsePackBase {
   // accessed on device via instance of types in the type list Ts...
   // The pack will be created and accessible on the device
   template <class T>
-  static SparsePack Make(T *pmd, const std::vector<MetadataFlag> &flags = {},
-                         bool fluxes = false, bool coarse = false) {
+  static SparsePack Get(T *pmd, const std::vector<MetadataFlag> &flags = {},
+                        bool fluxes = false, bool coarse = false) {
     const impl::PackDescriptor desc(std::vector<std::string>{Ts::name()...},
-                                    std::vector<bool>{Ts::regex()...}, 
-                                    flags, fluxes, coarse); 
-    return SparsePack(SparsePackBase::GetPack(pmd, desc)); 
+                                    std::vector<bool>{Ts::regex()...}, flags, fluxes,
+                                    coarse);
+    return SparsePack(SparsePackBase::GetPack(pmd, desc));
   }
 
   // Make a `SparsePack` with a corresponding `SparsePackIdxMap` from the provided `vars`
@@ -143,46 +142,48 @@ class SparsePack : public SparsePackBase {
   //   regex) pairs
   template <class T, class VAR_VEC>
   static std::tuple<SparsePack, SparsePackIdxMap>
-  Make(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
-       bool fluxes = false, bool coarse = false) {
+  Get(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
+      bool fluxes = false, bool coarse = false) {
     static_assert(sizeof...(Ts) == 0);
     impl::PackDescriptor desc(vars, flags, fluxes, coarse);
-    return {SparsePack(SparsePackBase::GetPack(pmd, desc)), 
+    return {SparsePack(SparsePackBase::GetPack(pmd, desc)),
             SparsePackBase::GetIdxMap(desc)};
   }
 
+  // Some Get helper for functions for more readable code
   template <class T>
-  static SparsePack MakeWithFluxes(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
+  static SparsePack GetWithFluxes(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
     const bool coarse = false;
     const bool fluxes = true;
-    return Make(pmd, flags, fluxes, coarse);
+    return Get(pmd, flags, fluxes, coarse);
   }
 
   template <class T, class VAR_VEC>
   static std::tuple<SparsePack, SparsePackIdxMap>
-  MakeWithFluxes(T *pmd, const VAR_VEC &vars,
-                 const std::vector<MetadataFlag> &flags = {}) {
+  GetWithFluxes(T *pmd, const VAR_VEC &vars,
+                const std::vector<MetadataFlag> &flags = {}) {
     const bool coarse = false;
     const bool fluxes = true;
-    Make(pmd, vars, flags, fluxes, coarse);
+    Get(pmd, vars, flags, fluxes, coarse);
   }
 
   template <class T>
-  static SparsePack MakeWithCoarse(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
+  static SparsePack GetWithCoarse(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
     const bool coarse = true;
     const bool fluxes = false;
-    return Make(pmd, flags, fluxes, coarse);
+    return Get(pmd, flags, fluxes, coarse);
   }
 
   template <class T, class VAR_VEC>
   static std::tuple<SparsePack, SparsePackIdxMap>
-  MakeWithCoarse(T *pmd, const VAR_VEC &vars,
-                 const std::vector<MetadataFlag> &flags = {}) {
+  GetWithCoarse(T *pmd, const VAR_VEC &vars,
+                const std::vector<MetadataFlag> &flags = {}) {
     const bool coarse = true;
     const bool fluxes = false;
-    Make(pmd, vars, flags, fluxes, coarse);
+    Get(pmd, vars, flags, fluxes, coarse);
   }
 
+  // Methods for getting parts of the shape of the pack
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNBlocks() const { return nblocks_; }
 

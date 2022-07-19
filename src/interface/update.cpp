@@ -65,8 +65,9 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
   const IndexRange jb = in_obj->GetBoundsJ(interior);
   const IndexRange kb = in_obj->GetBoundsK(interior);
 
-  auto vin = SparsePack<variable_names::any>::MakeWithFluxes(in_obj, {Metadata::WithFluxes});
-  auto dudt = SparsePack<variable_names::any>::Make(dudt_obj, {Metadata::WithFluxes});
+  auto vin =
+      SparsePack<variable_names::any>::GetWithFluxes(in_obj, {Metadata::WithFluxes});
+  auto dudt = SparsePack<variable_names::any>::Get(dudt_obj, {Metadata::WithFluxes});
 
   const int Ni = ib.e - ib.s + 1;
   const int Nj = jb.e - jb.s + 1;

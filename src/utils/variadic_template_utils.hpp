@@ -13,10 +13,10 @@
 #ifndef UTILS_VARIADIC_TEMPLATE_UTILS_HPP_
 #define UTILS_VARIADIC_TEMPLATE_UTILS_HPP_
 //! \file variadic_template_utils.hpp
-//  \brief Some template metafunctions for working with type lists and template parameter 
-//  lists 
+//  \brief Some template metafunctions for working with type lists and template parameter
+//  lists
 
-#include <type_traits> 
+#include <type_traits>
 
 namespace parthenon {
 

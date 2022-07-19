@@ -36,8 +36,6 @@ class SparsePackCache;
 // Map for going from variable names to sparse pack variable indices
 using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
 
-
-
 namespace impl {
 struct PackDescriptor {
   PackDescriptor(const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
@@ -82,7 +80,6 @@ class SparsePackBase {
   SparsePackBase() = default;
   virtual ~SparsePackBase() = default;
 
-
  protected:
   friend class SparsePackCache;
 
@@ -93,7 +90,7 @@ class SparsePackBase {
   using bounds_t = ParArray3D<int>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 
-  // Returns a SparsePackBase object that is either newly created or taken 
+  // Returns a SparsePackBase object that is either newly created or taken
   // from the cache in pmd. The cache itself handles the all of this logic
   template <class T>
   static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc) {
@@ -141,7 +138,7 @@ class SparsePackBase {
 // handles checking for a pre-existing pack and creating a new SparsePackBase if
 // a cached pack is unavailable. Essentially, this operates as a map from
 // `PackDescriptor` to `SparsePackBase`
-class SparsePackCache { 
+class SparsePackCache {
  public:
   std::size_t size() const { return pack_map.size(); }
 
@@ -150,12 +147,12 @@ class SparsePackCache {
  protected:
   template <class T>
   SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
-  
+
   std::string GetIdentifier(const impl::PackDescriptor &desc) const;
 
   std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
       pack_map;
-  
+
   friend class SparsePackBase;
 };
 
