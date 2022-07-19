@@ -22,7 +22,6 @@
 #include <tuple>
 #include <utility>
 
-#include "globals.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
