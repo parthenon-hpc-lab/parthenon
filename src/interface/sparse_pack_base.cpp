@@ -55,13 +55,12 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
   using mbd_t = MeshBlockData<Real>;
 
   int nvar = desc.vars.size();
-  auto include_variable = GetTestFunction(desc);
 
   std::vector<bool> astat;
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     for (int i = 0; i < nvar; ++i) {
       for (auto &pv : pmbd->GetCellVariableVector()) {
-        if (include_variable(i, pv)) {
+        if (desc.IncludeVariable(i, pv)) {
           astat.push_back(pv->IsAllocated());
         }
       }
@@ -82,7 +81,6 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   using mbd_t = MeshBlockData<Real>;
   int nvar = desc.vars.size();
 
-  auto include_variable = GetTestFunction(desc);
   SparsePackBase pack;
   pack.with_fluxes_ = desc.with_fluxes;
   pack.coarse_ = desc.coarse;
@@ -97,7 +95,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
     nblocks++;
     for (auto &pv : pmbd->GetCellVariableVector()) {
       for (int i = 0; i < nvar; ++i) {
-        if (include_variable(i, pv)) {
+        if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
             size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
             ndim = (pv->GetDim(1) > 1 ? 1 : 0) + (pv->GetDim(2) > 1 ? 1 : 0) +
@@ -131,7 +129,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
       bounds_h(0, b, i) = idx;
 
       for (auto &pv : pmbd->GetCellVariableVector()) {
-        if (include_variable(i, pv)) {
+        if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
@@ -199,34 +197,6 @@ template SparsePackBase
 SparsePackBase::Build<MeshBlockData<Real>>(MeshBlockData<Real> *, const PackDescriptor &);
 template SparsePackBase SparsePackBase::Build<MeshData<Real>>(MeshData<Real> *,
                                                               const PackDescriptor &);
-
-inline SparsePackBase::test_func_t
-SparsePackBase::GetTestFunction(const PackDescriptor &desc) {
-  std::vector<std::regex> regexes;
-  for (const auto &var : desc.vars)
-    regexes.push_back(std::regex(var));
-
-  // Lambda for testing wether or not we want to include cellvariable pv
-  // in the index range of the type variable with index vidx
-  return [=](int vidx, const std::shared_ptr<CellVariable<Real>> &pv) {
-    // TODO(LFR): Check that the shapes agree
-
-    if (desc.flags.size() > 0) {
-      for (const auto &flag : desc.flags) {
-        if (!pv->IsSet(flag)) {
-          return false;
-        }
-      }
-    }
-
-    if (desc.use_regex[vidx]) {
-      if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
-    } else {
-      if (desc.vars[vidx] == pv->label()) return true;
-    }
-    return false;
-  };
-}
 
 template <class T>
 SparsePackBase &SparsePackCache::Get(T *pmd, const PackDescriptor &desc) {

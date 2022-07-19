@@ -46,6 +46,7 @@ struct PackDescriptor {
                       "Must have a regex flag for each variable.");
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
+    for (const auto &var : vars) regexes.push_back(std::regex(var));
   }
 
   PackDescriptor(const std::vector<std::pair<std::string, bool>> &vars_in,
@@ -57,6 +58,7 @@ struct PackDescriptor {
     }
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
+    for (const auto &var : vars) regexes.push_back(std::regex(var));
   }
 
   PackDescriptor(const std::vector<std::string> &vars_in,
@@ -65,9 +67,30 @@ struct PackDescriptor {
         with_fluxes(with_fluxes), coarse(coarse) {
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
+    for (const auto &var : vars) regexes.push_back(std::regex(var));
   }
 
+  // Method for determining if variable pv should be included in pack for this PackDescriptor 
+  bool IncludeVariable(int vidx, const std::shared_ptr<CellVariable<Real>> &pv) const { 
+    // TODO(LFR): Check that the shapes agree
+    if (flags.size() > 0) {
+      for (const auto &flag : flags) {
+        if (!pv->IsSet(flag)) {
+          return false;
+        }
+      }
+    }
+
+    if (use_regex[vidx]) {
+      if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
+    } else {
+      if (vars[vidx] == pv->label()) return true;
+    }
+    return false;
+  } 
+
   std::vector<std::string> vars;
+  std::vector<std::regex> regexes;
   std::vector<bool> use_regex;
   std::vector<MetadataFlag> flags;
   bool with_fluxes;
@@ -84,8 +107,6 @@ class SparsePackBase {
   friend class SparsePackCache;
 
   using alloc_t = std::vector<bool>;
-  using test_func_t =
-      std::function<bool(int, const std::shared_ptr<CellVariable<Real>> &)>;
   using pack_t = ParArray3D<ParArray3D<Real>>;
   using bounds_t = ParArray3D<int>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
@@ -119,8 +140,6 @@ class SparsePackBase {
   // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
   template <class T>
   static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc);
-
-  static test_func_t GetTestFunction(const impl::PackDescriptor &desc);
 
   pack_t pack_;
   bounds_t bounds_;
