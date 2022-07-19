@@ -109,6 +109,10 @@ using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
 using namespace impl;
 
 class SparsePackBase {
+ public:
+  SparsePackBase() = default;
+  virtual ~SparsePackBase() = default;
+
  protected:
   friend class SparsePackCache;
 
@@ -119,56 +123,33 @@ class SparsePackBase {
   using alloc_t = std::vector<bool>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 
- public:
-  SparsePackBase() = default;
-  virtual ~SparsePackBase() = default;
-
-  // VAR_VEC can be:
-  //   1) std::vector<std::string> of variable names (in which case they are all assumed
-  //   not to be regexs)
-  //   2) std::vector<std::pair<std::string, bool>> of (variable name, treat name as
-  //   regex) pairs
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePackBase, SparsePackIdxMap>
-  Make(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
-       bool fluxes = false, bool coarse = false) {
+  // Returns a SparsePackBase object that is either newly created or taken 
+  // from the cache in pmd. The cache itself handles the all of this logic
+  template <class T>
+  static SparsePackBase GetPack(T *pmd, const PackDescriptor &desc) {
     auto &cache = pmd->GetSparsePackCache();
-    auto desc = PackDescriptor(vars, flags, fluxes, coarse);
+    return cache.Get(pmd, desc);
+  }
+
+  // Return a map from variable names to pack variable indices
+  static SparsePackIdxMap GetIdxMap(const PackDescriptor &desc) {
     SparsePackIdxMap map;
     std::size_t idx = 0;
     for (const auto &var : desc.vars) {
       map[var] = idx;
       ++idx;
     }
-    return {cache.Get(pmd, desc), map};
+    return map;
   }
 
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePackBase, SparsePackIdxMap>
-  MakeWithFluxes(T *pmd, const VAR_VEC &vars,
-                 const std::vector<MetadataFlag> &flags = {}) {
-    const bool fluxes = true;
-    const bool coarse = false;
-    return Make(pmd, vars, flags, fluxes, coarse);
-  }
-
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePackBase, SparsePackIdxMap>
-  MakeWithCoarse(T *pmd, const VAR_VEC &vars,
-                 const std::vector<MetadataFlag> &flags = {}) {
-    const bool fluxes = false;
-    const bool coarse = true;
-    return Make(pmd, vars, flags, fluxes, coarse);
-  }
-
- protected:
   // Get a list of booleans of the allocation status of every variable in pmd matching the
   // PackDescriptor desc
   template <class T>
   static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
 
-  // Build a usable `SparsePackBase` from the variables specified in desc contained in the
-  // blocks  in a MeshBlockData/MeshBlock with a variable pack allocated on the device.
+  // Actually build a `SparsePackBase` (i.e. create a view of views, fill on host, and
+  // deep copy the view of views to device) from the variables specified in desc contained
+  // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
   template <class T>
   static SparsePackBase Build(T *pmd, const PackDescriptor &desc);
 

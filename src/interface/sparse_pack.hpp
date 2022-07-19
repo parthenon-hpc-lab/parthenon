@@ -127,10 +127,10 @@ class SparsePack : public SparsePackBase {
   template <class T>
   static SparsePack Make(T *pmd, const std::vector<MetadataFlag> &flags = {},
                          bool fluxes = false, bool coarse = false) {
-    auto &cache = pmd->GetSparsePackCache();
-    return SparsePack(cache.Get(
-        pmd, PackDescriptor(std::vector<std::string>{Ts::name()...},
-                            std::vector<bool>{Ts::regex()...}, flags, fluxes, coarse)));
+    const PackDescriptor desc(std::vector<std::string>{Ts::name()...},
+                              std::vector<bool>{Ts::regex()...}, 
+                              flags, fluxes, coarse); 
+    return SparsePack(SparsePackBase::GetPack(pmd, desc)); 
   }
 
   // Make a `SparsePack` with a corresponding `SparsePackIdxMap` from the provided `vars`
@@ -146,8 +146,9 @@ class SparsePack : public SparsePackBase {
   Make(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
        bool fluxes = false, bool coarse = false) {
     static_assert(sizeof...(Ts) == 0);
-    auto out = SparsePackBase::Make(pmd, vars, flags, fluxes, coarse);
-    return {SparsePack(std::get<0>(out)), std::get<1>(out)};
+    PackDescriptor desc(vars, flags, fluxes, coarse);
+    return {SparsePack(SparsePackBase::GetPack(pmd, desc)), 
+            SparsePackBase::GetIdxMap(desc)};
   }
 
   template <class T>
