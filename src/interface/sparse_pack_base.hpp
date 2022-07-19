@@ -127,6 +127,7 @@ class SparsePackBase {
   int dims_[6];
   int nvar_;
 
+//Get a list of booleans of the allocation status of every variable in pmd matching the PackDescriptor desc
   template <class T>
   static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
 
