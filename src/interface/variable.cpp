@@ -17,7 +17,6 @@
 #include <memory>
 #include <utility>
 
-#include "bvals/cc/bvals_cc.hpp"
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"

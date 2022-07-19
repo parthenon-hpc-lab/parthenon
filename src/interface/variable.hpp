@@ -35,7 +35,6 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/cc/bvals_cc.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "parthenon_arrays.hpp"

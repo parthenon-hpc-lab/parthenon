@@ -15,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/cc/bvals_cc.hpp"
 #include "globals.hpp" // my_rank
 #include "mesh/mesh.hpp"
 #include "swarm_container.hpp"

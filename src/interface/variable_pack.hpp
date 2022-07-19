@@ -31,6 +31,7 @@
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/domain.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

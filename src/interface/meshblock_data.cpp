@@ -20,7 +20,6 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/cc/bvals_cc.hpp"
 #include "globals.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
