@@ -33,12 +33,6 @@
 namespace parthenon {
 namespace impl {
 struct PackDescriptor {
-  std::vector<std::string> vars;
-  std::vector<bool> use_regex;
-  std::vector<MetadataFlag> flags;
-  bool with_fluxes;
-  bool coarse;
-
   PackDescriptor(const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
                  const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse)
       : vars(vars), use_regex(use_regex), flags(flags), with_fluxes(with_fluxes),
@@ -67,43 +61,52 @@ struct PackDescriptor {
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
   }
+
+  std::vector<std::string> vars;
+  std::vector<bool> use_regex;
+  std::vector<MetadataFlag> flags;
+  bool with_fluxes;
+  bool coarse;
 };
 } // namespace impl
 
-using namespace impl;
-
 class PackIdx {
-  std::size_t vidx;
-  int off;
-
  public:
   KOKKOS_INLINE_FUNCTION
-  explicit PackIdx(std::size_t var_idx) : vidx(var_idx), off(0) {}
+  explicit PackIdx(std::size_t var_idx) : vidx(var_idx), offset(0) {}
+  KOKKOS_INLINE_FUNCTION
+  PackIdx(std::size_t var_idx, int off) : vidx(var_idx), offset(off) {}
+
   KOKKOS_INLINE_FUNCTION
   PackIdx &operator=(std::size_t var_idx) {
     vidx = var_idx;
-    off = 0;
+    offset = 0;
     return *this;
   }
+
   KOKKOS_INLINE_FUNCTION
-  PackIdx(std::size_t var_idx, int off) : vidx(var_idx), off(off) {}
+  std::size_t VariableIdx() { return vidx; }
   KOKKOS_INLINE_FUNCTION
-  std::size_t Vidx() { return vidx; }
-  KOKKOS_INLINE_FUNCTION
-  int Off() { return off; }
+  int Offset() { return offset; }
+
+ private:
+  std::size_t vidx;
+  int offset;
 };
 
 template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
-KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T off) {
-  return PackIdx(idx.Vidx(), idx.Off() + off);
+KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T offset) {
+  return PackIdx(idx.VariableIdx(), idx.Offset() + offset);
 }
 
 template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
-KOKKOS_INLINE_FUNCTION PackIdx operator+(T off, PackIdx idx) {
-  return idx + off;
+KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
+  return idx + offset;
 }
 
 using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
+
+using namespace impl;
 
 class SparsePackBase {
  protected:
@@ -115,29 +118,6 @@ class SparsePackBase {
   using bounds_t = ParArray3D<int>;
   using alloc_t = std::vector<bool>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
-
-  pack_t pack_;
-  bounds_t bounds_;
-  coords_t coords_;
-
-  bool with_fluxes_;
-  bool coarse_;
-  int nblocks_;
-  int ndim_;
-  int dims_[6];
-  int nvar_;
-
-  // Get a list of booleans of the allocation status of every variable in pmd matching the
-  // PackDescriptor desc
-  template <class T>
-  static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
-
-  // Build a usable `SparsePackBase` from the variables specified in desc contained in the
-  // blocks  in a MeshBlockData/MeshBlock with a variable pack allocated on the device.
-  template <class T>
-  static SparsePackBase Build(T *pmd, const PackDescriptor &desc);
-
-  static test_func_t GetTestFunction(const PackDescriptor &desc);
 
  public:
   SparsePackBase() = default;
@@ -180,8 +160,36 @@ class SparsePackBase {
     const bool coarse = true;
     return Make(pmd, vars, flags, fluxes, coarse);
   }
+
+ protected:
+  // Get a list of booleans of the allocation status of every variable in pmd matching the
+  // PackDescriptor desc
+  template <class T>
+  static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
+
+  // Build a usable `SparsePackBase` from the variables specified in desc contained in the
+  // blocks  in a MeshBlockData/MeshBlock with a variable pack allocated on the device.
+  template <class T>
+  static SparsePackBase Build(T *pmd, const PackDescriptor &desc);
+
+  static test_func_t GetTestFunction(const PackDescriptor &desc);
+
+  pack_t pack_;
+  bounds_t bounds_;
+  coords_t coords_;
+
+  bool with_fluxes_;
+  bool coarse_;
+  int nblocks_;
+  int ndim_;
+  int dims_[6];
+  int nvar_;
 };
-// Map of `PackDescriptor` to `SparsePackBase`
+
+// Object for cacheing sparse packs in MeshData and MeshBlockData objects. This
+// handles checking for a pre-existing pack and creating a new SparsePackBase if
+// a cached pack is unavailable. Essentially, this operates as a map from
+// `PackDescriptor` to `SparsePackBase`
 class SparsePackCache {
  public:
   template <class T>

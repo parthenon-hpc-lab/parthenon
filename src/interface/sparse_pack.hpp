@@ -120,6 +120,10 @@ class SparsePack : public SparsePackBase {
 
   explicit SparsePack(const SparsePackBase &spb) : SparsePackBase(spb) {}
 
+  // Make a `SparsePack` from variable_name types in the type list Ts..., creating the
+  // pack in `pmd->SparsePackCache` if it doesn't already exist. Variables can be
+  // accessed on device via instance of types in the type list Ts...
+  // The pack will be created and accessible on the device
   template <class T>
   static SparsePack Make(T *pmd, const std::vector<MetadataFlag> &flags = {},
                          bool fluxes = false, bool coarse = false) {
@@ -204,12 +208,12 @@ class SparsePack : public SparsePackBase {
 
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
-    return bounds_(0, b, idx.Vidx());
+    return bounds_(0, b, idx.VariableIdx());
   }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
-    return bounds_(1, b, idx.Vidx());
+    return bounds_(1, b, idx.VariableIdx());
   }
 
   template <class TIn,
@@ -240,7 +244,7 @@ class SparsePack : public SparsePackBase {
   Real &operator()(const int b, PackIdx idx, const int k, const int j,
                    const int i) const {
     static_assert(sizeof...(Ts) == 0);
-    const int n = bounds_(0, b, idx.Vidx()) + idx.Off();
+    const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(0, b, n)(k, j, i);
   }
 
@@ -271,7 +275,7 @@ class SparsePack : public SparsePackBase {
              const int i) const {
     static_assert(sizeof...(Ts) == 0);
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
-    const int n = bounds_(0, b, idx.Vidx()) + idx.Off();
+    const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(dir, b, n)(k, j, i);
   }
 
