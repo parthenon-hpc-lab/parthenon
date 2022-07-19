@@ -129,6 +129,13 @@ class SparsePack : public SparsePackBase {
                             std::vector<bool>{Ts::regex()...}, flags, fluxes, coarse)));
   }
 
+  //Make a `SparsePack` with a corresponding `SparsePackIdxMap` from the provided `vars` and `flags`, creating the pack in `pmd->SparsePackCache` if it doesn't already exist. 
+  //The pack will be created and accessible on the device
+  // VAR_VEC can be:
+  //   1) std::vector<std::string> of variable names (in which case they are all assumed
+  //   not to be regexs)
+  //   2) std::vector<std::pair<std::string, bool>> of (variable name, treat name as
+  //   regex) pairs
   template <class T, class VAR_VEC>
   static std::tuple<SparsePack, SparsePackIdxMap>
   Make(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
