@@ -175,8 +175,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto clear_comms_flags = tl.AddTask(none, &MeshBlockData<Real>::ClearBoundary,
-                                        sc1.get(), BoundaryCommSubset::all);
+    //auto clear_comms_flags = tl.AddTask(none, &MeshBlockData<Real>::ClearBoundary,
+    //                                     sc1.get(), BoundaryCommSubset::all);
 
     auto prolongBound = none;
     if (pmesh->multilevel) {

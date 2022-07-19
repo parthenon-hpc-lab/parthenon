@@ -1115,9 +1115,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
 
-    for (int i = 0; i < nmb; ++i) {
-      block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
-    }
+    //for (int i = 0; i < nmb; ++i) {
+    //  block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
+    //}
 
     //  Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
