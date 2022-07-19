@@ -166,7 +166,10 @@ class SparsePackCache {
  protected:
   template <class T>
   SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
-
+  
+  template <class T>
+  SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc, const std::string& ident);
+  
   std::string GetIdentifier(const impl::PackDescriptor &desc) const;
 
   std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
