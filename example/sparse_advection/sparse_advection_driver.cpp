@@ -156,9 +156,6 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto clear_comm_flags = tl.AddTask(none, &MeshBlockData<Real>::ClearBoundary,
-                                       sc1.get(), BoundaryCommSubset::all);
-
     auto prolongBound = none;
     if (pmesh->multilevel) {
       prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);

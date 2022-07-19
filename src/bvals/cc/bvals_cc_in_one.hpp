@@ -64,6 +64,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md);
 inline TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return SendBoundBufs<BoundaryType::any>(md);
 }
+inline TaskStatus StartReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  return StartReceiveBoundBufs<BoundaryType::any>(md);
+}
 inline TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return ReceiveBoundBufs<BoundaryType::any>(md);
 }

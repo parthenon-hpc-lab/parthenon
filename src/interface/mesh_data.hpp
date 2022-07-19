@@ -216,26 +216,6 @@ class MeshData {
   auto &GetBvarsCache() { return bvars_cache_; }
   auto &GetRestrictBuffers() const { return restrict_buffers_; }
 
-  TaskStatus StartReceiving(BoundaryCommSubset phase) {
-    for (const auto &pbd : block_data_) {
-      auto status = pbd->StartReceiving(phase);
-      if (status != TaskStatus::complete) {
-        PARTHENON_THROW("StartReceiving failed!");
-      }
-    }
-    return TaskStatus::complete;
-  }
-
-  TaskStatus ClearBoundary(BoundaryCommSubset phase) {
-    for (const auto &pbd : block_data_) {
-      auto status = pbd->ClearBoundary(phase);
-      if (status != TaskStatus::complete) {
-        PARTHENON_THROW("ClearBoundary failed!");
-      }
-    }
-    return TaskStatus::complete;
-  }
-
   IndexRange GetBoundsI(const IndexDomain &domain) const {
     return block_data_[0]->GetBoundsI(domain);
   }

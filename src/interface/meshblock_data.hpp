@@ -388,16 +388,6 @@ class MeshBlockData {
   // return number of stored arrays
   int Size() noexcept { return varVector_.size(); }
 
-  // Communication routines
-  void SetLocalNeighborAllocated();
-  void ResetBoundaryCellVariables();
-  void SetupPersistentMPI();
-  TaskStatus ReceiveBoundaryBuffers();
-  TaskStatus StartReceiving(BoundaryCommSubset phase);
-  TaskStatus ClearBoundary(BoundaryCommSubset phase);
-  TaskStatus SendFluxCorrection();
-  TaskStatus ReceiveFluxCorrection();
-
   // physical boundary routines
   void ProlongateBoundaries();
 

@@ -1070,17 +1070,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // Create send/recv MPI_Requests for all BoundaryData objects
     for (int i = 0; i < nmb; ++i) {
       auto &pmb = block_list[i];
-      // TODO(mpi people) do we still need the pbval part? Discuss also in the context of
-      // other than cellvariables, see comment above on communicators.
-      // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
-      pmb->pbval->SetupPersistentMPI();
-      pmb->meshblock_data.Get()->SetupPersistentMPI();
       pmb->swarm_data.Get()->SetupPersistentMPI();
-    }
-
-    // prepare to receive conserved variables
-    for (int i = 0; i < nmb; ++i) {
-      block_list[i]->meshblock_data.Get()->StartReceiving(BoundaryCommSubset::mesh_init);
     }
 
     // send FillGhost variables
