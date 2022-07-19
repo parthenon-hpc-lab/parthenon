@@ -72,8 +72,11 @@ KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
   return idx + offset;
 }
 
-namespace variables {
-// Struct that all variables types should inherit from
+// Namespace in which to put variable name types that are used for 
+// indexing into SparsePack<[type list of variable name types]> on 
+// device 
+namespace variable_names {
+// Struct that all variable_name types should inherit from
 template <bool REGEX, int... NCOMP>
 struct base_t {
   KOKKOS_INLINE_FUNCTION
@@ -100,13 +103,15 @@ struct base_t {
   const int idx;
 };
 
+// An example variable name type that selects all variables available 
+// on Mesh*Data 
 struct any : public base_t<true> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION any(Ts &&...args)
-      : parthenon::variables::base_t<true>(std::forward<Ts>(args)...) {}
+      : base_t<true>(std::forward<Ts>(args)...) {}
   static std::string name() { return ".*"; }
 };
-} // namespace variables
+} // namespace variable_names
 
 template <class... Ts>
 class SparsePack : public SparsePackBase {

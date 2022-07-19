@@ -65,8 +65,8 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
   const IndexRange jb = in_obj->GetBoundsJ(interior);
   const IndexRange kb = in_obj->GetBoundsK(interior);
 
-  auto vin = SparsePack<variables::any>::MakeWithFluxes(in_obj, {Metadata::WithFluxes});
-  auto dudt = SparsePack<variables::any>::Make(dudt_obj, {Metadata::WithFluxes});
+  auto vin = SparsePack<variable_names::any>::MakeWithFluxes(in_obj, {Metadata::WithFluxes});
+  auto dudt = SparsePack<variable_names::any>::Make(dudt_obj, {Metadata::WithFluxes});
 
   const int Ni = ib.e - ib.s + 1;
   const int Nj = jb.e - jb.s + 1;
@@ -82,8 +82,8 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
         int lr = team_member.league_rank();
         const int b = lr / Nk;
         const int k = kb.s + lr % Nk;
-        const int vidx_lo = vin.GetLowerBound(b, variables::any());
-        const int vidx_hi = vin.GetUpperBound(b, variables::any());
+        const int vidx_lo = vin.GetLowerBound(b, variable_names::any());
+        const int vidx_hi = vin.GetUpperBound(b, variable_names::any());
 
         const auto &coords = vin.GetCoordinates(b);
         for (int l = vidx_lo; l <= vidx_hi; ++l) {
