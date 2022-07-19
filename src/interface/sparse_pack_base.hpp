@@ -46,7 +46,8 @@ struct PackDescriptor {
                       "Must have a regex flag for each variable.");
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
-    for (const auto &var : vars) regexes.push_back(std::regex(var));
+    for (const auto &var : vars)
+      regexes.push_back(std::regex(var));
   }
 
   PackDescriptor(const std::vector<std::pair<std::string, bool>> &vars_in,
@@ -58,7 +59,8 @@ struct PackDescriptor {
     }
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
-    for (const auto &var : vars) regexes.push_back(std::regex(var));
+    for (const auto &var : vars)
+      regexes.push_back(std::regex(var));
   }
 
   PackDescriptor(const std::vector<std::string> &vars_in,
@@ -67,11 +69,13 @@ struct PackDescriptor {
         with_fluxes(with_fluxes), coarse(coarse) {
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
-    for (const auto &var : vars) regexes.push_back(std::regex(var));
+    for (const auto &var : vars)
+      regexes.push_back(std::regex(var));
   }
 
-  // Method for determining if variable pv should be included in pack for this PackDescriptor 
-  bool IncludeVariable(int vidx, const std::shared_ptr<CellVariable<Real>> &pv) const { 
+  // Method for determining if variable pv should be included in pack for this
+  // PackDescriptor
+  bool IncludeVariable(int vidx, const std::shared_ptr<CellVariable<Real>> &pv) const {
     // TODO(LFR): Check that the shapes agree
     if (flags.size() > 0) {
       for (const auto &flag : flags) {
@@ -87,7 +91,7 @@ struct PackDescriptor {
       if (vars[vidx] == pv->label()) return true;
     }
     return false;
-  } 
+  }
 
   std::vector<std::string> vars;
   std::vector<std::regex> regexes;
@@ -166,10 +170,11 @@ class SparsePackCache {
  protected:
   template <class T>
   SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
-  
+
   template <class T>
-  SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc, const std::string& ident);
-  
+  SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc,
+                              const std::string &ident);
+
   std::string GetIdentifier(const impl::PackDescriptor &desc) const;
 
   std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
