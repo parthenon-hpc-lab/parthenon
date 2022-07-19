@@ -33,6 +33,45 @@
 
 namespace parthenon {
 
+// Sparse pack index type which allows for relatively simple indexing 
+// into non-variable name type based SparsePacks (i.e. objects of 
+// type SparsePack<> which are created with a vector of variable 
+// names and/or regexes)
+class PackIdx {
+ public:
+  KOKKOS_INLINE_FUNCTION
+  explicit PackIdx(std::size_t var_idx) : vidx(var_idx), offset(0) {}
+  KOKKOS_INLINE_FUNCTION
+  PackIdx(std::size_t var_idx, int off) : vidx(var_idx), offset(off) {}
+
+  KOKKOS_INLINE_FUNCTION
+  PackIdx &operator=(std::size_t var_idx) {
+    vidx = var_idx;
+    offset = 0;
+    return *this;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  std::size_t VariableIdx() { return vidx; }
+  KOKKOS_INLINE_FUNCTION
+  int Offset() { return offset; }
+
+ private:
+  std::size_t vidx;
+  int offset;
+};
+
+// Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work 
+template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
+KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T offset) {
+  return PackIdx(idx.VariableIdx(), idx.Offset() + offset);
+}
+
+template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
+KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
+  return idx + offset;
+}
+
 namespace variables {
 // Struct that all variables types should inherit from
 template <bool REGEX, int... NCOMP>
