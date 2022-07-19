@@ -20,7 +20,6 @@
 #include "globals.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
-#include "interface/sparse_pack.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -61,55 +60,24 @@ template <>
 TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
   const IndexDomain interior = IndexDomain::interior;
 
+  std::vector<MetadataFlag> flags({Metadata::WithFluxes});
+  const auto &vin = in_obj->PackVariablesAndFluxes(flags);
+  auto dudt = dudt_obj->PackVariables(flags);
   const IndexRange ib = in_obj->GetBoundsI(interior);
   const IndexRange jb = in_obj->GetBoundsJ(interior);
   const IndexRange kb = in_obj->GetBoundsK(interior);
 
-  auto vin =
-      SparsePack<variable_names::any>::GetWithFluxes(in_obj, {Metadata::WithFluxes});
-  auto dudt = SparsePack<variable_names::any>::Get(dudt_obj, {Metadata::WithFluxes});
-
-  const int Ni = ib.e - ib.s + 1;
-  const int Nj = jb.e - jb.s + 1;
-  const int Nk = kb.e - kb.s + 1;
-  const int Nb = vin.GetNBlocks();
-  const int ndim = vin.GetNDim();
-  const int NjNi = Nj * Ni;
-
-  Kokkos::parallel_for(
-      "FluxDivergenceMesh",
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), Nb * Nk, Kokkos::AUTO),
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        int lr = team_member.league_rank();
-        const int b = lr / Nk;
-        const int k = kb.s + lr % Nk;
-        const int vidx_lo = vin.GetLowerBound(b, variable_names::any());
-        const int vidx_hi = vin.GetUpperBound(b, variable_names::any());
-
-        const auto &coords = vin.GetCoordinates(b);
-        for (int l = vidx_lo; l <= vidx_hi; ++l) {
-          Kokkos::parallel_for(
-              Kokkos::TeamThreadRange<>(team_member, NjNi), [&](const int idx) {
-                const int j = jb.s + (idx % NjNi) / Ni;
-                const int i = ib.s + idx % Ni;
-                auto &du = dudt(b, l, k, j, i);
-
-                du = (coords.Area(X1DIR, k, j, i + 1) *
-                          vin.flux(b, X1DIR, l, k, j, i + 1) -
-                      coords.Area(X1DIR, k, j, i) * vin.flux(b, X1DIR, l, k, j, i));
-                if (ndim > 1)
-                  du += (coords.Area(X2DIR, k, j + 1, i) *
-                             vin.flux(b, X2DIR, l, k, j + 1, i) -
-                         coords.Area(X2DIR, k, j, i) * vin.flux(b, X2DIR, l, k, j, i));
-                if (ndim > 2)
-                  du += (coords.Area(X3DIR, k + 1, j, i) *
-                             vin.flux(b, X3DIR, l, k + 1, j, i) -
-                         coords.Area(X3DIR, k, j, i) * vin.flux(b, X3DIR, l, k, j, i));
-                du = -du / coords.Volume(k, j, i);
-              });
+  const int ndim = vin.GetNdim();
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "FluxDivergenceMesh", DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
+      vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
+        if (dudt.IsAllocated(m, l) && vin.IsAllocated(m, l)) {
+          const auto &coords = vin.GetCoords(m);
+          const auto &v = vin(m);
+          dudt(m, l, k, j, i) = FluxDivHelper(l, k, j, i, ndim, coords, v);
         }
       });
-
   return TaskStatus::complete;
 }
 
