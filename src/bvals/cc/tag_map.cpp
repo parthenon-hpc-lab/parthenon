@@ -47,7 +47,6 @@ void TagMap::ResolveMap() {
     int idx = 0;
     std::for_each(pair_map.begin(), pair_map.end(),
                   [&idx](auto &pair) { pair.second = idx++; });
-    printf("my_rank : %i other_rank : %i ntags: %i\n", Globals::my_rank, it->first, idx);
   }
 }
 
