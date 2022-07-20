@@ -20,7 +20,7 @@
 #include "utils/concepts_lite.hpp"
 
 template <class T, class VAL_TYPE>
-bool SatisfiesContainerRequirements(T &&in, VAL_TYPE val, int size_in) {
+bool SatisfiesContainerRequirements(T &&in, VAL_TYPE val, size_t size_in) {
   // Check that the value_type of the container is what we would expect
   using cont_val_type = decltype(contiguous_container::value_type(in));
   bool test = std::is_same<cont_val_type, VAL_TYPE>::value;
