@@ -411,7 +411,7 @@ inline void deep_copy(Space const &space, const parthenon::ParArrayGeneric<T, ST
 }
 
 template <class T, class ST, class... Args>
-inline void resize(parthenon::ParArrayGeneric<T, ST> &arr, Args &&... args) {
+inline void resize(parthenon::ParArrayGeneric<T, ST> &arr, Args &&...args) {
   Kokkos::resize(arr.KokkosView(), std::forward<Args>(args)...);
 }
 
