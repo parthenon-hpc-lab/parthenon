@@ -162,7 +162,6 @@ void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
                                coarse_dims_[3], coarse_dims_[2], coarse_dims_[1],
                                coarse_dims_[0]);
     }
-
   }
 }
 

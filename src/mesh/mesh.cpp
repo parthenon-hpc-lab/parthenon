@@ -1067,12 +1067,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
 
-    // Build densely populated communication tags 
+    // Build densely populated communication tags
     tag_map.clear();
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
-      tag_map.AddMeshDataToMap(md); 
-    } 
+      tag_map.AddMeshDataToMap(md);
+    }
     tag_map.ResolveMap();
 
     // Create send/recv MPI_Requests for all BoundaryData objects
@@ -1113,7 +1113,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
 
-    //for (int i = 0; i < nmb; ++i) {
+    // for (int i = 0; i < nmb; ++i) {
     //  block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
     //}
 

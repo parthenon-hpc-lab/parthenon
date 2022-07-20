@@ -445,13 +445,13 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
     auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
-    
+
     const auto any = parthenon::BoundaryType::any;
 
     tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
     tl.AddTask(none,
-             parthenon::cell_centered_bvars::StartReceiveSparseFluxCorrectionBuffers,
-             mc0);
+               parthenon::cell_centered_bvars::StartReceiveSparseFluxCorrectionBuffers,
+               mc0);
 
     auto send_flx = tl.AddTask(
         none, parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers,
@@ -472,7 +472,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    
+
     auto send =
         tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<any>, mc1);
     auto recv =

@@ -15,43 +15,45 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "tag_map.hpp"
 #include "bvals_utils.hpp"
-#include "tag_map.hpp" 
 
 namespace parthenon {
 
 using namespace cell_centered_bvars::impl;
 
-TagMap::rank_pair_t TagMap::MakeChannelPair(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb) { 
+TagMap::rank_pair_t TagMap::MakeChannelPair(const std::shared_ptr<MeshBlock> &pmb,
+                                            const NeighborBlock &nb) {
   const int location_idx_me = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
   const int location_idx_nb = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
-  BlockGeometricElementId bgei_me{pmb->gid, location_idx_me}; 
+  BlockGeometricElementId bgei_me{pmb->gid, location_idx_me};
   BlockGeometricElementId bgei_nb{nb.snb.gid, location_idx_nb};
-  return UnorderedPair<BlockGeometricElementId>(bgei_me, bgei_nb); 
+  return UnorderedPair<BlockGeometricElementId>(bgei_me, bgei_nb);
 }
-  
-void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) { 
+
+void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
   ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     const int other_rank = nb.snb.rank;
-    if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t(); 
-    auto& pair_map = map_[other_rank]; 
-    
-    pair_map[MakeChannelPair(pmb, nb)] = 0; 
-  }); 
+    if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
+    auto &pair_map = map_[other_rank];
+
+    pair_map[MakeChannelPair(pmb, nb)] = 0;
+  });
 }
 
 void TagMap::ResolveMap() {
-  for (auto it = map_.begin(); it != map_.end(); ++it) { 
-    auto& pair_map = it->second; 
-    int idx = 0; 
-    std::for_each(pair_map.begin(), pair_map.end(), [&idx](auto& pair){ pair.second = idx++;});
+  for (auto it = map_.begin(); it != map_.end(); ++it) {
+    auto &pair_map = it->second;
+    int idx = 0;
+    std::for_each(pair_map.begin(), pair_map.end(),
+                  [&idx](auto &pair) { pair.second = idx++; });
     printf("my_rank : %i other_rank : %i ntags: %i\n", Globals::my_rank, it->first, idx);
   }
 }
 
-int TagMap::GetTag(const std::shared_ptr<MeshBlock>& pmb, const NeighborBlock &nb) { 
+int TagMap::GetTag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb) {
   const int other_rank = nb.snb.rank;
-  auto& pair_map = map_[other_rank];
+  auto &pair_map = map_[other_rank];
   return pair_map[MakeChannelPair(pmb, nb)];
 }
 

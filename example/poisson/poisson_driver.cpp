@@ -149,8 +149,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     solver.SetCheckInterval(check_interval);
     solver.SetFailWithMaxIterations(fail_flag);
     solver.SetWarnWithMaxIterations(warn_flag);
-    
-    auto start_recv = solver.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundaryBuffers, md);
+
+    auto start_recv = solver.AddTask(
+        none, parthenon::cell_centered_bvars::StartReceiveBoundaryBuffers, md);
 
     auto update = solver.AddTask(mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
                                  md.get(), mdelta.get());
@@ -185,7 +186,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto setb = solver.AddTask(recv | update, cell_centered_bvars::SetBoundaries, md);
 
     auto check = solver.SetCompletionTask(
-        send | setb | report_norm, poisson_package::CheckConvergence<MeshData<Real>>, md.get(), mdelta.get());
+        send | setb | report_norm, poisson_package::CheckConvergence<MeshData<Real>>,
+        md.get(), mdelta.get());
     // mark task so that dependent tasks (below) won't execute
     // until all task lists have completed it
     solver_region.AddRegionalDependencies(reg_dep_id, i, check);

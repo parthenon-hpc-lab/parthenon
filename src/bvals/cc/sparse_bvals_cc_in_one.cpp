@@ -44,7 +44,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
   Mesh *pmesh = md->GetMeshPointer();
   auto &all_caches = md->GetBvarsCache();
-  auto& tag_map = pmesh->tag_map; 
+  auto &tag_map = pmesh->tag_map;
 
   // Clear the fast access vectors for this block since they are no longer valid
   // after all MeshData call BuildSparseBoundaryBuffers
@@ -73,11 +73,11 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     const int receiver_rank = nb.snb.rank;
     const int sender_rank = Globals::my_rank;
 
-    int tag = 0; 
+    int tag = 0;
 #ifdef MPI_PARALLEL
     // Get a bi-directional mpi tag for this pair of blocks
     tag = tag_map.GetTag(pmb, nb);
-    
+
     comm_t comm = pmesh->GetMPIComm(v->label());
     comm_t comm_reflux = comm;
     if (nb.snb.level != pmb->loc.level)
@@ -96,7 +96,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     auto get_resource_method = [pmesh, buf_size]() {
       return pmesh->pool_map.at(buf_size).Get();
     };
-    
+
     bool use_sparse_buffers = v->IsSet(Metadata::SparseCommunication);
     pmesh->boundary_comm_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
         tag, sender_rank, receiver_rank, comm, get_resource_method, use_sparse_buffers);
@@ -111,16 +111,14 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     // Also build the non-local receive buffers here
     if (sender_rank != receiver_rank) {
       auto r_key = ReceiveKey(pmb, nb, v);
-      pmesh->boundary_comm_map[r_key] =
-          CommBuffer<buf_pool_t<Real>::owner_t>(tag, receiver_rank, sender_rank, comm,
-                                                get_resource_method, use_sparse_buffers);
+      pmesh->boundary_comm_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
+          tag, receiver_rank, sender_rank, comm, get_resource_method, use_sparse_buffers);
       // Separate reflux buffer if needed
       if ((nb.snb.level - 1 == pmb->loc.level) &&
           (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
-        pmesh->boundary_comm_reflux_map[r_key] =
-            CommBuffer<buf_pool_t<Real>::owner_t>(tag, receiver_rank, sender_rank,
-                                                  comm_reflux, get_resource_method,
-                                                  use_sparse_buffers);
+        pmesh->boundary_comm_reflux_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
+            tag, receiver_rank, sender_rank, comm_reflux, get_resource_method,
+            use_sparse_buffers);
     }
   });
 
