@@ -22,6 +22,8 @@
 #include <memory>
 #include <unordered_map>
 
+#include "basic_types.hpp"
+
 namespace parthenon {
 
 // Struct uniquely identifying a particular geometric element (i.e. face, edge, or node)
