@@ -38,7 +38,7 @@ bool SatisfiesContainerRequirements(T &&in, VAL_TYPE val, size_t size_in) {
 
 TEST_CASE("Check that the contiguous container concept works", "") {
   GIVEN("Some containers and some data") {
-    constexpr const int SIZE = 10;
+    constexpr const size_t SIZE = 10;
     int val = 2;
 
     int my_int = val;
