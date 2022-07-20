@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <iostream> // debug
 #include <memory>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -161,13 +162,15 @@ void BuildBufferCache(std::shared_ptr<MeshData<Real>> &md, V1 *pbuf_vec, V2 *pid
         ++boundary_idx;
       });
 
-  // Sort the keys and boundary indices by receiver_idx
-  std::sort(key_order.begin(), key_order.end(),
-            [](auto a, auto b) { return std::get<0>(a) < std::get<0>(b); });
+  // If desired, sort the keys and boundary indices by receiver_idx
+  // std::sort(key_order.begin(), key_order.end(),
+  //          [](auto a, auto b) { return std::get<0>(a) < std::get<0>(b); });
 
-  // A vector of (boundary_idx, buffer_idx) pairs that will initially
-  // be created in order of increasing buffer_idx
-  std::vector<std::pair<int, int>> boundidx_buffidx_vec;
+  // Or, what the hell, you could put them in random order if you want, which
+  // frighteningly seems to run faster in some cases
+  std::random_device rd;
+  std::mt19937 g(rd());
+  std::shuffle(key_order.begin(), key_order.end(), g);
 
   int buff_idx = 0;
   pbuf_vec->clear();
