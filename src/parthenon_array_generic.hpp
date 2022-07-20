@@ -86,6 +86,27 @@ class ParArrayGeneric : public State {
     return data_;
   }
 
+  // Throughout this chunk of code we use std::index_sequence to fill in default
+  // arguments where none were given up to the rank of the input View. The
+  // basic trick look is to use the comma operator and parameter pack unpacking
+  // to create a list of the required size but just containing a single value repeated.
+  // For example, if we had a function that takes six arguments but we wanted to allow
+  // for calling it with six or less arguments and fill in the missing arguments at the
+  // beginning with a default value of VAL, we would write
+  //
+  // public:
+  //  template <class... Ts>
+  //  std::vector<int> OurFunc(Ts... args) {
+  //    return OurFuncImpl(args..., std::make_index_sequence<6 - sizeof...(Ts)>{});
+  //  }
+  // private:
+  //  template <class... Ts, std::size_t... I>
+  //  std::vector<int> OurFuncImpl(Ts... args, std::index_sequence<I...>) {
+  //    return {(void) I, VAL)..., args...};
+  //  }
+  //
+  // The (void) cast is just to suppress compiler warnings about unused variables.
+
   // Construct with an unallocated view when no shape arguments are given
   // Rank zero arrays are a special case, so should not be set up with default
   // constructor. The first template parameter here is to get Data into the
@@ -390,7 +411,7 @@ inline void deep_copy(Space const &space, const parthenon::ParArrayGeneric<T, ST
 }
 
 template <class T, class ST, class... Args>
-inline void resize(parthenon::ParArrayGeneric<T, ST> &arr, Args &&...args) {
+inline void resize(parthenon::ParArrayGeneric<T, ST> &arr, Args &&... args) {
   Kokkos::resize(arr.KokkosView(), std::forward<Args>(args)...);
 }
 
