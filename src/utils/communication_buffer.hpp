@@ -119,7 +119,7 @@ class CommBuffer {
   bool IsAvailableForWrite();
 
   void TryStartReceive() noexcept;
-  bool TryReceive() noexcept;
+  bool TryReceive(int iprobe_iter = 100) noexcept;
 
   void Stale();
 };
@@ -331,7 +331,7 @@ void CommBuffer<T>::TryStartReceive() noexcept {
 }
 
 template <class T>
-bool CommBuffer<T>::TryReceive() noexcept {
+bool CommBuffer<T>::TryReceive(int iprobe_iter) noexcept {
   if (*state_ == BufferState::received || *state_ == BufferState::received_null)
     return true;
 
@@ -344,13 +344,15 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
     TryStartReceive();
 
-    int flag;
-    // This is the extra MPI call that (maybe) impacts performance mentioned in Athena++
-    PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
-                                   MPI_STATUS_IGNORE));
-
     if (*started_irecv_) {
       MPI_Status status;
+      int flag;
+      // This is the extra MPI call that impacts performance as mentioned in Athena++,
+      // for large numbers of tags, I have found calling this hundreds of times can
+      // speed the code up by almost two orders of magnitude (which is completely insane)
+      for (int i = 0; i < iprobe_iter; ++i)
+        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
+                                       MPI_STATUS_IGNORE));
       PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
       if (flag) {
         // Check the size of the message, it will be zero if the sender wants you to use
