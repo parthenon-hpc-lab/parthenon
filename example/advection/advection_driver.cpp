@@ -154,16 +154,25 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    const auto any = parthenon::BoundaryType::any;
+    const auto local = parthenon::BoundaryType::local;
+    const auto nonlocal = parthenon::BoundaryType::nonlocal;
     auto send =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<any>, mc1);
-    auto recv =
-        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<any>, mc1);
-    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<any>, mc1);
+        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<nonlocal>, mc1);
+
+    auto send_local =
+        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<local>, mc1);
+    auto recv_local =
+        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<local>, mc1);
+    auto set_local =
+        tl.AddTask(recv_local, parthenon::cell_centered_bvars::SetBounds<local>, mc1);
+
+    auto recv = tl.AddTask(
+        update, parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>, mc1);
+    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<nonlocal>, mc1);
 
     if (pmesh->multilevel) {
-      tl.AddTask(set, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
-                 mc1.get());
+      tl.AddTask(set | set_local,
+                 parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
     }
   }
 
