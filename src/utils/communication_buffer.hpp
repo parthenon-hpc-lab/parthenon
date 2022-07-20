@@ -305,8 +305,8 @@ void CommBuffer<T>::TryStartReceive() noexcept {
     int test;
     MPI_Status status;
     // This is the extra MPI call that impacts performance mentioned in Athena++
-    PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-                                   MPI_STATUS_IGNORE));
+    // PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+    //                               MPI_STATUS_IGNORE));
     // Check if our message is available so that we can use the correct buffer size
     PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank_, tag_, comm_, &test, &status));
     if (test) {
@@ -347,13 +347,14 @@ bool CommBuffer<T>::TryReceive() noexcept {
     if (*started_irecv_) {
       MPI_Status status;
       int flag;
-      // This is the extra MPI call that impacts performance as mentioned in Athena++,
-      // for large numbers of tags, I have found calling this hundreds of times can
-      // speed the code up by almost two orders of magnitude (which is completely insane)
-      // for (int i = 0; i < iprobe_iter; ++i)
-      //  PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD,
-      //  &flag,
-      //                                 MPI_STATUS_IGNORE));
+      // This is the extra MPI call that impacts performance as mentioned in Athena++.
+      // Depending on the MPI implementation and the order of MPI_Test calls, as well
+      // as the total number of buffers being communicated, I have found this can have
+      // anywhere from no impact on the walltime to a factor of a few reduction in the
+      // walltime. It seems to be unpredictable as far as I can tell.
+      for (int i = 0; i < 1; ++i)
+        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
+                                       MPI_STATUS_IGNORE));
       PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
       if (flag) {
         // Check the size of the message, it will be zero if the sender wants you to use
