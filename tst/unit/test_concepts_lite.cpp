@@ -55,7 +55,11 @@ TEST_CASE("Check that the contiguous container concept works", "") {
     // interface
     parthenon::ParArray1D<int>::host_mirror_type my_pararr("Test", SIZE);
 
+    // We do not expect standard map to conform to contiguous_container
+    std::map<int, int> my_map;
+
     for (int i = 0; i < SIZE; ++i) {
+      my_map[i] = val;
       my_pararr(i) = val;
       my_view(i) = val;
     }
@@ -65,5 +69,9 @@ TEST_CASE("Check that the contiguous container concept works", "") {
     REQUIRE(SatisfiesContainerRequirements(my_vec, val, SIZE));
     REQUIRE(SatisfiesContainerRequirements(my_view, val, SIZE));
     REQUIRE(SatisfiesContainerRequirements(my_pararr, val, SIZE));
+    // Uncommenting the line below should cause compilation to fail
+    // since my_map should not work with the contiguous_container
+    // helper functions. When I have tested, it does cause a compilation failure (LFR).
+    // SatisfiesContainerRequirements(my_map, val, SIZE);
   }
 }
