@@ -119,6 +119,8 @@ struct BvarsSubCache_t {
   void clear() {
     send_buf_vec.clear();
     recv_buf_vec.clear();
+    send_idx_vec.clear();
+    recv_idx_vec.clear();
     sending_non_zero_flags = ParArray1D<bool>{};
     sending_non_zero_flags_h = ParArray1D<bool>::host_mirror_type{};
     send_bnd_info = BufferCache_t{};
@@ -127,6 +129,7 @@ struct BvarsSubCache_t {
     recv_bnd_info_h = BufferCache_t::host_mirror_type{};
   }
 
+  std::vector<std::size_t> send_idx_vec, recv_idx_vec;
   std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
   ParArray1D<bool> sending_non_zero_flags;
   ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h;
