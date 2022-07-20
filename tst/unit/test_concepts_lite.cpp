@@ -25,7 +25,7 @@ bool SatisfiesContainerRequirements(T &&in, VAL_TYPE val, int size_in) {
   using cont_val_type = decltype(contiguous_container::value_type(in));
   bool test = std::is_same<cont_val_type, VAL_TYPE>::value;
 
-  int size = contiguous_container::size(in);
+  size_t size = contiguous_container::size(in);
   test = test && (size == size_in);
 
   // Check that we can access the data and they all have value val
