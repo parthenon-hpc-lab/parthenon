@@ -29,7 +29,7 @@ bool SatisfiesContainerRequirements(T &&in, VAL_TYPE val, size_t size_in) {
   test = test && (size == size_in);
 
   // Check that we can access the data and they all have value val
-  int *pin = contiguous_container::data(in);
+  VAL_TYPE *pin = contiguous_container::data(in);
   for (auto i = 0; i < size; ++i)
     test = test && (val == pin[i]);
 
