@@ -1288,9 +1288,7 @@ void Mesh::SetupMPIComms() {
       MPI_Comm mpi_comm;
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});
-      PARTHENON_REQUIRE_THROWS(ret.second,
-                               "Communicator with same name already in map");
-      
+      PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
 
       if (multilevel) {
         MPI_Comm mpi_comm_flcor;
