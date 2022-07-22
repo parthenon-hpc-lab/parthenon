@@ -18,7 +18,10 @@
 #define PARTHENON_ARRAY_GENERIC_HPP_
 
 #include <string>
+#include <type_traits>
 #include <utility>
+
+#include "utils/concepts_lite.hpp"
 
 namespace parthenon {
 
@@ -44,8 +47,9 @@ struct empty_state_t {
   // virtual ~empty_state_t() {};
 };
 
-// API designed with Data = Kokkos::View<T******> in mind
-template <typename Data, typename State = empty_state_t>
+template <typename Data, typename State = empty_state_t,
+          class = ENABLEIF(
+              implements<kokkos_view(Data)>::value &&std::is_pod<empty_state_t>::value)>
 class ParArrayGeneric : public State {
  public:
   using index_pair_t = std::pair<size_t, size_t>;
@@ -57,13 +61,10 @@ class ParArrayGeneric : public State {
 
   ParArrayGeneric() = default;
   __attribute__((nothrow)) ~ParArrayGeneric() = default;
-  __attribute__((nothrow))
-  ParArrayGeneric(const ParArrayGeneric<Data, State> &t) = default;
-  __attribute__((nothrow)) ParArrayGeneric<Data, State> &
-  operator=(const ParArrayGeneric<Data, State> &t) = default;
-  __attribute__((nothrow)) ParArrayGeneric(ParArrayGeneric<Data, State> &&t) = default;
-  __attribute__((nothrow)) ParArrayGeneric<Data, State> &
-  operator=(ParArrayGeneric<Data, State> &&t) = default;
+  __attribute__((nothrow)) ParArrayGeneric(const ParArrayGeneric &t) = default;
+  __attribute__((nothrow)) ParArrayGeneric &operator=(const ParArrayGeneric &t) = default;
+  __attribute__((nothrow)) ParArrayGeneric(ParArrayGeneric &&t) = default;
+  __attribute__((nothrow)) ParArrayGeneric &operator=(ParArrayGeneric &&t) = default;
 
   KOKKOS_INLINE_FUNCTION
   explicit ParArrayGeneric(const Data &v, const State &state = State())
@@ -112,17 +113,17 @@ class ParArrayGeneric : public State {
   // constructor. The first template parameter here is to get Data into the
   // immediate context of the function template so that it can be used in the
   // enable_if sfinae
-  template <class D = Data, class = typename std::enable_if<(D::rank > 0)>::type>
+  template <class D = Data, REQUIRES(D::rank > 0)>
   explicit ParArrayGeneric(const std::string & /*label*/, const State &state = State())
       : State(state), data_() {}
 
-  template <class D = Data, class = typename std::enable_if<(D::rank > 0)>::type>
+  template <class D = Data, REQUIRES(D::rank > 0)>
   KOKKOS_INLINE_FUNCTION explicit ParArrayGeneric(const State &state)
       : State(state), data_() {}
 
   // Otherwise, assume leading dimensions are not given and set sizes of them to one
-  template <class... Args, class = typename std::enable_if<(sizeof...(Args) > 0) ||
-                                                           (Data::rank == 0)>::type>
+  template <class... Args, REQUIRES((sizeof...(Args) > 0) || (Data::rank == 0)),
+            REQUIRES(implements<all_integral(Args...)>::value)>
   ParArrayGeneric(const std::string &label, Args... args)
       : ParArrayGeneric(label, State(),
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
@@ -130,8 +131,8 @@ class ParArrayGeneric : public State {
     static_assert(Data::rank - sizeof...(Args) >= 0);
   }
 
-  template <class... Args, class = typename std::enable_if<(sizeof...(Args) > 0) ||
-                                                           (Data::rank == 0)>::type>
+  template <class... Args, REQUIRES((sizeof...(Args) > 0) || (Data::rank == 0)),
+            REQUIRES(implements<all_integral(Args...)>::value)>
   ParArrayGeneric(const std::string &label, const State &state, Args... args)
       : ParArrayGeneric(label, state,
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
@@ -140,7 +141,7 @@ class ParArrayGeneric : public State {
     static_assert(Data::rank - sizeof...(Args) >= 0);
   }
 
-  template <class... Args>
+  template <class... Args, REQUIRES(implements<all_integral(Args...)>::value)>
   void NewParArrayND(Args... args, const std::string &label = "ParArrayND") {
     assert(all_greater_than(0, args...));
     static_assert(Data::rank - sizeof...(Args) >= 0);
@@ -148,7 +149,7 @@ class ParArrayGeneric : public State {
                   label);
   }
 
-  template <class... Args>
+  template <class... Args, REQUIRES(implements<all_integral(Args...)>::value)>
   KOKKOS_FORCEINLINE_FUNCTION auto Get(Args... args) const {
     static_assert(Data::rank - sizeof...(Args) >= 0);
     return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
@@ -160,13 +161,13 @@ class ParArrayGeneric : public State {
     return Get_TemplateVersion_impl(std::make_index_sequence<Data::rank - N>{});
   }
 
-  template <class... Args>
+  template <class... Args, REQUIRES(implements<all_integral(Args...)>::value)>
   void Resize(Args... args) {
     static_assert(Data::rank - sizeof...(Args) >= 0);
     Resize(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
   }
 
-  template <class... Args>
+  template <class... Args, REQUIRES(implements<all_integral(Args...)>::value)>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) const {
     static_assert(Data::rank - sizeof...(Args) >= 0);
     return _operator_impl(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
@@ -263,7 +264,7 @@ class ParArrayGeneric : public State {
   bool is_allocated() const { return data_.is_allocated(); }
 
   // Want to be friends with all other specializations of ParArrayGeneric
-  template <class Data2, class State2>
+  template <class Data2, class State2, class enable_if_type>
   friend class ParArrayGeneric;
 
  private:

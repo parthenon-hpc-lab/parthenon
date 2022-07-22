@@ -15,9 +15,21 @@
 
 #include <type_traits>
 
-// These macros are just to make code more readable and self-explanatory
+// These macros are just to make code more readable and self-explanatory,
+// generally it is best to write template<..., REQUIRES(... && ...)> in the code
+// but there are some instance where this causes issues. Switching to the construct
+// template<..., class = ENABLEIF(... && ...)> sometimes fixes those problems.
 #define REQUIRES(...) typename std::enable_if<(__VA_ARGS__), int>::type = 0
 #define ENABLEIF(...) typename std::enable_if<(__VA_ARGS__), int>::type
+using TYPE_OF_SUCCESSFUL_REQUIRES = int;
+
+// Include a useful type trait for checking if a type is a specialization of
+// a template. Only works if all template arguments are types
+template <class SPECIAL, template <class...> class TEMPL>
+struct is_specialization_of : public std::false_type {};
+
+template <template <class...> class TEMPL, class... TPARAMS>
+struct is_specialization_of<TEMPL<TPARAMS...>, TEMPL> : public std::true_type {};
 
 // This is a variadic template class that accepts any set of types
 // and is always equal to void as long as the types are well formed.
@@ -157,6 +169,19 @@ struct contiguous_container {
 
   template <class T, std::size_t N, REQUIRES(is_fundamental_c_array<T[N]>::value)>
   static T value_type(T (&)[N]);
+};
+
+struct all_integral {
+  template <class... Ts>
+  auto requires_(Ts...) -> void_t<ENABLEIF(std::is_integral<Ts>::value)...>;
+};
+
+struct kokkos_view {
+  template <class T>
+  auto requires_(T x) -> void_t<ENABLEIF(implements<contiguous_container(T)>::value),
+                                typename T::HostMirror, typename T::execution_space,
+                                typename T::memory_space, typename T::device_type,
+                                typename T::memory_traits, typename T::host_mirror_space>;
 };
 
 #endif // UTILS_CONCEPTS_LITE_HPP_
