@@ -192,9 +192,11 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     BuildBufferCache<bound_type>(md, &(cache.send_buf_vec), &(cache.send_idx_vec),
                                  SendKey);
     const int nbound = cache.send_buf_vec.size();
-    cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
-    cache.sending_non_zero_flags_h =
-        Kokkos::create_mirror_view(cache.sending_non_zero_flags);
+    if (nbound > 0) {
+      cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
+      cache.sending_non_zero_flags_h =
+          Kokkos::create_mirror_view(cache.sending_non_zero_flags);
+    }
   } else {
     assert(cache.send_buf_vec.size() == cache.sending_non_zero_flags.size());
     assert(cache.send_buf_vec.size() == cache.sending_non_zero_flags_h.size());
@@ -227,7 +229,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
         ++nbound;
       });
-
+  if (nbound == 0) return TaskStatus::complete;
   if (other_communication_unfinished) return TaskStatus::incomplete;
 
   if (rebuild) {
