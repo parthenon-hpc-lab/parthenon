@@ -48,8 +48,7 @@ struct empty_state_t {
 };
 
 template <typename Data, typename State = empty_state_t,
-          class = ENABLEIF(
-              implements<kokkos_view(Data)>::value &&std::is_pod<empty_state_t>::value)>
+          class = ENABLEIF(implements<kokkos_view(Data)>::value)>
 class ParArrayGeneric : public State {
  public:
   using index_pair_t = std::pair<size_t, size_t>;
