@@ -46,10 +46,9 @@ enum MPI_Op {
 };
 #endif
 
-
 #ifdef MPI_PARALLEL
-template <class U> 
-MPI_Datatype GetContainerMPIType(const U & v) {
+template <class U>
+MPI_Datatype GetContainerMPIType(const U &v) {
   using value_type = decltype(contiguous_container::value_type(v));
   return MPITypeMap<value_type>::type();
 }
@@ -88,10 +87,8 @@ struct AllReduce : public ReductionBase<T> {
   TaskStatus StartReduce(MPI_Op op) {
     if (this->active) return TaskStatus::complete;
 #ifdef MPI_PARALLEL
-    MPI_Iallreduce(MPI_IN_PLACE, 
-                   contiguous_container::data(this->val), 
-                   contiguous_container::size(this->val),
-                   GetContainerMPIType(this->val),
+    MPI_Iallreduce(MPI_IN_PLACE, contiguous_container::data(this->val),
+                   contiguous_container::size(this->val), GetContainerMPIType(this->val),
                    op, this->comm, &(this->req));
 #endif
     this->active = true;
@@ -105,17 +102,13 @@ struct Reduce : public ReductionBase<T> {
     if (this->active) return TaskStatus::complete;
 #ifdef MPI_PARALLEL
     if (Globals::my_rank == n) {
-      MPI_Ireduce(MPI_IN_PLACE,
-                  contiguous_container::data(this->val), 
-                  contiguous_container::size(this->val),
-                  GetContainerMPIType(this->val),
+      MPI_Ireduce(MPI_IN_PLACE, contiguous_container::data(this->val),
+                  contiguous_container::size(this->val), GetContainerMPIType(this->val),
                   op, n, this->comm, &(this->req));
 
     } else {
-      MPI_Ireduce(contiguous_container::data(this->val), 
-                  nullptr,
-                  contiguous_container::size(this->val),
-                  GetContainerMPIType(this->val),
+      MPI_Ireduce(contiguous_container::data(this->val), nullptr,
+                  contiguous_container::size(this->val), GetContainerMPIType(this->val),
                   op, n, this->comm, &(this->req));
     }
 #endif
