@@ -20,6 +20,7 @@
 #include <kokkos_abstraction.hpp>
 #include <parthenon_mpi.hpp>
 #include <utils/cleantypes.hpp>
+#include <utils/concepts_lite.hpp>
 #include <utils/error_checking.hpp>
 #include <utils/mpi_types.hpp>
 
@@ -45,51 +46,13 @@ enum MPI_Op {
 };
 #endif
 
-// Some helper functions
-// Generic for containers with a data() method, including Kokkos::View and std::vector
-template <template <typename U, typename... Args> class Container, typename U,
-          typename... Args>
-void *GetPtr(Container<U, Args...> &v) {
-  return v.data();
-}
-template <typename U>
-void *GetPtr(U &v) {
-  return &v;
-}
-
-// Generic for containers with a size() method, including Kokkos::View and std::vector
-template <template <typename U, typename... Args> class Container, typename U,
-          typename... Args>
-int GetSize(Container<U, Args...> &v) {
-  return v.size();
-}
-template <typename U>
-int GetSize(U &v) {
-  return 1;
-}
 
 #ifdef MPI_PARALLEL
-// Generic for containers including Kokkos::View and std::vector
-template <class T, class = typename T::value_type>
-struct value_type_test {
-  using void_t = void;
-};
-
-template <class T, class void_t = void>
-struct get_value_type {
-  using type = T;
-};
-
-template <class T>
-struct get_value_type<T, typename value_type_test<T>::void_t> {
-  using type = typename T::value_type;
-};
-
-template <class U>
-MPI_Datatype GetType(const U &) {
-  return MPITypeMap<typename get_value_type<U>::type>::type();
+template <class U> 
+MPI_Datatype GetContainerMPIType(const U & v) {
+  using value_type = decltype(contiguous_container::value_type(v));
+  return MPITypeMap<value_type>::type();
 }
-
 #endif
 
 template <typename T>
@@ -125,8 +88,11 @@ struct AllReduce : public ReductionBase<T> {
   TaskStatus StartReduce(MPI_Op op) {
     if (this->active) return TaskStatus::complete;
 #ifdef MPI_PARALLEL
-    MPI_Iallreduce(MPI_IN_PLACE, GetPtr(this->val), GetSize(this->val),
-                   GetType(this->val), op, this->comm, &(this->req));
+    MPI_Iallreduce(MPI_IN_PLACE, 
+                   contiguous_container::data(this->val), 
+                   contiguous_container::size(this->val),
+                   GetContainerMPIType(this->val),
+                   op, this->comm, &(this->req));
 #endif
     this->active = true;
     return TaskStatus::complete;
@@ -139,12 +105,18 @@ struct Reduce : public ReductionBase<T> {
     if (this->active) return TaskStatus::complete;
 #ifdef MPI_PARALLEL
     if (Globals::my_rank == n) {
-      MPI_Ireduce(MPI_IN_PLACE, GetPtr(this->val), GetSize(this->val), GetType(this->val),
+      MPI_Ireduce(MPI_IN_PLACE,
+                  contiguous_container::data(this->val), 
+                  contiguous_container::size(this->val),
+                  GetContainerMPIType(this->val),
                   op, n, this->comm, &(this->req));
 
     } else {
-      MPI_Ireduce(GetPtr(this->val), nullptr, GetSize(this->val), GetType(this->val), op,
-                  n, this->comm, &(this->req));
+      MPI_Ireduce(contiguous_container::data(this->val), 
+                  nullptr,
+                  contiguous_container::size(this->val),
+                  GetContainerMPIType(this->val),
+                  op, n, this->comm, &(this->req));
     }
 #endif
     this->active = true;
