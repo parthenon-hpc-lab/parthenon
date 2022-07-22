@@ -47,6 +47,9 @@ struct empty_state_t {
   // virtual ~empty_state_t() {};
 };
 
+// The State class should be small and contain metadata that might be
+// useful to store along with the array that will be (const) available
+// on device
 template <typename Data, typename State = empty_state_t,
           class = ENABLEIF(implements<kokkos_view(Data)>::value)>
 class ParArrayGeneric : public State {
