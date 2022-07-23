@@ -125,35 +125,36 @@ class ParArrayGeneric : public State {
 
   // Otherwise, assume leading dimensions are not given and set sizes of them to one
   template <class... Args, REQUIRES((sizeof...(Args) > 0) || (Data::rank == 0)),
-            REQUIRES(implements<all_integral(Args...)>::value)>
+            REQUIRES(Data::rank - sizeof...(Args) >= 0),
+            REQUIRES(all_implement<integral(Args...)>::value)>
   ParArrayGeneric(const std::string &label, Args... args)
       : ParArrayGeneric(label, State(),
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                         args...) {
-    static_assert(Data::rank - sizeof...(Args) >= 0);
+    assert(all_greater_than(0, args...));
   }
 
   template <class... Args, REQUIRES((sizeof...(Args) > 0) || (Data::rank == 0)),
-            REQUIRES(implements<all_integral(Args...)>::value)>
+            REQUIRES(Data::rank - sizeof...(Args) >= 0),
+            REQUIRES(all_implement<integral(Args...)>::value)>
   ParArrayGeneric(const std::string &label, const State &state, Args... args)
       : ParArrayGeneric(label, state,
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                         args...) {
     assert(all_greater_than(0, args...));
-    static_assert(Data::rank - sizeof...(Args) >= 0);
   }
 
-  template <class... Args, REQUIRES(implements<all_integral(Args...)>::value)>
+  template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
+            REQUIRES(Data::rank - sizeof...(Args) >= 0)>
   void NewParArrayND(Args... args, const std::string &label = "ParArrayND") {
     assert(all_greater_than(0, args...));
-    static_assert(Data::rank - sizeof...(Args) >= 0);
     NewParArrayND(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...,
                   label);
   }
 
-  template <class... Args, REQUIRES(implements<all_integral(Args...)>::value)>
+  template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
+            REQUIRES(Data::rank - sizeof...(Args) >= 0)>
   KOKKOS_FORCEINLINE_FUNCTION auto Get(Args... args) const {
-    static_assert(Data::rank - sizeof...(Args) >= 0);
     return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
   }
 
@@ -163,15 +164,15 @@ class ParArrayGeneric : public State {
     return Get_TemplateVersion_impl(std::make_index_sequence<Data::rank - N>{});
   }
 
-  template <class... Args, REQUIRES(implements<all_integral(Args...)>::value)>
+  template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
+            REQUIRES(Data::rank - sizeof...(Args) >= 0)>
   void Resize(Args... args) {
-    static_assert(Data::rank - sizeof...(Args) >= 0);
     Resize(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
   }
 
-  template <class... Args, REQUIRES(implements<all_integral(Args...)>::value)>
+  template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
+            REQUIRES(Data::rank - sizeof...(Args) >= 0)>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) const {
-    static_assert(Data::rank - sizeof...(Args) >= 0);
     return _operator_impl(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                           args...);
   }

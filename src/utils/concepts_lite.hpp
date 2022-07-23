@@ -58,6 +58,11 @@ using void_t = void;
 template <class T, class = void>
 struct implements : std::false_type {};
 
+// all_implements just checks if all types in a parameter pack implement 
+// a given concept
+template <class T, class = void>
+struct all_implement : std::false_type {};
+
 // Specialization of implements that is chosen if all of the template
 // arguments to void_t are well formed, since in that case void_t = void
 // and this specialization matches the defined template pattern. Note that
@@ -69,6 +74,10 @@ struct implements : std::false_type {};
 template <class Concept, class... Ts>
 struct implements<Concept(Ts...), void_t<decltype(std::declval<Concept>().requires_(
                                       std::declval<Ts>()...))>> : std::true_type {};
+
+template <class Concept, class... Ts>
+struct all_implement<Concept(Ts...), void_t<decltype(std::declval<Concept>().requires_(
+                                      std::declval<Ts>()))...>> : std::true_type {};
 
 //---------------------------
 // Various concepts are implemented below. The general useage of a
@@ -171,9 +180,9 @@ struct contiguous_container {
   static T value_type(T (&)[N]);
 };
 
-struct all_integral {
-  template <class... Ts>
-  auto requires_(Ts...) -> void_t<ENABLEIF(std::is_integral<Ts>::value)...>;
+struct integral {
+  template <class T>
+  auto requires_(T) -> void_t<ENABLEIF(std::is_integral<T>::value)>;
 };
 
 struct kokkos_view {
