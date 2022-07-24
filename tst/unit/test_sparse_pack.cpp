@@ -55,24 +55,24 @@ BlockList_t MakeBlockList(const std::shared_ptr<StateDescriptor> pkg, const int 
   return block_list;
 }
 
-struct v1 : public parthenon::variables::base_t<false> {
+struct v1 : public parthenon::variable_names::base_t<false> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION v1(Ts &&...args)
-      : parthenon::variables::base_t<false>(std::forward<Ts>(args)...) {}
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v1"; }
 };
 
-struct v3 : public parthenon::variables::base_t<false, 3> {
+struct v3 : public parthenon::variable_names::base_t<false, 3> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION v3(Ts &&...args)
-      : parthenon::variables::base_t<false, 3>(std::forward<Ts>(args)...) {}
+      : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v3"; }
 };
 
-struct v5 : public parthenon::variables::base_t<false> {
+struct v5 : public parthenon::variable_names::base_t<false> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION v5(Ts &&...args)
-      : parthenon::variables::base_t<false>(std::forward<Ts>(args)...) {}
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v5"; }
 };
 
@@ -128,10 +128,10 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
            "blocks") {
         // Create a pack use type variables
         auto sparse_pack =
-            parthenon::SparsePack<v5, v3>::Make(&mesh_data, {Metadata::WithFluxes});
+            parthenon::SparsePack<v5, v3>::Get(&mesh_data, {Metadata::WithFluxes});
 
         // Create the same pack using strings
-        auto tup = parthenon::SparsePack<>::Make(
+        auto tup = parthenon::SparsePack<>::Get(
             &mesh_data, std::vector<std::string>{"v5", "v3"},
             std::vector<parthenon::MetadataFlag>{Metadata::WithFluxes});
         parthenon::SparsePack<> sparse_pack_notype = std::get<0>(tup);
@@ -169,8 +169,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on a single "
            "block") {
-        auto sparse_pack = parthenon::SparsePack<v5, v3>::Make(
-            block_list[0]->meshblock_data.Get().get());
+        auto sparse_pack =
+            parthenon::SparsePack<v5, v3>::Get(block_list[0]->meshblock_data.Get().get());
 
         const int v = 1; // v3 is the second variable in the loop above so v = 1 there
         int nwrong = 0;
@@ -192,9 +192,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack correctly reads based on a regex variable") {
         auto sparse_pack =
-            parthenon::SparsePack<parthenon::variables::any>::Make(&mesh_data);
+            parthenon::SparsePack<parthenon::variable_names::any>::Get(&mesh_data);
 
-        auto tup = parthenon::SparsePack<>::Make(
+        auto tup = parthenon::SparsePack<>::Get(
             &mesh_data, std::vector<std::pair<std::string, bool>>{{".*", true}});
         auto sparse_pack_notype = std::get<0>(tup);
         auto pack_map = std::get<1>(tup);
@@ -205,8 +205,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             loop_pattern_mdrange_tag, "check all", DevExecSpace(), 0, NBLOCKS - 1, kb.s,
             kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
-              int lo = sparse_pack.GetLowerBound(b, parthenon::variables::any());
-              int hi = sparse_pack.GetUpperBound(b, parthenon::variables::any());
+              int lo = sparse_pack.GetLowerBound(b, parthenon::variable_names::any());
+              int hi = sparse_pack.GetUpperBound(b, parthenon::variable_names::any());
               for (int c = 0; c <= hi - lo; ++c) {
                 Real n = i + 1e1 * j + 1e2 * k + 1e3 * b;
                 if (std::abs(n - std::fmod(sparse_pack(b, lo + c, k, j, i), 1e4)) >

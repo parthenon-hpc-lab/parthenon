@@ -32,7 +32,7 @@
 namespace {
 // SFINAE for block iteration so that sparse packs can work for MeshBlockData and MeshData
 template <class T, class F>
-inline auto IterateBlocks(T *pmd, F func) -> decltype(T().GetBlockData(0), void()) {
+inline auto ForEachBlock(T *pmd, F func) -> decltype(T().GetBlockData(0), void()) {
   for (int b = 0; b < pmd->NumBlocks(); ++b) {
     auto &pmbd = pmd->GetBlockData(b);
     func(b, pmbd.get());
@@ -40,12 +40,14 @@ inline auto IterateBlocks(T *pmd, F func) -> decltype(T().GetBlockData(0), void(
 }
 
 template <class T, class F>
-inline auto IterateBlocks(T *pmbd, F func) -> decltype(T().GetBlockPointer(), void()) {
+inline auto ForEachBlock(T *pmbd, F func) -> decltype(T().GetBlockPointer(), void()) {
   func(0, pmbd);
 }
 } // namespace
 
 namespace parthenon {
+
+using namespace impl;
 
 template <class T>
 SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
@@ -53,13 +55,12 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
   using mbd_t = MeshBlockData<Real>;
 
   int nvar = desc.vars.size();
-  auto include_variable = GetTestFunction(desc);
 
   std::vector<bool> astat;
-  IterateBlocks(pmd, [&](int b, mbd_t *pmbd) {
+  ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     for (int i = 0; i < nvar; ++i) {
       for (auto &pv : pmbd->GetCellVariableVector()) {
-        if (include_variable(i, pv)) {
+        if (desc.IncludeVariable(i, pv)) {
           astat.push_back(pv->IsAllocated());
         }
       }
@@ -80,7 +81,6 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   using mbd_t = MeshBlockData<Real>;
   int nvar = desc.vars.size();
 
-  auto include_variable = GetTestFunction(desc);
   SparsePackBase pack;
   pack.with_fluxes_ = desc.with_fluxes;
   pack.coarse_ = desc.coarse;
@@ -90,12 +90,12 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   int max_size = 0;
   int nblocks = 0;
   int ndim = 3;
-  IterateBlocks(pmd, [&](int b, mbd_t *pmbd) {
+  ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     int size = 0;
     nblocks++;
     for (auto &pv : pmbd->GetCellVariableVector()) {
       for (int i = 0; i < nvar; ++i) {
-        if (include_variable(i, pv)) {
+        if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
             size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
             ndim = (pv->GetDim(1) > 1 ? 1 : 0) + (pv->GetDim(2) > 1 ? 1 : 0) +
@@ -121,7 +121,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   auto coords_h = Kokkos::create_mirror_view(pack.coords_);
 
   // Fill the views
-  IterateBlocks(pmd, [&](int b, mbd_t *pmbd) {
+  ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     int idx = 0;
     coords_h(b) = pmbd->GetBlockPointer()->coords_device;
 
@@ -129,7 +129,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
       bounds_h(0, b, i) = idx;
 
       for (auto &pv : pmbd->GetCellVariableVector()) {
-        if (include_variable(i, pv)) {
+        if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
@@ -256,59 +256,42 @@ SparsePackBase::Build<MeshBlockData<Real>>(MeshBlockData<Real> *, const PackDesc
 template SparsePackBase SparsePackBase::Build<MeshData<Real>>(MeshData<Real> *,
                                                               const PackDescriptor &);
 
-inline SparsePackBase::test_func_t
-SparsePackBase::GetTestFunction(const PackDescriptor &desc) {
-  std::vector<std::regex> regexes;
-  for (const auto &var : desc.vars)
-    regexes.push_back(std::regex(var));
-
-  // Lambda for testing wether or not we want to include cellvariable pv
-  // in the index range of the type variable with index vidx
-  return [=](int vidx, const std::shared_ptr<CellVariable<Real>> &pv) {
-    // TODO(LFR): Check that the shapes agree
-
-    if (desc.flags.size() > 0) {
-      for (const auto &flag : desc.flags) {
-        if (!pv->IsSet(flag)) {
-          return false;
-        }
-      }
-    }
-
-    if (desc.use_regex[vidx]) {
-      if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
-    } else {
-      if (desc.vars[vidx] == pv->label()) return true;
-    }
-    return false;
-  };
-}
-
 template <class T>
 SparsePackBase &SparsePackCache::Get(T *pmd, const PackDescriptor &desc) {
   std::string ident = GetIdentifier(desc);
   if (pack_map.count(ident) > 0) {
     auto &pack = pack_map[ident].first;
-    if (desc.with_fluxes != pack.with_fluxes_) goto make_new_pack;
-    if (desc.coarse != pack.coarse_) goto make_new_pack;
+    if (desc.with_fluxes != pack.with_fluxes_) return BuildAndAdd(pmd, desc, ident);
+    if (desc.coarse != pack.coarse_) return BuildAndAdd(pmd, desc, ident);
     auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc);
     auto &alloc_status = pack_map[ident].second;
-    if (alloc_status.size() != alloc_status_in.size()) goto make_new_pack;
+    if (alloc_status.size() != alloc_status_in.size())
+      return BuildAndAdd(pmd, desc, ident);
     for (int i = 0; i < alloc_status_in.size(); ++i) {
-      if (alloc_status[i] != alloc_status_in[i]) goto make_new_pack;
+      if (alloc_status[i] != alloc_status_in[i]) return BuildAndAdd(pmd, desc, ident);
     }
+    // Cached version is not stale, so just return a reference to it
     return pack_map[ident].first;
   }
-
-make_new_pack:
-  pack_map[ident] = {SparsePackBase::Build(pmd, desc),
-                     SparsePackBase::GetAllocStatus(pmd, desc)};
-  return pack_map[ident].first;
+  return BuildAndAdd(pmd, desc, ident);
 }
 template SparsePackBase &SparsePackCache::Get<MeshData<Real>>(MeshData<Real> *,
                                                               const PackDescriptor &);
 template SparsePackBase &
 SparsePackCache::Get<MeshBlockData<Real>>(MeshBlockData<Real> *, const PackDescriptor &);
+
+template <class T>
+SparsePackBase &SparsePackCache::BuildAndAdd(T *pmd, const PackDescriptor &desc,
+                                             const std::string &ident) {
+  pack_map[ident] = {SparsePackBase::Build(pmd, desc),
+                     SparsePackBase::GetAllocStatus(pmd, desc)};
+  return pack_map[ident].first;
+}
+template SparsePackBase &
+SparsePackCache::BuildAndAdd<MeshData<Real>>(MeshData<Real> *, const PackDescriptor &,
+                                             const std::string &);
+template SparsePackBase &SparsePackCache::BuildAndAdd<MeshBlockData<Real>>(
+    MeshBlockData<Real> *, const PackDescriptor &, const std::string &);
 
 std::string SparsePackCache::GetIdentifier(const PackDescriptor &desc) const {
   std::string identifier("");

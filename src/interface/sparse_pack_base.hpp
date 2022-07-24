@@ -31,14 +31,13 @@
 #include "utils/utils.hpp"
 
 namespace parthenon {
+class SparsePackCache;
+
+// Map for going from variable names to sparse pack variable indices
+using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
+
 namespace impl {
 struct PackDescriptor {
-  std::vector<std::string> vars;
-  std::vector<bool> use_regex;
-  std::vector<MetadataFlag> flags;
-  bool with_fluxes;
-  bool coarse;
-
   PackDescriptor(const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
                  const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse)
       : vars(vars), use_regex(use_regex), flags(flags), with_fluxes(with_fluxes),
@@ -47,6 +46,8 @@ struct PackDescriptor {
                       "Must have a regex flag for each variable.");
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
+    for (const auto &var : vars)
+      regexes.push_back(std::regex(var));
   }
 
   PackDescriptor(const std::vector<std::pair<std::string, bool>> &vars_in,
@@ -58,6 +59,8 @@ struct PackDescriptor {
     }
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
+    for (const auto &var : vars)
+      regexes.push_back(std::regex(var));
   }
 
   PackDescriptor(const std::vector<std::string> &vars_in,
@@ -66,7 +69,10 @@ struct PackDescriptor {
         with_fluxes(with_fluxes), coarse(coarse) {
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
+    for (const auto &var : vars)
+      regexes.push_back(std::regex(var));
   }
+<<<<<<< HEAD
 
   // Determine whether the variable at index vidx with given label and metadata is
   // included in this PackDescriptor
@@ -91,51 +97,52 @@ struct PackDescriptor {
 } // namespace impl
 
 using namespace impl;
+=======
+>>>>>>> lroberts36/sparse-pack
 
-class PackIdx {
-  std::size_t vidx;
-  int off;
+  // Method for determining if variable pv should be included in pack for this
+  // PackDescriptor
+  bool IncludeVariable(int vidx, const std::shared_ptr<CellVariable<Real>> &pv) const {
+    // TODO(LFR): Check that the shapes agree
+    if (flags.size() > 0) {
+      for (const auto &flag : flags) {
+        if (!pv->IsSet(flag)) {
+          return false;
+        }
+      }
+    }
 
- public:
-  KOKKOS_INLINE_FUNCTION
-  explicit PackIdx(std::size_t var_idx) : vidx(var_idx), off(0) {}
-  KOKKOS_INLINE_FUNCTION
-  PackIdx &operator=(std::size_t var_idx) {
-    vidx = var_idx;
-    off = 0;
-    return *this;
+    if (use_regex[vidx]) {
+      if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
+    } else {
+      if (vars[vidx] == pv->label()) return true;
+    }
+    return false;
   }
-  KOKKOS_INLINE_FUNCTION
-  PackIdx(std::size_t var_idx, int off) : vidx(var_idx), off(off) {}
-  KOKKOS_INLINE_FUNCTION
-  std::size_t Vidx() { return vidx; }
-  KOKKOS_INLINE_FUNCTION
-  int Off() { return off; }
+
+  std::vector<std::string> vars;
+  std::vector<std::regex> regexes;
+  std::vector<bool> use_regex;
+  std::vector<MetadataFlag> flags;
+  bool with_fluxes;
+  bool coarse;
 };
-
-template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
-KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T off) {
-  return PackIdx(idx.Vidx(), idx.Off() + off);
-}
-
-template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
-KOKKOS_INLINE_FUNCTION PackIdx operator+(T off, PackIdx idx) {
-  return idx + off;
-}
-
-using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
+} // namespace impl
 
 class SparsePackBase {
+ public:
+  SparsePackBase() = default;
+  virtual ~SparsePackBase() = default;
+
  protected:
   friend class SparsePackCache;
 
-  using test_func_t =
-      std::function<bool(int, const std::shared_ptr<CellVariable<Real>> &)>;
+  using alloc_t = std::vector<bool>;
   using pack_t = ParArray3D<ParArray3D<Real>>;
   using bounds_t = ParArray3D<int>;
-  using alloc_t = std::vector<bool>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 
+<<<<<<< HEAD
   pack_t pack_;
   bounds_t bounds_;
   coords_t coords_;
@@ -148,71 +155,74 @@ class SparsePackBase {
   int dims_[6];
   int nvar_;
 
+=======
+  // Returns a SparsePackBase object that is either newly created or taken
+  // from the cache in pmd. The cache itself handles the all of this logic
+>>>>>>> lroberts36/sparse-pack
   template <class T>
-  static alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc);
-
-  template <class T>
-  static SparsePackBase Build(T *pmd, const PackDescriptor &desc);
-
-  static test_func_t GetTestFunction(const PackDescriptor &desc);
-
- public:
-  SparsePackBase() = default;
-  virtual ~SparsePackBase() = default;
-
-  // VAR_VEC can be:
-  //   1) std::vector<std::string> of variable names (in which case they are all assumed
-  //   not to be regexs)
-  //   2) std::vector<std::pair<std::string, bool>> of (variable name, treat name as
-  //   regex) pairs
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePackBase, SparsePackIdxMap>
-  Make(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
-       bool fluxes = false, bool coarse = false) {
+  static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc) {
     auto &cache = pmd->GetSparsePackCache();
-    auto desc = PackDescriptor(vars, flags, fluxes, coarse);
+    return cache.Get(pmd, desc);
+  }
+
+  // Return a map from variable names to pack variable indices
+  static SparsePackIdxMap GetIdxMap(const impl::PackDescriptor &desc) {
     SparsePackIdxMap map;
     std::size_t idx = 0;
     for (const auto &var : desc.vars) {
       map[var] = idx;
       ++idx;
     }
-    return {cache.Get(pmd, desc), map};
+    return map;
   }
 
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePackBase, SparsePackIdxMap>
-  MakeWithFluxes(T *pmd, const VAR_VEC &vars,
-                 const std::vector<MetadataFlag> &flags = {}) {
-    const bool fluxes = true;
-    const bool coarse = false;
-    return Make(pmd, vars, flags, fluxes, coarse);
-  }
+  // Get a list of booleans of the allocation status of every variable in pmd matching the
+  // PackDescriptor desc
+  template <class T>
+  static alloc_t GetAllocStatus(T *pmd, const impl::PackDescriptor &desc);
 
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePackBase, SparsePackIdxMap>
-  MakeWithCoarse(T *pmd, const VAR_VEC &vars,
-                 const std::vector<MetadataFlag> &flags = {}) {
-    const bool fluxes = false;
-    const bool coarse = true;
-    return Make(pmd, vars, flags, fluxes, coarse);
-  }
+  // Actually build a `SparsePackBase` (i.e. create a view of views, fill on host, and
+  // deep copy the view of views to device) from the variables specified in desc contained
+  // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
+  template <class T>
+  static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc);
+
+  pack_t pack_;
+  bounds_t bounds_;
+  coords_t coords_;
+
+  bool with_fluxes_;
+  bool coarse_;
+  int nblocks_;
+  int ndim_;
+  int dims_[6];
+  int nvar_;
 };
 
+// Object for cacheing sparse packs in MeshData and MeshBlockData objects. This
+// handles checking for a pre-existing pack and creating a new SparsePackBase if
+// a cached pack is unavailable. Essentially, this operates as a map from
+// `PackDescriptor` to `SparsePackBase`
 class SparsePackCache {
  public:
-  template <class T>
-  SparsePackBase &Get(T *pmd, const PackDescriptor &desc);
-
   std::size_t size() const { return pack_map.size(); }
 
   void clear() { pack_map.clear(); }
 
  protected:
-  std::string GetIdentifier(const PackDescriptor &desc) const;
+  template <class T>
+  SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
+
+  template <class T>
+  SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc,
+                              const std::string &ident);
+
+  std::string GetIdentifier(const impl::PackDescriptor &desc) const;
 
   std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
       pack_map;
+
+  friend class SparsePackBase;
 };
 
 } // namespace parthenon

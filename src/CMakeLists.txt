@@ -203,6 +203,7 @@ add_library(parthenon
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
   utils/cleantypes.hpp
+  utils/concepts_lite.hpp
   utils/error_checking.hpp
   utils/error_checking.cpp
   utils/mpi_types.hpp
@@ -214,6 +215,7 @@ add_library(parthenon
   utils/string_utils.cpp
   utils/string_utils.hpp
   utils/utils.hpp
+  utils/variadic_template_utils.hpp
 
   argument_parser.hpp
   basic_types.hpp
