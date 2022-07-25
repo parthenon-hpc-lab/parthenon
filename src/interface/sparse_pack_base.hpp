@@ -72,33 +72,6 @@ struct PackDescriptor {
     for (const auto &var : vars)
       regexes.push_back(std::regex(var));
   }
-<<<<<<< HEAD
-
-  // Determine whether the variable at index vidx with given label and metadata is
-  // included in this PackDescriptor
-  tempate<typename VarType>
-  const bool IncludeVariable(const int vidx, const VarType var) const {
-    if (flags.size() > 0) {
-      for (const auto &flag : flags) {
-        if (!var.IsSet(flag)) {
-          return false;
-        }
-      }
-    }
-
-    if (use_regex[vidx]) {
-      if (std::regex_match(var.label(), std::regex(vars[vidx]))) return true;
-    } else {
-      if (vars[vidx] == var.label)() return true;
-    }
-    return false;
-  }
-};
-} // namespace impl
-
-using namespace impl;
-=======
->>>>>>> lroberts36/sparse-pack
 
   // Method for determining if variable pv should be included in pack for this
   // PackDescriptor
@@ -142,23 +115,8 @@ class SparsePackBase {
   using bounds_t = ParArray3D<int>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 
-<<<<<<< HEAD
-  pack_t pack_;
-  bounds_t bounds_;
-  coords_t coords_;
-
-  bool with_directed_data_;
-  bool with_fluxes_;
-  bool coarse_;
-  int nblocks_;
-  int ndim_;
-  int dims_[6];
-  int nvar_;
-
-=======
   // Returns a SparsePackBase object that is either newly created or taken
   // from the cache in pmd. The cache itself handles the all of this logic
->>>>>>> lroberts36/sparse-pack
   template <class T>
   static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc) {
     auto &cache = pmd->GetSparsePackCache();

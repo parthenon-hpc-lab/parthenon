@@ -159,6 +159,7 @@ class CellVariable {
 /// and label so that we can refer to variables by name.  Since Athena
 /// currently only has scalar Face fields, we also only allow scalar
 /// face fields
+//FIXME(forrestglines): Is this last statement true?
 template <typename T>
 class FaceVariable {
  public:
@@ -234,6 +235,7 @@ class FaceVariable {
 /// and label so that we can refer to variables by name.  Since Athena
 /// currently only has scalar Edge fields, we also only allow scalar
 /// edge fields
+//FIXME(forrestglines): Is this last statement true?
 template <typename T>
 class EdgeVariable {
  public:

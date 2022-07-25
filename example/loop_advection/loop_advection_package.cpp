@@ -35,6 +35,52 @@ using parthenon::CartDir;
 
 namespace loop_advection_example {
 
+
+struct B_face : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION B_face(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "B_face"; }
+};
+
+struct B_cell : public parthenon::variable_names::base_t<false, 3> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION B_cell(Ts &&...args)
+      : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "B_cell"; }
+};
+struct E_cell : public parthenon::variable_names::base_t<false, 3> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION E_cell(Ts &&...args)
+      : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "E_cell"; }
+};
+struct E_edge : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION E_edge(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "E_edge"; }
+};
+struct div_Bf_cell : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION div_Bf_cell(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "div_Bf_cell"; }
+};
+struct div_Bc_cell : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION div_Bc_cell(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "div_Bc_cell"; }
+};
+struct div_E_node : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION div_E_node(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "div_E_node"; }
+};
+
+
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   auto package = std::make_shared<StateDescriptor>("LoopAdvection");
@@ -42,39 +88,40 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Params &params = package->AllParams();
 
   Metadata m;
-  std::vector<int> vec_size({1});///Vector size of one
+  std::vector<int> scalar_shape({1});
+  std::vector<int> vector_shape({3});
 
   //The magnetic field, defined at the faces,  which is evolved
   m = Metadata({Metadata::Face, Metadata::Independent, Metadata::FillGhost},
-               vec_size);
-  package->AddField("B_face", m);
+               scalar_shape);
+  package->AddField(B_face::name(), m);
 
   //The magnetic field, defined at cell centers,  which is interpolated from cell faces
   m = Metadata({Metadata::Cell, Metadata::Dependent, Metadata::FillGhost},
-               vec_size);
-  package->AddField("B_cell", m);
+               vector_shape);
+  package->AddField(B_cell::name(), m);
 
   //The electric field, defined at the cells centers,  which is derived from v x B
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::FillGhost},
-               vec_size);
-  package->AddField("E_cell", m);
+               vector_shape);
+  package->AddField(E_cell::name(), m);
 
   //The electric field, defined at cell edges,  which is derived from v x B
   m = Metadata({Metadata::Edge, Metadata::Derived, Metadata::FillGhost},
-               vec_size);
-  package->AddField("E_edge", m);
+               scalar_shape);
+  package->AddField(E_edge::name(), m);
 
   // The divergence of the face centered magnetic field at cell centers
   m = Metadata({Metadata::Cell, Metadata::Derived});
-  package->AddField("div_Bf_cell", m);
+  package->AddField(div_Bf_cell::name(), m);
 
   // The divergence of the cell centered magnetic field at cell centers
   m = Metadata({Metadata::Cell, Metadata::Derived});
-  package->AddField("div_Bc_cell", m);
+  package->AddField(div_Bc_cell::name(), m);
 
   // The divergence of the electric_field at nodes
   m = Metadata({Metadata::Node, Metadata::Derived});
-  package->AddField("div_E_node", m);
+  package->AddField(div_E_node::name(), m);
 
   packages.Add(package);
   return packages;
@@ -92,12 +139,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const auto &v2 = pkg->Param<Real>("v2");
 
 
-  const auto &tup =  SparsePack<>::Make(pmd->meshblock_data.Get(),{"E_edge","B_face"});
-  const auto &v = std::get<0>(tup);
-  const auto &pack_map = std::get<1>(tup);
+  auto &v =  SparsePack<E_edge,B_face>::Make(pmd->meshblock_data.Get());
 
-  const auto &A_vidx = pack_map["E_edge"];
-  const auto &B_face_vidx = pack_map["B_face"];
+  using A = E_edge;
 
   //Initialize vector potential at cell edges
   const auto &A = md->PackVars(std::vector<std::string>{"E_edge"});
@@ -123,8 +167,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         const Real ay = 0;
         const Real az = max( amp*(R - r),0);
 
-        v( b, edge_dir, A_vidx, k, j, i) = (edge_dir == 1 ) ? ax :
-                                   (edge_dir == 2 ) ? ay : az;
+        v( b, edge_dir, A, k, j, i) = (edge_dir == 1 ) ? ax :
+                                      (edge_dir == 2 ) ? ay : az;
       });
   }
 
@@ -155,18 +199,18 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
                                            coords.dx3(k);
 
         //First term: dEzdy, dExdz, or dEydx
-        const Real dEp2dp1 =(v.cmpt( b, cart_dir_p2, A_vidx,  k, j, i)
-                            -v.cmpt( b, cart_dir_p2, A_vidx,  k - (cart_dir_p1 == 3),
+        const Real dEp2dp1 =(v.comp( b, cart_dir_p2, A,  k, j, i)
+                            -v.comp( b, cart_dir_p2, A,  k - (cart_dir_p1 == 3),
                                                 j - (cart_dir_p1 == 2),
                                                 i - (cart_dir_p1 == 1)))/dp1;
 
         //Second term: dEydz, dEzdx, or dExdy
-        const Real dEp1dp2 =(v.cmpt( b, cart_dir_p1, A_vidx, k, j, i)
-                            -v.cmpt( b, cart_dir_p1, A_vidx, k - (cart_dir_p2 == 3),
+        const Real dEp1dp2 =(v.comp( b, cart_dir_p1, A, k, j, i)
+                            -v.comp( b, cart_dir_p1, A, k - (cart_dir_p2 == 3),
                                                 j - (cart_dir_p2 == 2),
                                                 i - (cart_dir_p2 == 1)))/dp2;
 
-        v.cmpt( b, cart_dir, B_face_vidx, b, k, j, i) = -(dEp2dp1 - dEp1dp2);
+        v.comp( b, cart_dir, B_face, b, k, j, i) = -(dEp2dp1 - dEp1dp2);
       });
   }
 
@@ -181,15 +225,9 @@ parthenon::TaskStatus calc_dBdt(parthenon::MeshBlock *pmb){
   const auto &v2 = pkg->Param<Real>("v2");
   const Real v3 = 0;
 
-  const auto &tup =  SparsePack<>::Make(pmd->meshblock_data.Get(),{"B_face","B_cell","E_cell","E_edge"});
-  const auto &v = std::get<0>(tup);
-  const auto &pack_map = std::get<1>(tup);
+  auto &v =  SparsePack<B_face,B_cell,E_cell,E_edge>::Make(pmd->meshblock_data.Get());
 
-  const auto &B_face_vidx = pack_map["B_face"];
-  const auto &B_cell_vidx = pack_map["B_cell"];
-  const auto &E_cell_vidx = pack_map["E_cell"];
-  const auto &E_edge_vidx = pack_map["E_edge"];
-  const auto &dBdt_face_vidx = B_face_vidx;
+  using dBdt_face = B_face;
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -203,14 +241,14 @@ parthenon::TaskStatus calc_dBdt(parthenon::MeshBlock *pmb){
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
 
         //Average B from the faces to the cell centers
-        v(b, B_cell_vidx+0, k, j, i) = 0.5 * (v.cmpt( b, 1, B_face_vidx, k, j, i) + v.cmpt(b, 1, B_face_vidx,  k, j, i+1));
-        v(b, B_cell_vidx+1, k, j, i) = 0.5 * (v.cmpt( b, 2, B_face_vidx, k, j, i) + v.cmpt(b, 2, B_face_vidx,  k, j+1, i));
-        v(b, B_cell_vidx+2, k, j, i) = 0.5 * (v.cmpt( b, 3, B_face_vidx, k, j, i) + v.cmpt(b, 3, B_face_vidx,  k+1, j, i));
+        v(b, B_cell(0), k, j, i) = 0.5 * (v.comp( b, 1, B_face, k, j, i) + v.comp(b, 1, B_face,  k, j, i+1));
+        v(b, B_cell(1), k, j, i) = 0.5 * (v.comp( b, 2, B_face, k, j, i) + v.comp(b, 2, B_face,  k, j+1, i));
+        v(b, B_cell(2), k, j, i) = 0.5 * (v.comp( b, 3, B_face, k, j, i) + v.comp(b, 3, B_face,  k+1, j, i));
 
         //Compute E_cell = v X B
-        v(b, E_cell_vidx+0, k, j, i) = v2 * B3 - v3 * B2;
-        v(b, E_cell_vidx+1, k, j, i) = v3 * B1 - v1 * B3;
-        v(b, E_cell_vidx+2, k, j, i) = v1 * B2 - v2 * B1;
+        v(b, E_cell(0), k, j, i) = v2 * B3 - v3 * B2;
+        v(b, E_cell(1), k, j, i) = v3 * B1 - v1 * B3;
+        v(b, E_cell(2), k, j, i) = v1 * B2 - v2 * B1;
 
       });
   }
@@ -224,14 +262,14 @@ parthenon::TaskStatus calc_dBdt(parthenon::MeshBlock *pmb){
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         //Average E from the cell centers to cell edges
         if( k+1 < kb.e && j+1 < jb.e) 
-          v.cmpt(b, 1, E_edge_idx, k, j, i) = v.cmpt(b, 1, E_face_vidx,   k,   j,   i) + v.cmpt(b, 1, E_face_vidx,   k, j+1,   i);
-                                            + v.cmpt(b, 1, E_face_vidx, k+1,   j,   i) + v.cmpt(b, 1, E_face_vidx, k+1, j+1,   i);
+          v.comp(b, 1, E_edge, k, j, i) = v.comp(b, 1, E_face,   k,   j,   i) + v.comp(b, 1, E_face,   k, j+1,   i);
+                                        + v.comp(b, 1, E_face, k+1,   j,   i) + v.comp(b, 1, E_face, k+1, j+1,   i);
         if( j+1 < jb.e && i+1 < ib.e) 
-          v.cmpt(b, 2, E_edge_idx, k, j, i) = v.cmpt(b, 2, E_face_vidx,   k,   j,   i) + v.cmpt(b, 2, E_face_vidx,   k,   j, i+1);
-                                            + v.cmpt(b, 2, E_face_vidx, k+1,   j,   i) + v.cmpt(b, 2, E_face_vidx, k+1,   j, i+1);
+          v.comp(b, 2, E_edge, k, j, i) = v.comp(b, 2, E_face,   k,   j,   i) + v.comp(b, 2, E_face,   k,   j, i+1);
+                                        + v.comp(b, 2, E_face, k+1,   j,   i) + v.comp(b, 2, E_face, k+1,   j, i+1);
         if( j+1 < jb.e && k+1 < kb.e) 
-          v.cmpt(b, 3, E_edge_idx, k, j, i) = v.cmpt(b, 3, E_face_vidx,   k,   j,   i) + v.cmpt(b, 3, E_face_vidx,   k,   j, i+1);
-                                            + v.cmpt(b, 3, E_face_vidx,   k, j+1,   i) + v.cmpt(b, 3, E_face_vidx,   k, j+1, i+1);
+          v.comp(b, 3, E_edge, k, j, i) = v.comp(b, 3, E_face,   k,   j,   i) + v.comp(b, 3, E_face,   k,   j, i+1);
+                                        + v.comp(b, 3, E_face,   k, j+1,   i) + v.comp(b, 3, E_face,   k, j+1, i+1);
 
 
 
@@ -254,14 +292,14 @@ parthenon::TaskStatus calc_dBdt(parthenon::MeshBlock *pmb){
         const auto &coords = v.GetCoordinates(b);
 
         if( k+1 < kb.e && j+1 < jb.e) 
-          v.cmpt(b, 1, dBdt_face_vidx, k, j, i) = (v.cmpt(b, 3, E_edge_vidx k, j+1, i) - v.cmpt(b, 3, E_edge_vidx k, j, i))/coords.dx2(j)
-                                                - (v.cmpt(b, 2, E_edge_vidx k+1, j, i) - v.cmpt(b, 2, E_edge_vidx k, j, i))/coords.dx3(k);
+          v.comp(b, 1, dBdt_face, k, j, i) = (v.comp(b, 3, E_edge, k, j+1, i) - v.comp(b, 3, E_edge, k, j, i))/coords.dx2(j)
+                                           - (v.comp(b, 2, E_edge, k+1, j, i) - v.comp(b, 2, E_edge, k, j, i))/coords.dx3(k);
         if( j+1 < jb.e && i+1 < ib.e) 
-          v.cmpt(b, 2, dBdt_face_vidx, k, j, i) = (v.cmpt(b, 1, E_edge_vidx k+1, j, i) - v.cmpt(b, 1, E_edge_vidx k, j, i))/coords.dx3(k)
-                                                - (v.cmpt(b, 3, E_edge_vidx k, j, i+1) - v.cmpt(b, 3, E_edge_vidx k, j, i))/coords.dx1(i);
+          v.comp(b, 2, dBdt_face, k, j, i) = (v.comp(b, 1, E_edge, k+1, j, i) - v.comp(b, 1, E_edge, k, j, i))/coords.dx3(k)
+                                           - (v.comp(b, 3, E_edge, k, j, i+1) - v.comp(b, 3, E_edge, k, j, i))/coords.dx1(i);
         if( j+1 < jb.e && k+1 < kb.e) 
-          v.cmpt(b, 3, dBdt_face_vidx, k, j, i) = (v.cmpt(b, 2, E_edge_vidx k, j, i+1) - v.cmpt(b, 2, E_edge_vidx k, j, i))/coords.dx3(k)
-                                                - (v.cmpt(b, 1, E_edge_vidx k, j+1, i) - v.cmpt(b, 1, E_edge_vidx k, j, i))/coords.dx2(j);
+          v.comp(b, 3, dBdt_face, k, j, i) = (v.comp(b, 2, E_edge, k, j, i+1) - v.comp(b, 2, E_edge, k, j, i))/coords.dx3(k)
+                                           - (v.comp(b, 1, E_edge, k, j+1, i) - v.comp(b, 1, E_edge, k, j, i))/coords.dx2(j);
       });
   }
 
@@ -281,12 +319,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
     IndexRange jb = pmb->cellbounds.GetNodeBoundsJ(IndexDomain::interior);
     IndexRange kb = pmb->cellbounds.GetNodeBoundsK(IndexDomain::interior);
 
-    const auto &tup =  SparsePack<>::Make(pmd->meshblock_data.Get(),{"E_edge","div_E_node"});
-    const auto &v = std::get<0>(tup);
-    const auto &pack_map = std::get<1>(tup);
-
-    const auto &E_edge_vidx = pack_map["E_edge"];
-    const auto &div_E_node_vidx = pack_map["div_E_node"];
+    auto &v =  SparsePack<E_edge,div_E_node>::Make(pmd->meshblock_data.Get());
 
     // Compute the div of E at nodes(should be zero?)
     pmb->par_for(
@@ -294,14 +327,14 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         const auto &coords = v.GetCoordinates(b);
 
-        v(b, div_E_node_vidx, k, j, i) = (v.cmpt(b, 1, E_edge_vidx, k, j, i) -
-                                          v.cmpt(b, 1, E_edge_vidx, k, j, i - 1)) /
+        v(b, div_E_node, k, j, i) = (v.comp(b, 1, E_edge, k, j, i) -
+                                          v.comp(b, 1, E_edge, k, j, i - 1)) /
                                              coords.dx1(i) +
-                                         (v.cmpt(b, 2, E_edge_vidx, k, j, i) -
-                                          v.cmpt(b, 2, E_edge_vidx, k, j - 1, i)) /
+                                         (v.comp(b, 2, E_edge, k, j, i) -
+                                          v.comp(b, 2, E_edge, k, j - 1, i)) /
                                              coords.dx2(j) +
-                                         (v.cmpt(b, 3, E_edge_vidx, k, j, i) -
-                                          v.cmpt(b, 3, E_edge_vidx, k - 1, j, i)) /
+                                         (v.comp(b, 3, E_edge, k, j, i) -
+                                          v.comp(b, 3, E_edge, k - 1, j, i)) /
                                              coords.dx3(k);
 
       });
@@ -313,38 +346,20 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
     IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-    const auto &B_face = pmd->meshblock_data.Get()->PackVars(
-        std::vector<std::string>({"B_face"}));
-    const auto &div_Bf_cell = pmd->meshblock_data.Get()->PackVars(
-        std::vector<std::string>({"div_Bf_cell"}));
 
-    const auto &B_cell = pmd->meshblock_data.Get()->PackVars(
-        std::vector<std::string>({"B_cell"}));
-    const auto &div_Bc_cell = pmd->meshblock_data.Get()->PackVars(
-        std::vector<std::string>({"div_Bc_cell"}));
-
-    const auto &tup = SparsePack<>::Make(
-        pmd->meshblock_data.Get(), {"B_face", "div_Bf_cell", "B_cell", "div_Bc_cell"});
-    const auto &v = std::get<0>(tup);
-    const auto &pack_map = std::get<1>(tup);
-
-    const auto &B_face_vidx = pack_map["B_face"];
-    const auto &div_Bf_cell_vidx = pack_map["div_Bf_cell"];
-    const auto &B_cell_vidx = pack_map["B_cell"];
-    const auto &div_Bc_cell_vidx = pack_map["div_Bc_cell"];
-
+    auto &v =  SparsePack<B_face,div_Bf_cell,B_cell,div_Bc_cell>::Make(pmd->meshblock_data.Get());
     // Compute the div of B at nodes(should be zero)
     pmb->par_for(
       "LoopAdvection::calc_div_B", 0, vf.dim(5)-1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         const auto &coords = v.GetCoordinates(b);
 
-        v( b, div_Bf_cell_vidx, k, j, i) = (v.cmpt( b, 1, B_face_vidx, k, j, i) - v.cmpt( b, 1, B_face_vidx, k, j, i-1))/coords.dx1(i)
-                                          +(v.cmpt( b, 2, B_face_vidx, k, j, i) - v.cmpt( b, 2, B_face_vidx, k, j-1, i))/coords.dx2(j)
-                                          +(v.cmpt( b, 3, B_face_vidx, k, j, i) - v.cmpt( b, 3, B_face_vidx, k-1, j, i))/coords.dx3(k);
-        v( b, div_Bc_cell_vidx, k, j, i) = (v( b, B_cell_vidx+0, k, j, i+1) - v( b, B_cell_vidx+0, k, j, i-1))/(2*coords.dx1(i))
-                                          +(v( b, B_cell_vidx+1, k, j+1, i) - v( b, B_cell_vidx+1, k, j-1, i))/(2*coords.dx2(j))
-                                          +(v( b, B_cell_vidx+1, k+1, j, i) - v( b, B_cell_vidx+2, k-1, j, i))/(2*coords.dx3(k));
+        v( b, div_Bf_cell, k, j, i) = (v.comp( b, 1, B_face, k, j, i) - v.comp( b, 1, B_face, k, j, i-1))/coords.dx1(i)
+                                    + (v.comp( b, 2, B_face, k, j, i) - v.comp( b, 2, B_face, k, j-1, i))/coords.dx2(j)
+                                    + (v.comp( b, 3, B_face, k, j, i) - v.comp( b, 3, B_face, k-1, j, i))/coords.dx3(k);
+        v( b, div_Bc_cell, k, j, i) = (v( b, B_cell(0), k, j, i+1) - v( b, B_cell(0), k, j, i-1))/(2*coords.dx1(i))
+                                    + (v( b, B_cell(1), k, j+1, i) - v( b, B_cell(1), k, j-1, i))/(2*coords.dx2(j))
+                                    + (v( b, B_cell(2), k+1, j, i) - v( b, B_cell(2), k-1, j, i))/(2*coords.dx3(k));
 
       });
   }
