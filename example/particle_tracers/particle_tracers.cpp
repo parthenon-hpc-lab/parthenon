@@ -432,25 +432,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto &dudt = pmb->meshblock_data.Get("dUdt");
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto start_recv = tl.AddTask(none, &MeshBlockData<Real>::StartReceiving, sc1.get(),
-                                 BoundaryCommSubset::all);
-
     auto advect_flux = tl.AddTask(none, tracers_example::CalculateFluxes, sc0.get());
-
-    auto send_flux =
-        tl.AddTask(advect_flux, &MeshBlockData<Real>::SendFluxCorrection, sc0.get());
-
-    auto recv_flux =
-        tl.AddTask(advect_flux, &MeshBlockData<Real>::ReceiveFluxCorrection, sc0.get());
-
-    auto flux_div =
-        tl.AddTask(recv_flux, FluxDivergence<MeshBlockData<Real>>, sc0.get(), dudt.get());
-
-    auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshBlockData<Real>>,
-                               sc0.get(), base.get(), beta);
-
-    auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshBlockData<Real>>,
-                             sc0.get(), dudt.get(), beta * dt, sc1.get());
   }
 
   const int num_partitions = pmesh->DefaultNumPartitions();
@@ -459,13 +441,44 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; i++) {
     auto &tl = single_tasklist_per_pack_region[i];
+    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
+    auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
     auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+    auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
+
+    const auto any = parthenon::BoundaryType::any;
+
+    tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
+    tl.AddTask(none,
+               parthenon::cell_centered_bvars::StartReceiveSparseFluxCorrectionBuffers,
+               mc0);
+
+    auto send_flx = tl.AddTask(
+        none, parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers,
+        mc0);
+    auto recv_flx = tl.AddTask(
+        none, parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers, mc0);
+    auto set_flx =
+        tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+
+    // compute the divergence of fluxes of conserved variables
+    auto flux_div =
+        tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
+
+    auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
+                               mc0.get(), mbase.get(), beta);
+    // apply du/dt to all independent fields in the container
+    auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
+                             mdudt.get(), beta * dt, mc1.get());
+
+    // do boundary exchange
 
     auto send =
-        tl.AddTask(none, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
+        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<any>, mc1);
     auto recv =
-        tl.AddTask(none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
-    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
+        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<any>, mc1);
+    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<any>, mc1);
+
     if (pmesh->multilevel) {
       tl.AddTask(set, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
                  mc1.get());
@@ -477,9 +490,6 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto &pmb = blocks[n];
     auto &tl = async_region1[n];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
-
-    auto clear_comm_flags = tl.AddTask(none, &MeshBlockData<Real>::ClearBoundary,
-                                       sc1.get(), BoundaryCommSubset::all);
 
     auto prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
 

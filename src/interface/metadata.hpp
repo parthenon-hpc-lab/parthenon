@@ -93,13 +93,14 @@
   PARTHENON_INTERNAL_FOR_FLAG(Restart)                                                   \
   /** is a sparse variable */                                                            \
   PARTHENON_INTERNAL_FOR_FLAG(Sparse)                                                    \
+  /** should this variable minimize buffer use during communication */                   \
+  PARTHENON_INTERNAL_FOR_FLAG(SparseCommunication)                                       \
   /** only one copy even if multiple stages */                                           \
   PARTHENON_INTERNAL_FOR_FLAG(OneCopy)                                                   \
   /** Do boundary communication */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(FillGhost)                                                 \
   /** does variable have fluxes */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)
-
 namespace parthenon {
 
 namespace internal {

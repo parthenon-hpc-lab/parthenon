@@ -29,6 +29,7 @@
 
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/object_pool.hpp"
 
 namespace parthenon {
 
@@ -56,6 +57,10 @@ using BufMemSpace = Kokkos::DefaultExecutionSpace::memory_space;
 // MPI communication buffers
 template <typename T>
 using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
+
+// Structures for reusable memory pools and communication
+template <typename T>
+using buf_pool_t = ObjectPool<BufArray1D<T>>;
 
 template <typename T, typename State = empty_state_t>
 using ParArray0D = ParArrayGeneric<Kokkos::View<T, LayoutWrapper, DevMemSpace>, State>;

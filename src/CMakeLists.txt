@@ -95,12 +95,14 @@ set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
 add_library(parthenon
-  bvals/cc/bvals_cc.cpp
-  bvals/cc/bvals_cc.hpp
-  bvals/cc/bvals_cc_in_one.cpp
   bvals/cc/bvals_cc_in_one.hpp
-  bvals/cc/flux_correction_cc.cpp
-
+  bvals/cc/bvals_utils.hpp
+  bvals/cc/calc_indices.cpp
+  bvals/cc/sparse_bvals_cc_in_one.cpp
+  bvals/cc/sparse_flux_correction_cc_in_one.cpp 
+  bvals/cc/tag_map.cpp 
+  bvals/cc/tag_map.hpp 
+  
   bvals/fc/bvals_fc.cpp
   bvals/fc/bvals_fc.hpp
   bvals/fc/flux_correction_fc.cpp
@@ -202,11 +204,14 @@ add_library(parthenon
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
+  utils/communication_buffer.hpp
   utils/cleantypes.hpp
   utils/concepts_lite.hpp
   utils/error_checking.hpp
   utils/error_checking.cpp
+  utils/hash.hpp
   utils/mpi_types.hpp
+  utils/object_pool.hpp
   utils/partition_stl_containers.hpp
   utils/reductions.hpp
   utils/show_config.cpp

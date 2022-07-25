@@ -26,7 +26,6 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "bvals/cc/bvals_cc.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "globals.hpp"

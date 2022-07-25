@@ -28,7 +28,9 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
+#include "utils/communication_buffer.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/object_pool.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -204,32 +206,7 @@ class MeshData {
       pbd->SetAllowedDt(std::min(dt, pbd->GetBlockPointer()->NewDt()));
     }
   }
-
-  void SetSendBuffers(const cell_centered_bvars::BufferCache_t &send_buffers,
-                      const ParArray1D<bool> &sending_nonzero_flags,
-                      const ParArray1D<bool>::host_mirror_type &sending_nonzero_flags_h,
-                      const std::vector<bool> &send_buf_alloc_status) {
-    send_buffers_ = send_buffers;
-    sending_nonzero_flags_ = sending_nonzero_flags;
-    sending_nonzero_flags_h_ = sending_nonzero_flags_h;
-    send_buf_alloc_status_ = send_buf_alloc_status;
-  }
-
-  auto &GetSendBuffers() const { return send_buffers_; }
-  auto &GetSendingNonzeroFlags() const { return sending_nonzero_flags_; }
-  auto &GetSendingNonzeroFlagsHost() const { return sending_nonzero_flags_h_; }
-
-  const auto &GetSendBufAllocStatus() const { return send_buf_alloc_status_; }
-  const auto &GetSetBufAllocStatus() const { return set_buf_alloc_status_; }
   const auto &GetRestrictBufAllocStatus() const { return restrict_buf_alloc_status_; }
-
-  void SetSetBuffers(const cell_centered_bvars::BufferCache_t &set_buffers,
-                     const std::vector<bool> &set_buf_alloc_status) {
-    set_buffers_ = set_buffers;
-    set_buf_alloc_status_ = set_buf_alloc_status;
-  }
-
-  auto &GetSetBuffers() const { return set_buffers_; }
 
   void SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers,
                           const std::vector<bool> &restrict_buf_alloc_status) {
@@ -237,27 +214,8 @@ class MeshData {
     restrict_buf_alloc_status_ = restrict_buf_alloc_status;
   }
 
+  auto &GetBvarsCache() { return bvars_cache_; }
   auto &GetRestrictBuffers() const { return restrict_buffers_; }
-
-  TaskStatus StartReceiving(BoundaryCommSubset phase) {
-    for (const auto &pbd : block_data_) {
-      auto status = pbd->StartReceiving(phase);
-      if (status != TaskStatus::complete) {
-        PARTHENON_THROW("StartReceiving failed!");
-      }
-    }
-    return TaskStatus::complete;
-  }
-
-  TaskStatus ClearBoundary(BoundaryCommSubset phase) {
-    for (const auto &pbd : block_data_) {
-      auto status = pbd->ClearBoundary(phase);
-      if (status != TaskStatus::complete) {
-        PARTHENON_THROW("ClearBoundary failed!");
-      }
-    }
-    return TaskStatus::complete;
-  }
 
   IndexRange GetBoundsI(const IndexDomain &domain) const {
     return block_data_[0]->GetBoundsI(domain);
@@ -431,14 +389,9 @@ class MeshData {
     block_data_.clear();
     varPackMap_.clear();
     varFluxPackMap_.clear();
-    sending_nonzero_flags_ = ParArray1D<bool>();
-    sending_nonzero_flags_h_ = ParArray1D<bool>::host_mirror_type();
-    send_buffers_ = cell_centered_bvars::BufferCache_t{};
-    set_buffers_ = cell_centered_bvars::BufferCache_t{};
-    restrict_buffers_ = cell_centered_bvars::BufferCache_t{};
 
-    send_buf_alloc_status_.clear();
-    set_buf_alloc_status_.clear();
+    bvars_cache_.clear();
+    restrict_buffers_ = cell_centered_bvars::BufferCache_t{};
     restrict_buf_alloc_status_.clear();
   }
 
@@ -468,20 +421,15 @@ class MeshData {
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
   std::string stage_name_;
+
   // caches for packs
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
   // caches for boundary information
-  ParArray1D<bool> sending_nonzero_flags_{};
-  ParArray1D<bool>::host_mirror_type sending_nonzero_flags_h_{};
-  ParArray1D<bool>::host_mirror_type send_buffers_allocation_status_h_{};
-  cell_centered_bvars::BufferCache_t send_buffers_{};
-  cell_centered_bvars::BufferCache_t set_buffers_{};
+  cell_centered_bvars::BvarsCache_t bvars_cache_;
   cell_centered_bvars::BufferCache_t restrict_buffers_{};
-
-  std::vector<bool> send_buf_alloc_status_, set_buf_alloc_status_,
-      restrict_buf_alloc_status_;
+  std::vector<bool> restrict_buf_alloc_status_;
 };
 
 } // namespace parthenon
