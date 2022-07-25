@@ -29,7 +29,7 @@ endif()
 if (PARTHENON_ENABLE_PYTHON_MODULE_CHECK)
   # Ensure all required packages are present
   include(${parthenon_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
-  required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
+  python_modules_found("${REQUIRED_PYTHON_MODULES}" "${DESIRED_PYTHON_MODULES}")
 endif()
 
 # Adds the drivers used in the regression tests to a global cmake property: DRIVERS_USED_IN_TESTS

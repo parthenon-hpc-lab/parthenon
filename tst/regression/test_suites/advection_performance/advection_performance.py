@@ -18,10 +18,17 @@
 # Modules
 import math
 import numpy as np
-import matplotlib
+try:
+  import matplotlib
 
-matplotlib.use("agg")
-import matplotlib.pylab as plt
+  matplotlib.use("agg")
+  import matplotlib.pylab as plt
+  have_matplotlib = True
+except ImportError:
+  import warnings
+  warnings.warn("Matplotlib not found, not making plots.") 
+  have_matplotlib = False
+
 import sys
 import os
 import utils.test_case
@@ -94,19 +101,20 @@ class TestCase(utils.test_case.TestCaseAbs):
                 )
 
         # Plot results
-        fig, p = plt.subplots(2, 1, figsize=(4, 8), sharex=True)
+        if have_matplotlib:
+          fig, p = plt.subplots(2, 1, figsize=(4, 8), sharex=True)
 
-        p[0].loglog(mb_sizes, perfs, label="$256^3$ Mesh")
-        p[1].loglog(mb_sizes, perfs[0] / perfs)
+          p[0].loglog(mb_sizes, perfs, label="$256^3$ Mesh")
+          p[1].loglog(mb_sizes, perfs[0] / perfs)
 
-        for i in range(2):
-            p[i].grid()
-        p[0].legend()
-        p[0].set_ylabel("zone-cycles/s")
-        p[1].set_ylabel("normalized overhead")
-        p[1].set_xlabel("Meshblock size")
-        fig.savefig(
-            os.path.join(parameters.output_path, "performance.png"), bbox_inches="tight"
-        )
+          for i in range(2):
+              p[i].grid()
+          p[0].legend()
+          p[0].set_ylabel("zone-cycles/s")
+          p[1].set_ylabel("normalized overhead")
+          p[1].set_xlabel("Meshblock size")
+          fig.savefig(
+              os.path.join(parameters.output_path, "performance.png"), bbox_inches="tight"
+          )
 
         return True
