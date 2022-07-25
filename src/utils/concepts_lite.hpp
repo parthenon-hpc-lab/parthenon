@@ -159,4 +159,46 @@ struct contiguous_container {
   static T value_type(T (&)[N]);
 };
 
+//---------------------------------------------------------
+// Templates for dealing with template packs
+//---------------------------------------------------------
+
+// Multiply a list of integer template parameters
+template <int... IN>
+struct multiply;
+
+template <>
+struct multiply<> : std::integral_constant<std::size_t, 1> {};
+
+template <int I0, int... IN>
+struct multiply<I0, IN...> : std::integral_constant<int, I0 * multiply<IN...>::value> {};
+
+// GetTypeIdx is taken from Stack Overflow 26169198, should cause compile time failure if
+// type is not in list
+template <typename T, typename... Ts>
+struct GetTypeIdx;
+
+template <typename T, typename... Ts>
+struct GetTypeIdx<T, T, Ts...> : std::integral_constant<std::size_t, 0> {};
+
+template <typename T, typename U, typename... Ts>
+struct GetTypeIdx<T, U, Ts...>
+    : std::integral_constant<std::size_t, 1 + GetTypeIdx<T, Ts...>::value> {};
+
+// Check if the typelist Ts... includes the type T
+template <class T, class... Ts>
+struct IncludesType;
+
+template <typename T>
+struct IncludesType<T, T> : std::true_type {};
+
+template <typename T, typename... Ts>
+struct IncludesType<T, T, Ts...> : std::true_type {};
+
+template <typename T, typename U>
+struct IncludesType<T, U> : std::false_type {};
+
+template <typename T, typename U, typename... Ts>
+struct IncludesType<T, U, Ts...> : IncludesType<T, Ts...> {};
+
 #endif // UTILS_CONCEPTS_LITE_HPP_

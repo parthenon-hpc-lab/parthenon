@@ -28,8 +28,8 @@
 #include "coordinates/coordinates.hpp"
 #include "interface/sparse_pack_base.hpp"
 #include "interface/variable.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/utils.hpp"
-#include "utils/variadic_template_utils.hpp"
 
 namespace parthenon {
 
@@ -62,12 +62,12 @@ class PackIdx {
 };
 
 // Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work
-template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
+template <class T, REQUIRES(std::is_integral<T>::value)>
 KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T offset) {
   return PackIdx(idx.VariableIdx(), idx.Offset() + offset);
 }
 
-template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
+template <class T, REQUIRES(std::is_integral<T>::value)>
 KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
   return idx + offset;
 }
@@ -210,15 +210,13 @@ class SparsePack : public SparsePackBase {
     return bounds_(1, b, idx.VariableIdx());
   }
 
-  template <class TIn,
-            class = typename std::enable_if<IncludesType<TIn, Ts...>::value>::type>
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(0, b, vidx);
   }
 
-  template <class TIn,
-            class = typename std::enable_if<IncludesType<TIn, Ts...>::value>::type>
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(1, b, vidx);
@@ -242,8 +240,7 @@ class SparsePack : public SparsePackBase {
     return pack_(0, b, n)(k, j, i);
   }
 
-  template <class TIn,
-            class = typename std::enable_if<IncludesType<TIn, Ts...>::value>::type>
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int k,
                                           const int j, const int i) const {
     const int vidx = GetLowerBound(b, t) + t.idx;
@@ -273,8 +270,7 @@ class SparsePack : public SparsePackBase {
     return pack_(dir, b, n)(k, j, i);
   }
 
-  template <class TIn,
-            class = typename std::enable_if<IncludesType<TIn, Ts...>::value>::type>
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION Real &flux(const int b, const int dir, const TIn &t, const int k,
                                     const int j, const int i) const {
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
