@@ -58,7 +58,7 @@ using void_t = void;
 template <class T, class = void>
 struct implements : std::false_type {};
 
-// all_implements just checks if all types in a parameter pack implement 
+// all_implements just checks if all types in a parameter pack implement
 // a given concept
 template <class T, class = void>
 struct all_implement : std::false_type {};
@@ -77,7 +77,7 @@ struct implements<Concept(Ts...), void_t<decltype(std::declval<Concept>().requir
 
 template <class Concept, class... Ts>
 struct all_implement<Concept(Ts...), void_t<decltype(std::declval<Concept>().requires_(
-                                      std::declval<Ts>()))...>> : std::true_type {};
+                                         std::declval<Ts>()))...>> : std::true_type {};
 
 //---------------------------
 // Various concepts are implemented below. The general useage of a
@@ -94,8 +94,9 @@ struct all_implement<Concept(Ts...), void_t<decltype(std::declval<Concept>().req
 // we use value everywhere even though it is slightly more verbose.
 //---------------------------
 
-// This trying to use c-style arrays in the concepts pattern below seems not
-// to work for reasons I don't understand
+// Trying to use c-style arrays in the concepts pattern below seems not
+// to work for reasons I don't understand, so we need an independent
+// template using the void_t trck for detecting C arrays
 template <class T, class = void>
 struct is_fundamental_c_array : std::false_type {};
 template <class T, std::size_t N>
