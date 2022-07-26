@@ -138,7 +138,7 @@ class CellVariable {
   void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
   
   VariableState MakeVariableState() const { 
-    return VariableState();
+    return VariableState(m_, sparse_id_);
   }
   
   Metadata m_;

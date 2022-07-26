@@ -27,8 +27,8 @@ static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
 struct VariableState : public empty_state_t {
   explicit VariableState(const Metadata &md, int sparse_id = InvalidSparseID)
       : sparse_id(sparse_id) {
-    allocation_threshold = Globals::sparse_config.allocation_threshold;// md.GetSparseAllocThreshold();
-    deallocation_threshold = Globals::sparse_config.deallocation_threshold;//md.GetSparseDeallocThreshold();
+    allocation_threshold = md.GetAllocationThreshold();
+    deallocation_threshold = md.GetDeallocationThreshold();
   }
 
   KOKKOS_INLINE_FUNCTION
