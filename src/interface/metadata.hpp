@@ -245,7 +245,8 @@ class Metadata {
     if (IsSet(Sparse)) {
       allocation_threshold_ = Globals::sparse_config.allocation_threshold;
       deallocation_threshold_ = Globals::sparse_config.deallocation_threshold;
-    } else { 
+    } else {
+      // Not sparse, so set to zero so we are guaranteed never to deallocate  
       allocation_threshold_ = 0.0; 
       deallocation_threshold_ = 0.0; 
     }
