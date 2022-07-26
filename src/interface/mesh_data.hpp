@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "bvals/cc/bvals_cc_in_one.hpp"
+#include "interface/sparse_pack_base.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
@@ -384,6 +385,7 @@ class MeshData {
   }
 
   void ClearCaches() {
+    sparse_pack_cache_.clear();
     block_data_.clear();
     varPackMap_.clear();
     varFluxPackMap_.clear();
@@ -413,6 +415,8 @@ class MeshData {
     return true;
   }
 
+  SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
+
  private:
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
@@ -421,6 +425,7 @@ class MeshData {
   // caches for packs
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
+  SparsePackCache sparse_pack_cache_;
 
   // caches for boundary information
   cell_centered_bvars::BvarsCache_t bvars_cache_;

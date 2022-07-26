@@ -79,14 +79,14 @@ class CellVariable {
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
     // we can't query data.GetDim() here because data may be unallocated
-    assert(0 < i && i <= 6 && "ParArrayNDGenerics are max 6D");
+    assert(0 < i && i <= 6 && "ParArrayNDs are max 6D");
     return dims_[i - 1];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetCoarseDim(const int i) const {
     // we can't query coarse_s.GetDim() here because it may be unallocated
-    assert(0 < i && i <= 6 && "ParArrayNDGenerics are max 6D");
+    assert(0 < i && i <= 6 && "ParArrayNDs are max 6D");
     return coarse_dims_[i - 1];
   }
 

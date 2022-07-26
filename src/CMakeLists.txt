@@ -140,6 +140,9 @@ add_library(parthenon
   interface/metadata.cpp
   interface/metadata.hpp
   interface/params.hpp
+  interface/sparse_pack.hpp
+  interface/sparse_pack_base.cpp
+  interface/sparse_pack_base.hpp
   interface/sparse_pool.cpp
   interface/sparse_pool.hpp
   interface/state_descriptor.hpp
@@ -203,6 +206,7 @@ add_library(parthenon
   utils/change_rundir.cpp
   utils/communication_buffer.hpp
   utils/cleantypes.hpp
+  utils/concepts_lite.hpp
   utils/error_checking.hpp
   utils/error_checking.cpp
   utils/hash.hpp
@@ -225,6 +229,7 @@ add_library(parthenon
   kokkos_abstraction.hpp
   parameter_input.cpp
   parameter_input.hpp
+  parthenon_array_generic.hpp
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp

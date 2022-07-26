@@ -27,6 +27,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
 
@@ -61,22 +62,27 @@ using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
 template <typename T>
 using buf_pool_t = ObjectPool<BufArray1D<T>>;
 
-template <typename T>
-using ParArray0D = Kokkos::View<T, LayoutWrapper, DevMemSpace>;
-template <typename T>
-using ParArray1D = Kokkos::View<T *, LayoutWrapper, DevMemSpace>;
-template <typename T>
-using ParArray2D = Kokkos::View<T **, LayoutWrapper, DevMemSpace>;
-template <typename T>
-using ParArray3D = Kokkos::View<T ***, LayoutWrapper, DevMemSpace>;
-template <typename T>
-using ParArray4D = Kokkos::View<T ****, LayoutWrapper, DevMemSpace>;
-template <typename T>
-using ParArray5D = Kokkos::View<T *****, LayoutWrapper, DevMemSpace>;
-template <typename T>
-using ParArray6D = Kokkos::View<T ******, LayoutWrapper, DevMemSpace>;
-template <typename T>
-using ParArray7D = Kokkos::View<T *******, LayoutWrapper, DevMemSpace>;
+template <typename T, typename State = empty_state_t>
+using ParArray0D = ParArrayGeneric<Kokkos::View<T, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray1D = ParArrayGeneric<Kokkos::View<T *, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray2D = ParArrayGeneric<Kokkos::View<T **, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray3D =
+    ParArrayGeneric<Kokkos::View<T ***, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray4D =
+    ParArrayGeneric<Kokkos::View<T ****, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray5D =
+    ParArrayGeneric<Kokkos::View<T *****, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray6D =
+    ParArrayGeneric<Kokkos::View<T ******, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray7D =
+    ParArrayGeneric<Kokkos::View<T *******, LayoutWrapper, DevMemSpace>, State>;
 
 // Host mirrors
 template <typename T>
