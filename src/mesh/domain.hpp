@@ -77,6 +77,13 @@ enum class IndexDomain {
   outer_x3
 };
 
+//Which direction is the face. (Along which axis does the normal point?)
+enum class CartDir {
+  x = 0,
+  y = 1,
+  z = 2
+};
+
 //! \class IndexVolume
 //  \brief Defines the dimensions of a shape of indices
 //
@@ -153,6 +160,61 @@ class IndexShape {
   KOKKOS_INLINE_FUNCTION const IndexRange
   GetBoundsK(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::interior) ? x_[2] : IndexRange{ks(domain), ke(domain)};
+  }
+
+  //FIXME(forrestglines) How necessary are these additional functions?
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetFaceBoundsI(const IndexDomain &domain, const CartDir& face) const noexcept {
+    const auto cc_range = GetBoundsI(domain);
+    return IndexRange{ cc_range.s, cc_range.e + (face==CartDir::x ? 1 : 0) };
+  }
+
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetFaceBoundsJ(const IndexDomain &domain, const CartDir& face) const noexcept {
+    const auto cc_range = GetBoundsJ(domain);
+    return IndexRange{ cc_range.s, cc_range.e + (face==CartDir::y ? 1 : 0) };
+  }
+
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetFaceBoundsK(const IndexDomain &domain, const CartDir& face) const noexcept {
+    const auto cc_range = GetBoundsK(domain);
+    return IndexRange{ cc_range.s, cc_range.e + (face==CartDir::z ? 1 : 0) };
+  }
+
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetEdgeBoundsI(const IndexDomain &domain, const CartDir& edge) const noexcept {
+    const auto cc_range = GetBoundsI(domain);
+    return IndexRange{ cc_range.s, cc_range.e + (edge==CartDir::x ? 0 : 1) };
+  }
+
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetEdgeBoundsJ(const IndexDomain &domain, const CartDir& edge) const noexcept {
+    const auto cc_range = GetBoundsJ(domain);
+    return IndexRange{ cc_range.s, cc_range.e + (edge==CartDir::y ? 0 : 1) };
+  }
+
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetEdgeBoundsK(const IndexDomain &domain, const CartDir& edge) const noexcept {
+    const auto cc_range = GetBoundsK(domain);
+    return IndexRange{ cc_range.s, cc_range.e + (edge==CartDir::z ? 0 : 1) };
+  }
+
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetNodeBoundsI(const IndexDomain &domain) const noexcept {
+    const auto cc_range = GetBoundsI(domain);
+    return IndexRange{ cc_range.s, cc_range.e + 1 };
+  }
+
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetNodeBoundsJ(const IndexDomain &domain) const noexcept {
+    const auto cc_range = GetBoundsJ(domain);
+    return IndexRange{ cc_range.s, cc_range.e + 1 };
+  }
+
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetNodeBoundsK(const IndexDomain &domain) const noexcept {
+    const auto cc_range = GetBoundsK(domain);
+    return IndexRange{ cc_range.s, cc_range.e + 1 };
   }
 
   KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain) const noexcept {

@@ -205,12 +205,18 @@ class MeshBlockData {
     return GetFace(label).Get(dir);
   }
 
+  //
+  // Queries related to FaceVariable objects
+  //
+  const EdgeVector<T> &GetEdgeVector() const noexcept { return edgeVector_; }
+  const MapToEdge<T> &GetEdgeMap() const noexcept { return edgeMap_; }
   ///
   /// Get an edge variable from the container
   /// @param label the name of the variable
   /// @return the CellVariable<T> if found or throw exception
   ///
-  EdgeVariable<T> *GetEdge(std::string label) {
+  //EdgeVariable<T> *GetEdge(std::string label) {
+  EdgeVariable<T> &GetEdge(std::string label) {
     // for (auto v : edgeVector_) {
     //   if (! v->label().compare(label)) return v;
     // }
@@ -323,6 +329,10 @@ class MeshBlockData {
   const VariableFluxPack<T> &PackVariablesAndFluxes() {
     return PackVariablesAndFluxesImpl({}, nullptr, nullptr);
   }
+
+  //-----------------
+  // Cell Variables
+  //-----------------
 
   /// Pack variables by name
   const VariablePack<T> &PackVariables(const std::vector<std::string> &names,
@@ -450,6 +460,16 @@ class MeshBlockData {
     faceMap_[var->label()] = var;
   }
 
+  void Add(std::shared_ptr<EdgeVariable<T>> var) noexcept {
+    edgeVector_.push_back(var);
+    edgeMap_[var->label()] = var;
+  }
+
+  void Add(std::shared_ptr<NodeVariable<T>> var) noexcept {
+    nodeVector_.push_back(var);
+    nodeMap_[var->label()] = var;
+  }
+
   std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label) {
     if (!HasCellVariable(label)) {
       PARTHENON_THROW("Tried to allocate sparse variable '" + label +
@@ -489,9 +509,13 @@ class MeshBlockData {
 
   CellVariableVector<T> varVector_; ///< the saved variable array
   FaceVector<T> faceVector_;        ///< the saved face arrays
+  EdgeVector<T> edgeVector_;        ///< the saved edge arrays
+  NodeVector<T> nodeVector_;        ///< the saved node arrays
 
   MapToCellVars<T> varMap_;
   MapToFace<T> faceMap_;
+  MapToEdge<T> edgeMap_;
+  MapToNode<T> nodeMap_;
 
   // variable packing
   MapToVariablePack<T> varPackMap_;

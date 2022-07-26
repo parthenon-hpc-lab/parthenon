@@ -159,7 +159,7 @@ class CellVariable {
 /// and label so that we can refer to variables by name.  Since Athena
 /// currently only has scalar Face fields, we also only allow scalar
 /// face fields
-//FIXME(forrestglines): Is this last statement true?
+//  FIXME(forrestglines): What is it meant by only "scalar" Face fields? Athena++ ONLY has vector face fields (x,y,z for each face)
 template <typename T>
 class FaceVariable {
  public:
@@ -235,7 +235,7 @@ class FaceVariable {
 /// and label so that we can refer to variables by name.  Since Athena
 /// currently only has scalar Edge fields, we also only allow scalar
 /// edge fields
-//FIXME(forrestglines): Is this last statement true?
+//  FIXME(forrestglines): What is it meant by only "scalar" edge fields? Athena++ ONLY has vector edge fields (x,y,z for each face)
 template <typename T>
 class EdgeVariable {
  public:
@@ -332,7 +332,7 @@ class NodeVariable {
   inline int GetSparseID() const { return InvalidSparseID; }
   inline constexpr bool IsAllocated() const { return true; }
 
-  ParArrayND<T> data;
+  NodeArray<Real> data;
  private:
   std::array<int, 6> dims_;
   Metadata m_;
@@ -391,11 +391,19 @@ template <typename T>
 using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;
 template <typename T>
 using FaceVector = std::vector<std::shared_ptr<FaceVariable<T>>>;
+template <typename T>
+using EdgeVector = std::vector<std::shared_ptr<EdgeVariable<T>>>;
+template <typename T>
+using NodeVector = std::vector<std::shared_ptr<NodeVariable<T>>>;
 
 template <typename T>
 using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
 template <typename T>
 using MapToFace = std::map<std::string, std::shared_ptr<FaceVariable<T>>>;
+template <typename T>
+using MapToEdge = std::map<std::string, std::shared_ptr<EdgeVariable<T>>>;
+template <typename T>
+using MapToNode = std::map<std::string, std::shared_ptr<NodeVariable<T>>>;
 
 template <typename T>
 using ParticleVariableVector = std::vector<std::shared_ptr<ParticleVariable<T>>>;

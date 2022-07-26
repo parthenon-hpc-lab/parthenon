@@ -66,27 +66,55 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
                                 int sparse_id) {
   // branch on kind of variable
   if (metadata.Where() == Metadata::Node) {
-    PARTHENON_THROW("Node variables are not implemented yet");
-  } else if (metadata.Where() == Metadata::Edge) {
-    // add an edge variable
-    std::cerr << "Accessing unliving edge array in stage" << std::endl;
-    std::exit(1);
-    // s->_edgeVector.push_back(
-    //     new EdgeVariable(label, metadata,
-    //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
-  } else if (metadata.Where() == Metadata::Face) {
+    //FIXME(forrestglines) Make sure this is implemented
+    //PARTHENON_THROW("Node variables are not implemented yet");
+    //FIXME(forrestglines):Do we need OneCopy and FillGhost work for Nodes?
     if (!(metadata.IsSet(Metadata::OneCopy))) {
-      std::cerr << "Currently one one-copy face fields are supported" << std::endl;
+      std::cerr << "Currently one one-copy node fields are supported" << std::endl;
       std::exit(1);
     }
     if (metadata.IsSet(Metadata::FillGhost)) {
-      std::cerr << "Ghost zones not yet supported for face fields" << std::endl;
+      std::cerr << "Ghost zones not yet supported for node fields" << std::endl;
       std::exit(1);
     }
-    // add a face variable
-    auto pfv = std::make_shared<FaceVariable<T>>(
+    // add a node variable
+    auto pnv = std::make_shared<NodeVariable<T>>(
         base_name, metadata.GetArrayDims(pmy_block, false), metadata);
-    Add(pfv);
+    Add(pnv);
+  } else if (metadata.Where() == Metadata::Edge) {
+    // add an edge variable
+    //std::cerr << "Accessing unliving edge array in stage" << std::endl;
+    //std::exit(1);
+    // s->_edgeVector.push_back(
+    //     new EdgeVariable(label, metadata,
+    //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
+    //FIXME(forrestglines):Do we need OneCopy and FillGhost work for Edges?
+    if (!(metadata.IsSet(Metadata::OneCopy))) {
+      std::cerr << "Currently one one-copy edge fields are supported" << std::endl;
+      std::exit(1);
+    }
+    if (metadata.IsSet(Metadata::FillGhost)) {
+      std::cerr << "Ghost zones not yet supported for edge fields" << std::endl;
+      std::exit(1);
+    }
+    // add an edge variable
+    auto pev = std::make_shared<EdgeVariable<T>>(
+        base_name, metadata.GetArrayDims(pmy_block, false), metadata);
+    Add(pev);
+  } else if (metadata.Where() == Metadata::Face) {
+    //FIXME(forrestglines):Verify that OneCopy and FillGhost work for Faces
+    //if (!(metadata.IsSet(Metadata::OneCopy))) {
+    //  std::cerr << "Currently one one-copy face fields are supported" << std::endl;
+    //  std::exit(1);
+    //}
+    //if (metadata.IsSet(Metadata::FillGhost)) {
+    //  std::cerr << "Ghost zones not yet supported for face fields" << std::endl;
+    //  std::exit(1);
+    //}
+    // add a face variable
+    auto pfvar = std::make_shared<FaceVariable<T>>(
+        base_name, metadata.GetArrayDims(pmy_block, false), metadata);
+    Add(pfvar);
   } else {
     auto pvar =
         std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
