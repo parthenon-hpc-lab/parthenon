@@ -224,6 +224,7 @@ add_library(parthenon
   kokkos_abstraction.hpp
   parameter_input.cpp
   parameter_input.hpp
+  parthenon_array_generic.hpp
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp

@@ -15,9 +15,21 @@
 
 #include <type_traits>
 
-// These macros are just to make code more readable and self-explanatory
+// These macros are just to make code more readable and self-explanatory,
+// generally it is best to write template<..., REQUIRES(... && ...)> in the code
+// but there are some instance where this causes issues. Switching to the construct
+// template<..., class = ENABLEIF(... && ...)> sometimes fixes those problems.
 #define REQUIRES(...) typename std::enable_if<(__VA_ARGS__), int>::type = 0
 #define ENABLEIF(...) typename std::enable_if<(__VA_ARGS__), int>::type
+using TYPE_OF_SUCCESSFUL_REQUIRES = int;
+
+// Include a useful type trait for checking if a type is a specialization of
+// a template. Only works if all template arguments are types
+template <class SPECIAL, template <class...> class TEMPL>
+struct is_specialization_of : public std::false_type {};
+
+template <template <class...> class TEMPL, class... TPARAMS>
+struct is_specialization_of<TEMPL<TPARAMS...>, TEMPL> : public std::true_type {};
 
 // This is a variadic template class that accepts any set of types
 // and is always equal to void as long as the types are well formed.
@@ -46,6 +58,11 @@ using void_t = void;
 template <class T, class = void>
 struct implements : std::false_type {};
 
+// all_implements just checks if all types in a parameter pack implement
+// a given concept
+template <class T, class = void>
+struct all_implement : std::false_type {};
+
 // Specialization of implements that is chosen if all of the template
 // arguments to void_t are well formed, since in that case void_t = void
 // and this specialization matches the defined template pattern. Note that
@@ -57,6 +74,10 @@ struct implements : std::false_type {};
 template <class Concept, class... Ts>
 struct implements<Concept(Ts...), void_t<decltype(std::declval<Concept>().requires_(
                                       std::declval<Ts>()...))>> : std::true_type {};
+
+template <class Concept, class... Ts>
+struct all_implement<Concept(Ts...), void_t<decltype(std::declval<Concept>().requires_(
+                                         std::declval<Ts>()))...>> : std::true_type {};
 
 //---------------------------
 // Various concepts are implemented below. The general useage of a
@@ -73,8 +94,9 @@ struct implements<Concept(Ts...), void_t<decltype(std::declval<Concept>().requir
 // we use value everywhere even though it is slightly more verbose.
 //---------------------------
 
-// This trying to use c-style arrays in the concepts pattern below seems not
-// to work for reasons I don't understand
+// Trying to use c-style arrays in the concepts pattern below seems not
+// to work for reasons I don't understand, so we need an independent
+// template using the void_t trck for detecting C arrays
 template <class T, class = void>
 struct is_fundamental_c_array : std::false_type {};
 template <class T, std::size_t N>
@@ -157,6 +179,19 @@ struct contiguous_container {
 
   template <class T, std::size_t N, REQUIRES(is_fundamental_c_array<T[N]>::value)>
   static T value_type(T (&)[N]);
+};
+
+struct integral {
+  template <class T>
+  auto requires_(T) -> void_t<ENABLEIF(std::is_integral<T>::value)>;
+};
+
+struct kokkos_view {
+  template <class T>
+  auto requires_(T x) -> void_t<ENABLEIF(implements<contiguous_container(T)>::value),
+                                typename T::HostMirror, typename T::execution_space,
+                                typename T::memory_space, typename T::device_type,
+                                typename T::memory_traits, typename T::host_mirror_space>;
 };
 
 //---------------------------------------------------------
