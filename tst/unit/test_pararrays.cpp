@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -34,6 +34,7 @@ using parthenon::ParArrayND;
 using Real = double;
 
 using policy6d = Kokkos::MDRangePolicy<Kokkos::Rank<6>>;
+using policy4d = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
 using policy3d = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
 using policy2d = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
 
@@ -171,8 +172,9 @@ TEST_CASE("ParArrayND", "[ParArrayND][Kokkos]") {
           a(k, j, i) = static_cast<Real>(k * j * i);
         });
 
-    auto a_host_raw = Kokkos::create_mirror_view(a.Get<3>());
-    Kokkos::deep_copy(a_host_raw, a.Get<3>());
+    auto a_host_raw =
+        Kokkos::create_mirror_view(static_cast<decltype(a.Get<3>())::base_t>(a.Get<3>()));
+    Kokkos::deep_copy(a_host_raw, static_cast<decltype(a.Get<3>())::base_t>(a.Get<3>()));
 
     THEN("The GetHostMirrorAndCopy is identical") {
       auto a_host_wrap = a.GetHostMirrorAndCopy();
@@ -440,6 +442,81 @@ TEST_CASE("ParArray resizing", "[ParArrayND]") {
   }
 }
 
+struct state_t : public parthenon::empty_state_t {
+  KOKKOS_INLINE_FUNCTION
+  state_t() : state_val_(0.0) {}
+  KOKKOS_INLINE_FUNCTION
+  explicit state_t(double val) : state_val_(val) {}
+  KOKKOS_INLINE_FUNCTION
+  double val() { return state_val_; }
+
+ private:
+  double state_val_;
+};
+
+TEST_CASE("ParArray state", "[ParArrayND]") {
+  using arr4d_t = parthenon::ParArray4D<double, state_t>;
+  using arr3d_t = parthenon::ParArray3D<double, state_t>;
+  GIVEN("A ParArray4D with some associated state and a ParArray3D gotten from it") {
+    const double test_value = 5.0;
+    state_t state(test_value);
+
+    arr4d_t pa4("4D", state, 4, N, N, N);
+    arr3d_t pa3 = pa4.Get(1);
+
+    THEN("The lower dimensional ParArray should have the same state.") {
+      REQUIRE(pa3.val() == test_value);
+    }
+  }
+
+  GIVEN("A ParArray4D and another ParArray4D copied from it") {
+    const double test_value = 5.0;
+    state_t state(test_value);
+
+    arr4d_t pa4("4D", state, 4, N, N, N);
+
+    arr4d_t pa4_copy = pa4;
+
+    THEN("They point to the same resource") { REQUIRE(UseSameResource(pa4, pa4_copy)); }
+  }
+
+  GIVEN("A state type that inherits from empty_state_t") {
+    arr3d_t pa3("3D", state_t(5.0), N, N, N);
+    THEN("We should be able to copy into a stateless ParArray") {
+      ParArray3D<double> pa3_stateless = pa3;
+    }
+  }
+
+  GIVEN("An array of ParArrays filled with the values contained in their state") {
+    parthenon::ParArray1D<arr3d_t> pack("test pack", NS);
+    auto pack_h = Kokkos::create_mirror_view(pack);
+
+    for (int b = 0; b < NS; ++b) {
+      state_t state(static_cast<double>(b));
+      pack_h(b) = arr3d_t("3D", state, N, N, N);
+    }
+    Kokkos::deep_copy(pack, pack_h);
+
+    Kokkos::parallel_for(
+        policy4d({0, 0, 0, 0}, {NS, N, N, N}),
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          pack(b)(k, j, i) = pack(b).val();
+        });
+
+    THEN("The arrays should contain the value contained in the state") {
+      for (int b = 0; b < NS; ++b) {
+        auto pa3_h = pack_h(b).GetHostMirrorAndCopy();
+
+        for (int k = 0; k < N; ++k)
+          for (int j = 0; j < N; ++j)
+            for (int i = 0; i < N; ++i) {
+              REQUIRE(pa3_h(k, j, i) == static_cast<double>(b));
+            }
+      }
+    }
+  }
+}
+
 // clang-format gets confused by the #ifndef inside the TEST_CASE
 // clang-format off
 TEST_CASE("Time simple stencil operations", "[ParArrayND][performance]") {
@@ -487,8 +564,10 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
 
   // view of views. See:
   // https://github.com/kokkos/kokkos/wiki/View#6232-whats-the-problem-with-a-view-of-views
+  using view_3d_t =
+      Kokkos::View<Real ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;
   using arrays_t = Kokkos::View<ParArrayND<Real> *, UVMSpace>;
-  using views_t = Kokkos::View<ParArray3D<Real> *, UVMSpace>;
+  using views_t = Kokkos::View<view_3d_t *, UVMSpace>;
   using device_view_t = parthenon::device_view_t<Real>;
   arrays_t arrays(Kokkos::view_alloc(std::string("arrays"), Kokkos::WithoutInitializing),
                   NARRAYS);
@@ -500,7 +579,7 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
         Kokkos::view_alloc(label, Kokkos::WithoutInitializing), 1, 1, 1, N, N, N));
     label = std::string("view ") + std::to_string(n);
     new (&views[n])
-        ParArray3D<Real>(Kokkos::view_alloc(label, Kokkos::WithoutInitializing), N, N, N);
+        view_3d_t(Kokkos::view_alloc(label, Kokkos::WithoutInitializing), N, N, N);
     auto a_h = arrays(n).GetHostMirror();
     auto v_h = Kokkos::create_mirror_view(views(n));
     for (int k = 0; k < N; k++) {
