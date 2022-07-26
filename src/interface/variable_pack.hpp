@@ -29,6 +29,7 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
+#include "interface/variable_state.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
@@ -240,7 +241,7 @@ class PackIndexMap {
 };
 
 template <typename T>
-using ViewOfParArrays = ParArray1D<ParArray3D<T>>;
+using ViewOfParArrays = ParArray1D<ParArray3D<T, VariableState>>;
 
 template <typename T>
 using ViewOfParArrays1D = ParArray1D<ParArray1D<T>>;
@@ -305,7 +306,7 @@ class VariablePack {
 #endif
 
   KOKKOS_FORCEINLINE_FUNCTION
-  ParArray3D<T> &operator()(const int n) const {
+  ParArray3D<T, VariableState> &operator()(const int n) const {
     assert(IsAllocated(n));
     return v_(n);
   }

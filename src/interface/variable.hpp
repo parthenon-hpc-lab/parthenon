@@ -37,6 +37,7 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
+#include "interface/variable_state.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
@@ -45,8 +46,6 @@ namespace parthenon {
 class MeshBlock;
 template <typename T>
 class MeshBlockData;
-
-static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
 
 inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
   return base_name +
@@ -118,9 +117,9 @@ class CellVariable {
 
   inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
-  ParArrayND<T> data;
-  ParArrayND<T> flux[4];  // used for boundary calculation
-  ParArrayND<T> coarse_s; // used for sending coarse boundary calculation
+  ParArrayND<T, VariableState> data;
+  ParArrayND<T, VariableState> flux[4];  // used for boundary calculation
+  ParArrayND<T, VariableState> coarse_s; // used for sending coarse boundary calculation
 
   int dealloc_count = 0;
 
@@ -137,7 +136,11 @@ class CellVariable {
   /// allocate fluxes (if Metadata::WithFluxes is set) and coarse data if
   /// (Metadata::FillGhost is set)
   void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
-
+  
+  VariableState MakeVariableState() const { 
+    return VariableState();
+  }
+  
   Metadata m_;
   const std::string base_name_;
   const int sparse_id_;

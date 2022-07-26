@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "coordinates/coordinates.hpp"
+#include "interface/variable_state.hpp"
 #include "interface/variable.hpp"
 #include "utils/utils.hpp"
 
@@ -111,7 +112,7 @@ class SparsePackBase {
   friend class SparsePackCache;
 
   using alloc_t = std::vector<bool>;
-  using pack_t = ParArray3D<ParArray3D<Real>>;
+  using pack_t = ParArray3D<ParArray3D<Real, VariableState>>;
   using bounds_t = ParArray3D<int>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 

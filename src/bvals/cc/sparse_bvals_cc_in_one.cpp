@@ -259,7 +259,6 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   cell_centered_refinement::Restrict(cache.send_bnd_info, cellbounds, c_cellbounds);
 
   // Load buffer data
-  const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.send_bnd_info;
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
@@ -292,6 +291,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         const int NvNkNjNi = Nv * NkNjNi;
         const int NuNvNkNjNi = Nu * NvNkNjNi;
         const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
+        
+        const Real threshold = bnd_info(b).var.allocation_threshold;
 
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi), [&](const int idx) {

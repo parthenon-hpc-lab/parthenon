@@ -150,6 +150,7 @@ add_library(parthenon
   interface/update.cpp
   interface/update.hpp
   interface/variable_pack.hpp
+  interface/variable_state.hpp
   interface/variable.cpp
   interface/variable.hpp
 

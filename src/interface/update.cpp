@@ -156,8 +156,6 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   const int num_vars = pack.GetDim(4);
   ParArray2D<bool> is_zero("IsZero", num_blocks, num_vars);
 
-  const Real threshold = Globals::sparse_config.deallocation_threshold;
-
   Kokkos::parallel_for(
       "SparseDealloc",
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), num_blocks * num_vars,
@@ -179,7 +177,7 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
         }
 
         const auto &var = pack(b, v);
-
+        const Real threshold = var.deallocation_threshold;
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange<>(team_member, NkNj), [&](const int inner_idx) {
               const int k = inner_idx / Nj;
