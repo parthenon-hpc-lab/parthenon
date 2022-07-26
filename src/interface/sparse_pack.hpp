@@ -304,38 +304,6 @@ class SparsePack : public SparsePackBase {
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(dir, b, vidx)(k, j, i);
   }
-
-  // cmpt() [component] overloads, for edge/face xyz components
-  KOKKOS_INLINE_FUNCTION
-  auto &cmpt(const int b, const int dir, const int idx) const {
-    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_components_, "Bad input to cmpt call");
-    return pack_(dir, b, idx);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  Real &cmpt(const int b, const int dir, const int idx, const int k, const int j,
-             const int i) const {
-    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_components_, "Bad input to cmpt call");
-    return pack_(dir, b, idx)(k, j, i);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  Real &cmpt(const int b, const int dir, PackIdx idx, const int k, const int j,
-             const int i) const {
-    static_assert(sizeof...(Ts) == 0);
-    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_components_, "Bad input to cmpt call");
-    const int n = bounds_(0, b, idx.Vidx()) + idx.Off();
-    return pack_(dir, b, n)(k, j, i);
-  }
-
-  template <class TIn,
-            class = typename std::enable_if<IncludesType<TIn, Ts...>::value>::type>
-  KOKKOS_INLINE_FUNCTION Real &cmpt(const int b, const int dir, const TIn &t, const int k,
-                                    const int j, const int i) const {
-    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_components_, "Bad input to cmpt call");
-    const int vidx = GetLowerBound(b, t) + t.idx;
-    return pack_(dir, b, vidx)(k, j, i);
-  }
 };
 
 } // namespace parthenon
