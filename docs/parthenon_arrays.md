@@ -143,7 +143,7 @@ auto my_host_array = my_array.getHostMirrorAndCopy();
 
 ### A note on templates
 
-Strictly, `ParArrayND` is a specialization of `ParArrayNDGeneric`,
+Strictly, `ParArrayND` is a specialization of `ParArrayGeneric`,
 which wraps an arbitrary container. The specializations and type
 aliases available are as follows:
 
@@ -155,10 +155,10 @@ template<typename T, typename Layout=LayoutWrapper>
 using host_view_t = typename device_view_t<T,Layout>::HostMirror;
 
 template<typename T, typename Layout=LayoutWrapper>
-using ParArrayND = ParArrayNDGeneric<device_view_t<T,Layout>>;
+using ParArrayND = ParArrayGeneric<device_view_t<T,Layout>>;
 
 template<typename T, typename Layout=LayoutWrapper>
-using ParArrayHost = ParArrayNDGeneric<host_view_t<T,Layout>>;
+using ParArrayHost = ParArrayGeneric<host_view_t<T,Layout>>;
 ```
 
 ### Examples of use
