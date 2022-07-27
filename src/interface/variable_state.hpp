@@ -39,8 +39,7 @@ struct VariableState : public empty_state_t {
   
   KOKKOS_INLINE_FUNCTION
   explicit VariableState(const empty_state_t &)
-      : VariableState(Globals::sparse_config.allocation_threshold,
-                      Globals::sparse_config.deallocation_threshold) {}
+      : VariableState(0.0, 0.0) {}
 
   Real allocation_threshold;
   Real deallocation_threshold;
