@@ -27,8 +27,8 @@
 #include <vector>
 
 #include "coordinates/coordinates.hpp"
-#include "interface/variable_state.hpp"
 #include "interface/variable.hpp"
+#include "interface/variable_state.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {

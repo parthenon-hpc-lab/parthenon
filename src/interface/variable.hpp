@@ -136,11 +136,9 @@ class CellVariable {
   /// allocate fluxes (if Metadata::WithFluxes is set) and coarse data if
   /// (Metadata::FillGhost is set)
   void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
-  
-  VariableState MakeVariableState() const { 
-    return VariableState(m_, sparse_id_);
-  }
-  
+
+  VariableState MakeVariableState() const { return VariableState(m_, sparse_id_); }
+
   Metadata m_;
   const std::string base_name_;
   const int sparse_id_;

@@ -27,8 +27,9 @@ namespace parthenon {
 class SparsePool {
  public:
   // Create an empty sparse pool
-  SparsePool(const std::string &base_name, const Metadata &metadata, const std::string& controller_base_name = "")
-      : base_name_(base_name), controller_base_name_(controller_base_name), 
+  SparsePool(const std::string &base_name, const Metadata &metadata,
+             const std::string &controller_base_name = "")
+      : base_name_(base_name), controller_base_name_(controller_base_name),
         shared_metadata_(metadata) {
     PARTHENON_REQUIRE_THROWS(shared_metadata_.IsSet(Metadata::Sparse),
                              "Must set Sparse flag for a SparsePool");
@@ -36,7 +37,7 @@ class SparsePool {
 
   // Create a copy of the sparse pool with a different name
   SparsePool(const std::string &new_base_name, const SparsePool &src)
-      : base_name_(new_base_name), controller_base_name_(src.controller_base_name_), 
+      : base_name_(new_base_name), controller_base_name_(src.controller_base_name_),
         shared_metadata_(src.shared_metadata()), pool_(src.pool()) {}
 
   // Create a sparse pool with given sparse ids, shapes, Vector/Tensor flags, and optional
@@ -45,17 +46,18 @@ class SparsePool {
              const std::vector<int> &sparse_ids,
              const std::vector<std::vector<int>> &shapes,
              const std::vector<MetadataFlag> &vector_tensor_flags,
-             const std::vector<std::vector<std::string>> &component_labels = {}, 
+             const std::vector<std::vector<std::string>> &component_labels = {},
              const std::string &controller_base_name = "");
 
-  // Create a sparse pool with given sparse ids and controlling base name and optional shapes and component labels
+  // Create a sparse pool with given sparse ids and controlling base name and optional
+  // shapes and component labels
   SparsePool(const std::string &base_name, const Metadata &metadata,
-             const std::string &controller_base_name,
-             const std::vector<int> &sparse_ids,
+             const std::string &controller_base_name, const std::vector<int> &sparse_ids,
              const std::vector<std::vector<int>> &shapes = {},
              const std::vector<std::vector<std::string>> &component_labels = {})
-      : SparsePool(base_name, metadata, sparse_ids, shapes, {}, component_labels, controller_base_name) {}
-  
+      : SparsePool(base_name, metadata, sparse_ids, shapes, {}, component_labels,
+                   controller_base_name) {}
+
   // Create a sparse pool with given sparse ids and optional shapes and component labels
   SparsePool(const std::string &base_name, const Metadata &metadata,
              const std::vector<int> &sparse_ids,

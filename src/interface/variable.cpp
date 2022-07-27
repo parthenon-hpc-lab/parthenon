@@ -119,8 +119,8 @@ void CellVariable<T>::AllocateData() {
       !is_allocated_,
       "Tried to allocate data for variable that's already allocated: " + label());
 
-  data =
-      ParArrayND<T, VariableState>(label(), MakeVariableState(), dims_[5], dims_[4], dims_[3], dims_[2], dims_[1], dims_[0]);
+  data = ParArrayND<T, VariableState>(label(), MakeVariableState(), dims_[5], dims_[4],
+                                      dims_[3], dims_[2], dims_[1], dims_[0]);
 
   is_allocated_ = true;
 }
@@ -142,8 +142,9 @@ void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
     // variable per meshblock from 5 to 3.
     int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
     // allocate fluxes
-    flux_data_ = ParArray7D<T, VariableState>(base_name + ".flux_data", MakeVariableState(), n_outer, GetDim(6), GetDim(5),
-                               GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+    flux_data_ = ParArray7D<T, VariableState>(
+        base_name + ".flux_data", MakeVariableState(), n_outer, GetDim(6), GetDim(5),
+        GetDim(4), GetDim(3), GetDim(2), GetDim(1));
     // set up fluxes
     for (int d = X1DIR; d <= n_outer; ++d) {
       flux[d] = flux_data_.Get(d - 1);
@@ -156,9 +157,9 @@ void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
     if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
-      coarse_s = ParArrayND<T, VariableState>(base_name + ".coarse", MakeVariableState(), coarse_dims_[5], coarse_dims_[4],
-                               coarse_dims_[3], coarse_dims_[2], coarse_dims_[1],
-                               coarse_dims_[0]);
+      coarse_s = ParArrayND<T, VariableState>(
+          base_name + ".coarse", MakeVariableState(), coarse_dims_[5], coarse_dims_[4],
+          coarse_dims_[3], coarse_dims_[2], coarse_dims_[1], coarse_dims_[0]);
     }
   }
 }

@@ -23,7 +23,7 @@ SparsePool::SparsePool(const std::string &base_name, const Metadata &metadata,
                        const std::vector<std::vector<int>> &shapes,
                        const std::vector<MetadataFlag> &vector_tensor_flags,
                        const std::vector<std::vector<std::string>> &component_labels,
-                       const std::string& controller_base_name)
+                       const std::string &controller_base_name)
     : SparsePool(base_name, metadata, controller_base_name) {
   const auto N = sparse_ids.size();
 
