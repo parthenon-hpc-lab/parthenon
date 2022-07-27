@@ -26,19 +26,21 @@ static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
 
 struct VariableState : public empty_state_t {
   explicit VariableState(const Metadata &md, int sparse_id = InvalidSparseID)
-      : sparse_id(sparse_id) {
-    allocation_threshold = md.GetAllocationThreshold();
-    deallocation_threshold = md.GetDeallocationThreshold();
-  }
+      : allocation_threshold(md.GetAllocationThreshold()),
+        deallocation_threshold(md.GetDeallocationThreshold()), sparse_id(sparse_id) {}
 
   KOKKOS_INLINE_FUNCTION
-  VariableState(Real alloc, Real dealloc)
-      : allocation_threshold(alloc), deallocation_threshold(dealloc) {}
+  VariableState(Real alloc, Real dealloc, int sparse_id = InvalidSparseID)
+      : allocation_threshold(alloc), deallocation_threshold(dealloc),
+        sparse_id(sparse_id) {}
 
   KOKKOS_DEFAULTED_FUNCTION
   VariableState() = default;
+  
   KOKKOS_INLINE_FUNCTION
-  explicit VariableState(const empty_state_t &) {}
+  explicit VariableState(const empty_state_t &)
+      : VariableState(Globals::sparse_config.allocation_threshold,
+                      Globals::sparse_config.deallocation_threshold) {}
 
   Real allocation_threshold;
   Real deallocation_threshold;
