@@ -13,6 +13,7 @@ env:
   CTEST_OUTPUT_ON_FAILURE: 1
   CMAKE_BUILD_PARALLEL_LEVEL: 5 # num threads for build
   MACHINE_CFG: cmake/machinecfg/CI.cmake
+  OMPI_MCA_mpi_common_cuda_event_max: 1000
 
 jobs:
   style:
@@ -49,7 +50,6 @@ jobs:
       - name: Configure
         run: |
           cmake -B build \
-            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=Debug \
             -DMACHINE_VARIANT=${{ matrix.device }}-mpi
       - name: Build
@@ -63,3 +63,31 @@ jobs:
           name: configure-log
           path: build-copyright-check/CMakeFiles/CMakeOutput.log
           retention-days: 3
+
+  integration:
+    strategy:
+      matrix:
+        device: ['cuda', 'host']
+    runs-on: self-hosted
+    container:
+      image: registry.gitlab.com/pgrete/parthenon/cuda11.3-mpi-hdf5
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'true'
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMACHINE_VARIANT=${{ matrix.device }}-mpi
+          cd build
+      # Test example with "variables" and output
+      - name: advection
+        run: |
+          cmake --build . advection-example
+          ctest -R regression_mpi_test:output_hdf5
+      # Test example with swarms
+      - name: particle-leapfrog
+        run: |
+          cmake --build . particle-leapfrog
+          ctest -R regression_mpi_test:particle_leapfrog
