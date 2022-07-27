@@ -1,0 +1,65 @@
+
+name: github-linux
+
+on: [push, pull_request]
+
+# Cancel "duplicated" workflows triggered by pushes to internal
+# branches with associated PRs.
+concurrency:
+  group: ${{ github.ref }}-${{ github.head_ref }}-github-linux
+  cancel-in-progress: true
+
+env:
+  CTEST_OUTPUT_ON_FAILURE: 1
+  CMAKE_BUILD_PARALLEL_LEVEL: $(( $(nproc --all) / 4  + 1 )) # num threads for build
+  MACHINE_CFG: ${PWD}/cmake/machinecfg/CI.cmake
+
+jobs:
+  style:
+    runs-on: self-hosted
+    container:
+      image: registry.gitlab.com/pgrete/parthenon/cuda11.3-mpi-hdf5
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'true'
+      - name: cpplint
+        run: python ./tst/style/cpplint.py --counting=detailed --recursive src example tst
+      - name: copyright
+        run: |
+          cmake -DCMAKE_CXX_FLAGS=-Werror -Bbuild-copyright-check
+          cmake --build-copyright-check -t check-copyright
+      - uses: actions/upload-artifact@v3
+        with:
+          name: configure-log
+          path: build-copyright-check/CMakeFiles/CMakeOutput.log
+          retention-days: 3
+
+  unit:
+    strategy:
+      matrix:
+        device: ['cuda', 'host']
+    runs-on: self-hosted
+    container:
+      image: registry.gitlab.com/pgrete/parthenon/cuda11.3-mpi-hdf5
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'true'
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DMACHINE_VARIANT=${{ matrix.device }}-mpi
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: |
+          cd build
+          ctest -LE 'performance|regression'
+      - uses: actions/upload-artifact@v3
+        with:
+          name: configure-log
+          path: build-copyright-check/CMakeFiles/CMakeOutput.log
+          retention-days: 3
