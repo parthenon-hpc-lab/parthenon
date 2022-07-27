@@ -123,17 +123,33 @@ class TestCase(utils.test_case.TestCaseAbs):
             ["max", 9.43685e-01, 4.80914e-01],
             [
                 "min",
-                1.67180e-10 if parameters.sparse_disabled else 1.67171e-10,
+                1.67180e-10,  # if parameters.sparse_disabled else 1.67171e-10,
                 1.45889e-07,
             ],
         ]
         # check results in last row (at the final time of the sim)
         for i, val in enumerate(ref_results):
             if hst_2d[-1:, i] != val[1]:
-                print("Wrong", val[0], "in hst output of 2D problem")
+                print(
+                    "Wrong",
+                    val[0],
+                    "in hst output of 2D problem (",
+                    hst_2d[-1:, i],
+                    ", ",
+                    val[1],
+                    ")",
+                )
                 analyze_status = False
             if hst_3d[-1:, i] != val[2]:
-                print("Wrong", val[0], "in hst output of 3D problem")
+                print(
+                    "Wrong",
+                    val[0],
+                    "in hst output of 3D problem (",
+                    hst_3d[-1:, i],
+                    ", ",
+                    val[2],
+                    ")",
+                )
                 analyze_status = False
 
         return analyze_status
