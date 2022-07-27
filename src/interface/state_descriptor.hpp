@@ -171,7 +171,7 @@ class StateDescriptor {
   // one can pass in a reference to a SparsePool or arguments that match one of the
   // SparsePool constructors
   template <typename... Args>
-  bool AddSparsePool(Args &&... args) {
+  bool AddSparsePool(Args &&...args) {
     return AddSparsePoolImpl(SparsePool(std::forward<Args>(args)...));
   }
 
@@ -204,8 +204,8 @@ class StateDescriptor {
   const auto &AllSwarmValues(const std::string &swarm_name) const noexcept {
     return swarmValueMetadataMap_.at(swarm_name);
   }
-  bool FieldPresent(const std::string &base_name, int sparse_id = InvalidSparseID) const
-      noexcept {
+  bool FieldPresent(const std::string &base_name,
+                    int sparse_id = InvalidSparseID) const noexcept {
     return metadataMap_.count(VarID(base_name, sparse_id)) > 0;
   }
   bool FieldPresent(const VarID &var_id) const noexcept {
