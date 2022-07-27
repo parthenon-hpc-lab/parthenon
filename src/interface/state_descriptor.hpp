@@ -150,26 +150,28 @@ class StateDescriptor {
  private:
   // internal function to add dense/sparse fields. Private because outside classes must
   // use the public interface below
-  bool AddFieldImpl(const VarID &vid, const Metadata &m);
+  bool AddFieldImpl(const VarID &vid, const Metadata &m, const VarID &control_vid);
 
   // add a sparse pool
   bool AddSparsePoolImpl(const SparsePool &pool);
 
  public:
-  bool AddField(const std::string &field_name, const Metadata &m) {
+  bool AddField(const std::string &field_name, const Metadata &m,
+                const std::string &controlling_field = "") {
     if (m.IsSet(Metadata::Sparse)) {
       PARTHENON_THROW(
           "Tried to add a sparse field with AddField, use AddSparsePool instead");
     }
-
-    return AddFieldImpl(VarID(field_name), m);
+    VarID controller = VarID(controlling_field);
+    if (controlling_field == "") controller = VarID(field_name);
+    return AddFieldImpl(VarID(field_name), m, controller);
   }
 
   // add sparse pool, all arguments will be forwarded to the SparsePool constructor, so
   // one can pass in a reference to a SparsePool or arguments that match one of the
   // SparsePool constructors
   template <typename... Args>
-  bool AddSparsePool(Args &&...args) {
+  bool AddSparsePool(Args &&... args) {
     return AddSparsePoolImpl(SparsePool(std::forward<Args>(args)...));
   }
 
@@ -202,9 +204,12 @@ class StateDescriptor {
   const auto &AllSwarmValues(const std::string &swarm_name) const noexcept {
     return swarmValueMetadataMap_.at(swarm_name);
   }
-  bool FieldPresent(const std::string &base_name,
-                    int sparse_id = InvalidSparseID) const noexcept {
+  bool FieldPresent(const std::string &base_name, int sparse_id = InvalidSparseID) const
+      noexcept {
     return metadataMap_.count(VarID(base_name, sparse_id)) > 0;
+  }
+  bool FieldPresent(const VarID &var_id) const noexcept {
+    return metadataMap_.count(var_id) > 0;
   }
   bool SparseBaseNamePresent(const std::string &base_name) const noexcept {
     return sparsePoolMap_.count(base_name) > 0;
@@ -216,6 +221,21 @@ class StateDescriptor {
                          const std::string &swarm_name) const noexcept {
     if (!SwarmPresent(swarm_name)) return false;
     return swarmValueMetadataMap_.at(swarm_name).count(value_name) > 0;
+  }
+
+  std::string GetFieldController(const std::string &field_name) {
+    VarID field_id(field_name);
+    auto controller = allocControllerReverseMap_.find(field_id);
+    PARTHENON_REQUIRE(controller != allocControllerReverseMap_.end(),
+                      "Asking for controlling field that is not in this package (" +
+                          field_name + ")");
+    return controller->second.label();
+  }
+
+  const std::vector<std::string> &GetControlledVariables(const std::string &field_name) {
+    auto iter = allocControllerMap_.find(field_name);
+    if (iter == allocControllerMap_.end()) return nullControl_;
+    return iter->second;
   }
 
   // retrieve metadata for a specific field
@@ -305,11 +325,16 @@ class StateDescriptor {
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
 
  private:
+  void InvertControllerMap();
+
   Params params_;
   const std::string label_;
 
   // for each variable label (full label for sparse variables) hold metadata
   std::unordered_map<VarID, Metadata, VarIDHasher> metadataMap_;
+  std::unordered_map<VarID, VarID, VarIDHasher> allocControllerReverseMap_;
+  std::unordered_map<std::string, std::vector<std::string>> allocControllerMap_;
+  std::vector<std::string> nullControl_{};
 
   // for each sparse base name hold its sparse pool
   Dictionary<SparsePool> sparsePoolMap_;
