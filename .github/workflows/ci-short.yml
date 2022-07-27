@@ -111,7 +111,7 @@ jobs:
           test $(grep HtoD profile.txt |wc -l) == 0
           test $(grep DtoH profile.txt |wc -l) == 0
 
-     - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v3
         with:
           name: configure-log
           path: |
