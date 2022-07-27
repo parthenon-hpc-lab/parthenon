@@ -107,7 +107,7 @@ struct ObjectPool<T>::weak_t : public T {
 
  public:
   template <class... Ts>
-  KOKKOS_IMPL_HOST_FUNCTION weak_t(Ts &&...args)
+  KOKKOS_IMPL_HOST_FUNCTION explicit weak_t(Ts &&...args)
       : T(std::forward<Ts>(args)...), key_(default_key_) {}
 
   KOKKOS_IMPL_HOST_FUNCTION
@@ -180,7 +180,7 @@ class ObjectPool<T>::owner_t : public ObjectPool<T>::weak_t {
   }
 
   KOKKOS_IMPL_HOST_FUNCTION
-  owner_t(const weak_t &in) : weak_t(in) {
+  explicit owner_t(const weak_t &in) : weak_t(in) {
     if (weak_t::pool_ != nullptr) (*weak_t::pool_).AddCount(*this);
   }
 
