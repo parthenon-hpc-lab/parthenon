@@ -107,7 +107,7 @@ jobs:
             -i ../tst/regression/test_suites/advection_performance/parthinput.advection_performance \
             parthenon/mesh/nx1=128 parthenon/mesh/nx2=128  parthenon/mesh/nx3=128 \
             parthenon/meshblock/nx1=64 parthenon/meshblock/nx2=64 parthenon/meshblock/nx3=64 \
-            parthenon/sparse/enable_sparse=false parthenon/time/nlim=2000 parthenon/time/tlim=2 |& tee profile.txt
+            parthenon/sparse/enable_sparse=false parthenon/time/nlim=2000 parthenon/time/tlim=2 2>&1 | tee profile.txt
           test $(grep HtoD profile.txt |wc -l) == 0
           test $(grep DtoH profile.txt |wc -l) == 0
 
