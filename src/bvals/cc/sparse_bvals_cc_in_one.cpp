@@ -95,10 +95,10 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
                             "Two communication buffers have the same key.");
 
     auto get_resource_method = [pmesh, buf_size]() {
-      return pmesh->pool_map.at(buf_size).Get();
+      return buf_pool_t<Real>::owner_t(pmesh->pool_map.at(buf_size).Get());
     };
 
-    bool use_sparse_buffers = v->IsSet(Metadata::SparseCommunication);
+    bool use_sparse_buffers = v->IsSet(Metadata::Sparse);
     pmesh->boundary_comm_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
         tag, sender_rank, receiver_rank, comm, get_resource_method, use_sparse_buffers);
 

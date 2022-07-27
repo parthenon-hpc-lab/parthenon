@@ -75,7 +75,7 @@ class CommBuffer {
  public:
   CommBuffer()
 #ifdef MPI_PARALLEL
-      : my_request_(std::make_shared<MPI_Request>(MPI_REQUEST_NULL))
+      : my_request_(std::make_shared<MPI_Request>(MPI_REQUEST_NULL)), my_rank(0)
 #endif
   {
   }
