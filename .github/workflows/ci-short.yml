@@ -80,14 +80,15 @@ jobs:
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DMACHINE_VARIANT=${{ matrix.device }}-mpi
-          cd build
       # Test example with "variables" and output
       - name: advection
         run: |
-          cmake --build . -t advection-example
+          cmake --build build -t advection-example
+          cd build
           ctest -R regression_mpi_test:output_hdf5
       # Test example with swarms
       - name: particle-leapfrog
         run: |
-          cmake --build . -t particle-leapfrog
+          cmake --build build -t particle-leapfrog
+          cd build
           ctest -R regression_mpi_test:particle_leapfrog
