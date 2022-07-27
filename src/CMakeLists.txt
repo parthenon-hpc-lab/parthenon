@@ -215,7 +215,6 @@ add_library(parthenon
   utils/string_utils.cpp
   utils/string_utils.hpp
   utils/utils.hpp
-  utils/variadic_template_utils.hpp
 
   argument_parser.hpp
   basic_types.hpp
@@ -225,6 +224,7 @@ add_library(parthenon
   kokkos_abstraction.hpp
   parameter_input.cpp
   parameter_input.hpp
+  parthenon_array_generic.hpp
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
