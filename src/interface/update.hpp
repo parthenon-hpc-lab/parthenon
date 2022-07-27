@@ -150,6 +150,23 @@ TaskStatus FillDerived(T *rc) {
   return TaskStatus::complete;
 }
 
+template <typename T>
+TaskStatus InitNewlyAllocatedVars(T *rc) {
+
+  // Do user defined initializations if present 
+  Kokkos::Profiling::pushRegion("Task_InitNewlyAllocatedVars");
+  auto pm = rc->GetParentPointer();
+  for (const auto &pkg : pm->packages.AllPackages()) {
+    pkg.second->InitNewlyAllocatedVars(rc);
+  }
+  Kokkos::Profiling::popRegion(); 
+  
+  // Set all variables to initialized in all cases 
+  rc->SetAllVariablesToInitialized();
+
+  return TaskStatus::complete;
+}
+
 TaskStatus SparseDealloc(MeshData<Real> *md);
 
 } // namespace Update
