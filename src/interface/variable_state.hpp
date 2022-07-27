@@ -45,6 +45,7 @@ struct VariableState : public empty_state_t {
   Real deallocation_threshold;
   int sparse_id;
   int vector_component = NODIR;
+  bool initialized = true;
 };
 
 } // namespace parthenon

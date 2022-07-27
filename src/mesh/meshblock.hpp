@@ -198,6 +198,13 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
 #endif
 
+  void SetAllVariablesToInitialized() { 
+    auto& stages = meshblock_data.Stages();
+    std::for_each(stages.begin(), stages.end(), [](auto& pair){
+      pair.second->SetAllVariablesToInitialized();
+    });
+  }
+
   template <class... Args>
   inline void par_for(Args &&...args) {
     par_dispatch_<dispatch_impl::ParallelForDispatch>(std::forward<Args>(args)...);

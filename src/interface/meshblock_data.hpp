@@ -425,6 +425,12 @@ class MeshBlockData {
     }
     return true;
   }
+  
+  void SetAllVariablesToInitialized() {
+    std::for_each(varVector_.begin(), varVector_.end(), [](auto& sp_var){
+      sp_var->data.initialized = true;
+    });
+  };
 
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,

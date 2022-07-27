@@ -1065,6 +1065,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
           pmb->ProblemGenerator(pmb.get(), pin);
         }
       }
+      std::for_each(block_list.begin(), block_list.end(), [](auto& sp_block){
+        sp_block->SetAllVariablesToInitialized();
+      });
     }
 
     // Build densely populated communication tags
