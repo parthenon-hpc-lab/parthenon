@@ -12,7 +12,7 @@ concurrency:
 env:
   CTEST_OUTPUT_ON_FAILURE: 1
   CMAKE_BUILD_PARALLEL_LEVEL: 5 # num threads for build
-  MACHINE_CFG: CI.cmake
+  MACHINE_CFG: cmake/machinecfg/CI.cmake
 
 jobs:
   style:
