@@ -1,5 +1,5 @@
 
-name: github-linux
+name: CI-short
 
 on: [push, pull_request]
 
@@ -11,8 +11,8 @@ concurrency:
 
 env:
   CTEST_OUTPUT_ON_FAILURE: 1
-  CMAKE_BUILD_PARALLEL_LEVEL: $(( $(nproc --all) / 4  + 1 )) # num threads for build
-  MACHINE_CFG: ${PWD}/cmake/machinecfg/CI.cmake
+  CMAKE_BUILD_PARALLEL_LEVEL: 5 # num threads for build
+  MACHINE_CFG: CI.cmake
 
 jobs:
   style:
