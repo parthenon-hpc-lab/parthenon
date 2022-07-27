@@ -84,10 +84,10 @@ jobs:
       # Test example with "variables" and output
       - name: advection
         run: |
-          cmake --build . advection-example
+          cmake --build . -t advection-example
           ctest -R regression_mpi_test:output_hdf5
       # Test example with swarms
       - name: particle-leapfrog
         run: |
-          cmake --build . particle-leapfrog
+          cmake --build . -t particle-leapfrog
           ctest -R regression_mpi_test:particle_leapfrog
