@@ -29,7 +29,7 @@ jobs:
       - name: copyright
         run: |
           cmake -DCMAKE_CXX_FLAGS=-Werror -Bbuild-copyright-check
-          cmake --build-copyright-check -t check-copyright
+          cmake --build build-copyright-check -t check-copyright
       - uses: actions/upload-artifact@v3
         with:
           name: configure-log
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: configure-log
-          path: build-copyright-check/CMakeFiles/CMakeOutput.log
+          path: build/CMakeFiles/CMakeOutput.log
           retention-days: 3
 
   integration:
@@ -92,3 +92,30 @@ jobs:
           cmake --build build -t particle-leapfrog
           cd build
           ctest -R regression_mpi_test:particle_leapfrog
+
+      # Now testing if there are no hidden memcopies between host and device.
+      # Using a static grid (i.e., not AMR) as additional transfers are expected
+      # during loadbalance and refinement, but not for a static grid. We also need to
+      # turn off sparse, since sparse results in additional transfers.
+      # Also delaying start as there are explicit copies during initialization, e.g.,
+      # when the Variable caches are created.
+      - name: host-device-copy
+        if: ${{ matrix.device }} == 'cuda'
+        run: |
+          cd build
+          nsys profile --delay=5 --duration=5 --stats=true -s none -t cuda example/advection/advection-example \
+            -i ../tst/regression/test_suites/advection_performance/parthinput.advection_performance \
+            parthenon/mesh/nx1=128 parthenon/mesh/nx2=128  parthenon/mesh/nx3=128 \
+            parthenon/meshblock/nx1=64 parthenon/meshblock/nx2=64 parthenon/meshblock/nx3=64 \
+            parthenon/sparse/enable_sparse=false parthenon/time/nlim=2000 parthenon/time/tlim=2 |& tee profile.txt
+          test $(grep HtoD profile.txt |wc -l) == 0
+          test $(grep DtoH profile.txt |wc -l) == 0
+
+     - uses: actions/upload-artifact@v3
+        with:
+          name: configure-log
+          path: |
+            build/CMakeFiles/CMakeOutput.log
+            build/profile.txt
+          retention-days: 3
+
