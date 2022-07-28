@@ -386,9 +386,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         // data)
         if (Globals::sparse_config.enabled && buf.GetState() == BufferState::received &&
             !v->IsAllocated()) {
-          pmb->AllocateSparse(v->label());
-          // TODO(lfroberts): Need to flag this so that the array gets filled with
-          //                  something sensible, currently just defaulted to zero.
+          constexpr bool flag_uninitialized = true;
+          pmb->AllocateSparse(v->label(), flag_uninitialized);
         }
         ++ibound;
       });

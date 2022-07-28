@@ -152,7 +152,8 @@ TaskStatus FillDerived(T *rc) {
 
 template <typename T>
 TaskStatus InitNewlyAllocatedVars(T *rc) {
-
+  if (rc->AllVariablesInitialized()) return TaskStatus::complete;
+  std::cout << "Initializing Variables after allocation" << std::endl;
   // Do user defined initializations if present 
   Kokkos::Profiling::pushRegion("Task_InitNewlyAllocatedVars");
   auto pm = rc->GetParentPointer();
@@ -160,10 +161,11 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
     pkg.second->InitNewlyAllocatedVars(rc);
   }
   Kokkos::Profiling::popRegion(); 
-  
-  // Set all variables to initialized in all cases 
-  rc->SetAllVariablesToInitialized();
 
+  // Don't worry about flagging variables as initialized
+  // since they will be flagged at the beginning of the 
+  // next step in the evolution driver 
+  
   return TaskStatus::complete;
 }
 

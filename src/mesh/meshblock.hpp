@@ -171,7 +171,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     Kokkos::deep_copy(exec_space, dst, src);
   }
 
-  void AllocateSparse(std::string const &label);
+  void AllocateSparse(std::string const &label, bool flag_uninitialized = false);
 
   void AllocSparseID(std::string const &base_name, const int sparse_id) {
     AllocateSparse(MakeVarLabel(base_name, sparse_id));

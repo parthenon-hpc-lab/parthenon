@@ -266,6 +266,15 @@ class MeshData {
       sp_block->SetAllVariablesToInitialized();
     });  
   }
+
+  bool AllVariablesInitialized() {
+    bool all_initialized = true; 
+    std::for_each(block_data_.begin(), block_data_.end(), [&](auto& sp_block){
+      all_initialized = all_initialized && sp_block->AllVariablesInitialized();
+    });
+    return all_initialized;
+  }
+
  private:
   template <typename... Args>
   const auto &PackVariablesAndFluxesImpl(PackIndexMap *map_out, Args &&...args) {

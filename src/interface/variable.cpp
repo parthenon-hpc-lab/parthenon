@@ -104,17 +104,17 @@ CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
 }
 
 template <typename T>
-void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb) {
+void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialized) {
   if (is_allocated_) {
     return;
   }
 
-  AllocateData();
+  AllocateData(flag_uninitialized);
   AllocateFluxesAndCoarse(wpmb);
 }
 
 template <typename T>
-void CellVariable<T>::AllocateData() {
+void CellVariable<T>::AllocateData(bool flag_uninitialized) {
   PARTHENON_REQUIRE_THROWS(
       !is_allocated_,
       "Tried to allocate data for variable that's already allocated: " + label());
@@ -122,7 +122,7 @@ void CellVariable<T>::AllocateData() {
   data = ParArrayND<T, VariableState>(label(), MakeVariableState(), dims_[5], dims_[4],
                                       dims_[3], dims_[2], dims_[1], dims_[0]);
   
-  data.initialized = false; 
+  data.initialized = !flag_uninitialized; 
   is_allocated_ = true;
 }
 

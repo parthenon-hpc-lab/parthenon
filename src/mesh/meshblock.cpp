@@ -268,9 +268,9 @@ void MeshBlock::RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc) {
   return;
 }
 
-void MeshBlock::AllocateSparse(std::string const &label) {
+void MeshBlock::AllocateSparse(std::string const &label, bool flag_uninitialized) {
   // first allocate variable in base stage
-  auto base_var = meshblock_data.Get()->AllocateSparse(label);
+  auto base_var = meshblock_data.Get()->AllocateSparse(label, flag_uninitialized);
 
   // now allocate in all other stages
   for (auto stage : meshblock_data.Stages()) {
@@ -289,7 +289,7 @@ void MeshBlock::AllocateSparse(std::string const &label) {
 
     if (!v->IsAllocated()) {
       // allocate data of target variable
-      v->AllocateData();
+      v->AllocateData(flag_uninitialized);
 
       // copy fluxes and boundary variable from variable on base stage
       v->CopyFluxesAndBdryVar(base_var.get());

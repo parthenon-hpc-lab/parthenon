@@ -125,10 +125,10 @@ class CellVariable {
 
  private:
   // allocate data, fluxes, and boundary variable
-  void Allocate(std::weak_ptr<MeshBlock> wpmb);
+  void Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialized = false);
 
   // allocate data only
-  void AllocateData();
+  void AllocateData(bool flag_uninitialized = false);
 
   // deallocate data, fluxes, and boundary variable
   void Deallocate();
