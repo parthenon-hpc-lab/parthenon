@@ -63,7 +63,7 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
-          name: log-and-convergence
+          name: log-and-convergence-${{ matrix.device }}-${{ matrix.parallel }}
           path: |
             build/CMakeFiles/CMakeOutput.log
             build/tst/regression/outputs/advection_convergence/advection-errors.dat
