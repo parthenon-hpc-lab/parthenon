@@ -44,6 +44,7 @@
 - [[PR 595]](https://github.com/lanl/parthenon/pull/595) Fix build options so that non-MPI builds cannot be paired with an MPI HDF5 lib
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 700]](https://github.com/lanl/parthenon/pull/700) Moved CI testing from GitLab mirror to GitHub Actions
 - [[PR 698]](https://github.com/lanl/parthenon/pull/698) Remove matplotlib from required python libraries and make desired instead
 - [[PR 686]](https://github.com/lanl/parthenon/pull/686) Remove coverage CI stage and add key features to README
 - [[PR 681]](https://github.com/lanl/parthenon/pull/681) Refactor ParArrayNDGeneric to work with arbitrary rank Kokkos::views and hold state.

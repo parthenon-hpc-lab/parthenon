@@ -1,0 +1,72 @@
+name: CI extended
+
+on:
+  # run every day at 06:00 UTC
+  schedule:
+    - cron: '0 6 * * *'
+  # when triggered manually
+  workflow_dispatch:
+
+# Cancel "duplicated" workflows triggered by pushes to internal
+# branches with associated PRs.
+concurrency:
+  group: ${{ github.ref }}-${{ github.head_ref }}-CI-extended
+  cancel-in-progress: true
+
+env:
+  CTEST_OUTPUT_ON_FAILURE: 1
+  CMAKE_BUILD_PARALLEL_LEVEL: 5 # num threads for build
+  MACHINE_CFG: cmake/machinecfg/CI.cmake
+  OMPI_MCA_mpi_common_cuda_event_max: 1000
+
+jobs:
+  unit:
+    strategy:
+      matrix:
+        device: ['cuda', 'host']
+        parallel: ['serial', 'mpi']
+    runs-on: self-hosted
+    container:
+      image: registry.gitlab.com/pgrete/parthenon/cuda11.3-mpi-hdf5
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'true'
+
+      - name: Setup cache for gold standard
+        uses: actions/cache@v3
+        with:
+          path: tst/regression/gold_standard/
+          key: gold-standard
+
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMACHINE_VARIANT=${{ matrix.device }}-${{ matrix.parallel }}
+
+      - name: Build
+        run: cmake --build build
+
+      # run performance "unit" tests (none use MPI)
+      - name: Performance tests
+        if: ${{ matrix.parallel}} == 'serial'
+        run: |
+          cd build
+          ctest -L performance -LE perf-reg
+
+      # run regression tests
+      - name: Regression tests
+        run: |
+          cd build
+          ctest -L regression -LE "${{ matrix.parallel }}|perf-reg" --timeout 3600
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: log-and-convergence
+          path: |
+            build/CMakeFiles/CMakeOutput.log
+            build/tst/regression/outputs/advection_convergence/advection-errors.dat
+            build/tst/regression/outputs/advection_convergence/advection-errors.png
+          retention-days: 3
+
