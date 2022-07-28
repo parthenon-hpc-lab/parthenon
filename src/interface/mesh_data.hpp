@@ -244,15 +244,18 @@ class MeshData {
   // TODO(JMM): It'd be somewhat more convenient to do the deep_copy
   // for the host/device buffers HERE. But it doesn't quite work with
   // the current in-one API.
-  void SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers,
-                          const cell_centered_bvars::BufferCacheHost_t &restrict_buffers_h,
-                          const std::vector<bool> &restrict_buf_alloc_status) {
+  void
+  SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers,
+                     const cell_centered_bvars::BufferCacheHost_t &restrict_buffers_h,
+                     const std::vector<bool> &restrict_buf_alloc_status) {
     restrict_buffers_ = restrict_buffers;
     restrict_buffers_h_ = restrict_buffers_h;
     restrict_buf_alloc_status_ = restrict_buf_alloc_status;
   }
 
-  auto GetRestrictBuffers() const { return std::make_pair(restrict_buffers_, restrict_buffers_h_); }
+  auto GetRestrictBuffers() const {
+    return std::make_pair(restrict_buffers_, restrict_buffers_h_);
+  }
 
   TaskStatus StartReceiving(BoundaryCommSubset phase) {
     for (const auto &pbd : block_data_) {
@@ -502,7 +505,6 @@ class MeshData {
   cell_centered_bvars::BufferCacheHost_t send_buffers_h_{};
   cell_centered_bvars::BufferCacheHost_t set_buffers_h_{};
   cell_centered_bvars::BufferCacheHost_t restrict_buffers_h_{};
-
 
   std::vector<bool> send_buf_alloc_status_, set_buf_alloc_status_,
       restrict_buf_alloc_status_;

@@ -389,11 +389,12 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
     }
   }
   Kokkos::deep_copy(boundary_info, boundary_info_h);
-  md->SetSendBuffers(boundary_info, boundary_info_h, sending_nonzero_flags, sending_nonzero_flags_h,
-                     alloc_status);
+  md->SetSendBuffers(boundary_info, boundary_info_h, sending_nonzero_flags,
+                     sending_nonzero_flags_h, alloc_status);
 
   // Restrict whichever buffers need restriction.
-  cell_centered_refinement::Restrict(boundary_info, boundary_info_h, cellbounds, c_cellbounds);
+  cell_centered_refinement::Restrict(boundary_info, boundary_info_h, cellbounds,
+                                     c_cellbounds);
 
   Kokkos::Profiling::popRegion(); // Create send_boundary_info
 }
@@ -530,7 +531,8 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
     // Need to restrict here only if cached boundary_info is reused
     // Otherwise restriction happens when the new boundary_info is created
-    cell_centered_refinement::Restrict(boundary_info, boundary_info_h, cellbounds, c_cellbounds);
+    cell_centered_refinement::Restrict(boundary_info, boundary_info_h, cellbounds,
+                                       c_cellbounds);
     Kokkos::Profiling::popRegion(); // Reset boundaries
   }
 

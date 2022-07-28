@@ -54,7 +54,7 @@ struct BndInfo {
   bool allocated = true;
   RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
-  BufArray1D<Real> buf;     // comm buffer
+  BufArray1D<Real> buf;                // comm buffer
   int Nt = 0;
   int Nu = 0;
   int Nv = 0;

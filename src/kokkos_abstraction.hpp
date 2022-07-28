@@ -577,7 +577,7 @@ inline void par_dispatch(LoopPatternFlatRange, const std::string &name,
         int n = (idx - l * NmNnNkNjNi - m * NnNkNjNi) / NkNjNi;
         int k = (idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi) / NjNi;
         int j = (idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi - k * NjNi) / Ni;
-        int i =  idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi - k * NjNi - j * Ni;
+        int i = idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi - k * NjNi - j * Ni;
         l += ll;
         m += ml;
         n += nl;

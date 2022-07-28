@@ -39,16 +39,16 @@ namespace cell_centered_refinement {
 
 void Restrict(const cell_centered_bvars::BufferCache_t &info,
               const cell_centered_bvars::BufferCacheHost_t &info_h,
-              const IndexShape &cellbnds,
-              const IndexShape &c_cellbnds) {
+              const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
   const auto op = RefinementOp_t::Restriction;
-  impl::DoProlongationRestrictionOp<refinement_ops::RestrictCellAverage>(cellbnds, info, info_h, cellbnds, c_cellbnds, op);
+  impl::DoProlongationRestrictionOp<refinement_ops::RestrictCellAverage>(
+      cellbnds, info, info_h, cellbnds, c_cellbnds, op);
 }
 void Restrict(const cell_centered_bvars::BufferCacheHost_t &info_h,
-              const IndexShape &cellbnds,
-              const IndexShape &c_cellbnds) {
+              const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
   const auto op = RefinementOp_t::Restriction;
-  impl::DoProlongationRestrictionOp<refinement_ops::RestrictCellAverage>(cellbnds, info_h, cellbnds, c_cellbnds, op);
+  impl::DoProlongationRestrictionOp<refinement_ops::RestrictCellAverage>(
+      cellbnds, info_h, cellbnds, c_cellbnds, op);
 }
 
 std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md) {
@@ -128,12 +128,14 @@ void Prolongate(const cell_centered_bvars::BufferCache_t &info,
                 const cell_centered_bvars::BufferCacheHost_t &info_h,
                 const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
   const auto op = RefinementOp_t::Prolongation;
-  impl::DoProlongationRestrictionOp<refinement_ops::ProlongateCellMinMod>(cellbnds, info, info_h, cellbnds, c_cellbnds, op);
+  impl::DoProlongationRestrictionOp<refinement_ops::ProlongateCellMinMod>(
+      cellbnds, info, info_h, cellbnds, c_cellbnds, op);
 }
 void Prolongate(const cell_centered_bvars::BufferCacheHost_t &info_h,
                 const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
   const auto op = RefinementOp_t::Prolongation;
-  impl::DoProlongationRestrictionOp<refinement_ops::ProlongateCellMinMod>(cellbnds, info_h, cellbnds, c_cellbnds, op);
+  impl::DoProlongationRestrictionOp<refinement_ops::ProlongateCellMinMod>(
+      cellbnds, info_h, cellbnds, c_cellbnds, op);
 }
 
 } // namespace cell_centered_refinement
