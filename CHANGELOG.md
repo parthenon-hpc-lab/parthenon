@@ -3,6 +3,8 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 694]](https://github.com/lanl/parthenon/pull/690) Add C++11 implementation of concepts lite
+- [[PR 692]](https://github.com/lanl/parthenon/pull/692) Add SparsePack machinery
 - [[PR 690]](https://github.com/lanl/parthenon/pull/690) Use power9 partition for Darwin CI
 - [[PR 689]](https://github.com/lanl/parthenon/pull/689) Add `Mesh::ProblemGenerator` (allows reductions during init)
 - [[PR 667]](https://github.com/lanl/parthenon/pull/667) Add parallel scan
@@ -42,7 +44,9 @@
 - [[PR 595]](https://github.com/lanl/parthenon/pull/595) Fix build options so that non-MPI builds cannot be paired with an MPI HDF5 lib
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 698]](https://github.com/lanl/parthenon/pull/698) Remove matplotlib from required python libraries and make desired instead
 - [[PR 686]](https://github.com/lanl/parthenon/pull/686) Remove coverage CI stage and add key features to README
+- [[PR 681]](https://github.com/lanl/parthenon/pull/681) Refactor ParArrayNDGeneric to work with arbitrary rank Kokkos::views and hold state.
 - [[PR 669]](https://github.com/lanl/parthenon/pull/669) Bump clang-format version (and checks) to >=11.0
 - [[PR 661]](https://github.com/lanl/parthenon/pull/661) Replaced ids in MPI tags with separate `MPI_Comms` for each variable/swarm
 - [[PR 651]](https://github.com/lanl/parthenon/pull/651) Bump Catch2 version due to GCC11.2 incompatibility

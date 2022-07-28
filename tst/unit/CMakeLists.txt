@@ -17,6 +17,7 @@
 ##========================================================================================
 
 list(APPEND unit_tests_SOURCES
+    test_concepts_lite.cpp    
     test_data_collection.cpp
     test_taskid.cpp
     test_tasklist.cpp
@@ -30,6 +31,7 @@ list(APPEND unit_tests_SOURCES
     test_pararrays.cpp
     test_meshblock_data_iterator.cpp
     test_mesh_data.cpp
+    test_sparse_pack.cpp
     test_swarm.cpp
     test_required_desired.cpp
     test_error_checking.cpp
