@@ -167,64 +167,6 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
           }
         }
       }
-      for (auto &pv : pmbd->GetFaceVector()) {
-        if (desc.IncludeVariable(i, pv.get())) {
-          if (pv->IsAllocated()) {
-            for (int t = 0; t < pv->GetDim(6); ++t) {
-              for (int u = 0; u < pv->GetDim(5); ++u) {
-                for (int v = 0; v < pv->GetDim(4); ++v) {
-                  pack_h(1, b, idx) = pv->data.x1f.Get(t, u, v);
-                  if (ndim > 1) {
-                    pack_h(2, b, idx) = pv->data.x2f.Get(t, u, v);
-                  }
-                  if (ndim > 2) {
-                    pack_h(3, b, idx) = pv->data.x3f.Get(t, u, v);
-                  }
-                  idx++;
-                }
-              }
-            }
-          }
-        }
-      }
-      for (auto &pv : pmbd->GetEdgeVector()) {
-        if (desc.IncludeVariable(i, pv.get())) {
-          if (pv->IsAllocated()) {
-            for (int t = 0; t < pv->GetDim(6); ++t) {
-              for (int u = 0; u < pv->GetDim(5); ++u) {
-                for (int v = 0; v < pv->GetDim(4); ++v) {
-                  pack_h(1, b, idx) = pv->x1e.Get(t, u, v);
-                  if (ndim > 1) {
-                    pack_h(2, b, idx) = pv->x2e.Get(t, u, v);
-                  }
-                  if (ndim > 2) {
-                    pack_h(3, b, idx) = pv->x3e.Get(t, u, v);
-                  }
-                  idx++;
-                }
-              }
-            }
-          }
-        }
-      }
-
-      for (auto &pv : pmbd->GetNodeVector()) {
-        if (desc.IncludeVariable(i, pv.get())) {
-          if (pv->IsAllocated()) {
-            for (int t = 0; t < pv->GetDim(6); ++t) {
-              for (int u = 0; u < pv->GetDim(5); ++u) {
-                for (int v = 0; v < pv->GetDim(4); ++v) {
-                  pack_h(0, b, idx) = pv->data.Get(t, u, v);
-                  PARTHENON_REQUIRE(
-                      pack_h(0, b, idx).size() > 0,
-                      "Seems like this variable might not actually be allocated.");
-                  idx++;
-                }
-              }
-            }
-          }
-        }
-      }
 
       bounds_h(1, b, i) = idx - 1;
 

@@ -273,26 +273,6 @@ std::string EdgeVariable<T>::info() {
 }
 
 template <typename T>
-std::string NodeVariable<T>::info() {
-  char tmp[100] = "";
-
-  // first add label
-  //    snprintf(tmp, sizeof(tmp), "%40s : ",this->label().cstr());
-  std::string s = this->label();
-  s.resize(20, '.');
-
-  // now append size
-  snprintf(tmp, sizeof(tmp), "%dx%dx%d", data.GetDim(3), data.GetDim(2),
-           data.GetDim(1));
-  s += std::string(tmp);
-
-  // now append flag
-  s += " : " + this->metadata().MaskAsString();
-
-  return s;
-}
-
-template <typename T>
 ParticleVariable<T>::ParticleVariable(const std::string &label, const int npool,
                                       const Metadata &metadata)
     : m_(metadata), label_(label),
