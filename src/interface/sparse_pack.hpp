@@ -248,13 +248,13 @@ class SparsePack : public SparsePackBase {
   }
 
   KOKKOS_INLINE_FUNCTION
-  Real &operator()(const int dir, const int b, const int idx, const int k, const int j,
+  Real &operator()(const int b, const int idx, const int dir, const int k, const int j,
                    const int i) const {
     return pack_(dir, b, idx)(k, j, i);
   }
 
   KOKKOS_INLINE_FUNCTION
-  Real &operator()(const int dir, const int b, PackIdx idx, const int k, const int j,
+  Real &operator()(const int b,  PackIdx idx, const int dir, const int k, const int j,
                    const int i) const {
     static_assert(sizeof...(Ts) == 0);
     const int n = bounds_(0, b, idx.Vidx()) + idx.Off();
@@ -263,7 +263,7 @@ class SparsePack : public SparsePackBase {
 
   template <class TIn,
             class = typename std::enable_if<IncludesType<TIn, Ts...>::value>::type>
-  KOKKOS_INLINE_FUNCTION Real &operator()(const int dir, const int b, const TIn &t, const int k,
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int dir, const int k,
                                           const int j, const int i) const {
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(dir, b, vidx)(k, j, i);

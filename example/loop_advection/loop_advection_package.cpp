@@ -199,14 +199,14 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
                                            coords.dx3(k);
 
         //First term: dEzdy, dExdz, or dEydx
-        const Real dEp2dp1 =(v( cart_dir_p2, b, A_face(),  k, j, i)
-                            -v( cart_dir_p2, b, A_face(),  k - (cart_dir_p1 == 3),
+        const Real dEp2dp1 =(v( cart_dir_pb, A_face(), 2,  k, j, i)
+                            -v( cart_dir_pb, A_face(), 2,  k - (cart_dir_p1 == 3),
                                                            j - (cart_dir_p1 == 2),
                                                            i - (cart_dir_p1 == 1)))/dp1;
 
         //Second term: dEydz, dEzdx, or dExdy
-        const Real dEp1dp2 =(v( cart_dir_p1, b, A_face(), k, j, i)
-                            -v( cart_dir_p1, b, A_face(), k - (cart_dir_p2 == 3),
+        const Real dEp1dp2 =(v( cart_dir_pb, A_face(), 1, k, j, i)
+                            -v( cart_dir_pb, A_face(), 1, k - (cart_dir_p2 == 3),
                                                           j - (cart_dir_p2 == 2),
                                                           i - (cart_dir_p2 == 1)))/dp2;
 
@@ -241,9 +241,9 @@ parthenon::TaskStatus calc_dBdt(parthenon::MeshBlock *pmb){
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
 
         //Average B from the faces to the cell centers
-        v(b, B_cell(0), k, j, i) = 0.5 * (v( 1, b, B_face(), k, j, i) + v( 1, b, B_face(), k, j, i+1));
-        v(b, B_cell(1), k, j, i) = 0.5 * (v( 2, b, B_face(), k, j, i) + v( 2, b, B_face(), k, j+1, i));
-        v(b, B_cell(2), k, j, i) = 0.5 * (v( 3, b, B_face(), k, j, i) + v( 3, b, B_face(), k+1, j, i));
+        v(b, B_cell(0), k, j, i) = 0.5 * (v( b, B_face(), 1, k, j, i) + v( b, B_face(), 1, k, j, i+1));
+        v(b, B_cell(1), k, j, i) = 0.5 * (v( b, B_face(), 2, k, j, i) + v( b, B_face(), 2, k, j+1, i));
+        v(b, B_cell(2), k, j, i) = 0.5 * (v( b, B_face(), 3, k, j, i) + v( b, B_face(), 3, k+1, j, i));
 
         //Compute E_cell = v X B
         v(b, E_cell(0), k, j, i) = v2 * B3 - v3 * B2;
@@ -262,14 +262,14 @@ parthenon::TaskStatus calc_dBdt(parthenon::MeshBlock *pmb){
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         //Average E from the cell centers to cell edges
         if( k+1 < kb.e && j+1 < jb.e) 
-          v( 1, b, E_edge(), k, j, i) = v( 1, b, E_face(),   k,   j, i) + v( 1, b, E_face(),   k, j+1,   i);
-                                      + v( 1, b, E_face(), k+1,   j, i) + v( 1, b, E_face(), k+1, j+1,   i);
+          v( b, E_edge(), 1, k, j, i) = v( b, E_face(), 1,   k,   j, i) + v( b, E_face(), 1,   k, j+1,   i);
+                                      + v( b, E_face(), 1, k+1,   j, i) + v( b, E_face(), 1, k+1, j+1,   i);
         if( j+1 < jb.e && i+1 < ib.e) 
-          v( 2, b, E_edge(), k, j, i) = v( 2, b, E_face(),   k,   j, i) + v( 2, b, E_face(),   k,   j, i+1);
-                                      + v( 2, b, E_face(), k+1,   j, i) + v( 2, b, E_face(), k+1,   j, i+1);
+          v( b, E_edge(), 2, k, j, i) = v( b, E_face(), 2,   k,   j, i) + v( b, E_face(), 2,   k,   j, i+1);
+                                      + v( b, E_face(), 2, k+1,   j, i) + v( b, E_face(), 2, k+1,   j, i+1);
         if( j+1 < jb.e && k+1 < kb.e) 
-          v( 3, b, E_edge(), k, j, i) = v( 3, b, E_face(),   k,   j, i) + v( 3, b, E_face(),   k,   j, i+1);
-                                      + v( 3, b, E_face(),   k, j+1, i) + v( 3, b, E_face(),   k, j+1, i+1);
+          v( b, E_edge(), 3, k, j, i) = v( b, E_face(), 3,   k,   j, i) + v( b, E_face(), 3,   k,   j, i+1);
+                                      + v( b, E_face(), 3,   k, j+1, i) + v( b, E_face(), 3,   k, j+1, i+1);
 
 
 
@@ -292,14 +292,14 @@ parthenon::TaskStatus calc_dBdt(parthenon::MeshBlock *pmb){
         const auto &coords = v.GetCoordinates(b);
 
         if( k+1 < kb.e && j+1 < jb.e) 
-          v( 1, b, dBdt_face(), k, j, i) = (v( 3, b, E_edge(), k, j+1, i) - v( 3, b, E_edge(), k, j, i))/coords.dx2(j)
-                                         - (v( 2, b, E_edge(), k+1, j, i) - v( 2, b, E_edge(), k, j, i))/coords.dx3(k);
+          v( b, dBdt_face(), 1, k, j, i) = (v( b, E_edge(), 3, k, j+1, i) - v( b, E_edge(), 3, k, j, i))/coords.dx2(j)
+                                         - (v( b, E_edge(), 2, k+1, j, i) - v( b, E_edge(), 2, k, j, i))/coords.dx3(k);
         if( j+1 < jb.e && i+1 < ib.e) 
-          v( 2, b, dBdt_face(), k, j, i) = (v( 1, b, E_edge(), k+1, j, i) - v( 1, b, E_edge(), k, j, i))/coords.dx3(k)
-                                         - (v( 3, b, E_edge(), k, j, i+1) - v( 3, b, E_edge(), k, j, i))/coords.dx1(i);
+          v( b, dBdt_face(), 2, k, j, i) = (v( b, E_edge(), 1, k+1, j, i) - v( b, E_edge(), 1, k, j, i))/coords.dx3(k)
+                                         - (v( b, E_edge(), 3, k, j, i+1) - v( b, E_edge(), 3, k, j, i))/coords.dx1(i);
         if( j+1 < jb.e && k+1 < kb.e) 
-          v( 3, b, dBdt_face(), k, j, i) = (v( 2, b, E_edge(), k, j, i+1) - v( 2, b, E_edge(), k, j, i))/coords.dx3(k)
-                                         - (v( 1, b, E_edge(), k, j+1, i) - v( 1, b, E_edge(), k, j, i))/coords.dx2(j);
+          v( b, dBdt_face(), 3, k, j, i) = (v( b, E_edge(), 2, k, j, i+1) - v( b, E_edge(), 2, k, j, i))/coords.dx3(k)
+                                         - (v( b, E_edge(), 1, k, j+1, i) - v( b, E_edge(), 1, k, j, i))/coords.dx2(j);
       });
   }
 
@@ -327,14 +327,14 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         const auto &coords = v.GetCoordinates(b);
 
-        v(b, div_E_node(), k, j, i) = (v( 1, b, E_edge(), k, j, i) -
-                                       v( 1, b, E_edge(), k, j, i - 1)) /
+        v(b, div_E_node(), k, j, i) = (v( b, E_edge(), 1, k, j, i) -
+                                       v( b, E_edge(), 1, k, j, i - 1)) /
                                           coords.dx1(i) +
-                                      (v( 2, b, E_edge(), k, j, i) -
-                                       v( 2, b, E_edge(), k, j - 1, i)) /
+                                      (v( b, E_edge(), 2, k, j, i) -
+                                       v( b, E_edge(), 2, k, j - 1, i)) /
                                           coords.dx2(j) +
-                                      (v( 3, b, E_edge(), k, j, i) -
-                                       v( 3, b, E_edge(), k - 1, j, i)) /
+                                      (v( b, E_edge(), 3, k, j, i) -
+                                       v( b, E_edge(), 3, k - 1, j, i)) /
                                           coords.dx3(k);
 
       });
@@ -354,9 +354,9 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         const auto &coords = v.GetCoordinates(b);
 
-        v( b, div_Bf_cell(), k, j, i) = (v( 1, b, B_face(), k, j, i) - v( 1, b, B_face(), k, j, i-1))/coords.dx1(i)
-                                      + (v( 2, b, B_face(), k, j, i) - v( 2, b, B_face(), k, j-1, i))/coords.dx2(j)
-                                      + (v( 3, b, B_face(), k, j, i) - v( 3, b, B_face(), k-1, j, i))/coords.dx3(k);
+        v( b, div_Bf_cell(), k, j, i) = (v( b, B_face(), 1, k, j, i) - v( b, B_face(), 1, k, j, i-1))/coords.dx1(i)
+                                      + (v( b, B_face(), 2, k, j, i) - v( b, B_face(), 2, k, j-1, i))/coords.dx2(j)
+                                      + (v( b, B_face(), 3, k, j, i) - v( b, B_face(), 3, k-1, j, i))/coords.dx3(k);
         v( b, div_Bc_cell(), k, j, i) = (v( b, B_cell(0), k, j, i+1) - v( b, B_cell(0), k, j, i-1))/(2*coords.dx1(i))
                                       + (v( b, B_cell(1), k, j+1, i) - v( b, B_cell(1), k, j-1, i))/(2*coords.dx2(j))
                                       + (v( b, B_cell(2), k+1, j, i) - v( b, B_cell(2), k-1, j, i))/(2*coords.dx3(k));
