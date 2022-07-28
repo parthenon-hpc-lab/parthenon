@@ -1,11 +1,11 @@
-name: github-linux
+name: Check compilers
 
 on: [push, pull_request]
 
 # Cancel "duplicated" workflows triggered by pushes to internal
 # branches with associated PRs.
 concurrency:
-  group: ${{ github.ref }}-${{ github.head_ref }}-github-linux
+  group: ${{ github.ref }}-${{ github.head_ref }}-check-compilers
   cancel-in-progress: true
 
 jobs:

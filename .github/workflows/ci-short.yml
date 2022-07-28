@@ -1,12 +1,11 @@
-
-name: CI-short
+name: CI short
 
 on: [push, pull_request]
 
 # Cancel "duplicated" workflows triggered by pushes to internal
 # branches with associated PRs.
 concurrency:
-  group: ${{ github.ref }}-${{ github.head_ref }}-github-linux
+  group: ${{ github.ref }}-${{ github.head_ref }}-CI-short
   cancel-in-progress: true
 
 env:
