@@ -25,7 +25,7 @@
 
 #include "bvals/cc/bvals_cc_in_one.hpp" // for buffercache_t
 #include "coordinates/coordinates.hpp"  // for coordinates
-#include "globals.hpp" // for Globals
+#include "globals.hpp"                  // for Globals
 #include "interface/mesh_data.hpp"
 #include "mesh/domain.hpp" // for IndexShape
 
@@ -135,10 +135,12 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h
                             const IndexShape &cellbounds, const IndexShape &c_cellbounds,
                             const RefinementOp_t op) {
   const IndexDomain interior = IndexDomain::interior;
-  auto ckb = c_cellbounds.GetBoundsK(interior); // TODO(JMM): This may need some additional
+  auto ckb =
+      c_cellbounds.GetBoundsK(interior); // TODO(JMM): This may need some additional
   auto cjb = c_cellbounds.GetBoundsJ(interior); // logic for different field centers
-  auto cib = c_cellbounds.GetBoundsI(interior); // perhaps the solution is to pass IndexShape
-  auto kb = cellbounds.GetBoundsK(interior);    // into the stencil directly.
+  auto cib =
+      c_cellbounds.GetBoundsI(interior);     // perhaps the solution is to pass IndexShape
+  auto kb = cellbounds.GetBoundsK(interior); // into the stencil directly.
   auto jb = cellbounds.GetBoundsJ(interior);
   auto ib = cellbounds.GetBoundsI(interior);
   const int nbuffers = info_h.extent_int(0);
