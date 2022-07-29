@@ -36,13 +36,8 @@ using parthenon::CartDir;
 namespace loop_advection_example {
 
 
-struct B_face : public parthenon::variable_names::base_t<false> {
-  template <class... Ts>
-  KOKKOS_INLINE_FUNCTION B_face(Ts &&...args)
-      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
-  static std::string name() { return "B_face"; }
-};
 
+//Cell centered variables
 struct B_cell : public parthenon::variable_names::base_t<false, 3> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION B_cell(Ts &&...args)
@@ -55,12 +50,7 @@ struct E_cell : public parthenon::variable_names::base_t<false, 3> {
       : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "E_cell"; }
 };
-struct E_edge : public parthenon::variable_names::base_t<false> {
-  template <class... Ts>
-  KOKKOS_INLINE_FUNCTION E_edge(Ts &&...args)
-      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
-  static std::string name() { return "E_edge"; }
-};
+
 struct div_Bf_cell : public parthenon::variable_names::base_t<false> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION div_Bf_cell(Ts &&...args)
@@ -73,6 +63,25 @@ struct div_Bc_cell : public parthenon::variable_names::base_t<false> {
       : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "div_Bc_cell"; }
 };
+
+//Face centered variables
+struct B_face : public parthenon::variable_names::base_t<false, 3> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION B_face(Ts &&...args)
+      : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "B_face"; }
+};
+
+
+//Edge centered variables
+struct E_edge : public parthenon::variable_names::base_t<false, 3> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION E_edge(Ts &&...args)
+      : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "E_edge"; }
+};
+
+//Node centered variables
 struct div_E_node : public parthenon::variable_names::base_t<false> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION div_E_node(Ts &&...args)
@@ -145,7 +154,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   //Initialize vector potential at cell edges
   const auto &A = md->PackVars(std::vector<std::string>{"E_edge"});
-  for( int edge_dir=1; edge_dir <= 3; edge_dir++){
+  for( int edge_dir=0; edge_dir <= 2; edge_dir++){
     CartDir edge_dir_enum = static_cast<CartDir>(edge_dir);
 
     IndexRange ib = pmb->cellbounds.GetEdgeBoundsI(IndexDomain::entire,edge_dir_enum);
@@ -159,23 +168,23 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         const Real r = sqrt( x*x  + y*y + z*z );
 
 
-        const Real x = (edge_dir == 1) ? coords.x1v(i) : coords.x1f(i);
-        const Real y = (edge_dir == 2) ? coords.x2v(j) : coords.x2f(j);
-        const Real z = (edge_dir == 3) ? coords.x3v(k) : coords.x2f(k);
+        const Real x = (edge_dir == 0) ? coords.x1v(i) : coords.x1f(i);
+        const Real y = (edge_dir == 1) ? coords.x2v(j) : coords.x2f(j);
+        const Real z = (edge_dir == 2) ? coords.x3v(k) : coords.x2f(k);
 
         const Real ax = 0;
         const Real ay = 0;
         const Real az = max( amp*(R - r),0);
 
-        v( edge_dir, b, A_face(), k, j, i) = (edge_dir == 1 ) ? ax :
-                                             (edge_dir == 2 ) ? ay : az;
+        v( b, A_face(edge_dir), k, j, i) = (edge_dir == 0 ) ? ax :
+                                           (edge_dir == 1 ) ? ay : az;
       });
   }
 
 
   //Initialize magnetic field from curl of vector potential
   //Computing each direction individually (not necessarily the fastest method)
-  for( int face_dir=1; face_dir <= 3; face_dir++){
+  for( int face_dir=0; face_dir <= 2; face_dir++){
     CartDir face_dir_enum = static_cast<CartDir>(face_dir);
 
     IndexRange ib = pmb->cellbounds.GetFaceBoundsI(IndexDomain::entire,face_dir_enum);
@@ -188,29 +197,29 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         const auto &coords = v.GetCoords(b);
 
         //Compute the Curl of E
-        const int cart_dir_p1 = (cart_dir    )%3 + 1;
-        const int cart_dir_p2 = (cart_dir + 1)%3 + 1;
+        const int face_dir_p1 = (face_dir + 1)%3;
+        const int face_dir_p2 = (face_dir + 2)%3;
 
-        const Real dp1 = (cart_dir == 1) ? coords.dx1(i) :
-                        +(cart_dir == 2) ? coords.dx2(j) :
-                                           coords.dx3(k);
-        const Real dp2 = (cart_dir == 1) ? coords.dx1(i) :
-                        +(cart_dir == 2) ? coords.dx2(j) :
-                                           coords.dx3(k);
+        const Real dp1 = (face_dir_p1 == 0) ? coords.dx1(i) :
+                        +(face_dir_p1 == 1) ? coords.dx2(j) :
+                                              coords.dx3(k);
+        const Real dp2 = (face_dir_p2 == 0) ? coords.dx1(i) :
+                        +(face_dir_p2 == 1) ? coords.dx2(j) :
+                                              coords.dx3(k);
 
         //First term: dEzdy, dExdz, or dEydx
-        const Real dEp2dp1 =(v( cart_dir_pb, A_face(), 2,  k, j, i)
-                            -v( cart_dir_pb, A_face(), 2,  k - (cart_dir_p1 == 3),
-                                                           j - (cart_dir_p1 == 2),
-                                                           i - (cart_dir_p1 == 1)))/dp1;
+        const Real dEp2dp1 =(v( b, A_face(face_dir_p2),  k, j, i)
+                            -v( b, A_face(face_dir_p2),  k - (face_dir_p1 == 2),
+                                                         j - (face_dir_p1 == 1),
+                                                         i - (face_dir_p1 == 0)))/dp1;
 
         //Second term: dEydz, dEzdx, or dExdy
-        const Real dEp1dp2 =(v( cart_dir_pb, A_face(), 1, k, j, i)
-                            -v( cart_dir_pb, A_face(), 1, k - (cart_dir_p2 == 3),
-                                                          j - (cart_dir_p2 == 2),
-                                                          i - (cart_dir_p2 == 1)))/dp2;
+        const Real dEp1dp2 =(v( b, A_face(face_dir_p1), k, j, i)
+                            -v( b, A_face(face_dir_p1), k - (face_dir_p2 == 2),
+                                                        j - (face_dir_p2 == 1),
+                                                        i - (face_dir_p2 == 0)))/dp2;
 
-        v( cart_dir, b, B_face(), k, j, i) = -(dEp2dp1 - dEp1dp2);
+        v( b, B_face(face_dir), k, j, i) = -(dEp2dp1 - dEp1dp2);
       });
   }
 
@@ -241,9 +250,9 @@ parthenon::TaskStatus calc_dBdt(parthenon::MeshBlock *pmb){
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
 
         //Average B from the faces to the cell centers
-        v(b, B_cell(0), k, j, i) = 0.5 * (v( b, B_face(), 1, k, j, i) + v( b, B_face(), 1, k, j, i+1));
-        v(b, B_cell(1), k, j, i) = 0.5 * (v( b, B_face(), 2, k, j, i) + v( b, B_face(), 2, k, j+1, i));
-        v(b, B_cell(2), k, j, i) = 0.5 * (v( b, B_face(), 3, k, j, i) + v( b, B_face(), 3, k+1, j, i));
+        v(b, B_cell(0), k, j, i) = 0.5 * (v( b, B_face(0), k, j, i) + v( b, B_face(0), k, j, i+1));
+        v(b, B_cell(1), k, j, i) = 0.5 * (v( b, B_face(1), k, j, i) + v( b, B_face(1), k, j+1, i));
+        v(b, B_cell(2), k, j, i) = 0.5 * (v( b, B_face(2), k, j, i) + v( b, B_face(2), k+1, j, i));
 
         //Compute E_cell = v X B
         v(b, E_cell(0), k, j, i) = v2 * B3 - v3 * B2;
@@ -262,14 +271,14 @@ parthenon::TaskStatus calc_dBdt(parthenon::MeshBlock *pmb){
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         //Average E from the cell centers to cell edges
         if( k+1 < kb.e && j+1 < jb.e) 
-          v( b, E_edge(), 1, k, j, i) = v( b, E_face(), 1,   k,   j, i) + v( b, E_face(), 1,   k, j+1,   i);
-                                      + v( b, E_face(), 1, k+1,   j, i) + v( b, E_face(), 1, k+1, j+1,   i);
+          v( b, E_edge(0), k, j, i) = v( b, E_face(0),   k,   j, i) + v( b, E_face(0),   k, j+1,   i);
+                                      + v( b, E_face(0), k+1,   j, i) + v( b, E_face(0), k+1, j+1,   i);
         if( j+1 < jb.e && i+1 < ib.e) 
-          v( b, E_edge(), 2, k, j, i) = v( b, E_face(), 2,   k,   j, i) + v( b, E_face(), 2,   k,   j, i+1);
-                                      + v( b, E_face(), 2, k+1,   j, i) + v( b, E_face(), 2, k+1,   j, i+1);
+          v( b, E_edge(1), k, j, i) = v( b, E_face(1),   k,   j, i) + v( b, E_face(1),   k,   j, i+1);
+                                      + v( b, E_face(1), k+1,   j, i) + v( b, E_face(1), k+1,   j, i+1);
         if( j+1 < jb.e && k+1 < kb.e) 
-          v( b, E_edge(), 3, k, j, i) = v( b, E_face(), 3,   k,   j, i) + v( b, E_face(), 3,   k,   j, i+1);
-                                      + v( b, E_face(), 3,   k, j+1, i) + v( b, E_face(), 3,   k, j+1, i+1);
+          v( b, E_edge(2), k, j, i) = v( b, E_face(2),   k,   j, i) + v( b, E_face(2),   k,   j, i+1);
+                                      + v( b, E_face(2),   k, j+1, i) + v( b, E_face(2),   k, j+1, i+1);
 
 
 
@@ -292,14 +301,14 @@ parthenon::TaskStatus calc_dBdt(parthenon::MeshBlock *pmb){
         const auto &coords = v.GetCoordinates(b);
 
         if( k+1 < kb.e && j+1 < jb.e) 
-          v( b, dBdt_face(), 1, k, j, i) = (v( b, E_edge(), 3, k, j+1, i) - v( b, E_edge(), 3, k, j, i))/coords.dx2(j)
-                                         - (v( b, E_edge(), 2, k+1, j, i) - v( b, E_edge(), 2, k, j, i))/coords.dx3(k);
+          v( b, dBdt_face(0), k, j, i) = (v( b, E_edge(2), k, j+1, i) - v( b, E_edge(2), k, j, i))/coords.dx2(j)
+                                         - (v( b, E_edge(1), k+1, j, i) - v( b, E_edge(1), k, j, i))/coords.dx3(k);
         if( j+1 < jb.e && i+1 < ib.e) 
-          v( b, dBdt_face(), 2, k, j, i) = (v( b, E_edge(), 1, k+1, j, i) - v( b, E_edge(), 1, k, j, i))/coords.dx3(k)
-                                         - (v( b, E_edge(), 3, k, j, i+1) - v( b, E_edge(), 3, k, j, i))/coords.dx1(i);
+          v( b, dBdt_face(1), k, j, i) = (v( b, E_edge(0), k+1, j, i) - v( b, E_edge(0), k, j, i))/coords.dx3(k)
+                                         - (v( b, E_edge(2), k, j, i+1) - v( b, E_edge(2), k, j, i))/coords.dx1(i);
         if( j+1 < jb.e && k+1 < kb.e) 
-          v( b, dBdt_face(), 3, k, j, i) = (v( b, E_edge(), 2, k, j, i+1) - v( b, E_edge(), 2, k, j, i))/coords.dx3(k)
-                                         - (v( b, E_edge(), 1, k, j+1, i) - v( b, E_edge(), 1, k, j, i))/coords.dx2(j);
+          v( b, dBdt_face(2), k, j, i) = (v( b, E_edge(1), k, j, i+1) - v( b, E_edge(1), k, j, i))/coords.dx3(k)
+                                         - (v( b, E_edge(0), k, j+1, i) - v( b, E_edge(0), k, j, i))/coords.dx2(j);
       });
   }
 
@@ -327,14 +336,14 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         const auto &coords = v.GetCoordinates(b);
 
-        v(b, div_E_node(), k, j, i) = (v( b, E_edge(), 1, k, j, i) -
-                                       v( b, E_edge(), 1, k, j, i - 1)) /
+        v(b, div_E_node(), k, j, i) = (v( b, E_edge(0), k, j, i) -
+                                       v( b, E_edge(0), k, j, i - 1)) /
                                           coords.dx1(i) +
-                                      (v( b, E_edge(), 2, k, j, i) -
-                                       v( b, E_edge(), 2, k, j - 1, i)) /
+                                      (v( b, E_edge(1), k, j, i) -
+                                       v( b, E_edge(1), k, j - 1, i)) /
                                           coords.dx2(j) +
-                                      (v( b, E_edge(), 3, k, j, i) -
-                                       v( b, E_edge(), 3, k - 1, j, i)) /
+                                      (v( b, E_edge(2), k, j, i) -
+                                       v( b, E_edge(2), k - 1, j, i)) /
                                           coords.dx3(k);
 
       });
@@ -354,9 +363,9 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         const auto &coords = v.GetCoordinates(b);
 
-        v( b, div_Bf_cell(), k, j, i) = (v( b, B_face(), 1, k, j, i) - v( b, B_face(), 1, k, j, i-1))/coords.dx1(i)
-                                      + (v( b, B_face(), 2, k, j, i) - v( b, B_face(), 2, k, j-1, i))/coords.dx2(j)
-                                      + (v( b, B_face(), 3, k, j, i) - v( b, B_face(), 3, k-1, j, i))/coords.dx3(k);
+        v( b, div_Bf_cell(), k, j, i) = (v( b, B_face(0), k, j, i) - v( b, B_face(0), k, j, i-1))/coords.dx1(i)
+                                      + (v( b, B_face(1), k, j, i) - v( b, B_face(1), k, j-1, i))/coords.dx2(j)
+                                      + (v( b, B_face(2), k, j, i) - v( b, B_face(2), k-1, j, i))/coords.dx3(k);
         v( b, div_Bc_cell(), k, j, i) = (v( b, B_cell(0), k, j, i+1) - v( b, B_cell(0), k, j, i-1))/(2*coords.dx1(i))
                                       + (v( b, B_cell(1), k, j+1, i) - v( b, B_cell(1), k, j-1, i))/(2*coords.dx2(j))
                                       + (v( b, B_cell(2), k+1, j, i) - v( b, B_cell(2), k-1, j, i))/(2*coords.dx3(k));
