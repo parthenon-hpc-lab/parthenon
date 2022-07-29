@@ -25,6 +25,7 @@
 
 #include "bvals/cc/bvals_cc_in_one.hpp" // for buffercache_t
 #include "coordinates/coordinates.hpp"  // for coordinates
+#include "globals.hpp" // for Globals
 #include "interface/mesh_data.hpp"
 #include "mesh/domain.hpp" // for IndexShape
 
@@ -61,26 +62,6 @@ void Prolongate(const cell_centered_bvars::BufferCacheHost_t &info_h,
 
 // TODO(JMM): We may wish to expose some of these impl functions eventually.
 namespace impl {
-
-// If the info object has more buffers than this, do
-// hierarchical parallelism. If it does not, loop over buffers on the
-// host and launch kernels manually.
-//
-// TODO(JMM): Experiment here? We could expose this as a run-time or
-// compile-time parameter, if it ends up being hardware dependent. My
-// suspicion is that, given kernel launch latencies, MIN_NUM_BUFS
-// should be either 1 or 6.
-//
-// MIN_NUM_BUFS = 1 implies that the old per-buffer machinery doesn't
-// use hierarchical parallelism. This also means that for
-// prolongation/restriction over a whole meshblock, hierarchical
-// parallelism is not used, which is probably important for
-// re-meshing.
-//
-// MIN_NUM_BUFS = 6 implies that in a unigrid sim a meshblock pack of
-// size 1 would be looped over manually while a pack of size 2 would
-// use hierarchical parallelism.
-constexpr int MIN_NUM_BUFS = 6;
 
 template <typename Info_t>
 KOKKOS_FORCEINLINE_FUNCTION bool DoRefinementOp(const Info_t &info,
@@ -154,10 +135,10 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h
                             const IndexShape &cellbounds, const IndexShape &c_cellbounds,
                             const RefinementOp_t op) {
   const IndexDomain interior = IndexDomain::interior;
-  auto ckb = c_cellbounds.GetBoundsK(interior);
-  auto cjb = c_cellbounds.GetBoundsJ(interior);
-  auto cib = c_cellbounds.GetBoundsI(interior);
-  auto kb = cellbounds.GetBoundsK(interior);
+  auto ckb = c_cellbounds.GetBoundsK(interior); // TODO(JMM): This may need some additional
+  auto cjb = c_cellbounds.GetBoundsJ(interior); // logic for different field centers
+  auto cib = c_cellbounds.GetBoundsI(interior); // perhaps the solution is to pass IndexShape
+  auto kb = cellbounds.GetBoundsK(interior);    // into the stencil directly.
   auto jb = cellbounds.GetBoundsJ(interior);
   auto ib = cellbounds.GetBoundsI(interior);
   const int nbuffers = info_h.extent_int(0);
@@ -188,7 +169,7 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
                             const IndexShape &cellbounds, const IndexShape &c_cellbounds,
                             const RefinementOp_t op) {
   const int nbuffers = info_h.extent_int(0);
-  if (nbuffers > MIN_NUM_BUFS) {
+  if (nbuffers > Globals::cell_centered_refinement::min_num_bufs) {
     ProlongationRestrictionLoop<DIM, Stencil>(info, cellbounds, c_cellbounds, op);
   } else {
     ProlongationRestrictionLoop<DIM, Stencil>(info_h, cellbounds, c_cellbounds, op);
