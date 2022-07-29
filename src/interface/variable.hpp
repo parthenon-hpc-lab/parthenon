@@ -154,117 +154,6 @@ class CellVariable {
   ParArray7D<T> flux_data_; // unified par array for the fluxes
 };
 
-///
-/// FaceVariable extends the FaceField struct to include the metadata
-/// and label so that we can refer to variables by name.  Since Athena
-/// currently only has scalar Face fields, we also only allow scalar
-/// face fields
-template <typename T>
-class FaceVariable {
- public:
-  /// Initialize a face variable
-  FaceVariable(const std::string &label, const std::array<int, 6> ncells,
-               const Metadata &metadata)
-      : data(label, ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
-        dims_(ncells), m_(metadata), label_(label) {
-    PARTHENON_REQUIRE_THROWS(!metadata.IsSet(Metadata::Sparse),
-                             "Sparse not implemented yet for FaceVariable");
-  }
-
-  /// Create an alias for the variable by making a shallow slice with max dim
-  FaceVariable(const std::string &label, FaceVariable<T> &src)
-      : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
-
-  std::shared_ptr<FaceVariable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
-    PARTHENON_THROW("FaceVariable::AllocateCopy is not implemented yet");
-  }
-
-  // KOKKOS_FUNCTION FaceVariable() = default;
-  // KOKKOS_FUNCTION FaceVariable(const FaceVariable<T>& v) = default;
-  // KOKKOS_FUNCTION ~FaceVariable() = default;
-
-  ///< retrieve label for variable
-  inline const std::string &label() const { return label_; }
-
-  ///< retrieve metadata for variable
-  inline const Metadata metadata() const { return m_; }
-
-  /// return information string
-  std::string info();
-
-  // TODO(JMM): should this be 0,1,2?
-  // Should we return the reference? Or something else?
-  KOKKOS_FORCEINLINE_FUNCTION
-  ParArrayND<T> &Get(int i) {
-    assert(1 <= i && i <= 3);
-    if (i == 1) return (data.x1f);
-    if (i == 2)
-      return (data.x2f);
-    else // i == 3
-      return (data.x3f);
-  }
-  template <typename... Args>
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(int dir, Args... args) const {
-    assert(1 <= dir && dir <= 3);
-    if (dir == 1) return data.x1f(std::forward<Args>(args)...);
-    if (dir == 2)
-      return data.x2f(std::forward<Args>(args)...);
-    else // dir == 3
-      return data.x3f(std::forward<Args>(args)...);
-  }
-
-  inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
-
-  // to mimick interface of CellVariable, currently sparse FaceVariables are not
-  // implemented
-  inline bool IsSparse() const { return false; }
-  inline int GetSparseID() const { return InvalidSparseID; }
-
-  FaceArray<T> data;
-
- private:
-  std::array<int, 6> dims_;
-  Metadata m_;
-  std::string label_;
-};
-
-///
-/// EdgeVariable extends the EdgeField struct to include the metadata
-/// and label so that we can refer to variables by name.  Since Athena
-/// currently only has scalar Edge fields, we also only allow scalar
-/// edge fields
-template <typename T>
-class EdgeVariable {
- public:
-  /// Initialize an edge variable
-  EdgeVariable(const std::string &label, const std::array<int, 6> ncells,
-               const Metadata &metadata)
-      : data(label, ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
-        dims_(ncells), m_(metadata), label_(label) {
-    assert(!metadata.IsSet(Metadata::Sparse) &&
-           "Sparse not implemented yet for FaceVariable");
-  }
-
-  /// Create an alias for the variable by making a shallow slice with max dim
-  EdgeVariable(const std::string &label, EdgeVariable<T> &src)
-      : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
-  ///< retrieve metadata for variable
-  inline const Metadata metadata() const { return m_; }
-
-  inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
-  ///< retrieve label for variable
-  inline std::string label() { return label_; }
-
-  /// return information string
-  std::string info();
-
-  EdgeArray<Real> data;
-
- private:
-  std::array<int, 6> dims_;
-  Metadata m_;
-  std::string label_;
-};
 
 template <typename T>
 class ParticleVariable {
@@ -313,13 +202,9 @@ class ParticleVariable {
 
 template <typename T>
 using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;
-template <typename T>
-using FaceVector = std::vector<std::shared_ptr<FaceVariable<T>>>;
 
 template <typename T>
 using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
-template <typename T>
-using MapToFace = std::map<std::string, std::shared_ptr<FaceVariable<T>>>;
 
 template <typename T>
 using ParticleVariableVector = std::vector<std::shared_ptr<ParticleVariable<T>>>;

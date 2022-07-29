@@ -369,7 +369,9 @@ class Metadata {
   // Utility functions
   /*--------------------------------------------------------*/
 
-  // get the dims of the 6D array
+  // get the dims of the 6D array For faces and edges (nodes too) returns the
+  // array that **fits** all faces/edges in every direction -- One bigger in
+  // each dimension than the cell array
   std::array<int, 6> GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const;
 
   /// Returns the attribute flags as a string of 1/0

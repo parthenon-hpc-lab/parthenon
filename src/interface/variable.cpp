@@ -46,6 +46,7 @@ CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &meta
   if (IsSet(Metadata::FillGhost)) {
     auto pmb = wpmb.lock();
     auto it = pmb->pbval->bvars.find(label());
+    //FIXME(forrestglines): How does this need to change for faces/edges/nodes?
     // Reuse existing vbar for this variable
     if (it != pmb->pbval->bvars.end()) {
       vbvar = std::static_pointer_cast<CellCenteredBoundaryVariable>(it->second);
@@ -231,47 +232,6 @@ void CellVariable<T>::Deallocate() {
 #endif
 }
 
-// TODO(jcd): clean these next two info routines up
-template <typename T>
-std::string FaceVariable<T>::info() {
-  char tmp[100] = "";
-
-  // first add label
-  std::string s = this->label();
-  s.resize(20, '.');
-  s += " : ";
-
-  // now append size
-  snprintf(tmp, sizeof(tmp), "%dx%dx%d", data.x1f.GetDim(3), data.x1f.GetDim(2),
-           data.x1f.GetDim(1));
-  s += std::string(tmp);
-
-  // now append flag
-  s += " : " + this->metadata().MaskAsString();
-
-  return s;
-}
-
-template <typename T>
-std::string EdgeVariable<T>::info() {
-  char tmp[100] = "";
-
-  // first add label
-  //    snprintf(tmp, sizeof(tmp), "%40s : ",this->label().cstr());
-  std::string s = this->label();
-  s.resize(20, '.');
-
-  // now append size
-  snprintf(tmp, sizeof(tmp), "%dx%dx%d", data.x1e.GetDim(3), data.x1e.GetDim(2),
-           data.x1e.GetDim(1));
-  s += std::string(tmp);
-
-  // now append flag
-  s += " : " + this->metadata().MaskAsString();
-
-  return s;
-}
-
 template <typename T>
 ParticleVariable<T>::ParticleVariable(const std::string &label, const int npool,
                                       const Metadata &metadata)
@@ -296,8 +256,6 @@ std::string ParticleVariable<T>::info() const {
 }
 
 template class CellVariable<Real>;
-template class FaceVariable<Real>;
-template class EdgeVariable<Real>;
 template class ParticleVariable<Real>;
 template class ParticleVariable<int>;
 template class ParticleVariable<bool>;
