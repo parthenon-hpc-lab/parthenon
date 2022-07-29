@@ -56,7 +56,7 @@ namespace cell_centered_refinement {
 // min_num_bufs = 6 implies that in a unigrid sim a meshblock pack of
 // size 1 would be looped over manually while a pack of size 2 would
 // use hierarchical parallelism.
-constexpr int min_num_bufs;
+extern int min_num_bufs;
 } // namespace cell_centered_refinement
 
 } // namespace Globals
