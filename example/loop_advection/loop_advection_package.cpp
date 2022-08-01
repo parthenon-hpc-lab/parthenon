@@ -35,8 +35,6 @@ using parthenon::CartDir;
 
 namespace loop_advection_example {
 
-
-
 //Cell centered variables
 struct B_cell : public parthenon::variable_names::base_t<false, 3> {
   template <class... Ts>
@@ -102,7 +100,7 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 
   //The magnetic field, defined at the faces,  which is evolved
   m = Metadata({Metadata::Face, Metadata::Independent, Metadata::FillGhost},
-               scalar_shape);
+               vector_shape);
   package->AddField(B_face::name(), m);
 
   //The magnetic field, defined at cell centers,  which is interpolated from cell faces
@@ -117,19 +115,19 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 
   //The electric field, defined at cell edges,  which is derived from v x B
   m = Metadata({Metadata::Edge, Metadata::Derived, Metadata::FillGhost},
-               scalar_shape);
+               vector_shape);
   package->AddField(E_edge::name(), m);
 
   // The divergence of the face centered magnetic field at cell centers
-  m = Metadata({Metadata::Cell, Metadata::Derived});
+  m = Metadata({Metadata::Cell, Metadata::Derived}, scalar_shape);
   package->AddField(div_Bf_cell::name(), m);
 
   // The divergence of the cell centered magnetic field at cell centers
-  m = Metadata({Metadata::Cell, Metadata::Derived});
+  m = Metadata({Metadata::Cell, Metadata::Derived}, scalar_shape);
   package->AddField(div_Bc_cell::name(), m);
 
   // The divergence of the electric_field at nodes
-  m = Metadata({Metadata::Node, Metadata::Derived});
+  m = Metadata({Metadata::Node, Metadata::Derived}, scalar_shape);
   package->AddField(div_E_node::name(), m);
 
   packages.Add(package);
@@ -155,11 +153,11 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   //Initialize vector potential at cell edges
   const auto &A = md->PackVars(std::vector<std::string>{"E_edge"});
   for( int edge_dir=0; edge_dir <= 2; edge_dir++){
-    CartDir edge_dir_enum = static_cast<CartDir>(edge_dir);
+    CellLocation edge_loc = {CellLocation::Edge_x, CellLocation::Edge_y, CellLocation::Edge_z}[edge_dir];
 
-    IndexRange ib = pmb->cellbounds.GetEdgeBoundsI(IndexDomain::entire,edge_dir_enum);
-    IndexRange jb = pmb->cellbounds.GetEdgeBoundsJ(IndexDomain::entire,edge_dir_enum);
-    IndexRange kb = pmb->cellbounds.GetEdgeBoundsK(IndexDomain::entire,edge_dir_enum);
+    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire,edge_loc);
+    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire,edge_loc);
+    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire,edge_loc);
 
     pmb->par_for(
       "LoopAdvection::ProblemGenerator::init_A.x"+(edge_dir)+"e", 0, vf.dim(5)-1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -185,11 +183,11 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   //Initialize magnetic field from curl of vector potential
   //Computing each direction individually (not necessarily the fastest method)
   for( int face_dir=0; face_dir <= 2; face_dir++){
-    CartDir face_dir_enum = static_cast<CartDir>(face_dir);
+    CellLocation face_loc = {CellLocation::Face_x, CellLocation::Face_y, CellLocation::Face_z}[face_dir];
 
-    IndexRange ib = pmb->cellbounds.GetFaceBoundsI(IndexDomain::entire,face_dir_enum);
-    IndexRange jb = pmb->cellbounds.GetFaceBoundsJ(IndexDomain::entire,face_dir_enum);
-    IndexRange kb = pmb->cellbounds.GetFaceBoundsK(IndexDomain::entire,face_dir_enum);
+    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire,face_loc);
+    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire,face_loc);
+    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire,face_loc);
 
     pmb->par_for(
       "LoopAdvection::ProblemGenerator::init_B.x"+(face_dir)+"f", 0, vf.dim(5)-1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -271,17 +269,14 @@ parthenon::TaskStatus calc_dBdt(parthenon::MeshBlock *pmb){
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         //Average E from the cell centers to cell edges
         if( k+1 < kb.e && j+1 < jb.e) 
-          v( b, E_edge(0), k, j, i) = v( b, E_face(0),   k,   j, i) + v( b, E_face(0),   k, j+1,   i);
-                                      + v( b, E_face(0), k+1,   j, i) + v( b, E_face(0), k+1, j+1,   i);
+          v( b, E_edge(0), k, j, i) = v( b, E_cell(0),   k,   j, i) + v( b, E_cell(0),   k, j+1,   i);
+                                      + v( b, E_cell(0), k+1,   j, i) + v( b, E_cell(0), k+1, j+1,   i);
         if( j+1 < jb.e && i+1 < ib.e) 
-          v( b, E_edge(1), k, j, i) = v( b, E_face(1),   k,   j, i) + v( b, E_face(1),   k,   j, i+1);
-                                      + v( b, E_face(1), k+1,   j, i) + v( b, E_face(1), k+1,   j, i+1);
+          v( b, E_edge(1), k, j, i) = v( b, E_cell(1),   k,   j, i) + v( b, E_cell(1),   k,   j, i+1);
+                                      + v( b, E_cell(1), k+1,   j, i) + v( b, E_cell(1), k+1,   j, i+1);
         if( j+1 < jb.e && k+1 < kb.e) 
-          v( b, E_edge(2), k, j, i) = v( b, E_face(2),   k,   j, i) + v( b, E_face(2),   k,   j, i+1);
-                                      + v( b, E_face(2),   k, j+1, i) + v( b, E_face(2),   k, j+1, i+1);
-
-
-
+          v( b, E_edge(2), k, j, i) = v( b, E_cell(2),   k,   j, i) + v( b, E_cell(2),   k,   j, i+1);
+                                      + v( b, E_cell(2),   k, j+1, i) + v( b, E_cell(2),   k, j+1, i+1);
         });
     }
 

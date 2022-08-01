@@ -84,6 +84,17 @@ enum class CartDir {
   z = 2
 };
 
+enum class CellLocation {
+  Center,
+  Face_x,
+  Face_y,
+  Face_z,
+  Edge_x,
+  Edge_y,
+  Edge_z,
+  Node
+  };
+
 //! \class IndexVolume
 //  \brief Defines the dimensions of a shape of indices
 //
@@ -148,76 +159,32 @@ class IndexShape {
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange
-  GetBoundsI(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::interior) ? x_[0] : IndexRange{is(domain), ie(domain)};
+  GetBoundsI(const IndexDomain &domain,
+             const CellLocation &loc = CellLocation::Center) const noexcept {
+    return (domain == IndexDomain::interior)
+               ? x_[0]
+               : IndexRange{is(domain, loc), ie(domain, loc)};
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange
-  GetBoundsJ(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::interior) ? x_[1] : IndexRange{js(domain), je(domain)};
+  GetBoundsJ(const IndexDomain &domain,
+             const CellLocation &loc = CellLocation::Center) const noexcept {
+    return (domain == IndexDomain::interior)
+               ? x_[1]
+               : IndexRange{js(domain, loc), je(domain, loc)};
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange
-  GetBoundsK(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::interior) ? x_[2] : IndexRange{ks(domain), ke(domain)};
+  GetBoundsK(const IndexDomain &domain,
+             const CellLocation &loc = CellLocation::Center) const noexcept {
+    return (domain == IndexDomain::interior)
+               ? x_[2]
+               : IndexRange{ks(domain, loc), ke(domain, loc)};
   }
 
-  //FIXME(forrestglines) How necessary are these additional functions?
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetFaceBoundsI(const IndexDomain &domain, const CartDir& face) const noexcept {
-    const auto cc_range = GetBoundsI(domain);
-    return IndexRange{ cc_range.s, cc_range.e + (face==CartDir::x ? 1 : 0) };
-  }
-
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetFaceBoundsJ(const IndexDomain &domain, const CartDir& face) const noexcept {
-    const auto cc_range = GetBoundsJ(domain);
-    return IndexRange{ cc_range.s, cc_range.e + (face==CartDir::y ? 1 : 0) };
-  }
-
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetFaceBoundsK(const IndexDomain &domain, const CartDir& face) const noexcept {
-    const auto cc_range = GetBoundsK(domain);
-    return IndexRange{ cc_range.s, cc_range.e + (face==CartDir::z ? 1 : 0) };
-  }
-
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetEdgeBoundsI(const IndexDomain &domain, const CartDir& edge) const noexcept {
-    const auto cc_range = GetBoundsI(domain);
-    return IndexRange{ cc_range.s, cc_range.e + (edge==CartDir::x ? 0 : 1) };
-  }
-
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetEdgeBoundsJ(const IndexDomain &domain, const CartDir& edge) const noexcept {
-    const auto cc_range = GetBoundsJ(domain);
-    return IndexRange{ cc_range.s, cc_range.e + (edge==CartDir::y ? 0 : 1) };
-  }
-
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetEdgeBoundsK(const IndexDomain &domain, const CartDir& edge) const noexcept {
-    const auto cc_range = GetBoundsK(domain);
-    return IndexRange{ cc_range.s, cc_range.e + (edge==CartDir::z ? 0 : 1) };
-  }
-
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetNodeBoundsI(const IndexDomain &domain) const noexcept {
-    const auto cc_range = GetBoundsI(domain);
-    return IndexRange{ cc_range.s, cc_range.e + 1 };
-  }
-
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetNodeBoundsJ(const IndexDomain &domain) const noexcept {
-    const auto cc_range = GetBoundsJ(domain);
-    return IndexRange{ cc_range.s, cc_range.e + 1 };
-  }
-
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetNodeBoundsK(const IndexDomain &domain) const noexcept {
-    const auto cc_range = GetBoundsK(domain);
-    return IndexRange{ cc_range.s, cc_range.e + 1 };
-  }
-
-  KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int
+  is(const IndexDomain &domain,
+     const CellLocation &loc = CellLocation::Center) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[0].s;
@@ -228,7 +195,9 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int js(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int
+  js(const IndexDomain &domain,
+     const CellLocation &loc = CellLocation::Center) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[1].s;
@@ -239,7 +208,9 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int ks(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int
+  ks(const IndexDomain &domain,
+     const CellLocation &loc = CellLocation::Center) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[2].s;
@@ -250,37 +221,58 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int ie(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int
+  ie(const IndexDomain &domain,
+     const CellLocation &loc = CellLocation::Center) const noexcept {
+    int out;
     switch (domain) {
     case IndexDomain::interior:
-      return x_[0].e;
+      out = x_[0].e;
     case IndexDomain::inner_x1:
-      return x_[0].s == 0 ? 0 : x_[0].s - 1;
+      out = x_[0].s == 0 ? 0 : x_[0].s - 1;
     default:
-      return entire_ncells_[0] - 1;
+      out = entire_ncells_[0] - 1;
     }
+    if (loc == CellLocation::Face_x || loc == CellLocation::Edge_y ||
+        loc == CellLocation::Edge_z || loc == CellLocation::Node)
+      out += 1;
+    return out;
   }
 
-  KOKKOS_INLINE_FUNCTION int je(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int
+  je(const IndexDomain &domain,
+     const CellLocation &loc = CellLocation::Center) const noexcept {
+    int out;
     switch (domain) {
     case IndexDomain::interior:
-      return x_[1].e;
+      out = x_[1].e;
     case IndexDomain::inner_x2:
-      return x_[1].s == 0 ? 0 : x_[1].s - 1;
+      out =  x_[1].s == 0 ? 0 : x_[1].s - 1;
     default:
-      return entire_ncells_[1] - 1;
+      out =  entire_ncells_[1] - 1;
     }
+    if (loc == CellLocation::Face_y || loc == CellLocation::Edge_x ||
+        loc == CellLocation::Edge_z || loc == CellLocation::Node)
+      out += 1;
+    return out
   }
 
-  KOKKOS_INLINE_FUNCTION int ke(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int
+  ke(const IndexDomain &domain,
+     const CellLocation &loc = CellLocation::Center) const noexcept {
+    int out;
     switch (domain) {
     case IndexDomain::interior:
-      return x_[2].e;
+      out = x_[2].e;
     case IndexDomain::inner_x3:
-      return x_[2].s == 0 ? 0 : x_[2].s - 1;
+      out = x_[2].s == 0 ? 0 : x_[2].s - 1;
     default:
-      return entire_ncells_[2] - 1;
+      out = entire_ncells_[2] - 1;
     }
+    if (loc == CellLocation::Face_z || loc == CellLocation::Edge_x ||
+        loc == CellLocation::Edge_y || loc == CellLocation::Node)
+      out += 1;
+    return out;
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsi(const IndexDomain &domain) const noexcept {
