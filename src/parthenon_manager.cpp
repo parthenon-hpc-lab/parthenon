@@ -132,7 +132,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
       pinput->GetOrAddReal("parthenon/time", "recv_bdry_buf_timeout_sec", -1.0);
 
   // set boundary comms buffer switch trigger
-  Globals::min_num_bufs =
+  Globals::cell_centered_refinement::min_num_bufs =
       pinput->GetOrAddReal("parthenon/mesh", "refinement_in_one_min_nbufs", 6);
 
   return ParthenonStatus::ok;
