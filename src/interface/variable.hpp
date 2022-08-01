@@ -54,6 +54,8 @@ inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
          (sparse_id == InvalidSparseID ? "" : "_" + std::to_string(sparse_id));
 }
 
+//FIXME(forrestglines):"CellVariable" is now a misnomer, it contains
+//faces/edges/nodes
 template <typename T>
 class CellVariable {
   // so that MeshBlock and MeshBlockData can call Allocate* and Deallocate
@@ -77,6 +79,8 @@ class CellVariable {
     return data(std::forward<Args>(args)...);
   }
 
+  //FIXME(forrestglines): Note that GetDim will include extra space for
+  //faces/edges/nodes if needed
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
     // we can't query data.GetDim() here because data may be unallocated
@@ -148,6 +152,9 @@ class CellVariable {
   Metadata m_;
   const std::string base_name_;
   const int sparse_id_;
+  //Dimensions of the array to contain all included variables Note that if
+  //faces, edges, and nodes and included, the underlying data will be larger
+  //than cell centered variables
   const std::array<int, 6> dims_, coarse_dims_;
 
   bool is_allocated_ = false;

@@ -42,9 +42,7 @@ void MeshBlockData<T>::Initialize(
 
   // clear all variables, maps, and pack caches
   varVector_.clear();
-  faceVector_.clear();
   varMap_.clear();
-  faceMap_.clear();
   varPackMap_.clear();
   coarseVarPackMap_.clear();
   varFluxPackMap_.clear();
@@ -558,9 +556,6 @@ void MeshBlockData<T>::Print() {
   std::cout << "Variables are:\n";
   for (auto v : varVector_) {
     std::cout << " cell: " << v->info() << std::endl;
-  }
-  for (auto v : faceVector_) {
-    std::cout << " face: " << v->info() << std::endl;
   }
 }
 
