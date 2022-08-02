@@ -98,9 +98,9 @@ T GetNaNWithPayloadTag(uint8_t tag = 1) {
   auto &flag_bits =
       reinterpret_cast<impl::contiguous_bitset<sizeof(flag_nan)> &>(flag_nan);
 
-  // val must be > 0 otherwise since val = 0 just keeps the value of
+  // tag must be > 0 otherwise since tag = 0 just keeps the value of
   // the default quiet NaN
-  assert(val > 0);
+  assert(tag > 0);
   flag_bits.SetEndBytes(tag);
 
   // Do a few quick checks to make sure there isn't anything
