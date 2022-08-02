@@ -224,7 +224,9 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
         if (counter > Globals::sparse_config.deallocation_count) {
           // this variable has been flagged for deallocation deallocation_count times in
           // a row, now deallocate it
-          md->GetBlockData(b)->GetBlockPointer()->DeallocateSparse(label);
+          auto pmb = md->GetBlockData(b)->GetBlockPointer(); 
+          auto& var_names = pmb->pmy_mesh->resolved_packages->GetControlledVariables(label);
+          for (auto& vname : var_names) pmb->DeallocateSparse(vname);
         }
       }
     }

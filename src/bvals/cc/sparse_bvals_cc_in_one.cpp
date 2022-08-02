@@ -385,7 +385,9 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         if (Globals::sparse_config.enabled && buf.GetState() == BufferState::received &&
             !v->IsAllocated()) {
           constexpr bool flag_uninitialized = true;
-          pmb->AllocateSparse(v->label(), flag_uninitialized);
+          // Allocate all variables controlled by this variable
+          auto& var_names = pmb->pmy_mesh->resolved_packages->GetControlledVariables(v->label());
+          for (auto& vname : var_names) pmb->AllocateSparse(vname, flag_uninitialized);
         }
         ++ibound;
       });
