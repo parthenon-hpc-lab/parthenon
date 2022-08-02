@@ -511,6 +511,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                 bnd_info(b).var(t, u, v, k, j, i) = val;
               });
         } else if (bnd_info(b).var.size() > 0) {
+          const Real default_val = bnd_info(b).var.sparse_default_val;
           Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
                                [&](const int idx) {
                                  const int t = idx / NuNvNkNjNi;
@@ -519,7 +520,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                                  const int k = (idx % NkNjNi) / NjNi + sk;
                                  const int j = (idx % NjNi) / Ni + sj;
                                  const int i = idx % Ni + si;
-                                 bnd_info(b).var(t, u, v, k, j, i) = 0.0;
+                                 bnd_info(b).var(t, u, v, k, j, i) = default_val;
                                });
         }
       });
