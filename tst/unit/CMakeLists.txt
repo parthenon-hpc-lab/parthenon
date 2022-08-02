@@ -31,6 +31,7 @@ list(APPEND unit_tests_SOURCES
     test_pararrays.cpp
     test_meshblock_data_iterator.cpp
     test_mesh_data.cpp
+    test_nan_tags.cpp
     test_sparse_pack.cpp
     test_swarm.cpp
     test_required_desired.cpp
