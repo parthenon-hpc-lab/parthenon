@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 702]](https://github.com/lanl/parthenon/pull/702) Allow for ParArrayGeneric to accept enums
 - [[PR 694]](https://github.com/lanl/parthenon/pull/690) Add C++11 implementation of concepts lite
 - [[PR 692]](https://github.com/lanl/parthenon/pull/692) Add SparsePack machinery
 - [[PR 690]](https://github.com/lanl/parthenon/pull/690) Use power9 partition for Darwin CI
