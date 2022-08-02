@@ -301,11 +301,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
               const int k = (idx % NkNjNi) / NjNi + sk;
               const int j = (idx % NjNi) / Ni + sj;
               const int i = idx % Ni + si;
-
-              const Real val = bnd_info(b).var(t, u, v, k, j, i);
-              const size_t flat_idx = i - si + Ni * (j - sj) + NjNi * (k - sk) +
-                                      NkNjNi * v + NvNkNjNi * u + NuNvNkNjNi * t;
-              bnd_info(b).buf(flat_idx) = val;
+              
+              const Real& val = bnd_info(b).var(t, u, v, k, j, i);
+              bnd_info(b).buf(idx) = val;
               if (std::abs(val) > threshold) sending_nonzero_flags(b) = true;
             });
       });
@@ -495,8 +493,6 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
         if (bnd_info(b).allocated) {
           Kokkos::parallel_for(
               Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi), [&](const int idx) {
-                // TODO(LFR): Make sure the tuv indexing is correct, what is currently
-                // here doesn't seem right.
                 const int t = idx / NuNvNkNjNi;
                 const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
                 const int v = (idx % NvNkNjNi) / NkNjNi;
@@ -504,11 +500,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                 const int j = (idx % NjNi) / Ni + sj;
                 const int i = idx % Ni + si;
 
-                const size_t flat_idx = i - si + Ni * (j - sj) + NjNi * (k - sk) +
-                                        NkNjNi * v + NvNkNjNi * u + NuNvNkNjNi * t;
-
-                const Real val = bnd_info(b).buf(flat_idx);
-                bnd_info(b).var(t, u, v, k, j, i) = val;
+                bnd_info(b).var(t, u, v, k, j, i) = bnd_info(b).buf(idx);
               });
         } else if (bnd_info(b).var.size() > 0) {
           Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
