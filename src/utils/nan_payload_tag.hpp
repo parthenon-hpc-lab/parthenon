@@ -16,13 +16,13 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <numeric>
-#include <string.h>
 #include <type_traits>
 
+#include "kokkos_abstraction.hpp"
 #include "utils/concepts_lite.hpp"
-#include <kokkos_abstraction.hpp>
 
 namespace parthenon {
 
@@ -30,10 +30,10 @@ namespace impl {
 
 template <int NBYTES>
 struct contiguous_bitset {
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   contiguous_bitset() = default;
   KOKKOS_INLINE_FUNCTION
-  contiguous_bitset(char val) : bytes{val} {}
+  explicit contiguous_bitset(char val) : bytes{val} {}
   char bytes[NBYTES];
 
   static constexpr int char_bit_size = sizeof('a') * 8;
@@ -60,7 +60,7 @@ struct contiguous_bitset {
   KOKKOS_INLINE_FUNCTION void SetEndBytes(T val) {
     static_assert(sizeof(val) <= NBYTES * sizeof(std::declval<char>()),
                   "Input type is too large for given contiguous_bitset.");
-    memcpy(bytes, &val, sizeof(val));
+    std::memcpy(bytes, &val, sizeof(val));
   }
 };
 } // namespace impl
@@ -77,13 +77,13 @@ KOKKOS_INLINE_FUNCTION bool BitwiseCompare(const T &a, const U &b) {
   return val;
   // memcmp returns zero if the memory is the same
   // which is a little confusing, it is also not available on device
-  // return !memcmp(&a, &b, sizeof(a));
+  // return !std::memcmp(&a, &b, sizeof(a));
 }
 
 template <class T, REQUIRES(std::numeric_limits<T>::is_iec559)>
 KOKKOS_INLINE_FUNCTION int GetNaNTag(T val) {
   uint8_t tag;
-  memcpy(&tag, &val, sizeof(tag));
+  std::memcpy(&tag, &val, sizeof(tag));
   return tag;
 }
 
@@ -114,48 +114,9 @@ T GetNaNWithPayloadTag(uint8_t tag = 1) {
 
 template <class T, REQUIRES(!std::numeric_limits<T>::is_iec559)>
 T GetNaNWithPayloadTag(uint8_t tag = 1) {
-  // TODO (LFR): Probably need to warn here that we can't tag without IEEE
+  // TODO(LFR): Probably need to warn here that we can't tag without IEEE
   return std::numeric_limits<T>::quiet_NaN();
 }
-
-/*
-template<class T>
-class NaNPayloadTag {
- public:
-  NaNPayloadTag(uint8_t tag = 1) {
-    static_assert(std::numeric_limits<T>::is_iec559,
-       "T does not conform to the IEEE standard, so we "
-       "can't safely hide flags in the NaN payload.");
-
-    flag_ = std::numeric_limits<T>::quiet_NaN();
-    auto& flag_bits =
-        reinterpret_cast<impl::contiguous_bitset<sizeof(flag_)>&>(flag_);
-
-    // val must be > 0 otherwise since val = 0 just keeps the value of
-    // the default quiet NaN
-    assert(val > 0);
-    flag_bits.SetEndBytes(tag);
-
-    // Do a few quick checks to make sure there isn't anything
-    // weird going on
-    assert(std::isnan(flag_));
-    assert(!BitwiseCompare(std::numeric_limits<T>::signaling_NaN(), flag_));
-    assert(!BitwiseCompare(std::numeric_limits<T>::quiet_NaN(), flag_));
-  }
-
-  T val() {return flag_;}
-  operator T() {return flag_;}
-
-  int flag() {
-    uint8_t flag_val;
-    memcpy(&flag_val, &flag_, sizeof(flag_val));
-    return flag_val;
-  }
-
- protected:
-  T flag_;
-};
-*/
 
 } // namespace parthenon
 

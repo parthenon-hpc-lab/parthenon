@@ -302,14 +302,14 @@ class StateDescriptor {
     if (CheckRefinementBlock != nullptr) return CheckRefinementBlock(rc);
     return AmrTag::derefine;
   }
-  
-  void InitNewlyAllocatedVars(MeshData<Real> *rc) const { 
-    if (InitNewlyAllocatedVarsMesh != nullptr) return InitNewlyAllocatedVarsMesh(rc);
-  };
 
-  void InitNewlyAllocatedVars(MeshBlockData<Real> *rc) const { 
+  void InitNewlyAllocatedVars(MeshData<Real> *rc) const {
+    if (InitNewlyAllocatedVarsMesh != nullptr) return InitNewlyAllocatedVarsMesh(rc);
+  }
+
+  void InitNewlyAllocatedVars(MeshBlockData<Real> *rc) const {
     if (InitNewlyAllocatedVarsBlock != nullptr) return InitNewlyAllocatedVarsBlock(rc);
-  };
+  }
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
@@ -329,7 +329,7 @@ class StateDescriptor {
   std::function<Real(MeshData<Real> *rc)> EstimateTimestepMesh = nullptr;
 
   std::function<AmrTag(MeshBlockData<Real> *rc)> CheckRefinementBlock = nullptr;
-  
+
   std::function<void(MeshData<Real> *rc)> InitNewlyAllocatedVarsMesh = nullptr;
   std::function<void(MeshBlockData<Real> *rc)> InitNewlyAllocatedVarsBlock = nullptr;
 

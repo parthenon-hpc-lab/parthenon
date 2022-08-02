@@ -33,7 +33,6 @@ TEST_CASE("NaN payload tagging", "[NaN payload]") {
   real_t flag1 = parthenon::GetNaNWithPayloadTag<real_t>(1);
   real_t flag2 = parthenon::GetNaNWithPayloadTag<real_t>(2);
   GIVEN("An two NaNs with tags") {
-
     // This should at least warn us if the platform will not
     // support NaN based tagging of fields. The other test
     // should still succeed in that case.

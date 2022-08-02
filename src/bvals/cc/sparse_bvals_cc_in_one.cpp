@@ -291,7 +291,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         const int NvNkNjNi = Nv * NkNjNi;
         const int NuNvNkNjNi = Nu * NvNkNjNi;
         const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
-        
+
         Real threshold = bnd_info(b).var.allocation_threshold;
         Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
                              [&](const int idx) {
@@ -386,8 +386,10 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
             !v->IsAllocated()) {
           constexpr bool flag_uninitialized = true;
           // Allocate all variables controlled by this variable
-          auto& var_names = pmb->pmy_mesh->resolved_packages->GetControlledVariables(v->label());
-          for (auto& vname : var_names) pmb->AllocateSparse(vname, flag_uninitialized);
+          auto &var_names =
+              pmb->pmy_mesh->resolved_packages->GetControlledVariables(v->label());
+          for (auto &vname : var_names)
+            pmb->AllocateSparse(vname, flag_uninitialized);
         }
         ++ibound;
       });

@@ -260,16 +260,15 @@ class MeshData {
     assert(n >= 0 && n < block_data_.size());
     return block_data_[n];
   }
-  
+
   void SetAllVariablesToInitialized() {
-    std::for_each(block_data_.begin(), block_data_.end(), [](auto& sp_block){
-      sp_block->SetAllVariablesToInitialized();
-    });  
+    std::for_each(block_data_.begin(), block_data_.end(),
+                  [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
   }
 
   bool AllVariablesInitialized() {
-    bool all_initialized = true; 
-    std::for_each(block_data_.begin(), block_data_.end(), [&](auto& sp_block){
+    bool all_initialized = true;
+    std::for_each(block_data_.begin(), block_data_.end(), [&](auto &sp_block) {
       all_initialized = all_initialized && sp_block->AllVariablesInitialized();
     });
     return all_initialized;

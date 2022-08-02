@@ -245,7 +245,7 @@ class Metadata {
     if (IsSet(Sparse)) {
       allocation_threshold_ = Globals::sparse_config.allocation_threshold;
       deallocation_threshold_ = Globals::sparse_config.deallocation_threshold;
-      default_value_ = 0.0; 
+      default_value_ = 0.0;
     } else {
       // Not sparse, so set to zero so we are guaranteed never to deallocate
       allocation_threshold_ = 0.0;
@@ -273,14 +273,13 @@ class Metadata {
   static MetadataFlag AllocateNewFlag(std::string &&name);
 
   // Sparse threshold routines
-  void SetSparseThresholds(parthenon::Real alloc, 
-                           parthenon::Real dealloc, 
+  void SetSparseThresholds(parthenon::Real alloc, parthenon::Real dealloc,
                            parthenon::Real default_val = 0.0) {
     allocation_threshold_ = alloc;
     deallocation_threshold_ = dealloc;
     default_value_ = default_val;
   }
-  
+
   parthenon::Real GetDeallocationThreshold() const { return deallocation_threshold_; }
   parthenon::Real GetAllocationThreshold() const { return allocation_threshold_; }
   parthenon::Real GetDefaultValue() const { return default_value_; }

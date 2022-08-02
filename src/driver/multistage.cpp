@@ -90,9 +90,9 @@ TaskListStatus MultiStageDriver::Step() {
   TaskListStatus status;
   integrator->dt = tm.dt;
   for (int stage = 1; stage <= integrator->nstages; stage++) {
-    // Clear any initialization info. We should be relying 
-    // on only the immediately preceding stage to contain 
-    // reasonable data 
+    // Clear any initialization info. We should be relying
+    // on only the immediately preceding stage to contain
+    // reasonable data
     pmesh->SetAllVariablesToInitialized();
     status = ConstructAndExecuteTaskLists<>(this, stage);
     if (status != TaskListStatus::complete) break;

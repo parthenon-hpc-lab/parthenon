@@ -425,20 +425,19 @@ class MeshBlockData {
     }
     return true;
   }
-  
+
   void SetAllVariablesToInitialized() {
-    std::for_each(varVector_.begin(), varVector_.end(), [](auto& sp_var){
-      sp_var->data.initialized = true;
-    });
-  };
+    std::for_each(varVector_.begin(), varVector_.end(),
+                  [](auto &sp_var) { sp_var->data.initialized = true; });
+  }
 
   bool AllVariablesInitialized() {
-    bool all_initialized = true; 
-    std::for_each(varVector_.begin(), varVector_.end(), [&](auto& sp_var){
+    bool all_initialized = true;
+    std::for_each(varVector_.begin(), varVector_.end(), [&](auto &sp_var) {
       all_initialized = all_initialized && sp_var->data.initialized;
     });
     return all_initialized;
-  };
+  }
 
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,
@@ -454,7 +453,8 @@ class MeshBlockData {
     faceMap_[var->label()] = var;
   }
 
-  std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label, bool flag_uninitialized = false) {
+  std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label,
+                                                  bool flag_uninitialized = false) {
     if (!HasCellVariable(label)) {
       PARTHENON_THROW("Tried to allocate sparse variable '" + label +
                       "', but no such sparse variable exists");
