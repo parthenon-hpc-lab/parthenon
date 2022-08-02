@@ -152,10 +152,11 @@ class ParArrayGeneric : public State {
                   label);
   }
 
-  template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
+  template <class... Args, REQUIRES(all_implement<integral_or_enum(Args...)>::value),
             REQUIRES(Data::rank - sizeof...(Args) >= 0)>
   KOKKOS_FORCEINLINE_FUNCTION auto Get(Args... args) const {
-    return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
+    return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
+               static_cast<typename UnderlyingType<Args>::type>(args)...);
   }
 
   // call me as Get<D>();
@@ -170,11 +171,11 @@ class ParArrayGeneric : public State {
     Resize(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
   }
 
-  template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
+  template <class... Args, REQUIRES(all_implement<integral_or_enum(Args...)>::value),
             REQUIRES(Data::rank - sizeof...(Args) >= 0)>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) const {
     return _operator_impl(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
-                          args...);
+                          static_cast<typename UnderlyingType<Args>::type>(args)...);
   }
 
   // This operator is only defined for one dimensional Kokkos arrays
