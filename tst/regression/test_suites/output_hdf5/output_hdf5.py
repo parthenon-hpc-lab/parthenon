@@ -123,7 +123,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             ["max", 9.43685e-01, 4.80914e-01],
             [
                 "min",
-                #1.67180e-10 if parameters.sparse_disabled else 1.67171e-10,
+                # 1.67180e-10 if parameters.sparse_disabled else 1.67171e-10,
                 1.67171e-10,
                 1.45889e-07,
             ],
