@@ -293,19 +293,20 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         const int NuNvNkNjNi = Nu * NvNkNjNi;
         const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
 
-        Kokkos::parallel_for(
-            Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi), [&](const int idx) {
-              const int t = idx / NuNvNkNjNi;
-              const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-              const int v = (idx % NvNkNjNi) / NkNjNi;
-              const int k = (idx % NkNjNi) / NjNi + sk;
-              const int j = (idx % NjNi) / Ni + sj;
-              const int i = idx % Ni + si;
-              
-              const Real& val = bnd_info(b).var(t, u, v, k, j, i);
-              bnd_info(b).buf(idx) = val;
-              if (std::abs(val) > threshold) sending_nonzero_flags(b) = true;
-            });
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
+                             [&](const int idx) {
+                               const int t = idx / NuNvNkNjNi;
+                               const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
+                               const int v = (idx % NvNkNjNi) / NkNjNi;
+                               const int k = (idx % NkNjNi) / NjNi + sk;
+                               const int j = (idx % NjNi) / Ni + sj;
+                               const int i = idx % Ni + si;
+
+                               const Real &val = bnd_info(b).var(t, u, v, k, j, i);
+                               bnd_info(b).buf(idx) = val;
+                               if (std::abs(val) > threshold)
+                                 sending_nonzero_flags(b) = true;
+                             });
       });
 
   // Send buffers
@@ -491,17 +492,17 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
         const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
 
         if (bnd_info(b).allocated) {
-          Kokkos::parallel_for(
-              Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi), [&](const int idx) {
-                const int t = idx / NuNvNkNjNi;
-                const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-                const int v = (idx % NvNkNjNi) / NkNjNi;
-                const int k = (idx % NkNjNi) / NjNi + sk;
-                const int j = (idx % NjNi) / Ni + sj;
-                const int i = idx % Ni + si;
+          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
+                               [&](const int idx) {
+                                 const int t = idx / NuNvNkNjNi;
+                                 const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
+                                 const int v = (idx % NvNkNjNi) / NkNjNi;
+                                 const int k = (idx % NkNjNi) / NjNi + sk;
+                                 const int j = (idx % NjNi) / Ni + sj;
+                                 const int i = idx % Ni + si;
 
-                bnd_info(b).var(t, u, v, k, j, i) = bnd_info(b).buf(idx);
-              });
+                                 bnd_info(b).var(t, u, v, k, j, i) = bnd_info(b).buf(idx);
+                               });
         } else if (bnd_info(b).var.size() > 0) {
           Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
                                [&](const int idx) {
