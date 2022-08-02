@@ -157,6 +157,9 @@ class ParArrayGeneric : public State {
   KOKKOS_FORCEINLINE_FUNCTION auto Get(Args... args) const {
     return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                static_cast<typename UnderlyingType<Args>::type>(args)...);
+               // This cast is required to be able to take enum classes 
+               // with integral base types as arguments. I think it should 
+               // result in a no op for integral types 
   }
 
   // call me as Get<D>();
@@ -176,6 +179,9 @@ class ParArrayGeneric : public State {
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) const {
     return _operator_impl(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                           static_cast<typename UnderlyingType<Args>::type>(args)...);
+                          // This cast is required to be able to take enum classes 
+                          // with integral base types as arguments. I think it should 
+                          // result in a no op for integral types 
   }
 
   // This operator is only defined for one dimensional Kokkos arrays
