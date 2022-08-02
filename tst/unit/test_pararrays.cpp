@@ -454,6 +454,34 @@ struct state_t : public parthenon::empty_state_t {
   double state_val_;
 };
 
+TEST_CASE("ParArray access", "[ParArrayND]") {
+  using arr4d_t = parthenon::ParArray4D<double>;
+  using arr3d_t = parthenon::ParArray3D<double>;
+  GIVEN("A ParArray4D partially loaded with ones based on an enum idx") {
+    arr4d_t pa4("4D", 4, N, N, N);
+    enum { a = 0, b = 1, c = 2, d = 3 };
+    enum class IdxEnum : int { a = 0, b = 1, c = 2, d = 3 };
+
+    arr3d_t pa3 = pa4.Get(IdxEnum::b);
+
+    Kokkos::parallel_for(
+        policy3d({0, 0, 0}, {N, N, N}),
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          pa4(b, k, j, i) = 1.0;
+          pa4(IdxEnum::b, k, j, i) = 1.0;
+        });
+
+    THEN("The 3D ParArray should be all ones") {
+      auto pa3_h = pa3.GetHostMirrorAndCopy();
+      for (int k = 0; k < N; ++k)
+        for (int j = 0; j < N; ++j)
+          for (int i = 0; i < N; ++i) {
+            REQUIRE(pa3_h(k, j, i) == 1.0);
+          }
+    }
+  }
+}
+
 TEST_CASE("ParArray state", "[ParArrayND]") {
   using arr4d_t = parthenon::ParArray4D<double, state_t>;
   using arr3d_t = parthenon::ParArray3D<double, state_t>;
