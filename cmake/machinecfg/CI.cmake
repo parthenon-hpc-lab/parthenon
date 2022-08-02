@@ -33,7 +33,6 @@ endif()
 if (${MACHINE_VARIANT} MATCHES "mpi")
   # not using the following as the default is determined correctly
   #set(TEST_MPIEXEC mpiexec CACHE STRING "Command to launch MPI applications")
-  list(APPEND TEST_MPIOPTS "--allow-run-as-root")
   set(HDF5_ROOT /usr/local/hdf5/parallel CACHE STRING "HDF5 path")
 else()
   set(HDF5_ROOT /usr/local/hdf5/serial CACHE STRING "HDF5 path")
