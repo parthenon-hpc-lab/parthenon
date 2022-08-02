@@ -291,7 +291,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         const int NvNkNjNi = Nv * NkNjNi;
         const int NuNvNkNjNi = Nu * NvNkNjNi;
         const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
-
+        
+        Real threshold = bnd_info(b).var.allocation_threshold;
         Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
                              [&](const int idx) {
                                const int t = idx / NuNvNkNjNi;

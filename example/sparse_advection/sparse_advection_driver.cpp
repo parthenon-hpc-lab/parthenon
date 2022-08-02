@@ -88,8 +88,7 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     // effectively, sc1 = sc0 + dudt*dt
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
     
-    auto init = tl.AddTask(none, InitNewlyAllocatedVars<MeshBlockData<Real>>, sc0.get());
-    auto advect_flux = tl.AddTask(init, sparse_advection_package::CalculateFluxes, sc0);
+    auto advect_flux = tl.AddTask(none, sparse_advection_package::CalculateFluxes, sc0);
   }
 
   const int num_partitions = pmesh->DefaultNumPartitions();
@@ -134,13 +133,14 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
         tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
     auto recv = tl.AddTask(update | start_bound,
                            parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
-    auto init_allocated = tl.AddTask(recv, InitNewlyAllocatedVars<MeshData<Real>>, mc1.get());
-    auto set = tl.AddTask(init_allocated, parthenon::cell_centered_bvars::SetBoundaries, mc1);
+    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
 
+    auto init_allocated = tl.AddTask(set, InitNewlyAllocatedVars<MeshData<Real>>, mc1.get());
+    
     auto restrict = set;
     if (pmesh->multilevel) {
       restrict = tl.AddTask(
-          set, parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
+          init_allocated, parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
     }
 
     // if this is the last stage, check if we can deallocate any sparse variables
