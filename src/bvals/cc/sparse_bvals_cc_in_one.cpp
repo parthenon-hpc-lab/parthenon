@@ -200,8 +200,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           Kokkos::create_mirror_view(cache.sending_non_zero_flags);
     }
   } else {
-    assert(cache.send_buf_vec.size() == cache.sending_non_zero_flags.size());
-    assert(cache.send_buf_vec.size() == cache.sending_non_zero_flags_h.size());
+    PARTHENON_REQUIRE(cache.send_buf_vec.size() == cache.sending_non_zero_flags.size(), "Flag arrays incorrectly allocated.");
+    PARTHENON_REQUIRE(cache.send_buf_vec.size() == cache.sending_non_zero_flags_h.size(), "Flag arrays incorrectly allocated.");
   }
 
   // Allocate channels sending from active data and then check to see if
