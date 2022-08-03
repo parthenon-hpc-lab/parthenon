@@ -61,6 +61,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
       pmesh->pool_map.emplace(std::make_pair(
           buf_size, buf_pool_t<Real>([buf_size](buf_pool_t<Real> *pool) {
             using buf_t = buf_pool_t<Real>::base_t;
+            // TODO (LFR): Make nbuf a user settable parameter 
             const int nbuf = 200;
             buf_t chunk("pool buffer", buf_size * nbuf);
             for (int i = 1; i < nbuf; ++i) {
