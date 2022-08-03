@@ -115,7 +115,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   auto pack_h = Kokkos::create_mirror_view(pack.pack_);
 
   pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar);
-  auto bounds_h = Kokkos::create_mirror_view(pack.bounds_);
+  pack.bounds_h_ = Kokkos::create_mirror_view(pack.bounds_);
 
   pack.coords_ = coords_t("coords", nblocks);
   auto coords_h = Kokkos::create_mirror_view(pack.coords_);
@@ -126,7 +126,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
     coords_h(b) = pmbd->GetBlockPointer()->coords_device;
 
     for (int i = 0; i < nvar; ++i) {
-      bounds_h(0, b, i) = idx;
+      pack.bounds_h_(0, b, i) = idx;
 
       for (auto &pv : pmbd->GetCellVariableVector()) {
         if (desc.IncludeVariable(i, pv)) {
@@ -168,19 +168,19 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
         }
       }
 
-      bounds_h(1, b, i) = idx - 1;
+      pack.bounds_h_(1, b, i) = idx - 1;
 
-      if (bounds_h(1, b, i) < bounds_h(0, b, i)) {
+      if (pack.bounds_h_(1, b, i) < pack.bounds_h_(0, b, i)) {
         // Did not find any allocated variables meeting our criteria
-        bounds_h(0, b, i) = -1;
+        pack.bounds_h_(0, b, i) = -1;
         // Make the upper bound more negative so a for loop won't iterate once
-        bounds_h(1, b, i) = -2;
+        pack.bounds_h_(1, b, i) = -2;
       }
     }
   });
 
   Kokkos::deep_copy(pack.pack_, pack_h);
-  Kokkos::deep_copy(pack.bounds_, bounds_h);
+  Kokkos::deep_copy(pack.bounds_, pack.bounds_h_);
   Kokkos::deep_copy(pack.coords_, coords_h);
   pack.ndim_ = ndim;
   pack.dims_[1] = pack.nblocks_;
