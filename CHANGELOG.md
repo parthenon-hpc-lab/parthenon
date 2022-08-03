@@ -44,6 +44,7 @@
 - [[PR 595]](https://github.com/lanl/parthenon/pull/595) Fix build options so that non-MPI builds cannot be paired with an MPI HDF5 lib
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 703]](https://github.com/lanl/parthenon/pull/703) Fixed mpi/serial logic in extended CI tests
 - [[PR 700]](https://github.com/lanl/parthenon/pull/700) Moved CI testing from GitLab mirror to GitHub Actions
 - [[PR 698]](https://github.com/lanl/parthenon/pull/698) Remove matplotlib from required python libraries and make desired instead
 - [[PR 686]](https://github.com/lanl/parthenon/pull/686) Remove coverage CI stage and add key features to README
