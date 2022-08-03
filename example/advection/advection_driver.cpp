@@ -113,9 +113,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // effectively, sc1 = sc0 + dudt*dt
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-
     auto advect_flux = tl.AddTask(none, advection_package::CalculateFluxes, sc0);
-
   }
 
   // note that task within this region that contains one tasklist per pack
