@@ -47,11 +47,11 @@ struct TupHash<Tup, 0> {
 };
 } // namespace impl
 
-// A hash struct that can be used as a template class in 
-// std::unordered_map, etc. to 
-// hash a tuple by hashing each of its elements then combining the 
-// hashes into a single hash using hash_combine. May or may not be 
-// optimal way of hashing, but it certainly works. 
+// A hash struct that can be used as a template class in
+// std::unordered_map, etc. to
+// hash a tuple by hashing each of its elements then combining the
+// hashes into a single hash using hash_combine. May or may not be
+// optimal way of hashing, but it certainly works.
 template <class T>
 struct tuple_hash {
   using argument_type = T;

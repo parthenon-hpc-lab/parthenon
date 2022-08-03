@@ -57,6 +57,6 @@ using mpi_request_t = int;
 using mpi_comm_t = int;
 #endif
 
-} // namespace parthenon 
+} // namespace parthenon
 
 #endif // UTILS_MPI_TYPES_HPP_

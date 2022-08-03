@@ -136,7 +136,7 @@ CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm
 #endif
       tag_(tag), send_rank_(send_rank), recv_rank_(recv_rank), comm_(comm),
       get_resource_(get_resource), buf_() {
-  
+
   my_rank = Globals::my_rank;
   if (send_rank == recv_rank) {
     assert(my_rank == send_rank);
@@ -324,7 +324,8 @@ bool CommBuffer<T>::TryReceive() noexcept {
       *comm_type_ == BuffCommType::sparse_receiver) {
 #ifdef MPI_PARALLEL
     (*nrecv_tries_)++;
-    PARTHENON_REQUIRE(*nrecv_tries_ < 1e6, "MPI probably hanging after 1e6 receive tries.");
+    PARTHENON_REQUIRE(*nrecv_tries_ < 1e6,
+                      "MPI probably hanging after 1e6 receive tries.");
 
     TryStartReceive();
 
@@ -384,7 +385,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
 template <class T>
 void CommBuffer<T>::Stale() {
-  PARTHENON_REQUIRE(*comm_type_ != BuffCommType::sender,"Should never get here.");
+  PARTHENON_REQUIRE(*comm_type_ != BuffCommType::sender, "Should never get here.");
 
   if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
     PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");

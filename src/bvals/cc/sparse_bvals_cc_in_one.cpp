@@ -61,7 +61,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
       pmesh->pool_map.emplace(std::make_pair(
           buf_size, buf_pool_t<Real>([buf_size](buf_pool_t<Real> *pool) {
             using buf_t = buf_pool_t<Real>::base_t;
-            // TODO (LFR): Make nbuf a user settable parameter 
+            // TODO (LFR): Make nbuf a user settable parameter
             const int nbuf = 200;
             buf_t chunk("pool buffer", buf_size * nbuf);
             for (int i = 1; i < nbuf; ++i) {
@@ -103,7 +103,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     pmesh->boundary_comm_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
         tag, sender_rank, receiver_rank, comm, get_resource_method, use_sparse_buffers);
 
-    // Separate flxcor buffer if needed, first part of if statement checks that this 
+    // Separate flxcor buffer if needed, first part of if statement checks that this
     // is fine to coarse and the second checks the two blocks share a face
     if ((nb.snb.level == pmb->loc.level - 1) &&
         (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
@@ -200,8 +200,10 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           Kokkos::create_mirror_view(cache.sending_non_zero_flags);
     }
   } else {
-    PARTHENON_REQUIRE(cache.send_buf_vec.size() == cache.sending_non_zero_flags.size(), "Flag arrays incorrectly allocated.");
-    PARTHENON_REQUIRE(cache.send_buf_vec.size() == cache.sending_non_zero_flags_h.size(), "Flag arrays incorrectly allocated.");
+    PARTHENON_REQUIRE(cache.send_buf_vec.size() == cache.sending_non_zero_flags.size(),
+                      "Flag arrays incorrectly allocated.");
+    PARTHENON_REQUIRE(cache.send_buf_vec.size() == cache.sending_non_zero_flags_h.size(),
+                      "Flag arrays incorrectly allocated.");
   }
 
   // Allocate channels sending from active data and then check to see if
