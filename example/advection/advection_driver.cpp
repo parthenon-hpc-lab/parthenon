@@ -116,10 +116,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     auto advect_flux = tl.AddTask(none, advection_package::CalculateFluxes, sc0);
 
-    // auto send_flux =
-    //    tl.AddTask(advect_flux, &MeshBlockData<Real>::SendFluxCorrection, sc0.get());
-    // auto recv_flux =
-    //    tl.AddTask(advect_flux, &MeshBlockData<Real>::ReceiveFluxCorrection, sc0.get());
   }
 
   // const int num_partitions = pmesh->DefaultNumPartitions();
