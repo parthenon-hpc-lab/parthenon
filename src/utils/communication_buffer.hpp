@@ -25,17 +25,9 @@
 #include <unordered_map>
 #include <utility>
 
+#include "globals.hpp"
+#include "parthenon_mpi.hpp"
 #include "utils/mpi_types.hpp"
-
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-
-#define request_t MPI_Request
-#define comm_t MPI_Comm
-#else
-#define request_t int
-#define comm_t int
-#endif
 
 namespace parthenon {
 
@@ -60,13 +52,13 @@ class CommBuffer {
   std::shared_ptr<BuffCommType> comm_type_;
   std::shared_ptr<bool> started_irecv_;
   std::shared_ptr<int> nrecv_tries_;
-  std::shared_ptr<request_t> my_request_;
+  std::shared_ptr<mpi_request_t> my_request_;
 
   int my_rank;
   int tag_;
   int send_rank_;
   int recv_rank_;
-  comm_t comm_;
+  mpi_comm_t comm_;
 
   using buf_base_t = std::remove_pointer_t<decltype(std::declval<T>().data())>;
   buf_base_t null_buf_ = std::numeric_limits<buf_base_t>::signaling_NaN();
@@ -86,7 +78,7 @@ class CommBuffer {
   {
   }
 
-  CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm_,
+  CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm_,
              std::function<T()> get_resource, bool do_sparse_allocation = false);
 
   ~CommBuffer();
@@ -133,7 +125,7 @@ class CommBuffer {
 // Method definitions below
 
 template <class T>
-CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm,
+CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm,
                           std::function<T()> get_resource, bool do_sparse_allocation)
     : state_(std::make_shared<BufferState>(BufferState::stale)),
       comm_type_(std::make_shared<BuffCommType>(BuffCommType::both)),
@@ -144,12 +136,8 @@ CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm,
 #endif
       tag_(tag), send_rank_(send_rank), recv_rank_(recv_rank), comm_(comm),
       get_resource_(get_resource), buf_() {
-// Set up persistent communication
-#ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Comm_rank(comm_, &my_rank));
-#else
-  my_rank = 0;
-#endif
+  
+  my_rank = Globals::my_rank;
   if (send_rank == recv_rank) {
     assert(my_rank == send_rank);
     *comm_type_ = BuffCommType::both;
@@ -171,11 +159,7 @@ CommBuffer<T>::CommBuffer(const CommBuffer<U> &in)
       started_irecv_(in.started_irecv_), nrecv_tries_(in.nrecv_tries_),
       my_request_(in.my_request_), tag_(in.tag_), send_rank_(in.send_rank_),
       recv_rank_(in.recv_rank_), comm_(in.comm_), active_(in.active_) {
-#ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Comm_rank(comm_, &my_rank));
-#else
-  my_rank = 0;
-#endif
+  my_rank = Globals::my_rank;
 }
 
 template <class T>
@@ -211,11 +195,7 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in) {
   recv_rank_ = in.recv_rank_;
   comm_ = in.comm_;
   active_ = in.active_;
-#ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Comm_rank(comm_, &my_rank));
-#else
-  my_rank = 0;
-#endif
+  my_rank = Globals::my_rank;
   return *this;
 }
 

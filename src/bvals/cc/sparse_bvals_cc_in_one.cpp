@@ -80,15 +80,15 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     // Get a bi-directional mpi tag for this pair of blocks
     tag = tag_map.GetTag(pmb, nb);
 
-    comm_t comm = pmesh->GetMPIComm(v->label());
-    comm_t comm_flxcor = comm;
+    mpi_comm_t comm = pmesh->GetMPIComm(v->label());
+    mpi_comm_t comm_flxcor = comm;
     if (nb.snb.level != pmb->loc.level)
       comm_flxcor = pmesh->GetMPIComm(v->label() + "_flcor");
 #else
     // Setting to zero is fine here since this doesn't actually get used when everything
     // is on the same rank
-    comm_t comm = 0;
-    comm_t comm_flxcor = 0;
+    mpi_comm_t comm = 0;
+    mpi_comm_t comm_flxcor = 0;
 #endif
     // Build send buffers
     auto s_key = SendKey(pmb, nb, v);
