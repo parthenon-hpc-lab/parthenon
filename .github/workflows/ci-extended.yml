@@ -20,7 +20,7 @@ env:
   OMPI_MCA_mpi_common_cuda_event_max: 1000
 
 jobs:
-  unit:
+  perf-and-regression:
     strategy:
       matrix:
         device: ['cuda', 'host']
@@ -59,7 +59,7 @@ jobs:
       - name: Regression tests
         run: |
           cd build
-          ctest -L regression -LE "${{ matrix.parallel }}|perf-reg" --timeout 3600
+          ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
 
       - uses: actions/upload-artifact@v3
         with:
