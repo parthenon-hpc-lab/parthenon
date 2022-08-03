@@ -186,6 +186,12 @@ struct integral {
   auto requires_(T) -> void_t<ENABLEIF(std::is_integral<T>::value)>;
 };
 
+struct integral_or_enum {
+  template <class T>
+  auto requires_(T)
+      -> void_t<ENABLEIF(std::is_integral<T>::value || std::is_enum<T>::value)>;
+};
+
 struct kokkos_view {
   template <class T>
   auto requires_(T x) -> void_t<ENABLEIF(implements<contiguous_container(T)>::value),
@@ -210,13 +216,13 @@ struct multiply<I0, IN...> : std::integral_constant<int, I0 * multiply<IN...>::v
 
 // GetTypeIdx is taken from Stack Overflow 26169198, should cause compile time failure if
 // type is not in list
-template <typename T, typename... Ts>
+template <class T, class... Ts>
 struct GetTypeIdx;
 
-template <typename T, typename... Ts>
+template <class T, class... Ts>
 struct GetTypeIdx<T, T, Ts...> : std::integral_constant<std::size_t, 0> {};
 
-template <typename T, typename U, typename... Ts>
+template <class T, class U, class... Ts>
 struct GetTypeIdx<T, U, Ts...>
     : std::integral_constant<std::size_t, 1 + GetTypeIdx<T, Ts...>::value> {};
 
@@ -224,16 +230,25 @@ struct GetTypeIdx<T, U, Ts...>
 template <class T, class... Ts>
 struct IncludesType;
 
-template <typename T>
+template <class T>
 struct IncludesType<T, T> : std::true_type {};
 
-template <typename T, typename... Ts>
+template <class T, class... Ts>
 struct IncludesType<T, T, Ts...> : std::true_type {};
 
-template <typename T, typename U>
+template <class T, class U>
 struct IncludesType<T, U> : std::false_type {};
 
-template <typename T, typename U, typename... Ts>
+template <class T, class U, class... Ts>
 struct IncludesType<T, U, Ts...> : IncludesType<T, Ts...> {};
+
+template <class T, class = void>
+struct UnderlyingType {
+  using type = T;
+};
+
+template <class T>
+struct UnderlyingType<T, void_t<ENABLEIF(std::is_enum<T>::value)>>
+    : std::underlying_type<T> {};
 
 #endif // UTILS_CONCEPTS_LITE_HPP_
