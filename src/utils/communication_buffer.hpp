@@ -1,5 +1,9 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// Parthenon performance portable AMR framework
+// Copyright(C) 2022 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -240,7 +244,7 @@ void CommBuffer<T>::Send() noexcept {
   }
   if (*comm_type_ == BuffCommType::receiver) {
     // This is an error
-    Kokkos::abort("Trying to send from a receiver");
+    PARTHENON_FAIL("Trying to send from a receiver");
   }
 }
 
@@ -260,7 +264,7 @@ void CommBuffer<T>::SendNull() noexcept {
   }
   if (*comm_type_ == BuffCommType::receiver) {
     // This is an error
-    Kokkos::abort("Trying to send from a receiver");
+    PARTHENON_FAIL("Trying to send from a receiver");
   }
 }
 
@@ -283,8 +287,7 @@ bool CommBuffer<T>::IsAvailableForWrite() {
     PARTHENON_FAIL("Should not have a sending buffer when MPI is not enabled.");
 #endif
   } else if (*comm_type_ == BuffCommType::both) {
-    if (*state_ == BufferState::stale) return true;
-    return false;
+    return (*state_ == BufferState::stale);
   } else {
     PARTHENON_FAIL("Receiving buffer is never available for write.");
   }
@@ -341,8 +344,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
       *comm_type_ == BuffCommType::sparse_receiver) {
 #ifdef MPI_PARALLEL
     (*nrecv_tries_)++;
-    if (*nrecv_tries_ > 1e6)
-      PARTHENON_FAIL("MPI probably hanging after 1e6 receive tries.");
+    PARTHENON_REQUIRE(*nrecv_tries_ < 1e6, "MPI probably hanging after 1e6 receive tries.");
 
     TryStartReceive();
 
@@ -381,7 +383,6 @@ bool CommBuffer<T>::TryReceive() noexcept {
     return false;
 #else
     PARTHENON_FAIL("Should not have a purely receiving buffer without MPI enabled.");
-    return false;
 #endif
   } else if (*comm_type_ == BuffCommType::both) {
     if (*state_ == BufferState::sending) {
@@ -403,7 +404,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
 template <class T>
 void CommBuffer<T>::Stale() {
-  if (*comm_type_ == BuffCommType::sender) PARTHENON_FAIL("Should never get here.");
+  PARTHENON_REQUIRE(*comm_type_ != BuffCommType::sender,"Should never get here.");
 
   if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
     PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");

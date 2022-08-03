@@ -123,7 +123,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     }
   });
 
-  Kokkos::Profiling::popRegion();
+  Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
   return TaskStatus::complete;
 }
 
@@ -346,7 +346,7 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(std::begin(cache.recv_buf_vec), std::end(cache.recv_buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
 
-  Kokkos::Profiling::popRegion();
+  Kokkos::Profiling::popRegion(); // Task_StartReceiveBoundBufs
 
   return TaskStatus::complete;
 }
@@ -390,7 +390,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         }
         ++ibound;
       });
-  Kokkos::Profiling::popRegion();
+  Kokkos::Profiling::popRegion(); // Task_ReceiveBoundBufs
 
   if (all_received) return TaskStatus::complete;
 
@@ -522,7 +522,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(std::begin(cache.recv_buf_vec), std::end(cache.recv_buf_vec),
                 [](auto pbuf) { pbuf->Stale(); });
 
-  Kokkos::Profiling::popRegion();
+  Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
   return TaskStatus::complete;
 }
 

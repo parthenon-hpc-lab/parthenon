@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
@@ -174,7 +174,7 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
     return LoopControl::cont;
   });
 
-  Kokkos::Profiling::popRegion();
+  Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrectionBuffers
   return TaskStatus::complete;
 }
 
@@ -189,7 +189,7 @@ TaskStatus StartReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real
         auto &buf = pmesh->boundary_comm_reflux_map[ReceiveKey(pmb, nb, v)];
         buf.TryStartReceive();
       });
-  Kokkos::Profiling::popRegion();
+  Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrectionBuffers
   return TaskStatus::complete;
 }
 
@@ -206,14 +206,14 @@ TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &m
         all_received = all_received && buf.TryReceive();
       });
 
-  Kokkos::Profiling::popRegion();
+  Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrectionBuffers
 
   if (all_received) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
 
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("SetFluxCorrections");
+  Kokkos::Profiling::pushRegion("Task_SetFluxCorrections");
 
   Mesh *pmesh = md->GetMeshPointer();
 
@@ -306,7 +306,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
         }
 
         Kokkos::parallel_for(
-            "SendFluxCorrection",
+            "SetFluxCorrections",
             Kokkos::RangePolicy<>(parthenon::DevExecSpace(), 0, nl * NmNnNkNjNi),
             KOKKOS_LAMBDA(const int loop_idx) {
               const int l = loop_idx / NmNnNkNjNi;
@@ -327,7 +327,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
         return LoopControl::cont;
       });
 
-  Kokkos::Profiling::popRegion();
+  Kokkos::Profiling::popRegion(); // Task_SetFluxCorrections
   return TaskStatus::complete;
 }
 
