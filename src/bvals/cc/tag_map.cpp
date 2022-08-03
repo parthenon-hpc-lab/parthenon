@@ -36,8 +36,8 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
     const int other_rank = nb.snb.rank;
     if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
     auto &pair_map = map_[other_rank];
-
-    pair_map[MakeChannelPair(pmb, nb)] = 0;
+    // Add channel key with an invalid tag
+    pair_map[MakeChannelPair(pmb, nb)] = -1;
   });
 }
 
@@ -48,7 +48,7 @@ void TagMap::ResolveMap() {
     std::for_each(pair_map.begin(), pair_map.end(),
                   [&idx](auto &pair) { pair.second = idx++; });
     if (idx > 32767)
-      PARTHENON_WARN("Number of tags exceeds the maximum allowed by the MPI standard.");
+      PARTHENON_FAIL("Number of tags exceeds the maximum allowed by the MPI standard.");
   }
 }
 
