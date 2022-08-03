@@ -21,6 +21,7 @@
 #define MESH_MESH_REFINEMENT_OPS_HPP_
 
 #include <algorithm>
+#include <cstring>
 
 #include "coordinates/coordinates.hpp" // for coordinates
 #include "kokkos_abstraction.hpp"      // ParArray
@@ -83,42 +84,43 @@ namespace refinement_ops {
 namespace util {
 // TODO(JMM): this could be simplified if grid spacing was always uniform
 template <int DIM>
-KOKKOS_INLINE_FUNCTION Real GetX(const Coordinates_t &coords, int i);
+KOKKOS_INLINE_FUNCTION Real GetXCC(const Coordinates_t &coords, int i);
 template <>
-KOKKOS_INLINE_FUNCTION Real GetX<1>(const Coordinates_t &coords, int i) {
+KOKKOS_INLINE_FUNCTION Real GetXCC<1>(const Coordinates_t &coords, int i) {
   return coords.x1v(i);
 }
 template <>
-KOKKOS_INLINE_FUNCTION Real GetX<2>(const Coordinates_t &coords, int i) {
+KOKKOS_INLINE_FUNCTION Real GetXCC<2>(const Coordinates_t &coords, int i) {
   return coords.x2v(i);
 }
 template <>
-KOKKOS_INLINE_FUNCTION Real GetX<3>(const Coordinates_t &coords, int i) {
+KOKKOS_INLINE_FUNCTION Real GetXCC<3>(const Coordinates_t &coords, int i) {
   return coords.x3v(i);
 }
 template <int DIM>
 KOKKOS_FORCEINLINE_FUNCTION void
-GetSlopes(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-          const IndexRange &cib, const IndexRange &ib, int i, int &fi, Real &dxm,
-          Real &dxp, Real &dxfm, Real &dxfp) {
-  fi = (i - cib.s) * 2 + ib.s;
-  const Real xm = GetX<DIM>(coarse_coords, i - 1);
-  const Real xc = GetX<DIM>(coarse_coords, i);
-  const Real xp = GetX<DIM>(coarse_coords, i + 1);
-  dxm = xc - xm;
-  dxp = xp - xc;
-  const Real fxm = GetX<DIM>(coords, fi);
-  const Real fxp = GetX<DIM>(coords, fi + 1);
-  dxfm = xc - fxm;
-  dxfp = fxp - xc;
+GetGridSpacings(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+                const IndexRange &cib, const IndexRange &ib, int i, int *fi, Real *dxm,
+                Real *dxp, Real *dxfm, Real *dxfp) {
+  *fi = (i - cib.s) * 2 + ib.s;
+  const Real xm = GetXCC<DIM>(coarse_coords, i - 1);
+  const Real xc = GetXCC<DIM>(coarse_coords, i);
+  const Real xp = GetXCC<DIM>(coarse_coords, i + 1);
+  *dxm = xc - xm;
+  *dxp = xp - xc;
+  const Real fxm = GetXCC<DIM>(coords, fi);
+  const Real fxp = GetXCC<DIM>(coords, fi + 1);
+  *dxfm = xc - fxm;
+  *dxfp = fxp - xc;
 }
 KOKKOS_FORCEINLINE_FUNCTION
-Real GradMinMod(const Real ccval, const Real fm, const Real fp, const Real dxm,
+Real GradMinMod(const Real fc, const Real fm, const Real fp, const Real dxm,
                 const Real dxp) {
-  const Real gxm = (ccval - fm) / dxm;
-  const Real gxp = (fp - ccval) / dxp;
+  const Real gxm = (fc - fm) / dxm;
+  const Real gxp = (fp - fc) / dxp;
   return 0.5 * (SIGN(gxm) + SIGN(gxp)) * std::min(std::abs(gxm), std::abs(gxp));
 }
+
 } // namespace util
 
 template <int DIM>
@@ -128,8 +130,9 @@ struct RestrictCellAverage {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> &coarse, const ParArray6D<Real> &fine) {
-    const int i = (ci - cib.s) * 2 + ib.s;
+     ParArray6D<Real> *pcoarse, ParArray6D<Real> *pfine) {
+    auto &coarse = *pcoarse;
+    auto &fine = *pfine const int i = (ci - cib.s) * 2 + ib.s;
     int j = jb.s;
     if (DIM > 1) {
       j = (cj - cjb.s) * 2 + jb.s;
@@ -140,38 +143,27 @@ struct RestrictCellAverage {
     }
     // JMM: If dimensionality is wrong, accesses are out of bounds. Only
     // access cells if dimensionality is correct.
-    const Real vol000 = coords.Volume(k, j, i);
-    const Real vol001 = coords.Volume(k, j, i + 1);
-    const Real fine000 = fine(l, m, n, k, j, i);
-    const Real fine001 = fine(l, m, n, k, j, i + 1);
-    Real vol010, vol011, vol100, vol101, vol110, vol111;
-    Real fine010, fine011, fine100, fine101, fine110, fine111;
-    vol010 = vol011 = vol100 = vol101 = vol110 = vol111 = 0;
-    fine010 = fine011 = fine100 = fine101 = fine110 = fine111 = 0;
-    if (DIM > 1) { // TODO(c++17) make constexpr
-      vol010 = coords.Volume(k, j + 1, i);
-      vol011 = coords.Volume(k, j + 1, i + 1);
-      fine010 = fine(l, m, n, k, j + 1, i);
-      fine011 = fine(l, m, n, k, j + 1, i + 1);
-    }
-    if (DIM > 2) { // TODO(c++17) make constexpr
-      vol100 = coords.Volume(k + 1, j, i);
-      vol101 = coords.Volume(k + 1, j, i + 1);
-      vol110 = coords.Volume(k + 1, j + 1, i);
-      vol111 = coords.Volume(k + 1, j + 1, i + 1);
-      fine100 = fine(l, m, n, k + 1, j, i);
-      fine101 = fine(l, m, n, k + 1, j, i + 1);
-      fine110 = fine(l, m, n, k + 1, j + 1, i);
-      fine111 = fine(l, m, n, k + 1, j + 1, i + 1);
+    Real vol[2][2][2], terms[2][2][2];
+    std::memset(&vol[0][0][0], 0., 8 * sizeof(Real));
+    std::memset(&terms[0][0][0], 0., 8 * sizeof(Real));
+    constexpr int xoff = 1;
+    constexpr int yoff = (DIM > 1);
+    constexpr int zoff = (DIM > 2);
+    for (int iz = 0; iz < 1 + zoff; ++iz) {
+      for (int iy = 0; iy < 1 + yoff; ++iy) {
+        for (int ix = 0; ix < 1 + xoff; ++ix) {
+          vol[iz][iy][ix] = coords.Volume(k + iz, j + iy, i + ix);
+          terms[iz][iy][ix] = vol[iz][iy][ix] * fine(l, m, n, k + iz, j + iy, i + ix);
+        }
+      }
     }
     // KGF: add the off-centered quantities first to preserve FP
     // symmetry
-    const Real tvol =
-        ((vol000 + vol010) + (vol001 + vol011)) + ((vol100 + vol110) + (vol101 + vol111));
+    const Real tvol = ((vol[0][0][0] + vol[0][1][0]) + (vol[0][0][1] + vol[0][1][1])) +
+                      ((vol[1][0][0] + vol[1][1][0]) + (vol[1][0][1] + vol[1][1][1]));
     coarse(l, m, n, ck, cj, ci) =
-        (((fine000 * vol000 + fine010 * vol010) + (fine001 * vol001 + fine011 * vol011)) +
-         ((fine100 * vol100 + fine110 * vol110) +
-          (fine101 * vol101 + fine111 * vol111))) /
+        (((terms[0][0][0] + terms[0][1][0]) + (terms[0][0][1] + terms[0][1][1])) +
+         ((terms[1][0][0] + terms[1][1][0]) + (terms[1][0][1] + terms[1][1][1]))) /
         tvol;
   }
 };
@@ -183,15 +175,18 @@ struct ProlongateCellMinMod {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> &coarse, const ParArray6D<Real> &fine) {
+     ParArray6D<Real> *pcoarse, ParArray6D<Real> *pfine) {
     using namespace util;
+    auto &coarse = *pcoarse;
+    auto &fine = *pfine;
 
-    const Real ccval = coarse(l, m, n, k, j, i);
+    const Real fc = coarse(l, m, n, k, j, i);
 
     int fi;
     Real dx1fm, dx1fp, dx1m, dx1p;
-    GetSlopes<1>(coords, coarse_coords, cib, ib, i, fi, dx1m, dx1p, dx1fm, dx1fp);
-    const Real gx1c = GradMinMod(ccval, coarse(l, m, n, k, j, i - 1),
+    GetGridSpacings<1>(coords, coarse_coords, cib, ib, i, &fi, &dx1m, &dx1p, &dx1fm,
+                       &dx1fp);
+    const Real gx1c = GradMinMod(fc, coarse(l, m, n, k, j, i - 1),
                                  coarse(l, m, n, k, j, i + 1), dx1m, dx1p);
 
     int fj = jb.s; // overwritten as needed
@@ -200,8 +195,9 @@ struct ProlongateCellMinMod {
     Real gx2c = 0;
     if (DIM > 1) { // TODO(c++17) make constexpr
       Real dx2m, dx2p;
-      GetSlopes<2>(coords, coarse_coords, cjb, jb, j, fj, dx2m, dx2p, dx2fm, dx2fp);
-      gx2c = GradMinMod(ccval, coarse(l, m, n, k, j - 1, i), coarse(l, m, n, k, j + 1, i),
+      GetGridSpacings<2>(coords, coarse_coords, cjb, jb, j, &fj, &dx2m, &dx2p, &dx2fm,
+                         &dx2fp);
+      gx2c = GradMinMod(fc, coarse(l, m, n, k, j - 1, i), coarse(l, m, n, k, j + 1, i),
                         dx2m, dx2p);
     }
     int fk = kb.s;
@@ -210,30 +206,29 @@ struct ProlongateCellMinMod {
     Real gx3c = 0;
     if (DIM > 2) { // TODO(c++17) make constexpr
       Real dx3m, dx3p;
-      GetSlopes<3>(coords, coarse_coords, ckb, kb, k, fk, dx3m, dx3p, dx3fm, dx3fp);
-      gx3c = GradMinMod(ccval, coarse(l, m, n, k - 1, j, i), coarse(l, m, n, k + 1, j, i),
+      GetGridSpacings<3>(coords, coarse_coords, ckb, kb, k, &fk, &dx3m, &dx3p, &dx3fm,
+                         &dx3fp);
+      gx3c = GradMinMod(fc, coarse(l, m, n, k - 1, j, i), coarse(l, m, n, k + 1, j, i),
                         dx3m, dx3p);
     }
 
     // KGF: add the off-centered quantities first to preserve FP symmetry
     // JMM: Extraneous quantities are zero
-    fine(l, m, n, fk, fj, fi) = ccval - (gx1c * dx1fm + gx2c * dx2fm + gx3c * dx3fm);
-    fine(l, m, n, fk, fj, fi + 1) = ccval + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
+    fine(l, m, n, fk, fj, fi) = fc - (gx1c * dx1fm + gx2c * dx2fm + gx3c * dx3fm);
+    fine(l, m, n, fk, fj, fi + 1) = fc + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
     if (DIM > 1) { // TODO(c++17) make constexpr
-      fine(l, m, n, fk, fj + 1, fi) =
-          ccval - (gx1c * dx1fm - gx2c * dx2fp + gx3c * dx3fm);
+      fine(l, m, n, fk, fj + 1, fi) = fc - (gx1c * dx1fm - gx2c * dx2fp + gx3c * dx3fm);
       fine(l, m, n, fk, fj + 1, fi + 1) =
-          ccval + (gx1c * dx1fp + gx2c * dx2fp - gx3c * dx3fm);
+          fc + (gx1c * dx1fp + gx2c * dx2fp - gx3c * dx3fm);
     }
     if (DIM > 2) { // TODO(c++17) make constexpr
-      fine(l, m, n, fk + 1, fj, fi) =
-          ccval - (gx1c * dx1fm + gx2c * dx2fm - gx3c * dx3fp);
+      fine(l, m, n, fk + 1, fj, fi) = fc - (gx1c * dx1fm + gx2c * dx2fm - gx3c * dx3fp);
       fine(l, m, n, fk + 1, fj, fi + 1) =
-          ccval + (gx1c * dx1fp - gx2c * dx2fm + gx3c * dx3fp);
+          fc + (gx1c * dx1fp - gx2c * dx2fm + gx3c * dx3fp);
       fine(l, m, n, fk + 1, fj + 1, fi) =
-          ccval - (gx1c * dx1fm - gx2c * dx2fp - gx3c * dx3fp);
+          fc - (gx1c * dx1fm - gx2c * dx2fp - gx3c * dx3fp);
       fine(l, m, n, fk + 1, fj + 1, fi + 1) =
-          ccval + (gx1c * dx1fp + gx2c * dx2fp + gx3c * dx3fp);
+          fc + (gx1c * dx1fp + gx2c * dx2fp + gx3c * dx3fp);
     }
   }
 };

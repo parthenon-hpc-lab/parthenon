@@ -125,7 +125,7 @@ inline void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t
                             const int j, const int i) {
                           Stencil<DIM>::Do(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
                                            info(buf).coords, info(buf).coarse_coords,
-                                           info(buf).coarse, info(buf).fine);
+                                           &(info(buf).coarse), &(info(buf).fine));
                         });
         }
       });
@@ -160,7 +160,7 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h
           KOKKOS_LAMBDA(const int l, const int m, const int n, const int k, const int j,
                         const int i) {
             Stencil<DIM>::Do(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib, coords,
-                             coarse_coords, coarse, fine);
+                             coarse_coords, &coarse, &fine);
           });
     }
   }
