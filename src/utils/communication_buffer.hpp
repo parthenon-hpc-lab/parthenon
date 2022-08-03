@@ -136,7 +136,6 @@ CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm
 #endif
       tag_(tag), send_rank_(send_rank), recv_rank_(recv_rank), comm_(comm),
       get_resource_(get_resource), buf_() {
-
   my_rank = Globals::my_rank;
   if (send_rank == recv_rank) {
     assert(my_rank == send_rank);
