@@ -79,10 +79,20 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       }
       if (any_nonzero) break;
     }
-
+    
+    
     if (any_nonzero) {
-      VariablePack<Real> v;
+      // Allocate all variables controlled by this variable
+      auto sparse = MakeVarLabel("sparse", f); 
+      auto vx = MakeVarLabel("vx", f); 
+      auto vy = MakeVarLabel("vy", f); 
 
+      auto &var_names =
+          pmb->pmy_mesh->resolved_packages->GetControlledVariables(MakeVarLabel("sparse", f));
+      for (auto &vname : var_names) pmb->AllocateSparse(vname);
+     
+      //VariablePack<Real> v;
+      /*
       if (restart_test) {
         pmb->AllocSparseID("shape_shift", 1);
         pmb->AllocSparseID("shape_shift", 3);
@@ -94,15 +104,26 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         pmb->AllocSparseID("sparse", f);
         v = data->PackVariables(std::vector<std::string>{MakeVarLabel("sparse", f)});
       }
+      */
+      
+      auto tup = parthenon::SparsePack<>::Get(data.get(), std::vector<std::string>{sparse, vx, vy});
+      auto v = std::get<0>(tup); 
+      auto pack_map = std::get<1>(tup);
+      parthenon::PackIdx isp(pack_map[sparse]);
+      parthenon::PackIdx ivx(pack_map[vx]);
+      parthenon::PackIdx ivy(pack_map[vy]); 
+      const int b = 0; // Just one block in the pack
 
       pmb->par_for(
-          "SparseAdvection::ProblemGenerator", 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e,
-          ib.s, ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          "SparseAdvection::ProblemGenerator", kb.s, kb.e, jb.s, jb.e,
+          ib.s, ib.e, KOKKOS_LAMBDA( const int k, const int j, const int i) {
             auto x = coords.x1v(i) - x0;
             auto y = coords.x2v(j) - y0;
             auto z = coords.x3v(k);
             auto r2 = x * x + y * y + z * z;
-            v(n, k, j, i) = (r2 < this_size ? 1.0 : 0.0);
+            v(b, isp, k, j, i) = (r2 < this_size ? 1.0 : 0.0);
+            v(b, ivx, k, j, i) = v(b, ivx).sparse_default_val;
+            v(b, ivy, k, j, i) = v(b, ivy).sparse_default_val;
           });
     }
   }
