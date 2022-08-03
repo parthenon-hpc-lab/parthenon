@@ -22,6 +22,7 @@
 #include <parthenon/package.hpp>
 
 #include "defs.hpp"
+#include "globals.hpp"
 #include "interface/metadata.hpp"
 #include "interface/sparse_pack.hpp"
 #include "interface/sparse_pool.hpp"
@@ -66,6 +67,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // add velocities, field 0 moves in (-1,-1) direction, 1 in (1,-1), 2 in (1, 1), and 3
   // in (-1,1)
   Real speed = pin->GetOrAddReal("sparse_advection", "speed", 1.0) / sqrt(2.0);
+  Real vx[4] = {-speed, speed, speed, -speed};
+  Real vy[4] = {-speed, -speed, speed, speed};
   pkg->AddParam("vx", RealArr_t{-speed, speed, speed, -speed});
   pkg->AddParam("vy", RealArr_t{-speed, -speed, speed, speed});
   pkg->AddParam("vz", RealArr_t{0.0, 0.0, 0.0, 0.0});
@@ -76,11 +79,30 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                 Metadata::FillGhost, Metadata::Sparse},
                std::vector<int>({1}));
     SparsePool pool("sparse", m);
+    
+    Metadata mv({Metadata::Cell, Metadata::Independent, Metadata::OneCopy,
+                 Metadata::Sparse}, std::vector<int>({1})); 
+    const std::string control_field_base = "sparse";
+    SparsePool pool_vx("vx", mv, control_field_base);
+    SparsePool pool_vy("vy", mv, control_field_base);
 
     for (int sid = 0; sid < NUM_FIELDS; ++sid) {
-      pool.Add(sid);
+      m.SetSparseThresholds(parthenon::Globals::sparse_config.allocation_threshold,
+                            parthenon::Globals::sparse_config.deallocation_threshold, 
+                            0.0);
+      pool.Add(sid, m);
+      
+      mv.SetSparseThresholds(0.0, 0.0, vx[sid]);
+      pool_vx.Add(sid, mv); 
+      mv.SetSparseThresholds(0.0, 0.0, vy[sid]);
+      pool_vy.Add(sid, mv); 
+      
     }
     pkg->AddSparsePool(pool);
+    
+    pkg->AddSparsePool(pool_vx);
+    pkg->AddSparsePool(pool_vy);
+    
   }
 
   // add fields for restart test ("Z" prefix so they are after sparse in alphabetical
@@ -194,11 +216,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &rc) {
   const int NkNjNi = Nk * NjNi;
 
   auto pkg = rc->GetParentPointer()->packages.Get("sparse_advection_package");
-  const auto &vx = pkg->Param<RealArr_t>("vx");
-  const auto &vy = pkg->Param<RealArr_t>("vy");
+  const auto &vxp = pkg->Param<RealArr_t>("vx");
+  const auto &vyp = pkg->Param<RealArr_t>("vy");
   
   using pack_t = parthenon::SparsePack<sparse_vt, vx_vt, vy_vt>;
-  const auto& v = pack_t::GetWithFluxes(rc.get(), {Metadata::WithFluxes});
+  const auto& v = pack_t::GetWithFluxes(rc.get());
 
   Kokkos::parallel_for(
     "Set newly allocated interior to default",
@@ -207,24 +229,43 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &rc) {
       const int b = team_member.league_rank();
       int lo = v.GetLowerBound(b, sparse_vt());
       int hi = v.GetUpperBound(b, sparse_vt());
-      for (int vidx = lo; vidx <= hi; ++vidx) {
+      int lo_vx = v.GetLowerBound(b, vx_vt());
+      int hi_vx = v.GetUpperBound(b, vx_vt());
+      int lo_vy = v.GetLowerBound(b, vy_vt());
+      int hi_vy = v.GetUpperBound(b, vy_vt());
+      
+      printf("(%i %i) (%i %i) (%i %i)\n", lo, hi, lo_vx, hi_vx, lo_vy, hi_vy);
+      PARTHENON_REQUIRE(hi - lo == hi_vx - lo_vx, "Not the same number of variables");
+      PARTHENON_REQUIRE(hi - lo == hi_vy - lo_vy, "Not the same number of variables");
+
+      for (int vidx = 0; vidx <= hi - lo; ++vidx) {
         Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NkNjNi),
                              [&](const int idx) {
                                const int k = kb.s + idx / NjNi;
                                const int j = jb.s + (idx % NjNi) / Ni;
                                const int i = ib.s + idx % Ni;
                                
-                               const int spid = v(b, vidx).sparse_id; 
+                               const auto spidx = sparse_vt(vidx);
+                               const auto vxidx = vx_vt(vidx); 
+                               const auto vyidx = vy_vt(vidx); 
                                
-                               const Real& qp = v(b, vidx, k, j, i); 
-                               const Real& qmx = v(b, vidx, k, j, i - 1); 
-                               const Real& qmy = v(b, vidx, k, j - 1, i); 
+                               const int id = v(b, spidx).sparse_id; 
                                
-                               v.flux(b, X1DIR, vidx, k, j, i) = 
-                                 (vx[spid] > 0.0 ? qmx : qp) * vx[spid];
+                               const Real& vx = v(b, vxidx, std::min(k, kb.e), std::min(j, jb.e), std::min(i, ib.e));
+                               const Real& vy = v(b, vyidx, std::min(k, kb.e), std::min(j, jb.e), std::min(i, ib.e));
+                               
+                               const Real& qp = v(b, spidx, k, j, i); 
+                               const Real& qmx = v(b, spidx, k, j, i - 1); 
+                               const Real& qmy = v(b, spidx, k, j - 1, i); 
+                               
+                               v.flux(b, X1DIR, spidx, k, j, i) = 
+                                 (vxp[id] > 0.0 ? qmx : qp) * vxp[id];
 
-                               v.flux(b, X2DIR, vidx, k, j, i) =
-                                 (vy[spid] > 0.0 ? qmy : qp) * vy[spid];
+                               v.flux(b, X2DIR, spidx, k, j, i) =
+                                 (vyp[id] > 0.0 ? qmy : qp) * vyp[id];
+                               //printf("[%i %i %i] (%e %e %e) (%e %e)\n", k, j, i, vxp[id], vx, vyp[id], v(b, vxidx).sparse_default_val, vy);
+                               PARTHENON_REQUIRE(vxp[id] == vx, "Velocities not equal");
+                               PARTHENON_REQUIRE(vyp[id] == vy, "Velocities not equal");
                              });
       }
     });
