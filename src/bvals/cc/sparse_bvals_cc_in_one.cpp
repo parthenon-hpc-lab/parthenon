@@ -375,23 +375,23 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
 
   int ibound = 0;
-  ForEachBoundary<bound_type>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        const std::size_t ibuf = cache.recv_idx_vec[ibound];
-        auto &buf = *cache.recv_buf_vec[ibuf];
+  if (Globals::sparse_config.enabled) {
+    ForEachBoundary<bound_type>(
+        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+          const std::size_t ibuf = cache.recv_idx_vec[ibound];
+          auto &buf = *cache.recv_buf_vec[ibuf];
 
-        // all_received = buf.TryReceive(1) && all_received;
-        // Allocate variable if it is receiving actual data in any boundary
-        // (the state could also be BufferState::received_null, which corresponds to no
-        // data)
-        if (Globals::sparse_config.enabled && buf.GetState() == BufferState::received &&
-            !v->IsAllocated()) {
-          pmb->AllocateSparse(v->label());
-          // TODO(lfroberts): Need to flag this so that the array gets filled with
-          //                  something sensible, currently just defaulted to zero.
-        }
-        ++ibound;
-      });
+          // Allocate variable if it is receiving actual data in any boundary
+          // (the state could also be BufferState::received_null, which corresponds to no
+          // data)
+          if (buf.GetState() == BufferState::received && !v->IsAllocated()) {
+            pmb->AllocateSparse(v->label());
+            // TODO(lfroberts): Need to flag this so that the array gets filled with
+            //                  something sensible, currently just defaulted to zero.
+          }
+          ++ibound;
+        });
+  }
   Kokkos::Profiling::popRegion(); // Task_ReceiveBoundBufs
 
   if (all_received) return TaskStatus::complete;
