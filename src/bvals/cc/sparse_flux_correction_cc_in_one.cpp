@@ -203,7 +203,7 @@ TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &m
             pmesh->boundary_comm_flxcor_map.count(ReceiveKey(pmb, nb, v)) > 0,
             "Boundary communicator does not exist");
         auto &buf = pmesh->boundary_comm_flxcor_map[ReceiveKey(pmb, nb, v)];
-        all_received = all_received && buf.TryReceive();
+        all_received = buf.TryReceive() && all_received;
       });
 
   Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrectionBuffers
@@ -320,9 +320,6 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
                   i - is + ni * (j - js + nj * (k - ks + nk * (n + nn * (m + nm * l))));
               flx(l, m, n, k, j, i) = buf_arr(idx);
             });
-#ifdef MPI_PARALLEL
-        Kokkos::fence();
-#endif
         buf.Stale();
         return LoopControl::cont;
       });
