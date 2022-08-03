@@ -103,7 +103,8 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     pmesh->boundary_comm_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
         tag, sender_rank, receiver_rank, comm, get_resource_method, use_sparse_buffers);
 
-    // Separate flxcor buffer if needed
+    // Separate flxcor buffer if needed, first part of if statement checks that this 
+    // is fine to coarse and the second checks the two blocks share a face
     if ((nb.snb.level == pmb->loc.level - 1) &&
         (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
       pmesh->boundary_comm_flxcor_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
