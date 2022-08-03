@@ -110,32 +110,34 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 }
 
 AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
-  // refine on advected, for example.  could also be a derived quantity
   auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages.Get("sparse_advection_package");
-  std::vector<std::string> vars{"sparse"};
-  // type is parthenon::VariablePack<CellVariable<Real>>
-  const auto &v = rc->PackVariables(vars);
-
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+  
+  // refine on advected, for example.  could also be a derived quantity
+  const auto& v = parthenon::SparsePack<sparse_vt>::Get(rc);
+  
+  const int b = 0; // Just one block in the pack
+  // Get the bounds of the allocated variables
+  int lo = v.GetLowerBoundHost(b, sparse_vt());
+  int hi = v.GetUpperBoundHost(b, sparse_vt());
+  if (hi < lo) return AmrTag::derefine; // Nothing allocated here, safe to derefine
 
   typename Kokkos::MinMax<Real>::value_type minmax;
   pmb->par_reduce(
-      "advection check refinement", 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
+      "advection check refinement", lo, hi, kb.s, kb.e, jb.s, jb.e, ib.s,
       ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
-        if (v.IsAllocated(n)) {
           lminmax.min_val =
-              (v(n, k, j, i) < lminmax.min_val ? v(n, k, j, i) : lminmax.min_val);
+              (v(b, n, k, j, i) < lminmax.min_val ? v(b, n, k, j, i) : lminmax.min_val);
           lminmax.max_val =
-              (v(n, k, j, i) > lminmax.max_val ? v(n, k, j, i) : lminmax.max_val);
-        }
+              (v(b, n, k, j, i) > lminmax.max_val ? v(b, n, k, j, i) : lminmax.max_val);
       },
       Kokkos::MinMax<Real>(minmax));
 
+  auto pkg = pmb->packages.Get("sparse_advection_package");
   const auto &refine_tol = pkg->Param<Real>("refine_tol");
   const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
 
@@ -195,15 +197,16 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &rc) {
   const auto &vx = pkg->Param<RealArr_t>("vx");
   const auto &vy = pkg->Param<RealArr_t>("vy");
   
-  const auto& v = parthenon::SparsePack<parthenon::variable_names::any>::GetWithFluxes(rc.get(), {Metadata::WithFluxes});
+  using pack_t = parthenon::SparsePack<sparse_vt, vx_vt, vy_vt>;
+  const auto& v = pack_t::GetWithFluxes(rc.get(), {Metadata::WithFluxes});
 
   Kokkos::parallel_for(
     "Set newly allocated interior to default",
     Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), v.GetNBlocks(), Kokkos::AUTO),
     KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
       const int b = team_member.league_rank();
-      int lo = v.GetLowerBound(b, parthenon::variable_names::any());
-      int hi = v.GetUpperBound(b, parthenon::variable_names::any());
+      int lo = v.GetLowerBound(b, sparse_vt());
+      int hi = v.GetUpperBound(b, sparse_vt());
       for (int vidx = lo; vidx <= hi; ++vidx) {
         Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NkNjNi),
                              [&](const int idx) {
