@@ -254,6 +254,19 @@ class SparsePack : public SparsePackBase {
   // operator() overloads
   KOKKOS_INLINE_FUNCTION
   auto &operator()(const int b, const int idx) const { return pack_(0, b, idx); }
+  
+  KOKKOS_INLINE_FUNCTION
+  auto &operator()(const int b, PackIdx idx) const {
+    static_assert(sizeof...(Ts) == 0);
+    const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
+    return pack_(0, b, n);
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t) const {
+    const int vidx = GetLowerBound(b, t) + t.idx;
+    return pack_(0, b, vidx);
+  }
 
   KOKKOS_INLINE_FUNCTION
   Real &operator()(const int b, const int idx, const int k, const int j,
