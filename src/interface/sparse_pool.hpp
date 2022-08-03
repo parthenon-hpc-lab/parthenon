@@ -99,7 +99,10 @@ class SparsePool {
   const Metadata &Add(int sparse_id, const std::vector<std::string> &component_labels) {
     return AddImpl(sparse_id, {}, nullptr, component_labels);
   }
-
+  
+  // Let someone specify arbitrary metadata for this field
+  const Metadata &Add(int sparse_id, const Metadata& md);
+  
  private:
   // TODO(JL) Once we have C++17 with std::optional, we can use
   // std::optional<MetadataFlag> instead of a pointer. We need to differentiate between
