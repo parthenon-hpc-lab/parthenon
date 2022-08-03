@@ -325,7 +325,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       buf.SendNull();
   }
 
-  Kokkos::Profiling::popRegion();
+  Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
   return TaskStatus::complete;
 }
 
