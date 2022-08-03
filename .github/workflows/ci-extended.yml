@@ -66,7 +66,7 @@ jobs:
           name: log-and-convergence-${{ matrix.device }}-${{ matrix.parallel }}
           path: |
             build/CMakeFiles/CMakeOutput.log
-            build/tst/regression/outputs/advection_convergence/advection-errors.dat
-            build/tst/regression/outputs/advection_convergence/advection-errors.png
+            build/tst/regression/outputs/advection_convergence*/advection-errors.dat
+            build/tst/regression/outputs/advection_convergence*/advection-errors.png
           retention-days: 3
 
