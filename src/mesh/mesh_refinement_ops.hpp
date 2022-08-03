@@ -108,8 +108,8 @@ GetGridSpacings(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
   const Real xp = GetXCC<DIM>(coarse_coords, i + 1);
   *dxm = xc - xm;
   *dxp = xp - xc;
-  const Real fxm = GetXCC<DIM>(coords, fi);
-  const Real fxp = GetXCC<DIM>(coords, fi + 1);
+  const Real fxm = GetXCC<DIM>(coords, *fi);
+  const Real fxp = GetXCC<DIM>(coords, *fi + 1);
   *dxfm = xc - fxm;
   *dxfp = fxp - xc;
 }
@@ -130,9 +130,10 @@ struct RestrictCellAverage {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     ParArray6D<Real> *pcoarse, ParArray6D<Real> *pfine) {
+     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
     auto &coarse = *pcoarse;
-    auto &fine = *pfine const int i = (ci - cib.s) * 2 + ib.s;
+    auto &fine = *pfine;
+    const int i = (ci - cib.s) * 2 + ib.s;
     int j = jb.s;
     if (DIM > 1) {
       j = (cj - cjb.s) * 2 + jb.s;
@@ -175,7 +176,7 @@ struct ProlongateCellMinMod {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     ParArray6D<Real> *pcoarse, ParArray6D<Real> *pfine) {
+     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
     using namespace util;
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
