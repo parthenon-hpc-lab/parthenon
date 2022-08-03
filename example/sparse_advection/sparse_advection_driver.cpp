@@ -103,24 +103,24 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
     const auto any = parthenon::BoundaryType::any;
-    auto start_reflux = tl.AddTask(
+    auto start_flxcor = tl.AddTask(
         none, parthenon::cell_centered_bvars::StartReceiveSparseFluxCorrectionBuffers,
         mc0);
     auto start_bound =
         tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
 
-    auto send_flx = tl.AddTask(
-        start_reflux,
+    auto send_flxcor = tl.AddTask(
+        start_flxcor,
         parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers, mc0);
-    auto recv_flx = tl.AddTask(
-        start_reflux, parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers,
+    auto recv_flxcor = tl.AddTask(
+        start_flxcor, parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers,
         mc0);
-    auto set_flx =
-        tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+    auto set_flxcor =
+        tl.AddTask(recv_flxcor, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
-        tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
+        tl.AddTask(set_flxcor, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
 
     auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
                                mc0.get(), mbase.get(), beta);

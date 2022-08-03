@@ -80,14 +80,14 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     tag = tag_map.GetTag(pmb, nb);
 
     comm_t comm = pmesh->GetMPIComm(v->label());
-    comm_t comm_reflux = comm;
+    comm_t comm_flxcor = comm;
     if (nb.snb.level != pmb->loc.level)
-      comm_reflux = pmesh->GetMPIComm(v->label() + "_flcor");
+      comm_flxcor = pmesh->GetMPIComm(v->label() + "_flcor");
 #else
     // Setting to zero is fine here since this doesn't actually get used when everything
     // is on the same rank
     comm_t comm = 0;
-    comm_t comm_reflux = 0;
+    comm_t comm_flxcor = 0;
 #endif
     // Build send buffers
     auto s_key = SendKey(pmb, nb, v);
@@ -102,11 +102,11 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     pmesh->boundary_comm_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
         tag, sender_rank, receiver_rank, comm, get_resource_method, use_sparse_buffers);
 
-    // Separate reflux buffer if needed
+    // Separate flxcor buffer if needed
     if ((nb.snb.level == pmb->loc.level - 1) &&
         (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
-      pmesh->boundary_comm_reflux_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-          tag, sender_rank, receiver_rank, comm_reflux, get_resource_method,
+      pmesh->boundary_comm_flxcor_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
+          tag, sender_rank, receiver_rank, comm_flxcor, get_resource_method,
           use_sparse_buffers);
 
     // Also build the non-local receive buffers here
@@ -114,11 +114,11 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
       auto r_key = ReceiveKey(pmb, nb, v);
       pmesh->boundary_comm_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
           tag, receiver_rank, sender_rank, comm, get_resource_method, use_sparse_buffers);
-      // Separate reflux buffer if needed
+      // Separate flxcor buffer if needed
       if ((nb.snb.level - 1 == pmb->loc.level) &&
           (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
-        pmesh->boundary_comm_reflux_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-            tag, receiver_rank, sender_rank, comm_reflux, get_resource_method,
+        pmesh->boundary_comm_flxcor_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
+            tag, receiver_rank, sender_rank, comm_flxcor, get_resource_method,
             use_sparse_buffers);
     }
   });
