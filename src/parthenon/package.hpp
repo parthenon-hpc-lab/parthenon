@@ -20,6 +20,7 @@
 #include <coordinates/coordinates.hpp>
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
+#include <interface/sparse_pack.hpp>
 #include <interface/sparse_pool.hpp>
 #include <interface/state_descriptor.hpp>
 #include <interface/variable_pack.hpp>
