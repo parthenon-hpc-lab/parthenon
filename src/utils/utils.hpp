@@ -158,7 +158,6 @@ static T get(const char *name, T defaultval, bool &exists) {
   return Impl::parse_value<T>(strvalue);
 }
 } // namespace Env
-
 } // namespace parthenon
 
 #endif // UTILS_UTILS_HPP_

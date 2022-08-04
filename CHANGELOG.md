@@ -2,6 +2,19 @@
 
 ## Current develop
 
+### Changed (changing behavior/API/variables/...)
+
+### Fixed (not changing behavior/API/variables/...)
+
+### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 708]](https://github.com/lanl/parthenon/pull/708) Bump minimum version of Kokkos to 3.6
+
+### Removed (removing behavior/API/varaibles/...)
+
+
+## Release 0.7.0
+Date: 2022-08-04
+
 ### Added (new features/APIs/variables/...)
 - [[PR 702]](https://github.com/lanl/parthenon/pull/702) Allow for ParArrayGeneric to accept enums
 - [[PR 694]](https://github.com/lanl/parthenon/pull/690) Add C++11 implementation of concepts lite
@@ -18,6 +31,7 @@
 - [[PR 586]](https://github.com/lanl/parthenon/pull/586) Implement true sparse capability with automatic allocation and deallocation of sparse
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 682]](https://github.com/lanl/parthenon/pull/682) Add prolongate-in-one
 - [[PR 685]](https://github.com/lanl/parthenon/pull/685) Add `*pmb` to `MeshBlockUserWorkBeforeOutput`. Remove unused `MeshBlockUserWorkInLoop`.
 - [[PR 676]](https://github.com/lanl/parthenon/pull/662) Remove broken swarm user boundary check
 - [[PR 662]](https://github.com/lanl/parthenon/pull/662) Remove SetPrecise
@@ -55,7 +69,6 @@
 - [[PR 651]](https://github.com/lanl/parthenon/pull/651) Bump Catch2 version due to GCC11.2 incompatibility
 - [[PR 646]](https://github.com/lanl/parthenon/pull/646) Add machine configuration file for Stony Brook's Ookami A64FX and OLCF's Spock AMD systems.
 
-### Removed (removing behavior/API/varaibles/...)
 
 ## Release 0.6.1
 Date: 09/22/2021

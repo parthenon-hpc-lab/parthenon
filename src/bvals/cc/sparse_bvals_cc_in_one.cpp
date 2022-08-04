@@ -260,7 +260,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto pmb = rc->GetBlockPointer();
   IndexShape cellbounds = pmb->cellbounds;
   IndexShape c_cellbounds = pmb->c_cellbounds;
-  cell_centered_refinement::Restrict(cache.send_bnd_info, cellbounds, c_cellbounds);
+  cell_centered_refinement::Restrict(cache.send_bnd_info, cache.send_bnd_info_h, cellbounds, c_cellbounds);
 
   // Load buffer data
   const Real threshold = Globals::sparse_config.allocation_threshold;
