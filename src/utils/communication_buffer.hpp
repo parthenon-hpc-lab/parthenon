@@ -165,6 +165,8 @@ template <class T>
 CommBuffer<T>::~CommBuffer() {
 #ifdef MPI_PARALLEL
   if (my_request_.use_count() == 1) { // This is the last shallow copy of this buffer
+    // Make sure that there are no MPI requests still flying around associated
+    // with this buffer before destroying it
     int flag;
     MPI_Status status;
     PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
