@@ -121,9 +121,9 @@ inline void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t
           GetLoopBoundsFromBndInfo<DIM>(info(buf), ckb.s, cjb.s, sk, ek, sj, ej, si, ei);
           par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
                         info(buf).Nu - 1, 0, info(buf).Nv - 1, sk, ek, sj, ej, si, ei,
-                        [&](const int l, const int m, const int n, const int k,
+                        [&](const int t, const int u, const int v, const int k,
                             const int j, const int i) {
-                          Stencil<DIM>::Do(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib,
+                          Stencil<DIM>::Do(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib,
                                            info(buf).coords, info(buf).coarse_coords,
                                            &(info(buf).coarse), &(info(buf).fine));
                         });
@@ -157,9 +157,9 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h
           DEFAULT_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues", DevExecSpace(),
           0, info_h(buf).Nt - 1, 0, info_h(buf).Nu - 1, 0, info_h(buf).Nv - 1, sk, ek, sj,
           ej, si, ei,
-          KOKKOS_LAMBDA(const int l, const int m, const int n, const int k, const int j,
+          KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
                         const int i) {
-            Stencil<DIM>::Do(l, m, n, k, j, i, ckb, cjb, cib, kb, jb, ib, coords,
+            Stencil<DIM>::Do(l, t, u, v, j, i, ckb, cjb, cib, kb, jb, ib, coords,
                              coarse_coords, &coarse, &fine);
           });
     }

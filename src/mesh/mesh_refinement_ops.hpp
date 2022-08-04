@@ -97,11 +97,14 @@ template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<3>(const Coordinates_t &coords, int i) {
   return coords.x3v(i);
 }
+// compute distances from cell center to the nearest center in the + or -
+// coordinate direction. Do so for both coarse and fine grids.
 template <int DIM>
 KOKKOS_FORCEINLINE_FUNCTION void
 GetGridSpacings(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
                 const IndexRange &cib, const IndexRange &ib, int i, int *fi, Real *dxm,
                 Real *dxp, Real *dxfm, Real *dxfp) {
+  // here "f" signifies the fine grid, not face locations.
   *fi = (i - cib.s) * 2 + ib.s;
   const Real xm = GetXCC<DIM>(coarse_coords, i - 1);
   const Real xc = GetXCC<DIM>(coarse_coords, i);
@@ -147,14 +150,11 @@ struct RestrictCellAverage {
     Real vol[2][2][2], terms[2][2][2];
     std::memset(&vol[0][0][0], 0., 8 * sizeof(Real));
     std::memset(&terms[0][0][0], 0., 8 * sizeof(Real));
-    constexpr int xoff = 1;
-    constexpr int yoff = (DIM > 1);
-    constexpr int zoff = (DIM > 2);
-    for (int iz = 0; iz < 1 + zoff; ++iz) {
-      for (int iy = 0; iy < 1 + yoff; ++iy) {
-        for (int ix = 0; ix < 1 + xoff; ++ix) {
-          vol[iz][iy][ix] = coords.Volume(k + iz, j + iy, i + ix);
-          terms[iz][iy][ix] = vol[iz][iy][ix] * fine(l, m, n, k + iz, j + iy, i + ix);
+    for (int ok = 0; ok < 1 + (DIM > 2); ++ok) {
+      for (int oj = 0; oj < 1 + (DIM > 1); ++oj) {
+        for (int oi = 0; oi < 1 + 1; ++oi) {
+          vol[ok][oj][oi] = coords.Volume(k + ok, j + oj, i + oi);
+          terms[ok][oj][oi] = vol[ok][oj][oi] * fine(l, m, n, k + ok, j + oj, i + oi);
         }
       }
     }
