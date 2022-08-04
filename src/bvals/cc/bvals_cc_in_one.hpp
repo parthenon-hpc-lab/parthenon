@@ -52,15 +52,15 @@ struct BndInfo {
   int sk = 0;
   int ek = 0;
   bool allocated = true;
-  bool restriction = false;
+  RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
-  parthenon::BufArray1D<Real> buf;     // comm buffer
+  BufArray1D<Real> buf;                // comm buffer
   int Nt = 0;
   int Nu = 0;
   int Nv = 0;
-  parthenon::ParArray6D<Real> var;    // data variable used for comms
-  parthenon::ParArray6D<Real> fine;   // fine data variable for prolongation/restriction
-  parthenon::ParArray6D<Real> coarse; // coarse data variable for prolongation/restriction
+  ParArray6D<Real> var;    // data variable used for comms
+  ParArray6D<Real> fine;   // fine data variable for prolongation/restriction
+  ParArray6D<Real> coarse; // coarse data variable for prolongation/restriction
 };
 
 using BufferCache_t = ParArray1D<BndInfo>;

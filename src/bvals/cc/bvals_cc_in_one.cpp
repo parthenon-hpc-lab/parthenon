@@ -344,8 +344,7 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
           if (v->IsAllocated()) {
             IndexDomain interior = IndexDomain::interior;
             auto &var_cc = v->data;
-            boundary_info_h(b).fine =
-                var_cc.Get(); // TODO(JMM) in general should be a loop
+            boundary_info_h(b).fine = var_cc.Get();
             if (multilevel) {
               boundary_info_h(b).coarse = v->vbvar->coarse_buf.Get();
             }
@@ -366,7 +365,7 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
 
               auto &coarse_buf = v->vbvar->coarse_buf;
               boundary_info_h(b).var = coarse_buf.Get();
-              boundary_info_h(b).restriction = true;
+              boundary_info_h(b).refinement_op = RefinementOp_t::Restriction;
 
             } else {
               CalcIndicesLoadToFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
@@ -390,11 +389,12 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_sta
     }
   }
   Kokkos::deep_copy(boundary_info, boundary_info_h);
-  md->SetSendBuffers(boundary_info, sending_nonzero_flags, sending_nonzero_flags_h,
-                     alloc_status);
+  md->SetSendBuffers(boundary_info, boundary_info_h, sending_nonzero_flags,
+                     sending_nonzero_flags_h, alloc_status);
 
   // Restrict whichever buffers need restriction.
-  cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
+  cell_centered_refinement::Restrict(boundary_info, boundary_info_h, cellbounds,
+                                     c_cellbounds);
 
   Kokkos::Profiling::popRegion(); // Create send_boundary_info
 }
@@ -506,7 +506,9 @@ void SendAndNotify(MeshData<Real> *md) {
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
 
-  auto boundary_info = md->GetSendBuffers();
+  auto boundary_info_pair = md->GetSendBuffers();
+  auto boundary_info = std::get<0>(boundary_info_pair);
+  auto boundary_info_h = std::get<1>(boundary_info_pair);
   auto sending_nonzero_flags = md->GetSendingNonzeroFlags();
   auto alloc_status = ResetSendBuffers(md.get());
 
@@ -515,7 +517,9 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   // sparse allocations).
   if (!boundary_info.is_allocated() || (alloc_status != md->GetSendBufAllocStatus())) {
     ResetSendBufferBoundaryInfo(md.get(), alloc_status);
-    boundary_info = md->GetSendBuffers();
+    boundary_info_pair = md->GetSendBuffers();
+    boundary_info = std::get<0>(boundary_info_pair);
+    boundary_info_h = std::get<1>(boundary_info_pair);
     sending_nonzero_flags = md->GetSendingNonzeroFlags();
   } else {
     Kokkos::Profiling::pushRegion("Restrict boundaries");
@@ -527,12 +531,14 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
     // Need to restrict here only if cached boundary_info is reused
     // Otherwise restriction happens when the new boundary_info is created
-    cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
+    cell_centered_refinement::Restrict(boundary_info, boundary_info_h, cellbounds,
+                                       c_cellbounds);
     Kokkos::Profiling::popRegion(); // Reset boundaries
   }
 
   const Real threshold = Globals::sparse_config.allocation_threshold;
 
+  // TODO(JMM): This should be a par_for outer/inner
   Kokkos::parallel_for(
       "SendBoundaryBuffers",
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), alloc_status.size(), Kokkos::AUTO),
@@ -754,7 +760,7 @@ void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md, std::vector<bool> alloc_
     }
   }
   Kokkos::deep_copy(boundary_info, boundary_info_h);
-  md->SetSetBuffers(boundary_info, alloc_status);
+  md->SetSetBuffers(boundary_info, boundary_info_h, alloc_status);
 
   Kokkos::Profiling::popRegion(); // Create set_boundary_info
 }
@@ -771,10 +777,14 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
 
   const auto alloc_status = GetSetFromBuffersAllocStatus(md.get());
 
-  auto boundary_info = md->GetSetBuffers();
+  auto boundary_info_pair = md->GetSetBuffers();
+  auto boundary_info = std::get<0>(boundary_info_pair);
+  auto boundary_info_h = std::get<1>(boundary_info_pair);
   if (!boundary_info.is_allocated() || (alloc_status != md->GetSetBufAllocStatus())) {
     ResetSetFromBufferBoundaryInfo(md.get(), alloc_status);
-    boundary_info = md->GetSetBuffers();
+    boundary_info_pair = md->GetSetBuffers();
+    boundary_info = std::get<0>(boundary_info_pair);
+    boundary_info_h = std::get<1>(boundary_info_pair);
   }
 
 #ifdef ENABLE_SPARSE
