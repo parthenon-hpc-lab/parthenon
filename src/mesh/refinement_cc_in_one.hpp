@@ -159,7 +159,7 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h
           ej, si, ei,
           KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
                         const int i) {
-            Stencil<DIM>::Do(l, t, u, v, j, i, ckb, cjb, cib, kb, jb, ib, coords,
+            Stencil<DIM>::Do(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib, coords,
                              coarse_coords, &coarse, &fine);
           });
     }
