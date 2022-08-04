@@ -45,7 +45,6 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
   Mesh *pmesh = md->GetMeshPointer();
   auto &all_caches = md->GetBvarsCache();
-  auto &tag_map = pmesh->tag_map;
 
   // Clear the fast access vectors for this block since they are no longer valid
   // after all MeshData call BuildSparseBoundaryBuffers
@@ -78,7 +77,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     int tag = 0;
 #ifdef MPI_PARALLEL
     // Get a bi-directional mpi tag for this pair of blocks
-    tag = tag_map.GetTag(pmb, nb);
+    tag = pmesh->tag_map.GetTag(pmb, nb);
 
     mpi_comm_t comm = pmesh->GetMPIComm(v->label());
     mpi_comm_t comm_flxcor = comm;
