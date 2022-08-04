@@ -167,9 +167,8 @@ class ObjectPool<T>::owner_t : public ObjectPool<T>::weak_t {
 
   KOKKOS_FUNCTION
   ~owner_t() noexcept {
-#ifndef __CUDA_ARCH__ // host code
-    if (weak_t::pool_ != nullptr) (*weak_t::pool_).ReferenceCountedFree(*this);
-#endif
+    KOKKOS_IF_ON_HOST(
+        if (weak_t::pool_ != nullptr) { (*weak_t::pool_).ReferenceCountedFree(*this); })
   }
 
   // Warning, the move constructors are messed up and don't copy over the weak_t
