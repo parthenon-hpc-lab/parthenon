@@ -40,7 +40,7 @@ Parthenon -- a performance portable block-structured adaptive mesh refinement fr
 * catch2 (for unit tests)
 * python3 (for regression tests)
 * numpy (for regression tests)
-* matplotlib (for regression tests)
+* matplotlib (optional, for plotting results of regression tests)
 
 # Quick start guide
 
@@ -135,4 +135,5 @@ how to use them.
 | Galen Shipman | @gshipman | LANL Computer Science |
 | Ben Ryan | @brryan | LANL Physics |
 | Clell J. (CJ) Solomon | @clellsolomon | LANL Physics |
+| Luke Roberts | @lroberts36 | LANL Physics |
 

@@ -2,6 +2,18 @@
 
 ## Current develop
 
+### Changed (changing behavior/API/variables/...)
+
+### Fixed (not changing behavior/API/variables/...)
+
+### Infrastructure (changes irrelevant to downstream codes)
+
+### Removed (removing behavior/API/varaibles/...)
+
+
+## Release 0.7.0
+Date: 2022-08-04
+
 ### Added (new features/APIs/variables/...)
 - [[PR 702]](https://github.com/lanl/parthenon/pull/702) Allow for ParArrayGeneric to accept enums
 - [[PR 694]](https://github.com/lanl/parthenon/pull/690) Add C++11 implementation of concepts lite
