@@ -211,14 +211,15 @@ class MeshData {
 
   const auto &GetRestrictBufAllocStatus() const { return restrict_buf_alloc_status_; }
 
-  void SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers,
-                          const cell_centered_bvars::BufferCacheHost_t &restrict_buffers_h,
-                          const std::vector<bool> &restrict_buf_alloc_status) {
+  void
+  SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers,
+                     const cell_centered_bvars::BufferCacheHost_t &restrict_buffers_h,
+                     const std::vector<bool> &restrict_buf_alloc_status) {
     restrict_buffers_ = restrict_buffers;
     restrict_buffers_h_ = restrict_buffers_h;
     restrict_buf_alloc_status_ = restrict_buf_alloc_status;
   }
-  
+
   auto GetRestrictBuffers() const {
     return std::make_pair(restrict_buffers_, restrict_buffers_h_);
   }
@@ -436,7 +437,7 @@ class MeshData {
 
   // caches for boundary information
   cell_centered_bvars::BvarsCache_t bvars_cache_;
-  
+
   cell_centered_bvars::BufferCache_t restrict_buffers_{};
   std::vector<bool> restrict_buf_alloc_status_;
   // Cache both host and device buffer info. Reduces mallocs, and also

@@ -95,10 +95,10 @@ struct BndInfo {
   RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
 
-  buf_pool_t<Real>::weak_t buf;       // comm buffer from pool
-  ParArray6D<Real> var;    // data variable used for comms
-  ParArray6D<Real> fine;   // fine data variable for prolongation/restriction
-  ParArray6D<Real> coarse; // coarse data variable for prolongation/restriction
+  buf_pool_t<Real>::weak_t buf; // comm buffer from pool
+  ParArray6D<Real> var;         // data variable used for comms
+  ParArray6D<Real> fine;        // fine data variable for prolongation/restriction
+  ParArray6D<Real> coarse;      // coarse data variable for prolongation/restriction
 
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                 std::shared_ptr<CellVariable<Real>> v);
