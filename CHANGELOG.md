@@ -7,6 +7,7 @@
 ### Fixed (not changing behavior/API/variables/...)
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 708]](https://github.com/lanl/parthenon/pull/708) Bump minimum version of Kokkos to 3.6
 
 ### Removed (removing behavior/API/varaibles/...)
 
@@ -67,7 +68,6 @@ Date: 2022-08-04
 - [[PR 651]](https://github.com/lanl/parthenon/pull/651) Bump Catch2 version due to GCC11.2 incompatibility
 - [[PR 646]](https://github.com/lanl/parthenon/pull/646) Add machine configuration file for Stony Brook's Ookami A64FX and OLCF's Spock AMD systems.
 
-### Removed (removing behavior/API/varaibles/...)
 
 ## Release 0.6.1
 Date: 09/22/2021
