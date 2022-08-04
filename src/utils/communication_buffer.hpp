@@ -290,9 +290,6 @@ void CommBuffer<T>::TryStartReceive() noexcept {
   } else if (*comm_type_ == BuffCommType::sparse_receiver && !*started_irecv_) {
     int test;
     MPI_Status status;
-    // This is the extra MPI call that impacts performance mentioned in Athena++
-    // PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-    //                               MPI_STATUS_IGNORE));
     // Check if our message is available so that we can use the correct buffer size
     PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank_, tag_, comm_, &test, &status));
     if (test) {
@@ -333,7 +330,26 @@ bool CommBuffer<T>::TryReceive() noexcept {
     if (*started_irecv_) {
       MPI_Status status;
       int flag;
-      // This is the extra MPI call that impacts performance as mentioned in Athena++.
+      // Comment from original Athena++ code about the MPI_Iprobe call:
+      //
+      // Although MPI_Iprobe does nothing for us (it checks arrival of any message but
+      // we do not use the result), this is ABSOLUTELY NECESSARY for the performance of
+      // Athena++. Although non-blocking MPI communications look like multi-tasking
+      // running behind our code, actually they are not. The network interface card can
+      // run autonomously from the CPU, but to move the data between the memory and the
+      // network interface and initiate/complete communications, MPI has to do something
+      // using CPU. So to process communications, we have to allow MPI to use CPU.
+      // Theoretically MPI can use multi-thread for this (OpenMPI can be configured so)
+      // but it is not common because of performance and compatibility issues. Instead,
+      // MPI processes communications whenever any MPI function is called. MPI_Iprobe is
+      // one of the cheapest function in MPI and by calling this occasionally MPI can
+      // process communications "as if it is in the background". Using only MPI_Test,
+      // the communications were very slow. I suspect that MPI_Test changes the ordering
+      // of the messages internally (I guess it tries to promote the message it is
+      // Testing), and if we call MPI_Test for different messages, they are left half
+      // done. So if we remove them, I am sure we will see significant performance drop.
+      // I could not dig it up right now, Collela or Woodward mentioned this in a paper.
+      //
       // Depending on the MPI implementation and the order of MPI_Test calls, as well
       // as the total number of buffers being communicated, I have found this can have
       // anywhere from no impact on the walltime to a factor of a few reduction in the
