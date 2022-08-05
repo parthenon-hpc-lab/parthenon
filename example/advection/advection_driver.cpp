@@ -62,6 +62,36 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   const Real dt = integrator->dt;
   const auto &stage_name = integrator->stage_name;
 
+  // first make other useful containers
+  if (stage == 1) {
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &pmb = blocks[i];
+      // first make other useful containers
+      auto &base = pmb->meshblock_data.Get();
+      pmb->meshblock_data.Add("dUdt", base);
+      for (int s = 1; s < integrator->nstages; s++)
+        pmb->meshblock_data.Add(stage_name[s], base);
+    }
+  }
+
+  const int num_partitions = pmesh->DefaultNumPartitions();
+
+  // note that task within this region that contains one tasklist per pack
+  // could still be executed in parallel
+  TaskRegion &single_tasklist_per_pack_region2 = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &tl = single_tasklist_per_pack_region2[i];
+    auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
+    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+
+    const auto any = parthenon::BoundaryType::any;
+
+    tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
+    tl.AddTask(none,
+               parthenon::cell_centered_bvars::StartReceiveSparseFluxCorrectionBuffers,
+               mc0);
+  }
+
   // Number of task lists that can be executed independently and thus *may*
   // be executed in parallel and asynchronous.
   // Being extra verbose here in this example to highlight that this is not
@@ -73,13 +103,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region1[i];
-    // first make other useful containers
-    if (stage == 1) {
-      auto &base = pmb->meshblock_data.Get();
-      pmb->meshblock_data.Add("dUdt", base);
-      for (int i = 1; i < integrator->nstages; i++)
-        pmb->meshblock_data.Add(stage_name[i], base);
-    }
 
     // pull out the container we'll use to get fluxes and/or compute RHSs
     auto &sc0 = pmb->meshblock_data.Get(stage_name[stage - 1]);
@@ -90,18 +113,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // effectively, sc1 = sc0 + dudt*dt
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto start_recv = tl.AddTask(none, &MeshBlockData<Real>::StartReceiving, sc1.get(),
-                                 BoundaryCommSubset::all);
-
     auto advect_flux = tl.AddTask(none, advection_package::CalculateFluxes, sc0);
-
-    auto send_flux =
-        tl.AddTask(advect_flux, &MeshBlockData<Real>::SendFluxCorrection, sc0.get());
-    auto recv_flux =
-        tl.AddTask(advect_flux, &MeshBlockData<Real>::ReceiveFluxCorrection, sc0.get());
   }
 
-  const int num_partitions = pmesh->DefaultNumPartitions();
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
@@ -112,9 +126,17 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
+    auto send_flx = tl.AddTask(
+        none, parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers,
+        mc0);
+    auto recv_flx = tl.AddTask(
+        none, parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers, mc0);
+    auto set_flx =
+        tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
-        tl.AddTask(none, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
+        tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
 
     auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
                                mc0.get(), mbase.get(), beta);
@@ -123,14 +145,25 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
+    const auto local = parthenon::BoundaryType::local;
+    const auto nonlocal = parthenon::BoundaryType::nonlocal;
     auto send =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
-    auto recv =
-        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
-    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
+        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<nonlocal>, mc1);
+
+    auto send_local =
+        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<local>, mc1);
+    auto recv_local =
+        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<local>, mc1);
+    auto set_local =
+        tl.AddTask(recv_local, parthenon::cell_centered_bvars::SetBounds<local>, mc1);
+
+    auto recv = tl.AddTask(
+        update, parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>, mc1);
+    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<nonlocal>, mc1);
+
     if (pmesh->multilevel) {
-      tl.AddTask(set, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
-                 mc1.get());
+      tl.AddTask(set | set_local,
+                 parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
     }
   }
 
@@ -140,9 +173,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &pmb = blocks[i];
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
-
-    auto clear_comms_flags = tl.AddTask(none, &MeshBlockData<Real>::ClearBoundary,
-                                        sc1.get(), BoundaryCommSubset::all);
 
     auto prolongBound = none;
     if (pmesh->multilevel) {

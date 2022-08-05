@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
 
