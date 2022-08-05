@@ -251,8 +251,8 @@ class ParArrayGeneric : public State {
   // translates into auto dest = src.SliceD<dim>(std::make_pair(indx,indx+nvar))
   template <std::size_t N = Data::rank>
   auto SliceD(index_pair_t slc) const {
-    static_assert(N <= Data::rank);
-    static_assert(N > 0);
+    static_assert(N <= Data::rank, "Slice dim larger than data rank");
+    static_assert(N > 0, "Slice dimension negative");
     return SliceD(std::make_index_sequence<Data::rank - N>{},
                   std::make_index_sequence<N - 1>{}, slc);
   }
