@@ -151,8 +151,8 @@ class RestartReader {
 
     /** Select hyperslab in dataset **/
     hsize_t offset[5] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0};
-    hsize_t count[5] = {static_cast<hsize_t>(range.e - range.s + 1), bsize[2], bsize[1],
-                        bsize[0], vlen};
+    hsize_t count[5] = {static_cast<hsize_t>(range.e - range.s + 1), vlen, bsize[2],
+                        bsize[1], bsize[0]};
 
     hsize_t total_count = 1;
     for (int i = 0; i < 5; ++i) {

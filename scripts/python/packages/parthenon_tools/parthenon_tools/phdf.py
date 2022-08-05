@@ -1,4 +1,8 @@
 # =========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020-2022 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+# =========================================================================================
 # (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -110,6 +114,10 @@ class phdf:
             self.BlocksPerPE = info.attrs["BlocksPerPE"]
         except:
             self.BlocksPerPE = np.array((1), self.NumBlocks)
+        try:
+            self.OutputFormatVersion = info.attrs["OutputFormatVersion"]
+        except:
+            self.OutputFormatVersion = -1
         self.Coordinates = info.attrs["Coordinates"]
         self.CellsPerBlock = np.prod(self.MeshBlockSize)
         self.TotalCells = self.NumBlocks * self.CellsPerBlock
@@ -280,10 +288,6 @@ class phdf:
         """
         [ib, bidx, iz, iy, ix] = self.ToLocation(idx)
 
-        nx = int(other.MeshBlockSize[0])
-        ny = int(other.MeshBlockSize[1])
-        nz = int(other.MeshBlockSize[2])
-
         (myX, myY, myZ) = (self.x[ib, ix], self.y[ib, iy], self.z[ib, iz])
 
         # now hunt in other file
@@ -404,7 +408,8 @@ class phdf:
             if self.varData[variable] is None:
                 self.varData[variable] = self.fid[variable][:]
                 vShape = self.varData[variable].shape
-                vLen = vShape[-1]
+                vLen = vShape[1]  # index 0 is the block, so we need to use 1
+                # if variable is a scalar remove the component index
                 if vLen == 1:
                     tmp = self.varData[variable].reshape(self.TotalCells)
                     newShape = (
@@ -426,8 +431,16 @@ class phdf:
 
         vShape = self.varData[variable].shape
         if flatten:
+            # if variable is not a scalar flatten cells component-wise
             if np.prod(vShape) > self.TotalCells:
-                return self.varData[variable][:].reshape(self.TotalCells, vShape[-1])
+                ret = np.empty(
+                    (vShape[1], self.TotalCells), dtype=self.varData[variable].dtype
+                )
+                ret[:] = np.nan
+                for i in range(len(vShape[1])):
+                    ret[i, :] = self.varData[variable][:, i, :, :, :]
+                assert (ret != np.nan).all()
+                return ret
             else:
                 return self.varData[variable][:].reshape(self.TotalCells)
 
@@ -490,7 +503,7 @@ class phdf:
                         component_data[component] = dataset
                     else:
                         # Data is a vector, save only the component
-                        component_data[component] = dataset[..., idx]
+                        component_data[component] = dataset[idx, ...]
 
         return component_data
 
@@ -569,6 +582,7 @@ class phdf:
               NGhost=%d
        IncludesGhost=%d
          Coordinates=%s
+ OutputFormatVersion=%d
 --------------------------------------------
            Variables="""
             % (
@@ -587,6 +601,7 @@ class phdf:
                 self.NGhost,
                 self.IncludesGhost,
                 self.Coordinates,
+                self.OutputFormatVersion,
             )
             + str([k for k in self.Variables])
             + """
