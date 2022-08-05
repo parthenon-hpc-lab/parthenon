@@ -946,10 +946,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     HDF5WriteAttribute("SparseFields", names, dset);
   } // SparseInfo and SparseFields sections
 
-  if (!restart_) {
-    // generate XDMF companion file
-    genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info);
-  }
+  // generate XDMF companion file
+  genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info);
 }
 
 // explicit template instantiation

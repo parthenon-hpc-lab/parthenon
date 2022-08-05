@@ -201,12 +201,12 @@ class SparsePack : public SparsePackBase {
   }
 
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const {
-    static_assert(sizeof...(Ts) == 0);
+    static_assert(sizeof...(Ts) == 0, "not sure");
     return bounds_(0, b, idx.VariableIdx());
   }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, PackIdx idx) const {
-    static_assert(sizeof...(Ts) == 0);
+    static_assert(sizeof...(Ts) == 0, "not sure");
     return bounds_(1, b, idx.VariableIdx());
   }
 
@@ -235,7 +235,7 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION
   Real &operator()(const int b, PackIdx idx, const int k, const int j,
                    const int i) const {
-    static_assert(sizeof...(Ts) == 0);
+    static_assert(sizeof...(Ts) == 0, "not sure");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(0, b, n)(k, j, i);
   }
