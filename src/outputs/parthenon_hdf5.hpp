@@ -1,4 +1,9 @@
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+//========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2022 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,6 +17,7 @@
 #ifndef OUTPUTS_PARTHENON_HDF5_HPP_
 #define OUTPUTS_PARTHENON_HDF5_HPP_
 
+#include "config.hpp"
 #ifndef ENABLE_HDF5
 #error "parthenon_hdf5.hpp requires HDF5 output to be enabled"
 #endif // ifndef ENABLE_HDF5

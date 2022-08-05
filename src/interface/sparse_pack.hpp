@@ -144,7 +144,7 @@ class SparsePack : public SparsePackBase {
   static std::tuple<SparsePack, SparsePackIdxMap>
   Get(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
       bool fluxes = false, bool coarse = false) {
-    static_assert(sizeof...(Ts) == 0);
+    static_assert(sizeof...(Ts) == 0, "not sure");
     impl::PackDescriptor desc(vars, flags, fluxes, coarse);
     return {SparsePack(SparsePackBase::GetPack(pmd, desc)),
             SparsePackBase::GetIdxMap(desc)};
@@ -264,7 +264,7 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION
   Real &flux(const int b, const int dir, PackIdx idx, const int k, const int j,
              const int i) const {
-    static_assert(sizeof...(Ts) == 0);
+    static_assert(sizeof...(Ts) == 0, "Not sure");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(dir, b, n)(k, j, i);
