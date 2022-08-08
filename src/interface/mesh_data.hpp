@@ -206,16 +206,23 @@ class MeshData {
       pbd->SetAllowedDt(std::min(dt, pbd->GetBlockPointer()->NewDt()));
     }
   }
+
+  auto &GetBvarsCache() { return bvars_cache_; }
+
   const auto &GetRestrictBufAllocStatus() const { return restrict_buf_alloc_status_; }
 
-  void SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers,
-                          const std::vector<bool> &restrict_buf_alloc_status) {
+  void
+  SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers,
+                     const cell_centered_bvars::BufferCacheHost_t &restrict_buffers_h,
+                     const std::vector<bool> &restrict_buf_alloc_status) {
     restrict_buffers_ = restrict_buffers;
+    restrict_buffers_h_ = restrict_buffers_h;
     restrict_buf_alloc_status_ = restrict_buf_alloc_status;
   }
 
-  auto &GetBvarsCache() { return bvars_cache_; }
-  auto &GetRestrictBuffers() const { return restrict_buffers_; }
+  auto GetRestrictBuffers() const {
+    return std::make_pair(restrict_buffers_, restrict_buffers_h_);
+  }
 
   IndexRange GetBoundsI(const IndexDomain &domain) const {
     return block_data_[0]->GetBoundsI(domain);
@@ -402,9 +409,10 @@ class MeshData {
     block_data_.clear();
     varPackMap_.clear();
     varFluxPackMap_.clear();
+    restrict_buffers_ = cell_centered_bvars::BufferCache_t{};
+    restrict_buffers_h_ = cell_centered_bvars::BufferCacheHost_t{};
 
     bvars_cache_.clear();
-    restrict_buffers_ = cell_centered_bvars::BufferCache_t{};
     restrict_buf_alloc_status_.clear();
   }
 
@@ -441,8 +449,12 @@ class MeshData {
   SparsePackCache sparse_pack_cache_;
   // caches for boundary information
   cell_centered_bvars::BvarsCache_t bvars_cache_;
+
   cell_centered_bvars::BufferCache_t restrict_buffers_{};
   std::vector<bool> restrict_buf_alloc_status_;
+  // Cache both host and device buffer info. Reduces mallocs, and also
+  // means the bounds values are available on host if needed.
+  cell_centered_bvars::BufferCacheHost_t restrict_buffers_h_{};
 };
 
 } // namespace parthenon

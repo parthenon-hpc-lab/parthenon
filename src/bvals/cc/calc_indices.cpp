@@ -278,7 +278,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
     CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, c_cellbounds.GetBoundsI(interior));
     CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, c_cellbounds.GetBoundsJ(interior));
     CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, c_cellbounds.GetBoundsK(interior));
-    out.restriction = true;
+    out.refinement_op = RefinementOp_t::Restriction;
     out.var = v->coarse_s.Get();
   } else {
     CalcIndicesLoadToFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb, pmb.get());

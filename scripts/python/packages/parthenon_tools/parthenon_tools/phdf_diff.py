@@ -377,13 +377,14 @@ def compare(
         f0 = phdf(files[0])
         if not quiet:
             print(f0)
-    except:
+    except Exception as e:
         print(
             """
         *** ERROR: Unable to open %s as phdf file
         """
             % files[0]
         )
+        print(repr(e))
         return ERROR_NO_OPEN_F0
 
     # Load second file and print info
@@ -391,13 +392,14 @@ def compare(
         f1 = phdf(files[1])
         if not quiet:
             print(f1)
-    except:
+    except Exception as e:
         print(
             """
         *** ERROR: Unable to open %s as phdf file
         """
             % files[1]
         )
+        print(repr(e))
         return ERROR_NO_OPEN_F1
 
     # rudimentary checks

@@ -2,6 +2,20 @@
 
 ## Current develop
 
+### Changed (changing behavior/API/variables/...)
+- [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
+
+### Fixed (not changing behavior/API/variables/...)
+
+### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 708]](https://github.com/lanl/parthenon/pull/708) Bump minimum version of Kokkos to 3.6
+
+### Removed (removing behavior/API/varaibles/...)
+
+
+## Release 0.7.0
+Date: 2022-08-04
+
 ### Added (new features/APIs/variables/...)
 - [[PR 702]](https://github.com/lanl/parthenon/pull/702) Allow for ParArrayGeneric to accept enums
 - [[PR 694]](https://github.com/lanl/parthenon/pull/690) Add C++11 implementation of concepts lite
@@ -18,6 +32,7 @@
 - [[PR 586]](https://github.com/lanl/parthenon/pull/586) Implement true sparse capability with automatic allocation and deallocation of sparse
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 682]](https://github.com/lanl/parthenon/pull/682) Add prolongate-in-one
 - [[PR 685]](https://github.com/lanl/parthenon/pull/685) Add `*pmb` to `MeshBlockUserWorkBeforeOutput`. Remove unused `MeshBlockUserWorkInLoop`.
 - [[PR 676]](https://github.com/lanl/parthenon/pull/662) Remove broken swarm user boundary check
 - [[PR 662]](https://github.com/lanl/parthenon/pull/662) Remove SetPrecise
@@ -44,17 +59,16 @@
 - [[PR 595]](https://github.com/lanl/parthenon/pull/595) Fix build options so that non-MPI builds cannot be paired with an MPI HDF5 lib
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 703]](https://github.com/lanl/parthenon/pull/703) Fixed mpi/serial logic in extended CI tests
 - [[PR 700]](https://github.com/lanl/parthenon/pull/700) Moved CI testing from GitLab mirror to GitHub Actions
 - [[PR 698]](https://github.com/lanl/parthenon/pull/698) Remove matplotlib from required python libraries and make desired instead
 - [[PR 686]](https://github.com/lanl/parthenon/pull/686) Remove coverage CI stage and add key features to README
 - [[PR 681]](https://github.com/lanl/parthenon/pull/681) Refactor ParArrayNDGeneric to work with arbitrary rank Kokkos::views and hold state.
 - [[PR 669]](https://github.com/lanl/parthenon/pull/669) Bump clang-format version (and checks) to >=11.0
-- [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 - [[PR 661]](https://github.com/lanl/parthenon/pull/661) Replaced ids in MPI tags with separate `MPI_Comms` for each variable/swarm
 - [[PR 651]](https://github.com/lanl/parthenon/pull/651) Bump Catch2 version due to GCC11.2 incompatibility
 - [[PR 646]](https://github.com/lanl/parthenon/pull/646) Add machine configuration file for Stony Brook's Ookami A64FX and OLCF's Spock AMD systems.
 
-### Removed (removing behavior/API/varaibles/...)
 
 ## Release 0.6.1
 Date: 09/22/2021

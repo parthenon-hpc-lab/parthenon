@@ -158,6 +158,7 @@ add_library(parthenon
   mesh/domain.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
+  mesh/mesh_refinement_ops.hpp
   mesh/mesh.cpp
   mesh/mesh.hpp
   mesh/meshblock.hpp

@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
@@ -39,6 +39,12 @@ using nb_t = NeighborBlock;
 
 enum class LoopControl { cont, break_out };
 
+// Methods for wrapping a function that may or may not return a LoopControl
+// object. The first is enabled if the function returns a LoopControl and
+// just passes the returned object on. The second just calls the function,
+// ignores its return, and returns a LoopControl continue. These wrap the
+// function calls in the ForEachBoundary loop template to allow for breaking
+// out of the loop if desired
 template <class F, class... Args>
 inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
     std::is_same<decltype(func(std::declval<Args>()...)), LoopControl>::value,
@@ -54,6 +60,12 @@ inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
   return LoopControl::cont;
 }
 
+// Loop over boundaries (or shared geometric elements) for blocks contained
+// in MeshData, calling the passed function func for every boundary. Unifies
+// boundary looping that occurs in many places in the boundary communication
+// routines and allows for easy selection of a subset of the boundaries based
+// on the template parameter BoundaryType. [Really, this probably does not
+// need to be a template parameter, it could just be a function argument]
 template <BoundaryType bound = BoundaryType::any, class F>
 inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
@@ -67,13 +79,13 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
             if (nb.snb.rank != Globals::my_rank) continue;
           } else if (bound == BoundaryType::nonlocal) {
             if (nb.snb.rank == Globals::my_rank) continue;
-          } else if (bound == BoundaryType::reflux_send) {
+          } else if (bound == BoundaryType::flxcor_send) {
             // Check if this boundary requires flux correction
             if (nb.snb.level != pmb->loc.level - 1) continue;
             // No flux correction required unless boundaries share a face
             if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
               continue;
-          } else if (bound == BoundaryType::reflux_recv) {
+          } else if (bound == BoundaryType::flxcor_recv) {
             // Check if this boundary requires flux correction
             if (nb.snb.level - 1 != pmb->loc.level) continue;
             // No flux correction required unless boundaries share a face

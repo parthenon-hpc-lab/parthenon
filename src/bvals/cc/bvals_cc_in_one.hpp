@@ -93,7 +93,7 @@ struct BndInfo {
   int Nv = 0;
 
   bool allocated = true;
-  bool restriction = false;
+  RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
 
   buf_pool_t<Real>::weak_t buf;                   // comm buffer from pool
@@ -145,8 +145,8 @@ struct BvarsSubCache_t {
 };
 
 struct BvarsCache_t {
-  // The three here corresponds to the current size of the BoundaryType enum
-  std::array<BvarsSubCache_t, 3> caches;
+  // The five here corresponds to the current size of the BoundaryType enum
+  std::array<BvarsSubCache_t, 5> caches;
   auto &operator[](BoundaryType boundType) { return caches[static_cast<int>(boundType)]; }
   void clear() {
     for (int i = 0; i < caches.size(); ++i)

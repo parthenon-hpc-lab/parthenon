@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
@@ -44,8 +44,7 @@ inline bool operator>(BlockGeometricElementId a, BlockGeometricElementId b) {
   return a.gid > b.gid;
 }
 inline bool operator==(BlockGeometricElementId a, BlockGeometricElementId b) {
-  if (a.gid == b.gid && a.orientation == b.orientation) return true;
-  return false;
+  return (a.gid == b.gid && a.orientation == b.orientation);
 }
 
 // We also need the concept of an unordered pair, since each communication channel

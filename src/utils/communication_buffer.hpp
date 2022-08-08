@@ -1,5 +1,9 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// Parthenon performance portable AMR framework
+// Copyright(C) 2022 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -21,17 +25,9 @@
 #include <unordered_map>
 #include <utility>
 
+#include "globals.hpp"
+#include "parthenon_mpi.hpp"
 #include "utils/mpi_types.hpp"
-
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-
-#define request_t MPI_Request
-#define comm_t MPI_Comm
-#else
-#define request_t int
-#define comm_t int
-#endif
 
 namespace parthenon {
 
@@ -43,7 +39,7 @@ enum class BufferState { stale, sending, sending_null, received, received_null }
 
 enum class BuffCommType { sender, receiver, both, sparse_receiver };
 
-enum class BoundaryType : int { local, nonlocal, any, reflux_send, reflux_recv };
+enum class BoundaryType : int { local, nonlocal, any, flxcor_send, flxcor_recv };
 
 template <class T>
 class CommBuffer {
@@ -56,13 +52,13 @@ class CommBuffer {
   std::shared_ptr<BuffCommType> comm_type_;
   std::shared_ptr<bool> started_irecv_;
   std::shared_ptr<int> nrecv_tries_;
-  std::shared_ptr<request_t> my_request_;
+  std::shared_ptr<mpi_request_t> my_request_;
 
   int my_rank;
   int tag_;
   int send_rank_;
   int recv_rank_;
-  comm_t comm_;
+  mpi_comm_t comm_;
 
   using buf_base_t = std::remove_pointer_t<decltype(std::declval<T>().data())>;
   buf_base_t null_buf_ = std::numeric_limits<buf_base_t>::signaling_NaN();
@@ -82,7 +78,7 @@ class CommBuffer {
   {
   }
 
-  CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm_,
+  CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm_,
              std::function<T()> get_resource, bool do_sparse_allocation = false);
 
   ~CommBuffer();
@@ -129,7 +125,7 @@ class CommBuffer {
 // Method definitions below
 
 template <class T>
-CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm,
+CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm,
                           std::function<T()> get_resource, bool do_sparse_allocation)
     : state_(std::make_shared<BufferState>(BufferState::stale)),
       comm_type_(std::make_shared<BuffCommType>(BuffCommType::both)),
@@ -140,12 +136,7 @@ CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, comm_t comm,
 #endif
       tag_(tag), send_rank_(send_rank), recv_rank_(recv_rank), comm_(comm),
       get_resource_(get_resource), buf_() {
-// Set up persistent communication
-#ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Comm_rank(comm_, &my_rank));
-#else
-  my_rank = 0;
-#endif
+  my_rank = Globals::my_rank;
   if (send_rank == recv_rank) {
     assert(my_rank == send_rank);
     *comm_type_ = BuffCommType::both;
@@ -167,17 +158,15 @@ CommBuffer<T>::CommBuffer(const CommBuffer<U> &in)
       started_irecv_(in.started_irecv_), nrecv_tries_(in.nrecv_tries_),
       my_request_(in.my_request_), tag_(in.tag_), send_rank_(in.send_rank_),
       recv_rank_(in.recv_rank_), comm_(in.comm_), active_(in.active_) {
-#ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Comm_rank(comm_, &my_rank));
-#else
-  my_rank = 0;
-#endif
+  my_rank = Globals::my_rank;
 }
 
 template <class T>
 CommBuffer<T>::~CommBuffer() {
 #ifdef MPI_PARALLEL
   if (my_request_.use_count() == 1) { // This is the last shallow copy of this buffer
+    // Make sure that there are no MPI requests still flying around associated
+    // with this buffer before destroying it
     int flag;
     MPI_Status status;
     PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
@@ -207,11 +196,7 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in) {
   recv_rank_ = in.recv_rank_;
   comm_ = in.comm_;
   active_ = in.active_;
-#ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Comm_rank(comm_, &my_rank));
-#else
-  my_rank = 0;
-#endif
+  my_rank = Globals::my_rank;
   return *this;
 }
 
@@ -240,7 +225,7 @@ void CommBuffer<T>::Send() noexcept {
   }
   if (*comm_type_ == BuffCommType::receiver) {
     // This is an error
-    Kokkos::abort("Trying to send from a receiver");
+    PARTHENON_FAIL("Trying to send from a receiver");
   }
 }
 
@@ -260,7 +245,7 @@ void CommBuffer<T>::SendNull() noexcept {
   }
   if (*comm_type_ == BuffCommType::receiver) {
     // This is an error
-    Kokkos::abort("Trying to send from a receiver");
+    PARTHENON_FAIL("Trying to send from a receiver");
   }
 }
 
@@ -283,8 +268,7 @@ bool CommBuffer<T>::IsAvailableForWrite() {
     PARTHENON_FAIL("Should not have a sending buffer when MPI is not enabled.");
 #endif
   } else if (*comm_type_ == BuffCommType::both) {
-    if (*state_ == BufferState::stale) return true;
-    return false;
+    return (*state_ == BufferState::stale);
   } else {
     PARTHENON_FAIL("Receiving buffer is never available for write.");
   }
@@ -306,9 +290,6 @@ void CommBuffer<T>::TryStartReceive() noexcept {
   } else if (*comm_type_ == BuffCommType::sparse_receiver && !*started_irecv_) {
     int test;
     MPI_Status status;
-    // This is the extra MPI call that impacts performance mentioned in Athena++
-    // PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-    //                               MPI_STATUS_IGNORE));
     // Check if our message is available so that we can use the correct buffer size
     PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank_, tag_, comm_, &test, &status));
     if (test) {
@@ -341,15 +322,34 @@ bool CommBuffer<T>::TryReceive() noexcept {
       *comm_type_ == BuffCommType::sparse_receiver) {
 #ifdef MPI_PARALLEL
     (*nrecv_tries_)++;
-    if (*nrecv_tries_ > 1e6)
-      PARTHENON_FAIL("MPI probably hanging after 1e6 receive tries.");
+    PARTHENON_REQUIRE(*nrecv_tries_ < 1e6,
+                      "MPI probably hanging after 1e6 receive tries.");
 
     TryStartReceive();
 
     if (*started_irecv_) {
       MPI_Status status;
       int flag;
-      // This is the extra MPI call that impacts performance as mentioned in Athena++.
+      // Comment from original Athena++ code about the MPI_Iprobe call:
+      //
+      // Although MPI_Iprobe does nothing for us (it checks arrival of any message but
+      // we do not use the result), this is ABSOLUTELY NECESSARY for the performance of
+      // Athena++. Although non-blocking MPI communications look like multi-tasking
+      // running behind our code, actually they are not. The network interface card can
+      // run autonomously from the CPU, but to move the data between the memory and the
+      // network interface and initiate/complete communications, MPI has to do something
+      // using CPU. So to process communications, we have to allow MPI to use CPU.
+      // Theoretically MPI can use multi-thread for this (OpenMPI can be configured so)
+      // but it is not common because of performance and compatibility issues. Instead,
+      // MPI processes communications whenever any MPI function is called. MPI_Iprobe is
+      // one of the cheapest function in MPI and by calling this occasionally MPI can
+      // process communications "as if it is in the background". Using only MPI_Test,
+      // the communications were very slow. I suspect that MPI_Test changes the ordering
+      // of the messages internally (I guess it tries to promote the message it is
+      // Testing), and if we call MPI_Test for different messages, they are left half
+      // done. So if we remove them, I am sure we will see significant performance drop.
+      // I could not dig it up right now, Collela or Woodward mentioned this in a paper.
+      //
       // Depending on the MPI implementation and the order of MPI_Test calls, as well
       // as the total number of buffers being communicated, I have found this can have
       // anywhere from no impact on the walltime to a factor of a few reduction in the
@@ -381,7 +381,6 @@ bool CommBuffer<T>::TryReceive() noexcept {
     return false;
 #else
     PARTHENON_FAIL("Should not have a purely receiving buffer without MPI enabled.");
-    return false;
 #endif
   } else if (*comm_type_ == BuffCommType::both) {
     if (*state_ == BufferState::sending) {
@@ -403,7 +402,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
 template <class T>
 void CommBuffer<T>::Stale() {
-  if (*comm_type_ == BuffCommType::sender) PARTHENON_FAIL("Should never get here.");
+  PARTHENON_REQUIRE(*comm_type_ != BuffCommType::sender, "Should never get here.");
 
   if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
     PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");

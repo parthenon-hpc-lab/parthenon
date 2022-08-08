@@ -43,5 +43,13 @@ Real receive_boundary_buffer_timeout;
 // timeouts for tasks
 Real current_task_runtime_sec;
 
+namespace cell_centered_refinement {
+// Communication buffers are packed into a `BufferInfo_t` object.
+// if the size of this object is greater than min_num_bufs,
+// hierarchical parallelism is used for prolongation/restriction.
+// otherwise one kernel per buffer is launched.
+int min_num_bufs;
+} // namespace cell_centered_refinement
+
 } // namespace Globals
 } // namespace parthenon
