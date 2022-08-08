@@ -31,6 +31,7 @@
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/parthenon_hdf5.hpp"
 #include "refinement/refinement.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
@@ -224,6 +225,20 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // TODO(cleanup) why is this code here and not contained in the restart reader?
   std::cout << "Blocks assigned to rank:" << Globals::my_rank << ":" << nbs << ":" << nbe
             << std::endl;
+
+  const auto file_output_format_ver = resfile.GetOutputFormatVersion();
+  if (file_output_format_ver == -1) {
+    // Being extra stringent here so that we don't forget to update the machinery when
+    // another change happens.
+    PARTHENON_REQUIRE_THROWS(
+        HDF5::OUTPUT_VERSION_FORMAT == 2,
+        "Auto conversion from old to current format not implemented yet.")
+    if (Globals::my_rank == 0) {
+      PARTHENON_WARN("Restarting from a old output file format. New outputs written with "
+                     "this binary will use new format.")
+    }
+  }
+
   // Get an iterator on block 0 for variable listing
   IndexRange out_ib = mb.cellbounds.GetBoundsI(theDomain);
   IndexRange out_jb = mb.cellbounds.GetBoundsJ(theDomain);
@@ -287,7 +302,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     if (Globals::my_rank == 0) std::cout << "Var:" << label << ":" << vlen << std::endl;
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
-      resfile.ReadBlocks(label, myBlocks, tmp, bsize, vlen);
+      resfile.ReadBlocks(label, myBlocks, tmp, bsize, vlen, file_output_format_ver);
     } catch (std::exception &ex) {
       std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
                 << label << " from restart file:" << std::endl
@@ -313,18 +328,32 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
       // Double note that this also needs to be update in case
       // we update the HDF5 infrastructure!
-      for (int t = 0; t < Nt; ++t) {
-        for (int u = 0; u < Nu; ++u) {
-          for (int v = 0; v < Nv; ++v) {
-            for (int k = out_kb.s; k <= out_kb.e; ++k) {
-              for (int j = out_jb.s; j <= out_jb.e; ++j) {
-                for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                  v_h(t, u, v, k, j, i) = tmp[index++];
+      if (file_output_format_ver == -1) {
+        for (int k = out_kb.s; k <= out_kb.e; ++k) {
+          for (int j = out_jb.s; j <= out_jb.e; ++j) {
+            for (int i = out_ib.s; i <= out_ib.e; ++i) {
+              for (int l = 0; l < vlen; ++l) {
+                v_h(l, k, j, i) = tmp[index++];
+              }
+            }
+          }
+        }
+      } else if (file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
+        for (int t = 0; t < Nt; ++t) {
+          for (int u = 0; u < Nu; ++u) {
+            for (int v = 0; v < Nv; ++v) {
+              for (int k = out_kb.s; k <= out_kb.e; ++k) {
+                for (int j = out_jb.s; j <= out_jb.e; ++j) {
+                  for (int i = out_ib.s; i <= out_ib.e; ++i) {
+                    v_h(t, u, v, k, j, i) = tmp[index++];
+                  }
                 }
               }
             }
           }
         }
+      } else {
+        PARTHENON_THROW("Unknown output format version in restart file.")
       }
 
       v->data.DeepCopy(v_h);

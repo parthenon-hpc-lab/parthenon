@@ -408,7 +408,10 @@ class phdf:
             if self.varData[variable] is None:
                 self.varData[variable] = self.fid[variable][:]
                 vShape = self.varData[variable].shape
-                vLen = vShape[1]  # index 0 is the block, so we need to use 1
+                if self.OutputFormatVersion == -1:
+                    vLen = vShape[-1]
+                else:
+                    vLen = vShape[1]  # index 0 is the block, so we need to use 1
                 # if variable is a scalar remove the component index
                 if vLen == 1:
                     tmp = self.varData[variable].reshape(self.TotalCells)
@@ -433,6 +436,11 @@ class phdf:
         if flatten:
             # if variable is not a scalar flatten cells component-wise
             if np.prod(vShape) > self.TotalCells:
+                if self.OutputFormatVersion == -1:
+                    return self.varData[variable][:].reshape(
+                        self.TotalCells, vShape[-1]
+                    )
+
                 ret = np.empty(
                     (vShape[1], self.TotalCells), dtype=self.varData[variable].dtype
                 )
@@ -503,7 +511,14 @@ class phdf:
                         component_data[component] = dataset
                     else:
                         # Data is a vector, save only the component
-                        component_data[component] = dataset[idx, ...]
+                        if self.OutputFormatVersion == -1:
+                            component_data[component] = dataset[..., idx]
+                        else:
+                            if flatten:
+                                component_data[component] = dataset[idx, ...]
+                            # need to take leading block index into account
+                            else:
+                                component_data[component] = dataset[:, idx, ...]
 
         return component_data
 

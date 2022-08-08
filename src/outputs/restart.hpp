@@ -82,6 +82,9 @@ class RestartReader {
 
   SparseInfo GetSparseInfo() const;
 
+  // Return output format version number. Return -1 if not existent.
+  int GetOutputFormatVersion() const;
+
  private:
   struct DatasetHandle {
     hid_t type;
@@ -139,7 +142,8 @@ class RestartReader {
   // fills internal data for given pointer
   template <typename T>
   void ReadBlocks(const std::string &name, IndexRange range, std::vector<T> &dataVec,
-                  const std::vector<size_t> &bsize, size_t vlen = 1) const {
+                  const std::vector<size_t> &bsize, size_t vlen = 1,
+                  int file_output_format_version = HDF5::OUTPUT_VERSION_FORMAT) const {
 #ifndef ENABLE_HDF5
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
@@ -151,8 +155,23 @@ class RestartReader {
 
     /** Select hyperslab in dataset **/
     hsize_t offset[5] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0};
-    hsize_t count[5] = {static_cast<hsize_t>(range.e - range.s + 1), vlen, bsize[2],
-                        bsize[1], bsize[0]};
+    hsize_t count[5];
+    if (file_output_format_version == -1) {
+      count[0] = static_cast<hsize_t>(range.e - range.s + 1);
+      count[1] = bsize[2];
+      count[2] = bsize[1];
+      count[3] = bsize[0];
+      count[4] = vlen;
+
+    } else if (file_output_format_version == HDF5::OUTPUT_VERSION_FORMAT) {
+      count[0] = static_cast<hsize_t>(range.e - range.s + 1);
+      count[1] = vlen;
+      count[2] = bsize[2];
+      count[3] = bsize[1];
+      count[4] = bsize[0];
+    } else {
+      PARTHENON_THROW("Unknown output format version in restart file.")
+    }
 
     hsize_t total_count = 1;
     for (int i = 0; i < 5; ++i) {
