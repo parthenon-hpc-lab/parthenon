@@ -24,7 +24,7 @@
 #include <cstring>
 
 #include "coordinates/coordinates.hpp"  // for coordinates
-#include "interface/variable_state.hpp" // For variable state in ParArray 
+#include "interface/variable_state.hpp" // For variable state in ParArray
 #include "kokkos_abstraction.hpp"       // ParArray
 #include "mesh/domain.hpp"              // for IndesShape
 
@@ -134,7 +134,8 @@ struct RestrictCellAverage {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real, VariableState> *pcoarse, const ParArray6D<Real, VariableState> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
     const int i = (ci - cib.s) * 2 + ib.s;
@@ -177,7 +178,8 @@ struct ProlongateCellMinMod {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real, VariableState> *pcoarse, const ParArray6D<Real, VariableState> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     using namespace util;
     auto &coarse = *pcoarse;
     auto &fine = *pfine;

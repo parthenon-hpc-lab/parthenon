@@ -62,15 +62,15 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
   const auto &stage_name = integrator->stage_name;
-  
-  // first make other useful containers on all blocks if 
+
+  // first make other useful containers on all blocks if
   // this is the first stage
   if (stage == 1) {
     for (int i = 0; i < blocks.size(); i++) {
       auto &pmb = blocks[i];
       // first make other useful containers
       auto &base = pmb->meshblock_data.Get();
-      //pmb->meshblock_data.Add("dUdt", base);
+      // pmb->meshblock_data.Add("dUdt", base);
       for (int s = 1; s < integrator->nstages; s++)
         pmb->meshblock_data.Add(stage_name[s], base);
     }
@@ -86,7 +86,7 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
     auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
     auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-    //auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
+    // auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
     const auto any = parthenon::BoundaryType::any;
     auto start_reflux = tl.AddTask(
@@ -94,30 +94,31 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
         mc0);
     auto start_bound =
         tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
-    
+
     auto calc_flux = tl.AddTask(none, sparse_advection_package::CalculateFluxes, mc0);
 
     auto send_flx = tl.AddTask(
         start_reflux | calc_flux,
         parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers, mc0);
     auto recv_flx = tl.AddTask(
-        start_reflux | calc_flux, parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers,
-        mc0);
+        start_reflux | calc_flux,
+        parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers, mc0);
     auto set_flx =
         tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
-    //auto flux_div =
+    // auto flux_div =
     //    tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
-    //auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
+    // auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
     //                           mc0.get(), mbase.get(), beta);
     //// apply du/dt to all independent fields in the container
-    //auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
+    // auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>,
+    // mc0.get(),
     //                         mdudt.get(), beta * dt, mc1.get());
 
-    auto update = tl.AddTask(set_flx, UpdateWithFluxDivergence<MeshData<Real>>, 
-                             mc0.get(), mc1.get(), beta, 1.0 - beta, beta * dt);
-    
+    auto update = tl.AddTask(set_flx, UpdateWithFluxDivergence<MeshData<Real>>, mc0.get(),
+                             mc1.get(), beta, 1.0 - beta, beta * dt);
+
     // do boundary exchange
     auto send =
         tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);

@@ -90,7 +90,7 @@ const Metadata &SparsePool::AddImpl(int sparse_id, const std::vector<int> &shape
   return ins.first->second;
 }
 
-const Metadata &SparsePool::Add(int sparse_id, const Metadata& md) {
+const Metadata &SparsePool::Add(int sparse_id, const Metadata &md) {
   PARTHENON_REQUIRE_THROWS(sparse_id != InvalidSparseID,
                            "Tried to add InvalidSparseID to sparse pool " + base_name_);
 

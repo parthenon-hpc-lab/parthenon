@@ -79,30 +79,29 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                 Metadata::FillGhost, Metadata::Sparse},
                std::vector<int>({1}));
     SparsePool pool("sparse", m);
-    
-    Metadata mv({Metadata::Cell, Metadata::Independent, Metadata::OneCopy,
-                 Metadata::Sparse}, std::vector<int>({1})); 
+
+    Metadata mv(
+        {Metadata::Cell, Metadata::Independent, Metadata::OneCopy, Metadata::Sparse},
+        std::vector<int>({1}));
     const std::string control_field_base = "sparse";
     SparsePool pool_vx("vx", mv, control_field_base);
     SparsePool pool_vy("vy", mv, control_field_base);
 
     for (int sid = 0; sid < NUM_FIELDS; ++sid) {
       m.SetSparseThresholds(parthenon::Globals::sparse_config.allocation_threshold,
-                            parthenon::Globals::sparse_config.deallocation_threshold, 
+                            parthenon::Globals::sparse_config.deallocation_threshold,
                             0.0);
       pool.Add(sid, m);
-      
+
       mv.SetSparseThresholds(0.0, 0.0, vx[sid]);
-      pool_vx.Add(sid, mv); 
+      pool_vx.Add(sid, mv);
       mv.SetSparseThresholds(0.0, 0.0, vy[sid]);
-      pool_vy.Add(sid, mv); 
-      
+      pool_vy.Add(sid, mv);
     }
     pkg->AddSparsePool(pool);
-    
+
     pkg->AddSparsePool(pool_vx);
     pkg->AddSparsePool(pool_vy);
-    
   }
 
   // add fields for restart test ("Z" prefix so they are after sparse in alphabetical
@@ -136,10 +135,10 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-  
+
   // refine on advected, for example.  could also be a derived quantity
-  const auto& v = parthenon::SparsePack<sparse_vt>::Get(rc);
-  
+  const auto &v = parthenon::SparsePack<sparse_vt>::Get(rc);
+
   const int b = 0; // Just one block in the pack
   // Get the bounds of the allocated variables
   int lo = v.GetLowerBoundHost(b, sparse_vt());
@@ -148,14 +147,13 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 
   typename Kokkos::MinMax<Real>::value_type minmax;
   pmb->par_reduce(
-      "advection check refinement", lo, hi, kb.s, kb.e, jb.s, jb.e, ib.s,
-      ib.e,
+      "advection check refinement", lo, hi, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
-          lminmax.min_val =
-              (v(b, n, k, j, i) < lminmax.min_val ? v(b, n, k, j, i) : lminmax.min_val);
-          lminmax.max_val =
-              (v(b, n, k, j, i) > lminmax.max_val ? v(b, n, k, j, i) : lminmax.max_val);
+        lminmax.min_val =
+            (v(b, n, k, j, i) < lminmax.min_val ? v(b, n, k, j, i) : lminmax.min_val);
+        lminmax.max_val =
+            (v(b, n, k, j, i) > lminmax.max_val ? v(b, n, k, j, i) : lminmax.max_val);
       },
       Kokkos::MinMax<Real>(minmax));
 
@@ -218,57 +216,58 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &rc) {
   auto pkg = rc->GetParentPointer()->packages.Get("sparse_advection_package");
   const auto &vxp = pkg->Param<RealArr_t>("vx");
   const auto &vyp = pkg->Param<RealArr_t>("vy");
-  
+
   using pack_t = parthenon::SparsePack<sparse_vt, vx_vt, vy_vt>;
-  const auto& v = pack_t::GetWithFluxes(rc.get());
+  const auto &v = pack_t::GetWithFluxes(rc.get());
 
   Kokkos::parallel_for(
-    "Set newly allocated interior to default",
-    Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), v.GetNBlocks(), Kokkos::AUTO),
-    KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-      const int b = team_member.league_rank();
-      int lo = v.GetLowerBound(b, sparse_vt());
-      int hi = v.GetUpperBound(b, sparse_vt());
-      int lo_vx = v.GetLowerBound(b, vx_vt());
-      int hi_vx = v.GetUpperBound(b, vx_vt());
-      int lo_vy = v.GetLowerBound(b, vy_vt());
-      int hi_vy = v.GetUpperBound(b, vy_vt());
-      
-      printf("(%i %i) (%i %i) (%i %i)\n", lo, hi, lo_vx, hi_vx, lo_vy, hi_vy);
-      PARTHENON_REQUIRE(hi - lo == hi_vx - lo_vx, "Not the same number of variables");
-      PARTHENON_REQUIRE(hi - lo == hi_vy - lo_vy, "Not the same number of variables");
+      "Set newly allocated interior to default",
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), v.GetNBlocks(), Kokkos::AUTO),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+        const int b = team_member.league_rank();
+        int lo = v.GetLowerBound(b, sparse_vt());
+        int hi = v.GetUpperBound(b, sparse_vt());
+        int lo_vx = v.GetLowerBound(b, vx_vt());
+        int hi_vx = v.GetUpperBound(b, vx_vt());
+        int lo_vy = v.GetLowerBound(b, vy_vt());
+        int hi_vy = v.GetUpperBound(b, vy_vt());
 
-      for (int vidx = 0; vidx <= hi - lo; ++vidx) {
-        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NkNjNi),
-                             [&](const int idx) {
-                               const int k = kb.s + idx / NjNi;
-                               const int j = jb.s + (idx % NjNi) / Ni;
-                               const int i = ib.s + idx % Ni;
-                               
-                               const auto spidx = sparse_vt(vidx);
-                               const auto vxidx = vx_vt(vidx); 
-                               const auto vyidx = vy_vt(vidx); 
-                               
-                               const int id = v(b, spidx).sparse_id; 
-                               
-                               const Real& vx = v(b, vxidx, std::min(k, kb.e), std::min(j, jb.e), std::min(i, ib.e));
-                               const Real& vy = v(b, vyidx, std::min(k, kb.e), std::min(j, jb.e), std::min(i, ib.e));
-                               
-                               const Real& qp = v(b, spidx, k, j, i); 
-                               const Real& qmx = v(b, spidx, k, j, i - 1); 
-                               const Real& qmy = v(b, spidx, k, j - 1, i); 
-                               
-                               v.flux(b, X1DIR, spidx, k, j, i) = 
-                                 (vxp[id] > 0.0 ? qmx : qp) * vxp[id];
+        printf("(%i %i) (%i %i) (%i %i)\n", lo, hi, lo_vx, hi_vx, lo_vy, hi_vy);
+        PARTHENON_REQUIRE(hi - lo == hi_vx - lo_vx, "Not the same number of variables");
+        PARTHENON_REQUIRE(hi - lo == hi_vy - lo_vy, "Not the same number of variables");
 
-                               v.flux(b, X2DIR, spidx, k, j, i) =
-                                 (vyp[id] > 0.0 ? qmy : qp) * vyp[id];
-                               //printf("[%i %i %i] (%e %e %e) (%e %e)\n", k, j, i, vxp[id], vx, vyp[id], v(b, vxidx).sparse_default_val, vy);
-                               PARTHENON_REQUIRE(vxp[id] == vx, "Velocities not equal");
-                               PARTHENON_REQUIRE(vyp[id] == vy, "Velocities not equal");
-                             });
-      }
-    });
+        for (int vidx = 0; vidx <= hi - lo; ++vidx) {
+          Kokkos::parallel_for(
+              Kokkos::TeamThreadRange<>(team_member, NkNjNi), [&](const int idx) {
+                const int k = kb.s + idx / NjNi;
+                const int j = jb.s + (idx % NjNi) / Ni;
+                const int i = ib.s + idx % Ni;
+
+                const auto spidx = sparse_vt(vidx);
+                const auto vxidx = vx_vt(vidx);
+                const auto vyidx = vy_vt(vidx);
+
+                const int id = v(b, spidx).sparse_id;
+
+                const Real &vx =
+                    v(b, vxidx, std::min(k, kb.e), std::min(j, jb.e), std::min(i, ib.e));
+                const Real &vy =
+                    v(b, vyidx, std::min(k, kb.e), std::min(j, jb.e), std::min(i, ib.e));
+
+                const Real &qp = v(b, spidx, k, j, i);
+                const Real &qmx = v(b, spidx, k, j, i - 1);
+                const Real &qmy = v(b, spidx, k, j - 1, i);
+
+                v.flux(b, X1DIR, spidx, k, j, i) = (vxp[id] > 0.0 ? qmx : qp) * vxp[id];
+
+                v.flux(b, X2DIR, spidx, k, j, i) = (vyp[id] > 0.0 ? qmy : qp) * vyp[id];
+                // printf("[%i %i %i] (%e %e %e) (%e %e)\n", k, j, i, vxp[id], vx,
+                // vyp[id], v(b, vxidx).sparse_default_val, vy);
+                PARTHENON_REQUIRE(vxp[id] == vx, "Velocities not equal");
+                PARTHENON_REQUIRE(vyp[id] == vy, "Velocities not equal");
+              });
+        }
+      });
 
   PARTHENON_REQUIRE_THROWS(rc->GetMeshPointer()->ndim == 2,
                            "Sparse Advection example must be 2D");

@@ -392,7 +392,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
             auto &var_names =
                 pmb->pmy_mesh->resolved_packages->GetControlledVariables(v->label());
             for (auto &vname : var_names)
-                pmb->AllocateSparse(vname, flag_uninitialized); 
+              pmb->AllocateSparse(vname, flag_uninitialized);
           }
           ++ibound;
         });

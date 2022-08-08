@@ -10,10 +10,12 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_SPARSE_ADVECTION_SPARSE_ADVECTION_PACKAGE_HPP_
-#define EXAMPLE_SPARSE_ADVECTION_SPARSE_ADVECTION_PACKAGE_HPP_
+#ifndef EXAMPLE_NEW_SPARSE_ADVECTION_SPARSE_ADVECTION_PACKAGE_HPP_
+#define EXAMPLE_NEW_SPARSE_ADVECTION_SPARSE_ADVECTION_PACKAGE_HPP_
 
 #include <memory>
+#include <string>
+#include <utility>
 
 #include <parthenon/package.hpp>
 
@@ -54,4 +56,4 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
 TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &rc);
 } // namespace sparse_advection_package
 
-#endif // EXAMPLE_SPARSE_ADVECTION_SPARSE_ADVECTION_PACKAGE_HPP_
+#endif // EXAMPLE_NEW_SPARSE_ADVECTION_SPARSE_ADVECTION_PACKAGE_HPP_

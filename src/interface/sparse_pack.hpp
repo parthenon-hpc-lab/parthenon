@@ -223,7 +223,9 @@ class SparsePack : public SparsePackBase {
   }
 
   // Host Bound overloads
-  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const { return bounds_h_(0, b, 0); }
+  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const {
+    return bounds_h_(0, b, 0);
+  }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b) const {
     return bounds_h_(1, b, nvar_ - 1);
@@ -254,7 +256,7 @@ class SparsePack : public SparsePackBase {
   // operator() overloads
   KOKKOS_INLINE_FUNCTION
   auto &operator()(const int b, const int idx) const { return pack_(0, b, idx); }
-  
+
   KOKKOS_INLINE_FUNCTION
   auto &operator()(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
