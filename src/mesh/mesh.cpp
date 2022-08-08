@@ -1085,7 +1085,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     // send FillGhost variables
     boundary_comm_map.clear();
-    boundary_comm_reflux_map.clear();
+    boundary_comm_flxcor_map.clear();
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       cell_centered_bvars::BuildSparseBoundaryBuffers(md);
@@ -1114,10 +1114,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         cell_centered_refinement::RestrictPhysicalBounds(md.get());
       }
     }
-
-    // for (int i = 0; i < nmb; ++i) {
-    //  block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
-    //}
 
     //  Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {

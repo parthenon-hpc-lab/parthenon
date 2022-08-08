@@ -154,7 +154,7 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
   }
   // calculate the first time step using Mesh function
   pmesh->boundary_comm_map.clear();
-  pmesh->boundary_comm_reflux_map.clear();
+  pmesh->boundary_comm_flxcor_map.clear();
   const int num_partitions = pmesh->DefaultNumPartitions();
   for (int i = 0; i < num_partitions; i++) {
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);

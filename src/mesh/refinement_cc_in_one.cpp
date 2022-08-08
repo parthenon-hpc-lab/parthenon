@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
@@ -17,136 +17,38 @@
 // so.
 //========================================================================================
 
-#include "mesh/refinement_cc_in_one.hpp"
+#include <algorithm>
+#include <utility>
 
 #include "kokkos_abstraction.hpp"
+#include "mesh/mesh_refinement_ops.hpp"
+#include "mesh/refinement_cc_in_one.hpp"
 
 namespace parthenon {
 namespace cell_centered_refinement {
 
-void Restrict(cell_centered_bvars::BufferCache_t &info, IndexShape &cellbounds,
-              IndexShape &c_cellbounds) {
-  const IndexDomain interior = IndexDomain::interior;
-  const IndexDomain entire = IndexDomain::entire;
-  auto ckb = c_cellbounds.GetBoundsK(interior);
-  auto cjb = c_cellbounds.GetBoundsJ(interior);
-  auto cib = c_cellbounds.GetBoundsI(interior);
-  auto kb = cellbounds.GetBoundsK(interior);
-  auto jb = cellbounds.GetBoundsJ(interior);
-  auto ib = cellbounds.GetBoundsI(interior);
+/*
+ * TODO(JMM): At some point we will want to be able to register
+ * alternative prolongation/restriction operators per variable. For
+ * example, face-centered fields, for higher-order
+ * prolongation/restriction.
+ * In this case, the restriction stencil, e.g., RestrictCellAverage<int>
+ * should become a functor, on which the restriction loop can be templated.
+ * Then users can register a restriction loop specialized to a given functor.
+ */
 
-  // TODO(BRR) nbuffers is currently always 1. In the future nbuffers could be > 1 to
-  // improve performance.
-  const int nbuffers = info.extent_int(0);
-  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
-  size_t scratch_size_in_bytes = 1;
-
-  if (cellbounds.ncellsk(entire) > 1) { // 3D
-    par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues3d", DevExecSpace(),
-        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
-        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).allocated && info(buf).restriction) {
-            par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sk, info(buf).ek,
-                info(buf).sj, info(buf).ej, info(buf).si, info(buf).ei,
-                [&](const int l, const int m, const int n, const int ck, const int cj,
-                    const int ci) {
-                  const int k = (ck - ckb.s) * 2 + kb.s;
-                  const int j = (cj - cjb.s) * 2 + jb.s;
-                  const int i = (ci - cib.s) * 2 + ib.s;
-                  // KGF: add the off-centered quantities first to preserve FP
-                  // symmetry
-                  const Real vol000 = info(buf).coords.Volume(k, j, i);
-                  const Real vol001 = info(buf).coords.Volume(k, j, i + 1);
-                  const Real vol010 = info(buf).coords.Volume(k, j + 1, i);
-                  const Real vol011 = info(buf).coords.Volume(k, j + 1, i + 1);
-                  const Real vol100 = info(buf).coords.Volume(k + 1, j, i);
-                  const Real vol101 = info(buf).coords.Volume(k + 1, j, i + 1);
-                  const Real vol110 = info(buf).coords.Volume(k + 1, j + 1, i);
-                  const Real vol111 = info(buf).coords.Volume(k + 1, j + 1, i + 1);
-                  Real tvol = ((vol000 + vol010) + (vol001 + vol011)) +
-                              ((vol100 + vol110) + (vol101 + vol111));
-                  // KGF: add the off-centered quantities first to preserve FP
-                  // symmetry
-                  auto &coarse = info(buf).coarse;
-                  auto &fine = info(buf).fine;
-                  coarse(l, m, n, ck, cj, ci) =
-                      (((fine(l, m, n, k, j, i) * vol000 +
-                         fine(l, m, n, k, j + 1, i) * vol010) +
-                        (fine(l, m, n, k, j, i + 1) * vol001 +
-                         fine(l, m, n, k, j + 1, i + 1) * vol011)) +
-                       ((fine(l, m, n, k + 1, j, i) * vol100 +
-                         fine(l, m, n, k + 1, j + 1, i) * vol110) +
-                        (fine(l, m, n, k + 1, j, i + 1) * vol101 +
-                         fine(l, m, n, k + 1, j + 1, i + 1) * vol111))) /
-                      tvol;
-                });
-          }
-        });
-  } else if (cellbounds.ncellsj(entire) > 1) { // 2D
-    par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues2d", DevExecSpace(),
-        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
-        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).allocated && info(buf).restriction) {
-            const int k = kb.s;
-            par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).sj, info(buf).ej,
-                info(buf).si, info(buf).ei,
-                [&](const int l, const int m, const int n, const int cj, const int ci) {
-                  const int j = (cj - cjb.s) * 2 + jb.s;
-                  const int i = (ci - cib.s) * 2 + ib.s;
-                  // KGF: add the off-centered quantities first to preserve FP
-                  // symmetry
-                  const Real vol00 = info(buf).coords.Volume(k, j, i);
-                  const Real vol10 = info(buf).coords.Volume(k, j + 1, i);
-                  const Real vol01 = info(buf).coords.Volume(k, j, i + 1);
-                  const Real vol11 = info(buf).coords.Volume(k, j + 1, i + 1);
-                  Real tvol = (vol00 + vol10) + (vol01 + vol11);
-
-                  // KGF: add the off-centered quantities first to preserve FP
-                  // symmetry
-                  auto &coarse = info(buf).coarse;
-                  auto &fine = info(buf).fine;
-                  coarse(l, m, n, 0, cj, ci) =
-                      ((fine(l, m, n, 0, j, i) * vol00 +
-                        fine(l, m, n, 0, j + 1, i) * vol10) +
-                       (fine(l, m, n, 0, j, i + 1) * vol01 +
-                        fine(l, m, n, 0, j + 1, i + 1) * vol11)) /
-                      tvol;
-                });
-          }
-        });
-  } else if (cellbounds.ncellsi(entire) > 1) { // 1D
-    par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, "RestrictCellCenteredValues1d", DevExecSpace(),
-        scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
-        KOKKOS_LAMBDA(team_mbr_t team_member, const int buf) {
-          if (info(buf).allocated && info(buf).restriction) {
-            const int ck = ckb.s;
-            const int cj = cjb.s;
-            const int k = kb.s;
-            const int j = jb.s;
-            par_for_inner(
-                inner_loop_pattern_ttr_tag, team_member, 0, info(buf).Nt - 1, 0,
-                info(buf).Nu - 1, 0, info(buf).Nv - 1, info(buf).si, info(buf).ei,
-                [&](const int l, const int m, const int n, const int ci) {
-                  const int i = (ci - cib.s) * 2 + ib.s;
-                  const Real vol0 = info(buf).coords.Volume(k, j, i);
-                  const Real vol1 = info(buf).coords.Volume(k, j, i + 1);
-                  Real tvol = vol0 + vol1;
-                  auto &coarse = info(buf).coarse;
-                  auto &fine = info(buf).fine;
-                  coarse(l, m, n, ck, cj, ci) = (fine(l, m, n, k, j, i) * vol0 +
-                                                 fine(l, m, n, k, j, i + 1) * vol1) /
-                                                tvol;
-                });
-          }
-        });
-  }
+void Restrict(const cell_centered_bvars::BufferCache_t &info,
+              const cell_centered_bvars::BufferCacheHost_t &info_h,
+              const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+  const auto op = RefinementOp_t::Restriction;
+  impl::DoProlongationRestrictionOp<refinement_ops::RestrictCellAverage>(
+      cellbnds, info, info_h, cellbnds, c_cellbnds, op);
+}
+void Restrict(const cell_centered_bvars::BufferCacheHost_t &info_h,
+              const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+  const auto op = RefinementOp_t::Restriction;
+  impl::DoProlongationRestrictionOp<refinement_ops::RestrictCellAverage>(
+      cellbnds, info_h, cellbnds, c_cellbnds, op);
 }
 
 std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md) {
@@ -176,10 +78,14 @@ TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
   // get alloc status
   auto alloc_status = ComputePhysicalRestrictBoundsAllocStatus(md);
 
-  auto info = md->GetRestrictBuffers();
+  auto info_pair = md->GetRestrictBuffers();
+  auto info = std::get<0>(info_pair);
+  auto info_h = std::get<1>(info_pair);
   if (!info.is_allocated() || (alloc_status != md->GetRestrictBufAllocStatus())) {
     ComputePhysicalRestrictBounds(md);
-    info = md->GetRestrictBuffers();
+    info_pair = md->GetRestrictBuffers();
+    info = std::get<0>(info_pair);
+    info_h = std::get<1>(info_pair);
   }
 
   auto &rc = md->GetBlockData(0);
@@ -187,7 +93,7 @@ TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
   IndexShape cellbounds = pmb->cellbounds;
   IndexShape c_cellbounds = pmb->c_cellbounds;
 
-  Restrict(info, cellbounds, c_cellbounds);
+  Restrict(info, info_h, cellbounds, c_cellbounds);
 
   Kokkos::Profiling::popRegion(); // Task_RestrictPhysicalBounds_MeshData
   return TaskStatus::complete;
@@ -213,9 +119,23 @@ void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
   PARTHENON_DEBUG_REQUIRE(idx == alloc_status.size(), "All buffers accounted for");
   Kokkos::deep_copy(info, info_h);
 
-  md->SetRestrictBuffers(info, alloc_status);
+  md->SetRestrictBuffers(info, info_h, alloc_status);
 
   Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBounds_MeshData
+}
+
+void Prolongate(const cell_centered_bvars::BufferCache_t &info,
+                const cell_centered_bvars::BufferCacheHost_t &info_h,
+                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+  const auto op = RefinementOp_t::Prolongation;
+  impl::DoProlongationRestrictionOp<refinement_ops::ProlongateCellMinMod>(
+      cellbnds, info, info_h, cellbnds, c_cellbnds, op);
+}
+void Prolongate(const cell_centered_bvars::BufferCacheHost_t &info_h,
+                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+  const auto op = RefinementOp_t::Prolongation;
+  impl::DoProlongationRestrictionOp<refinement_ops::ProlongateCellMinMod>(
+      cellbnds, info_h, cellbnds, c_cellbnds, op);
 }
 
 } // namespace cell_centered_refinement
