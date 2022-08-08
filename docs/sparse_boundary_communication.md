@@ -125,7 +125,7 @@ In each cache, we build a `std::vector<CommBuffer<....>*> send_buf_vec, recv_buf
 
 ### Flux Correction Tasks 
 The flux correction routines mirror the boundary routines, except that they do not accept a `BoundaryType` template parameter since the flux corrections are limited to fine-to-coarse boundaries (which is its own `BoundaryType`). Cacheing and the "in one" machinery has not been implemented here yet and it probably does not have a big impact on performance, but it should be very straightforward to switch to cacheing if desired.   
-- **`StartReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>>&)`**
-- **`LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>>&)`**
-- **`ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>>&)`**
+- **`StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)`**
+- **`LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>>&)`**
+- **`ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)`**
 - **`SetFluxCorrections(std::shared_ptr<MeshData<Real>>&)`**
