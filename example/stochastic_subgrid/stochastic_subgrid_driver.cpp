@@ -135,15 +135,12 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
       const auto any = parthenon::BoundaryType::any;
 
       tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
-      tl.AddTask(none,
-                 parthenon::cell_centered_bvars::StartReceiveFluxCorrections,
-                 mc0);
+      tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
 
       auto send_flx = tl.AddTask(
-          none, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections,
-          mc0);
-      auto recv_flx = tl.AddTask(
-          none, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
+          none, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
+      auto recv_flx =
+          tl.AddTask(none, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
       auto set_flx =
           tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
 
