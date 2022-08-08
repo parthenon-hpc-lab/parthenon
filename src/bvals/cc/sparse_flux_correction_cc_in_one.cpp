@@ -39,8 +39,8 @@ namespace cell_centered_bvars {
 
 using namespace impl;
 
-TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_LoadAndSendFluxCorrectionBuffers");
+TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_LoadAndSendFluxCorrections");
 
   Mesh *pmesh = md->GetMeshPointer();
 
@@ -174,12 +174,12 @@ TaskStatus LoadAndSendSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>
     return LoopControl::cont;
   });
 
-  Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrectionBuffers
+  Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
   return TaskStatus::complete;
 }
 
-TaskStatus StartReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrectionBuffers");
+TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrections");
   Mesh *pmesh = md->GetMeshPointer();
   ForEachBoundary<BoundaryType::flxcor_recv>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
@@ -189,12 +189,12 @@ TaskStatus StartReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real
         auto &buf = pmesh->boundary_comm_flxcor_map[ReceiveKey(pmb, nb, v)];
         buf.TryStartReceive();
       });
-  Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrectionBuffers
+  Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrections
   return TaskStatus::complete;
 }
 
-TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrectionBuffers");
+TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrections");
   bool all_received = true;
   Mesh *pmesh = md->GetMeshPointer();
   ForEachBoundary<BoundaryType::flxcor_recv>(
@@ -206,7 +206,7 @@ TaskStatus ReceiveSparseFluxCorrectionBuffers(std::shared_ptr<MeshData<Real>> &m
         all_received = buf.TryReceive() && all_received;
       });
 
-  Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrectionBuffers
+  Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrections
 
   if (all_received) return TaskStatus::complete;
   return TaskStatus::incomplete;

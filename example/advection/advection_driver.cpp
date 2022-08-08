@@ -88,7 +88,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
     tl.AddTask(none,
-               parthenon::cell_centered_bvars::StartReceiveSparseFluxCorrectionBuffers,
+               parthenon::cell_centered_bvars::StartReceiveFluxCorrections,
                mc0);
   }
 
@@ -127,10 +127,10 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
     auto send_flx = tl.AddTask(
-        none, parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers,
+        none, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections,
         mc0);
     auto recv_flx = tl.AddTask(
-        none, parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers, mc0);
+        none, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
     auto set_flx =
         tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
 
