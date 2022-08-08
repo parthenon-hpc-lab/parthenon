@@ -191,11 +191,13 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     fid << prefix << "  "
         << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
         << vector_size << R"(">)" << std::endl;
+    // clang-format off
     // TODO(JL) 3 and 5 are literals here, careful if they change.
     // "3" rows for START, STRIDE, and COUNT for each slab with "5" (H5_NDIM) entries.
     // START: iblock variable(_component)  0   0   0
     // STRIDE: 1               1           1   1   1
     // COUNT:  1           vector_size    nx3 nx2 nx1
+    // clang-format on
     fid << prefix << "    "
         << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
         << " " << i << " 0 0 0 " << " 1 1 1 1 1 1 " << vector_size << " " << dims321
