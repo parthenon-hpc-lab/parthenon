@@ -511,7 +511,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // we'll need this again at the end
   const H5G info_group = MakeGroup(file, "/Info");
   {
-    HDF5WriteAttribute("OutputFormatVersion", 2, info_group);
+    HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info_group);
 
     if (tm != nullptr) {
       HDF5WriteAttribute("NCycle", tm->ncycle, info_group);
