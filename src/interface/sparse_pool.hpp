@@ -13,9 +13,9 @@
 #ifndef INTERFACE_SPARSE_POOL_HPP_
 #define INTERFACE_SPARSE_POOL_HPP_
 
+#include <map>
 #include <string>
 #include <type_traits>
-#include <unordered_map>
 #include <vector>
 
 #include "metadata.hpp"
@@ -74,7 +74,7 @@ class SparsePool {
   const std::string &base_name() const { return base_name_; }
   const std::string &controller_base_name() const { return controller_base_name_; }
   const Metadata &shared_metadata() const { return shared_metadata_; }
-  const std::unordered_map<int, Metadata> &pool() const { return pool_; }
+  const std::map<int, Metadata> &pool() const { return pool_; }
   auto size() const { return pool_.size(); }
 
   // Add a new sparse ID to the pool with optional arguments:
@@ -117,7 +117,7 @@ class SparsePool {
 
   Metadata shared_metadata_;
   // Metadata per sparse id
-  std::unordered_map<int, Metadata> pool_;
+  std::map<int, Metadata> pool_;
 };
 
 } // namespace parthenon

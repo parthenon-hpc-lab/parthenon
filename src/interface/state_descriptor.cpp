@@ -279,6 +279,10 @@ bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
   }
 
   sparsePoolMap_.insert({pool.base_name(), pool});
+  // update the inverse map
+  for (auto &s : pool.pool()) {
+    sparseInverseMap_[s.first].push_back(pool.base_name());
+  }
 
   std::string controller_base = pool.controller_base_name();
   if (controller_base == "") controller_base = pool.base_name();

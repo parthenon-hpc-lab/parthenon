@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 
 namespace parthenon {
@@ -24,12 +25,20 @@ namespace solvers {
 
 struct SparseMatrixAccessor {
   ParArray1D<int> ioff, joff, koff;
+  ParArray1D<int> ioff_inv, joff_inv, koff_inv;
+  ParArray1D<int> inv_entries;
+
   const int nstencil;
   int ndiag;
-
+  SparseMatrixAccessor() : nstencil(0), ndiag(0) {}
+  SparseMatrixAccessor(const SparseMatrixAccessor &sp)
+      : ioff(sp.ioff), joff(sp.joff), koff(sp.koff), nstencil(sp.nstencil),
+        ndiag(sp.ndiag), inv_entries(sp.inv_entries) {}
   SparseMatrixAccessor(const std::string &label, const int n,
                        std::vector<std::vector<int>> off)
       : ioff(label + "_ioff", n), joff(label + "_joff", n), koff(label + "_koff", n),
+        ioff_inv(label + "_ioff_inv", n), joff_inv(label + "_joff_inv", n),
+        koff_inv(label + "_koff_inv", n), inv_entries(label + "_inv_ent", n),
         nstencil(n) {
     PARTHENON_REQUIRE_THROWS(off.size() == 3,
                              "Offset array must have dimensions off[3][*]");
@@ -40,18 +49,41 @@ struct SparseMatrixAccessor {
     auto joff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), joff);
     auto koff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), koff);
 
+    auto ioff_inv_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), ioff_inv);
+    auto joff_inv_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), joff_inv);
+    auto koff_inv_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), koff_inv);
+
+    auto inv_ent_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), inv_entries);
+
     for (int i = 0; i < n; i++) {
       ioff_h(i) = off[0][i];
       joff_h(i) = off[1][i];
       koff_h(i) = off[2][i];
+      // this is inverse.
+      ioff_inv_h(i) = -off[0][i];
+      joff_inv_h(i) = -off[1][i];
+      koff_inv_h(i) = -off[2][i];
+
       if (off[0][i] == 0 && off[1][i] == 0 && off[2][i] == 0) {
         ndiag = i;
       }
     }
+    for (int i = 0; i < n; i++) {
+
+      for (int j = 0; j < n; j++) {
+        if (ioff_h(i) == ioff_inv_h(j) && joff_h(i) == joff_inv_h(j) &&
+            koff_h(i) == koff_inv_h(j)) {
+          inv_entries(i) = j;
+          std::cout << "inv_entries:" << i << " " << j << std::endl;
+        }
+      } // j
+    }   // i
 
     Kokkos::deep_copy(ioff, ioff_h);
     Kokkos::deep_copy(joff, joff_h);
     Kokkos::deep_copy(koff, koff_h);
+
+    Kokkos::deep_copy(inv_entries, inv_ent_h);
   }
 
   template <typename PackType>
@@ -84,7 +116,10 @@ struct Stencil {
   ParArray1D<int> ioff, joff, koff;
   const int nstencil;
   int ndiag;
-
+  Stencil() : nstencil(0), ndiag(0) {}
+  Stencil(const Stencil<T> &st)
+      : w(st.w), ioff(st.ioff), joff(st.joff), koff(st.koff), nstencil(st.nstencil),
+        ndiag(st.ndiag) {}
   Stencil(const std::string &label, const int n, std::vector<T> wgt,
           std::vector<std::vector<int>> off)
       : w(label + "_w", n), ioff(label + "_ioff", n), joff(label + "_joff", n),

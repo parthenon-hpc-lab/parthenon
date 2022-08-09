@@ -81,6 +81,8 @@ if (${PAR_LOOP_INNER_LAYOUT} STREQUAL "TVR_INNER_LOOP")
   set(PAR_LOOP_INNER_LAYOUT_TAG inner_loop_pattern_tvr_tag)
 elseif (${PAR_LOOP_INNER_LAYOUT} STREQUAL "SIMDFOR_INNER_LOOP")
   set(PAR_LOOP_INNER_LAYOUT_TAG inner_loop_pattern_simdfor_tag)
+elseif (${PAR_LOOP_INNER_LAYOUT} STREQUAL "TTR_INNER_LOOP")
+  set(PAR_LOOP_INNER_LAYOUT_TAG inner_loop_pattern_ttr_tag)
 else()
   set(PAR_LOOP_INNER_LAYOUT_TAG loop_pattern_undefined_tag)
 endif()
@@ -194,7 +196,11 @@ add_library(parthenon
   refinement/refinement.cpp
   refinement/refinement.hpp
 
+  solvers/bicgstab_solver.hpp
   solvers/solver_utils.hpp
+  solvers/cg_solver.hpp
+  solvers/newton_krylov.hpp
+  solvers/solvers.cpp
 
   tasks/task_id.cpp
   tasks/task_id.hpp

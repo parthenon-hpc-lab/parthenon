@@ -147,9 +147,11 @@ class VarListWithLabels {
            const std::unordered_set<int> &sparse_ids = {}) {
     if (!var->IsSparse() || sparse_ids.empty() ||
         (sparse_ids.count(var->GetSparseID()) > 0)) {
-      vars_.push_back(var);
-      labels_.push_back(var->label());
-      alloc_status_.push_back(var->IsAllocated());
+      if (var->IsAllocated()) {
+        vars_.push_back(var);
+        labels_.push_back(var->label());
+        alloc_status_.push_back(true);
+      }
     }
   }
 
@@ -174,6 +176,9 @@ class PackIndexMap {
     const auto &key = MakeVarLabel(base_name, sparse_id);
     auto itr = map_.find(key);
     if (itr == map_.end()) {
+      for (auto &pair : map_) {
+        std::cout << pair.first << " " << pair.second.first << " " << pair.second.second << std::endl;
+      }
       PARTHENON_THROW("PackIndexMap does not have key '" + key + "'");
     }
 
@@ -488,7 +493,8 @@ template <typename T>
 using MapToSwarmVariablePack = std::map<std::vector<std::string>, SwarmPackIndxPair<T>>;
 
 template <typename T>
-void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap) {
+void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap,
+                         const std::string &prefix="") {
   using vpack_types::IndexPair;
 
   if (pvmap != nullptr) {
@@ -504,14 +510,14 @@ void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap)
         if (mshape.size() > 0) shape.push_back(v->GetDim(4));
         if (mshape.size() > 1) shape.push_back(v->GetDim(5));
         if (mshape.size() > 2) shape.push_back(v->GetDim(6));
-        auto &pair = pvmap->get(v->label());
+        auto &pair = pvmap->get(prefix + v->label());
         start = pair.first;
         stop = pair.second;
         auto vj = vi + 1;
         while (vj != vars.end()) {
           auto &q = *vj;
           if (q->base_name() == v->base_name()) {
-            stop = pvmap->get(q->label()).second;
+            stop = pvmap->get(prefix + q->label()).second;
             vj++;
           } else {
             break;
@@ -558,6 +564,8 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
             host_cv(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
+          } else {
+            PARTHENON_FAIL("Encountered unallocated variable in FillVarView!");
           }
 
           vindex++;
@@ -648,6 +656,8 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
             host_f1(vindex) = v->flux[X1DIR].Get(k, j, i);
             if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
             if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
+          } else {
+            PARTHENON_FAIL("Encountered unallocated variable in FillFluxViews!");
           }
 
           vindex++;
@@ -662,11 +672,11 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
     if (mshape.size() > 2) shape.push_back(v->GetDim(6));
 
     if (pvmap != nullptr) {
-      pvmap->insert(v->label(), IndexPair(vstart, vindex - 1), shape);
+      pvmap->insert("flux::"+v->label(), IndexPair(vstart, vindex - 1), shape);
     }
   }
 
-  AppendSparseBaseMap(vars, pvmap);
+  AppendSparseBaseMap(vars, pvmap, "flux::");
 
   Kokkos::deep_copy(f1_out, host_f1);
   Kokkos::deep_copy(f2_out, host_f2);

@@ -818,12 +818,28 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_m
     function(j, i);
   });
 }
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member,
+                                          const int il, const int iu,
+                                          const Function &function) {
+  par_for_inner(inner_loop_pattern_tvr_tag, team_member, il, iu, function);
+}
 // Inner parallel loop using TeamVectorRange
 template <typename Function>
 KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_member,
                                           const int il, const int iu,
                                           const Function &function) {
   Kokkos::parallel_for(Kokkos::TeamVectorRange(team_member, il, iu + 1), function);
+}
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_member,
+                                          const int jl, const int ju, const int il,
+                                          const int iu, const Function &function) {
+  Kokkos::parallel_for(
+    Kokkos::TeamThreadRange<>(team_member, jl, ju + 1), [&](const int j) {
+      Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, il, iu + 1),
+                           [&](const int i) { function(j, i); });
+    });
 }
 
 // Inner parallel loop using FOR SIMD
