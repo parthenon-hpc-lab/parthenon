@@ -53,7 +53,7 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
 
 int RestartReader::GetOutputFormatVersion() const {
   const H5O obj = H5O::FromHIDCheck(H5Oopen(fh_, "Info", H5P_DEFAULT));
-  auto status = PARTHENON_HDF5_CHECK(H5Aexists(obj, "OutputFormatVersion)"));
+  auto status = PARTHENON_HDF5_CHECK(H5Aexists(obj, "OutputFormatVersion"));
   // file contains version info
   if (status > 0) {
     return GetAttr<int>("Info", "OutputFormatVersion");
