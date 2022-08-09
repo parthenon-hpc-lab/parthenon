@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 710]](https://github.com/lanl/parthenon/pull/710) Remove data transpose in hdf5 and restart outputs
 - [[PR 711]](https://github.com/lanl/parthenon/pull/711) Rename flux correction routines.
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
