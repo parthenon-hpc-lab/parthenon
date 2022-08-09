@@ -177,16 +177,12 @@ class NewtonKrylov : NewtonKrylov_Counter {
     auto update = ls->AddTask(begin, &NewtonKrylov<LinSolverType, DataType>::Update, this,
                               md.get(), mdelta.get());
     // share \Delta x
-    auto start_recv =
-        ls->AddTask(none, &DataType::StartReceiving, md.get(), BoundaryCommSubset::all);
     auto send =
         ls->AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
-    auto recv = ls->AddTask(start_recv,
+    auto recv = ls->AddTask(none,
                             parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
     auto setb =
         ls->AddTask(recv | update, parthenon::cell_centered_bvars::SetBoundaries, md);
-    auto clear = ls->AddTask(send | setb, &DataType::ClearBoundary, md.get(),
-                             BoundaryCommSubset::all);
 
     // apply physical boundary conditions
     auto copy = ls->AddTask(setb, &NewtonKrylov<LinSolverType, DataType>::Copy, this,

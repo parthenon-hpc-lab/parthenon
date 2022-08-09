@@ -74,7 +74,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   TaskRegion &solver_region = tc.AddRegion(num_partitions);
 
   for (int i = 0; i < num_partitions; i++) {
-    int reg_dep_id = 0;
+    // int reg_dep_id = 0;
     // make/get a mesh_data container for the state
     auto &base = pmesh->mesh_data.GetOrAdd("base", i);
     auto &md = pmesh->mesh_data.GetOrAdd(solver_name, i);

@@ -59,6 +59,7 @@ class MeshBlockPack {
 #ifdef ENABLE_SPARSE
   KOKKOS_FORCEINLINE_FUNCTION bool IsAllocated(const int block, const int var) const {
     return v_(block).GetDim(4) > var && v_(block).IsAllocated(var);
+  }
   KOKKOS_FORCEINLINE_FUNCTION
   int StartIndex(const int block, const int var_index) const {
     return start_(block, var_index);
@@ -67,7 +68,6 @@ class MeshBlockPack {
   int StopIndex(const int block, const int var_index) const {
     return stop_(block, var_index);
   }
-
   KOKKOS_FORCEINLINE_FUNCTION bool IsSparseIDAllocated(const int block,
                                                        const int var) const {
     return v_(block).GetDim(4) > var && v_(block)(var).is_allocated();

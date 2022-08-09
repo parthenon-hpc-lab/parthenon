@@ -142,19 +142,15 @@ class BiCGStabSolver : BiCGStabCounter {
       md.get());
 
     // ghost exchange for pk
-    auto start_recv1 = solver.AddTask(none, &MeshData<Real>::StartReceiving, md.get(),
-                                     BoundaryCommSubset::all);
     auto send1 =
         solver.AddTask(update_pk, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
     auto recv1 = solver.AddTask(
-        start_recv1, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
+        update_pk, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
     auto setb1 =
-        solver.AddTask(recv1 | update_pk, parthenon::cell_centered_bvars::SetBoundaries, md);
-    auto clear1 = solver.AddTask(send1 | setb1, &MeshData<Real>::ClearBoundary, md.get(),
-                                BoundaryCommSubset::all);
+        solver.AddTask(recv1, parthenon::cell_centered_bvars::SetBoundaries, md);
 
     // 4. v = A p
-    auto get_v = solver.AddTask(clear1, &Solver_t::MatVec<MD_t>, this, md.get(), pk, vk);
+    auto get_v = solver.AddTask(setb1, &Solver_t::MatVec<MD_t>, this, md.get(), pk, vk);
 
     // 5. alpha = rho_i / (\hat{r}_0 \cdot v_i)
     auto get_r0dotv = solver.AddTask(get_v, &Solver_t::DotProduct<MD_t>, this,
@@ -179,19 +175,15 @@ class BiCGStabSolver : BiCGStabCounter {
       md.get());
 
     // ghost exchange for sk
-    auto start_recv2 = solver.AddTask(clear1, &MeshData<Real>::StartReceiving, md.get(),
-                                     BoundaryCommSubset::all);
     auto send2 =
         solver.AddTask(get_s, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
     auto recv2 = solver.AddTask(
-        start_recv2, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
+        get_s, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
     auto setb2 =
         solver.AddTask(recv2 | get_s, parthenon::cell_centered_bvars::SetBoundaries, md);
-    auto clear2 = solver.AddTask(send1 | setb1, &MeshData<Real>::ClearBoundary, md.get(),
-                                BoundaryCommSubset::all);
 
     // 9. t = A s
-    auto get_t = solver.AddTask(clear2, &Solver_t::MatVec<MD_t>, this, md.get(),
+    auto get_t = solver.AddTask(setb2, &Solver_t::MatVec<MD_t>, this, md.get(),
       res, tk);
 
     // 10. omega = (t \cdot s) / (t \cdot t)
@@ -226,7 +218,8 @@ class BiCGStabSolver : BiCGStabCounter {
 
     return check;
   }
-
+ 
+ public:
   template <typename T>  
   TaskStatus InitializeBiCGStab(T *u, T *du, Real *gres0) {
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
@@ -321,11 +314,12 @@ class BiCGStabSolver : BiCGStabCounter {
     const int iout = imap[out_vec].first;
     const int isp_lo = imap[spm_name].first;
     const int isp_hi = imap[spm_name].second;
+    SparseMatrixAccessor& r_sp_accessor = sp_accessor;
 
     par_for(DEFAULT_LOOP_PATTERN, "MatVec", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        v(b, iout, k, j, i) = sp_accessor.MatVec(v, isp_lo, isp_hi, v, iin, b, k, j, i);
+        v(b, iout, k, j, i) = r_sp_accessor.MatVec(v, isp_lo, isp_hi, v, iin, b, k, j, i);
       });
     return TaskStatus::complete;
   }
@@ -442,7 +436,8 @@ class BiCGStabSolver : BiCGStabCounter {
     t_dot_t.val = 0.0;
     return converged || stop ? TaskStatus::complete : TaskStatus::iterate;
   }
-
+ 
+ private: 
   Real error_tol;
   SparseMatrixAccessor sp_accessor;
   int max_iters, check_interval, bicgstab_cntr;

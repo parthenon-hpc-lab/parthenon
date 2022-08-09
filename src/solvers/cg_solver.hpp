@@ -179,19 +179,16 @@ class CG_Solver : public CG_Counter {
                        &CG_Solver<SPType>::Axpy1<MeshData<Real>>, this, md.get());
 
     // ghost exchange.
-    auto start_recv = solver.AddTask(none, &MeshData<Real>::StartReceiving, md.get(),
-                                     BoundaryCommSubset::all);
     auto send =
         solver.AddTask(axpy1, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
     auto recv = solver.AddTask(
-        start_recv, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
+        none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
     auto setb =
         solver.AddTask(recv | axpy1, parthenon::cell_centered_bvars::SetBoundaries, md);
-    auto clear = solver.AddTask(send | setb, &MeshData<Real>::ClearBoundary, md.get(),
-                                BoundaryCommSubset::all);
+    
     // matvec Ap = J*p
     auto matvec =
-        solver.AddTask(clear, &CG_Solver<SPType>::MatVec<MeshData<Real>>, this, md.get());
+        solver.AddTask(setb, &CG_Solver<SPType>::MatVec<MeshData<Real>>, this, md.get());
     tr.AddRegionalDependencies(reg.ID(), i, matvec);
 
     // reduce p.Ap
@@ -331,8 +328,11 @@ class CG_Solver : public CG_Counter {
       diag = stencil.ndiag;
     }
 
-    Real sum(0);
-    Real gsum(0);
+    // Real sum(0);
+    // Real gsum(0);
+    
+    bool &r_use_sparse_accessor = use_sparse_accessor;
+    Stencil<Real> &r_stencil = stencil; 
 
     switch (precon_type) {
     case Precon_Type::NONE:
@@ -350,14 +350,14 @@ class CG_Solver : public CG_Counter {
           v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
             // z=r/J_ii
-            Real J_ii = (use_sparse_accessor ? v(b, diag, k, j, i) : stencil.w(diag));
+            Real J_ii = (r_use_sparse_accessor ? v(b, diag, k, j, i) : r_stencil.w(diag));
             v(b, izk, k, j, i) = v(b, ires, k, j, i) / J_ii;
           });
       break;
     case Precon_Type::ICC: {
       int nx = (ib.e - ib.s) + 1;
       int ny = (jb.e - jb.s) + 1;
-      int nz = (kb.e - kb.s) + 1;
+      // int nz = (kb.e - kb.s) + 1;
       int nxny = nx * ny;
       const auto ioff = sp_accessor.ioff;
       const auto joff = sp_accessor.joff;
@@ -367,7 +367,7 @@ class CG_Solver : public CG_Counter {
       const int ipcm_hi = imap[pcm_name].second;
       int pc_diag = sp_accessor.ndiag + ipcm_lo;
 
-      int nstencil = sp_accessor.nstencil;
+      // int nstencil = sp_accessor.nstencil;
 
       // first copy r into z.
       parthenon::par_for(
@@ -375,7 +375,7 @@ class CG_Solver : public CG_Counter {
           v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
             // z=r/J_ii
-            int l = (i - ib.s) + nx * (j - jb.s) + nxny * (k - kb.s);
+            // int l = (i - ib.s) + nx * (j - jb.s) + nxny * (k - kb.s);
             v(b, izk, k, j, i) = v(b, ires, k, j, i);
           });
 
@@ -478,7 +478,7 @@ class CG_Solver : public CG_Counter {
     const int izk = imap[zk].first;
     const int ires = imap[res].first;
 
-    Real sum(0);
+    // Real sum(0);
     Real gsum(0);
 
     parthenon::par_reduce(
@@ -503,7 +503,7 @@ class CG_Solver : public CG_Counter {
 
     int nx = (ib.e - ib.s) + 1;
     int ny = (jb.e - jb.s) + 1;
-    int nz = (kb.e - kb.s) + 1;
+    // int nz = (kb.e - kb.s) + 1;
     int nxny = nx * ny;
 
     PackIndexMap imap;
@@ -562,7 +562,7 @@ class CG_Solver : public CG_Counter {
       // const int ipcm_hi = imap[pcm_name].second;
       int pc_diag = sp_accessor.ndiag + ipcm_lo;
 
-      int nstencil = sp_accessor.nstencil;
+      // int nstencil = sp_accessor.nstencil;
 
       // copy matrix into precon matrix.
       parthenon::par_for(
@@ -589,8 +589,8 @@ class CG_Solver : public CG_Counter {
                            v(b, ipcm_lo + right, k, j, i - 1) /
                            v(b, pc_diag, k, j, i - 1);
               Real val_j = -v(b, ipcm_lo + bottom, k, j, i) *
-                           (b, ipcm_lo + top, k, j - 1, i) / v(b, pc_diag, k, j - 1, i);
-              ;
+                           v(b, ipcm_lo + top, k, j - 1, i) / 
+                           v(b, pc_diag, k, j - 1, i);
               if (i == ib.s) val_i = 0;
               if (j == jb.s) val_j = 0;
 
@@ -830,27 +830,31 @@ class CG_Solver : public CG_Counter {
     int ndim = v.GetNdim();
     Real dot(0);
     if (use_sparse_accessor) {
+      bool &r_use_sparse_accessor = use_sparse_accessor;
+      SparseMatrixAccessor &r_sp_accessor = sp_accessor;
+      Stencil<Real> &r_stencil = stencil;
       parthenon::par_reduce(
           parthenon::loop_pattern_mdrange_tag, "mat_vec", DevExecSpace(), 0,
           v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
             // ap = A*p;
             v(b, iapk, k, j, i) =
-                (use_sparse_accessor
-                     ? sp_accessor.MatVec(v, isp_lo, isp_hi, v, ipk, b, k, j, i)
-                     : stencil.MatVec(v, ipk, b, k, j, i));
+                (r_use_sparse_accessor
+                     ? r_sp_accessor.MatVec(v, isp_lo, isp_hi, v, ipk, b, k, j, i)
+                     : r_stencil.MatVec(v, ipk, b, k, j, i));
 
             // p.Ap
             lsum += v(b, ipk, k, j, i) * v(b, iapk, k, j, i);
           },
           Kokkos::Sum<Real>(dot));
     } else {
+      Stencil<Real> &r_stencil = stencil;
       parthenon::par_reduce(
           parthenon::loop_pattern_mdrange_tag, "mat_vec", DevExecSpace(), 0,
           v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
             // ap = A*p;
-            v(b, iapk, k, j, i) = stencil.MatVec(v, ipk, b, k, j, i);
+            v(b, iapk, k, j, i) = r_stencil.MatVec(v, ipk, b, k, j, i);
 
             // p.Ap
             lsum += v(b, ipk, k, j, i) * v(b, iapk, k, j, i);
