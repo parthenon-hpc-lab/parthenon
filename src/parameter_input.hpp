@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <ostream>
 #include <string>
+#include <unordered_map>
 
 #include "config.hpp"
 #include "defs.hpp"
@@ -107,7 +108,7 @@ class ParameterInput {
   void ForwardNextTime(Real time);
   void CheckRequired(const std::string &block, const std::string &name);
   void CheckDesired(const std::string &block, const std::string &name);
-
+  std::unordered_map<std::string, std::string> GetBlockMap(const std::string &block);
  private:
   std::string last_filename_; // last input file opened, to prevent duplicate reads
 

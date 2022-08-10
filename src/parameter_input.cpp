@@ -497,6 +497,20 @@ std::string ParameterInput::GetComment(const std::string &block,
   return val;
 }
 
+std::unordered_map<std::string, std::string> ParameterInput::GetBlockMap(const std::string &block) {
+  std::unordered_map<std::string, std::string> map; 
+  InputBlock *pb = GetPtrToBlock(block); 
+  if (pb == nullptr) {
+    std::stringstream msg;
+    msg << "### FATAL ERROR in function [ParameterInput::GetBlockMap]" << std::endl
+        << "Block name '" << block << "' not found'";
+    PARTHENON_FAIL(msg);
+  } 
+  for (InputLine* cline = pb->pline; cline != nullptr; cline = cline->pnext) 
+    map[cline->param_name] = cline->param_value; 
+  return map;
+}
+
 //----------------------------------------------------------------------------------------
 //! \fn int ParameterInput::GetInteger(const std::string & block, const std::string &
 //! name)
