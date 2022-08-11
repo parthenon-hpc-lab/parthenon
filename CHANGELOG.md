@@ -2,6 +2,9 @@
 
 ## Current develop
 
+### Added (new features/APIs/variables/...)
+- [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
+
 ### Changed (changing behavior/API/variables/...)
 
 ### Fixed (not changing behavior/API/variables/...)

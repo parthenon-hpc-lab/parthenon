@@ -22,7 +22,6 @@ problem_id = advection_2d
 refinement = adaptive
 numlevel = 3
 
-nx1 = 64
 x1min = -0.5
 x1max = 0.5
 ix1_bc = periodic
