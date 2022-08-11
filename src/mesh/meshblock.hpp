@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "application_input.hpp"
+#include "bvals/bvals.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"

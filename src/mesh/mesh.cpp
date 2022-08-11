@@ -1067,25 +1067,26 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
 
+    // Build densely populated communication tags
+    tag_map.clear();
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd("base", i);
+      tag_map.AddMeshDataToMap(md);
+    }
+    tag_map.ResolveMap();
+
     // Create send/recv MPI_Requests for all BoundaryData objects
     for (int i = 0; i < nmb; ++i) {
       auto &pmb = block_list[i];
-      // TODO(mpi people) do we still need the pbval part? Discuss also in the context of
-      // other than cellvariables, see comment above on communicators.
-      // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
-      // pmb->pbval->SetupPersistentMPI();
-      pmb->meshblock_data.Get()->SetupPersistentMPI();
       pmb->swarm_data.Get()->SetupPersistentMPI();
     }
 
-    // prepare to receive conserved variables
-    for (int i = 0; i < nmb; ++i) {
-      block_list[i]->meshblock_data.Get()->StartReceiving(BoundaryCommSubset::mesh_init);
-    }
-
     // send FillGhost variables
+    boundary_comm_map.clear();
+    boundary_comm_flxcor_map.clear();
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
+      cell_centered_bvars::BuildSparseBoundaryBuffers(md);
       cell_centered_bvars::SendBoundaryBuffers(md);
     }
 
@@ -1112,10 +1113,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
 
-    for (int i = 0; i < nmb; ++i) {
-      block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
-    }
-    // Now do prolongation, compute primitives, apply BCs
+    //  Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
       auto &mbd = block_list[i]->meshblock_data.Get();
       if (multilevel) {
@@ -1287,6 +1285,7 @@ void Mesh::SetupMPIComms() {
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});
       PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
+
       if (multilevel) {
         MPI_Comm mpi_comm_flcor;
         PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm_flcor));

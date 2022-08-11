@@ -221,7 +221,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   friend class BoundaryVariable;
   friend class FaceCenteredBoundaryVariable; // needs nface_, nedge_, num_north/south_...
   // TODO(KGF): consider removing these friendship designations:
-  friend class CellCenteredBoundaryVariable;
   friend class BoundarySwarm;
 };
 

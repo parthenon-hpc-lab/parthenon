@@ -47,4 +47,16 @@ inline MPI_Datatype MPITypeMap<bool>::type() {
 } // namespace parthenon
 #endif
 
+namespace parthenon {
+
+#ifdef MPI_PARALLEL
+using mpi_request_t = MPI_Request;
+using mpi_comm_t = MPI_Comm;
+#else
+using mpi_request_t = int;
+using mpi_comm_t = int;
+#endif
+
+} // namespace parthenon
+
 #endif // UTILS_MPI_TYPES_HPP_
