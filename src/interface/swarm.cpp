@@ -1148,7 +1148,7 @@ void Swarm::ApplyBoundaries_(const int nparticles, ParArrayND<int> indices) {
       "Swarm::ApplyBoundaries", 0, nparticles - 1, KOKKOS_LAMBDA(const int n) {
         const int sid = indices(n);
         for (int l = 0; l < 6; l++) {
-          bcs.bounds[l]->Apply(sid, x(sid), y(sid), z(sid), swarm_d);
+          // bcs.bounds[l]->Apply(sid, x(sid), y(sid), z(sid), swarm_d);
         }
       });
 

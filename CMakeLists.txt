@@ -249,7 +249,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if (PARTHENON_ENABLE_CPP17)
   set(CMAKE_CXX_STANDARD 17)
 # Ensure correct flag is used as deprecated c++1z is not supported by nvcc.
-  set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++17")
+#  set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++17")
 else()
   set(CMAKE_CXX_STANDARD 14)
 endif()

@@ -230,7 +230,7 @@ TEST_CASE("par_for loops", "[wrapper]") {
     REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttr_tag, default_exec_space) ==
             true);
 
-#if !(defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP))
+#if !(defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL))
     REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
             true);
 
@@ -252,7 +252,7 @@ TEST_CASE("par_for loops", "[wrapper]") {
     REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttr_tag, default_exec_space) ==
             true);
 
-#if !(defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP))
+#if !(defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL))
     REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
             true);
 
@@ -409,7 +409,7 @@ TEST_CASE("nested par_for loops", "[wrapper]") {
                                    parthenon::inner_loop_pattern_tvr_tag,
                                    default_exec_space) == true);
 
-#ifndef KOKKOS_ENABLE_CUDA
+#if !(defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL))
     REQUIRE(test_wrapper_nested_3d(parthenon::outer_loop_pattern_teams_tag,
                                    parthenon::inner_loop_pattern_simdfor_tag,
                                    default_exec_space) == true);
@@ -421,7 +421,7 @@ TEST_CASE("nested par_for loops", "[wrapper]") {
                                    parthenon::inner_loop_pattern_tvr_tag,
                                    default_exec_space) == true);
 
-#ifndef KOKKOS_ENABLE_CUDA
+#if !(defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL))
     REQUIRE(test_wrapper_nested_4d(parthenon::outer_loop_pattern_teams_tag,
                                    parthenon::inner_loop_pattern_simdfor_tag,
                                    default_exec_space) == true);
@@ -739,17 +739,17 @@ TEST_CASE("Device Object Allocation", "[wrapper]") {
     }
   }
 
-  GIVEN("A derived class") {
-    THEN("We can create a unique_ptr to this on device") {
-      auto ptr = parthenon::DeviceAllocate<MyTestDerivedClass>();
-      auto devptr = ptr.get();
-
-      Kokkos::parallel_for(
-          Kokkos::RangePolicy<DevExecSpace>(0, 1),
-          KOKKOS_LAMBDA(const int i) { buffer(i) = devptr->GetInt(); });
-
-      auto buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), buffer);
-      REQUIRE(buffer_h[0] == test_int);
-    }
-  }
+//  GIVEN("A derived class") {
+//    THEN("We can create a unique_ptr to this on device") {
+//      auto ptr = parthenon::DeviceAllocate<MyTestDerivedClass>();
+//      auto devptr = ptr.get();
+//
+//      Kokkos::parallel_for(
+//          Kokkos::RangePolicy<DevExecSpace>(0, 1),
+//          KOKKOS_LAMBDA(const int i) { buffer(i) = devptr->GetInt(); });
+//
+//      auto buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), buffer);
+//      REQUIRE(buffer_h[0] == test_int);
+//    }
+//  }
 }
