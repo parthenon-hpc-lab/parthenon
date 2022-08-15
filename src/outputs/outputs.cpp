@@ -87,6 +87,7 @@
 #include <string>
 
 #include "defs.hpp"
+#include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
@@ -708,6 +709,6 @@ void OutputType::SumOutputData(MeshBlock *pmb, int dim) {
 //  \brief Convert vectors in curvilinear coordinates into Cartesian
 
 void OutputType::CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
-                                          Coordinates *pco) {}
+                                          Coordinates_t *pco) {}
 
 } // namespace parthenon

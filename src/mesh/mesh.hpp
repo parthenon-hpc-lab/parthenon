@@ -72,7 +72,6 @@ class Mesh {
   friend class MeshBlockTree;
   friend class BoundaryBase;
   friend class BoundaryValues;
-  friend class Coordinates;
   friend class MeshRefinement;
 
  public:
