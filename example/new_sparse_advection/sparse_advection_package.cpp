@@ -232,7 +232,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &rc) {
         int lo_vy = v.GetLowerBound(b, vy_vt());
         int hi_vy = v.GetUpperBound(b, vy_vt());
 
-        printf("(%i %i) (%i %i) (%i %i)\n", lo, hi, lo_vx, hi_vx, lo_vy, hi_vy);
+        //printf("(%i %i) (%i %i) (%i %i)\n", lo, hi, lo_vx, hi_vx, lo_vy, hi_vy);
         PARTHENON_REQUIRE(hi - lo == hi_vx - lo_vx, "Not the same number of variables");
         PARTHENON_REQUIRE(hi - lo == hi_vy - lo_vy, "Not the same number of variables");
 
@@ -249,10 +249,10 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &rc) {
 
                 const int id = v(b, spidx).sparse_id;
 
-                const Real &vx =
-                    v(b, vxidx, std::min(k, kb.e), std::min(j, jb.e), std::min(i, ib.e));
-                const Real &vy =
-                    v(b, vyidx, std::min(k, kb.e), std::min(j, jb.e), std::min(i, ib.e));
+                //const Real &vx =
+                //    v(b, vxidx, std::min(k, kb.e), std::min(j, jb.e), std::min(i, ib.e));
+                //const Real &vy =
+                //    v(b, vyidx, std::min(k, kb.e), std::min(j, jb.e), std::min(i, ib.e));
 
                 const Real &qp = v(b, spidx, k, j, i);
                 const Real &qmx = v(b, spidx, k, j, i - 1);
@@ -263,8 +263,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &rc) {
                 v.flux(b, X2DIR, spidx, k, j, i) = (vyp[id] > 0.0 ? qmy : qp) * vyp[id];
                 // printf("[%i %i %i] (%e %e %e) (%e %e)\n", k, j, i, vxp[id], vx,
                 // vyp[id], v(b, vxidx).sparse_default_val, vy);
-                PARTHENON_REQUIRE(vxp[id] == vx, "Velocities not equal");
-                PARTHENON_REQUIRE(vyp[id] == vy, "Velocities not equal");
+                //(vxp[id] == vx, "Velocities not equal");
+                //PARTHENON_REQUIRE(vyp[id] == vy, "Velocities not equal");
               });
         }
       });
