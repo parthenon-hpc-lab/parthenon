@@ -40,7 +40,6 @@ class MeshBlock;
 class MeshBlockTree;
 class Field;
 class ParameterInput;
-class Coordinates;
 class BoundaryValues;
 struct RegionSize;
 
