@@ -90,7 +90,7 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
 
     const auto any = parthenon::BoundaryType::any;
     auto start_reflux = tl.AddTask(
-        none, parthenon::cell_centered_bvars::StartReceiveSparseFluxCorrectionBuffers,
+        none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections,
         mc0);
     auto start_bound =
         tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
@@ -99,10 +99,10 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
 
     auto send_flx = tl.AddTask(
         start_reflux | calc_flux,
-        parthenon::cell_centered_bvars::LoadAndSendSparseFluxCorrectionBuffers, mc0);
+        parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
     auto recv_flx = tl.AddTask(
         start_reflux | calc_flux,
-        parthenon::cell_centered_bvars::ReceiveSparseFluxCorrectionBuffers, mc0);
+        parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
     auto set_flx =
         tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
 
