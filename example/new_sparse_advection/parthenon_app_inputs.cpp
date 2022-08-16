@@ -83,8 +83,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
     if (any_nonzero) {
       // Allocate all variables controlled by this variable
       auto sparse = MakeVarLabel("sparse", f);
-      auto vx = MakeVarLabel("vx", f);
-      auto vy = MakeVarLabel("vy", f);
 
       auto &var_names = pmb->pmy_mesh->resolved_packages->GetControlledVariables(
           MakeVarLabel("sparse", f));
@@ -107,12 +105,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       */
 
       auto tup = parthenon::SparsePack<>::Get(data.get(),
-                                              std::vector<std::string>{sparse, vx, vy});
+                                              std::vector<std::string>{sparse});
       auto v = std::get<0>(tup);
       auto pack_map = std::get<1>(tup);
       parthenon::PackIdx isp(pack_map[sparse]);
-      parthenon::PackIdx ivx(pack_map[vx]);
-      parthenon::PackIdx ivy(pack_map[vy]);
       const int b = 0; // Just one block in the pack
 
       pmb->par_for(
@@ -123,8 +119,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
             auto z = coords.x3v(k);
             auto r2 = x * x + y * y + z * z;
             v(b, isp, k, j, i) = (r2 < this_size ? 1.0 : 0.0);
-            v(b, ivx, k, j, i) = v(b, ivx).sparse_default_val;
-            v(b, ivy, k, j, i) = v(b, ivy).sparse_default_val;
           });
     }
   }
