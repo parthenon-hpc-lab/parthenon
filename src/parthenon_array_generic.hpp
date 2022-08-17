@@ -130,9 +130,7 @@ class ParArrayGeneric : public State {
   ParArrayGeneric(const std::string &label, Args... args)
       : ParArrayGeneric(label, State(),
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
-                        args...) {
-    assert(all_greater_than(0, args...));
-  }
+                        args...) {}
 
   template <class... Args, REQUIRES((sizeof...(Args) > 0) || (Data::rank == 0)),
             REQUIRES(Data::rank - sizeof...(Args) >= 0),
@@ -140,14 +138,11 @@ class ParArrayGeneric : public State {
   ParArrayGeneric(const std::string &label, const State &state, Args... args)
       : ParArrayGeneric(label, state,
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
-                        args...) {
-    assert(all_greater_than(0, args...));
-  }
+                        args...) {}
 
   template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
             REQUIRES(Data::rank - sizeof...(Args) >= 0)>
   void NewParArrayND(Args... args, const std::string &label = "ParArrayND") {
-    assert(all_greater_than(0, args...));
     NewParArrayND(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...,
                   label);
   }
@@ -251,8 +246,8 @@ class ParArrayGeneric : public State {
   // translates into auto dest = src.SliceD<dim>(std::make_pair(indx,indx+nvar))
   template <std::size_t N = Data::rank>
   auto SliceD(index_pair_t slc) const {
-    static_assert(N <= Data::rank);
-    static_assert(N > 0);
+    static_assert(N <= Data::rank, "Slice is out of range");
+    static_assert(N > 0, "Slice is out of range");
     return SliceD(std::make_index_sequence<Data::rank - N>{},
                   std::make_index_sequence<N - 1>{}, slc);
   }

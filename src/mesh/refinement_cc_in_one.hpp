@@ -97,7 +97,7 @@ GetLoopBoundsFromBndInfo(const Info_t &info, const int ckbs, const int cjbs, int
 // a device version, which requires the buffer cache device only,
 // and a version that automatically swaps between them depending on
 // the size of the buffer cache.
-template <int DIM, template <int> typename Stencil>
+template <int DIM, template <int> class Stencil>
 inline void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
                                         const IndexShape &cellbounds,
                                         const IndexShape &c_cellbounds,
@@ -130,7 +130,7 @@ inline void ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t
         }
       });
 }
-template <int DIM, template <int> typename Stencil>
+template <int DIM, template <int> class Stencil>
 inline void
 ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h,
                             const IndexShape &cellbounds, const IndexShape &c_cellbounds,
@@ -165,7 +165,7 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h
     }
   }
 }
-template <int DIM, template <int> typename Stencil>
+template <int DIM, template <int> class Stencil>
 inline void
 ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
                             const cell_centered_bvars::BufferCacheHost_t &info_h,
@@ -179,7 +179,7 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
   }
 }
 
-template <template <int> typename Stencil, typename... Args>
+template <template <int> class Stencil, typename... Args>
 inline void DoProlongationRestrictionOp(const IndexShape &cellbnds, Args &&...args) {
   const IndexDomain entire = IndexDomain::entire;
   if (cellbnds.ncellsk(entire) > 1) { // 3D
