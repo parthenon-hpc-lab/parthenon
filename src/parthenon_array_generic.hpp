@@ -130,9 +130,7 @@ class ParArrayGeneric : public State {
   ParArrayGeneric(const std::string &label, Args... args)
       : ParArrayGeneric(label, State(),
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
-                        args...) {
-    assert(all_greater_than(0, args...));
-  }
+                        args...) {}
 
   template <class... Args, REQUIRES((sizeof...(Args) > 0) || (Data::rank == 0)),
             REQUIRES(Data::rank - sizeof...(Args) >= 0),
@@ -140,9 +138,7 @@ class ParArrayGeneric : public State {
   ParArrayGeneric(const std::string &label, const State &state, Args... args)
       : ParArrayGeneric(label, state,
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
-                        args...) {
-    assert(all_greater_than(0, args...));
-  }
+                        args...) {}
 
   template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
             REQUIRES(Data::rank - sizeof...(Args) >= 0)>
