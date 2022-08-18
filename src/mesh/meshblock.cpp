@@ -172,10 +172,12 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // removed, which can happen after dense-on-block for sparse
   // variables is in place and after we write "prolongate-in-one,"
   // this should be only for `Metadata::Independent`.
-  const auto vars =
-      real_container
-          ->GetVariablesByFlag({Metadata::Independent, Metadata::FillGhost}, false)
-          .vars();
+  CellVariableVector<Real> vars; 
+  for (auto& pvar :real_container->GetCellVariableVector()) { 
+    if (pvar->IsSet(Metadata::Independent) || pvar->IsSet(Metadata::FillGhost)) 
+        vars.push_back(pvar); 
+  }
+
   for (int n = 0; n < vars.size(); n++) {
     RegisterMeshBlockData(vars[n]);
   }
