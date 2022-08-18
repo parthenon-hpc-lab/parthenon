@@ -2,6 +2,9 @@
 
 ## Current develop
 
+### Added (new features/APIs/variables/...)
+- [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
+
 ### Changed (changing behavior/API/variables/...)
 - [[PR 713]] (https://github.com/lanl/parthenon/pull/713) Remove Coordinates stub in favor of Coordinates_t
 - [[PR 711]](https://github.com/lanl/parthenon/pull/711) Rename flux correction routines.
