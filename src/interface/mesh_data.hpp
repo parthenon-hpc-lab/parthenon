@@ -129,11 +129,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
     AppendKey(&total_key, &this_key);
     AllocationStatusCollector<P>::Append(&alloc_status_collection, pack);
 
-    if (i == 0) {
-      pack_idx_map = this_map;
-    } else {
-      assert(this_map == pack_idx_map);
-    }
+    if (i == 0) pack_idx_map = this_map;
   }
 
   auto itr = map.find(total_key);
