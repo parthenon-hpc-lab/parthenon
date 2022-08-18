@@ -193,6 +193,13 @@ A description of mesh indexing classes [here](mesh/domain.md).
 
 An overview of input file parameters [here](input.md)
 
+Note that all parameters can be overridden (or new parameters added) through the command
+line by appending the parameters to the launch command.
+For example, the `refine_tol` parameter in the `<parthenon/refinement0>` block in the input file can be
+changed by appending `parthenon/refinement0/refine_tol=my_new_value` to the launch command
+(e.g., `srun ./myapp -i my_input.file parthenon/refinement0/refine_tol=my_new_value`).
+This similarly applies to simulations that are restarted.
+
 ### Global reductions
 
 Global reductions are a common need for downstream applications and can be accomplished within Parthenon's task-based execution as described [here](reductions.md).
