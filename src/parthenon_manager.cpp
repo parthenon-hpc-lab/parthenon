@@ -235,10 +235,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
   const auto indep_restart_vars =
-      mb.meshblock_data.Get()
-          ->GetVariablesByFlag(
-              {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, false)
-          .vars();
+      GetAnyVariables(mb.meshblock_data.Get()->GetCellVariableVector(),
+                      {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
 
   const auto sparse_info = resfile.GetSparseInfo();
   // create map of sparse field labels to index in the SparseInfo table
