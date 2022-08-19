@@ -308,7 +308,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
                                const Real &val = bnd_info(b).var(t, u, v, k, j, i);
                                bnd_info(b).buf(idx) = val;
-                               if (std::abs(val) > threshold)
+                               if (std::abs(val) >= threshold)
                                  sending_nonzero_flags(b) = true;
                              });
       });
