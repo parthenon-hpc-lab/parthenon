@@ -114,7 +114,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
   auto pack_h = Kokkos::create_mirror_view(pack.pack_);
 
-  pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar);
+  pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar + 1);
   pack.bounds_h_ = Kokkos::create_mirror_view(pack.bounds_);
 
   pack.coords_ = coords_t("coords", nblocks);
@@ -177,6 +177,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
         pack.bounds_h_(1, b, i) = -2;
       }
     }
+    // Record the maximum for easy access
+    pack.bounds_h_(1, b, nvar) = idx - 1;
   });
 
   Kokkos::deep_copy(pack.pack_, pack_h);

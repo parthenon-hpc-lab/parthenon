@@ -151,88 +151,163 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   PackIndexMap map;
   const std::vector<MetadataFlag> flags({Metadata::Sparse});
   const auto &pack = md->PackVariables(flags, map);
-
+  
   const int num_blocks = pack.GetDim(5);
   const int num_vars = pack.GetDim(4);
-  ParArray2D<bool> is_zero("IsZero", num_blocks, num_vars);
+  //ParArray2D<bool> is_zero("IsZero", num_blocks, num_vars);
+  
+  auto control_vars = md->GetMeshPointer()->resolved_packages->GetControlVariables(); 
+  
+  const auto tup = SparsePack<>::Get(md, control_vars, {Metadata::Sparse});
+  auto pack2 = std::get<0>(tup);
+  auto pack2Idx = std::get<1>(tup); 
+  for (int b = 0; b < num_blocks; ++b) {
+    //printf("Block %i Control variables (%i): ", b, pack2.GetUpperBoundHost(b)); 
+    for (auto &pair : pack2Idx) {
+      int lo = pack2.GetLowerBoundHost(b, PackIdx(pack2Idx[pair.first])); 
+      int hi = pack2.GetUpperBoundHost(b, PackIdx(pack2Idx[pair.first])); 
+      //if (lo <= hi) printf("%s (%i, %i) ", pair.first.c_str(), lo, hi);
+    }
+    //printf("\n");
+  }
 
+  ParArray2D<bool> is_zero("IsZero", num_blocks, pack2.GetMaxNumberOfVars()); 
+  //std::cout << "Maximum Number of vars: " << pack2.GetMaxNumberOfVars() << std::endl;
+  const int Ni = ib.e + 1 - ib.s;
+  const int Nj = jb.e + 1 - jb.s;
+  const int Nk = kb.e + 1 - kb.s;
+  const int NjNi =  Nj * Ni;
+  const int NkNjNi = Nk * NjNi; 
   Kokkos::parallel_for(
       "SparseDealloc",
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), num_blocks * num_vars,
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), num_blocks,
                            Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int idx = team_member.league_rank();
-        const int b = idx / num_vars;     // block index
-        const int v = idx - b * num_vars; // variable index
+        const int b = team_member.league_rank();
+        
+        const int lo = pack2.GetLowerBound(b);
+        const int hi = pack2.GetUpperBound(b); 
 
-        const int Nj = jb.e + 1 - jb.s;
-        const int NkNj = (kb.e + 1 - kb.s) * Nj;
-
-        is_zero(b, v) = true;
-
-        if (!pack.IsAllocated(b, v)) {
-          // setting this to false so that dealloc counter will remain at 0
-          is_zero(b, v) = false;
-          return;
-        }
-
-        const auto &var = pack(b, v);
-        const Real threshold = var.deallocation_threshold;
-        Kokkos::parallel_for(
-            Kokkos::TeamThreadRange<>(team_member, NkNj), [&](const int inner_idx) {
-              const int k = inner_idx / Nj;
-              const int j = inner_idx - k * Nj;
-
-              Kokkos::parallel_for(Kokkos::ThreadVectorRange(team_member, ib.s, ib.e + 1),
-                                   [&](const int i) {
-                                     const Real &val = var(k, j, i);
-                                     if (std::abs(val) > threshold) {
-                                       is_zero(b, v) = false;
-                                       return;
-                                     }
-                                   });
-
-              if (!is_zero(b, v)) {
+        for (int v = lo; v<=hi; ++v) {
+          const auto &var = pack2(b, v);
+          const Real threshold = var.deallocation_threshold;
+          is_zero(b, v) = true; 
+          Kokkos::parallel_for(
+            Kokkos::TeamThreadRange<>(team_member, NkNjNi), [&](const int idx) {
+              const int k = kb.s + idx / NjNi; 
+              const int j = jb.s + (idx % NjNi) / Ni; 
+              const int i = ib.s + idx % Ni; 
+              if (std::abs(var(k, j, i)) > threshold) {
+                is_zero(b, v) = false;
                 return;
-              }
-            });
+              }  
+          }); 
+        }
+        //Const int b = idx / num_vars;     // block index
+        //Const int v = idx - b * num_vars; // variable index
+
+        //Const int Nj = jb.e + 1 - jb.s;
+        //Const int NkNj = (kb.e + 1 - kb.s) * Nj;
+
+        //Is_zero(b, v) = true;
+
+        //If (!pack.IsAllocated(b, v)) {
+        //  // setting this to false so that dealloc counter will remain at 0
+        //  is_zero(b, v) = false;
+        //  return;
+        //}
+
+        //Const auto &var = pack(b, v);
+        //Const Real threshold = var.deallocation_threshold;
+        //Kokkos::parallel_for(
+        //    Kokkos::TeamThreadRange<>(team_member, NkNj), [&](const int inner_idx) {
+        //      const int k = inner_idx / Nj;
+        //      const int j = inner_idx - k * Nj;
+
+        //      Kokkos::parallel_for(Kokkos::ThreadVectorRange(team_member, ib.s, ib.e + 1),
+        //                           [&](const int i) {
+        //                             const Real &val = var(k, j, i);
+        //                             if (std::abs(val) > threshold) {
+        //                               is_zero(b, v) = false;
+        //                               return;
+        //                             }
+        //                           });
+
+        //      if (!is_zero(b, v)) {
+        //        return;
+        //      }
+        //    });
       });
 
   auto is_zero_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), is_zero);
 
   for (int b = 0; b < num_blocks; ++b) {
-    for (auto var_itr : map.Map()) {
-      const auto label = var_itr.first;
-      // skip the entry in the map for the sparse base name
-      if (md->GetBlockData(b)->HasCellVariable(label)) {
-        auto &counter = md->GetBlockData(b)->Get(label).dealloc_count;
-        bool all_zero = true;
-        for (int v = var_itr.second.first; v <= var_itr.second.second; ++v) {
-          if (!is_zero_h(b, v)) {
-            all_zero = false;
-            break;
-          }
-        }
-
+    for (auto& control_var : control_vars) { 
+      int lo = pack2.GetLowerBoundHost(b, PackIdx(pack2Idx[control_var])); 
+      int hi = pack2.GetUpperBoundHost(b, PackIdx(pack2Idx[control_var]));
+      if (lo <= hi) { // Check that this control variable is actually in the pack
+        auto &counter = md->GetBlockData(b)->Get(control_var).dealloc_count;
+        bool all_zero = true; 
+        for (int iv = lo; iv <= hi; ++iv) all_zero = all_zero && is_zero_h(b, iv); 
         if (all_zero) {
-          // all components of this var are zero, increment dealloc counter
-          counter += 1;
-        } else {
+          counter++;
+        } else { 
           counter = 0;
         }
-
         if (counter > Globals::sparse_config.deallocation_count) {
           // this variable has been flagged for deallocation deallocation_count times in
           // a row, now deallocate it
+          counter = 0;
           auto pmb = md->GetBlockData(b)->GetBlockPointer();
           auto &var_names =
-              pmb->pmy_mesh->resolved_packages->GetControlledVariables(label);
-          for (auto &vname : var_names)
+              pmb->pmy_mesh->resolved_packages->GetControlledVariables(control_var);
+          if (var_names.size() > 0) printf("Deallocating %s on block %i (", control_var.c_str(), pmb->gid);
+          for (auto &vname : var_names) {
+            printf("%s ", vname.c_str());
             pmb->DeallocateSparse(vname);
+          }
+          if (var_names.size() > 0) printf(")\n");
         }
       }
     }
   }
+  //for (int b = 0; b < num_blocks; ++b) {
+  //  for (auto var_itr : map.Map()) {
+  //    const auto label = var_itr.first;
+  //    // skip the entry in the map for the sparse base name
+  //    if (md->GetBlockData(b)->HasCellVariable(label)) {
+  //      auto &counter = md->GetBlockData(b)->Get(label).dealloc_count;
+  //      bool all_zero = true;
+  //      for (int v = var_itr.second.first; v <= var_itr.second.second; ++v) {
+  //        if (!is_zero_h(b, v)) {
+  //          all_zero = false;
+  //          break;
+  //        }
+  //      }
+
+  //      if (all_zero) {
+  //        // all components of this var are zero, increment dealloc counter
+  //        counter += 1;
+  //      } else {
+  //        counter = 0;
+  //      }
+
+  //      if (counter > Globals::sparse_config.deallocation_count) {
+  //        // this variable has been flagged for deallocation deallocation_count times in
+  //        // a row, now deallocate it
+  //        auto pmb = md->GetBlockData(b)->GetBlockPointer();
+  //        auto &var_names =
+  //            pmb->pmy_mesh->resolved_packages->GetControlledVariables(label);
+  //        //if (var_names.size() > 0) printf("Deallocating %s on block %i (", label.c_str(), pmb->gid);
+  //        for (auto &vname : var_names) {
+  //          //printf("%s ", vname.c_str());
+  //          pmb->DeallocateSparse(vname);
+  //        }
+  //        //if (var_names.size() > 0) printf(")\n");
+  //      }
+  //    }
+  //  }
+  //}
 
   Kokkos::Profiling::popRegion(); // Task_SparseDealloc
   return TaskStatus::complete;

@@ -239,6 +239,14 @@ class StateDescriptor {
     return iter->second;
   }
 
+  std::vector<std::string> GetControlVariables() {
+    std::vector<std::string> vars; 
+    for (auto& pair : allocControllerMap_) { 
+      vars.push_back(pair.first);
+    }
+    return vars; 
+  }
+
   // retrieve metadata for a specific field
   const Metadata &FieldMetadata(const std::string &base_name,
                                 int sparse_id = InvalidSparseID) const {

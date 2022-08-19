@@ -30,6 +30,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <regex> 
 #include <string>
 #include <utility>
 #include <vector>
@@ -307,6 +308,39 @@ class ParticleVariable {
 
 template <typename T>
 using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;
+
+template <typename T>
+inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
+                                             std::vector<MetadataFlag> mflags) {
+  CellVariableVector<T> out;
+  for (auto &pvar : cv_in) {
+    if (std::any_of(mflags.begin(), mflags.end(),
+                    [&](const auto &in) { return pvar->IsSet(in); })) {
+      out.push_back(pvar);
+    }
+  }
+  return out;
+}
+
+template <typename T>
+inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
+                                             std::vector<std::string> base_names) {
+  CellVariableVector<T> out;
+
+  std::vector<std::regex> base_regexs;
+  for (auto &base_name : base_names)
+    base_regexs.push_back(std::regex(base_name + ".*"));
+
+  for (auto &pvar : cv_in) {
+    if (std::any_of(base_regexs.begin(), base_regexs.end(), [&](const auto &in) {
+          return std::regex_match(pvar->label(), in);
+        })) {
+      out.push_back(pvar);
+    }
+  }
+  return out;
+}
+
 template <typename T>
 using FaceVector = std::vector<std::shared_ptr<FaceVariable<T>>>;
 
