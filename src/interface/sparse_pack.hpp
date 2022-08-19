@@ -189,15 +189,18 @@ class SparsePack : public SparsePackBase {
 
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNDim() const { return ndim_; }
+  
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetMaxNumberOfVars() const { return pack_.extent_int(2); }
 
   KOKKOS_INLINE_FUNCTION
   const Coordinates_t &GetCoordinates(const int b) const { return coords_(b)(); }
 
   // Bound overloads
-  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const { return bounds_(0, b, 0); }
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const { return 0; }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b) const {
-    return bounds_(1, b, nvar_ - 1);
+    return bounds_(1, b, nvar_);
   }
 
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const {
@@ -224,11 +227,11 @@ class SparsePack : public SparsePackBase {
 
   // Host Bound overloads
   KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const {
-    return bounds_h_(0, b, 0);
+    return 0;
   }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b) const {
-    return bounds_h_(1, b, nvar_ - 1);
+    return bounds_h_(1, b, nvar_);
   }
 
   KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b, PackIdx idx) const {

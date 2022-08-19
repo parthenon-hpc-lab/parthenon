@@ -80,9 +80,7 @@ struct PackDescriptor {
     // TODO(LFR): Check that the shapes agree
     if (flags.size() > 0) {
       for (const auto &flag : flags) {
-        if (!pv->IsSet(flag)) {
-          return false;
-        }
+        if (!pv->IsSet(flag)) return false;
       }
     }
 
