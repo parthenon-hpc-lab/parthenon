@@ -145,9 +145,9 @@ class phdf:
             On completion:
             coordg - ghost coords corresponding to the variable arrays
             coordi - ghost coords of points on the interior of the block
-                     (which equals coordf when the data is only given in the interior)
+                     (which equals coordg when the data is only given in the interior)
             coorde - ghost coords of the entire block
-                     (which equals coordf when the data includes ghost data)
+                     (which equals coordg when the data includes ghost data)
             coordi_ng - The non-ghost coordinates of the interior of the block
             """
             coord_name = ["x", "y", "z"][coord_i]
