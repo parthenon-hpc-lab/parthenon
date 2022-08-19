@@ -136,53 +136,57 @@ class phdf:
                             coordf[bId, cId] + coordf[bId, cId + 1]
                         )
             return coord, coordf
-        
-        def load_ghost_coords(coord_i): 
-           """
-           Here, ghost coordinates refers to coordinates that are offset from the physical coordinates 
-           to include ghost zones. All coordinates are defined on vertices.
-           
-           On completion: 
-           coordg - ghost coords corresponding to the variable arrays 
-           coordi - ghost coords of points on the interior of the block 
-                    (which equals coordf when the data is only given in the interior) 
-           coorde - ghost coords of the entire block 
-                    (which equals coordf when the data includes ghost data)
-           coordi_ng - The non-ghost coordinates of the interior of the block 
-           """
-           coord_name = ["x", "y", "z"][coord_i] 
-           logical_locations = np.array(f["/LogicalLocations"][:, coord_i]) 
-           coordg = np.array(f["/Locations/" + coord_name][:, :])
-           levels = np.array(f["/Levels"]) 
-           
-           if not self.IncludesGhost: 
-             coordi_ng = np.array(coordg) 
-           else:
-             coordi_ng = np.array(coordg[:, self.NGhost : -self.NGhost]) 
 
-           for iblock in range(coordg.shape[0]):
-             dx = coordg[iblock, 1] - coordg[iblock, 0]
-             coordg[iblock, :] += (logical_locations[iblock] * 2 + 1) * dx * self.NGhost  
-           
-           if self.IncludesGhost:
-             coordi = coordg[:, self.NGhost : -self.NGhost]
-             coorde = coordg 
+        def load_ghost_coords(coord_i):
+            """
+            Here, ghost coordinates refers to coordinates that are offset from the physical coordinates
+            to include ghost zones. All coordinates are defined on vertices.
 
-           else:
-             coordi = coordg 
-             coorde = np.zeros((coordg.shape[0], coordg.shape[1] + 2 * self.NGhost)) 
-             coorde[:, self.NGhost : -self.NGhost] = coordg
-             dx_all = coordg[:, 1] - coordg[:, 0]
-             for i in range(self.NGhost): 
-               coorde[:, self.NGhost - 1 - i] = coorde[:, self.NGhost - i] - dx_all 
-               coorde[:, -self.NGhost + i] = coorde[:, -self.NGhost - 1 + i] + dx_all
-           
-           return coordg, coordi, coorde, coordi_ng
+            On completion:
+            coordg - ghost coords corresponding to the variable arrays
+            coordi - ghost coords of points on the interior of the block
+                     (which equals coordf when the data is only given in the interior)
+            coorde - ghost coords of the entire block
+                     (which equals coordf when the data includes ghost data)
+            coordi_ng - The non-ghost coordinates of the interior of the block
+            """
+            coord_name = ["x", "y", "z"][coord_i]
+            logical_locations = np.array(f["/LogicalLocations"][:, coord_i])
+            coordg = np.array(f["/Locations/" + coord_name][:, :])
+            levels = np.array(f["/Levels"])
+
+            if not self.IncludesGhost:
+                coordi_ng = np.array(coordg)
+            else:
+                coordi_ng = np.array(coordg[:, self.NGhost : -self.NGhost])
+
+            for iblock in range(coordg.shape[0]):
+                dx = coordg[iblock, 1] - coordg[iblock, 0]
+                coordg[iblock, :] += (
+                    (logical_locations[iblock] * 2 + 1) * dx * self.NGhost
+                )
+
+            if self.IncludesGhost:
+                coordi = coordg[:, self.NGhost : -self.NGhost]
+                coorde = coordg
+
+            else:
+                coordi = coordg
+                coorde = np.zeros((coordg.shape[0], coordg.shape[1] + 2 * self.NGhost))
+                coorde[:, self.NGhost : -self.NGhost] = coordg
+                dx_all = coordg[:, 1] - coordg[:, 0]
+                for i in range(self.NGhost):
+                    coorde[:, self.NGhost - 1 - i] = coorde[:, self.NGhost - i] - dx_all
+                    coorde[:, -self.NGhost + i] = (
+                        coorde[:, -self.NGhost - 1 + i] + dx_all
+                    )
+
+            return coordg, coordi, coorde, coordi_ng
 
         self.x, self.xf = load_coord(0)
         self.y, self.yf = load_coord(1)
         self.z, self.zf = load_coord(2)
-        
+
         self.xg, self.xig, self.xeg, self.xng = load_ghost_coords(0)
         self.yg, self.yig, self.yeg, self.yng = load_ghost_coords(1)
         self.zg, self.zig, self.zeg, self.zng = load_ghost_coords(2)
@@ -192,9 +196,9 @@ class phdf:
         for i in range(3):
             if self.MeshBlockSize[i] > 1:
                 self.offset[i] = self.NGhost * self.IncludesGhost
-      
+
         # Read in block ids and sparse info
-        self.level = np.array(f["/Blocks/loc.level-gid-lid-cnghost-gflag"][:, 0]) 
+        self.level = np.array(f["/Blocks/loc.level-gid-lid-cnghost-gflag"][:, 0])
         self.gid = np.array(f["/Blocks/loc.level-gid-lid-cnghost-gflag"][:, 1])
 
         # fill in self.BlockBounds
@@ -448,10 +452,10 @@ class phdf:
         where NumBlocks is the total number of blocks, and Nz, Ny, and
         Nx are the number of cells in the z, y, and x directions
         respectively.
-        
-        If flatten is False and interior is True, only non-ghost data 
-        will be returned. This array will correspond to the coordinates 
-        xg and xng, etc. 
+
+        If flatten is False and interior is True, only non-ghost data
+        will be returned. This array will correspond to the coordinates
+        xg and xng, etc.
         """
         try:
             if self.varData[variable] is None:
@@ -484,16 +488,18 @@ class phdf:
             else:
                 return self.varData[variable][:].reshape(self.TotalCells)
 
-        if self.IncludesGhost and interior: 
-          nghost = self.NGhost
-          if vShape[3] == 1:
-             return self.varData[variable][:, :, :, :] 
-          elif vShape[2] == 1:
-            return self.varData[variable][:, :, :, nghost:-nghost]  
-          elif vShape[1] == 1: 
-            return self.varData[variable][:, :, nghost:-nghost, nghost:-nghost]  
-          else:
-            return self.varData[variable][:, nghost:-nghost, nghost:-nghost, nghost:-nghost]  
+        if self.IncludesGhost and interior:
+            nghost = self.NGhost
+            if vShape[3] == 1:
+                return self.varData[variable][:, :, :, :]
+            elif vShape[2] == 1:
+                return self.varData[variable][:, :, :, nghost:-nghost]
+            elif vShape[1] == 1:
+                return self.varData[variable][:, :, nghost:-nghost, nghost:-nghost]
+            else:
+                return self.varData[variable][
+                    :, nghost:-nghost, nghost:-nghost, nghost:-nghost
+                ]
 
         return self.varData[variable][:]
 

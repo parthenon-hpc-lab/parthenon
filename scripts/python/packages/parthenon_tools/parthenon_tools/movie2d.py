@@ -35,28 +35,39 @@ def read(filename, nGhost=0):
     return f
 
 
-def plot_dump(xf, yf, q, name, with_mesh=False, block_ids=[], xi = None, yi = None, xe = None, ye = None): 
-    
-    if xe is None: xe = xf 
-    if ye is None: ye = yf
+def plot_dump(
+    xf, yf, q, name, with_mesh=False, block_ids=[], xi=None, yi=None, xe=None, ye=None
+):
+
+    if xe is None:
+        xe = xf
+    if ye is None:
+        ye = yf
 
     fig = plt.figure()
     p = fig.add_subplot(111, aspect=1)
-    qm = np.ma.masked_where(np.isnan(q), q) 
+    qm = np.ma.masked_where(np.isnan(q), q)
     qmin = qm.min()
     qmax = qm.max()
     NumBlocks = q.shape[0]
     for i in range(NumBlocks):
         # Plot the actual data, should work if parthenon/output*/ghost_zones = true or false
-        # but obviously no ghost data will be shown if ghost_zones = false 
+        # but obviously no ghost data will be shown if ghost_zones = false
         p.pcolormesh(xf[i, :], yf[i, :], q[i, 0, :, :], vmin=qmin, vmax=qmax)
-        
-        # Print the block gid in the center of the block 
-        if (len(block_ids) > 0):
-          p.text(0.5*(xf[i, 0] + xf[i, -1]), 0.5*(yf[i, 0] + yf[i, -1]), 
-             str(block_ids[i]), fontsize=8, color="w", ha='center', va='center')
-        
-        # Plot the interior and exterior boundaries of the block 
+
+        # Print the block gid in the center of the block
+        if len(block_ids) > 0:
+            p.text(
+                0.5 * (xf[i, 0] + xf[i, -1]),
+                0.5 * (yf[i, 0] + yf[i, -1]),
+                str(block_ids[i]),
+                fontsize=8,
+                color="w",
+                ha="center",
+                va="center",
+            )
+
+        # Plot the interior and exterior boundaries of the block
         if with_mesh:
             rect = mpatches.Rectangle(
                 (xe[i, 0], ye[i, 0]),
@@ -65,20 +76,20 @@ def plot_dump(xf, yf, q, name, with_mesh=False, block_ids=[], xi = None, yi = No
                 linewidth=0.225,
                 edgecolor="k",
                 facecolor="none",
-                linestyle='solid'
+                linestyle="solid",
             )
             p.add_patch(rect)
             if (xi is not None) and (yi is not None):
-               rect = mpatches.Rectangle(
-                   (xi[i, 0], yi[i, 0]),
-                   (xi[i, -1] - xi[i, 0]),
-                   (yi[i, -1] - yi[i, 0]),
-                   linewidth=0.225,
-                   edgecolor="k",
-                   facecolor="none",
-                   linestyle="dashed"
-               )
-               p.add_patch(rect)
+                rect = mpatches.Rectangle(
+                    (xi[i, 0], yi[i, 0]),
+                    (xi[i, -1] - xi[i, 0]),
+                    (yi[i, -1] - yi[i, 0]),
+                    linewidth=0.225,
+                    edgecolor="k",
+                    facecolor="none",
+                    linestyle="dashed",
+                )
+                p.add_patch(rect)
 
     plt.savefig(name, dpi=300)
     plt.close()
@@ -96,7 +107,18 @@ if __name__ == "__main__":
         q = data.Get(field, False, not debug_plot)
         name = str(dump_id).rjust(4, "0") + ".png"
         if debug_plot:
-          plot_dump(data.xg, data.yg, q, name, True, data.gid, data.xig, data.yig, data.xeg, data.yeg)
+            plot_dump(
+                data.xg,
+                data.yg,
+                q,
+                name,
+                True,
+                data.gid,
+                data.xig,
+                data.yig,
+                data.xeg,
+                data.yeg,
+            )
         else:
-          plot_dump(data.xng, data.yng, q, name, True)
+            plot_dump(data.xng, data.yng, q, name, True)
         dump_id += 1
