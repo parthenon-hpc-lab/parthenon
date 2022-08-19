@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 717]](https://github.com/lanl/parthenon/pull/717) Add ghost zone plotting capability to phdf.py and movie2d.py
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
