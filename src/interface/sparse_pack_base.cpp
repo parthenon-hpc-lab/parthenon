@@ -227,6 +227,7 @@ SparsePackCache::Get<MeshBlockData<Real>>(MeshBlockData<Real> *, const PackDescr
 template <class T>
 SparsePackBase &SparsePackCache::BuildAndAdd(T *pmd, const PackDescriptor &desc,
                                              const std::string &ident) {
+  if (pack_map.count(ident) > 0) pack_map.erase(ident);
   pack_map[ident] = {SparsePackBase::Build(pmd, desc),
                      SparsePackBase::GetAllocStatus(pmd, desc)};
   return pack_map[ident].first;
