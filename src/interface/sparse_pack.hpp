@@ -224,6 +224,17 @@ class SparsePack : public SparsePackBase {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(1, b, vidx);
   }
+  
+  KOKKOS_INLINE_FUNCTION int GetSize(const int b, PackIdx idx) const {
+    static_assert(sizeof...(Ts) == 0, "Typelist must have zero size to call this");
+    return bounds_(1, b, idx.VariableIdx()) - bounds_(0, b, idx.VariableIdx()) + 1;
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION int GetSize(const int b, const TIn &) const {
+    const int vidx = GetTypeIdx<TIn, Ts...>::value;
+    return bounds_(1, b, vidx) - bounds_(0, b, vidx) + 1; 
+  }
 
   // Host Bound overloads
   KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const {
