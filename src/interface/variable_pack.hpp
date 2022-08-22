@@ -147,11 +147,9 @@ class VarListWithLabels {
            const std::unordered_set<int> &sparse_ids = {}) {
     if (!var->IsSparse() || sparse_ids.empty() ||
         (sparse_ids.count(var->GetSparseID()) > 0)) {
-      if (var->IsAllocated()) {
-        vars_.push_back(var);
-        labels_.push_back(var->label());
-        alloc_status_.push_back(true);
-      }
+      vars_.push_back(var);
+      labels_.push_back(var->label());
+      alloc_status_.push_back(var->IsAllocated());
     }
   }
 
@@ -550,25 +548,27 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
   int vindex = 0;
   for (const auto &v : vars) {
     int vstart = vindex;
-    for (int k = 0; k < v->GetDim(6); k++) {
-      for (int j = 0; j < v->GetDim(5); j++) {
-        for (int i = 0; i < v->GetDim(4); i++) {
-          host_sp(vindex) = v->GetSparseID();
+    if (v->IsAllocated()) {
+      for (int k = 0; k < v->GetDim(6); k++) {
+        for (int j = 0; j < v->GetDim(5); j++) {
+          for (int i = 0; i < v->GetDim(4); i++) {
+            host_sp(vindex) = v->GetSparseID();
 
-          // returns 1 for X1DIR, 2 for X2DIR, 3 for X3DIR
-          // for tensors, returns flattened index.
-          // for scalar-objects, returns NODIR.
-          const bool is_vec = v->IsSet(Metadata::Vector) || v->IsSet(Metadata::Tensor);
-          host_vc(vindex) = is_vec ? vindex - vstart + 1 : NODIR;
+            // returns 1 for X1DIR, 2 for X2DIR, 3 for X3DIR
+            // for tensors, returns flattened index.
+            // for scalar-objects, returns NODIR.
+            const bool is_vec = v->IsSet(Metadata::Vector) || v->IsSet(Metadata::Tensor);
+            host_vc(vindex) = is_vec ? vindex - vstart + 1 : NODIR;
 
-          host_al(vindex) = v->IsAllocated();
-          if (v->IsAllocated()) {
-            host_cv(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
-          } else {
-            PARTHENON_FAIL("Encountered unallocated variable in FillVarView!");
+            host_al(vindex) = v->IsAllocated();
+            if (v->IsAllocated()) {
+              host_cv(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
+            } else {
+              PARTHENON_FAIL("Encountered unallocated variable in FillVarView!");
+            }
+
+            vindex++;
           }
-
-          vindex++;
         }
       }
     }
@@ -648,19 +648,21 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
   int vindex = 0;
   for (const auto &v : vars) {
     int vstart = vindex;
-    for (int k = 0; k < v->GetDim(6); k++) {
-      for (int j = 0; j < v->GetDim(5); j++) {
-        for (int i = 0; i < v->GetDim(4); i++) {
-          host_al(vindex) = v->IsAllocated();
-          if (v->IsAllocated()) {
-            host_f1(vindex) = v->flux[X1DIR].Get(k, j, i);
-            if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
-            if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
-          } else {
-            PARTHENON_FAIL("Encountered unallocated variable in FillFluxViews!");
-          }
+    if (v->IsAllocated()) {
+      for (int k = 0; k < v->GetDim(6); k++) {
+        for (int j = 0; j < v->GetDim(5); j++) {
+          for (int i = 0; i < v->GetDim(4); i++) {
+            host_al(vindex) = v->IsAllocated();
+            if (v->IsAllocated()) {
+              host_f1(vindex) = v->flux[X1DIR].Get(k, j, i);
+              if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
+              if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
+            } else {
+              PARTHENON_FAIL("Encountered unallocated variable in FillFluxViews!");
+            }
 
-          vindex++;
+            vindex++;
+          }
         }
       }
     }
@@ -693,7 +695,7 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
   const auto &vars = var_list.vars();           // for convenience
   const auto &flux_vars = flux_var_list.vars(); // for convenience
 
-  if (vars.empty()) {
+  if (vars.empty() && flux_vars.empty()) {
     // return empty pack
     return VariableFluxPack<T>();
   }
@@ -703,13 +705,13 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
   for (const auto &v : vars) {
     // we also count unallocated vars because the total size needs to be uniform across
     // meshblocks that meshblock packs will work
-    vsize += v->NumComponents();
+    if (v->IsAllocated()) vsize += v->NumComponents();
   }
   int fsize = 0;
   for (const auto &v : flux_vars) {
     // we also count unallocated vars because the total size needs to be uniform across
     // meshblocks that meshblock packs will work
-    fsize += v->NumComponents();
+    if (v->IsAllocated()) fsize += v->NumComponents();
   }
 
   // make the outer view
@@ -760,7 +762,7 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
   for (const auto &v : vars) {
     // we also count unallocated vars because the total size needs to be uniform across
     // meshblocks that meshblock packs will work
-    vsize += v->NumComponents();
+    if (v->IsAllocated()) vsize += v->NumComponents();
   }
 
   // make the outer view
