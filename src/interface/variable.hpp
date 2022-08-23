@@ -30,7 +30,7 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <regex> 
+#include <regex>
 #include <string>
 #include <utility>
 #include <vector>

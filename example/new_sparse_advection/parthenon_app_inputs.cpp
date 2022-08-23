@@ -104,8 +104,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       }
       */
 
-      auto tup = parthenon::SparsePack<>::Get(data.get(),
-                                              std::vector<std::string>{sparse});
+      auto tup =
+          parthenon::SparsePack<>::Get(data.get(), std::vector<std::string>{sparse});
       auto v = std::get<0>(tup);
       auto pack_map = std::get<1>(tup);
       parthenon::PackIdx isp(pack_map[sparse]);

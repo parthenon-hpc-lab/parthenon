@@ -84,8 +84,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
         {Metadata::Cell, Metadata::Independent, Metadata::OneCopy, Metadata::Sparse},
         std::vector<int>({1}));
     const std::string control_field_base = "sparse";
-    //SparsePool pool_vx("vx", mv, control_field_base);
-    //SparsePool pool_vy("vy", mv, control_field_base);
+    // SparsePool pool_vx("vx", mv, control_field_base);
+    // SparsePool pool_vy("vy", mv, control_field_base);
 
     for (int sid = 0; sid < NUM_FIELDS; ++sid) {
       m.SetSparseThresholds(parthenon::Globals::sparse_config.allocation_threshold,
@@ -93,15 +93,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                             0.0);
       pool.Add(sid, m);
 
-      //mv.SetSparseThresholds(0.0, 0.0, vx[sid]);
-      //pool_vx.Add(sid, mv);
-      //mv.SetSparseThresholds(0.0, 0.0, vy[sid]);
-      //pool_vy.Add(sid, mv);
+      // mv.SetSparseThresholds(0.0, 0.0, vx[sid]);
+      // pool_vx.Add(sid, mv);
+      // mv.SetSparseThresholds(0.0, 0.0, vy[sid]);
+      // pool_vy.Add(sid, mv);
     }
     pkg->AddSparsePool(pool);
 
-    //pkg->AddSparsePool(pool_vx);
-    //pkg->AddSparsePool(pool_vy);
+    // pkg->AddSparsePool(pool_vx);
+    // pkg->AddSparsePool(pool_vy);
   }
 
   // add fields for restart test ("Z" prefix so they are after sparse in alphabetical
@@ -227,7 +227,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &rc) {
         const int b = team_member.league_rank();
         int lo = v.GetLowerBound(b, sparse_vt());
         int hi = v.GetUpperBound(b, sparse_vt());
-        
+
         for (int vidx = 0; vidx <= hi - lo; ++vidx) {
           Kokkos::parallel_for(
               Kokkos::TeamThreadRange<>(team_member, NkNjNi), [&](const int idx) {

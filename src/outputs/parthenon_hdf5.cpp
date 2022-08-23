@@ -759,10 +759,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // simulation, but not all variables may be allocated on all blocks
 
   auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
-    auto& var_vec = pmb->meshblock_data.Get()->GetCellVariableVector(); 
+    auto &var_vec = pmb->meshblock_data.Get()->GetCellVariableVector();
     if (restart_) {
       // get all vars with flag Independent OR restart
-      return GetAnyVariables(var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
+      return GetAnyVariables(
+          var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
     } else {
       return GetAnyVariables(var_vec, output_params.variables);
     }
@@ -882,7 +883,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       if (!found) {
         if (vinfo.is_sparse) {
           hsize_t N = varSize * vlen;
-          for (int i=0; i < N; ++i) tmpData[index++] = std::numeric_limits<Real>::quiet_NaN(); 
+          for (int i = 0; i < N; ++i)
+            tmpData[index++] = std::numeric_limits<Real>::quiet_NaN();
         } else {
           std::stringstream msg;
           msg << "### ERROR: Unable to find dense variable " << var_name << std::endl;

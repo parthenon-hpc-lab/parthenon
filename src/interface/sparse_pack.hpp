@@ -189,7 +189,7 @@ class SparsePack : public SparsePackBase {
 
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNDim() const { return ndim_; }
-  
+
   KOKKOS_FORCEINLINE_FUNCTION
   int GetMaxNumberOfVars() const { return pack_.extent_int(2); }
 
@@ -226,9 +226,7 @@ class SparsePack : public SparsePackBase {
   }
 
   // Host Bound overloads
-  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const {
-    return 0;
-  }
+  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const { return 0; }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b) const {
     return bounds_h_(1, b, nvar_);

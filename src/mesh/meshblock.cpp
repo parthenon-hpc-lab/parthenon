@@ -176,7 +176,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
       GetAnyVariables(real_container->GetCellVariableVector(),
                       {Metadata::Independent, Metadata::FillGhost});
 
-
   for (int n = 0; n < vars.size(); n++) {
     RegisterMeshBlockData(vars[n]);
   }

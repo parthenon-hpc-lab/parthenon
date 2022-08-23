@@ -239,11 +239,11 @@ class StateDescriptor {
   }
 
   std::vector<std::string> GetControlVariables() {
-    std::vector<std::string> vars; 
-    for (auto& pair : allocControllerMap_) { 
+    std::vector<std::string> vars;
+    for (auto &pair : allocControllerMap_) {
       vars.push_back(pair.first);
     }
-    return vars; 
+    return vars;
   }
 
   // retrieve metadata for a specific field
