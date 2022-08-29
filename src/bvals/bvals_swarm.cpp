@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -147,7 +147,7 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
           PARTHENON_MPI_CHECK(
               MPI_Get_count(&status, MPI_PARTHENON_REAL, &(recv_size[nb.bufid])));
           if (recv_size[nb.bufid] > bd_var_.recv[nb.bufid].extent(0)) {
-            bd_var_.recv[nb.bufid] = ParArray1D<Real>("Buffer", recv_size[nb.bufid]);
+            bd_var_.recv[nb.bufid] = BufArray1D<Real>("Buffer", recv_size[nb.bufid]);
           }
           PARTHENON_MPI_CHECK(MPI_Recv(bd_var_.recv[nb.bufid].data(), recv_size[nb.bufid],
                                        MPI_PARTHENON_REAL, nb.snb.rank,

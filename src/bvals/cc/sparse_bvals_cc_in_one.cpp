@@ -457,8 +457,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           cache.recv_bnd_info_h(ibuf).buf = buf.buffer();
           if (buf.GetState() == BufferState::received) {
             // With control variables, we can end up in a state where a
-            // variable that is not receiving null data is unallocated. 
-            // for allocated to be set, the buffer must be sending non-null 
+            // variable that is not receiving null data is unallocated.
+            // for allocated to be set, the buffer must be sending non-null
             // data and the receiving variable must be allocated
             cache.recv_bnd_info_h(ibuf).allocated = v->IsAllocated();
           } else if (buf.GetState() == BufferState::received_null) {

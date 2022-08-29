@@ -2,11 +2,17 @@
 
 ## Current develop
 
+### Added (new features/APIs/variables/...)
+- [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
+
 ### Changed (changing behavior/API/variables/...)
+- [[PR 713]] (https://github.com/lanl/parthenon/pull/713) Remove Coordinates stub in favor of Coordinates_t
 - [[PR 711]](https://github.com/lanl/parthenon/pull/711) Rename flux correction routines.
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 719]](https://github.com/lanl/parthenon/pull/719) Fix type mismatch in swarm boundaries when host pinned memory enabled
+- [[PR 716]](https://github.com/lanl/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 708]](https://github.com/lanl/parthenon/pull/708) Bump minimum version of Kokkos to 3.6

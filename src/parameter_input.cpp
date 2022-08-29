@@ -412,22 +412,30 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     // get pointer to node with same block name in singly linked list of InputBlocks
     pb = GetPtrToBlock(block);
     if (pb == nullptr) {
-      msg << "### FATAL ERROR in function [ParameterInput::ModifyFromCmdline]"
-          << std::endl
-          << "Block name '" << block << "' on command line not found";
-      PARTHENON_FAIL(msg.str().c_str());
+      if (Globals::my_rank == 0) {
+        msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
+            << "               Block name '" << block
+            << "' on command line not found in input/restart file. Block will be added.";
+        PARTHENON_WARN(msg);
+      }
+      pb = FindOrAddBlock(block);
     }
 
     // get pointer to node with same parameter name in singly linked list of InputLines
     pl = pb->GetPtrToLine(name);
     if (pl == nullptr) {
-      msg << "### FATAL ERROR in function [ParameterInput::ModifyFromCmdline]"
-          << std::endl
-          << "Parameter '" << name << "' in block '" << block
-          << "' on command line not found";
-      PARTHENON_FAIL(msg.str().c_str());
+      if (Globals::my_rank == 0) {
+        msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
+            << "               Parameter '" << name << "' in block '" << block
+            << "' on command line not found in input/restart file. Parameter will be "
+               "added.";
+        PARTHENON_WARN(msg);
+      }
+      AddParameter(pb, name, value, " # Added from command line");
+
+    } else {
+      pl->param_value.assign(value); // replace existing value
     }
-    pl->param_value.assign(value); // replace existing value
 
     if (value.length() > pb->max_len_parvalue) pb->max_len_parvalue = value.length();
   }

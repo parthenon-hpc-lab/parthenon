@@ -182,7 +182,7 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
           for (int vidx = lo; vidx <= hi; ++vidx) {
             if (!v(b, vidx).initialized) {
               Real val = v(b, vidx).sparse_default_val;
-              //printf("Initializing block % i variable %i to %e \n", b, vidx, val);
+              // printf("Initializing block % i variable %i to %e \n", b, vidx, val);
               Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NkNjNi),
                                    [&](const int idx) {
                                      const int k = kb.s + idx / NjNi;

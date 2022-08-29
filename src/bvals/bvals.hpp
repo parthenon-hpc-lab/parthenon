@@ -44,7 +44,6 @@ class Mesh;
 class MeshBlock;
 class MeshBlockTree;
 class ParameterInput;
-class Coordinates;
 struct RegionSize;
 
 // free functions to return boundary flag given input string, and vice versa

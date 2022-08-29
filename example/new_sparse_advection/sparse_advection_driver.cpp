@@ -90,30 +90,29 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
 
     const auto any = parthenon::BoundaryType::any;
     auto start_reflux = tl.AddTask(
-        none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections,
-        mc0);
+        none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
     auto start_bound =
         tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
 
     auto calc_flux = tl.AddTask(none, sparse_advection_package::CalculateFluxes, mc0);
 
-    auto send_flx = tl.AddTask(
-        start_reflux | calc_flux,
-        parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
-    auto recv_flx = tl.AddTask(
-        start_reflux | calc_flux,
-        parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
+    auto send_flx =
+        tl.AddTask(start_reflux | calc_flux,
+                   parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
+    auto recv_flx =
+        tl.AddTask(start_reflux | calc_flux,
+                   parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
     auto set_flx =
         tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
-     auto flux_div =
-        tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
-     auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
-                               mc0.get(), mbase.get(), beta);
-     // apply du/dt to all independent fields in the container
-     auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>,
-         mc0.get(), mdudt.get(), beta * dt, mc1.get());
+    auto flux_div =
+       tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
+    auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
+                              mc0.get(), mbase.get(), beta);
+    // apply du/dt to all independent fields in the container
+    auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>,
+        mc0.get(), mdudt.get(), beta * dt, mc1.get());
 
     //auto update = tl.AddTask(set_flx, UpdateWithFluxDivergence<MeshData<Real>>, mc0.get(),
     //                         mc1.get(), beta, 1.0 - beta, beta * dt);
