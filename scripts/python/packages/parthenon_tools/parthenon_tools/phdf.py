@@ -408,6 +408,7 @@ class phdf:
             if self.varData[variable] is None:
                 self.varData[variable] = self.fid[variable][:]
                 vShape = self.varData[variable].shape
+                # TODO(tbd) remove legacy mode in next major rel.
                 if self.OutputFormatVersion == -1:
                     vLen = vShape[-1]
                 else:
@@ -436,6 +437,7 @@ class phdf:
         if flatten:
             # if variable is not a scalar flatten cells component-wise
             if np.prod(vShape) > self.TotalCells:
+                # TODO(tbd) remove legacy mode in next major rel.
                 if self.OutputFormatVersion == -1:
                     return self.varData[variable][:].reshape(
                         self.TotalCells, vShape[-1]
@@ -510,6 +512,7 @@ class phdf:
                         # If dataset isn't a vector, just save dataset
                         component_data[component] = dataset
                     else:
+                        # TODO(tbd) remove legacy mode in next major rel.
                         # Data is a vector, save only the component
                         if self.OutputFormatVersion == -1:
                             component_data[component] = dataset[..., idx]
