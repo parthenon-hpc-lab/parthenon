@@ -50,7 +50,7 @@ class IOWrapper {
   enum class FileMode { read, write };
 
   // wrapper functions for basic I/O tasks
-  int Open(const char *fname, FileMode rw);
+  void Open(const char *fname, FileMode rw);
   std::ptrdiff_t Read(void *buf, IOWrapperSizeT size, IOWrapperSizeT count);
   std::ptrdiff_t Read_all(void *buf, IOWrapperSizeT size, IOWrapperSizeT count);
   std::ptrdiff_t Read_at_all(void *buf, IOWrapperSizeT size, IOWrapperSizeT count,

@@ -1,6 +1,6 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
@@ -48,6 +48,21 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
   fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
 
   hasGhost = GetAttr<int>("Info", "IncludesGhost");
+#endif // ENABLE_HDF5
+}
+
+int RestartReader::GetOutputFormatVersion() const {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else  // HDF5 enabled
+  const H5O obj = H5O::FromHIDCheck(H5Oopen(fh_, "Info", H5P_DEFAULT));
+  auto status = PARTHENON_HDF5_CHECK(H5Aexists(obj, "OutputFormatVersion"));
+  // file contains version info
+  if (status > 0) {
+    return GetAttr<int>("Info", "OutputFormatVersion");
+  } else {
+    return -1;
+  }
 #endif // ENABLE_HDF5
 }
 
