@@ -76,13 +76,13 @@ inline void AppendKey<vpack_types::StringPair>(vpack_types::StringPair *key_coll
 // partially specialized
 template <typename P>
 struct AllocationStatusCollector {
-  static inline void Append(std::vector<bool> *alloc_status_collection, const P &pack);
+  static inline void Append(std::vector<int> *alloc_status_collection, const P &pack);
 };
 
 // Specialization for VariablePack<T>
 template <typename T>
 struct AllocationStatusCollector<VariablePack<T>> {
-  static inline void Append(std::vector<bool> *alloc_status_collection,
+  static inline void Append(std::vector<int> *alloc_status_collection,
                             const VariablePack<T> &var_pack) {
     alloc_status_collection->insert(alloc_status_collection->end(),
                                     var_pack.alloc_status()->begin(),
@@ -93,7 +93,7 @@ struct AllocationStatusCollector<VariablePack<T>> {
 // Specialization for VariableFluxPack<T>
 template <typename T>
 struct AllocationStatusCollector<VariableFluxPack<T>> {
-  static inline void Append(std::vector<bool> *alloc_status_collection,
+  static inline void Append(std::vector<int> *alloc_status_collection,
                             const VariableFluxPack<T> &var_flux_pack) {
     alloc_status_collection->insert(alloc_status_collection->end(),
                                     var_flux_pack.alloc_status()->cbegin(),
@@ -119,7 +119,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   PackIndexMap pack_idx_map;
   PackIndexMap this_map;
 
-  std::vector<bool> alloc_status_collection;
+  std::vector<int> alloc_status_collection;
 
   for (size_t i = 0; i < nblocks; i++) {
     const auto &pack = packing_function(block_data_[i], this_map, this_key);

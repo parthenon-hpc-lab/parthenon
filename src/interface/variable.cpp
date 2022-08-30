@@ -121,6 +121,7 @@ void CellVariable<T>::AllocateData(bool flag_uninitialized) {
 
   data = ParArrayND<T, VariableState>(label(), MakeVariableState(), dims_[5], dims_[4],
                                       dims_[3], dims_[2], dims_[1], dims_[0]);
+  ++num_alloc_; 
 
   data.initialized = !flag_uninitialized;
   is_allocated_ = true;
