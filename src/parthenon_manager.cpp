@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2022 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -22,11 +26,13 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "config.hpp"
 #include "driver/driver.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/parthenon_hdf5.hpp"
 #include "refinement/refinement.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
@@ -206,9 +212,11 @@ ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
 }
 
 void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else  // HDF5 enabled
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
-  //  const IndexDomain interior = IndexDomain::interior;
   const IndexDomain theDomain =
       (resfile.hasGhost ? IndexDomain::entire : IndexDomain::interior);
   // Get block list and temp array size
@@ -218,8 +226,23 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   int nbe = nbs + nb - 1;
   IndexRange myBlocks{nbs, nbe};
 
+  // TODO(cleanup) why is this code here and not contained in the restart reader?
   std::cout << "Blocks assigned to rank:" << Globals::my_rank << ":" << nbs << ":" << nbe
             << std::endl;
+
+  const auto file_output_format_ver = resfile.GetOutputFormatVersion();
+  if (file_output_format_ver == -1) {
+    // Being extra stringent here so that we don't forget to update the machinery when
+    // another change happens.
+    PARTHENON_REQUIRE_THROWS(
+        HDF5::OUTPUT_VERSION_FORMAT == 2,
+        "Auto conversion from old to current format not implemented yet.")
+    if (Globals::my_rank == 0) {
+      PARTHENON_WARN("Restarting from a old output file format. New outputs written with "
+                     "this binary will use new format.")
+    }
+  }
+
   // Get an iterator on block 0 for variable listing
   IndexRange out_ib = mb.cellbounds.GetBoundsI(theDomain);
   IndexRange out_jb = mb.cellbounds.GetBoundsJ(theDomain);
@@ -276,11 +299,14 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   for (auto &v_info : indep_restart_vars) {
     const auto vlen = v_info->NumComponents();
     const auto &label = v_info->label();
+    const auto &Nv = v_info->GetDim(4);
+    const auto &Nu = v_info->GetDim(5);
+    const auto &Nt = v_info->GetDim(6);
 
     if (Globals::my_rank == 0) std::cout << "Var:" << label << ":" << vlen << std::endl;
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
-      resfile.ReadBlocks(label, myBlocks, tmp, bsize, vlen);
+      resfile.ReadBlocks(label, myBlocks, tmp, bsize, file_output_format_ver, vlen);
     } catch (std::exception &ex) {
       std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
                 << label << " from restart file:" << std::endl
@@ -304,22 +330,40 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       auto v = pmb->meshblock_data.Get()->GetCellVarPtr(label);
       auto v_h = v->data.GetHostMirror();
 
-      // Note index l transposed to interior
       // Double note that this also needs to be update in case
       // we update the HDF5 infrastructure!
-      for (int k = out_kb.s; k <= out_kb.e; ++k) {
-        for (int j = out_jb.s; j <= out_jb.e; ++j) {
-          for (int i = out_ib.s; i <= out_ib.e; ++i) {
-            for (int l = 0; l < vlen; ++l) {
-              v_h(l, k, j, i) = tmp[index++];
+      if (file_output_format_ver == -1) {
+        for (int k = out_kb.s; k <= out_kb.e; ++k) {
+          for (int j = out_jb.s; j <= out_jb.e; ++j) {
+            for (int i = out_ib.s; i <= out_ib.e; ++i) {
+              for (int l = 0; l < vlen; ++l) {
+                v_h(l, k, j, i) = tmp[index++];
+              }
             }
           }
         }
+      } else if (file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
+        for (int t = 0; t < Nt; ++t) {
+          for (int u = 0; u < Nu; ++u) {
+            for (int v = 0; v < Nv; ++v) {
+              for (int k = out_kb.s; k <= out_kb.e; ++k) {
+                for (int j = out_jb.s; j <= out_jb.e; ++j) {
+                  for (int i = out_ib.s; i <= out_ib.e; ++i) {
+                    v_h(t, u, v, k, j, i) = tmp[index++];
+                  }
+                }
+              }
+            }
+          }
+        }
+      } else {
+        PARTHENON_THROW("Unknown output format version in restart file.")
       }
 
       v->data.DeepCopy(v_h);
     }
   }
+#endif // ifdef ENABLE_HDF5
 }
 
 } // namespace parthenon

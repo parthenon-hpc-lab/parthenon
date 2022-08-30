@@ -34,10 +34,10 @@
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
-//! \fn int IOWrapper::Open(const char* fname, FileMode rw)
+//! \fn void IOWrapper::Open(const char* fname, FileMode rw)
 //  \brief wrapper for {MPI_File_open} versus {std::fopen} including error check
 
-int IOWrapper::Open(const char *const fname, FileMode const rw) {
+void IOWrapper::Open(const char *const fname, FileMode const rw) {
   std::stringstream msg;
 
   if (rw == FileMode::read) {
@@ -52,7 +52,6 @@ int IOWrapper::Open(const char *const fname, FileMode const rw) {
       msg << "### FATAL ERROR in function [IOWrapper:Open]" << std::endl
           << "Input file '" << fname << "' could not be opened" << std::endl;
       PARTHENON_FAIL(msg);
-      return false;
     }
 
   } else if (rw == FileMode::write) {
@@ -68,13 +67,10 @@ int IOWrapper::Open(const char *const fname, FileMode const rw) {
       msg << "### FATAL ERROR in function [IOWrapper:Open]" << std::endl
           << "Output file '" << fname << "' could not be opened" << std::endl;
       PARTHENON_FAIL(msg);
-      return false;
     }
   } else {
-    return false;
+    PARTHENON_FAIL("Unknown filemode for IOWrapper::Open");
   }
-
-  return true;
 }
 
 //----------------------------------------------------------------------------------------

@@ -16,7 +16,6 @@
 # ========================================================================================
 
 # Modules
-import math
 import numpy as np
 import sys
 import os
@@ -105,6 +104,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 + "/tst/regression/gold_standard/advection_2d.out0.final.phdf",
             ],
             one=True,
+            check_metadata=False,  # Fixes outputformatversion mismatch. Removed prior to merge after gold update.
         )
         ret_3d = phdf_diff.compare(
             [
@@ -113,6 +113,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 + "/tst/regression/gold_standard/advection_3d.out0.final.phdf",
             ],
             one=True,
+            check_metadata=False,  # Fixes outputformatversion mismatch. Removed prior to merge after gold update.
         )
 
         if ret_2d != 0 or ret_3d != 0:
