@@ -211,8 +211,7 @@ template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
     const VarLabelList &var_list, const VarLabelList &flux_list, PackIndexMap *map,
     vpack_types::StringPair *key) {
-  vpack_types::StringPair keys =
-      std::make_pair(var_list.labels(), flux_list.labels());
+  vpack_types::StringPair keys = std::make_pair(var_list.labels(), flux_list.labels());
 
   auto itr = varFluxPackMap_.find(keys);
   bool make_new_pack = false;

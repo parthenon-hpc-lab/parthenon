@@ -123,17 +123,17 @@ class CellVariable {
   ParArrayND<T, VariableState> coarse_s; // used for sending coarse boundary calculation
 
   int dealloc_count = 0;
-  
+
   int GetAllocationStatus() {
-    if (!is_allocated_) return 0; 
-    return num_alloc_; 
+    if (!is_allocated_) return 0;
+    return num_alloc_;
   }
 
  private:
   // allocate data, fluxes, and boundary variable
   void Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialized = false);
   int num_alloc_ = 0;
-  
+
   // allocate data only
   void AllocateData(bool flag_uninitialized = false);
 
