@@ -60,9 +60,9 @@ const Metadata &SparsePool::AddImpl(int sparse_id, const std::vector<int> &shape
       component_labels.size() > 0 ? component_labels
                                   : shared_metadata_.getComponentLabels(),
       shared_metadata_.getAssociated());
-      
-  this_metadata.SetSparseThresholds(shared_metadata_.GetAllocationThreshold(), 
-                                    shared_metadata_.GetDeallocationThreshold(), 
+
+  this_metadata.SetSparseThresholds(shared_metadata_.GetAllocationThreshold(),
+                                    shared_metadata_.GetDeallocationThreshold(),
                                     shared_metadata_.GetDefaultValue());
 
   // if vector_tensor is set, apply it

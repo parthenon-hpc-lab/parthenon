@@ -24,6 +24,7 @@
 #ifdef ENABLE_HDF5
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <set>
 #include <type_traits>
