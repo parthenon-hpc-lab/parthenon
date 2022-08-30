@@ -18,9 +18,8 @@
 #define OUTPUTS_PARTHENON_HDF5_HPP_
 
 #include "config.hpp"
-#ifndef ENABLE_HDF5
-#error "parthenon_hdf5.hpp requires HDF5 output to be enabled"
-#endif // ifndef ENABLE_HDF5
+// Only proceed if HDF5 output enabled
+#ifdef ENABLE_HDF5
 
 // Definitions common to parthenon restart and parthenon output for HDF5
 
@@ -236,5 +235,7 @@ std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string 
 
 } // namespace HDF5
 } // namespace parthenon
+
+#endif // ifdef ENABLE_HDF5
 
 #endif // OUTPUTS_PARTHENON_HDF5_HPP_

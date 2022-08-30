@@ -26,6 +26,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "config.hpp"
 #include "driver/driver.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
@@ -211,6 +212,9 @@ ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
 }
 
 void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else  // HDF5 enabled
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
   const IndexDomain theDomain =
@@ -302,7 +306,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     if (Globals::my_rank == 0) std::cout << "Var:" << label << ":" << vlen << std::endl;
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
-      resfile.ReadBlocks(label, myBlocks, tmp, bsize, vlen, file_output_format_ver);
+      resfile.ReadBlocks(label, myBlocks, tmp, bsize, file_output_format_ver, vlen);
     } catch (std::exception &ex) {
       std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
                 << label << " from restart file:" << std::endl
@@ -359,6 +363,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       v->data.DeepCopy(v_h);
     }
   }
+#endif // ifdef ENABLE_HDF5
 }
 
 } // namespace parthenon

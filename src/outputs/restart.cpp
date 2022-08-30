@@ -52,6 +52,9 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
 }
 
 int RestartReader::GetOutputFormatVersion() const {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else  // HDF5 enabled
   const H5O obj = H5O::FromHIDCheck(H5Oopen(fh_, "Info", H5P_DEFAULT));
   auto status = PARTHENON_HDF5_CHECK(H5Aexists(obj, "OutputFormatVersion"));
   // file contains version info
@@ -60,6 +63,7 @@ int RestartReader::GetOutputFormatVersion() const {
   } else {
     return -1;
   }
+#endif // ENABLE_HDF5
 }
 
 RestartReader::SparseInfo RestartReader::GetSparseInfo() const {

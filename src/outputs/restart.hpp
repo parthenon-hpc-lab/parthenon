@@ -142,8 +142,8 @@ class RestartReader {
   // fills internal data for given pointer
   template <typename T>
   void ReadBlocks(const std::string &name, IndexRange range, std::vector<T> &dataVec,
-                  const std::vector<size_t> &bsize, size_t vlen = 1,
-                  int file_output_format_version = HDF5::OUTPUT_VERSION_FORMAT) const {
+                  const std::vector<size_t> &bsize, int file_output_format_version,
+                  size_t vlen = 1) const {
 #ifndef ENABLE_HDF5
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
