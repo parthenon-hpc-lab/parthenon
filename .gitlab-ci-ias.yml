@@ -1,0 +1,82 @@
+variables:
+  CMAKE_VER: '3.20.3'
+
+# Is performed before the scripts in the stages step
+before_script:
+    - git submodule init
+    - git submodule update
+    - export OMP_NUM_THREADS=1
+    - export OMP_PROC_BIND=1
+    - export OMP_NESTED=True
+    - export CTEST_OUTPUT_ON_FAILURE=1
+    - export J=4 && echo Using ${J} cores during build
+    - export PATH=${PWD}/opt/cmake-${CMAKE_VER}-linux-x86_64/bin:$PATH
+    - module load anaconda3/2020.02
+    # required as functions like "activate" are not available in subshells, see
+    # see https://github.com/conda/conda/issues/7980
+    - source /opt/sns/anaconda3/2020.02/etc/profile.d/conda.sh
+
+cache: &global_cache
+  key: global-cpp17-2
+  paths:
+    - opt/
+  policy: pull-push
+
+stages:
+  - prep
+  - build
+
+
+prep-cuda:
+  stage: prep
+  tags:
+    - gpu
+    - springdale7
+  script:
+    - module load rh/devtoolset/8 cudatoolkit/11.3
+    - mkdir -p opt
+    - if [ ! -d opt/cmake-${CMAKE_VER}-linux-x86_64 ]; then
+      cd opt;
+      wget -qO- http://www.cmake.org/files/v${CMAKE_VER:0:4}/cmake-${CMAKE_VER}-linux-x86_64.tar.gz | tar -xz;
+      cd ..;
+      fi
+    # create our own python env as the default python3 one is incorrectly linked
+    # (missing libopenblasp-r0-39a31c03.2.18.so in numpy module)
+    - if [ ! -d opt/pyenv ]; then
+      conda create --prefix=${CI_PROJECT_DIR}/opt/pyenv matplotlib numpy nomkl -y;
+      fi
+
+parthenon-build-cuda:
+  tags:
+    - gpu
+    - springdale7
+  stage: build
+  cache:
+    # inherit all global cache settings
+    <<: *global_cache
+    # override the policy
+    policy: pull
+  script:
+    - module load rh/devtoolset/8 cudatoolkit/11.3
+    - conda activate ${CI_PROJECT_DIR}/opt/pyenv
+    - mkdir build-cuda
+    - cd build-cuda
+    - cmake -DCMAKE_BUILD_TYPE=Release
+      -DKokkos_ARCH_SKX=True
+      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_VOLTA70=True
+      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+      -DPARTHENON_ENABLE_CPP17=ON
+      -DPARTHENON_DISABLE_MPI=ON
+      -DPARTHENON_DISABLE_HDF5=ON
+      -DNUM_MPI_PROC_TESTING=1
+      ../
+    - make -j${J} advection-example
+    - nvidia-smi
+    - ctest -R regression_test:advection_performance --timeout 3600
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - build-cuda/CMakeFiles/CMakeOutput.log
+      - build-cuda/tst/regression/outputs/advection_performance/performance.png
+
