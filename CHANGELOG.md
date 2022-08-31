@@ -13,6 +13,7 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 723]](https://github.com/lanl/parthenon/pull/719) Fix failing CI on Darwin due to differing `OutputFormatVersion` attribute in hdf5 gold files.
 - [[PR 719]](https://github.com/lanl/parthenon/pull/719) Fix type mismatch in swarm boundaries when host pinned memory enabled
 - [[PR 716]](https://github.com/lanl/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
