@@ -1,6 +1,7 @@
 # Parthenon
 
 [![testing](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror/badges/develop/pipeline.svg)](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror/-/commits/develop)
+[![Extended CI](https://github.com/lanl/parthenon/actions/workflows/ci-extended.yml/badge.svg?branch=develop)](https://github.com/lanl/parthenon/actions/workflows/ci-extended.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Matrix chat](https://img.shields.io/matrix/parthenon-general:matrix.org)](https://app.element.io/#/room/#parthenon-general:matrix.org)
 
