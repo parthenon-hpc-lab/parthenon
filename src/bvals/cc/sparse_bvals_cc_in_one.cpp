@@ -232,9 +232,14 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
         ++nbound;
       });
-  if (nbound == 0) return TaskStatus::complete;
-  if (other_communication_unfinished) return TaskStatus::incomplete;
-
+  if (nbound == 0) {
+    Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
+    return TaskStatus::complete;
+  }
+  if (other_communication_unfinished) {
+    Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
+    return TaskStatus::incomplete;
+  }
   if (rebuild) {
     cache.send_bnd_info = BufferCache_t("send_boundary_info", nbound);
     cache.send_bnd_info_h = Kokkos::create_mirror_view(cache.send_bnd_info);
