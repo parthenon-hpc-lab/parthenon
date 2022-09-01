@@ -1,5 +1,5 @@
 # =========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -440,7 +440,6 @@ def compare(
 
     if not brief and not quiet:
         print("____Comparing on a per variable basis with tolerance %.16g" % tol)
-    oneTenth = f0.TotalCells // 10
     print("Tolerance = %g" % tol)
 
     # Make loc array of locations matching the shape of val0,val1

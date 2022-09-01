@@ -33,7 +33,7 @@ prep-cuda:
     - gpu
     - springdale7
   script:
-    - module load rh/devtoolset/8 cudatoolkit/11.1
+    - module load rh/devtoolset/8 cudatoolkit/11.3
     - mkdir -p opt
     - if [ ! -d opt/cmake-${CMAKE_VER}-linux-x86_64 ]; then
       cd opt;
@@ -57,7 +57,7 @@ parthenon-build-cuda:
     # override the policy
     policy: pull
   script:
-    - module load rh/devtoolset/8 cudatoolkit/11.1
+    - module load rh/devtoolset/8 cudatoolkit/11.3
     - conda activate ${CI_PROJECT_DIR}/opt/pyenv
     - mkdir build-cuda
     - cd build-cuda

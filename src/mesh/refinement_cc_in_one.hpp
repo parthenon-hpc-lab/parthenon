@@ -179,7 +179,7 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
   }
 }
 
-template <template <int> class Stencil, typename... Args>
+template <template <int> class Stencil, class... Args>
 inline void DoProlongationRestrictionOp(const IndexShape &cellbnds, Args &&...args) {
   const IndexDomain entire = IndexDomain::entire;
   if (cellbnds.ncellsk(entire) > 1) { // 3D
