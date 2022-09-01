@@ -884,7 +884,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         if (vinfo.is_sparse) {
           hsize_t N = varSize * vlen;
           for (int i = 0; i < N; ++i)
-            tmpData[index++] = std::numeric_limits<Real>::quiet_NaN();
+            tmpData[index++] = 0.0;//std::numeric_limits<Real>::quiet_NaN();
         } else {
           std::stringstream msg;
           msg << "### ERROR: Unable to find dense variable " << var_name << std::endl;
