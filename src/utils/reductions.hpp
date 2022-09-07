@@ -24,8 +24,6 @@
 #include <utils/error_checking.hpp>
 #include <utils/mpi_types.hpp>
 
-namespace parthenon {
-
 // According to the MPI standard MPI_VERSION is defined by every MPI library.
 // Thus, the following check ensures that there's no clash between our custom workaround
 // for reductions in non-MPI builds.
@@ -45,6 +43,8 @@ enum MPI_Op {
   MPI_MINLOC
 };
 #endif
+
+namespace parthenon {
 
 #ifdef MPI_PARALLEL
 template <class U>
