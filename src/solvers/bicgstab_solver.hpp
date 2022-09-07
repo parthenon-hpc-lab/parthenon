@@ -151,7 +151,7 @@ class BiCGStabSolver : BiCGStabCounter {
     // 4. v = A p
     auto get_v = solver.AddTask(setb1, &Solver_t::MatVec<MD_t>, this, md.get(), pk, vk);
     
-    // 5. alpha = rho_i / (\hat{r}_0 \cdot v_i)
+    // 5. alpha = rho_i / (\hat{r}_0 \cdot v_i) [Actually just calculate \hat{r}_0 \cdot v_i]
     auto get_r0dotv = solver.AddTask(get_v, &Solver_t::DotProduct<MD_t>, this,
       md.get(), res0, vk, &r0_dot_vk.val);
     tr.AddRegionalDependencies(reg.ID(), i, get_r0dotv);
@@ -162,16 +162,11 @@ class BiCGStabSolver : BiCGStabCounter {
       &AllReduce<Real>::CheckReduce, &r0_dot_vk);
     // alpha is actually updated in this next task
 
-    // 6. h = x_{i-1} + alpha p
-    auto get_h = solver.AddTask(finish_global_r0dotv, &Solver_t::Update_h<MD_t>, this,
-      md.get(), mout.get());
-
-    // 7. check for convergence
-
-
+    // 6. h = x_{i-1} + alpha p [Really updates x_i]
+    // 7. check for convergence [Not actually done]
     // 8. s = r_{i-1} - alpha v
-    auto get_s = solver.AddTask(finish_global_r0dotv, &Solver_t::Update_s<MD_t>, this,
-      md.get());
+    auto get_s = solver.AddTask(finish_global_r0dotv, &Solver_t::Update_h_and_s<MD_t>, this,
+      md.get(), mout.get());
 
     // ghost exchange for sk
     auto send2 =
@@ -207,7 +202,7 @@ class BiCGStabSolver : BiCGStabCounter {
     tr.AddRegionalDependencies(reg.ID(), i, update_x);
     auto start_global_res = (i == 0 ?
       solver.AddTask(update_x, &AllReduce<Real>::StartReduce, &global_res, MPI_SUM) :
-      get_tdots);
+      update_x);
     auto finish_global_res = solver.AddTask(start_global_res,
       &AllReduce<Real>::CheckReduce, &global_res);
 
@@ -322,6 +317,30 @@ class BiCGStabSolver : BiCGStabCounter {
         v(b, iout, k, j, i) = r_sp_accessor.MatVec(v, isp_lo, isp_hi, v, iin, b, k, j, i);
       });
     //printf("MatVec: in_vec = %s out_vec = %s spm = %s\n", in_vec.c_str(), out_vec.c_str(), spm_name.c_str());
+    return TaskStatus::complete;
+  }
+  
+  template <typename T>
+  TaskStatus Update_h_and_s(T *u, T *du) {
+    const auto &ib = u->GetBoundsI(IndexDomain::interior);
+    const auto &jb = u->GetBoundsJ(IndexDomain::interior);
+    const auto &kb = u->GetBoundsK(IndexDomain::interior);
+    
+    PackIndexMap imap;
+    auto &v = u->PackVariables(std::vector<std::string>({res, pk, vk}), imap);
+    auto &dv = du->PackVariables(std::vector<std::string>({sol_name}));
+    const int ires = imap[res].first;
+    const int ipk = imap[pk].first;
+    const int ivk = imap[vk].first;
+
+    Real alpha = rhoi.val / r0_dot_vk.val;
+    //printf("Update_h: r0_dot_vk = %e rhoi = %e alpha = %e\n", r0_dot_vk.val, rhoi.val, alpha);
+    par_for(DEFAULT_LOOP_PATTERN, "Update_h", DevExecSpace(), 0,
+      v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        dv(b, 0, k, j, i) += alpha * v(b, ipk, k, j, i);
+        v(b, ires, k, j, i) -= alpha * v(b, ivk, k, j, i);
+      });
     return TaskStatus::complete;
   }
 
