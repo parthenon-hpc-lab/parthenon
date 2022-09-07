@@ -123,19 +123,18 @@ class BiCGStabSolver : BiCGStabCounter {
       init_bicgstab);
     auto finish_global_res0 = tl.AddTask(start_global_res0,
       &AllReduce<Real>::CheckReduce, &global_res0);
+    tr.AddRegionalDependencies(reg.ID(), i, finish_global_res0);
 
     // 1. \hat{r}_0 \cdot r_{i-1}
     auto get_rhoi = solver.AddTask(init_bicgstab, &Solver_t::DotProduct<MD_t>, this,
       md.get(), res0, res, &rhoi.val);
     tr.AddRegionalDependencies(reg.ID(), i, get_rhoi);
-
-    // global reduction for rhoi
     auto start_global_rhoi = (i == 0 ?
       solver.AddTask(get_rhoi, &AllReduce<Real>::StartReduce, &rhoi, MPI_SUM) :
       get_rhoi);
     auto finish_global_rhoi = solver.AddTask(start_global_rhoi,
       &AllReduce<Real>::CheckReduce, &rhoi);
-
+    
     // 2. \beta = (rho_i/rho_{i-1}) (\alpha / \omega_{i-1})
     // 3. p_i = r_{i-1} + \beta (p_{i-1} - \omega_{i-1} v_{i-1})
     auto update_pk = solver.AddTask(finish_global_rhoi, &Solver_t::Compute_pk<MD_t>, this,
@@ -151,14 +150,14 @@ class BiCGStabSolver : BiCGStabCounter {
 
     // 4. v = A p
     auto get_v = solver.AddTask(setb1, &Solver_t::MatVec<MD_t>, this, md.get(), pk, vk);
-
+    
     // 5. alpha = rho_i / (\hat{r}_0 \cdot v_i)
     auto get_r0dotv = solver.AddTask(get_v, &Solver_t::DotProduct<MD_t>, this,
       md.get(), res0, vk, &r0_dot_vk.val);
     tr.AddRegionalDependencies(reg.ID(), i, get_r0dotv);
     auto start_global_r0dotv = (i == 0 ?
       solver.AddTask(get_r0dotv, &AllReduce<Real>::StartReduce, &r0_dot_vk, MPI_SUM) :
-      get_rhoi);
+      get_r0dotv);
     auto finish_global_r0dotv = solver.AddTask(start_global_r0dotv,
       &AllReduce<Real>::CheckReduce, &r0_dot_vk);
     // alpha is actually updated in this next task
@@ -227,7 +226,7 @@ class BiCGStabSolver : BiCGStabCounter {
     const auto &kb = u->GetBoundsK(IndexDomain::interior);
 
     PackIndexMap imap;
-    std::vector<std::string> vars({res,res0,vk,pk,rhs_name});
+    std::vector<std::string> vars({res, res0, vk, pk, rhs_name});
     const auto &v = u->PackVariables(vars, imap);
     const int ires = imap[res].first;
     const int ires0 = imap[res0].first;
@@ -238,10 +237,11 @@ class BiCGStabSolver : BiCGStabCounter {
     const auto &dv = du->PackVariables(std::vector<std::string>({sol_name}));
 
     rhoi_old = 1.0;
-    alpha = 1.0;
-    omega = 1.0;
+    alpha_old = 1.0;
+    omega_old = 1.0;
 
     Real err(0);
+    //printf("Initialize: res = %s res0 = %s rhs_name = %s\n", res.c_str(), res0.c_str(), rhs_name.c_str());
     par_reduce(loop_pattern_mdrange_tag, "initialize bicgstab", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lerr) {
@@ -272,8 +272,8 @@ class BiCGStabSolver : BiCGStabCounter {
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
         lsum += v(b, 0, k, j, i) * v(b, 1, k, j, i);
       }, Kokkos::Sum<Real>(gsum));
-
     *reduce_sum += gsum;
+    //printf("DotProduct: %s dot %s  = %e (%e)\n", vec1.c_str(), vec2.c_str(), *reduce_sum, gsum);
     return TaskStatus::complete;
   }
 
@@ -289,15 +289,15 @@ class BiCGStabSolver : BiCGStabCounter {
     const int ires = imap[res].first;
     const int ivk = imap[vk].first;
 
-    const Real beta = (rhoi.val/rhoi_old) * (alpha / omega);
-    rhoi_old = rhoi.val;
-    const Real w = omega;
-
+    const Real beta = (rhoi.val/rhoi_old) * (alpha_old / omega_old);
+    //printf("Compute_pk: rho_i = %e rho_{i-1} = %e alpha_old = %e omega_old = %e beta = %e\n", rhoi.val, rhoi_old, alpha_old, omega_old, beta);
+    //rhoi_old = rhoi.val;
+    const Real w_o = omega_old;
     par_for(DEFAULT_LOOP_PATTERN, "compute pk", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         v(b, ipk, k, j, i) = v(b, ires, k, j, i)
-                           + beta * (v(b, ipk, k, j, i) - w * v(b, ivk, k, j, i));
+                           + beta * (v(b, ipk, k, j, i) - w_o * v(b, ivk, k, j, i));
       });
     return TaskStatus::complete;
   }
@@ -321,6 +321,7 @@ class BiCGStabSolver : BiCGStabCounter {
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         v(b, iout, k, j, i) = r_sp_accessor.MatVec(v, isp_lo, isp_hi, v, iin, b, k, j, i);
       });
+    //printf("MatVec: in_vec = %s out_vec = %s spm = %s\n", in_vec.c_str(), out_vec.c_str(), spm_name.c_str());
     return TaskStatus::complete;
   }
 
@@ -332,15 +333,16 @@ class BiCGStabSolver : BiCGStabCounter {
 
     auto &v = u->PackVariables(std::vector<std::string>({pk}));
     auto &dv = du->PackVariables(std::vector<std::string>({sol_name}));
-    alpha = rhoi.val / r0_dot_vk.val;
-    const Real a = alpha;
+    Real alpha = rhoi.val / r0_dot_vk.val;
+    //printf("Update_h: r0_dot_vk = %e rhoi = %e alpha = %e\n", r0_dot_vk.val, rhoi.val, alpha);
     par_for(DEFAULT_LOOP_PATTERN, "Update_h", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        dv(b, 0, k, j, i) += a * v(b, 0, k, j, i);
+        dv(b, 0, k, j, i) += alpha * v(b, 0, k, j, i);
       });
     return TaskStatus::complete;
   }
+
   template <typename T>
   TaskStatus Update_s(T *u) {
     const auto &ib = u->GetBoundsI(IndexDomain::interior);
@@ -351,12 +353,12 @@ class BiCGStabSolver : BiCGStabCounter {
     auto &v = u->PackVariables(std::vector<std::string>({res, vk}), imap);
     const int ires = imap[res].first;
     const int ivk = imap[vk].first;
-    alpha = rhoi.val / r0_dot_vk.val;
-    const Real a = alpha;
+    Real alpha = rhoi.val / r0_dot_vk.val;
+    //printf("Update_s: r0_dot_vk = %e rhoi = %e alpha = %e\n", r0_dot_vk.val, rhoi.val, alpha);
     par_for(DEFAULT_LOOP_PATTERN, "Update_s", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        v(b, ires, k, j, i) -= a * v(b, ivk, k, j, i);
+        v(b, ires, k, j, i) -= alpha * v(b, ivk, k, j, i);
       });
     return TaskStatus::complete;
   }
@@ -385,7 +387,7 @@ class BiCGStabSolver : BiCGStabCounter {
         lsum += v(b, 0, k, j, i) * v(b, 0, k, j, i);
       }, Kokkos::Sum<Real>(tt_sum));
     *t_dot_t += tt_sum;
-
+    //printf("OmegaDotProd: t_dot_s = %e (%e) t_dot_t = %e (%e)\n", *t_dot_s, ts_sum, *t_dot_t, tt_sum);
     return TaskStatus::complete;
   }
 
@@ -400,17 +402,17 @@ class BiCGStabSolver : BiCGStabCounter {
     const int ires = imap[res].first;
     const int itk = imap[tk].first;
     auto &dv = du->PackVariables(std::vector<std::string>({sol_name}));
-    omega = t_dot_s.val / t_dot_t.val;
-    const Real w = omega;
+    Real omega = t_dot_s.val / t_dot_t.val;
     Real err(0);
     par_reduce(loop_pattern_mdrange_tag, "Update_x", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lerr) {
-        dv(b, 0, k, j, i) += w * v(b, ires, k, j, i);
-        v(b, ires, k, j, i) -= w * v(b, itk, k, j, i);
+        dv(b, 0, k, j, i) += omega * v(b, ires, k, j, i);
+        v(b, ires, k, j, i) -= omega * v(b, itk, k, j, i);
         lerr += v(b, ires, k, j, i) * v(b, ires, k, j, i);
       }, Kokkos::Sum<Real>(err));
     *gres += err;
+    //printf("Update_x_res: gres = %e (%e) omega = %e\n", *gres, err, omega);
     return TaskStatus::complete;
   }
 
@@ -427,7 +429,13 @@ class BiCGStabSolver : BiCGStabCounter {
                   << std::flush;
       }
     }
-    bool converged = global_res.val / global_res0.val < error_tol;
+    
+    // Update global scalars
+    rhoi_old = rhoi.val; 
+    alpha_old = rhoi.val / r0_dot_vk.val; 
+    omega_old = t_dot_s.val / t_dot_t.val;
+
+    bool converged = std::abs(global_res.val / global_res0.val) < error_tol;
     bool stop = bicgstab_cntr == max_iters;
     global_res.val = 0.0;
     rhoi.val = 0.0;
@@ -444,7 +452,8 @@ class BiCGStabSolver : BiCGStabCounter {
   bool fail_flag, warn_flag;
   std::string spm_name, sol_name, rhs_name, res, res0, vk, pk, tk, solver_name;
 
-  Real rhoi_old, alpha, omega;
+  Real rhoi_old, alpha_old, omega_old;
+
   AllReduce<Real> global_res0;
   AllReduce<Real> global_res;
   AllReduce<Real> rhoi;
