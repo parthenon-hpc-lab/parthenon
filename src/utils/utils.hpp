@@ -86,6 +86,7 @@ template <typename T,
 #else
           >
 #endif // ENABLE_HDF5
+
 T parse_value(std::string &strvalue);
 
 // Parse env. variable expected to hold a bool value allowing for different conventions.
@@ -157,7 +158,6 @@ static T get(const char *name, T defaultval, bool &exists) {
   return Impl::parse_value<T>(strvalue);
 }
 } // namespace Env
-
 } // namespace parthenon
 
 #endif // UTILS_UTILS_HPP_

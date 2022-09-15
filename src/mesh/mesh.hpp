@@ -25,6 +25,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -32,6 +33,7 @@
 
 #include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
+#include "bvals/cc/tag_map.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
@@ -45,6 +47,9 @@
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/communication_buffer.hpp"
+#include "utils/hash.hpp"
+#include "utils/object_pool.hpp"
 #include "utils/partition_stl_containers.hpp"
 
 namespace parthenon {
@@ -67,7 +72,6 @@ class Mesh {
   friend class MeshBlockTree;
   friend class BoundaryBase;
   friend class BoundaryValues;
-  friend class Coordinates;
   friend class MeshRefinement;
 
  public:
@@ -168,6 +172,15 @@ class Mesh {
   std::vector<LogicalLocation> GetLocList() const noexcept { return loclist; }
 
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
+
+  // Ordering here is important to prevent deallocation of pools before boundary
+  // communication buffers
+  using channel_key_t = std::tuple<int, int, std::string, int>;
+  using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
+  std::unordered_map<int, buf_pool_t<Real>> pool_map;
+  std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>
+      boundary_comm_map, boundary_comm_flxcor_map;
+  TagMap tag_map;
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }

@@ -106,9 +106,9 @@ void BoundaryValues::FillRestrictionMetadata(cell_centered_bvars::BufferCacheHos
               info(idx).allocated = v->IsAllocated();
               if (v->IsAllocated()) {
                 info(idx).fine = v->data.Get();
-                info(idx).coarse = v->vbvar->coarse_buf.Get();
+                info(idx).coarse = v->coarse_s.Get();
               }
-              info(idx).restriction = true;
+              info(idx).refinement_op = RefinementOp_t::Restriction;
               info(idx).Nt = v->GetDim(6);
               info(idx).Nu = v->GetDim(5);
               info(idx).Nv = v->GetDim(4);

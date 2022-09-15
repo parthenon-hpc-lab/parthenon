@@ -1,5 +1,5 @@
 # =========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -215,12 +215,18 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
     f0_Info = {
         key: value
         for key, value in f0.Info.items()
-        if key != "Time" and key != "BlocksPerPE" and key != "WallTime"
+        if key != "Time"
+        and key != "BlocksPerPE"
+        and key != "WallTime"
+        and key != "OutputFormatVersion"
     }
     f1_Info = {
         key: value
         for key, value in f1.Info.items()
-        if key != "Time" and key != "BlocksPerPE" and key != "WallTime"
+        if key != "Time"
+        and key != "BlocksPerPE"
+        and key != "WallTime"
+        and key != "OutputFormatVersion"
     }
     if sorted(f0_Info.keys()) != sorted(f1_Info.keys()):
         print("Names of attributes in '/Info' of differ")
@@ -377,13 +383,14 @@ def compare(
         f0 = phdf(files[0])
         if not quiet:
             print(f0)
-    except:
+    except Exception as e:
         print(
             """
         *** ERROR: Unable to open %s as phdf file
         """
             % files[0]
         )
+        print(repr(e))
         return ERROR_NO_OPEN_F0
 
     # Load second file and print info
@@ -391,13 +398,14 @@ def compare(
         f1 = phdf(files[1])
         if not quiet:
             print(f1)
-    except:
+    except Exception as e:
         print(
             """
         *** ERROR: Unable to open %s as phdf file
         """
             % files[1]
         )
+        print(repr(e))
         return ERROR_NO_OPEN_F1
 
     # rudimentary checks
@@ -438,7 +446,6 @@ def compare(
 
     if not brief and not quiet:
         print("____Comparing on a per variable basis with tolerance %.16g" % tol)
-    oneTenth = f0.TotalCells // 10
     print("Tolerance = %g" % tol)
 
     # Make loc array of locations matching the shape of val0,val1

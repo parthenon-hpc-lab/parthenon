@@ -35,7 +35,6 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/cc/bvals_cc.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "parthenon_arrays.hpp"
@@ -121,17 +120,11 @@ class CellVariable {
   inline constexpr bool IsAllocated() const { return true; }
 #endif
 
-  /// Repoint vbvar's var_cc array at the current variable
-  inline void resetBoundary() { vbvar->var_cc = data; }
-
   inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   ParArrayND<T> data;
   ParArrayND<T> flux[4];  // used for boundary calculation
   ParArrayND<T> coarse_s; // used for sending coarse boundary calculation
-  // used in case of cell boundary communication
-  std::shared_ptr<CellCenteredBoundaryVariable> vbvar;
-  bool mpiStatus = false;
 
   int dealloc_count = 0;
 

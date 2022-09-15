@@ -130,9 +130,7 @@ class ParArrayGeneric : public State {
   ParArrayGeneric(const std::string &label, Args... args)
       : ParArrayGeneric(label, State(),
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
-                        args...) {
-    assert(all_greater_than(0, args...));
-  }
+                        args...) {}
 
   template <class... Args, REQUIRES((sizeof...(Args) > 0) || (Data::rank == 0)),
             REQUIRES(Data::rank - sizeof...(Args) >= 0),
@@ -140,9 +138,7 @@ class ParArrayGeneric : public State {
   ParArrayGeneric(const std::string &label, const State &state, Args... args)
       : ParArrayGeneric(label, state,
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
-                        args...) {
-    assert(all_greater_than(0, args...));
-  }
+                        args...) {}
 
   template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
             REQUIRES(Data::rank - sizeof...(Args) >= 0)>
@@ -152,10 +148,14 @@ class ParArrayGeneric : public State {
                   label);
   }
 
-  template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
+  template <class... Args, REQUIRES(all_implement<integral_or_enum(Args...)>::value),
             REQUIRES(Data::rank - sizeof...(Args) >= 0)>
   KOKKOS_FORCEINLINE_FUNCTION auto Get(Args... args) const {
-    return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
+    return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
+               static_cast<typename UnderlyingType<Args>::type>(args)...);
+    // This cast is required to be able to take enum classes
+    // with integral base types as arguments. I think it should
+    // result in a no op for integral types
   }
 
   // call me as Get<D>();
@@ -170,11 +170,14 @@ class ParArrayGeneric : public State {
     Resize(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
   }
 
-  template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
+  template <class... Args, REQUIRES(all_implement<integral_or_enum(Args...)>::value),
             REQUIRES(Data::rank - sizeof...(Args) >= 0)>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) const {
     return _operator_impl(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
-                          args...);
+                          static_cast<typename UnderlyingType<Args>::type>(args)...);
+    // This cast is required to be able to take enum classes
+    // with integral base types as arguments. I think it should
+    // result in a no op for integral types
   }
 
   // This operator is only defined for one dimensional Kokkos arrays
@@ -244,8 +247,8 @@ class ParArrayGeneric : public State {
   // translates into auto dest = src.SliceD<dim>(std::make_pair(indx,indx+nvar))
   template <std::size_t N = Data::rank>
   auto SliceD(index_pair_t slc) const {
-    static_assert(N <= Data::rank);
-    static_assert(N > 0);
+    static_assert(N <= Data::rank, "Slice dim larger than data rank");
+    static_assert(N > 0, "Slice dimension negative");
     return SliceD(std::make_index_sequence<Data::rank - N>{},
                   std::make_index_sequence<N - 1>{}, slc);
   }

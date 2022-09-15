@@ -42,7 +42,6 @@ using namespace ::parthenon::prelude;
 using ::parthenon::AmrTag;
 using ::parthenon::ApplicationInput;
 using ::parthenon::BlockList_t;
-using ::parthenon::Coordinates;
 using ::parthenon::DevExecSpace;
 using ::parthenon::HostExecSpace;
 using ::parthenon::Mesh;

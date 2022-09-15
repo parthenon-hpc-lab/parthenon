@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
 #include "io_wrapper.hpp"
 #include "parthenon_arrays.hpp"
@@ -33,7 +34,6 @@ namespace parthenon {
 // forward declarations
 class Mesh;
 class ParameterInput;
-class Coordinates;
 
 //----------------------------------------------------------------------------------------
 //! \struct OutputParameters
@@ -115,7 +115,7 @@ class OutputType {
   bool SliceOutputData(MeshBlock *pmb, int dim);
   void SumOutputData(MeshBlock *pmb, int dim);
   void CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
-                                Coordinates *pco);
+                                Coordinates_t *pco);
   // following pure virtual function must be implemented in all derived classes
   virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                const SignalHandler::OutputSignal signal) = 0;
