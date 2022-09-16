@@ -242,7 +242,7 @@ class BiCGStabSolver : BiCGStabCounter {
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lerr) {
         v(b, ires, k, j, i) = v(b, irhs, k, j, i);
         v(b, ires0, k, j, i) = v(b, irhs, k, j, i);
-        lerr += v(b, irhs, k, j, i);
+        lerr += v(b, irhs, k, j, i) * v(b, irhs, k, j, i);
         v(b, ivk, k, j, i) = 0.0;
         v(b, ipk, k, j, i) = 0.0;
         // initialize guess for solution to zero
@@ -334,7 +334,7 @@ class BiCGStabSolver : BiCGStabCounter {
     const int ivk = imap[vk].first;
 
     Real alpha = rhoi.val / r0_dot_vk.val;
-    //printf("Update_h: r0_dot_vk = %e rhoi = %e alpha = %e\n", r0_dot_vk.val, rhoi.val, alpha);
+    if (std::abs(r0_dot_vk.val) < 1.e-200) alpha = 0.0;
     par_for(DEFAULT_LOOP_PATTERN, "Update_h", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
@@ -422,6 +422,7 @@ class BiCGStabSolver : BiCGStabCounter {
     const int itk = imap[tk].first;
     auto &dv = du->PackVariables(std::vector<std::string>({sol_name}));
     Real omega = t_dot_s.val / t_dot_t.val;
+    if (std::abs(t_dot_t.val) < 1.e-200) omega = 0.0;
     Real err(0);
     par_reduce(loop_pattern_mdrange_tag, "Update_x", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -431,7 +432,6 @@ class BiCGStabSolver : BiCGStabCounter {
         lerr += v(b, ires, k, j, i) * v(b, ires, k, j, i);
       }, Kokkos::Sum<Real>(err));
     *gres += err;
-    //printf("Update_x_res: gres = %e (%e) omega = %e\n", *gres, err, omega);
     return TaskStatus::complete;
   }
 
@@ -455,6 +455,7 @@ class BiCGStabSolver : BiCGStabCounter {
     omega_old = t_dot_s.val / t_dot_t.val;
 
     bool converged = std::abs(global_res.val / global_res0.val) < error_tol;
+    converged = converged && (std::abs(global_res.val) < error_tol);
     bool stop = bicgstab_cntr == max_iters;
     global_res.val = 0.0;
     rhoi.val = 0.0;
