@@ -69,6 +69,8 @@ class BiCGStabSolver : BiCGStabCounter {
     return CreateTaskList(begin, i, tr, solver, md, mout);
   }
 
+  std::function<TaskStatus(MeshData<Real>*, const std::string&, const std::string&)> user_MatVec; 
+ 
  private:
   void Init(StateDescriptor *pkg) {
     // create vectors used internally by the solver
@@ -149,8 +151,13 @@ class BiCGStabSolver : BiCGStabCounter {
         solver.AddTask(recv1, parthenon::cell_centered_bvars::SetBoundaries, md);
 
     // 4. v = A p
-    auto get_v = solver.AddTask(setb1, &Solver_t::MatVec<MD_t>, this, md.get(), pk, vk);
-    
+    auto get_v = setb1; 
+    if (user_MatVec) { 
+      get_v = solver.AddTask(setb1, user_MatVec, md.get(), pk, vk);
+    } else {
+      get_v = solver.AddTask(setb1, &Solver_t::MatVec<MD_t>, this, md.get(), pk, vk);
+    }
+
     // 5. alpha = rho_i / (\hat{r}_0 \cdot v_i) [Actually just calculate \hat{r}_0 \cdot v_i]
     auto get_r0dotv = solver.AddTask(get_v, &Solver_t::DotProduct<MD_t>, this,
       md.get(), res0, vk, &r0_dot_vk.val);
@@ -177,9 +184,13 @@ class BiCGStabSolver : BiCGStabCounter {
         solver.AddTask(recv2 | get_s, parthenon::cell_centered_bvars::SetBoundaries, md);
 
     // 9. t = A s
-    auto get_t = solver.AddTask(setb2, &Solver_t::MatVec<MD_t>, this, md.get(),
-      res, tk);
-
+    auto get_t = setb2;
+    if (user_MatVec) {
+      get_t = solver.AddTask(setb2, user_MatVec, md.get(), res, tk);
+    } else { 
+      get_t = solver.AddTask(setb2, &Solver_t::MatVec<MD_t>, this, md.get(),
+        res, tk);
+    }
     // 10. omega = (t \cdot s) / (t \cdot t)
     auto get_tdots = solver.AddTask(get_t, &Solver_t::OmegaDotProd<MD_t>, this, md.get(),
       &t_dot_s.val, &t_dot_t.val);
@@ -207,7 +218,7 @@ class BiCGStabSolver : BiCGStabCounter {
       &AllReduce<Real>::CheckReduce, &global_res);
 
     // 12. check for convergence
-    auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence, this, i, true);
+    auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence, this, i, false);
     tr.AddGlobalDependencies(reg.ID(), i, check);
 
     return check;
@@ -439,7 +450,7 @@ class BiCGStabSolver : BiCGStabCounter {
     if (i != 0) return TaskStatus::complete;
     bicgstab_cntr++;
     global_res.val = std::sqrt(global_res.val);
-    if (bicgstab_cntr == 1) global_res0.val = global_res0.val;
+    if (bicgstab_cntr == 1) global_res0.val = std::sqrt(global_res0.val);
     if (report) {
       if (Globals::my_rank == 0) {
         std::cout << parthenon::Globals::my_rank << " its= " << bicgstab_cntr
@@ -455,7 +466,7 @@ class BiCGStabSolver : BiCGStabCounter {
     omega_old = t_dot_s.val / t_dot_t.val;
 
     bool converged = std::abs(global_res.val / global_res0.val) < error_tol;
-    converged = converged && (std::abs(global_res.val) < error_tol);
+    //converged = converged && (std::abs(global_res.val) < error_tol);
     bool stop = bicgstab_cntr == max_iters;
     global_res.val = 0.0;
     rhoi.val = 0.0;
@@ -471,7 +482,7 @@ class BiCGStabSolver : BiCGStabCounter {
   int max_iters, check_interval, bicgstab_cntr;
   bool fail_flag, warn_flag;
   std::string spm_name, sol_name, rhs_name, res, res0, vk, pk, tk, solver_name;
-
+  
   Real rhoi_old, alpha_old, omega_old;
 
   AllReduce<Real> global_res0;
