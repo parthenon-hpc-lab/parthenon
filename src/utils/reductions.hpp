@@ -64,7 +64,16 @@ struct ReductionBase {
   bool active = false;
   ReductionBase() {
 #ifdef MPI_PARALLEL
-    MPI_Comm_dup(MPI_COMM_WORLD, &comm);
+    PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &comm));
+#endif
+  }
+
+  ~ReductionBase() { 
+#ifdef MPI_PARALLEL
+    // MPI communicators are reference counted by MPI, so we don't need 
+    // to worry about the impact on other objects that use this communicator
+    // or the rule of four
+    PARTHENON_MPI_CHECK(MPI_Comm_free(&comm));
 #endif
   }
 
@@ -72,7 +81,7 @@ struct ReductionBase {
     if (!active) return TaskStatus::complete;
     int check = 1;
 #ifdef MPI_PARALLEL
-    MPI_Test(&req, &check, MPI_STATUS_IGNORE);
+    PARTHENON_MPI_CHECK(MPI_Test(&req, &check, MPI_STATUS_IGNORE));
 #endif
     if (check) {
       active = false;
@@ -87,9 +96,9 @@ struct AllReduce : public ReductionBase<T> {
   TaskStatus StartReduce(MPI_Op op) {
     if (this->active) return TaskStatus::complete;
 #ifdef MPI_PARALLEL
-    MPI_Iallreduce(MPI_IN_PLACE, contiguous_container::data(this->val),
+    PARTHENON_MPI_CHECK(MPI_Iallreduce(MPI_IN_PLACE, contiguous_container::data(this->val),
                    contiguous_container::size(this->val), GetContainerMPIType(this->val),
-                   op, this->comm, &(this->req));
+                   op, this->comm, &(this->req)));
 #endif
     this->active = true;
     return TaskStatus::complete;
@@ -102,14 +111,14 @@ struct Reduce : public ReductionBase<T> {
     if (this->active) return TaskStatus::complete;
 #ifdef MPI_PARALLEL
     if (Globals::my_rank == n) {
-      MPI_Ireduce(MPI_IN_PLACE, contiguous_container::data(this->val),
+      PARTHENON_MPI_CHECK(MPI_Ireduce(MPI_IN_PLACE, contiguous_container::data(this->val),
                   contiguous_container::size(this->val), GetContainerMPIType(this->val),
-                  op, n, this->comm, &(this->req));
+                  op, n, this->comm, &(this->req)));
 
     } else {
-      MPI_Ireduce(contiguous_container::data(this->val), nullptr,
+      PARTHENON_MPI_CHECK(MPI_Ireduce(contiguous_container::data(this->val), nullptr,
                   contiguous_container::size(this->val), GetContainerMPIType(this->val),
-                  op, n, this->comm, &(this->req));
+                  op, n, this->comm, &(this->req)));
     }
 #endif
     this->active = true;
