@@ -388,11 +388,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           // data)
           if (buf.GetState() == BufferState::received && !v->IsAllocated()) {
             constexpr bool flag_uninitialized = true;
-            // Allocate all variables controlled by this variable
-            auto &var_names =
-                pmb->pmy_mesh->resolved_packages->GetControlledVariables(v->label());
-            for (auto &vname : var_names)
-              pmb->AllocateSparse(vname, flag_uninitialized);
+            pmb->AllocateSparse(v->label(), flag_uninitialized);
           }
           ++ibound;
         });
