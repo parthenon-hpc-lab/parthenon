@@ -56,12 +56,12 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
 
   int nvar = desc.vars.size();
 
-  std::vector<bool> astat;
+  std::vector<int> astat;
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     for (int i = 0; i < nvar; ++i) {
       for (auto &pv : pmbd->GetCellVariableVector()) {
         if (desc.IncludeVariable(i, pv)) {
-          astat.push_back(pv->IsAllocated());
+          astat.push_back(pv->GetAllocationStatus());
         }
       }
     }

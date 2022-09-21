@@ -109,7 +109,7 @@ class SparsePackBase {
  protected:
   friend class SparsePackCache;
 
-  using alloc_t = std::vector<bool>;
+  using alloc_t = std::vector<int>;
   using pack_t = ParArray3D<ParArray3D<Real, VariableState>>;
   using bounds_t = ParArray3D<int>;
   using bounds_h_t = typename ParArray3D<int>::HostMirror;
