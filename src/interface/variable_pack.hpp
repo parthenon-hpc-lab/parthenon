@@ -147,9 +147,11 @@ class VarListWithLabels {
            const std::unordered_set<int> &sparse_ids = {}) {
     if (!var->IsSparse() || sparse_ids.empty() ||
         (sparse_ids.count(var->GetSparseID()) > 0)) {
-      vars_.push_back(var);
-      labels_.push_back(var->label());
-      alloc_status_.push_back(var->GetAllocationStatus());
+      //if (var->IsAllocated()) {
+        vars_.push_back(var);
+        labels_.push_back(var->label());
+        alloc_status_.push_back(var->GetAllocationStatus());
+      //}
     }
   }
 
@@ -274,9 +276,9 @@ class VariablePack {
     // dims_[3]. There is one entry in allocation_status_ per VARIABLE, but dims_[3] is
     // number of COMPONENTS (e.g. for a vector variable with 3 components, there will be
     // only one entry in allocation_status_, but 3 entries in v_, sparse_ids_, etc.)
-    assert(dims_[0] > 1);
-    assert(dims_[1] > 0);
-    assert(dims_[2] > 0);
+    assert(dims_[0] > 1 || dims_[3] == 0);
+    assert(dims_[1] > 0 || dims_[3] == 0);
+    assert(dims_[2] > 0 || dims_[3] == 0);
     assert(dims_[3] == v_.extent(0));
     assert(dims_[3] == sparse_ids_.extent(0));
     assert(dims_[3] == vector_component_.extent(0));
@@ -289,6 +291,9 @@ class VariablePack {
   // Note: Device only
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsAllocated(const int n) const {
+    if (n < 0 || n>= dims_[3]) {
+      printf("IsAllocated: %d %d\n", n, dims_[3]);
+    }
     assert(0 <= n && n < dims_[3]);
     return allocated_(n);
   }
@@ -762,7 +767,9 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
   for (const auto &v : vars) {
     // we also count unallocated vars because the total size needs to be uniform across
     // meshblocks that meshblock packs will work
-    if (v->IsAllocated()) vsize += v->NumComponents();
+    if (v->IsAllocated()) {
+      vsize += v->NumComponents();
+    }
   }
 
   // make the outer view
@@ -771,18 +778,27 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
   ParArray1D<int> vector_component("MakePack::vector_component", vsize);
   ParArray1D<bool> allocated("MakePack::allocated", vsize);
 
-  std::array<int, 4> cv_size{0, 0, 0, 0};
-  if (vsize > 0) {
-    // get dimension from first variable, they must all be the same
-    // TODO(JL): maybe verify this?
-    const auto &var = vars.front();
-    for (int i = 0; i < 3; ++i) {
-      cv_size[i] = coarse ? var->GetCoarseDim(i + 1) : var->GetDim(i + 1);
+  std::array<int, 4> cv_size{0, 0, 0, 0};//cv_size{2, 1, 1, 0};
+  for (auto &var : vars) {
+    if (var->IsAllocated()) {
+      for (int i = 0; i < 3; ++i) {
+        cv_size[i] = coarse ? var->GetCoarseDim(i + 1) : var->GetDim(i + 1);
+      }
+      break;
     }
-    cv_size[3] = vsize;
-
-    FillVarView(vars, coarse, cv, sparse_id, vector_component, allocated, pvmap);
   }
+  cv_size[3] = vsize;
+
+  FillVarView(vars, coarse, cv, sparse_id, vector_component, allocated, pvmap);
+  //printf("Making pack of size %d: ", vsize);
+  //for (const auto &v : vars) {
+    //if (v->IsAllocated()) {
+      //printf("%s ", v->label().c_str());
+    //} else {
+      //printf("***%s*** ", v->label().c_str());
+    //}
+  //}
+  //printf("\n");
 
   return VariablePack<T>(cv, sparse_id, vector_component, allocated, cv_size);
 }
