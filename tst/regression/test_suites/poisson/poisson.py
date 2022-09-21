@@ -46,7 +46,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 parameters.parthenon_path
                 + "/tst/regression/gold_standard/poisson.out0.00001.phdf",
             ],
-            check_metadata=False
+            check_metadata=False,
         )
 
         return delta == 0
