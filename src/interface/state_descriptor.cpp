@@ -346,6 +346,17 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
   return os;
 }
 
+// Take a map going from variable 1 -> variable that controls variable 1 and invert it
+// to give control variable -> list of variables controlled by control variable.
+// TODO(LFR): Currently, calling this repeatedly will just add a controlled variable
+// to the vector of a controlling variable repeatedly. I think this shouldn't cause any
+// issues since allocating or deallocating a variable multiple times in a row is the
+// same as allocating it or deallocating it once. That being said, it could be switched
+// to an unordered_set from a vector so that variable names can only show up once. Also,
+// it is not clear to me exactly what behavior this should have if invert control map is
+// called more than once (I think the normal use case would be for just a single call
+// during resolution of the combined state descriptor). It may be that we should be
+// calling allocControllerMap_.clear() before starting the for_each loop.
 void StateDescriptor::InvertControllerMap() {
   std::for_each(allocControllerReverseMap_.begin(), allocControllerReverseMap_.end(),
                 [this](const auto &pair) {
