@@ -176,7 +176,8 @@ specify the full label (base name plus sparse ID) to refer to a particular spars
 
 ## Sparse allocation and deallocation implementation
 
-*This section has not been completely updated from the original sparse implementation.* 
+*This section has not been completely updated from the original sparse implementation and is kept
+here as a reference for developers.* 
 
 Implementing the sparse allocation capability requires deep changes in the entire infrastructure,
 because the entire infrastructure assumed that all variables are always allocated on all blocks. It
