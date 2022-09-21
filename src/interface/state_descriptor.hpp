@@ -233,6 +233,8 @@ class StateDescriptor {
     return controller->second.label();
   }
 
+  bool ControlVariablesSet() { return (allocControllerMap_.size() > 0); }
+
   const std::vector<std::string> &GetControlledVariables(const std::string &field_name) {
     auto iter = allocControllerMap_.find(field_name);
     if (iter == allocControllerMap_.end()) return nullControl_;
@@ -362,7 +364,7 @@ class StateDescriptor {
   std::unordered_map<VarID, Metadata, VarIDHasher> metadataMap_;
   std::unordered_map<VarID, VarID, VarIDHasher> allocControllerReverseMap_;
   std::unordered_map<std::string, std::vector<std::string>> allocControllerMap_;
-  std::vector<std::string> nullControl_{};
+  const std::vector<std::string> nullControl_{};
 
   // for each sparse base name hold its sparse pool
   Dictionary<SparsePool> sparsePoolMap_;

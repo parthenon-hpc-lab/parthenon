@@ -260,15 +260,7 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
           // a row, now deallocate it
           counter = 0;
           auto pmb = md->GetBlockData(b)->GetBlockPointer();
-          auto &var_names =
-              pmb->pmy_mesh->resolved_packages->GetControlledVariables(control_var);
-          if (var_names.size() > 0)
-            printf("Deallocating %s on block %i (", control_var.c_str(), pmb->gid);
-          for (auto &vname : var_names) {
-            printf("%s ", vname.c_str());
-            pmb->DeallocateSparse(vname);
-          }
-          if (var_names.size() > 0) printf(")\n");
+          pmb->DeallocateSparse(control_var);
         }
       }
     }
