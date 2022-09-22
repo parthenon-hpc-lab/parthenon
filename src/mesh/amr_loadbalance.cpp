@@ -1301,16 +1301,6 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
         // need to allocate locally
         pmb->AllocateSparse(pvar_cc->label());
       }
-    }
-  }
-
-  for (int i = 0; i < pmb->vars_cc_.size(); ++i) {
-    auto &pvar_cc = pmb->vars_cc_[i];
-    int nu = pvar_cc->GetDim(4) - 1;
-
-    if (alloc_subview_h(i) == 1.0) {
-      // allocated on sending block, so previous loop should have 
-      // allocated it here
       PARTHENON_REQUIRE_THROWS(
           pvar_cc->IsAllocated(),
           "FinishRecvSameLevel: Received variable that was allocated on sending "
