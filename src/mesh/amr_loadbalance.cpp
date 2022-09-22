@@ -1290,7 +1290,7 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
   IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-
+  
   for (int i = 0; i < pmb->vars_cc_.size(); ++i) {
     auto &pvar_cc = pmb->vars_cc_[i];
     int nu = pvar_cc->GetDim(4) - 1;
@@ -1301,6 +1301,20 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
         // need to allocate locally
         pmb->AllocateSparse(pvar_cc->label());
       }
+    }
+  }
+
+  for (int i = 0; i < pmb->vars_cc_.size(); ++i) {
+    auto &pvar_cc = pmb->vars_cc_[i];
+    int nu = pvar_cc->GetDim(4) - 1;
+
+    if (alloc_subview_h(i) == 1.0) {
+      // allocated on sending block, so previous loop should have 
+      // allocated it here
+      PARTHENON_REQUIRE_THROWS(
+          pvar_cc->IsAllocated(),
+          "FinishRecvSameLevel: Received variable that was allocated on sending "
+          "block but it is not allocated on receiving block");
       ParArray4D<Real> var_cc_ = pvar_cc->data.Get<4>();
       BufferUtility::UnpackData(recvbuf, var_cc_, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s,
                                 kb.e, p, pmb);
@@ -1448,15 +1462,18 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
   for (int i = 0; i < pmr->pvars_cc_.size(); ++i) {
     auto &cc_var = pmr->pvars_cc_[i];
     int nu = cc_var->GetDim(4) - 1;
-
     if ((alloc_subview_h(i) == 1.0) && !cc_var->IsAllocated()) {
       // need to allocate locally
       pb->AllocateSparse(cc_var->label());
-      PARTHENON_REQUIRE_THROWS(
-          cc_var->IsAllocated(),
-          "Mesh::FinishRecvCoarseToFineAMR: Failed to allocate variable");
     }
+  }
 
+  for (int i = 0; i < pmr->pvars_cc_.size(); ++i) {
+    auto &cc_var = pmr->pvars_cc_[i];
+    int nu = cc_var->GetDim(4) - 1;
+    PARTHENON_REQUIRE_THROWS(
+        cc_var->IsAllocated(),
+        "Mesh::FinishRecvCoarseToFineAMR: Failed to allocate variable " + cc_var->label());
     if (cc_var->IsAllocated()) {
       ParArrayND<Real> var_cc = cc_var->data;
       PARTHENON_REQUIRE_THROWS(nu == cc_var->GetDim(4) - 1, "nu mismatch");
