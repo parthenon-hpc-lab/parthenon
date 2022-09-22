@@ -393,7 +393,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           // data)
           if (buf.GetState() == BufferState::received && !v->IsAllocated()) {
             constexpr bool flag_uninitialized = true;
-            pmb->AllocateSparse(v->label(), flag_uninitialized);
+            constexpr bool only_control = true;
+            pmb->AllocateSparse(v->label(), only_control, flag_uninitialized);
           }
           ++ibound;
         });
