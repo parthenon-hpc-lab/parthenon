@@ -350,7 +350,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   if (signal == SignalHandler::OutputSignal::now) {
     filename.append("now");
   } else if (signal == SignalHandler::OutputSignal::final &&
-             (output_params.file_label_final || restart_)) {
+             output_params.file_label_final) {
     filename.append("final");
     // default time based data dump
   } else {
