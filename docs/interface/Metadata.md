@@ -132,6 +132,14 @@ classes may be allocated. The behaviours are the following:
   `Metadata::WithFluxes` and `Metadata::FillGhosts` to send flux
   corrections across meshblocks.
 
+- If `Metadata::RemeshComm` is set, the variable is communicated between 
+  ranks during remeshing. Variables with `Metadata::Independent` and/or 
+  `Metadata::FillGhost` are also automatically communicated when a block 
+  is communicated from one process to another. Other variables **are not** 
+  communicated across ranks, which has the possibility to cause downstream 
+  codes to produce different results when the same problem is run on 
+  different numbers of ranks. 
+
 ### Application Metadata Flags
 
 Applications can allocate their own flags by calling
