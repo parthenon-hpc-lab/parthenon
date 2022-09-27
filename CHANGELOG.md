@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 732]](https://github.com/lanl/parthenon/pull/732) Add `Metadata::RemeshComm` flag
 - [[PR 729]](https://github.com/lanl/parthenon/pull/729) Optional modifications to output format
 - [[PR 717]](https://github.com/lanl/parthenon/pull/717) Add ghost zone plotting capability to phdf.py and movie2d.py
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
