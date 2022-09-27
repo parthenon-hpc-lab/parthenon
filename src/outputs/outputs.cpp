@@ -150,6 +150,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // set file number, basename, id, and format
       op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
       op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
+      op.file_number_width =
+          pin->GetOrAddInteger("parthenon/job", "file_number_width", 5);
+      op.file_label_final =
+          pin->GetOrAddBoolean("parthenon/job", "use_final_label", true);
       char define_id[10];
       std::snprintf(define_id, sizeof(define_id), "out%d",
                     op.block_number); // default id="outN"

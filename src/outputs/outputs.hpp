@@ -43,6 +43,8 @@ struct OutputParameters {
   int block_number;
   std::string block_name;
   std::string file_basename;
+  int file_number_width;
+  bool file_label_final;
   std::string file_id;
   std::string variable;
   std::vector<std::string> variables;
