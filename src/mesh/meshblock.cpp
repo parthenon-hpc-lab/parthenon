@@ -180,23 +180,23 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // potentially used in the load balancing calculation, but not all 
   // variables that we may want to communicate are necessarily relevant 
   // to the cost per meshblock. 
-  for (auto& var : real_container->GetVariablesByFlag({
-      Metadata::Independent, 
-      Metadata::FillGhost, 
-      Metadata::RemeshComm}, false).vars()) {
-    RegisterMeshBlockData(var);
+  const auto vars = real_container
+            ->GetVariablesByFlag({Metadata::Independent, Metadata::FillGhost, Metadata::RemeshComm}, false)
+            .vars(); 
+  for (int n=0; n < vars.size(); ++n) {
+    RegisterMeshBlockData(vars[n]);
   }
   
   if (pm->multilevel) {
-    const auto vars =
+    const auto refine_vars =
         real_container
             ->GetVariablesByFlag({Metadata::Independent, Metadata::FillGhost}, false)
             .vars();
     pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
-    for (int n = 0; n < vars.size(); n++) {
+    for (int n = 0; n < refine_vars.size(); n++) {
       // These are used for doing refinement
-      pmr->AddToRefinement(vars[n]);
+      pmr->AddToRefinement(refine_vars[n]);
     }
   }
 
