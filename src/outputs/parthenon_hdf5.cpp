@@ -89,6 +89,9 @@ struct VarInfo {
   int nx6;
   int nx5;
   int nx4;
+  int nx3;
+  int nx2;
+  int nx1;
   bool is_sparse;
   bool is_vector;
   std::vector<std::string> component_labels;
@@ -97,8 +100,8 @@ struct VarInfo {
 
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
           int vlen, int nx6, int nx5, int nx4, bool is_sparse, bool is_vector)
-      : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), is_sparse(is_sparse),
-        is_vector(is_vector) {
+      : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), nx3(nx3), nx2(nx2),
+        nx1(nx1), is_sparse(is_sparse), is_vector(is_vector) {
     if (vlen <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with length " << vlen
@@ -132,7 +135,8 @@ struct VarInfo {
 
   explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
-                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->IsSparse(),
+                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->GetDim(3),
+                var->GetDim(2), var->GetDim(1), var->IsSparse(),
                 var->IsSet(Metadata::Vector)) {}
 };
 
