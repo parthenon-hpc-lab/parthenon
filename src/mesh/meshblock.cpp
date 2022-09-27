@@ -164,7 +164,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // for counting load-balance cost. Should it be different than the
   // variables used for refinement?
   // Should we even have both of these arrays? Are they both necessary?
-  
+
   // TODO(JMM): In principal this should be `Metadata::Independent`
   // only. However, I am making it `Metadata::Independent` OR
   // `Metadata::FillGhost` to work around the old Athena++
@@ -173,30 +173,32 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // variables is in place and after we write "prolongate-in-one,"
   // this should be only for `Metadata::Independent`.
 
-  // TODO (LFR): vars_cc_ sets what variables are communicated across 
-  // ranks during remeshing, so we want to be able to explicitly flag 
-  // variables that need to be communicated using `Metadata::RemeshComm`. 
-  // In the future, this needs to be cleaned up since `vars_cc_` is 
-  // potentially used in the load balancing calculation, but not all 
-  // variables that we may want to communicate are necessarily relevant 
-  // to the cost per meshblock. 
-  for (auto& var : real_container->GetVariablesByFlag({
-      Metadata::Independent, 
-      Metadata::FillGhost, 
-      Metadata::RemeshComm}, false).vars()) {
-    RegisterMeshBlockData(var);
+  // TODO(LFR): vars_cc_ sets what variables are communicated across
+  // ranks during remeshing, so we want to be able to explicitly flag
+  // variables that need to be communicated using `Metadata::RemeshComm`.
+  // In the future, this needs to be cleaned up since `vars_cc_` is
+  // potentially used in the load balancing calculation, but not all
+  // variables that we may want to communicate are necessarily relevant
+  // to the cost per meshblock.
+  const auto vars =
+      real_container
+          ->GetVariablesByFlag(
+              {Metadata::Independent, Metadata::FillGhost, Metadata::RemeshComm}, false)
+          .vars();
+  for (int n = 0; n < vars.size(); ++n) {
+    RegisterMeshBlockData(vars[n]);
   }
-  
+
   if (pm->multilevel) {
-    const auto vars =
+    const auto refine_vars =
         real_container
             ->GetVariablesByFlag({Metadata::Independent, Metadata::FillGhost}, false)
             .vars();
     pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
-    for (int n = 0; n < vars.size(); n++) {
+    for (int n = 0; n < refine_vars.size(); n++) {
       // These are used for doing refinement
-      pmr->AddToRefinement(vars[n]);
+      pmr->AddToRefinement(refine_vars[n]);
     }
   }
 
