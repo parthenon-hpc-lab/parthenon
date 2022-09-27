@@ -469,7 +469,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   auto const &first_block = *(pm->block_list.front());
 
-  // shooting a blank just for getting the variable names
+  // metadata about meshblock shape
   const IndexRange out_ib = first_block.cellbounds.GetBoundsI(theDomain);
   const IndexRange out_jb = first_block.cellbounds.GetBoundsJ(theDomain);
   const IndexRange out_kb = first_block.cellbounds.GetBoundsK(theDomain);
