@@ -241,6 +241,9 @@ std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string 
 std::string HDF5GenerateFileName(const OutputParameters &output_params,
                                  const SignalHandler::OutputSignal signal, bool restart);
 
+// Return file properties handle
+hid_t const HDF5GetFileAccessProperties();
+
 } // namespace HDF5
 } // namespace parthenon
 
