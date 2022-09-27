@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -150,6 +150,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // set file number, basename, id, and format
       op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
       op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
+      op.file_number_width = pin->GetOrAddInteger(op.block_name, "file_number_width", 5);
+      op.file_label_final = pin->GetOrAddBoolean(op.block_name, "use_final_label", true);
       char define_id[10];
       std::snprintf(define_id, sizeof(define_id), "out%d",
                     op.block_number); // default id="outN"
