@@ -34,8 +34,13 @@
 #include <vector>
 
 #include "utils/error_checking.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
+
+// Forward declaration
+struct OutputParameters;
+
 namespace HDF5 {
 
 // Number of dimension of HDF5 field data sets (block x num vars x nz x ny x nx)
@@ -232,6 +237,9 @@ std::vector<T> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
 // template specialization for std::string (must go into cpp file)
 template <>
 std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string &name);
+
+std::string HDF5GenerateFileName(const OutputParameters &output_params,
+                                 const SignalHandler::OutputSignal signal, bool restart);
 
 } // namespace HDF5
 } // namespace parthenon

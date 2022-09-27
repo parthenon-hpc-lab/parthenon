@@ -78,6 +78,27 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values
   HDF5WriteAttribute(name, values.size(), data.get(), location);
 }
 
+std::string HDF5GenerateFileName(const OutputParameters &output_params,
+                                 const SignalHandler::OutputSignal signal, bool restart) {
+  auto filename = std::string(output_params.file_basename);
+  filename.append(".");
+  filename.append(output_params.file_id);
+  filename.append(".");
+  if (signal == SignalHandler::OutputSignal::now) {
+    filename.append("now");
+  } else if (signal == SignalHandler::OutputSignal::final &&
+             (output_params.file_label_final || restart)) {
+    filename.append("final");
+    // default time based data dump
+  } else {
+    std::stringstream file_number;
+    file_number << std::setw(output_params.file_number_width) << std::setfill('0')
+                << output_params.file_number;
+    filename.append(file_number.str());
+  }
+  filename.append(restart ? ".rhdf" : ".phdf");
+  return filename;
+}
 } // namespace HDF5
 
 using namespace HDF5;
@@ -99,7 +120,8 @@ struct VarInfo {
   VarInfo() = delete;
 
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
-          int vlen, int nx6, int nx5, int nx4, bool is_sparse, bool is_vector)
+          int vlen, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1, bool is_sparse,
+          bool is_vector)
       : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), nx3(nx3), nx2(nx2),
         nx1(nx1), is_sparse(is_sparse), is_vector(is_vector) {
     if (vlen <= 0) {
@@ -346,25 +368,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   const auto &nblist = pm->GetNbList();
 
   // open HDF5 file
-  // Define output filename
-  auto filename = std::string(output_params.file_basename);
-  filename.append(".");
-  filename.append(output_params.file_id);
-  filename.append(".");
-  if (signal == SignalHandler::OutputSignal::now) {
-    filename.append("now");
-  } else if (signal == SignalHandler::OutputSignal::final &&
-             (output_params.file_label_final || restart_)) {
-    filename.append("final");
-    // default time based data dump
-  } else {
-    std::stringstream file_number;
-    file_number << std::setw(output_params.file_number_width) << std::setfill('0')
-                << output_params.file_number;
-    filename.append(file_number.str());
-  }
-  filename.append(restart_ ? ".rhdf" : ".phdf");
-
+  auto filename = HDF5GenerateFileName(output_params, signal, restart_);
   if (signal == SignalHandler::OutputSignal::none) {
     // After file has been opened with the current number, already advance output
     // parameters so that for restarts the file is not immediatly overwritten again.
