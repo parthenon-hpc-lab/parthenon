@@ -37,10 +37,13 @@ variables = density, velocity, & # comments are still ok
             energy               # notice the & continuation character
                                  # for multiline lists
 dt = 1.0
+file_number_width = 6 # default: 5
+use_final_label = true # default: true
 ```
-This will produce an hdf5 (`.phdf`) output file every 1 units of
-simulation time containing the density, velocity, and energy of each
-cell.
+This will produce an hdf5 (`.phdf`) output file every 1 units of simulation time containing the
+density, velocity, and energy of each cell. The files will be identified by a 6-digit ID, and the
+output file generated upon completion of the simulation will be labeled `*.final.*` rather than
+with the integer ID.
 
 HDF5 and restart files write variable field data with inline compression by default. This is
 especially helpful when there are sparse variables allocated only in a few blocks, because all other

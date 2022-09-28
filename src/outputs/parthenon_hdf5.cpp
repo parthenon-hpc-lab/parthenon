@@ -349,12 +349,14 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   filename.append(".");
   if (signal == SignalHandler::OutputSignal::now) {
     filename.append("now");
-  } else if (signal == SignalHandler::OutputSignal::final) {
+  } else if (signal == SignalHandler::OutputSignal::final &&
+             output_params.file_label_final) {
     filename.append("final");
     // default time based data dump
   } else {
     std::stringstream file_number;
-    file_number << std::setw(5) << std::setfill('0') << output_params.file_number;
+    file_number << std::setw(output_params.file_number_width) << std::setfill('0')
+                << output_params.file_number;
     filename.append(file_number.str());
   }
   filename.append(restart_ ? ".rhdf" : ".phdf");
