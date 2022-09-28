@@ -99,7 +99,7 @@ using FaceField = FaceArray<Real>;
 
 template <typename T>
 struct EdgeArray {
-  ParArrayND<Real> x1e, x2e, x3e;
+  ParArrayND<T> x1e, x2e, x3e;
   EdgeArray() = default;
   EdgeArray(const std::string &label, int ncells3, int ncells2, int ncells1)
       : x1e(label + "x1e", ncells3 + 1, ncells2 + 1, ncells1),
@@ -125,6 +125,27 @@ struct EdgeArray {
 
 // backwards compatibility with Athena++ functionality
 using EdgeField = EdgeArray<Real>;
+
+template <typename T>
+struct NodeArray : public ParArrayND<T> {
+  NodeArray() = default;
+  NodeArray(const std::string &label, int ncells3, int ncells2, int ncells1)
+      : ParArrayND<T>(label, ncells3 + 1, ncells2 + 1, ncells1 + 1){}
+  NodeArray(const std::string &label, int ncells4, int ncells3, int ncells2, int ncells1)
+      : ParArrayND<T>(label, ncells4, ncells3 + 1, ncells2 + 1, ncells1 + 1) {}
+  NodeArray(const std::string &label, int ncells5, int ncells4, int ncells3, int ncells2,
+            int ncells1)
+      : ParArrayND<T>(label, ncells5, ncells4, ncells3 + 1, ncells2 + 1, ncells1 + 1) {}
+  NodeArray(const std::string &label, int ncells6, int ncells5, int ncells4, int ncells3,
+            int ncells2, int ncells1)
+      : ParArrayND<T>(label, ncells6, ncells5, ncells4, ncells3 + 1, ncells2 + 1, ncells1 + 1) {}
+
+  __attribute__((nothrow)) ~NodeArray() = default;
+};
+
+// backwards compatibility with Athena++ functionality
+using NodeField = NodeArray<Real>;
+
 
 } // namespace parthenon
 

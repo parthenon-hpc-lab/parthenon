@@ -11,14 +11,15 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-add_subdirectory(stochastic_subgrid)
-add_subdirectory(advection)
-add_subdirectory(calculate_pi)
-add_subdirectory(face_fields)
-add_subdirectory(kokkos_pi)
-add_subdirectory(loop_advection)
-add_subdirectory(particles)
-add_subdirectory(particle_leapfrog)
-add_subdirectory(particle_tracers)
-add_subdirectory(poisson)
-add_subdirectory(sparse_advection)
+get_property(LIST_OF_TESTS GLOBAL PROPERTY DRIVER_LIST)
+if( "loop-advection" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
+  add_executable(
+      loop-advection
+          loop_advection.hpp
+          loop_advection_driver.cpp
+          loop_advection_main.cpp
+          loop_advection_package.cpp
+  )
+  target_link_libraries(loop-advection PRIVATE Parthenon::parthenon)
+  lint_target(loop-advection)
+endif()

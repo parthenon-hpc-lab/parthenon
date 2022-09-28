@@ -41,9 +41,7 @@ void MeshBlockData<T>::Initialize(
 
   // clear all variables, maps, and pack caches
   varVector_.clear();
-  faceVector_.clear();
   varMap_.clear();
-  faceMap_.clear();
   varPackMap_.clear();
   coarseVarPackMap_.clear();
   varFluxPackMap_.clear();
@@ -63,37 +61,14 @@ void MeshBlockData<T>::Initialize(
 template <typename T>
 void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &metadata,
                                 int sparse_id) {
-  // branch on kind of variable
-  if (metadata.Where() == Metadata::Node) {
-    PARTHENON_THROW("Node variables are not implemented yet");
-  } else if (metadata.Where() == Metadata::Edge) {
-    // add an edge variable
-    std::cerr << "Accessing unliving edge array in stage" << std::endl;
-    std::exit(1);
-    // s->_edgeVector.push_back(
-    //     new EdgeVariable(label, metadata,
-    //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
-  } else if (metadata.Where() == Metadata::Face) {
-    if (!(metadata.IsSet(Metadata::OneCopy))) {
-      std::cerr << "Currently one one-copy face fields are supported" << std::endl;
-      std::exit(1);
-    }
-    if (metadata.IsSet(Metadata::FillGhost)) {
-      std::cerr << "Ghost zones not yet supported for face fields" << std::endl;
-      std::exit(1);
-    }
-    // add a face variable
-    auto pfv = std::make_shared<FaceVariable<T>>(
-        base_name, metadata.GetArrayDims(pmy_block, false), metadata);
-    Add(pfv);
-  } else {
-    auto pvar =
-        std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
-    Add(pvar);
+  //FIXME(forrestglines):No need to branch on cell/face/edge/node, it all goes
+  //to the same place
+  auto pvar =
+      std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
+  Add(pvar);
 
-    if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
-      pvar->Allocate(pmy_block);
-    }
+  if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
+    pvar->Allocate(pmy_block);
   }
 }
 
@@ -437,9 +412,6 @@ void MeshBlockData<T>::Print() {
   std::cout << "Variables are:\n";
   for (auto v : varVector_) {
     std::cout << " cell: " << v->info() << std::endl;
-  }
-  for (auto v : faceVector_) {
-    std::cout << " face: " << v->info() << std::endl;
   }
 }
 

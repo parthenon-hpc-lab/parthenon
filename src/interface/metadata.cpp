@@ -124,7 +124,11 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
   const int N = shape.size();
 
   if (IsMeshTied()) {
-    // Let the FaceVariable, EdgeVariable, and NodeVariable
+    //FIXME(forrestglines): I'm not sure how to interpret this for Faces and
+    //Edges since the true dimensions of the face/edge will depend on which
+    //face/edge. One metadata will refer to each face/edge. Maybe add a `dir`
+    //flag to GetArrayDims?
+    // Let the Faces, Edges, and Nodes
     // classes add the +1's where needed.  They all expect
     // these dimensions to be the number of cells in each
     // direction, NOT the size of the arrays
@@ -157,6 +161,19 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
       arrDims[i] = shape[i];
     for (int i = N; i < 6; i++)
       arrDims[i] = 1;
+  }
+  //FIXME(forrestglines): Is this check necessary or always true?  Check that
+  //the first "vector" dimension matches the needed number of faces and edges,
+  //NDIM
+  if( IsSet(Face) || IsSet(Edge) ){
+    assert(arrDims[3] == NDIM); 
+  }
+
+  // Inflate the array by one for faces/edges/nodes
+  if( IsSet(Face) || IsSet(Edge) || IsSet(Node) ){
+    for(int i = 0; i < NDIM; i++){
+      arrDims[i] += 1;
+    }
   }
 
   return arrDims;
