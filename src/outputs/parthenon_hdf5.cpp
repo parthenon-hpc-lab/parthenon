@@ -230,6 +230,7 @@ struct VarInfo {
   int nx1;
   bool is_sparse;
   bool is_vector;
+  int rank;
   std::vector<std::string> component_labels;
 
   VarInfo() = delete;
@@ -268,6 +269,15 @@ struct VarInfo {
         component_labels.push_back(label + "_" + std::to_string(i));
       }
     }
+
+    // compute rank
+    rank = (nx1 > 1) + (nx2 > 1) + (nx3 > 1) + (nx4 > 1) + (nx5 > 1) + (nx6 > 1);
+    if (rank <= 0) {
+      std::stringstream msg;
+      msg << "### ERROR: Variable " << label << " has rank <= 0" << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+    // 
   }
 
   explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
@@ -275,6 +285,10 @@ struct VarInfo {
                 var->GetDim(6), var->GetDim(5), var->GetDim(4), var->GetDim(3),
                 var->GetDim(2), var->GetDim(1), var->IsSparse(),
                 var->IsSet(Metadata::Vector)) {}
+
+  hsize_t GetVarSize() const {
+    return nx6 * nx5 * nx4 * nx3 * nx2 * nx1;
+  }
 };
 
 // XDMF subroutine to write a dataitem that refers to an HDF array
@@ -833,22 +847,18 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // std::vector<bool> and it doesn't have .data() member
   std::unique_ptr<hbool_t[]> sparse_allocated(new hbool_t[num_blocks_local * num_sparse]);
 
-  // allocate space for largest size variable
-  const hsize_t varSize = nx3 * nx2 * nx1;
-  int vlen_max = 0;
+  // compute largest size variable
+  hsize_t varSize = 0;
   for (auto &vinfo : all_vars_info) {
-    vlen_max = std::max(vlen_max, vinfo.vlen);
+    varSize = std::max(varSize, vinfo.GetVarSize());
   }
-
+  // allocate scratch memory
   using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
-  std::vector<OutT> tmpData(varSize * vlen_max * num_blocks_local);
+  std::vector<OutT> tmpData(varSize * num_blocks_local);
 
   // create persistent spaces
   local_count[0] = num_blocks_local;
   global_count[0] = max_blocks_global;
-  local_count[2] = global_count[2] = nx3;
-  local_count[3] = global_count[3] = nx2;
-  local_count[4] = global_count[4] = nx1;
 
   // for each variable we write
   for (auto &vinfo : all_vars_info) {
@@ -860,8 +870,14 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const hsize_t nx6 = vinfo.nx6;
     const hsize_t nx5 = vinfo.nx5;
     const hsize_t nx4 = vinfo.nx4;
+    const hsize_t nx3 = vinfo.nx3;
+    const hsize_t nx2 = vinfo.nx2;
+    const hsize_t nx1 = vinfo.nx1;
 
     local_count[1] = global_count[1] = vlen;
+    local_count[2] = global_count[2] = nx3;
+    local_count[3] = global_count[3] = nx2;
+    local_count[4] = global_count[4] = nx1;
 
     // load up data
     hsize_t index = 0;
