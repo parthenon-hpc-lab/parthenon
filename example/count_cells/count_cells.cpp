@@ -42,10 +42,10 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("count_cells");
   const auto &coords = pmb->coords;
-  if (BlockInRegion(pkg.get(), pmb) && SufficientlyRefined(pkg, coords)) {
-    return AmrTag::same;
+  if (BlockInRegion(pkg.get(), pmb) && !SufficientlyRefined(pkg,coords)) {
+    return AmrTag::refine;
   }
-  return AmrTag::refine;
+  return AmrTag::same;
 }
 
 bool BlockInRegion(const StateDescriptor *pkg, const MeshBlock *pmb) {
