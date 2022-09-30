@@ -13,13 +13,18 @@
 
 // C++ includes
 #include <iostream>
+#include <memory>
 
 // Parthenon includes
+#include <basic_types.hpp>
+#include <outputs/outputs.hpp>
 #include <parthenon/driver.hpp>
 
 #include "count_cells.hpp"
 
 using namespace parthenon::driver::prelude;
+using parthenon::Outputs;
+using parthenon::SignalHandler::OutputSignal;
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
@@ -27,7 +32,7 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
-int main(int argc, char *argv;') {
+int main(int argc, char *argv[]) {
   ParthenonManager pman;
   pman.app_input->ProcessPackages = ProcessPackages;
 
@@ -42,10 +47,16 @@ int main(int argc, char *argv;') {
     pman.ParthenonFinalize();
     return 1;
   }
+  { // scoped so unique pointers cleaned up
+    // count cells
+    count_cells::CountCells(pman.pmesh.get());
 
-  count_cells::CountCells(pman.pmesh.get());
-
+    // Dump grid
+    std::unique_ptr<Outputs> pouts =
+        std::make_unique<Outputs>(pman.pmesh.get(), pman.pinput.get());
+    OutputSignal signal = OutputSignal::none;
+    pouts->MakeOutputs(pman.pmesh.get(), pman.pinput.get(), nullptr, signal);
+  }
   pman.ParthenonFinalize();
   return 0;
 }
-

@@ -1,0 +1,51 @@
+# ========================================================================================
+#  (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
+#
+#  This program was produced under U.S. Government contract 89233218CNA000001 for Los
+#  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+#  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+#  in the program are reserved by Triad National Security, LLC, and the U.S. Department
+#  of Energy/National Nuclear Security Administration. The Government is granted for
+#  itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+#  license in this material to reproduce, prepare derivative works, distribute copies to
+#  the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+
+<parthenon/job>
+problem_id = count_cells
+
+<parthenon/mesh>
+refinement = adaptive
+numlevel = 5
+
+nx1 = 64
+x1min = -1
+x1max = 1
+ix1_bc = periodic
+ox1_bc = periodic
+
+nx2 = 64
+x2min = -1
+x2max = 1
+ix2_bc = periodic
+ox2_bc = periodic
+
+nx3 = 64
+x3min = -1
+x3max = 1
+ix3_bc = periodic
+ox3_bc = periodic
+
+<parthenon/meshblock>
+nx1 = 32
+nx2 = 32
+nx3 = 32
+
+<count_cells>
+sphere_radius = 0.5
+dx1_target = 0.001
+dx2_target = 0.001
+dx3_target = 0.001
+
+<parthenon/output0>
+file_type = rst

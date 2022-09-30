@@ -10,7 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#infdef EXAMPLE_COUNT_CELLS_HPP_
+#ifndef EXAMPLE_COUNT_CELLS_HPP_
 #define EXAMPLE_COUNT_CELLS_HPP_
 
 // Parthenon Includes
@@ -26,7 +26,7 @@ using parthenon::MeshBlock;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
-bool BlockInRegion(const StateDescriptor *pkg, const MeshBlock *pmb);
+bool BlockInRegion(const StateDescriptor *pkg, MeshBlock *pmb);
 bool SufficientlyRefined(const StateDescriptor *pkg, const Coordinates_t &coords);
 void CountCells(Mesh *pmesh);
 

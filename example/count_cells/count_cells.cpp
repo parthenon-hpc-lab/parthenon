@@ -20,6 +20,12 @@
 
 #include "count_cells.hpp"
 
+using parthenon::ParameterInput;
+using parthenon::Params;
+using parthenon::Real;
+using parthenon::StateDescriptor;
+
+namespace count_cells {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto package = std::make_shared<StateDescriptor>("count_cells");
   Params &params = package->AllParams();
@@ -42,13 +48,13 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("count_cells");
   const auto &coords = pmb->coords;
-  if (BlockInRegion(pkg.get(), pmb) && !SufficientlyRefined(pkg,coords)) {
+  if (BlockInRegion(pkg.get(), pmb.get()) && !SufficientlyRefined(pkg.get(), coords)) {
     return AmrTag::refine;
   }
   return AmrTag::same;
 }
 
-bool BlockInRegion(const StateDescriptor *pkg, const MeshBlock *pmb) {
+bool BlockInRegion(const StateDescriptor *pkg, MeshBlock *pmb) {
   const auto radius = pkg->Param<Real>("radius");
   const auto coords = pmb->coords;
 
@@ -82,7 +88,7 @@ bool SufficientlyRefined(const StateDescriptor *pkg, const Coordinates_t &coords
   for (int d = 1; d <= 3; ++d) {
     // assumes uniform cartesian coordinates
     // which have constant Dx accross whole meshblock
-    if (coords.Dx(d) > dx_target[d-1]) return false;
+    if (coords.Dx(d) > dx_target[d - 1]) return false;
   }
   return true;
 }
@@ -90,25 +96,27 @@ bool SufficientlyRefined(const StateDescriptor *pkg, const Coordinates_t &coords
 void CountCells(Mesh *pmesh) {
   // a representative meshblock
   auto pmb = pmesh->block_list[0];
-  
+
   const size_t mb_ncells_interior = pmb->cellbounds.GetTotal(IndexDomain::interior);
   const size_t mb_ncells_total = pmb->cellbounds.GetTotal(IndexDomain::entire);
-  const size_t mb_ncells_ghost = ncells_total - ncells_interior;
+  const size_t mb_ncells_ghost = mb_ncells_total - mb_ncells_interior;
 
   // includes 3 flux buffers + coarse buffer + comm buffers
-  const size_t mb_ncells_with_extra_buffs = 5*ncells_total + ncells_ghost;
+  const size_t mb_ncells_with_extra_buffs = 5 * mb_ncells_total + mb_ncells_ghost;
 
   const size_t num_blocks = pmesh->block_list.size();
 
-  size_t ncells_interior = num_blocks * mb_ncells_interior;
-  size_t ncells_total = num_blocks * mb_ncells_total;
-  size_t ncells_ghost = num_blocks * mb_ncells_ghost;
-  size_t ncells_with_extra_buffs = mb_ncells_with_extra_buffs;
+  Real ncells_interior = num_blocks * mb_ncells_interior;
+  Real ncells_total = num_blocks * mb_ncells_total;
+  Real ncells_ghost = num_blocks * mb_ncells_ghost;
+  Real ncells_with_extra_buffs = num_blocks * mb_ncells_with_extra_buffs;
 
-  std::cout << "num blocks         = " << num_blocks << "\n"
-            << "num cells interior = " << ncells_interior << "\n"
-            << "num cells total    = " << ncells_total << "\n"
-            << "num ghosts         = " << ncells_ghost << "\n"
-            << "num with comms etc = " << ncells_with_extra_buffs
-            << std::endl;
+  std::cout << std::scientific
+	    << "num blocks         = " << std::setw(14) << num_blocks << "\n"
+            << "num cells interior = " << std::setw(14) << ncells_interior << "\n"
+            << "num cells total    = " << std::setw(14) << ncells_total << "\n"
+            << "num ghosts         = " << std::setw(14) << ncells_ghost << "\n"
+            << "num with comms etc = " << std::setw(14) << ncells_with_extra_buffs
+	    << std::endl;
 }
+} // namespace count_cells
