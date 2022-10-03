@@ -1,5 +1,0 @@
-h5py
-matplotlib
-numpy
-argparse
-cython
