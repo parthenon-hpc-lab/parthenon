@@ -14,6 +14,7 @@
 // C++ includes
 #include <iostream>
 #include <memory>
+#include <string>
 
 // Parthenon includes
 #include <basic_types.hpp>
@@ -49,7 +50,11 @@ int main(int argc, char *argv[]) {
   }
   { // scoped so unique pointers cleaned up
     // count cells
-    count_cells::CountCells(pman.pmesh.get());
+    bool save_count_to_file =
+        pman.pinput->GetOrAddBoolean("count_cells", "save_to_file", false);
+    std::string countfile_name =
+        pman.pinput->GetOrAddString("count_cells", "filename", "cell_count.txt");
+    count_cells::CountCells(countfile_name, pman.pmesh.get(), save_count_to_file);
 
     // Dump grid
     std::unique_ptr<Outputs> pouts =

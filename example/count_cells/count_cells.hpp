@@ -15,6 +15,7 @@
 
 // C++ Includes
 #include <memory>
+#include <string>
 
 // Parthenon Includes
 #include <coordinates/coordinates.hpp>
@@ -31,7 +32,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
 bool BlockInRegion(const StateDescriptor *pkg, MeshBlock *pmb);
 bool SufficientlyRefined(const StateDescriptor *pkg, const Coordinates_t &coords);
-void CountCells(Mesh *pmesh);
+void CountCells(const std::string &name, Mesh *pmesh, bool save_to_file);
 
 } // namespace count_cells
 

@@ -13,9 +13,13 @@
 
 // C++ includes
 #include <array>
+#include <fstream>
+#include <iostream>
 #include <memory>
+#include <string>
 
 // Parthenon Includes
+#include <globals.hpp>
 #include <interface/state_descriptor.hpp>
 #include <parthenon/package.hpp>
 
@@ -94,7 +98,7 @@ bool SufficientlyRefined(const StateDescriptor *pkg, const Coordinates_t &coords
   return true;
 }
 
-void CountCells(Mesh *pmesh) {
+void CountCells(const std::string &name, Mesh *pmesh, bool save_to_file) {
   // a representative meshblock
   auto pmb = pmesh->block_list[0];
 
@@ -112,12 +116,28 @@ void CountCells(Mesh *pmesh) {
   Real ncells_ghost = num_blocks * mb_ncells_ghost;
   Real ncells_with_extra_buffs = num_blocks * mb_ncells_with_extra_buffs;
 
-  std::cout << std::scientific << "num blocks         = " << std::setw(14) << num_blocks
-            << "\n"
-            << "num cells interior = " << std::setw(14) << ncells_interior << "\n"
-            << "num cells total    = " << std::setw(14) << ncells_total << "\n"
-            << "num ghosts         = " << std::setw(14) << ncells_ghost << "\n"
-            << "num with comms etc = " << std::setw(14) << ncells_with_extra_buffs
-            << std::endl;
+  if (parthenon::Globals::my_rank == 0) {
+    std::cout << std::scientific << "num blocks         = " << std::setw(14) << num_blocks
+              << "\n"
+              << "num cells interior = " << std::setw(14) << ncells_interior << "\n"
+              << "num cells total    = " << std::setw(14) << ncells_total << "\n"
+              << "num ghosts         = " << std::setw(14) << ncells_ghost << "\n"
+              << "num with comms etc = " << std::setw(14) << ncells_with_extra_buffs
+              << std::endl;
+
+    if (save_to_file) {
+      std::fstream fs;
+      fs.open(name, std::fstream::out);
+      if (!fs.is_open()) PARTHENON_THROW("Unable to write to summary file");
+      fs << std::scientific << "num blocks         = " << std::setw(14) << num_blocks
+         << "\n"
+         << "num cells interior = " << std::setw(14) << ncells_interior << "\n"
+         << "num cells total    = " << std::setw(14) << ncells_total << "\n"
+         << "num ghosts         = " << std::setw(14) << ncells_ghost << "\n"
+         << "num with comms etc = " << std::setw(14) << ncells_with_extra_buffs
+         << std::endl;
+      fs.close();
+    }
+  }
 }
 } // namespace count_cells

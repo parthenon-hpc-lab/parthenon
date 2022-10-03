@@ -52,7 +52,7 @@ dx2_target = 0.001
 dx3_target = 0.001
 
 # Change to true to save cell count to a file.
-save_to_file = false
+save_to_file = true
 filename = cell_count.txt
 
 <parthenon/output0>
