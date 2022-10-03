@@ -23,7 +23,7 @@ setup(
     long_description=long_description,
     url="https://github.com/lanl/parthenon/tree/develop/scripts/python/parthenon_tools",
     author="The Parthenon Team",
-    author_email="jonahm@lanl.gov",
+    author_email="",
     license="LICENSE.txt",
     classifiers=[
         "Development Status :: 3 - Alpha",
