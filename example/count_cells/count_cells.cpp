@@ -13,6 +13,7 @@
 
 // C++ includes
 #include <array>
+#include <memory>
 
 // Parthenon Includes
 #include <interface/state_descriptor.hpp>

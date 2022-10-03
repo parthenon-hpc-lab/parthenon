@@ -10,8 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_COUNT_CELLS_HPP_
-#define EXAMPLE_COUNT_CELLS_HPP_
+#ifndef EXAMPLE_COUNT_CELLS_COUNT_CELLS_HPP_
+#define EXAMPLE_COUNT_CELLS_COUNT_CELLS_HPP_
+
+// C++ Includes
+#include <memory>
 
 // Parthenon Includes
 #include <coordinates/coordinates.hpp>
@@ -32,4 +35,4 @@ void CountCells(Mesh *pmesh);
 
 } // namespace count_cells
 
-#endif // EXAMPLE_COUNT_CELLS_HPP_
+#endif // EXAMPLE_COUNT_CELLS_COUNT_CELLS_HPP_
