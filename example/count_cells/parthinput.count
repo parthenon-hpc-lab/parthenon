@@ -16,7 +16,7 @@ problem_id = count_cells
 
 <parthenon/mesh>
 refinement = adaptive
-numlevel = 5
+numlevel = 6
 
 nx1 = 64
 x1min = -1
@@ -42,10 +42,10 @@ nx2 = 32
 nx3 = 32
 
 <count_cells>
-sphere_radius = 0.5
+sphere_radius = 0.25
 dx1_target = 0.001
 dx2_target = 0.001
 dx3_target = 0.001
 
 <parthenon/output0>
-file_type = rst
+file_type = gridh5

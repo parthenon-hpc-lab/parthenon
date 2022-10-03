@@ -30,7 +30,7 @@
 // Required parameters that must be specified in an <output[n]> block are:
 //   - variable     = cons,prim,D,d,E,e,m,m1,m2,m3,v,v1=vx,v2=vy,v3=vz,p,
 //                    bcc,bcc1,bcc2,bcc3,b,b1,b2,b3,phi,uov
-//   - file_type    = rst,tab,vtk,hst,hdf5
+//   - file_type    = rst,tab,vtk,hst,hdf5,gridh5
 //   - dt           = problem time between outputs
 //
 // EXAMPLE of an <output[n]> block for a VTK dump:
@@ -228,8 +228,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.cartesian_vector = false;
 
       // read single precision output option
-      const bool is_hdf5_output =
-          (op.file_type == "rst") || (op.file_type == "ath5") || (op.file_type == "hdf5");
+      const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "ath5") ||
+                                  (op.file_type == "hdf5") || (op.file_type == "gridh5");
 
       if (is_hdf5_output) {
         op.single_precision_output =
@@ -276,7 +276,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       // set output variable and optional data format string used in formatted writes
-      if ((op.file_type != "hst") && (op.file_type != "rst")) {
+      if ((op.file_type != "hst") && (op.file_type != "rst") &&
+          (op.file_type != "gridh5")) {
         // op.variable = pin->GetString(op.block_name, "variable");
         op.variables = SetOutputVariables(pin, pib->block_name);
       }
@@ -297,8 +298,9 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         if (restart) {
           num_rst_outputs++;
         }
+        const bool simple = (op.file_type == "gridh5");
 #ifdef ENABLE_HDF5
-        pnew_type = new PHDF5Output(op, restart);
+        pnew_type = new PHDF5Output(op, restart, simple);
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Executable not configured for HDF5 outputs, but HDF5 file format "

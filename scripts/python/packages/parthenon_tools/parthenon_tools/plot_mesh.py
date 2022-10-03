@@ -33,7 +33,7 @@ with h5py.File(args.file,'r') as f:
     if args.slice is not None:
         zslice = args.slice
     else:
-        zslice = 0.5(domain[2,0] + domain[2,1])
+        zslice = 0.5*(domain[2,0] + domain[2,1])
     fig,ax = plt.subplots()
     for b in range(NB):
         if f['Locations/z'][b,0] <= zslice <= f['Locations/z'][b,-1]:

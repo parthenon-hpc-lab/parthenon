@@ -111,12 +111,12 @@ void CountCells(Mesh *pmesh) {
   Real ncells_ghost = num_blocks * mb_ncells_ghost;
   Real ncells_with_extra_buffs = num_blocks * mb_ncells_with_extra_buffs;
 
-  std::cout << std::scientific
-	    << "num blocks         = " << std::setw(14) << num_blocks << "\n"
+  std::cout << std::scientific << "num blocks         = " << std::setw(14) << num_blocks
+            << "\n"
             << "num cells interior = " << std::setw(14) << ncells_interior << "\n"
             << "num cells total    = " << std::setw(14) << ncells_total << "\n"
             << "num ghosts         = " << std::setw(14) << ncells_ghost << "\n"
             << "num with comms etc = " << std::setw(14) << ncells_with_extra_buffs
-	    << std::endl;
+            << std::endl;
 }
 } // namespace count_cells

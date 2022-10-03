@@ -53,6 +53,24 @@ be used to set the compression level (between 1 and 9, default is 5). Compressio
 altogether with the CMake build option `PARTHENON_DISABLE_HDF5_COMPRESSION`. See the [build
 doc](building.md) for more details.
 
+## Gridh5 Files
+
+Gridh5 files are a special, lightweight subclass of HDF5 files, where
+only the grid structure is output. No variables are output, nor are
+coordinate values. Instead, the bounding box of each meshblock is
+output, along with all the metadata normally in a `phdf` file. A
+relevant block might look like:
+```
+<parthenon/output2>
+file_type = gridh5
+dt = 1.0
+```
+All options (except for the list of output variables) supported by
+`hdf5` are supported. The `plot_mesh.py` script in the
+`parthenon_tools` library found in the `scripts/python` folder can
+generate a constant `X3` slice of the mesh based on an `hdf5` or
+`gridh5` output file.
+
 ## Tuning HDF5 Performance
 
 Tuning IO parameters can be passed to Parthenon through the use of environment variables. Available environment variables are:

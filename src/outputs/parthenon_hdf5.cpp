@@ -684,13 +684,20 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // Write mesh coordinates to file
   for (const bool face : {true, false}) {
+    if (!face && simple_) continue;
+
     const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
     const int offset = face ? 1 : 0;
 
+    // array sizes
+    const int nx1_coords = simple_ ? 2 : (nx1 + offset);
+    const int nx2_coords = simple_ ? 2 : (nx2 + offset);
+    const int nx3_coords = simple_ ? 2 : (nx3 + offset);
+
     // write X coordinates
-    std::vector<Real> loc_x((nx1 + offset) * num_blocks_local);
-    std::vector<Real> loc_y((nx2 + offset) * num_blocks_local);
-    std::vector<Real> loc_z((nx3 + offset) * num_blocks_local);
+    std::vector<Real> loc_x(nx1_coords * num_blocks_local);
+    std::vector<Real> loc_y(nx2_coords * num_blocks_local);
+    std::vector<Real> loc_z(nx3_coords * num_blocks_local);
 
     size_t idx_x = 0;
     size_t idx_y = 0;
@@ -699,28 +706,35 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     for (size_t b = 0; b < pm->block_list.size(); ++b) {
       auto &pmb = pm->block_list[b];
 
-      for (int i = out_ib.s; i <= out_ib.e + offset; ++i) {
-        loc_x[idx_x++] = face ? pmb->coords.x1f(0, 0, i) : pmb->coords.x1v(0, 0, i);
-      }
-
-      for (int j = out_jb.s; j <= out_jb.e + offset; ++j) {
-        loc_y[idx_y++] = face ? pmb->coords.x2f(0, j, 0) : pmb->coords.x2v(0, j, 0);
-      }
-
-      for (int k = out_kb.s; k <= out_kb.e + offset; ++k) {
-        loc_z[idx_z++] = face ? pmb->coords.x3f(k, 0, 0) : pmb->coords.x3v(k, 0, 0);
+      if (simple_) {
+        loc_x[idx_x++] = pmb->coords.x1f(0, 0, out_ib.s);
+        loc_x[idx_x++] = pmb->coords.x1f(0, 0, out_ib.e);
+        loc_y[idx_y++] = pmb->coords.x2f(0, out_jb.s, 0);
+        loc_y[idx_y++] = pmb->coords.x2f(0, out_jb.e, 0);
+        loc_z[idx_z++] = pmb->coords.x3f(out_kb.s, 0, 0);
+        loc_z[idx_z++] = pmb->coords.x3f(out_kb.e, 0, 0);
+      } else {
+        for (int i = out_ib.s; i <= out_ib.e + offset; ++i) {
+          loc_x[idx_x++] = face ? pmb->coords.x1f(0, 0, i) : pmb->coords.x1v(0, 0, i);
+        }
+        for (int j = out_jb.s; j <= out_jb.e + offset; ++j) {
+          loc_y[idx_y++] = face ? pmb->coords.x2f(0, j, 0) : pmb->coords.x2v(0, j, 0);
+        }
+        for (int k = out_kb.s; k <= out_kb.e + offset; ++k) {
+          loc_z[idx_z++] = face ? pmb->coords.x3f(k, 0, 0) : pmb->coords.x3v(k, 0, 0);
+        }
       }
     }
 
-    local_count[1] = global_count[1] = nx1 + offset;
+    local_count[1] = global_count[1] = nx1_coords;
     HDF5Write2D(gLocations, "x", loc_x.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
 
-    local_count[1] = global_count[1] = nx2 + offset;
+    local_count[1] = global_count[1] = nx2_coords;
     HDF5Write2D(gLocations, "y", loc_y.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
 
-    local_count[1] = global_count[1] = nx3 + offset;
+    local_count[1] = global_count[1] = nx3_coords;
     HDF5Write2D(gLocations, "z", loc_z.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
   }
@@ -760,198 +774,201 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   //   WRITING VARIABLES DATA                                                         //
   // -------------------------------------------------------------------------------- //
 
-  // All blocks have the same list of variable metadata that exist in the entire
-  // simulation, but not all variables may be allocated on all blocks
+  if (!simple_) {
+    // All blocks have the same list of variable metadata that exist in the entire
+    // simulation, but not all variables may be allocated on all blocks
 
-  auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
-    if (restart_) {
-      // get all vars with flag Independent OR restart
-      return pmb->meshblock_data.Get()
-          ->GetVariablesByFlag(
-              {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, false)
-          .vars();
-    } else {
-      return pmb->meshblock_data.Get()
-          ->GetVariablesByName(output_params.variables)
-          .vars();
+    auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
+      if (restart_) {
+        // get all vars with flag Independent OR restart
+        return pmb->meshblock_data.Get()
+            ->GetVariablesByFlag(
+                {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, false)
+            .vars();
+      } else {
+        return pmb->meshblock_data.Get()
+            ->GetVariablesByName(output_params.variables)
+            .vars();
+      }
+    };
+
+    // get list of all vars, just use the first block since the list is the same for all
+    // blocks
+    std::vector<VarInfo> all_vars_info;
+    const auto vars = get_vars(pm->block_list.front());
+    for (auto &v : vars) {
+      all_vars_info.emplace_back(v);
     }
-  };
 
-  // get list of all vars, just use the first block since the list is the same for all
-  // blocks
-  std::vector<VarInfo> all_vars_info;
-  const auto vars = get_vars(pm->block_list.front());
-  for (auto &v : vars) {
-    all_vars_info.emplace_back(v);
-  }
+    // sort alphabetically
+    std::sort(all_vars_info.begin(), all_vars_info.end(),
+              [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
 
-  // sort alphabetically
-  std::sort(all_vars_info.begin(), all_vars_info.end(),
-            [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
+    // We need to add information about the sparse variables to the HDF5 file, namely:
+    // 1) Which variables are sparse
+    // 2) Is a sparse id of a particular sparse variable allocated on a given block
+    //
+    // This information is stored in the dataset called "SparseInfo". The data set
+    // contains an attribute "SparseFields" that is a vector of strings with the names
+    // of the sparse fields (field name with sparse id, i.e. "bar_28", "bar_7", foo_1",
+    // "foo_145"). The field names are in alphabetical order, which is the same order
+    // they show up in all_unique_vars (because it's a sorted set).
+    //
+    // The dataset SparseInfo itself is a 2D array of bools. The first index is the
+    // global block index and the second index is the sparse field (same order as the
+    // SparseFields attribute). SparseInfo[b][v] is true if the sparse field with index
+    // v is allocated on the block with index b, otherwise the value is false
 
-  // We need to add information about the sparse variables to the HDF5 file, namely:
-  // 1) Which variables are sparse
-  // 2) Is a sparse id of a particular sparse variable allocated on a given block
-  //
-  // This information is stored in the dataset called "SparseInfo". The data set
-  // contains an attribute "SparseFields" that is a vector of strings with the names
-  // of the sparse fields (field name with sparse id, i.e. "bar_28", "bar_7", foo_1",
-  // "foo_145"). The field names are in alphabetical order, which is the same order
-  // they show up in all_unique_vars (because it's a sorted set).
-  //
-  // The dataset SparseInfo itself is a 2D array of bools. The first index is the
-  // global block index and the second index is the sparse field (same order as the
-  // SparseFields attribute). SparseInfo[b][v] is true if the sparse field with index
-  // v is allocated on the block with index b, otherwise the value is false
-
-  std::vector<std::string> sparse_names;
-  std::unordered_map<std::string, size_t> sparse_field_idx;
-  for (auto &vinfo : all_vars_info) {
-    if (vinfo.is_sparse) {
-      sparse_field_idx.insert({vinfo.label, sparse_names.size()});
-      sparse_names.push_back(vinfo.label);
+    std::vector<std::string> sparse_names;
+    std::unordered_map<std::string, size_t> sparse_field_idx;
+    for (auto &vinfo : all_vars_info) {
+      if (vinfo.is_sparse) {
+        sparse_field_idx.insert({vinfo.label, sparse_names.size()});
+        sparse_names.push_back(vinfo.label);
+      }
     }
-  }
 
-  hsize_t num_sparse = sparse_names.size();
-  // can't use std::vector here because std::vector<hbool_t> is the same as
-  // std::vector<bool> and it doesn't have .data() member
-  std::unique_ptr<hbool_t[]> sparse_allocated(new hbool_t[num_blocks_local * num_sparse]);
+    hsize_t num_sparse = sparse_names.size();
+    // can't use std::vector here because std::vector<hbool_t> is the same as
+    // std::vector<bool> and it doesn't have .data() member
+    std::unique_ptr<hbool_t[]> sparse_allocated(
+        new hbool_t[num_blocks_local * num_sparse]);
 
-  // allocate space for largest size variable
-  const hsize_t varSize = nx3 * nx2 * nx1;
-  int vlen_max = 0;
-  for (auto &vinfo : all_vars_info) {
-    vlen_max = std::max(vlen_max, vinfo.vlen);
-  }
+    // allocate space for largest size variable
+    const hsize_t varSize = nx3 * nx2 * nx1;
+    int vlen_max = 0;
+    for (auto &vinfo : all_vars_info) {
+      vlen_max = std::max(vlen_max, vinfo.vlen);
+    }
 
-  using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
-  std::vector<OutT> tmpData(varSize * vlen_max * num_blocks_local);
+    using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
+    std::vector<OutT> tmpData(varSize * vlen_max * num_blocks_local);
 
-  // create persistent spaces
-  local_count[0] = num_blocks_local;
-  global_count[0] = max_blocks_global;
-  local_count[2] = global_count[2] = nx3;
-  local_count[3] = global_count[3] = nx2;
-  local_count[4] = global_count[4] = nx1;
+    // create persistent spaces
+    local_count[0] = num_blocks_local;
+    global_count[0] = max_blocks_global;
+    local_count[2] = global_count[2] = nx3;
+    local_count[3] = global_count[3] = nx2;
+    local_count[4] = global_count[4] = nx1;
 
-  // for each variable we write
-  for (auto &vinfo : all_vars_info) {
-    // not really necessary, but doesn't hurt
-    memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
+    // for each variable we write
+    for (auto &vinfo : all_vars_info) {
+      // not really necessary, but doesn't hurt
+      memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
 
-    const std::string var_name = vinfo.label;
-    const hsize_t vlen = vinfo.vlen;
-    const hsize_t nx6 = vinfo.nx6;
-    const hsize_t nx5 = vinfo.nx5;
-    const hsize_t nx4 = vinfo.nx4;
+      const std::string var_name = vinfo.label;
+      const hsize_t vlen = vinfo.vlen;
+      const hsize_t nx6 = vinfo.nx6;
+      const hsize_t nx5 = vinfo.nx5;
+      const hsize_t nx4 = vinfo.nx4;
 
-    local_count[1] = global_count[1] = vlen;
+      local_count[1] = global_count[1] = vlen;
 
-    // load up data
-    hsize_t index = 0;
+      // load up data
+      hsize_t index = 0;
 
-    // for each local mesh block
-    for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
-      const auto &pmb = pm->block_list[b_idx];
-      bool is_allocated = false;
+      // for each local mesh block
+      for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
+        const auto &pmb = pm->block_list[b_idx];
+        bool is_allocated = false;
 
-      // for each variable that this local meshblock actually has
-      const auto vars = get_vars(pmb);
-      for (auto &v : vars) {
-        // For reference, if we update the logic here, there's also
-        // a similar block in parthenon_manager.cpp
-        if (v->IsAllocated() && (var_name == v->label())) {
-          auto v_h = v->data.GetHostMirrorAndCopy();
-          for (int t = 0; t < nx6; ++t) {
-            for (int u = 0; u < nx5; ++u) {
-              for (int v = 0; v < nx4; ++v) {
-                for (int k = out_kb.s; k <= out_kb.e; ++k) {
-                  for (int j = out_jb.s; j <= out_jb.e; ++j) {
-                    for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                      tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+        // for each variable that this local meshblock actually has
+        const auto vars = get_vars(pmb);
+        for (auto &v : vars) {
+          // For reference, if we update the logic here, there's also
+          // a similar block in parthenon_manager.cpp
+          if (v->IsAllocated() && (var_name == v->label())) {
+            auto v_h = v->data.GetHostMirrorAndCopy();
+            for (int t = 0; t < nx6; ++t) {
+              for (int u = 0; u < nx5; ++u) {
+                for (int v = 0; v < nx4; ++v) {
+                  for (int k = out_kb.s; k <= out_kb.e; ++k) {
+                    for (int j = out_jb.s; j <= out_jb.e; ++j) {
+                      for (int i = out_ib.s; i <= out_ib.e; ++i) {
+                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                      }
                     }
                   }
                 }
               }
             }
+
+            is_allocated = true;
+            break;
           }
-
-          is_allocated = true;
-          break;
         }
-      }
 
-      if (vinfo.is_sparse) {
-        size_t sparse_idx = sparse_field_idx.at(vinfo.label);
-        sparse_allocated[b_idx * num_sparse + sparse_idx] = is_allocated;
-      }
-
-      if (!is_allocated) {
         if (vinfo.is_sparse) {
-          hsize_t N = varSize * vlen;
-          memset(tmpData.data() + index, 0, N * sizeof(OutT));
-          index += N;
-        } else {
-          std::stringstream msg;
-          msg << "### ERROR: Unable to find dense variable " << var_name << std::endl;
-          PARTHENON_FAIL(msg);
+          size_t sparse_idx = sparse_field_idx.at(vinfo.label);
+          sparse_allocated[b_idx * num_sparse + sparse_idx] = is_allocated;
         }
+
+        if (!is_allocated) {
+          if (vinfo.is_sparse) {
+            hsize_t N = varSize * vlen;
+            memset(tmpData.data() + index, 0, N * sizeof(OutT));
+            index += N;
+          } else {
+            std::stringstream msg;
+            msg << "### ERROR: Unable to find dense variable " << var_name << std::endl;
+            PARTHENON_FAIL(msg);
+          }
+        }
+      }
+
+      // write data to file
+      HDF5WriteND(file, var_name, tmpData.data(), H5_NDIM, p_loc_offset, p_loc_cnt,
+                  p_glob_cnt, pl_xfer, pl_dcreate);
+    }
+
+    // names of variables
+    std::vector<std::string> var_names;
+    var_names.reserve(all_vars_info.size());
+
+    // number of components within each dataset
+    std::vector<size_t> num_components;
+    num_components.reserve(all_vars_info.size());
+
+    // names of components within each dataset
+    std::vector<std::string> component_names;
+    component_names.reserve(all_vars_info.size()); // may be larger
+
+    for (const auto &vi : all_vars_info) {
+      var_names.push_back(vi.label);
+
+      const auto &component_labels = vi.component_labels;
+      PARTHENON_REQUIRE_THROWS(component_labels.size() > 0, "Got 0 component labels");
+
+      num_components.push_back(component_labels.size());
+      for (const auto &label : component_labels) {
+        component_names.push_back(label);
       }
     }
 
-    // write data to file
-    HDF5WriteND(file, var_name, tmpData.data(), H5_NDIM, p_loc_offset, p_loc_cnt,
-                p_glob_cnt, pl_xfer, pl_dcreate);
+    HDF5WriteAttribute("NumComponents", num_components, info_group);
+    HDF5WriteAttribute("ComponentNames", component_names, info_group);
+    HDF5WriteAttribute("OutputDatasetNames", var_names, info_group);
+
+    // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only
+    // write this if we have sparse fields)
+    if (num_sparse > 0) {
+      local_count[1] = global_count[1] = num_sparse;
+
+      HDF5Write2D(file, "SparseInfo", sparse_allocated.get(), p_loc_offset, p_loc_cnt,
+                  p_glob_cnt, pl_xfer);
+
+      // write names of sparse fields as attribute, first convert to vector of const char*
+      std::vector<const char *> names(num_sparse);
+      for (size_t i = 0; i < num_sparse; ++i)
+        names[i] = sparse_names[i].c_str();
+
+      const H5D dset = H5D::FromHIDCheck(H5Dopen2(file, "SparseInfo", H5P_DEFAULT));
+      HDF5WriteAttribute("SparseFields", names, dset);
+    } // SparseInfo and SparseFields sections
+
+    // generate XDMF companion file
+    genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info);
   }
-
-  // names of variables
-  std::vector<std::string> var_names;
-  var_names.reserve(all_vars_info.size());
-
-  // number of components within each dataset
-  std::vector<size_t> num_components;
-  num_components.reserve(all_vars_info.size());
-
-  // names of components within each dataset
-  std::vector<std::string> component_names;
-  component_names.reserve(all_vars_info.size()); // may be larger
-
-  for (const auto &vi : all_vars_info) {
-    var_names.push_back(vi.label);
-
-    const auto &component_labels = vi.component_labels;
-    PARTHENON_REQUIRE_THROWS(component_labels.size() > 0, "Got 0 component labels");
-
-    num_components.push_back(component_labels.size());
-    for (const auto &label : component_labels) {
-      component_names.push_back(label);
-    }
-  }
-
-  HDF5WriteAttribute("NumComponents", num_components, info_group);
-  HDF5WriteAttribute("ComponentNames", component_names, info_group);
-  HDF5WriteAttribute("OutputDatasetNames", var_names, info_group);
-
-  // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
-  // this if we have sparse fields)
-  if (num_sparse > 0) {
-    local_count[1] = global_count[1] = num_sparse;
-
-    HDF5Write2D(file, "SparseInfo", sparse_allocated.get(), p_loc_offset, p_loc_cnt,
-                p_glob_cnt, pl_xfer);
-
-    // write names of sparse fields as attribute, first convert to vector of const char*
-    std::vector<const char *> names(num_sparse);
-    for (size_t i = 0; i < num_sparse; ++i)
-      names[i] = sparse_names[i].c_str();
-
-    const H5D dset = H5D::FromHIDCheck(H5Dopen2(file, "SparseInfo", H5P_DEFAULT));
-    HDF5WriteAttribute("SparseFields", names, dset);
-  } // SparseInfo and SparseFields sections
-
-  // generate XDMF companion file
-  genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info);
 }
 
 // explicit template instantiation
