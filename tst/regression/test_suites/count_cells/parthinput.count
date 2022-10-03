@@ -54,6 +54,3 @@ dx3_target = 0.001
 # Change to true to save cell count to a file.
 save_to_file = true
 filename = cell_count.txt
-
-<parthenon/output0>
-file_type = gridh5
