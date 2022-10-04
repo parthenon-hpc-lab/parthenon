@@ -203,6 +203,9 @@ class PHDF5Output : public OutputType {
                            const SignalHandler::OutputSignal signal);
 
  private:
+  std::string GenerateFilename_(ParameterInput *pin,
+				SimTime *tm,
+				const SignalHandler::OutputSignal signal);
   const bool restart_; // true if we write a restart file, false for regular output files
 };
 #endif // ifdef ENABLE_HDF5
