@@ -79,14 +79,14 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
     CoordinateDirection dir;
-    int ni = std::max((ib.e - ib.s + 1) / 2, 1);
-    int nj = std::max((jb.e - jb.s + 1) / 2, 1);
-    int nk = std::max((kb.e - kb.s + 1) / 2, 1);
     const int ndim = 1 + (jb.e - jb.s > 0 ? 1 : 0) + (kb.e - kb.s > 0 ? 1 : 0);
 
     int ks = kb.s;
+    int ke = ks + std::max((kb.e - kb.s + 1) / 2, 1) - 1;
     int js = jb.s;
+    int je = js + std::max((jb.e - jb.s + 1) / 2, 1) - 1;
     int is = ib.s;
+    int ie = is + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
 
     int ioff = 1;
     int joff = ndim > 1 ? 1 : 0;
@@ -94,28 +94,28 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
     if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
       dir = X1DIR;
-      ni = 1;
       ioff = 0;
       if (nb.fid == BoundaryFace::inner_x1)
         is = ib.s;
       else
         is = ib.e + 1;
+      ie = is;
     } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
       dir = X2DIR;
-      nj = 1;
       joff = 0;
       if (nb.fid == BoundaryFace::inner_x2)
         js = jb.s;
       else
         js = jb.e + 1;
+      je = js;
     } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
       dir = X3DIR;
-      nk = 1;
       koff = 0;
       if (nb.fid == BoundaryFace::inner_x3)
         ks = kb.s;
       else
         ks = kb.e + 1;
+      ke = ks;
     } else {
       PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
     }
@@ -123,10 +123,13 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     auto &flx = v->flux[dir];
     auto &coords = pmb->coords;
     buf_pool_t<Real>::weak_t &buf_arr = buf.buffer();
-
+    
     const int nl = flx.GetDim(6);
     const int nm = flx.GetDim(5);
     const int nn = flx.GetDim(4);
+    const int nk = ke - ks + 1;
+    const int nj = je - js + 1;
+    const int ni = ie - is + 1;
 
     const int NjNi = nj * ni;
     const int NkNjNi = nk * NjNi;
