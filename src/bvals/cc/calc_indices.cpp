@@ -324,5 +324,51 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   return out;
 }
 
+BndInfo BndInfo::GetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                               std::shared_ptr<CellVariable<Real>> v) {
+  BndInfo out;
+  
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  // This is the index range for the coarse field 
+  out.sk = kb.s;
+  out.ek = out.sk + std::max((kb.e - kb.s + 1) / 2, 1) - 1;
+  out.sj = jb.s;
+  out.ej = out.sj + std::max((jb.e - jb.s + 1) / 2, 1) - 1;
+  out.si = ib.s;
+  out.ei = out.si + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
+
+  CoordinateDirection dir;
+  if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
+    out.dir = X1DIR;
+    if (nb.fid == BoundaryFace::inner_x1)
+      out.si = ib.s;
+    else
+      out.si = ib.e + 1;
+    out.ei = out.si;
+  } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
+    out.dir = X2DIR;
+    if (nb.fid == BoundaryFace::inner_x2)
+      out.sj = jb.s;
+    else
+      out.sj = jb.e + 1;
+    out.ej = out.sj;
+  } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
+    out.dir = X3DIR;
+    if (nb.fid == BoundaryFace::inner_x3)
+      out.sk = kb.s;
+    else
+      out.sk = kb.e + 1;
+    out.ek = out.sk;
+  } else {
+    PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
+  }
+
+  return out;
+}
+
+
 } // namespace cell_centered_bvars
 } // namespace parthenon

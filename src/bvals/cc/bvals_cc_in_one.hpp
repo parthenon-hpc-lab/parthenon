@@ -90,7 +90,8 @@ struct BndInfo {
   int Nt = 0;
   int Nu = 0;
   int Nv = 0;
-
+  
+  CoordinateDirection dir;
   bool allocated = true;
   RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
@@ -103,6 +104,8 @@ struct BndInfo {
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                 std::shared_ptr<CellVariable<Real>> v);
   static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                               std::shared_ptr<CellVariable<Real>> v);
+  static BndInfo GetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<CellVariable<Real>> v);
 };
 
