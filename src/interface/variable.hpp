@@ -147,7 +147,6 @@ class CellVariable {
   ParArray7D<T> flux_data_; // unified par array for the fluxes
 };
 
-
 template <typename T>
 class ParticleVariable {
  public:

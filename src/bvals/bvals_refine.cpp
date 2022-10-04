@@ -184,7 +184,6 @@ void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int 
     kl = sk;
     ku = ek;
   }
-
 }
 
 void BoundaryValues::ComputeRestrictionIndices_(const NeighborBlock &nb, int nk, int nj,
