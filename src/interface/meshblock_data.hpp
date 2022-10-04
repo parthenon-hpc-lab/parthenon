@@ -22,6 +22,7 @@
 
 #include "interface/data_collection.hpp"
 #include "interface/sparse_pack_base.hpp"
+#include "interface/swarm.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
@@ -218,6 +219,22 @@ class MeshBlockData {
                     std::string(" array not found in Get() Edge\n"));
   }
 
+  //
+  // Queries related to Swarm objects
+  //
+  const SwarmVector &GetSwarmVector() const noexcept { return swarmVector_; }
+  const MapToSwarm &GetSwarmMap() const noexcept { return swarmMap_; }
+  // DO NOT make this a const reference. Passing in C-style string literals
+  // cuases it to misbehave.
+  FaceVariable<T> &GetSwarm(const std::string label) {
+    auto it = swarmMap_.find(label);
+    if (it == swarmMap_.end()) {
+      PARTHENON_THROW(std::string("\n") + std::string(label) +
+                      std::string(" array not found in Get() Swarm\n"));
+    }
+    return *(it->second);
+  }
+
   using VarLabelList = VarListWithLabels<T>;
 
   /// Get list of variables and labels by names (either a full variable name or sparse
@@ -380,6 +397,14 @@ class MeshBlockData {
     return PackVariablesImpl({}, coarse, nullptr, nullptr);
   }
 
+  /// Pack swarms by swarm name and variable names
+  const SwarmVariablePack<T> &
+  PackSwarmVariables(const std::string &swarm_name,
+                     const std::vector<std::string> &var_names,
+                     PackIndexMap &map) {
+    return PackSwarmVariablesImpl(swarm_name, var_names, &map);
+  }
+
   /// Remove a variable from the container or throw exception if not
   /// found.
   /// @param label the name of the variable to be deleted
@@ -430,6 +455,8 @@ class MeshBlockData {
   void AddField(const std::string &base_name, const Metadata &metadata,
                 int sparse_id = InvalidSparseID);
 
+  void AddSwarm(const std::string &swarm_name, const Metadata metadata);
+
   void Add(std::shared_ptr<CellVariable<T>> var) noexcept {
     varVector_.push_back(var);
     varMap_[var->label()] = var;
@@ -438,6 +465,11 @@ class MeshBlockData {
   void Add(std::shared_ptr<FaceVariable<T>> var) noexcept {
     faceVector_.push_back(var);
     faceMap_[var->label()] = var;
+  }
+
+  void Add(std::shared_ptr<Swarm> swarm) noexcept {
+    swarmVector_.push_back(swarm);
+    swarmMap_[swarm->label()] = swarm;
   }
 
   std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label) {
@@ -479,9 +511,11 @@ class MeshBlockData {
 
   CellVariableVector<T> varVector_; ///< the saved variable array
   FaceVector<T> faceVector_;        ///< the saved face arrays
+  SwarmVector<T> swarmVector_;      ///< the saved swarm arrays
 
   MapToCellVars<T> varMap_;
   MapToFace<T> faceMap_;
+  MapToSwarm swarmMap_;
 
   // variable packing
   MapToVariablePack<T> varPackMap_;

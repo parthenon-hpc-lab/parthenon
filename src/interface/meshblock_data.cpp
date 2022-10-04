@@ -44,12 +44,18 @@ void MeshBlockData<T>::Initialize(
   faceVector_.clear();
   varMap_.clear();
   faceMap_.clear();
+  swarmVector_.clear();
+  swarmMap_.clear();
   varPackMap_.clear();
   coarseVarPackMap_.clear();
   varFluxPackMap_.clear();
 
   for (auto const &q : resolved_packages->AllFields()) {
     AddField(q.first.base_name, q.second, q.first.sparse_id);
+  }
+
+  for (auto const &q : resolved_packages->AllSwarms()) {
+    AddSwarm(q.first.swarm_name, q.second);
   }
 }
 
@@ -95,6 +101,21 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
       pvar->Allocate(pmy_block);
     }
   }
+}
+
+///
+/// The internal routine for adding a new field. Additional swarm particle variables will
+/// be added subsequently.
+///
+/// Metadata is currently not used.
+///
+/// @param label the name of the swarm
+/// @param metadata the metadata associated with the swarm
+///
+template <typename T>
+void MeshBlockData<T>::AddSwarm(const std::string &swarm_name, const Metadata &metadata) {
+  auto swarm = std::make_shared<Swarm>(swarm_name, metadata);
+  Add(swarm);
 }
 
 template <typename T>
@@ -360,6 +381,14 @@ const VariablePack<T> &
 MeshBlockData<T>::PackVariablesImpl(const std::vector<int> &sparse_ids, bool coarse,
                                     PackIndexMap *map, std::vector<std::string> *key) {
   return PackListedVariables(GetAllVariables(sparse_ids), coarse, map, key);
+}
+
+/// Pack Swarm variables by name and swarm name
+template <typename T>
+const SwarmVariablePack<Real> &
+MeshBlockData<T>::PackSwarmRealVariablesImpl(const std::string &swarm_name,
+     const std::vector<std::string> &var_names, PackIndexMap *map) {
+  return PackListedSwarmRealVariables(swarm_name, var_names, map);
 }
 
 // Get variables with the given names. The given name could either be a full variable

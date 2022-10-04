@@ -334,7 +334,7 @@ inline void Swarm::Add_(const std::string &label, const Metadata &m) {
 
 using SP_Swarm = std::shared_ptr<Swarm>;
 using SwarmVector = std::vector<SP_Swarm>;
-using SwarmMap = std::unordered_map<std::string, SP_Swarm>;
+using MapToSwarm = std::unordered_map<std::string, SP_Swarm>;
 
 } // namespace parthenon
 

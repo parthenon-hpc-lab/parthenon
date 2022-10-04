@@ -291,8 +291,25 @@ class MeshData {
         varPackMap_, block_data_, pack_function, map_out);
   }
 
+  template <typename... Args>
+  const auto &PackSwarmImpl(PackIndexMap *map_out, Args &&...args) {
+    auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
+                             PackIndexMap &map, std::string &swarm_name, std::vector<std::string> &key) {
+      return meshblock_data->PackVariables(std::forward<Args>(args)..., map, swarm_name, key);
+    }
+    return pack_on_mesh_impl::PackOnMesh<SwarmVariablePack<T>, vpack_types::VPackKey_t>(
+      swarmVarPackMap_, block_data_, pack_function, map_out);
+  }
+
  public:
   // DO NOT use variatic templates here. They shadow each other
+
+  // Pack a set of variables for a swarm
+  const auto &PackSwarm(const std::string &swarm_name,
+                        const std::vector<std::string> &var_names,
+                        PackIndexmap &map) {
+    return PackSwarmImpl(&map, swarm_name, var_names);
+  }
 
   // Pack by separate variable and flux names
   const auto &PackVariablesAndFluxes(const std::vector<std::string> &var_names,
