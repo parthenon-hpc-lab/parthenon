@@ -79,7 +79,7 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values
 }
 
 hid_t GenerateFileAccessProps() {
-  #ifdef MPI_PARALLEL
+#ifdef MPI_PARALLEL
   /* set the file access template for parallel IO access */
   hid_t acc_file = H5Pcreate(H5P_FILE_ACCESS);
 
@@ -932,9 +932,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info);
 }
 
-std::string PHDF5Output::GenerateFilename_(ParameterInput *pin,
-					   SimTime *tm,
-					   const SignalHandler::OutputSignal signal) {
+std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
+                                           const SignalHandler::OutputSignal signal) {
   auto filename = std::string(output_params.file_basename);
   filename.append(".");
   filename.append(output_params.file_id);
