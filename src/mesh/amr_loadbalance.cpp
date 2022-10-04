@@ -514,6 +514,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   // cell-centered quantities enrolled in SMR/AMR
+  // TODO(JMM): I think this needs to be re-written to compute total
+  // size accross vars by looping over vars and getting their total
+  // size.
   int bssame = bnx1 * bnx2 * bnx3 * nx4_tot;
   int bsf2c = (bnx1 / 2) * ((bnx2 + 1) / 2) * ((bnx3 + 1) / 2) * nx4_tot;
   int bsc2f =
