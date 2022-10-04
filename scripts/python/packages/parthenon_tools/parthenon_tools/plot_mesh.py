@@ -12,9 +12,7 @@
 # =========================================================================================
 
 from argparse import ArgumentParser
-import numpy as np
 import h5py
-import matplotlib as mpl
 from matplotlib import pyplot as plt
 import matplotlib.patches as mpatches
 
