@@ -302,13 +302,18 @@ class MeshData {
   }
 
  public:
-  // DO NOT use variatic templates here. They shadow each other
+  // DO NOT use variadic templates here. They shadow each other
 
   // Pack a set of variables for a swarm
   const auto &PackSwarm(const std::string &swarm_name,
                         const std::vector<std::string> &var_names,
                         PackIndexmap &map) {
     return PackSwarmImpl(&map, swarm_name, var_names);
+  }
+
+  // Return string of pointers to device contexts on device (...?)
+  const auto &PackSwarmDeviceContexts(const std::string &swarm_name) {
+    return PackSwarmDeviceContextsImpl(swarm_name);
   }
 
   // Pack by separate variable and flux names
@@ -369,7 +374,7 @@ class MeshData {
   }
   const auto &PackVariablesAndFluxes() { return PackVariablesAndFluxesImpl(nullptr); }
 
-  // As above, DO NOT use variatic templates here. They shadow each other.
+  // As above, DO NOT use variadic templates here. They shadow each other.
   // covers names and metadata flags
   template <typename Elem>
   const auto &PackVariables(const std::vector<Elem> names_or_flags,

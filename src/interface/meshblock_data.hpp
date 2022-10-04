@@ -511,7 +511,7 @@ class MeshBlockData {
 
   CellVariableVector<T> varVector_; ///< the saved variable array
   FaceVector<T> faceVector_;        ///< the saved face arrays
-  SwarmVector<T> swarmVector_;      ///< the saved swarm arrays
+  SwarmVector swarmVector_;      ///< the saved swarm arrays
 
   MapToCellVars<T> varMap_;
   MapToFace<T> faceMap_;
@@ -711,6 +711,8 @@ class MeshBlockData {
   const VariablePack<T> &PackVariablesImpl(const std::vector<int> &sparse_ids,
                                            bool coarse, PackIndexMap *map,
                                            std::vector<std::string> *key);
+
+  const SwarmVariablePack<T> &PackSwarmVariablesImpl
 };
 
 } // namespace parthenon

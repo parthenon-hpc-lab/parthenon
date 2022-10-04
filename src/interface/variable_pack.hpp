@@ -249,6 +249,25 @@ using ViewOfParArrays1D = ParArray1D<ParArray1D<T>>;
 template <typename T>
 class MeshBlockData;
 
+template <typename T, typename OBJECT>
+class ObjectPack {
+  friend class MeshBlockData<T>;
+
+  public:
+  ObjectPack() = default;
+
+  ObjectPack(const ParArray1D<OBJECT> &view) : v_(view) {
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  OBJECT &operator()(const int n) const {
+    return v_(n);
+  }
+
+  private:
+  ParArray1D<OBJECT> v_;
+};
+
 // Try to keep these Variable*Pack classes as lightweight as possible.
 // They go to the device.
 template <typename T>
@@ -732,6 +751,46 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
 
   return VariableFluxPack<T>(cv, f1, f2, f3, flux_allocated, sparse_id, vector_component,
                              allocated, cv_size, fsize);
+}
+
+template <typename T>
+VariablePack<T> MakeObjectPack(const VarListWithLabels<T> &var_list, bool coarse,
+                         PackIndexMap *pvmap) {
+  const auto &vars = var_list.vars(); // for convenience
+
+  if (vars.empty()) {
+    // return empty pack
+    return VariablePack<T>();
+  }
+
+  // count up the size
+  int vsize = 0;
+  for (const auto &v : vars) {
+    // we also count unallocated vars because the total size needs to be uniform across
+    // meshblocks that meshblock packs will work
+    vsize += v->NumComponents();
+  }
+
+  // make the outer view
+  ViewOfParArrays<T> cv("MakePack::cv", vsize);
+  ParArray1D<int> sparse_id("MakePack::sparse_id", vsize);
+  ParArray1D<int> vector_component("MakePack::vector_component", vsize);
+  ParArray1D<bool> allocated("MakePack::allocated", vsize);
+
+  std::array<int, 4> cv_size{0, 0, 0, 0};
+  if (vsize > 0) {
+    // get dimension from first variable, they must all be the same
+    // TODO(JL): maybe verify this?
+    const auto &var = vars.front();
+    for (int i = 0; i < 3; ++i) {
+      cv_size[i] = coarse ? var->GetCoarseDim(i + 1) : var->GetDim(i + 1);
+    }
+    cv_size[3] = vsize;
+
+    FillVarView(vars, coarse, cv, sparse_id, vector_component, allocated, pvmap);
+  }
+
+  return VariablePack<T>(cv, sparse_id, vector_component, allocated, cv_size);
 }
 
 template <typename T>
