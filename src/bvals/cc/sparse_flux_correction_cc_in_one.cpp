@@ -200,81 +200,21 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
           buf.Stale();
           return LoopControl::cont;
         }
+        
+        auto binfo = BndInfo::GetSetCCFluxCor(pmb, nb, v);
 
-        // Need to caculate these bounds based on mesh position
-        // Average fluxes over area and load buffer
-        IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-        IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-        IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-        int ks = kb.s;
-        int js = jb.s;
-        int is = ib.s;
-        int ke = kb.e;
-        int je = jb.e;
-        int ie = ib.e;
-        CoordinateDirection dir;
-        if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
-          dir = X1DIR;
-          if (nb.fid == BoundaryFace::inner_x1)
-            ie = is;
-          else
-            is = ++ie;
-          if (nb.ni.fi1 == 0)
-            je -= pmb->block_size.nx2 / 2;
-          else
-            js += pmb->block_size.nx2 / 2;
-          if (nb.ni.fi2 == 0)
-            ke -= pmb->block_size.nx3 / 2;
-          else
-            ks += pmb->block_size.nx3 / 2;
-        } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
-          dir = X2DIR;
-          if (nb.fid == BoundaryFace::inner_x2)
-            je = js;
-          else
-            js = ++je;
-          if (nb.ni.fi1 == 0)
-            ie -= pmb->block_size.nx1 / 2;
-          else
-            is += pmb->block_size.nx1 / 2;
-          if (nb.ni.fi2 == 0)
-            ke -= pmb->block_size.nx3 / 2;
-          else
-            ks += pmb->block_size.nx3 / 2;
-        } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
-          dir = X3DIR;
-          if (nb.fid == BoundaryFace::inner_x3)
-            ke = ks;
-          else
-            ks = ++ke;
-          if (nb.ni.fi1 == 0)
-            ie -= pmb->block_size.nx1 / 2;
-          else
-            is += pmb->block_size.nx1 / 2;
-          if (nb.ni.fi2 == 0)
-            je -= pmb->block_size.nx2 / 2;
-          else
-            js += pmb->block_size.nx2 / 2;
-        } else {
-          PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
-        }
-
-        auto &flx = v->flux[dir];
-        buf_pool_t<Real>::weak_t &buf_arr = buf.buffer();
-        const int nl = flx.GetDim(6);
-        const int nm = flx.GetDim(5);
-        const int nn = flx.GetDim(4);
-        const int nk = ke - ks + 1;
-        const int nj = je - js + 1;
-        const int ni = ie - is + 1;
+        binfo.buf = buf.buffer();
+        const int nl = binfo.Nt; 
+        const int nm = binfo.Nu; 
+        const int nn = binfo.Nv; 
+        const int nk = binfo.ek - binfo.sk + 1;
+        const int nj = binfo.ej - binfo.sj + 1;
+        const int ni = binfo.ei - binfo.si + 1;
+   
         const int NjNi = nj * ni;
         const int NkNjNi = nk * NjNi;
         const int NnNkNjNi = nn * NkNjNi;
         const int NmNnNkNjNi = nm * NnNkNjNi;
-        if (nl * NmNnNkNjNi > buf_arr.size()) {
-          PARTHENON_FAIL("Buffer to small")
-        }
 
         Kokkos::parallel_for(
             "SetFluxCorrections",
@@ -283,13 +223,13 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
               const int l = loop_idx / NmNnNkNjNi;
               const int m = (loop_idx % NmNnNkNjNi) / NnNkNjNi;
               const int n = (loop_idx % NnNkNjNi) / NkNjNi;
-              const int k = (loop_idx % NkNjNi) / NjNi + ks;
-              const int j = (loop_idx % NjNi) / ni + js;
-              const int i = loop_idx % ni + is;
+              const int k = (loop_idx % NkNjNi) / NjNi + binfo.sk;
+              const int j = (loop_idx % NjNi) / ni + binfo.sj;
+              const int i = loop_idx % ni + binfo.si;
 
               const int idx =
-                  i - is + ni * (j - js + nj * (k - ks + nk * (n + nn * (m + nm * l))));
-              flx(l, m, n, k, j, i) = buf_arr(idx);
+                  i - binfo.si + ni * (j - binfo.sj + nj * (k - binfo.sk + nk * (n + nn * (m + nm * l))));
+              binfo.var(l, m, n, k, j, i) = binfo.buf(idx);
             });
         buf.Stale();
         return LoopControl::cont;
