@@ -18,8 +18,10 @@
 //========================================================================================
 
 #include <algorithm>
+#include <tuple> // std::tuple
 #include <utility>
 
+#include "interface/mesh_data.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh_refinement_ops.hpp"
 #include "mesh/refinement_in_one.hpp"
@@ -72,6 +74,29 @@ void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
 
   Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBoundso_MeshData
 }
+
+// This needs to be here to avoid circular dependencies with MeshData.
+namespace impl {
+std::tuple<cell_centered_bvars::BufferCache_t, cell_centered_bvars::BufferCacheHost_t,
+           IndexShape, IndexShape>
+GetAndUpdateRestrictionBuffers(MeshData<Real> *md,
+                               const std::vector<bool> &alloc_status) {
+  auto info_pair = md->GetRestrictBuffers();
+  auto info = std::get<0>(info_pair);
+  auto info_h = std::get<1>(info_pair);
+  if (!info.is_allocated() || (alloc_status != md->GetRestrictBufAllocStatus())) {
+    ComputePhysicalRestrictBounds(md);
+    info_pair = md->GetRestrictBuffers();
+    info = std::get<0>(info_pair);
+    info_h = std::get<1>(info_pair);
+  }
+  auto &rc = md->GetBlockData(0);
+  auto pmb = rc->GetBlockPointer();
+  IndexShape cellbounds = pmb->cellbounds;
+  IndexShape c_cellbounds = pmb->c_cellbounds;
+  return std::make_tuple(info, info_h, cellbounds, c_cellbounds);
+}
+} // namespace impl
 
 // explicit instantiations of the default prolongation/restriction
 // functions

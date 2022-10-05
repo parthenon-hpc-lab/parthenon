@@ -27,7 +27,6 @@
 #include "bvals/cc/bvals_cc_in_one.hpp" // for buffercache_t
 #include "coordinates/coordinates.hpp"  // for coordinates
 #include "globals.hpp"                  // for Globals
-#include "interface/mesh_data.hpp"
 #include "mesh/domain.hpp" // for IndexShape
 
 namespace parthenon {

@@ -22,18 +22,21 @@
 
 #include <algorithm>
 #include <functional> // std::function
+#include <tuple>      // std::tuple
 #include <utility>    // std::forward
 #include <vector>
 
 #include "bvals/cc/bvals_cc_in_one.hpp" // for buffercache_t
 #include "coordinates/coordinates.hpp"  // for coordinates
 #include "globals.hpp"                  // for Globals
-#include "interface/mesh_data.hpp"
-#include "mesh/domain.hpp" // for IndexShape
+#include "mesh/domain.hpp"              // for IndexShape
 #include "mesh/mesh_refinement_loops.hpp"
 #include "mesh/mesh_refinement_ops.hpp"
 
 namespace parthenon {
+template <typename T>
+class MeshData; // forward declaration
+
 namespace refinement {
 std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md);
 void ComputePhysicalRestrictBounds(MeshData<Real> *md);
@@ -60,6 +63,12 @@ void Restrict(const cell_centered_bvars::BufferCacheHost_t &info_h,
   loops::DoProlongationRestrictionOp<Op>(cellbnds, info_h, cellbnds, c_cellbnds, op);
 }
 
+// Prototype for function that exists only to avoid circular dependency
+namespace impl {
+std::tuple<cell_centered_bvars::BufferCache_t, cell_centered_bvars::BufferCacheHost_t,
+           IndexShape, IndexShape>
+GetAndUpdateRestrictionBuffers(MeshData<Real> *md, const std::vector<bool> &alloc_status);
+} // namespace impl
 template <template <int> class Op = refinement_ops::RestrictCellAverage>
 TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
   Kokkos::Profiling::pushRegion("Task_RestrictPhysicalBounds_MeshData");
@@ -67,20 +76,11 @@ TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
   // get alloc status
   auto alloc_status = ComputePhysicalRestrictBoundsAllocStatus(md);
 
-  auto info_pair = md->GetRestrictBuffers();
-  auto info = std::get<0>(info_pair);
-  auto info_h = std::get<1>(info_pair);
-  if (!info.is_allocated() || (alloc_status != md->GetRestrictBufAllocStatus())) {
-    ComputePhysicalRestrictBounds(md);
-    info_pair = md->GetRestrictBuffers();
-    info = std::get<0>(info_pair);
-    info_h = std::get<1>(info_pair);
-  }
-
-  auto &rc = md->GetBlockData(0);
-  auto pmb = rc->GetBlockPointer();
-  IndexShape cellbounds = pmb->cellbounds;
-  IndexShape c_cellbounds = pmb->c_cellbounds;
+  auto info_tuple = impl::GetAndUpdateRestrictionBuffers(md, alloc_status);
+  auto info = std::get<0>(info_tuple);
+  auto info_h = std::get<1>(info_tuple);
+  auto cellbounds = std::get<2>(info_tuple);
+  auto c_cellbounds = std::get<3>(info_tuple);
 
   Restrict<Op>(info, info_h, cellbounds, c_cellbounds);
 

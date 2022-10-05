@@ -1,4 +1,4 @@
-//========================================================================================
+
 // (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -24,11 +24,13 @@
 
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
+#include "interface/packages.hpp"
 #include "interface/params.hpp"
 #include "interface/sparse_pool.hpp"
 #include "interface/swarm.hpp"
 #include "interface/variable.hpp"
 #include "refinement/amr_criteria.hpp"
+#include "mesh/refinement_in_one.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -38,25 +40,6 @@ template <typename T>
 class MeshBlockData;
 template <typename T>
 class MeshData;
-
-class StateDescriptor; // forward declaration
-
-class Packages_t {
- public:
-  Packages_t() = default;
-  void Add(const std::shared_ptr<StateDescriptor> &package);
-
-  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
-    return packages_.at(name);
-  }
-
-  const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
-    return packages_;
-  }
-
- private:
-  Dictionary<std::shared_ptr<StateDescriptor>> packages_;
-};
 
 /// We uniquely identify a variable by it's full label, i.e. base name plus sparse ID.
 /// However, sometimes we also need to be able to separate the base name from the sparse
