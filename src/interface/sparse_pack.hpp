@@ -123,7 +123,7 @@ struct base_t {
 // on Mesh*Data
 struct any : public base_t<true> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION any(Ts &&...args) : base_t<true>(std::forward<Ts>(args)...) {}
+  KOKKOS_INLINE_FUNCTION any(Ts &&... args) : base_t<true>(std::forward<Ts>(args)...) {}
   static std::string name() { return ".*"; }
 };
 } // namespace variable_names
@@ -149,6 +149,8 @@ class SparsePack : public SparsePackBase {
   }
 
   // TODO(BRR) merge GetPack and Get?
+  // Returns a SparsePackBase object that is either newly created or taken
+  // from the cache in pmd.
   template <class MBD, class T>
   static SparsePackBase GetPack(MBD *pmd, const impl::PackDescriptor &desc) {
     return Get<MBD, T>(pmd, desc);
@@ -177,13 +179,15 @@ class SparsePack : public SparsePackBase {
 
   template <class T>
   static SparsePackBase BuildAndAdd(T *pmd, const PackDescriptor &desc,
-                                               const std::string &ident) {
+                                    const std::string &ident) {
     auto &pack_map = pmd->GetSparsePackCache().pack_map;
-    pack_map[ident] = {Build(pmd, desc),
-                       GetAllocStatus(pmd, desc)};
+    pack_map[ident] = {Build(pmd, desc), GetAllocStatus(pmd, desc)};
     return pack_map[ident].first;
   }
 
+  // Actually build a `SparsePackBase` (i.e. create a view of views, fill on host, and
+  // deep copy the view of views to device) from the variables specified in desc contained
+  // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
   template <class T>
   static SparsePackBase Build(T *pmd, const PackDescriptor &desc) {
     using mbd_t = MeshBlockData<Real>;
@@ -300,9 +304,10 @@ class SparsePack : public SparsePackBase {
     return pack;
   }
 
+  // Get a list of booleans of the allocation status of every variable in pmd matching the
+  // PackDescriptor desc
   template <class T>
-  static SparsePackBase::alloc_t GetAllocStatus(T *pmd,
-                                                         const PackDescriptor &desc) {
+  static SparsePackBase::alloc_t GetAllocStatus(T *pmd, const PackDescriptor &desc) {
     using mbd_t = MeshBlockData<Real>;
 
     int nvar = desc.vars.size();
@@ -320,7 +325,7 @@ class SparsePack : public SparsePackBase {
     return astat;
   }
 
-  //template <class T>
+  // template <class T>
   static std::string GetIdentifier(const PackDescriptor &desc) {
     std::string identifier("");
     for (const auto &flag : desc.flags)
@@ -345,8 +350,7 @@ class SparsePack : public SparsePackBase {
       bool fluxes = false, bool coarse = false) {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     impl::PackDescriptor desc(vars, flags, fluxes, coarse);
-    return {SparsePack(GetPack<MBD, T>(pmd, desc)),
-            SparsePackBase::GetIdxMap(desc)};
+    return {SparsePack(GetPack<MBD, T>(pmd, desc)), SparsePackBase::GetIdxMap(desc)};
   }
 
   // Some Get helper for functions for more readable code
