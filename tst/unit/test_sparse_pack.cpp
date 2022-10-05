@@ -128,10 +128,10 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
            "blocks") {
         // Create a pack use type variables
         auto sparse_pack =
-            parthenon::SparsePack<v5, v3>::Get(&mesh_data, {Metadata::WithFluxes});
+            parthenon::SparsePack<v5, v3>::Get<MeshData<Real>, Real>(&mesh_data, {Metadata::WithFluxes});
 
         // Create the same pack using strings
-        auto tup = parthenon::SparsePack<>::Get(
+        auto tup = parthenon::SparsePack<>::Get<MeshData<Real>, Real>(
             &mesh_data, std::vector<std::string>{"v5", "v3"},
             std::vector<parthenon::MetadataFlag>{Metadata::WithFluxes});
         parthenon::SparsePack<> sparse_pack_notype = std::get<0>(tup);
@@ -170,7 +170,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       THEN("A sparse pack correctly loads this data and can be read from v3 on a single "
            "block") {
         auto sparse_pack =
-            parthenon::SparsePack<v5, v3>::Get(block_list[0]->meshblock_data.Get().get());
+            parthenon::SparsePack<v5, v3>::Get<MeshBlockData<Real>, Real>(block_list[0]->meshblock_data.Get().get());
 
         const int v = 1; // v3 is the second variable in the loop above so v = 1 there
         int nwrong = 0;
@@ -192,9 +192,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack correctly reads based on a regex variable") {
         auto sparse_pack =
-            parthenon::SparsePack<parthenon::variable_names::any>::Get(&mesh_data);
+            parthenon::SparsePack<parthenon::variable_names::any>::Get<MeshData<Real>, Real>(&mesh_data);
 
-        auto tup = parthenon::SparsePack<>::Get(
+        auto tup = parthenon::SparsePack<>::Get<MeshData<Real>, Real>(
             &mesh_data, std::vector<std::pair<std::string, bool>>{{".*", true}});
         auto sparse_pack_notype = std::get<0>(tup);
         auto pack_map = std::get<1>(tup);

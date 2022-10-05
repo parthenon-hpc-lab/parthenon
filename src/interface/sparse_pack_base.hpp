@@ -99,6 +99,7 @@ struct PackDescriptor {
   std::vector<MetadataFlag> flags;
   bool with_fluxes;
   bool coarse;
+  // TODO(BRR) store type here? Maybe unnecessary
 };
 } // namespace impl
 

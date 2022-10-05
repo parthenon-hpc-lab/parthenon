@@ -139,25 +139,23 @@ class SparsePack : public SparsePackBase {
   // pack in `pmd->SparsePackCache` if it doesn't already exist. Variables can be
   // accessed on device via instance of types in the type list Ts...
   // The pack will be created and accessible on the device
-  template <class T>
-  static SparsePack Get(T *pmd, const std::vector<MetadataFlag> &flags = {},
+  template <class MBD, class T>
+  static SparsePack Get(MBD *pmd, const std::vector<MetadataFlag> &flags = {},
                         bool fluxes = false, bool coarse = false) {
     const impl::PackDescriptor desc(std::vector<std::string>{Ts::name()...},
                                     std::vector<bool>{Ts::regex()...}, flags, fluxes,
                                     coarse);
-    //return SparsePack(SparsePackBase::GetPack(pmd, desc));
-    return SparsePack(GetPack(pmd, desc));
+    return SparsePack(GetPack<MBD, T>(pmd, desc));
   }
 
   // TODO(BRR) merge GetPack and Get?
-  template <class T>
-  static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc) {
-    //auto &cache = pmd->GetSparsePackCache();
-    return Get(pmd, desc);
+  template <class MBD, class T>
+  static SparsePackBase GetPack(MBD *pmd, const impl::PackDescriptor &desc) {
+    return Get<MBD, T>(pmd, desc);
   }
 
-  template <class T>
-  static SparsePackBase Get(T *pmd, const PackDescriptor &desc) {
+  template <class MBD, class T>
+  static SparsePackBase Get(MBD *pmd, const PackDescriptor &desc) {
     std::string ident = GetIdentifier(desc);
     auto &pack_map = pmd->GetSparsePackCache().pack_map;
     if (pack_map.count(ident) > 0) {
@@ -341,9 +339,9 @@ class SparsePack : public SparsePackBase {
   //   not to be regexs)
   //   2) std::vector<std::pair<std::string, bool>> of (variable name, treat name as
   //   regex) pairs
-  template <class T, class VAR_VEC>
+  template <class MBD, class T, class VAR_VEC>
   static std::tuple<SparsePack, SparsePackIdxMap>
-  Get(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
+  Get(MBD *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
       bool fluxes = false, bool coarse = false) {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     impl::PackDescriptor desc(vars, flags, fluxes, coarse);
