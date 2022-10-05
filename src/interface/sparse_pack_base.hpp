@@ -145,6 +145,8 @@ class SparsePackBase {
   template <class T>
   static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc);
 
+// TODO(BRR) public?
+public:
   pack_t pack_;
   bounds_t bounds_;
   coords_t coords_;
@@ -167,7 +169,7 @@ class SparsePackCache {
 
   void clear() { pack_map.clear(); }
 
- protected:
+ //protected:
   template <class T>
   SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
 
