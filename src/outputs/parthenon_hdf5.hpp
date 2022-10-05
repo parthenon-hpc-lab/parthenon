@@ -103,14 +103,18 @@ using H5P = H5Handle<&H5Pclose>;
 using H5T = H5Handle<&H5Tclose>;
 using H5S = H5Handle<&H5Sclose>;
 
-// Static functions to return HDF type
-static hid_t getHDF5Type(const hbool_t *) { return H5T_NATIVE_HBOOL; }
-static hid_t getHDF5Type(const int32_t *) { return H5T_NATIVE_INT32; }
-static hid_t getHDF5Type(const int64_t *) { return H5T_NATIVE_INT64; }
-static hid_t getHDF5Type(const uint32_t *) { return H5T_NATIVE_UINT32; }
-static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
-static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
-static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
+// Templated function to return HDF type
+template <typename T>
+hid_t getHDF5Type(const T *) {
+  if (std::is_same<T,double>::value) return H5T_NATIVE_DOUBLE;
+  if (std::is_same<T,float>::value) return H5T_NATIVE_FLOAT;
+  if (std::is_same<T,int32_t>::value) return H5T_NATIVE_INT32;
+  if (std::is_same<T,int64_t>::value) return H5T_NATIVE_INT64;
+  if (std::is_same<T,hbool_t>::value) return H5T_NATIVE_HBOOL;
+  if (std::is_same<T,uint32_t>::value) return H5T_NATIVE_UINT32;
+  if (std::is_same<T,uint64_t>::value) return H5T_NATIVE_UINT64;
+  if (std::is_same<T,size_t>::value) return H5T_NATIVE_UINT64;
+}
 static H5T getHDF5Type(const char *const *) {
   H5T var_string_type = H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
   PARTHENON_HDF5_CHECK(H5Tset_size(var_string_type, H5T_VARIABLE));
