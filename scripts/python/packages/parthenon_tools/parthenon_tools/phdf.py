@@ -504,8 +504,8 @@ class phdf:
                     (vShape[1], self.TotalCells), dtype=self.varData[variable].dtype
                 )
                 ret[:] = np.nan
-                for i in range(len(vShape[1])):
-                    ret[i, :] = self.varData[variable][:, i, :, :, :]
+                for i in range(vShape[1]):
+                    ret[i] = self.varData[variable][:, i, :, :, :].ravel()
                 assert (ret != np.nan).all()
                 return ret
             else:

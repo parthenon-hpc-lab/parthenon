@@ -103,10 +103,6 @@ add_library(parthenon
   bvals/cc/tag_map.cpp 
   bvals/cc/tag_map.hpp 
   
-  bvals/fc/bvals_fc.cpp
-  bvals/fc/bvals_fc.hpp
-  bvals/fc/flux_correction_fc.cpp
-
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
 

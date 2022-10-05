@@ -14,6 +14,7 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 739]](https://github.com/lanl/parthenon/pull/739) Fix phdf.py for flattened vectors 
 - [[PR 724]](https://github.com/lanl/parthenon/pull/724) Fix failing CI on Darwin due to differing `OutputFormatVersion` attribute in hdf5 gold files.
 - [[PR 725]](https://github.com/lanl/parthenon/pull/725) Fix improperly exited kokkos profiling region
 - [[PR 719]](https://github.com/lanl/parthenon/pull/719) Fix type mismatch in swarm boundaries when host pinned memory enabled
@@ -23,6 +24,7 @@
 - [[PR 708]](https://github.com/lanl/parthenon/pull/708) Bump minimum version of Kokkos to 3.6
 
 ### Removed (removing behavior/API/varaibles/...)
+- [[PR 738]](https://github.com/lanl/parthenon/pull/738) Remove old incomplete face-centered variables
 
 
 ## Release 0.7.0
