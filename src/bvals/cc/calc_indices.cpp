@@ -340,7 +340,6 @@ BndInfo BndInfo::GetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   out.si = ib.s;
   out.ei = out.si + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
 
-  CoordinateDirection dir;
   if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
     out.dir = X1DIR;
     if (nb.fid == BoundaryFace::inner_x1)
@@ -365,6 +364,12 @@ BndInfo BndInfo::GetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   } else {
     PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
   }
+
+  out.var = v->flux[out.dir];
+
+  out.Nv = out.var.GetDim(4);
+  out.Nu = out.var.GetDim(5);
+  out.Nt = out.var.GetDim(6);
 
   return out;
 }

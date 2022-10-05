@@ -78,58 +78,26 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-    CoordinateDirection dir;
     const int ndim = 1 + (jb.e - jb.s > 0 ? 1 : 0) + (kb.e - kb.s > 0 ? 1 : 0);
+    auto binfo = BndInfo::GetCCFluxCor(pmb, nb, v);
 
-    int ks = kb.s;
-    int ke = ks + std::max((kb.e - kb.s + 1) / 2, 1) - 1;
-    int js = jb.s;
-    int je = js + std::max((jb.e - jb.s + 1) / 2, 1) - 1;
-    int is = ib.s;
-    int ie = is + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
-
+    auto &coords = pmb->coords;
+    
+    binfo.buf = buf.buffer();
+    const int nl = binfo.Nt; 
+    const int nm = binfo.Nu; 
+    const int nn = binfo.Nv; 
+    const int nk = binfo.ek - binfo.sk + 1;
+    const int nj = binfo.ej - binfo.sj + 1;
+    const int ni = binfo.ei - binfo.si + 1;
+ 
     int ioff = 1;
     int joff = ndim > 1 ? 1 : 0;
-    int koff = ndim > 2 ? 1 : 0;
-
-    if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
-      dir = X1DIR;
-      ioff = 0;
-      if (nb.fid == BoundaryFace::inner_x1)
-        is = ib.s;
-      else
-        is = ib.e + 1;
-      ie = is;
-    } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
-      dir = X2DIR;
-      joff = 0;
-      if (nb.fid == BoundaryFace::inner_x2)
-        js = jb.s;
-      else
-        js = jb.e + 1;
-      je = js;
-    } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
-      dir = X3DIR;
-      koff = 0;
-      if (nb.fid == BoundaryFace::inner_x3)
-        ks = kb.s;
-      else
-        ks = kb.e + 1;
-      ke = ks;
-    } else {
-      PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
-    }
-
-    auto &flx = v->flux[dir];
-    auto &coords = pmb->coords;
-    buf_pool_t<Real>::weak_t &buf_arr = buf.buffer();
+    int koff = ndim > 2 ? 1 : 0;   
     
-    const int nl = flx.GetDim(6);
-    const int nm = flx.GetDim(5);
-    const int nn = flx.GetDim(4);
-    const int nk = ke - ks + 1;
-    const int nj = je - js + 1;
-    const int ni = ie - is + 1;
+    if (binfo.dir == X1DIR) ioff = 0; 
+    if (binfo.dir == X2DIR) joff = 0; 
+    if (binfo.dir == X3DIR) koff = 0; 
 
     const int NjNi = nj * ni;
     const int NkNjNi = nk * NjNi;
@@ -146,26 +114,26 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
           const int cj = (loop_idx % NjNi) / ni;
           const int ci = loop_idx % ni;
 
-          const int k = ks + 2 * ck;
-          const int j = js + 2 * cj;
-          const int i = is + 2 * ci;
+          const int k = binfo.sk + 2 * ck;
+          const int j = binfo.sj + 2 * cj;
+          const int i = binfo.si + 2 * ci;
 
           // For the given set of offsets, etc. this should work for any
           // dimensionality since the same flux will be included multiple times
           // in the average
-          const Real area00 = coords.Area(dir, k, j, i);
-          const Real area01 = coords.Area(dir, k, j + joff, i + ioff);
-          const Real area10 = coords.Area(dir, k + koff, j + joff, i);
-          const Real area11 = coords.Area(dir, k + koff, j, i + ioff);
+          const Real area00 = coords.Area(binfo.dir, k, j, i);
+          const Real area01 = coords.Area(binfo.dir, k, j + joff, i + ioff);
+          const Real area10 = coords.Area(binfo.dir, k + koff, j + joff, i);
+          const Real area11 = coords.Area(binfo.dir, k + koff, j, i + ioff);
 
-          Real avg_flx = area00 * flx(l, m, n, k, j, i);
-          avg_flx += area01 * flx(l, m, n, k + koff, j + joff, i);
-          avg_flx += area10 * flx(l, m, n, k, j + joff, i + ioff);
-          avg_flx += area11 * flx(l, m, n, k + koff, j, i + ioff);
+          Real avg_flx = area00 * binfo.var(l, m, n, k, j, i);
+          avg_flx += area01 * binfo.var(l, m, n, k + koff, j + joff, i);
+          avg_flx += area10 * binfo.var(l, m, n, k, j + joff, i + ioff);
+          avg_flx += area11 * binfo.var(l, m, n, k + koff, j, i + ioff);
 
           avg_flx /= area00 + area01 + area10 + area11;
           const int idx = ci + ni * (cj + nj * (ck + nk * (n + nn * (m + nm * l))));
-          buf_arr(idx) = avg_flx;
+          binfo.buf(idx) = avg_flx;
         });
 
     // Send the buffer
