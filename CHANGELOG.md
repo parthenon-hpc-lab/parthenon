@@ -23,6 +23,7 @@
 - [[PR 708]](https://github.com/lanl/parthenon/pull/708) Bump minimum version of Kokkos to 3.6
 
 ### Removed (removing behavior/API/varaibles/...)
+- [[PR 738]](https://github.com/lanl/parthenon/pull/738) Remove old incomplete face-centered variables
 
 
 ## Release 0.7.0
