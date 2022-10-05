@@ -105,7 +105,9 @@ struct BndInfo {
                                 std::shared_ptr<CellVariable<Real>> v);
   static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<CellVariable<Real>> v);
-  static BndInfo GetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static BndInfo GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                               std::shared_ptr<CellVariable<Real>> v);
+  static BndInfo GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<CellVariable<Real>> v);
 };
 

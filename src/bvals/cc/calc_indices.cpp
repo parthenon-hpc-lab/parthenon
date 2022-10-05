@@ -324,7 +324,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   return out;
 }
 
-BndInfo BndInfo::GetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<CellVariable<Real>> v) {
   BndInfo out;
   
@@ -375,5 +375,73 @@ BndInfo BndInfo::GetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
 }
 
 
+BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                               std::shared_ptr<CellVariable<Real>> v) {
+  BndInfo out;
+  
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  out.sk = kb.s;
+  out.sj = jb.s;
+  out.si = ib.s;
+  out.ek = kb.e;
+  out.ej = jb.e;
+  out.ei = ib.e;
+  if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
+    out.dir = X1DIR;
+    if (nb.fid == BoundaryFace::inner_x1)
+      out.ei = out.si;
+    else
+      out.si = ++out.ei;
+    if (nb.ni.fi1 == 0)
+      out.ej -= pmb->block_size.nx2 / 2;
+    else
+      out.sj += pmb->block_size.nx2 / 2;
+    if (nb.ni.fi2 == 0)
+      out.ek -= pmb->block_size.nx3 / 2;
+    else
+      out.sk += pmb->block_size.nx3 / 2;
+  } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
+    out.dir = X2DIR;
+    if (nb.fid == BoundaryFace::inner_x2)
+      out.ej = out.sj;
+    else
+      out.sj = ++out.ej;
+    if (nb.ni.fi1 == 0)
+      out.ei -= pmb->block_size.nx1 / 2;
+    else
+      out.si += pmb->block_size.nx1 / 2;
+    if (nb.ni.fi2 == 0)
+      out.ek -= pmb->block_size.nx3 / 2;
+    else
+      out.sk += pmb->block_size.nx3 / 2;
+  } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
+    out.dir = X3DIR;
+    if (nb.fid == BoundaryFace::inner_x3)
+      out.ek = out.sk;
+    else
+      out.sk = ++out.ek;
+    if (nb.ni.fi1 == 0)
+      out.ei -= pmb->block_size.nx1 / 2;
+    else
+      out.si += pmb->block_size.nx1 / 2;
+    if (nb.ni.fi2 == 0)
+      out.ej -= pmb->block_size.nx2 / 2;
+    else
+      out.sj += pmb->block_size.nx2 / 2;
+  } else {
+    PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
+  } 
+  
+  out.var = v->flux[out.dir];
+
+  out.Nv = out.var.GetDim(4);
+  out.Nu = out.var.GetDim(5);
+  out.Nt = out.var.GetDim(6);
+
+  return out; 
+}
 } // namespace cell_centered_bvars
 } // namespace parthenon

@@ -79,7 +79,7 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
     const int ndim = 1 + (jb.e - jb.s > 0 ? 1 : 0) + (kb.e - kb.s > 0 ? 1 : 0);
-    auto binfo = BndInfo::GetCCFluxCor(pmb, nb, v);
+    auto binfo = BndInfo::GetSendCCFluxCor(pmb, nb, v);
 
     auto &coords = pmb->coords;
     
