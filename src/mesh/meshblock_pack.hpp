@@ -88,6 +88,8 @@ template <typename T>
 using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
 template <typename T>
 using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
+template <typename T>
+using MeshBlockSwarmVarPack = MeshBlockPack<SwarmVariablePack<T>>;
 
 template <typename T>
 using MapToMeshBlockVarPack =
@@ -95,6 +97,9 @@ using MapToMeshBlockVarPack =
 template <typename T>
 using MapToMeshBlockVarFluxPack =
     std::map<vpack_types::StringPair, PackAndIndexMap<MeshBlockVarFluxPack<T>>>;
+template <typename T>
+using MapToMeshBlockSwarmVarPack =
+    std::map<vpack_types::StringPair, PackAndIndexMap<MeshBlockSwarmVarPack<T>>>;
 
 } // namespace parthenon
 

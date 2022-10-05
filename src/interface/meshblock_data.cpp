@@ -324,6 +324,57 @@ MeshBlockData<T>::PackListedVariables(const VarLabelList &var_list, bool coarse,
   return itr->second.pack;
 }
 
+/// This is a helper function that queries the cache for the given pack.
+/// The strings are the key and the lists are the values.
+/// Inputs:
+/// vars = forward list of shared pointers of vars to pack
+/// coarse = whether to use coarse pack map or not
+/// Returns:
+/// A VarMetaPack<T> that contains the actual VariablePack, the PackIndexMap, and the key
+template <typename T, typename TYPE>
+const SwarmVariablePack<TYPE> &
+MeshBlockData<T>::PackListedSwarmVariables(const std::string swarm_name,
+  const std::vector<std::string> var_names, PackIndexMap *map) {
+
+  const auto &key = var_names; //var_list.labels();
+  auto &packmap = coarse ? coarseVarPackMap_ : varPackMap_;
+
+  auto itr = packmap.find(key);
+  bool make_new_pack = false;
+  if (itr == packmap.end()) {
+    // we don't have a cached pack, need to make a new one
+    make_new_pack = true;
+  } else {
+    // we have a cached pack, check allocation status
+    if (var_list.alloc_status() != itr->second.alloc_status) {
+      // allocation statuses differ, need to make a new pack and remove outdated one
+      make_new_pack = true;
+      packmap.erase(itr);
+    }
+  }
+
+  if (make_new_pack) {
+    PackIndxPair<T> new_item;
+    new_item.alloc_status = var_list.alloc_status();
+    new_item.pack = MakePack<T>(var_list, coarse, &new_item.map);
+    new_item.pack.coords = GetParentPointer()->coords_device;
+
+    itr = packmap.insert({key, new_item}).first;
+
+    // need to grab pointers after map insertion
+    itr->second.pack.alloc_status_ = &itr->second.alloc_status;
+  }
+
+  if (map != nullptr) {
+    *map = itr->second.map;
+  }
+  if (key_out != nullptr) {
+    *key_out = itr->first;
+  }
+
+  return itr->second.pack;
+}
+
 /***********************************/
 /* PACK VARIABLES INTERFACE        */
 /***********************************/
@@ -384,11 +435,11 @@ MeshBlockData<T>::PackVariablesImpl(const std::vector<int> &sparse_ids, bool coa
 }
 
 /// Pack Swarm variables by name and swarm name
-template <typename T>
+template <typename T, typename TYPE>
 const SwarmVariablePack<Real> &
-MeshBlockData<T>::PackSwarmRealVariablesImpl(const std::string &swarm_name,
+MeshBlockData<T>::PackSwarmVariablesImpl(const std::string &swarm_name,
      const std::vector<std::string> &var_names, PackIndexMap *map) {
-  return PackListedSwarmRealVariables(swarm_name, var_names, map);
+  return PackListedSwarmVariables(swarm_name, var_names, map);
 }
 
 // Get variables with the given names. The given name could either be a full variable

@@ -143,7 +143,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // The User defined containers
   DataCollection<MeshBlockData<Real>> meshblock_data;
-  DataCollection<SwarmContainer> swarm_data;
+  //DataCollection<SwarmContainer> swarm_data;
 
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;

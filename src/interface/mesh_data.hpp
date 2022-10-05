@@ -296,7 +296,7 @@ class MeshData {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
                              PackIndexMap &map, std::string &swarm_name, std::vector<std::string> &key) {
       return meshblock_data->PackVariables(std::forward<Args>(args)..., map, swarm_name, key);
-    }
+    };
     return pack_on_mesh_impl::PackOnMesh<SwarmVariablePack<T>, vpack_types::VPackKey_t>(
       swarmVarPackMap_, block_data_, pack_function, map_out);
   }
@@ -307,7 +307,7 @@ class MeshData {
   // Pack a set of variables for a swarm
   const auto &PackSwarm(const std::string &swarm_name,
                         const std::vector<std::string> &var_names,
-                        PackIndexmap &map) {
+                        PackIndexMap &map) {
     return PackSwarmImpl(&map, swarm_name, var_names);
   }
 
@@ -455,6 +455,7 @@ class MeshData {
   // caches for packs
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
+  std::tuple<MapToMeshBlockSwarmVarPack<int>, MapToMeshBlockSwarmVarPack<Real>> swarmVarPackMaps_;
   SparsePackCache sparse_pack_cache_;
 
   // caches for boundary information

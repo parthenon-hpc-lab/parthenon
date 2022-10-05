@@ -398,11 +398,12 @@ class MeshBlockData {
   }
 
   /// Pack swarms by swarm name and variable names
-  const SwarmVariablePack<T> &
+  template <typename TYPE>
+  const SwarmVariablePack<TYPE> &
   PackSwarmVariables(const std::string &swarm_name,
                      const std::vector<std::string> &var_names,
                      PackIndexMap &map) {
-    return PackSwarmVariablesImpl(swarm_name, var_names, &map);
+    return PackSwarmVariablesImpl<TYPE>(swarm_name, var_names, &map);
   }
 
   /// Remove a variable from the container or throw exception if not
@@ -712,7 +713,10 @@ class MeshBlockData {
                                            bool coarse, PackIndexMap *map,
                                            std::vector<std::string> *key);
 
-  const SwarmVariablePack<T> &PackSwarmVariablesImpl
+  template <typename TYPE>
+  const SwarmVariablePack<TYPE> &PackSwarmVariablesImpl(const std::string &swarm_name,
+                                            const std::vector<std::string> &var_names,
+                                            PackIndexMap *map);
 };
 
 } // namespace parthenon
