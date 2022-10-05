@@ -21,7 +21,8 @@
 #define MESH_REFINEMENT_CC_IN_ONE_HPP_
 
 #include <algorithm>
-#include <utility> // std::forward
+#include <functional> // std::function
+#include <utility>    // std::forward
 #include <vector>
 
 #include "bvals/cc/bvals_cc_in_one.hpp" // for buffercache_t
@@ -34,6 +35,21 @@
 
 namespace parthenon {
 namespace refinement {
+// std::function closures for the top-level restriction functions
+using Restrictor_t = std::function<void(const cell_centered_bvars::BufferCache_t &,
+                                        const cell_centered_bvars::BufferCacheHost_t &,
+                                        const IndexShape &, const IndexShape &)>;
+using RestrictorHost_t =
+    std::function<void(const cell_centered_bvars::BufferCacheHost_t &, const IndexShape &,
+                       const IndexShape &)>;
+using BoundaryRestrictor_t = std::function<TaskStatus(MeshData<Real> *)>;
+using Prolongator_t = std::function<void(const cell_centered_bvars::BufferCache_t &,
+                                         const cell_centered_bvars::BufferCacheHost_t &,
+                                         const IndexShape &, const IndexShape &)>;
+using ProlongatorHost_t =
+    std::function<void(const cell_centered_bvars::BufferCacheHost_t &, const IndexShape &,
+                       const IndexShape &)>;
+
 std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md);
 void ComputePhysicalRestrictBounds(MeshData<Real> *md);
 
@@ -42,7 +58,7 @@ void ComputePhysicalRestrictBounds(MeshData<Real> *md);
 // TODO(JMM): I don't love having two overloads here.  However when
 // we shift entirely to in-one machinery, the info_h only overload
 // will go away.
-template <template<int> class Op = refinement_ops::RestrictCellAverage>
+template <template <int> class Op = refinement_ops::RestrictCellAverage>
 void Restrict(const cell_centered_bvars::BufferCache_t &info,
               const cell_centered_bvars::BufferCacheHost_t &info_h,
               const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
@@ -52,14 +68,14 @@ void Restrict(const cell_centered_bvars::BufferCache_t &info,
 }
 // The existence of this overload allows us to avoid a deep-copy in
 // the per-meshblock calls
-template <template<int> class Op = refinement_ops::RestrictCellAverage>
+template <template <int> class Op = refinement_ops::RestrictCellAverage>
 void Restrict(const cell_centered_bvars::BufferCacheHost_t &info_h,
               const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
   const auto op = RefinementOp_t::Restriction;
   loops::DoProlongationRestrictionOp<Op>(cellbnds, info_h, cellbnds, c_cellbnds, op);
 }
 
-template <template<int> class Op = refinement_ops::RestrictCellAverage>
+template <template <int> class Op = refinement_ops::RestrictCellAverage>
 TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
   Kokkos::Profiling::pushRegion("Task_RestrictPhysicalBounds_MeshData");
 
@@ -90,7 +106,7 @@ TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
 // TODO(JMM): I don't love having two overloads here.  However when
 // we shift entirely to in-one machinery, the info_h only overload
 // will go away.
-template <template<int> class Op = refinement_ops::ProlongateCellMinMod>
+template <template <int> class Op = refinement_ops::ProlongateCellMinMod>
 void Prolongate(const cell_centered_bvars::BufferCache_t &info,
                 const cell_centered_bvars::BufferCacheHost_t &info_h,
                 const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
@@ -100,7 +116,7 @@ void Prolongate(const cell_centered_bvars::BufferCache_t &info,
 }
 // The existence of this overload allows us to avoid a deep-copy in
 // the per-meshblock calls
-  template <template<int> class Op = refinement_ops::ProlongateCellMinMod>
+template <template <int> class Op = refinement_ops::ProlongateCellMinMod>
 void Prolongate(const cell_centered_bvars::BufferCacheHost_t &info_h,
                 const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
   const auto op = RefinementOp_t::Prolongation;
