@@ -33,7 +33,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
+#include "mesh/refinement_in_one.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "refinement/refinement.hpp"

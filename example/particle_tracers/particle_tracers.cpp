@@ -32,7 +32,7 @@
 #include "globals.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
+#include "mesh/refinement_in_one.hpp"
 
 using namespace parthenon::driver::prelude;
 using namespace parthenon::Update;
