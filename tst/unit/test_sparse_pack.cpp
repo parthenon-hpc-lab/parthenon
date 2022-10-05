@@ -57,21 +57,21 @@ BlockList_t MakeBlockList(const std::shared_ptr<StateDescriptor> pkg, const int 
 
 struct v1 : public parthenon::variable_names::base_t<false> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION v1(Ts &&...args)
+  KOKKOS_INLINE_FUNCTION v1(Ts &&... args)
       : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v1"; }
 };
 
 struct v3 : public parthenon::variable_names::base_t<false, 3> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION v3(Ts &&...args)
+  KOKKOS_INLINE_FUNCTION v3(Ts &&... args)
       : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v3"; }
 };
 
 struct v5 : public parthenon::variable_names::base_t<false> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION v5(Ts &&...args)
+  KOKKOS_INLINE_FUNCTION v5(Ts &&... args)
       : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v5"; }
 };
@@ -127,8 +127,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "
            "blocks") {
         // Create a pack use type variables
-        auto sparse_pack =
-            parthenon::SparsePack<v5, v3>::Get<MeshData<Real>, Real>(&mesh_data, {Metadata::WithFluxes});
+        auto sparse_pack = parthenon::SparsePack<v5, v3>::Get<MeshData<Real>, Real>(
+            &mesh_data, {Metadata::WithFluxes});
 
         // Create the same pack using strings
         auto tup = parthenon::SparsePack<>::Get<MeshData<Real>, Real>(
@@ -169,8 +169,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on a single "
            "block") {
-        auto sparse_pack =
-            parthenon::SparsePack<v5, v3>::Get<MeshBlockData<Real>, Real>(block_list[0]->meshblock_data.Get().get());
+        auto sparse_pack = parthenon::SparsePack<v5, v3>::Get<MeshBlockData<Real>, Real>(
+            block_list[0]->meshblock_data.Get().get());
 
         const int v = 1; // v3 is the second variable in the loop above so v = 1 there
         int nwrong = 0;
@@ -192,7 +192,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack correctly reads based on a regex variable") {
         auto sparse_pack =
-            parthenon::SparsePack<parthenon::variable_names::any>::Get<MeshData<Real>, Real>(&mesh_data);
+            parthenon::SparsePack<parthenon::variable_names::any>::Get<MeshData<Real>,
+                                                                       Real>(&mesh_data);
 
         auto tup = parthenon::SparsePack<>::Get<MeshData<Real>, Real>(
             &mesh_data, std::vector<std::pair<std::string, bool>>{{".*", true}});
