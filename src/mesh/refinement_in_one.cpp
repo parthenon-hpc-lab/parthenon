@@ -73,7 +73,29 @@ void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
   Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBoundso_MeshData
 }
 
-// TODO(JMM): add explicit instantiations of the default prolongation/restriction functions
+// explicit instantiations of the default prolongation/restriction
+// functions
+template <>
+void Restrict<refinement_ops::RestrictCellAverage>(
+    const cell_centered_bvars::BufferCache_t &info,
+    const cell_centered_bvars::BufferCacheHost_t &info_h, const IndexShape &cellbnds,
+    const IndexShape &c_cellbnds);
+template <>
+void Restrict<refinement_ops::RestrictCellAverage>(
+    const cell_centered_bvars::BufferCacheHost_t &info_h, const IndexShape &cellbnds,
+    const IndexShape &c_cellbnds);
+template <>
+TaskStatus
+RestrictPhysicalBounds<refinement_ops::RestrictCellAverage>(MeshData<Real> *md);
+template <>
+void Prolongate<refinement_ops::ProlongateCellMinMod>(
+    const cell_centered_bvars::BufferCache_t &info,
+    const cell_centered_bvars::BufferCacheHost_t &info_h, const IndexShape &cellbnds,
+    const IndexShape &c_cellbnds);
+template <>
+void Prolongate<refinement_ops::ProlongateCellMinMod>(
+    const cell_centered_bvars::BufferCacheHost_t &info_h, const IndexShape &cellbnds,
+    const IndexShape &c_cellbnds);
 
 } // namespace refinement
 } // namespace parthenon
