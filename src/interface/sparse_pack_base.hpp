@@ -118,13 +118,13 @@ class SparsePackBase {
 
   // Returns a SparsePackBase object that is either newly created or taken
   // from the cache in pmd. The cache itself handles the all of this logic
-  template <class T>
-  static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc) {
-    auto &cache = pmd->GetSparsePackCache();
-    return cache.Get(pmd, desc);
-  }
+  //template <class T>
+  //static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc) {
+  //  auto &cache = pmd->GetSparsePackCache();
+  //  return cache.Get(pmd, desc);
+  //}
 
-  // Return a map from variable names to pack variable indices
+  //// Return a map from variable names to pack variable indices
   static SparsePackIdxMap GetIdxMap(const impl::PackDescriptor &desc) {
     SparsePackIdxMap map;
     std::size_t idx = 0;
@@ -137,14 +137,14 @@ class SparsePackBase {
 
   // Get a list of booleans of the allocation status of every variable in pmd matching the
   // PackDescriptor desc
-  template <class T>
-  static alloc_t GetAllocStatus(T *pmd, const impl::PackDescriptor &desc);
+  //template <class T>
+  //static alloc_t GetAllocStatus(T *pmd, const impl::PackDescriptor &desc);
 
   // Actually build a `SparsePackBase` (i.e. create a view of views, fill on host, and
   // deep copy the view of views to device) from the variables specified in desc contained
   // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
-  template <class T>
-  static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc);
+  //template <class T>
+  //static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc);
 
 // TODO(BRR) public?
 public:
@@ -171,12 +171,12 @@ class SparsePackCache {
   void clear() { pack_map.clear(); }
 
  //protected:
-  template <class T>
-  SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
+  //template <class T>
+  //SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
 
-  template <class T>
-  SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc,
-                              const std::string &ident);
+  //template <class T>
+  //SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc,
+  //                            const std::string &ident);
 
   std::string GetIdentifier(const impl::PackDescriptor &desc) const;
 

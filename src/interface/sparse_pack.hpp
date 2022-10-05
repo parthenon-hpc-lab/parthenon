@@ -162,7 +162,7 @@ class SparsePack : public SparsePackBase {
       auto &pack = pack_map[ident].first;
       if (desc.with_fluxes != pack.with_fluxes_) return BuildAndAdd(pmd, desc, ident);
       if (desc.coarse != pack.coarse_) return BuildAndAdd(pmd, desc, ident);
-      auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc);
+      auto alloc_status_in = GetAllocStatus(pmd, desc);
       auto &alloc_status = pack_map[ident].second;
       if (alloc_status.size() != alloc_status_in.size())
         return BuildAndAdd(pmd, desc, ident);
@@ -345,7 +345,7 @@ class SparsePack : public SparsePackBase {
       bool fluxes = false, bool coarse = false) {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     impl::PackDescriptor desc(vars, flags, fluxes, coarse);
-    return {SparsePack(SparsePackBase::GetPack(pmd, desc)),
+    return {SparsePack(GetPack<MBD, T>(pmd, desc)),
             SparsePackBase::GetIdxMap(desc)};
   }
 
