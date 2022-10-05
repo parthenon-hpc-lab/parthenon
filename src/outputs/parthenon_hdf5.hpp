@@ -111,6 +111,14 @@ static hid_t getHDF5Type(const uint32_t *) { return H5T_NATIVE_UINT32; }
 static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
+
+template <typename T,
+          typename std::enable_if<!std::is_same<T, size_t>::value, bool>::type = true,
+          typename std::enable_if<!std::is_same<T, uint64_t>::value, bool>::type = false>
+static hid_t getHDF5Type(const size_t *) {
+  return H5T_NATIVE_UINT64;
+}
+
 static H5T getHDF5Type(const char *const *) {
   H5T var_string_type = H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
   PARTHENON_HDF5_CHECK(H5Tset_size(var_string_type, H5T_VARIABLE));
