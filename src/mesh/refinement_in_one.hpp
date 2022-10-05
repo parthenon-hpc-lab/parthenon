@@ -35,21 +35,6 @@
 
 namespace parthenon {
 namespace refinement {
-// std::function closures for the top-level restriction functions
-using Restrictor_t = std::function<void(const cell_centered_bvars::BufferCache_t &,
-                                        const cell_centered_bvars::BufferCacheHost_t &,
-                                        const IndexShape &, const IndexShape &)>;
-using RestrictorHost_t =
-    std::function<void(const cell_centered_bvars::BufferCacheHost_t &, const IndexShape &,
-                       const IndexShape &)>;
-using BoundaryRestrictor_t = std::function<TaskStatus(MeshData<Real> *)>;
-using Prolongator_t = std::function<void(const cell_centered_bvars::BufferCache_t &,
-                                         const cell_centered_bvars::BufferCacheHost_t &,
-                                         const IndexShape &, const IndexShape &)>;
-using ProlongatorHost_t =
-    std::function<void(const cell_centered_bvars::BufferCacheHost_t &, const IndexShape &,
-                       const IndexShape &)>;
-
 std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md);
 void ComputePhysicalRestrictBounds(MeshData<Real> *md);
 
@@ -122,6 +107,56 @@ void Prolongate(const cell_centered_bvars::BufferCacheHost_t &info_h,
   const auto op = RefinementOp_t::Prolongation;
   loops::DoProlongationRestrictionOp<Op>(cellbnds, info_h, cellbnds, c_cellbnds, op);
 }
+
+// std::function closures for the top-level restriction functions
+using Restrictor_t = std::function<void(const cell_centered_bvars::BufferCache_t &,
+                                        const cell_centered_bvars::BufferCacheHost_t &,
+                                        const IndexShape &, const IndexShape &)>;
+using RestrictorHost_t =
+    std::function<void(const cell_centered_bvars::BufferCacheHost_t &, const IndexShape &,
+                       const IndexShape &)>;
+using BoundaryRestrictor_t = std::function<TaskStatus(MeshData<Real> *)>;
+using Prolongator_t = std::function<void(const cell_centered_bvars::BufferCache_t &,
+                                         const cell_centered_bvars::BufferCacheHost_t &,
+                                         const IndexShape &, const IndexShape &)>;
+using ProlongatorHost_t =
+    std::function<void(const cell_centered_bvars::BufferCacheHost_t &, const IndexShape &,
+                       const IndexShape &)>;
+struct RefinementFunctions_t {
+  RefinementFunctions_t() = default;
+
+  template <template <int> class ProlongationOp, template <int> class RestrictionOp>
+  static RefinementFunctions_t RegisterOps() {
+    RefinementFunctions_t funcs;
+    funcs.restrictor = [](const cell_centered_bvars::BufferCache_t &info,
+                          const cell_centered_bvars::BufferCacheHost_t &info_h,
+                          const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+      Restrict<RestrictionOp>(info, info_h, cellbnds, c_cellbnds);
+    };
+    funcs.restrictor_host = [](const cell_centered_bvars::BufferCacheHost_t &info_h,
+                               const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+      Restrict<RestrictionOp>(info_h, cellbnds, c_cellbnds);
+    };
+    funcs.boundary_restrictor = RestrictPhysicalBounds<RestrictionOp>;
+    funcs.prolongator = [](const cell_centered_bvars::BufferCache_t &info,
+                           const cell_centered_bvars::BufferCacheHost_t &info_h,
+                           const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+      Prolongate<ProlongationOp>(info, info_h, cellbnds, c_cellbnds);
+    };
+    funcs.prolongator_host = [](const cell_centered_bvars::BufferCacheHost_t &info_h,
+                                const IndexShape &cellbnds,
+                                const IndexShape &c_cellbnds) {
+      Prolongate<ProlongationOp>(info_h, cellbnds, c_cellbnds);
+    };
+    return funcs;
+  }
+
+  Restrictor_t restrictor;
+  RestrictorHost_t restrictor_host;
+  BoundaryRestrictor_t boundary_restrictor;
+  Prolongator_t prolongator;
+  ProlongatorHost_t prolongator_host;
+};
 
 } // namespace refinement
 } // namespace parthenon
