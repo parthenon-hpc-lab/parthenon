@@ -129,6 +129,18 @@ struct any : public base_t<true> {
 } // namespace variable_names
 
 template <class... Ts>
+class SwarmPack : public SparsePackBase {
+  public:
+    SwarmPack() = default;
+
+  template <class MBD, class T>
+  static SwarmPack Get(MBD *pmd, const std::vector &swarm_name) {
+    const impl::SwarmPackDescriptor(desc(swarm_name, std::vector<std::string>{Ts::name()...});
+    return SwarmPack(GetPack<MBD, T>(pmd, desc));
+  }
+}
+
+template <class... Ts>
 class SparsePack : public SparsePackBase {
  public:
   SparsePack() = default;
