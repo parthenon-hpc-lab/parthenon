@@ -1109,7 +1109,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       auto &md = mesh_data.GetOrAdd("base", i);
       cell_centered_bvars::SetBoundaries(md);
       if (multilevel) {
-        cell_centered_refinement::RestrictPhysicalBounds(md.get());
+        refinement::RestrictPhysicalBounds(md.get());
       }
     }
 

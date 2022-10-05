@@ -160,7 +160,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     if (pmesh->multilevel) {
       tl.AddTask(set | set_local,
-                 parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
+                 parthenon::refinement::RestrictPhysicalBounds, mc1.get());
     }
   }
 

@@ -91,7 +91,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
   info_h(b).coarse_coords = this->coarse_coords;
   info_h(b).fine = fine.Get();
   info_h(b).coarse = coarse.Get();
-  cell_centered_refinement::Restrict(info_h, pmb->cellbounds, pmb->c_cellbounds);
+  refinement::Restrict(info_h, pmb->cellbounds, pmb->c_cellbounds);
 }
 
 //----------------------------------------------------------------------------------------
@@ -312,7 +312,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
   info_h(b).coarse_coords = this->coarse_coords;
   info_h(b).fine = fine.Get();
   info_h(b).coarse = coarse.Get();
-  cell_centered_refinement::Prolongate(info_h, pmb->cellbounds, pmb->c_cellbounds);
+  refinement::Prolongate(info_h, pmb->cellbounds, pmb->c_cellbounds);
 }
 
 //----------------------------------------------------------------------------------------

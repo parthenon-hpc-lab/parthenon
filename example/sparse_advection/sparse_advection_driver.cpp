@@ -136,7 +136,7 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto restrict = set;
     if (pmesh->multilevel) {
       restrict = tl.AddTask(
-          set, parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
+          set, parthenon::refinement::RestrictPhysicalBounds, mc1.get());
     }
 
     // if this is the last stage, check if we can deallocate any sparse variables

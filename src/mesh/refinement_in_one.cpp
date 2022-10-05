@@ -25,31 +25,7 @@
 #include "mesh/refinement_in_one.hpp"
 
 namespace parthenon {
-namespace cell_centered_refinement {
-
-/*
- * TODO(JMM): At some point we will want to be able to register
- * alternative prolongation/restriction operators per variable. For
- * example, face-centered fields, for higher-order
- * prolongation/restriction.
- * In this case, the restriction stencil, e.g., RestrictCellAverage<int>
- * should become a functor, on which the restriction loop can be templated.
- * Then users can register a restriction loop specialized to a given functor.
- */
-
-void Restrict(const cell_centered_bvars::BufferCache_t &info,
-              const cell_centered_bvars::BufferCacheHost_t &info_h,
-              const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-  const auto op = RefinementOp_t::Restriction;
-  impl::DoProlongationRestrictionOp<refinement_ops::RestrictCellAverage>(
-      cellbnds, info, info_h, cellbnds, c_cellbnds, op);
-}
-void Restrict(const cell_centered_bvars::BufferCacheHost_t &info_h,
-              const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-  const auto op = RefinementOp_t::Restriction;
-  impl::DoProlongationRestrictionOp<refinement_ops::RestrictCellAverage>(
-      cellbnds, info_h, cellbnds, c_cellbnds, op);
-}
+namespace refinement {
 
 std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md) {
   Kokkos::Profiling::pushRegion("ComputePhysicalRestrictBoundsAllocStatus_MeshData");
@@ -70,33 +46,6 @@ std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md) {
 
   Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBoundsAllocStatus_MeshData
   return alloc_status;
-}
-
-TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
-  Kokkos::Profiling::pushRegion("Task_RestrictPhysicalBounds_MeshData");
-
-  // get alloc status
-  auto alloc_status = ComputePhysicalRestrictBoundsAllocStatus(md);
-
-  auto info_pair = md->GetRestrictBuffers();
-  auto info = std::get<0>(info_pair);
-  auto info_h = std::get<1>(info_pair);
-  if (!info.is_allocated() || (alloc_status != md->GetRestrictBufAllocStatus())) {
-    ComputePhysicalRestrictBounds(md);
-    info_pair = md->GetRestrictBuffers();
-    info = std::get<0>(info_pair);
-    info_h = std::get<1>(info_pair);
-  }
-
-  auto &rc = md->GetBlockData(0);
-  auto pmb = rc->GetBlockPointer();
-  IndexShape cellbounds = pmb->cellbounds;
-  IndexShape c_cellbounds = pmb->c_cellbounds;
-
-  Restrict(info, info_h, cellbounds, c_cellbounds);
-
-  Kokkos::Profiling::popRegion(); // Task_RestrictPhysicalBounds_MeshData
-  return TaskStatus::complete;
 }
 
 void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
@@ -121,22 +70,10 @@ void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
 
   md->SetRestrictBuffers(info, info_h, alloc_status);
 
-  Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBounds_MeshData
+  Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBoundso_MeshData
 }
 
-void Prolongate(const cell_centered_bvars::BufferCache_t &info,
-                const cell_centered_bvars::BufferCacheHost_t &info_h,
-                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-  const auto op = RefinementOp_t::Prolongation;
-  impl::DoProlongationRestrictionOp<refinement_ops::ProlongateCellMinMod>(
-      cellbnds, info, info_h, cellbnds, c_cellbnds, op);
-}
-void Prolongate(const cell_centered_bvars::BufferCacheHost_t &info_h,
-                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-  const auto op = RefinementOp_t::Prolongation;
-  impl::DoProlongationRestrictionOp<refinement_ops::ProlongateCellMinMod>(
-      cellbnds, info_h, cellbnds, c_cellbnds, op);
-}
+// TODO(JMM): add explicit instantiations of the default prolongation/restriction functions
 
-} // namespace cell_centered_refinement
+} // namespace refinement
 } // namespace parthenon

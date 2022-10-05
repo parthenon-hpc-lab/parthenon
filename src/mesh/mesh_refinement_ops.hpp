@@ -73,9 +73,6 @@
  * TODO(JMM): Function signatures currently are real gross. Might be
  * worth coalescing some of this stuff into structs, rather than
  * unpacking it and then passing it in.
- *
- * TODO(JMM): Compared to the previous version of the code, this one
- * multiplies by zero sometimes.
  */
 
 namespace parthenon {
