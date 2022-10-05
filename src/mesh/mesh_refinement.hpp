@@ -62,21 +62,12 @@ class MeshRefinement {
   void ProlongateCellCenteredValues(const ParArrayND<Real> &coarse,
                                     ParArrayND<Real> &fine, int sn, int en, int si,
                                     int ei, int sj, int ej, int sk, int ek);
-  void ProlongateSharedFieldX1(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
-                               int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateSharedFieldX2(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
-                               int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateSharedFieldX3(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
-                               int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateInternalField(FaceField &fine, int si, int ei, int sj, int ej, int sk,
-                               int ek);
   void CheckRefinementCondition();
   void SetRefinement(AmrTag flag);
 
   // setter functions for "enrolling" variable arrays in refinement via Mesh::AMR()
   // and/or in BoundaryValues::ProlongateBoundaries() (for SMR and AMR)
   int AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar);
-  int AddToRefinement(FaceField *pvar_fc, FaceField *pcoarse_fc);
 
   Coordinates_t GetCoarseCoords() const { return coarse_coords; }
 
@@ -89,7 +80,6 @@ class MeshRefinement {
 
   // tuples of references to AMR-enrolled arrays (quantity, coarse_quantity)
   std::vector<std::shared_ptr<CellVariable<Real>>> pvars_cc_;
-  std::vector<std::tuple<FaceField *, FaceField *>> pvars_fc_;
 
   // Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {
