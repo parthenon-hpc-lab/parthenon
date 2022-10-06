@@ -35,7 +35,7 @@ class MeshData;
 class IndexRange;
 class NeighborBlock;
 template <typename T>
-class CellVariable;
+class Variable;
 
 namespace cell_centered_bvars {
 void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds);
@@ -48,7 +48,7 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
                             const NeighborBlock &nb, MeshBlock *pmb);
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                  std::shared_ptr<CellVariable<Real>> v);
+                  std::shared_ptr<Variable<Real>> v);
 
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
@@ -101,13 +101,13 @@ struct BndInfo {
   ParArray6D<Real> coarse;      // coarse data variable for prolongation/restriction
 
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                std::shared_ptr<CellVariable<Real>> v);
+                                std::shared_ptr<Variable<Real>> v);
   static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v);
+                               std::shared_ptr<Variable<Real>> v);
 };
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                  std::shared_ptr<CellVariable<Real>> v);
+                  std::shared_ptr<Variable<Real>> v);
 
 using BufferCache_t = ParArray1D<BndInfo>;
 using BufferCacheHost_t = typename BufferCache_t::HostMirror;

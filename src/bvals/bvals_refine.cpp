@@ -79,7 +79,7 @@ int BoundaryValues::NumRestrictions() {
 
 void BoundaryValues::FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
                                              int &idx,
-                                             std::shared_ptr<CellVariable<Real>> v) {
+                                             std::shared_ptr<Variable<Real>> v) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   MeshRefinement *pmr = pmb->pmr.get();
   int &mylevel = pmb->loc.level;

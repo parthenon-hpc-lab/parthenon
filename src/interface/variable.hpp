@@ -54,20 +54,20 @@ inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
 }
 
 template <typename T>
-class CellVariable {
+class Variable {
   // so that MeshBlock and MeshBlockData can call Allocate* and Deallocate
   friend class MeshBlock;
   friend class MeshBlockData<T>;
 
  public:
-  CellVariable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
+  Variable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
                   std::weak_ptr<MeshBlock> wpmb);
 
-  // copy fluxes and boundary variable from src CellVariable (shallow copy)
-  void CopyFluxesAndBdryVar(const CellVariable<T> *src);
+  // copy fluxes and boundary variable from src Variable (shallow copy)
+  void CopyBdryVar(const Variable<T> *src);
 
-  // make a new CellVariable based on an existing one
-  std::shared_ptr<CellVariable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb);
+  // make a new Variable based on an existing one
+  std::shared_ptr<Variable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb);
 
   // accessors
   template <class... Args>
@@ -79,14 +79,14 @@ class CellVariable {
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
     // we can't query data.GetDim() here because data may be unallocated
-    assert(0 < i && i <= 6 && "ParArrayNDs are max 6D");
+    assert(0 < i && i <= MAX_VARIABLE_DIMENSION && "ParArrayNDs are max 6D");
     return dims_[i - 1];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetCoarseDim(const int i) const {
     // we can't query coarse_s.GetDim() here because it may be unallocated
-    assert(0 < i && i <= 6 && "ParArrayNDs are max 6D");
+    assert(0 < i && i <= MAX_VARIABLE_DIMENSION && "ParArrayNDs are max 6D");
     return coarse_dims_[i - 1];
   }
 
@@ -106,6 +106,7 @@ class CellVariable {
   inline bool IsSparse() const { return m_.IsSet(Metadata::Sparse); }
 
   inline std::string getAssociated() { return m_.getAssociated(); }
+  inline std::string GetFluxName() { return m_.GetFluxName(); }
 
   /// return information string
   std::string info();
@@ -119,7 +120,6 @@ class CellVariable {
   inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   ParArrayND<T> data;
-  ParArrayND<T> flux[4];  // used for boundary calculation
   ParArrayND<T> coarse_s; // used for sending coarse boundary calculation
 
   int dealloc_count = 0;
@@ -134,17 +134,16 @@ class CellVariable {
   // deallocate data, fluxes, and boundary variable
   void Deallocate();
 
-  /// allocate fluxes (if Metadata::WithFluxes is set) and coarse data if
+  /// Allocate coarse data if
   /// (Metadata::FillGhost is set)
-  void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
+  void AllocateCoarse(std::weak_ptr<MeshBlock> wpmb);
 
   Metadata m_;
   const std::string base_name_;
   const int sparse_id_;
-  const std::array<int, 6> dims_, coarse_dims_;
+  const std::array<int, MAX_VARIABLE_DIMENSION> dims_, coarse_dims_;
 
   bool is_allocated_ = false;
-  ParArray7D<T> flux_data_; // unified par array for the fluxes
 };
 
 ///
@@ -208,7 +207,7 @@ class FaceVariable {
 
   inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
-  // to mimick interface of CellVariable, currently sparse FaceVariables are not
+  // to mimick interface of Variable, currently sparse FaceVariables are not
   // implemented
   inline bool IsSparse() const { return false; }
   inline int GetSparseID() const { return InvalidSparseID; }
@@ -305,12 +304,12 @@ class ParticleVariable {
 };
 
 template <typename T>
-using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;
+using VariableVector = std::vector<std::shared_ptr<Variable<T>>>;
 template <typename T>
 using FaceVector = std::vector<std::shared_ptr<FaceVariable<T>>>;
 
 template <typename T>
-using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
+using MapToVars = std::map<std::string, std::shared_ptr<Variable<T>>>;
 template <typename T>
 using MapToFace = std::map<std::string, std::shared_ptr<FaceVariable<T>>>;
 

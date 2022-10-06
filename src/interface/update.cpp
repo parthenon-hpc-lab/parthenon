@@ -206,7 +206,7 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
     for (auto var_itr : map.Map()) {
       const auto label = var_itr.first;
       // skip the entry in the map for the sparse base name
-      if (md->GetBlockData(b)->HasCellVariable(label)) {
+      if (md->GetBlockData(b)->HasVariable(label)) {
         auto &counter = md->GetBlockData(b)->Get(label).dealloc_count;
         bool all_zero = true;
         for (int v = var_itr.second.first; v <= var_itr.second.second; ++v) {

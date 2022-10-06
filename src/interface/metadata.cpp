@@ -117,18 +117,14 @@ std::vector<MetadataFlag> Metadata::Flags() const {
   return set_flags;
 }
 
-std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
-                                          bool coarse) const {
-  std::array<int, 6> arrDims;
+std::array<int, MAX_VARIABLE_DIMENSION>
+Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
+  std::array<int, MAX_VARIABLE_DIMENSION> arrDims;
   const auto &shape = shape_;
   const int N = shape.size();
 
-  if (IsMeshTied()) {
-    // Let the FaceVariable, EdgeVariable, and NodeVariable
-    // classes add the +1's where needed.  They all expect
-    // these dimensions to be the number of cells in each
-    // direction, NOT the size of the arrays
-    assert(N >= 1 && N <= 3);
+  if (isMeshTied()) {
+    assert(N >= 1 && N <= MAX_VARIABLE_DIMENSION-3);
     PARTHENON_REQUIRE_THROWS(!wpmb.expired(),
                              "Cannot determine array dimensions for mesh-tied entity "
                              "without a valid meshblock");
@@ -141,6 +137,18 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
       arrDims[i + 3] = shape[i];
     for (int i = N; i < 3; i++)
       arrDims[i + 3] = 1;
+    if (IsSet(Cell)) {
+    } else if (IsSet(Face) || IsSet(Edge)) {
+      assert(N <= MAX_VARIABLE_DIMENSION-4);
+      arrDims[0] += 1;
+      arrDims[1] += 1;
+      arrDims[2] += 1;
+      arrDims[MAX_VARIABLE_DIMENSION - 1] = 3; // 3 directions
+    } else { // must be Node
+      arrDims[0] += 1;
+      arrDims[1] += 1;
+      arrDims[2] += 1;
+    }
   } else if (IsSet(Particle)) {
     assert(N >= 1 && N <= 5);
     arrDims[0] = 1; // To be updated by swarm based on pool size before allocation

@@ -34,7 +34,7 @@ namespace impl {
 
 using sp_mb_t = std::shared_ptr<MeshBlock>;
 using sp_mbd_t = std::shared_ptr<MeshBlockData<Real>>;
-using sp_cv_t = std::shared_ptr<CellVariable<Real>>;
+using sp_cv_t = std::shared_ptr<Variable<Real>>;
 using nb_t = NeighborBlock;
 
 enum class LoopControl { cont, break_out };
@@ -71,7 +71,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
-    for (auto &v : rc->GetCellVariableVector()) {
+    for (auto &v : rc->GetVariableVector()) {
       if (v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
           auto &nb = pmb->pbval->neighbor[n];
@@ -101,7 +101,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
 
 inline std::tuple<int, int, std::string, int>
 SendKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-        const std::shared_ptr<CellVariable<Real>> &pcv) {
+        const std::shared_ptr<Variable<Real>> &pcv) {
   const int sender_id = pmb->gid;
   const int receiver_id = nb.snb.gid;
   const int location_idx = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
@@ -110,7 +110,7 @@ SendKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
 
 inline std::tuple<int, int, std::string, int>
 ReceiveKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-           const std::shared_ptr<CellVariable<Real>> &pcv) {
+           const std::shared_ptr<Variable<Real>> &pcv) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.snb.gid;
   const int location_idx = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));

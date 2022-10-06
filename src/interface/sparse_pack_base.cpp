@@ -59,7 +59,7 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
   std::vector<bool> astat;
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     for (int i = 0; i < nvar; ++i) {
-      for (auto &pv : pmbd->GetCellVariableVector()) {
+      for (auto &pv : pmbd->GetVariableVector()) {
         if (desc.IncludeVariable(i, pv)) {
           astat.push_back(pv->IsAllocated());
         }
@@ -93,7 +93,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     int size = 0;
     nblocks++;
-    for (auto &pv : pmbd->GetCellVariableVector()) {
+    for (auto &pv : pmbd->GetVariableVector()) {
       for (int i = 0; i < nvar; ++i) {
         if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
@@ -128,9 +128,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
     for (int i = 0; i < nvar; ++i) {
       bounds_h(0, b, i) = idx;
 
-      for (auto &pv : pmbd->GetCellVariableVector()) {
+      for (auto &pv : pmbd->GetVariableVector()) {
         if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
+            std::string flux_name = pv->GetFluxName();
+            auto &pvf = pmbd->Get(flux_name);
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
                 for (int v = 0; v < pv->GetDim(4); ++v) {
@@ -143,18 +145,18 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                       pack_h(0, b, idx).size() > 0,
                       "Seems like this variable might not actually be allocated.");
                   if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
-                    pack_h(1, b, idx) = pv->flux[1].Get(t, u, v);
+                    pack_h(1, b, idx) = pvf->data.Get(0, t, u, v);
                     PARTHENON_REQUIRE(pack_h(1, b, idx).size() ==
                                           pack_h(0, b, idx).size(),
                                       "Different size fluxes.");
                     if (ndim > 1) {
-                      pack_h(2, b, idx) = pv->flux[2].Get(t, u, v);
+                      pack_h(2, b, idx) = pvf->data.Get(1, t, u, v);
                       PARTHENON_REQUIRE(pack_h(2, b, idx).size() ==
                                             pack_h(0, b, idx).size(),
                                         "Different size fluxes.");
                     }
                     if (ndim > 2) {
-                      pack_h(3, b, idx) = pv->flux[3].Get(t, u, v);
+                      pack_h(3, b, idx) = pvf->data.Get(2, t, u, v);
                       PARTHENON_REQUIRE(pack_h(3, b, idx).size() ==
                                             pack_h(0, b, idx).size(),
                                         "Different size fluxes.");

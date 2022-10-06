@@ -31,7 +31,7 @@
 namespace parthenon {
 namespace prelude {
 using ::parthenon::BoundaryCommSubset;
-using ::parthenon::CellVariable;
+using ::parthenon::Variable;
 using ::parthenon::IndexDomain;
 using ::parthenon::IndexRange;
 using ::parthenon::MeshBlock;

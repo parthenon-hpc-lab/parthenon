@@ -237,7 +237,7 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
 }
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                  std::shared_ptr<CellVariable<Real>> v) {
+                  std::shared_ptr<Variable<Real>> v) {
   auto &cb = pmb->cellbounds;
   const IndexDomain in = IndexDomain::interior;
   const int isize = cb.ie(in) - cb.is(in) + 1;
@@ -250,7 +250,7 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
 }
 
 BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                std::shared_ptr<CellVariable<Real>> v) {
+                                std::shared_ptr<Variable<Real>> v) {
   BndInfo out;
   out.Nv = v->GetDim(4);
   out.Nu = v->GetDim(5);
@@ -288,7 +288,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 }
 
 BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v) {
+                               std::shared_ptr<Variable<Real>> v) {
   BndInfo out;
 
   out.Nv = v->GetDim(4);

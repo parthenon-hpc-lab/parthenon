@@ -130,30 +130,30 @@ class MeshBlockData {
                   const std::shared_ptr<MeshBlock> pmb);
 
   //
-  // Queries related to CellVariable objects
+  // Queries related to Variable objects
   //
-  bool HasCellVariable(const std::string &label) const noexcept {
+  bool HasVariable(const std::string &label) const noexcept {
     return varMap_.count(label) > 0;
   }
 
-  const CellVariableVector<T> &GetCellVariableVector() const noexcept {
+  const VariableVector<T> &GetVariableVector() const noexcept {
     return varVector_;
   }
 
-  const MapToCellVars<T> &GetCellVariableMap() const noexcept { return varMap_; }
+  const MapToVars<T> &GetVariableMap() const noexcept { return varMap_; }
 
-  std::shared_ptr<CellVariable<T>> GetCellVarPtr(const std::string &label) const {
+  std::shared_ptr<Variable<T>> GetVarPtr(const std::string &label) const {
     auto it = varMap_.find(label);
     PARTHENON_REQUIRE_THROWS(it != varMap_.end(),
                              "Couldn't find variable '" + label + "'");
     return it->second;
   }
 
-  CellVariable<T> &Get(const std::string &base_name,
+  Variable<T> &Get(const std::string &base_name,
                        int sparse_id = InvalidSparseID) const {
-    return *GetCellVarPtr(MakeVarLabel(base_name, sparse_id));
+    return *GetVarPtr(MakeVarLabel(base_name, sparse_id));
   }
-  CellVariable<T> &Get(const int index) const { return *(varVector_[index]); }
+  Variable<T> &Get(const int index) const { return *(varVector_[index]); }
 
   int Index(const std::string &label) noexcept {
     for (int i = 0; i < (varVector_).size(); i++) {
@@ -208,7 +208,7 @@ class MeshBlockData {
   ///
   /// Get an edge variable from the container
   /// @param label the name of the variable
-  /// @return the CellVariable<T> if found or throw exception
+  /// @return the Variable<T> if found or throw exception
   ///
   EdgeVariable<T> *GetEdge(std::string label) {
     // for (auto v : edgeVector_) {
@@ -223,17 +223,19 @@ class MeshBlockData {
   /// Get list of variables and labels by names (either a full variable name or sparse
   /// base name), optionally selecting only given sparse ids
   VarLabelList GetVariablesByName(const std::vector<std::string> &names,
-                                  const std::vector<int> &sparse_ids = {});
+                                  const std::vector<int> &sparse_ids = {},
+                                  bool is_flux = false);
 
   /// Get list of variables and labels by metadata flags (must match all flags if
   /// match_all is true, otherwise must only match at least one), optionally selecting
   /// only given sparse ids
   VarLabelList GetVariablesByFlag(const std::vector<MetadataFlag> &flags, bool match_all,
-                                  const std::vector<int> &sparse_ids = {});
+                                  const std::vector<int> &sparse_ids = {},
+                                  bool is_flux = false);
 
   /// Get list of all variables and labels, optionally selecting only given sparse ids
-  VarLabelList GetAllVariables(const std::vector<int> &sparse_ids = {}) {
-    return GetVariablesByFlag({}, false, sparse_ids);
+  VarLabelList GetAllVariables(const std::vector<int> &sparse_ids = {}, bool is_flux = false) {
+    return GetVariablesByFlag({}, false, sparse_ids, is_flux);
   }
 
   /// Queries related to variable packs
@@ -405,7 +407,7 @@ class MeshBlockData {
     for (auto &v : faceMap_) {
       my_keys.push_back(v.first);
     }
-    for (auto &v : cmp.GetCellVariableMap()) {
+    for (auto &v : cmp.GetVariableMap()) {
       cmp_keys.push_back(v.first);
     }
     for (auto &v : cmp.GetFaceMap()) {
@@ -430,7 +432,7 @@ class MeshBlockData {
   void AddField(const std::string &base_name, const Metadata &metadata,
                 int sparse_id = InvalidSparseID);
 
-  void Add(std::shared_ptr<CellVariable<T>> var) noexcept {
+  void Add(std::shared_ptr<Variable<T>> var) noexcept {
     varVector_.push_back(var);
     varMap_[var->label()] = var;
   }
@@ -440,13 +442,13 @@ class MeshBlockData {
     faceMap_[var->label()] = var;
   }
 
-  std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label) {
-    if (!HasCellVariable(label)) {
+  std::shared_ptr<Variable<T>> AllocateSparse(std::string const &label) {
+    if (!HasVariable(label)) {
       PARTHENON_THROW("Tried to allocate sparse variable '" + label +
                       "', but no such sparse variable exists");
     }
 
-    auto var = GetCellVarPtr(label);
+    auto var = GetVarPtr(label);
     PARTHENON_REQUIRE_THROWS(var->IsSparse(),
                              "Tried to allocate non-sparse variable " + label);
 
@@ -455,17 +457,17 @@ class MeshBlockData {
     return var;
   }
 
-  std::shared_ptr<CellVariable<T>> AllocSparseID(std::string const &base_name,
+  std::shared_ptr<Variable<T>> AllocSparseID(std::string const &base_name,
                                                  const int sparse_id) {
     return AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 
   void DeallocateSparse(std::string const &label) {
-    PARTHENON_REQUIRE_THROWS(HasCellVariable(label),
+    PARTHENON_REQUIRE_THROWS(HasVariable(label),
                              "Tried to deallocate sparse variable '" + label +
                                  "', but no such sparse variable exists");
 
-    auto var = GetCellVarPtr(label);
+    auto var = GetVarPtr(label);
     // PARTHENON_REQUIRE_THROWS(var->IsSparse(),
     //                         "Tried to deallocate non-sparse variable " + label);
 
@@ -477,10 +479,10 @@ class MeshBlockData {
   std::weak_ptr<MeshBlock> pmy_block;
   std::shared_ptr<StateDescriptor> resolved_packages_;
 
-  CellVariableVector<T> varVector_; ///< the saved variable array
+  VariableVector<T> varVector_; ///< the saved variable array
   FaceVector<T> faceVector_;        ///< the saved face arrays
 
-  MapToCellVars<T> varMap_;
+  MapToVars<T> varMap_;
   MapToFace<T> faceMap_;
 
   // variable packing

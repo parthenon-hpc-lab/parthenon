@@ -120,7 +120,9 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
       PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
     }
 
-    auto &flx = v->flux[dir];
+    std::string flux_name = v->GetFluxName();
+    auto &flx_var = md->Get(flux_name);
+    auto &flx = flx_var.data;
     auto &coords = pmb->coords;
     buf_pool_t<Real>::weak_t &buf_arr = buf.buffer();
 
@@ -155,10 +157,10 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
           const Real area10 = coords.Area(dir, k + koff, j + joff, i);
           const Real area11 = coords.Area(dir, k + koff, j, i + ioff);
 
-          Real avg_flx = area00 * flx(l, m, n, k, j, i);
-          avg_flx += area01 * flx(l, m, n, k + koff, j + joff, i);
-          avg_flx += area10 * flx(l, m, n, k, j + joff, i + ioff);
-          avg_flx += area11 * flx(l, m, n, k + koff, j, i + ioff);
+          Real avg_flx = area00 * flx(dir, l, m, n, k, j, i);
+          avg_flx += area01 * flx(dir, l, m, n, k + koff, j + joff, i);
+          avg_flx += area10 * flx(dir, l, m, n, k, j + joff, i + ioff);
+          avg_flx += area11 * flx(dir, l, m, n, k + koff, j, i + ioff);
 
           avg_flx /= area00 + area01 + area10 + area11;
           const int idx = ci + ni * (cj + nj * (ck + nk * (n + nn * (m + nm * l))));
@@ -289,7 +291,9 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
           PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
         }
 
-        auto &flx = v->flux[dir];
+        std::string flux_name = v->GetFluxName();
+        auto &flx_var = md->Get(flux_name);
+        auto &flx = flx_var.data;
         buf_pool_t<Real>::weak_t &buf_arr = buf.buffer();
         const int nl = flx.GetDim(6);
         const int nm = flx.GetDim(5);
@@ -318,7 +322,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
               const int idx =
                   i - is + ni * (j - js + nj * (k - ks + nk * (n + nn * (m + nm * l))));
-              flx(l, m, n, k, j, i) = buf_arr(idx);
+              flx(dir, l, m, n, k, j, i) = buf_arr(idx);
             });
         buf.Stale();
         return LoopControl::cont;

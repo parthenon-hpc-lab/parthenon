@@ -23,6 +23,7 @@
 #include <tuple>
 #include <vector>
 
+#include "defs.h"
 #include "utils/error_checking.hpp"
 
 /// The point of this macro is to generate code for each built-in flag using the
@@ -370,8 +371,9 @@ class Metadata {
   // Utility functions
   /*--------------------------------------------------------*/
 
-  // get the dims of the 6D array
-  std::array<int, 6> GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const;
+  // get the dims of the N-D array
+  std::array<int, MAX_VARIABLE_DIMENSION>
+  GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const;
 
   /// Returns the attribute flags as a string of 1/0
   std::string MaskAsString() const {
@@ -441,6 +443,8 @@ class Metadata {
 
   void Associate(const std::string &name) { associated_ = name; }
   const std::string &getAssociated() const { return associated_; }
+  void SetFluxName(const std::string &name) { flux_var_ = name; }
+  const std::string &GetFluxName() const { return flux_var_; }
 
   const std::vector<std::string> getComponentLabels() const noexcept {
     return component_labels_;
@@ -452,6 +456,7 @@ class Metadata {
   std::vector<int> shape_ = {1};
   std::vector<std::string> component_labels_ = {};
   std::string associated_ = "";
+  std::string flux_var_ = "";
 
   /// if flag is true set bit, clears otherwise
   void DoBit(MetadataFlag bit, bool flag) {

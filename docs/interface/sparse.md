@@ -50,7 +50,7 @@ descriptor via `AddSparsePool`. A `SparsePool` consists of: (i) a base name, (ii
 sparse IDs must be specified when the sparse pool is created and once its added to the state
 descriptor, that list cannot be changed. This limitation drastically simplifies the sparse naming
 implementation, because it means that we know the complete list of variables at the beginning and
-that list is always the same on all mesh blocks. The individual `CellVariable` instances that are
+that list is always the same on all mesh blocks. The individual `` instances that are
 created for each sparse ID have a label of the form `<base name>_<sparse index>` and the have the
 same metadata as the shared metadata of the pool, with two exceptions: (i) the shape of the variable
 can be set per sparse ID (i.e. some ID could be a scalar, another a vector of length 2,
@@ -89,24 +89,24 @@ allocated and thus would like to communicate data for different sets of variable
 Before describing the bigger infrastructure changes to handle the boundary communication for sparse
 variables, here are some smaller changes that are necessary for sparse variables to work.
 
-- `CellVariable` tracks its allocation status and has member functions to allocate and deallocate
+- `` tracks its allocation status and has member functions to allocate and deallocate
   its data (`data`, `flux`, and `coarse_s`).
-- A `CellVariable` now knows its dimensions and coarse dimensions. Because the `ParArrayND<T> data` member holding
+- A `` now knows its dimensions and coarse dimensions. Because the `ParArrayND<T> data` member holding
   the actual variable data is not necessarily allocated (i.e. it has a size of 0), we can no longer
-  use its size to get the dimension of the `CellVariable`, but we still need to know its dimensions
+  use its size to get the dimension of the ``, but we still need to know its dimensions
   when it's unallocated,  for example when adding it to a pack. Similarly, the `coarse_s` member
   used to be queried to get the coarse dimensions, but that is also not always allocated, thus
-  `CellVariable` also directly knows its coarse dimensions.
-- `CellVariable`, `MeshBlock`, `MeshBlockData`, variable packs, and mesh block packs, all have new
+  `` also directly knows its coarse dimensions.
+- ``, `MeshBlock`, `MeshBlockData`, variable packs, and mesh block packs, all have new
   member functions `IsAllocated` to query whether a particular variable is allocated or not.
   Generally speaking, whenever the data or fluxes of a variable are accessed, such accesses need to
   be guarded with `IsAllocated` checks.
 - The `pvars_cc_` field of the `MeshRefinement` class is now a
-  `std::vector<std::shared_ptr<CellVariable<Real>>>` instead of a
+  `std::vector<std::shared_ptr<<Real>>>` instead of a
   `std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>>`. The problem with storing (shallow)
   copies of the `ParArrayND`s `data` and `coarse_s` is that they don't point to the newly allocated views if a
   variable is initially unallocated and then gets allocated during the evolution. Storing a pointer
-  to the `CellVariable` instance works because that one remains the same when it gets allocated.
+  to the `` instance works because that one remains the same when it gets allocated.
 - The caching mechanisms for variable packs, mesh block packs, send buffers, receive (i.e. set) buffers, and
   restrict buffers now all include the allocation status of all the contained variables (as a
   `std::vector<bool>` because it's only used on the host and provides efficient comparison). When a
@@ -120,8 +120,8 @@ Below follows a detailed description of the main sparse allocation implementatio
 
 
 ### Allocation status
-Every `CellVariable` is either allocated or deallocated at all times. Furthermore, the
-`CellVariable`s with the same label but corresponding to different stages (i.e. `MeshBlockData`
+Every `` is either allocated or deallocated at all times. Furthermore, the
+``s with the same label but corresponding to different stages (i.e. `MeshBlockData`
 instances) of the same `MeshBlock` are always either allocated or deallocated on all stages of the
 mesh block. This is enforced by the fact that the only public methods to (de)allocate a variable is
 through the mesh block. The `MeshBlock::AllocateSparse` and `MeshBlock::AllocSparseID` functions are
@@ -131,18 +131,18 @@ infrastructure to allocate a sparse variable on a block if it receives non-zero 
 that block, see [Boundary exchange](#boundary-exchange) for details. The infrastructure can also
 automatically deallocate sparse variables on a block, see [Deallocation](#deallocation).
 
-When a `CellVariable` is allocated, its `data`, `flux`, and `coarse_s` fields are allocated. When
+When a `` is allocated, its `data`, `flux`, and `coarse_s` fields are allocated. When
 the variable is deallocated, those fields are reset to `ParArrayND`s of size 0. Note, however, that
 the `CellCenteredBoundaryVariable` (field `vbvar`) is always allocated, but it only holds shallow
-copies of the `ParArrayND`s owned by the `CellVariable` that may are may not be allocated. Note also
-that all the `CellVariable`s with the same label share one instance of
+copies of the `ParArrayND`s owned by the `` that may are may not be allocated. Note also
+that all the ``s with the same label share one instance of
 `CellCenteredBoundaryVariable` between the different stages of a mesh block (and the shallow copies
 of the `data`, `flux`, and `coarse_s` arrays in `CellCenteredBoundaryVariable` point to the ones of
-the `CellVariable` belonging to the base stage). This may be changed in the future so that each
-`CellVariable` has its own `CellCenteredBoundaryVariable`.
+the `` belonging to the base stage). This may be changed in the future so that each
+`` has its own `CellCenteredBoundaryVariable`.
 
 Note that since `CellCenteredBoundaryVariable` is always allocated, the `BoundaryData` instances it
-contains are also always allocated (regardless whether the `CellVariable` is allocated).
+contains are also always allocated (regardless whether the `` is allocated).
 The `BoundaryData` instances (one for boundary exchange and one for flux exchange) contain buffers
 to communicate the boundary/flux correction data. So these buffers are always allocated for all
 variables. (However, as noted above, there is only one `CellCenteredBoundaryVariable` per variable

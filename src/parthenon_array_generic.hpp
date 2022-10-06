@@ -132,6 +132,10 @@ class ParArrayGeneric : public State {
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                         args...) {}
 
+  template <int N>  
+  ParArrayGeneric(const std::string &label, std::array<int, N> dims) 
+      : ParArrayGeneric(label, dims, std::make_index_sequence<N>{}) {}
+
   template <class... Args, REQUIRES((sizeof...(Args) > 0) || (Data::rank == 0)),
             REQUIRES(Data::rank - sizeof...(Args) >= 0),
             REQUIRES(all_implement<integral(Args...)>::value)>
@@ -280,6 +284,11 @@ class ParArrayGeneric : public State {
   ParArrayGeneric(const std::string &label, const State &state, std::index_sequence<I...>,
                   Args... args)
       : State(state), data_(label, ((void)I, 1)..., args...) {}
+
+  template <int N, std::size_t... I>
+  ParArrayGeneric(const std::string &label, std::array<int, N> dims, std::index_sequence<I...>) 
+      : ParArrayGeneric(label, dims[I]...) {}
+
 
   template <class... Args, std::size_t... I>
   void NewParArrayND(std::index_sequence<I...>, Args... args, const std::string &label) {
