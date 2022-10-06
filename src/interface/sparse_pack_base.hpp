@@ -106,6 +106,26 @@ struct SwarmPackDescriptor {
   SwarmPackDescriptor(const std::string &swarm_name, const std::vector<std::string> &vars)
       : swarm_name(swarm_name), vars(vars) {}
 
+  // Method for determining if variable pv should be included in pack for this
+  // PackDescriptor
+  bool IncludeVariable(int vidx, const std::shared_ptr<ParticleVariable<Real>> &pv) const {
+    // TODO(LFR): Check that the shapes agree
+    //if (flags.size() > 0) {
+    //  for (const auto &flag : flags) {
+    //    if (!pv->IsSet(flag)) {
+    //      return false;
+    //    }
+    //  }
+    //}
+
+    //if (use_regex[vidx]) {
+    //  if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
+    //} else {
+      if (vars[vidx] == pv->label()) return true;
+    //}
+    return false;
+  }
+
   std::string swarm_name;
   std::vector<std::string> vars;
 };
@@ -118,7 +138,7 @@ class SparsePackBase {
   SparsePackBase() = default;
   virtual ~SparsePackBase() = default;
 
- protected:
+ //protected:
   friend class SparsePackCache;
 
   using alloc_t = std::vector<bool>;
@@ -127,9 +147,11 @@ class SparsePackBase {
   // using pack_t = ParArray3D<ParArray3D<Real>>;
   using bounds_t = ParArray3D<int>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
+  using desc_t = typename std::tuple_element<
+    N, std::tuple<impl::PackDescriptor, impl::SwarmPackDescriptor>>::type;
 
   //// Return a map from variable names to pack variable indices
-  static SparsePackIdxMap GetIdxMap(const impl::PackDescriptor &desc) {
+  static SparsePackIdxMap GetIdxMap(const desc_t &desc) {
     SparsePackIdxMap map;
     std::size_t idx = 0;
     for (const auto &var : desc.vars) {
@@ -152,6 +174,9 @@ class SparsePackBase {
   int dims_[6];
   int nvar_;
 };
+
+template <typename T = Real>
+using SwarmPackBase = SparsePackBase<1, T>;
 
 // Object for cacheing sparse packs in MeshData and MeshBlockData objects. This
 // handles checking for a pre-existing pack and creating a new SparsePackBase if
@@ -181,8 +206,42 @@ class SparsePackCache {
   // friend class SparsePackBase;
 };
 
-template <typename T = Real>
-using SwarmPackBase = SparsePackBase<1, T>;
+// TODO(BRR) stop copying code
+class SwarmPackCache {
+ public:
+  std::size_t size() const { return pack_map.size(); }
+
+  void clear() { pack_map.clear(); }
+
+  // TODO(BRR) public?
+  // protected:
+  static std::string GetIdentifier(const SwarmPackDescriptor &desc) {
+    std::string identifier("");
+//    for (const auto &flag : desc.flags)
+//      identifier += flag.Name();
+//    identifier += "____";
+    for (int i = 0; i < desc.vars.size(); ++i)
+      identifier += desc.vars[i];// + std::to_string(desc.use_regex[i]);
+    identifier += "____swarmname:";
+    identifier += desc.swarm_name;
+    return identifier;
+  }
+
+//  std::string GetIdentifier(const SwarmPackDescriptor &desc) const {
+//    std::string identifier("");
+//    for (const auto &flag : desc.flags)
+//      identifier += flag.Name();
+//    identifier += "____";
+//    for (int i = 0; i < desc.vars.size(); ++i)
+//      identifier += desc.vars[i] + std::to_string(desc.use_regex[i]);
+//    return identifier;
+//  }
+
+  std::unordered_map<std::string, std::pair<SwarmPackBase<>, SwarmPackBase<>::alloc_t>>
+      pack_map;
+
+//  friend class SwarmPackBase<>;
+};
 
 } // namespace parthenon
 

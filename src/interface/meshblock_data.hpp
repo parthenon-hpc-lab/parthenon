@@ -22,6 +22,7 @@
 
 #include "interface/data_collection.hpp"
 #include "interface/sparse_pack_base.hpp"
+#include "interface/swarm.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
@@ -201,6 +202,13 @@ class MeshBlockData {
   /// Get list of all variables and labels, optionally selecting only given sparse ids
   VarLabelList GetAllVariables(const std::vector<int> &sparse_ids = {}) {
     return GetVariablesByFlag({}, false, sparse_ids);
+  }
+
+  std::shared_ptr<Swarm> GetSwarm(const std::string &name) {
+    auto it = swarmMap_.find(name);
+    PARTHENON_REQUIRE_THROWS(it != swarmMap_.end(),
+                             "Couldn't find swarm '" + name + "'");
+    return it->second;
   }
 
   /// Queries related to variable packs
@@ -390,6 +398,8 @@ class MeshBlockData {
   void AddField(const std::string &base_name, const Metadata &metadata,
                 int sparse_id = InvalidSparseID);
 
+  void AddSwarm(const std::string &swarm_name, const Metadata &metadata, const Dictionary<Metadata> &all_swarm_values);
+
   void Add(std::shared_ptr<CellVariable<T>> var) noexcept {
     varVector_.push_back(var);
     varMap_[var->label()] = var;
@@ -436,11 +446,15 @@ class MeshBlockData {
 
   MapToCellVars<T> varMap_;
 
+  SwarmVector swarmVector_ = {};
+  SwarmMap swarmMap_ = {};
+
   // variable packing
   MapToVariablePack<T> varPackMap_;
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
+  SwarmPackCache swarm_pack_cache_;
 
   // These functions have private scope and are visible only to MeshData
   const VariableFluxPack<T> &

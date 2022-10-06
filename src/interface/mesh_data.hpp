@@ -425,7 +425,7 @@ class MeshData {
 
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
-  SparsePackCache &GetSwarmPackCache() { return swarm_pack_cache_; }
+  SwarmPackCache &GetSwarmPackCache() { return swarm_pack_cache_; }
 
  private:
   Mesh *pmy_mesh_;
@@ -436,7 +436,7 @@ class MeshData {
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
-  SparsePackCache swarm_pack_cache_;
+  SwarmPackCache swarm_pack_cache_;
 
   // caches for boundary information
   cell_centered_bvars::BvarsCache_t bvars_cache_;

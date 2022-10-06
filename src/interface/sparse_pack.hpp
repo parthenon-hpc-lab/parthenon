@@ -130,9 +130,11 @@ struct any : public base_t<true> {
 } // namespace variable_names
 
 template <class... Ts>
-class SwarmPack : public SparsePackBase<> {
+class SwarmPack : public SwarmPackBase<> {
   public:
     SwarmPack() = default;
+
+  explicit SwarmPack(const SwarmPackBase<> &spb) : SwarmPackBase<>(spb) {}
 
   template <class MBD, class T>
   static SwarmPack Get(MBD *pmd, const std::string &swarm_name) {
@@ -143,24 +145,17 @@ class SwarmPack : public SparsePackBase<> {
   template <class MBD, class T>
   //static SparsePackBase<1> GetPack(MBD *pmd, const impl::SwarmPackDescriptor &desc) {
   static SwarmPackBase<> GetPack(MBD *pmd, const impl::SwarmPackDescriptor &desc) {
+    printf("%s:%i\n", __FILE__, __LINE__);
     return Get<MBD, T>(pmd, desc);
   }
 
   template <class MBD, class T>
-  static SparsePackBase<1> Get(MBD *pmd, const impl::SwarmPackDescriptor &desc) {
+  static SwarmPackBase<> Get(MBD *pmd, const impl::SwarmPackDescriptor &desc) {
+    printf("%s:%i\n", __FILE__, __LINE__);
     std::string ident = GetIdentifier(desc);
     auto &pack_map = pmd->GetSwarmPackCache().pack_map;
     if (pack_map.count(ident) > 0) {
       auto &pack = pack_map[ident].first;
-      //if (desc.with_fluxes != pack.with_fluxes_) return BuildAndAdd(pmd, desc, ident);
-      //if (desc.coarse != pack.coarse_) return BuildAndAdd(pmd, desc, ident);
-      auto alloc_status_in = GetAllocStatus(pmd, desc);
-      auto &alloc_status = pack_map[ident].second;
-      if (alloc_status.size() != alloc_status_in.size())
-        return BuildAndAdd(pmd, desc, ident);
-      for (int i = 0; i < alloc_status_in.size(); ++i) {
-        if (alloc_status[i] != alloc_status_in[i]) return BuildAndAdd(pmd, desc, ident);
-      }
       // Cached version is not stale, so just return a reference to it
       return pack_map[ident].first;
     }
@@ -168,10 +163,14 @@ class SwarmPack : public SparsePackBase<> {
   }
 
   template <class T>
-  static SparsePackBase<1> BuildAndAdd(T *pmd, const SwarmPackDescriptor &desc,
+  static SwarmPackBase<> BuildAndAdd(T *pmd, const SwarmPackDescriptor &desc,
                                     const std::string &ident) {
+    printf("%s:%i\n", __FILE__, __LINE__);
     auto &pack_map = pmd->GetSwarmPackCache().pack_map;
-    pack_map[ident] = {Build(pmd, desc), GetAllocStatus(pmd, desc)};
+    printf("%s:%i\n", __FILE__, __LINE__);
+    //pack_map[ident] = {Build(pmd, desc), GetAllocStatus(pmd, desc)};
+    // TODO(BRR) hack
+    pack_map[ident] = {Build(pmd, desc), alloc_t()};
     return pack_map[ident].first;
   }
 
@@ -182,17 +181,35 @@ class SwarmPack : public SparsePackBase<> {
   static SparsePackBase<1> Build(T *pmd, const SwarmPackDescriptor &desc) {
     using mbd_t = MeshBlockData<Real>;
     int nvar = desc.vars.size();
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     SwarmPackBase<> pack;
     //pack.with_fluxes_ = desc.with_fluxes;
     //pack.coarse_ = desc.coarse;
     pack.nvar_ = desc.vars.size();
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     // Count up the size of the array that is required
     int max_size = 0;
     int nblocks = 0;
     int ndim = 3;
-    ForEachBlock(pmb, [&](int b, mbd_t *pmbd, const std::string
+    ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
+    //   pmbd->GetSwarm(pack.swarm_name);
+    printf("%s:%i\n", __FILE__, __LINE__);
+      auto swarm = pmbd->GetSwarm(desc.swarm_name);
+    printf("%s:%i\n", __FILE__, __LINE__);
+      int size = 0;
+    printf("%s:%i\n", __FILE__, __LINE__);
+      nblocks++;
+      for (auto &pv : swarm->GetParticleVariableVector<Real>()) {
+        for (int i = 0; i < nvar; ++i) {
+          if (desc.IncludeVariable(i, pv)) {
+              size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4) * pv->GetDim(3) * pv->GetDim(2);
+              ndim = 1;
+          }
+        }
+      }
+    });
 //    ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
 //      int size = 0;
 //      nblocks++;
@@ -210,6 +227,7 @@ class SwarmPack : public SparsePackBase<> {
 //      max_size = std::max(size, max_size);
 //    });
     pack.nblocks_ = nblocks;
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     // Allocate the views
     int leading_dim = 1;
@@ -297,6 +315,7 @@ class SwarmPack : public SparsePackBase<> {
 
   // template <class T>
   static std::string GetIdentifier(const SwarmPackDescriptor &desc) {
+    printf("%s:%i\n", __FILE__, __LINE__);
     std::string identifier("");
 //    for (const auto &flag : desc.flags)
 //      identifier += flag.Name();
@@ -306,6 +325,46 @@ class SwarmPack : public SparsePackBase<> {
     identifier += "____swarmname:";
     identifier += desc.swarm_name;
     return identifier;
+  }
+
+  // Get a list of booleans of the allocation status of every variable in pmd matching the
+  // PackDescriptor desc
+  //template <class T>
+  //static SwarmPackBase<>::alloc_t GetAllocStatus(T *pmd, const SwarmPackDescriptor &desc) {
+  //  using mbd_t = MeshBlockData<Real>;
+
+  //  int nvar = desc.vars.size();
+
+  //  std::vector<bool> astat;
+  //  ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
+  //    auto swarm = pmbd->GetSwarm(desc.swarm_name);
+  //    for (int i = 0; i < nvar; ++i) {
+  //      //for (auto &pv : pmbd->GetCellVariableVector()) {
+  //      for (auto &pv : swarm->GetParticleVariableVector<Real>()) {
+  //        if (desc.IncludeVariable(i, pv)) {
+  //          astat.push_back(pv->IsAllocated());
+  //        }
+  //      }
+  //    }
+  //  });
+  //  return astat;
+  //}
+
+  // Make a `SwarmPack` with a corresponding `SwarmPackIdxMap` from the provided `vars`
+  // and `flags`, creating the pack in `pmd->SparsePackCache` if it doesn't already exist.
+  // The pack will be created and accessible on the device
+  // VAR_VEC can be:
+  //   1) std::vector<std::string> of variable names (in which case they are all assumed
+  //   not to be regexs)
+  //   2) std::vector<std::pair<std::string, bool>> of (variable name, treat name as
+  //   regex) pairs
+  template <class MBD, class T, class VAR_VEC>
+  static std::tuple<SwarmPack, SparsePackIdxMap>
+  Get(MBD *pmd, const std::string &swarm_name, const VAR_VEC &vars) {
+    printf("%s:%i\n", __FILE__, __LINE__);
+    static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
+    impl::SwarmPackDescriptor desc(swarm_name, vars);
+    return {SwarmPack(GetPack<MBD, T>(pmd, desc)), SwarmPackBase<>::GetIdxMap(desc)};
   }
 
   private:
@@ -511,6 +570,7 @@ class SparsePack : public SparsePackBase<> {
   }
 
   // template <class T>
+  // TODO(BRR) duplicated with SparsePackCache?
   static std::string GetIdentifier(const PackDescriptor &desc) {
     std::string identifier("");
     for (const auto &flag : desc.flags)

@@ -1030,6 +1030,7 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 // \brief  initialization before the main loop as well as during remeshing
 
 void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   Kokkos::Profiling::pushRegion("Mesh::Initialize");
   bool init_done = true;
   const int nb_initial = nbtotal;
@@ -1158,6 +1159,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
   } while (!init_done);
+
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 
   Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }

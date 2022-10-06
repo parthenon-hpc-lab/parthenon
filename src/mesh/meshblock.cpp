@@ -91,6 +91,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   this->packages = packages;
   this->resolved_packages = resolved_packages;
   cost_ = icost;
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
@@ -144,7 +145,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   auto &real_container = meshblock_data.Get();
   auto &swarm_container = swarm_data.Get();
 
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   real_container->Initialize(resolved_packages, shared_from_this());
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 
   swarm_container->SetBlockPointer(shared_from_this());
   for (auto const &q : resolved_packages->AllSwarms()) {

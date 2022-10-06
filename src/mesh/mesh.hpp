@@ -183,7 +183,9 @@ class Mesh {
   TagMap tag_map;
 
 #ifdef MPI_PARALLEL
-  MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
+  MPI_Comm GetMPIComm(const std::string &label) const {
+    printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
+    return mpi_comm_map_.at(label); }
 #endif
 
  private:

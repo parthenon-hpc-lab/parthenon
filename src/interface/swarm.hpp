@@ -210,6 +210,11 @@ class Swarm {
 
   std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds_uptrs[6];
 
+  template <typename T>
+  auto GetParticleVariableVector() {
+    return std::get<getType<T>()>(Vectors_);
+  }
+
  private:
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarListAll_();

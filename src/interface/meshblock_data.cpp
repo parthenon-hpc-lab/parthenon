@@ -36,6 +36,7 @@ template <typename T>
 void MeshBlockData<T>::Initialize(
     const std::shared_ptr<StateDescriptor> resolved_packages,
     const std::shared_ptr<MeshBlock> pmb) {
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   SetBlockPointer(pmb);
   resolved_packages_ = resolved_packages;
 
@@ -45,9 +46,16 @@ void MeshBlockData<T>::Initialize(
   varPackMap_.clear();
   coarseVarPackMap_.clear();
   varFluxPackMap_.clear();
+  swarmVector_.clear();
+  swarmMap_.clear();
 
   for (auto const &q : resolved_packages->AllFields()) {
     AddField(q.first.base_name, q.second, q.first.sparse_id);
+  }
+
+  for (auto const &q : resolved_packages->AllSwarms()) {
+    printf("Adding a swarm: %s\n", q.first.c_str());
+    AddSwarm(q.first, q.second, resolved_packages->AllSwarmValues(q.first));
   }
 }
 
@@ -68,6 +76,26 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
   if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
     pvar->Allocate(pmy_block);
   }
+}
+
+template <typename T>
+void MeshBlockData<T>::AddSwarm(const std::string &swarm_name, const Metadata &metadata, const Dictionary<Metadata> &all_swarm_values) {
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
+  auto swarm = std::make_shared<Swarm>(swarm_name, metadata);
+
+  for (auto const &m : all_swarm_values) {
+    swarm->Add(m.first, m.second);
+  }
+
+  printf("%s:%i\n", __FILE__, __LINE__);
+  swarm->SetBlockPointer(pmy_block);
+  printf("%s:%i\n", __FILE__, __LINE__);
+  swarm->AllocateBoundaries();
+  printf("%s:%i\n", __FILE__, __LINE__);
+  swarm->AllocateComms(pmy_block);
+  printf("%s:%i\n", __FILE__, __LINE__);
+  swarmVector_.push_back(swarm);
+  swarmMap_[swarm->label()] = swarm;
 }
 
 template <typename T>
