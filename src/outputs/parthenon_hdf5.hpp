@@ -112,12 +112,13 @@ static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
 
-template <typename T, typename std::enable_if<std::is_same<T, size_t>::value &&
+// On MacOS size_t is "unsigned long" and uint64_t is != "unsigned long".
+// Thus, size_t is not captured by the overload above and needs to selectively enabled.
+template <typename T, typename std::enable_if<std::is_same<T, unsigned long>::value &&
                                                   !std::is_same<T, uint64_t>::value,
                                               bool>::type = true>
 static hid_t getHDF5Type(const T *) {
-  static_assert(sizeof(size_t) == sizeof(uint64_t), "sizeof(size_t) != 8");
-  return H5T_NATIVE_UINT64;
+  return H5T_NATIVE_ULONG;
 }
 
 static H5T getHDF5Type(const char *const *) {
