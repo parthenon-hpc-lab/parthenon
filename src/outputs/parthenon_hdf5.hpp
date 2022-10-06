@@ -117,6 +117,9 @@ static H5T getHDF5Type(const char *const *) {
   return var_string_type;
 }
 
+//  Implemented in CPP file as it's complex
+hid_t GenerateFileAccessProps();
+
 inline H5G MakeGroup(hid_t file, const std::string &name) {
   return H5G::FromHIDCheck(
       H5Gcreate(file, name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
