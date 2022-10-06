@@ -111,6 +111,8 @@ struct SwarmPackDescriptor {
 };
 } // namespace impl
 
+// N is a switch for field vs swarm packing, 0 = fields 1 = swarm
+template <unsigned int N = 0, typename TYPE = Real>
 class SparsePackBase {
  public:
   SparsePackBase() = default;
@@ -120,7 +122,9 @@ class SparsePackBase {
   friend class SparsePackCache;
 
   using alloc_t = std::vector<bool>;
-  using pack_t = ParArray3D<ParArray3D<Real>>;
+  using pack_t = typename std::tuple_element<
+      N, std::tuple<ParArray3D<ParArray3D<TYPE>>, ParArray5D<ParArray1D<TYPE>>>>::type;
+  // using pack_t = ParArray3D<ParArray3D<Real>>;
   using bounds_t = ParArray3D<int>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 
@@ -171,10 +175,10 @@ class SparsePackCache {
     return identifier;
   }
 
-  std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
+  std::unordered_map<std::string, std::pair<SparsePackBase<>, SparsePackBase<>::alloc_t>>
       pack_map;
 
-  friend class SparsePackBase;
+  // friend class SparsePackBase;
 };
 
 } // namespace parthenon

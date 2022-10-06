@@ -129,19 +129,45 @@ struct any : public base_t<true> {
 } // namespace variable_names
 
 template <class... Ts>
-class SwarmPack : public SparsePackBase {
+class SwarmPack : public SparsePackBase<> {
   public:
     SwarmPack() = default;
 
   template <class MBD, class T>
-  static SwarmPack Get(MBD *pmd, const std::vector &swarm_name) {
-    const impl::SwarmPackDescriptor(desc(swarm_name, std::vector<std::string>{Ts::name()...});
+  static SwarmPack Get(MBD *pmd, const std::string &swarm_name) {
+    const impl::SwarmPackDescriptor desc(swarm_name, std::vector<std::string>{Ts::name()...});
     return SwarmPack(GetPack<MBD, T>(pmd, desc));
   }
-}
+
+  template <class MBD, class T>
+  static SparsePackBase<> GetPack(MBD *pmd, const impl::SwarmPackDescriptor &desc) {
+    return Get<MBD, T>(pmd, desc);
+  }
+
+//  template <class MBD, class T>
+//  static SparsePackBase<> Get(MBD *pmd, const impl::SwarmPackDescriptor &desc) {
+//    std::string ident = GetIdentifier(desc);
+//    auto &pack_map = pmd->GetSwarmPackCache().pack_map;
+//    if (pack_map.count(ident) > 0) {
+//      auto &pack = pack_map[ident].first;
+//      if (desc.with_fluxes != pack.with_fluxes_) return BuildAndAdd(pmd, desc, ident);
+//      if (desc.coarse != pack.coarse_) return BuildAndAdd(pmd, desc, ident);
+//      auto alloc_status_in = GetAllocStatus(pmd, desc);
+//      auto &alloc_status = pack_map[ident].second;
+//      if (alloc_status.size() != alloc_status_in.size())
+//        return BuildAndAdd(pmd, desc, ident);
+//      for (int i = 0; i < alloc_status_in.size(); ++i) {
+//        if (alloc_status[i] != alloc_status_in[i]) return BuildAndAdd(pmd, desc, ident);
+//      }
+//      // Cached version is not stale, so just return a reference to it
+//      return pack_map[ident].first;
+//    }
+//    return BuildAndAdd(pmd, desc, ident);
+//  }
+};
 
 template <class... Ts>
-class SparsePack : public SparsePackBase {
+class SparsePack : public SparsePackBase<> {
  public:
   SparsePack() = default;
 
