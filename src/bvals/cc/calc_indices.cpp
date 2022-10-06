@@ -370,6 +370,7 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
   out.Nv = out.var.GetDim(4);
   out.Nu = out.var.GetDim(5);
   out.Nt = out.var.GetDim(6);
+  out.coords = pmb->coords;
 
   return out;
 }
@@ -440,6 +441,7 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
   out.Nv = out.var.GetDim(4);
   out.Nu = out.var.GetDim(5);
   out.Nt = out.var.GetDim(6);
+  out.coords = pmb->coords;
 
   return out; 
 }
