@@ -112,9 +112,9 @@ static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
 
-template <typename T,
-          typename std::enable_if< std::is_same<T, size_t>::value &&
-                                  !std::is_same<T, uint64_t>::value, bool>::type = true>
+template <typename T, typename std::enable_if<std::is_same<T, size_t>::value &&
+                                                  !std::is_same<T, uint64_t>::value,
+                                              bool>::type = true>
 static hid_t getHDF5Type(const T *) {
   static_assert(sizeof(size_t) == sizeof(uint64_t), "sizeof(size_t) != 8");
   return H5T_NATIVE_UINT64;
