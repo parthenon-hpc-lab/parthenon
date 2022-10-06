@@ -99,10 +99,10 @@ add_library(parthenon
   bvals/cc/bvals_utils.hpp
   bvals/cc/calc_indices.cpp
   bvals/cc/sparse_bvals_cc_in_one.cpp
-  bvals/cc/sparse_flux_correction_cc_in_one.cpp 
-  bvals/cc/tag_map.cpp 
-  bvals/cc/tag_map.hpp 
-  
+  bvals/cc/sparse_flux_correction_cc_in_one.cpp
+  bvals/cc/tag_map.cpp
+  bvals/cc/tag_map.hpp
+
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
 
@@ -137,7 +137,6 @@ add_library(parthenon
   interface/metadata.hpp
   interface/params.hpp
   interface/sparse_pack.hpp
-  interface/sparse_pack_base.cpp
   interface/sparse_pack_base.hpp
   interface/sparse_pool.cpp
   interface/sparse_pool.hpp

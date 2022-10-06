@@ -101,6 +101,14 @@ struct PackDescriptor {
   bool coarse;
   // TODO(BRR) store type here? Maybe unnecessary
 };
+
+struct SwarmPackDescriptor {
+  SwarmPackDescriptor(const std::string &swarm_name, const std::vector<std::string> &vars)
+      : swarm_name(swarm_name), vars(vars) {}
+
+  std::string swarm_name;
+  std::vector<std::string> vars;
+};
 } // namespace impl
 
 class SparsePackBase {
