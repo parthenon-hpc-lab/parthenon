@@ -43,109 +43,147 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_LoadAndSendFluxCorrections");
 
   Mesh *pmesh = md->GetMeshPointer();
+  auto &cache = md->GetBvarsCache()[BoundaryType::flxcor_send];
+  const int ndim = pmesh->ndim;
 
-  bool all_available = true;
-  ForEachBoundary<BoundaryType::flxcor_send>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) -> LoopControl {
-        auto &buf = pmesh->boundary_comm_flxcor_map[SendKey(pmb, nb, v)];
-        if (!buf.IsAvailableForWrite()) {
-          all_available = false;
-          return LoopControl::break_out;
-        }
-        return LoopControl::cont;
-      });
-  if (!all_available) return TaskStatus::incomplete;
-
-  ForEachBoundary<BoundaryType::flxcor_send>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
-                                                     const sp_cv_t v) {
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_flxcor_map.count(SendKey(pmb, nb, v)) >
-                                0,
-                            "Boundary communicator does not exist");
-    auto &buf = pmesh->boundary_comm_flxcor_map[SendKey(pmb, nb, v)];
-
-    if (!v->IsAllocated()) {
-      buf.Free();
-      buf.SendNull();
-      return LoopControl::cont; // Cycle to the next boundary
+  if (cache.send_buf_vec.size() == 0) {
+    BuildBufferCache<BoundaryType::flxcor_send>(md, &(pmesh->boundary_comm_flxcor_map), 
+                                 &(cache.send_buf_vec), &(cache.send_idx_vec), SendKey);
+    const int nbound = cache.send_buf_vec.size();
+    if (nbound > 0) {
+      cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
+      cache.sending_non_zero_flags_h =
+          Kokkos::create_mirror_view(cache.sending_non_zero_flags);
     }
+  } else {
+    PARTHENON_REQUIRE(cache.send_buf_vec.size() == cache.sending_non_zero_flags.size(),
+                      "Flag arrays incorrectly allocated.");
+    PARTHENON_REQUIRE(cache.send_buf_vec.size() == cache.sending_non_zero_flags_h.size(),
+                      "Flag arrays incorrectly allocated.");
+  }
 
-    // This allocate shouldn't do anything, since the buffer should already
-    // be allocated if the variable is allocated
-    buf.Allocate();
+  // Allocate channels sending from active data and then check to see if
+  // if buffers have changed
+  bool rebuild = false;
+  bool other_communication_unfinished = false;
+  int nbound = 0;
+  ForEachBoundary<BoundaryType::flxcor_send>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        const std::size_t ibuf = cache.send_idx_vec[nbound];
+        auto &buf = *(cache.send_buf_vec[ibuf]);
 
-    // Average fluxes over area and load buffer
-    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+        if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
 
-    const int ndim = 1 + (jb.e - jb.s > 0 ? 1 : 0) + (kb.e - kb.s > 0 ? 1 : 0);
-    auto binfo = BndInfo::GetSendCCFluxCor(pmb, nb, v);
+        if (v->IsAllocated()) {
+          buf.Allocate();
+        } else {
+          buf.Free();
+        }
 
-    auto &coords = pmb->coords;
-    
-    binfo.buf = buf.buffer();
-    const int nl = binfo.Nt; 
-    const int nm = binfo.Nu; 
-    const int nn = binfo.Nv; 
-    const int nk = binfo.ek - binfo.sk + 1;
-    const int nj = binfo.ej - binfo.sj + 1;
-    const int ni = binfo.ei - binfo.si + 1;
- 
-    int ioff = 1;
-    int joff = ndim > 1 ? 1 : 0;
-    int koff = ndim > 2 ? 1 : 0;   
-    
-    if (binfo.dir == X1DIR) ioff = 0; 
-    if (binfo.dir == X2DIR) joff = 0; 
-    if (binfo.dir == X3DIR) koff = 0; 
+        if (ibuf < cache.send_bnd_info_h.size()) {
+          rebuild = rebuild ||
+                    !UsingSameResource(cache.send_bnd_info_h(ibuf).buf, buf.buffer());
+        } else {
+          rebuild = true;
+        }
 
-    const int NjNi = nj * ni;
-    const int NkNjNi = nk * NjNi;
-    const int NnNkNjNi = nn * NkNjNi;
-    const int NmNnNkNjNi = nm * NnNkNjNi;
-    Kokkos::parallel_for(
-        "SendFluxCorrection",
-        Kokkos::RangePolicy<>(parthenon::DevExecSpace(), 0, nl * NmNnNkNjNi),
-        KOKKOS_LAMBDA(const int loop_idx) {
-          const int l = loop_idx / NmNnNkNjNi;
-          const int m = (loop_idx % NmNnNkNjNi) / NnNkNjNi;
-          const int n = (loop_idx % NnNkNjNi) / NkNjNi;
-          const int ck = (loop_idx % NkNjNi) / NjNi;
-          const int cj = (loop_idx % NjNi) / ni;
-          const int ci = loop_idx % ni;
+        ++nbound;
+      });
+  
+  if (nbound == 0) {
+    Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
+    return TaskStatus::complete;
+  }
 
-          const int k = binfo.sk + 2 * ck;
-          const int j = binfo.sj + 2 * cj;
-          const int i = binfo.si + 2 * ci;
+  if (other_communication_unfinished) {
+    Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
+    return TaskStatus::incomplete;
+  }
 
-          // For the given set of offsets, etc. this should work for any
-          // dimensionality since the same flux will be included multiple times
-          // in the average
-          const Real area00 = coords.Area(binfo.dir, k, j, i);
-          const Real area01 = coords.Area(binfo.dir, k, j + joff, i + ioff);
-          const Real area10 = coords.Area(binfo.dir, k + koff, j + joff, i);
-          const Real area11 = coords.Area(binfo.dir, k + koff, j, i + ioff);
+  if (rebuild) {
+    cache.send_bnd_info = BufferCache_t("send_fluxcor_info", nbound);
+    cache.send_bnd_info_h = Kokkos::create_mirror_view(cache.send_bnd_info);
 
-          Real avg_flx = area00 * binfo.var(l, m, n, k, j, i);
-          avg_flx += area01 * binfo.var(l, m, n, k + koff, j + joff, i);
-          avg_flx += area10 * binfo.var(l, m, n, k, j + joff, i + ioff);
-          avg_flx += area11 * binfo.var(l, m, n, k + koff, j, i + ioff);
-
-          avg_flx /= area00 + area01 + area10 + area11;
-          const int idx = ci + ni * (cj + nj * (ck + nk * (n + nn * (m + nm * l))));
-          binfo.buf(idx) = avg_flx;
+    int ibound = 0;
+    ForEachBoundary<BoundaryType::flxcor_send>(
+        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+          const std::size_t ibuf = cache.send_idx_vec[ibound];
+          cache.send_bnd_info_h(ibuf).allocated = v->IsAllocated();
+          if (v->IsAllocated()) {
+            cache.send_bnd_info_h(ibuf) = BndInfo::GetSendCCFluxCor(pmb, nb, v);
+            auto &buf = *cache.send_buf_vec[ibuf];
+            cache.send_bnd_info_h(ibuf).buf = buf.buffer();
+          }
+          ++ibound;
         });
+    Kokkos::deep_copy(cache.send_bnd_info, cache.send_bnd_info_h);
+  }
+  
+  auto &bnd_info = cache.send_bnd_info;
+  PARTHENON_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
+  printf("nbound: %i\n", nbound);
+  Kokkos::parallel_for(
+      "SendFluxCorrectionBufs",
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+        auto& binfo = bnd_info(team_member.league_rank());
+        if (!binfo.allocated) return;
+        auto& coords = binfo.coords;
 
-    // Send the buffer
-    PARTHENON_REQUIRE(buf.GetState() == BufferState::stale, "Not sure how I got here.");
+        const int Ni = binfo.ei + 1 - binfo.si;
+        const int Nj = binfo.ej + 1 - binfo.sj;
+        const int Nk = binfo.ek + 1 - binfo.sk;
+
+        const int &Nt = binfo.Nt;
+        const int &Nu = binfo.Nu;
+        const int &Nv = binfo.Nv;
+
+        const int NjNi = Nj * Ni;
+        const int NkNjNi = Nk * NjNi;
+        const int NvNkNjNi = Nv * NkNjNi;
+        const int NuNvNkNjNi = Nu * NvNkNjNi;
+        const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
+
+        int ioff = binfo.dir == X1DIR ? 0 : 1;
+        int joff = (binfo.dir == X2DIR) || (ndim < 2) ? 0 : 1;
+        int koff = (binfo.dir == X3DIR) || (ndim < 3) ? 0 : 1;
+
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
+                             [&](const int idx) {
+                               const int t = idx / NuNvNkNjNi;
+                               const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
+                               const int v = (idx % NvNkNjNi) / NkNjNi;
+                               const int ck = (idx % NkNjNi) / NjNi;
+                               const int cj = (idx % NjNi) / Ni;
+                               const int ci = idx % Ni;
+                      
+                               const int k = binfo.sk + 2 * ck;
+                               const int j = binfo.sj + 2 * cj;
+                               const int i = binfo.si + 2 * ci;
+
+                               // For the given set of offsets, etc. this should work for any
+                               // dimensionality since the same flux will be included multiple times
+                               // in the average
+                               const Real area00 = coords.Area(binfo.dir, k, j, i);
+                               const Real area01 = coords.Area(binfo.dir, k, j + joff, i + ioff);
+                               const Real area10 = coords.Area(binfo.dir, k + koff, j + joff, i);
+                               const Real area11 = coords.Area(binfo.dir, k + koff, j, i + ioff);
+
+                               Real avg_flx = area00 * binfo.var(t, u, v, k, j, i);
+                               avg_flx += area01 * binfo.var(t, u, v, k + koff, j + joff, i);
+                               avg_flx += area10 * binfo.var(t, u, v, k, j + joff, i + ioff);
+                               avg_flx += area11 * binfo.var(t, u, v, k + koff, j, i + ioff);
+
+                               avg_flx /= area00 + area01 + area10 + area11;
+                               binfo.buf(idx) = avg_flx; 
+                             });
+      });
 #ifdef MPI_PARALLEL
-    Kokkos::fence();
+  Kokkos::fence();
 #endif
-    buf.Send();
-    return LoopControl::cont;
-  });
-
-  Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
+  // Calling Send will send null if the underlying buffer is unallocated
+  for (auto& buf : cache.send_buf_vec) buf->Send();
+  Kokkos::Profiling::popRegion(); // Task_SetFluxCorrections
   return TaskStatus::complete;
 }
 
