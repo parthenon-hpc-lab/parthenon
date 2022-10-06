@@ -128,59 +128,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-// Build a vector of pointers to all of the sending or receiving communication buffers on
-// MeshData md. This cache is important for performance, since this elides a map look up
-// for the buffer every time the bvals code iterates over boundaries.
-//
-// The buffers in the cache do not necessarily need to be in the same order as the
-// sequential order of the ForEachBoundary iteration. Therefore, this also builds a vector
-// for indexing from the sequential boundary index defined by the iteration pattern of
-// ForEachBoundary to the index of the buffer corresponding to this boundary in the buffer
-// cache. This allows for reordering the calls to send and receive on the buffers, so that
-// MPI_Isends and MPI_Irecvs get posted in the same order (approximately, due to the
-// possibility of multiple MeshData per rank) on the sending and receiving ranks. In
-// simple tests, this did not have a big impact on performance but I think it is useful to
-// leave the machinery here since it doesn't seem to have a big overhead associated with
-// it (LFR).
-template <BoundaryType bound_type, class V1, class V2, class F>
-void BuildBufferCache(std::shared_ptr<MeshData<Real>> &md, V1 *pbuf_vec, V2 *pidx_vec,
-                      F KeyFunc) {
-  Mesh *pmesh = md->GetMeshPointer();
 
-  using key_t = std::tuple<int, int, std::string, int>;
-  std::vector<std::tuple<int, int, key_t>> key_order;
-
-  int boundary_idx = 0;
-  ForEachBoundary<bound_type>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        auto key = KeyFunc(pmb, nb, v);
-        PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(key) > 0,
-                                "Boundary communicator does not exist");
-        // Create a unique index by combining receiver gid (second element of the key
-        // tuple) and geometric element index (fourth element of the key tuple)
-        int recvr_idx = 27 * std::get<1>(key) + std::get<3>(key);
-        key_order.push_back({recvr_idx, boundary_idx, key});
-        ++boundary_idx;
-      });
-
-  // If desired, sort the keys and boundary indices by receiver_idx
-  // std::sort(key_order.begin(), key_order.end(),
-  //          [](auto a, auto b) { return std::get<0>(a) < std::get<0>(b); });
-
-  // Or, what the hell, you could put them in random order if you want, which
-  // frighteningly seems to run faster in some cases
-  std::random_device rd;
-  std::mt19937 g(rd());
-  std::shuffle(key_order.begin(), key_order.end(), g);
-
-  int buff_idx = 0;
-  pbuf_vec->clear();
-  *pidx_vec = std::vector<std::size_t>(key_order.size());
-  std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
-    pbuf_vec->push_back(&(pmesh->boundary_comm_map[std::get<2>(t)]));
-    (*pidx_vec)[std::get<1>(t)] = buff_idx++;
-  });
-}
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -190,8 +138,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache()[bound_type];
 
   if (cache.send_buf_vec.size() == 0) {
-    BuildBufferCache<bound_type>(md, &(cache.send_buf_vec), &(cache.send_idx_vec),
-                                 SendKey);
+    BuildBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.send_buf_vec), 
+                                 &(cache.send_idx_vec), SendKey);
     const int nbound = cache.send_buf_vec.size();
     if (nbound > 0) {
       cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
@@ -346,11 +294,11 @@ SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_StartReceiveBoundBufs");
-
+  Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
   if (cache.recv_buf_vec.size() == 0)
-    BuildBufferCache<bound_type>(md, &(cache.recv_buf_vec), &(cache.recv_idx_vec),
-                                 ReceiveKey);
+    BuildBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.recv_buf_vec), 
+                                 &(cache.recv_idx_vec), ReceiveKey);
 
   std::for_each(std::begin(cache.recv_buf_vec), std::end(cache.recv_buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -370,11 +318,12 @@ StartReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &)
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundBufs");
-
+  
+  Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
   if (cache.recv_buf_vec.size() == 0)
-    BuildBufferCache<bound_type>(md, &(cache.recv_buf_vec), &(cache.recv_idx_vec),
-                                 ReceiveKey);
+    BuildBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.recv_buf_vec), 
+                                 &(cache.recv_idx_vec), ReceiveKey);
 
   bool all_received = true;
   std::for_each(
