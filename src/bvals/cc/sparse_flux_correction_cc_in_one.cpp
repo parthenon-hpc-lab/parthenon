@@ -190,14 +190,14 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrections");
   Mesh *pmesh = md->GetMeshPointer();
-  ForEachBoundary<BoundaryType::flxcor_recv>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        PARTHENON_DEBUG_REQUIRE(
-            pmesh->boundary_comm_flxcor_map.count(ReceiveKey(pmb, nb, v)) > 0,
-            "Boundary communicator does not exist");
-        auto &buf = pmesh->boundary_comm_flxcor_map[ReceiveKey(pmb, nb, v)];
-        buf.TryStartReceive();
-      });
+  auto &cache = md->GetBvarsCache()[BoundaryType::flxcor_recv];
+  if (cache.recv_buf_vec.size() == 0)
+    BuildBufferCache<BoundaryType::flxcor_recv>(md, &(pmesh->boundary_comm_flxcor_map), 
+                                 &(cache.recv_buf_vec), &(cache.recv_idx_vec), ReceiveKey);
+
+  std::for_each(std::begin(cache.recv_buf_vec), std::end(cache.recv_buf_vec),
+                [](auto pbuf) { pbuf->TryStartReceive(); });
+
   Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrections
   return TaskStatus::complete;
 }
