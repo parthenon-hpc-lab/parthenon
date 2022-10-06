@@ -364,6 +364,12 @@ class Metadata {
     PARTHENON_THROW("No role flag set");
   }
 
+  // Returns true if this variable should do prolongation/restriction
+  // and false otherwise.
+  bool IsRefined() const {
+    return (IsSet(Independent) || IsSet(FillGhost));
+  }
+
   const std::vector<int> &Shape() const { return shape_; }
 
   /*--------------------------------------------------------*/
