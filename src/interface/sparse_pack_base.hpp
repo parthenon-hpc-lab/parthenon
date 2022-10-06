@@ -181,6 +181,9 @@ class SparsePackCache {
   // friend class SparsePackBase;
 };
 
+template <typename T = Real>
+using SwarmPackBase = SparsePackBase<1, T>;
+
 } // namespace parthenon
 
 #endif // INTERFACE_SPARSE_PACK_BASE_HPP_
