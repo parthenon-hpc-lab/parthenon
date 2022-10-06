@@ -112,11 +112,14 @@ static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
 
+// Silly Mac
+// uint32_t is const unsigned int
+// uint64_t is const unsigned long long
 template <typename T,
-          typename std::enable_if<!std::is_same<T, size_t>::value, bool>::type = true,
-          typename std::enable_if<!std::is_same<T, uint64_t>::value, bool>::type = false>
-static hid_t getHDF5Type(const size_t *) {
-  return H5T_NATIVE_UINT64;
+          typename std::enable_if< std::is_same<T, unsigned long>::value &&
+                                  !std::is_same<T, uint64_t>::value, bool>::type = true>
+static hid_t getHDF5Type(const T *) {
+  return H5T_NATIVE_ULONG;
 }
 
 static H5T getHDF5Type(const char *const *) {
