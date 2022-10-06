@@ -114,9 +114,10 @@ static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
 
 // On MacOS size_t is "unsigned long" and uint64_t is != "unsigned long".
 // Thus, size_t is not captured by the overload above and needs to selectively enabled.
-template <typename T, typename std::enable_if<std::is_same<T, unsigned long>::value &&
-                                                  !std::is_same<T, uint64_t>::value,
-                                              bool>::type = true>
+template <typename T,
+          typename std::enable_if<std::is_same<T, unsigned long>::value && // NOLINT
+                                      !std::is_same<T, uint64_t>::value,
+                                  bool>::type = true>
 static hid_t getHDF5Type(const T *) {
   return H5T_NATIVE_ULONG;
 }
