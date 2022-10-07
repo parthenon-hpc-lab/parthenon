@@ -49,12 +49,15 @@ class MeshRefinement {
  public:
   MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin);
 
-  // functions
-  void RestrictCellCenteredValues(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
+  // JMM: fine and coarse may be on different meshblocks and thus
+  // different variable objects.
+  void RestrictCellCenteredValues(const CellVariable<Real> *fine,
+				  CellVariable<Real> *coarse,
                                   int sn, int en, int csi, int cei, int csj, int cej,
                                   int csk, int cek);
-  void ProlongateCellCenteredValues(const ParArrayND<Real> &coarse,
-                                    ParArrayND<Real> &fine, int sn, int en, int si,
+  void ProlongateCellCenteredValues(const CellVariable<Real> *coarse,
+				    CellVariable<Real> *fine,
+				    int sn, int en, int si,
                                     int ei, int sj, int ej, int sk, int ek);
   void CheckRefinementCondition();
   void SetRefinement(AmrTag flag);
