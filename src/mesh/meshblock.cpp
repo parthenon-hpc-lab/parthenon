@@ -53,7 +53,6 @@ namespace parthenon {
 MeshBlock::MeshBlock(const int n_side, const int ndim, bool init_coarse, bool multilevel)
     : exec_space(DevExecSpace()), pmy_mesh(nullptr), cost_(1.0) {
   // initialize grid indices
-  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   if (ndim == 1) {
     InitializeIndexShapesImpl(n_side, 0, 0, init_coarse, multilevel);
   } else if (ndim == 2) {
@@ -82,7 +81,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
                            Packages_t &packages,
                            std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
                            double icost) {
-  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   exec_space = DevExecSpace();
   pmy_mesh = pm;
   loc = iloc;
@@ -93,7 +91,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   this->packages = packages;
   this->resolved_packages = resolved_packages;
   cost_ = icost;
-  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
@@ -147,9 +144,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   auto &real_container = meshblock_data.Get();
   auto &swarm_container = swarm_data.Get();
 
-  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   real_container->Initialize(resolved_packages, shared_from_this());
-  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 
   swarm_container->SetBlockPointer(shared_from_this());
   for (auto const &q : resolved_packages->AllSwarms()) {
@@ -167,11 +162,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     swarm->AllocateComms(shared_from_this());
     swarm->AllocateBoundaries();
   }
-
-  // Move these allocation calls to MeshBlock::Initialize()
-  //swarm->AllocateComms(pmy_block);
-  //printf("%s:%i\n", __FILE__, __LINE__);
-  //swarm->AllocateBoundaries();
 
   // TODO(jdolence): Should these loops be moved to Variable creation
   // TODO(JMM): What variables should be in vars_cc_? They are used

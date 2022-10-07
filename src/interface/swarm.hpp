@@ -154,6 +154,7 @@ class Swarm {
   void RemoveMarkedParticles();
 
   /// Open up memory for new empty particles, return a mask to these particles
+  // TODO(BRR) new_indices should be ParArray1D
   ParArray1D<bool> AddEmptyParticles(const int num_to_add, ParArrayND<int> &new_indices);
 
   /// Defragment the list by moving active particles so they are contiguous in

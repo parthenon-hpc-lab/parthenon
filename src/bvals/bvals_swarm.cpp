@@ -40,35 +40,24 @@ namespace parthenon {
 
 BoundarySwarm::BoundarySwarm(std::weak_ptr<MeshBlock> pmb, const std::string &label)
     : bswarm_index(), pmy_block(pmb), pmy_mesh_(pmb.lock()->pmy_mesh) {
-      printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
-      printf("pmy_mesh: %p (%i)\n", pmy_mesh_, pmy_mesh_ == nullptr);
 #ifdef MPI_PARALLEL
   swarm_comm = pmy_mesh_->GetMPIComm(label);
 #endif
-      printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   InitBoundaryData(bd_var_);
-      printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 }
 
 void BoundarySwarm::InitBoundaryData(BoundaryData<> &bd) {
-      printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   auto pmb = GetBlockPointer();
-      printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   NeighborIndexes *ni = pmb->pbval->ni;
-      printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 
   bd.nbmax = pmb->pbval->maxneighbor_;
-      printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 
   for (int n = 0; n < bd.nbmax; n++) {
-      printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
     bd.flag[n] = BoundaryStatus::waiting;
-      printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 #ifdef MPI_PARALLEL
     bd.req_send[n] = MPI_REQUEST_NULL;
     bd.req_recv[n] = MPI_REQUEST_NULL;
 #endif
-      printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   }
 }
 

@@ -100,7 +100,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
                                    UniformMeshGeneratorX2, UniformMeshGeneratorX3},
       MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
-  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -557,7 +556,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
-  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -1032,7 +1030,6 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 // \brief  initialization before the main loop as well as during remeshing
 
 void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
-  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
   Kokkos::Profiling::pushRegion("Mesh::Initialize");
   bool init_done = true;
   const int nb_initial = nbtotal;
@@ -1162,8 +1159,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
   } while (!init_done);
 
-  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
-
   Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }
 
@@ -1281,9 +1276,7 @@ const RegionSize &Mesh::GetBlockSize() const { return block_list.front()->block_
 // level so that the communicators for each variable across all blocks is consistent.
 // As variables are identical across all blocks, we just use the info from the first.
 void Mesh::SetupMPIComms() {
-  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 #ifdef MPI_PARALLEL
-  printf("%s:%i:%s\n", __FILE__, __LINE__, __func__);
 
   for (auto &pair : resolved_packages->AllFields()) {
     auto &metadata = pair.second;

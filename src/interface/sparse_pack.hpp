@@ -181,25 +181,17 @@ class SwarmPack : public SwarmPackBase<> {
   static SparsePackBase<1> Build(T *pmd, const SwarmPackDescriptor &desc) {
     using mbd_t = MeshBlockData<Real>;
     int nvar = desc.vars.size();
-    printf("%s:%i\n", __FILE__, __LINE__);
 
     SwarmPackBase<> pack;
-    //pack.with_fluxes_ = desc.with_fluxes;
-    //pack.coarse_ = desc.coarse;
     pack.nvar_ = desc.vars.size();
-    printf("%s:%i\n", __FILE__, __LINE__);
 
     // Count up the size of the array that is required
     int max_size = 0;
     int nblocks = 0;
     int ndim = 3;
     ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
-    //   pmbd->GetSwarm(pack.swarm_name);
-    printf("%s:%i\n", __FILE__, __LINE__);
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
-    printf("%s:%i\n", __FILE__, __LINE__);
       int size = 0;
-    printf("%s:%i\n", __FILE__, __LINE__);
       nblocks++;
       for (auto &pv : swarm->GetParticleVariableVector<Real>()) {
         for (int i = 0; i < nvar; ++i) {
@@ -211,24 +203,7 @@ class SwarmPack : public SwarmPackBase<> {
       }
       max_size = std::max(size, max_size);
     });
-//    ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
-//      int size = 0;
-//      nblocks++;
-//      for (auto &pv : pmbd->GetCellVariableVector()) {
-//        for (int i = 0; i < nvar; ++i) {
-//          if (desc.IncludeVariable(i, pv)) {
-//            if (pv->IsAllocated()) {
-//              size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
-//              ndim = (pv->GetDim(1) > 1 ? 1 : 0) + (pv->GetDim(2) > 1 ? 1 : 0) +
-//                     (pv->GetDim(3) > 1 ? 1 : 0);
-//            }
-//          }
-//        }
-//      }
-//      max_size = std::max(size, max_size);
-//    });
     pack.nblocks_ = nblocks;
-    printf("%s:%i\n", __FILE__, __LINE__);
 
     // Allocate the views
     int leading_dim = 1;
@@ -249,16 +224,43 @@ class SwarmPack : public SwarmPackBase<> {
     ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
       int idx = 0;
       coords_h(b) = pmbd->GetBlockPointer()->coords_device;
+      auto swarm = pmbd->GetSwarm(desc.swarm_name);
 
-//      for (int i = 0; i < nvar; ++i) {
-//        bounds_h(0, b, i) = idx;
-//
-//        for (auto &pv : pmbd->GetCellVariableVector()) {
-//          if (desc.IncludeVariable(i, pv)) {
-//            if (pv->IsAllocated()) {
-//              for (int t = 0; t < pv->GetDim(6); ++t) {
-//                for (int u = 0; u < pv->GetDim(5); ++u) {
-//                  for (int v = 0; v < pv->GetDim(4); ++v) {
+      for (int i = 0; i < nvar; ++i) {
+        bounds_h(0, b, i) = idx;
+
+        //for (auto &pv : pmbd->GetCellVariableVector()) {
+        for (auto &pv : swarm->GetParticleVariableVector<Real>()) {
+          if (desc.IncludeVariable(i, pv)) {
+            for (int t = 0; t < pv->GetDim(6); ++t) {
+              for (int u = 0; u < pv->GetDim(5); ++u) {
+                for (int v = 0; v < pv->GetDim(4); ++v) {
+                  for (int l = 0; l < pv->GetDim(3); ++l) {
+                    for (int m = 0; m < pv->GetDim(2); ++m) {
+                      pack_h(0, b, idx) = pv->data.Get(t, u, v, l, m);
+                      PARTHENON_REQUIRE(
+                          pack_h(0, b, idx).size() > 0,
+                          "Seems like this variable might not actually be allocated.");
+                      idx++;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        bounds_h(1, b, i) = idx - 1;
+
+        if (bounds_h(1, b, i) < bounds_h(0, b, i)) {
+          // Did not find any allocated variables meeting our criteria
+          bounds_h(0, b, i) = -1;
+          // Make the upper bound more negative so a for loop won't iterate once
+          bounds_h(1, b, i) = -2;
+        }
+      }
+    });
+
 //                    if (pack.coarse_) {
 //                      pack_h(0, b, idx) = pv->coarse_s.Get(t, u, v);
 //                    } else {
@@ -302,20 +304,17 @@ class SwarmPack : public SwarmPackBase<> {
 //          bounds_h(1, b, i) = -2;
 //        }
 //      }
-    });
-    printf("%s:%i\n", __FILE__, __LINE__);
+//    });
 
     Kokkos::deep_copy(pack.pack_, pack_h);
     Kokkos::deep_copy(pack.bounds_, bounds_h);
     Kokkos::deep_copy(pack.coords_, coords_h);
-    printf("%s:%i\n", __FILE__, __LINE__);
     pack.ndim_ = ndim;
     pack.dims_[1] = pack.nblocks_;
     pack.dims_[2] = -1; // Not allowed to ask for the ragged dimension anyway
     pack.dims_[3] = pack_h(0, 0, 0).extent_int(0);
     //pack.dims_[4] = pack_h(0, 0, 0).extent_int(2);
     //pack.dims_[5] = pack_h(0, 0, 0).extent_int(3);
-    printf("%s:%i\n", __FILE__, __LINE__);
 
     return pack;
   }
@@ -372,6 +371,57 @@ class SwarmPack : public SwarmPackBase<> {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     impl::SwarmPackDescriptor desc(swarm_name, vars);
     return {SwarmPack(GetPack<MBD, T>(pmd, desc)), SwarmPackBase<>::GetIdxMap(desc)};
+  }
+
+  // Bound overloads
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const { return bounds_(0, b, 0); }
+
+  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b) const {
+    return bounds_(1, b, nvar_ - 1);
+  }
+
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const {
+    static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
+    return bounds_(0, b, idx.VariableIdx());
+  }
+
+  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, PackIdx idx) const {
+    static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
+    return bounds_(1, b, idx.VariableIdx());
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, const TIn &) const {
+    const int vidx = GetTypeIdx<TIn, Ts...>::value;
+    return bounds_(0, b, vidx);
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, const TIn &) const {
+    const int vidx = GetTypeIdx<TIn, Ts...>::value;
+    return bounds_(1, b, vidx);
+  }
+
+  // operator() overloads
+  KOKKOS_INLINE_FUNCTION
+  auto &operator()(const int b, const int idx) const { return pack_(0, b, idx); }
+
+  KOKKOS_INLINE_FUNCTION
+  Real &operator()(const int b, const int idx, const int n) const {
+    return pack_(0, b, idx)(n);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real &operator()(const int b, PackIdx idx, const int n) const {
+    static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
+    const int nidx = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
+    return pack_(0, b, nidx)(n);
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int n) const {
+    const int vidx = GetLowerBound(b, t) + t.idx;
+    return pack_(0, b, vidx)(n);
   }
 
   private:
@@ -549,8 +599,8 @@ class SparsePack : public SparsePackBase<> {
     pack.dims_[1] = pack.nblocks_;
     pack.dims_[2] = -1; // Not allowed to ask for the ragged dimension anyway
     pack.dims_[3] = pack_h(0, 0, 0).extent_int(0);
-    pack.dims_[4] = pack_h(0, 0, 0).extent_int(2);
-    pack.dims_[5] = pack_h(0, 0, 0).extent_int(3);
+    pack.dims_[4] = pack_h(0, 0, 0).extent_int(1);
+    pack.dims_[5] = pack_h(0, 0, 0).extent_int(2);
 
     return pack;
   }

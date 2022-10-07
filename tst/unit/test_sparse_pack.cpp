@@ -16,8 +16,8 @@
 
 #include <catch2/catch.hpp>
 
-#include "bvals/bvals_interfaces.hpp"
 #include "basic_types.hpp"
+#include "bvals/bvals_interfaces.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
@@ -25,8 +25,8 @@
 #include "interface/sparse_pack.hpp"
 #include "interface/swarm.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/meshblock.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"
@@ -42,6 +42,8 @@ using parthenon::MeshData;
 using parthenon::Metadata;
 using parthenon::PackIndexMap;
 using parthenon::par_for;
+using parthenon::ParArray1D;
+using parthenon::ParArrayND;
 using parthenon::Real;
 using parthenon::StateDescriptor;
 
@@ -259,11 +261,10 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
     pkg->AddSwarmValue("v", swarm_name, vreal_swarmvalue_metadata);
     Metadata vvreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{3, 3});
     pkg->AddSwarmValue("vv", swarm_name, vvreal_swarmvalue_metadata);
-    printf("%s:%i\n", __FILE__, __LINE__);
 
-    //pkg->AddField(v1::name(), m);
-    //pkg->AddField(v3::name(), m_vector);
-    //pkg->AddField(v5::name(), m);
+    // pkg->AddField(v1::name(), m);
+    // pkg->AddField(v3::name(), m_vector);
+    // pkg->AddField(v5::name(), m);
     // Boilerplate (maybe temporary) to allow swarm BCs to be set so they can be allocated
     using std::endl;
     std::stringstream is;
@@ -282,7 +283,7 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
     auto app_in = std::make_shared<parthenon::ApplicationInput>();
     parthenon::Packages_t packages;
     auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
-    //mesh->Initialize(false, pin.get(), app_in.get());
+    // mesh->Initialize(false, pin.get(), app_in.get());
     printf("mesh ptr: %p\n", mesh.get());
     for (int i = 0; i < 6; i++) {
       mesh->mesh_bcs[i] = parthenon::BoundaryFlag::outflow;
@@ -292,9 +293,22 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM, mesh.get());
     printf("%s:%i\n", __FILE__, __LINE__);
 
-    //for (auto &block : block_list) {
-    //  block->pmy_mesh = mesh.get();
-    //}
+    // Add a varying number of particles to each block's swarm
+    ParArray1D<int> max_active_indices("Max active indices", block_list.size());
+    // Get arrays of particle data
+    ParArray1D<ParArrayND<Real>> v_d("v on device", block_list.size());
+    for (auto nb = 0; nb < block_list.size(); nb++) {
+      auto block = block_list[nb];
+      auto mbd = block->meshblock_data.Get();
+      auto swarm = mbd->GetSwarm("my particles");
+      parthenon::ParArrayND<int> new_indices("new indices", nb);
+      swarm->AddEmptyParticles(nb, new_indices);
+      max_active_indices(nb) = swarm->GetMaxActiveIndex();
+      v_d(nb) = swarm->Get<Real>("v").Get();
+
+        // Also get the unpacked views for comparison
+//        v_d = swarm->Get<Real>("v").Get();
+    }
 
     printf("%s:%i\n", __FILE__, __LINE__);
     MeshData<Real> mesh_data;
@@ -303,87 +317,102 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
     printf("%s:%i\n", __FILE__, __LINE__);
 
 
-    //WHEN("We initialize the independent variables by hand and deallocate one") {
-    WHEN("We have an empty swarm") {
-//      auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
-//      auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
-//      auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
-//      const std::vector<std::string> all_indep{"v1", "v3", "v5"};
-//      for (int b = 0; b < NBLOCKS; ++b) {
-//        auto &pmb = block_list[b];
-//        auto &pmbd = pmb->meshblock_data.Get();
-//        for (int v = 0; v < all_indep.size(); ++v) {
-//          auto &vnam = all_indep[v];
-//          auto var = pmbd->Get(vnam);
-//          auto var4 = var.data.Get<4>();
-//          int num_components = var.GetDim(4);
-//          par_for(
-//              loop_pattern_mdrange_tag, "initialize " + vnam, DevExecSpace(), kb.s, kb.e,
-//              jb.s, jb.e, ib.s, ib.e, KOKKOS_LAMBDA(int k, int j, int i) {
-//                for (int c = 0; c < num_components; ++c) {
-//                  Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
-//                  var4(c, k, j, i) = n;
-//                }
-//              });
-//        }
-//      }
-//      // Deallocate a variable on an arbitrary block
-//      block_list[2]->DeallocateSparse("v3");
+
+
+    WHEN("We have a swarm on multiple meshblocks") {
+      auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior);
+      auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
+      auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::interior);
 
       THEN("A swarm pack correctly loads this data and can be read on all blocks") {
         // Create a pack using strings
-    printf("%s:%i\n", __FILE__, __LINE__);
-        std::vector<std::string> swarm_var_names{"v"};
-    printf("%s:%i\n", __FILE__, __LINE__);
+        std::vector<std::string> swarm_var_names{"v", "vv"};
         auto tup = parthenon::SwarmPack<>::Get<MeshData<Real>, Real>(
-          &mesh_data, "my particles", swarm_var_names);
-    printf("%s:%i\n", __FILE__, __LINE__);
+            &mesh_data, "my particles", swarm_var_names);
         parthenon::SwarmPack<> swarm_pack = std::get<0>(tup);
-    printf("%s:%i\n", __FILE__, __LINE__);
         auto pack_map = std::get<1>(tup);
-    printf("%s:%i\n", __FILE__, __LINE__);
         parthenon::PackIdx iv(pack_map["v"]);
-    printf("%s:%i\n", __FILE__, __LINE__);
 
-//        // Create a pack use type variables
-//        auto sparse_pack = parthenon::SparsePack<v5, v3>::Get<MeshData<Real>, Real>(
-//            &mesh_data, {Metadata::WithFluxes});
+        // TODO(BRR) template on pattern
+        parthenon::par_for_outer(
+            parthenon::outer_loop_pattern_teams_tag, "check swarm pack", DevExecSpace(),
+            0, 0, 0, block_list.size() - 1,
+
+            KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int b) {
+              // Get max active index
+              const int max_active_index = max_active_indices(b);
+              printf("[%i] max_active_index: %i\n", b, max_active_index);
+              int lo = swarm_pack.GetLowerBound(b, iv);
+              int hi = swarm_pack.GetUpperBound(b, iv);
+
+              parthenon::par_for_inner(
+                  parthenon::inner_loop_pattern_simdfor_tag, team_member, 0,
+                  max_active_index,
+                  [&](const int n) {
+                    printf("[%i %i] v lo: %i hi: %i\n", b, n, lo, hi);
+                    swarm_pack(b, lo, n) = 5.;
+                    printf("pack: %e var: %e\n", swarm_pack(b, lo, n), v_d(b)(lo, n));
+
+                  });
+            });
+
+//        int nwrong = 0;
+//        par_reduce(
+//            loop_pattern_mdrange_tag, "check swarm pack", DevExecSpace(), 0,
+//            swarm_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
 //
-//        // Create the same pack using strings
-//        auto tup = parthenon::SparsePack<>::Get<MeshData<Real>, Real>(
-//            &mesh_data, std::vector<std::string>{"v5", "v3"},
-//            std::vector<parthenon::MetadataFlag>{Metadata::WithFluxes});
-//        parthenon::SparsePack<> sparse_pack_notype = std::get<0>(tup);
-//        auto pack_map = std::get<1>(tup);
-//        parthenon::PackIdx iv3(pack_map["v3"]);
+//            // par_for_outer
+//            // get max active index
+//            // par_for_inner
+//            // loop over particles
+//
+//            KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, int &ltot) {
+//              int lo = swarm_pack.GetLowerBound(b, iv);
+//              int hi = swarm_pack.GetUpperBound(b, iv);
+//              printf("lo: %i hi: %i\n", lo, hi);
+//            },
+//            nwrong);
+//        REQUIRE(nwrong == 0);
+
+        //        // Create a pack use type variables
+        //        auto sparse_pack = parthenon::SparsePack<v5, v3>::Get<MeshData<Real>,
+        //        Real>(
+        //            &mesh_data, {Metadata::WithFluxes});
+        //
+        //        // Create the same pack using strings
+        //        auto tup = parthenon::SparsePack<>::Get<MeshData<Real>, Real>(
+        //            &mesh_data, std::vector<std::string>{"v5", "v3"},
+        //            std::vector<parthenon::MetadataFlag>{Metadata::WithFluxes});
+        //        parthenon::SparsePack<> sparse_pack_notype = std::get<0>(tup);
+        //        auto pack_map = std::get<1>(tup);
+        //        parthenon::PackIdx iv3(pack_map["v3"]);
 
         // Make sure that we have only cached one pack, since these should be the
         // same base pack
         REQUIRE(mesh_data.GetSwarmPackCache().size() == 1);
 
-//        const int v = 1; // v3 is the second variable in the loop above so v = 1 there
-//        int nwrong = 0;
-//        par_reduce(
-//            loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
-//            sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-//            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
-//              int lo = sparse_pack.GetLowerBound(b, v3());
-//              int hi = sparse_pack.GetUpperBound(b, v3());
-//              for (int c = 0; c <= hi - lo; ++c) {
-//                Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
-//                if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
-//                if (n != sparse_pack(b, v3(c), k, j, i)) ltot += 1;
-//              }
-//              lo = sparse_pack_notype.GetLowerBound(b, iv3);
-//              hi = sparse_pack_notype.GetUpperBound(b, iv3);
-//              for (int c = 0; c <= hi - lo; ++c) {
-//                Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
-//                if (n != sparse_pack_notype(b, lo + c, k, j, i)) ltot += 1;
-//                if (n != sparse_pack_notype(b, iv3 + c, k, j, i)) ltot += 1;
-//              }
-//            },
-//            nwrong);
-//        REQUIRE(nwrong == 0);
+        //        const int v = 1; // v3 is the second variable in the loop above so v = 1
+        //        there int nwrong = 0; par_reduce(
+        //            loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
+        //            sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        //            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+        //              int lo = sparse_pack.GetLowerBound(b, v3());
+        //              int hi = sparse_pack.GetUpperBound(b, v3());
+        //              for (int c = 0; c <= hi - lo; ++c) {
+        //                Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+        //                if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
+        //                if (n != sparse_pack(b, v3(c), k, j, i)) ltot += 1;
+        //              }
+        //              lo = sparse_pack_notype.GetLowerBound(b, iv3);
+        //              hi = sparse_pack_notype.GetUpperBound(b, iv3);
+        //              for (int c = 0; c <= hi - lo; ++c) {
+        //                Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+        //                if (n != sparse_pack_notype(b, lo + c, k, j, i)) ltot += 1;
+        //                if (n != sparse_pack_notype(b, iv3 + c, k, j, i)) ltot += 1;
+        //              }
+        //            },
+        //            nwrong);
+        //        REQUIRE(nwrong == 0);
       }
     }
   }

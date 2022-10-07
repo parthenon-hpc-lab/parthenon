@@ -131,6 +131,11 @@ struct SwarmPackDescriptor {
 };
 } // namespace impl
 
+struct BasePackType {
+  static constexpr int Variable = 0;
+  static constexpr int Swarm = 1;
+};
+
 // N is a switch for field vs swarm packing, 0 = fields 1 = swarm
 template <unsigned int N = 0, typename TYPE = Real>
 class SparsePackBase {
@@ -161,6 +166,10 @@ class SparsePackBase {
     return map;
   }
 
+  // Methods for getting parts of the shape of the pack
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetNBlocks() const { return nblocks_; }
+
   // TODO(BRR) public?
  public:
   pack_t pack_;
@@ -176,7 +185,9 @@ class SparsePackBase {
 };
 
 template <typename T = Real>
-using SwarmPackBase = SparsePackBase<1, T>;
+using VariablePackBase = SparsePackBase<BasePackType::Variable, T>;
+template <typename T = Real>
+using SwarmPackBase = SparsePackBase<BasePackType::Swarm, T>;
 
 // Object for cacheing sparse packs in MeshData and MeshBlockData objects. This
 // handles checking for a pre-existing pack and creating a new SparsePackBase if
