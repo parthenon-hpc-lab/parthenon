@@ -152,34 +152,10 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     PARTHENON_REQUIRE(cache.buf_vec.size() == cache.sending_non_zero_flags_h.size(),
                       "Flag arrays incorrectly allocated.");
   }
+  
+  auto [rebuild, nbound, other_communication_unfinished] = 
+      CheckSendBufferCacheForRebuild<bound_type, true>(md);
 
-  // Allocate channels sending from active data and then check to see if
-  // if buffers have changed
-  bool rebuild = false;
-  bool other_communication_unfinished = false;
-  int nbound = 0;
-  ForEachBoundary<bound_type>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        const std::size_t ibuf = cache.idx_vec[nbound];
-        auto &buf = *(cache.buf_vec[ibuf]);
-
-        if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
-
-        if (v->IsAllocated()) {
-          buf.Allocate();
-        } else {
-          buf.Free();
-        }
-
-        if (ibuf < cache.bnd_info_h.size()) {
-          rebuild = rebuild ||
-                    !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
-        } else {
-          rebuild = true;
-        }
-
-        ++nbound;
-      });
   if (nbound == 0) {
     Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
     return TaskStatus::complete;
@@ -188,6 +164,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
     return TaskStatus::incomplete;
   }
+
+
+  //if (rebuild) RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo);
   if (rebuild) {
     cache.bnd_info = BufferCache_t("boundary_info", nbound);
     cache.bnd_info_h = Kokkos::create_mirror_view(cache.bnd_info);
@@ -369,30 +348,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
-  // Check for rebuild
-  bool rebuild = false;
-  int nbound = 0;
-
-  ForEachBoundary<bound_type>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        const std::size_t ibuf = cache.idx_vec[nbound];
-        auto &buf = *cache.buf_vec[ibuf];
-        if (ibuf < cache.bnd_info_h.size()) {
-          rebuild = rebuild ||
-                    !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
-          if ((buf.GetState() == BufferState::received) &&
-              !cache.bnd_info_h(ibuf).allocated) {
-            rebuild = true;
-          }
-          if ((buf.GetState() == BufferState::received_null) &&
-              cache.bnd_info_h(ibuf).allocated) {
-            rebuild = true;
-          }
-        } else {
-          rebuild = true;
-        }
-        ++nbound;
-      });
+  auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
+  //if (rebuild) RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo);
 
   if (rebuild) {
     cache.bnd_info = BufferCache_t("boundary_info", nbound);
