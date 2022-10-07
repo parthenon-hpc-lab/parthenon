@@ -68,8 +68,8 @@ DriverStatus EvolutionDriver::Execute() {
 
   // Output a text file of all parameters at this point
   // Defaults must be set across all ranks
-  if (pinput->GetOrAddBoolean("parthenon/run", "archive_parameters", false)) {
-    pinput->GetOrAddBoolean("parthenon/run", "archive_parameters_timestamp", false);
+  if (pinput->GetOrAddBoolean("parthenon/job", "archive_parameters", false)) {
+    pinput->GetOrAddBoolean("parthenon/job", "archive_parameters_timestamp", false);
     // Output only from rank 0
     if (Globals::my_rank == 0) DumpInputParameters();
   }
@@ -199,7 +199,7 @@ void EvolutionDriver::SetGlobalTimeStep() {
 
 void EvolutionDriver::DumpInputParameters() {
   std::ostringstream ss;
-  if (pinput->GetBoolean("parthenon/run", "archive_parameters_timestamp")) {
+  if (pinput->GetBoolean("parthenon/job", "archive_parameters_timestamp")) {
     auto itt_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     ss << "parthinput.archive." << std::put_time(std::gmtime(&itt_now), "%FT%TZ");
   } else {
