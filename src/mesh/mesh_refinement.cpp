@@ -294,6 +294,9 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
                                                   int si, int ei, int sj, int ej, int sk,
                                                   int ek) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  const auto &pkg = pmb->resolved_packages;
+  // TO ME: PASS BASE-NAME THROUGH THIS FUNCTION I GUESS
+  //auto refinement_funcs = pkg->RefinementFunc(
   int b = 0;
   int nbuffers = 1;
   cell_centered_bvars::BufferCacheHost_t info_h("refinement info", nbuffers);

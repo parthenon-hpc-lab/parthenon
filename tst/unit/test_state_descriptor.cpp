@@ -27,6 +27,8 @@
 #include "interface/sparse_pool.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
+#include "mesh/mesh_refinement_ops.hpp"
+#include "mesh/refinement_in_one.hpp"
 
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
@@ -36,6 +38,32 @@ using parthenon::ResolvePackages;
 using parthenon::SparsePool;
 using parthenon::StateDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
+
+// Some fake ops classes
+/*
+template<int DIM>
+struct MyProlongOp {
+  KOKKOS_FORCEINLINE_FUNCTION static void
+  Do(const int l, const int m, const int n, const int k, const int j, const int i,
+     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+     const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+    return; // stub
+  }
+};
+template<int DIM>
+struct MyRestrictOp {
+  KOKKOS_FORCEINLINE_FUNCTION static void
+  Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
+     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+     const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+    return; // stub
+  }
+};
+*/
 
 TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
   GIVEN("A Packages_t object and a few packages") {
@@ -289,6 +317,13 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         }
       }
     }
+
+    /*
+    WHEN("We register a dense variable with custom prolongation/restriction") {
+      pkg1->AddField("dense", m_provides);
+      pkg1->RegisterProlongationOps<MyProlongOp,MyRestrictOp>("dense");
+    }
+    */
   }
 }
 
