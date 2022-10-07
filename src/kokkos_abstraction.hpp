@@ -627,11 +627,12 @@ inline void par_scan(Args &&...args) {
   par_dispatch<dispatch_impl::ParallelScanDispatch>(std::forward<Args>(args)...);
 }
 
-template <typename Function>
+// TODO(BRR) Generalize to higher dimensions
+template <typename Function, typename T>
 inline void par_reduce_outer(OuterLoopPatternTeams, const std::string &name,
                              DevExecSpace exec_space, size_t scratch_size_in_bytes,
                              const int scratch_level, const int kl, const int ku,
-                             const Function &function, int& result) {
+                             const Function &function, T &result) {
   const int Nk = ku + 1 - kl;
 
   team_policy policy(exec_space, Nk, Kokkos::AUTO);
@@ -639,16 +640,23 @@ inline void par_reduce_outer(OuterLoopPatternTeams, const std::string &name,
   Kokkos::parallel_reduce(
       name,
       policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
-      KOKKOS_LAMBDA(team_mbr_t team_member, int &update) {
+      KOKKOS_LAMBDA(team_mbr_t team_member, T &update) {
         const int k = team_member.league_rank() + kl;
         function(team_member, k, update);
       }, result);
 
 }
-template <typename Function>
+// Inner parallel loop using TeamVectorRange
+template <typename Function, typename T>
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_member,
+                                          const int il, const int iu,
+                                          const Function &function, T &result) {
+  Kokkos::parallel_reduce(Kokkos::TeamVectorRange(team_member, il, iu + 1), function, result);
+}
+template <typename Function, typename T>
 KOKKOS_INLINE_FUNCTION void par_reduce_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
                                           const int il, const int iu,
-                                          const Function &function, int &result) {
+                                          const Function &function, T &result) {
 int update = 0;
 #pragma omp parallel reduction ( + : update )
   for (int i = il; i <= iu; i++) {

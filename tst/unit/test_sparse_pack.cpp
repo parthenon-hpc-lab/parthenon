@@ -297,24 +297,22 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
     ParArray1D<int> max_active_indices("Max active indices", block_list.size());
     // Get arrays of particle data
     ParArray1D<ParArrayND<Real>> v_d("v on device", block_list.size());
+    int total_particles = 0;
     for (auto nb = 0; nb < block_list.size(); nb++) {
       auto block = block_list[nb];
       auto mbd = block->meshblock_data.Get();
       auto swarm = mbd->GetSwarm("my particles");
-      parthenon::ParArrayND<int> new_indices("new indices", nb);
-      swarm->AddEmptyParticles(nb, new_indices);
+      int num_particles = nb + 1;
+      parthenon::ParArrayND<int> new_indices("new indices", num_particles);
+      swarm->AddEmptyParticles(num_particles, new_indices);
       max_active_indices(nb) = swarm->GetMaxActiveIndex();
       v_d(nb) = swarm->Get<Real>("v").Get();
-
-        // Also get the unpacked views for comparison
-//        v_d = swarm->Get<Real>("v").Get();
+      total_particles += num_particles;
     }
 
-    printf("%s:%i\n", __FILE__, __LINE__);
     MeshData<Real> mesh_data;
     mesh_data.Set(block_list, "base");
     mesh_data.SetMeshPointer(mesh.get());
-    printf("%s:%i\n", __FILE__, __LINE__);
 
 
 
@@ -369,7 +367,11 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
               int hi = swarm_pack.GetUpperBound(b, iv);
 
               parthenon::par_reduce_inner(
+#ifdef KOKKOS_ENABLE_CUDA
+                  parthenon::inner_loop_pattern_tvr_tag, team_member, 0,
+#else
                   parthenon::inner_loop_pattern_simdfor_tag, team_member, 0,
+#endif
                   max_active_index,
                   [&](const int n, int &inner_update) {
                     printf("[%i %i] v lo: %i hi: %i\n", b, n, lo, hi);
@@ -380,6 +382,8 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
                   }, update);
             }, total);
         printf("total: %i\n", total);
+
+        REQUIRE(total_particles == total);
 
 //        int nwrong = 0;
 //        par_reduce(
