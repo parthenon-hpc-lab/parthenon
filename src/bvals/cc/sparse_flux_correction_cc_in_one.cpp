@@ -224,57 +224,96 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetFluxCorrections");
-
+  
   Mesh *pmesh = md->GetMeshPointer();
+  auto &cache = md->GetBvarsCache()[BoundaryType::flxcor_recv];
+
+  // Check for rebuild
+  bool rebuild = false;
+  int nbound = 0;
 
   ForEachBoundary<BoundaryType::flxcor_recv>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        PARTHENON_DEBUG_REQUIRE(
-            pmesh->boundary_comm_flxcor_map.count(ReceiveKey(pmb, nb, v)) > 0,
-            "Boundary communicator does not exist");
-        auto &buf = pmesh->boundary_comm_flxcor_map[ReceiveKey(pmb, nb, v)];
-
-        // Check if this boundary requires flux correction
-        if ((!v->IsAllocated()) || buf.GetState() == BufferState::received_null) {
-          buf.Stale();
-          return LoopControl::cont;
+        const std::size_t ibuf = cache.recv_idx_vec[nbound];
+        auto &buf = *cache.recv_buf_vec[ibuf];
+        if (ibuf < cache.recv_bnd_info_h.size()) {
+          rebuild = rebuild ||
+                    !UsingSameResource(cache.recv_bnd_info_h(ibuf).buf, buf.buffer());
+          if ((buf.GetState() == BufferState::received) &&
+              !cache.recv_bnd_info_h(ibuf).allocated) {
+            rebuild = true;
+          }
+          if ((buf.GetState() == BufferState::received_null) &&
+              cache.recv_bnd_info_h(ibuf).allocated) {
+            rebuild = true;
+          }
+        } else {
+          rebuild = true;
         }
-        
-        auto binfo = BndInfo::GetSetCCFluxCor(pmb, nb, v);
-
-        binfo.buf = buf.buffer();
-        const int nl = binfo.Nt; 
-        const int nm = binfo.Nu; 
-        const int nn = binfo.Nv; 
-        const int nk = binfo.ek - binfo.sk + 1;
-        const int nj = binfo.ej - binfo.sj + 1;
-        const int ni = binfo.ei - binfo.si + 1;
-   
-        const int NjNi = nj * ni;
-        const int NkNjNi = nk * NjNi;
-        const int NnNkNjNi = nn * NkNjNi;
-        const int NmNnNkNjNi = nm * NnNkNjNi;
-
-        Kokkos::parallel_for(
-            "SetFluxCorrections",
-            Kokkos::RangePolicy<>(parthenon::DevExecSpace(), 0, nl * NmNnNkNjNi),
-            KOKKOS_LAMBDA(const int loop_idx) {
-              const int l = loop_idx / NmNnNkNjNi;
-              const int m = (loop_idx % NmNnNkNjNi) / NnNkNjNi;
-              const int n = (loop_idx % NnNkNjNi) / NkNjNi;
-              const int k = (loop_idx % NkNjNi) / NjNi + binfo.sk;
-              const int j = (loop_idx % NjNi) / ni + binfo.sj;
-              const int i = loop_idx % ni + binfo.si;
-
-              const int idx =
-                  i - binfo.si + ni * (j - binfo.sj + nj * (k - binfo.sk + nk * (n + nn * (m + nm * l))));
-              binfo.var(l, m, n, k, j, i) = binfo.buf(idx);
-            });
-        buf.Stale();
-        return LoopControl::cont;
+        ++nbound;
       });
 
-  Kokkos::Profiling::popRegion(); // Task_SetFluxCorrections
+  if (rebuild) {
+    cache.recv_bnd_info = BufferCache_t("recv_fluxcor_info", nbound);
+    cache.recv_bnd_info_h = Kokkos::create_mirror_view(cache.recv_bnd_info);
+    int iarr = 0;
+    ForEachBoundary<BoundaryType::flxcor_recv>(
+        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+          const std::size_t ibuf = cache.recv_idx_vec[iarr];
+          auto &buf = *cache.recv_buf_vec[ibuf];
+          if (v->IsAllocated() && buf.GetState() == BufferState::received) {
+            // Only set if we are allocated and received corrections 
+            cache.recv_bnd_info_h(ibuf).allocated = true;
+            cache.recv_bnd_info_h(ibuf) = BndInfo::GetSetCCFluxCor(pmb, nb, v);
+          } else {
+            cache.recv_bnd_info_h(ibuf).allocated = false; 
+          }
+          cache.recv_bnd_info_h(ibuf).buf = buf.buffer();
+          ++iarr;
+        });
+    Kokkos::deep_copy(cache.recv_bnd_info, cache.recv_bnd_info_h);
+  }
+
+  auto &bnd_info = cache.recv_bnd_info;
+  Kokkos::parallel_for(
+      "SetFluxCorBuffers",
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+        const int b = team_member.league_rank();
+        if (!bnd_info(b).allocated) return;
+
+        const int Ni = bnd_info(b).ei + 1 - bnd_info(b).si;
+        const int Nj = bnd_info(b).ej + 1 - bnd_info(b).sj;
+        const int Nk = bnd_info(b).ek + 1 - bnd_info(b).sk;
+        const int &Nt = bnd_info(b).Nt;
+        const int &Nu = bnd_info(b).Nu;
+        const int &Nv = bnd_info(b).Nv;
+
+        const int NjNi = Nj * Ni;
+        const int NkNjNi = Nk * NjNi;
+        const int NvNkNjNi = Nv * NkNjNi;
+        const int NuNvNkNjNi = Nu * NvNkNjNi;
+        const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
+        
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
+                             [&](const int idx) {
+                               const int t = idx / NuNvNkNjNi;
+                               const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
+                               const int v = (idx % NvNkNjNi) / NkNjNi;
+                               const int k = (idx % NkNjNi) / NjNi + bnd_info(b).sk;
+                               const int j = (idx % NjNi) / Ni + bnd_info(b).sj;
+                               const int i = idx % Ni + bnd_info(b).si;
+                              
+                               bnd_info(b).var(t, u, v, k, j, i) = bnd_info(b).buf(idx);
+                             });
+      });
+#ifdef MPI_PARALLEL
+  Kokkos::fence();
+#endif
+  std::for_each(std::begin(cache.recv_buf_vec), std::end(cache.recv_buf_vec),
+               [](auto pbuf) { pbuf->Stale(); });
+
+  Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
   return TaskStatus::complete;
 }
 
