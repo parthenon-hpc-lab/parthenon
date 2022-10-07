@@ -136,7 +136,7 @@ ReceiveKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
 // leave the machinery here since it doesn't seem to have a big overhead associated with
 // it (LFR).
 template <BoundaryType bound_type, class COMM_MAP, class BUF_VEC, class IDX_VEC, class F>
-void BuildBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_map, 
+void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_map, 
                       BUF_VEC *pbuf_vec, IDX_VEC *pidx_vec, F KeyFunc) {
   Mesh *pmesh = md->GetMeshPointer();
 
