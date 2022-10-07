@@ -27,7 +27,7 @@ Parthenon -- a performance portable block-structured adaptive mesh refinement fr
 ## Required
 
 * CMake 3.16 or greater
-* C++14 compatible compiler
+* C++17 compatible compiler
 * Kokkos 3.6 or greater
 
 ## Optional (enabling features)

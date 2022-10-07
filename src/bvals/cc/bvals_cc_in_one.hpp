@@ -91,6 +91,7 @@ struct BndInfo {
   int Nu = 0;
   int Nv = 0;
 
+  CoordinateDirection dir;
   bool allocated = true;
   RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
@@ -101,9 +102,17 @@ struct BndInfo {
   ParArray6D<Real> coarse;      // coarse data variable for prolongation/restriction
 
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                std::shared_ptr<CellVariable<Real>> v);
+                                std::shared_ptr<CellVariable<Real>> v,
+                                CommBuffer<buf_pool_t<Real>::owner_t> *buf);
   static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v);
+                               std::shared_ptr<CellVariable<Real>> v,
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+  static BndInfo GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                                  std::shared_ptr<CellVariable<Real>> v,
+                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+  static BndInfo GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                                 std::shared_ptr<CellVariable<Real>> v,
+                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf);
 };
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
@@ -114,37 +123,35 @@ using BufferCacheHost_t = typename BufferCache_t::HostMirror;
 
 // This is just a struct to cleanly hold all of the information it is useful to cache
 // for the block boundary communication routines. A copy of it is contained in MeshData.
-
 struct BvarsSubCache_t {
   void clear() {
-    send_buf_vec.clear();
-    recv_buf_vec.clear();
-    send_idx_vec.clear();
-    recv_idx_vec.clear();
-    sending_non_zero_flags = ParArray1D<bool>{};
-    sending_non_zero_flags_h = ParArray1D<bool>::host_mirror_type{};
-    send_bnd_info = BufferCache_t{};
-    send_bnd_info_h = BufferCache_t::host_mirror_type{};
-    recv_bnd_info = BufferCache_t{};
-    recv_bnd_info_h = BufferCache_t::host_mirror_type{};
+    buf_vec.clear();
+    idx_vec.clear();
+    if (sending_non_zero_flags.KokkosView().is_allocated())
+      sending_non_zero_flags = ParArray1D<bool>{};
+    if (sending_non_zero_flags_h.KokkosView().is_allocated())
+      sending_non_zero_flags_h = ParArray1D<bool>::host_mirror_type{};
+    bnd_info = BufferCache_t{};
+    bnd_info_h = BufferCache_t::host_mirror_type{};
   }
 
-  std::vector<std::size_t> send_idx_vec, recv_idx_vec;
-  std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
+  std::vector<std::size_t> idx_vec;
+  std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> buf_vec;
   ParArray1D<bool> sending_non_zero_flags;
   ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h;
 
-  BufferCache_t send_bnd_info{};
-  BufferCache_t::host_mirror_type send_bnd_info_h{};
-
-  BufferCache_t recv_bnd_info{};
-  BufferCache_t::host_mirror_type recv_bnd_info_h{};
+  BufferCache_t bnd_info{};
+  BufferCache_t::host_mirror_type bnd_info_h{};
 };
 
 struct BvarsCache_t {
   // The five here corresponds to the current size of the BoundaryType enum
-  std::array<BvarsSubCache_t, 5> caches;
-  auto &operator[](BoundaryType boundType) { return caches[static_cast<int>(boundType)]; }
+  std::array<BvarsSubCache_t, 5 * 2> caches;
+  auto &GetSubCache(BoundaryType boundType, bool send) {
+    return caches[2 * static_cast<int>(boundType) + send];
+  }
+  // auto &operator[](BoundaryType boundType) { return
+  // caches[static_cast<int>(boundType)]; }
   void clear() {
     for (int i = 0; i < caches.size(); ++i)
       caches[i].clear();

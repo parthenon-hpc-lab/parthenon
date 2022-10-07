@@ -237,11 +237,7 @@ add_library(Parthenon::parthenon ALIAS parthenon)
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
-if (PARTHENON_ENABLE_CPP17)
-  target_compile_features(parthenon PUBLIC cxx_std_17)
-else()
-  target_compile_features(parthenon PUBLIC cxx_std_14)
-endif()
+target_compile_features(parthenon PUBLIC cxx_std_17)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
