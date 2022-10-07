@@ -627,6 +627,37 @@ inline void par_scan(Args &&...args) {
   par_dispatch<dispatch_impl::ParallelScanDispatch>(std::forward<Args>(args)...);
 }
 
+template <typename Function>
+inline void par_reduce_outer(OuterLoopPatternTeams, const std::string &name,
+                             DevExecSpace exec_space, size_t scratch_size_in_bytes,
+                             const int scratch_level, const int kl, const int ku,
+                             const Function &function, int& result) {
+  const int Nk = ku + 1 - kl;
+
+  team_policy policy(exec_space, Nk, Kokkos::AUTO);
+
+  Kokkos::parallel_reduce(
+      name,
+      policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
+      KOKKOS_LAMBDA(team_mbr_t team_member, int &update) {
+        const int k = team_member.league_rank() + kl;
+        function(team_member, k, update);
+      }, result);
+
+}
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void par_reduce_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
+                                          const int il, const int iu,
+                                          const Function &function, int &result) {
+int update = 0;
+#pragma omp parallel reduction ( + : update )
+  for (int i = il; i <= iu; i++) {
+    function(i, update);
+  }
+
+  result += update;
+}
+
 // 1D  outer parallel loop using Kokkos Teams
 template <typename Function>
 inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,

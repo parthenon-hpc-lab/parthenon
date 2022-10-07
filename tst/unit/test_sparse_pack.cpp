@@ -356,6 +356,31 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
                   });
             });
 
+        int total = 0;
+        parthenon::par_reduce_outer(
+            parthenon::outer_loop_pattern_teams_tag, "check swarm pack", DevExecSpace(),
+            0, 0, 0, block_list.size() - 1,
+
+            KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int b, int &update) {
+              // Get max active index
+              const int max_active_index = max_active_indices(b);
+              printf("[%i] max_active_index: %i\n", b, max_active_index);
+              int lo = swarm_pack.GetLowerBound(b, iv);
+              int hi = swarm_pack.GetUpperBound(b, iv);
+
+              parthenon::par_reduce_inner(
+                  parthenon::inner_loop_pattern_simdfor_tag, team_member, 0,
+                  max_active_index,
+                  [&](const int n, int &inner_update) {
+                    printf("[%i %i] v lo: %i hi: %i\n", b, n, lo, hi);
+                    swarm_pack(b, lo, n) = 5.;
+                    printf("pack: %e var: %e\n", swarm_pack(b, lo, n), v_d(b)(lo, n));
+                    inner_update += 1;
+
+                  }, update);
+            }, total);
+        printf("total: %i\n", total);
+
 //        int nwrong = 0;
 //        par_reduce(
 //            loop_pattern_mdrange_tag, "check swarm pack", DevExecSpace(), 0,
