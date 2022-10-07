@@ -47,8 +47,9 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   const int ndim = pmesh->ndim;
 
   if (cache.buf_vec.size() == 0) {
-    BuildBufferCache<BoundaryType::flxcor_send>(md, &(pmesh->boundary_comm_flxcor_map), 
-                                 &(cache.buf_vec), &(cache.idx_vec), SendKey);
+    InitializeBufferCache<BoundaryType::flxcor_send>(
+        md, &(pmesh->boundary_comm_flxcor_map), &(cache.buf_vec), &(cache.idx_vec),
+        SendKey);
     const int nbound = cache.buf_vec.size();
     if (nbound > 0) {
       cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
@@ -62,7 +63,7 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
                       "Flag arrays incorrectly allocated.");
   }
 
-  auto [rebuild, nbound, other_communication_unfinished] = 
+  auto [rebuild, nbound, other_communication_unfinished] =
       CheckSendBufferCacheForRebuild<BoundaryType::flxcor_send, true>(md);
 
   if (nbound == 0) {
@@ -75,8 +76,10 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     return TaskStatus::incomplete;
   }
 
-  if (rebuild) RebuildBufferCache<BoundaryType::flxcor_send, true>(md, nbound, BndInfo::GetSendCCFluxCor);
-  
+  if (rebuild)
+    RebuildBufferCache<BoundaryType::flxcor_send, true>(md, nbound,
+                                                        BndInfo::GetSendCCFluxCor);
+
   auto &bnd_info = cache.bnd_info;
   PARTHENON_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   printf("nbound: %i\n", nbound);
@@ -84,9 +87,9 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
       "SendFluxCorrectionBufs",
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        auto& binfo = bnd_info(team_member.league_rank());
+        auto &binfo = bnd_info(team_member.league_rank());
         if (!binfo.allocated) return;
-        auto& coords = binfo.coords;
+        auto &coords = binfo.coords;
 
         const int Ni = binfo.ei + 1 - binfo.si;
         const int Nj = binfo.ej + 1 - binfo.sj;
@@ -106,41 +109,42 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
         int joff = (binfo.dir == X2DIR) || (ndim < 2) ? 0 : 1;
         int koff = (binfo.dir == X3DIR) || (ndim < 3) ? 0 : 1;
 
-        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
-                             [&](const int idx) {
-                               const int t = idx / NuNvNkNjNi;
-                               const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-                               const int v = (idx % NvNkNjNi) / NkNjNi;
-                               const int ck = (idx % NkNjNi) / NjNi;
-                               const int cj = (idx % NjNi) / Ni;
-                               const int ci = idx % Ni;
-                      
-                               const int k = binfo.sk + 2 * ck;
-                               const int j = binfo.sj + 2 * cj;
-                               const int i = binfo.si + 2 * ci;
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi), [&](const int idx) {
+              const int t = idx / NuNvNkNjNi;
+              const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
+              const int v = (idx % NvNkNjNi) / NkNjNi;
+              const int ck = (idx % NkNjNi) / NjNi;
+              const int cj = (idx % NjNi) / Ni;
+              const int ci = idx % Ni;
 
-                               // For the given set of offsets, etc. this should work for any
-                               // dimensionality since the same flux will be included multiple times
-                               // in the average
-                               const Real area00 = coords.Area(binfo.dir, k, j, i);
-                               const Real area01 = coords.Area(binfo.dir, k, j + joff, i + ioff);
-                               const Real area10 = coords.Area(binfo.dir, k + koff, j + joff, i);
-                               const Real area11 = coords.Area(binfo.dir, k + koff, j, i + ioff);
+              const int k = binfo.sk + 2 * ck;
+              const int j = binfo.sj + 2 * cj;
+              const int i = binfo.si + 2 * ci;
 
-                               Real avg_flx = area00 * binfo.var(t, u, v, k, j, i);
-                               avg_flx += area01 * binfo.var(t, u, v, k + koff, j + joff, i);
-                               avg_flx += area10 * binfo.var(t, u, v, k, j + joff, i + ioff);
-                               avg_flx += area11 * binfo.var(t, u, v, k + koff, j, i + ioff);
+              // For the given set of offsets, etc. this should work for any
+              // dimensionality since the same flux will be included multiple times
+              // in the average
+              const Real area00 = coords.Area(binfo.dir, k, j, i);
+              const Real area01 = coords.Area(binfo.dir, k, j + joff, i + ioff);
+              const Real area10 = coords.Area(binfo.dir, k + koff, j + joff, i);
+              const Real area11 = coords.Area(binfo.dir, k + koff, j, i + ioff);
 
-                               avg_flx /= area00 + area01 + area10 + area11;
-                               binfo.buf(idx) = avg_flx; 
-                             });
+              Real avg_flx = area00 * binfo.var(t, u, v, k, j, i);
+              avg_flx += area01 * binfo.var(t, u, v, k + koff, j + joff, i);
+              avg_flx += area10 * binfo.var(t, u, v, k, j + joff, i + ioff);
+              avg_flx += area11 * binfo.var(t, u, v, k + koff, j, i + ioff);
+
+              avg_flx /= area00 + area01 + area10 + area11;
+              binfo.buf(idx) = avg_flx;
+            });
       });
 #ifdef MPI_PARALLEL
   Kokkos::fence();
 #endif
   // Calling Send will send null if the underlying buffer is unallocated
-  for (auto& buf : cache.buf_vec) buf->Send();
+  for (auto &buf : cache.buf_vec)
+    buf->Send();
   Kokkos::Profiling::popRegion(); // Task_SetFluxCorrections
   return TaskStatus::complete;
 }
@@ -150,8 +154,9 @@ TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
   if (cache.buf_vec.size() == 0)
-    BuildBufferCache<BoundaryType::flxcor_recv>(md, &(pmesh->boundary_comm_flxcor_map), 
-                                 &(cache.buf_vec), &(cache.idx_vec), ReceiveKey);
+    InitializeBufferCache<BoundaryType::flxcor_recv>(
+        md, &(pmesh->boundary_comm_flxcor_map), &(cache.buf_vec), &(cache.idx_vec),
+        ReceiveKey);
 
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -162,12 +167,13 @@ TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrections");
-  
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
   if (cache.buf_vec.size() == 0)
-    BuildBufferCache<BoundaryType::flxcor_recv>(md, &(pmesh->boundary_comm_flxcor_map), 
-                                 &(cache.buf_vec), &(cache.idx_vec), ReceiveKey);
+    InitializeBufferCache<BoundaryType::flxcor_recv>(
+        md, &(pmesh->boundary_comm_flxcor_map), &(cache.buf_vec), &(cache.idx_vec),
+        ReceiveKey);
 
   bool all_received = true;
   std::for_each(
@@ -182,12 +188,15 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetFluxCorrections");
-  
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
 
-  auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<BoundaryType::flxcor_recv, false>(md);
-  if (rebuild) RebuildBufferCache<BoundaryType::flxcor_recv, false>(md, nbound, BndInfo::GetSetCCFluxCor);
+  auto [rebuild, nbound] =
+      CheckReceiveBufferCacheForRebuild<BoundaryType::flxcor_recv, false>(md);
+  if (rebuild)
+    RebuildBufferCache<BoundaryType::flxcor_recv, false>(md, nbound,
+                                                         BndInfo::GetSetCCFluxCor);
 
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
@@ -209,7 +218,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
         const int NvNkNjNi = Nv * NkNjNi;
         const int NuNvNkNjNi = Nu * NvNkNjNi;
         const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
-        
+
         Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
                              [&](const int idx) {
                                const int t = idx / NuNvNkNjNi;
@@ -218,7 +227,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
                                const int k = (idx % NkNjNi) / NjNi + bnd_info(b).sk;
                                const int j = (idx % NjNi) / Ni + bnd_info(b).sj;
                                const int i = idx % Ni + bnd_info(b).si;
-                              
+
                                bnd_info(b).var(t, u, v, k, j, i) = bnd_info(b).buf(idx);
                              });
       });
@@ -226,7 +235,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::fence();
 #endif
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
-               [](auto pbuf) { pbuf->Stale(); });
+                [](auto pbuf) { pbuf->Stale(); });
 
   Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
   return TaskStatus::complete;

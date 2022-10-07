@@ -136,8 +136,8 @@ ReceiveKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
 // leave the machinery here since it doesn't seem to have a big overhead associated with
 // it (LFR).
 template <BoundaryType bound_type, class COMM_MAP, class BUF_VEC, class IDX_VEC, class F>
-void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_map, 
-                      BUF_VEC *pbuf_vec, IDX_VEC *pidx_vec, F KeyFunc) {
+void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_map,
+                           BUF_VEC *pbuf_vec, IDX_VEC *pidx_vec, F KeyFunc) {
   Mesh *pmesh = md->GetMeshPointer();
 
   using key_t = std::tuple<int, int, std::string, int>;
@@ -175,77 +175,73 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   });
 }
 
-template <BoundaryType BOUND_TYPE, bool SENDER> 
+template <BoundaryType BOUND_TYPE, bool SENDER>
 inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
   BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
 
   bool rebuild = false;
   bool other_communication_unfinished = false;
   int nbound = 0;
-  ForEachBoundary<BOUND_TYPE>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        const std::size_t ibuf = cache.idx_vec[nbound];
-        auto &buf = *(cache.buf_vec[ibuf]);
+  ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
+                                      const sp_cv_t v) {
+    const std::size_t ibuf = cache.idx_vec[nbound];
+    auto &buf = *(cache.buf_vec[ibuf]);
 
-        if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
+    if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
 
-        if (v->IsAllocated()) {
-          buf.Allocate();
-        } else {
-          buf.Free();
-        }
+    if (v->IsAllocated()) {
+      buf.Allocate();
+    } else {
+      buf.Free();
+    }
 
-        if (ibuf < cache.bnd_info_h.size()) {
-          rebuild = rebuild ||
-                    !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
-        } else {
-          rebuild = true;
-        }
-        ++nbound;
-      });
+    if (ibuf < cache.bnd_info_h.size()) {
+      rebuild = rebuild || !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
+    } else {
+      rebuild = true;
+    }
+    ++nbound;
+  });
   return std::make_tuple(rebuild, nbound, other_communication_unfinished);
 }
 
-template <BoundaryType BOUND_TYPE, bool SENDER> 
+template <BoundaryType BOUND_TYPE, bool SENDER>
 inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
   BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
-  
+
   bool rebuild = false;
   int nbound = 0;
 
-  ForEachBoundary<BOUND_TYPE>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        const std::size_t ibuf = cache.idx_vec[nbound];
-        auto &buf = *cache.buf_vec[ibuf];
-        if (ibuf < cache.bnd_info_h.size()) {
-          rebuild = rebuild ||
-                    !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
-          if ((buf.GetState() == BufferState::received) &&
-              !cache.bnd_info_h(ibuf).allocated) {
-            rebuild = true;
-          }
-          if ((buf.GetState() == BufferState::received_null) &&
-              cache.bnd_info_h(ibuf).allocated) {
-            rebuild = true;
-          }
-        } else {
-          rebuild = true;
-        }
-        ++nbound;
-      });
+  ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
+                                      const sp_cv_t v) {
+    const std::size_t ibuf = cache.idx_vec[nbound];
+    auto &buf = *cache.buf_vec[ibuf];
+    if (ibuf < cache.bnd_info_h.size()) {
+      rebuild = rebuild || !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
+      if ((buf.GetState() == BufferState::received) &&
+          !cache.bnd_info_h(ibuf).allocated) {
+        rebuild = true;
+      }
+      if ((buf.GetState() == BufferState::received_null) &&
+          cache.bnd_info_h(ibuf).allocated) {
+        rebuild = true;
+      }
+    } else {
+      rebuild = true;
+    }
+    ++nbound;
+  });
   return std::make_tuple(rebuild, nbound);
 }
 
-using F_BND_INFO = std::function<BndInfo(std::shared_ptr<MeshBlock> pmb, 
-                              const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v, 
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf)>;
+using F_BND_INFO = std::function<BndInfo(
+    std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+    std::shared_ptr<CellVariable<Real>> v, CommBuffer<buf_pool_t<Real>::owner_t> *buf)>;
 
-template <BoundaryType BOUND_TYPE, bool SENDER> 
-inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, 
-                               int nbound,
+template <BoundaryType BOUND_TYPE, bool SENDER>
+inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
                                F_BND_INFO BndInfoCreator) {
-  BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);                               
+  BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
   cache.bnd_info = BufferCache_t("send_info", nbound);
   cache.bnd_info_h = Kokkos::create_mirror_view(cache.bnd_info);
 
@@ -253,8 +249,7 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md,
   ForEachBoundary<BOUND_TYPE>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
         const std::size_t ibuf = cache.idx_vec[ibound];
-        cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v,
-            cache.buf_vec[ibuf]);
+        cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
         ++ibound;
       });
   Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);

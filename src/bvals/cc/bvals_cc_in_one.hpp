@@ -90,7 +90,7 @@ struct BndInfo {
   int Nt = 0;
   int Nu = 0;
   int Nv = 0;
-  
+
   CoordinateDirection dir;
   bool allocated = true;
   RefinementOp_t refinement_op = RefinementOp_t::None;
@@ -102,17 +102,17 @@ struct BndInfo {
   ParArray6D<Real> coarse;      // coarse data variable for prolongation/restriction
 
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                std::shared_ptr<CellVariable<Real>> v, 
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+                                std::shared_ptr<CellVariable<Real>> v,
+                                CommBuffer<buf_pool_t<Real>::owner_t> *buf);
   static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v, 
+                               std::shared_ptr<CellVariable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf);
   static BndInfo GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v, 
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+                                  std::shared_ptr<CellVariable<Real>> v,
+                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf);
   static BndInfo GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v, 
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+                                 std::shared_ptr<CellVariable<Real>> v,
+                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf);
 };
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
@@ -127,9 +127,9 @@ struct BvarsSubCache_t {
   void clear() {
     buf_vec.clear();
     idx_vec.clear();
-    if (sending_non_zero_flags.KokkosView().is_allocated()) 
+    if (sending_non_zero_flags.KokkosView().is_allocated())
       sending_non_zero_flags = ParArray1D<bool>{};
-    if (sending_non_zero_flags_h.KokkosView().is_allocated()) 
+    if (sending_non_zero_flags_h.KokkosView().is_allocated())
       sending_non_zero_flags_h = ParArray1D<bool>::host_mirror_type{};
     bnd_info = BufferCache_t{};
     bnd_info_h = BufferCache_t::host_mirror_type{};
@@ -146,11 +146,12 @@ struct BvarsSubCache_t {
 
 struct BvarsCache_t {
   // The five here corresponds to the current size of the BoundaryType enum
-  std::array<BvarsSubCache_t, 5*2> caches;
-  auto &GetSubCache(BoundaryType boundType, bool send) { 
-    return caches[2 * static_cast<int>(boundType) + send]; 
+  std::array<BvarsSubCache_t, 5 * 2> caches;
+  auto &GetSubCache(BoundaryType boundType, bool send) {
+    return caches[2 * static_cast<int>(boundType) + send];
   }
-  //auto &operator[](BoundaryType boundType) { return caches[static_cast<int>(boundType)]; }
+  // auto &operator[](BoundaryType boundType) { return
+  // caches[static_cast<int>(boundType)]; }
   void clear() {
     for (int i = 0; i < caches.size(); ++i)
       caches[i].clear();

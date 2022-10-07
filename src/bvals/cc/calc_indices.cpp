@@ -250,13 +250,13 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
 }
 
 BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                std::shared_ptr<CellVariable<Real>> v, 
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+                                std::shared_ptr<CellVariable<Real>> v,
+                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
 
-  out.allocated = v->IsAllocated(); 
+  out.allocated = v->IsAllocated();
   if (!out.allocated) return out;
-  
+
   out.buf = buf->buffer();
 
   out.Nv = v->GetDim(4);
@@ -295,14 +295,13 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 }
 
 BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v, 
+                               std::shared_ptr<CellVariable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
   out.buf = buf->buffer();
   if (buf->GetState() == BufferState::received) {
     out.allocated = true;
-    PARTHENON_DEBUG_REQUIRE(v->IsAllocated(),
-                            "Variable must be allocated to receive");
+    PARTHENON_DEBUG_REQUIRE(v->IsAllocated(), "Variable must be allocated to receive");
   } else if (buf->GetState() == BufferState::received_null) {
     out.allocated = false;
   } else {
@@ -343,10 +342,10 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 }
 
 BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v, 
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+                                  std::shared_ptr<CellVariable<Real>> v,
+                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
-  out.allocated = v->IsAllocated(); 
+  out.allocated = v->IsAllocated();
   if (!v->IsAllocated()) {
     // Not going to actually do anything with this buffer
     return out;
@@ -357,7 +356,7 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  // This is the index range for the coarse field 
+  // This is the index range for the coarse field
   out.sk = kb.s;
   out.ek = out.sk + std::max((kb.e - kb.s + 1) / 2, 1) - 1;
   out.sj = jb.s;
@@ -400,14 +399,13 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
   return out;
 }
 
-
 BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v, 
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+                                 std::shared_ptr<CellVariable<Real>> v,
+                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
 
   if (!v->IsAllocated() || buf->GetState() != BufferState::received) {
-    out.allocated = false; 
+    out.allocated = false;
     return out;
   }
   out.allocated = true;
@@ -467,8 +465,8 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
       out.sj += pmb->block_size.nx2 / 2;
   } else {
     PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
-  } 
-  
+  }
+
   out.var = v->flux[out.dir];
 
   out.Nv = out.var.GetDim(4);
@@ -477,7 +475,7 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
 
   out.coords = pmb->coords;
 
-  return out; 
+  return out;
 }
 } // namespace cell_centered_bvars
 } // namespace parthenon

@@ -128,8 +128,6 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-
-
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundBufs");
@@ -138,8 +136,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
   if (cache.buf_vec.size() == 0) {
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.buf_vec), 
-                                 &(cache.idx_vec), SendKey);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.buf_vec),
+                                      &(cache.idx_vec), SendKey);
     const int nbound = cache.buf_vec.size();
     if (nbound > 0) {
       cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
@@ -152,8 +150,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     PARTHENON_REQUIRE(cache.buf_vec.size() == cache.sending_non_zero_flags_h.size(),
                       "Flag arrays incorrectly allocated.");
   }
-  
-  auto [rebuild, nbound, other_communication_unfinished] = 
+
+  auto [rebuild, nbound, other_communication_unfinished] =
       CheckSendBufferCacheForRebuild<bound_type, true>(md);
 
   if (nbound == 0) {
@@ -172,8 +170,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto pmb = rc->GetBlockPointer();
   IndexShape cellbounds = pmb->cellbounds;
   IndexShape c_cellbounds = pmb->c_cellbounds;
-  cell_centered_refinement::Restrict(cache.bnd_info, cache.bnd_info_h,
-                                     cellbounds, c_cellbounds);
+  cell_centered_refinement::Restrict(cache.bnd_info, cache.bnd_info_h, cellbounds,
+                                     c_cellbounds);
 
   // Load buffer data
   const Real threshold = Globals::sparse_config.allocation_threshold;
@@ -257,8 +255,8 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_send, false);
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.buf_vec), 
-                                 &(cache.idx_vec), ReceiveKey);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.buf_vec),
+                                      &(cache.idx_vec), ReceiveKey);
 
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -278,12 +276,12 @@ StartReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &)
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundBufs");
-  
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.buf_vec), 
-                                 &(cache.idx_vec), ReceiveKey);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.buf_vec),
+                                      &(cache.idx_vec), ReceiveKey);
 
   bool all_received = true;
   std::for_each(
