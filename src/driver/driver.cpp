@@ -66,6 +66,14 @@ DriverStatus EvolutionDriver::Execute() {
   int perf_cycle_offset =
       pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
 
+  // Output a text file of all parameters at this point
+  // Defaults must be set across all ranks
+  if (pinput->GetOrAddBoolean("parthenon/run", "archive_parameters", false)) {
+    pinput->GetOrAddBoolean("parthenon/run", "archive_parameters_timestamp", false);
+    // Output only from rank 0
+    if (Globals::my_rank == 0) DumpInputParameters();
+  }
+
   Kokkos::Profiling::pushRegion("Driver_Main");
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
@@ -187,6 +195,20 @@ void EvolutionDriver::SetGlobalTimeStep() {
   if (tm.time < tm.tlim &&
       (tm.tlim - tm.time) < tm.dt) // timestep would take us past desired endpoint
     tm.dt = tm.tlim - tm.time;
+}
+
+void EvolutionDriver::DumpInputParameters() {
+  std::ostringstream ss;
+  if (pinput->GetBoolean("parthenon/run", "archive_parameters_timestamp")) {
+    auto itt_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    ss << "parthinput.archive." << std::put_time(std::gmtime(&itt_now), "%FT%TZ");
+  } else {
+    ss << "parthinput.archive";
+  }
+  std::fstream pars;
+  pars.open(ss.str(), std::fstream::out | std::fstream::trunc);
+  pinput->ParameterDump(pars);
+  pars.close();
 }
 
 void EvolutionDriver::OutputCycleDiagnostics() {
