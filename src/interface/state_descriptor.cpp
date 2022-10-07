@@ -136,12 +136,15 @@ class FieldProvider : public VariableProvider {
   void AddPrivate(const std::string &package, const std::string &base_name,
                   const Metadata &metadata) {
     bool added = false;
+    const std::string new_name = package + "::" + base_name;
+    auto pkg = packages_.Get(package);
     if (metadata.IsSet(Metadata::Sparse)) {
-      const auto &src_pool = packages_.Get(package)->GetSparsePool(base_name);
-      added = state_->AddSparsePool(package + "::" + base_name, src_pool);
+      const auto &src_pool = pkg->GetSparsePool(base_name);
+      added = state_->AddSparsePool(new_name, src_pool);
     } else {
-      added = state_->AddField(package + "::" + base_name, metadata);
+      added = state_->AddField(new_name, metadata);
     }
+    RegisterRefinementFuncs_(pkg, base_name, new_name, metadata);
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add private field '" + base_name +
                                         "' to resolved state");
@@ -149,37 +152,62 @@ class FieldProvider : public VariableProvider {
   void AddProvides(const std::string &package, const std::string &base_name,
                    const Metadata &metadata) {
     bool added = false;
+    auto pkg = packages_.Get(package);
     if (metadata.IsSet(Metadata::Sparse)) {
-      const auto &pool = packages_.Get(package)->GetSparsePool(base_name);
+      const auto &pool = pkg->GetSparsePool(base_name);
       added = state_->AddSparsePool(pool);
     } else {
       added = state_->AddField(base_name, metadata);
     }
+    RegisterRefinementFuncs_(pkg, base_name, base_name, metadata);
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add provided field '" + base_name +
                                         "' to resolved state");
   }
   void AddOverridable(const std::string &base_name, Metadata &metadata) {
+    // we don't know which package this pool is coming from, so we need to search for it
+    std::shared_ptr<StateDescriptor> pkg;
+    bool found = false;
+    for (auto &pair : packages_.AllPackages()) {
+      pkg = pair.second;
+      if (pkg->SparseBaseNamePresent(base_name) || pkg->FieldPresent(base_name)) {
+        found = true;
+        break;
+      }
+    }
+    PARTHENON_REQUIRE_THROWS(found, "Cound't find overridable field " + base_name);
     bool added = false;
     if (metadata.IsSet(Metadata::Sparse)) {
-      // we don't know which package this pool is coming from, so we need to search for it
-      for (auto &pair : packages_.AllPackages()) {
-        auto &package = pair.second;
-        if (package->SparseBaseNamePresent(base_name)) {
-          const auto &pool = package->GetSparsePool(base_name);
-          added = state_->AddSparsePool(pool);
-          break;
-        }
-      }
+      const auto &pool = pkg->GetSparsePool(base_name);
+      added = state_->AddSparsePool(pool);
     } else {
       added = state_->AddField(base_name, metadata);
     }
+    RegisterRefinementFuncs_(pkg, base_name, base_name, metadata);
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add overridable field '" + base_name +
                                         "' to resolved state");
   }
 
  private:
+  // Registering refinement when `AddProvides`, `AddPrivate`, and
+  // `AddOverridable` are called should ensure the final
+  // prolongation/restriction functions are unique.
+  void RegisterRefinementFuncs_(const std::shared_ptr<StateDescriptor> &pkg,
+                                const std::string &old_name, const std::string &new_name,
+                                const Metadata &metadata) {
+    if (metadata.IsRefined()) {                   // If we need refinement operators
+      if (pkg->VarHasRefinementFuncs(old_name)) { // add user-registered ops
+        state_->RegisterProlongationOps(new_name, pkg->RefinementFunc(old_name));
+      } else { // Add default operator
+               // TODO(JMM): In full generaltity these defaults should depend
+               // on topological location, e.g., cell-centered,
+               // face-centered, etc.
+        state_->RegisterProlongationOps<refinement_ops::ProlongateCellMinMod,
+                                        refinement_ops::RestrictCellAverage>(new_name);
+      }
+    }
+  }
   Packages_t &packages_;
   std::shared_ptr<StateDescriptor> &state_;
 };

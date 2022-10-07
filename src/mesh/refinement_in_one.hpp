@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <functional> // std::function
 #include <tuple>      // std::tuple
+#include <typeinfo>   // typeid
 #include <utility>    // std::forward
 #include <vector>
 
@@ -122,12 +123,25 @@ using Prolongator_t = std::function<void(const cell_centered_bvars::BufferCache_
 using ProlongatorHost_t =
     std::function<void(const cell_centered_bvars::BufferCacheHost_t &, const IndexShape &,
                        const IndexShape &)>;
+
+// Container struct owning refinement functions/closures.
+// this container needs to be uniquely hashable, and always the same
+// given a registered set of Op functors. To handle this, we store a
+// function of the type_ids of the registered ProlongationOp and
+// RestrictionOp.
 struct RefinementFunctions_t {
   RefinementFunctions_t() = default;
+  RefinementFunctions_t(const std::string &label) : label_(label) {}
 
   template <template <int> class ProlongationOp, template <int> class RestrictionOp>
   static RefinementFunctions_t RegisterOps() {
-    RefinementFunctions_t funcs;
+    // We use the specialization to dim = 1 for this, but any int
+    // specialization will do.
+    const std::string label = std::string(typeid(ProlongationOp<1>).name()) +
+                              std::string(" and ") +
+                              std::string(typeid(RestrictionOp<1>).name());
+
+    RefinementFunctions_t funcs(label);
     funcs.restrictor = [](const cell_centered_bvars::BufferCache_t &info,
                           const cell_centered_bvars::BufferCacheHost_t &info_h,
                           const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
@@ -150,12 +164,28 @@ struct RefinementFunctions_t {
     };
     return funcs;
   }
+  std::string label() const { return label_; }
+  bool operator==(const RefinementFunctions_t &other) const {
+    return (label() == other.label());
+  }
 
   Restrictor_t restrictor;
   RestrictorHost_t restrictor_host;
   BoundaryRestrictor_t boundary_restrictor;
   Prolongator_t prolongator;
   ProlongatorHost_t prolongator_host;
+
+ private:
+  // TODO(JMM): This could be a type_info::hash instead of a string,
+  // which might be a little bit more memory efficient, but I think
+  // using the label might be useful for debugging and it's also
+  // easier to concatenate.
+  std::string label_;
+};
+struct RefinementFunctionsHasher {
+  auto operator()(const RefinementFunctions_t &f) const {
+    return std::hash<std::string>{}(f.label());
+  }
 };
 
 } // namespace refinement
