@@ -160,6 +160,9 @@ class StateDescriptor {
     auto vid_dense = VarID(base_name);
     if (metadataMap_.count(vid_dense) > 0) { // dense variable
       const auto &m = metadataMap_.at(vid_dense);
+      PARTHENON_REQUIRE_THROWS(m.Role() != Metadata::Requires,
+                               "Variable " + base_name +
+                                   "is required by not controlled by this package.");
       PARTHENON_REQUIRE_THROWS(
           m.IsRefined(),
           "Variable " + base_name +
@@ -173,6 +176,9 @@ class StateDescriptor {
           "Sparse pool " + base_name +
               " must be registered as refined with MetadataFlag::Independent, "
               "MetadataFlag::FillGhost, or MetadataFlag::RemeshComm");
+      PARTHENON_REQUIRE_THROWS(m.Role() != Metadata::Requires,
+                               "Variable " + base_name +
+                                   "is required by not controlled by this package.");
     } else {
       PARTHENON_THROW("Could not find variable " + base_name +
                       " you must add it to your package with AddField or AddSparsePool "
@@ -230,6 +236,7 @@ class StateDescriptor {
   const auto &AllSwarmValues(const std::string &swarm_name) const noexcept {
     return swarmValueMetadataMap_.at(swarm_name);
   }
+  // TODO(JMM): Is this what we want?
   const auto &VarToRefinementFuncMap() const noexcept {
     return vars_to_refinement_funcs_;
   }

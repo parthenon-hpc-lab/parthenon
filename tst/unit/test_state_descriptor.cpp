@@ -30,9 +30,12 @@
 #include "mesh/mesh_refinement_ops.hpp"
 #include "mesh/refinement_in_one.hpp"
 
+using parthenon::Coordinates_t;
+using parthenon::IndexRange;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::Packages_t;
+using parthenon::ParArray6D;
 using parthenon::Real;
 using parthenon::ResolvePackages;
 using parthenon::SparsePool;
@@ -40,8 +43,7 @@ using parthenon::StateDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
 
 // Some fake ops classes
-/*
-template<int DIM>
+template <int DIM>
 struct MyProlongOp {
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
@@ -52,7 +54,7 @@ struct MyProlongOp {
     return; // stub
   }
 };
-template<int DIM>
+template <int DIM>
 struct MyRestrictOp {
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
@@ -63,7 +65,6 @@ struct MyRestrictOp {
     return; // stub
   }
 };
-*/
 
 TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
   GIVEN("A Packages_t object and a few packages") {
@@ -318,12 +319,36 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       }
     }
 
-    /*
     WHEN("We register a dense variable with custom prolongation/restriction") {
       pkg1->AddField("dense", m_provides);
-      pkg1->RegisterProlongationOps<MyProlongOp,MyRestrictOp>("dense");
+      pkg1->AddField("also dense", m_provides);
+      pkg1->RegisterProlongationOps<MyProlongOp, MyRestrictOp>("dense");
+      WHEN("We register a sparse variable with custom prolongation/restriction") {
+        pkg2->AddSparsePool("sparse", m_sparse_provides, sparse_ids);
+        pkg2->AddSparsePool("also sparse", m_sparse_overridable, sparse_ids);
+        pkg2->RegisterProlongationOps<MyProlongOp, MyRestrictOp>("sparse");
+        THEN("We can perform dependency resolution") {
+          auto pkg3 = ResolvePackages(packages);
+          AND_THEN("All vars with relevant flags have refinement funcs") {
+            REQUIRE(pkg3->VarHasRefinementFuncs("dense"));
+            REQUIRE(pkg3->VarHasRefinementFuncs("also dense"));
+            REQUIRE(pkg3->VarHasRefinementFuncs("sparse"));
+          }
+          AND_THEN("All vars without relevant flags do not have refinement funcs") {
+            REQUIRE(!(pkg3->VarHasRefinementFuncs("also sparse")));
+          }
+          AND_THEN("The prolongation/restriction functions are recorded correctly") {
+            const auto &r2v = pkg3->RefinementFuncToVarMap();
+            const auto my_funcs =
+                parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,
+                                                                          MyRestrictOp>();
+            REQUIRE((pkg3->RefinementFunc("dense")) == my_funcs);
+            REQUIRE(!((pkg3->RefinementFunc("also dense")) == my_funcs));
+            REQUIRE((pkg3->RefinementFunc("sparse")) == my_funcs);
+          }
+        }
+      }
     }
-    */
   }
 }
 
