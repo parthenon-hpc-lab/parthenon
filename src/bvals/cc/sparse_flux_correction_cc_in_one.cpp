@@ -185,46 +185,9 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
-  //[2*BoundaryType::flxcor_recv];
 
-  // Check for rebuild
-  bool rebuild = false;
-  int nbound = 0;
-
-  ForEachBoundary<BoundaryType::flxcor_recv>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        const std::size_t ibuf = cache.idx_vec[nbound];
-        auto &buf = *cache.buf_vec[ibuf];
-        if (ibuf < cache.bnd_info_h.size()) {
-          rebuild = rebuild ||
-                    !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
-          if ((buf.GetState() == BufferState::received) &&
-              !cache.bnd_info_h(ibuf).allocated) {
-            rebuild = true;
-          }
-          if ((buf.GetState() == BufferState::received_null) &&
-              cache.bnd_info_h(ibuf).allocated) {
-            rebuild = true;
-          }
-        } else {
-          rebuild = true;
-        }
-        ++nbound;
-      });
-
-  if (rebuild) {
-    cache.bnd_info = BufferCache_t("fluxcor_info", nbound);
-    cache.bnd_info_h = Kokkos::create_mirror_view(cache.bnd_info);
-    int iarr = 0;
-    ForEachBoundary<BoundaryType::flxcor_recv>(
-        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-          const std::size_t ibuf = cache.idx_vec[iarr];
-          cache.bnd_info_h(ibuf) = BndInfo::GetSetCCFluxCor(pmb, nb, v, 
-                                                                 cache.buf_vec[ibuf]);
-          ++iarr;
-        });
-    Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
-  }
+  auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<BoundaryType::flxcor_recv, false>(md);
+  if (rebuild) RebuildBufferCache<BoundaryType::flxcor_recv, false>(md, nbound, BndInfo::GetSetCCFluxCor);
 
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(

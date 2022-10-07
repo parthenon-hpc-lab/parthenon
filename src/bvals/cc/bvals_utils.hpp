@@ -206,6 +206,36 @@ inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
   return std::make_tuple(rebuild, nbound, other_communication_unfinished);
 }
 
+template <BoundaryType BOUND_TYPE, bool SENDER> 
+inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
+  BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
+  
+  bool rebuild = false;
+  int nbound = 0;
+
+  ForEachBoundary<BoundaryType::flxcor_recv>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        const std::size_t ibuf = cache.idx_vec[nbound];
+        auto &buf = *cache.buf_vec[ibuf];
+        if (ibuf < cache.bnd_info_h.size()) {
+          rebuild = rebuild ||
+                    !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
+          if ((buf.GetState() == BufferState::received) &&
+              !cache.bnd_info_h(ibuf).allocated) {
+            rebuild = true;
+          }
+          if ((buf.GetState() == BufferState::received_null) &&
+              cache.bnd_info_h(ibuf).allocated) {
+            rebuild = true;
+          }
+        } else {
+          rebuild = true;
+        }
+        ++nbound;
+      });
+  return std::make_tuple(rebuild, nbound);
+}
+
 using F_BND_INFO = std::function<BndInfo(std::shared_ptr<MeshBlock> pmb, 
                               const NeighborBlock &nb,
                                std::shared_ptr<CellVariable<Real>> v, 
