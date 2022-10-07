@@ -86,6 +86,13 @@ struct v5 : public parthenon::variable_names::base_t<false> {
   static std::string name() { return "v5"; }
 };
 
+struct vv : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION vv(Ts &&... args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "vv"; }
+};
+
 } // namespace
 
 TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
@@ -262,9 +269,6 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
     Metadata vvreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{3, 3});
     pkg->AddSwarmValue("vv", swarm_name, vvreal_swarmvalue_metadata);
 
-    // pkg->AddField(v1::name(), m);
-    // pkg->AddField(v3::name(), m_vector);
-    // pkg->AddField(v5::name(), m);
     // Boilerplate (maybe temporary) to allow swarm BCs to be set so they can be allocated
     using std::endl;
     std::stringstream is;
@@ -283,15 +287,11 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
     auto app_in = std::make_shared<parthenon::ApplicationInput>();
     parthenon::Packages_t packages;
     auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
-    // mesh->Initialize(false, pin.get(), app_in.get());
-    printf("mesh ptr: %p\n", mesh.get());
     for (int i = 0; i < 6; i++) {
       mesh->mesh_bcs[i] = parthenon::BoundaryFlag::outflow;
     }
-    printf("%s:%i\n", __FILE__, __LINE__);
 
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM, mesh.get());
-    printf("%s:%i\n", __FILE__, __LINE__);
 
     // Add a varying number of particles to each block's swarm
     ParArray1D<int> max_active_indices("Max active indices", block_list.size());
@@ -315,8 +315,6 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
     mesh_data.SetMeshPointer(mesh.get());
 
 
-
-
     WHEN("We have a swarm on multiple meshblocks") {
       auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior);
       auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -330,6 +328,14 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
         parthenon::SwarmPack<> swarm_pack = std::get<0>(tup);
         auto pack_map = std::get<1>(tup);
         parthenon::PackIdx iv(pack_map["v"]);
+        parthenon::PackIdx ivv(pack_map["vv"]);
+
+        // Create a pack use type variables
+        auto swarm_type_pack = parthenon::SwarmPack<vv>::Get<MeshData<Real>, Real>(
+            &mesh_data, "my particles");
+
+
+
 
         // TODO(BRR) template on pattern
         parthenon::par_for_outer(
@@ -350,6 +356,12 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
                     printf("[%i %i] v lo: %i hi: %i\n", b, n, lo, hi);
                     swarm_pack(b, lo, n) = 5.;
                     printf("pack: %e var: %e\n", swarm_pack(b, lo, n), v_d(b)(lo, n));
+                    for (int i = 0; i < 3; i++) {
+                      for (int j = 0; j < 3; j++) {
+                      //  swarm_pack(b, ivv(i, j), n) = i + 3*j;
+                        swarm_type_pack(b, vv(i), n) = i + 3*j;
+                      }
+                    }
 
                   });
             });
@@ -418,7 +430,7 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
 
         // Make sure that we have only cached one pack, since these should be the
         // same base pack
-        REQUIRE(mesh_data.GetSwarmPackCache().size() == 1);
+        REQUIRE(mesh_data.GetSwarmPackCache().size() == 2);
 
         //        const int v = 1; // v3 is the second variable in the loop above so v = 1
         //        there int nwrong = 0; par_reduce(

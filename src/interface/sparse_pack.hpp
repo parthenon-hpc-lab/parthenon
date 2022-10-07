@@ -54,28 +54,88 @@ namespace parthenon {
 // into non-variable name type based SparsePacks (i.e. objects of
 // type SparsePack<> which are created with a vector of variable
 // names and/or regexes)
+template <unsigned int NMAX>
 class PackIdx {
  public:
   KOKKOS_INLINE_FUNCTION
-  explicit PackIdx(std::size_t var_idx) : vidx(var_idx), offset(0) {}
-  KOKKOS_INLINE_FUNCTION
-  PackIdx(std::size_t var_idx, int off) : vidx(var_idx), offset(off) {}
+  explicit PackIdx(int var_start_idx) : vidx(var_start_idx), offset(0) {}
+  //KOKKOS_INLINE_FUNCTION
+  //PackIdx(std::size_t var_idx, int off) : vidx(var_idx), offset(off) {}
+
+//  KOKKOS_INLINE_FUNCTION
+//  PackIdx &operator=(std::size_t var_idx) {
+//    vidx = var_idx;
+//    offset = 0;
+//    return *this;
+//  }
+
+  PackIdx(std::vector<int> shape, int var_start_idx) : vidx_(vidx), ndim_(shape.size() {
+    PARTHENON_REQUIRE_THROWS(shape.size() <= NMAX, "Requested rank too large");
+    for (int i = 0; i < shape.size(); ++i) {
+      shape_[i] = shape[i];
+    }
+  }
 
   KOKKOS_INLINE_FUNCTION
-  PackIdx &operator=(std::size_t var_idx) {
-    vidx = var_idx;
-    offset = 0;
-    return *this;
+  int DimSize(int iDim) const {
+    PARTHENON_DEBUG_REQUIRE(iDim <= ndim_, "Wrong number of dimensions.");
+    return shape_[iDim - 1];
+  }
+
+  IndexRange GetBounds(int iDim) const {
+    PARTHENON_REQUIRE_THROWS(iDim > ndim_"Dimension " + std::to_string(iDim) + " greater than rank " +
+      std::to_string(ndim_) + ".");
+    IndexRange rng;
+    rng.s = 0;
+    rng.e = shape_[iDim - 1] - 1;
+    return rng;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  bool IsValid() { return vidx_ >= 0; }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()() const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 0, "Wrong number of dimensions.");
+    return vidx_;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 1, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    return vidx_ + idx1;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1, const int idx2) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 2, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx2 < shape_[1], "Idx2 too large.");
+    return vidx_ + idx1 + shape_[0] * idx2;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1, const int idx2, const int idx3) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 3, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx2 < shape_[1], "Idx2 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx3 < shape_[2], "Idx3 too large.");
+    return vidx_ + idx1 + shape_[0] * (idx2 + shape_[1] * idx3);
   }
 
   KOKKOS_INLINE_FUNCTION
   std::size_t VariableIdx() { return vidx; }
-  KOKKOS_INLINE_FUNCTION
-  int Offset() { return offset; }
+//  KOKKOS_INLINE_FUNCTION
+//  int Offset() { return offset; }
+
+
 
  private:
-  std::size_t vidx;
-  int offset;
+  int vidx_;
+  int shape_[NMAX];
+  int ndim_;
+  //int offset;
 };
 
 // Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work
@@ -131,19 +191,20 @@ struct any : public base_t<true> {
 
 template <class... Ts>
 class SwarmPack : public SwarmPackBase<> {
-  public:
-    SwarmPack() = default;
+ public:
+  SwarmPack() = default;
 
   explicit SwarmPack(const SwarmPackBase<> &spb) : SwarmPackBase<>(spb) {}
 
   template <class MBD, class T>
   static SwarmPack Get(MBD *pmd, const std::string &swarm_name) {
-    const impl::SwarmPackDescriptor desc(swarm_name, std::vector<std::string>{Ts::name()...});
+    const impl::SwarmPackDescriptor desc(swarm_name,
+                                         std::vector<std::string>{Ts::name()...});
     return SwarmPack(GetPack<MBD, T>(pmd, desc));
   }
 
   template <class MBD, class T>
-  //static SparsePackBase<1> GetPack(MBD *pmd, const impl::SwarmPackDescriptor &desc) {
+  // static SparsePackBase<1> GetPack(MBD *pmd, const impl::SwarmPackDescriptor &desc) {
   static SwarmPackBase<> GetPack(MBD *pmd, const impl::SwarmPackDescriptor &desc) {
     printf("%s:%i\n", __FILE__, __LINE__);
     return Get<MBD, T>(pmd, desc);
@@ -164,11 +225,11 @@ class SwarmPack : public SwarmPackBase<> {
 
   template <class T>
   static SwarmPackBase<> BuildAndAdd(T *pmd, const SwarmPackDescriptor &desc,
-                                    const std::string &ident) {
+                                     const std::string &ident) {
     printf("%s:%i\n", __FILE__, __LINE__);
     auto &pack_map = pmd->GetSwarmPackCache().pack_map;
     printf("%s:%i\n", __FILE__, __LINE__);
-    //pack_map[ident] = {Build(pmd, desc), GetAllocStatus(pmd, desc)};
+    // pack_map[ident] = {Build(pmd, desc), GetAllocStatus(pmd, desc)};
     // TODO(BRR) hack
     pack_map[ident] = {Build(pmd, desc), alloc_t()};
     return pack_map[ident].first;
@@ -178,7 +239,7 @@ class SwarmPack : public SwarmPackBase<> {
   // deep copy the view of views to device) from the variables specified in desc contained
   // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
   template <class T>
-  static SparsePackBase<1> Build(T *pmd, const SwarmPackDescriptor &desc) {
+  static SwarmPackBase<> Build(T *pmd, const SwarmPackDescriptor &desc) {
     using mbd_t = MeshBlockData<Real>;
     int nvar = desc.vars.size();
 
@@ -189,6 +250,7 @@ class SwarmPack : public SwarmPackBase<> {
     int max_size = 0;
     int nblocks = 0;
     int ndim = 3;
+    std::vector<int> vardims;
     ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
       int size = 0;
@@ -196,29 +258,41 @@ class SwarmPack : public SwarmPackBase<> {
       for (auto &pv : swarm->GetParticleVariableVector<Real>()) {
         for (int i = 0; i < nvar; ++i) {
           if (desc.IncludeVariable(i, pv)) {
-              size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4) * pv->GetDim(3) * pv->GetDim(2);
-              ndim = 1;
+            size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4) * pv->GetDim(3) *
+                    pv->GetDim(2);
+            ndim = 1;
+            int vardim = (pv->GetDim(6) > 1 ? 1 : 0) + (pv->GetDim(5) > 1 ? 1 : 0) +
+                         (pv->GetDim(4) > 1 ? 1 : 0) + (pv->GetDim(3) > 1 ? 1 : 0) +
+                         (pv->GetDim(2) > 1 ? 1 : 0);
+            vardims.push_back(vardim);
           }
         }
       }
       max_size = std::max(size, max_size);
     });
     pack.nblocks_ = nblocks;
+    int maxvardim = *max_element(vardims.begin(), vardims.end());
+    printf("maxvardim: %i\n", maxvardim);
 
     // Allocate the views
     int leading_dim = 1;
-    //if (desc.with_fluxes) leading_dim += 3;
+    // if (desc.with_fluxes) leading_dim += 3;
     pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
     auto pack_h = Kokkos::create_mirror_view(pack.pack_);
     printf("%s:%i\n", __FILE__, __LINE__);
 
-    pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar);
+    // bounds size is [lo, hi] + [var ndim] + [dimensions]
+    int bounds_leading_size = 2 + 1 + maxvardim;
+    pack.bounds_ = bounds_t("bounds", bounds_leading_size, nblocks, nvar);
+    // [lo, hi, ndim, [sizes]]
     auto bounds_h = Kokkos::create_mirror_view(pack.bounds_);
     printf("%s:%i\n", __FILE__, __LINE__);
 
     pack.coords_ = coords_t("coords", nblocks);
     auto coords_h = Kokkos::create_mirror_view(pack.coords_);
     printf("%s:%i\n", __FILE__, __LINE__);
+
+    // TODO(BRR) swarm_device_contexts_
 
     // Fill the views
     ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
@@ -229,7 +303,7 @@ class SwarmPack : public SwarmPackBase<> {
       for (int i = 0; i < nvar; ++i) {
         bounds_h(0, b, i) = idx;
 
-        //for (auto &pv : pmbd->GetCellVariableVector()) {
+        // for (auto &pv : pmbd->GetCellVariableVector()) {
         for (auto &pv : swarm->GetParticleVariableVector<Real>()) {
           if (desc.IncludeVariable(i, pv)) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
@@ -247,6 +321,13 @@ class SwarmPack : public SwarmPackBase<> {
                 }
               }
             }
+            bounds_h(2, b, i) = (pv->GetDim(6) > 1 ? 1 : 0) +
+                                (pv->GetDim(5) > 1 ? 1 : 0) +
+                                (pv->GetDim(4) > 1 ? 1 : 0) +
+                                (pv->GetDim(3) > 1 ? 1 : 0) + (pv->GetDim(2) > 1 ? 1 : 0);
+            for (int d = 0; d < bounds_h(2, b, i); d++) {
+              bounds_h(3 + d, b, i) = pv->GetDim(2 + d);
+            }
           }
         }
 
@@ -261,51 +342,6 @@ class SwarmPack : public SwarmPackBase<> {
       }
     });
 
-//                    if (pack.coarse_) {
-//                      pack_h(0, b, idx) = pv->coarse_s.Get(t, u, v);
-//                    } else {
-//                      pack_h(0, b, idx) = pv->data.Get(t, u, v);
-//                    }
-//                    PARTHENON_REQUIRE(
-//                        pack_h(0, b, idx).size() > 0,
-//                        "Seems like this variable might not actually be allocated.");
-//                    if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
-//                      pack_h(1, b, idx) = pv->flux[1].Get(t, u, v);
-//                      PARTHENON_REQUIRE(pack_h(1, b, idx).size() ==
-//                                            pack_h(0, b, idx).size(),
-//                                        "Different size fluxes.");
-//                      if (ndim > 1) {
-//                        pack_h(2, b, idx) = pv->flux[2].Get(t, u, v);
-//                        PARTHENON_REQUIRE(pack_h(2, b, idx).size() ==
-//                                              pack_h(0, b, idx).size(),
-//                                          "Different size fluxes.");
-//                      }
-//                      if (ndim > 2) {
-//                        pack_h(3, b, idx) = pv->flux[3].Get(t, u, v);
-//                        PARTHENON_REQUIRE(pack_h(3, b, idx).size() ==
-//                                              pack_h(0, b, idx).size(),
-//                                          "Different size fluxes.");
-//                      }
-//                    }
-//                    idx++;
-//                  }
-//                }
-//              }
-//            }
-//          }
-//        }
-//
-//        bounds_h(1, b, i) = idx - 1;
-//
-//        if (bounds_h(1, b, i) < bounds_h(0, b, i)) {
-//          // Did not find any allocated variables meeting our criteria
-//          bounds_h(0, b, i) = -1;
-//          // Make the upper bound more negative so a for loop won't iterate once
-//          bounds_h(1, b, i) = -2;
-//        }
-//      }
-//    });
-
     Kokkos::deep_copy(pack.pack_, pack_h);
     Kokkos::deep_copy(pack.bounds_, bounds_h);
     Kokkos::deep_copy(pack.coords_, coords_h);
@@ -313,21 +349,15 @@ class SwarmPack : public SwarmPackBase<> {
     pack.dims_[1] = pack.nblocks_;
     pack.dims_[2] = -1; // Not allowed to ask for the ragged dimension anyway
     pack.dims_[3] = pack_h(0, 0, 0).extent_int(0);
-    //pack.dims_[4] = pack_h(0, 0, 0).extent_int(2);
-    //pack.dims_[5] = pack_h(0, 0, 0).extent_int(3);
 
     return pack;
   }
 
   // template <class T>
   static std::string GetIdentifier(const SwarmPackDescriptor &desc) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     std::string identifier("");
-//    for (const auto &flag : desc.flags)
-//      identifier += flag.Name();
-//    identifier += "____";
     for (int i = 0; i < desc.vars.size(); ++i)
-      identifier += desc.vars[i];// + std::to_string(desc.use_regex[i]);
+      identifier += desc.vars[i]; // + std::to_string(desc.use_regex[i]);
     identifier += "____swarmname:";
     identifier += desc.swarm_name;
     return identifier;
@@ -335,8 +365,9 @@ class SwarmPack : public SwarmPackBase<> {
 
   // Get a list of booleans of the allocation status of every variable in pmd matching the
   // PackDescriptor desc
-  //template <class T>
-  //static SwarmPackBase<>::alloc_t GetAllocStatus(T *pmd, const SwarmPackDescriptor &desc) {
+  // template <class T>
+  // static SwarmPackBase<>::alloc_t GetAllocStatus(T *pmd, const SwarmPackDescriptor
+  // &desc) {
   //  using mbd_t = MeshBlockData<Real>;
 
   //  int nvar = desc.vars.size();
@@ -370,7 +401,10 @@ class SwarmPack : public SwarmPackBase<> {
     printf("%s:%i\n", __FILE__, __LINE__);
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     impl::SwarmPackDescriptor desc(swarm_name, vars);
-    return {SwarmPack(GetPack<MBD, T>(pmd, desc)), SwarmPackBase<>::GetIdxMap(desc)};
+    // TODO(BRR) Have GetIdxMap just update SwarmPackBase's internal variable?
+    pack_map_ = SwarmPackBase<>::GetIdxMap(desc);
+    //return {SwarmPack(GetPack<MBD, T>(pmd, desc)), SwarmPackBase<>::GetIdxMap(desc)};
+    return SwarmPack(GetPack<MBD, T>(pmd, desc));
   }
 
   // Bound overloads
@@ -424,9 +458,8 @@ class SwarmPack : public SwarmPackBase<> {
     return pack_(0, b, vidx)(n);
   }
 
-  private:
+ private:
   using swarm_device_context_t = ParArray1D<ParArray0D<SwarmDeviceContext>>;
-
 };
 
 template <class... Ts>
@@ -503,6 +536,7 @@ class SparsePack : public SparsePackBase<> {
     int max_size = 0;
     int nblocks = 0;
     int ndim = 3;
+    std::vector<int> vardims;
     ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
       int size = 0;
       nblocks++;
@@ -513,6 +547,9 @@ class SparsePack : public SparsePackBase<> {
               size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
               ndim = (pv->GetDim(1) > 1 ? 1 : 0) + (pv->GetDim(2) > 1 ? 1 : 0) +
                      (pv->GetDim(3) > 1 ? 1 : 0);
+              int vardim = (pv->GetDim(6) > 1 ? 1 : 0) + (pv->GetDim(5) > 1 ? 1 : 0) +
+                           (pv->GetDim(4) > 1 ? 1 : 0);
+              vardims.push_back(vardim);
             }
           }
         }
@@ -520,6 +557,8 @@ class SparsePack : public SparsePackBase<> {
       max_size = std::max(size, max_size);
     });
     pack.nblocks_ = nblocks;
+    int maxvardim = *max_element(vardims.begin(), vardims.end());
+    printf("maxvardim: %i\n", maxvardim);
 
     // Allocate the views
     int leading_dim = 1;

@@ -33,8 +33,105 @@
 namespace parthenon {
 class SparsePackCache;
 
+template <unsigned int NMAX>
+class PackIdx {
+ public:
+  KOKKOS_INLINE_FUNCTION
+  explicit PackIdx(int var_start_idx) : vidx(var_start_idx), offset(0) {}
+  //KOKKOS_INLINE_FUNCTION
+  //PackIdx(std::size_t var_idx, int off) : vidx(var_idx), offset(off) {}
+
+//  KOKKOS_INLINE_FUNCTION
+//  PackIdx &operator=(std::size_t var_idx) {
+//    vidx = var_idx;
+//    offset = 0;
+//    return *this;
+//  }
+
+  PackIdx(std::vector<int> shape, int var_start_idx) : vidx_(vidx), ndim_(shape.size() {
+    PARTHENON_REQUIRE_THROWS(shape.size() <= NMAX, "Requested rank too large");
+    for (int i = 0; i < shape.size(); ++i) {
+      shape_[i] = shape[i];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  int DimSize(int iDim) const {
+    PARTHENON_DEBUG_REQUIRE(iDim <= ndim_, "Wrong number of dimensions.");
+    return shape_[iDim - 1];
+  }
+
+  IndexRange GetBounds(int iDim) const {
+    PARTHENON_REQUIRE_THROWS(iDim > ndim_"Dimension " + std::to_string(iDim) + " greater than rank " +
+      std::to_string(ndim_) + ".");
+    IndexRange rng;
+    rng.s = 0;
+    rng.e = shape_[iDim - 1] - 1;
+    return rng;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  bool IsValid() { return vidx_ >= 0; }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()() const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 0, "Wrong number of dimensions.");
+    return vidx_;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 1, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    return vidx_ + idx1;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1, const int idx2) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 2, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx2 < shape_[1], "Idx2 too large.");
+    return vidx_ + idx1 + shape_[0] * idx2;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1, const int idx2, const int idx3) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 3, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx2 < shape_[1], "Idx2 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx3 < shape_[2], "Idx3 too large.");
+    return vidx_ + idx1 + shape_[0] * (idx2 + shape_[1] * idx3);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  std::size_t VariableIdx() { return vidx; }
+//  KOKKOS_INLINE_FUNCTION
+//  int Offset() { return offset; }
+
+
+
+ private:
+  int vidx_;
+  int shape_[NMAX];
+  int ndim_;
+  //int offset;
+};
+
 // Map for going from variable names to sparse pack variable indices
 using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
+//class SparsePackIdxMap {
+// public:
+//  SparsePackIdxMap() = default;
+//
+//  const auto &Map() const { return map_; }
+//
+//  const PackIdx &operator[](const std::string &key) const {
+//    //static const PackIdx invalid_indices(-2
+//  }
+//
+// private:
+//  std::unordered_map<std::string, std::size_t> map_;
+//};
 
 namespace impl {
 struct PackDescriptor {
@@ -182,6 +279,9 @@ class SparsePackBase {
   int ndim_;
   int dims_[6];
   int nvar_;
+
+  // Unused for compile-time version
+  SparsePackIdxMap pack_map_;
 };
 
 template <typename T = Real>
