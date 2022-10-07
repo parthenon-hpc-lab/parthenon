@@ -305,11 +305,18 @@ class phdf:
         yo = [self.offset[1], self.MeshBlockSize[1] - self.offset[1]]
         zo = [self.offset[2], self.MeshBlockSize[2] - self.offset[2]]
 
-        self.BlockIdx = np.reshape(np.array(np.meshgrid(zRange, yRange, xRange)).transpose(1,2,3,0),
-                                   (self.MeshBlockSize[0]*self.MeshBlockSize[1]*self.MeshBlockSize[2], 3))
-        self.isGhost = (zo[0] > self.BlockIdx[:, 0]) | (self.BlockIdx[:, 0] >= zo[1]) | \
-                       (yo[0] > self.BlockIdx[:, 1]) | (self.BlockIdx[:, 1] >= yo[1]) | \
-                       (xo[0] > self.BlockIdx[:, 2]) | (self.BlockIdx[:, 2] >= xo[1])
+        self.BlockIdx = np.reshape(
+            np.array(np.meshgrid(zRange, yRange, xRange)).transpose(1, 2, 3, 0),
+            (self.MeshBlockSize[0] * self.MeshBlockSize[1] * self.MeshBlockSize[2], 3),
+        )
+        self.isGhost = (
+            (zo[0] > self.BlockIdx[:, 0])
+            | (self.BlockIdx[:, 0] >= zo[1])
+            | (yo[0] > self.BlockIdx[:, 1])
+            | (self.BlockIdx[:, 1] >= yo[1])
+            | (xo[0] > self.BlockIdx[:, 2])
+            | (self.BlockIdx[:, 2] >= xo[1])
+        )
 
     def ToLocation(self, index):
         """
