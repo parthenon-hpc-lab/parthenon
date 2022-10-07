@@ -43,27 +43,27 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_LoadAndSendFluxCorrections");
 
   Mesh *pmesh = md->GetMeshPointer();
-  auto &cache = md->GetBvarsCache()[BoundaryType::flxcor_send];
+  auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_send, true);
   const int ndim = pmesh->ndim;
 
-  if (cache.send_buf_vec.size() == 0) {
+  if (cache.buf_vec.size() == 0) {
     BuildBufferCache<BoundaryType::flxcor_send>(md, &(pmesh->boundary_comm_flxcor_map), 
-                                 &(cache.send_buf_vec), &(cache.send_idx_vec), SendKey);
-    const int nbound = cache.send_buf_vec.size();
+                                 &(cache.buf_vec), &(cache.idx_vec), SendKey);
+    const int nbound = cache.buf_vec.size();
     if (nbound > 0) {
       cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
       cache.sending_non_zero_flags_h =
           Kokkos::create_mirror_view(cache.sending_non_zero_flags);
     }
   } else {
-    PARTHENON_REQUIRE(cache.send_buf_vec.size() == cache.sending_non_zero_flags.size(),
+    PARTHENON_REQUIRE(cache.buf_vec.size() == cache.sending_non_zero_flags.size(),
                       "Flag arrays incorrectly allocated.");
-    PARTHENON_REQUIRE(cache.send_buf_vec.size() == cache.sending_non_zero_flags_h.size(),
+    PARTHENON_REQUIRE(cache.buf_vec.size() == cache.sending_non_zero_flags_h.size(),
                       "Flag arrays incorrectly allocated.");
   }
 
   auto [rebuild, nbound, other_communication_unfinished] = 
-      CheckSendBufferCacheForRebuild<BoundaryType::flxcor_send>(md);
+      CheckSendBufferCacheForRebuild<BoundaryType::flxcor_send, true>(md);
 
   if (nbound == 0) {
     Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
@@ -75,9 +75,9 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     return TaskStatus::incomplete;
   }
 
-  if (rebuild) RebuildBufferCache<BoundaryType::flxcor_send>(md, nbound, BndInfo::GetSendCCFluxCor);
+  if (rebuild) RebuildBufferCache<BoundaryType::flxcor_send, true>(md, nbound, BndInfo::GetSendCCFluxCor);
   
-  auto &bnd_info = cache.send_bnd_info;
+  auto &bnd_info = cache.bnd_info;
   PARTHENON_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   printf("nbound: %i\n", nbound);
   Kokkos::parallel_for(
@@ -140,7 +140,7 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::fence();
 #endif
   // Calling Send will send null if the underlying buffer is unallocated
-  for (auto& buf : cache.send_buf_vec) buf->Send();
+  for (auto& buf : cache.buf_vec) buf->Send();
   Kokkos::Profiling::popRegion(); // Task_SetFluxCorrections
   return TaskStatus::complete;
 }
@@ -148,12 +148,12 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrections");
   Mesh *pmesh = md->GetMeshPointer();
-  auto &cache = md->GetBvarsCache()[BoundaryType::flxcor_recv];
-  if (cache.recv_buf_vec.size() == 0)
+  auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
+  if (cache.buf_vec.size() == 0)
     BuildBufferCache<BoundaryType::flxcor_recv>(md, &(pmesh->boundary_comm_flxcor_map), 
-                                 &(cache.recv_buf_vec), &(cache.recv_idx_vec), ReceiveKey);
+                                 &(cache.buf_vec), &(cache.idx_vec), ReceiveKey);
 
-  std::for_each(std::begin(cache.recv_buf_vec), std::end(cache.recv_buf_vec),
+  std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
 
   Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrections
@@ -164,14 +164,14 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrections");
   
   Mesh *pmesh = md->GetMeshPointer();
-  auto &cache = md->GetBvarsCache()[BoundaryType::flxcor_recv];
-  if (cache.recv_buf_vec.size() == 0)
+  auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
+  if (cache.buf_vec.size() == 0)
     BuildBufferCache<BoundaryType::flxcor_recv>(md, &(pmesh->boundary_comm_flxcor_map), 
-                                 &(cache.recv_buf_vec), &(cache.recv_idx_vec), ReceiveKey);
+                                 &(cache.buf_vec), &(cache.idx_vec), ReceiveKey);
 
   bool all_received = true;
   std::for_each(
-      std::begin(cache.recv_buf_vec), std::end(cache.recv_buf_vec),
+      std::begin(cache.buf_vec), std::end(cache.buf_vec),
       [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
 
   Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrections
@@ -184,7 +184,8 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetFluxCorrections");
   
   Mesh *pmesh = md->GetMeshPointer();
-  auto &cache = md->GetBvarsCache()[BoundaryType::flxcor_recv];
+  auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
+  //[2*BoundaryType::flxcor_recv];
 
   // Check for rebuild
   bool rebuild = false;
@@ -192,17 +193,17 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
   ForEachBoundary<BoundaryType::flxcor_recv>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        const std::size_t ibuf = cache.recv_idx_vec[nbound];
-        auto &buf = *cache.recv_buf_vec[ibuf];
-        if (ibuf < cache.recv_bnd_info_h.size()) {
+        const std::size_t ibuf = cache.idx_vec[nbound];
+        auto &buf = *cache.buf_vec[ibuf];
+        if (ibuf < cache.bnd_info_h.size()) {
           rebuild = rebuild ||
-                    !UsingSameResource(cache.recv_bnd_info_h(ibuf).buf, buf.buffer());
+                    !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
           if ((buf.GetState() == BufferState::received) &&
-              !cache.recv_bnd_info_h(ibuf).allocated) {
+              !cache.bnd_info_h(ibuf).allocated) {
             rebuild = true;
           }
           if ((buf.GetState() == BufferState::received_null) &&
-              cache.recv_bnd_info_h(ibuf).allocated) {
+              cache.bnd_info_h(ibuf).allocated) {
             rebuild = true;
           }
         } else {
@@ -212,20 +213,20 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
       });
 
   if (rebuild) {
-    cache.recv_bnd_info = BufferCache_t("recv_fluxcor_info", nbound);
-    cache.recv_bnd_info_h = Kokkos::create_mirror_view(cache.recv_bnd_info);
+    cache.bnd_info = BufferCache_t("fluxcor_info", nbound);
+    cache.bnd_info_h = Kokkos::create_mirror_view(cache.bnd_info);
     int iarr = 0;
     ForEachBoundary<BoundaryType::flxcor_recv>(
         md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-          const std::size_t ibuf = cache.recv_idx_vec[iarr];
-          cache.recv_bnd_info_h(ibuf) = BndInfo::GetSetCCFluxCor(pmb, nb, v, 
-                                                                 cache.recv_buf_vec[ibuf]);
+          const std::size_t ibuf = cache.idx_vec[iarr];
+          cache.bnd_info_h(ibuf) = BndInfo::GetSetCCFluxCor(pmb, nb, v, 
+                                                                 cache.buf_vec[ibuf]);
           ++iarr;
         });
-    Kokkos::deep_copy(cache.recv_bnd_info, cache.recv_bnd_info_h);
+    Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
   }
 
-  auto &bnd_info = cache.recv_bnd_info;
+  auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
       "SetFluxCorBuffers",
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
@@ -261,7 +262,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 #ifdef MPI_PARALLEL
   Kokkos::fence();
 #endif
-  std::for_each(std::begin(cache.recv_buf_vec), std::end(cache.recv_buf_vec),
+  std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                [](auto pbuf) { pbuf->Stale(); });
 
   Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries

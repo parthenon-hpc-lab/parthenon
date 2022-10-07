@@ -175,17 +175,17 @@ void BuildBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_map,
   });
 }
 
-template <BoundaryType BOUND_TYPE> 
+template <BoundaryType BOUND_TYPE, bool SENDER> 
 inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
-  BvarsSubCache_t &cache = md->GetBvarsCache()[BOUND_TYPE];
+  BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
 
   bool rebuild = false;
   bool other_communication_unfinished = false;
   int nbound = 0;
   ForEachBoundary<BOUND_TYPE>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        const std::size_t ibuf = cache.send_idx_vec[nbound];
-        auto &buf = *(cache.send_buf_vec[ibuf]);
+        const std::size_t ibuf = cache.idx_vec[nbound];
+        auto &buf = *(cache.buf_vec[ibuf]);
 
         if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
 
@@ -195,9 +195,9 @@ inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
           buf.Free();
         }
 
-        if (ibuf < cache.send_bnd_info_h.size()) {
+        if (ibuf < cache.bnd_info_h.size()) {
           rebuild = rebuild ||
-                    !UsingSameResource(cache.send_bnd_info_h(ibuf).buf, buf.buffer());
+                    !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
         } else {
           rebuild = true;
         }
@@ -211,23 +211,23 @@ using F_BND_INFO = std::function<BndInfo(std::shared_ptr<MeshBlock> pmb,
                                std::shared_ptr<CellVariable<Real>> v, 
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf)>;
 
-template <BoundaryType BOUND_TYPE> 
+template <BoundaryType BOUND_TYPE, bool SENDER> 
 inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, 
                                int nbound,
                                F_BND_INFO BndInfoCreator) {
-  BvarsSubCache_t &cache = md->GetBvarsCache()[BOUND_TYPE];
-  cache.send_bnd_info = BufferCache_t("send_info", nbound);
-  cache.send_bnd_info_h = Kokkos::create_mirror_view(cache.send_bnd_info);
+  BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);                               
+  cache.bnd_info = BufferCache_t("send_info", nbound);
+  cache.bnd_info_h = Kokkos::create_mirror_view(cache.bnd_info);
 
   int ibound = 0;
   ForEachBoundary<BOUND_TYPE>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        const std::size_t ibuf = cache.send_idx_vec[ibound];
-        cache.send_bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v,
-            cache.send_buf_vec[ibuf]);
+        const std::size_t ibuf = cache.idx_vec[ibound];
+        cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v,
+            cache.buf_vec[ibuf]);
         ++ibound;
       });
-  Kokkos::deep_copy(cache.send_bnd_info, cache.send_bnd_info_h);
+  Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
 }
 
 } // namespace impl
