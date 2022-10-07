@@ -53,12 +53,6 @@ class MeshRefinement {
   void RestrictCellCenteredValues(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
                                   int sn, int en, int csi, int cei, int csj, int cej,
                                   int csk, int cek);
-  void RestrictFieldX1(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
-                       int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX2(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
-                       int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX3(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
-                       int cei, int csj, int cej, int csk, int cek);
   void ProlongateCellCenteredValues(const ParArrayND<Real> &coarse,
                                     ParArrayND<Real> &fine, int sn, int en, int si,
                                     int ei, int sj, int ej, int sk, int ek);
