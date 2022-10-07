@@ -213,7 +213,7 @@ inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md
   bool rebuild = false;
   int nbound = 0;
 
-  ForEachBoundary<BoundaryType::flxcor_recv>(
+  ForEachBoundary<BOUND_TYPE>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
         const std::size_t ibuf = cache.idx_vec[nbound];
         auto &buf = *cache.buf_vec[ibuf];
