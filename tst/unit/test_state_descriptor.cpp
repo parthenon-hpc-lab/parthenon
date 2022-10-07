@@ -337,14 +337,51 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           AND_THEN("All vars without relevant flags do not have refinement funcs") {
             REQUIRE(!(pkg3->VarHasRefinementFuncs("also sparse")));
           }
-          AND_THEN("The prolongation/restriction functions are recorded correctly") {
-            const auto &r2v = pkg3->RefinementFuncToVarMap();
+          AND_THEN("The prolongation/restriction functions are recorded correctly in the "
+                   "forward map") {
             const auto my_funcs =
                 parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,
                                                                           MyRestrictOp>();
+            const auto cell_funcs =
+                parthenon::refinement::RefinementFunctions_t::RegisterOps<
+                    parthenon::refinement_ops::ProlongateCellMinMod,
+                    parthenon::refinement_ops::RestrictCellAverage>();
             REQUIRE((pkg3->RefinementFunc("dense")) == my_funcs);
-            REQUIRE(!((pkg3->RefinementFunc("also dense")) == my_funcs));
+            REQUIRE((pkg3->RefinementFunc("also dense")) == cell_funcs);
             REQUIRE((pkg3->RefinementFunc("sparse")) == my_funcs);
+            AND_THEN("The prolongation/restriction functions are recorded correclty in "
+                     "the reverse map") {
+              const auto &r2v = pkg3->RefinementFuncToVarMap();
+              int dense_count = 0;
+              int also_dense_count = 0;
+              int sparse_count = 0;
+              int also_sparse_count = 0;
+              for (const auto &pairs : r2v) {
+                const auto &funcs = pairs.first;
+                const auto &var_vec = pairs.second;
+                for (const auto &name : var_vec) {
+                  if (name == "dense") {
+                    REQUIRE(funcs == my_funcs);
+                    dense_count += 1;
+                  }
+                  if (name == "also dense") {
+                    REQUIRE(funcs == cell_funcs);
+                    also_dense_count += 1;
+                  }
+                  if (name == "sparse") {
+                    REQUIRE(funcs == my_funcs);
+                    sparse_count += 1;
+                  }
+                  if (name == "also sparse") {
+                    also_sparse_count += 1;
+                  }
+                }
+              }
+              REQUIRE(dense_count == 1);
+              REQUIRE(also_dense_count == 1);
+              REQUIRE(sparse_count == 1);
+              REQUIRE(also_sparse_count == 0);
+            }
           }
         }
       }
