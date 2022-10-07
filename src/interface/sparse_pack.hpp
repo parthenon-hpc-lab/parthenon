@@ -209,6 +209,7 @@ class SwarmPack : public SwarmPackBase<> {
           }
         }
       }
+      max_size = std::max(size, max_size);
     });
 //    ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
 //      int size = 0;
@@ -234,12 +235,15 @@ class SwarmPack : public SwarmPackBase<> {
     //if (desc.with_fluxes) leading_dim += 3;
     pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
     auto pack_h = Kokkos::create_mirror_view(pack.pack_);
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar);
     auto bounds_h = Kokkos::create_mirror_view(pack.bounds_);
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     pack.coords_ = coords_t("coords", nblocks);
     auto coords_h = Kokkos::create_mirror_view(pack.coords_);
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     // Fill the views
     ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
@@ -299,16 +303,19 @@ class SwarmPack : public SwarmPackBase<> {
 //        }
 //      }
     });
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     Kokkos::deep_copy(pack.pack_, pack_h);
     Kokkos::deep_copy(pack.bounds_, bounds_h);
     Kokkos::deep_copy(pack.coords_, coords_h);
+    printf("%s:%i\n", __FILE__, __LINE__);
     pack.ndim_ = ndim;
     pack.dims_[1] = pack.nblocks_;
     pack.dims_[2] = -1; // Not allowed to ask for the ragged dimension anyway
     pack.dims_[3] = pack_h(0, 0, 0).extent_int(0);
-    pack.dims_[4] = pack_h(0, 0, 0).extent_int(2);
-    pack.dims_[5] = pack_h(0, 0, 0).extent_int(3);
+    //pack.dims_[4] = pack_h(0, 0, 0).extent_int(2);
+    //pack.dims_[5] = pack_h(0, 0, 0).extent_int(3);
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     return pack;
   }

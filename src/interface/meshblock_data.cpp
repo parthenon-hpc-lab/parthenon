@@ -89,10 +89,12 @@ void MeshBlockData<T>::AddSwarm(const std::string &swarm_name, const Metadata &m
 
   printf("%s:%i\n", __FILE__, __LINE__);
   swarm->SetBlockPointer(pmy_block);
+  //swarm->AllocateBoundaries();
   printf("%s:%i\n", __FILE__, __LINE__);
-  swarm->AllocateBoundaries();
+  // Move these allocation calls to MeshBlock::Initialize()
+  //swarm->AllocateComms(pmy_block);
   printf("%s:%i\n", __FILE__, __LINE__);
-  swarm->AllocateComms(pmy_block);
+  //swarm->AllocateBoundaries();
   printf("%s:%i\n", __FILE__, __LINE__);
   swarmVector_.push_back(swarm);
   swarmMap_[swarm->label()] = swarm;

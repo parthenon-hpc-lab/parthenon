@@ -143,7 +143,7 @@ class SparsePackBase {
 
   using alloc_t = std::vector<bool>;
   using pack_t = typename std::tuple_element<
-      N, std::tuple<ParArray3D<ParArray3D<TYPE>>, ParArray5D<ParArray1D<TYPE>>>>::type;
+      N, std::tuple<ParArray3D<ParArray3D<TYPE>>, ParArray3D<ParArray1D<TYPE>>>>::type;
   // using pack_t = ParArray3D<ParArray3D<Real>>;
   using bounds_t = ParArray3D<int>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;

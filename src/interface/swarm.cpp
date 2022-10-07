@@ -1197,7 +1197,7 @@ void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
 
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();
   printf("%s:%i:%s\n", __FILE__, __LINE__, __FILE__);
-  printf("pmb: %i\n", pmb.get() == nullptr);
+  //printf("pmb: %i\n", pmb.get() == nullptr);
 
   // Create the boundary object
   vbswarm = std::make_shared<BoundarySwarm>(pmb, label_);

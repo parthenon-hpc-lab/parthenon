@@ -282,6 +282,8 @@ TEST_CASE("Test behavior of swarm packs", "[SwarmPack]") {
     auto app_in = std::make_shared<parthenon::ApplicationInput>();
     parthenon::Packages_t packages;
     auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
+    //mesh->Initialize(false, pin.get(), app_in.get());
+    printf("mesh ptr: %p\n", mesh.get());
     for (int i = 0; i < 6; i++) {
       mesh->mesh_bcs[i] = parthenon::BoundaryFlag::outflow;
     }

@@ -204,6 +204,10 @@ class MeshBlockData {
     return GetVariablesByFlag({}, false, sparse_ids);
   }
 
+  std::vector<std::shared_ptr<Swarm>> GetAllSwarms() {
+    return swarmVector_;
+  }
+
   std::shared_ptr<Swarm> GetSwarm(const std::string &name) {
     auto it = swarmMap_.find(name);
     PARTHENON_REQUIRE_THROWS(it != swarmMap_.end(),
