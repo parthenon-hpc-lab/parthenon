@@ -62,34 +62,9 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
                       "Flag arrays incorrectly allocated.");
   }
 
-  // Allocate channels sending from active data and then check to see if
-  // if buffers have changed
-  bool rebuild = false;
-  bool other_communication_unfinished = false;
-  int nbound = 0;
-  ForEachBoundary<BoundaryType::flxcor_send>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        const std::size_t ibuf = cache.send_idx_vec[nbound];
-        auto &buf = *(cache.send_buf_vec[ibuf]);
+  auto [rebuild, nbound, other_communication_unfinished] = 
+      CheckSendBufferCacheForRebuild<BoundaryType::flxcor_send>(md);
 
-        if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
-
-        if (v->IsAllocated()) {
-          buf.Allocate();
-        } else {
-          buf.Free();
-        }
-
-        if (ibuf < cache.send_bnd_info_h.size()) {
-          rebuild = rebuild ||
-                    !UsingSameResource(cache.send_bnd_info_h(ibuf).buf, buf.buffer());
-        } else {
-          rebuild = true;
-        }
-
-        ++nbound;
-      });
-  
   if (nbound == 0) {
     Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
     return TaskStatus::complete;
@@ -100,24 +75,7 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     return TaskStatus::incomplete;
   }
 
-  if (rebuild) {
-    cache.send_bnd_info = BufferCache_t("send_fluxcor_info", nbound);
-    cache.send_bnd_info_h = Kokkos::create_mirror_view(cache.send_bnd_info);
-
-    int ibound = 0;
-    ForEachBoundary<BoundaryType::flxcor_send>(
-        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-          const std::size_t ibuf = cache.send_idx_vec[ibound];
-          cache.send_bnd_info_h(ibuf).allocated = v->IsAllocated();
-          if (v->IsAllocated()) {
-            cache.send_bnd_info_h(ibuf) = BndInfo::GetSendCCFluxCor(pmb, nb, v);
-            auto &buf = *cache.send_buf_vec[ibuf];
-            cache.send_bnd_info_h(ibuf).buf = buf.buffer();
-          }
-          ++ibound;
-        });
-    Kokkos::deep_copy(cache.send_bnd_info, cache.send_bnd_info_h);
-  }
+  if (rebuild) RebuildBufferCache<BoundaryType::flxcor_send>(md, nbound, BndInfo::GetSendCCFluxCor);
   
   auto &bnd_info = cache.send_bnd_info;
   PARTHENON_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
@@ -260,15 +218,8 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     ForEachBoundary<BoundaryType::flxcor_recv>(
         md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
           const std::size_t ibuf = cache.recv_idx_vec[iarr];
-          auto &buf = *cache.recv_buf_vec[ibuf];
-          if (v->IsAllocated() && buf.GetState() == BufferState::received) {
-            // Only set if we are allocated and received corrections 
-            cache.recv_bnd_info_h(ibuf).allocated = true;
-            cache.recv_bnd_info_h(ibuf) = BndInfo::GetSetCCFluxCor(pmb, nb, v);
-          } else {
-            cache.recv_bnd_info_h(ibuf).allocated = false; 
-          }
-          cache.recv_bnd_info_h(ibuf).buf = buf.buffer();
+          cache.recv_bnd_info_h(ibuf) = BndInfo::GetSetCCFluxCor(pmb, nb, v, 
+                                                                 cache.recv_buf_vec[ibuf]);
           ++iarr;
         });
     Kokkos::deep_copy(cache.recv_bnd_info, cache.recv_bnd_info_h);

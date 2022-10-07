@@ -325,9 +325,16 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 }
 
 BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v) {
+                               std::shared_ptr<CellVariable<Real>> v, 
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
-  
+  out.allocated = v->IsAllocated(); 
+  if (!v->IsAllocated()) {
+    // Not going to actually do anything with this buffer
+    return out;
+  }
+  out.buf = buf->buffer();
+
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
@@ -377,9 +384,17 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
 
 
 BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v) {
+                               std::shared_ptr<CellVariable<Real>> v, 
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
-  
+
+  if (!v->IsAllocated() || buf->GetState() != BufferState::received) {
+    out.allocated = false; 
+    return out;
+  }
+  out.allocated = true;
+  out.buf = buf->buffer();
+
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
@@ -441,6 +456,7 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
   out.Nv = out.var.GetDim(4);
   out.Nu = out.var.GetDim(5);
   out.Nt = out.var.GetDim(6);
+
   out.coords = pmb->coords;
 
   return out; 
