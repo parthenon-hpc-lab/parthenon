@@ -250,8 +250,15 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
 }
 
 BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                std::shared_ptr<CellVariable<Real>> v) {
+                                std::shared_ptr<CellVariable<Real>> v, 
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
+
+  out.allocated = v->IsAllocated(); 
+  if (!out.allocated) return out;
+  
+  out.buf = buf->buffer();
+
   out.Nv = v->GetDim(4);
   out.Nu = v->GetDim(5);
   out.Nt = v->GetDim(6);
@@ -288,8 +295,19 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 }
 
 BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v) {
+                               std::shared_ptr<CellVariable<Real>> v, 
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
+  out.buf = buf->buffer();
+  if (buf->GetState() == BufferState::received) {
+    out.allocated = true;
+    PARTHENON_DEBUG_REQUIRE(v->IsAllocated(),
+                            "Variable must be allocated to receive");
+  } else if (buf->GetState() == BufferState::received_null) {
+    out.allocated = false;
+  } else {
+    PARTHENON_FAIL("Buffer should be in a received state.");
+  }
 
   out.Nv = v->GetDim(4);
   out.Nu = v->GetDim(5);

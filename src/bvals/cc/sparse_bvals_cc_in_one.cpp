@@ -175,12 +175,13 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     ForEachBoundary<bound_type>(
         md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
           const std::size_t ibuf = cache.idx_vec[ibound];
-          cache.bnd_info_h(ibuf).allocated = v->IsAllocated();
-          if (v->IsAllocated()) {
-            cache.bnd_info_h(ibuf) = BndInfo::GetSendBndInfo(pmb, nb, v);
-            auto &buf = *cache.buf_vec[ibuf];
-            cache.bnd_info_h(ibuf).buf = buf.buffer();
-          }
+          cache.bnd_info_h(ibuf) = BndInfo::GetSendBndInfo(pmb, nb, v, cache.buf_vec[ibuf]);
+          //cache.bnd_info_h(ibuf).allocated = v->IsAllocated();
+          //if (v->IsAllocated()) {
+          //  cache.bnd_info_h(ibuf) = BndInfo::GetSendBndInfo(pmb, nb, v);
+          //  auto &buf = *cache.buf_vec[ibuf];
+          //  cache.bnd_info_h(ibuf).buf = buf.buffer();
+          //}
           ++ibound;
         });
     Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
@@ -358,21 +359,22 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
     ForEachBoundary<bound_type>(
         md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
           const std::size_t ibuf = cache.idx_vec[iarr];
-          auto &buf = *cache.buf_vec[ibuf];
-          if (v->IsAllocated())
-            cache.bnd_info_h(ibuf) = BndInfo::GetSetBndInfo(pmb, nb, v);
-
-          cache.bnd_info_h(ibuf).buf = buf.buffer();
-          if (buf.GetState() == BufferState::received) {
-            cache.bnd_info_h(ibuf).allocated = true;
-            PARTHENON_DEBUG_REQUIRE(v->IsAllocated(),
-                                    "Variable must be allocated to receive");
-          } else if (buf.GetState() == BufferState::received_null) {
-            cache.bnd_info_h(ibuf).allocated = false;
-          } else {
-            PARTHENON_FAIL("Buffer should be in a received state.");
-          }
-
+          //auto &buf = *cache.buf_vec[ibuf];
+          cache.bnd_info_h(ibuf) = BndInfo::GetSetBndInfo(pmb, nb, v, cache.buf_vec[ibuf]);
+          //if (v->IsAllocated())
+//            cache.bnd_info_h(ibuf) = BndInfo::GetSetBndInfo(pmb, nb, v);
+//
+//          cache.bnd_info_h(ibuf).buf = buf.buffer();
+//          if (buf.GetState() == BufferState::received) {
+//            cache.bnd_info_h(ibuf).allocated = true;
+//            PARTHENON_DEBUG_REQUIRE(v->IsAllocated(),
+//                                    "Variable must be allocated to receive");
+//          } else if (buf.GetState() == BufferState::received_null) {
+//            cache.bnd_info_h(ibuf).allocated = false;
+//          } else {
+//            PARTHENON_FAIL("Buffer should be in a received state.");
+//          }
+//
           ++iarr;
         });
     Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
