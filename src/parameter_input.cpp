@@ -101,6 +101,11 @@ InputBlock::~InputBlock() {
   }
 }
 
+void toLower(std::string &name) {
+  std::transform(name.begin(), name.end(), name.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+}
+
 //----------------------------------------------------------------------------------------
 //! \fn  void ParameterInput::LoadFromStream(std::istream &is)
 //  \brief Load input parameters from a stream
@@ -146,6 +151,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       first_char++;
       last_char = (line.find_first_of(">", first_char));
       block_name.assign(line, first_char, last_char - 1); // extract block name
+      toLower(block_name);
 
       if (last_char == std::string::npos) {
         msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
@@ -191,6 +197,15 @@ void ParameterInput::LoadFromStream(std::istream &is) {
 
     if (!continuing) {
       if (param_name != "") {
+        if (DoesParameterExist(block_name, param_name)) {
+          msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]"
+              << std::endl
+              << "Block/parameter " << block_name << "/" << param_name
+              << " appears more than once in input" << std::endl
+              << "NOTE: input block and parameter names are NOT case sensitive"
+              << std::endl;
+          PARTHENON_THROW(msg.str());
+        }
         AddParameter(pib, param_name, param_value, param_comment);
       }
     }
@@ -252,6 +267,7 @@ InputBlock *ParameterInput::FindOrAddBlock(const std::string &name) {
   InputBlock *pib, *plast;
   plast = pfirst_block;
   pib = pfirst_block;
+  toLower(name);
 
   // Search singly linked list of InputBlocks to see if name exists, return if found.
   while (pib != nullptr) {
@@ -308,6 +324,8 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
     line.erase(0, len + 1);
   }
 
+  toLower(name);
+
   cont_char = line.find_first_of("&"); // find "&" continuation character
   // copy substring into value, remove white space at start and end
   len = cont_char;
@@ -344,6 +362,7 @@ void ParameterInput::AddParameter(InputBlock *pb, const std::string &name,
   InputLine *pl, *plast;
   // Search singly linked list of InputLines to see if name exists.  This also sets *plast
   // to point to the tail node (but not storing a pointer to the tail node in InputBlock)
+  toLower(name);
   pl = pb->pline;
   plast = pb->pline;
   while (pl != nullptr) {
@@ -447,6 +466,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
 
 InputBlock *ParameterInput::GetPtrToBlock(const std::string &name) {
   InputBlock *pb;
+  toLower(name);
   for (pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
     if (name.compare(pb->block_name) == 0) return pb;
   }
@@ -605,7 +625,7 @@ bool ParameterInput::GetBoolean(const std::string &block, const std::string &nam
   }
 
   // convert string to all lower case
-  std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+  toLower(val);
   // Convert string to bool and return value
   bool b;
   std::istringstream is(val);
@@ -726,7 +746,7 @@ bool ParameterInput::GetOrAddBoolean(const std::string &block, const std::string
     if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
       ret = static_cast<bool>(stoi(val));
     } else {
-      std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+      toLower(val);
       std::istringstream is(val);
       is >> std::boolalpha >> ret;
     }
@@ -983,6 +1003,7 @@ void ParameterInput::ParameterDump(std::ostream &os) {
 //  \brief return pointer to InputLine containing specified parameter if it exists
 
 InputLine *InputBlock::GetPtrToLine(std::string name) {
+  toLower(name);
   for (InputLine *pl = pline; pl != nullptr; pl = pl->pnext) {
     if (name.compare(pl->param_name) == 0) return pl;
   }
