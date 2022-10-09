@@ -34,6 +34,13 @@ template <class T, class Arg, class... Args>
 bool all_greater_than(T val, Arg v, Args... args) {
   return (v > val) && all_greater_than(val, args...);
 }
+template <std::size_t ... Is>
+constexpr auto indexSequenceReverse (std::index_sequence<Is...> const &)
+   -> decltype( std::index_sequence<sizeof...(Is)-1U-Is...>{} );
+
+template <std::size_t N>
+using makeIndexSequenceReverse
+   = decltype(indexSequenceReverse(std::make_index_sequence<N>{}));
 } // namespace impl
 
 using namespace impl;
@@ -132,9 +139,12 @@ class ParArrayGeneric : public State {
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                         args...) {}
 
-  template <int N>  
+  // This array based interface needs to reverse the order of the index sequence
+  // so that the sizes end of with the dim[max-1], dim[max-2], ..., dim[0]
+  // instead of dim[0], dim[1], ...
+  template <size_t N>
   ParArrayGeneric(const std::string &label, std::array<int, N> dims) 
-      : ParArrayGeneric(label, dims, std::make_index_sequence<N>{}) {}
+      : ParArrayGeneric(label, dims, impl::makeIndexSequenceReverse<N>{}) {}
 
   template <class... Args, REQUIRES((sizeof...(Args) > 0) || (Data::rank == 0)),
             REQUIRES(Data::rank - sizeof...(Args) >= 0),
@@ -285,10 +295,11 @@ class ParArrayGeneric : public State {
                   Args... args)
       : State(state), data_(label, ((void)I, 1)..., args...) {}
 
-  template <int N, std::size_t... I>
-  ParArrayGeneric(const std::string &label, std::array<int, N> dims, std::index_sequence<I...>) 
-      : ParArrayGeneric(label, dims[I]...) {}
-
+  template <typename T, size_t... I> 
+  ParArrayGeneric(const std::string &label, T &arr, std::index_sequence<I...> Is) 
+      : ParArrayGeneric(label, State(),
+                        std::make_index_sequence<Data::rank -  Is.size()>{},
+                        arr[I]...) {}
 
   template <class... Args, std::size_t... I>
   void NewParArrayND(std::index_sequence<I...>, Args... args, const std::string &label) {

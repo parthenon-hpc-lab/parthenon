@@ -133,7 +133,7 @@ struct RestrictCellAverage {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArrayMaxD<Real> *pcoarse, const ParArrayMaxD<Real> *pfine) {
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
     const int i = (ci - cib.s) * 2 + ib.s;
@@ -176,7 +176,7 @@ struct ProlongateCellMinMod {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArrayMaxD<Real> *pcoarse, const ParArrayMaxD<Real> *pfine) {
     using namespace util;
     auto &coarse = *pcoarse;
     auto &fine = *pfine;

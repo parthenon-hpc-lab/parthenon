@@ -234,6 +234,7 @@ add_library(parthenon
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
+  variable_dimensions.hpp
 )
 add_library(Parthenon::parthenon ALIAS parthenon)
 

@@ -30,6 +30,7 @@
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
+#include "variable_dimensions.hpp"
 
 namespace parthenon {
 
@@ -83,6 +84,10 @@ using ParArray6D =
 template <typename T, typename State = empty_state_t>
 using ParArray7D =
     ParArrayGeneric<Kokkos::View<T *******, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArrayMaxD = 
+    ParArrayGeneric<Kokkos::View<multi_pointer_t<T>, LayoutWrapper, DevMemSpace>,
+    State>;
 
 // Host mirrors
 template <typename T>
@@ -101,6 +106,8 @@ template <typename T>
 using HostArray6D = typename ParArray6D<T>::HostMirror;
 template <typename T>
 using HostArray7D = typename ParArray7D<T>::HostMirror;
+template <typename T>
+using HostArrayMaxD = typename ParArrayMaxD<T>::HostMirror;
 
 using team_policy = Kokkos::TeamPolicy<>;
 using team_mbr_t = Kokkos::TeamPolicy<>::member_type;

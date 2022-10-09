@@ -274,7 +274,7 @@ class ParticleVariable {
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
-    PARTHENON_DEBUG_REQUIRE(0 < i && i <= 6, "ParArrayNDGenerics are max 6D");
+    PARTHENON_DEBUG_REQUIRE(0 < i && i <= MAX_VARIABLE_DIMENSION, "ParArrayNDGenerics are max 6D");
     return dims_[i - 1];
   }
 
@@ -297,7 +297,7 @@ class ParticleVariable {
  private:
   Metadata m_;
   std::string label_;
-  std::array<int, 6> dims_;
+  std::array<int, MAX_VARIABLE_DIMENSION> dims_;
 
  public:
   ParArrayND<T> data;

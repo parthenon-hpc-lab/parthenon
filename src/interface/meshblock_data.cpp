@@ -49,31 +49,7 @@ void MeshBlockData<T>::Initialize(
   varFluxPackMap_.clear();
 
   // first add any necessary flux variables
-  for (auto const &q : resolved_packages->AllFields()) {
-    // get the metadata
-    auto &m = q.second;
-    auto &shape = m.Shape();
-    if (m.IsSet(Metadata::WithFluxes) && m.GetFluxName() == "") {
-      // this var needs fluxes and the downstream code has not provided any, so add new
-      const std::string flx_name = q.first.label() + "_bnd_flux";
-      m.SetFluxName(flx_name);
-      if (m.Where() == Metadata::Cell) {
-        // TODO(JCD): check how shape is used later
-        Metadata mf({Metadata::Face, Metadata::OneCopy}, shape);
-        resolved_packages->AddField(flx_name, mf);
-      } else if (m.Where() == Metadata::Face) {
-        Metadata me({Metadata::Edge, Metadata::OneCopy}, shape);
-        resolved_packages->AddField(flx_name, mf);
-      } else if (m.Where() == Metadata::Edge) {
-        Metadta mn({Metadata::Node, Metadata::OneCopy}, shape);
-        resolved_packages->AddField(flx_name, shape);
-      } else {
-        PARTHENON_THROW(
-          "Cannot add fluxes to a variable that is not associated with {Cell,Face,Edge}"
-        );
-      }
-    }
-  }
+  resolved_packages->AddFluxes();
 
   for (auto const &q : resolved_packages->AllFields()) {
     AddField(q.first.base_name, q.second, q.first.sparse_id);
@@ -99,9 +75,8 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
                                                 pmy_block);
   Add(pvar);
 
-    if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
-      pvar->Allocate(pmy_block);
-    }
+  if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
+    pvar->Allocate(pmy_block);
   }
 }
 
@@ -423,7 +398,8 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
 template <typename T>
 typename MeshBlockData<T>::VarLabelList
 MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
-                                     bool match_all, const std::vector<int> &sparse_ids) {
+                                     bool match_all, const std::vector<int> &sparse_ids,
+                                     bool is_flux) {
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
@@ -434,7 +410,12 @@ MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
     // add this variable to the list if the Metadata flags match or no flags are specified
     if (flags.empty() || (match_all && v->metadata().AllFlagsSet(flags)) ||
         (!match_all && v->metadata().AnyFlagsSet(flags))) {
-      var_list.Add(v, sparse_ids_set);
+      if (is_flux) {
+        const auto &vf = varMap_.at(v->GetFluxName());
+        var_list.Add(vf, sparse_ids_set);
+      } else {
+        var_list.Add(v, sparse_ids_set);
+      }
     }
   }
 

@@ -556,7 +556,7 @@ void FillVarView(const VariableVector<T> &vars, bool coarse,
 
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
-            host_cv(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
+            host_cv(vindex) = coarse ? v->coarse_s.Get(0, k, j, i) : v->data.Get(0, k, j, i);
           }
 
           vindex++;
@@ -600,7 +600,7 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
         for (int n = 0; n < v->GetDim(4); n++) {
           for (int t = 0; t < v->GetDim(3); t++) {
             for (int u = 0; u < v->GetDim(2); u++) {
-              host_cv(vindex) = v->data.Get(l, m, n, t, u);
+              host_cv(vindex) = v->data.Get(0, l, m, n, t, u);
               vindex++;
             }
           }

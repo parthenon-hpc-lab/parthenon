@@ -23,7 +23,7 @@
 #include <tuple>
 #include <vector>
 
-#include "defs.h"
+#include "defs.hpp"
 #include "utils/error_checking.hpp"
 
 /// The point of this macro is to generate code for each built-in flag using the

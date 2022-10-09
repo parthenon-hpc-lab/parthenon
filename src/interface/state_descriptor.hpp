@@ -196,6 +196,34 @@ class StateDescriptor {
     return names;
   }
 
+  void AddFluxes() {
+    for (auto &q : metadataMap_) {
+      // get the metadata
+      auto &m = q.second;
+      auto &shape = m.Shape();
+      if (m.IsSet(Metadata::WithFluxes) && m.GetFluxName() == "") {
+        // this var needs fluxes and the downstream code has not provided any, so add new
+        const std::string flx_name = q.first.label() + "_bnd_flux";
+        m.SetFluxName(flx_name);
+        if (m.Where() == Metadata::Cell) {
+          // TODO(JCD): check how shape is used later
+          Metadata mf({Metadata::Face, Metadata::OneCopy}, shape);
+          AddField(flx_name, mf);
+        } else if (m.Where() == Metadata::Face) {
+          Metadata me({Metadata::Edge, Metadata::OneCopy}, shape);
+          AddField(flx_name, me);
+        } else if (m.Where() == Metadata::Edge) {
+          Metadata mn({Metadata::Node, Metadata::OneCopy}, shape);
+          AddField(flx_name, mn);
+        } else {
+          PARTHENON_THROW(
+            "Cannot add fluxes to a variable that is not associated with {Cell,Face,Edge}"
+          );
+        }
+      }
+    }
+  }
+
   const auto &AllFields() const noexcept { return metadataMap_; }
   const auto &AllSparsePools() const noexcept { return sparsePoolMap_; }
   const auto &AllSwarms() const noexcept { return swarmMetadataMap_; }

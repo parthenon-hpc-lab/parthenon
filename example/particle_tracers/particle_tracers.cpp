@@ -265,7 +265,9 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
 
   auto advected = mbd->Get("advected").data;
 
-  auto x1flux = mbd->Get("advected").flux[X1DIR].Get<4>();
+  const auto &flux_name = mbd->Get("advected").GetFluxName();
+  auto &flux_var = mbd->Get(flux_name).data;
+  const auto &x1flux = flux_var.Get(0,0,0);
 
   // Spatially first order upwind method
   pmb->par_for(
@@ -280,7 +282,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
       });
 
   if (ndim > 1) {
-    auto x2flux = mbd->Get("advected").flux[X2DIR].Get<4>();
+    const auto &x2flux = flux_var.Get(1,0,0);
     pmb->par_for(
         "CalculateFluxesX2", kb.s, kb.e, jb.s, jb.e + 1, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
@@ -294,7 +296,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
   }
 
   if (ndim > 2) {
-    auto x3flux = mbd->Get("advected").flux[X3DIR].Get<4>();
+    const auto &x3flux = flux_var.Get(2,0,0);
     pmb->par_for(
         "CalculateFluxesX3", kb.s, kb.e + 1, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {

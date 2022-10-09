@@ -109,8 +109,7 @@ void Variable<T>::AllocateData() {
       !is_allocated_,
       "Tried to allocate data for variable that's already allocated: " + label());
 
-  data =
-      ParArrayND<T>(label(), dims_);
+  data = ParArrayND<T>(label(), dims_);
 
   is_allocated_ = true;
 }
@@ -129,7 +128,7 @@ void Variable<T>::AllocateCoarse(std::weak_ptr<MeshBlock> wpmb) {
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
     if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
-      coarse_s = ParArrayND<T>(base_name + ".coarse", coarse_dims_;
+      coarse_s = ParArrayND<T>(base_name + ".coarse", coarse_dims_);
     }
   }
 }
