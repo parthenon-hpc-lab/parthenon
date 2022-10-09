@@ -47,8 +47,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
-  if (cache.buf_vec.size() == 0) 
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, SendKey, true);
+  if (cache.buf_vec.size() == 0)
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, SendKey,
+                                      true);
 
   auto [rebuild, nbound, other_communication_unfinished] =
       CheckSendBufferCacheForRebuild<bound_type, true>(md);
@@ -151,7 +152,8 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_send, false);
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey, false);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
+                                      false);
 
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -174,7 +176,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey, false);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
+                                      false);
 
   bool all_received = true;
   std::for_each(
