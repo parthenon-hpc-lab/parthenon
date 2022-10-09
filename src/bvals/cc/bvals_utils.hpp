@@ -80,17 +80,17 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
       if (v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
           auto &nb = pmb->pbval->neighbor[n];
-          if (bound == BoundaryType::local) {
+          if constexpr (bound == BoundaryType::local) {
             if (nb.snb.rank != Globals::my_rank) continue;
-          } else if (bound == BoundaryType::nonlocal) {
+          } else if constexpr (bound == BoundaryType::nonlocal) {
             if (nb.snb.rank == Globals::my_rank) continue;
-          } else if (bound == BoundaryType::flxcor_send) {
+          } else if constexpr (bound == BoundaryType::flxcor_send) {
             // Check if this boundary requires flux correction
             if (nb.snb.level != pmb->loc.level - 1) continue;
             // No flux correction required unless boundaries share a face
             if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
               continue;
-          } else if (bound == BoundaryType::flxcor_recv) {
+          } else if constexpr (bound == BoundaryType::flxcor_recv) {
             // Check if this boundary requires flux correction
             if (nb.snb.level - 1 != pmb->loc.level) continue;
             // No flux correction required unless boundaries share a face
