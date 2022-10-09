@@ -47,22 +47,9 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_send, true);
   const int ndim = pmesh->ndim;
 
-  if (cache.buf_vec.size() == 0) {
+  if (cache.buf_vec.size() == 0) 
     InitializeBufferCache<BoundaryType::flxcor_send>(
-        md, &(pmesh->boundary_comm_flxcor_map), &(cache.buf_vec), &(cache.idx_vec),
-        SendKey);
-    const int nbound = cache.buf_vec.size();
-    if (nbound > 0) {
-      cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
-      cache.sending_non_zero_flags_h =
-          Kokkos::create_mirror_view(cache.sending_non_zero_flags);
-    }
-  } else {
-    PARTHENON_REQUIRE(cache.buf_vec.size() == cache.sending_non_zero_flags.size(),
-                      "Flag arrays incorrectly allocated.");
-    PARTHENON_REQUIRE(cache.buf_vec.size() == cache.sending_non_zero_flags_h.size(),
-                      "Flag arrays incorrectly allocated.");
-  }
+        md, &(pmesh->boundary_comm_flxcor_map), &cache, SendKey, false);
 
   auto [rebuild, nbound, other_communication_unfinished] =
       CheckSendBufferCacheForRebuild<BoundaryType::flxcor_send, true>(md);
@@ -156,8 +143,7 @@ TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<BoundaryType::flxcor_recv>(
-        md, &(pmesh->boundary_comm_flxcor_map), &(cache.buf_vec), &(cache.idx_vec),
-        ReceiveKey);
+        md, &(pmesh->boundary_comm_flxcor_map), &cache, ReceiveKey, false);
 
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -173,8 +159,7 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<BoundaryType::flxcor_recv>(
-        md, &(pmesh->boundary_comm_flxcor_map), &(cache.buf_vec), &(cache.idx_vec),
-        ReceiveKey);
+        md, &(pmesh->boundary_comm_flxcor_map), &cache, ReceiveKey, false);
 
   bool all_received = true;
   std::for_each(
