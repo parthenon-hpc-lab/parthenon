@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/cc/bnd_info.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"

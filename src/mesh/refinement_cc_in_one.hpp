@@ -24,7 +24,7 @@
 #include <utility> // std::forward
 #include <vector>
 
-#include "bvals/cc/bvals_cc_in_one.hpp" // for buffercache_t
+#include "bvals/cc/bnd_info.hpp"        // for buffercache_t
 #include "coordinates/coordinates.hpp"  // for coordinates
 #include "globals.hpp"                  // for Globals
 #include "interface/mesh_data.hpp"
