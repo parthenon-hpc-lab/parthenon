@@ -47,7 +47,7 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_send, true);
   const int ndim = pmesh->ndim;
 
-  if (cache.buf_vec.size() == 0) 
+  if (cache.buf_vec.size() == 0)
     InitializeBufferCache<BoundaryType::flxcor_send>(
         md, &(pmesh->boundary_comm_flxcor_map), &cache, SendKey, false);
 

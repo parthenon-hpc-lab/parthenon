@@ -180,7 +180,7 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
     if (nbound != pcache->sending_non_zero_flags.size()) {
       pcache->sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
       pcache->sending_non_zero_flags_h =
-            Kokkos::create_mirror_view(pcache->sending_non_zero_flags);
+          Kokkos::create_mirror_view(pcache->sending_non_zero_flags);
     }
   }
 }

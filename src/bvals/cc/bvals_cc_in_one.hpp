@@ -66,7 +66,7 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 
-// This task should not be called in down stream code 
+// This task should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
 } // namespace cell_centered_bvars
