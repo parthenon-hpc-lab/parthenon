@@ -97,9 +97,10 @@ configure_file(config.hpp.in generated/config.hpp @ONLY)
 add_library(parthenon
   bvals/cc/bvals_cc_in_one.hpp
   bvals/cc/bvals_utils.hpp
-  bvals/cc/calc_indices.cpp
-  bvals/cc/sparse_bvals_cc_in_one.cpp
-  bvals/cc/sparse_flux_correction_cc_in_one.cpp 
+  bvals/cc/build_boundary_buffers.cpp
+  bvals/cc/bnd_info.cpp
+  bvals/cc/bvals_in_one.cpp
+  bvals/cc/flux_correction.cpp 
   bvals/cc/tag_map.cpp 
   bvals/cc/tag_map.hpp 
   

@@ -41,9 +41,9 @@ CommBuffer<T>(mpi_message_tag, sender_rank, receiver_rank, mpi_communicator,
               return ...allocated object of type T that has the desired size...; 
             }, do_sparse_allocation);
 ```
-The lambda passed to the constructor is stored as a field in the class and is called when the internal storage buffer needs to be allocated (see `BuildSparseBoundaryBuffers` in `sparse_bvals_cc_in_one.cpp` for an example usage). Aside from during construction, there should be no difference in useage between a same rank to same rank `CommBuffer` and a separate rank `CommBuffer`. 
+The lambda passed to the constructor is stored as a field in the class and is called when the internal storage buffer needs to be allocated (see `BuildBoundaryBuffers` in `sparse_bvals_cc_in_one.cpp` for an example usage). Aside from during construction, there should be no difference in useage between a same rank to same rank `CommBuffer` and a separate rank `CommBuffer`. 
 
-*Note that setting `do_sparse_allocation = true` minimizes the memory allocated for sparse variables but may result in slower MPI communication since `MPI_Irecv` can't be posted until the incoming message size is known. In simple tests, it appears that this does not give a significant slow down, so all `Metadata::Sparse` variables use sparse allocation. If in the future there is a need to turn this on and off on a per variable there is a flag, `Metadata::SparseCommunication`, that can be set for variables to make them use this memory minimizing communication pattern. This would also be required a change in `BuildSparseBoundaryBuffers` switching how the flag for using sparse buffers is set.* 
+*Note that setting `do_sparse_allocation = true` minimizes the memory allocated for sparse variables but may result in slower MPI communication since `MPI_Irecv` can't be posted until the incoming message size is known. In simple tests, it appears that this does not give a significant slow down, so all `Metadata::Sparse` variables use sparse allocation. If in the future there is a need to turn this on and off on a per variable there is a flag, `Metadata::SparseCommunication`, that can be set for variables to make them use this memory minimizing communication pattern. This would also be required a change in `BuildBoundaryBuffers` switching how the flag for using sparse buffers is set.* 
 
 ### `class ObjectPool<T>` 
 
@@ -84,7 +84,7 @@ In each cache, we build a `std::vector<CommBuffer<....>*> send_buf_vec, recv_buf
 
 ### Boundary Communication Tasks 
  
-**`BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>>&)`**
+**`BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>>&)`**
 - Iterates over communication channels sending or receiving from blocks in `md`. For every sending channel it creates a communication channel for each in the `Mesh::boundary_comm_map`. For receiving channels where the blocks are on different ranks, it also creates a receiving channel in `Mesh::boundary_comm_map` since the sender will not add this channel on the current rank. Also creates new `buf_pool_t`s for the required buffer sizes if they don't already exist. Note that no memory is saved for the communication buffers at this point. 
 - This is called during `Mesh::Initialize(...)` and during `EvolutionDriver::InitializeBlockTimeStepsAndBoundaries()` and before this task is called `Mesh::boundary_comm_map` is cleared. **This should not be called in downstream code.** 
 

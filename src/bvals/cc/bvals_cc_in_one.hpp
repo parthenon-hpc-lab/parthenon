@@ -50,7 +50,7 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                   std::shared_ptr<CellVariable<Real>> v);
 
-TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md);
