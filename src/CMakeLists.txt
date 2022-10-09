@@ -100,7 +100,7 @@ add_library(parthenon
   bvals/cc/build_boundary_buffers.cpp
   bvals/cc/bnd_info.cpp
   bvals/cc/bnd_info.hpp
-  bvals/cc/communicate_boundaries.cpp
+  bvals/cc/boundary_communication.cpp
   bvals/cc/flux_correction.cpp 
   bvals/cc/tag_map.cpp 
   bvals/cc/tag_map.hpp 
