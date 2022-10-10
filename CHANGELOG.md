@@ -15,6 +15,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 751]]( https://github.com/lanl/parthenon/pull/751) Delete useless file in advection example
+- [[PR 759]](https://github.com/lanl/parthenon/pull/759) Add metadata so Visit treats outputs as time series
 - [[PR 743]](https://github.com/lanl/parthenon/pull/743) Add missing HDF5 type on MacOS 
 - [[PR 739]](https://github.com/lanl/parthenon/pull/739) Fix phdf.py for flattened vectors 
 - [[PR 724]](https://github.com/lanl/parthenon/pull/724) Fix failing CI on Darwin due to differing `OutputFormatVersion` attribute in hdf5 gold files.
