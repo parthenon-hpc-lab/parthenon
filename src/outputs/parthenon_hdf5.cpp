@@ -341,6 +341,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   xdmf << R"(<?xml version="1.0" ?>)" << std::endl;
   xdmf << R"(<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd">)" << std::endl;
   xdmf << R"(<Xdmf Version="3.0">)" << std::endl;
+  xdmf << R"(<Information Name="TimeVaryingMetaData" Value="True"/>)" << std::endl;
   xdmf << "  <Domain>" << std::endl;
   xdmf << R"(  <Grid Name="Mesh" GridType="Collection">)" << std::endl;
   if (tm != nullptr) {
