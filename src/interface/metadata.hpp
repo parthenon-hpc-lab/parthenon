@@ -421,12 +421,16 @@ class Metadata {
   }
 
   // Refinement stuff
-  
   const refinement::RefinementFunctions_t &GetRefinementFunctions() const {
+    PARTHENON_REQUIRE_THROWS(
+        IsRefined(), "Variable must be registered for refinement");
     return refinement_funcs_;
   }
   template <template <int> class ProlongationOp, template <int> class RestrictionOp>
   void RegisterRefinementOps() {
+    PARTHENON_REQUIRE_THROWS(
+        IsRefined(),
+        "Variable must be registered for refinement to accept custom refinement ops");
     refinement_funcs_ =
         refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp>();
   }

@@ -70,6 +70,38 @@ struct VarIDHasher {
   }
 };
 
+/// A little container class owning refinement function properties
+/// needed for the state descriptor.
+/// Not using VarID here implies that custom prolongation/restriction
+/// is identical for all sparse vars in a pool.
+/// Note ignores sparse id, so all sparse ids of a
+/// given sparse name have the same prolongation/restriction
+/// operations
+struct RefinementFunctionMaps {
+  void Register(const Metadata &m) {
+    if (m.IsRefined()) {
+      const auto &funcs = m.GetRefinementFunctions();
+      bool in_map = (funcs_to_ids.count(funcs) > 0);
+      if (!in_map) {
+        funcs_to_ids[funcs] = next_refinement_id_++;
+      }
+    }
+  }
+  size_t size() const noexcept {
+    return next_refinement_id_;
+  }
+  // A unique enumeration of refinement functions starting from zero.
+  // This is used for caching which prolongation/restriction operator
+  // matches which BufferInfo_t struct in the buffer packing caches.
+  // the other relevant information is in metadata, so this is all we
+  // need.
+  std::unordered_map<refinement::RefinementFunctions_t, size_t,
+                     refinement::RefinementFunctionsHasher>
+      funcs_to_ids;
+private:
+  size_t next_refinement_id_ = 0;
+};
+
 /// The state metadata descriptor class.
 ///
 /// Each State descriptor has a label, associated parameters, and
@@ -152,53 +184,6 @@ class StateDescriptor {
     return AddFieldImpl(VarID(field_name), m);
   }
 
-  // Note this registration ignores sparse id, so all sparse ids of a
-  // given sparse name have the same prolongation/restriction
-  // operations
-  bool RegisterProlongationOps(const std::string &base_name,
-                               const refinement::RefinementFunctions_t &funcs) {
-    auto vid_dense = VarID(base_name);
-    if (metadataMap_.count(vid_dense) > 0) { // dense variable
-      const auto &m = metadataMap_.at(vid_dense);
-      PARTHENON_REQUIRE_THROWS(m.Role() != Metadata::Requires,
-                               "Variable " + base_name +
-                                   "is required by not controlled by this package.");
-      PARTHENON_REQUIRE_THROWS(
-          m.IsRefined(),
-          "Variable " + base_name +
-              " must be registered as refined with MetadataFlag::Independent, "
-              "MetadataFlag::FillGhost, or MetadataFlag::RemeshComm");
-    } else if (sparsePoolMap_.count(base_name) > 0) {
-      const auto &p = sparsePoolMap_.at(base_name);
-      const auto &m = p.shared_metadata();
-      PARTHENON_REQUIRE_THROWS(
-          m.IsRefined(),
-          "Sparse pool " + base_name +
-              " must be registered as refined with MetadataFlag::Independent, "
-              "MetadataFlag::FillGhost, or MetadataFlag::RemeshComm");
-      PARTHENON_REQUIRE_THROWS(m.Role() != Metadata::Requires,
-                               "Variable " + base_name +
-                                   "is required by not controlled by this package.");
-    } else {
-      PARTHENON_THROW("Could not find variable " + base_name +
-                      " you must add it to your package with AddField or AddSparsePool "
-                      "before you can register custom prolongation/restriction ops.");
-    }
-    if (vars_to_refinement_funcs_.count(base_name) > 0) {
-      return false;
-    } else {
-      refinement_funcs_to_vars_[funcs].push_back(base_name);
-      vars_to_refinement_funcs_[base_name] = funcs;
-      return true;
-    }
-  }
-  template <template <int> class ProlongationOp, template <int> class RestrictionOp>
-  bool RegisterProlongationOps(const std::string &base_name) {
-    auto funcs =
-        refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp>();
-    return RegisterProlongationOps(base_name, funcs);
-  }
-
   // add sparse pool, all arguments will be forwarded to the SparsePool constructor, so
   // one can pass in a reference to a SparsePool or arguments that match one of the
   // SparsePool constructors
@@ -236,19 +221,14 @@ class StateDescriptor {
   const auto &AllSwarmValues(const std::string &swarm_name) const noexcept {
     return swarmValueMetadataMap_.at(swarm_name);
   }
-  // TODO(JMM): Is this what we want?
-  const auto &VarToRefinementFuncMap() const noexcept {
-    return vars_to_refinement_funcs_;
+  size_t RefinementFuncID(const refinement::RefinementFunctions_t &funcs) const noexcept {
+    return refinementFuncMaps_.funcs_to_ids.at(funcs);
   }
-  const auto &RefinementFuncToVarMap() const noexcept {
-    return refinement_funcs_to_vars_;
+  size_t RefinementFuncID(const Metadata &m) const noexcept {
+    return RefinementFuncID(m.GetRefinementFunctions());
   }
-  bool VarHasRefinementFuncs(const std::string &name) const noexcept {
-    return (vars_to_refinement_funcs_.count(name) > 0);
-  }
-  const auto &RefinementFunc(const std::string &name) const noexcept {
-    PARTHENON_REQUIRE_THROWS(VarHasRefinementFuncs(name), "Var must be registered");
-    return vars_to_refinement_funcs_.at(name);
+  size_t NumRefinementFuncs() const noexcept {
+    return refinementFuncMaps_.size();
   }
   bool FieldPresent(const std::string &base_name,
                     int sparse_id = InvalidSparseID) const noexcept {
@@ -365,13 +345,7 @@ class StateDescriptor {
   Dictionary<Metadata> swarmMetadataMap_;
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 
-  // Maps for tying prolongation/restriction funtionality to variables
-  // Not using VarID here implies that custom prolongation/restriction
-  // is identical for all sparse vars in a pool.
-  std::unordered_map<refinement::RefinementFunctions_t, std::vector<std::string>,
-                     refinement::RefinementFunctionsHasher>
-      refinement_funcs_to_vars_;
-  Dictionary<refinement::RefinementFunctions_t> vars_to_refinement_funcs_;
+  RefinementFunctionMaps refinementFuncMaps_;
 };
 
 inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {

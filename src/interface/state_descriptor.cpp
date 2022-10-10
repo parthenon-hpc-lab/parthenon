@@ -144,7 +144,6 @@ class FieldProvider : public VariableProvider {
     } else {
       added = state_->AddField(new_name, metadata);
     }
-    RegisterRefinementFuncs_(pkg, base_name, new_name, metadata);
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add private field '" + base_name +
                                         "' to resolved state");
@@ -159,7 +158,6 @@ class FieldProvider : public VariableProvider {
     } else {
       added = state_->AddField(base_name, metadata);
     }
-    RegisterRefinementFuncs_(pkg, base_name, base_name, metadata);
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add provided field '" + base_name +
                                         "' to resolved state");
@@ -183,31 +181,12 @@ class FieldProvider : public VariableProvider {
     } else {
       added = state_->AddField(base_name, metadata);
     }
-    RegisterRefinementFuncs_(pkg, base_name, base_name, metadata);
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add overridable field '" + base_name +
                                         "' to resolved state");
   }
 
  private:
-  // Registering refinement when `AddProvides`, `AddPrivate`, and
-  // `AddOverridable` are called should ensure the final
-  // prolongation/restriction functions are unique.
-  void RegisterRefinementFuncs_(const std::shared_ptr<StateDescriptor> &pkg,
-                                const std::string &old_name, const std::string &new_name,
-                                const Metadata &metadata) {
-    if (metadata.IsRefined()) {                   // If we need refinement operators
-      if (pkg->VarHasRefinementFuncs(old_name)) { // add user-registered ops
-        state_->RegisterProlongationOps(new_name, pkg->RefinementFunc(old_name));
-      } else { // Add default operator
-               // TODO(JMM): In full generaltity these defaults should depend
-               // on topological location, e.g., cell-centered,
-               // face-centered, etc.
-        state_->RegisterProlongationOps<refinement_ops::ProlongateCellMinMod,
-                                        refinement_ops::RestrictCellAverage>(new_name);
-      }
-    }
-  }
   Packages_t &packages_;
   std::shared_ptr<StateDescriptor> &state_;
 };
@@ -280,6 +259,7 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in) {
     return false; // this field has already been added
   } else {
     metadataMap_.insert({vid, m});
+    refinementFuncMaps_.Register(m);
   }
 
   return true;
@@ -296,6 +276,7 @@ bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
   }
 
   sparsePoolMap_.insert({pool.base_name(), pool});
+  refinementFuncMaps_.Register(pool.shared_metadata());
 
   // add all the sparse fields
   for (const auto itr : pool.pool()) {

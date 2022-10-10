@@ -319,26 +319,16 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       }
     }
 
-    WHEN("We register a dense variable with custom prolongation/restriction") {
+    
+    WHEN("We register a dense variable withuot custom") {
       pkg1->AddField("dense", m_provides);
-      pkg1->AddField("also dense", m_provides);
-      pkg1->RegisterProlongationOps<MyProlongOp, MyRestrictOp>("dense");
       WHEN("We register a sparse variable with custom prolongation/restriction") {
-        pkg2->AddSparsePool("sparse", m_sparse_provides, sparse_ids);
-        pkg2->AddSparsePool("also sparse", m_sparse_overridable, sparse_ids);
-        pkg2->RegisterProlongationOps<MyProlongOp, MyRestrictOp>("sparse");
+        auto m_sparse_provides_ = m_sparse_provides;
+        m_sparse_provides_.RegisterRefinementOps<MyProlongOp, MyRestrictOp>();
+        pkg2->AddSparsePool("sparse", m_sparse_provides_, sparse_ids);
         THEN("We can perform dependency resolution") {
           auto pkg3 = ResolvePackages(packages);
-          AND_THEN("All vars with relevant flags have refinement funcs") {
-            REQUIRE(pkg3->VarHasRefinementFuncs("dense"));
-            REQUIRE(pkg3->VarHasRefinementFuncs("also dense"));
-            REQUIRE(pkg3->VarHasRefinementFuncs("sparse"));
-          }
-          AND_THEN("All vars without relevant flags do not have refinement funcs") {
-            REQUIRE(!(pkg3->VarHasRefinementFuncs("also sparse")));
-          }
-          AND_THEN("The prolongation/restriction functions are recorded correctly in the "
-                   "forward map") {
+          AND_THEN("The two relevant prolongation restriction operators exist and have unique ids") {
             const auto my_funcs =
                 parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,
                                                                           MyRestrictOp>();
@@ -346,42 +336,9 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
                 parthenon::refinement::RefinementFunctions_t::RegisterOps<
                     parthenon::refinement_ops::ProlongateCellMinMod,
                     parthenon::refinement_ops::RestrictCellAverage>();
-            REQUIRE((pkg3->RefinementFunc("dense")) == my_funcs);
-            REQUIRE((pkg3->RefinementFunc("also dense")) == cell_funcs);
-            REQUIRE((pkg3->RefinementFunc("sparse")) == my_funcs);
-            AND_THEN("The prolongation/restriction functions are recorded correclty in "
-                     "the reverse map") {
-              const auto &r2v = pkg3->RefinementFuncToVarMap();
-              int dense_count = 0;
-              int also_dense_count = 0;
-              int sparse_count = 0;
-              int also_sparse_count = 0;
-              for (const auto &pairs : r2v) {
-                const auto &funcs = pairs.first;
-                const auto &var_vec = pairs.second;
-                for (const auto &name : var_vec) {
-                  if (name == "dense") {
-                    REQUIRE(funcs == my_funcs);
-                    dense_count += 1;
-                  }
-                  if (name == "also dense") {
-                    REQUIRE(funcs == cell_funcs);
-                    also_dense_count += 1;
-                  }
-                  if (name == "sparse") {
-                    REQUIRE(funcs == my_funcs);
-                    sparse_count += 1;
-                  }
-                  if (name == "also sparse") {
-                    also_sparse_count += 1;
-                  }
-                }
-              }
-              REQUIRE(dense_count == 1);
-              REQUIRE(also_dense_count == 1);
-              REQUIRE(sparse_count == 1);
-              REQUIRE(also_sparse_count == 0);
-            }
+            REQUIRE(pkg3->NumRefinementFuncs() == 2);
+            REQUIRE((pkg3->RefinementFuncID(my_funcs)) !=
+                    (pkg3->RefinementFuncID(cell_funcs)));
           }
         }
       }
