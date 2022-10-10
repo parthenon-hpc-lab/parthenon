@@ -23,6 +23,8 @@
 #include <tuple>
 #include <vector>
 
+#include "mesh/mesh_refinement_ops.hpp"
+#include "mesh/refinement_in_one.hpp"
 #include "utils/error_checking.hpp"
 
 /// The point of this macro is to generate code for each built-in flag using the
@@ -218,6 +220,11 @@ class Metadata {
     if (CountSet({Independent, Derived}) == 0) {
       DoBit(Derived, true);
     }
+    // If variable is refined, set a default prolongation/restriction op
+    if (IsRefined()) {
+      refinement_funcs_ = refinement::RefinementFunctions_t::RegisterOps<
+          refinement_ops::ProlongateCellMinMod, refinement_ops::RestrictCellAverage>();
+    }
 
     // check if all flag constraints are satisfied, throw if not
     IsValid(true);
@@ -369,7 +376,7 @@ class Metadata {
   // Returns true if this variable should do prolongation/restriction
   // and false otherwise.
   bool IsRefined() const {
-    return (IsSet(Independent) || IsSet(FillGhost));
+    return (IsSet(Independent) || IsSet(FillGhost) || IsSet(RemeshComm));
   }
 
   const std::vector<int> &Shape() const { return shape_; }
@@ -412,6 +419,18 @@ class Metadata {
   bool IsSet(MetadataFlag bit) const {
     return bit.flag_ < bits_.size() && bits_[bit.flag_];
   }
+
+  // Refinement stuff
+  
+  const refinement::RefinementFunctions_t &GetRefinementFunctions() const {
+    return refinement_funcs_;
+  }
+  template <template <int> class ProlongationOp, template <int> class RestrictionOp>
+  void RegisterRefinementOps() {
+    refinement_funcs_ =
+        refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp>();
+  }
+
 
   // Operators
   bool HasSameFlags(const Metadata &b) const {
@@ -456,6 +475,7 @@ class Metadata {
 
  private:
   /// the attribute flags that are set for the class
+  refinement::RefinementFunctions_t refinement_funcs_;
   std::vector<bool> bits_;
   std::vector<int> shape_ = {1};
   std::vector<std::string> component_labels_ = {};
