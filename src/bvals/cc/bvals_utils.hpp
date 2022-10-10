@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/cc/bnd_info.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
@@ -79,17 +80,17 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
       if (v->IsSet(Metadata::FillGhost)) {
         for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
           auto &nb = pmb->pbval->neighbor[n];
-          if (bound == BoundaryType::local) {
+          if constexpr (bound == BoundaryType::local) {
             if (nb.snb.rank != Globals::my_rank) continue;
-          } else if (bound == BoundaryType::nonlocal) {
+          } else if constexpr (bound == BoundaryType::nonlocal) {
             if (nb.snb.rank == Globals::my_rank) continue;
-          } else if (bound == BoundaryType::flxcor_send) {
+          } else if constexpr (bound == BoundaryType::flxcor_send) {
             // Check if this boundary requires flux correction
             if (nb.snb.level != pmb->loc.level - 1) continue;
             // No flux correction required unless boundaries share a face
             if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
               continue;
-          } else if (bound == BoundaryType::flxcor_recv) {
+          } else if constexpr (bound == BoundaryType::flxcor_recv) {
             // Check if this boundary requires flux correction
             if (nb.snb.level - 1 != pmb->loc.level) continue;
             // No flux correction required unless boundaries share a face
@@ -135,9 +136,9 @@ ReceiveKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
 // simple tests, this did not have a big impact on performance but I think it is useful to
 // leave the machinery here since it doesn't seem to have a big overhead associated with
 // it (LFR).
-template <BoundaryType bound_type, class COMM_MAP, class BUF_VEC, class IDX_VEC, class F>
+template <BoundaryType bound_type, class COMM_MAP, class F>
 void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_map,
-                           BUF_VEC *pbuf_vec, IDX_VEC *pidx_vec, F KeyFunc) {
+                           BvarsSubCache_t *pcache, F KeyFunc, bool initialize_flags) {
   Mesh *pmesh = md->GetMeshPointer();
 
   using key_t = std::tuple<int, int, std::string, int>;
@@ -167,12 +168,21 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   std::shuffle(key_order.begin(), key_order.end(), g);
 
   int buff_idx = 0;
-  pbuf_vec->clear();
-  *pidx_vec = std::vector<std::size_t>(key_order.size());
+  pcache->buf_vec.clear();
+  pcache->idx_vec = std::vector<std::size_t>(key_order.size());
   std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
-    pbuf_vec->push_back(&((*comm_map)[std::get<2>(t)]));
-    (*pidx_vec)[std::get<1>(t)] = buff_idx++;
+    pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
+    (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
   });
+
+  const int nbound = pcache->buf_vec.size();
+  if (initialize_flags && nbound > 0) {
+    if (nbound != pcache->sending_non_zero_flags.size()) {
+      pcache->sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
+      pcache->sending_non_zero_flags_h =
+          Kokkos::create_mirror_view(pcache->sending_non_zero_flags);
+    }
+  }
 }
 
 template <BoundaryType BOUND_TYPE, bool SENDER>

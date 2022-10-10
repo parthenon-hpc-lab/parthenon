@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "bnd_info.hpp"
 #include "bvals_cc_in_one.hpp"
 #include "bvals_utils.hpp"
 #include "config.hpp"
@@ -39,95 +40,6 @@ namespace cell_centered_bvars {
 
 using namespace impl;
 
-// pmesh->boundary_comm_map.clear() after every remesh
-// in InitializeBlockTimeStepsAndBoundaries()
-TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
-  Mesh *pmesh = md->GetMeshPointer();
-  auto &all_caches = md->GetBvarsCache();
-
-  // Clear the fast access vectors for this block since they are no longer valid
-  // after all MeshData call BuildSparseBoundaryBuffers
-  all_caches.clear();
-
-  // Build buffers for all boundaries, both local and nonlocal
-  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    // Calculate the required size of the buffer for this boundary
-    int buf_size = GetBufferSize(pmb, nb, v);
-
-    // Add a buffer pool if one does not exist for this size
-    if (pmesh->pool_map.count(buf_size) == 0) {
-      pmesh->pool_map.emplace(std::make_pair(
-          buf_size, buf_pool_t<Real>([buf_size](buf_pool_t<Real> *pool) {
-            using buf_t = buf_pool_t<Real>::base_t;
-            // TODO(LFR): Make nbuf a user settable parameter
-            const int nbuf = 200;
-            buf_t chunk("pool buffer", buf_size * nbuf);
-            for (int i = 1; i < nbuf; ++i) {
-              pool->AddFreeObjectToPool(
-                  buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
-            }
-            return buf_t(chunk, std::make_pair(0, buf_size));
-          })));
-    }
-
-    const int receiver_rank = nb.snb.rank;
-    const int sender_rank = Globals::my_rank;
-
-    int tag = 0;
-#ifdef MPI_PARALLEL
-    // Get a bi-directional mpi tag for this pair of blocks
-    tag = pmesh->tag_map.GetTag(pmb, nb);
-
-    mpi_comm_t comm = pmesh->GetMPIComm(v->label());
-    mpi_comm_t comm_flxcor = comm;
-    if (nb.snb.level != pmb->loc.level)
-      comm_flxcor = pmesh->GetMPIComm(v->label() + "_flcor");
-#else
-    // Setting to zero is fine here since this doesn't actually get used when everything
-    // is on the same rank
-    mpi_comm_t comm = 0;
-    mpi_comm_t comm_flxcor = 0;
-#endif
-    // Build send buffers
-    auto s_key = SendKey(pmb, nb, v);
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(s_key) == 0,
-                            "Two communication buffers have the same key.");
-
-    auto get_resource_method = [pmesh, buf_size]() {
-      return buf_pool_t<Real>::owner_t(pmesh->pool_map.at(buf_size).Get());
-    };
-
-    bool use_sparse_buffers = v->IsSet(Metadata::Sparse);
-    pmesh->boundary_comm_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-        tag, sender_rank, receiver_rank, comm, get_resource_method, use_sparse_buffers);
-
-    // Separate flxcor buffer if needed, first part of if statement checks that this
-    // is fine to coarse and the second checks the two blocks share a face
-    if ((nb.snb.level == pmb->loc.level - 1) &&
-        (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
-      pmesh->boundary_comm_flxcor_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-          tag, sender_rank, receiver_rank, comm_flxcor, get_resource_method,
-          use_sparse_buffers);
-
-    // Also build the non-local receive buffers here
-    if (sender_rank != receiver_rank) {
-      auto r_key = ReceiveKey(pmb, nb, v);
-      pmesh->boundary_comm_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-          tag, receiver_rank, sender_rank, comm, get_resource_method, use_sparse_buffers);
-      // Separate flxcor buffer if needed
-      if ((nb.snb.level - 1 == pmb->loc.level) &&
-          (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
-        pmesh->boundary_comm_flxcor_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-            tag, receiver_rank, sender_rank, comm_flxcor, get_resource_method,
-            use_sparse_buffers);
-    }
-  });
-
-  Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
-  return TaskStatus::complete;
-}
-
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundBufs");
@@ -135,21 +47,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
-  if (cache.buf_vec.size() == 0) {
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.buf_vec),
-                                      &(cache.idx_vec), SendKey);
-    const int nbound = cache.buf_vec.size();
-    if (nbound > 0) {
-      cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
-      cache.sending_non_zero_flags_h =
-          Kokkos::create_mirror_view(cache.sending_non_zero_flags);
-    }
-  } else {
-    PARTHENON_REQUIRE(cache.buf_vec.size() == cache.sending_non_zero_flags.size(),
-                      "Flag arrays incorrectly allocated.");
-    PARTHENON_REQUIRE(cache.buf_vec.size() == cache.sending_non_zero_flags_h.size(),
-                      "Flag arrays incorrectly allocated.");
-  }
+  if (cache.buf_vec.size() == 0)
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, SendKey,
+                                      true);
 
   auto [rebuild, nbound, other_communication_unfinished] =
       CheckSendBufferCacheForRebuild<bound_type, true>(md);
@@ -166,12 +66,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (rebuild) RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo);
 
   // Restrict
-  auto &rc = md->GetBlockData(0);
-  auto pmb = rc->GetBlockPointer();
-  IndexShape cellbounds = pmb->cellbounds;
-  IndexShape c_cellbounds = pmb->c_cellbounds;
-  refinement::Restrict(cache.send_bnd_info, cache.send_bnd_info_h,
-                                     cellbounds, c_cellbounds);
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+  refinement::Restrict(cache.bnd_info, cache.bnd_info_h, pmb->cellbounds,
+                                     pmb->c_cellbounds);
 
   // Load buffer data
   const Real threshold = Globals::sparse_config.allocation_threshold;
@@ -255,14 +152,13 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_send, false);
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.buf_vec),
-                                      &(cache.idx_vec), ReceiveKey);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
+                                      false);
 
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
 
   Kokkos::Profiling::popRegion(); // Task_StartReceiveBoundBufs
-
   return TaskStatus::complete;
 }
 
@@ -280,8 +176,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &(cache.buf_vec),
-                                      &(cache.idx_vec), ReceiveKey);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
+                                      false);
 
   bool all_received = true;
   std::for_each(
@@ -307,9 +203,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         });
   }
   Kokkos::Profiling::popRegion(); // Task_ReceiveBoundBufs
-
   if (all_received) return TaskStatus::complete;
-
   return TaskStatus::incomplete;
 }
 

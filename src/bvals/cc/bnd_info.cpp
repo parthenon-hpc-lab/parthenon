@@ -23,7 +23,7 @@
 
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
-#include "bvals_cc_in_one.hpp"
+#include "bvals/cc/bnd_info.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
