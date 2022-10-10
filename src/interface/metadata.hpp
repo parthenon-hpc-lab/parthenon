@@ -23,8 +23,8 @@
 #include <tuple>
 #include <vector>
 
-#include "defs.hpp"
 #include "utils/error_checking.hpp"
+#include "variable_dimensions.hpp"
 
 /// The point of this macro is to generate code for each built-in flag using the
 /// `PARTHENON_INTERNAL_FOR_FLAG` macro. This is to accomplish the following goals:
