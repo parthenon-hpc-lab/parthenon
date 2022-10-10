@@ -647,6 +647,13 @@ std::string ParameterInput::GetString(const std::string &block, const std::strin
   return val;
 }
 
+std::string GetString(const std::string &block, const std::string &name,
+                      const std::vector<std::string> &allowed_values) {
+  auto val = GetString(block, name);
+  CheckAllowedValues_(val, allowed_values);
+  return val
+}
+
 //----------------------------------------------------------------------------------------
 //! \fn int ParameterInput::GetOrAddInteger(const std::string & block, const std::string &
 //! name,
@@ -764,6 +771,13 @@ std::string ParameterInput::GetOrAddString(const std::string &block,
     ret = def_value;
   }
   return ret;
+}
+std::string ParameterInput::GetOrAddString(const std::string &block,
+                                           const std::string &name,
+                                           const std::string &def_value,
+                                           const std::vector<std::string> &allowed_values) {
+  auto val = GetOrAddString(block, name, def_value);
+  CheckAllowedValues_(val, allowed_values);
 }
 
 //----------------------------------------------------------------------------------------

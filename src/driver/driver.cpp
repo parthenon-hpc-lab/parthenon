@@ -70,11 +70,7 @@ DriverStatus EvolutionDriver::Execute() {
 
   // Output a text file of all parameters at this point
   // Defaults must be set across all ranks
-  if (pinput->GetOrAddBoolean("parthenon/job", "archive_parameters", false)) {
-    pinput->GetOrAddBoolean("parthenon/job", "archive_parameters_timestamp", false);
-    // Output only from rank 0
-    if (Globals::my_rank == 0) DumpInputParameters();
-  }
+  if (Globals::my_rank == 0) DumpInputParameters();
 
   Kokkos::Profiling::pushRegion("Driver_Main");
   while (tm.KeepGoing()) {
@@ -200,17 +196,23 @@ void EvolutionDriver::SetGlobalTimeStep() {
 }
 
 void EvolutionDriver::DumpInputParameters() {
-  std::ostringstream ss;
-  if (pinput->GetBoolean("parthenon/job", "archive_parameters_timestamp")) {
-    auto itt_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    ss << "parthinput.archive." << std::put_time(std::gmtime(&itt_now), "%FT%TZ");
-  } else {
-    ss << "parthinput.archive";
+  auto archive_settings =
+      pinput->GetOrAddString("parthenon/job", "archive_parameters", "false",
+                             std::vector<std::string>{"true", "false", "timestamp"});
+  if (archive_settings != "false") {
+    std::ostringstream ss;
+    if (archive_settings == "timestamp") {
+      auto itt_now =
+          std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+      ss << "parthinput.archive." << std::put_time(std::gmtime(&itt_now), "%FT%TZ");
+    } else {
+      ss << "parthinput.archive";
+    }
+    std::fstream pars;
+    pars.open(ss.str(), std::fstream::out | std::fstream::trunc);
+    pinput->ParameterDump(pars);
+    pars.close();
   }
-  std::fstream pars;
-  pars.open(ss.str(), std::fstream::out | std::fstream::trunc);
-  pinput->ParameterDump(pars);
-  pars.close();
 }
 
 void EvolutionDriver::OutputCycleDiagnostics() {
