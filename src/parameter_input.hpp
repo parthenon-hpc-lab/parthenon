@@ -26,6 +26,7 @@
 #include <cstddef>
 #include <ostream>
 #include <string>
+#include <vector>
 
 #include "config.hpp"
 #include "defs.hpp"
@@ -99,7 +100,7 @@ class ParameterInput {
   bool GetBoolean(const std::string &block, const std::string &name);
   bool GetOrAddBoolean(const std::string &block, const std::string &name, bool value);
   bool SetBoolean(const std::string &block, const std::string &name, bool value);
-  
+
   std::string GetString(const std::string &block, const std::string &name);
   std::string GetOrAddString(const std::string &block, const std::string &name,
                              const std::string &value);
@@ -109,7 +110,7 @@ class ParameterInput {
                         const std::vector<std::string> &allowed_values);
   std::string GetOrAddString(const std::string &block, const std::string &name,
                              const std::string &value,
-                             const std::vector<std::string> &allowd_values);
+                             const std::vector<std::string> &allowed_values);
   void RollbackNextTime();
   void ForwardNextTime(Real time);
   void CheckRequired(const std::string &block, const std::string &name);
@@ -125,7 +126,8 @@ class ParameterInput {
   void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
                     const std::string &comment);
   template <typename T, template <class...> class Container_t, class... extra>
-  void CheckAllowedValues_(const T &val, Container_t<T, extra...> allowed) {
+  void CheckAllowedValues_(const std::string &block, const std::string &name,
+                           const T &val, Container_t<T, extra...> allowed) {
     bool found = std::any_of(allowed.begin(), allowed.end(),
                              [&](const T &t) { return (t == val); });
     if (!found) {
@@ -133,8 +135,8 @@ class ParameterInput {
       msg << "### FATAL ERROR in function [ParameterInput::Get*]\n"
           << "Parameter '" << name << "/" << block
           << "' must be one of the following values:\n";
-      for (const auto &v : allowed_values) {
-        msg << v << " "
+      for (const auto &v : allowed) {
+        msg << v << " ";
       }
       msg << std::endl;
       PARTHENON_THROW(msg);

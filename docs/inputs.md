@@ -10,8 +10,7 @@ General parthenon options such as problem name and parameter handling.
    |             Option                    | Default  | Type   | Description |
    | ------------------------------------: | :------- | :----- | :---------- |
    | <parthenon/job><br>name                         | none      | string    | Name of this problem or initialization, prefixed to output files. | 
-   | <parthenon/job><br>archive_parameters           | false     | bool    | Produce a parameter file (`parthinput.archive`) containing all parameters known to Parthenon . | 
-   | <parthenon/job><br>archive_parameters_timestamp | false     | bool    | Add a timestamp to the parameter archive filename (`parthinput.archive.XXXX-YY-ZZ.`). | 
+   | <parthenon/job><br>archive_parameters           | false     | string    | Produce a parameter file containing all parameters known to Parthenon. Set to `true` for an output file named `parthinput.archive`. Set to `timestamp` for a file with a name containing a timestamp. | 
 
 ## `<parthenon/time>`
 Options related to time-stepping and printing of diagnostic data.

@@ -57,6 +57,7 @@
 #include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
 
 #include "globals.hpp"
 #include "utils/error_checking.hpp"
@@ -647,11 +648,11 @@ std::string ParameterInput::GetString(const std::string &block, const std::strin
   return val;
 }
 
-std::string GetString(const std::string &block, const std::string &name,
-                      const std::vector<std::string> &allowed_values) {
+std::string ParameterInput::GetString(const std::string &block, const std::string &name,
+                                      const std::vector<std::string> &allowed_values) {
   auto val = GetString(block, name);
-  CheckAllowedValues_(val, allowed_values);
-  return val
+  CheckAllowedValues_(block, name, val, allowed_values);
+  return val;
 }
 
 //----------------------------------------------------------------------------------------
@@ -772,12 +773,13 @@ std::string ParameterInput::GetOrAddString(const std::string &block,
   }
   return ret;
 }
-std::string ParameterInput::GetOrAddString(const std::string &block,
-                                           const std::string &name,
-                                           const std::string &def_value,
-                                           const std::vector<std::string> &allowed_values) {
+std::string
+ParameterInput::GetOrAddString(const std::string &block, const std::string &name,
+                               const std::string &def_value,
+                               const std::vector<std::string> &allowed_values) {
   auto val = GetOrAddString(block, name, def_value);
-  CheckAllowedValues_(val, allowed_values);
+  CheckAllowedValues_(block, name, val, allowed_values);
+  return val;
 }
 
 //----------------------------------------------------------------------------------------
