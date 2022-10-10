@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 732]](https://github.com/lanl/parthenon/pull/732) Add `Metadata::RemeshComm` flag
 - [[PR 729]](https://github.com/lanl/parthenon/pull/729) Optional modifications to output format
 - [[PR 717]](https://github.com/lanl/parthenon/pull/717) Add ghost zone plotting capability to phdf.py and movie2d.py
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
@@ -15,6 +16,7 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 759]](https://github.com/lanl/parthenon/pull/759) Add metadata so Visit treats outputs as time series
 - [[PR 743]](https://github.com/lanl/parthenon/pull/743) Add missing HDF5 type on MacOS 
 - [[PR 739]](https://github.com/lanl/parthenon/pull/739) Fix phdf.py for flattened vectors 
 - [[PR 724]](https://github.com/lanl/parthenon/pull/724) Fix failing CI on Darwin due to differing `OutputFormatVersion` attribute in hdf5 gold files.
