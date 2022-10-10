@@ -526,10 +526,9 @@ void AppendSparseBaseMap(const VariableVector<T> &vars, PackIndexMap *pvmap) {
 }
 
 template <typename T>
-void FillVarView(const VariableVector<T> &vars, bool coarse,
-                 ViewOfParArrays<T> &cv_out, ParArray1D<int> &sparse_id_out,
-                 ParArray1D<int> &vector_component_out, ParArray1D<bool> &allocated_out,
-                 PackIndexMap *pvmap) {
+void FillVarView(const VariableVector<T> &vars, bool coarse, ViewOfParArrays<T> &cv_out,
+                 ParArray1D<int> &sparse_id_out, ParArray1D<int> &vector_component_out,
+                 ParArray1D<bool> &allocated_out, PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
   assert(cv_out.size() == sparse_id_out.size());
@@ -556,7 +555,8 @@ void FillVarView(const VariableVector<T> &vars, bool coarse,
 
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
-            host_cv(vindex) = coarse ? v->coarse_s.Get(0, k, j, i) : v->data.Get(0, k, j, i);
+            host_cv(vindex) =
+                coarse ? v->coarse_s.Get(0, k, j, i) : v->data.Get(0, k, j, i);
           }
 
           vindex++;

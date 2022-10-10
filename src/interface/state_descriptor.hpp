@@ -216,9 +216,8 @@ class StateDescriptor {
           Metadata mn({Metadata::Node, Metadata::OneCopy}, shape);
           AddField(flx_name, mn);
         } else {
-          PARTHENON_THROW(
-            "Cannot add fluxes to a variable that is not associated with {Cell,Face,Edge}"
-          );
+          PARTHENON_THROW("Cannot add fluxes to a variable that is not associated with "
+                          "{Cell,Face,Edge}");
         }
       }
     }

@@ -380,10 +380,10 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nvar = advected.GetDim(4);
   size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
-  
+
   const auto &flux_name = rc->Get("advected").GetFluxName();
   auto &flux_var = rc->Get(flux_name).data;
-  const auto &x1flux = flux_var.Get(0,0,0);
+  const auto &x1flux = flux_var.Get(0, 0, 0);
   // get x-fluxes
   pmb->par_for_outer(
       "x1 flux", 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e,
@@ -408,7 +408,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // get y-fluxes
   if (pmb->pmy_mesh->ndim >= 2) {
-    const auto &x2flux = flux_var.Get(1,0,0);
+    const auto &x2flux = flux_var.Get(1, 0, 0);
     pmb->par_for_outer(
         "x2 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e + 1,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
@@ -440,7 +440,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // get z-fluxes
   if (pmb->pmy_mesh->ndim == 3) {
-    const auto &x3flux = flux_var.Get(2,0,0);
+    const auto &x3flux = flux_var.Get(2, 0, 0);
     pmb->par_for_outer(
         "x3 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1, jb.s, jb.e,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {

@@ -68,11 +68,10 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
                                 int sparse_id) {
   // TODO(JCD): what other checks should we do here?
   if (metadata.Where() == Metadata::Node) {
-    PARTHENON_REQUIRE_THROWS(metadata.IsSet(Metadata::OneCopy), 
-      "Only OneCopy Node variables are available");
+    PARTHENON_REQUIRE_THROWS(metadata.IsSet(Metadata::OneCopy),
+                             "Only OneCopy Node variables are available");
   }
-  auto pvar = std::make_shared<Variable<T>>(base_name, metadata, sparse_id,
-                                                pmy_block);
+  auto pvar = std::make_shared<Variable<T>>(base_name, metadata, sparse_id, pmy_block);
   Add(pvar);
 
   if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
@@ -296,8 +295,8 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::StringPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByName(var_names, sparse_ids),
-                                      GetVariablesByName(flx_names, sparse_ids, true), map,
-                                      key);
+                                      GetVariablesByName(flx_names, sparse_ids, true),
+                                      map, key);
 }
 
 /// Variables and fluxes by Metadata Flags
@@ -306,8 +305,8 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<MetadataFlag> &flags, const std::vector<int> &sparse_ids,
     PackIndexMap *map, vpack_types::StringPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, true, sparse_ids),
-                                      GetVariablesByFlag(flags, true, sparse_ids, true), map,
-                                      key);
+                                      GetVariablesByFlag(flags, true, sparse_ids, true),
+                                      map, key);
 }
 
 /// All variables and fluxes by Metadata Flags
@@ -351,8 +350,7 @@ MeshBlockData<T>::PackVariablesImpl(const std::vector<int> &sparse_ids, bool coa
 template <typename T>
 typename MeshBlockData<T>::VarLabelList
 MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
-                                     const std::vector<int> &sparse_ids,
-                                     bool is_flux) {
+                                     const std::vector<int> &sparse_ids, bool is_flux) {
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 

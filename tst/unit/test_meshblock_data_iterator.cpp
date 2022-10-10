@@ -37,8 +37,6 @@
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 
-using parthenon::Variable;
-using parthenon::VariableVector;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::MeshBlock;
@@ -51,6 +49,8 @@ using parthenon::ParArray4D;
 using parthenon::ParArrayND;
 using parthenon::Real;
 using parthenon::StateDescriptor;
+using parthenon::Variable;
+using parthenon::VariableVector;
 using parthenon::X1DIR;
 using parthenon::X2DIR;
 using parthenon::X3DIR;

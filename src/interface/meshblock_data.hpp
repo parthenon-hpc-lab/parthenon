@@ -136,9 +136,7 @@ class MeshBlockData {
     return varMap_.count(label) > 0;
   }
 
-  const VariableVector<T> &GetVariableVector() const noexcept {
-    return varVector_;
-  }
+  const VariableVector<T> &GetVariableVector() const noexcept { return varVector_; }
 
   const MapToVars<T> &GetVariableMap() const noexcept { return varMap_; }
 
@@ -149,8 +147,7 @@ class MeshBlockData {
     return it->second;
   }
 
-  Variable<T> &Get(const std::string &base_name,
-                       int sparse_id = InvalidSparseID) const {
+  Variable<T> &Get(const std::string &base_name, int sparse_id = InvalidSparseID) const {
     return *GetVarPtr(MakeVarLabel(base_name, sparse_id));
   }
   Variable<T> &Get(const int index) const { return *(varVector_[index]); }
@@ -234,7 +231,8 @@ class MeshBlockData {
                                   bool is_flux = false);
 
   /// Get list of all variables and labels, optionally selecting only given sparse ids
-  VarLabelList GetAllVariables(const std::vector<int> &sparse_ids = {}, bool is_flux = false) {
+  VarLabelList GetAllVariables(const std::vector<int> &sparse_ids = {},
+                               bool is_flux = false) {
     return GetVariablesByFlag({}, false, sparse_ids, is_flux);
   }
 
@@ -458,7 +456,7 @@ class MeshBlockData {
   }
 
   std::shared_ptr<Variable<T>> AllocSparseID(std::string const &base_name,
-                                                 const int sparse_id) {
+                                             const int sparse_id) {
     return AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 
@@ -480,7 +478,7 @@ class MeshBlockData {
   std::shared_ptr<StateDescriptor> resolved_packages_;
 
   VariableVector<T> varVector_; ///< the saved variable array
-  FaceVector<T> faceVector_;        ///< the saved face arrays
+  FaceVector<T> faceVector_;    ///< the saved face arrays
 
   MapToVars<T> varMap_;
   MapToFace<T> faceMap_;

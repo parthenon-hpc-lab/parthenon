@@ -31,7 +31,6 @@
 namespace parthenon {
 namespace prelude {
 using ::parthenon::BoundaryCommSubset;
-using ::parthenon::Variable;
 using ::parthenon::IndexDomain;
 using ::parthenon::IndexRange;
 using ::parthenon::MeshBlock;
@@ -44,6 +43,7 @@ using ::parthenon::ParthenonStatus;
 using ::parthenon::Real;
 using ::parthenon::Swarm;
 using ::parthenon::SwarmContainer;
+using ::parthenon::Variable;
 using ::parthenon::Globals::my_rank;
 using ::parthenon::Globals::nranks;
 } // namespace prelude

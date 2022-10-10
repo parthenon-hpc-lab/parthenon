@@ -85,9 +85,8 @@ template <typename T, typename State = empty_state_t>
 using ParArray7D =
     ParArrayGeneric<Kokkos::View<T *******, LayoutWrapper, DevMemSpace>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArrayMaxD = 
-    ParArrayGeneric<Kokkos::View<multi_pointer_t<T>, LayoutWrapper, DevMemSpace>,
-    State>;
+using ParArrayMaxD =
+    ParArrayGeneric<Kokkos::View<multi_pointer_t<T>, LayoutWrapper, DevMemSpace>, State>;
 
 // Host mirrors
 template <typename T>

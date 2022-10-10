@@ -21,13 +21,15 @@
 
 namespace parthenon {
 
-template<class T, int N>
+template <class T, int N>
 struct multi_pointer : multi_pointer<std::add_pointer_t<T>, N - 1> {};
 
-template<class T>
-struct multi_pointer<T, 0> {using type = T;};
+template <class T>
+struct multi_pointer<T, 0> {
+  using type = T;
+};
 
-template<class T, int N=MAX_VARIABLE_DIMENSION>
+template <class T, int N = MAX_VARIABLE_DIMENSION>
 using multi_pointer_t = typename multi_pointer<T, N>::type;
 
 } // namespace parthenon

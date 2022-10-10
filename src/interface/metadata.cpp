@@ -124,7 +124,7 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
   const int N = shape.size();
 
   if (IsMeshTied()) {
-    assert(N >= 1 && N <= MAX_VARIABLE_DIMENSION-3);
+    assert(N >= 1 && N <= MAX_VARIABLE_DIMENSION - 3);
     PARTHENON_REQUIRE_THROWS(!wpmb.expired(),
                              "Cannot determine array dimensions for mesh-tied entity "
                              "without a valid meshblock");
@@ -133,22 +133,22 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     arrDims[0] = bnds.ncellsi(IndexDomain::entire);
     arrDims[1] = bnds.ncellsj(IndexDomain::entire);
     arrDims[2] = bnds.ncellsk(IndexDomain::entire);
-    arrDims[MAX_VARIABLE_DIMENSION-1] = 1;
+    arrDims[MAX_VARIABLE_DIMENSION - 1] = 1;
     for (int i = 0; i < N; i++)
       arrDims[i + 3] = shape[i];
     for (int i = N; i < 3; i++)
       arrDims[i + 3] = 1;
     if (IsSet(Cell)) {
     } else if (IsSet(Face) || IsSet(Edge)) {
-      assert(N <= MAX_VARIABLE_DIMENSION-4);
+      assert(N <= MAX_VARIABLE_DIMENSION - 4);
       arrDims[0] += 1;
-      arrDims[1] += (arrDims[1]>1);
-      arrDims[2] += (arrDims[2]>1);
+      arrDims[1] += (arrDims[1] > 1);
+      arrDims[2] += (arrDims[2] > 1);
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 3; // 3 directions
-    } else { // must be Node
+    } else {                                   // must be Node
       arrDims[0] += 1;
-      arrDims[1] += (arrDims[1]>1);
-      arrDims[2] += (arrDims[2]>1);
+      arrDims[1] += (arrDims[1] > 1);
+      arrDims[2] += (arrDims[2] > 1);
     }
   } else if (IsSet(Particle)) {
     assert(N >= 1 && N <= 5);

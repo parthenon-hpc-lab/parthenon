@@ -61,7 +61,7 @@ class Variable {
 
  public:
   Variable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
-                  std::weak_ptr<MeshBlock> wpmb);
+              std::weak_ptr<MeshBlock> wpmb);
 
   // copy fluxes and boundary variable from src Variable (shallow copy)
   void CopyBdryVar(const Variable<T> *src);
@@ -274,7 +274,8 @@ class ParticleVariable {
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
-    PARTHENON_DEBUG_REQUIRE(0 < i && i <= MAX_VARIABLE_DIMENSION, "ParArrayNDGenerics are max 6D");
+    PARTHENON_DEBUG_REQUIRE(0 < i && i <= MAX_VARIABLE_DIMENSION,
+                            "ParArrayNDGenerics are max 6D");
     return dims_[i - 1];
   }
 
