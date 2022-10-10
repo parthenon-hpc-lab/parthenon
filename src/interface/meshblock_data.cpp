@@ -41,9 +41,7 @@ void MeshBlockData<T>::Initialize(
 
   // clear all variables, maps, and pack caches
   varVector_.clear();
-  faceVector_.clear();
   varMap_.clear();
-  faceMap_.clear();
   varPackMap_.clear();
   coarseVarPackMap_.clear();
   varFluxPackMap_.clear();
@@ -109,12 +107,8 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
     for (auto v : src.GetVariableVector()) {
       add_var(v);
     }
-    for (auto fv : src.GetFaceVector()) {
-      add_var(fv);
-    }
   } else {
     auto var_map = src.GetVariableMap();
-    auto face_map = src.GetFaceMap();
 
     for (const auto &name : names) {
       bool found = false;
@@ -122,14 +116,6 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
       if (v != var_map.end()) {
         found = true;
         add_var(v->second);
-      }
-
-      auto fv = face_map.find(name);
-      if (fv != face_map.end()) {
-        PARTHENON_REQUIRE_THROWS(!found, "MeshBlockData::CopyFrom: Variable '" + name +
-                                             "' found more than once");
-        found = true;
-        add_var(fv->second);
       }
 
       if (!found && (resolved_packages_ != nullptr)) {
@@ -439,9 +425,6 @@ void MeshBlockData<T>::Print() {
   std::cout << "Variables are:\n";
   for (auto v : varVector_) {
     std::cout << " cell: " << v->info() << std::endl;
-  }
-  for (auto v : faceVector_) {
-    std::cout << " face: " << v->info() << std::endl;
   }
 }
 

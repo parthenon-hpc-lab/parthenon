@@ -120,7 +120,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
-  vars_fc_.reserve(3);
 
   // construct objects stored in MeshBlock class.  Note in particular that the initial
   // conditions for the simulation are set in problem generator called from main
@@ -260,11 +259,6 @@ void MeshBlock::StopTimeMeasurement() {
 
 void MeshBlock::RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc) {
   vars_cc_.push_back(pvar_cc);
-  return;
-}
-
-void MeshBlock::RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc) {
-  vars_fc_.push_back(pvar_fc);
   return;
 }
 

@@ -182,39 +182,6 @@ class MeshBlockData {
   }
 #endif
 
-  //
-  // Queries related to FaceVariable objects
-  //
-  const FaceVector<T> &GetFaceVector() const noexcept { return faceVector_; }
-  const MapToFace<T> &GetFaceMap() const noexcept { return faceMap_; }
-  // DO NOT make this a const reference. Passing in C-style string literals
-  // cuases it to misbehave.
-  FaceVariable<T> &GetFace(std::string label) {
-    auto it = faceMap_.find(label);
-    if (it == faceMap_.end()) {
-      PARTHENON_THROW(std::string("\n") + std::string(label) +
-                      std::string(" array not found in Get() Face\n"));
-    }
-    return *(it->second);
-  }
-
-  ParArrayND<Real> &GetFace(std::string &label, int dir) {
-    return GetFace(label).Get(dir);
-  }
-
-  ///
-  /// Get an edge variable from the container
-  /// @param label the name of the variable
-  /// @return the Variable<T> if found or throw exception
-  ///
-  EdgeVariable<T> *GetEdge(std::string label) {
-    // for (auto v : edgeVector_) {
-    //   if (! v->label().compare(label)) return v;
-    // }
-    PARTHENON_THROW(std::string("\n") + std::string(label) +
-                    std::string(" array not found in Get() Edge\n"));
-  }
-
   using VarLabelList = VarListWithLabels<T>;
 
   /// Get list of variables and labels by names (either a full variable name or sparse
@@ -402,13 +369,7 @@ class MeshBlockData {
     for (auto &v : varMap_) {
       my_keys.push_back(v.first);
     }
-    for (auto &v : faceMap_) {
-      my_keys.push_back(v.first);
-    }
     for (auto &v : cmp.GetVariableMap()) {
-      cmp_keys.push_back(v.first);
-    }
-    for (auto &v : cmp.GetFaceMap()) {
       cmp_keys.push_back(v.first);
     }
     return (my_keys == cmp_keys);
@@ -416,7 +377,6 @@ class MeshBlockData {
 
   bool Contains(const std::string &name) const noexcept {
     if (varMap_.find(name) != varMap_.end()) return true;
-    if (faceMap_.find(name) != faceMap_.end()) return true;
     return false;
   }
   bool Contains(const std::vector<std::string> &names) const noexcept {
@@ -433,11 +393,6 @@ class MeshBlockData {
   void Add(std::shared_ptr<Variable<T>> var) noexcept {
     varVector_.push_back(var);
     varMap_[var->label()] = var;
-  }
-
-  void Add(std::shared_ptr<FaceVariable<T>> var) noexcept {
-    faceVector_.push_back(var);
-    faceMap_[var->label()] = var;
   }
 
   std::shared_ptr<Variable<T>> AllocateSparse(std::string const &label) {
@@ -478,10 +433,7 @@ class MeshBlockData {
   std::shared_ptr<StateDescriptor> resolved_packages_;
 
   VariableVector<T> varVector_; ///< the saved variable array
-  FaceVector<T> faceVector_;    ///< the saved face arrays
-
   MapToVars<T> varMap_;
-  MapToFace<T> faceMap_;
 
   // variable packing
   MapToVariablePack<T> varPackMap_;
