@@ -15,9 +15,10 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 743]](https://github.com/lanl/parthenon/pull/740) Faster PHDF file load times in phdf.py
+- [[PR 765]](https://github.com/lanl/parthenon/pull/765) Fix incorrect BC labeling in swarm
 - [[PR 759]](https://github.com/lanl/parthenon/pull/759) Add metadata so Visit treats outputs as time series
-- [[PR 743]](https://github.com/lanl/parthenon/pull/743) Add missing HDF5 type on MacOS 
-- [[PR 739]](https://github.com/lanl/parthenon/pull/739) Fix phdf.py for flattened vectors 
+- [[PR 743]](https://github.com/lanl/parthenon/pull/743) Add missing HDF5 type on MacOS
+- [[PR 739]](https://github.com/lanl/parthenon/pull/739) Fix phdf.py for flattened vectors
 - [[PR 724]](https://github.com/lanl/parthenon/pull/724) Fix failing CI on Darwin due to differing `OutputFormatVersion` attribute in hdf5 gold files.
 - [[PR 725]](https://github.com/lanl/parthenon/pull/725) Fix improperly exited kokkos profiling region
 - [[PR 719]](https://github.com/lanl/parthenon/pull/719) Fix type mismatch in swarm boundaries when host pinned memory enabled
