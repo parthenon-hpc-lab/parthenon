@@ -244,21 +244,6 @@ class ParArrayGeneric : public State {
     return ParArrayGeneric<decltype(v), State>(v, *this);
   }
 
-  // translates into auto dest = src.SliceD<dim>(std::make_pair(indx,indx+nvar))
-  template <std::size_t N = Data::rank>
-  auto SliceD(index_pair_t slc) const {
-    static_assert(N <= Data::rank, "Slice dim larger than data rank");
-    static_assert(N > 0, "Slice dimension negative");
-    return SliceD(std::make_index_sequence<Data::rank - N>{},
-                  std::make_index_sequence<N - 1>{}, slc);
-  }
-
-  // translates into auto dest = src.SliceD<dim>(indx,nvar)
-  template <std::size_t N = Data::rank>
-  auto SliceD(const int indx, const int nvar) {
-    return SliceD<N>(std::make_pair(indx, indx + nvar));
-  }
-
   // Reset size to 0
   // Note: Copies of this array won't be affected
   void Reset() { data_ = Data(); }
@@ -312,12 +297,6 @@ class ParArrayGeneric : public State {
   KOKKOS_FORCEINLINE_FUNCTION auto &_operator_impl(std::index_sequence<I...>,
                                                    Args... args) const {
     return data_(((void)I, 0)..., args...);
-  }
-
-  template <std::size_t... I, std::size_t... J>
-  auto SliceD(std::index_sequence<I...>, std::index_sequence<J...>,
-              index_pair_t slc) const {
-    return Slice(((void)I, std::make_pair(0, 1))..., slc, ((void)J, Kokkos::ALL())...);
   }
 
   Data data_;
