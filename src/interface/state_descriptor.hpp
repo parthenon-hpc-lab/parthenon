@@ -92,7 +92,7 @@ struct RefinementFunctionMaps {
   }
   // A unique enumeration of refinement functions starting from zero.
   // This is used for caching which prolongation/restriction operator
-  // matches which BufferInfo_t struct in the buffer packing caches.
+  // matches which BndInfo struct in the buffer packing caches.
   // the other relevant information is in metadata, so this is all we
   // need.
   std::unordered_map<refinement::RefinementFunctions_t, size_t,
