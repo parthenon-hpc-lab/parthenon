@@ -62,7 +62,7 @@ void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
     for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(parthenon::Metadata::FillGhost)) {
+      if (v->IsSet(Metadat::FillGhost)) {
         pmb->pbval->FillRestrictionMetadata(info_h, idx, v);
       }
     }

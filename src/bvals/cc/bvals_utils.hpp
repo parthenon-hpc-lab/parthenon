@@ -276,7 +276,6 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   }
 
   int ibound = 0;
-  printf("For each boundary loop %d %d\n", static_cast<int>(BOUND_TYPE), SENDER);
   ForEachBoundary<BOUND_TYPE>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
         // bnd_info
@@ -302,7 +301,10 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
         ++ibound;
       });
   Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
-  Kokkos::deep_copy(cache.buffer_subsets, cache.buffer_subsets_h);
+  if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
+                  (BOUND_TYPE == BoundaryType::flxcor_recv))) {
+    Kokkos::deep_copy(cache.buffer_subsets, cache.buffer_subsets_h);
+  }
 }
 
 } // namespace impl

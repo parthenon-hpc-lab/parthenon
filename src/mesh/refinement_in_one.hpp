@@ -110,19 +110,21 @@ void Prolongate(const cell_centered_bvars::BufferCacheHost_t &info_h,
 }
 
 // std::function closures for the top-level restriction functions
-using Restrictor_t = std::function<void(const cell_centered_bvars::BufferCache_t &,
-                                        const cell_centered_bvars::BufferCacheHost_t &,
-                                        const IndexShape &, const IndexShape &)>;
-using RestrictorHost_t =
-    std::function<void(const cell_centered_bvars::BufferCacheHost_t &, const IndexShape &,
-                       const IndexShape &)>;
+using Restrictor_t = std::function<void(
+    const cell_centered_bvars::BufferCache_t &,
+    const cell_centered_bvars::BufferCacheHost_t &, const loops::Idx_t &,
+    const loops::IdxHost_t &, const IndexShape &, const IndexShape &, const std::size_t)>;
+using RestrictorHost_t = std::function<void(
+    const cell_centered_bvars::BufferCacheHost_t &, const loops::IdxHost_t &,
+    const IndexShape &, const IndexShape &, const std::size_t)>;
 using BoundaryRestrictor_t = std::function<TaskStatus(MeshData<Real> *)>;
-using Prolongator_t = std::function<void(const cell_centered_bvars::BufferCache_t &,
-                                         const cell_centered_bvars::BufferCacheHost_t &,
-                                         const IndexShape &, const IndexShape &)>;
-using ProlongatorHost_t =
-    std::function<void(const cell_centered_bvars::BufferCacheHost_t &, const IndexShape &,
-                       const IndexShape &)>;
+using Prolongator_t = std::function<void(
+    const cell_centered_bvars::BufferCache_t &,
+    const cell_centered_bvars::BufferCacheHost_t &, const loops::Idx_t &,
+    const loops::IdxHost_t &, const IndexShape &, const IndexShape &, const std::size_t)>;
+using ProlongatorHost_t = std::function<void(
+    const cell_centered_bvars::BufferCacheHost_t &, const loops::IdxHost_t &,
+    const IndexShape &, const IndexShape &, const std::size_t)>;
 
 // Container struct owning refinement functions/closures.
 // this container needs to be uniquely hashable, and always the same
@@ -144,23 +146,36 @@ struct RefinementFunctions_t {
     RefinementFunctions_t funcs(label);
     funcs.restrictor = [](const cell_centered_bvars::BufferCache_t &info,
                           const cell_centered_bvars::BufferCacheHost_t &info_h,
-                          const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-      Restrict<RestrictionOp>(info, info_h, cellbnds, c_cellbnds);
+                          const loops::Idx_t &idxs, const loops::IdxHost_t &idxs_h,
+                          const IndexShape &cellbnds, const IndexShape &c_cellbnds,
+                          const std::size_t nbuffers) {
+      loops::DoProlongationRestrictionOp<RestrictionOp>(
+          cellbnds, info, info_h, idxs, idxs_h, cellbnds, c_cellbnds,
+          RefinementOp_t::Restriction, nbuffers);
     };
     funcs.restrictor_host = [](const cell_centered_bvars::BufferCacheHost_t &info_h,
                                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-      Restrict<RestrictionOp>(info_h, cellbnds, c_cellbnds);
+      loops::DoProlongationRestrictionOp<RestrictionOp>(
+          cellbnds, info_h, idxs_h, cellbnds, c_cellbnds, RefinementOp_t::Restriction,
+          nbuffers);
     };
     funcs.boundary_restrictor = RestrictPhysicalBounds<RestrictionOp>;
     funcs.prolongator = [](const cell_centered_bvars::BufferCache_t &info,
                            const cell_centered_bvars::BufferCacheHost_t &info_h,
-                           const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-      Prolongate<ProlongationOp>(info, info_h, cellbnds, c_cellbnds);
+                           const loops::Idx_t &idxs, const loops::IdxHost_t &idxs_h,
+                           const IndexShape &cellbnds, const IndexShape &c_cellbnds,
+                           const std::size_t nbuffers) {
+      loops::DoProlongationRestrictionOp<ProlongationOp>(
+          cellbnds, info, info_h, idxs, idxs_h, cellbnds, c_cellbnds,
+          RefinementOp_t::Prolongation, nbuffers);
     };
     funcs.prolongator_host = [](const cell_centered_bvars::BufferCacheHost_t &info_h,
-                                const IndexShape &cellbnds,
-                                const IndexShape &c_cellbnds) {
-      Prolongate<ProlongationOp>(info_h, cellbnds, c_cellbnds);
+                                loops::IdxHost_t &idxs_h, const IndexShape &cellbnds,
+                                const IndexShape &c_cellbnds,
+                                const std::size_t nbuffers) {
+      loops::DoProlongationRestrictionOp<ProlongationOp>(
+          cellbnds, info_h, idxs_h, cellbnds, c_cellbnds, RefinementOp_t::Prolongation,
+          nbuffers);
     };
     return funcs;
   }
