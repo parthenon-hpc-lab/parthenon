@@ -49,13 +49,6 @@
  *
  * However the same call pattern would NOT work with a templated function.
  *
- * Note that inspection of assembly indicates that for if statements
- * that depend on a templated function, the if is resolved at compile
- * time EVEN WITHOUT CONSTEXPR FROM C++17. The compiler is smart
- * enough to optimize out the branching. This is why the template
- * machinery is used, rather than a simple run-time parameter for the
- * dimensionality.
- *
  * TODO(JMM): To enable custom prolongation/restriction operations, we
  * will need to provide (likely in state descriptor so it can be
  * per-variable) a templated function that registers the
@@ -135,11 +128,11 @@ struct RestrictCellAverage {
     auto &fine = *pfine;
     const int i = (ci - cib.s) * 2 + ib.s;
     int j = jb.s;
-    if (DIM > 1) {
+    if constexpr (DIM > 1) {
       j = (cj - cjb.s) * 2 + jb.s;
     }
     int k = kb.s;
-    if (DIM > 2) {
+    if constexpr (DIM > 2) {
       k = (ck - ckb.s) * 2 + kb.s;
     }
     // JMM: If dimensionality is wrong, accesses are out of bounds. Only
@@ -191,7 +184,7 @@ struct ProlongateCellMinMod {
     Real dx2fm = 0;
     Real dx2fp = 0;
     Real gx2c = 0;
-    if (DIM > 1) { // TODO(c++17) make constexpr
+    if constexpr (DIM > 1) {
       Real dx2m, dx2p;
       GetGridSpacings<2>(coords, coarse_coords, cjb, jb, j, &fj, &dx2m, &dx2p, &dx2fm,
                          &dx2fp);
@@ -202,7 +195,7 @@ struct ProlongateCellMinMod {
     Real dx3fm = 0;
     Real dx3fp = 0;
     Real gx3c = 0;
-    if (DIM > 2) { // TODO(c++17) make constexpr
+    if constexpr (DIM > 2) {
       Real dx3m, dx3p;
       GetGridSpacings<3>(coords, coarse_coords, ckb, kb, k, &fk, &dx3m, &dx3p, &dx3fm,
                          &dx3fp);
@@ -214,12 +207,12 @@ struct ProlongateCellMinMod {
     // JMM: Extraneous quantities are zero
     fine(l, m, n, fk, fj, fi) = fc - (gx1c * dx1fm + gx2c * dx2fm + gx3c * dx3fm);
     fine(l, m, n, fk, fj, fi + 1) = fc + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
-    if (DIM > 1) { // TODO(c++17) make constexpr
+    if constexpr (DIM > 1) {
       fine(l, m, n, fk, fj + 1, fi) = fc - (gx1c * dx1fm - gx2c * dx2fp + gx3c * dx3fm);
       fine(l, m, n, fk, fj + 1, fi + 1) =
           fc + (gx1c * dx1fp + gx2c * dx2fp - gx3c * dx3fm);
     }
-    if (DIM > 2) { // TODO(c++17) make constexpr
+    if constexpr (DIM > 2) {
       fine(l, m, n, fk + 1, fj, fi) = fc - (gx1c * dx1fm + gx2c * dx2fm - gx3c * dx3fp);
       fine(l, m, n, fk + 1, fj, fi + 1) =
           fc + (gx1c * dx1fp - gx2c * dx2fm + gx3c * dx3fp);

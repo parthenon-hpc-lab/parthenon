@@ -87,19 +87,18 @@ struct RefinementFunctionMaps {
       }
     }
   }
-  size_t size() const noexcept {
-    return next_refinement_id_;
-  }
+  std::size_t size() const noexcept { return next_refinement_id_; }
   // A unique enumeration of refinement functions starting from zero.
   // This is used for caching which prolongation/restriction operator
   // matches which BndInfo struct in the buffer packing caches.
   // the other relevant information is in metadata, so this is all we
   // need.
-  std::unordered_map<refinement::RefinementFunctions_t, size_t,
+  std::unordered_map<refinement::RefinementFunctions_t, std::size_t,
                      refinement::RefinementFunctionsHasher>
       funcs_to_ids;
-private:
-  size_t next_refinement_id_ = 0;
+
+ private:
+  std::size_t next_refinement_id_ = 0;
 };
 
 /// The state metadata descriptor class.
@@ -221,15 +220,14 @@ class StateDescriptor {
   const auto &AllSwarmValues(const std::string &swarm_name) const noexcept {
     return swarmValueMetadataMap_.at(swarm_name);
   }
-  size_t RefinementFuncID(const refinement::RefinementFunctions_t &funcs) const noexcept {
+  std::size_t
+  RefinementFuncID(const refinement::RefinementFunctions_t &funcs) const noexcept {
     return refinementFuncMaps_.funcs_to_ids.at(funcs);
   }
-  size_t RefinementFuncID(const Metadata &m) const noexcept {
+  std::size_t RefinementFuncID(const Metadata &m) const noexcept {
     return RefinementFuncID(m.GetRefinementFunctions());
   }
-  size_t NumRefinementFuncs() const noexcept {
-    return refinementFuncMaps_.size();
-  }
+  std::size_t NumRefinementFuncs() const noexcept { return refinementFuncMaps_.size(); }
   bool FieldPresent(const std::string &base_name,
                     int sparse_id = InvalidSparseID) const noexcept {
     return metadataMap_.count(VarID(base_name, sparse_id)) > 0;

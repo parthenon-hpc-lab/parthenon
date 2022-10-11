@@ -51,14 +51,14 @@ enum class LoopControl { cont, break_out };
 // function calls in the ForEachBoundary loop template to allow for breaking
 // out of the loop if desired
 template <class F, class... Args>
-inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
+inline auto func_caller(F func, Args &&... args) -> typename std::enable_if<
     std::is_same<decltype(func(std::declval<Args>()...)), LoopControl>::value,
     LoopControl>::type {
   return func(std::forward<Args>(args)...);
 }
 
 template <class F, class... Args>
-inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
+inline auto func_caller(F func, Args &&... args) -> typename std::enable_if<
     !std::is_same<decltype(func(std::declval<Args>()...)), LoopControl>::value,
     LoopControl>::type {
   func(std::forward<Args>(args)...);
@@ -255,14 +255,54 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   cache.bnd_info = BufferCache_t("send_info", nbound);
   cache.bnd_info_h = Kokkos::create_mirror_view(cache.bnd_info);
 
+  // prolongation/restriction sub-sets
+  // TODO(JMM): Right now I exclude fluxcorrection boundaries but if
+  // we eventually had custom fluxcorrection ops, you could remove
+  // this.
+  // TODO(JMM): Should prolongation/restriction be in initialize
+  // buffer cache?
+  Mesh *pmesh = md->GetParentPointer();
+  StateDescriptor *pkg = (pmesh->resolved_packages).get();
+  if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
+                  (BOUND_TYPE == BoundaryType::flxcor_recv))) {
+    int nref_funcs = pkg->NumRefinementFuncs();
+    // Note that assignment of Kokkos views resets them, but
+    // buffer_subset_sizes is a std::vector. It must be cleared, then
+    // re-filled.
+    cache.buffer_subset_sizes.clear();
+    cache.buffer_subset_sizes.resize(nref_funcs, 0);
+    cache.buffer_subsets = ParArray2D<std::size_t>("buffer_subsets", nref_funcs, nbound);
+    cache.buffer_subsets_h = Kokkos::create_mirror_view(cache.buffer_subsets);
+  }
+
   int ibound = 0;
+  printf("For each boundary loop %d %d\n", static_cast<int>(BOUND_TYPE), SENDER);
   ForEachBoundary<BOUND_TYPE>(
       md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        // bnd_info
         const std::size_t ibuf = cache.idx_vec[ibound];
         cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
+
+        // subsets ordering is same as in cache.bnd_info
+        // RefinementFunctions_t owns all relevant functionality, so
+        // only one ParArray2D needed.
+        if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
+                        (BOUND_TYPE == BoundaryType::flxcor_recv))) {
+          // var must be registered for refinement and this must be a coarse-fine boundary
+          // note this condition means that each subset contains
+          // both prolongation and restriction conditions. The
+          // `RefinementOp_t` in `BndInfo` is assumed to
+          // differentiate.
+          if (v->IsRefined() && (nb.snb.level != pmb->loc.level)) {
+            std::size_t rfid = pkg->RefinementFuncID((v->GetRefinementFunctions()));
+            cache.buffer_subsets_h(rfid, cache.buffer_subset_sizes[rfid]++) = ibuf;
+          }
+        }
+
         ++ibound;
       });
   Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
+  Kokkos::deep_copy(cache.buffer_subsets, cache.buffer_subsets_h);
 }
 
 } // namespace impl
