@@ -93,6 +93,9 @@ struct BvarsSubCache_t {
       sending_non_zero_flags_h = ParArray1D<bool>::host_mirror_type{};
     bnd_info = BufferCache_t{};
     bnd_info_h = BufferCache_t::host_mirror_type{};
+    buffer_subset_sizes.clear();
+    buffer_subsets = ParArray2D<std::size_t>{};
+    buffer_subsets = ParArray2D<std::size_t>::host_mirror_type{};
   }
 
   std::vector<std::size_t> idx_vec;
@@ -102,6 +105,12 @@ struct BvarsSubCache_t {
 
   BufferCache_t bnd_info{};
   BufferCache_t::host_mirror_type bnd_info_h{};
+
+  // Can be used to inform the infrastructure to loop over only a
+  // subset of the bvars cache. Used for prolongation/restriction.
+  std::vector<std::size_t> buffer_subset_sizes;
+  ParArray2D<std::size_t> buffer_subsets{};
+  ParArray2D<std::size_t>::host_mirror_type buffer_subsets_h{};
 };
 
 struct BvarsCache_t {
