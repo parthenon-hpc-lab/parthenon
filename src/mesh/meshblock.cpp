@@ -158,6 +158,11 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   swarm_container->AllocateBoundaries();
 
+  for (auto const &swarm : real_container->GetAllSwarms()) {
+    swarm->AllocateComms(shared_from_this());
+    swarm->AllocateBoundaries();
+  }
+
   // TODO(jdolence): Should these loops be moved to Variable creation
   // TODO(JMM): What variables should be in vars_cc_? They are used
   // for counting load-balance cost. Should it be different than the

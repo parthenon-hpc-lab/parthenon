@@ -1193,15 +1193,21 @@ bool Swarm::FinalizeCommunicationIterative() {
 
 void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
   if (wpmb.expired()) return;
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __FILE__);
 
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __FILE__);
+  //printf("pmb: %i\n", pmb.get() == nullptr);
 
   // Create the boundary object
   vbswarm = std::make_shared<BoundarySwarm>(pmb, label_);
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __FILE__);
 
   // Enroll SwarmVariable object
   vbswarm->bswarm_index = pmb->pbswarm->bswarms.size();
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __FILE__);
   pmb->pbswarm->bswarms.push_back(vbswarm);
+  printf("%s:%i:%s\n", __FILE__, __LINE__, __FILE__);
 }
 
 } // namespace parthenon

@@ -45,9 +45,15 @@ void MeshBlockData<T>::Initialize(
   varPackMap_.clear();
   coarseVarPackMap_.clear();
   varFluxPackMap_.clear();
+  swarmVector_.clear();
+  swarmMap_.clear();
 
   for (auto const &q : resolved_packages->AllFields()) {
     AddField(q.first.base_name, q.second, q.first.sparse_id);
+  }
+
+  for (auto const &q : resolved_packages->AllSwarms()) {
+    AddSwarm(q.first, q.second, resolved_packages->AllSwarmValues(q.first));
   }
 }
 
@@ -68,6 +74,19 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
   if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
     pvar->Allocate(pmy_block);
   }
+}
+
+template <typename T>
+void MeshBlockData<T>::AddSwarm(const std::string &swarm_name, const Metadata &metadata, const Dictionary<Metadata> &all_swarm_values) {
+  auto swarm = std::make_shared<Swarm>(swarm_name, metadata);
+
+  for (auto const &m : all_swarm_values) {
+    swarm->Add(m.first, m.second);
+  }
+
+  swarm->SetBlockPointer(pmy_block);
+  swarmVector_.push_back(swarm);
+  swarmMap_[swarm->label()] = swarm;
 }
 
 template <typename T>

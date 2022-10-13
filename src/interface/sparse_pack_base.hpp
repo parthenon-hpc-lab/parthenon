@@ -33,8 +33,105 @@
 namespace parthenon {
 class SparsePackCache;
 
+template <unsigned int NMAX>
+class PackIdx {
+ public:
+  KOKKOS_INLINE_FUNCTION
+  explicit PackIdx(int var_start_idx) : vidx(var_start_idx), offset(0) {}
+  //KOKKOS_INLINE_FUNCTION
+  //PackIdx(std::size_t var_idx, int off) : vidx(var_idx), offset(off) {}
+
+//  KOKKOS_INLINE_FUNCTION
+//  PackIdx &operator=(std::size_t var_idx) {
+//    vidx = var_idx;
+//    offset = 0;
+//    return *this;
+//  }
+
+  PackIdx(std::vector<int> shape, int var_start_idx) : vidx_(vidx), ndim_(shape.size() {
+    PARTHENON_REQUIRE_THROWS(shape.size() <= NMAX, "Requested rank too large");
+    for (int i = 0; i < shape.size(); ++i) {
+      shape_[i] = shape[i];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  int DimSize(int iDim) const {
+    PARTHENON_DEBUG_REQUIRE(iDim <= ndim_, "Wrong number of dimensions.");
+    return shape_[iDim - 1];
+  }
+
+  IndexRange GetBounds(int iDim) const {
+    PARTHENON_REQUIRE_THROWS(iDim > ndim_"Dimension " + std::to_string(iDim) + " greater than rank " +
+      std::to_string(ndim_) + ".");
+    IndexRange rng;
+    rng.s = 0;
+    rng.e = shape_[iDim - 1] - 1;
+    return rng;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  bool IsValid() { return vidx_ >= 0; }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()() const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 0, "Wrong number of dimensions.");
+    return vidx_;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 1, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    return vidx_ + idx1;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1, const int idx2) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 2, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx2 < shape_[1], "Idx2 too large.");
+    return vidx_ + idx1 + shape_[0] * idx2;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int operator()(const int idx1, const int idx2, const int idx3) const {
+    PARTHENON_DEBUG_REQUIRE(ndim_ == 3, "Wrong number of dimensions.");
+    PARTHENON_DEBUG_REQUIRE(idx1 < shape_[0], "Idx1 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx2 < shape_[1], "Idx2 too large.");
+    PARTHENON_DEBUG_REQUIRE(idx3 < shape_[2], "Idx3 too large.");
+    return vidx_ + idx1 + shape_[0] * (idx2 + shape_[1] * idx3);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  std::size_t VariableIdx() { return vidx; }
+//  KOKKOS_INLINE_FUNCTION
+//  int Offset() { return offset; }
+
+
+
+ private:
+  int vidx_;
+  int shape_[NMAX];
+  int ndim_;
+  //int offset;
+};
+
 // Map for going from variable names to sparse pack variable indices
 using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
+//class SparsePackIdxMap {
+// public:
+//  SparsePackIdxMap() = default;
+//
+//  const auto &Map() const { return map_; }
+//
+//  const PackIdx &operator[](const std::string &key) const {
+//    //static const PackIdx invalid_indices(-2
+//  }
+//
+// private:
+//  std::unordered_map<std::string, std::size_t> map_;
+//};
 
 namespace impl {
 struct PackDescriptor {
@@ -99,32 +196,64 @@ struct PackDescriptor {
   std::vector<MetadataFlag> flags;
   bool with_fluxes;
   bool coarse;
+  // TODO(BRR) store type here? Maybe unnecessary
+};
+
+struct SwarmPackDescriptor {
+  SwarmPackDescriptor(const std::string &swarm_name, const std::vector<std::string> &vars)
+      : swarm_name(swarm_name), vars(vars) {}
+
+  // Method for determining if variable pv should be included in pack for this
+  // PackDescriptor
+  bool IncludeVariable(int vidx, const std::shared_ptr<ParticleVariable<Real>> &pv) const {
+    // TODO(LFR): Check that the shapes agree
+    //if (flags.size() > 0) {
+    //  for (const auto &flag : flags) {
+    //    if (!pv->IsSet(flag)) {
+    //      return false;
+    //    }
+    //  }
+    //}
+
+    //if (use_regex[vidx]) {
+    //  if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
+    //} else {
+      if (vars[vidx] == pv->label()) return true;
+    //}
+    return false;
+  }
+
+  std::string swarm_name;
+  std::vector<std::string> vars;
 };
 } // namespace impl
 
+struct BasePackType {
+  static constexpr int Variable = 0;
+  static constexpr int Swarm = 1;
+};
+
+// N is a switch for field vs swarm packing, 0 = fields 1 = swarm
+template <unsigned int N = 0, typename TYPE = Real>
 class SparsePackBase {
  public:
   SparsePackBase() = default;
   virtual ~SparsePackBase() = default;
 
- protected:
+ //protected:
   friend class SparsePackCache;
 
   using alloc_t = std::vector<bool>;
-  using pack_t = ParArray3D<ParArray3D<Real>>;
+  using pack_t = typename std::tuple_element<
+      N, std::tuple<ParArray3D<ParArray3D<TYPE>>, ParArray3D<ParArray1D<TYPE>>>>::type;
+  // using pack_t = ParArray3D<ParArray3D<Real>>;
   using bounds_t = ParArray3D<int>;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
+  using desc_t = typename std::tuple_element<
+    N, std::tuple<impl::PackDescriptor, impl::SwarmPackDescriptor>>::type;
 
-  // Returns a SparsePackBase object that is either newly created or taken
-  // from the cache in pmd. The cache itself handles the all of this logic
-  template <class T>
-  static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc) {
-    auto &cache = pmd->GetSparsePackCache();
-    return cache.Get(pmd, desc);
-  }
-
-  // Return a map from variable names to pack variable indices
-  static SparsePackIdxMap GetIdxMap(const impl::PackDescriptor &desc) {
+  //// Return a map from variable names to pack variable indices
+  static SparsePackIdxMap GetIdxMap(const desc_t &desc) {
     SparsePackIdxMap map;
     std::size_t idx = 0;
     for (const auto &var : desc.vars) {
@@ -134,17 +263,12 @@ class SparsePackBase {
     return map;
   }
 
-  // Get a list of booleans of the allocation status of every variable in pmd matching the
-  // PackDescriptor desc
-  template <class T>
-  static alloc_t GetAllocStatus(T *pmd, const impl::PackDescriptor &desc);
+  // Methods for getting parts of the shape of the pack
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetNBlocks() const { return nblocks_; }
 
-  // Actually build a `SparsePackBase` (i.e. create a view of views, fill on host, and
-  // deep copy the view of views to device) from the variables specified in desc contained
-  // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
-  template <class T>
-  static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc);
-
+  // TODO(BRR) public?
+ public:
   pack_t pack_;
   bounds_t bounds_;
   coords_t coords_;
@@ -155,7 +279,15 @@ class SparsePackBase {
   int ndim_;
   int dims_[6];
   int nvar_;
+
+  // Unused for compile-time version
+  SparsePackIdxMap pack_map_;
 };
+
+template <typename T = Real>
+using VariablePackBase = SparsePackBase<BasePackType::Variable, T>;
+template <typename T = Real>
+using SwarmPackBase = SparsePackBase<BasePackType::Swarm, T>;
 
 // Object for cacheing sparse packs in MeshData and MeshBlockData objects. This
 // handles checking for a pre-existing pack and creating a new SparsePackBase if
@@ -167,20 +299,59 @@ class SparsePackCache {
 
   void clear() { pack_map.clear(); }
 
- protected:
-  template <class T>
-  SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
+  // TODO(BRR) public?
+  // protected:
+  std::string GetIdentifier(const PackDescriptor &desc) const {
+    std::string identifier("");
+    for (const auto &flag : desc.flags)
+      identifier += flag.Name();
+    identifier += "____";
+    for (int i = 0; i < desc.vars.size(); ++i)
+      identifier += desc.vars[i] + std::to_string(desc.use_regex[i]);
+    return identifier;
+  }
 
-  template <class T>
-  SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc,
-                              const std::string &ident);
-
-  std::string GetIdentifier(const impl::PackDescriptor &desc) const;
-
-  std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
+  std::unordered_map<std::string, std::pair<SparsePackBase<>, SparsePackBase<>::alloc_t>>
       pack_map;
 
-  friend class SparsePackBase;
+  // friend class SparsePackBase;
+};
+
+// TODO(BRR) stop copying code
+class SwarmPackCache {
+ public:
+  std::size_t size() const { return pack_map.size(); }
+
+  void clear() { pack_map.clear(); }
+
+  // TODO(BRR) public?
+  // protected:
+  static std::string GetIdentifier(const SwarmPackDescriptor &desc) {
+    std::string identifier("");
+//    for (const auto &flag : desc.flags)
+//      identifier += flag.Name();
+//    identifier += "____";
+    for (int i = 0; i < desc.vars.size(); ++i)
+      identifier += desc.vars[i];// + std::to_string(desc.use_regex[i]);
+    identifier += "____swarmname:";
+    identifier += desc.swarm_name;
+    return identifier;
+  }
+
+//  std::string GetIdentifier(const SwarmPackDescriptor &desc) const {
+//    std::string identifier("");
+//    for (const auto &flag : desc.flags)
+//      identifier += flag.Name();
+//    identifier += "____";
+//    for (int i = 0; i < desc.vars.size(); ++i)
+//      identifier += desc.vars[i] + std::to_string(desc.use_regex[i]);
+//    return identifier;
+//  }
+
+  std::unordered_map<std::string, std::pair<SwarmPackBase<>, SwarmPackBase<>::alloc_t>>
+      pack_map;
+
+//  friend class SwarmPackBase<>;
 };
 
 } // namespace parthenon

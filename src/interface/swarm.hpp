@@ -154,6 +154,7 @@ class Swarm {
   void RemoveMarkedParticles();
 
   /// Open up memory for new empty particles, return a mask to these particles
+  // TODO(BRR) new_indices should be ParArray1D
   ParArray1D<bool> AddEmptyParticles(const int num_to_add, ParArrayND<int> &new_indices);
 
   /// Defragment the list by moving active particles so they are contiguous in
@@ -209,6 +210,11 @@ class Swarm {
   void ApplyBoundaries_(const int nparticles, ParArrayND<int> indices);
 
   std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds_uptrs[6];
+
+  template <typename T>
+  auto GetParticleVariableVector() {
+    return std::get<getType<T>()>(Vectors_);
+  }
 
  private:
   template <class T>
