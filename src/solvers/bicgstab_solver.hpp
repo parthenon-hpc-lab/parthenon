@@ -48,7 +48,7 @@ class BiCGStabSolver : BiCGStabCounter {
   }
   std::vector<std::string> SolverState() const {
     return std::vector<std::string>(
-      {spm_name, rhs_name, res, res0, vk, pk, tk}
+      {spm_name, rhs_name, res, res0, vk, pk, tk, temp}
     );
   }
   std::string label() const {
@@ -69,7 +69,9 @@ class BiCGStabSolver : BiCGStabCounter {
     return CreateTaskList(begin, i, tr, solver, md, mout);
   }
 
-  std::function<TaskStatus(MeshData<Real>*, const std::string&, const std::string&)> user_MatVec; 
+  using FMatVec = std::function<TaskStatus(MeshData<Real>*, const std::string&, MeshData<Real>*, const std::string&)>;
+  FMatVec user_MatVec;
+  FMatVec user_precomm_MatVec; 
  
  private:
   void Init(StateDescriptor *pkg) {
@@ -90,9 +92,11 @@ class BiCGStabSolver : BiCGStabCounter {
 
     res = "res" + bicg_id;
     pk = "pk" + bicg_id;
+    temp = "temp" + bicg_id;
     meta = Metadata({Metadata::Cell, Metadata::OneCopy, Metadata::FillGhost});
     pkg->AddField(pk, meta);
     pkg->AddField(res, meta);
+    pkg->AddField(temp, meta);
 
     global_num_bicgstab_solvers++;
   }
@@ -114,6 +118,22 @@ class BiCGStabSolver : BiCGStabCounter {
     r0_dot_vk.val = 0.0;
     t_dot_s.val = 0.0;
     t_dot_t.val = 0.0;
+
+    // ghost exchange for initialization 
+    //auto send_init =
+    //    tl.AddTask(none, parthenon::cell_centered_bvars::SendBoundaryBuffers, mout);
+    //auto recv_init = solver.AddTask(
+    //    none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mout);
+    //auto setb_init =
+    //    solver.AddTask(recv_init, parthenon::cell_centered_bvars::SetBoundaries, mout);
+
+    //// 
+    //auto get_res0 = setb_init; 
+    //if (user_MatVec) { 
+    //  get_res0 = solver.AddTask(setb_init, user_MatVec, md.get(), rhs_name, mout.get(), sol_name);
+    //} else {
+    //  get_res0 = solver.AddTask(setb_init, &Solver_t::MatVec<MD_t>, this, mout.get(), pk, vk);
+    //}
   
     auto init_bicgstab = tl.AddTask(begin,
       &Solver_t::InitializeBiCGStab<MD_t>,
@@ -141,19 +161,26 @@ class BiCGStabSolver : BiCGStabCounter {
     // 3. p_i = r_{i-1} + \beta (p_{i-1} - \omega_{i-1} v_{i-1})
     auto update_pk = solver.AddTask(finish_global_rhoi, &Solver_t::Compute_pk<MD_t>, this,
       md.get());
-
+    
+    auto precom = update_pk;
+    if (user_precomm_MatVec) {
+      precom = solver.AddTask(update_pk, user_precomm_MatVec, md.get(), pk, md.get(), temp);
+    }
     // ghost exchange for pk
     auto send1 =
-        solver.AddTask(update_pk, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
+        solver.AddTask(precom, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
     auto recv1 = solver.AddTask(
-        update_pk, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
+        precom, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
     auto setb1 =
         solver.AddTask(recv1, parthenon::cell_centered_bvars::SetBoundaries, md);
 
     // 4. v = A p
     auto get_v = setb1; 
-    if (user_MatVec) { 
-      get_v = solver.AddTask(setb1, user_MatVec, md.get(), pk, vk);
+    if (user_MatVec && user_precomm_MatVec) { 
+      get_v = solver.AddTask(setb1, user_MatVec, md.get(), temp, md.get(), vk);
+    }
+    else if (user_MatVec) {
+      get_v = solver.AddTask(setb1, user_MatVec, md.get(), pk, md.get(), vk);
     } else {
       get_v = solver.AddTask(setb1, &Solver_t::MatVec<MD_t>, this, md.get(), pk, vk);
     }
@@ -175,18 +202,25 @@ class BiCGStabSolver : BiCGStabCounter {
     auto get_s = solver.AddTask(finish_global_r0dotv, &Solver_t::Update_h_and_s<MD_t>, this,
       md.get(), mout.get());
 
+    auto precom2 = get_s;
+    if (user_precomm_MatVec) {
+      precom = solver.AddTask(get_s, user_precomm_MatVec, md.get(), res, md.get(), temp);
+    }
     // ghost exchange for sk
     auto send2 =
-        solver.AddTask(get_s, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
+        solver.AddTask(precom2, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
     auto recv2 = solver.AddTask(
-        get_s, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
+        precom2, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
     auto setb2 =
-        solver.AddTask(recv2 | get_s, parthenon::cell_centered_bvars::SetBoundaries, md);
+        solver.AddTask(precom2, parthenon::cell_centered_bvars::SetBoundaries, md);
 
     // 9. t = A s
     auto get_t = setb2;
-    if (user_MatVec) {
-      get_t = solver.AddTask(setb2, user_MatVec, md.get(), res, tk);
+    if (user_MatVec && user_precomm_MatVec) {
+      get_t = solver.AddTask(setb2, user_MatVec, md.get(), temp, md.get(), tk);
+    }
+    else if (user_MatVec) {
+      get_t = solver.AddTask(setb2, user_MatVec, md.get(), res, md.get(), tk);
     } else { 
       get_t = solver.AddTask(setb2, &Solver_t::MatVec<MD_t>, this, md.get(),
         res, tk);
@@ -218,7 +252,7 @@ class BiCGStabSolver : BiCGStabCounter {
       &AllReduce<Real>::CheckReduce, &global_res);
 
     // 12. check for convergence
-    auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence, this, i, false);
+    auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence, this, i, true);
     tr.AddGlobalDependencies(reg.ID(), i, check);
 
     return check;
@@ -245,19 +279,19 @@ class BiCGStabSolver : BiCGStabCounter {
     rhoi_old = 1.0;
     alpha_old = 1.0;
     omega_old = 1.0;
-
+    const Real mix_fac = 0.0;
     Real err(0);
     //printf("Initialize: res = %s res0 = %s rhs_name = %s\n", res.c_str(), res0.c_str(), rhs_name.c_str());
     par_reduce(loop_pattern_mdrange_tag, "initialize bicgstab", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lerr) {
-        v(b, ires, k, j, i) = v(b, irhs, k, j, i);
+        v(b, ires, k, j, i) = v(b, irhs, k, j, i) -  mix_fac * dv(b, 0, k, j, i);
         v(b, ires0, k, j, i) = v(b, irhs, k, j, i);
         lerr += v(b, irhs, k, j, i) * v(b, irhs, k, j, i);
         v(b, ivk, k, j, i) = 0.0;
         v(b, ipk, k, j, i) = 0.0;
         // initialize guess for solution to zero
-        dv(b, 0, k, j, i) = 0.0;
+        dv(b, 0, k, j, i) = mix_fac * v(b, irhs, k, j, i);
       }, Kokkos::Sum<Real>(err));
     *gres0 += err; 
     return TaskStatus::complete;
@@ -270,7 +304,7 @@ class BiCGStabSolver : BiCGStabCounter {
     const auto &jb = u->GetBoundsJ(IndexDomain::interior);
     const auto &kb = u->GetBoundsK(IndexDomain::interior);
 
-    auto &v = u->PackVariables(std::vector<std::string>({vec1,vec2}));
+    auto &v = u->PackVariables(std::vector<std::string>({vec1, vec2}));
 
     Real gsum(0);
     par_reduce(loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0, v.GetDim(5) - 1,
@@ -451,7 +485,19 @@ class BiCGStabSolver : BiCGStabCounter {
     bicgstab_cntr++;
     global_res.val = std::sqrt(global_res.val);
     if (bicgstab_cntr == 1) global_res0.val = std::sqrt(global_res0.val);
-    if (report) {
+
+    //printf("rhoi: %e r0_dot_vk: %e t_dot_t: %e\n", rhoi.val, r0_dot_vk.val, t_dot_s.val); 
+    // Update global scalars
+    rhoi_old = rhoi.val; 
+    alpha_old = rhoi.val / r0_dot_vk.val; 
+    omega_old = t_dot_s.val / t_dot_t.val;
+
+    bool converged = std::abs(global_res.val / global_res0.val) < error_tol;
+    //converged = converged || (std::abs(global_res.val) < error_tol);
+    //converged = converged && (std::abs(global_res.val) < error_tol);
+    bool stop = bicgstab_cntr == max_iters;
+
+    if (report && (converged || stop)) {
       if (Globals::my_rank == 0) {
         std::cout << parthenon::Globals::my_rank << " its= " << bicgstab_cntr
                   << " relative res: " << global_res.val / global_res0.val << " absolute-res "
@@ -459,20 +505,13 @@ class BiCGStabSolver : BiCGStabCounter {
                   << std::flush;
       }
     }
-    
-    // Update global scalars
-    rhoi_old = rhoi.val; 
-    alpha_old = rhoi.val / r0_dot_vk.val; 
-    omega_old = t_dot_s.val / t_dot_t.val;
 
-    bool converged = std::abs(global_res.val / global_res0.val) < error_tol;
-    //converged = converged && (std::abs(global_res.val) < error_tol);
-    bool stop = bicgstab_cntr == max_iters;
     global_res.val = 0.0;
     rhoi.val = 0.0;
     r0_dot_vk.val = 0.0;
     t_dot_s.val = 0.0;
     t_dot_t.val = 0.0;
+    
     return converged || stop ? TaskStatus::complete : TaskStatus::iterate;
   }
  
@@ -481,7 +520,7 @@ class BiCGStabSolver : BiCGStabCounter {
   SparseMatrixAccessor sp_accessor;
   int max_iters, check_interval, bicgstab_cntr;
   bool fail_flag, warn_flag;
-  std::string spm_name, sol_name, rhs_name, res, res0, vk, pk, tk, solver_name;
+  std::string spm_name, sol_name, rhs_name, res, res0, vk, pk, tk, temp, solver_name;
   
   Real rhoi_old, alpha_old, omega_old;
 
