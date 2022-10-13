@@ -475,7 +475,8 @@ class BiCGStabSolver : BiCGStabCounter {
     omega_old = t_dot_s.val / t_dot_t.val;
 
     bool converged = std::abs(global_res.val / global_res0.val) < error_tol;
-    //converged = converged || (std::abs(global_res.val) < error_tol);
+    converged = converged || (std::abs(global_res.val) < error_tol * 1.e-4);
+    converged = std::abs(global_res.val) < error_tol;
     //converged = converged && (std::abs(global_res.val) < error_tol);
     bool stop = bicgstab_cntr == max_iters;
 
