@@ -119,22 +119,6 @@ class BiCGStabSolver : BiCGStabCounter {
     t_dot_s.val = 0.0;
     t_dot_t.val = 0.0;
 
-    // ghost exchange for initialization 
-    //auto send_init =
-    //    tl.AddTask(none, parthenon::cell_centered_bvars::SendBoundaryBuffers, mout);
-    //auto recv_init = solver.AddTask(
-    //    none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mout);
-    //auto setb_init =
-    //    solver.AddTask(recv_init, parthenon::cell_centered_bvars::SetBoundaries, mout);
-
-    //// 
-    //auto get_res0 = setb_init; 
-    //if (user_MatVec) { 
-    //  get_res0 = solver.AddTask(setb_init, user_MatVec, md.get(), rhs_name, mout.get(), sol_name);
-    //} else {
-    //  get_res0 = solver.AddTask(setb_init, &Solver_t::MatVec<MD_t>, this, mout.get(), pk, vk);
-    //}
-  
     auto init_bicgstab = tl.AddTask(begin,
       &Solver_t::InitializeBiCGStab<MD_t>,
       this, md.get(), mout.get(), &global_res0.val);
@@ -279,19 +263,17 @@ class BiCGStabSolver : BiCGStabCounter {
     rhoi_old = 1.0;
     alpha_old = 1.0;
     omega_old = 1.0;
-    const Real mix_fac = 0.0;
     Real err(0);
-    //printf("Initialize: res = %s res0 = %s rhs_name = %s\n", res.c_str(), res0.c_str(), rhs_name.c_str());
     par_reduce(loop_pattern_mdrange_tag, "initialize bicgstab", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lerr) {
-        v(b, ires, k, j, i) = v(b, irhs, k, j, i) -  mix_fac * dv(b, 0, k, j, i);
+        v(b, ires, k, j, i) = v(b, irhs, k, j, i);
         v(b, ires0, k, j, i) = v(b, irhs, k, j, i);
         lerr += v(b, irhs, k, j, i) * v(b, irhs, k, j, i);
         v(b, ivk, k, j, i) = 0.0;
         v(b, ipk, k, j, i) = 0.0;
         // initialize guess for solution to zero
-        dv(b, 0, k, j, i) = mix_fac * v(b, irhs, k, j, i);
+        dv(b, 0, k, j, i) = 0.0;
       }, Kokkos::Sum<Real>(err));
     *gres0 += err; 
     return TaskStatus::complete;
