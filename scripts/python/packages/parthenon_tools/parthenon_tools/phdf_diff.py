@@ -73,7 +73,8 @@ def processArgs():
     parser.add_argument(
         "-b",
         "-brief",
-        action="store_true", help="Only report if files are different.",
+        action="store_true",
+        help="Only report if files are different.",
     )
     parser.add_argument(
         "-q",
@@ -584,12 +585,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     ret = compare(files,
-                  brief,
-                  quiet,
-                  one,
-                  tol,
-                  check_metadata,
-                  check_input,
-                  relative,
+        brief,
+        quiet,
+        one,
+        tol,
+        check_metadata,
+        check_input,
+        relative,
     )
     sys.exit(ret)
