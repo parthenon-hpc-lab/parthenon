@@ -293,7 +293,8 @@ class GitHubApp:
             "Accept: " + self._api_version,
         ]
 
-        js_obj = self._PYCURL(header, "https://api.github.com/app/installations")
+        js_obj, _ = self._PYCURL(header, "https://api.github.com/app/installations")
+        print(js_obj)
 
         if isinstance(js_obj, list):
             js_obj = js_obj[0]
