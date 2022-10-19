@@ -285,7 +285,7 @@ class GitHubApp:
         c.perform()
         c.close()
 
-        logging.info("Buffer_temp contains: {}".format(buffer_temp.getvalue()))
+        logging.warning("Buffer_temp contains: {}".format(buffer_temp.getvalue()))
 
         return json.loads(buffer_temp.getvalue())
 
