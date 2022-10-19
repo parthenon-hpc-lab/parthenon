@@ -186,7 +186,7 @@ class GitHubApp:
                     path_to_repo
                 )
                 self._log.error(error_msg)
-                raise
+                raise RuntimeError(error_msg)
         else:
             self._log.info("Path to repo is none")
             if pathlib.Path.is_file(self._config_file_path):
@@ -217,6 +217,7 @@ class GitHubApp:
             self._repo_path + "/../" + self._repo_name + ".wiki"
         )
         self._log.info("Parthenon wiki dir {}".format(self._parthenon_wiki_dir))
+
         if isinstance(pem_file, list):
             self._generateJWT(pem_file[0])
         else:
@@ -267,7 +268,7 @@ class GitHubApp:
         buffer_temp = BytesIO()
         c = pycurl.Curl()
         c.setopt(c.URL, url)
-        c.setopt(pycurl.VERBOSE, 0)
+        c.setopt(pycurl.VERBOSE, 1)
         c.setopt(c.WRITEDATA, buffer_temp)
         c.setopt(c.HTTPHEADER, header)
         if option == "POST":
@@ -284,6 +285,8 @@ class GitHubApp:
         c.perform()
         c.close()
 
+        self.log_.info("Buffer_temp contains: {}".format(buffer_temp.getvalue()))
+
         return json.loads(buffer_temp.getvalue())
 
     def _generateInstallationId(self):
@@ -298,9 +301,8 @@ class GitHubApp:
             "Accept: " + self._api_version,
         ]
 
-        print(header)
-        js_obj, _ = self._PYCURL(header, "https://api.github.com/app/installations")
-        print(js_obj)
+        self._log.info("Header = {}".format(header))
+        js_obj = self._PYCURL(header, "https://api.github.com/app/installations")
 
         if isinstance(js_obj, list):
             js_obj = js_obj[0]
