@@ -71,10 +71,7 @@ def processArgs():
         help="Only report data for first different variable.",
     )
     parser.add_argument(
-        "-b",
-        "-brief",
-        action="store_true",
-        help="Only report if files are different.",
+        "-b", "-brief", action="store_true", help="Only report if files are different.",
     )
     parser.add_argument(
         "-q",
@@ -113,7 +110,7 @@ def ensure_list(x):
 
 
 def compare_attributes(dict0, dict1):
-    PARAM_TOL=1e-12
+    PARAM_TOL = 1e-12
     keys0 = set(dict0.keys())
     keys1 = set(dict1.keys())
     union = keys0.union(keys1)
@@ -131,7 +128,7 @@ def compare_attributes(dict0, dict1):
             diff_keys.append(k)
 
         if len(a) == len(b):
-            if a.dtype == b.dtype ==np.float64:
+            if a.dtype == b.dtype == np.float64:
                 if np.any(np.abs(a - b) >= PARAM_TOL):
                     diff_keys.append(k)
             elif np.any(a != b):
@@ -584,14 +581,5 @@ if __name__ == "__main__":
         Usage()
         sys.exit(1)
 
-    ret = compare(
-        files,
-        brief,
-        quiet,
-        one,
-        tol,
-        check_metadata,
-        check_input,
-        relative,
-    )
+    ret = compare(files, brief, quiet, one, tol, check_metadata, check_input, relative,)
     sys.exit(ret)
