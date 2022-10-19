@@ -115,7 +115,7 @@ class GitHubApp:
         self._config_file_path = pathlib.Path.joinpath(
             self._config_file_dir, self._config_file_name
         )
-        print("config file path =",self.config_file_path)
+        print("config file path =",self._config_file_path)
 
         # Create an empty config file if one does not exist
         if not pathlib.Path.is_file(self._config_file_path):
