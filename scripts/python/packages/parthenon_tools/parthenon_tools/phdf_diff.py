@@ -584,7 +584,8 @@ if __name__ == "__main__":
         Usage()
         sys.exit(1)
 
-    ret = compare(files,
+    ret = compare(
+        files,
         brief,
         quiet,
         one,
