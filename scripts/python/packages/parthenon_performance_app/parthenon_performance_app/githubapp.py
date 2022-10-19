@@ -188,6 +188,7 @@ class GitHubApp:
 
             if pathlib.Path.is_file(self._config_file_path):
 
+                print("Reading config file",self._config_file_path)
                 with open(self._config_file_path, "r") as file:
                     line = file.readline()
                     # Throw an error if the path is not valid
