@@ -73,8 +73,7 @@ def processArgs():
     parser.add_argument(
         "-b",
         "-brief",
-        action="store_true",
-        help="Only report if files are different.",
+        action="store_true", help="Only report if files are different.",
     )
     parser.add_argument(
         "-q",
@@ -94,10 +93,7 @@ def processArgs():
         help="Include the Input metadata in comparison.",
     )
     parser.add_argument(
-        "-r",
-        "-relative",
-        action="store_true",
-        help="Compare relative differences."
+        "-r", "-relative", action="store_true", help="Compare relative differences."
     )
     parser.add_argument("files", nargs="*")
 
@@ -587,5 +583,13 @@ if __name__ == "__main__":
         Usage()
         sys.exit(1)
 
-    ret = compare(files, brief, quiet, one, tol, check_metadata, check_input, relative,)
+    ret = compare(files,
+                  brief,
+                  quiet,
+                  one,
+                  tol,
+                  check_metadata,
+                  check_input,
+                  relative,
+    )
     sys.exit(ret)
