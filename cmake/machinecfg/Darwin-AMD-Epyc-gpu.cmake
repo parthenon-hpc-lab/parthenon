@@ -20,8 +20,7 @@ message(STATUS "Loading machine configuration for AMD Epyc with GPU support.\n"
 	"\t-partition: amd-epyc-gpu\n"
 	"\t-module use --append /projects/parthenon-int/dependencies/modulefiles"
 	"\t-modules currently loaded: gcc nvhpc amd-epyc-gpu/hdf5 cmake\n"
-	"\t-hdf5 installed in parthenon-int/dependencies/hdf5-1.10.5\n"
-	"\t-numpy scipy h5py matplotlib installed in ~/.conda/envs/parthenon-amd-epyc\n")
+	"\t-hdf5 installed in parthenon-int/dependencies/hdf5-1.10.5")
 
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Default release build")
 set(PARTHENON_DISABLE_OPENMP ON CACHE BOOL "OpenMP support not yet tested in Parthenon.")
@@ -31,8 +30,8 @@ set(CMAKE_C_COMPILER "nvcc" CACHE STRING "Default compiler")
 
 set(PARTHENON_DISABLE_HDF5_COMPRESSION ON CACHE BOOL "No HDF5 xompression")
 
-set(Python3_ROOT_DIR "$ENV{HOME}/.conda/envs/parthenon-amd-epyc/bin")
-set(Python_ROOT_DIR "$ENV{HOME}/.conda/envs/parthenon-amd-epyc/bin")
+set(Python3_ROOT_DIR "/projects/parthenon-int/python/amd-epyc/bin")
+set(Python_ROOT_DIR "/projects/parthenon-int/python/amd-epyc/bin")
 
 set(SERIAL_WITH_MPIEXEC ON CACHE BOOL "Run with mpiexec -n 1 for serial")
 set(TEST_MPIEXEC mpirun CACHE STRING "Command to launch MPI applications")

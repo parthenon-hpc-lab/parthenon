@@ -29,13 +29,13 @@ cd "$PARTHENON_DIR/scripts/python/packages/parthenon_performance_app"
 # Install the Parthenon performance application which is a bunch of python
 # scripts, we do not install the dependencies with pip since they should
 # already be available from the spack environment.
-pip install . --no-dependencies --target="${PYTHON_SCRIPTS_DIR}"
+${PIP} install . --no-dependencies --target="${PYTHON_SCRIPTS_DIR}"
 
 cd "$PARTHENON_DIR/scripts/python/packages/parthenon_tools"
 
 # Here we are installing python tools used by some of the regression tests
 # e.g. phdf_diff.py scripts etc.
-pip install . --no-dependencies --target="${PYTHON_SCRIPTS_DIR}"
+${PIP} install . --no-dependencies --target="${PYTHON_SCRIPTS_DIR}"
 
 # Here we talling the Parthenon performance application which is
 # 'parthenon_metrics_app.py' to upload a status to the pr assocaiated with the ci run.
