@@ -115,11 +115,12 @@ class GitHubApp:
         self._config_file_path = pathlib.Path.joinpath(
             self._config_file_dir, self._config_file_name
         )
-        self._log.info("I am located at = {}".format(__file__))
+        self._log.info("github app located at = {}".format(__file__))
         self._log.info("config file path = {}".format(self._config_file_path))
 
         # Create an empty config file if one does not exist
         if not pathlib.Path.is_file(self._config_file_path):
+            self._log.info("No config file available. Creating one.")
             open(self._config_file_path, "a").close()
 
     def initialize(
@@ -162,6 +163,7 @@ class GitHubApp:
         self._parth_root = Node()
 
         if path_to_repo is not None:
+            self._log.info("Checking path to repo: {}".format(path_to_repo))
             # Check that the repo specified is valid
             if os.path.isdir(path_to_repo):
                 # Check if we are overwriting an existing repo stored in the config file
