@@ -183,7 +183,7 @@ class GitHubApp:
                     path_to_repo
                 )
                 self._log.error(error_msg)
-                raise
+                raise RuntimeError(error_msg)
         else:
 
             if pathlib.Path.is_file(self._config_file_path):
