@@ -71,7 +71,10 @@ def processArgs():
         help="Only report data for first different variable.",
     )
     parser.add_argument(
-        "-b", "-brief", action="store_true", help="Only report if files are different.",
+        "-b",
+        "-brief",
+        action="store_true",
+        help="Only report if files are different.",
     )
     parser.add_argument(
         "-q",
@@ -91,7 +94,10 @@ def processArgs():
         help="Include the Input metadata in comparison.",
     )
     parser.add_argument(
-        "-r", "-relative", action="store_true", help="Compare relative differences."
+        "-r",
+        "-relative",
+        action="store_true",
+        help="Compare relative differences."
     )
     parser.add_argument("files", nargs="*")
 
