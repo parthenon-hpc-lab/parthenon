@@ -19,6 +19,7 @@ source "${SOURCE}/base_setup.sh"
 
 # Remove old installed python scripts if they exist in the ci system
 # this is to ensure there are no weird errors or conflicts.
+echo "Python scripts dir = ${PYTHON_SCRIPTS_DIR}"
 if [ -d "${PYTHON_SCRIPTS_DIR}" ]
 then
   rm -rf "${PYTHON_SCRIPTS_DIR}"
