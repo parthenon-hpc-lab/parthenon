@@ -115,6 +115,7 @@ class GitHubApp:
         self._config_file_path = pathlib.Path.joinpath(
             self._config_file_dir, self._config_file_name
         )
+        self._log.info("I am located at = {}".format(__file__))
         self._log.info("config file path = {}".format(self._config_file_path))
 
         # Create an empty config file if one does not exist
@@ -188,7 +189,7 @@ class GitHubApp:
 
             if pathlib.Path.is_file(self._config_file_path):
 
-                self._log.info("Reading config file ".format(self._config_file_path))
+                self._log.info("Reading config file {}".format(self._config_file_path))
                 with open(self._config_file_path, "r") as file:
                     line = file.readline()
                     # Throw an error if the path is not valid
