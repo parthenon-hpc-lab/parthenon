@@ -188,12 +188,13 @@ class GitHubApp:
                 self._log.error(error_msg)
                 raise RuntimeError(error_msg)
         else:
-
+            self._log.info("Path to repo is none")
             if pathlib.Path.is_file(self._config_file_path):
 
                 self._log.info("Reading config file {}".format(self._config_file_path))
                 with open(self._config_file_path, "r") as file:
                     line = file.readline()
+                    self._log.info("config file contents = {}".format(line))
                     # Throw an error if the path is not valid
                     if not os.path.isdir(line):
                         error_msg = (
