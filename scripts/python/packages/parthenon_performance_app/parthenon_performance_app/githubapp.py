@@ -186,7 +186,7 @@ class GitHubApp:
                     path_to_repo
                 )
                 self._log.error(error_msg)
-                raise RuntimeError(error_msg)
+                raise
         else:
             self._log.info("Path to repo is none")
             if pathlib.Path.is_file(self._config_file_path):
@@ -216,8 +216,7 @@ class GitHubApp:
         self._parthenon_wiki_dir = os.path.normpath(
             self._repo_path + "/../" + self._repo_name + ".wiki"
         )
-        self._log.info("Parthenon wiki dir")
-        self._log.info(self._parthenon_wiki_dir)
+        self._log.info("Parthenon wiki dir {}".format(self._parthenon_wiki_dir))
         if isinstance(pem_file, list):
             self._generateJWT(pem_file[0])
         else:

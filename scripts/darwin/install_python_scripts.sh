@@ -38,11 +38,11 @@ cd "$PARTHENON_DIR/scripts/python/packages/parthenon_tools"
 # e.g. phdf_diff.py scripts etc.
 ${PIP} install . --no-dependencies --target="${PYTHON_SCRIPTS_DIR}"
 
-# Here we talling the Parthenon performance application which is
-# 'parthenon_metrics_app.py' to upload a status to the pr assocaiated with the ci run.
-"${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py" --status "pending" --status-context "Parthenon Metrics App" --status-description "Caching parthenon repo path." --status-url "${CI_JOB_URL}"
-
 # Cache repository path, so that the app knows where the repo is, this
 # is necessary so that we know where to find the output of the Parthenon regression tests
 # which are used to analyze the performance.
 "${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py" --repository-path "$PARTHENON_DIR"
+
+# Here we telling the Parthenon performance application which is
+# 'parthenon_metrics_app.py' to upload a status to the pr assocaiated with the ci run.
+"${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py" --status "pending" --status-context "Parthenon Metrics App" --status-description "Caching parthenon repo path." --status-url "${CI_JOB_URL}"
