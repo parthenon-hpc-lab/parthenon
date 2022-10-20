@@ -16,7 +16,6 @@ If you come across a disfunctional setup, please report it by open an issue or p
    |       PARTHENON\_DISABLE\_SPARSE       | OFF               | Option | Disable sparse allocation of sparse variables, i.e., sparse variable still work but are always allocated.  See also [sparse doc](interface/sparse.md#compile-time).|
    |             PARTHENON\_DISABLE\_OPENMP | OFF               | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
    |             ENABLE\_COMPILER\_WARNINGS | OFF               | Option | Enable compiler warnings |
-   |               PARTHENON\_ENABLE\_CPP17 | OFF               | Option | Compile Parthenon using C++17 standard (e.g., required for using `constexpr if` in kernels |
    |                  TEST\_ERROR\_CHECKING | OFF               | Option | Enables the error checking unit test. This test will FAIL |
    |              TEST\_INTEL\_OPTIMIZATION | OFF               | Option | Test intel optimization and vectorization |
    |              CHECK\_REGISTRY\_PRESSURE | OFF               | Option | Check the registry pressure for Kokkos CUDA kernels |
