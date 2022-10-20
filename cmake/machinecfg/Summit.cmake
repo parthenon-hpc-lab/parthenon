@@ -17,8 +17,9 @@
 
 message(STATUS "Loading machine configuration for OLCF's Summit.\n"
   "Supported MACHINE_VARIANT includes 'cuda', 'mpi', and 'cuda-mpi'\n"
-  "This configuration has been tested using the following modules: "
-  "module load cuda gcc cmake python hdf5\n")
+  "This configuration has been tested using the following modules: \n"
+  "  $ module load cuda/11.5.2 gcc cmake python hdf5\n"
+  "Last tested: 2022-10-07\n\n")
 
 # common options
 set(Kokkos_ARCH_POWER9 ON CACHE BOOL "CPU architecture")
