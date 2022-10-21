@@ -25,6 +25,7 @@
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "coordinates/coordinates.hpp"
+#include "mesh/domain.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/object_pool.hpp"
 
@@ -38,6 +39,16 @@ template <typename T>
 class CellVariable;
 
 namespace cell_centered_bvars {
+
+void ComputeRestrictionBounds(IndexRange &ni,
+			      IndexRange &nj,
+			      IndexRange &nk,
+			      const NeighborBlock &nb,
+			      const std::shared_ptr<MeshBlock> &pmb);
+
+struct OffsetIndices {
+  int nk, nj, ni;
+};
 
 struct BndInfo {
   int si = 0;
@@ -63,16 +74,24 @@ struct BndInfo {
 
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                 std::shared_ptr<CellVariable<Real>> v,
-                                CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+                                CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+				const OffsetIndices&);
   static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<CellVariable<Real>> v,
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+			       const OffsetIndices&);
   static BndInfo GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                   std::shared_ptr<CellVariable<Real>> v,
-                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+				  const OffsetIndices&);
   static BndInfo GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                  std::shared_ptr<CellVariable<Real>> v,
-                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+				 const OffsetIndices&);
+  static BndInfo GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+				   std::shared_ptr<CellVariable<Real>> v,
+				   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+				   const OffsetIndices &no);
 };
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
@@ -101,6 +120,8 @@ struct BvarsSubCache_t {
   std::vector<std::size_t> idx_vec;
   std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> buf_vec;
   ParArray1D<bool> sending_non_zero_flags;
+  // Cache both host and device buffer info. Reduces mallocs, and
+  // also means the bounds values are available on host if needed.
   ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h;
 
   BufferCache_t bnd_info{};
@@ -115,7 +136,7 @@ struct BvarsSubCache_t {
 
 struct BvarsCache_t {
   // The five here corresponds to the current size of the BoundaryType enum
-  std::array<BvarsSubCache_t, 5 * 2> caches;
+  std::array<BvarsSubCache_t, NUM_BNDRY_TYPES * 2> caches;
   auto &GetSubCache(BoundaryType boundType, bool send) {
     return caches[2 * static_cast<int>(boundType) + send];
   }

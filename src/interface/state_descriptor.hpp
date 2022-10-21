@@ -77,6 +77,9 @@ struct VarIDHasher {
 /// Note ignores sparse id, so all sparse ids of a
 /// given sparse name have the same prolongation/restriction
 /// operations
+/// TODO(JMM): Should this cache be a static member field of
+/// RefinementFunctions_t? That would mean we could avoid
+/// StateDescriptor entirely.
 struct RefinementFunctionMaps {
   void Register(const Metadata &m) {
     if (m.IsRefined()) {
@@ -87,6 +90,7 @@ struct RefinementFunctionMaps {
       }
     }
   }
+
   std::size_t size() const noexcept { return next_refinement_id_; }
   // A unique enumeration of refinement functions starting from zero.
   // This is used for caching which prolongation/restriction operator
@@ -228,6 +232,9 @@ class StateDescriptor {
     return RefinementFuncID(m.GetRefinementFunctions());
   }
   std::size_t NumRefinementFuncs() const noexcept { return refinementFuncMaps_.size(); }
+  const auto &RefinementFncsToIDs() const noexcept {
+    return refinementFuncMaps_.funcs_to_ids;
+  }
   bool FieldPresent(const std::string &base_name,
                     int sparse_id = InvalidSparseID) const noexcept {
     return metadataMap_.count(VarID(base_name, sparse_id)) > 0;

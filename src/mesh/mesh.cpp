@@ -1107,16 +1107,18 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // unpack FillGhost variables
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
+      // TODO(JMM): Do we need this?
       cell_centered_bvars::SetBoundaries(md);
+      // restrict ghosts---needed for physical bounds
       if (multilevel) {
-        refinement::RestrictPhysicalBounds(md.get());
+	cell_centered_bvars::RestrictMesh(md, true);
       }
     }
 
     //  Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
       auto &mbd = block_list[i]->meshblock_data.Get();
-      if (multilevel) {
+      if (multilevel) { // TODO(JMM): Do with meshdata
         ProlongateBoundaries(mbd);
       }
       ApplyBoundaryConditions(mbd);

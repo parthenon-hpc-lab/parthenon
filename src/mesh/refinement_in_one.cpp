@@ -29,98 +29,20 @@
 namespace parthenon {
 namespace refinement {
 
-std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md) {
-  Kokkos::Profiling::pushRegion("ComputePhysicalRestrictBoundsAllocStatus_MeshData");
-  std::vector<bool> alloc_status;
-  for (int block = 0; block < md->NumBlocks(); ++block) {
-    auto &rc = md->GetBlockData(block);
-    auto pmb = rc->GetBlockPointer();
-    int nrestrictions = pmb->pbval->NumRestrictions();
-    for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(parthenon::Metadata::FillGhost)) {
-        int num_bufs = nrestrictions * (v->GetDim(6)) * (v->GetDim(5));
-        for (int i = 0; i < num_bufs; ++i) {
-          alloc_status.push_back(v->IsAllocated());
-        }
-      }
-    }
+// TODO(JMM): Add a prolongate when prolongation is called in-one
+// TODO(JMM): Is this actually the API we want?
+void Restrict(const StateDescriptor *resolved_packages,
+	      const BvarsSubCache_t &cache,
+	      const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+  const auto &ref_func_map = resolved_packages->RerefinementFuncsToIDS();
+  for (const auto &[func,idx] : ref_func_map) {
+    auto restrictor = func.restrictor;
+    loops::Idx_t subset = cache.buffer_subsets.Slice(std::make_pair(idx,idx+1), Kokkos::ALL());
+    loops::IdxHost_t subset_h = cache.buffer_subsets.Slice(std::make_pair(idx,idx+1), Kokkos::ALL());
+    restrictor(cache.bnd_info, cache.bnd_info_h, subset, subset_h,
+	       cellbnds, c_cellbnds, cache.buffer_subset_sizes[idx]);
   }
-
-  Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBoundsAllocStatus_MeshData
-  return alloc_status;
 }
-
-void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
-  Kokkos::Profiling::pushRegion("ComputePhysicalRestrictBounds_MeshData");
-  auto alloc_status = ComputePhysicalRestrictBoundsAllocStatus(md);
-
-  cell_centered_bvars::BufferCache_t info("physical restriction bounds",
-                                          alloc_status.size());
-  auto info_h = Kokkos::create_mirror_view(info);
-  int idx = 0;
-  for (int block = 0; block < md->NumBlocks(); ++block) {
-    auto &rc = md->GetBlockData(block);
-    auto pmb = rc->GetBlockPointer();
-    for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(parthenon::Metadata::FillGhost)) {
-        pmb->pbval->FillRestrictionMetadata(info_h, idx, v);
-      }
-    }
-  }
-  PARTHENON_DEBUG_REQUIRE(idx == alloc_status.size(), "All buffers accounted for");
-  Kokkos::deep_copy(info, info_h);
-
-  md->SetRestrictBuffers(info, info_h, alloc_status);
-
-  Kokkos::Profiling::popRegion(); // ComputePhysicalRestrictBoundso_MeshData
-}
-
-// This needs to be here to avoid circular dependencies with MeshData.
-namespace impl {
-std::tuple<cell_centered_bvars::BufferCache_t, cell_centered_bvars::BufferCacheHost_t,
-           IndexShape, IndexShape>
-GetAndUpdateRestrictionBuffers(MeshData<Real> *md,
-                               const std::vector<bool> &alloc_status) {
-  auto info_pair = md->GetRestrictBuffers();
-  auto info = std::get<0>(info_pair);
-  auto info_h = std::get<1>(info_pair);
-  if (!info.is_allocated() || (alloc_status != md->GetRestrictBufAllocStatus())) {
-    ComputePhysicalRestrictBounds(md);
-    info_pair = md->GetRestrictBuffers();
-    info = std::get<0>(info_pair);
-    info_h = std::get<1>(info_pair);
-  }
-  auto &rc = md->GetBlockData(0);
-  auto pmb = rc->GetBlockPointer();
-  IndexShape cellbounds = pmb->cellbounds;
-  IndexShape c_cellbounds = pmb->c_cellbounds;
-  return std::make_tuple(info, info_h, cellbounds, c_cellbounds);
-}
-} // namespace impl
-
-// explicit instantiations of the default prolongation/restriction
-// functions
-template <>
-void Restrict<refinement_ops::RestrictCellAverage>(
-    const cell_centered_bvars::BufferCache_t &info,
-    const cell_centered_bvars::BufferCacheHost_t &info_h, const IndexShape &cellbnds,
-    const IndexShape &c_cellbnds);
-template <>
-void Restrict<refinement_ops::RestrictCellAverage>(
-    const cell_centered_bvars::BufferCacheHost_t &info_h, const IndexShape &cellbnds,
-    const IndexShape &c_cellbnds);
-template <>
-TaskStatus
-RestrictPhysicalBounds<refinement_ops::RestrictCellAverage>(MeshData<Real> *md);
-template <>
-void Prolongate<refinement_ops::ProlongateCellMinMod>(
-    const cell_centered_bvars::BufferCache_t &info,
-    const cell_centered_bvars::BufferCacheHost_t &info_h, const IndexShape &cellbnds,
-    const IndexShape &c_cellbnds);
-template <>
-void Prolongate<refinement_ops::ProlongateCellMinMod>(
-    const cell_centered_bvars::BufferCacheHost_t &info_h, const IndexShape &cellbnds,
-    const IndexShape &c_cellbnds);
 
 } // namespace refinement
 } // namespace parthenon

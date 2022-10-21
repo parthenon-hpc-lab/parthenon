@@ -236,6 +236,65 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
   }
 }
 
+void ComputeRestrictionBounds(IndexRange &ni,
+			      IndexRange &nj,
+			      IndexRange &nk,
+			      const NeighborBlock &nb,
+			      const std::shared_ptr<MeshBlock> &pmb) {
+  auto getbounds = [](const int nbx, IndexRange &n) {
+    n.s = std::max(nbx - 1, -1); // can be -1 or 0
+    n.e = std::min(nbx + 1, 1); // can be 0 or 1
+  };
+
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  getbounds(nb.ni.ox1, ni);
+  if (pmb->block_size.nx2 == 1) {
+    nj.s = nj.e = 0;
+  } else {
+    getbounds(nb.ni.ox2, nj);
+  }
+
+  if (pmb->block_size.nx3 == 1) {
+    nk.s = nk.e = 0;
+  } else {
+    getbounds(nb.ni.ox3, nk);
+  }
+}
+
+void CalcIndicesRestrict(int nk, int nj, int ni,
+			 int &ris, int &rie,
+			 int &rjs, int &rje,
+			 int &rks, int &rke,
+			 const NeighborBlock &nb,
+			 std::shared_ptr<MeshBlock> pmb) {
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
+  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
+  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
+
+  auto CalcIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
+    if (n == 0) {
+      rs = b.s;
+      re = b.e;
+      if (ox == 1) {
+        rs = b.e;
+      } else if (ox == -1) {
+        re = b.s;
+      }
+    } else if (n == 1) {
+      rs = b.e + 1;
+      re = b.e + 1;
+    } else { //(n ==  - 1)
+      rs = b.s - 1;
+      re = b.s - 1;
+    }
+  };
+
+  CalcIndices(ris, rie, ni, nb.ni.ox1, cib);
+  CalcIndices(rjs, rje, nj, nb.ni.ox2, cjb);
+  CalcIndices(rks, rke, nk, nb.ni.ox3, ckb);
+}
+
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                   std::shared_ptr<CellVariable<Real>> v) {
   auto &cb = pmb->cellbounds;
@@ -475,6 +534,31 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
 
   out.coords = pmb->coords;
 
+  return out;
+}
+
+BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+				   std::shared_ptr<CellVariable<Real>> v,
+				   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+				   const OffsetIndices &no) {
+  BndInfo out;
+  if (!v->IsAllocated()) {
+    out.allocated = false;
+    return out;
+  }
+  out.allocated = true;
+  CalcIndicesRestrict(no.nk, no.nj, no.ni,
+		      out.si, out.ei,
+		      out.sj, out.ej,
+		      out.sk, out.ek);
+  out.coords = pmb->coords;
+  out.coarse_coords = pmb->pmr->coarse_coords;
+  out.fine = v->data.Get();
+  out.coarse = v->coarse_s.Get();
+  out.refinement_op = RefinementOp_t::Restriction;
+  out.Nt = v->GetDim(6);
+  out.Nu = v->GetDim(5);
+  out.Nv = v->GetDim(4);
   return out;
 }
 } // namespace cell_centered_bvars

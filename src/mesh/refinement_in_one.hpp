@@ -39,77 +39,20 @@ template <typename T>
 class MeshData; // forward declaration
 
 namespace refinement {
-std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md);
-void ComputePhysicalRestrictBounds(MeshData<Real> *md);
 
-// The existence of this overload allows us to avoid a deep-copy in
-// the per-meshblock calls
-// TODO(JMM): I don't love having two overloads here.  However when
-// we shift entirely to in-one machinery, the info_h only overload
-// will go away.
-template <template <int> class Op = refinement_ops::RestrictCellAverage>
-void Restrict(const cell_centered_bvars::BufferCache_t &info,
-              const cell_centered_bvars::BufferCacheHost_t &info_h,
-              const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-  const auto op = RefinementOp_t::Restriction;
-  loops::DoProlongationRestrictionOp<Op>(cellbnds, info, info_h, cellbnds, c_cellbnds,
-                                         op);
-}
-// The existence of this overload allows us to avoid a deep-copy in
-// the per-meshblock calls
-template <template <int> class Op = refinement_ops::RestrictCellAverage>
-void Restrict(const cell_centered_bvars::BufferCacheHost_t &info_h,
-              const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-  const auto op = RefinementOp_t::Restriction;
-  loops::DoProlongationRestrictionOp<Op>(cellbnds, info_h, cellbnds, c_cellbnds, op);
-}
+// TODO(JMM): Add a prolongate when prolongation is called in-one
+// TODO(JMM): Is this actually the API we want?
+void Restrict(const StateDescriptor *resolved_packages,
+	      BvarsSubCache_t &cache,
+	      const IndexShape &cellbnds, const IndexShape &c_cellbnds);
 
-// Prototype for function that exists only to avoid circular dependency
-namespace impl {
-std::tuple<cell_centered_bvars::BufferCache_t, cell_centered_bvars::BufferCacheHost_t,
-           IndexShape, IndexShape>
-GetAndUpdateRestrictionBuffers(MeshData<Real> *md, const std::vector<bool> &alloc_status);
-} // namespace impl
-template <template <int> class Op = refinement_ops::RestrictCellAverage>
-TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
-  Kokkos::Profiling::pushRegion("Task_RestrictPhysicalBounds_MeshData");
-
-  // get alloc status
-  auto alloc_status = ComputePhysicalRestrictBoundsAllocStatus(md);
-
-  auto info_tuple = impl::GetAndUpdateRestrictionBuffers(md, alloc_status);
-  auto info = std::get<0>(info_tuple);
-  auto info_h = std::get<1>(info_tuple);
-  auto cellbounds = std::get<2>(info_tuple);
-  auto c_cellbounds = std::get<3>(info_tuple);
-
-  Restrict<Op>(info, info_h, cellbounds, c_cellbounds);
-
-  Kokkos::Profiling::popRegion(); // Task_RestrictPhysicalBounds_MeshData
-  return TaskStatus::complete;
-}
-
-// TODO(JMM): I don't love having two overloads here.  However when
-// we shift entirely to in-one machinery, the info_h only overload
-// will go away.
-template <template <int> class Op = refinement_ops::ProlongateCellMinMod>
-void Prolongate(const cell_centered_bvars::BufferCache_t &info,
-                const cell_centered_bvars::BufferCacheHost_t &info_h,
-                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-  const auto op = RefinementOp_t::Prolongation;
-  loops::DoProlongationRestrictionOp<Op>(cellbnds, info, info_h, cellbnds, c_cellbnds,
-                                         op);
-}
-// The existence of this overload allows us to avoid a deep-copy in
-// the per-meshblock calls
-template <template <int> class Op = refinement_ops::ProlongateCellMinMod>
-void Prolongate(const cell_centered_bvars::BufferCacheHost_t &info_h,
-                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
-  const auto op = RefinementOp_t::Prolongation;
-  loops::DoProlongationRestrictionOp<Op>(cellbnds, info_h, cellbnds, c_cellbnds, op);
-}
-
-// std::function closures for the top-level restriction functions
+// std::function closures for the top-level restriction functions The
+// existence of host/device overloads here allows us to avoid a
+// deep-copy in the per-meshblock
+// calls
+// TODO(JMM): I don't love having
+// two overloads here.  However when we shift entirely to in-one
+// machinery, the info_h only overload will go away.
 using Restrictor_t = std::function<void(
     const cell_centered_bvars::BufferCache_t &,
     const cell_centered_bvars::BufferCacheHost_t &, const loops::Idx_t &,
@@ -117,7 +60,6 @@ using Restrictor_t = std::function<void(
 using RestrictorHost_t = std::function<void(
     const cell_centered_bvars::BufferCacheHost_t &, const loops::IdxHost_t &,
     const IndexShape &, const IndexShape &, const std::size_t)>;
-using BoundaryRestrictor_t = std::function<TaskStatus(MeshData<Real> *)>;
 using Prolongator_t = std::function<void(
     const cell_centered_bvars::BufferCache_t &,
     const cell_centered_bvars::BufferCacheHost_t &, const loops::Idx_t &,
@@ -131,6 +73,12 @@ using ProlongatorHost_t = std::function<void(
 // given a registered set of Op functors. To handle this, we store a
 // function of the type_ids of the registered ProlongationOp and
 // RestrictionOp.
+struct RefinementFunctions_t;
+struct RefinementFunctionsHasher {
+  auto operator()(const RefinementFunctions_t &f) const {
+    return std::hash<std::string>{}(f.label());
+  }
+};
 struct RefinementFunctions_t {
   RefinementFunctions_t() = default;
   RefinementFunctions_t(const std::string &label) : label_(label) {}
@@ -159,7 +107,6 @@ struct RefinementFunctions_t {
           cellbnds, info_h, idxs_h, cellbnds, c_cellbnds, RefinementOp_t::Restriction,
           nbuffers);
     };
-    funcs.boundary_restrictor = RestrictPhysicalBounds<RestrictionOp>;
     funcs.prolongator = [](const cell_centered_bvars::BufferCache_t &info,
                            const cell_centered_bvars::BufferCacheHost_t &info_h,
                            const loops::Idx_t &idxs, const loops::IdxHost_t &idxs_h,
@@ -186,7 +133,6 @@ struct RefinementFunctions_t {
 
   Restrictor_t restrictor;
   RestrictorHost_t restrictor_host;
-  BoundaryRestrictor_t boundary_restrictor;
   Prolongator_t prolongator;
   ProlongatorHost_t prolongator_host;
 
@@ -196,11 +142,6 @@ struct RefinementFunctions_t {
   // using the label might be useful for debugging and it's also
   // easier to concatenate.
   std::string label_;
-};
-struct RefinementFunctionsHasher {
-  auto operator()(const RefinementFunctions_t &f) const {
-    return std::hash<std::string>{}(f.label());
-  }
 };
 
 } // namespace refinement

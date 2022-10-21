@@ -57,14 +57,18 @@ inline TaskStatus StartReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &m
 inline TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return ReceiveBoundBufs<BoundaryType::any>(md);
 }
-inline TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
-  return SetBounds<BoundaryType::any>(md);
-}
+// inline TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
+//   return SetBounds<BoundaryType::any>(md);
+// }
 
 TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
+
+// Restricts all relevant meshblock boundaries, but doesn't
+// communicate at all.
+TaskStatus RestrictMesh(std::shared_ptr<MeshData<Real>> &md, bool reset=false);
 
 // This task should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);

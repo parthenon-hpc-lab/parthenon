@@ -28,6 +28,7 @@
 #include "bvals/cc/bnd_info.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/variable.hpp"
+#include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "utils/error_checking.hpp"
@@ -96,8 +97,29 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
             // No flux correction required unless boundaries share a face
             if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
               continue;
-          }
-          if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
+          } else if constexpr (bound == BoundaryType::restricted) {
+	    // Check if restriction is required
+	    if (nb.snb.level >= pmb->loc.level) continue;
+	  }
+	  if constexpr (bound == BoundaryType::restricted) {
+	    IndexRange bni, bnj, bnk;
+	    ComputeRestrictionBounds(ni, nj, nk, nb, pmb);
+	    // This loop is only over {-1, 0, 1}^3 at most
+	    for (int nk = bnk.s; nk <= bnk.e; ++nk) {
+	      for (int nj = bnj.s; nj <= bnj.e; ++nj) {
+		for (int ni = bni.s; ni <= bni.e; ++ni) {
+		  int ntype = std::abs(ni) + std::abs(nj) + std::abs(nk);
+		  // skip myself or coarse levels; only the same level must be restricted
+		  if (nytpe == 0 || pmb->pbval->nblevel[nk + 1][nj + 1][ni + 1] != pmb->loc.level) continue;
+		  OffsetIndices offsets(nk, nj, ni);
+		  if (func_caller(func, pmb, rc, nb, v, offsets) == LoopControl::break_out) return;
+		}
+	      }
+	    }
+	  } else {
+	    OffsetIndices junk;
+	    if (func_caller(func, pmb, rc, nb, v, junk) == LoopControl::break_out) return;
+	  }
         }
       }
     }
@@ -146,7 +168,7 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
 
   int boundary_idx = 0;
   ForEachBoundary<bound_type>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+	md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v, const OffsetIndices&) {
         auto key = KeyFunc(pmb, nb, v);
         PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
                                 "Boundary communicator does not exist");
@@ -193,7 +215,7 @@ inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
   bool other_communication_unfinished = false;
   int nbound = 0;
   ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
-                                      const sp_cv_t v) {
+                                      const sp_cv_t v, const OffsetIndices&) {
     const std::size_t ibuf = cache.idx_vec[nbound];
     auto &buf = *(cache.buf_vec[ibuf]);
 
@@ -223,7 +245,7 @@ inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md
   int nbound = 0;
 
   ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
-                                      const sp_cv_t v) {
+                                      const sp_cv_t v, const OffsetIndices&) {
     const std::size_t ibuf = cache.idx_vec[nbound];
     auto &buf = *cache.buf_vec[ibuf];
     if (ibuf < cache.bnd_info_h.size()) {
@@ -244,23 +266,38 @@ inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md
   return std::make_tuple(rebuild, nbound);
 }
 
+template <BoundaryType BOUND_TYPE, bool SENDER>
+inline auto CheckNoCommCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
+  BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
+
+  bool rebuild = false;
+  int nbound = 0;
+  ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
+                                      const sp_cv_t v, const OffsetIndices&) {
+    if (!(v->IsAllocated())) continue;
+    const std::size_t ibuf = cache.idx_vec[nbound++];
+    rebuild = (ibuf < cache.bnd_info_h.size()) ? rebuild : true;
+  });
+  return std::make_tuple(rebuild, nbound);
+}
+
+
 using F_BND_INFO = std::function<BndInfo(
     std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-    std::shared_ptr<CellVariable<Real>> v, CommBuffer<buf_pool_t<Real>::owner_t> *buf)>;
+    std::shared_ptr<CellVariable<Real>> v, CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+    const OffsetIndices &no)>;
 
 template <BoundaryType BOUND_TYPE, bool SENDER>
 inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
                                F_BND_INFO BndInfoCreator) {
   BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
-  cache.bnd_info = BufferCache_t("send_info", nbound);
+  cache.bnd_info = BufferCache_t("bnd_info", nbound);
   cache.bnd_info_h = Kokkos::create_mirror_view(cache.bnd_info);
 
   // prolongation/restriction sub-sets
   // TODO(JMM): Right now I exclude fluxcorrection boundaries but if
   // we eventually had custom fluxcorrection ops, you could remove
   // this.
-  // TODO(JMM): Should prolongation/restriction be in initialize
-  // buffer cache?
   Mesh *pmesh = md->GetParentPointer();
   StateDescriptor *pkg = (pmesh->resolved_packages).get();
   if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
@@ -277,10 +314,10 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
 
   int ibound = 0;
   ForEachBoundary<BOUND_TYPE>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+	md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v, const OffsetIndices &no) {
         // bnd_info
         const std::size_t ibuf = cache.idx_vec[ibound];
-        cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
+        cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf], no);
 
         // subsets ordering is same as in cache.bnd_info
         // RefinementFunctions_t owns all relevant functionality, so
