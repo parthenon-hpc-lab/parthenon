@@ -257,7 +257,7 @@ void MeshBlock::StopTimeMeasurement() {
   }
 }
 
-void MeshBlock::RegisterMeshBlockData(std::shared_ptr<CellVariable<Real>> pvar_cc) {
+void MeshBlock::RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc) {
   vars_cc_.push_back(pvar_cc);
   return;
 }
@@ -273,7 +273,7 @@ void MeshBlock::AllocateSparse(std::string const &label) {
       continue;
     }
 
-    auto v = stage.second->GetCellVarPtr(label);
+    auto v = stage.second->GetVarPtr(label);
 
     if (v->IsSet(Metadata::OneCopy)) {
       // nothing to do, we already allocated variable on base stage, and all other
@@ -286,7 +286,7 @@ void MeshBlock::AllocateSparse(std::string const &label) {
       v->AllocateData();
 
       // copy fluxes and boundary variable from variable on base stage
-      v->CopyFluxesAndBdryVar(base_var.get());
+      v->CopyBdryVar(base_var.get());
     }
   }
 }

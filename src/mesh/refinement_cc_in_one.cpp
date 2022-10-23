@@ -58,7 +58,7 @@ std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
     int nrestrictions = pmb->pbval->NumRestrictions();
-    for (auto &v : rc->GetCellVariableVector()) {
+    for (auto &v : rc->GetVariableVector()) {
       if (v->IsSet(parthenon::Metadata::FillGhost)) {
         int num_bufs = nrestrictions * (v->GetDim(6)) * (v->GetDim(5));
         for (int i = 0; i < num_bufs; ++i) {
@@ -110,7 +110,7 @@ void ComputePhysicalRestrictBounds(MeshData<Real> *md) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
-    for (auto &v : rc->GetCellVariableVector()) {
+    for (auto &v : rc->GetVariableVector()) {
       if (v->IsSet(parthenon::Metadata::FillGhost)) {
         pmb->pbval->FillRestrictionMetadata(info_h, idx, v);
       }

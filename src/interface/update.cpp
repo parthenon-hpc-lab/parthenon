@@ -40,8 +40,8 @@ TaskStatus FluxDivergence(MeshBlockData<Real> *in, MeshBlockData<Real> *dudt_con
   const IndexRange jb = in->GetBoundsJ(interior);
   const IndexRange kb = in->GetBoundsK(interior);
 
-  const auto &vin = in->PackVariablesAndFluxes({Metadata::WithFluxes});
-  auto dudt = dudt_cont->PackVariables({Metadata::WithFluxes});
+  const auto &vin = in->PackVariablesAndFluxes({Metadata::WithFluxes, Metadata::Cell});
+  auto dudt = dudt_cont->PackVariables({Metadata::WithFluxes, Metadata::Cell});
 
   const auto &coords = pmb->coords;
   const int ndim = pmb->pmy_mesh->ndim;
@@ -60,7 +60,7 @@ template <>
 TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
   const IndexDomain interior = IndexDomain::interior;
 
-  std::vector<MetadataFlag> flags({Metadata::WithFluxes});
+  std::vector<MetadataFlag> flags({Metadata::WithFluxes, Metadata::Cell});
   const auto &vin = in_obj->PackVariablesAndFluxes(flags);
   auto dudt = dudt_obj->PackVariables(flags);
   const IndexRange ib = in_obj->GetBoundsI(interior);
@@ -206,7 +206,7 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
     for (auto var_itr : map.Map()) {
       const auto label = var_itr.first;
       // skip the entry in the map for the sparse base name
-      if (md->GetBlockData(b)->HasCellVariable(label)) {
+      if (md->GetBlockData(b)->HasVariable(label)) {
         auto &counter = md->GetBlockData(b)->Get(label).dealloc_count;
         bool all_zero = true;
         for (int v = var_itr.second.first; v <= var_itr.second.second; ++v) {

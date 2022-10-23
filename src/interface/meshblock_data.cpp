@@ -46,6 +46,9 @@ void MeshBlockData<T>::Initialize(
   coarseVarPackMap_.clear();
   varFluxPackMap_.clear();
 
+  // first add any necessary flux variables
+  resolved_packages->AddFluxes();
+
   for (auto const &q : resolved_packages->AllFields()) {
     AddField(q.first.base_name, q.second, q.first.sparse_id);
   }
@@ -61,8 +64,12 @@ void MeshBlockData<T>::Initialize(
 template <typename T>
 void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &metadata,
                                 int sparse_id) {
-  auto pvar =
-      std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
+  // TODO(JCD): what other checks should we do here?
+  if (metadata.Where() == Metadata::Node) {
+    PARTHENON_REQUIRE_THROWS(metadata.IsSet(Metadata::OneCopy),
+                             "Only OneCopy Node variables are available");
+  }
+  auto pvar = std::make_shared<Variable<T>>(base_name, metadata, sparse_id, pmy_block);
   Add(pvar);
 
   if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
@@ -97,11 +104,11 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
   };
 
   if (names.empty()) {
-    for (auto v : src.GetCellVariableVector()) {
+    for (auto v : src.GetVariableVector()) {
       add_var(v);
     }
   } else {
-    auto var_map = src.GetCellVariableMap();
+    auto var_map = src.GetVariableMap();
 
     for (const auto &name : names) {
       bool found = false;
@@ -274,8 +281,8 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::StringPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByName(var_names, sparse_ids),
-                                      GetVariablesByName(flx_names, sparse_ids), map,
-                                      key);
+                                      GetVariablesByName(flx_names, sparse_ids, true),
+                                      map, key);
 }
 
 /// Variables and fluxes by Metadata Flags
@@ -284,8 +291,8 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<MetadataFlag> &flags, const std::vector<int> &sparse_ids,
     PackIndexMap *map, vpack_types::StringPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, true, sparse_ids),
-                                      GetVariablesByFlag(flags, true, sparse_ids), map,
-                                      key);
+                                      GetVariablesByFlag(flags, true, sparse_ids, true),
+                                      map, key);
 }
 
 /// All variables and fluxes by Metadata Flags
@@ -293,7 +300,7 @@ template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::StringPair *key) {
   return PackListedVariablesAndFluxes(GetAllVariables(sparse_ids),
-                                      GetAllVariables(sparse_ids), map, key);
+                                      GetAllVariables(sparse_ids, true), map, key);
 }
 
 /// Variables by Name
@@ -329,7 +336,7 @@ MeshBlockData<T>::PackVariablesImpl(const std::vector<int> &sparse_ids, bool coa
 template <typename T>
 typename MeshBlockData<T>::VarLabelList
 MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
-                                     const std::vector<int> &sparse_ids) {
+                                     const std::vector<int> &sparse_ids, bool is_flux) {
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
@@ -338,7 +345,14 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
     if (itr != varMap_.end()) {
       const auto &v = itr->second;
       // this name exists, add it
-      var_list.Add(v, sparse_ids_set);
+      if (is_flux) {
+        // TODO(JCD): I think this will throw if the name doesn't exist.
+        //            Is that what we want?
+        const auto &vf = varMap_.at(v->GetFluxName());
+        var_list.Add(vf, sparse_ids_set);
+      } else {
+        var_list.Add(v, sparse_ids_set);
+      }
     } else if ((resolved_packages_ != nullptr) &&
                (resolved_packages_->SparseBaseNamePresent(name))) {
       const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
@@ -347,7 +361,14 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       for (const auto iter : sparse_pool.pool()) {
         // this variable must exist, if it doesn't something is very wrong
         const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
-        var_list.Add(v, sparse_ids_set);
+        if (is_flux) {
+          // TODO(JCD): I think this will throw if the name doesn't exist.
+          //            Is that what we want?
+          const auto &vf = varMap_.at(v->GetFluxName());
+          var_list.Add(vf, sparse_ids_set);
+        } else {
+          var_list.Add(v, sparse_ids_set);
+        }
       }
     }
   }
@@ -361,7 +382,8 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
 template <typename T>
 typename MeshBlockData<T>::VarLabelList
 MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
-                                     bool match_all, const std::vector<int> &sparse_ids) {
+                                     bool match_all, const std::vector<int> &sparse_ids,
+                                     bool is_flux) {
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
@@ -372,7 +394,12 @@ MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
     // add this variable to the list if the Metadata flags match or no flags are specified
     if (flags.empty() || (match_all && v->metadata().AllFlagsSet(flags)) ||
         (!match_all && v->metadata().AnyFlagsSet(flags))) {
-      var_list.Add(v, sparse_ids_set);
+      if (is_flux) {
+        const auto &vf = varMap_.at(v->GetFluxName());
+        var_list.Add(vf, sparse_ids_set);
+      } else {
+        var_list.Add(v, sparse_ids_set);
+      }
     }
   }
 

@@ -29,6 +29,7 @@
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_array_generic.hpp"
+#include "variable_dimensions.hpp"
 
 // Macro for automatically creating a useful name
 #define PARARRAY_TEMP                                                                    \
@@ -37,7 +38,7 @@
 namespace parthenon {
 
 template <typename T, typename Layout = LayoutWrapper>
-using device_view_t = Kokkos::View<T ******, Layout, DevMemSpace>;
+using device_view_t = Kokkos::View<multi_pointer_t<T>, Layout, DevMemSpace>;
 
 template <typename T, typename Layout = LayoutWrapper>
 using host_view_t = typename device_view_t<T, Layout>::HostMirror;

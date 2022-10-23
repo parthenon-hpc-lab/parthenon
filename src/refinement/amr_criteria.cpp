@@ -56,7 +56,7 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
 
 AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
   ParArrayND<Real> q;
-  if (!rc->HasCellVariable(field) || !rc->IsAllocated(field)) {
+  if (!rc->HasVariable(field) || !rc->IsAllocated(field)) {
     return AmrTag::same;
   }
 

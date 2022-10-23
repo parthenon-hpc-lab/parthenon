@@ -327,7 +327,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
         }
       }
 
-      auto v = pmb->meshblock_data.Get()->GetCellVarPtr(label);
+      auto v = pmb->meshblock_data.Get()->GetVarPtr(label);
       auto v_h = v->data.GetHostMirror();
 
       // Double note that this also needs to be update in case

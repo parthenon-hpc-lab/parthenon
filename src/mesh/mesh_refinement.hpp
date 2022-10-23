@@ -67,7 +67,7 @@ class MeshRefinement {
 
   // setter functions for "enrolling" variable arrays in refinement via Mesh::AMR()
   // and/or in BoundaryValues::ProlongateBoundaries() (for SMR and AMR)
-  int AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar);
+  int AddToRefinement(std::shared_ptr<Variable<Real>> pvar);
 
   Coordinates_t GetCoarseCoords() const { return coarse_coords; }
 
@@ -79,7 +79,7 @@ class MeshRefinement {
   int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;
 
   // tuples of references to AMR-enrolled arrays (quantity, coarse_quantity)
-  std::vector<std::shared_ptr<CellVariable<Real>>> pvars_cc_;
+  std::vector<std::shared_ptr<Variable<Real>>> pvars_cc_;
 
   // Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {

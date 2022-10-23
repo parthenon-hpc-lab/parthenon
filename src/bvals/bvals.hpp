@@ -39,7 +39,7 @@ namespace parthenon {
 // TODO(felker): how many of these foward declarations are actually needed now?
 // Can #include "./bvals_interfaces.hpp" suffice?
 template <typename T>
-class CellVariable;
+class Variable;
 class Mesh;
 class MeshBlock;
 class MeshBlockTree;
@@ -180,7 +180,7 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
 
   int NumRestrictions();
   void FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
-                               int &idx_start, std::shared_ptr<CellVariable<Real>> v);
+                               int &idx_start, std::shared_ptr<Variable<Real>> v);
 
  private:
   // ptr to MeshBlock containing this BoundaryValues
