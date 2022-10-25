@@ -90,51 +90,61 @@ class UniformCartesian {
     return Dx(dir);
   }
 
+  template<int dir>
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x1v(const int i) const { return xmin_[0] + (i + 0.5) * dx_[0]; }
+  Real Xc(const int idx) const {
+    return xmin_[dir] + (idx + 0.5) * dx_[dir];
+  }
+
+  template<int face>
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x1f(const int i) const { return xmin_[0] + i * dx_[0]; }
+  Real Xf(const int idx) const {
+    return Xf<face,face>(idx);
+  }
+
+  template<int face, int dir>
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x2v(const int j) const { return xmin_[1] + (j + 0.5) * dx_[1]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x2f(const int j) const { return xmin_[1] + j * dx_[1]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3v(const int k) const { return xmin_[2] + (k + 0.5) * dx_[2]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3f(const int k) const { return xmin_[2] + k * dx_[2]; }
+  Real Xf(const int idx) const {
+    //Return position in direction "dir" along index "idx" on face "dir"
+    if constexpr( dir == face ) {
+      return xmin_[dir] + (idx + 0.5) * dx_[dir];
+    } else {
+      return Xc<dir>(idx);
+    }
+  }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x1s2(const int i) const { return x1v(i); }
+  Real x1s2(const int i) const { return Xc<1>(i); }
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x1s3(const int i) const { return x1v(i); }
+  Real x1s3(const int i) const { return Xc<1>(i); }
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x2s1(const int j) const { return x2v(j); }
+  Real x2s1(const int j) const { return Xc<2>(j); }
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x2s3(const int j) const { return x2v(j); }
+  Real x2s3(const int j) const { return Xc<2>(j); }
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x3s1(const int k) const { return x3v(k); }
+  Real x3s1(const int k) const { return Xc<3>(k); }
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x3s2(const int k) const { return x3v(k); }
+  Real x3s2(const int k) const { return Xc<3>(k); }
 
-  // k, j, i grid functions
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x1v(const int k, const int j, const int i) const {
-    return xmin_[0] + (i + 0.5) * dx_[0];
-  }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x1f(const int k, const int j, const int i) const { return xmin_[0] + i * dx_[0]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x2v(const int k, const int j, const int i) const {
-    return xmin_[1] + (j + 0.5) * dx_[1];
-  }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x2f(const int k, const int j, const int i) const { return xmin_[1] + j * dx_[1]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3v(const int k, const int j, const int i) const {
-    return xmin_[2] + (k + 0.5) * dx_[2];
-  }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3f(const int k, const int j, const int i) const { return xmin_[2] + k * dx_[2]; }
+  //// k, j, i grid functions
+  //KOKKOS_FORCEINLINE_FUNCTION
+  //Real Xc<1>(const int k, const int j, const int i) const {
+  //  return xmin_[0] + (i + 0.5) * dx_[0];
+  //}
+  //KOKKOS_FORCEINLINE_FUNCTION
+  //Real Xf<1,1>(const int k, const int j, const int i) const { return xmin_[0] + i * dx_[0]; }
+  //KOKKOS_FORCEINLINE_FUNCTION
+  //Real Xc<2>(const int k, const int j, const int i) const {
+  //  return xmin_[1] + (j + 0.5) * dx_[1];
+  //}
+  //KOKKOS_FORCEINLINE_FUNCTION
+  //Real Xf<2,2>(const int k, const int j, const int i) const { return xmin_[1] + j * dx_[1]; }
+  //KOKKOS_FORCEINLINE_FUNCTION
+  //Real Xc<3>(const int k, const int j, const int i) const {
+  //  return xmin_[2] + (k + 0.5) * dx_[2];
+  //}
+  //KOKKOS_FORCEINLINE_FUNCTION
+  //Real Xf<3,3>(const int k, const int j, const int i) const { return xmin_[2] + k * dx_[2]; }
 
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
   const std::array<int, 3> &GetStartIndex() const { return istart_; }

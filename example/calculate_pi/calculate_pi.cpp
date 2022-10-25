@@ -90,7 +90,7 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
   pmb->par_for(
       "SetInOrOut", kb.s, kb.e, jb.s - 1, jb.e + 1, ib.s - 1, ib.e + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        Real rsq = std::pow(coords.x1v(i), 2) + std::pow(coords.x2v(j), 2);
+        Real rsq = std::pow(coords.Xc<1>(i), 2) + std::pow(coords.Xc<2>(j), 2);
         if (rsq < radius * radius) {
           v(k, j, i) = 1.0;
         } else {

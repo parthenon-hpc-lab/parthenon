@@ -87,15 +87,15 @@ template <int DIM>
 KOKKOS_INLINE_FUNCTION Real GetXCC(const Coordinates_t &coords, int i);
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<1>(const Coordinates_t &coords, int i) {
-  return coords.x1v(i);
+  return coords.Xc<1>(i);
 }
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<2>(const Coordinates_t &coords, int i) {
-  return coords.x2v(i);
+  return coords.Xc<2>(i);
 }
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<3>(const Coordinates_t &coords, int i) {
-  return coords.x3v(i);
+  return coords.Xc<3>(i);
 }
 // compute distances from cell center to the nearest center in the + or -
 // coordinate direction. Do so for both coarse and fine grids.

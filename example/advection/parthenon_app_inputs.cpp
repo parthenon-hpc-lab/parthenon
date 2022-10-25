@@ -76,17 +76,17 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       "Advection::ProblemGenerator", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         if (profile_type == 0) {
-          Real x = cos_a2 * (coords.x1v(i) * cos_a3 + coords.x2v(j) * sin_a3) +
-                   coords.x3v(k) * sin_a2;
+          Real x = cos_a2 * (coords.Xc<1>(i) * cos_a3 + coords.Xc<2>(j) * sin_a3) +
+                   coords.Xc<3>(k) * sin_a2;
           Real sn = std::sin(k_par * x);
           q(n, k, j, i) = 1.0 + amp * sn * vel;
         } else if (profile_type == 1) {
-          Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
-                     coords.x3v(k) * coords.x3v(k);
+          Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) + coords.Xc<2>(j) * coords.Xc<2>(j) +
+                     coords.Xc<3>(k) * coords.Xc<3>(k);
           q(n, k, j, i) = 1. + amp * exp(-100.0 * rsq);
         } else if (profile_type == 2) {
-          Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
-                     coords.x3v(k) * coords.x3v(k);
+          Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) + coords.Xc<2>(j) * coords.Xc<2>(j) +
+                     coords.Xc<3>(k) * coords.Xc<3>(k);
           q(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
         } else {
           q(n, k, j, i) = 0.0;
@@ -154,19 +154,19 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
           Real ref_val;
           if (profile == "wave") {
             Real x =
-                cos_a2 * (pmb->coords.x1v(i) * cos_a3 + pmb->coords.x2v(j) * sin_a3) +
-                pmb->coords.x3v(k) * sin_a2;
+                cos_a2 * (pmb->coords.Xc<1>(i) * cos_a3 + pmb->coords.Xc<2>(j) * sin_a3) +
+                pmb->coords.Xc<3>(k) * sin_a2;
             Real sn = std::sin(k_par * x);
             ref_val = 1.0 + amp * sn * vel;
           } else if (profile == "smooth_gaussian") {
-            Real rsq = pmb->coords.x1v(i) * pmb->coords.x1v(i) +
-                       pmb->coords.x2v(j) * pmb->coords.x2v(j) +
-                       pmb->coords.x3v(k) * pmb->coords.x3v(k);
+            Real rsq = pmb->coords.Xc<1>(i) * pmb->coords.Xc<1>(i) +
+                       pmb->coords.Xc<2>(j) * pmb->coords.Xc<2>(j) +
+                       pmb->coords.Xc<3>(k) * pmb->coords.Xc<3>(k);
             ref_val = 1. + amp * exp(-100.0 * rsq);
           } else if (profile == "hard_sphere") {
-            Real rsq = pmb->coords.x1v(i) * pmb->coords.x1v(i) +
-                       pmb->coords.x2v(j) * pmb->coords.x2v(j) +
-                       pmb->coords.x3v(k) * pmb->coords.x3v(k);
+            Real rsq = pmb->coords.Xc<1>(i) * pmb->coords.Xc<1>(i) +
+                       pmb->coords.Xc<2>(j) * pmb->coords.Xc<2>(j) +
+                       pmb->coords.Xc<3>(k) * pmb->coords.Xc<3>(k);
             ref_val = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
           } else {
             ref_val = 1e9; // use an artificially large error

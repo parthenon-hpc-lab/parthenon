@@ -207,9 +207,9 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
   const Real &dx_i = pmb->coords.Dxc<1>(0);
   const Real &dx_j = pmb->coords.Dxf<2,2>(0);
   const Real &dx_k = pmb->coords.Dxf<3,3>(0);
-  const Real &minx_i = pmb->coords.x1f(ib.s);
-  const Real &minx_j = pmb->coords.x2f(jb.s);
-  const Real &minx_k = pmb->coords.x3f(kb.s);
+  const Real &minx_i = pmb->coords.Xf<1,1>(ib.s);
+  const Real &minx_j = pmb->coords.Xf<2,2>(jb.s);
+  const Real &minx_k = pmb->coords.Xf<3,3>(kb.s);
 
   const auto &x = swarm->Get<Real>("x").Get();
   const auto &y = swarm->Get<Real>("y").Get();
@@ -337,12 +337,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real advected_amp = 0.5;
   PARTHENON_REQUIRE(advected_mean > advected_amp, "Cannot have negative densities!");
 
-  const Real &x_min = pmb->coords.x1f(ib.s);
-  const Real &y_min = pmb->coords.x2f(jb.s);
-  const Real &z_min = pmb->coords.x3f(kb.s);
-  const Real &x_max = pmb->coords.x1f(ib.e + 1);
-  const Real &y_max = pmb->coords.x2f(jb.e + 1);
-  const Real &z_max = pmb->coords.x3f(kb.e + 1);
+  const Real &x_min = pmb->coords.Xf<1,1>(ib.s);
+  const Real &y_min = pmb->coords.Xf<2,2>(jb.s);
+  const Real &z_min = pmb->coords.Xf<3,3>(kb.s);
+  const Real &x_max = pmb->coords.Xf<1,1>(ib.e + 1);
+  const Real &y_max = pmb->coords.Xf<2,2>(jb.e + 1);
+  const Real &z_max = pmb->coords.Xf<3,3>(kb.e + 1);
 
   const auto mesh_size = pmb->pmy_mesh->mesh_size;
   const Real x_min_mesh = mesh_size.x1min;
@@ -357,7 +357,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   pmb->par_for(
       "Init advected profile", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        advected(k, j, i) = advected_mean + advected_amp * sin(kwave * coords.x1v(i));
+        advected(k, j, i) = advected_mean + advected_amp * sin(kwave * coords.Xc<1>(i));
       });
 
   // Calculate fraction of total tracer particles on this meshblock by integrating the

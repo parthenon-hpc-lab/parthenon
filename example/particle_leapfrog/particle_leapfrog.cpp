@@ -312,12 +312,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  const Real &x_min = pmb->coords.x1f(ib.s);
-  const Real &y_min = pmb->coords.x2f(jb.s);
-  const Real &z_min = pmb->coords.x3f(kb.s);
-  const Real &x_max = pmb->coords.x1f(ib.e + 1);
-  const Real &y_max = pmb->coords.x2f(jb.e + 1);
-  const Real &z_max = pmb->coords.x3f(kb.e + 1);
+  const Real &x_min = pmb->coords.Xf<1,1>(ib.s);
+  const Real &y_min = pmb->coords.Xf<2,2>(jb.s);
+  const Real &z_min = pmb->coords.Xf<3,3>(kb.s);
+  const Real &x_max = pmb->coords.Xf<1,1>(ib.e + 1);
+  const Real &y_max = pmb->coords.Xf<2,2>(jb.e + 1);
+  const Real &z_max = pmb->coords.Xf<3,3>(kb.e + 1);
 
   const auto &ic = particles_ic;
 
