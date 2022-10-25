@@ -75,22 +75,14 @@ class UniformCartesian {
     return area_[dir - 1];
   }
 
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx1f(Args... args) const {
-    return dx_[0];
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx2f(Args... args) const {
-    return dx_[1];
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx3f(Args... args) const {
-    return dx_[2];
-  }
-
   template <int dir, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(Args... args) const {
     return dx_[dir];
+  }
+
+  template <int face, int dir, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxf(Args... args) const {
+    return dx_[face];
   }
 
   template <class... Args>

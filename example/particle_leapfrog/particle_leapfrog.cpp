@@ -91,9 +91,9 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   const auto &v = swarm->Get<Real>("v").Get();
 
   // Assumes a grid with constant dx, dy, dz within a block
-  const Real &dx_i = pmb->coords.dx1f(0);
-  const Real &dx_j = pmb->coords.dx2f(0);
-  const Real &dx_k = pmb->coords.dx3f(0);
+  const Real &dx_i = pmb->coords.Dxf<1,1>(0);
+  const Real &dx_j = pmb->coords.Dxf<2,2>(0);
+  const Real &dx_k = pmb->coords.Dxf<3,3>(0);
   const Real &dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
 
   auto swarm_d = swarm->GetDeviceContext();

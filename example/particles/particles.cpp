@@ -183,9 +183,9 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
+  const Real &dx_i = pmb->coords.Dxf<1,1>(pmb->cellbounds.is(IndexDomain::interior));
+  const Real &dx_j = pmb->coords.Dxf<2,2>(pmb->cellbounds.js(IndexDomain::interior));
+  const Real &dx_k = pmb->coords.Dxf<3,3>(pmb->cellbounds.ks(IndexDomain::interior));
   const Real &minx_i = pmb->coords.x1f(ib.s);
   const Real &minx_j = pmb->coords.x2f(jb.s);
   const Real &minx_k = pmb->coords.x3f(kb.s);
@@ -262,9 +262,9 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   const int &nx_i = pmb->cellbounds.ncellsi(IndexDomain::interior);
   const int &nx_j = pmb->cellbounds.ncellsj(IndexDomain::interior);
   const int &nx_k = pmb->cellbounds.ncellsk(IndexDomain::interior);
-  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
+  const Real &dx_i = pmb->coords.Dxf<1,1>(pmb->cellbounds.is(IndexDomain::interior));
+  const Real &dx_j = pmb->coords.Dxf<2,2>(pmb->cellbounds.js(IndexDomain::interior));
+  const Real &dx_k = pmb->coords.Dxf<3,3>(pmb->cellbounds.ks(IndexDomain::interior));
   const Real &minx_i = pmb->coords.x1f(ib.s);
   const Real &minx_j = pmb->coords.x2f(jb.s);
   const Real &minx_k = pmb->coords.x3f(kb.s);
@@ -373,9 +373,9 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   auto &z = swarm->Get<Real>("z").Get();
   auto &v = swarm->Get<Real>("v").Get();
 
-  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
+  const Real &dx_i = pmb->coords.Dxf<1,1>(pmb->cellbounds.is(IndexDomain::interior));
+  const Real &dx_j = pmb->coords.Dxf<2,2>(pmb->cellbounds.js(IndexDomain::interior));
+  const Real &dx_k = pmb->coords.Dxf<3,3>(pmb->cellbounds.ks(IndexDomain::interior));
   const Real &dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
 
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);

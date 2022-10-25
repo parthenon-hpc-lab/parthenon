@@ -205,8 +205,8 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   // again using scalar dx_D for assuming a uniform grid in this example
   const Real &dx_i = pmb->coords.Dxc<1>(0);
-  const Real &dx_j = pmb->coords.dx2f(0);
-  const Real &dx_k = pmb->coords.dx3f(0);
+  const Real &dx_j = pmb->coords.Dxf<2,2>(0);
+  const Real &dx_k = pmb->coords.Dxf<3,3>(0);
   const Real &minx_i = pmb->coords.x1f(ib.s);
   const Real &minx_j = pmb->coords.x2f(jb.s);
   const Real &minx_k = pmb->coords.x3f(kb.s);
