@@ -47,6 +47,8 @@ void ComputeRestrictionBounds(IndexRange &ni,
 			      const std::shared_ptr<MeshBlock> &pmb);
 
 struct OffsetIndices {
+  OffsetIndices() = default;
+  OffsetIndices(int nk_, int nj_, int ni_) : nk(nk_), nj(nj_), ni(ni_) {}
   int nk, nj, ni;
 };
 
@@ -72,6 +74,11 @@ struct BndInfo {
   ParArray6D<Real> fine;        // fine data variable for prolongation/restriction
   ParArray6D<Real> coarse;      // coarse data variable for prolongation/restriction
 
+  // These are are used to generate the BndInfo struct for various
+  // kinds of boundary types and operations.
+  // TODO(JMM): As we move to non CC-centered, this may need a
+  // refactor or this section of the struct might explode in
+  // complexity.
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                 std::shared_ptr<CellVariable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf,
@@ -114,7 +121,7 @@ struct BvarsSubCache_t {
     bnd_info_h = BufferCache_t::host_mirror_type{};
     buffer_subset_sizes.clear();
     buffer_subsets = ParArray2D<std::size_t>{};
-    buffer_subsets = ParArray2D<std::size_t>::host_mirror_type{};
+    buffer_subsets_h = ParArray2D<std::size_t>::host_mirror_type{};
   }
 
   std::vector<std::size_t> idx_vec;

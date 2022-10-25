@@ -33,6 +33,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
+#include "mesh/mesh_refinement_loops.hpp"
 #include "mesh/refinement_in_one.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -82,7 +83,12 @@ void MeshRefinement::RestrictCellCenteredValues(const CellVariable<Real> *fine,
   const auto &restrictor = refinement_funcs.restrictor_host;
   int b = 0;
   int nbuffers = 1;
+  // TODO(JMM): We're allocating on the heap here... we could move to
+  // the stack by giving these functions pointers to underlying data?
+  // Probably not worth it, as these functions will be completely removed soon.
   cell_centered_bvars::BufferCacheHost_t info_h("refinement info", nbuffers);
+  refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
+  idxs_h(b) = b;
   // buff and var unused.
   info_h(b).si = csi;
   info_h(b).ei = cei;
@@ -98,7 +104,7 @@ void MeshRefinement::RestrictCellCenteredValues(const CellVariable<Real> *fine,
   info_h(b).coarse_coords = this->coarse_coords;
   info_h(b).fine = (fine->data).Get();
   info_h(b).coarse = (coarse->coarse_s).Get();
-  restrictor(info_h, pmb->cellbounds, pmb->c_cellbounds);
+  restrictor(info_h, idxs_h, pmb->cellbounds, pmb->c_cellbounds, nbuffers);
 }
 
 //----------------------------------------------------------------------------------------
@@ -121,7 +127,12 @@ void MeshRefinement::ProlongateCellCenteredValues(const CellVariable<Real> *coar
   const auto &prolongator = refinement_funcs.prolongator_host;
   int b = 0;
   int nbuffers = 1;
+  // TODO(JMM): We're allocating on the heap here... we could move to
+  // the stack by giving these functions pointers to underlying data?
+  // Probably not worth it, as these functions will be completely removed soon.
   cell_centered_bvars::BufferCacheHost_t info_h("refinement info", nbuffers);
+  refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
+  idxs_h(b) = b;
   // buff and var unused
   info_h(b).si = si;
   info_h(b).ei = ei;
@@ -137,7 +148,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const CellVariable<Real> *coar
   info_h(b).coarse_coords = this->coarse_coords;
   info_h(b).fine = (fine->data).Get();
   info_h(b).coarse = (coarse->coarse_s).Get();
-  prolongator(info_h, pmb->cellbounds, pmb->c_cellbounds);
+  prolongator(info_h, idxs_h, pmb->cellbounds, pmb->c_cellbounds, nbuffers);
 }
 
 //----------------------------------------------------------------------------------------

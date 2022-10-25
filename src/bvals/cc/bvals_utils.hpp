@@ -103,14 +103,14 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
 	  }
 	  if constexpr (bound == BoundaryType::restricted) {
 	    IndexRange bni, bnj, bnk;
-	    ComputeRestrictionBounds(ni, nj, nk, nb, pmb);
+	    ComputeRestrictionBounds(bni, bnj, bnk, nb, pmb);
 	    // This loop is only over {-1, 0, 1}^3 at most
 	    for (int nk = bnk.s; nk <= bnk.e; ++nk) {
 	      for (int nj = bnj.s; nj <= bnj.e; ++nj) {
 		for (int ni = bni.s; ni <= bni.e; ++ni) {
 		  int ntype = std::abs(ni) + std::abs(nj) + std::abs(nk);
 		  // skip myself or coarse levels; only the same level must be restricted
-		  if (nytpe == 0 || pmb->pbval->nblevel[nk + 1][nj + 1][ni + 1] != pmb->loc.level) continue;
+		  if (ntype == 0 || pmb->pbval->nblevel[nk + 1][nj + 1][ni + 1] != pmb->loc.level) continue;
 		  OffsetIndices offsets(nk, nj, ni);
 		  if (func_caller(func, pmb, rc, nb, v, offsets) == LoopControl::break_out) return;
 		}
@@ -274,9 +274,10 @@ inline auto CheckNoCommCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
   int nbound = 0;
   ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
                                       const sp_cv_t v, const OffsetIndices&) {
-    if (!(v->IsAllocated())) continue;
-    const std::size_t ibuf = cache.idx_vec[nbound++];
-    rebuild = (ibuf < cache.bnd_info_h.size()) ? rebuild : true;
+    if (v->IsAllocated()) {
+      const std::size_t ibuf = cache.idx_vec[nbound++];
+      rebuild = (ibuf < cache.bnd_info_h.size()) ? rebuild : true;
+    }
   });
   return std::make_tuple(rebuild, nbound);
 }

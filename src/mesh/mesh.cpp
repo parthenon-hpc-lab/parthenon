@@ -1104,10 +1104,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     } while (!all_received);
 
-    // unpack FillGhost variables
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
-      // TODO(JMM): Do we need this?
+      // unpack FillGhost variables
       cell_centered_bvars::SetBoundaries(md);
       // restrict ghosts---needed for physical bounds
       if (multilevel) {

@@ -37,13 +37,16 @@
 namespace parthenon {
 template <typename T>
 class MeshData; // forward declaration
-
+class StateDescriptor;
+namespace cell_centered_bvars {
+class BvarsSubCache_t;
+} // cell_centered_bvars
 namespace refinement {
 
 // TODO(JMM): Add a prolongate when prolongation is called in-one
 // TODO(JMM): Is this actually the API we want?
 void Restrict(const StateDescriptor *resolved_packages,
-	      BvarsSubCache_t &cache,
+	      const cell_centered_bvars::BvarsSubCache_t &cache,
 	      const IndexShape &cellbnds, const IndexShape &c_cellbnds);
 
 // std::function closures for the top-level restriction functions The
@@ -73,12 +76,6 @@ using ProlongatorHost_t = std::function<void(
 // given a registered set of Op functors. To handle this, we store a
 // function of the type_ids of the registered ProlongationOp and
 // RestrictionOp.
-struct RefinementFunctions_t;
-struct RefinementFunctionsHasher {
-  auto operator()(const RefinementFunctions_t &f) const {
-    return std::hash<std::string>{}(f.label());
-  }
-};
 struct RefinementFunctions_t {
   RefinementFunctions_t() = default;
   RefinementFunctions_t(const std::string &label) : label_(label) {}
@@ -102,7 +99,8 @@ struct RefinementFunctions_t {
           RefinementOp_t::Restriction, nbuffers);
     };
     funcs.restrictor_host = [](const cell_centered_bvars::BufferCacheHost_t &info_h,
-                               const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+                               const loops::IdxHost_t &idxs_h, const IndexShape &cellbnds,
+                               const IndexShape &c_cellbnds, const std::size_t nbuffers) {
       loops::DoProlongationRestrictionOp<RestrictionOp>(
           cellbnds, info_h, idxs_h, cellbnds, c_cellbnds, RefinementOp_t::Restriction,
           nbuffers);
@@ -117,7 +115,7 @@ struct RefinementFunctions_t {
           RefinementOp_t::Prolongation, nbuffers);
     };
     funcs.prolongator_host = [](const cell_centered_bvars::BufferCacheHost_t &info_h,
-                                loops::IdxHost_t &idxs_h, const IndexShape &cellbnds,
+                                const loops::IdxHost_t &idxs_h, const IndexShape &cellbnds,
                                 const IndexShape &c_cellbnds,
                                 const std::size_t nbuffers) {
       loops::DoProlongationRestrictionOp<ProlongationOp>(
@@ -142,6 +140,12 @@ struct RefinementFunctions_t {
   // using the label might be useful for debugging and it's also
   // easier to concatenate.
   std::string label_;
+};
+
+struct RefinementFunctionsHasher {
+  auto operator()(const RefinementFunctions_t &f) const {
+    return std::hash<std::string>{}(f.label());
+  }
 };
 
 } // namespace refinement

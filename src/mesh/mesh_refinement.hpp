@@ -66,6 +66,8 @@ class MeshRefinement {
   // and/or in BoundaryValues::ProlongateBoundaries() (for SMR and AMR)
   int AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar);
 
+  // TODO(JMM): coarse-coords maybe should move out of this code, or
+  // be made public
   Coordinates_t GetCoarseCoords() const { return coarse_coords; }
 
  private:

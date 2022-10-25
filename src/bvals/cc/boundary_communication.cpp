@@ -148,7 +148,7 @@ SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
-/  Kokkos::Profiling::pushRegion("Task_StartReceiveBoundBufs");
+  Kokkos::Profiling::pushRegion("Task_StartReceiveBoundBufs");
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_send, false);
   if (cache.buf_vec.size() == 0)
@@ -187,7 +187,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   int ibound = 0;
   if (Globals::sparse_config.enabled) {
     ForEachBoundary<bound_type>(
-        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v, OffsetIndices &no) {
           const std::size_t ibuf = cache.idx_vec[ibound];
           auto &buf = *cache.buf_vec[ibuf];
 
@@ -293,18 +293,17 @@ TaskStatus RestrictMesh(std::shared_ptr<MeshData<Real>> &md, bool reset_cache) {
   constexpr BoundaryType bound_type = BoundaryType::restricted;
   Kokkos::Profiling::pushRegion("Task_RestrictMesh");
   Mesh *pmesh = md->GetMeshPointer();
-  auto &cache = md->GetBvarsCache().GetSubCache(bound_type, bound_type, false);
+  BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   // JMM: No buffers to communicate, but we still want the buffer info
   // cache so we don't bother using the initialization routine, we
   // just set the index to linear and go.
   if (reset_cache || cache.idx_vec.size() == 0) {
     cache.clear();
     int buff_idx = 0;
-    ForEachBoundary<bound_type>(md,
-				&[&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
-				     const sp_cv_t v, const OffsetIndices &no) {
+    ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
+                                        const sp_cv_t v, const OffsetIndices &no) {
       if (v->IsAllocated()) {
-	cache.idx_vec.push_back(buff_idx++);
+        cache.idx_vec.push_back(buff_idx++);
       }
     });
   }
@@ -315,10 +314,9 @@ TaskStatus RestrictMesh(std::shared_ptr<MeshData<Real>> &md, bool reset_cache) {
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   StateDescriptor *resolved_packages = pmb->resolved_packages.get();
   refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
-  Kokkos::Profiling::popRegion();. // Task_RestrictMesh
+  Kokkos::Profiling::popRegion(); // Task_RestrictMesh
   return TaskStatus::complete;
 }
-
 
 template TaskStatus SetBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus SetBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
