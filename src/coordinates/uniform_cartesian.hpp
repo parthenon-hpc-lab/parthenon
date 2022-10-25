@@ -113,18 +113,9 @@ class UniformCartesian {
     }
   }
 
+  template<int face, int dir>
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x1s2(const int i) const { return Xc<1>(i); }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x1s3(const int i) const { return Xc<1>(i); }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x2s1(const int j) const { return Xc<2>(j); }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x2s3(const int j) const { return Xc<2>(j); }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3s1(const int k) const { return Xc<3>(k); }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3s2(const int k) const { return Xc<3>(k); }
+  Real Xs(const int idx) const { return Xc<face>(idx); }
 
   //// k, j, i grid functions
   //KOKKOS_FORCEINLINE_FUNCTION
