@@ -87,17 +87,10 @@ class UniformCartesian {
   KOKKOS_FORCEINLINE_FUNCTION Real dx3f(Args... args) const {
     return dx_[2];
   }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx1v(Args... args) const {
-    return dx_[0];
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx2v(Args... args) const {
-    return dx_[1];
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx3v(Args... args) const {
-    return dx_[2];
+
+  template <int dir, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxc(Args... args) const {
+    return dx_[dir];
   }
 
   template <class... Args>

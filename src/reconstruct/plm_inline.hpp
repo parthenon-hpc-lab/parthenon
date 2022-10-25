@@ -73,14 +73,14 @@ PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const int j,
   } else {
     for (int n = 0; n <= nu; ++n) {
       parthenon::par_for_inner(member, il, iu, [&](const int i) {
-        Real dqF = dqr(n, i) * coords.dx1f(i) / coords.dx1v(i);
-        Real dqB = dql(n, i) * coords.dx1f(i) / coords.dx1v(i - 1);
+        Real dqF = dqr(n, i) * coords.dx1f(i) / coords.Dxc<1>(i);
+        Real dqB = dql(n, i) * coords.dx1f(i) / coords.Dxc<1>(i - 1);
         Real dq2 = dqF * dqB;
         // cf, cb -> 2 (uniform Cartesian mesh / original VL value) w/ vanishing
         // curvature (may not exactly hold for nonuniform meshes, but converges w/
         // smooth nonuniformity)
-        Real cf = coords.dx1v(i) / (coords.x1f(i + 1) - coords.x1v(i)); // (Mignone eq 33)
-        Real cb = coords.dx1v(i - 1) / (coords.x1v(i) - coords.x1f(i));
+        Real cf = coords.Dxc<1>(i) / (coords.x1f(i + 1) - coords.x1v(i)); // (Mignone eq 33)
+        Real cb = coords.Dxc<1>(i - 1) / (coords.x1v(i) - coords.x1f(i));
         // (modified) VL limiter (Mignone eq 37)
         // (dQ^F term from eq 31 pulled into eq 37, then multiply by (dQ^F/dQ^F)^2)
         dqm(n, i) =
@@ -147,11 +147,11 @@ PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const int j,
     // Apply general VL limiter expression w/ the Mignone correction for a Cartesian-like
     // coordinate with nonuniform mesh spacing
   } else {
-    Real cf = coords.dx2v(j) / (coords.x2f(j + 1) - coords.x2v(j));
-    Real cb = coords.dx2v(j - 1) / (coords.x2v(j) - coords.x2f(j));
+    Real cf = coords.Dxc<2>(j) / (coords.x2f(j + 1) - coords.x2v(j));
+    Real cb = coords.Dxc<2>(j - 1) / (coords.x2v(j) - coords.x2f(j));
     Real dxF =
-        coords.dx2f(j) / coords.dx2v(j); // dimensionless, not technically a dx quantity
-    Real dxB = coords.dx2f(j) / coords.dx2v(j - 1);
+        coords.dx2f(j) / coords.Dxc<2>(j); // dimensionless, not technically a dx quantity
+    Real dxB = coords.dx2f(j) / coords.Dxc<2>(j - 1);
     for (int n = 0; n <= nu; ++n) {
       parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dqF = dqr(n, i) * dxF;
@@ -222,8 +222,8 @@ PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const int j,
     // Apply original VL limiter's general expression for a Cartesian-like coordinate with
     // nonuniform mesh spacing
   } else {
-    Real dxF = coords.dx3f(k) / coords.dx3v(k);
-    Real dxB = coords.dx3f(k) / coords.dx3v(k - 1);
+    Real dxF = coords.dx3f(k) / coords.Dxc<3>(k);
+    Real dxB = coords.dx3f(k) / coords.Dxc<3>(k - 1);
     for (int n = 0; n <= nu; ++n) {
       parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dqF = dqr(n, i) * dxF;

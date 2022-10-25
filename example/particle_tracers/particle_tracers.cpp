@@ -69,9 +69,9 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *mbd) {
   const auto &vz = pkg->Param<Real>("vz");
 
   // Assumes a grid with constant dx, dy, dz within a block
-  const Real &dx_i = pmb->coords.dx1v(0);
-  const Real &dx_j = pmb->coords.dx2v(0);
-  const Real &dx_k = pmb->coords.dx3v(0);
+  const Real &dx_i = pmb->coords.Dxc<1>(0);
+  const Real &dx_j = pmb->coords.Dxc<2>(0);
+  const Real &dx_k = pmb->coords.Dxc<3>(0);
 
   Real min_dt = dx_i / std::abs(vx + TINY_NUMBER);
   min_dt = std::min(min_dt, dx_j / std::abs(vy + TINY_NUMBER));
@@ -126,9 +126,9 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *mbd) {
   const auto &vz = pkg->Param<Real>("vz");
 
   // Assumes a grid with constant dx, dy, dz within a block
-  const Real &dx_i = pmb->coords.dx1v(0);
-  const Real &dx_j = pmb->coords.dx2v(0);
-  const Real &dx_k = pmb->coords.dx3v(0);
+  const Real &dx_i = pmb->coords.Dxc<1>(0);
+  const Real &dx_j = pmb->coords.Dxc<2>(0);
+  const Real &dx_k = pmb->coords.Dxc<3>(0);
 
   Real min_dt = dx_i / std::abs(vx + TINY_NUMBER);
   min_dt = std::min(min_dt, dx_j / std::abs(vy + TINY_NUMBER));
@@ -204,7 +204,7 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   // again using scalar dx_D for assuming a uniform grid in this example
-  const Real &dx_i = pmb->coords.dx1v(0);
+  const Real &dx_i = pmb->coords.Dxc<1>(0);
   const Real &dx_j = pmb->coords.dx2f(0);
   const Real &dx_k = pmb->coords.dx3f(0);
   const Real &minx_i = pmb->coords.x1f(ib.s);
