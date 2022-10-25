@@ -59,18 +59,23 @@ class UniformCartesian {
   }
 
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Volume(Args... args) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real dv(Args... args) const {
     return cell_volume_;
   }
 
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Dx(const int dir, Args... args) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real dx(const int dir, Args... args) const {
     assert(dir > 0 && dir < 4);
     return dx_[dir - 1];
   }
 
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Area(const int dir, Args... args) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real ds(const int dir, Args... args) const {
+    return dx(dir);
+  }
+
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real da(const int dir, Args... args) const {
     assert(dir > 0 && dir < 4);
     return area_[dir - 1];
   }
@@ -83,11 +88,6 @@ class UniformCartesian {
   template <int face, int dir, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxf(Args... args) const {
     return dx_[face];
-  }
-
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int dir, Args... args) const {
-    return Dx(dir);
   }
 
   template<int dir>

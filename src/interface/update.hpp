@@ -39,17 +39,17 @@ namespace Update {
 KOKKOS_FORCEINLINE_FUNCTION
 Real FluxDivHelper(const int l, const int k, const int j, const int i, const int ndim,
                    const Coordinates_t &coords, const VariableFluxPack<Real> &v) {
-  Real du = (coords.Area(X1DIR, k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
-             coords.Area(X1DIR, k, j, i) * v.flux(X1DIR, l, k, j, i));
+  Real du = (coords.da(X1DIR, k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
+             coords.da(X1DIR, k, j, i) * v.flux(X1DIR, l, k, j, i));
   if (ndim >= 2) {
-    du += (coords.Area(X2DIR, k, j + 1, i) * v.flux(X2DIR, l, k, j + 1, i) -
-           coords.Area(X2DIR, k, j, i) * v.flux(X2DIR, l, k, j, i));
+    du += (coords.da(X2DIR, k, j + 1, i) * v.flux(X2DIR, l, k, j + 1, i) -
+           coords.da(X2DIR, k, j, i) * v.flux(X2DIR, l, k, j, i));
   }
   if (ndim == 3) {
-    du += (coords.Area(X3DIR, k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
-           coords.Area(X3DIR, k, j, i) * v.flux(X3DIR, l, k, j, i));
+    du += (coords.da(X3DIR, k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
+           coords.da(X3DIR, k, j, i) * v.flux(X3DIR, l, k, j, i));
   }
-  return -du / coords.Volume(k, j, i);
+  return -du / coords.dv(k, j, i);
 }
 
 template <typename T>
