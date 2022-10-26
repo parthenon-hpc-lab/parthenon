@@ -112,7 +112,7 @@ jobs:
             -i ../tst/regression/test_suites/advection_performance/parthinput.advection_performance \
             parthenon/mesh/nx1=128 parthenon/mesh/nx2=128  parthenon/mesh/nx3=128 \
             parthenon/meshblock/nx1=64 parthenon/meshblock/nx2=64 parthenon/meshblock/nx3=64 \
-            parthenon/sparse/enable_sparse=false parthenon/time/nlim=2000 parthenon/time/tlim=20 2>&1 | tee profile.txt
+            parthenon/sparse/enable_sparse=false parthenon/time/nlim=200000 parthenon/time/tlim=200 2>&1 | tee profile.txt
           if grep HtoD profile.txt; then exit 1; fi
           if grep DtoH profile.txt; then exit 1; fi
 
