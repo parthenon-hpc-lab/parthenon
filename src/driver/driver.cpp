@@ -159,7 +159,7 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
   for (int i = 0; i < num_partitions; i++) {
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
     Update::EstimateTimestep(mbase.get());
-    cell_centered_bvars::BuildSparseBoundaryBuffers(mbase);
+    cell_centered_bvars::BuildBoundaryBuffers(mbase);
   }
 }
 
