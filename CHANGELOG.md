@@ -26,6 +26,7 @@
 - [[PR 716]](https://github.com/lanl/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 768]](https://github.com/lanl/parthenon/pull/768) Update CI image and move to new CI machine (short and extended tests)
 - [[PR 766]](https://github.com/lanl/parthenon/pull/766) Remove IAS performance regression test
 - [[PR 735]](https://github.com/lanl/parthenon/pull/735) Clean up HDF5 output
 - [[PR 708]](https://github.com/lanl/parthenon/pull/708) Bump minimum version of Kokkos to 3.6
