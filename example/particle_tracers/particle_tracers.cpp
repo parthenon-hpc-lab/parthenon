@@ -477,7 +477,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<any>, mc1);
 
     if (pmesh->multilevel) {
-      tl.AddTask(set, parthenon::cell_centered_bvars::RestrictMesh, mc1, false);
+      tl.AddTask(set, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1, false);
     }
   }
 

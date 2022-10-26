@@ -289,9 +289,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 
 // Restricts all relevant meshblock boundaries, but doesn't
 // communicate at all.
-TaskStatus RestrictMesh(std::shared_ptr<MeshData<Real>> &md, bool reset_cache) {
+TaskStatus RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset_cache) {
   constexpr BoundaryType bound_type = BoundaryType::restricted;
-  Kokkos::Profiling::pushRegion("Task_RestrictMesh");
+  Kokkos::Profiling::pushRegion("Task_RestrictGhostHalos");
   Mesh *pmesh = md->GetMeshPointer();
   BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   // JMM: No buffers to communicate, but we still want the buffer info
@@ -302,12 +302,10 @@ TaskStatus RestrictMesh(std::shared_ptr<MeshData<Real>> &md, bool reset_cache) {
     int buff_idx = 0;
     ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
                                         const sp_cv_t v, const OffsetIndices &no) {
-      if (v->IsAllocated()) {
-        cache.idx_vec.push_back(buff_idx++);
-        // must fill buf_vec even if we don't allocate new buffers
-        // because it's passed into the BoundaryCreator struct
-        cache.buf_vec.push_back(nullptr); 
-      }
+      cache.idx_vec.push_back(buff_idx++);
+      // must fill buf_vec even if we don't allocate new buffers
+      // because it's passed into the BoundaryCreator struct
+      cache.buf_vec.push_back(nullptr); 
     });
   }
   auto [rebuild, nbound] = CheckNoCommCacheForRebuild<bound_type, false>(md);
@@ -317,7 +315,7 @@ TaskStatus RestrictMesh(std::shared_ptr<MeshData<Real>> &md, bool reset_cache) {
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   StateDescriptor *resolved_packages = pmb->resolved_packages.get();
   refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
-  Kokkos::Profiling::popRegion(); // Task_RestrictMesh
+  Kokkos::Profiling::popRegion(); // Task_RestrictGhostHalos
   return TaskStatus::complete;
 }
 

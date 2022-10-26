@@ -274,11 +274,21 @@ inline auto CheckNoCommCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
   int nbound = 0;
   ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
                                       const sp_cv_t v, const OffsetIndices&) {
-    if (v->IsAllocated()) {
-      const std::size_t ibuf = cache.idx_vec[nbound++];
-      rebuild = (ibuf < cache.bnd_info_h.size()) ? rebuild : true;
+    if (nbound < cache.idx_vec.size()) {
+      const std::size_t ibuf = cache.idx_vec[nbound];
+      if (ibuf < cache.bnd_info_h.size()) {
+        if (cache.bnd_info_h(ibuf).allocated != (v->IsAllocated())) {
+          rebuild = true;
+        }
+      } else {
+        rebuild = true;
+      }
+    } else {
+      rebuild = true;
     }
+    ++nbound;
   });
+  rebuild = rebuild || (nbound == 0) || (nbound != cache.idx_vec.size());
   return std::make_tuple(rebuild, nbound);
 }
 

@@ -28,6 +28,10 @@
 #include "mesh/mesh_refinement_ops.hpp"
 #include "mesh/refinement_in_one.hpp"
 
+// DEBUG
+#include "globals.hpp"
+#include <iostream>
+
 namespace parthenon {
 namespace refinement {
 

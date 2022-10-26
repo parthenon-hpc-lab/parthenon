@@ -161,7 +161,7 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
           tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<any>, mc1);
       auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<any>, mc1);
       if (pmesh->multilevel) {
-        tl.AddTask(set, parthenon::cell_centered_bvars::RestrictMesh, mc1, false);
+        tl.AddTask(set, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1, false);
       }
     }
   }
