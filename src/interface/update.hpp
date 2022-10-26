@@ -49,7 +49,7 @@ Real FluxDivHelper(const int l, const int k, const int j, const int i, const int
     du += (coords.da(X3DIR, k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
            coords.da(X3DIR, k, j, i) * v.flux(X3DIR, l, k, j, i));
   }
-  return -du / coords.dv(k, j, i);
+  return -du / coords.Dv(k, j, i);
 }
 
 template <typename T>

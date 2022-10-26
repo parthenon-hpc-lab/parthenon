@@ -153,7 +153,7 @@ struct RestrictCellAverage {
     for (int ok = 0; ok < 1 + (DIM > 2); ++ok) {
       for (int oj = 0; oj < 1 + (DIM > 1); ++oj) {
         for (int oi = 0; oi < 1 + 1; ++oi) {
-          vol[ok][oj][oi] = coords.dv(k + ok, j + oj, i + oi);
+          vol[ok][oj][oi] = coords.Dv(k + ok, j + oj, i + oi);
           terms[ok][oj][oi] = vol[ok][oj][oi] * fine(l, m, n, k + ok, j + oj, i + oi);
         }
       }
