@@ -1,3 +1,40 @@
+# Boundary communication-in-one concepts
+
+On CPU, the naive implementation of ghost halos for meshblocks is to
+loop over each geometric sub-area of a ghost halo relevant for
+communicating to neighboring meshblocks. In practice, on accelerators,
+this is not performant, as launching a GPU kernel per sub-halo costs
+significant latency.
+
+To resolve this issue, we coalesce GPU kernels into hierarchically
+paraellel loops, where the outer loop is over sub-halos, and the inner
+loop is over the cells within a sub-halo. The information required to,
+e.g., send, receive, prolongate, restrict information in each sub-halo
+is precomputed and cached.
+
+Per sub-halo, there is a struct, `BndInfo_t`, which contains the
+relevant information needed on device to perform loop operations. The
+caching is enabled by two structs, `BvarsSubCache_t` which contains
+all the arrays on host and device needed mostly containing these
+`BndInfo_t` objects, and `BvarsCache_t` which is essentially an array
+of all the kinds of caches needed for the various kinds of boundary
+operations performed.
+
+We note that this infrastructure is more general than just ghost
+halos. The same machinery could, for example, be used to prolongate or
+restrict an entire meshblock.
+
+## Buffer subsets
+
+Sometimes it is desirable, for example for custom prolongation and
+restriction, to loop over a subset of the ghost sub-halos, rather than
+all halos at once. This is enabled by the `buffer_subsets` and
+`buffer_subsets_h` arrays, which are contained in
+`BvarsSubCache_t`. The `buffer_subsets` array is a matrix, where the
+rows index the subset, and the columns point to the indices in the
+`bnd_info` array containing the subset of sub-halos you wish to
+operate on.
+
 # Sparse boundary communication 
 
 Communication between meshblocks at all stages is required to synchronize fields that include ghost zones. For each pair of meshblocks **a** and **b** that share a boundary, we define two *communication channel*s (**a**->**b** and **b**->**a**) for each field that communicates ghost zone data. This communication channel can be shared amongst all stages contained in the `MeshBlock` field `DataCollection<MeshBlockData<Real>> meshblock_data`, since the communication during different stages doesn't overlap. A communication channel needs to contain some state that indicates if information has been sent from block **a** but not received on block **b**, or if the information has been received. Additionally, the communication channel should contain storage if data is being communicated, which may not always be the case for sparse variables. When the sender is sparse and unallocated, no storage communication buffer storage is required since the ghost zones of the receiver should be filled with default values. When the sender is allocated, we always allocate buffer storage. 
@@ -129,3 +166,13 @@ The flux correction routines mirror the boundary routines, except that they do n
 - **`LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>>&)`**
 - **`ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)`**
 - **`SetFluxCorrections(std::shared_ptr<MeshData<Real>>&)`**
+
+### Non-communication tasks
+
+These tasks use the same infrastructure as the boundary communication machinery but do not communicate
+
+**`RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset_cache)`**
+- Loops over parts of the mesh with a coarse-fine boundary and
+  restricts from the fine buffer to the coarse buffer of a variable
+  when relevant. This is needed for physical boundary conditions to be
+  applied correctly.
