@@ -5,7 +5,7 @@ on: [push, pull_request]
 # Cancel "duplicated" workflows triggered by pushes to internal
 # branches with associated PRs.
 concurrency:
-  group: ${{ github.ref }}-${{ github.head_ref }}-CI-short
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 env:
