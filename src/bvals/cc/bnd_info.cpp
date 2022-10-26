@@ -236,14 +236,12 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
   }
 }
 
-void ComputeRestrictionBounds(IndexRange &ni,
-			      IndexRange &nj,
-			      IndexRange &nk,
-			      const NeighborBlock &nb,
-			      const std::shared_ptr<MeshBlock> &pmb) {
+void ComputeRestrictionBounds(IndexRange &ni, IndexRange &nj, IndexRange &nk,
+                              const NeighborBlock &nb,
+                              const std::shared_ptr<MeshBlock> &pmb) {
   auto getbounds = [](const int nbx, IndexRange &n) {
     n.s = std::max(nbx - 1, -1); // can be -1 or 0
-    n.e = std::min(nbx + 1, 1); // can be 0 or 1
+    n.e = std::min(nbx + 1, 1);  // can be 0 or 1
   };
   getbounds(nb.ni.ox1, ni);
   if (pmb->block_size.nx2 == 1) {
@@ -259,12 +257,9 @@ void ComputeRestrictionBounds(IndexRange &ni,
   }
 }
 
-void CalcIndicesRestrict(int nk, int nj, int ni,
-			 int &ris, int &rie,
-			 int &rjs, int &rje,
-			 int &rks, int &rke,
-			 const NeighborBlock &nb,
-			 std::shared_ptr<MeshBlock> &pmb) {
+void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, int &rje,
+                         int &rks, int &rke, const NeighborBlock &nb,
+                         std::shared_ptr<MeshBlock> &pmb) {
   const IndexDomain interior = IndexDomain::interior;
   IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
   IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
@@ -539,20 +534,18 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
   return out;
 }
 
-BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-				   std::shared_ptr<CellVariable<Real>> v,
-				   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-				   const OffsetIndices &no) {
+BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
+                                   const NeighborBlock &nb,
+                                   std::shared_ptr<CellVariable<Real>> v,
+                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+                                   const OffsetIndices &no) {
   BndInfo out;
   if (!v->IsAllocated()) {
     out.allocated = false;
     return out;
   }
   out.allocated = true;
-  CalcIndicesRestrict(no.nk, no.nj, no.ni,
-		      out.si, out.ei,
-		      out.sj, out.ej,
-		      out.sk, out.ek,
+  CalcIndicesRestrict(no.nk, no.nj, no.ni, out.si, out.ei, out.sj, out.ej, out.sk, out.ek,
                       nb, pmb);
   out.coords = pmb->coords;
   out.coarse_coords = pmb->pmr->GetCoarseCoords();

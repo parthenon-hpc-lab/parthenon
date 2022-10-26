@@ -319,7 +319,6 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       }
     }
 
-    
     WHEN("We register a dense variable withuot custom") {
       pkg1->AddField("dense", m_provides);
       WHEN("We register a sparse variable with custom prolongation/restriction") {
@@ -328,7 +327,8 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         pkg2->AddSparsePool("sparse", m_sparse_provides_, sparse_ids);
         THEN("We can perform dependency resolution") {
           auto pkg3 = ResolvePackages(packages);
-          AND_THEN("The two relevant prolongation restriction operators exist and have unique ids") {
+          AND_THEN("The two relevant prolongation restriction operators exist and have "
+                   "unique ids") {
             const auto my_funcs =
                 parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,
                                                                           MyRestrictOp>();

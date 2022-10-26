@@ -131,9 +131,7 @@ TEST_CASE("A Metadata struct is created", "[Metadata]") {
 TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
   GIVEN("A metadata struct with relevant flags set") {
     Metadata m({Metadata::Cell, Metadata::FillGhost});
-    THEN("It knows it's registered for refinement") {
-      REQUIRE(m.IsRefined());
-    }
+    THEN("It knows it's registered for refinement") { REQUIRE(m.IsRefined()); }
     THEN("It has the default Prolongation/Restriction ops") {
       const auto cell_funcs = parthenon::refinement::RefinementFunctions_t::RegisterOps<
           parthenon::refinement_ops::ProlongateCellMinMod,
@@ -141,7 +139,7 @@ TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
       REQUIRE(m.GetRefinementFunctions() == cell_funcs);
     }
     WHEN("We register new operations") {
-      m.RegisterRefinementOps<MyProlongOp,MyRestrictOp>();
+      m.RegisterRefinementOps<MyProlongOp, MyRestrictOp>();
       THEN("The refinement func must be set to our custom ops") {
         const auto my_funcs =
             parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,

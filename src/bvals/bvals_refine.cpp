@@ -114,7 +114,8 @@ void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int 
   for (auto cc_var : pmr->pvars_cc_) {
     if (!cc_var->IsAllocated()) continue;
     int nu = cc_var->GetDim(4) - 1;
-    pmr->ProlongateCellCenteredValues(cc_var.get(), cc_var.get(), 0, nu, si, ei, sj, ej, sk, ek);
+    pmr->ProlongateCellCenteredValues(cc_var.get(), cc_var.get(), 0, nu, si, ei, sj, ej,
+                                      sk, ek);
   }
 
   // prolongate face-centered S/AMR-enrolled quantities (magnetic fields)

@@ -305,7 +305,7 @@ TaskStatus RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset_ca
       cache.idx_vec.push_back(buff_idx++);
       // must fill buf_vec even if we don't allocate new buffers
       // because it's passed into the BoundaryCreator struct
-      cache.buf_vec.push_back(nullptr); 
+      cache.buf_vec.push_back(nullptr);
     });
   }
   auto [rebuild, nbound] = CheckNoCommCacheForRebuild<bound_type, false>(md);

@@ -1110,7 +1110,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       cell_centered_bvars::SetBoundaries(md);
       // restrict ghosts---needed for physical bounds
       if (multilevel) {
-	cell_centered_bvars::RestrictGhostHalos(md, true);
+        cell_centered_bvars::RestrictGhostHalos(md, true);
       }
     }
 

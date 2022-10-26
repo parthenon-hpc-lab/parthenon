@@ -17,11 +17,12 @@
 // so.
 //========================================================================================
 
-#ifndef MESH_REFINEMENT_CC_IN_ONE_HPP_
-#define MESH_REFINEMENT_CC_IN_ONE_HPP_
+#ifndef MESH_REFINEMENT_IN_ONE_HPP_
+#define MESH_REFINEMENT_IN_ONE_HPP_
 
 #include <algorithm>
 #include <functional> // std::function
+#include <string>     // std::string
 #include <tuple>      // std::tuple
 #include <typeinfo>   // typeid
 #include <utility>    // std::forward
@@ -40,14 +41,14 @@ class MeshData; // forward declaration
 class StateDescriptor;
 namespace cell_centered_bvars {
 class BvarsSubCache_t;
-} // cell_centered_bvars
+} // namespace cell_centered_bvars
 namespace refinement {
 
 // TODO(JMM): Add a prolongate when prolongation is called in-one
 // TODO(JMM): Is this actually the API we want?
 void Restrict(const StateDescriptor *resolved_packages,
-	      const cell_centered_bvars::BvarsSubCache_t &cache,
-	      const IndexShape &cellbnds, const IndexShape &c_cellbnds);
+              const cell_centered_bvars::BvarsSubCache_t &cache,
+              const IndexShape &cellbnds, const IndexShape &c_cellbnds);
 
 // std::function closures for the top-level restriction functions The
 // existence of host/device overloads here allows us to avoid a
@@ -78,7 +79,7 @@ using ProlongatorHost_t = std::function<void(
 // RestrictionOp.
 struct RefinementFunctions_t {
   RefinementFunctions_t() = default;
-  RefinementFunctions_t(const std::string &label) : label_(label) {}
+  explicit RefinementFunctions_t(const std::string &label) : label_(label) {}
 
   template <template <int> class ProlongationOp, template <int> class RestrictionOp>
   static RefinementFunctions_t RegisterOps() {
@@ -115,8 +116,8 @@ struct RefinementFunctions_t {
           RefinementOp_t::Prolongation, nbuffers);
     };
     funcs.prolongator_host = [](const cell_centered_bvars::BufferCacheHost_t &info_h,
-                                const loops::IdxHost_t &idxs_h, const IndexShape &cellbnds,
-                                const IndexShape &c_cellbnds,
+                                const loops::IdxHost_t &idxs_h,
+                                const IndexShape &cellbnds, const IndexShape &c_cellbnds,
                                 const std::size_t nbuffers) {
       loops::DoProlongationRestrictionOp<ProlongationOp>(
           cellbnds, info_h, idxs_h, cellbnds, c_cellbnds, RefinementOp_t::Prolongation,
@@ -151,4 +152,4 @@ struct RefinementFunctionsHasher {
 } // namespace refinement
 } // namespace parthenon
 
-#endif // MESH_REFINEMENT_CC_IN_ONE_HPP_
+#endif // MESH_REFINEMENT_IN_ONE_HPP_

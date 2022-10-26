@@ -28,25 +28,22 @@
 #include "mesh/mesh_refinement_ops.hpp"
 #include "mesh/refinement_in_one.hpp"
 
-// DEBUG
-#include "globals.hpp"
-#include <iostream>
-
 namespace parthenon {
 namespace refinement {
 
 // TODO(JMM): Add a prolongate when prolongation is called in-one
 // TODO(JMM): Is this actually the API we want?
 void Restrict(const StateDescriptor *resolved_packages,
-	      const cell_centered_bvars::BvarsSubCache_t &cache,
-	      const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+              const cell_centered_bvars::BvarsSubCache_t &cache,
+              const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
   const auto &ref_func_map = resolved_packages->RefinementFncsToIDs();
-  for (const auto &[func,idx] : ref_func_map) {
+  for (const auto &[func, idx] : ref_func_map) {
     auto restrictor = func.restrictor;
     loops::Idx_t subset = Kokkos::subview(cache.buffer_subsets, idx, Kokkos::ALL());
-    loops::IdxHost_t subset_h = Kokkos::subview(cache.buffer_subsets_h, idx, Kokkos::ALL());
-    restrictor(cache.bnd_info, cache.bnd_info_h, subset, subset_h,
-	       cellbnds, c_cellbnds, cache.buffer_subset_sizes[idx]);
+    loops::IdxHost_t subset_h =
+        Kokkos::subview(cache.buffer_subsets_h, idx, Kokkos::ALL());
+    restrictor(cache.bnd_info, cache.bnd_info_h, subset, subset_h, cellbnds, c_cellbnds,
+               cache.buffer_subset_sizes[idx]);
   }
 }
 

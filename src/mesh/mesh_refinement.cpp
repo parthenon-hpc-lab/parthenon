@@ -32,8 +32,8 @@
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
-#include "mesh/meshblock.hpp"
 #include "mesh/mesh_refinement_loops.hpp"
+#include "mesh/meshblock.hpp"
 #include "mesh/refinement_in_one.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -69,15 +69,14 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
 //  \brief restrict cell centered values
 
 void MeshRefinement::RestrictCellCenteredValues(const CellVariable<Real> *fine,
-						CellVariable<Real> *coarse,
-						int sn, int en,
-                                                int csi, int cei, int csj, int cej,
-                                                int csk, int cek) {
+                                                CellVariable<Real> *coarse, int sn,
+                                                int en, int csi, int cei, int csj,
+                                                int cej, int csk, int cek) {
   PARTHENON_DEBUG_REQUIRE(fine->label() == coarse->label(),
-			  "Variable " + fine->label() + "== " + coarse->label());
+                          "Variable " + fine->label() + "== " + coarse->label());
   const auto &metadata = fine->metadata();
-  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(),
-			  "Variable " + fine->base_name() + " must be registered for refinement");
+  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + fine->base_name() +
+                                                    " must be registered for refinement");
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const auto &refinement_funcs = metadata.GetRefinementFunctions();
   const auto &restrictor = refinement_funcs.restrictor_host;
@@ -114,14 +113,14 @@ void MeshRefinement::RestrictCellCenteredValues(const CellVariable<Real> *fine,
 //  \brief Prolongate cell centered values
 
 void MeshRefinement::ProlongateCellCenteredValues(const CellVariable<Real> *coarse,
-                                                  CellVariable<Real> *fine, int sn, int en,
-                                                  int si, int ei, int sj, int ej, int sk,
-                                                  int ek) {
+                                                  CellVariable<Real> *fine, int sn,
+                                                  int en, int si, int ei, int sj, int ej,
+                                                  int sk, int ek) {
   PARTHENON_DEBUG_REQUIRE(fine->label() == coarse->label(),
-			  "Variable " + fine->label() + "== " + coarse->label());
+                          "Variable " + fine->label() + "== " + coarse->label());
   const auto &metadata = coarse->metadata();
-  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(),
-			  "Variable " + coarse->base_name() + " must be registered for refinement");
+  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + coarse->base_name() +
+                                                    " must be registered for refinement");
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const auto &refinement_funcs = metadata.GetRefinementFunctions();
   const auto &prolongator = refinement_funcs.prolongator_host;

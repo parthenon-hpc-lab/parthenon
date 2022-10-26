@@ -191,7 +191,7 @@ class StateDescriptor {
   // one can pass in a reference to a SparsePool or arguments that match one of the
   // SparsePool constructors
   template <typename... Args>
-  bool AddSparsePool(Args &&... args) {
+  bool AddSparsePool(Args &&...args) {
     return AddSparsePoolImpl(SparsePool(std::forward<Args>(args)...));
   }
 
