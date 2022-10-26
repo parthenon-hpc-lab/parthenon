@@ -141,7 +141,7 @@ struct RestrictCellAverage {
     for (int ok = 0; ok < 2; ++ok) {
       for (int oj = 0; oj < 2; ++oj) {
         for (int oi = 0; oi < 2; ++oi) {
-          vol[k][j][i] = terms[k][j][i] = 0;
+          vol[ok][oj][oi] = terms[ok][oj][oi] = 0;
         }
       }
     }
