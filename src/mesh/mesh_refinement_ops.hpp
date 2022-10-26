@@ -137,9 +137,14 @@ struct RestrictCellAverage {
     }
     // JMM: If dimensionality is wrong, accesses are out of bounds. Only
     // access cells if dimensionality is correct.
-    Real vol[2][2][2], terms[2][2][2];
-    std::memset(&vol[0][0][0], 0., 8 * sizeof(Real));
-    std::memset(&terms[0][0][0], 0., 8 * sizeof(Real));
+    Real vol[2][2][2], terms[2][2][2]; // memset not available on all accelerators
+    for (int ok = 0; ok < 2; ++ok) {
+      for (int oj = 0; oj < 2; ++oj) {
+        for (int oi = 0; oi < 2; ++oi) {
+          vol[k][j][i] = terms[k][j][i] = 0;
+        }
+      }
+    }
     for (int ok = 0; ok < 1 + (DIM > 2); ++ok) {
       for (int oj = 0; oj < 1 + (DIM > 1); ++oj) {
         for (int oi = 0; oi < 1 + 1; ++oi) {
