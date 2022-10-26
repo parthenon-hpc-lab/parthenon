@@ -96,12 +96,12 @@ class UniformCartesian {
 
   template <int dir, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(Args... args) const {
-    return dx_[dir];
+    return dx_[dir-1];
   }
 
   template <int dir, int face, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxf(Args... args) const {
-    return dx_[face];
+    return dx_[face-1];
   }
 
   template<int dir>
