@@ -93,7 +93,7 @@ class UniformCartesian {
   template<int dir>
   KOKKOS_FORCEINLINE_FUNCTION
   Real Xc(const int idx) const {
-    return xmin_[dir] + (idx + 0.5) * dx_[dir];
+    return xmin_[dir-1] + (idx + 0.5) * dx_[dir-1];
   }
 
   template<int face>
@@ -107,7 +107,7 @@ class UniformCartesian {
   Real Xf(const int idx) const {
     //Return position in direction "dir" along index "idx" on face "dir"
     if constexpr( dir == face ) {
-      return xmin_[dir] + (idx + 0.5) * dx_[dir];
+      return xmin_[dir-1] + idx * dx_[dir-1];
     } else {
       return Xc<dir>(idx);
     }
