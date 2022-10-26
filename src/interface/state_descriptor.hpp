@@ -72,7 +72,7 @@ struct VarIDHasher {
 
 /// A little container class owning refinement function properties
 /// needed for the state descriptor.
-/// Not using VarID here implies that custom prolongation/restriction
+/// Note using VarID here implies that custom prolongation/restriction
 /// is identical for all sparse vars in a pool.
 /// Note ignores sparse id, so all sparse ids of a
 /// given sparse name have the same prolongation/restriction
