@@ -238,12 +238,6 @@ class ParArrayGeneric : public State {
   }
   auto GetHostMirrorAndCopy() { return GetMirrorAndCopy(Kokkos::HostSpace()); }
 
-  template <typename... Args>
-  KOKKOS_INLINE_FUNCTION auto Slice(Args... args) const {
-    auto v = Kokkos::subview(data_, std::forward<Args>(args)...);
-    return ParArrayGeneric<decltype(v), State>(v, *this);
-  }
-
   // Reset size to 0
   // Note: Copies of this array won't be affected
   void Reset() { data_ = Data(); }
@@ -317,6 +311,14 @@ inline bool UseSameResource(const PA &pa1, const PA &pa2) {
 // Overload utility functions in the Kokkos namespace on ParArrays so old code that
 // assumed ParArrayGeneric = Kokkos::View does not need to be changed
 namespace Kokkos {
+
+// JMM: for some reason this works better than Slice. And it seems
+// like we're doing evil Kokkos namespace overloads anyway so...
+template <class U, class SU, typename... Args>
+inline auto subview(const parthenon::ParArrayGeneric<U, SU> &arr, Args... args) {
+  auto v = Kokkos::subview(static_cast<U>(arr), std::forward<Args>(args)...);
+  return parthenon::ParArrayGeneric<decltype(v), SU>(v, arr);
+}
 
 template <class Space, class U, class SU>
 inline auto create_mirror_view_and_copy(Space const &space,

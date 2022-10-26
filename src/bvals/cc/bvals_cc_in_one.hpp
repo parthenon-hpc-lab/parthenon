@@ -68,7 +68,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 
 // Restricts all relevant meshblock boundaries, but doesn't
 // communicate at all.
-TaskStatus RestrictMesh(std::shared_ptr<MeshData<Real>> &md, bool reset=false);
+TaskStatus RestrictMesh(std::shared_ptr<MeshData<Real>> &md, bool reset);
 
 // This task should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);

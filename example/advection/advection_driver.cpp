@@ -159,8 +159,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<nonlocal>, mc1);
 
     if (pmesh->multilevel) {
-      tl.AddTask(set | set_local,
-                 parthenon::refinement::RestrictPhysicalBounds, mc1.get());
+      tl.AddTask(set | set_local, parthenon::cell_centered_bvars::RestrictMesh, mc1,
+                 false);
     }
   }
 
