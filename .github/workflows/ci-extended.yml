@@ -27,9 +27,11 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: self-hosted
     container:
-      image: registry.gitlab.com/pgrete/parthenon/cuda11.3-mpi-hdf5
+      image: registry.gitlab.com/pgrete/parthenon/cuda11.6-mpi-hdf5
+      # map to local user id on CI  machine to allow writing to build cache
+      options: --user 1001
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: 'true'
 
