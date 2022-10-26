@@ -304,6 +304,9 @@ TaskStatus RestrictMesh(std::shared_ptr<MeshData<Real>> &md, bool reset_cache) {
                                         const sp_cv_t v, const OffsetIndices &no) {
       if (v->IsAllocated()) {
         cache.idx_vec.push_back(buff_idx++);
+        // must fill buf_vec even if we don't allocate new buffers
+        // because it's passed into the BoundaryCreator struct
+        cache.buf_vec.push_back(nullptr); 
       }
     });
   }
