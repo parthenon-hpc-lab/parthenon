@@ -85,7 +85,7 @@ class UniformCartesian {
     return dx_[dir];
   }
 
-  template <int face, int dir, class... Args>
+  template <int dir, int face, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxf(Args... args) const {
     return dx_[face];
   }
@@ -102,7 +102,7 @@ class UniformCartesian {
     return Xf<face,face>(idx);
   }
 
-  template<int face, int dir>
+  template<int dir, int face>
   KOKKOS_FORCEINLINE_FUNCTION
   Real Xf(const int idx) const {
     //Return position in direction "dir" along index "idx" on face "dir"
@@ -113,29 +113,15 @@ class UniformCartesian {
     }
   }
 
-  template<int face, int dir>
+  template<int dir, int face>
   KOKKOS_FORCEINLINE_FUNCTION
-  Real Xs(const int idx) const { return Xc<face>(idx); }
-
-  //// k, j, i grid functions
-  //KOKKOS_FORCEINLINE_FUNCTION
-  //Real Xc<1>(const int k, const int j, const int i) const {
-  //  return xmin_[0] + (i + 0.5) * dx_[0];
-  //}
-  //KOKKOS_FORCEINLINE_FUNCTION
-  //Real Xf<1,1>(const int k, const int j, const int i) const { return xmin_[0] + i * dx_[0]; }
-  //KOKKOS_FORCEINLINE_FUNCTION
-  //Real Xc<2>(const int k, const int j, const int i) const {
-  //  return xmin_[1] + (j + 0.5) * dx_[1];
-  //}
-  //KOKKOS_FORCEINLINE_FUNCTION
-  //Real Xf<2,2>(const int k, const int j, const int i) const { return xmin_[1] + j * dx_[1]; }
-  //KOKKOS_FORCEINLINE_FUNCTION
-  //Real Xc<3>(const int k, const int j, const int i) const {
-  //  return xmin_[2] + (k + 0.5) * dx_[2];
-  //}
-  //KOKKOS_FORCEINLINE_FUNCTION
-  //Real Xf<3,3>(const int k, const int j, const int i) const { return xmin_[2] + k * dx_[2]; }
+  Real Xs(const int idx) const { 
+    if constexpr( dir == face ) {
+      return Xf<dir,face>(idx);
+    } else {
+      return Xc<dir>(idx);
+    }
+  }
 
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
   const std::array<int, 3> &GetStartIndex() const { return istart_; }
