@@ -401,6 +401,6 @@ void MeshBlockData<T>::Print() {
   }
 }
 
-template class MeshBlockData<double>;
+template class MeshBlockData<Real>;
 
 } // namespace parthenon

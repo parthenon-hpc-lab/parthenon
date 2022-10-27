@@ -24,13 +24,17 @@ namespace parthenon {
 // primitive type alias that allows code to run with either floats or doubles
 #if SINGLE_PRECISION_ENABLED
 using Real = float;
+using Real64 = double;
 #ifdef MPI_PARALLEL
 #define MPI_PARTHENON_REAL MPI_FLOAT
+#define MPI_PARTHENON_REAL64 MPI_DOUBLE
 #endif
 #else
 using Real = double;
+using Real64 = double;
 #ifdef MPI_PARALLEL
 #define MPI_PARTHENON_REAL MPI_DOUBLE
+#define MPI_PARTHENON_REAL64 MPI_DOUBLE
 #endif
 #endif
 

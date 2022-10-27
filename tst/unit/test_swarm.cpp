@@ -31,7 +31,7 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 
-using Real = double;
+using parthenon::Real;
 using parthenon::ApplicationInput;
 using parthenon::BoundaryFlag;
 using parthenon::DeviceAllocate;
@@ -51,7 +51,7 @@ constexpr int NUMINIT = 10;
 
 class ParticleBoundIX1User : public ParticleBound {
  public:
-  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, Real &x, Real &y, Real &z,
                                     const SwarmDeviceContext &swarm_d) const override {
     if (x < swarm_d.x_min_global_) {
       swarm_d.MarkParticleForRemoval(n);

@@ -73,7 +73,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *mbd) {
   const Real &dx_j = pmb->coords.dx2v(0);
   const Real &dx_k = pmb->coords.dx3v(0);
 
-  Real min_dt = dx_i / std::abs(vx + TINY_NUMBER);
+  Real64 min_dt = dx_i / std::abs(vx + TINY_NUMBER);
   min_dt = std::min(min_dt, dx_j / std::abs(vy + TINY_NUMBER));
   min_dt = std::min(min_dt, dx_k / std::abs(vz + TINY_NUMBER));
 
@@ -130,7 +130,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *mbd) {
   const Real &dx_j = pmb->coords.dx2v(0);
   const Real &dx_k = pmb->coords.dx3v(0);
 
-  Real min_dt = dx_i / std::abs(vx + TINY_NUMBER);
+  Real64 min_dt = dx_i / std::abs(vx + TINY_NUMBER);
   min_dt = std::min(min_dt, dx_j / std::abs(vy + TINY_NUMBER));
   min_dt = std::min(min_dt, dx_k / std::abs(vz + TINY_NUMBER));
 

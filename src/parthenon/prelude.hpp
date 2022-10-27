@@ -42,6 +42,7 @@ using ::parthenon::ParArrayHost;
 using ::parthenon::ParArrayND;
 using ::parthenon::ParthenonStatus;
 using ::parthenon::Real;
+using ::parthenon::Real64;
 using ::parthenon::Swarm;
 using ::parthenon::SwarmContainer;
 using ::parthenon::Globals::my_rank;
