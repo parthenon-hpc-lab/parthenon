@@ -111,11 +111,25 @@ static hid_t getHDF5Type(const uint32_t *) { return H5T_NATIVE_UINT32; }
 static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
+
+// On MacOS size_t is "unsigned long" and uint64_t is != "unsigned long".
+// Thus, size_t is not captured by the overload above and needs to selectively enabled.
+template <typename T,
+          typename std::enable_if<std::is_same<T, unsigned long>::value && // NOLINT
+                                      !std::is_same<T, uint64_t>::value,
+                                  bool>::type = true>
+static hid_t getHDF5Type(const T *) {
+  return H5T_NATIVE_ULONG;
+}
+
 static H5T getHDF5Type(const char *const *) {
   H5T var_string_type = H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
   PARTHENON_HDF5_CHECK(H5Tset_size(var_string_type, H5T_VARIABLE));
   return var_string_type;
 }
+
+//  Implemented in CPP file as it's complex
+hid_t GenerateFileAccessProps();
 
 inline H5G MakeGroup(hid_t file, const std::string &name) {
   return H5G::FromHIDCheck(

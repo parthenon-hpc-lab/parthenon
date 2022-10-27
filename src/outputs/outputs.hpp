@@ -203,6 +203,8 @@ class PHDF5Output : public OutputType {
                            const SignalHandler::OutputSignal signal);
 
  private:
+  std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
+                                const SignalHandler::OutputSignal signal);
   const bool restart_; // true if we write a restart file, false for regular output files
   const bool simple_;  // if true, only output metadata, no vars. Simplified coords.
 };

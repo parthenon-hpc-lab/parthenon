@@ -1,6 +1,6 @@
 # Parthenon
 
-[![testing](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror/badges/develop/pipeline.svg)](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror/-/commits/develop)
+[![testing](https://github.com/lanl/parthenon/actions/workflows/ci-short.yml/badge.svg?branch=develop)](https://github.com/lanl/parthenon/actions/workflows/ci-short.yml)
 [![Extended CI](https://github.com/lanl/parthenon/actions/workflows/ci-extended.yml/badge.svg?branch=develop)](https://github.com/lanl/parthenon/actions/workflows/ci-extended.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Matrix chat](https://img.shields.io/matrix/parthenon-general:matrix.org)](https://app.element.io/#/room/#parthenon-general:matrix.org)
@@ -27,7 +27,7 @@ Parthenon -- a performance portable block-structured adaptive mesh refinement fr
 ## Required
 
 * CMake 3.16 or greater
-* C++14 compatible compiler
+* C++17 compatible compiler
 * Kokkos 3.6 or greater
 
 ## Optional (enabling features)

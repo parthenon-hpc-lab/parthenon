@@ -24,8 +24,7 @@
 #include <iterator>
 #include <memory>
 
-#include "bvals/cc/bvals_cc_in_one.hpp"
-#include "fc/bvals_fc.hpp"
+#include "bvals/cc/bnd_info.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
@@ -184,21 +183,6 @@ void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int 
   } else {
     kl = sk;
     ku = ek;
-  }
-
-  for (auto fc_pair : pmr->pvars_fc_) {
-    FaceField *var_fc = std::get<0>(fc_pair);
-    FaceField *coarse_fc = std::get<1>(fc_pair);
-
-    // step 1. calculate x1 outer surface fields and slopes
-    pmr->ProlongateSharedFieldX1((*coarse_fc).x1f, (*var_fc).x1f, il, iu, sj, ej, sk, ek);
-    // step 2. calculate x2 outer surface fields and slopes
-    pmr->ProlongateSharedFieldX2((*coarse_fc).x2f, (*var_fc).x2f, si, ei, jl, ju, sk, ek);
-    // step 3. calculate x3 outer surface fields and slopes
-    pmr->ProlongateSharedFieldX3((*coarse_fc).x3f, (*var_fc).x3f, si, ei, sj, ej, kl, ku);
-
-    // step 4. calculate the internal finer fields using the Toth & Roe method
-    pmr->ProlongateInternalField((*var_fc), si, ei, sj, ej, sk, ek);
   }
 }
 
