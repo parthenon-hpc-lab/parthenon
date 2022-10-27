@@ -393,7 +393,7 @@ Real AdvectionHst(MeshData<Real> *md) {
         const auto &coords = advected_pack.GetCoords(b);
         // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same
         // call for different reductions
-        const Real vol = volume_weighting ? coords.Dv(k, j, i) : 1.0;
+        const Real vol = volume_weighting ? coords.Volume(k, j, i) : 1.0;
         reducer.join(lresult, advected_pack(b, 0, k, j, i) * vol);
       },
       reducer);

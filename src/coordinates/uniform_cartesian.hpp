@@ -58,42 +58,6 @@ class UniformCartesian {
     cell_volume_ = dx_[0] * dx_[1] * dx_[2];
   }
 
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Dv(Args... args) const {
-    return cell_volume_;
-  }
-
-  template <int dir, class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Dx(Args... args) const {
-    assert(dir > 0 && dir < 4);
-    return dx_[dir - 1];
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx(const int dir, Args... args) const {
-    assert(dir > 0 && dir < 4);
-    return dx_[dir - 1];
-  }
-
-  template <int dir, class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Ds(Args... args) const {
-    return dx(dir);
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real ds(const int dir, Args... args) const {
-    return dx(dir);
-  }
-
-  template <int dir, class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Da(Args... args) const {
-    assert(dir > 0 && dir < 4);
-    return area_[dir - 1];
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real da(const int dir, Args... args) const {
-    assert(dir > 0 && dir < 4);
-    return area_[dir - 1];
-  }
-
   template <int dir, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(Args... args) const {
     return dx_[dir - 1];
@@ -124,13 +88,40 @@ class UniformCartesian {
     }
   }
 
-  template <int dir, int face>
-  KOKKOS_FORCEINLINE_FUNCTION Real Xs(const int idx) const {
-    if constexpr (dir == face) {
-      return Xf<dir, face>(idx);
-    } else {
-      return Xc<dir>(idx);
-    }
+  template <int dir, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dx(Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
+  }
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real dx(const int dir, Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
+  }
+
+  template <int dir, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(Args... args) const {
+    return dx(dir);
+  }
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real edgeLength(const int dir, Args... args) const {
+    return dx(dir);
+  }
+
+  template <int dir, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Area(Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return area_[dir - 1];
+  }
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real area(const int dir, Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return area_[dir - 1];
+  }
+
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Volume(Args... args) const {
+    return cell_volume_;
   }
 
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
