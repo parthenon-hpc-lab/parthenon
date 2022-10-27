@@ -24,7 +24,7 @@
 #include <iterator>
 #include <memory>
 
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/cc/bnd_info.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"

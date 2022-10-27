@@ -81,6 +81,7 @@ class EvolutionDriver : public Driver {
   DriverStatus Execute() override;
   void SetGlobalTimeStep();
   void OutputCycleDiagnostics();
+  void DumpInputParameters();
 
   virtual TaskListStatus Step() = 0;
   SimTime tm;

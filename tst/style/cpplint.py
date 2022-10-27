@@ -7028,7 +7028,7 @@ def FlagCxx11Features(filename, clean_lines, linenum, error):
         "future",
         "mutex",
         "thread",
-        "chrono",
+        # "chrono",
         "ratio",
         # "regex",
         "system_error",
