@@ -18,6 +18,7 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 743]](https://github.com/lanl/parthenon/pull/740) Faster PHDF file load times in phdf.py
 - [[PR 751]](https://github.com/lanl/parthenon/pull/751) Delete useless file in advection example
 - [[PR 765]](https://github.com/lanl/parthenon/pull/765) Fix incorrect BC labeling in swarm
 - [[PR 759]](https://github.com/lanl/parthenon/pull/759) Add metadata so Visit treats outputs as time series

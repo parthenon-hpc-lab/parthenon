@@ -20,6 +20,7 @@
 #include "driver/driver.hpp"
 
 #include "bvals/cc/bvals_cc_in_one.hpp"
+#include "globals.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -70,7 +71,7 @@ DriverStatus EvolutionDriver::Execute() {
 
   // Output a text file of all parameters at this point
   // Defaults must be set across all ranks
-  if (Globals::my_rank == 0) DumpInputParameters();
+  DumpInputParameters();
 
   Kokkos::Profiling::pushRegion("Driver_Main");
   while (tm.KeepGoing()) {
@@ -199,7 +200,7 @@ void EvolutionDriver::DumpInputParameters() {
   auto archive_settings =
       pinput->GetOrAddString("parthenon/job", "archive_parameters", "false",
                              std::vector<std::string>{"true", "false", "timestamp"});
-  if (archive_settings != "false") {
+  if (archive_settings != "false" && Globals::my_rank == 0) {
     std::ostringstream ss;
     if (archive_settings == "timestamp") {
       auto itt_now =
