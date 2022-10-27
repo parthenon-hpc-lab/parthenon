@@ -258,9 +258,8 @@ void ComputeRestrictionBounds(IndexRange &ni, IndexRange &nj, IndexRange &nk,
 }
 
 // JMM: Finds the pieces of the coarse buffer, both interior and in
-// ghost halo, needed to be restricted to enable prolongation.  To
-// know whether or not prolongation from coarse buffers is required
-// must not just look at one neighbor of the meshblock, but two.
+// ghost halo, needed to be restricted to enable prolongation. This is
+// both the boundary buffer itself, and the regions *around* it.
 //
 // Here nk, nj, ni are offset indices. They indicate offsets from this
 // piece of the ghost halo to other pieces that may be relevant for
@@ -277,10 +276,10 @@ void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, i
   IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
 
   // JMM: rs and re are the bounds of the region to restrict
-  // n is the offset index from this ghost halo to the ghost halo in a
-  // neighbor block
-  // ox is the offset index of the neighbor block this ghost halo
-  // communicates with.
+  // n is the offset index from this boundary/ghost halo to other
+  // regions of the coarse buffer
+  // ox is the offset index of the neighbor block this boundary/ghost
+  // halo communicates with.
   // note this func is called *per axis* so interior here might still
   // be an edge or corner.
   auto CalcIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
