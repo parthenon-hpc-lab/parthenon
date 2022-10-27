@@ -74,9 +74,6 @@ struct BndInfo {
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
-  // TODO(JMM): As we move to non CC-centered, this may need a
-  // refactor or this section of the struct might explode in
-  // complexity.
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                 std::shared_ptr<CellVariable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf,
