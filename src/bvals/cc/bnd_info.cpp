@@ -257,6 +257,17 @@ void ComputeRestrictionBounds(IndexRange &ni, IndexRange &nj, IndexRange &nk,
   }
 }
 
+// JMM: Finds the pieces of the coarse buffer, both interior and in
+// ghost halo, needed to be restricted to enable prolongation.  To
+// know whether or not prolongation from coarse buffers is required
+// must not just look at one neighbor of the meshblock, but two.
+//
+// Here nk, nj, ni are offset indices. They indicate offsets from this
+// piece of the ghost halo to other pieces that may be relevant for
+// getting physical boundary conditions right.
+// They point to other neighbor blocks.
+// ris, rie, rjs, rje, rks, rke are the start and end i,j,k, indices
+// of the region of the ghost halo to restrict.
 void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, int &rje,
                          int &rks, int &rke, const NeighborBlock &nb,
                          std::shared_ptr<MeshBlock> &pmb) {
@@ -265,8 +276,15 @@ void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, i
   IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
   IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
 
+  // JMM: rs and re are the bounds of the region to restrict
+  // n is the offset index from this ghost halo to the ghost halo in a
+  // neighbor block
+  // ox is the offset index of the neighbor block this ghost halo
+  // communicates with.
+  // note this func is called *per axis* so interior here might still
+  // be an edge or corner.
   auto CalcIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
-    if (n == 0) {
+    if (n == 0) { // need to fill "interior" of coarse buffer on this axis
       rs = b.s;
       re = b.e;
       if (ox == 1) {
@@ -274,12 +292,12 @@ void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, i
       } else if (ox == -1) {
         re = b.s;
       }
-    } else if (n == 1) {
-      rs = b.e + 1;
-      re = b.e + 1;
+    } else if (n == 1) { // need to fill "edges" or "corners" on this axis
+      rs = b.e + 1; // TODO(JMM): Is this always true?
+      re = b.e + 1; // should this end at b.e + NG - 1?
     } else { //(n ==  - 1)
-      rs = b.s - 1;
-      re = b.s - 1;
+      rs = b.s - 1; // TODO(JMM): should this start at b.s - NG + 1?
+      re = b.s - 1; // or something similar?
     }
   };
 
