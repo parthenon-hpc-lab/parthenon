@@ -81,11 +81,13 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           Real sn = std::sin(k_par * x);
           q(n, k, j, i) = 1.0 + amp * sn * vel;
         } else if (profile_type == 1) {
-          Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) + coords.Xc<2>(j) * coords.Xc<2>(j) +
+          Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                     coords.Xc<2>(j) * coords.Xc<2>(j) +
                      coords.Xc<3>(k) * coords.Xc<3>(k);
           q(n, k, j, i) = 1. + amp * exp(-100.0 * rsq);
         } else if (profile_type == 2) {
-          Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) + coords.Xc<2>(j) * coords.Xc<2>(j) +
+          Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                     coords.Xc<2>(j) * coords.Xc<2>(j) +
                      coords.Xc<3>(k) * coords.Xc<3>(k);
           q(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
         } else {

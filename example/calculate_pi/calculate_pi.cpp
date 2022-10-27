@@ -158,8 +158,7 @@ Real ComputeAreaInternal(MeshBlockPack<VariablePack<Real>> pack, ParArrayHost<Re
       KOKKOS_LAMBDA(int b, int v, int k, int j, int i, Real &larea) {
         // Must check if in_or_out is allocated for sparse variables
         if (check_allocated(b, v)) {
-          larea +=
-              pack(b, v, k, j, i) * pack.GetCoords(b).da(parthenon::X3DIR, k, j, i);
+          larea += pack(b, v, k, j, i) * pack.GetCoords(b).da(parthenon::X3DIR, k, j, i);
         }
       },
       area);

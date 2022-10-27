@@ -183,12 +183,12 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  const Real &dx_i = pmb->coords.Dxf<1,1>(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.Dxf<2,2>(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.Dxf<3,3>(pmb->cellbounds.ks(IndexDomain::interior));
-  const Real &minx_i = pmb->coords.Xf<1,1>(ib.s);
-  const Real &minx_j = pmb->coords.Xf<2,2>(jb.s);
-  const Real &minx_k = pmb->coords.Xf<3,3>(kb.s);
+  const Real &dx_i = pmb->coords.Dxf<1, 1>(pmb->cellbounds.is(IndexDomain::interior));
+  const Real &dx_j = pmb->coords.Dxf<2, 2>(pmb->cellbounds.js(IndexDomain::interior));
+  const Real &dx_k = pmb->coords.Dxf<3, 3>(pmb->cellbounds.ks(IndexDomain::interior));
+  const Real &minx_i = pmb->coords.Xf<1, 1>(ib.s);
+  const Real &minx_j = pmb->coords.Xf<2, 2>(jb.s);
+  const Real &minx_k = pmb->coords.Xf<3, 3>(kb.s);
 
   const auto &x = swarm->Get<Real>("x").Get();
   const auto &y = swarm->Get<Real>("y").Get();
@@ -262,12 +262,12 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   const int &nx_i = pmb->cellbounds.ncellsi(IndexDomain::interior);
   const int &nx_j = pmb->cellbounds.ncellsj(IndexDomain::interior);
   const int &nx_k = pmb->cellbounds.ncellsk(IndexDomain::interior);
-  const Real &dx_i = pmb->coords.Dxf<1,1>(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.Dxf<2,2>(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.Dxf<3,3>(pmb->cellbounds.ks(IndexDomain::interior));
-  const Real &minx_i = pmb->coords.Xf<1,1>(ib.s);
-  const Real &minx_j = pmb->coords.Xf<2,2>(jb.s);
-  const Real &minx_k = pmb->coords.Xf<3,3>(kb.s);
+  const Real &dx_i = pmb->coords.Dxf<1, 1>(pmb->cellbounds.is(IndexDomain::interior));
+  const Real &dx_j = pmb->coords.Dxf<2, 2>(pmb->cellbounds.js(IndexDomain::interior));
+  const Real &dx_k = pmb->coords.Dxf<3, 3>(pmb->cellbounds.ks(IndexDomain::interior));
+  const Real &minx_i = pmb->coords.Xf<1, 1>(ib.s);
+  const Real &minx_j = pmb->coords.Xf<2, 2>(jb.s);
+  const Real &minx_k = pmb->coords.Xf<3, 3>(kb.s);
 
   auto &t = swarm->Get<Real>("t").Get();
   auto &x = swarm->Get<Real>("x").Get();
@@ -373,21 +373,21 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   auto &z = swarm->Get<Real>("z").Get();
   auto &v = swarm->Get<Real>("v").Get();
 
-  const Real &dx_i = pmb->coords.Dxf<1,1>(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.Dxf<2,2>(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.Dxf<3,3>(pmb->cellbounds.ks(IndexDomain::interior));
+  const Real &dx_i = pmb->coords.Dxf<1, 1>(pmb->cellbounds.is(IndexDomain::interior));
+  const Real &dx_j = pmb->coords.Dxf<2, 2>(pmb->cellbounds.js(IndexDomain::interior));
+  const Real &dx_k = pmb->coords.Dxf<3, 3>(pmb->cellbounds.ks(IndexDomain::interior));
   const Real &dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
 
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  const Real &x_min = pmb->coords.Xf<1,1>(ib.s);
-  const Real &y_min = pmb->coords.Xf<2,2>(jb.s);
-  const Real &z_min = pmb->coords.Xf<3,3>(kb.s);
-  const Real &x_max = pmb->coords.Xf<1,1>(ib.e + 1);
-  const Real &y_max = pmb->coords.Xf<2,2>(jb.e + 1);
-  const Real &z_max = pmb->coords.Xf<3,3>(kb.e + 1);
+  const Real &x_min = pmb->coords.Xf<1, 1>(ib.s);
+  const Real &y_min = pmb->coords.Xf<2, 2>(jb.s);
+  const Real &z_min = pmb->coords.Xf<3, 3>(kb.s);
+  const Real &x_max = pmb->coords.Xf<1, 1>(ib.e + 1);
+  const Real &y_max = pmb->coords.Xf<2, 2>(jb.e + 1);
+  const Real &z_max = pmb->coords.Xf<3, 3>(kb.e + 1);
 
   auto swarm_d = swarm->GetDeviceContext();
 

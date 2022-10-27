@@ -679,15 +679,15 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       auto &pmb = pm->block_list[b];
 
       for (int i = out_ib.s; i <= out_ib.e + offset; ++i) {
-        loc_x[idx_x++] = face ? pmb->coords.Xf<1,1>(i) : pmb->coords.Xc<1>(i);
+        loc_x[idx_x++] = face ? pmb->coords.Xf<1, 1>(i) : pmb->coords.Xc<1>(i);
       }
 
       for (int j = out_jb.s; j <= out_jb.e + offset; ++j) {
-        loc_y[idx_y++] = face ? pmb->coords.Xf<2,2>(j) : pmb->coords.Xc<2>(j);
+        loc_y[idx_y++] = face ? pmb->coords.Xf<2, 2>(j) : pmb->coords.Xc<2>(j);
       }
 
       for (int k = out_kb.s; k <= out_kb.e + offset; ++k) {
-        loc_z[idx_z++] = face ? pmb->coords.Xf<3,3>(k) : pmb->coords.Xc<3>(k);
+        loc_z[idx_z++] = face ? pmb->coords.Xf<3, 3>(k) : pmb->coords.Xc<3>(k);
       }
     }
 

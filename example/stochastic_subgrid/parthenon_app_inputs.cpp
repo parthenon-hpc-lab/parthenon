@@ -64,11 +64,13 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
             Real sn = std::sin(k_par * x);
             q_h(n, k, j, i) = 1.0 + amp * sn * vel;
           } else if (profile == "smooth_gaussian") {
-            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) + coords.Xc<2>(j) * coords.Xc<2>(j) +
+            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                       coords.Xc<2>(j) * coords.Xc<2>(j) +
                        coords.Xc<3>(k) * coords.Xc<3>(k);
             q_h(n, k, j, i) = 1. + amp * exp(-100.0 * rsq);
           } else if (profile == "hard_sphere") {
-            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) + coords.Xc<2>(j) * coords.Xc<2>(j) +
+            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                       coords.Xc<2>(j) * coords.Xc<2>(j) +
                        coords.Xc<3>(k) * coords.Xc<3>(k);
             q_h(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
           } else {
@@ -119,9 +121,9 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
           for (int i = ib.s; i <= ib.e; i++) {
             Real ref_val;
             if (profile == "wave") {
-              Real x =
-                  cos_a2 * (pmb->coords.Xc<1>(i) * cos_a3 + pmb->coords.Xc<2>(j) * sin_a3) +
-                  pmb->coords.Xc<3>(k) * sin_a2;
+              Real x = cos_a2 * (pmb->coords.Xc<1>(i) * cos_a3 +
+                                 pmb->coords.Xc<2>(j) * sin_a3) +
+                       pmb->coords.Xc<3>(k) * sin_a2;
               Real sn = std::sin(k_par * x);
               ref_val = 1.0 + amp * sn * vel;
             } else if (profile == "smooth_gaussian") {

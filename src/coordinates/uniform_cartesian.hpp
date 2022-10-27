@@ -96,42 +96,38 @@ class UniformCartesian {
 
   template <int dir, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(Args... args) const {
-    return dx_[dir-1];
+    return dx_[dir - 1];
   }
 
   template <int dir, int face, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxf(Args... args) const {
-    return dx_[face-1];
+    return dx_[face - 1];
   }
 
-  template<int dir>
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real Xc(const int idx) const {
-    return xmin_[dir-1] + (idx + 0.5) * dx_[dir-1];
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int idx) const {
+    return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1];
   }
 
-  template<int face>
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real Xf(const int idx) const {
-    return Xf<face,face>(idx);
+  template <int face>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int idx) const {
+    return Xf<face, face>(idx);
   }
 
-  template<int dir, int face>
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real Xf(const int idx) const {
-    //Return position in direction "dir" along index "idx" on face "dir"
-    if constexpr( dir == face ) {
-      return xmin_[dir-1] + idx * dx_[dir-1];
+  template <int dir, int face>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int idx) const {
+    // Return position in direction "dir" along index "idx" on face "dir"
+    if constexpr (dir == face) {
+      return xmin_[dir - 1] + idx * dx_[dir - 1];
     } else {
       return Xc<dir>(idx);
     }
   }
 
-  template<int dir, int face>
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real Xs(const int idx) const { 
-    if constexpr( dir == face ) {
-      return Xf<dir,face>(idx);
+  template <int dir, int face>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xs(const int idx) const {
+    if constexpr (dir == face) {
+      return Xf<dir, face>(idx);
     } else {
       return Xc<dir>(idx);
     }
