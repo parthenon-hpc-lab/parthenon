@@ -53,7 +53,6 @@ option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${PARTHENON
 option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${PARTHENON_ENABLE_TESTING})
 option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${PARTHENON_ENABLE_TESTING})
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
-option(PARTHENON_ENABLE_CPP17 "Build Parthenon using C++17 standard" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
@@ -250,13 +249,7 @@ if (ENABLE_COMPILER_WARNINGS)
 endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-if (PARTHENON_ENABLE_CPP17)
-  set(CMAKE_CXX_STANDARD 17)
-# Ensure correct flag is used as deprecated c++1z is not supported by nvcc.
-  set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++17")
-else()
-  set(CMAKE_CXX_STANDARD 14)
-endif()
+set(CMAKE_CXX_STANDARD 17)
 
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)

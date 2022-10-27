@@ -9,12 +9,14 @@
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 758]](https://github.com/lanl/parthenon/pull/758) Bump required C++ standard to C++17
 - [[PR 710]](https://github.com/lanl/parthenon/pull/710) Remove data transpose in hdf5 and restart outputs
 - [[PR 713]](https://github.com/lanl/parthenon/pull/713) Remove Coordinates stub in favor of Coordinates_t
 - [[PR 711]](https://github.com/lanl/parthenon/pull/711) Rename flux correction routines.
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 751]](https://github.com/lanl/parthenon/pull/751) Delete useless file in advection example
 - [[PR 765]](https://github.com/lanl/parthenon/pull/765) Fix incorrect BC labeling in swarm
 - [[PR 759]](https://github.com/lanl/parthenon/pull/759) Add metadata so Visit treats outputs as time series
 - [[PR 743]](https://github.com/lanl/parthenon/pull/743) Add missing HDF5 type on MacOS
@@ -25,6 +27,9 @@
 - [[PR 716]](https://github.com/lanl/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 757]](https://github.com/lanl/parthenon/pull/757) Move to flux correction in-one and unify with bvals 
+- [[PR 768]](https://github.com/lanl/parthenon/pull/768) Update CI image and move to new CI machine (short and extended tests)
+- [[PR 766]](https://github.com/lanl/parthenon/pull/766) Remove IAS performance regression test
 - [[PR 735]](https://github.com/lanl/parthenon/pull/735) Clean up HDF5 output
 - [[PR 708]](https://github.com/lanl/parthenon/pull/708) Bump minimum version of Kokkos to 3.6
 
