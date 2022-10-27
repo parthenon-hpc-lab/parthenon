@@ -23,7 +23,7 @@
 
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
-#include "bvals_cc_in_one.hpp"
+#include "bvals/cc/bnd_info.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -250,8 +250,15 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
 }
 
 BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                std::shared_ptr<CellVariable<Real>> v) {
+                                std::shared_ptr<CellVariable<Real>> v,
+                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
+
+  out.allocated = v->IsAllocated();
+  if (!out.allocated) return out;
+
+  out.buf = buf->buffer();
+
   out.Nv = v->GetDim(4);
   out.Nu = v->GetDim(5);
   out.Nt = v->GetDim(6);
@@ -288,8 +295,18 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 }
 
 BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v) {
+                               std::shared_ptr<CellVariable<Real>> v,
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
+  out.buf = buf->buffer();
+  if (buf->GetState() == BufferState::received) {
+    out.allocated = true;
+    PARTHENON_DEBUG_REQUIRE(v->IsAllocated(), "Variable must be allocated to receive");
+  } else if (buf->GetState() == BufferState::received_null) {
+    out.allocated = false;
+  } else {
+    PARTHENON_FAIL("Buffer should be in a received state.");
+  }
 
   out.Nv = v->GetDim(4);
   out.Nu = v->GetDim(5);
@@ -324,5 +341,141 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   return out;
 }
 
+BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                                  std::shared_ptr<CellVariable<Real>> v,
+                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+  BndInfo out;
+  out.allocated = v->IsAllocated();
+  if (!v->IsAllocated()) {
+    // Not going to actually do anything with this buffer
+    return out;
+  }
+  out.buf = buf->buffer();
+
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  // This is the index range for the coarse field
+  out.sk = kb.s;
+  out.ek = out.sk + std::max((kb.e - kb.s + 1) / 2, 1) - 1;
+  out.sj = jb.s;
+  out.ej = out.sj + std::max((jb.e - jb.s + 1) / 2, 1) - 1;
+  out.si = ib.s;
+  out.ei = out.si + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
+
+  if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
+    out.dir = X1DIR;
+    if (nb.fid == BoundaryFace::inner_x1)
+      out.si = ib.s;
+    else
+      out.si = ib.e + 1;
+    out.ei = out.si;
+  } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
+    out.dir = X2DIR;
+    if (nb.fid == BoundaryFace::inner_x2)
+      out.sj = jb.s;
+    else
+      out.sj = jb.e + 1;
+    out.ej = out.sj;
+  } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
+    out.dir = X3DIR;
+    if (nb.fid == BoundaryFace::inner_x3)
+      out.sk = kb.s;
+    else
+      out.sk = kb.e + 1;
+    out.ek = out.sk;
+  } else {
+    PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
+  }
+
+  out.var = v->flux[out.dir];
+
+  out.Nv = out.var.GetDim(4);
+  out.Nu = out.var.GetDim(5);
+  out.Nt = out.var.GetDim(6);
+  out.coords = pmb->coords;
+
+  return out;
+}
+
+BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                                 std::shared_ptr<CellVariable<Real>> v,
+                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+  BndInfo out;
+
+  if (!v->IsAllocated() || buf->GetState() != BufferState::received) {
+    out.allocated = false;
+    return out;
+  }
+  out.allocated = true;
+  out.buf = buf->buffer();
+
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  out.sk = kb.s;
+  out.sj = jb.s;
+  out.si = ib.s;
+  out.ek = kb.e;
+  out.ej = jb.e;
+  out.ei = ib.e;
+  if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
+    out.dir = X1DIR;
+    if (nb.fid == BoundaryFace::inner_x1)
+      out.ei = out.si;
+    else
+      out.si = ++out.ei;
+    if (nb.ni.fi1 == 0)
+      out.ej -= pmb->block_size.nx2 / 2;
+    else
+      out.sj += pmb->block_size.nx2 / 2;
+    if (nb.ni.fi2 == 0)
+      out.ek -= pmb->block_size.nx3 / 2;
+    else
+      out.sk += pmb->block_size.nx3 / 2;
+  } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
+    out.dir = X2DIR;
+    if (nb.fid == BoundaryFace::inner_x2)
+      out.ej = out.sj;
+    else
+      out.sj = ++out.ej;
+    if (nb.ni.fi1 == 0)
+      out.ei -= pmb->block_size.nx1 / 2;
+    else
+      out.si += pmb->block_size.nx1 / 2;
+    if (nb.ni.fi2 == 0)
+      out.ek -= pmb->block_size.nx3 / 2;
+    else
+      out.sk += pmb->block_size.nx3 / 2;
+  } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
+    out.dir = X3DIR;
+    if (nb.fid == BoundaryFace::inner_x3)
+      out.ek = out.sk;
+    else
+      out.sk = ++out.ek;
+    if (nb.ni.fi1 == 0)
+      out.ei -= pmb->block_size.nx1 / 2;
+    else
+      out.si += pmb->block_size.nx1 / 2;
+    if (nb.ni.fi2 == 0)
+      out.ej -= pmb->block_size.nx2 / 2;
+    else
+      out.sj += pmb->block_size.nx2 / 2;
+  } else {
+    PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
+  }
+
+  out.var = v->flux[out.dir];
+
+  out.Nv = out.var.GetDim(4);
+  out.Nu = out.var.GetDim(5);
+  out.Nt = out.var.GetDim(6);
+
+  out.coords = pmb->coords;
+
+  return out;
+}
 } // namespace cell_centered_bvars
 } // namespace parthenon
