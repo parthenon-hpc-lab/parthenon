@@ -33,11 +33,13 @@
 #include "mesh/meshblock.hpp"
 #include "mesh/refinement_in_one.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/loop_utils.hpp"
 
 namespace parthenon {
 namespace cell_centered_bvars {
 
-using namespace impl;
+using namespace loops;
+using namespace loops::shorthands;
 
 // pmesh->boundary_comm_map.clear() after every remesh
 // in InitializeBlockTimeStepsAndBoundaries()
