@@ -24,7 +24,6 @@
 #include <catch2/catch.hpp>
 
 #include "kokkos_abstraction.hpp"
-#include "Kokkos_Macros.hpp"
 
 using parthenon::DevExecSpace;
 using parthenon::ParArray1D;
