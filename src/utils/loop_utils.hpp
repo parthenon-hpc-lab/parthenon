@@ -22,7 +22,7 @@
 #include <utility>     // std::forward
 
 #include "bvals/cc/bnd_info.hpp" // TODO(JMM): Remove me when possible
-#include "mesh/domain.hpp" // TODO(JMM): Remove me when possible
+#include "mesh/domain.hpp"       // TODO(JMM): Remove me when possible
 
 namespace parthenon {
 
@@ -114,7 +114,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
                   if (ntype == 0 ||
                       pmb->pbval->nblevel[nk + 1][nj + 1][ni + 1] != pmb->loc.level)
                     continue;
-		  cell_centered_bvars::OffsetIndices offsets(nk, nj, ni);
+                  cell_centered_bvars::OffsetIndices offsets(nk, nj, ni);
                   if (func_caller(func, pmb, rc, nb, v, offsets) ==
                       LoopControl::break_out)
                     return;
@@ -122,7 +122,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
               }
             }
           } else {
-	    cell_centered_bvars::OffsetIndices junk;
+            cell_centered_bvars::OffsetIndices junk;
             if (func_caller(func, pmb, rc, nb, v, junk) == LoopControl::break_out) return;
           }
         }

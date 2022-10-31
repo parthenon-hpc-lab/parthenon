@@ -292,11 +292,11 @@ void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, i
         re = b.s;
       }
     } else if (n == 1) { // need to fill "edges" or "corners" on this axis
-      rs = b.e + 1; // TODO(JMM): Is this always true?
-      re = b.e + 1; // should this end at b.e + NG - 1?
-    } else { //(n ==  - 1)
-      rs = b.s - 1; // TODO(JMM): should this start at b.s - NG + 1?
-      re = b.s - 1; // or something similar?
+      rs = b.e + 1;      // TODO(JMM): Is this always true?
+      re = b.e + 1;      // should this end at b.e + NG - 1?
+    } else {             //(n ==  - 1)
+      rs = b.s - 1;      // TODO(JMM): should this start at b.s - NG + 1?
+      re = b.s - 1;      // or something similar?
     }
   };
 
@@ -321,7 +321,7 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
 BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                 std::shared_ptr<CellVariable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                const OffsetIndices&) {
+                                const OffsetIndices &) {
   BndInfo out;
 
   out.allocated = v->IsAllocated();
@@ -367,7 +367,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<CellVariable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                               const OffsetIndices&) {
+                               const OffsetIndices &) {
   BndInfo out;
   out.buf = buf->buffer();
   if (buf->GetState() == BufferState::received) {
@@ -415,7 +415,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                   std::shared_ptr<CellVariable<Real>> v,
                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                  const OffsetIndices&) {
+                                  const OffsetIndices &) {
   BndInfo out;
   out.allocated = v->IsAllocated();
   if (!v->IsAllocated()) {
@@ -474,7 +474,7 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
 BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                  std::shared_ptr<CellVariable<Real>> v,
                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                 const OffsetIndices&) {
+                                 const OffsetIndices &) {
   BndInfo out;
 
   if (!v->IsAllocated() || buf->GetState() != BufferState::received) {
