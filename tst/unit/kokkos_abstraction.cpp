@@ -23,6 +23,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "Kokkos_Core_fwd.hpp"
 #include "kokkos_abstraction.hpp"
 
 using parthenon::DevExecSpace;
@@ -230,11 +231,14 @@ TEST_CASE("par_for loops", "[wrapper]") {
     REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttr_tag, default_exec_space) ==
             true);
 
-    KOKKOS_IF_ON_HOST(REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag,
-                                              default_exec_space) == true);
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
+              true);
 
-                      REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag,
-                                              default_exec_space) == true);)
+      REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag, default_exec_space) ==
+              true);
+    }
   }
 
   SECTION("4D loops") {
@@ -250,11 +254,14 @@ TEST_CASE("par_for loops", "[wrapper]") {
     REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttr_tag, default_exec_space) ==
             true);
 
-    KOKKOS_IF_ON_HOST(REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag,
-                                              default_exec_space) == true);
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
+              true);
 
-                      REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag,
-                                              default_exec_space) == true);)
+      REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag, default_exec_space) ==
+              true);
+    }
   }
 }
 
@@ -405,10 +412,12 @@ TEST_CASE("nested par_for loops", "[wrapper]") {
                                    parthenon::inner_loop_pattern_tvr_tag,
                                    default_exec_space) == true);
 
-    KOKKOS_IF_ON_HOST(
-        REQUIRE(test_wrapper_nested_3d(parthenon::outer_loop_pattern_teams_tag,
-                                       parthenon::inner_loop_pattern_simdfor_tag,
-                                       default_exec_space) == true);)
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      REQUIRE(test_wrapper_nested_3d(parthenon::outer_loop_pattern_teams_tag,
+                                     parthenon::inner_loop_pattern_simdfor_tag,
+                                     default_exec_space) == true);
+    }
   }
 
   SECTION("4D nested loops") {
@@ -416,10 +425,12 @@ TEST_CASE("nested par_for loops", "[wrapper]") {
                                    parthenon::inner_loop_pattern_tvr_tag,
                                    default_exec_space) == true);
 
-    KOKKOS_IF_ON_HOST(
-        REQUIRE(test_wrapper_nested_4d(parthenon::outer_loop_pattern_teams_tag,
-                                       parthenon::inner_loop_pattern_simdfor_tag,
-                                       default_exec_space) == true);)
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      REQUIRE(test_wrapper_nested_4d(parthenon::outer_loop_pattern_teams_tag,
+                                     parthenon::inner_loop_pattern_simdfor_tag,
+                                     default_exec_space) == true);
+    }
   }
 }
 

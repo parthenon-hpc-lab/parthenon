@@ -33,7 +33,7 @@ include(CTest)
 # Compile Options
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
-option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "Allocate communication buffers on host" OFF)
+option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
@@ -277,6 +277,12 @@ if (Kokkos_ENABLE_SYCL)
     "It may or may not work. Use at your own risk. "
     "Please get in contact for support."
   )
+endif()
+
+if (PARTHENON_ENABLE_HOST_COMM_BUFFERS)
+  if (NOT Kokkos_ENABLE_CUDA AND NOT Kokkos_ENABLE_HIP)
+    message(FATAL_ERROR "Host pinned buffers for MPI communication are supported only for CUDA and HIP backends.")
+  endif()
 endif()
 
 # Build Tests and download Catch2
