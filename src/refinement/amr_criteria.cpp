@@ -27,6 +27,8 @@ std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string &criteria,
                                                           std::string &block_name) {
   if (criteria == "derivative_order_1")
     return std::make_shared<AMRFirstDerivative>(pin, block_name);
+  else if (criteria == "derivative_order_2")
+    return std::make_shared<AMRSecondDerivative>(pin, block_name);
   throw std::invalid_argument("\n  Invalid selection for refinment method in " +
                               block_name + ": " + criteria);
 }
@@ -63,6 +65,41 @@ AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
   q = rc->Get(field).data;
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   return Refinement::FirstDerivative(pmb.get(), q, refine_criteria, derefine_criteria);
+}
+
+
+AMRSecondDerivative::AMRSecondDerivative(ParameterInput *pin, std::string &block_name) {
+  field = pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET");
+  if (field == "NO FIELD WAS SET") {
+    std::cerr << "Error in " << block_name << ": no field set" << std::endl;
+    exit(1);
+  }
+  refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5);
+  derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
+  int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1);
+  max_level = pin->GetOrAddInteger(block_name, "max_level", global_max_level);
+  if (max_level > global_max_level) {
+    std::cerr << "WARNING: max_level in " << block_name
+              << " exceeds numlevel (the global maximum number of levels) set in "
+                 "<parthenon/mesh>."
+              << std::endl
+              << std::endl
+              << "Setting max_level = numlevel, but this may not be what you want."
+              << std::endl
+              << std::endl;
+    max_level = global_max_level;
+  }
+}
+
+AmrTag AMRSecondDerivative::operator()(const MeshBlockData<Real> *rc) const {
+  ParArrayND<Real> q;
+  if (!rc->HasCellVariable(field) || !rc->IsAllocated(field)) {
+    return AmrTag::same;
+  }
+
+  q = rc->Get(field).data;
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  return Refinement::SecondDerivative(pmb.get(), q, refine_criteria, derefine_criteria);
 }
 
 } // namespace parthenon
