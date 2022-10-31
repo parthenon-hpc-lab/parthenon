@@ -67,7 +67,6 @@ AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
   return Refinement::FirstDerivative(pmb.get(), q, refine_criteria, derefine_criteria);
 }
 
-
 AMRSecondDerivative::AMRSecondDerivative(ParameterInput *pin, std::string &block_name) {
   field = pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET");
   if (field == "NO FIELD WAS SET") {

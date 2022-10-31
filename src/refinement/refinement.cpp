@@ -153,17 +153,17 @@ AmrTag SecondDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
       "refinement second derivative", kl, ku, jl, ju, il, iu,
       KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real aqt = std::abs(q(k, j, i)) + TINY_NUMBER;
-        Real qavg = 0.5 * ( q(k, j, i + 1) + q(k, j, i - 1) );
-        Real d = 2.0 * std::abs( qavg - q(k, j, i) ) / ( std::abs(qavg) + aqt );
+        Real qavg = 0.5 * (q(k, j, i + 1) + q(k, j, i - 1));
+        Real d = 2.0 * std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
         maxd = (d > maxd ? d : maxd);
         if (dim2 > 1) {
-          qavg = 0.5 * ( q(k, j + 1, i) + q(k, j - 1, i) );
-          d = 2.0 * std::abs( qavg - q(k, j, i) ) / ( std::abs(qavg) + aqt );
+          qavg = 0.5 * (q(k, j + 1, i) + q(k, j - 1, i));
+          d = 2.0 * std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
           maxd = (d > maxd ? d : maxd);
         }
         if (dim3 > 1) {
-          qavg = 0.5 * ( q(k + 1, j, i) + q(k - 1, j, i) );
-          d = 2.0 * std::abs( qavg - q(k, j, i) ) / ( std::abs(qavg) + aqt );
+          qavg = 0.5 * (q(k + 1, j, i) + q(k - 1, j, i));
+          d = 2.0 * std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
           maxd = (d > maxd ? d : maxd);
         }
       },
