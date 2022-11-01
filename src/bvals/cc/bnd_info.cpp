@@ -338,6 +338,18 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
                             pmb.get());
     out.var = v->data.Get();
   }
+
+  if (buf->GetState() == BufferState::received) {
+    // With control variables, we can end up in a state where a
+    // variable that is not receiving null data is unallocated.
+    // for allocated to be set, the buffer must be sending non-null
+    // data and the receiving variable must be allocated
+    out.allocated = v->IsAllocated();
+  } else if (buf->GetState() == BufferState::received_null) {
+    out.allocated = false;
+  } else {
+    PARTHENON_FAIL("Buffer should be in a received state.");
+  }
   return out;
 }
 
