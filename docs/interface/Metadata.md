@@ -136,9 +136,15 @@ classes may be allocated. The behaviours are the following:
   ranks during remeshing. Variables with `Metadata::Independent` and/or 
   `Metadata::FillGhost` are also automatically communicated when a block 
   is communicated from one process to another. Other variables **are not** 
-  communicated across ranks, which has the possibility to cause downstream 
-  codes to produce different results when the same problem is run on 
-  different numbers of ranks. 
+  communicated across ranks, since the Parthenon model assumes that all 
+  fields are either `Independent` or `Derived` and that the `Derived` 
+  fields can be reconstructed from only the `Independent` fields by calling 
+  `FillDerived`. Nevertheless, it is sometimes useful to pass certain 
+  `Derived` fields between ranks during remeshing rather than rebuild them 
+  (e.g. the initial guesses for a root find that may converge slowly or not 
+  at all without a good initial guess). *This flag should be used with 
+  caution, since it has the possibility the possibility to mask errors in 
+  the `FillDerived` implementation in downstream codes.*
 
 ### Application Metadata Flags
 
