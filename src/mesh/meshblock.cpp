@@ -268,7 +268,8 @@ void MeshBlock::RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc) {
   return;
 }
 
-void MeshBlock::AllocateSparse(std::string const &label, bool only_control, bool flag_uninitialized) {
+void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
+                               bool flag_uninitialized) {
   auto &mbd = meshblock_data;
   auto AllocateVar = [flag_uninitialized, &mbd](const std::string &l) {
     // first allocate variable in base stage
@@ -305,7 +306,7 @@ void MeshBlock::AllocateSparse(std::string const &label, bool only_control, bool
   }
 
   if (cont_set && meshblock_data.Get()->GetCellVarPtr(label)->IsSparse()) {
-    auto clabel = label; 
+    auto clabel = label;
     if (!only_control) clabel = pmy_mesh->resolved_packages->GetFieldController(label);
     const auto &var_labels = pmy_mesh->resolved_packages->GetControlledVariables(clabel);
     for (const auto &l : var_labels)
