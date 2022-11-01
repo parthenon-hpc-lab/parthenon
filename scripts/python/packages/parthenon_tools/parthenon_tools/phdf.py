@@ -306,7 +306,7 @@ class phdf:
         zo = [self.offset[2], self.MeshBlockSize[2] - self.offset[2]]
 
         self.BlockIdx = np.reshape(
-            np.array(np.meshgrid(zRange, yRange, xRange)).transpose(1, 2, 3, 0),
+            np.array(np.meshgrid(zRange, yRange, xRange)).transpose(2, 1, 3, 0),
             (self.MeshBlockSize[0] * self.MeshBlockSize[1] * self.MeshBlockSize[2], 3),
         )
         self.isGhost = (
