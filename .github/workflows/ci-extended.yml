@@ -25,7 +25,7 @@ jobs:
       matrix:
         device: ['cuda', 'host']
         parallel: ['serial', 'mpi']
-    runs-on: self-hosted
+    runs-on: [self-hosted, A100]
     container:
       image: registry.gitlab.com/pgrete/parthenon/cuda11.6-mpi-hdf5
       # map to local user id on CI  machine to allow writing to build cache

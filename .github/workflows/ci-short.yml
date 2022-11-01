@@ -1,6 +1,6 @@
 name: CI short
 
-on: [push, pull_request]
+on: [pull_request]
 
 # Cancel "duplicated" workflows triggered by pushes to internal
 # branches with associated PRs.
