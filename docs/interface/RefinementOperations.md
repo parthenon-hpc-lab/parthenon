@@ -26,7 +26,7 @@ mesh (for example the tensor indices of a rank 3 tensor, or 0,0,0 for a scalar).
 and `ci` are `k`, `j`, and `i` indices of the cell on the coarse
 buffer. `ckb`, `cjb`, `cib` are the `k`, `j`, and `i` indexrange
 bounds for the coarse buffer. `kb`, `jb`, and `ib` are the same but on
-teh fine buffer. `coords` and `coarse_coords` are the coordinates
+the fine buffer. `coords` and `coarse_coords` are the coordinates
 objects on the coarse and fine buffers, and `pcoarse` and `pfine` are
 pointers to the coarse and fine data for a variable on a given
 meshblock.
