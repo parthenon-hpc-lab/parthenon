@@ -230,13 +230,14 @@ TEST_CASE("par_for loops", "[wrapper]") {
     REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttr_tag, default_exec_space) ==
             true);
 
-#if !(defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP))
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
-            true);
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
+              true);
 
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag, default_exec_space) ==
-            true);
-#endif
+      REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag, default_exec_space) ==
+              true);
+    }
   }
 
   SECTION("4D loops") {
@@ -252,13 +253,14 @@ TEST_CASE("par_for loops", "[wrapper]") {
     REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttr_tag, default_exec_space) ==
             true);
 
-#if !(defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP))
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
-            true);
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
+              true);
 
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag, default_exec_space) ==
-            true);
-#endif
+      REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag, default_exec_space) ==
+              true);
+    }
   }
 }
 
@@ -409,11 +411,12 @@ TEST_CASE("nested par_for loops", "[wrapper]") {
                                    parthenon::inner_loop_pattern_tvr_tag,
                                    default_exec_space) == true);
 
-#ifndef KOKKOS_ENABLE_CUDA
-    REQUIRE(test_wrapper_nested_3d(parthenon::outer_loop_pattern_teams_tag,
-                                   parthenon::inner_loop_pattern_simdfor_tag,
-                                   default_exec_space) == true);
-#endif
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      REQUIRE(test_wrapper_nested_3d(parthenon::outer_loop_pattern_teams_tag,
+                                     parthenon::inner_loop_pattern_simdfor_tag,
+                                     default_exec_space) == true);
+    }
   }
 
   SECTION("4D nested loops") {
@@ -421,11 +424,12 @@ TEST_CASE("nested par_for loops", "[wrapper]") {
                                    parthenon::inner_loop_pattern_tvr_tag,
                                    default_exec_space) == true);
 
-#ifndef KOKKOS_ENABLE_CUDA
-    REQUIRE(test_wrapper_nested_4d(parthenon::outer_loop_pattern_teams_tag,
-                                   parthenon::inner_loop_pattern_simdfor_tag,
-                                   default_exec_space) == true);
-#endif
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      REQUIRE(test_wrapper_nested_4d(parthenon::outer_loop_pattern_teams_tag,
+                                     parthenon::inner_loop_pattern_simdfor_tag,
+                                     default_exec_space) == true);
+    }
   }
 }
 
@@ -472,275 +476,6 @@ TEST_CASE("Parallel scan", "[par_scan]") {
   SECTION("1D loops") {
     REQUIRE(test_wrapper_scan_1d(parthenon::loop_pattern_flatrange_tag,
                                  default_exec_space) == true);
-  }
-}
-
-struct LargeNShortTBufferPack {
-  int nghost;
-  int ncells; // number of cells in the linear dimension - very simplistic
-              // approach
-  ParArray4D<Real> arr_in;
-  // buffer in six direction, i plus, i minus, ...
-  ParArray1D<Real> buf_ip, buf_im, buf_jp, buf_jm, buf_kp, buf_km;
-  LargeNShortTBufferPack(const int nghost_, const int ncells_,
-                         const ParArray4D<Real> arr_in_, ParArray1D<Real> buf_ip_,
-                         ParArray1D<Real> buf_im_, ParArray1D<Real> buf_jp_,
-                         ParArray1D<Real> buf_jm_, ParArray1D<Real> buf_kp_,
-                         ParArray1D<Real> buf_km_)
-      : nghost(nghost_), ncells(ncells_), arr_in(arr_in_), buf_ip(buf_ip_),
-        buf_im(buf_im_), buf_jp(buf_jp_), buf_jm(buf_jm_), buf_kp(buf_kp_),
-        buf_km(buf_km_) {}
-  KOKKOS_INLINE_FUNCTION
-
-  void operator()(const int dir, const int n, const int it) const {
-    const int offset = n * (nghost * (ncells - 2 * nghost) * (ncells - 2 * nghost));
-
-    if (dir == 0) {
-      // it loops over [k,j,i]=[ [nghost,ncells-nghost),
-      //                         [nghost,ncells-nghost),
-      //                         [nghost,2*nghost) ]
-      // const int it_nk = ncells-nghost*2;
-      const int it_nj = ncells - nghost * 2;
-      const int it_ni = nghost;
-      const int it_k = it / (it_ni * it_nj);
-      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
-      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
-      const int k = it_k + nghost;
-      const int j = it_j + nghost;
-      const int i = it_i + nghost;
-      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
-      buf_im(offset + idx) = arr_in(n, k, j, i);
-    } else if (dir == 1) {
-      // it loops over [k,j,i]=[ [nghost,ncells-nghost),
-      //                         [nghost,ncells-nghost),
-      //                         [ncells-2*nghost,ncells-nghost) ]
-      // const int it_nk = ncells-nghost*2;
-      const int it_nj = ncells - nghost * 2;
-      const int it_ni = nghost;
-      const int it_k = it / (it_ni * it_nj);
-      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
-      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
-      const int k = it_k + nghost;
-      const int j = it_j + nghost;
-      const int i = it_i + ncells - 2 * nghost;
-      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
-      buf_ip(offset + idx) = arr_in(n, k, j, i);
-    } else if (dir == 2) {
-      // it loops over [k,j,i]=[ [nghost,ncells-nghost),
-      //                         [nghost,2*nghost),
-      //                         [nghost,ncells-nghost) ]
-      // const int it_nk = ncells-nghost*2;
-      const int it_nj = nghost;
-      const int it_ni = ncells - nghost * 2;
-      const int it_k = it / (it_ni * it_nj);
-      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
-      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
-      const int k = it_k + nghost;
-      const int j = it_j + nghost;
-      const int i = it_i + nghost;
-      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
-      buf_jm(offset + idx) = arr_in(n, k, j, i);
-    } else if (dir == 3) {
-      // it loops over [k,j,i]=[ [nghost,ncells-nghost),
-      //                        [ncells-2*nghost,ncells),
-      //                        [nghost,ncells-nghost) ]
-      // const int it_nk = ncells-nghost*2;
-      const int it_nj = nghost;
-      const int it_ni = ncells - nghost * 2;
-      const int it_k = it / (it_ni * it_nj);
-      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
-      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
-      const int k = it_k + nghost;
-      const int j = it_j + ncells - 2 * nghost;
-      const int i = it_i + nghost;
-      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
-      buf_jp(offset + idx) = arr_in(n, k, j, i);
-    } else if (dir == 4) {
-      // it loops over [k,j,i]=[ [nghost,2*nghost),
-      //                         [nghost,ncells-nghost),
-      //                         [nghost,ncells-nghost) ]
-      // const int it_nk = nghost;
-      const int it_nj = ncells - nghost * 2;
-      const int it_ni = ncells - nghost * 2;
-      const int it_k = it / (it_ni * it_nj);
-      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
-      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
-      const int k = it_k + nghost;
-      const int j = it_j + nghost;
-      const int i = it_i + nghost;
-      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
-      buf_km(offset + idx) = arr_in(n, k, j, i);
-    } else if (dir == 5) {
-      // it loops over [k,j,i]=[ [ncells-2*nghost,ncells),
-      //                         [nghost,ncells-nghost),
-      //                         [nghost,ncells-nghost) ]
-      // const int it_nk = nghost;
-      const int it_nj = ncells - nghost * 2;
-      const int it_ni = ncells - nghost * 2;
-      const int it_k = it / (it_ni * it_nj);
-      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
-      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
-      const int k = it_k + ncells - 2 * nghost;
-      const int j = it_j + nghost;
-      const int i = it_i + nghost;
-      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
-      buf_kp(offset + idx) = arr_in(n, k, j, i);
-    }
-  }
-
-  void run(DevExecSpace exec_space) {
-    const int nbuffers = 6; // number of buffers, here up, down, left, right, back, front
-    auto M = arr_in.extent(0);
-    auto slab_size = buf_im.extent(0) / M;
-    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "LargeNShortTBufferPack",
-                       exec_space, 0, nbuffers - 1, 0, M - 1, 0, slab_size - 1, *this);
-  }
-
-  template <typename TimeType>
-  static void test_time(const TimeType time_default, const TimeType time_spaces) {
-    // Test that streams are not introducing a performance penalty (within 10%
-    // uncertainty). The efficiency here depends on the available HW.
-    REQUIRE(time_spaces < 1.10 * time_default);
-  }
-};
-
-struct SmallNLongTBufferPack {
-  int nghost;
-  int ncells; // number of cells in the linear dimension - very simplistic
-              // approach
-  ParArray4D<Real> arr_in;
-  // buffer in six direction, i plus, i minus, ...
-  ParArray1D<Real> buf_ip, buf_im, buf_jp, buf_jm, buf_kp, buf_km;
-  SmallNLongTBufferPack(const int nghost_, const int ncells_,
-                        const ParArray4D<Real> arr_in_, ParArray1D<Real> buf_ip_,
-                        ParArray1D<Real> buf_im_, ParArray1D<Real> buf_jp_,
-                        ParArray1D<Real> buf_jm_, ParArray1D<Real> buf_kp_,
-                        ParArray1D<Real> buf_km_)
-      : nghost(nghost_), ncells(ncells_), arr_in(arr_in_), buf_ip(buf_ip_),
-        buf_im(buf_im_), buf_jp(buf_jp_), buf_jm(buf_jm_), buf_kp(buf_kp_),
-        buf_km(buf_km_) {}
-  KOKKOS_INLINE_FUNCTION
-  void operator()(const int n, const int dir) const {
-    int idx = 0;
-    const int offset = n * (nghost * (ncells - 2 * nghost) * (ncells - 2 * nghost));
-
-    if (dir == 0) {
-      for (auto k = nghost; k < ncells - nghost; k++)
-        for (auto j = nghost; j < ncells - nghost; j++)
-          for (auto i = nghost; i < 2 * nghost; i++)
-            buf_im(offset + idx++) = arr_in(n, k, j, i);
-    } else if (dir == 1) {
-      for (auto k = nghost; k < ncells - nghost; k++)
-        for (auto j = nghost; j < ncells - nghost; j++)
-          for (auto i = ncells - nghost; i < ncells; i++)
-            buf_ip(offset + idx++) = arr_in(n, k, j, i);
-    } else if (dir == 2) {
-      for (auto k = nghost; k < ncells - nghost; k++)
-        for (auto j = nghost; j < 2 * nghost; j++)
-          for (auto i = nghost; i < ncells - nghost; i++)
-            buf_jm(offset + idx++) = arr_in(n, k, j, i);
-    } else if (dir == 3) {
-      for (auto k = nghost; k < ncells - nghost; k++)
-        for (auto j = ncells - nghost; j < ncells; j++)
-          for (auto i = nghost; i < ncells - nghost; i++)
-            buf_jp(offset + idx++) = arr_in(n, k, j, i);
-    } else if (dir == 4) {
-      for (auto k = nghost; k < 2 * nghost; k++)
-        for (auto j = nghost; j < ncells - nghost; j++)
-          for (auto i = nghost; i < ncells - nghost; i++)
-            buf_km(offset + idx++) = arr_in(n, k, j, i);
-    } else if (dir == 5) {
-      for (auto k = ncells - nghost; k < ncells; k++)
-        for (auto j = nghost; j < ncells - nghost; j++)
-          for (auto i = nghost; i < ncells - nghost; i++)
-            buf_kp(offset + idx++) = arr_in(n, k, j, i);
-    }
-  }
-
-  void run(DevExecSpace exec_space) {
-    auto M = arr_in.extent(0);
-    const int nbuffers = 6; // number of buffers, here up, down, left, right, back, front
-    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "SmallNLongTBufferPack",
-                       exec_space, 0, M - 1, 0, nbuffers - 1, *this);
-  }
-
-  template <typename TimeType>
-  static void test_time(const TimeType time_default, const TimeType time_spaces) {
-    // Test that streams are not introducing a performance penalty (within 10%
-    // uncertainty). The efficiency here depends on the available HW.
-    REQUIRE(time_spaces < 1.10 * time_default);
-  }
-};
-
-template <class BufferPack>
-void test_wrapper_buffer_pack_overlapping_space_instances(const std::string &test_name) {
-  auto default_exec_space = DevExecSpace();
-
-  const int N = 24;      // ~meshblock size
-  const int M = 5;       // ~nhydro
-  const int nspaces = 2; // number of streams
-  const int nghost = 2;  // number of ghost zones
-  const int buf_size = M * nghost * (N - 2 * nghost) * (N - 2 * nghost);
-
-  std::vector<BufferPack> functs;
-  std::vector<DevExecSpace> exec_spaces;
-
-  for (auto n = 0; n < nspaces; n++) {
-    functs.push_back(BufferPack(
-        nghost, N, ParArray4D<Real>("SpaceInstance in", M, N, N, N),
-        ParArray1D<Real>("buf_ip", buf_size), ParArray1D<Real>("buf_im", buf_size),
-        ParArray1D<Real>("buf_jp", buf_size), ParArray1D<Real>("buf_jm", buf_size),
-        ParArray1D<Real>("buf_kp", buf_size), ParArray1D<Real>("buf_kp", buf_size)));
-    exec_spaces.push_back(parthenon::SpaceInstance<DevExecSpace>::create());
-  }
-
-  // warmup
-  for (auto it = 0; it < 10; it++) {
-    for (auto n = 0; n < nspaces; n++) {
-      functs[n].run(exec_spaces[n]);
-    }
-  }
-  Kokkos::fence();
-
-  Kokkos::Timer timer;
-
-  // meausre time using two execution space simultaneously
-  // race condition in access to arr_dev doesn't matter for this test
-  for (auto n = 0; n < nspaces; n++) {
-    functs[n].run(exec_spaces[n]);
-  }
-
-  Kokkos::fence();
-  auto time_spaces = timer.seconds();
-
-  timer.reset();
-
-  // measure runtime using the default execution space
-  for (auto n = 0; n < nspaces; n++) {
-    functs[n].run(default_exec_space);
-  }
-
-  default_exec_space.fence(); // making sure the kernel is done
-  auto time_default = timer.seconds();
-
-  std::cout << test_name << std::endl;
-  std::cout << "time default: " << time_default << std::endl;
-  std::cout << "time spaces: " << time_spaces << std::endl;
-
-  // make sure this test is reasonable IIF streams actually overlap, which is
-  // not the case for the OpenMP backend at this point
-  if (parthenon::SpaceInstance<DevExecSpace>::overlap()) {
-    BufferPack::test_time(time_default, time_spaces);
-  }
-}
-TEST_CASE("Overlapping SpaceInstances", "[wrapper][performance]") {
-  SECTION("Many Threads Short Kernel") {
-    test_wrapper_buffer_pack_overlapping_space_instances<LargeNShortTBufferPack>(
-        "Many Threads Short Kernel");
-  }
-  SECTION("Few Threads Long Kernel") {
-    test_wrapper_buffer_pack_overlapping_space_instances<SmallNLongTBufferPack>(
-        "Few Threads Long Kernel");
   }
 }
 
