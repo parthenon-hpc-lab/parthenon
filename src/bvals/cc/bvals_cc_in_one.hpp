@@ -39,19 +39,6 @@ template <typename T>
 class CellVariable;
 
 namespace cell_centered_bvars {
-void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds);
-void CalcIndicesSetFromCoarser(const int &ox, int &s, int &e, const IndexRange &bounds,
-                               const std::int64_t &lx, const int &cng, bool include_dim);
-void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
-                             const NeighborBlock &nb, MeshBlock *pmb);
-void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds);
-void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
-                            const NeighborBlock &nb, MeshBlock *pmb);
-
-int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                  std::shared_ptr<CellVariable<Real>> v);
-
-TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md);
@@ -80,79 +67,8 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 
-struct BndInfo {
-  int si = 0;
-  int ei = 0;
-  int sj = 0;
-  int ej = 0;
-  int sk = 0;
-  int ek = 0;
-
-  int Nt = 0;
-  int Nu = 0;
-  int Nv = 0;
-
-  bool allocated = true;
-  RefinementOp_t refinement_op = RefinementOp_t::None;
-  Coordinates_t coords, coarse_coords; // coords
-
-  buf_pool_t<Real>::weak_t buf;                   // comm buffer from pool
-  parthenon::ParArray6D<Real, VariableState> var; // data variable used for comms
-  parthenon::ParArray6D<Real, VariableState>
-      fine; // fine data variable for prolongation/restriction
-  parthenon::ParArray6D<Real, VariableState>
-      coarse; // coarse data variable for prolongation/restriction
-
-  static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                std::shared_ptr<CellVariable<Real>> v);
-  static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v);
-};
-
-int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                  std::shared_ptr<CellVariable<Real>> v);
-
-using BufferCache_t = ParArray1D<BndInfo>;
-using BufferCacheHost_t = typename BufferCache_t::HostMirror;
-
-// This is just a struct to cleanly hold all of the information it is useful to cache
-// for the block boundary communication routines. A copy of it is contained in MeshData.
-
-struct BvarsSubCache_t {
-  void clear() {
-    send_buf_vec.clear();
-    recv_buf_vec.clear();
-    send_idx_vec.clear();
-    recv_idx_vec.clear();
-    sending_non_zero_flags = ParArray1D<bool>{};
-    sending_non_zero_flags_h = ParArray1D<bool>::host_mirror_type{};
-    send_bnd_info = BufferCache_t{};
-    send_bnd_info_h = BufferCache_t::host_mirror_type{};
-    recv_bnd_info = BufferCache_t{};
-    recv_bnd_info_h = BufferCache_t::host_mirror_type{};
-  }
-
-  std::vector<std::size_t> send_idx_vec, recv_idx_vec;
-  std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
-  ParArray1D<bool> sending_non_zero_flags;
-  ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h;
-
-  BufferCache_t send_bnd_info{};
-  BufferCache_t::host_mirror_type send_bnd_info_h{};
-
-  BufferCache_t recv_bnd_info{};
-  BufferCache_t::host_mirror_type recv_bnd_info_h{};
-};
-
-struct BvarsCache_t {
-  // The five here corresponds to the current size of the BoundaryType enum
-  std::array<BvarsSubCache_t, 5> caches;
-  auto &operator[](BoundaryType boundType) { return caches[static_cast<int>(boundType)]; }
-  void clear() {
-    for (int i = 0; i < caches.size(); ++i)
-      caches[i].clear();
-  }
-};
+// This task should not be called in down stream code
+TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
 } // namespace cell_centered_bvars
 } // namespace parthenon

@@ -12,12 +12,15 @@
 //========================================================================================
 
 #include <algorithm>
+#include <chrono>
+#include <fstream>
 #include <iomanip>
 #include <limits>
 
 #include "driver/driver.hpp"
 
 #include "bvals/cc/bvals_cc_in_one.hpp"
+#include "globals.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -65,6 +68,10 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
       pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
+
+  // Output a text file of all parameters at this point
+  // Defaults must be set across all ranks
+  DumpInputParameters();
 
   Kokkos::Profiling::pushRegion("Driver_Main");
   while (tm.KeepGoing()) {
@@ -159,7 +166,7 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
   for (int i = 0; i < num_partitions; i++) {
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
     Update::EstimateTimestep(mbase.get());
-    cell_centered_bvars::BuildSparseBoundaryBuffers(mbase);
+    cell_centered_bvars::BuildBoundaryBuffers(mbase);
   }
 }
 
@@ -187,6 +194,26 @@ void EvolutionDriver::SetGlobalTimeStep() {
   if (tm.time < tm.tlim &&
       (tm.tlim - tm.time) < tm.dt) // timestep would take us past desired endpoint
     tm.dt = tm.tlim - tm.time;
+}
+
+void EvolutionDriver::DumpInputParameters() {
+  auto archive_settings =
+      pinput->GetOrAddString("parthenon/job", "archive_parameters", "false",
+                             std::vector<std::string>{"true", "false", "timestamp"});
+  if (archive_settings != "false" && Globals::my_rank == 0) {
+    std::ostringstream ss;
+    if (archive_settings == "timestamp") {
+      auto itt_now =
+          std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+      ss << "parthinput.archive." << std::put_time(std::gmtime(&itt_now), "%FT%TZ");
+    } else {
+      ss << "parthinput.archive";
+    }
+    std::fstream pars;
+    pars.open(ss.str(), std::fstream::out | std::fstream::trunc);
+    pinput->ParameterDump(pars);
+    pars.close();
+  }
 }
 
 void EvolutionDriver::OutputCycleDiagnostics() {

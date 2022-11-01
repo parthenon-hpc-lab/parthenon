@@ -305,22 +305,18 @@ class phdf:
         yo = [self.offset[1], self.MeshBlockSize[1] - self.offset[1]]
         zo = [self.offset[2], self.MeshBlockSize[2] - self.offset[2]]
 
-        self.BlockIdx = [None] * self.CellsPerBlock
-        self.isGhost = np.ones(self.CellsPerBlock, dtype=bool)
-        index = 0
-        yMask = False
-        zMask = False
-        for k in zRange:
-            if self.NumDims > 2:
-                zMask = k < zo[0] or k >= zo[1]
-            for j in yRange:
-                if self.NumDims > 1:
-                    yMask = j < yo[0] or j >= yo[1]
-                for i in xRange:
-                    xMask = i < xo[0] or i >= xo[1]
-                    self.isGhost[index] = xMask or yMask or zMask
-                    self.BlockIdx[index] = [k, j, i]
-                    index += 1
+        self.BlockIdx = np.reshape(
+            np.array(np.meshgrid(zRange, yRange, xRange)).transpose(2, 1, 3, 0),
+            (self.MeshBlockSize[0] * self.MeshBlockSize[1] * self.MeshBlockSize[2], 3),
+        )
+        self.isGhost = (
+            (zo[0] > self.BlockIdx[:, 0])
+            | (self.BlockIdx[:, 0] >= zo[1])
+            | (yo[0] > self.BlockIdx[:, 1])
+            | (self.BlockIdx[:, 1] >= yo[1])
+            | (xo[0] > self.BlockIdx[:, 2])
+            | (self.BlockIdx[:, 2] >= xo[1])
+        )
 
     def ToLocation(self, index):
         """
@@ -504,8 +500,8 @@ class phdf:
                     (vShape[1], self.TotalCells), dtype=self.varData[variable].dtype
                 )
                 ret[:] = np.nan
-                for i in range(len(vShape[1])):
-                    ret[i, :] = self.varData[variable][:, i, :, :, :]
+                for i in range(vShape[1]):
+                    ret[i] = self.varData[variable][:, i, :, :, :].ravel()
                 assert (ret != np.nan).all()
                 return ret
             else:

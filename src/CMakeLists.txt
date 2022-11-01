@@ -97,16 +97,14 @@ configure_file(config.hpp.in generated/config.hpp @ONLY)
 add_library(parthenon
   bvals/cc/bvals_cc_in_one.hpp
   bvals/cc/bvals_utils.hpp
-  bvals/cc/calc_indices.cpp
-  bvals/cc/sparse_bvals_cc_in_one.cpp
-  bvals/cc/sparse_flux_correction_cc_in_one.cpp 
+  bvals/cc/build_boundary_buffers.cpp
+  bvals/cc/bnd_info.cpp
+  bvals/cc/bnd_info.hpp
+  bvals/cc/boundary_communication.cpp
+  bvals/cc/flux_correction.cpp 
   bvals/cc/tag_map.cpp 
   bvals/cc/tag_map.hpp 
   
-  bvals/fc/bvals_fc.cpp
-  bvals/fc/bvals_fc.hpp
-  bvals/fc/flux_correction_fc.cpp
-
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
 
@@ -241,11 +239,7 @@ add_library(Parthenon::parthenon ALIAS parthenon)
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
-if (PARTHENON_ENABLE_CPP17)
-  target_compile_features(parthenon PUBLIC cxx_std_17)
-else()
-  target_compile_features(parthenon PUBLIC cxx_std_14)
-endif()
+target_compile_features(parthenon PUBLIC cxx_std_17)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)

@@ -102,13 +102,13 @@ void Swarm::AllocateBoundariesImpl_(MeshBlock *pmb) {
     if (pmb->pmy_mesh->SwarmBndryFnctn[iFace] != nullptr) {
       bounds_uptrs[iFace] = pmb->pmy_mesh->SwarmBndryFnctn[iFace]();
     } else {
-      msg << "ix" << iFace + 1
+      msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1
           << " user boundary requested but provided function is null!";
       PARTHENON_THROW(msg);
     }
   } else {
-    msg << "ix" << iFace + 1 << " boundary flag " << static_cast<int>(bcs[iFace])
-        << " not supported!";
+    msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1 << " boundary flag "
+        << static_cast<int>(bcs[iFace]) << " not supported!";
     PARTHENON_THROW(msg);
   }
 }
