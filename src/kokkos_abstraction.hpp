@@ -48,8 +48,14 @@ using HostExecSpace = Kokkos::DefaultHostExecutionSpace;
 using LayoutWrapper = Kokkos::LayoutRight;
 using MemUnmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
 
-#if defined(KOKKOS_ENABLE_CUDA) && defined(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
+#if defined(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
+#if defined(KOKKOS_ENABLE_CUDA)
 using BufMemSpace = Kokkos::CudaHostPinnedSpace::memory_space;
+#elif defined(KOKKOS_ENABLE_HIP)
+using BufMemSpace = Kokkos::Experimental::HipHostPinnedSpace::memory_space;
+#else
+#error "Unknow comm buffer space for chose execution space."
+#endif
 #else
 using BufMemSpace = Kokkos::DefaultExecutionSpace::memory_space;
 #endif
