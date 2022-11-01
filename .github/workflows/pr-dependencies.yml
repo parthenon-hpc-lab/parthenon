@@ -1,9 +1,9 @@
+name: Check PR Dependencies
 on: [pull_request]
-
 jobs:
   check_dependencies:
     runs-on: ubuntu-latest
-    name: Check Dependencies
+    name: Required PRs Merged
     steps:
     - uses: gregsdennis/dependencies-action@main
       env:
