@@ -10,7 +10,7 @@ interpolation with minmod limiting for prolongation.
 
 A user may define their own prolongation and restriction
 operations. To do so, you must define a struct, templated on
-dimension, with a void method `Do` with tthe following signature:
+dimension, containing only a void function `Do` with the following signature:
 
 ```C++
 KOKKOS_FORCEINLINE_FUNCTION static void
