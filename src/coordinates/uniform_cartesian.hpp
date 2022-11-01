@@ -72,7 +72,7 @@ class UniformCartesian {
 
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int idx) const {
-    assert(dir > 0 && dir < 4 && face > 0 && face < 4);
+    assert(dir > 0 && dir < 4);
     return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1];
   }
 
