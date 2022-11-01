@@ -62,6 +62,12 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/
 --num_steps 1")
 list(APPEND EXTRA_TEST_LABELS "")
 
+list(APPEND TEST_DIRS count_cells)
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/count_cells/count-cells \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/count_cells/parthinput.count")
+list(APPEND EXTRA_TEST_LABELS "")
+
 if (ENABLE_HDF5)
 
   # h5py is needed for restart and hdf5 test

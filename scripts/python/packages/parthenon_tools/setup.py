@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # =========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -22,8 +22,8 @@ setup(
     description="Python helper scripts to be used with Parthenon",
     long_description=long_description,
     url="https://github.com/lanl/parthenon/tree/develop/scripts/python/parthenon_tools",
-    author="Josh Dolence, Philipp Grete, Andrew Gaspar, Joshua S. Brown",
-    author_email="joshbro42867@yahoo.com",
+    author="The Parthenon Team",
+    author_email="",
     license="LICENSE.txt",
     classifiers=[
         "Development Status :: 3 - Alpha",

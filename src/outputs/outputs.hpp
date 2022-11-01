@@ -194,8 +194,8 @@ class VTKOutput : public OutputType {
 class PHDF5Output : public OutputType {
  public:
   // Function declarations
-  PHDF5Output(const OutputParameters &oparams, bool restart)
-      : OutputType(oparams), restart_(restart) {}
+  PHDF5Output(const OutputParameters &oparams, bool restart, bool simple)
+      : OutputType(oparams), restart_(restart), simple_(simple) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
   template <bool WRITE_SINGLE_PRECISION>
@@ -206,6 +206,7 @@ class PHDF5Output : public OutputType {
   std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
                                 const SignalHandler::OutputSignal signal);
   const bool restart_; // true if we write a restart file, false for regular output files
+  const bool simple_;  // if true, only output metadata, no vars. Simplified coords.
 };
 #endif // ifdef ENABLE_HDF5
 
