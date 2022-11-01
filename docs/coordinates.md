@@ -50,10 +50,10 @@ different elements along different dimensions.
 
 Integration elements (replacing `CenterWidth1`, `Edge1Length`, `Face1Area`, and `CellVolume`)
 ```
-Dx<int dir>( const int k, const int j, const int i); //Distance between cell centers along dir
-Area<int face>( const int k, const int j, const int i); //Area of Face
+CellWidth<int dir>( const int k, const int j, const int i); //Cell Width at cell center
+FaceArea<int face>( const int k, const int j, const int i); //Area of Face
 EdgeLength<int edge>( const int k, const int j, const int i); //Length of edge
-Volume( const int k, const int j, const int i); //Volume
+CellVolume( const int k, const int j, const int i); //CellVolume
 ```
 These functions take all three indices to accommodate extension to spherical
 and cylindrical.
