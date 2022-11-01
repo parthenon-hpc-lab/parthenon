@@ -132,7 +132,7 @@ classes may be allocated. The behaviours are the following:
   `Metadata::WithFluxes` and `Metadata::FillGhosts` to send flux
   corrections across meshblocks.
 
-- If `Metadata::RemeshComm` is set, the variable is communicated between 
+- If `Metadata::ForceRemeshComm` is set, the variable is communicated between 
   ranks during remeshing. Variables with `Metadata::Independent` and/or 
   `Metadata::FillGhost` are also automatically communicated when a block 
   is communicated from one process to another. Other variables **are not** 
