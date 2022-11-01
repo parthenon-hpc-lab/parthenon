@@ -17,8 +17,8 @@
 #include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
-#include "mesh/mesh_refinement_ops.hpp"
-#include "mesh/refinement_in_one.hpp"
+#include "prolong_restrict/pr_ops.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
 using parthenon::Coordinates_t;
 using parthenon::IndexRange;

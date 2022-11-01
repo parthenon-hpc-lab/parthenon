@@ -27,8 +27,8 @@
 #include "interface/sparse_pool.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
-#include "mesh/mesh_refinement_ops.hpp"
-#include "mesh/refinement_in_one.hpp"
+#include "prolong_restrict/pr_ops.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
 using parthenon::Coordinates_t;
 using parthenon::IndexRange;

@@ -25,7 +25,8 @@
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "coordinates/coordinates.hpp"
-#include "utils/communication_buffer.hpp"
+#include "tasks/task_id.hpp"
+#include "tasks/task_list.hpp"
 #include "utils/object_pool.hpp"
 
 namespace parthenon {
@@ -69,6 +70,10 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 // Restricts all relevant meshblock boundaries, but doesn't
 // communicate at all.
 TaskStatus RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset);
+
+// Adds all relevant boundary communication to a single task list
+TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
+                                std::shared_ptr<MeshData<Real>> &md, bool multilevel);
 
 // This task should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);

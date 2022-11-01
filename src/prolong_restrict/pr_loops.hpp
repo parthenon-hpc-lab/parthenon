@@ -17,8 +17,12 @@
 // so.
 //========================================================================================
 
-#ifndef MESH_MESH_REFINEMENT_LOOPS_HPP_
-#define MESH_MESH_REFINEMENT_LOOPS_HPP_
+#ifndef PROLONG_RESTRICT_PR_LOOPS_HPP_
+#define PROLONG_RESTRICT_PR_LOOPS_HPP_
+
+// TODO(JMM): Is the "mesh" directory where prolongation/restriction
+// machinery belongs? Or should we have a separate directory for this?
+// There's also the AMR criteria in the src/refinement directory
 
 #include <algorithm>
 #include <utility> // std::forward
@@ -173,4 +177,4 @@ inline void DoProlongationRestrictionOp(const IndexShape &cellbnds, Args &&...ar
 } // namespace refinement
 } // namespace parthenon
 
-#endif // MESH_MESH_REFINEMENT_LOOPS_HPP_
+#endif // PROLONG_RESTRICT_PR_LOOPS_HPP_

@@ -37,8 +37,8 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
-#include "mesh/refinement_in_one.hpp"
 #include "parthenon_arrays.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

@@ -32,7 +32,7 @@
 #include "globals.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/refinement_in_one.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
 using namespace parthenon::driver::prelude;
 using namespace parthenon::Update;
@@ -469,16 +469,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-
-    auto send =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<any>, mc1);
-    auto recv =
-        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<any>, mc1);
-    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<any>, mc1);
-
-    if (pmesh->multilevel) {
-      tl.AddTask(set, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1, false);
-    }
+    parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(update, tl, mc1,
+                                                             pmesh->multilevel);
   }
 
   TaskRegion &async_region1 = tc.AddRegion(nblocks);

@@ -17,6 +17,10 @@
 // so.
 //========================================================================================
 
+// TODO(JMM): Is the "mesh" directory where prolongation/restriction
+// machinery belongs? Or should we have a separate directory for this?
+// There's also the AMR criteria in the src/refinement directory
+
 #include <algorithm>
 #include <tuple> // std::tuple
 #include <utility>
@@ -25,8 +29,8 @@
 #include "interface/mesh_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/mesh_refinement_ops.hpp"
-#include "mesh/refinement_in_one.hpp"
+#include "prolong_restrict/pr_ops.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
 namespace parthenon {
 namespace refinement {

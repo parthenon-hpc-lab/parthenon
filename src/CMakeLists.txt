@@ -156,8 +156,6 @@ add_library(parthenon
   mesh/domain.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
-  mesh/mesh_refinement_loops.hpp
-  mesh/mesh_refinement_ops.hpp
   mesh/mesh.cpp
   mesh/mesh.hpp
   mesh/meshblock.hpp
@@ -165,8 +163,6 @@ add_library(parthenon
   mesh/meshblock_tree.cpp
   mesh/meshblock_tree.hpp
   mesh/meshblock.cpp
-  mesh/refinement_in_one.cpp
-  mesh/refinement_in_one.hpp
 
   outputs/formatted_table.cpp
   outputs/history.cpp
@@ -185,13 +181,18 @@ add_library(parthenon
 
   pgen/default_pgen.cpp
 
+  prolong_restrict/pr_loops.hpp
+  prolong_restrict/pr_ops.hpp
+  prolong_restrict/prolong_restrict.cpp
+  prolong_restrict/prolong_restrict.hpp
+
   reconstruct/dc_inline.hpp
   reconstruct/plm_inline.hpp
 
-  refinement/amr_criteria.cpp
-  refinement/amr_criteria.hpp
-  refinement/refinement.cpp
-  refinement/refinement.hpp
+  amr_criteria/amr_criteria.cpp
+  amr_criteria/amr_criteria.hpp
+  amr_criteria/refinement_package.cpp
+  amr_criteria/refinement_package.hpp
 
   solvers/solver_utils.hpp
 

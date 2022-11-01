@@ -17,8 +17,8 @@
 // so.
 //========================================================================================
 
-#ifndef MESH_MESH_REFINEMENT_OPS_HPP_
-#define MESH_MESH_REFINEMENT_OPS_HPP_
+#ifndef PROLONG_RESTRICT_PR_OPS_HPP_
+#define PROLONG_RESTRICT_PR_OPS_HPP_
 
 #include <algorithm>
 #include <cstring>
@@ -26,6 +26,10 @@
 #include "coordinates/coordinates.hpp" // for coordinates
 #include "kokkos_abstraction.hpp"      // ParArray
 #include "mesh/domain.hpp"             // for IndesShape
+
+// TODO(JMM): Is the "mesh" directory where prolongation/restriction
+// machinery belongs? Or should we have a separate directory for this?
+// There's also the AMR criteria in the src/refinement directory
 
 /*
  * Explanation---To be added to docs, when pulled through as a user
@@ -231,4 +235,4 @@ struct ProlongateCellMinMod {
 } // namespace refinement_ops
 } // namespace parthenon
 
-#endif // MESH_MESH_REFINEMENT_OPS_HPP_
+#endif // PROLONG_RESTRICT_PR_OPS_HPP_
