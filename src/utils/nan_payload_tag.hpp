@@ -114,7 +114,7 @@ T GetNaNWithPayloadTag(uint8_t tag = 1) {
 
 template <class T, REQUIRES(!std::numeric_limits<T>::is_iec559)>
 T GetNaNWithPayloadTag(uint8_t tag = 1) {
-  // TODO(LFR): Probably need to warn here that we can't tag without IEEE
+  PARTHENON_DEBUG_WARN("Trying to use NaN payload tags without IEEE support.");
   return std::numeric_limits<T>::quiet_NaN();
 }
 
