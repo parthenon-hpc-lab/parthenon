@@ -14,6 +14,7 @@
 
 #include <memory>
 
+#include "globals.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
@@ -44,14 +45,16 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
   int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1);
   max_level = pin->GetOrAddInteger(block_name, "max_level", global_max_level);
   if (max_level > global_max_level) {
-    std::cerr << "WARNING: max_level in " << block_name
-              << " exceeds numlevel (the global maximum number of levels) set in "
-                 "<parthenon/mesh>."
-              << std::endl
-              << std::endl
-              << "Setting max_level = numlevel, but this may not be what you want."
-              << std::endl
-              << std::endl;
+    if (Globals::my_rank == 0) {
+      std::cerr << "WARNING: max_level in " << block_name
+                << " exceeds numlevel (the global maximum number of levels) set in "
+                   "<parthenon/mesh>."
+                << std::endl
+                << std::endl
+                << "Setting max_level = numlevel, but this may not be what you want."
+                << std::endl
+                << std::endl;
+    }
     max_level = global_max_level;
   }
 }
@@ -77,14 +80,16 @@ AMRSecondDerivative::AMRSecondDerivative(ParameterInput *pin, std::string &block
   int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1);
   max_level = pin->GetOrAddInteger(block_name, "max_level", global_max_level);
   if (max_level > global_max_level) {
-    std::cerr << "WARNING: max_level in " << block_name
-              << " exceeds numlevel (the global maximum number of levels) set in "
-                 "<parthenon/mesh>."
-              << std::endl
-              << std::endl
-              << "Setting max_level = numlevel, but this may not be what you want."
-              << std::endl
-              << std::endl;
+    if (Globals::my_rank == 0) {
+      std::cerr << "WARNING: max_level in " << block_name
+                << " exceeds numlevel (the global maximum number of levels) set in "
+                   "<parthenon/mesh>."
+                << std::endl
+                << std::endl
+                << "Setting max_level = numlevel, but this may not be what you want."
+                << std::endl
+                << std::endl;
+    }
     max_level = global_max_level;
   }
 }
