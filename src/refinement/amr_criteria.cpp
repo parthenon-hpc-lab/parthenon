@@ -19,6 +19,7 @@
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "refinement/refinement.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -34,11 +35,10 @@ std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string &criteria,
 }
 
 AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_name) {
-  field = pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET");
-  if (field == "NO FIELD WAS SET") {
-    std::cerr << "Error in " << block_name << ": no field set" << std::endl;
-    exit(1);
-  }
+  PARTHENON_REQUIRE_THROWS(pin->DoesParameterExist(block_name, "field"),
+                           "Error in " + block_name + ": no field set.");
+  field = pin->GetString(block_name, "field");
+
   refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5);
   derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
   int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1);
@@ -68,11 +68,10 @@ AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
 }
 
 AMRSecondDerivative::AMRSecondDerivative(ParameterInput *pin, std::string &block_name) {
-  field = pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET");
-  if (field == "NO FIELD WAS SET") {
-    std::cerr << "Error in " << block_name << ": no field set" << std::endl;
-    exit(1);
-  }
+  PARTHENON_REQUIRE_THROWS(pin->DoesParameterExist(block_name, "field"),
+                           "Error in " + block_name + ": no field set.");
+  field = pin->GetString(block_name, "field");
+
   refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5);
   derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
   int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1);
