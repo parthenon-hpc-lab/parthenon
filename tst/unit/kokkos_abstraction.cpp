@@ -23,7 +23,6 @@
 
 #include <catch2/catch.hpp>
 
-#include "Kokkos_Core_fwd.hpp"
 #include "kokkos_abstraction.hpp"
 
 using parthenon::DevExecSpace;
