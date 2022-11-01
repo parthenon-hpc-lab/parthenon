@@ -349,11 +349,11 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
       "stochastic_subgrid_package::EstimateTimestep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
         if (vx != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.dx(X1DIR, k, j, i) / std::abs(vx));
+          lmin_dt = std::min(lmin_dt, coords.cellWidth(X1DIR, k, j, i) / std::abs(vx));
         if (vy != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.dx(X2DIR, k, j, i) / std::abs(vy));
+          lmin_dt = std::min(lmin_dt, coords.cellWidth(X2DIR, k, j, i) / std::abs(vy));
         if (vz != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.dx(X3DIR, k, j, i) / std::abs(vz));
+          lmin_dt = std::min(lmin_dt, coords.cellWidth(X3DIR, k, j, i) / std::abs(vz));
       },
       Kokkos::Min<Real>(min_dt));
 

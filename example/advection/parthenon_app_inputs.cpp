@@ -175,7 +175,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
           }
 
           // Weight l1 error by cell volume
-          Real vol = pmb->coords.Volume(k, j, i);
+          Real vol = pmb->coords.CellVolume(k, j, i);
 
           l1_err += std::abs(ref_val - q(k, j, i)) * vol;
           max_err = std::max(static_cast<Real>(std::abs(ref_val - q(k, j, i))), max_err);
