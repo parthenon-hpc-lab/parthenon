@@ -62,8 +62,8 @@ AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
     return AmrTag::same;
   }
 
-  auto q = rc->Get(field).data.Slice(comp6, comp5, comp4,
-                                     Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+  auto q = rc->Get(field).data.Slice(comp6, comp5, comp4, Kokkos::ALL(), Kokkos::ALL(),
+                                     Kokkos::ALL());
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   return Refinement::FirstDerivative(q, refine_criteria, derefine_criteria);
 }
