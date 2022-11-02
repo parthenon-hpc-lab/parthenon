@@ -31,7 +31,7 @@ In each refinement block, you are required to provide a ``method`` which is a st
 | Method | Description |
 |--------|-------------|
 | derivative_order_1 | ![formula](https://render.githubusercontent.com/render/math?math=\|dlnq\/dlnx\|) |
-| derivative_order_2 | $$\frac{(\delta x_i)^2}{q} \left\| \frac{d^2q}{dx_i^2} \right\|$$ Note that, as programmed, this quantity is bounded by [0,2). |
+| derivative_order_2 | $$\frac{(\delta x_i)^2}{\|q\|} \left\| \frac{d^2q}{dx_i^2} \right\|$$ Note that, as programmed, this quantity is bounded by [0,2). |
 
 where q is the user selected variable.
 
