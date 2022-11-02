@@ -30,7 +30,10 @@ In each refinement block, you are required to provide a ``method`` which is a st
 ### Predefined Criteria
 | Method | Description |
 |--------|-------------|
-| derivative_order_1 | ![formula](https://render.githubusercontent.com/render/math?math=\|dlnq\/dlnx\|), where q is the user selected variable |
+| derivative_order_1 | ![formula](https://render.githubusercontent.com/render/math?math=\|dlnq\/dlnx\|) |
+| derivative_order_2 | $$\frac{(\delta x_i)^2}{q} \left\| \frac{d^2q}{dx_i^2} \right\|$$ Note that, as programmed, this quantity is bounded by [0,2). |
+
+where q is the user selected variable.
 
 ## Package-specific Criteria
 As a package developer, you can define a tagging function that takes a ``Container`` as an argument and returns an integer in {-1,0,1} to indicate the block should be derefined, left alone, or refined, respectively.  This function should be registered in a ``StateDescriptor`` object by assigning the ``CheckRefinement`` function pointer to point at the packages function.  An example is demonstrated [here](../example/calculate_pi/pi.cpp).
