@@ -88,7 +88,7 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
   return delta_level;
 }
 
-AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
+AmrTag FirstDerivative(const ParArray3D<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria) {
   const int dim1 = q.GetDim(1);
   const int dim2 = q.GetDim(2);
@@ -107,8 +107,9 @@ AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
     iu = dim1 - 2;
   }
   Real maxd = 0.0;
-  pmb->par_reduce(
-      "refinement first derivative", kl, ku, jl, ju, il, iu,
+  par_reduce(
+      loop_pattern_mdrange_tag, "refinement first derivative", DevExecSpace(),
+      kl, ku, jl, ju, il, iu,
       KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real scale = std::abs(q(k, j, i));
         Real d =

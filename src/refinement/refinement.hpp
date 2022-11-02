@@ -38,7 +38,7 @@ TaskStatus Tag(T *rc);
 
 AmrTag CheckAllRefinement(MeshBlockData<Real> *rc);
 
-AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
+AmrTag FirstDerivative(const ParArray3D<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria);
 
 } // namespace Refinement

@@ -37,6 +37,9 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
     std::cerr << "Error in " << block_name << ": no field set" << std::endl;
     exit(1);
   }
+  comp6 = pin->GetOrAddInteger(block_name, "comp6", 0);
+  comp5 = pin->GetOrAddInteger(block_name, "comp5", 0);
+  comp4 = pin->GetOrAddInteger(block_name, "comp4", 0);
   refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5);
   derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
   int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1);
@@ -55,14 +58,14 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
 }
 
 AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
-  ParArrayND<Real> q;
   if (!rc->HasCellVariable(field) || !rc->IsAllocated(field)) {
     return AmrTag::same;
   }
 
-  q = rc->Get(field).data;
+  auto q = rc->Get(field).data.Slice(comp6, comp5, comp4,
+                                     Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  return Refinement::FirstDerivative(pmb.get(), q, refine_criteria, derefine_criteria);
+  return Refinement::FirstDerivative(q, refine_criteria, derefine_criteria);
 }
 
 } // namespace parthenon

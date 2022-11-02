@@ -30,6 +30,7 @@ struct AMRCriteria {
   std::string field;
   Real refine_criteria, derefine_criteria;
   int max_level;
+  int comp6, comp5, comp4;
   static std::shared_ptr<AMRCriteria>
   MakeAMRCriteria(std::string &criteria, ParameterInput *pin, std::string &block_name);
 };

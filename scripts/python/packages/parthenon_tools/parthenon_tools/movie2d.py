@@ -104,7 +104,7 @@ if __name__ == "__main__":
     for f in files:
         data = read(f)
         print(data)
-        q = data.Get(field, False, not debug_plot)
+        q = data.Get(field, False, not debug_plot)[:,0,:,:,:]
         name = str(dump_id).rjust(4, "0") + ".png"
         if debug_plot:
             plot_dump(
