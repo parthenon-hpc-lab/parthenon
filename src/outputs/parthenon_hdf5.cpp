@@ -838,12 +838,14 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     local_count[2] = global_count[2] = nx5;
     local_count[3] = global_count[3] = nx4;
 
-    std::vector<hsize_t> alldims({nx6, nx5, nx4, nx3, nx2, nx1});
+    std::vector<hsize_t> alldims({nx6, nx5, nx4, static_cast<hsize_t>(nx3), static_cast<hsize_t>(nx2), static_cast<hsize_t>(nx1)});
 
     int ndim = -1;
     if (vinfo.where == MetadataFlag(Metadata::Cell)) {
       ndim = 3 + vinfo.ndim;
-      for (int i = 0;
+      for (int i = 0; i < vinfo.ndim; i++) {
+        local_count[1 + i] = alldims[3 - ndim + i];
+      }
       local_count[ndim + 1] = nx3;
       local_count[ndim + 2] = nx2;
       local_count[ndim + 3] = nx1;

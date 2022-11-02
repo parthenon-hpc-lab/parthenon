@@ -128,7 +128,7 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
     // classes add the +1's where needed.  They all expect
     // these dimensions to be the number of cells in each
     // direction, NOT the size of the arrays
-    assert(N >= 1 && N <= 3);
+    assert(N >= 0 && N <= 3);
     PARTHENON_REQUIRE_THROWS(!wpmb.expired(),
                              "Cannot determine array dimensions for mesh-tied entity "
                              "without a valid meshblock");

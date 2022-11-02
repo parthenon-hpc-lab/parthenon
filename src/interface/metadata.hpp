@@ -225,7 +225,7 @@ class Metadata {
     // check shape is valid
     // TODO(JL) Should we be extra pedantic and check that shape matches Vector/Tensor
     // flags?
-    PARTHENON_REQUIRE_THROWS(shape_.size() > 0, "Shape must have at least rank 1");
+    PARTHENON_REQUIRE_THROWS(shape_.size() >= 0, "Shape must have at least rank 0");
     if (IsMeshTied()) {
       PARTHENON_REQUIRE_THROWS(
           shape_.size() <= 3,
