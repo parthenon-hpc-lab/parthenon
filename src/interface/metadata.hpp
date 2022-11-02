@@ -196,7 +196,7 @@ class Metadata {
 
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
-  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {1},
+  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
            const std::vector<std::string> &component_labels = {},
            const std::string &associated = "")
       : shape_(shape), component_labels_(component_labels), associated_(associated) {

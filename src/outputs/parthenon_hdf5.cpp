@@ -202,6 +202,8 @@ struct VarInfo {
   int nx6;
   int nx5;
   int nx4;
+  int ndim; // 1-, 2-, or 3-D
+  MetadataFlag where;
   bool is_sparse;
   bool is_vector;
   std::vector<std::string> component_labels;
@@ -209,9 +211,15 @@ struct VarInfo {
   VarInfo() = delete;
 
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
-          int vlen, int nx6, int nx5, int nx4, bool is_sparse, bool is_vector)
-      : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), is_sparse(is_sparse),
+          int vlen, int nx6, int nx5, int nx4, Metadata metadata, bool is_sparse, bool is_vector)
+      : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), ndim(metadata.Shape().size()), where(metadata.Where()), is_sparse(is_sparse),
         is_vector(is_vector) {
+          if (ndim > 1) {
+            printf("label: %s\n", label.c_str());
+            for (int i = 0; i < ndim; i++) {
+              printf("  %i\n", metadata.Shape()[i]);
+            }
+          }
     if (vlen <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with length " << vlen
@@ -245,7 +253,7 @@ struct VarInfo {
 
   explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
-                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->IsSparse(),
+                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->metadata(), var->IsSparse(),
                 var->IsSet(Metadata::Vector)) {}
 };
 
@@ -332,7 +340,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   }
   std::string filename_aux = hdfFile + ".xdmf";
   std::ofstream xdmf;
-  hsize_t dims[H5_NDIM] = {0, 0, 0, 0, 0};
+  hsize_t dims[H5_NDIM] = {0, 0, 0, 0, 0, 0, 0};
 
   // open file
   xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
@@ -568,13 +576,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     my_offset += nblist[i];
   }
 
-  const std::array<hsize_t, H5_NDIM> local_offset({my_offset, 0, 0, 0, 0});
+  const std::array<hsize_t, H5_NDIM> local_offset({my_offset, 0, 0, 0, 0, 0, 0});
 
   // these can vary by data set, except index 0 is always the same
   std::array<hsize_t, H5_NDIM> local_count(
-      {static_cast<hsize_t>(num_blocks_local), 1, 1, 1, 1});
+      {static_cast<hsize_t>(num_blocks_local), 1, 1, 1, 1, 1, 1});
   std::array<hsize_t, H5_NDIM> global_count(
-      {static_cast<hsize_t>(max_blocks_global), 1, 1, 1, 1});
+      {static_cast<hsize_t>(max_blocks_global), 1, 1, 1, 1, 1, 1});
 
   // for convenience
   const hsize_t *const p_loc_offset = local_offset.data();
@@ -590,7 +598,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
   if (output_params.hdf5_compression_level > 0) {
     // we need chunks to enable compression
-    const std::array<hsize_t, H5_NDIM> chunk_size({1, 1, static_cast<hsize_t>(nx3),
+    const std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, static_cast<hsize_t>(nx3),
                                                    static_cast<hsize_t>(nx2),
                                                    static_cast<hsize_t>(nx1)});
     PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, H5_NDIM, chunk_size.data()));
@@ -810,9 +818,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // create persistent spaces
   local_count[0] = num_blocks_local;
   global_count[0] = max_blocks_global;
-  local_count[2] = global_count[2] = nx3;
-  local_count[3] = global_count[3] = nx2;
-  local_count[4] = global_count[4] = nx1;
+  local_count[4] = global_count[4] = nx3;
+  local_count[5] = global_count[5] = nx2;
+  local_count[6] = global_count[6] = nx1;
 
   // for each variable we write
   for (auto &vinfo : all_vars_info) {
@@ -824,8 +832,24 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const hsize_t nx6 = vinfo.nx6;
     const hsize_t nx5 = vinfo.nx5;
     const hsize_t nx4 = vinfo.nx4;
+    printf("NDIM: %i\n", vinfo.ndim);
 
-    local_count[1] = global_count[1] = vlen;
+    local_count[1] = global_count[1] = nx6;
+    local_count[2] = global_count[2] = nx5;
+    local_count[3] = global_count[3] = nx4;
+
+    std::vector<hsize_t> alldims({nx6, nx5, nx4, nx3, nx2, nx1});
+
+    int ndim = -1;
+    if (vinfo.where == MetadataFlag(Metadata::Cell)) {
+      ndim = 3 + vinfo.ndim;
+      for (int i = 0;
+      local_count[ndim + 1] = nx3;
+      local_count[ndim + 2] = nx2;
+      local_count[ndim + 3] = nx1;
+    } else {
+      ndim = vinfo.ndim;
+    }
 
     // load up data
     hsize_t index = 0;
@@ -880,7 +904,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
 
     // write data to file
-    HDF5WriteND(file, var_name, tmpData.data(), H5_NDIM, p_loc_offset, p_loc_cnt,
+    //HDF5WriteND(file, var_name, tmpData.data(), H5_NDIM, p_loc_offset, p_loc_cnt,
+    HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt,
                 p_glob_cnt, pl_xfer, pl_dcreate);
   }
 
