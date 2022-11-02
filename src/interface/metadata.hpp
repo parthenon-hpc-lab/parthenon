@@ -100,7 +100,9 @@
   /** Do boundary communication */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(FillGhost)                                                 \
   /** does variable have fluxes */                                                       \
-  PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)
+  PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)                                                \
+  /** the variable needs to be communicated across ranks during remeshing */             \
+  PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)
 namespace parthenon {
 
 namespace internal {
