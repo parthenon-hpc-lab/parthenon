@@ -67,9 +67,39 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField("Ulz", m);
   pkg->AddField("Urz", m);
 
+  // a derived variable
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+  pkg->AddField("derived", m);
+
   pkg->EstimateTimestepMesh = EstimateTimestepMesh;
+  pkg->FillDerivedMesh = CalculateDerived;
 
   return pkg;
+}
+
+void CalculateDerived(MeshData<Real> *md) {
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior);
+
+  std::vector<std::string> vars({"derived", "U"});
+  auto &v = md->PackVariables(vars);
+  const int nblocks = md->NumBlocks();
+  size_t scratch_size = 0;
+  constexpr int scratch_level = 0;
+  parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, "CalculateDerived", DevExecSpace(),
+    scratch_size, scratch_level, 0, nblocks-1, kb.s, kb.e, jb.s, jb.e,
+    KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k, const int j) {
+      Real *out = &v(b, 0, k, j, 0);
+      Real *u1 = &v(b, 1, k, j, 0);
+      Real *u2 = &v(b, 2, k, j, 0);
+      Real *u3 = &v(b, 3, k, j, 0);
+      Real *d = &v(b, 4, k, j, 0);
+      parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, ib.s, ib.e,
+        [=](const int i) {
+          out[i] = 0.5 * d[i] * (u1[i]*u1[i] + u2[i]*u2[i] + u3[i]*u3[i]);
+        });
+    });
 }
 
 // provide the routine that estimates a stable timestep for this package

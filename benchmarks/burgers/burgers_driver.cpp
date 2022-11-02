@@ -125,8 +125,10 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
         tl.AddTask(recv_local, parthenon::cell_centered_bvars::SetBounds<local>, mc1);
 
     auto recv = tl.AddTask(
-        update, parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>, mc1);
+        start_bnd | update, parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>, mc1);
     auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<nonlocal>, mc1);
+
+    auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
 
     if (pmesh->multilevel) {
       tl.AddTask(set | set_local,

@@ -21,6 +21,7 @@ namespace burgers_package {
 using namespace parthenon::package::prelude;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+void CalculateDerived(MeshData<Real> *md);
 Real EstimateTimestepMesh(MeshData<Real> *md);
 TaskStatus CalculateFluxes(MeshData<Real> *md);
 

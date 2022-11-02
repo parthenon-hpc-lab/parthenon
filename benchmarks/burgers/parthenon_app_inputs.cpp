@@ -63,16 +63,16 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
         auto quad = [=](Real a) {
           a -= 0.5;
-          return a*a;
+          return 4.0*a*a;
         };
         auto cube = [=](Real a) {
           a -= 0.5;
           return 4*a*a*a + 0.5;
         };
 
-        q(0, k, j, i) = 6.0*quad(x)*cube(y)*cube(z);//+yterm;//xterm*xterm * yterm*yterm * zterm*zterm;
-        q(1, k, j, i) = 6.0*cube(x)*quad(y)*cube(z);//xterm-yterm;///yterm * xterm*xterm * zterm*zterm;
-        q(2, k, j, i) = 6.0*cube(x)*cube(y)*quad(z);//zterm * xterm*xterm * yterm*yterm;
+        q(0, k, j, i) = 1.5*quad(x)*cube(y)*cube(z);
+        q(1, k, j, i) = 1.5*cube(x)*quad(y)*cube(z);
+        q(2, k, j, i) = 1.5*cube(x)*cube(y)*quad(z);
 
         for (int n = 3; n < num_vars; n++) {
           q(n, k, j, i) = 1.0;
