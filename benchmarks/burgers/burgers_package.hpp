@@ -27,22 +27,17 @@ TaskStatus CalculateFluxes(MeshData<Real> *md);
 
 // compute the hll flux for Burgers' equation
 KOKKOS_INLINE_FUNCTION
-void lr_to_flux(const Real uxl, const Real uxr,
-                const Real uyl, const Real uyr,
-                const Real uzl, const Real uzr,
-                const Real upl, const Real upr,
-                Real &sl, Real &sr,
-                Real &fux, Real &fuy, Real &fuz) {
-  sl = std::min(std::min(upl,upr), 0.0);
-  sr = std::max(std::max(upl,upr), 0.0);
-  const Real islsr = 1.0 / (sr - sl + (sl*sr == 0.0));
-  
-  fux = 0.5 * (sr * uxl * upl - sl * uxr * upr + sl*sr*(uxr - uxl)) * islsr;
-  fuy = 0.5 * (sr * uyl * upl - sl * uyr * upr + sl*sr*(uyr - uyl)) * islsr;
-  fuz = 0.5 * (sr * uzl * upl - sl * uzr * upr + sl*sr*(uzr - uzl)) * islsr;
+void lr_to_flux(const Real uxl, const Real uxr, const Real uyl, const Real uyr,
+                const Real uzl, const Real uzr, const Real upl, const Real upr, Real &sl,
+                Real &sr, Real &fux, Real &fuy, Real &fuz) {
+  sl = std::min(std::min(upl, upr), 0.0);
+  sr = std::max(std::max(upl, upr), 0.0);
+  const Real islsr = 1.0 / (sr - sl + (sl * sr == 0.0));
+
+  fux = 0.5 * (sr * uxl * upl - sl * uxr * upr + sl * sr * (uxr - uxl)) * islsr;
+  fuy = 0.5 * (sr * uyl * upl - sl * uyr * upr + sl * sr * (uyr - uyl)) * islsr;
+  fuz = 0.5 * (sr * uzl * upl - sl * uzr * upr + sl * sr * (uzr - uzl)) * islsr;
 }
-
-
 
 } // namespace burgers_package
 

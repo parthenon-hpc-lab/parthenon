@@ -24,18 +24,18 @@ constexpr Real w5alpha[3][3] = {{1.0 / 3.0, -7.0 / 6.0, 11.0 / 6.0},
                                 {1.0 / 3.0, 5.0 / 6.0, -1.0 / 6.0}};
 constexpr Real w5gamma[3] = {0.1, 0.6, 0.3};
 constexpr Real eps = 1e-100;
-constexpr Real thirteen_thirds = 13.0/3.0;
+constexpr Real thirteen_thirds = 13.0 / 3.0;
 
 KOKKOS_INLINE_FUNCTION
 Real mc(const Real dm, const Real dp) {
-  const Real dc = (dm*dp > 0.0) * 0.5 * (dm + dp);
-  return std::copysign(std::min(std::fabs(dc),2.0*std::min(std::fabs(dm),std::fabs(dp))), dc);
+  const Real dc = (dm * dp > 0.0) * 0.5 * (dm + dp);
+  return std::copysign(
+      std::min(std::fabs(dc), 2.0 * std::min(std::fabs(dm), std::fabs(dp))), dc);
 }
-
 
 KOKKOS_INLINE_FUNCTION
 void WENO5Z(const Real q0, const Real q1, const Real q2, const Real q3, const Real q4,
-            Real  &ql, Real &qr) {
+            Real &ql, Real &qr) {
 
   Real a = q0 - 2 * q1 + q2;
   Real b = q0 - 4.0 * q1 + 3.0 * q2;
@@ -56,21 +56,27 @@ void WENO5Z(const Real q0, const Real q1, const Real q2, const Real q3, const Re
   Real w1 = w5gamma[1] * beta1 + eps;
   Real w2 = w5gamma[2] * beta2 + eps;
   Real wsum = 1.0 / (w0 + w1 + w2);
-  ql  = w0 * (w5alpha[0][0] * q0 + w5alpha[0][1] * q1 + w5alpha[0][2] * q2);
+  ql = w0 * (w5alpha[0][0] * q0 + w5alpha[0][1] * q1 + w5alpha[0][2] * q2);
   ql += w1 * (w5alpha[1][0] * q1 + w5alpha[1][1] * q2 + w5alpha[1][2] * q3);
   ql += w2 * (w5alpha[2][0] * q2 + w5alpha[2][1] * q3 + w5alpha[2][2] * q4);
   ql *= wsum;
-  const Real alpha_l = 3.0 * wsum * w0 * w1 * w2/(w5gamma[2]*w0*w1 + w5gamma[1]*w0*w2 + w5gamma[0]*w1*w2) + eps;
+  const Real alpha_l =
+      3.0 * wsum * w0 * w1 * w2 /
+          (w5gamma[2] * w0 * w1 + w5gamma[1] * w0 * w2 + w5gamma[0] * w1 * w2) +
+      eps;
 
   w0 = w5gamma[0] * beta2 + eps;
   w1 = w5gamma[1] * beta1 + eps;
   w2 = w5gamma[2] * beta0 + eps;
   wsum = 1.0 / (w0 + w1 + w2);
-  qr  = w0 * (w5alpha[0][0] * q4 + w5alpha[0][1] * q3 + w5alpha[0][2] * q2);
+  qr = w0 * (w5alpha[0][0] * q4 + w5alpha[0][1] * q3 + w5alpha[0][2] * q2);
   qr += w1 * (w5alpha[1][0] * q3 + w5alpha[1][1] * q2 + w5alpha[1][2] * q1);
   qr += w2 * (w5alpha[2][0] * q2 + w5alpha[2][1] * q1 + w5alpha[2][2] * q0);
   qr *= wsum;
-  const Real alpha_r = 3.0 * wsum * w0 * w1 * w2/(w5gamma[2]*w0*w1 + w5gamma[1]*w0*w2 + w5gamma[0]*w1*w2) + eps;
+  const Real alpha_r =
+      3.0 * wsum * w0 * w1 * w2 /
+          (w5gamma[2] * w0 * w1 + w5gamma[1] * w0 * w2 + w5gamma[0] * w1 * w2) +
+      eps;
 
   Real dq = q3 - q2;
   dq = 0.5 * mc(q2 - q1, dq);

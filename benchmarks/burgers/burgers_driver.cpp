@@ -88,16 +88,18 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     const auto any = parthenon::BoundaryType::any;
 
-    auto start_bnd = tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
-    auto start_flx_recv = tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+    auto start_bnd =
+        tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
+    auto start_flx_recv = tl.AddTask(
+        none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
 
     // this is the main task where most of the real work is done
     auto flx = tl.AddTask(none, burgers_package::CalculateFluxes, mc0.get());
 
     auto send_flx =
         tl.AddTask(flx, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
-    auto recv_flx =
-        tl.AddTask(start_flx_recv, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
+    auto recv_flx = tl.AddTask(
+        start_flx_recv, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
     auto set_flx =
         tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
 
@@ -124,8 +126,9 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     auto set_local =
         tl.AddTask(recv_local, parthenon::cell_centered_bvars::SetBounds<local>, mc1);
 
-    auto recv = tl.AddTask(
-        start_bnd | update, parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>, mc1);
+    auto recv =
+        tl.AddTask(start_bnd | update,
+                   parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>, mc1);
     auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<nonlocal>, mc1);
 
     auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
@@ -136,8 +139,7 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     }
     // estimate next time step
     if (stage == integrator->nstages) {
-      auto new_dt =
-          tl.AddTask(update, EstimateTimestep<MeshData<Real>>, mc1.get());
+      auto new_dt = tl.AddTask(update, EstimateTimestep<MeshData<Real>>, mc1.get());
     }
   }
 
