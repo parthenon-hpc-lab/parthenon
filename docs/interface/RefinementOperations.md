@@ -10,7 +10,7 @@ interpolation with minmod limiting for prolongation.
 
 A user may define their own prolongation and restriction
 operations. To do so, you must define a struct, templated on
-dimension, with a void method `Do` with tthe following signature:
+dimension, containing only a void function `Do` with the following signature:
 
 ```C++
 KOKKOS_FORCEINLINE_FUNCTION static void
@@ -22,11 +22,11 @@ Do(const int l, const int m, const int n, const int ck, const int cj, const int 
 ```
 
 where `l`, `m`, `n` are the indices of a variable object not tied to
-mesh (for example the tensor indices of a rank 3 tensor). `ck`, `cj`,
+mesh (for example the tensor indices of a rank 3 tensor, or 0,0,0 for a scalar). `ck`, `cj`,
 and `ci` are `k`, `j`, and `i` indices of the cell on the coarse
 buffer. `ckb`, `cjb`, `cib` are the `k`, `j`, and `i` indexrange
 bounds for the coarse buffer. `kb`, `jb`, and `ib` are the same but on
-teh fine buffer. `coords` and `coarse_coords` are the coordinates
+the fine buffer. `coords` and `coarse_coords` are the coordinates
 objects on the coarse and fine buffers, and `pcoarse` and `pfine` are
 pointers to the coarse and fine data for a variable on a given
 meshblock.

@@ -174,16 +174,16 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // TODO(LFR): vars_cc_ sets what variables are communicated across
   // ranks during remeshing, so we want to be able to explicitly flag
-  // variables that need to be communicated using `Metadata::RemeshComm`.
+  // variables that need to be communicated using `Metadata::ForceRemeshComm`.
   // In the future, this needs to be cleaned up since `vars_cc_` is
   // potentially used in the load balancing calculation, but not all
   // variables that we may want to communicate are necessarily relevant
   // to the cost per meshblock.
-  const auto vars =
-      real_container
-          ->GetVariablesByFlag(
-              {Metadata::Independent, Metadata::FillGhost, Metadata::RemeshComm}, false)
-          .vars();
+  const auto vars = real_container
+                        ->GetVariablesByFlag({Metadata::Independent, Metadata::FillGhost,
+                                              Metadata::ForceRemeshComm},
+                                             false)
+                        .vars();
   for (int n = 0; n < vars.size(); ++n) {
     RegisterMeshBlockData(vars[n]);
   }

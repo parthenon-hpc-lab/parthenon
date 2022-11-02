@@ -3,7 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 732]](https://github.com/lanl/parthenon/pull/732) Add `Metadata::RemeshComm` flag
+- [[PR 732]](https://github.com/lanl/parthenon/pull/732) Add `Metadata::ForceRemeshComm` flag
 - [[PR 755]](https://github.com/lanl/parthenon/pull/755) Add archive_parameters option to output all parameters to text file at start
 - [[PR 729]](https://github.com/lanl/parthenon/pull/729) Optional modifications to output format
 - [[PR 717]](https://github.com/lanl/parthenon/pull/717) Add ghost zone plotting capability to phdf.py and movie2d.py
@@ -19,7 +19,7 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
-- [[PR 743]](https://github.com/lanl/parthenon/pull/740) Faster PHDF file load times in phdf.py
+- [[PR 740]](https://github.com/lanl/parthenon/pull/740) Faster PHDF file load times in phdf.py
 - [[PR 751]](https://github.com/lanl/parthenon/pull/751) Delete useless file in advection example
 - [[PR 765]](https://github.com/lanl/parthenon/pull/765) Fix incorrect BC labeling in swarm
 - [[PR 759]](https://github.com/lanl/parthenon/pull/759) Add metadata so Visit treats outputs as time series
@@ -31,6 +31,7 @@
 - [[PR 716]](https://github.com/lanl/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 772]](https://github.com/lanl/parthenon/pull/772) Trigger short CI only for PRs and remove old SpaceInstances test
 - [[PR 757]](https://github.com/lanl/parthenon/pull/757) Move to flux correction in-one and unify with bvals 
 - [[PR 768]](https://github.com/lanl/parthenon/pull/768) Update CI image and move to new CI machine (short and extended tests)
 - [[PR 766]](https://github.com/lanl/parthenon/pull/766) Remove IAS performance regression test

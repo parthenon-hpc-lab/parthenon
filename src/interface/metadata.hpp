@@ -104,7 +104,7 @@
   /** does variable have fluxes */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)                                                \
   /** the variable needs to be communicated across ranks during remeshing */             \
-  PARTHENON_INTERNAL_FOR_FLAG(RemeshComm)
+  PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)
 namespace parthenon {
 
 namespace internal {
@@ -376,7 +376,7 @@ class Metadata {
   // Returns true if this variable should do prolongation/restriction
   // and false otherwise.
   bool IsRefined() const {
-    return (IsSet(Independent) || IsSet(FillGhost) || IsSet(RemeshComm));
+    return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm));
   }
 
   const std::vector<int> &Shape() const { return shape_; }

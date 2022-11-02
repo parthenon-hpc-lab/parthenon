@@ -169,7 +169,7 @@ The flux correction routines mirror the boundary routines, except that they do n
 
 ### Non-communication tasks
 
-These tasks use the same infrastructure as the boundary communication machinery but do not communicate
+These tasks use the same infrastructure as the boundary communication machinery but do not communicate.
 
 **`RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset_cache)`**
 - Loops over parts of the mesh with a coarse-fine boundary and
