@@ -23,8 +23,8 @@
 
 // first 2x macros and signal() are the only ISO C features; rest are POSIX C extensions
 #include <csignal>
-#include <iostream>
 #include <filesystem>
+#include <iostream>
 
 #include "parthenon_mpi.hpp"
 
