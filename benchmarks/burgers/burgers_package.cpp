@@ -347,7 +347,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
           Real *fzux = &v(b).flux(X3DIR, 0, k, j, 0);
           Real *fzuy = &v(b).flux(X3DIR, 1, k, j, 0);
           Real *fzuz = &v(b).flux(X3DIR, 2, k, j, 0);
-          uflux_loop(ib.s, ib.e, uxl, uxr, uyl, uyr, uzl, uzr, uyl, uyr, sl, sr, fzux,
+          uflux_loop(ib.s, ib.e, uxl, uxr, uyl, uyr, uzl, uzr, uzl, uzr, sl, sr, fzux,
                      fzuy, fzuz);
           member.team_barrier();
           for (int n = 3; n <= iu_hi; n++) {

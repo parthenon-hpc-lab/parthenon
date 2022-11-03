@@ -22,6 +22,7 @@ problem_id = burgers
 nghost = 4
 refinement = adaptive
 numlevel = 3
+deref_count = 10
 
 nx1 = 64
 x1min = 0
@@ -55,10 +56,11 @@ derefine_tol = 0.2
 
 <parthenon/time>
 nlim = -1
-tlim = 1.0
+tlim = 0.5
 integrator = rk2
 ncycle_out = 10
 ncycle_out_mesh = 100
+perf_cycle_offset = 0
 
 #<parthenon/output1>
 #file_type = rst
@@ -72,3 +74,4 @@ variables = U, derived
 <burgers>
 cfl = 0.8
 recon = weno5
+num_scalars = 1
