@@ -28,8 +28,8 @@
 #ifdef ENABLE_HDF5
 #include <hdf5.h>
 
-#include "outputs/parthenon_hdf5.hpp"
 #include "interface/metadata.hpp"
+#include "outputs/parthenon_hdf5.hpp"
 
 using namespace parthenon::HDF5;
 // TODO(someone) the following "else" is very ugly but fixes missing types when not
@@ -144,8 +144,7 @@ class RestartReader {
   template <typename T>
   void ReadBlocks(const std::string &name, IndexRange range, std::vector<T> &dataVec,
                   const std::vector<size_t> &bsize, int file_output_format_version,
-                  MetadataFlag where,
-                  const std::vector<int> &shape = {}) const {
+                  MetadataFlag where, const std::vector<int> &shape = {}) const {
 #ifndef ENABLE_HDF5
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
@@ -192,12 +191,9 @@ class RestartReader {
     }
 
     hsize_t total_count = 1;
-    printf("name: %s\n", name.c_str());
     for (int i = 0; i < total_dim; ++i) {
       total_count *= count[i];
-      printf("  count[%i] = %i\n", i, count[i]);
     }
-    printf("total_count: %i\n", total_count);
 
     PARTHENON_REQUIRE_THROWS(dataVec.size() >= total_count,
                              "Buffer (size " + std::to_string(dataVec.size()) +

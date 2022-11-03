@@ -211,15 +211,11 @@ struct VarInfo {
   VarInfo() = delete;
 
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
-          int vlen, int nx6, int nx5, int nx4, Metadata metadata, bool is_sparse, bool is_vector)
-      : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), ndim(metadata.Shape().size()), where(metadata.Where()), is_sparse(is_sparse),
+          int vlen, int nx6, int nx5, int nx4, Metadata metadata, bool is_sparse,
+          bool is_vector)
+      : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4),
+        ndim(metadata.Shape().size()), where(metadata.Where()), is_sparse(is_sparse),
         is_vector(is_vector) {
-          if (ndim > 1) {
-            printf("label: %s\n", label.c_str());
-            for (int i = 0; i < ndim; i++) {
-              printf("  %i\n", metadata.Shape()[i]);
-            }
-          }
     if (vlen <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with length " << vlen
@@ -253,8 +249,8 @@ struct VarInfo {
 
   explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
-                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->metadata(), var->IsSparse(),
-                var->IsSet(Metadata::Vector)) {}
+                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->metadata(),
+                var->IsSparse(), var->IsSet(Metadata::Vector)) {}
 };
 
 // XDMF subroutine to write a dataitem that refers to an HDF array
@@ -832,27 +828,24 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const hsize_t nx6 = vinfo.nx6;
     const hsize_t nx5 = vinfo.nx5;
     const hsize_t nx4 = vinfo.nx4;
-    printf("NDIM: %i\n", vinfo.ndim);
 
     local_count[1] = global_count[1] = nx6;
     local_count[2] = global_count[2] = nx5;
     local_count[3] = global_count[3] = nx4;
 
-    std::vector<hsize_t> alldims({nx6, nx5, nx4, static_cast<hsize_t>(nx3), static_cast<hsize_t>(nx2), static_cast<hsize_t>(nx1)});
+    std::vector<hsize_t> alldims({nx6, nx5, nx4, static_cast<hsize_t>(nx3),
+                                  static_cast<hsize_t>(nx2), static_cast<hsize_t>(nx1)});
 
     int ndim = -1;
     if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-      printf("CELL VARIABLE!\n");
       ndim = 3 + vinfo.ndim + 1;
       for (int i = 0; i < vinfo.ndim; i++) {
         local_count[1 + i] = global_count[1 + i] = alldims[3 - vinfo.ndim + i];
-        printf("extradim: alldims[%i] = %i\n", 3-vinfo.ndim + 1, alldims[3-vinfo.ndim+i]);
       }
       local_count[vinfo.ndim + 1] = global_count[vinfo.ndim + 1] = nx3;
       local_count[vinfo.ndim + 2] = global_count[vinfo.ndim + 2] = nx2;
       local_count[vinfo.ndim + 3] = global_count[vinfo.ndim + 3] = nx1;
     } else if (vinfo.where == MetadataFlag(Metadata::None)) {
-      printf("NONE VARIABLE!\n");
       ndim = vinfo.ndim + 1;
       for (int i = 0; i < vinfo.ndim; i++) {
         local_count[1 + i] = global_count[1 + i] = alldims[6 - vinfo.ndim + i];
@@ -860,15 +853,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     } else {
       PARTHENON_THROW("Only Cell and None locations supported!");
     }
-
-    printf("label: %s\n", vinfo.label.c_str());
-    printf("  aldims: %i %i %i %i %i %i\n", alldims[0], alldims[1], alldims[2], alldims[3], alldims[4], alldims[5]);
-    printf("ndim: %i\n", ndim);
-    for (int i = 0; i < ndim; i++) {
-      printf("local_count[%i] = %i  glob: %i\n", i, local_count[i], global_count[i]);
-    }
-
-
 
     // load up data
     hsize_t index = 0;
@@ -923,9 +907,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
 
     // write data to file
-    //HDF5WriteND(file, var_name, tmpData.data(), H5_NDIM, p_loc_offset, p_loc_cnt,
-    HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt,
-                p_glob_cnt, pl_xfer, pl_dcreate);
+    // HDF5WriteND(file, var_name, tmpData.data(), H5_NDIM, p_loc_offset, p_loc_cnt,
+    HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt, p_glob_cnt,
+                pl_xfer, pl_dcreate);
   }
 
   // names of variables
