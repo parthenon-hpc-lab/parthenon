@@ -49,7 +49,7 @@ nx3 = 16
 <parthenon/refinement0>
 method = derivative_order_1
 field = U
-comp4 = 3
+vector_i = 3
 refine_tol = 0.5
 derefine_tol = 0.2
 
@@ -57,7 +57,8 @@ derefine_tol = 0.2
 nlim = -1
 tlim = 1.0
 integrator = rk2
-ncycle_out_mesh = -10000
+ncycle_out = 10
+ncycle_out_mesh = 100
 
 #<parthenon/output1>
 #file_type = rst
@@ -65,8 +66,9 @@ ncycle_out_mesh = -10000
 
 <parthenon/output0>
 file_type = hdf5
-dt = 0.02
-variables = U
+dt = 1.0
+variables = U, derived
 
 <burgers>
 cfl = 0.8
+recon = weno5

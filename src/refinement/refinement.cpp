@@ -90,11 +90,11 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
 
 AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria) {
-  const int ndim = 1 + (bnds.je>bnds.js) + (bnds.ke>bnds.ks);
+  const int ndim = 1 + (bnds.je > bnds.js) + (bnds.ke > bnds.ks);
   Real maxd = 0.0;
   par_reduce(
-      loop_pattern_mdrange_tag, "refinement first derivative", DevExecSpace(),
-      bnds.ks, bnds.ke, bnds.js, bnds.je, bnds.is, bnds.ie,
+      loop_pattern_mdrange_tag, "refinement first derivative", DevExecSpace(), bnds.ks,
+      bnds.ke, bnds.js, bnds.je, bnds.is, bnds.ie,
       KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real scale = std::abs(q(k, j, i));
         Real d =

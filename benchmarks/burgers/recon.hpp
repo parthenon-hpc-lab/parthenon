@@ -19,7 +19,7 @@ using parthenon::Real;
 
 namespace recon {
 
-enum class ReconType {WENO5, Linear};
+enum class ReconType { WENO5, Linear };
 
 KOKKOS_INLINE_FUNCTION
 Real mc(const Real dm, const Real dp) {

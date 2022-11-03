@@ -51,13 +51,18 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   if (recon_string == "weno5") {
     recon_type = recon::ReconType::WENO5;
     int nghost = pin->GetInteger("parthenon/mesh", "nghost");
-    PARTHENON_REQUIRE_THROWS(nghost >= 4, "weno5 reconstruction requires 4 or more ghost cells.  Set <parthenon/mesh>/nghost = 4");
+    PARTHENON_REQUIRE_THROWS(nghost >= 4, "weno5 reconstruction requires 4 or more ghost "
+                                          "cells.  Set <parthenon/mesh>/nghost = 4");
   } else if (recon_string == "linear") {
     recon_type = recon::ReconType::Linear;
     int nghost = pin->GetInteger("parthenon/mesh", "nghost");
-    if (nghost > 2) PARTHENON_WARN("Using more ghost cells than required.  Consider setting <parthenon/mesh>/nghost = 2");
+    if (nghost > 2)
+      PARTHENON_WARN("Using more ghost cells than required.  Consider setting "
+                     "<parthenon/mesh>/nghost = 2");
   } else {
-    std::string msg = recon_string + " is an invalid option for <burgers>/recon.  Valid options are weno5 and linear.";
+    std::string msg =
+        recon_string +
+        " is an invalid option for <burgers>/recon.  Valid options are weno5 and linear.";
     PARTHENON_THROW(msg);
   }
   pkg->AddParam("recon_type", recon_type);
@@ -177,7 +182,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   const int iury_lo = imap["Ury"].first;
   const int iulz_lo = imap["Ulz"].first;
   const int iurz_lo = imap["Urz"].first;
-  
+
   auto &params = pm->packages.Get("burgers_package")->AllParams();
   const auto recon_type = params.Get<recon::ReconType>("recon_type");
 
@@ -210,28 +215,28 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
             if (xrec) {
               Real *pql = &v(b, iulx_lo + n, k, j, 1);
               Real *pqr = &v(b, iurx_lo + n, k, j, 0);
-              recon_loop(ib.s - 1, ib.e + 1, pq-2, pq-1, pq, pq+1, pq+2, pql, pqr);
+              recon_loop(ib.s - 1, ib.e + 1, pq - 2, pq - 1, pq, pq + 1, pq + 2, pql,
+                         pqr);
             }
             if (yrec) {
               Real *pql = &v(b, iuly_lo + n, k, j + 1, 0);
               Real *pqr = &v(b, iury_lo + n, k, j, 0);
               recon_loop(ib.s, ib.e, &v(b, n, k, j - 2, 0), &v(b, n, k, j - 1, 0), pq,
-                        &v(b, n, k, j + 1, 0), &v(b, n, k, j + 2, 0), pql, pqr);
+                         &v(b, n, k, j + 1, 0), &v(b, n, k, j + 2, 0), pql, pqr);
             }
             if (zrec) {
               Real *pql = &v(b, iulz_lo + n, k + 1, j, 0);
               Real *pqr = &v(b, iurz_lo + n, k, j, 0);
               recon_loop(ib.s, ib.e, &v(b, n, k - 2, j, 0), &v(b, n, k - 1, j, 0), pq,
-                        &v(b, n, k + 1, j, 0), &v(b, n, k + 2, j, 0), pql, pqr);
+                         &v(b, n, k + 1, j, 0), &v(b, n, k + 2, j, 0), pql, pqr);
             }
           }
         } else {
-          auto recon_loop = [&](const int s, const int e, Real *m1, Real *c,
-                                Real *p1, Real *l, Real *r) {
+          auto recon_loop = [&](const int s, const int e, Real *m1, Real *c, Real *p1,
+                                Real *l, Real *r) {
             parthenon::par_for_inner(
-                DEFAULT_INNER_LOOP_PATTERN, member, s, e, [=](const int i) {
-                  recon::Linear(m1[i], c[i], p1[i], l[i], r[i]);
-                });
+                DEFAULT_INNER_LOOP_PATTERN, member, s, e,
+                [=](const int i) { recon::Linear(m1[i], c[i], p1[i], l[i], r[i]); });
           };
 
           for (int n = iu_lo; n <= iu_hi; n++) {
@@ -239,7 +244,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
             if (xrec) {
               Real *pql = &v(b, iulx_lo + n, k, j, 1);
               Real *pqr = &v(b, iurx_lo + n, k, j, 0);
-              recon_loop(ib.s - 1, ib.e + 1, pq-1, pq, pq+1, pql, pqr);
+              recon_loop(ib.s - 1, ib.e + 1, pq - 1, pq, pq + 1, pql, pqr);
             }
             if (yrec) {
               Real *pql = &v(b, iuly_lo + n, k, j + 1, 0);
@@ -254,7 +259,6 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
                          pql, pqr);
             }
           }
-
         }
       });
 
