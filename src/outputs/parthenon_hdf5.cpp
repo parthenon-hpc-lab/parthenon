@@ -851,12 +851,14 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       local_count[vinfo.ndim + 1] = global_count[vinfo.ndim + 1] = nx3;
       local_count[vinfo.ndim + 2] = global_count[vinfo.ndim + 2] = nx2;
       local_count[vinfo.ndim + 3] = global_count[vinfo.ndim + 3] = nx1;
-    } else {
+    } else if (vinfo.where == MetadataFlag(Metadata::None)) {
       printf("NONE VARIABLE!\n");
       ndim = vinfo.ndim + 1;
       for (int i = 0; i < vinfo.ndim; i++) {
         local_count[1 + i] = global_count[1 + i] = alldims[6 - vinfo.ndim + i];
       }
+    } else {
+      PARTHENON_THROW("Only Cell and None locations supported!");
     }
 
     printf("label: %s\n", vinfo.label.c_str());

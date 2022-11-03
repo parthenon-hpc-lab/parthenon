@@ -235,7 +235,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     // Being extra stringent here so that we don't forget to update the machinery when
     // another change happens.
     PARTHENON_REQUIRE_THROWS(
-        HDF5::OUTPUT_VERSION_FORMAT == 2,
+        HDF5::OUTPUT_VERSION_FORMAT == 3,
         "Auto conversion from old to current format not implemented yet.")
     if (Globals::my_rank == 0) {
       PARTHENON_WARN("Restarting from a old output file format. New outputs written with "
@@ -306,7 +306,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     if (Globals::my_rank == 0) std::cout << "Var:" << label << ":" << vlen << std::endl;
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
-      resfile.ReadBlocks(label, myBlocks, tmp, bsize, file_output_format_ver, vlen);
+      resfile.ReadBlocks(label, myBlocks, tmp, bsize, file_output_format_ver, v_info->metadata().Where(),
+        v_info->metadata().Shape());
     } catch (std::exception &ex) {
       std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
                 << label << " from restart file:" << std::endl
