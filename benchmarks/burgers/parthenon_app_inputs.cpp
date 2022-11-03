@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -55,7 +55,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   pmb->par_for(
       "Burgers::ProblemGenerator", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        // U should be initialized as the gradient of some potential function
         const Real x = coords.x1v(i);
         const Real y = coords.x2v(j);
         const Real z = coords.x3v(k);
@@ -64,18 +63,15 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           a -= 0.5;
           return -4.0 * a * a + 1;
         };
-        auto cube = [=](Real a) {
-          a -= 0.5;
-          return 4 * a * a * a + 0.5;
-        };
         const Real qx = quad(x);
         const Real qy = quad(y);
         const Real qz = quad(z);
-        const Real qxyz = qx*qy*qz;
-        q(0, k, j, i) = (-x+y+z) * qxyz + 0.3;//1.5 * quad(x) * cube(y) * cube(z);
-        q(1, k, j, i) = (x-y+z) * qxyz + 0.3;//1.5 * cube(x) * quad(y) * cube(z);
-        q(2, k, j, i) = (x+y-z) * qxyz + 0.3;//1.5 * cube(x) * cube(y) * quad(z);
+        const Real qxyz = qx * qy * qz;
+        q(0, k, j, i) = (-x + y + z) * qxyz + 0.3;
+        q(1, k, j, i) = (x - y + z) * qxyz + 0.3;
+        q(2, k, j, i) = (x + y - z) * qxyz + 0.3;
 
+        // just initialize all the scalars to 1
         for (int n = 3; n < num_vars; n++) {
           q(n, k, j, i) = 1.0;
         }

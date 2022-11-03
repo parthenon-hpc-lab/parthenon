@@ -3,7 +3,7 @@
 #  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-#  (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -21,7 +21,7 @@ problem_id = burgers
 <parthenon/mesh>
 nghost = 4
 refinement = adaptive
-numlevel = 3
+numlevel = 5
 deref_count = 10
 
 nx1 = 64
@@ -56,19 +56,15 @@ derefine_tol = 0.2
 
 <parthenon/time>
 nlim = -1
-tlim = 0.5
+tlim = 0.4
 integrator = rk2
 ncycle_out = 10
 ncycle_out_mesh = 100
 perf_cycle_offset = 0
 
-#<parthenon/output1>
-#file_type = rst
-#dt = 0.05
-
 <parthenon/output0>
 file_type = hdf5
-dt = 1.0
+dt = -0.4
 variables = U, derived
 
 <burgers>
