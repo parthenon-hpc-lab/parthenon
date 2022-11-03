@@ -50,7 +50,7 @@ constexpr int nsignal = 3;
 static volatile int signalflag[nsignal + 1];
 
 // Immediately throw upon receiving 3+ SIGINT without clearing them
-static int SIGINTS_BEFORE_THROW = 3;
+const int SIGINTS_BEFORE_THROW = 3;
 
 static sigset_t mask;
 void SignalHandlerInit();
