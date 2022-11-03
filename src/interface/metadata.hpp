@@ -272,14 +272,6 @@ class Metadata {
   bool IsValid(bool throw_on_fail = false) const {
     bool valid = true;
 
-    // No empty shapes for variables not tied to mesh
-    if (shape_.size() == 0 && CountSet({None}) == 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Must specify non-empty Shape if variable is not tied to mesh");
-      }
-    }
-
     // Topology
     if (CountSet({None, Node, Edge, Face, Cell}) != 1) {
       valid = false;
