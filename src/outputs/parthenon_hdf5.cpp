@@ -842,16 +842,31 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     int ndim = -1;
     if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-      ndim = 3 + vinfo.ndim;
+      printf("CELL VARIABLE!\n");
+      ndim = 3 + vinfo.ndim + 1;
       for (int i = 0; i < vinfo.ndim; i++) {
-        local_count[1 + i] = alldims[3 - ndim + i];
+        local_count[1 + i] = global_count[1 + i] = alldims[3 - vinfo.ndim + i];
+        printf("extradim: alldims[%i] = %i\n", 3-vinfo.ndim + 1, alldims[3-vinfo.ndim+i]);
       }
-      local_count[ndim + 1] = nx3;
-      local_count[ndim + 2] = nx2;
-      local_count[ndim + 3] = nx1;
+      local_count[vinfo.ndim + 1] = global_count[vinfo.ndim + 1] = nx3;
+      local_count[vinfo.ndim + 2] = global_count[vinfo.ndim + 2] = nx2;
+      local_count[vinfo.ndim + 3] = global_count[vinfo.ndim + 3] = nx1;
     } else {
-      ndim = vinfo.ndim;
+      printf("NONE VARIABLE!\n");
+      ndim = vinfo.ndim + 1;
+      for (int i = 0; i < vinfo.ndim; i++) {
+        local_count[1 + i] = global_count[1 + i] = alldims[6 - vinfo.ndim + i];
+      }
     }
+
+    printf("label: %s\n", vinfo.label.c_str());
+    printf("  aldims: %i %i %i %i %i %i\n", alldims[0], alldims[1], alldims[2], alldims[3], alldims[4], alldims[5]);
+    printf("ndim: %i\n", ndim);
+    for (int i = 0; i < ndim; i++) {
+      printf("local_count[%i] = %i  glob: %i\n", i, local_count[i], global_count[i]);
+    }
+
+
 
     // load up data
     hsize_t index = 0;
