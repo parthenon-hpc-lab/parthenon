@@ -274,7 +274,7 @@ class Metadata {
     bool valid = true;
 
     // No empty shapes for variables not tied to mesh
-    if (shape.size() == 0 && CountSet({None}) == 1) {
+    if (shape_.size() == 0 && CountSet({None}) == 1) {
       valid = false;
       if (throw_on_fail) {
         PARTHENON_THROW("Must specify non-empty Shape if variable is not tied to mesh");
