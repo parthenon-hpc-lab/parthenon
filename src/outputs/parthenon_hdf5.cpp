@@ -591,18 +591,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // Never write fill values to the dataset
   PARTHENON_HDF5_CHECK(H5Pset_fill_time(pl_dcreate, H5D_FILL_TIME_NEVER));
 
-#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
-  if (output_params.hdf5_compression_level > 0) {
-    // we need chunks to enable compression
-    const std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, static_cast<hsize_t>(nx3),
-                                                   static_cast<hsize_t>(nx2),
-                                                   static_cast<hsize_t>(nx1)});
-    PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, H5_NDIM, chunk_size.data()));
-    PARTHENON_HDF5_CHECK(
-        H5Pset_deflate(pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
-  }
-#endif
-
 #ifdef MPI_PARALLEL
   PARTHENON_HDF5_CHECK(H5Pset_dxpl_mpio(pl_xfer, H5FD_MPIO_COLLECTIVE));
 #endif
@@ -845,11 +833,37 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       local_count[vinfo.ndim + 1] = global_count[vinfo.ndim + 1] = nx3;
       local_count[vinfo.ndim + 2] = global_count[vinfo.ndim + 2] = nx2;
       local_count[vinfo.ndim + 3] = global_count[vinfo.ndim + 3] = nx1;
+
+#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
+      if (output_params.hdf5_compression_level > 0) {
+        // we need chunks to enable compression
+        const std::array<hsize_t, H5_NDIM> chunk_size(
+            {1, 1, 1, 1, static_cast<hsize_t>(nx3), static_cast<hsize_t>(nx2),
+             static_cast<hsize_t>(nx1)});
+        PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, ndim, chunk_size.data()));
+        PARTHENON_HDF5_CHECK(H5Pset_deflate(
+            pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
+      }
+#endif
     } else if (vinfo.where == MetadataFlag(Metadata::None)) {
       ndim = vinfo.ndim + 1;
       for (int i = 0; i < vinfo.ndim; i++) {
         local_count[1 + i] = global_count[1 + i] = alldims[6 - vinfo.ndim + i];
       }
+
+#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
+      if (output_params.hdf5_compression_level > 0) {
+        // we need chunks to enable compression
+        std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, 1, 1, 1});
+        for (int i = 0; i < std::min<int>(vinfo.ndim, 3); i++) {
+          chunk_size[7 - i] = alldims[i];
+        }
+
+        PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, ndim, chunk_size.data()));
+        PARTHENON_HDF5_CHECK(H5Pset_deflate(
+            pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
+      }
+#endif
     } else {
       PARTHENON_THROW("Only Cell and None locations supported!");
     }
