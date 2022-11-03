@@ -194,6 +194,8 @@ class Metadata {
   // There are 3 optional arguments: shape, component_labels, and associated, so we'll
   // need 8 constructors to provide all possible variants
 
+  // By default shape is empty; this corresponds to scalar data on the mesh
+
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
@@ -270,6 +272,14 @@ class Metadata {
   // is true, throw a descriptive exception when invalid
   bool IsValid(bool throw_on_fail = false) const {
     bool valid = true;
+
+    // No empty shapes for variables not tied to mesh
+    if (shape.size() == 0 && CountSet({None}) == 1) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW("Must specify non-empty Shape if variable is not tied to mesh");
+      }
+    }
 
     // Topology
     if (CountSet({None, Node, Edge, Face, Cell}) != 1) {
