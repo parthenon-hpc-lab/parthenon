@@ -24,6 +24,7 @@
 // first 2x macros and signal() are the only ISO C features; rest are POSIX C extensions
 #include <csignal>
 #include <iostream>
+#include <filesystem>
 
 #include "parthenon_mpi.hpp"
 
@@ -61,10 +62,8 @@ void SignalHandlerInit() {
 
 OutputSignal CheckSignalFlags() {
   if (Globals::my_rank == 0) {
-    // TODO(the person bumping std to C++17): use std::filesystem::exists
-    struct stat buffer;
     // if file "output_now" exists
-    if (stat("output_now", &buffer) == 0) {
+    if (std::filesystem::exists("output_now")) {
       signalflag[nsignal] = 1;
     }
   }
@@ -131,15 +130,17 @@ void SetSignalFlag(int s) {
   // Signal handler functions must have C linkage; C++ linkage is implemantation-defined
   switch (s) {
   case SIGTERM:
-    signalflag[ITERM] = 1;
+    signalflag[ITERM] += 1;
     signal(s, SetSignalFlag);
     break;
   case SIGINT:
-    signalflag[IINT] = 1;
+    signalflag[IINT] += 1;
+    if (signalflag[IINT] >= SIGINTS_BEFORE_THROW)
+      PARTHENON_THROW("Terminating immediately on repeated Terminate signal");
     signal(s, SetSignalFlag);
     break;
   case SIGALRM:
-    signalflag[IALRM] = 1;
+    signalflag[IALRM] += 1;
     signal(s, SetSignalFlag);
     break;
   default:
