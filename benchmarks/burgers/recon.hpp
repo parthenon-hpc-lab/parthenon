@@ -19,12 +19,7 @@ using parthenon::Real;
 
 namespace recon {
 
-constexpr Real w5alpha[3][3] = {{1.0 / 3.0, -7.0 / 6.0, 11.0 / 6.0},
-                                {-1.0 / 6.0, 5.0 / 6.0, 1.0 / 3.0},
-                                {1.0 / 3.0, 5.0 / 6.0, -1.0 / 6.0}};
-constexpr Real w5gamma[3] = {0.1, 0.6, 0.3};
-constexpr Real eps = 1e-100;
-constexpr Real thirteen_thirds = 13.0 / 3.0;
+enum class ReconType {WENO5, Linear};
 
 KOKKOS_INLINE_FUNCTION
 Real mc(const Real dm, const Real dp) {
@@ -34,8 +29,22 @@ Real mc(const Real dm, const Real dp) {
 }
 
 KOKKOS_INLINE_FUNCTION
+void Linear(const Real qm, const Real q0, const Real qp, Real &ql, Real &qr) {
+  Real dq = qp - q0;
+  dq = 0.5 * mc(q0 - qm, dq);
+  ql = q0 + dq;
+  qr = q0 - dq;
+}
+
+KOKKOS_INLINE_FUNCTION
 void WENO5Z(const Real q0, const Real q1, const Real q2, const Real q3, const Real q4,
             Real &ql, Real &qr) {
+  constexpr Real w5alpha[3][3] = {{1.0 / 3.0, -7.0 / 6.0, 11.0 / 6.0},
+                                  {-1.0 / 6.0, 5.0 / 6.0, 1.0 / 3.0},
+                                  {1.0 / 3.0, 5.0 / 6.0, -1.0 / 6.0}};
+  constexpr Real w5gamma[3] = {0.1, 0.6, 0.3};
+  constexpr Real eps = 1e-100;
+  constexpr Real thirteen_thirds = 13.0 / 3.0;
 
   Real a = q0 - 2 * q1 + q2;
   Real b = q0 - 4.0 * q1 + 3.0 * q2;

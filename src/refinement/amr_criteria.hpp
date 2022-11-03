@@ -23,8 +23,19 @@ namespace parthenon {
 
 class ParameterInput;
 
+struct AMRBounds {
+  AMRBounds(const IndexRange &ib, const IndexRange &jb, const IndexRange &kb)
+    : is(ib.s-(ib.e!=ib.s)),
+      ie(ib.e+(ib.e!=ib.s)),
+      js(jb.s-(jb.e!=jb.s)),
+      je(jb.e+(jb.e!=jb.s)),
+      ks(kb.s-(kb.e!=kb.s)),
+      ke(kb.e+(kb.e!=kb.s)) {}
+  const int is, ie, js, je, ks, ke;
+};
+
 struct AMRCriteria {
-  AMRCriteria() = default;
+  AMRCriteria(ParameterInput *pin, std::string &block_name);
   virtual ~AMRCriteria() {}
   virtual AmrTag operator()(const MeshBlockData<Real> *rc) const = 0;
   std::string field;
@@ -33,10 +44,12 @@ struct AMRCriteria {
   int comp6, comp5, comp4;
   static std::shared_ptr<AMRCriteria>
   MakeAMRCriteria(std::string &criteria, ParameterInput *pin, std::string &block_name);
+  AMRBounds GetBounds (const MeshBlockData<Real> *rc) const;
 };
 
 struct AMRFirstDerivative : public AMRCriteria {
-  AMRFirstDerivative(ParameterInput *pin, std::string &block_name);
+  AMRFirstDerivative(ParameterInput *pin, std::string &block_name)
+    : AMRCriteria(pin, block_name) {}
   AmrTag operator()(const MeshBlockData<Real> *rc) const override;
 };
 

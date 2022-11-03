@@ -46,10 +46,6 @@ BurgersDriver::BurgersDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh
   // warn if these fields aren't specified in the input file
   pin->CheckDesired("parthenon/mesh", "refinement");
   pin->CheckDesired("parthenon/mesh", "numlevel");
-  pin->CheckDesired("burgers", "cfl");
-  pin->CheckDesired("burgers", "vx");
-  pin->CheckDesired("burgers", "refine_tol");
-  pin->CheckDesired("burgers", "derefine_tol");
 }
 
 // See the burgers.hpp declaration for a description of how this function gets called.

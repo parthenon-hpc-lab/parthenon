@@ -599,20 +599,7 @@ bool ParameterInput::GetBoolean(const std::string &block, const std::string &nam
   }
 
   std::string val = pl->param_value;
-
-  // check is string contains integers 0 or 1 (instead of true or false) and return
-  if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
-    return static_cast<bool>(stoi(val));
-  }
-
-  // convert string to all lower case
-  std::transform(val.begin(), val.end(), val.begin(), ::tolower);
-  // Convert string to bool and return value
-  bool b;
-  std::istringstream is(val);
-  is >> std::boolalpha >> b;
-
-  return (b);
+  return stob(val);
 }
 
 //----------------------------------------------------------------------------------------
