@@ -142,12 +142,16 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
     for (int i = N; i < 3; i++)
       arrDims[i + 3] = 1;
   } else if (IsSet(Particle)) {
-    assert(N >= 1 && N <= 5);
+    assert(N >= 0 && N <= 5);
     arrDims[0] = 1; // To be updated by swarm based on pool size before allocation
     for (int i = 0; i < N; i++)
       arrDims[i + 1] = shape[i];
     for (int i = N; i < 5; i++)
       arrDims[i + 1] = 1;
+  } else if (IsSet(Swarm)) {
+    // No dimensions
+    // TODO(BRR) This will be replaced in the swarm packing PR, but is currently required
+    // since swarms carry metadata but do not have an array size.
   } else {
     // This variable is not necessarily tied to any specific
     // mesh element, so dims will be used as the actual array

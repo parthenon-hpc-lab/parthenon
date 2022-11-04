@@ -51,6 +51,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Node)                                                      \
   /** particle variable */                                                               \
   PARTHENON_INTERNAL_FOR_FLAG(Particle)                                                  \
+  /** swarm */                                                                           \
+  PARTHENON_INTERNAL_FOR_FLAG(Swarm)                                                     \
   /************************************************/                                     \
   /** ROLE: Exactly one must be specified (default is Provides) */                       \
   /** Private to a package */                                                            \
