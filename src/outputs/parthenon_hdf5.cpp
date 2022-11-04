@@ -202,6 +202,9 @@ struct VarInfo {
   int nx6;
   int nx5;
   int nx4;
+  int nx3;
+  int nx2;
+  int nx1;
   int ndim; // 1-, 2-, or 3-D
   MetadataFlag where;
   bool is_sparse;
@@ -211,11 +214,11 @@ struct VarInfo {
   VarInfo() = delete;
 
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
-          int vlen, int nx6, int nx5, int nx4, Metadata metadata, bool is_sparse,
-          bool is_vector)
-      : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4),
-        ndim(metadata.Shape().size()), where(metadata.Where()), is_sparse(is_sparse),
-        is_vector(is_vector) {
+          int vlen, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
+          Metadata metadata, bool is_sparse, bool is_vector)
+      : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), nx3(nx3), nx2(nx2),
+        nx1(nx1), ndim(metadata.Shape().size()), where(metadata.Where()),
+        is_sparse(is_sparse), is_vector(is_vector) {
     if (vlen <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with length " << vlen
@@ -249,8 +252,9 @@ struct VarInfo {
 
   explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
-                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->metadata(),
-                var->IsSparse(), var->IsSet(Metadata::Vector)) {}
+                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->GetDim(3),
+                var->GetDim(2), var->GetDim(1), var->metadata(), var->IsSparse(),
+                var->IsSet(Metadata::Vector)) {}
 };
 
 // XDMF subroutine to write a dataitem that refers to an HDF array
@@ -833,8 +837,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     local_count[2] = global_count[2] = nx5;
     local_count[3] = global_count[3] = nx4;
 
-    std::vector<hsize_t> alldims({nx6, nx5, nx4, static_cast<hsize_t>(nx3),
-                                  static_cast<hsize_t>(nx2), static_cast<hsize_t>(nx1)});
+    std::vector<hsize_t> alldims({nx6, nx5, nx4, static_cast<hsize_t>(vinfo.nx3),
+                                  static_cast<hsize_t>(vinfo.nx2),
+                                  static_cast<hsize_t>(vinfo.nx1)});
 
     int ndim = -1;
     if (vinfo.where == MetadataFlag(Metadata::Cell)) {
@@ -872,10 +877,20 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
           for (int t = 0; t < nx6; ++t) {
             for (int u = 0; u < nx5; ++u) {
               for (int v = 0; v < nx4; ++v) {
-                for (int k = out_kb.s; k <= out_kb.e; ++k) {
-                  for (int j = out_jb.s; j <= out_jb.e; ++j) {
-                    for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                      tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                if (vinfo.where == MetadataFlag(Metadata::Cell)) {
+                  for (int k = out_kb.s; k <= out_kb.e; ++k) {
+                    for (int j = out_jb.s; j <= out_jb.e; ++j) {
+                      for (int i = out_ib.s; i <= out_ib.e; ++i) {
+                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                      }
+                    }
+                  }
+                } else {
+                  for (int k = 0; k < vinfo.nx3; ++k) {
+                    for (int j = 0; j < vinfo.nx2; ++j) {
+                      for (int i = 0; i < vinfo.nx1; ++i) {
+                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                      }
                     }
                   }
                 }
