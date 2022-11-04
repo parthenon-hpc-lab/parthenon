@@ -271,6 +271,9 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       }
 
       THEN("We can safely resolve conflicts") {
+        Metadata m_provides_swarm(m_provides);
+        // This is set automatically when adding a Swarm if not already set
+        m_provides_swarm.Set(Metadata::Swarm);
         auto pkg4 = ResolvePackages(packages);
         AND_THEN("The provides variables take precedence.") {
           REQUIRE(pkg4->FieldPresent("dense"));
