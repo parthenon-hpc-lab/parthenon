@@ -212,7 +212,9 @@ class SwarmProvider : public VariableProvider {
  private:
   void AddSwarm_(StateDescriptor *package, const std::string &swarm,
                  const std::string &swarm_name, const Metadata &metadata) {
-    state_->AddSwarm(swarm_name, metadata);
+    Metadata newm(metadata);
+    newm.Set(Metadata::Swarm);
+    state_->AddSwarm(swarm_name, newm);
     for (auto &p : package->AllSwarmValues(swarm)) {
       auto &val_name = p.first;
       auto &val_meta = p.second;

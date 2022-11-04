@@ -51,6 +51,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Node)                                                      \
   /** particle variable */                                                               \
   PARTHENON_INTERNAL_FOR_FLAG(Particle)                                                  \
+  /** swarm */                                                                           \
+  PARTHENON_INTERNAL_FOR_FLAG(Swarm)                                                     \
   /************************************************/                                     \
   /** ROLE: Exactly one must be specified (default is Provides) */                       \
   /** Private to a package */                                                            \
@@ -227,7 +229,6 @@ class Metadata {
     // check shape is valid
     // TODO(JL) Should we be extra pedantic and check that shape matches Vector/Tensor
     // flags?
-    PARTHENON_REQUIRE_THROWS(shape_.size() >= 0, "Shape must have at least rank 0");
     if (IsMeshTied()) {
       PARTHENON_REQUIRE_THROWS(
           shape_.size() <= 3,
@@ -272,14 +273,6 @@ class Metadata {
   // is true, throw a descriptive exception when invalid
   bool IsValid(bool throw_on_fail = false) const {
     bool valid = true;
-
-    // No empty shapes for variables not tied to mesh
-    if (shape_.size() == 0 && CountSet({None}) == 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Must specify non-empty Shape if variable is not tied to mesh");
-      }
-    }
 
     // Topology
     if (CountSet({None, Node, Edge, Face, Cell}) != 1) {
