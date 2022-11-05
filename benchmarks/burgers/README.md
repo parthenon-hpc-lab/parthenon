@@ -51,5 +51,26 @@ The benchmark includes an input file _burgers.pin_ that specifies the base (coar
 | \<burgers>             | num_scalars | 1          | > 0                           | The number of scalar conservation laws to evolve, in addition to Burgers' equation. |
 |                        | recon       | weno5      | {weno5, linear}               | Reconstruction method to define states of faces for Riemann solves.  weno5 uses a higher order function (5pt stencil, requires nghost = 4), while linear does a simple linear function (3pt stencil, requires only nghost = 2). |
 
+### Memory Usage
 
+The dominant memory usage in Parthenon-VIBE is for storage of the solution, for which two copies are required to support second order time stepping, the intercell fluxes of each variable, for intermediate values of each solution variable on each side of every face, and for a derived quantity that we compute from the evolved solution.  From this we can construct a simple model for the memory usage $M$ as 
 
+$$
+\begin{align*}
+\frac{M}{sizeof(Real)} =& 9 N_{blocks} (N_x^{block} + 2 N_{ghost}) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost}) N_{vars}\;\;\;\;\;\;\;\;\;\;\;\; \rm{Solution,\, intermediate\, intermediate\, face\, values,\, and\, derived}\\
+                       +& N_{blocks} (N_x^{block} + 2*N_{ghost} + 1) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost}) N_{vars}\;\;\;\;\;\rm{x-Flux}\\
+                       +& N_{blocks} (N_x^{block} + 2*N_{ghost}) (N_y^{block} + 2 N_{ghost} + 1) (N_z^{block} + 2 N_{ghost}) N_{vars}\;\;\;\;\;\rm{y-Flux}\\
+                       +& N_{blocks} (N_x^{block} + 2*N_{ghost}) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost} + 1) N_{vars}\;\;\;\;\;\rm{z-Flux}\,.
+\end{align*}
+$$
+For $16^3$ mesh blocks with 4 ghost cells, as configured by default in the provided input file, this corresponds to
+$$
+\begin{equation*}
+\frac{M}{sizeof(Real)} = 167616 N_{blocks} N_{vars}
+\end{equation*}
+$$
+or about 1.28 MB per block per variable for 8-byte Reals.  Actual memory usage will be larger than this in practice due to various other sources of memory usage, including Parthenon-provided buffers for communicating between blocks and internal buffers allocated by MPI.
+
+### Run Characteristics
+
+As shipped, the benchmark begins with 64 $16^3$ mesh blocks, all on the coarsest level.  This limits MPI-parallelism to 64 ranks, one block per rank.  As the run evolves, the solution triggers refinement and the number of mesh blocks rapidly increases.
