@@ -330,7 +330,6 @@ class TaskList {
 
   IterativeTasks &AddIteration(const std::string &label) {
     int key = iter_tasks.size();
-    std::cout << "adding iteration " << key << "   " << label << std::endl;
     iter_tasks[key] = IterativeTasks(this, key);
     iter_labels[key] = label; //.push_back(label);
     return iter_tasks[key];
