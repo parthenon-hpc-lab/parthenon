@@ -82,11 +82,14 @@ class BiCGStabSolver : BiCGStabCounter {
 
     const std::string bicg_id(std::to_string(global_num_bicgstab_solvers));
     solver_name = "internal_bicgstab_" + bicg_id;
+    
     res0 = "res_0" + bicg_id;
-    vk = "vk" + bicg_id;
-    tk = "tk" + bicg_id;
     auto meta = Metadata({Metadata::Cell, Metadata::OneCopy});
     pkg->AddField(res0, meta);
+    
+    vk = "vk" + bicg_id;
+    tk = "tk" + bicg_id;
+    meta = Metadata({Metadata::Cell, Metadata::OneCopy});
     pkg->AddField(vk, meta);
     pkg->AddField(tk, meta);
 
@@ -118,28 +121,36 @@ class BiCGStabSolver : BiCGStabCounter {
     r0_dot_vk.val = 0.0;
     t_dot_s.val = 0.0;
     t_dot_t.val = 0.0;
+
+    auto MatVec = [this](auto& task_list, const TaskID& init_depend, 
+                      std::shared_ptr<MeshData<Real>>& md_in, const std::string& name_in, 
+                      std::shared_ptr<MeshData<Real>>& md_out, const std::string& name_out) -> TaskID { 
+      auto precom = init_depend;
+      if (this->user_precomm_MatVec) {
+        precom = task_list.AddTask(init_depend, this->user_precomm_MatVec, md_in.get(), name_in, md_out.get(), this->temp);
+      }
+
+      auto send =
+          task_list.AddTask(precom, parthenon::cell_centered_bvars::SendBoundaryBuffers, md_out);
+      auto recv = task_list.AddTask(
+          precom, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md_out);
+      auto setb =
+          task_list.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, md_out);
+
+      auto update_rhs = setb; 
+      if (this->user_MatVec && this->user_precomm_MatVec) { 
+        update_rhs = task_list.AddTask(setb, this->user_MatVec, md_out.get(), this->temp, md_out.get(), name_out);
+      }
+      else if (this->user_MatVec) {
+        update_rhs = task_list.AddTask(setb, this->user_MatVec, md_in.get(), name_in, md_out.get(), name_out);
+      } else {
+        update_rhs = task_list.AddTask(setb, &Solver_t::MatVec<MD_t>, this, md_out.get(), name_in, name_out);
+      } 
+      return update_rhs;
+    };
     
-    auto precom_init = begin;
-    if (user_precomm_MatVec) {
-      precom_init = tl.AddTask(begin, user_precomm_MatVec, md.get(), rhs_name, md.get(), temp);
-    }
-    auto send_init =
-        tl.AddTask(precom_init, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
-    auto recv_init = tl.AddTask(
-        precom_init, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
-    auto setb_init =
-        tl.AddTask(recv_init, parthenon::cell_centered_bvars::SetBoundaries, md);
-
-    auto get_init = setb_init; 
-    if (user_MatVec && user_precomm_MatVec) { 
-      get_init = tl.AddTask(setb_init, user_MatVec, md.get(), temp, md.get(), vk);
-    }
-    else if (user_MatVec) {
-      get_init = tl.AddTask(setb_init, user_MatVec, md.get(), rhs_name, md.get(), vk);
-    } else {
-      get_init = tl.AddTask(setb_init, &Solver_t::MatVec<MD_t>, this, md.get(), rhs_name, vk);
-    }
-
+    auto get_init = MatVec(tl, begin, md, rhs_name, md, vk); 
+    
     auto init_bicgstab = tl.AddTask(get_init,
       &Solver_t::InitializeBiCGStab<MD_t>,
       this, md.get(), mout.get(), &global_res0.val);
@@ -166,29 +177,9 @@ class BiCGStabSolver : BiCGStabCounter {
     // 3. p_i = r_{i-1} + \beta (p_{i-1} - \omega_{i-1} v_{i-1})
     auto update_pk = solver.AddTask(finish_global_rhoi, &Solver_t::Compute_pk<MD_t>, this,
       md.get());
-    
-    auto precom = update_pk;
-    if (user_precomm_MatVec) {
-      precom = solver.AddTask(update_pk, user_precomm_MatVec, md.get(), pk, md.get(), temp);
-    }
-    // ghost exchange for pk
-    auto send1 =
-        solver.AddTask(precom, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
-    auto recv1 = solver.AddTask(
-        precom, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
-    auto setb1 =
-        solver.AddTask(recv1, parthenon::cell_centered_bvars::SetBoundaries, md);
 
     // 4. v = A p
-    auto get_v = setb1; 
-    if (user_MatVec && user_precomm_MatVec) { 
-      get_v = solver.AddTask(setb1, user_MatVec, md.get(), temp, md.get(), vk);
-    }
-    else if (user_MatVec) {
-      get_v = solver.AddTask(setb1, user_MatVec, md.get(), pk, md.get(), vk);
-    } else {
-      get_v = solver.AddTask(setb1, &Solver_t::MatVec<MD_t>, this, md.get(), pk, vk);
-    }
+    auto get_v = MatVec(solver, update_pk, md, pk, md, vk); 
 
     // 5. alpha = rho_i / (\hat{r}_0 \cdot v_i) [Actually just calculate \hat{r}_0 \cdot v_i]
     auto get_r0dotv = solver.AddTask(get_v, &Solver_t::DotProduct<MD_t>, this,
@@ -207,29 +198,9 @@ class BiCGStabSolver : BiCGStabCounter {
     auto get_s = solver.AddTask(finish_global_r0dotv, &Solver_t::Update_h_and_s<MD_t>, this,
       md.get(), mout.get());
 
-    auto precom2 = get_s;
-    if (user_precomm_MatVec) {
-      precom2 = solver.AddTask(get_s, user_precomm_MatVec, md.get(), res, md.get(), temp);
-    }
-    // ghost exchange for sk
-    auto send2 =
-        solver.AddTask(precom2, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
-    auto recv2 = solver.AddTask(
-        precom2, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
-    auto setb2 =
-        solver.AddTask(precom2, parthenon::cell_centered_bvars::SetBoundaries, md);
-
     // 9. t = A s
-    auto get_t = setb2;
-    if (user_MatVec && user_precomm_MatVec) {
-      get_t = solver.AddTask(setb2, user_MatVec, md.get(), temp, md.get(), tk);
-    }
-    else if (user_MatVec) {
-      get_t = solver.AddTask(setb2, user_MatVec, md.get(), res, md.get(), tk);
-    } else { 
-      get_t = solver.AddTask(setb2, &Solver_t::MatVec<MD_t>, this, md.get(),
-        res, tk);
-    }
+    auto get_t = MatVec(solver, get_s, md, res, md, tk); 
+    
     // 10. omega = (t \cdot s) / (t \cdot t)
     auto get_tdots = solver.AddTask(get_t, &Solver_t::OmegaDotProd<MD_t>, this, md.get(),
       &t_dot_s.val, &t_dot_t.val);
@@ -256,32 +227,6 @@ class BiCGStabSolver : BiCGStabCounter {
     auto finish_global_res = solver.AddTask(start_global_res,
       &AllReduce<Real>::CheckReduce, &global_res);
     
-    //// r = A x (1)
-    //auto update_r = finish_global_res;
-    //if (user_precomm_MatVec) {
-    //  update_r = solver.AddTask(finish_global_res, user_precomm_MatVec, mout.get(), sol_name, md.get(), temp);
-    //}
-    //// ghost exchange for x or temp
-    //auto send3 =
-    //    solver.AddTask(update_r, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
-    //auto recv3 = solver.AddTask(
-    //    update_r, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
-    //auto setb3 =
-    //    solver.AddTask(recv3, parthenon::cell_centered_bvars::SetBoundaries, md);
-
-    //// r = A x (2)
-    //auto get_r = setb3; 
-    //if (user_MatVec && user_precomm_MatVec) { 
-    //  get_r = solver.AddTask(setb3, user_MatVec, md.get(), temp, md.get(), res);
-    //}
-    //else if (user_MatVec) {
-    //  get_r = solver.AddTask(setb3, user_MatVec, mout.get(), sol_name, md.get(), res);
-    //} else {
-    //  get_r = solver.AddTask(setb3, &Solver_t::MatVec<MD_t>, this, mout.get(), sol_name, res);
-    //}
-    //// r = b - r  
-    //auto finish_r = solver.AddTask(get_r, &Solver_t::update_r<MD_t>, this, md.get());
-
     // 12. check for convergence
     auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence, this, i, true);
     tr.AddGlobalDependencies(reg.ID(), i, check);
