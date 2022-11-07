@@ -118,8 +118,29 @@ class BiCGStabSolver : BiCGStabCounter {
     r0_dot_vk.val = 0.0;
     t_dot_s.val = 0.0;
     t_dot_t.val = 0.0;
+    
+    auto precom_init = begin;
+    if (user_precomm_MatVec) {
+      precom_init = tl.AddTask(begin, user_precomm_MatVec, md.get(), rhs_name, md.get(), temp);
+    }
+    auto send_init =
+        tl.AddTask(precom_init, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
+    auto recv_init = tl.AddTask(
+        precom_init, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
+    auto setb_init =
+        tl.AddTask(recv_init, parthenon::cell_centered_bvars::SetBoundaries, md);
 
-    auto init_bicgstab = tl.AddTask(begin,
+    auto get_init = setb_init; 
+    if (user_MatVec && user_precomm_MatVec) { 
+      get_init = tl.AddTask(setb_init, user_MatVec, md.get(), temp, md.get(), vk);
+    }
+    else if (user_MatVec) {
+      get_init = tl.AddTask(setb_init, user_MatVec, md.get(), rhs_name, md.get(), vk);
+    } else {
+      get_init = tl.AddTask(setb_init, &Solver_t::MatVec<MD_t>, this, md.get(), rhs_name, vk);
+    }
+
+    auto init_bicgstab = tl.AddTask(get_init,
       &Solver_t::InitializeBiCGStab<MD_t>,
       this, md.get(), mout.get(), &global_res0.val);
     tr.AddRegionalDependencies(reg.ID(), i, init_bicgstab);
@@ -188,7 +209,7 @@ class BiCGStabSolver : BiCGStabCounter {
 
     auto precom2 = get_s;
     if (user_precomm_MatVec) {
-      precom = solver.AddTask(get_s, user_precomm_MatVec, md.get(), res, md.get(), temp);
+      precom2 = solver.AddTask(get_s, user_precomm_MatVec, md.get(), res, md.get(), temp);
     }
     // ghost exchange for sk
     auto send2 =
@@ -224,7 +245,7 @@ class BiCGStabSolver : BiCGStabCounter {
     auto finish_global_tdott = solver.AddTask(start_global_tdott,
       &AllReduce<Real>::CheckReduce, &t_dot_t);
     // omega is actually updated in this next task
-
+    
     // 11. update x and residual
     auto update_x = solver.AddTask(finish_global_tdots | finish_global_tdott,
       &Solver_t::Update_x_res<MD_t>, this, md.get(), mout.get(), &global_res.val);
@@ -234,6 +255,32 @@ class BiCGStabSolver : BiCGStabCounter {
       update_x);
     auto finish_global_res = solver.AddTask(start_global_res,
       &AllReduce<Real>::CheckReduce, &global_res);
+    
+    //// r = A x (1)
+    //auto update_r = finish_global_res;
+    //if (user_precomm_MatVec) {
+    //  update_r = solver.AddTask(finish_global_res, user_precomm_MatVec, mout.get(), sol_name, md.get(), temp);
+    //}
+    //// ghost exchange for x or temp
+    //auto send3 =
+    //    solver.AddTask(update_r, parthenon::cell_centered_bvars::SendBoundaryBuffers, md);
+    //auto recv3 = solver.AddTask(
+    //    update_r, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md);
+    //auto setb3 =
+    //    solver.AddTask(recv3, parthenon::cell_centered_bvars::SetBoundaries, md);
+
+    //// r = A x (2)
+    //auto get_r = setb3; 
+    //if (user_MatVec && user_precomm_MatVec) { 
+    //  get_r = solver.AddTask(setb3, user_MatVec, md.get(), temp, md.get(), res);
+    //}
+    //else if (user_MatVec) {
+    //  get_r = solver.AddTask(setb3, user_MatVec, mout.get(), sol_name, md.get(), res);
+    //} else {
+    //  get_r = solver.AddTask(setb3, &Solver_t::MatVec<MD_t>, this, mout.get(), sol_name, res);
+    //}
+    //// r = b - r  
+    //auto finish_r = solver.AddTask(get_r, &Solver_t::update_r<MD_t>, this, md.get());
 
     // 12. check for convergence
     auto check = solver.SetCompletionTask(finish_global_res, &Solver_t::CheckConvergence, this, i, true);
@@ -264,18 +311,43 @@ class BiCGStabSolver : BiCGStabCounter {
     alpha_old = 1.0;
     omega_old = 1.0;
     Real err(0);
+    const Real fac0 = 0.0;
+    const Real fac = 0.0;
     par_reduce(loop_pattern_mdrange_tag, "initialize bicgstab", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lerr) {
-        v(b, ires, k, j, i) = v(b, irhs, k, j, i);
-        v(b, ires0, k, j, i) = v(b, irhs, k, j, i);
-        lerr += v(b, irhs, k, j, i) * v(b, irhs, k, j, i);
+        // initialize guess for solution
+        dv(b, 0, k, j, i) = fac * v(b, irhs, k, j, i);
+        
+        v(b, ires, k, j, i) = v(b, irhs, k, j, i) - fac * v(b, ivk, k, j, i);
+        v(b, ires0, k, j, i) = v(b, irhs, k, j, i) - fac0 * v(b, ivk, k, j, i);
+        
         v(b, ivk, k, j, i) = 0.0;
         v(b, ipk, k, j, i) = 0.0;
-        // initialize guess for solution to zero
-        dv(b, 0, k, j, i) = 0.0;
+        
+        lerr += v(b, irhs, k, j, i) * v(b, irhs, k, j, i);
       }, Kokkos::Sum<Real>(err));
     *gres0 += err; 
+    return TaskStatus::complete;
+  }
+
+  template <typename T>  
+  TaskStatus update_r(T *u) {
+    const auto &ib = u->GetBoundsI(IndexDomain::interior);
+    const auto &jb = u->GetBoundsJ(IndexDomain::interior);
+    const auto &kb = u->GetBoundsK(IndexDomain::interior);
+
+    PackIndexMap imap;
+    std::vector<std::string> vars({res, rhs_name});
+    const auto &v = u->PackVariables(vars, imap);
+    const int ires = imap[res].first;
+    const int irhs = imap[rhs_name].first;
+
+    par_for(loop_pattern_mdrange_tag, "initialize bicgstab", DevExecSpace(), 0,
+      v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        v(b, ires, k, j, i) = v(b, irhs, k, j, i) - v(b, ires, k, j, i);
+      });
     return TaskStatus::complete;
   }
 
@@ -306,12 +378,20 @@ class BiCGStabSolver : BiCGStabCounter {
     const auto &kb = u->GetBoundsK(IndexDomain::interior);
 
     PackIndexMap imap;
-    auto &v = u->PackVariables(std::vector<std::string>({pk, res, vk}), imap);
+    auto &v = u->PackVariables(std::vector<std::string>({pk, res, vk, res0}), imap);
     const int ipk = imap[pk].first;
     const int ires = imap[res].first;
+    const int ires0 = imap[res0].first;
     const int ivk = imap[vk].first;
 
-    const Real beta = (rhoi.val/rhoi_old) * (alpha_old / omega_old);
+    const Real beta = (rhoi.val / rhoi_old) * (alpha_old / omega_old);
+    bool reset = false;
+    //if (std::abs(rhoi.val) < 1.e-8) { 
+    //  // Reset 
+    //  printf("Resetting (r_{i-1}, r_0) = %e res = %e \n", rhoi.val, res_old);
+    //  rhoi.val = res_old; // this should be the norm of the old residual, which we are resetting to
+    //  reset = true;
+    //} 
     //printf("Compute_pk: rho_i = %e rho_{i-1} = %e alpha_old = %e omega_old = %e beta = %e\n", rhoi.val, rhoi_old, alpha_old, omega_old, beta);
     //rhoi_old = rhoi.val;
     const Real w_o = omega_old;
@@ -320,6 +400,10 @@ class BiCGStabSolver : BiCGStabCounter {
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         v(b, ipk, k, j, i) = v(b, ires, k, j, i)
                            + beta * (v(b, ipk, k, j, i) - w_o * v(b, ivk, k, j, i));
+        if (reset) {
+          v(b, ipk, k, j, i) = v(b, ires, k, j, i);
+          v(b, ires0, k, j, i) = v(b, ires, k, j, i);
+        }
       });
     return TaskStatus::complete;
   }
@@ -361,6 +445,7 @@ class BiCGStabSolver : BiCGStabCounter {
     const int ivk = imap[vk].first;
 
     Real alpha = rhoi.val / r0_dot_vk.val;
+    //printf("alpha = %e rho = %e (v, r_0) = %e\n", alpha, rhoi.val, r0_dot_vk.val);
     if (std::abs(r0_dot_vk.val) < 1.e-200) alpha = 0.0;
     par_for(DEFAULT_LOOP_PATTERN, "Update_h", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -473,19 +558,24 @@ class BiCGStabSolver : BiCGStabCounter {
     rhoi_old = rhoi.val; 
     alpha_old = rhoi.val / r0_dot_vk.val; 
     omega_old = t_dot_s.val / t_dot_t.val;
+    res_old = global_res.val; 
 
     bool converged = std::abs(global_res.val / global_res0.val) < error_tol;
-    converged = converged || (std::abs(global_res.val) < error_tol * 1.e-4);
-    converged = std::abs(global_res.val) < error_tol;
+    converged = converged || (std::abs(global_res.val) < 1.e-12);
+    //converged = std::abs(global_res.val) < error_tol;
     //converged = converged && (std::abs(global_res.val) < error_tol);
     bool stop = bicgstab_cntr == max_iters;
-
+    if (std::abs(alpha_old) < 1.e-8 && std::abs(omega_old) < 1.e-8) stop = true;
     if (report && (converged || stop)) {
       if (Globals::my_rank == 0) {
-        std::cout << parthenon::Globals::my_rank << " its= " << bicgstab_cntr
-                  << " relative res: " << global_res.val / global_res0.val << " absolute-res "
-                  << global_res.val << " relerr-tol: " << error_tol << std::endl
-                  << std::flush;
+        std::cout << " its= " << bicgstab_cntr
+                  << " rho= " << rhoi_old
+                  << " alpha= " << alpha_old 
+                  << " omega= " << omega_old
+                  << " relative-res: " << global_res.val / global_res0.val 
+                  << " absolute-res: " << global_res.val 
+                  << " absolute-res0: " << global_res0.val 
+                  << " relerr-tol: " << error_tol << std::endl;
       }
     }
 
@@ -505,7 +595,7 @@ class BiCGStabSolver : BiCGStabCounter {
   bool fail_flag, warn_flag;
   std::string spm_name, sol_name, rhs_name, res, res0, vk, pk, tk, temp, solver_name;
   
-  Real rhoi_old, alpha_old, omega_old;
+  Real rhoi_old, alpha_old, omega_old, res_old;
 
   AllReduce<Real> global_res0;
   AllReduce<Real> global_res;
