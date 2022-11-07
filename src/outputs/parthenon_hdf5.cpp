@@ -794,14 +794,15 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   std::unique_ptr<hbool_t[]> sparse_allocated(new hbool_t[num_blocks_local * num_sparse]);
 
   // allocate space for largest size variable
-  const hsize_t varSize = nx3 * nx2 * nx1;
-  int vlen_max = 0;
+  int varSize_max = 0;
   for (auto &vinfo : all_vars_info) {
-    vlen_max = std::max(vlen_max, vinfo.vlen);
+    const int varSize =
+        vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+    varSize_max = std::max(varSize_max, varSize);
   }
 
   using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
-  std::vector<OutT> tmpData(varSize * vlen_max * num_blocks_local);
+  std::vector<OutT> tmpData(varSize_max * num_blocks_local);
 
   // create persistent spaces
   local_count[0] = num_blocks_local;
@@ -924,9 +925,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
       if (!is_allocated) {
         if (vinfo.is_sparse) {
-          hsize_t N = varSize * vlen;
-          memset(tmpData.data() + index, 0, N * sizeof(OutT));
-          index += N;
+          const hsize_t varSize =
+              vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+          memset(tmpData.data() + index, 0, varSize * sizeof(OutT));
+          index += varSize;
         } else {
           std::stringstream msg;
           msg << "### ERROR: Unable to find dense variable " << var_name << std::endl;
