@@ -31,7 +31,7 @@ In each refinement block, you are required to provide a ``method`` which is a st
 | Method | Description |
 |--------|-------------|
 | derivative_order_1 | ![formula](https://render.githubusercontent.com/render/math?math=\|dlnq\/dlnx\|) |
-| derivative_order_2 | $$\frac{\delta x^2}{4\|q\|} \left\| \frac{\partial^2 q}{\partial x^2} \right\| = \frac{ \| q_{i-1} - 2 q_{i} + q_{i+1} \| }{ 2\| q_{i} \| + \| q_{i-1} + q_{i+1} \| } $$ Note that this quantity is bounded by by $\[0,1)$. |
+| derivative_order_2 | $$\frac{\delta x^2}{4\|q\|} \left\| \frac{\partial^2 q}{\partial x^2} \right\| = \frac{ \| q_{i-1} - 2 q_{i} + q_{i+1} \| }{ 2\| q_{i} \| + \| q_{i-1} + q_{i+1} \| } $$ Note that this quantity is bounded by by $\[0,1\]$. |
 
 where q is the user selected variable.
 
