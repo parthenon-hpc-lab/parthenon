@@ -40,11 +40,18 @@ void ShowConfig();
 //  \brief static data and functions that implement a simple signal handling system
 namespace SignalHandler {
 
+// Enum of desired signal results
 enum class OutputSignal { none, now, final };
+// Signals handled: SIGTERM, SIGINT, SIGALRM
+constexpr int ITERM = 0, IINT = 1, IALRM = 2;
 constexpr int nsignal = 3;
-// using the +1 for signaling based on "output_now" trigger
+// Flag/counter of signals received of each type
+// using the +1 for signaling based on a trigger file
 static volatile int signalflag[nsignal + 1];
-const int ITERM = 0, IINT = 1, IALRM = 2;
+
+// Immediately throw upon receiving 3+ SIGINT without clearing them
+constexpr int SIGINTS_BEFORE_THROW = 3;
+
 static sigset_t mask;
 void SignalHandlerInit();
 OutputSignal CheckSignalFlags();

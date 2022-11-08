@@ -10,6 +10,7 @@
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 782]](https://github.com/parthenon-hpc-lab/parthenon/pull/782) Die on repeatedly receiving SIGINT
 - [[PR 758]](https://github.com/lanl/parthenon/pull/758) Bump required C++ standard to C++17
 - [[PR 710]](https://github.com/lanl/parthenon/pull/710) Remove data transpose in hdf5 and restart outputs
 - [[PR 713]](https://github.com/lanl/parthenon/pull/713) Remove Coordinates stub in favor of Coordinates_t
