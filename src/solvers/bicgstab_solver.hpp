@@ -38,18 +38,19 @@ class BiCGStabSolver : BiCGStabCounter {
  public:
   BiCGStabSolver() = default;
   BiCGStabSolver(StateDescriptor *pkg, const Real error_tol_in,
-                const SparseMatrixAccessor &sp)
+                const SparseMatrixAccessor &sp, const std::vector<std::string>& aux_vars = {})
     : error_tol(error_tol_in), sp_accessor(sp),
       max_iters(pkg->Param<int>("bicgstab_max_iterations")),
       check_interval(pkg->Param<int>("bicgstab_check_interval")),
       fail_flag(pkg->Param<bool>("bicgstab_abort_on_fail")),
-      warn_flag(pkg->Param<bool>("bicgstab_warn_on_fail")) {
+      warn_flag(pkg->Param<bool>("bicgstab_warn_on_fail")), 
+      aux_vars(aux_vars) {
     Init(pkg);
   }
   std::vector<std::string> SolverState() const {
-    return std::vector<std::string>(
-      {spm_name, rhs_name, res, res0, vk, pk, tk, temp}
-    );
+    std::vector<std::string> vars{spm_name, rhs_name, res, res0, vk, pk, tk, temp}; 
+    vars.insert(vars.end(), aux_vars.begin(), aux_vars.end());
+    return vars;
   }
   std::string label() const {
     std::string lab;
@@ -71,8 +72,10 @@ class BiCGStabSolver : BiCGStabCounter {
 
   using FMatVec = std::function<TaskStatus(MeshData<Real>*, const std::string&, MeshData<Real>*, const std::string&)>;
   FMatVec user_MatVec;
+  FMatVec user_pre_fluxcor;
   FMatVec user_precomm_MatVec; 
- 
+  std::vector<std::string> aux_vars; 
+
  private:
   void Init(StateDescriptor *pkg) {
     // create vectors used internally by the solver
@@ -122,34 +125,33 @@ class BiCGStabSolver : BiCGStabCounter {
     t_dot_s.val = 0.0;
     t_dot_t.val = 0.0;
 
-    auto MatVec = [this](auto& task_list, const TaskID& init_depend, 
-                      std::shared_ptr<MeshData<Real>>& md_in, const std::string& name_in, 
-                      std::shared_ptr<MeshData<Real>>& md_out, const std::string& name_out) -> TaskID { 
+    auto MatVec = [this](auto& task_list, const TaskID& init_depend, std::shared_ptr<MeshData<Real>>& spmd, 
+                         const std::string& name_in, const std::string& name_out) { 
       auto precom = init_depend;
       if (this->user_precomm_MatVec) {
-        precom = task_list.AddTask(init_depend, this->user_precomm_MatVec, md_in.get(), name_in, md_out.get(), this->temp);
+        precom = task_list.AddTask(init_depend, this->user_precomm_MatVec, spmd.get(), name_in, spmd.get(), this->temp);
       }
 
       auto send =
-          task_list.AddTask(precom, parthenon::cell_centered_bvars::SendBoundaryBuffers, md_out);
+          task_list.AddTask(precom, parthenon::cell_centered_bvars::SendBoundaryBuffers, spmd);
       auto recv = task_list.AddTask(
-          precom, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, md_out);
+          precom, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, spmd);
       auto setb =
-          task_list.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, md_out);
+          task_list.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, spmd);
 
       auto update_rhs = setb; 
       if (this->user_MatVec && this->user_precomm_MatVec) { 
-        update_rhs = task_list.AddTask(setb, this->user_MatVec, md_out.get(), this->temp, md_out.get(), name_out);
+        update_rhs = task_list.AddTask(setb, this->user_MatVec, spmd.get(), this->temp, spmd.get(), name_out);
       }
       else if (this->user_MatVec) {
-        update_rhs = task_list.AddTask(setb, this->user_MatVec, md_in.get(), name_in, md_out.get(), name_out);
+        update_rhs = task_list.AddTask(setb, this->user_MatVec, spmd.get(), name_in, spmd.get(), name_out);
       } else {
-        update_rhs = task_list.AddTask(setb, &Solver_t::MatVec<MD_t>, this, md_out.get(), name_in, name_out);
+        update_rhs = task_list.AddTask(setb, &Solver_t::MatVec<MD_t>, this, spmd.get(), name_in, name_out);
       } 
       return update_rhs;
     };
     
-    auto get_init = MatVec(tl, begin, md, rhs_name, md, vk); 
+    auto get_init = MatVec(tl, begin, md, rhs_name, vk); 
     
     auto init_bicgstab = tl.AddTask(get_init,
       &Solver_t::InitializeBiCGStab<MD_t>,
@@ -179,7 +181,7 @@ class BiCGStabSolver : BiCGStabCounter {
       md.get());
 
     // 4. v = A p
-    auto get_v = MatVec(solver, update_pk, md, pk, md, vk); 
+    auto get_v = MatVec(solver, update_pk, md, pk, vk); 
 
     // 5. alpha = rho_i / (\hat{r}_0 \cdot v_i) [Actually just calculate \hat{r}_0 \cdot v_i]
     auto get_r0dotv = solver.AddTask(get_v, &Solver_t::DotProduct<MD_t>, this,
@@ -199,7 +201,7 @@ class BiCGStabSolver : BiCGStabCounter {
       md.get(), mout.get());
 
     // 9. t = A s
-    auto get_t = MatVec(solver, get_s, md, res, md, tk); 
+    auto get_t = MatVec(solver, get_s, md, res, tk); 
     
     // 10. omega = (t \cdot s) / (t \cdot t)
     auto get_tdots = solver.AddTask(get_t, &Solver_t::OmegaDotProd<MD_t>, this, md.get(),
