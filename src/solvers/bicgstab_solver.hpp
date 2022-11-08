@@ -92,7 +92,7 @@ class BiCGStabSolver : BiCGStabCounter {
     
     vk = "vk" + bicg_id;
     tk = "tk" + bicg_id;
-    meta = Metadata({Metadata::Cell, Metadata::OneCopy});
+    meta = Metadata({Metadata::Cell, Metadata::OneCopy, Metadata::WithFluxes});
     pkg->AddField(vk, meta);
     pkg->AddField(tk, meta);
 
@@ -140,11 +140,19 @@ class BiCGStabSolver : BiCGStabCounter {
           task_list.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, spmd);
 
       auto update_rhs = setb; 
-      if (this->user_MatVec && this->user_precomm_MatVec) { 
-        update_rhs = task_list.AddTask(setb, this->user_MatVec, spmd.get(), this->temp, spmd.get(), name_out);
+      if (this->user_MatVec && this->user_precomm_MatVec) {
+        auto preflx = setb;
+        if (this->user_pre_fluxcor) { 
+          preflx = task_list.AddTask(setb, this->user_pre_fluxcor, spmd.get(), this->temp, spmd.get(), name_out);
+        } 
+        update_rhs = task_list.AddTask(preflx, this->user_MatVec, spmd.get(), this->temp, spmd.get(), name_out);
       }
       else if (this->user_MatVec) {
-        update_rhs = task_list.AddTask(setb, this->user_MatVec, spmd.get(), name_in, spmd.get(), name_out);
+        auto preflx = setb;
+        if (this->user_pre_fluxcor) { 
+          preflx = task_list.AddTask(setb, this->user_pre_fluxcor, spmd.get(), name_in, spmd.get(), name_out);
+        }
+        update_rhs = task_list.AddTask(preflx, this->user_MatVec, spmd.get(), name_in, spmd.get(), name_out);
       } else {
         update_rhs = task_list.AddTask(setb, &Solver_t::MatVec<MD_t>, this, spmd.get(), name_in, name_out);
       } 
