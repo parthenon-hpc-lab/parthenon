@@ -143,15 +143,27 @@ class BiCGStabSolver : BiCGStabCounter {
       if (this->user_MatVec && this->user_precomm_MatVec) {
         auto preflx = setb;
         if (this->user_pre_fluxcor) { 
-          preflx = task_list.AddTask(setb, this->user_pre_fluxcor, spmd.get(), this->temp, spmd.get(), name_out);
+          auto calc_flx = task_list.AddTask(setb, this->user_pre_fluxcor, spmd.get(), this->temp, spmd.get(), name_out);
+          auto send_flx =
+            task_list.AddTask(calc_flx, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, spmd);
+          auto recv_flx =
+            task_list.AddTask(calc_flx, parthenon::cell_centered_bvars::ReceiveFluxCorrections, spmd);
+          preflx =
+            task_list.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, spmd);
         } 
         update_rhs = task_list.AddTask(preflx, this->user_MatVec, spmd.get(), this->temp, spmd.get(), name_out);
       }
       else if (this->user_MatVec) {
         auto preflx = setb;
-        if (this->user_pre_fluxcor) { 
-          preflx = task_list.AddTask(setb, this->user_pre_fluxcor, spmd.get(), name_in, spmd.get(), name_out);
-        }
+        if (this->user_pre_fluxcor) {
+          auto calc_flx = task_list.AddTask(setb, this->user_pre_fluxcor, spmd.get(), name_in, spmd.get(), name_out);
+          auto send_flx =
+            task_list.AddTask(calc_flx, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, spmd);
+          auto recv_flx =
+            task_list.AddTask(calc_flx, parthenon::cell_centered_bvars::ReceiveFluxCorrections, spmd);
+          preflx =
+            task_list.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, spmd); 
+        } 
         update_rhs = task_list.AddTask(preflx, this->user_MatVec, spmd.get(), name_in, spmd.get(), name_out);
       } else {
         update_rhs = task_list.AddTask(setb, &Solver_t::MatVec<MD_t>, this, spmd.get(), name_in, name_out);
