@@ -59,17 +59,13 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         const Real y = coords.x2v(j);
         const Real z = coords.x3v(k);
 
-        auto quad = [=](Real a) {
-          a -= 0.5;
-          return -4.0 * a * a + 1;
-        };
-        const Real qx = quad(x);
-        const Real qy = quad(y);
-        const Real qz = quad(z);
-        const Real qxyz = qx * qy * qz;
-        q(0, k, j, i) = (-x + y + z) * qxyz + 0.3;
-        q(1, k, j, i) = (x - y + z) * qxyz + 0.3;
-        q(2, k, j, i) = (x + y - z) * qxyz + 0.3;
+        const Real qx = (4.0 * x*x*x + x * (x - 1.0) + 0.5) * std::cos(M_PI*y) * std::cos(M_PI*z);
+        const Real qy = (-0.1 / 0.25 * y*y + 0.1) * std::cos(M_PI*x) + std::cos(M_PI*z);
+        const Real qz = (0.1 / 0.25 * z*z - 0.1) * std::cos(M_PI*x) * std::cos(M_PI*y);
+
+        q(0, k, j, i) = qx;
+        q(1, k, j, i) = qy;
+        q(2, k, j, i) = qz;
 
         // just initialize all the scalars to 1
         for (int n = 3; n < num_vars; n++) {
