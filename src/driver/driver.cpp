@@ -108,7 +108,7 @@ DriverStatus EvolutionDriver::Execute() {
     }
 
     // skip the final (last) output at the end of the simulation time as it happens later
-    if (!tm.KeepGoing()) {
+    if (tm.KeepGoing()) {
       pouts->MakeOutputs(pmesh, pinput, &tm, signal);
     }
 
