@@ -59,17 +59,17 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         const Real y = coords.x2v(j);
         const Real z = coords.x3v(k);
 
-        const Real qx = (4.0 * x*x*x + x * (x - 1.0) + 0.5) * std::cos(M_PI*y) * std::cos(M_PI*z);
-        const Real qy = (-0.1 / 0.25 * y*y + 0.1) * std::cos(M_PI*x) + std::cos(M_PI*z);
-        const Real qz = (0.1 / 0.25 * z*z - 0.1) * std::cos(M_PI*x) * std::cos(M_PI*y);
+        const Real qx = (std::tanh(-20.0*x) * std::cos(M_PI*x) + 1.0) * std::exp(-30.0*y*y) * std::exp(-30.0*z*z);
+        const Real qy = (std::sin(M_PI*y) + 0.2) * std::exp(-30.0*x*x) * std::exp(-30.0*z*z);
+        const Real qz = (std::tanh(-20.*z) * std::cos(M_PI*z) + 0.5) * std::exp(-30.0*x*x) * std::exp(-30.0*y*y);
 
         q(0, k, j, i) = qx;
         q(1, k, j, i) = qy;
         q(2, k, j, i) = qz;
 
-        // just initialize all the scalars to 1
         for (int n = 3; n < num_vars; n++) {
-          q(n, k, j, i) = 1.0;
+          q(n, k, j, i) = 1;
+          if (std::abs(x) < 0.025 && std::abs(y) < 0.15 && std::abs(z) < 0.025) q(n,k,j,i) += 10.0;
         }
       });
 }
