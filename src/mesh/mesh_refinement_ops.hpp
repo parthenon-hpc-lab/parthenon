@@ -116,8 +116,8 @@ Real GradMinMod(const Real fc, const Real fm, const Real fp, const Real dxm,
 
 } // namespace util
 
-template <int DIM>
 struct RestrictCellAverage {
+  template <int DIM>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -164,8 +164,8 @@ struct RestrictCellAverage {
   }
 };
 
-template <int DIM>
 struct ProlongateCellMinMod {
+  template <int DIM>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -187,7 +187,7 @@ struct ProlongateCellMinMod {
 
     int fj = jb.s; // overwritten as needed
     Real dx2fm = 0;
-    Real dx2fp = 0;
+    [[maybe_unused]] Real dx2fp = 0;
     Real gx2c = 0;
     if constexpr (DIM > 1) {
       Real dx2m, dx2p;
@@ -198,7 +198,7 @@ struct ProlongateCellMinMod {
     }
     int fk = kb.s;
     Real dx3fm = 0;
-    Real dx3fp = 0;
+    [[maybe_unused]] Real dx3fp = 0;
     Real gx3c = 0;
     if constexpr (DIM > 2) {
       Real dx3m, dx3p;
