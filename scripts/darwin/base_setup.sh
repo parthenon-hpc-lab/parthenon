@@ -24,8 +24,6 @@
 # Load system env only
 source /etc/bashrc
 source /etc/profile
-source /projects/parthenon-int/parthenon-project/spack/share/spack/setup-env.sh
-source /projects/parthenon-int/parthenon-project/.bashrc
 
 # Exit on error
 set -eE
@@ -54,6 +52,12 @@ BUILD_TARGET="$7"
 PYTHON_SCRIPTS_DIR="$8"
 CMAKE_BUILD_TYPE="$9"
 
+# Point to Python install path
+export PIP=/projects/parthenon-int/python/amd-epyc/bin/pip
+
+# Machine config file
+export MACHINE_CFG=${PARTHENON_DIR}/cmake/Darwin-AMD-Epyc-gpu.cmake
+
 # Here we are adding the location of the python scripts bin folder
 # to the path variable. The python scripts directory contains the
 # python Parthenon metrics files. This files are used to interact
@@ -66,10 +70,7 @@ export GITHUB_APP_PEM="$GITHUB_APP_PEM"
 
 echo "CI commit branch ${CI_COMMIT_BRANCH}"
 
-module load gcc/9.3.0
-spack compiler find
-
-# Always get the latest spack environment so that the Parthenon
-# build dependencies are up to date.
-spack_env_latest=$(spack env list | grep darwin-ppc64le-gcc9 | sort | tail -n 1 | tr -d '[:space:]')
-spack env activate "${spack_env_latest}"
+# Load relevant modules
+module use --append /projects/parthenon-int/dependencies/modulefiles
+module load gcc/9.4.0 nvhpc/22.7 amd-epyc-gpu/hdf5/1.10.5 cmake/3.22.2
+module list

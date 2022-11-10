@@ -1,5 +1,5 @@
 #========================================================================================
-# (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -67,7 +67,7 @@
 # is designed to test the performance we have opted for a release build.
 #
 variables:
-  SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9'
+  SCHEDULER_PARAMETERS: '--nodes=1 --partition=amd-epyc-gpu'
   GIT_SUBMODULE_STRATEGY: recursive
   CMAKE_CXX_COMPILER: ${CI_PROJECT_DIR}/external/Kokkos/bin/nvcc_wrapper
   CMAKE_BUILD_TYPE: 'Release'
@@ -93,7 +93,7 @@ variables:
 #
 # This will build and run tests on the current branch (feature branch).
 #
-# 4. performance-regression-build
+# 4. performance-regression
 #
 # Will upload the performance metrics of the current branch (feature branch).
 stages:
@@ -287,7 +287,7 @@ stages:
 # infrastructure before they have been vetted. The other jobs will
 # automatically run in the correct order once the manual job has been
 # triggered and passes.
-parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup:
+parthenon-amd-epyc-nvhpc-mpi-cuda-perf-manual-python-setup:
   tags:
     - eap
   extends: .gcc-mpi-cuda-python-performance-application
@@ -297,30 +297,30 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup:
   except:
     - schedules
 
-parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
+parthenon-amd-epyc-nvhpc-mpi-cuda-perf-manual-target-branch:
   tags:
     - eap
   extends: .gcc-mpi-cuda-performance-regression-target-branch
   stage: performance-target
-  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup]
+  needs: [parthenon-amd-epyc-nvhpc-mpi-cuda-perf-manual-python-setup]
   except:
     - schedules
 
-parthenon-power9-gcc-mpi-cuda-perf-manual-build:
+parthenon-amd-epyc-nvhpc-mpi-cuda-perf-manual-build:
   tags:
     - eap
   extends: .gcc-mpi-cuda-performance-regression-build
   stage: performance-regression-build
-  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch]
+  needs: [parthenon-amd-epyc-nvhpc-mpi-cuda-perf-manual-target-branch]
   except:
     - schedules
 
-parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
+parthenon-amd-epyc-nvhpc-mpi-cuda-perf-manual-metrics:
   tags:
     - eap
   extends: .gcc-mpi-cuda-performance-regression-metrics
   stage: performance-regression
-  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-build]
+  needs: [parthenon-amd-epyc-nvhpc-mpi-cuda-perf-manual-build]
   except:
     - schedules
 
@@ -342,7 +342,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
 # need to compare the performance metrics with another branch. Instead
 # performance metrics are compared on the same branch for the last
 # 5 commits.
-parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
+parthenon-amd-epyc-nvhpc-mpi-cuda-perf-schedule-python-setup:
   tags:
     - eap
   extends: .gcc-mpi-cuda-python-performance-application
@@ -351,22 +351,22 @@ parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
     - schedules
     - develop
 
-parthenon-power9-gcc-mpi-cuda-perf-schedule-build:
+parthenon-amd-epyc-nvhpc-mpi-cuda-perf-schedule-build:
   tags:
     - eap
   extends: .gcc-mpi-cuda-performance-regression-build
   stage: performance-regression-build
-  needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup]
+  needs: [parthenon-amd-epyc-nvhpc-mpi-cuda-perf-schedule-python-setup]
   only:
     - schedules
     - develop
 
-parthenon-power9-gcc-mpi-cuda-perf-schedule-metrics:
+parthenon-amd-epyc-nvhpc-mpi-cuda-perf-schedule-metrics:
   tags:
     - eap
   extends: .gcc-mpi-cuda-performance-regression-metrics
   stage: performance-regression
-  needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-build]
+  needs: [parthenon-amd-epyc-nvhpc-mpi-cuda-perf-schedule-build]
   only:
     - schedules
     - develop

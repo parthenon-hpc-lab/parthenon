@@ -115,9 +115,12 @@ class GitHubApp:
         self._config_file_path = pathlib.Path.joinpath(
             self._config_file_dir, self._config_file_name
         )
+        self._log.info("github app located at = {}".format(__file__))
+        self._log.info("config file path = {}".format(self._config_file_path))
 
         # Create an empty config file if one does not exist
         if not pathlib.Path.is_file(self._config_file_path):
+            self._log.info("No config file available. Creating one.")
             open(self._config_file_path, "a").close()
 
     def initialize(
@@ -160,6 +163,7 @@ class GitHubApp:
         self._parth_root = Node()
 
         if path_to_repo is not None:
+            self._log.info("Checking path to repo: {}".format(path_to_repo))
             # Check that the repo specified is valid
             if os.path.isdir(path_to_repo):
                 # Check if we are overwriting an existing repo stored in the config file
@@ -182,13 +186,15 @@ class GitHubApp:
                     path_to_repo
                 )
                 self._log.error(error_msg)
-                raise
+                raise RuntimeError(error_msg)
         else:
-
+            self._log.info("Path to repo is none")
             if pathlib.Path.is_file(self._config_file_path):
 
+                self._log.info("Reading config file {}".format(self._config_file_path))
                 with open(self._config_file_path, "r") as file:
                     line = file.readline()
+                    self._log.info("config file contents = {}".format(line))
                     # Throw an error if the path is not valid
                     if not os.path.isdir(line):
                         error_msg = (
@@ -210,8 +216,8 @@ class GitHubApp:
         self._parthenon_wiki_dir = os.path.normpath(
             self._repo_path + "/../" + self._repo_name + ".wiki"
         )
-        self._log.info("Parthenon wiki dir")
-        self._log.info(self._parthenon_wiki_dir)
+        self._log.info("Parthenon wiki dir {}".format(self._parthenon_wiki_dir))
+
         if isinstance(pem_file, list):
             self._generateJWT(pem_file[0])
         else:
@@ -252,14 +258,17 @@ class GitHubApp:
                 "be provided or the GITHUB_APP_PEM variable needs to be defined"
             )
             raise Exception(error_msg)
-        self._jwt_token = jwt.encode(payload, PEM, algorithm="RS256").decode("utf-8")
+        self._jwt_token = jwt.encode(payload, PEM, algorithm="RS256")
+        # Older instances of jwt return bytestrings, not strings
+        if isinstance(self._jwt_token, bytes):
+            self._jwt_token = self._jwt_token.decode("utf-8")
 
     @staticmethod
     def _PYCURL(header, url, option=None, custom_data=None):
         buffer_temp = BytesIO()
         c = pycurl.Curl()
         c.setopt(c.URL, url)
-        c.setopt(pycurl.VERBOSE, 0)
+        c.setopt(pycurl.VERBOSE, 1)
         c.setopt(c.WRITEDATA, buffer_temp)
         c.setopt(c.HTTPHEADER, header)
         if option == "POST":
@@ -276,6 +285,8 @@ class GitHubApp:
         c.perform()
         c.close()
 
+        logging.warning("Buffer_temp contains: {}".format(buffer_temp.getvalue()))
+
         return json.loads(buffer_temp.getvalue())
 
     def _generateInstallationId(self):
@@ -290,6 +301,7 @@ class GitHubApp:
             "Accept: " + self._api_version,
         ]
 
+        self._log.info("Header = {}".format(header))
         js_obj = self._PYCURL(header, "https://api.github.com/app/installations")
 
         if isinstance(js_obj, list):
