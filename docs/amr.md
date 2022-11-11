@@ -28,12 +28,12 @@ refinement = adaptive
 In each refinement block, you are required to provide a ``method`` which is a string that selects among the provided critera (listed below).  Additionally, you are required to provide a ``field`` which must be a valid variable name in the application.  Optionally, you can provide a ``refine_tol`` value (defaults to 0.5) indicating that a block should be tagged for refinement if the criteria selected evaluates to a value above this threshold anywhere on the block.  Similarly, the ``derefine_tol`` value (default 0.05) determines when derefinement can occur (all values of the criteria function must be less than this).  Finally, an integer ``max_level`` value can be specified that limits refinement triggered by this criteria to no greater than this level.  The default is to allow each criteria to refine to ``numlevel``, which is the global maximum number of refinement levels specified in the ``<parthenon/mesh>`` block.
 
 ### Predefined Criteria
+The predefined refinement criteria are calculated in terms of the user selected
+variable $q$ as follows.
 | Method | Description |
 |--------|-------------|
 | derivative_order_1 | ![formula](https://render.githubusercontent.com/render/math?math=\|dlnq\/dlnx\|) |
 | derivative_order_2 | $$\frac{\delta x^2}{4\|q\|} \left\| \frac{\partial^2 q}{\partial x^2} \right\| = \frac{ \| q_{i-1} - 2 q_{i} + q_{i+1} \| }{ 2\| q_{i} \| + \| q_{i-1} + q_{i+1} \| } $$ Note that this quantity is bounded by by $\[0,1\]$. |
-
-where q is the user selected variable.
 
 ## Package-specific Criteria
 As a package developer, you can define a tagging function that takes a ``Container`` as an argument and returns an integer in {-1,0,1} to indicate the block should be derefined, left alone, or refined, respectively.  This function should be registered in a ``StateDescriptor`` object by assigning the ``CheckRefinement`` function pointer to point at the packages function.  An example is demonstrated [here](../example/calculate_pi/pi.cpp).
