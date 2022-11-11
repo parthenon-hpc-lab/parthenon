@@ -33,7 +33,7 @@ variable $q$ as follows.
 | Method | Description |
 |--------|-------------|
 | derivative_order_1 | ![formula](https://render.githubusercontent.com/render/math?math=\|dlnq\/dlnx\|) |
-| derivative_order_2 | $$\frac{\delta x^2}{4\|q\|} \left\| \frac{\partial^2 q}{\partial x^2} \right\| = \frac{ \| q_{i-1} - 2 q_{i} + q_{i+1} \| }{ 2\| q_{i} \| + \| q_{i-1} + q_{i+1} \| } $$ Note that this quantity is bounded by by $\[0,1\]$. |
+| derivative_order_2 | $$\frac{\delta x^2}{4\|q\|} \left\| \frac{\partial^2 q}{\partial x^2} \right\| = \frac{ \| q_{i-1} - 2 q_{i} + q_{i+1} \| }{ 2\| q_{i} \| + \| q_{i-1} + q_{i+1} \| } $$ Note that this quantity is bounded by $\[0,1\]$. |
 
 ## Package-specific Criteria
 As a package developer, you can define a tagging function that takes a ``Container`` as an argument and returns an integer in {-1,0,1} to indicate the block should be derefined, left alone, or refined, respectively.  This function should be registered in a ``StateDescriptor`` object by assigning the ``CheckRefinement`` function pointer to point at the packages function.  An example is demonstrated [here](../example/calculate_pi/pi.cpp).
