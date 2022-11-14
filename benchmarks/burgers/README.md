@@ -22,7 +22,7 @@ as well as computing an auxiliary quantity $d$ that resemebles a kinetic energy
 
 $$
 \begin{equation*}
-d = \frac{1}{2} q^0 \mathbf{u}\cdot\mathbf{u}\;.
+d = \frac{1}{2} q^0 \mathbf{u}\cdot\mathbf{u}.
 \end{equation*}
 $$
 
@@ -80,12 +80,13 @@ The dominant memory usage in Parthenon-VIBE is for storage of the solution, for 
 
 $$
 \begin{align*}
-\frac{M}{sizeof(Real)} =& 10 N_{blocks} (N_x^{block} + 2 N_{ghost}) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost}) N_{vars}\;\;\;\;\;\;\;\;\;\;\;\; \rm{Solution,\, intermediate\, intermediate\, face\, values,\, and\, derived}\\
-                       +& N_{blocks} (N_x^{block} + 2*N_{ghost} + 1) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost}) N_{vars}\;\;\;\;\;\rm{x-Flux}\\
-                       +& N_{blocks} (N_x^{block} + 2*N_{ghost}) (N_y^{block} + 2 N_{ghost} + 1) (N_z^{block} + 2 N_{ghost}) N_{vars}\;\;\;\;\;\rm{y-Flux}\\
-                       +& N_{blocks} (N_x^{block} + 2*N_{ghost}) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost} + 1) N_{vars}\;\;\;\;\;\rm{z-Flux}\,.
+\frac{M}{sizeof(Real)} =& 10 N_{blocks} (N_x^{block} + 2 N_{ghost}) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost}) N_{vars} \\
+                       +& N_{blocks} (N_x^{block} + 2*N_{ghost} + 1) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost}) N_{vars} \\
+                       +& N_{blocks} (N_x^{block} + 2*N_{ghost}) (N_y^{block} + 2 N_{ghost} + 1) (N_z^{block} + 2 N_{ghost}) N_{vars} \\
+                       +& N_{blocks} (N_x^{block} + 2*N_{ghost}) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost} + 1) N_{vars}.
 \end{align*}
 $$
+
 For $16^3$ mesh blocks with 4 ghost cells, as configured by default in the provided input file, this corresponds to
 $$
 \begin{equation*}
@@ -103,8 +104,10 @@ Figure 1: Number of mesh blocks as a function of time step cycle on the base mes
 
 On a two-socket Broadwell node with 36 cores, the benchmark takes approximately 213 seconds (3.5 minutes) to run to completion (250 time steps), averaging approximately $4.0\times 10^6$ zone-cycles/wallsecond.  On a single NVIDIA A100 GPU, the run completes in about 45 seconds, averaging approximately $1.8\times 10^7$ zone-cycles/wallsecond.  Strong scaling results on a single Broadwell node are shown below in Figure 2.
 
-<p style="text-align:center;"<img src="data/pvibe_cpu_scaling.png" alt="Plot showing strong scaling on a single 36-core Broadwell node." style="width:50%"><br />Figure 2: Strong scaling of the Parthenon-VIBE benchmark on a 36-core Broadwell node, run with one or more single-threaded MPI ranks.</p>
+<p style="text-align:center;"><img src="data/pvibe_cpu_scaling.png" alt="Plot showing strong scaling on a single 36-core Broadwell node." style="width:50%"><br />Figure 2: Strong scaling of the Parthenon-VIBE benchmark on a 36-core Broadwell node, run with one or more single-threaded MPI ranks.</p>
 
-For the GPU, we measure throughput on a single-level mesh ("parthenon/mesh/numlevel = 1")
+For the GPU, we measure throughput on a single-level mesh ("parthenon/mesh/numlevel = 1") and vary the base mesh size and the block size.  Results on a 40 GB A100 are shown in Figure 3.
+
+<p style="text-align:center;"><img src="data/pvibe_gpu_throughput.png" alt="Plot showing throughput on an A100 at different mesh and block sizes" style=width:50%><br />Figure 3: Throughput for different mesh and block sizes on a single 40 GB A100 GPU.</p>
 
 
