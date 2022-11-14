@@ -79,15 +79,15 @@ where `Kokkos_ARCH` should be set appropriately for the machine (see [here](http
 The dominant memory usage in Parthenon-VIBE is for storage of the solution, for which two copies are required to support second order time stepping, for storing the update for a integrator stage (essentially the flux divergence), the intercell fluxes of each variable, for intermediate values of each solution variable on each side of every face, and for a derived quantity that we compute from the evolved solution.  From this we can construct a simple model for the memory usage $M$ as 
 
 $$
-\begin{align*}
+\begin{align}
 \frac{M}{sizeof(Real)} =& 10 N_{blocks} (N_x^{block} + 2 N_{ghost}) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost}) N_{vars} \\
                        +& N_{blocks} (N_x^{block} + 2*N_{ghost} + 1) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost}) N_{vars} \\
                        +& N_{blocks} (N_x^{block} + 2*N_{ghost}) (N_y^{block} + 2 N_{ghost} + 1) (N_z^{block} + 2 N_{ghost}) N_{vars} \\
-                       +& N_{blocks} (N_x^{block} + 2*N_{ghost}) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost} + 1) N_{vars}.
-\end{align*}
+                       +& N_{blocks} (N_x^{block} + 2*N_{ghost}) (N_y^{block} + 2 N_{ghost}) (N_z^{block} + 2 N_{ghost} + 1) N_{vars}
+\end{align}
 $$
 
-For $16^3$ mesh blocks with 4 ghost cells, as configured by default in the provided input file, this corresponds to
+where (1) is from storing the solution, updates, intermediate values, and the derived quantity and (2)-(4) are for intercell fluxes in each direction. For $16^3$ mesh blocks with 4 ghost cells, as configured by default in the provided input file, this corresponds to
 $$
 \begin{equation*}
 \frac{M}{sizeof(Real)} = 181440 N_{blocks} N_{vars}
