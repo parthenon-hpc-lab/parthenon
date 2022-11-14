@@ -87,7 +87,7 @@ $$
 \end{align}
 $$
 
-where (1) is from storing the solution, updates, intermediate values, and the derived quantity and (2)-(4) are for intercell fluxes in each direction. For $16^3$ mesh blocks with 4 ghost cells, as configured by default in the provided input file, this corresponds to
+where the first term is from storing the solution, updates, intermediate values, and the derived quantity and the latter three terms are for intercell fluxes in each direction. For $16^3$ mesh blocks with 4 ghost cells, as configured by default in the provided input file, this corresponds to
 $$
 \begin{equation*}
 \frac{M}{sizeof(Real)} = 181440 N_{blocks} N_{vars}
