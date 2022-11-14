@@ -21,24 +21,24 @@ problem_id = burgers
 <parthenon/mesh>
 nghost = 4
 refinement = adaptive
-numlevel = 5
+numlevel = 2
 deref_count = 10
 
-nx1 = 64
-x1min = 0
-x1max = 1.0
+nx1 = 128
+x1min = -0.5
+x1max = 0.5
 ix1_bc = periodic
 ox1_bc = periodic
 
-nx2 = 64
-x2min = 0.0
-x2max = 1.0
+nx2 = 128
+x2min = -0.5
+x2max = 0.5
 ix2_bc = periodic
 ox2_bc = periodic
 
-nx3 = 64
-x3min = 0.0
-x3max = 1.0
+nx3 = 128
+x3min = -0.5
+x3max = 0.5
 ix3_bc = periodic
 ox3_bc = periodic
 
@@ -70,4 +70,4 @@ variables = U, derived
 <burgers>
 cfl = 0.8
 recon = weno5
-num_scalars = 1
+num_scalars = 8
