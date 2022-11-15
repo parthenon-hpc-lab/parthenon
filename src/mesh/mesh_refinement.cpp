@@ -117,10 +117,10 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
         for (int ci = csi; ci <= cei; ci++) {
           int i =
               (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-          const Real area00 = coords.faceArea(X1DIR, k, j, i);
-          const Real area01 = coords.faceArea(X1DIR, k, j + 1, i);
-          const Real area10 = coords.faceArea(X1DIR, k + 1, j, i);
-          const Real area11 = coords.faceArea(X1DIR, k + 1, j + 1, i);
+          const Real area00 = coords.FaceArea<X1DIR>(k, j, i);
+          const Real area01 = coords.FaceArea<X1DIR>(k, j + 1, i);
+          const Real area10 = coords.FaceArea<X1DIR>(k + 1, j, i);
+          const Real area11 = coords.FaceArea<X1DIR>(k + 1, j + 1, i);
           const Real tarea = area00 + area01 + area10 + area11;
           coarse(ck, cj, ci) =
               (fine(k, j, i) * area00 + fine(k, j + 1, i) * area01 +
@@ -135,8 +135,8 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
       int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
       for (int ci = csi; ci <= cei; ci++) {
         int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-        const Real area0 = coords.faceArea(X1DIR, k, j, i);
-        const Real area1 = coords.faceArea(X1DIR, k, j + 1, i);
+        const Real area0 = coords.FaceArea<X1DIR>(k, j, i);
+        const Real area1 = coords.FaceArea<X1DIR>(k, j + 1, i);
         const Real tarea = area0 + area1;
         coarse(csk, cj, ci) = (fine(k, j, i) * area0 + fine(k, j + 1, i) * area1) / tarea;
       }
@@ -176,10 +176,10 @@ void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine,
         for (int ci = csi; ci <= cei; ci++) {
           int i =
               (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-          const Real area00 = coords.faceArea(X2DIR, k, j, i);
-          const Real area01 = coords.faceArea(X2DIR, k, j, i + 1);
-          const Real area10 = coords.faceArea(X2DIR, k + 1, j, i);
-          const Real area11 = coords.faceArea(X2DIR, k + 1, j, i + 1);
+          const Real area00 = coords.FaceArea<X2DIR>(k, j, i);
+          const Real area01 = coords.FaceArea<X2DIR>(k, j, i + 1);
+          const Real area10 = coords.FaceArea<X2DIR>(k + 1, j, i);
+          const Real area11 = coords.FaceArea<X2DIR>(k + 1, j, i + 1);
           const Real tarea = area00 + area01 + area10 + area11;
           coarse(ck, cj, ci) =
               (fine(k, j, i) * area00 + fine(k, j, i + 1) * area01 +
@@ -194,8 +194,8 @@ void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine,
       int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
       for (int ci = csi; ci <= cei; ci++) {
         int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-        const Real area0 = coords.faceArea(X2DIR, k, j, i);
-        const Real area1 = coords.faceArea(X2DIR, k, j, i + 1);
+        const Real area0 = coords.FaceArea<X2DIR>(k, j, i);
+        const Real area1 = coords.FaceArea<X2DIR>(k, j, i + 1);
         const Real tarea = area0 + area1;
         coarse(pmb->c_cellbounds.ks(interior), cj, ci) =
             (fine(k, j, i) * area0 + fine(k, j, i + 1) * area1) / tarea;
@@ -205,8 +205,8 @@ void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine,
     int k = pmb->cellbounds.ks(interior), j = pmb->cellbounds.js(interior);
     for (int ci = csi; ci <= cei; ci++) {
       int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-      const Real area0 = coords.faceArea(X2DIR, k, j, i);
-      const Real area1 = coords.faceArea(X2DIR, k, j, i + 1);
+      const Real area0 = coords.FaceArea<X2DIR>(k, j, i);
+      const Real area1 = coords.FaceArea<X2DIR>(k, j, i + 1);
       const Real tarea = area0 + area1;
       coarse(pmb->c_cellbounds.ks(interior), pmb->c_cellbounds.js(interior), ci) =
           (fine(k, j, i) * area0 + fine(k, j, i + 1) * area1) / tarea;
@@ -239,10 +239,10 @@ void MeshRefinement::RestrictFieldX3(const ParArrayND<Real> &fine,
         for (int ci = csi; ci <= cei; ci++) {
           int i =
               (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-          const Real area00 = coords.faceArea(X3DIR, k, j, i);
-          const Real area01 = coords.faceArea(X3DIR, k, j, i + 1);
-          const Real area10 = coords.faceArea(X3DIR, k, j + 1, i);
-          const Real area11 = coords.faceArea(X3DIR, k, j + 1, i + 1);
+          const Real area00 = coords.FaceArea<X3DIR>(k, j, i);
+          const Real area01 = coords.FaceArea<X3DIR>(k, j, i + 1);
+          const Real area10 = coords.FaceArea<X3DIR>(k, j + 1, i);
+          const Real area11 = coords.FaceArea<X3DIR>(k, j + 1, i + 1);
           const Real tarea = area00 + area01 + area10 + area11;
           coarse(ck, cj, ci) =
               (fine(k, j, i) * area00 + fine(k, j, i + 1) * area01 +
@@ -257,10 +257,10 @@ void MeshRefinement::RestrictFieldX3(const ParArrayND<Real> &fine,
       int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
       for (int ci = csi; ci <= cei; ci++) {
         int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-        const Real area00 = coords.faceArea(X3DIR, k, j, i);
-        const Real area01 = coords.faceArea(X3DIR, k, j, i + 1);
-        const Real area10 = coords.faceArea(X3DIR, k, j + 1, i);
-        const Real area11 = coords.faceArea(X3DIR, k, j + 1, i + 1);
+        const Real area00 = coords.FaceArea<X3DIR>(k, j, i);
+        const Real area01 = coords.FaceArea<X3DIR>(k, j, i + 1);
+        const Real area10 = coords.FaceArea<X3DIR>(k, j + 1, i);
+        const Real area11 = coords.FaceArea<X3DIR>(k, j + 1, i + 1);
         const Real tarea = area00 + area01 + area10 + area11;
         coarse(pmb->c_cellbounds.ks(interior), cj, ci) =
             (fine(k, j, i) * area00 + fine(k, j, i + 1) * area01 +
@@ -272,8 +272,8 @@ void MeshRefinement::RestrictFieldX3(const ParArrayND<Real> &fine,
     int k = pmb->cellbounds.ks(interior), j = pmb->cellbounds.js(interior);
     for (int ci = csi; ci <= cei; ci++) {
       int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-      const Real area0 = coords.faceArea(X3DIR, k, j, i);
-      const Real area1 = coords.faceArea(X3DIR, k, j, i + 1);
+      const Real area0 = coords.FaceArea<X3DIR>(k, j, i);
+      const Real area1 = coords.FaceArea<X3DIR>(k, j, i + 1);
       const Real tarea = area0 + area1;
       coarse(pmb->c_cellbounds.ks(interior), pmb->c_cellbounds.js(interior), ci) =
           (fine(k, j, i) * area0 + fine(k, j, i + 1) * area1) / tarea;

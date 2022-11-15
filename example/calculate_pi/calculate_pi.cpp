@@ -159,7 +159,7 @@ Real ComputeAreaInternal(MeshBlockPack<VariablePack<Real>> pack, ParArrayHost<Re
         // Must check if in_or_out is allocated for sparse variables
         if (check_allocated(b, v)) {
           larea +=
-              pack(b, v, k, j, i) * pack.GetCoords(b).faceArea(parthenon::X3DIR, k, j, i);
+              pack(b, v, k, j, i) * pack.GetCoords(b).FaceArea<parthenon::X3DIR>(k, j, i);
         }
       },
       area);
