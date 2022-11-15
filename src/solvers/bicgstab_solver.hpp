@@ -138,12 +138,13 @@ class BiCGStabSolver : BiCGStabCounter {
           precom, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, spmd);
       auto setb =
           task_list.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, spmd);
-
-      auto update_rhs = setb; 
+      auto prolong =
+          task_list.AddTask(setb, parthenon::ProlongateBoundariesMD, spmd);
+      auto update_rhs = prolong; 
       if (this->user_MatVec && this->user_precomm_MatVec) {
-        auto preflx = setb;
+        auto preflx = prolong;
         if (this->user_pre_fluxcor) { 
-          auto calc_flx = task_list.AddTask(setb, this->user_pre_fluxcor, spmd.get(), this->temp, spmd.get(), name_out);
+          auto calc_flx = task_list.AddTask(prolong, this->user_pre_fluxcor, spmd.get(), this->temp, spmd.get(), name_out);
           auto send_flx =
             task_list.AddTask(calc_flx, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, spmd);
           auto recv_flx =
@@ -279,7 +280,7 @@ class BiCGStabSolver : BiCGStabCounter {
     omega_old = 1.0;
     Real err(0);
     const Real fac0 = 0.0;
-    const Real fac = 0.0;
+    const Real fac = 1.0;
     par_reduce(loop_pattern_mdrange_tag, "initialize bicgstab", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lerr) {
