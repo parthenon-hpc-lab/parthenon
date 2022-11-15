@@ -843,9 +843,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       if (output_params.hdf5_compression_level > 0) {
         // we need chunks to enable compression
         std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, 1, 1, 1});
-        for (int i = 0; i < ndim - 3; i++) {
-          chunk_size[i] = 1;
-        }
         for (int i = ndim - 3; i < ndim; i++) {
           chunk_size[i] = local_count[i];
         }
