@@ -499,21 +499,24 @@ class phdf:
 
             elif self.OutputFormatVersion == 2:
                 if np.prod(vShape) > self.TotalCells:
-                      ret = np.empty(
-                          (vShape[1], self.TotalCells), dtype=self.varData[variable].dtype
-                      )
-                      ret[:] = np.nan
-                      for i in range(vShape[1]):
-                          ret[i] = self.varData[variable][:, i, :, :, :].ravel()
-                      assert (ret != np.nan).all()
-                      return ret
+                    ret = np.empty(
+                        (vShape[1], self.TotalCells), dtype=self.varData[variable].dtype
+                    )
+                    ret[:] = np.nan
+                    for i in range(vShape[1]):
+                        ret[i] = self.varData[variable][:, i, :, :, :].ravel()
+                    assert (ret != np.nan).all()
+                    return ret
                 else:
                     return self.varData[variable][:].reshape(self.TotalCells)
 
             elif self.OutputFormatVersion == 3:
                 # Check for cell-centered data
-                if (vShape[-1] == self.MeshBlockSize[0] and vShape[-2] == self.MeshBlockSize[1] and
-                   vShape[-3] == self.MeshBlockSize[2]):
+                if (
+                    vShape[-1] == self.MeshBlockSize[0]
+                    and vShape[-2] == self.MeshBlockSize[1]
+                    and vShape[-3] == self.MeshBlockSize[2]
+                ):
                     fieldShape = vShape[1:-3]
                     totalFieldEntries = np.prod(fieldShape)
                     ndim = len(fieldShape)
@@ -522,36 +525,48 @@ class phdf:
                     else:
                         if ndim == 1:
                             ret = np.empty(
-                              (vShape[1], self.TotalCells), dtype=self.varData[variable].dtype)
+                                (vShape[1], self.TotalCells),
+                                dtype=self.varData[variable].dtype,
+                            )
                             ret[:] = np.nan
                             for i in range(vShape[1]):
-                                ret[i] = self.varData[variable][:,i,:,:,:].ravel()
+                                ret[i] = self.varData[variable][:, i, :, :, :].ravel()
                             assert (ret != np.nan).all()
                             return ret
                         elif ndim == 2:
                             ret = np.empty(
-                              (vShape[1]*vShape[2], self.TotalCells), dtype=self.varData[variable].dtype)
+                                (vShape[1] * vShape[2], self.TotalCells),
+                                dtype=self.varData[variable].dtype,
+                            )
                             ret[:] = np.nan
                             for i in range(vShape[1]):
                                 for j in range(vShape[2]):
-                                    ret[i + vShape[1]*j] = self.varData[variable][:,i,j,:,:,:].ravel()
+                                    ret[i + vShape[1] * j] = self.varData[variable][
+                                        :, i, j, :, :, :
+                                    ].ravel()
                             assert (ret != np.nan).all()
                             return ret
                         else:
                             ret = np.empty(
-                              (vShape[1]*vShape[2]*vShape[3], self.TotalCells), dtype=self.varData[variable].dtype)
+                                (vShape[1] * vShape[2] * vShape[3], self.TotalCells),
+                                dtype=self.varData[variable].dtype,
+                            )
                             ret[:] = np.nan
                             for i in range(vShape[1]):
                                 for j in range(vShape[2]):
                                     for k in range(vShape[3]):
-                                        ret[i + vShape[1]*(j + vShape[2]*k)] = self.varData[variable][:,i,j,k,:,:,:].ravel()
+                                        ret[
+                                            i + vShape[1] * (j + vShape[2] * k)
+                                        ] = self.varData[variable][
+                                            :, i, j, k, :, :, :
+                                        ].ravel()
                             assert (ret != np.nan).all()
                             return ret
                 else:
-                  # Not cell-based variable
-                  raise Exception(
-                      f"Flattening only supported for cell-based variables but requested for {variable}"
-                  )
+                    # Not cell-based variable
+                    raise Exception(
+                        f"Flattening only supported for cell-based variables but requested for {variable}"
+                    )
 
         if self.IncludesGhost and interior:
             nghost = self.NGhost
