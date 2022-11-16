@@ -167,6 +167,13 @@ class RestartReader {
       count[3] = bsize[0];
       count[4] = vlen;
       total_dim = 5;
+    } else if (file_output_format_version == 2) {
+      count[0] = static_cast<hsize_t>(range.e - range.s + 1);
+      count[1] = vlen;
+      count[2] = bsize[2];
+      count[3] = bsize[1];
+      count[4] = bsize[0];
+      total_dim = 5;
     } else if (file_output_format_version == HDF5::OUTPUT_VERSION_FORMAT) {
       count[0] = static_cast<hsize_t>(range.e - range.s + 1);
       const int ndim = shape.size();

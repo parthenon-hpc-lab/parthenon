@@ -235,8 +235,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     // Being extra stringent here so that we don't forget to update the machinery when
     // another change happens.
     PARTHENON_REQUIRE_THROWS(
-        HDF5::OUTPUT_VERSION_FORMAT == 3,
-        "Auto conversion from old to current format not implemented yet.")
+        HDF5::OUTPUT_VERSION_FORMAT == 2 || HDF5::OUTPUT_VERSION_FORMAT == 3,
+        "Auto conversion from original to format 2 or 3 not implemented yet.")
+
     if (Globals::my_rank == 0) {
       PARTHENON_WARN("Restarting from a old output file format. New outputs written with "
                      "this binary will use new format.")
