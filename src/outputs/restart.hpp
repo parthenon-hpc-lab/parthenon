@@ -168,6 +168,13 @@ class RestartReader {
       count[4] = vlen;
       total_dim = 5;
     } else if (file_output_format_version == 2) {
+      PARTHENON_REQUIRE(
+          shape.size() <= 1,
+          "Higher than vector datatypes are unstable in output versions < 3");
+      size_t vlen = 1;
+      for (int i = 0; i < shape.size(); i++) {
+        vlen *= shape[i];
+      }
       count[0] = static_cast<hsize_t>(range.e - range.s + 1);
       count[1] = vlen;
       count[2] = bsize[2];
