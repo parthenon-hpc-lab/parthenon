@@ -10,6 +10,7 @@
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 781]](https://github.com/lanl/parthenon/pull/781) Output variables with same shape as in parthenon
 - [[PR 758]](https://github.com/lanl/parthenon/pull/758) Bump required C++ standard to C++17
 - [[PR 710]](https://github.com/lanl/parthenon/pull/710) Remove data transpose in hdf5 and restart outputs
 - [[PR 713]](https://github.com/lanl/parthenon/pull/713) Remove Coordinates stub in favor of Coordinates_t
@@ -32,7 +33,7 @@
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 777]](https://github.com/parthenon-hpc-lab/parthenon/pull/777) New action: check PR dependencies & warn until requirements merged
 - [[PR 772]](https://github.com/lanl/parthenon/pull/772) Trigger short CI only for PRs and remove old SpaceInstances test
-- [[PR 757]](https://github.com/lanl/parthenon/pull/757) Move to flux correction in-one and unify with bvals 
+- [[PR 757]](https://github.com/lanl/parthenon/pull/757) Move to flux correction in-one and unify with bvals
 - [[PR 768]](https://github.com/lanl/parthenon/pull/768) Update CI image and move to new CI machine (short and extended tests)
 - [[PR 766]](https://github.com/lanl/parthenon/pull/766) Remove IAS performance regression test
 - [[PR 735]](https://github.com/lanl/parthenon/pull/735) Clean up HDF5 output
