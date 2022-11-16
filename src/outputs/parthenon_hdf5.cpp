@@ -205,7 +205,8 @@ struct VarInfo {
   int nx3;
   int nx2;
   int nx1;
-  int ndim; // 1-, 2-, or 3-D
+  int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
+                   // variables
   MetadataFlag where;
   bool is_sparse;
   bool is_vector;
@@ -217,7 +218,7 @@ struct VarInfo {
           int vlen, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
           Metadata metadata, bool is_sparse, bool is_vector)
       : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), nx3(nx3), nx2(nx2),
-        nx1(nx1), ndim(metadata.Shape().size()), where(metadata.Where()),
+        nx1(nx1), tensor_rank(metadata.Shape().size()), where(metadata.Where()),
         is_sparse(is_sparse), is_vector(is_vector) {
     if (vlen <= 0) {
       std::stringstream msg;
@@ -830,50 +831,49 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                                   static_cast<hsize_t>(vinfo.nx1)});
 
     int ndim = -1;
+#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
+    // we need chunks to enable compression
+    std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, 1, 1, 1});
+#endif
     if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-      ndim = 3 + vinfo.ndim + 1;
-      for (int i = 0; i < vinfo.ndim; i++) {
-        local_count[1 + i] = global_count[1 + i] = alldims[3 - vinfo.ndim + i];
+      ndim = 3 + vinfo.tensor_rank + 1;
+      for (int i = 0; i < vinfo.tensor_rank; i++) {
+        local_count[1 + i] = global_count[1 + i] = alldims[3 - vinfo.tensor_rank + i];
       }
-      local_count[vinfo.ndim + 1] = global_count[vinfo.ndim + 1] = nx3;
-      local_count[vinfo.ndim + 2] = global_count[vinfo.ndim + 2] = nx2;
-      local_count[vinfo.ndim + 3] = global_count[vinfo.ndim + 3] = nx1;
+      local_count[vinfo.tensor_rank + 1] = global_count[vinfo.tensor_rank + 1] = nx3;
+      local_count[vinfo.tensor_rank + 2] = global_count[vinfo.tensor_rank + 2] = nx2;
+      local_count[vinfo.tensor_rank + 3] = global_count[vinfo.tensor_rank + 3] = nx1;
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
       if (output_params.hdf5_compression_level > 0) {
-        // we need chunks to enable compression
-        std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, 1, 1, 1});
         for (int i = ndim - 3; i < ndim; i++) {
           chunk_size[i] = local_count[i];
         }
-        PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, ndim, chunk_size.data()));
-        PARTHENON_HDF5_CHECK(H5Pset_deflate(
-            pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
       }
 #endif
     } else if (vinfo.where == MetadataFlag(Metadata::None)) {
-      ndim = vinfo.ndim + 1;
-      for (int i = 0; i < vinfo.ndim; i++) {
-        local_count[1 + i] = global_count[1 + i] = alldims[6 - vinfo.ndim + i];
+      ndim = vinfo.tensor_rank + 1;
+      for (int i = 0; i < vinfo.tensor_rank; i++) {
+        local_count[1 + i] = global_count[1 + i] = alldims[6 - vinfo.tensor_rank + i];
       }
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
       if (output_params.hdf5_compression_level > 0) {
-        // we need chunks to enable compression
-        std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, 1, 1, 1});
-        int nchunk_indices = std::min<int>(vinfo.ndim, 3);
+        int nchunk_indices = std::min<int>(vinfo.tensor_rank, 3);
         for (int i = ndim - nchunk_indices; i < ndim; i++) {
           chunk_size[i] = alldims[6 - nchunk_indices + i];
         }
-
-        PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, ndim, chunk_size.data()));
-        PARTHENON_HDF5_CHECK(H5Pset_deflate(
-            pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
       }
 #endif
     } else {
       PARTHENON_THROW("Only Cell and None locations supported!");
     }
+
+#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
+    PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, ndim, chunk_size.data()));
+    PARTHENON_HDF5_CHECK(
+        H5Pset_deflate(pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
+#endif
 
     // load up data
     hsize_t index = 0;
