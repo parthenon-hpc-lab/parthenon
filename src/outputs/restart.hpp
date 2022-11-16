@@ -205,8 +205,10 @@ class RestartReader {
     }
 
     hsize_t total_count = 1;
+    printf("name: %s\n", name.c_str());
     for (int i = 0; i < total_dim; ++i) {
       total_count *= count[i];
+      printf("[%i] count = %i\n", i, count[i]);
     }
 
     PARTHENON_REQUIRE_THROWS(dataVec.size() >= total_count,

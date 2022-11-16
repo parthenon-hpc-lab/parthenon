@@ -919,6 +919,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         }
       }
 
+      if (b_idx == 0) {
+      printf("var_name: %s sparse? %i\n", var_name.c_str(), vinfo.is_sparse);
+      for (int i = 0; i < 7; i++) {
+        printf("[%i] count local: %i global: %i\n", i, local_count[i], global_count[i]);
+      }
+      }
+
       if (vinfo.is_sparse) {
         size_t sparse_idx = sparse_field_idx.at(vinfo.label);
         sparse_allocated[b_idx * num_sparse + sparse_idx] = is_allocated;
@@ -927,7 +934,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       if (!is_allocated) {
         if (vinfo.is_sparse) {
           const hsize_t varSize =
-              vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+              //vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+              vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 1) * (out_jb.e - out_jb.s + 1) * (out_ib.e - out_ib.s + 1);
+//              printf("vlen: %i varSize = %i -> N = %i  new varSize = %i\n",
+//                vinfo.vlen, vinfo.nx3*info.nx2*vinfo.nx1
           memset(tmpData.data() + index, 0, varSize * sizeof(OutT));
           index += varSize;
         } else {
