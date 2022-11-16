@@ -125,6 +125,12 @@ Real GradMinMod(const Real fc, const Real fm, const Real fp, const Real dxm,
   return 0.5 * (SIGN(gxm) + SIGN(gxp)) * std::min(std::abs(gxm), std::abs(gxp));
 }
 
+KOKKOS_FORCEINLINE_FUNCTION
+Real GradFiniteDiff(const Real fc, const Real fm, const Real fp, const Real dxm,
+                    const Real dxp) {
+  return (fp - fm) / (dxm + dxp);
+}
+
 } // namespace util
 
 template <int DIM>
@@ -190,7 +196,7 @@ struct ProlongateCellMinMod {
     Real dx1fm, dx1fp, dx1m, dx1p;
     GetGridSpacings<1>(coords, coarse_coords, cib, ib, i, &fi, &dx1m, &dx1p, &dx1fm,
                        &dx1fp);
-    const Real gx1c = GradMinMod(fc, coarse(l, m, n, k, j, i - 1),
+    const Real gx1c = GradFiniteDiff(fc, coarse(l, m, n, k, j, i - 1),
                                  coarse(l, m, n, k, j, i + 1), dx1m, dx1p);
 
     int fj = jb.s; // overwritten as needed
@@ -201,7 +207,7 @@ struct ProlongateCellMinMod {
       Real dx2m, dx2p;
       GetGridSpacings<2>(coords, coarse_coords, cjb, jb, j, &fj, &dx2m, &dx2p, &dx2fm,
                          &dx2fp);
-      gx2c = GradMinMod(fc, coarse(l, m, n, k, j - 1, i), coarse(l, m, n, k, j + 1, i),
+      gx2c = GradFiniteDiff(fc, coarse(l, m, n, k, j - 1, i), coarse(l, m, n, k, j + 1, i),
                         dx2m, dx2p);
     }
     int fk = kb.s;
@@ -212,7 +218,7 @@ struct ProlongateCellMinMod {
       Real dx3m, dx3p;
       GetGridSpacings<3>(coords, coarse_coords, ckb, kb, k, &fk, &dx3m, &dx3p, &dx3fm,
                          &dx3fp);
-      gx3c = GradMinMod(fc, coarse(l, m, n, k - 1, j, i), coarse(l, m, n, k + 1, j, i),
+      gx3c = GradFiniteDiff(fc, coarse(l, m, n, k - 1, j, i), coarse(l, m, n, k + 1, j, i),
                         dx3m, dx3p);
     }
 
