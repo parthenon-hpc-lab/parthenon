@@ -488,10 +488,6 @@ class phdf:
 
         vShape = self.varData[variable].shape
         if flatten:
-            # if variable is not a scalar flatten cells component-wise
-            print('sdifj')
-            print(vShape)
-            print(self.TotalCells)
             # TODO(tbd) remove legacy mode in next major rel.
             if self.OutputFormatVersion == -1:
                 if np.prod(vShape) > self.TotalCells:
@@ -515,9 +511,9 @@ class phdf:
                     return self.varData[variable][:].reshape(self.TotalCells)
 
             elif self.OutputFormatVersion == 3:
-                # TODO(BRR) This isn't quite right -- may need to output additional metadata
                 # Check for cell-centered data
-                if vShape[-1] * vShape[-2] * vShape[-3] == self.TotalCells:
+                if (vShape[-1] == self.MeshBlockSize[0] and vShape[-2] == self.MeshBlockSize[1] and
+                   vShape[-3] == self.MeshBlockSize[2]):
                     fieldShape = vShape[1:-3]
                     totalFieldEntries = np.prod(fieldShape)
                     ndim = len(fieldShape)
