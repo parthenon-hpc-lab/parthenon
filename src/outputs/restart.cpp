@@ -89,9 +89,6 @@ RestartReader::SparseInfo RestartReader::GetSparseInfo() const {
     // member
     info.allocated.reset(new hbool_t[hdl.count]);
     info.num_blocks = static_cast<int>(hdl.dims[0]);
-    printf("num_blocks = %i\n", info.num_blocks);
-    printf("num_sparse: %i\n", info.num_sparse);
-    printf("count: %i\n", hdl.count);
 
     const H5S memspace =
         H5S::FromHIDCheck(H5Screate_simple(hdl.rank, hdl.dims.data(), NULL));
