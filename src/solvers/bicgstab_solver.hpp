@@ -71,9 +71,13 @@ class BiCGStabSolver : BiCGStabCounter {
   }
 
   using FMatVec = std::function<TaskStatus(MeshData<Real>*, const std::string&, MeshData<Real>*, const std::string&)>;
+  using FScale = std::function<TaskStatus(MeshData<Real>*, const std::string&)>;
   FMatVec user_MatVec;
   FMatVec user_pre_fluxcor;
   FMatVec user_precomm_MatVec; 
+  FScale user_precomm_scale;
+  FScale user_postcomm_scale;
+
   std::vector<std::string> aux_vars; 
 
  private:
@@ -128,23 +132,33 @@ class BiCGStabSolver : BiCGStabCounter {
     auto MatVec = [this](auto& task_list, const TaskID& init_depend, std::shared_ptr<MeshData<Real>>& spmd, 
                          const std::string& name_in, const std::string& name_out) { 
       auto precom = init_depend;
+      auto vec_name = name_in;
       if (this->user_precomm_MatVec) {
         precom = task_list.AddTask(init_depend, this->user_precomm_MatVec, spmd.get(), name_in, spmd.get(), this->temp);
+        vec_name = this->temp;
       }
-
+      auto precom2 = precom;
+      if (this->user_precomm_scale) { 
+        precom2 = task_list.AddTask(precom, this->user_precomm_scale, spmd.get(), vec_name); 
+      }
       auto send =
-          task_list.AddTask(precom, parthenon::cell_centered_bvars::SendBoundaryBuffers, spmd);
+          task_list.AddTask(precom2, parthenon::cell_centered_bvars::SendBoundaryBuffers, spmd);
       auto recv = task_list.AddTask(
           precom, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, spmd);
       auto setb =
           task_list.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, spmd);
       auto prolong =
           task_list.AddTask(setb, parthenon::ProlongateBoundariesMD, spmd);
-      auto update_rhs = prolong; 
-      if (this->user_MatVec && this->user_precomm_MatVec) {
+      auto postcomm = prolong;
+      if (this->user_postcomm_scale) { 
+        postcomm = task_list.AddTask(prolong, this->user_postcomm_scale, spmd.get(), vec_name); 
+      }
+
+      auto update_rhs = postcomm; 
+      if (this->user_MatVec) {
         auto preflx = prolong;
         if (this->user_pre_fluxcor) { 
-          auto calc_flx = task_list.AddTask(prolong, this->user_pre_fluxcor, spmd.get(), this->temp, spmd.get(), name_out);
+          auto calc_flx = task_list.AddTask(prolong, this->user_pre_fluxcor, spmd.get(), vec_name, spmd.get(), name_out);
           auto send_flx =
             task_list.AddTask(calc_flx, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, spmd);
           auto recv_flx =
@@ -152,20 +166,7 @@ class BiCGStabSolver : BiCGStabCounter {
           preflx =
             task_list.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, spmd);
         } 
-        update_rhs = task_list.AddTask(preflx, this->user_MatVec, spmd.get(), this->temp, spmd.get(), name_out);
-      }
-      else if (this->user_MatVec) {
-        auto preflx = setb;
-        if (this->user_pre_fluxcor) {
-          auto calc_flx = task_list.AddTask(setb, this->user_pre_fluxcor, spmd.get(), name_in, spmd.get(), name_out);
-          auto send_flx =
-            task_list.AddTask(calc_flx, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, spmd);
-          auto recv_flx =
-            task_list.AddTask(calc_flx, parthenon::cell_centered_bvars::ReceiveFluxCorrections, spmd);
-          preflx =
-            task_list.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, spmd); 
-        } 
-        update_rhs = task_list.AddTask(preflx, this->user_MatVec, spmd.get(), name_in, spmd.get(), name_out);
+        update_rhs = task_list.AddTask(preflx, this->user_MatVec, spmd.get(), vec_name, spmd.get(), name_out);
       } else {
         update_rhs = task_list.AddTask(setb, &Solver_t::MatVec<MD_t>, this, spmd.get(), name_in, name_out);
       } 
@@ -280,7 +281,7 @@ class BiCGStabSolver : BiCGStabCounter {
     omega_old = 1.0;
     Real err(0);
     const Real fac0 = 0.0;
-    const Real fac = 1.0;
+    const Real fac = 0.0;
     par_reduce(loop_pattern_mdrange_tag, "initialize bicgstab", DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lerr) {
