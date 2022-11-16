@@ -344,7 +344,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
             }
           }
         }
-      } else if (file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
+      } else if (file_output_format_ver == 2 ||
+                 file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
         for (int t = 0; t < Nt; ++t) {
           for (int u = 0; u < Nu; ++u) {
             for (int v = 0; v < Nv; ++v) {
