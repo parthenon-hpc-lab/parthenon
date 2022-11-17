@@ -172,10 +172,13 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
                                 " already enrolled during Add()!");
   }
 
-  if (metadata.Type() == Metadata::Integer) {
-    Add_<int>(label, metadata);
-  } else if (metadata.Type() == Metadata::Real) {
-    Add_<Real>(label, metadata);
+  Metadata newm(metadata);
+  newm.Set(Metadata::Particle);
+
+  if (newm.Type() == Metadata::Integer) {
+    Add_<int>(label, newm);
+  } else if (newm.Type() == Metadata::Real) {
+    Add_<Real>(label, newm);
   } else {
     throw std::invalid_argument("swarm variable " + label +
                                 " does not have a valid type during Add()");
