@@ -93,7 +93,6 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
-#include "utils/string_utils.hpp"
 
 namespace parthenon {
 
@@ -277,8 +276,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
       // set output variable and optional data format string used in formatted writes
       if ((op.file_type != "hst") && (op.file_type != "rst")) {
-        // op.variable = pin->GetString(op.block_name, "variable");
-        op.variables = SetOutputVariables(pin, pib->block_name);
+        op.variables = pin->GetVector<std::string>(pib->block_name, "variables");
       }
       op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
       op.data_format.insert(0, " "); // prepend with blank to separate columns
@@ -375,28 +373,6 @@ Outputs::~Outputs() {
     ptype = ptype->pnext_type;
     delete ptype_old;
   }
-}
-
-std::vector<std::string> Outputs::SetOutputVariables(ParameterInput *pin,
-                                                     std::string block_name) {
-  if (!pin->DoesParameterExist(block_name, "variables")) {
-    std::cerr << "Block " << block_name << " must provide a variables parameter"
-              << std::endl;
-    std::exit(1);
-  }
-
-  std::string s = pin->GetString(block_name, "variables");
-  std::string delimiter = ",";
-  size_t pos = 0;
-  std::string token;
-  std::vector<std::string> variables;
-  while ((pos = s.find(delimiter)) != std::string::npos) {
-    token = s.substr(0, pos);
-    variables.push_back(string_utils::trim(token));
-    s.erase(0, pos + delimiter.length());
-  }
-  variables.push_back(string_utils::trim(s));
-  return variables;
 }
 
 //----------------------------------------------------------------------------------------
