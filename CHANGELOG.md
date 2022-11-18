@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 774]](https://github.com/parthenon-hpc-lab/parthenon/pull/774) Add second order refinement criteria
+- [[PR 780]](https://github.com/lanl/parthenon/pull/780) Add Burgers' benchmark, GetVector<T> interface for ParameterInput
 - [[PR 732]](https://github.com/lanl/parthenon/pull/732) Add `Metadata::ForceRemeshComm` flag
 - [[PR 755]](https://github.com/lanl/parthenon/pull/755) Add archive_parameters option to output all parameters to text file at start
 - [[PR 729]](https://github.com/lanl/parthenon/pull/729) Optional modifications to output format

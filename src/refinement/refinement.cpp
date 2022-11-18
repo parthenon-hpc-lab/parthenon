@@ -88,37 +88,23 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
   return delta_level;
 }
 
-AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
+AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria) {
-  const int dim1 = q.GetDim(1);
-  const int dim2 = q.GetDim(2);
-  const int dim3 = q.GetDim(3);
-  int kl = 0, ku = 0, jl = 0, ju = 0, il = 0, iu = 0;
-  if (dim3 > 1) {
-    kl = 1;
-    ku = dim3 - 2;
-  }
-  if (dim2 > 1) {
-    jl = 1;
-    ju = dim2 - 2;
-  }
-  if (dim1 > 1) {
-    il = 1;
-    iu = dim1 - 2;
-  }
+  const int ndim = 1 + (bnds.je > bnds.js) + (bnds.ke > bnds.ks);
   Real maxd = 0.0;
-  pmb->par_reduce(
-      "refinement first derivative", kl, ku, jl, ju, il, iu,
+  par_reduce(
+      loop_pattern_mdrange_tag, "refinement first derivative", DevExecSpace(), bnds.ks,
+      bnds.ke, bnds.js, bnds.je, bnds.is, bnds.ie,
       KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real scale = std::abs(q(k, j, i));
         Real d =
             0.5 * std::abs((q(k, j, i + 1) - q(k, j, i - 1))) / (scale + TINY_NUMBER);
         maxd = (d > maxd ? d : maxd);
-        if (dim2 > 1) {
+        if (ndim > 1) {
           d = 0.5 * std::abs((q(k, j + 1, i) - q(k, j - 1, i))) / (scale + TINY_NUMBER);
           maxd = (d > maxd ? d : maxd);
         }
-        if (dim3 > 1) {
+        if (ndim > 2) {
           d = 0.5 * std::abs((q(k + 1, j, i) - q(k - 1, j, i))) / (scale + TINY_NUMBER);
           maxd = (d > maxd ? d : maxd);
         }
@@ -130,38 +116,24 @@ AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
   return AmrTag::same;
 }
 
-AmrTag SecondDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
+AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                         const Real refine_criteria, const Real derefine_criteria) {
-  const int dim1 = q.GetDim(1);
-  const int dim2 = q.GetDim(2);
-  const int dim3 = q.GetDim(3);
-  int kl = 0, ku = 0, jl = 0, ju = 0, il = 0, iu = 0;
-  if (dim3 > 1) {
-    kl = 1;
-    ku = dim3 - 2;
-  }
-  if (dim2 > 1) {
-    jl = 1;
-    ju = dim2 - 2;
-  }
-  if (dim1 > 1) {
-    il = 1;
-    iu = dim1 - 2;
-  }
+  const int ndim = 1 + (bnds.je > bnds.js) + (bnds.ke > bnds.ks);
   Real maxd = 0.0;
-  pmb->par_reduce(
-      "refinement second derivative", kl, ku, jl, ju, il, iu,
+  par_reduce(
+      loop_pattern_mdrange_tag, "refinement second derivative", DevExecSpace(), bnds.ks,
+      bnds.ke, bnds.js, bnds.je, bnds.is, bnds.ie,
       KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real aqt = std::abs(q(k, j, i)) + TINY_NUMBER;
         Real qavg = 0.5 * (q(k, j, i + 1) + q(k, j, i - 1));
         Real d = std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
         maxd = (d > maxd ? d : maxd);
-        if (dim2 > 1) {
+        if (ndim > 1) {
           qavg = 0.5 * (q(k, j + 1, i) + q(k, j - 1, i));
           d = std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
           maxd = (d > maxd ? d : maxd);
         }
-        if (dim3 > 1) {
+        if (ndim > 2) {
           qavg = 0.5 * (q(k + 1, j, i) + q(k - 1, j, i));
           d = std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
           maxd = (d > maxd ? d : maxd);
