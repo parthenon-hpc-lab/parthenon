@@ -77,7 +77,7 @@ KOKKOS_INLINE_FUNCTION bool BitwiseCompare(const T &a, const U &b) {
   return val;
   // memcmp returns zero if the memory is the same
   // which is a little confusing, it is also not available on device
-  // return !std::memcmp(&a, &b, sizeof(a));
+  // so we don't use std::memcmp(&a, &b, sizeof(a))
 }
 
 template <class T, REQUIRES(std::numeric_limits<T>::is_iec559)>
