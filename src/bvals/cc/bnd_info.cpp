@@ -340,7 +340,6 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     out.var = v->data.Get();
   }
   
-  auto buf_state = buf->GetState();
   if (buf_state == BufferState::received) {
     // With control variables, we can end up in a state where a
     // variable that is not receiving null data is unallocated.
