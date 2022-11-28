@@ -154,7 +154,6 @@ TaskStatus FillDerived(T *rc) {
 template <typename T>
 TaskStatus InitNewlyAllocatedVars(T *rc) {
   if (!rc->AllVariablesInitialized()) {
-    std::cout << "Initializing variable interiors after allocation" << std::endl;
 
     const IndexDomain interior = IndexDomain::interior;
     const IndexRange ib = rc->GetBoundsI(interior);
