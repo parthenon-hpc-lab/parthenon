@@ -245,9 +245,7 @@ absolute value is below the user-defined deallocation threshold, the variable is
 deallocation on that block. The variable is only actually deallocated if it has been flagged for 
 deallocation a certain number of times in a row (if any of the values exceeds the deallocation 
 threshold, the counter is reset to 0). That number is the deallocation count, which is also settable 
-by the user in the input file. Note that currently the deallocation threshold is the same for all 
-variables, a future improvement is to add the capability of setting a different threshold per sparse 
-pool.
+by the user in the input file.
 
 ### Boundary exchange
 Boundary communication can trigger allocation of a field on the receiving block if the communicated
