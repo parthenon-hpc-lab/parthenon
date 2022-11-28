@@ -148,26 +148,12 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
   const IndexRange kb = md->GetBoundsK(IndexDomain::entire);
 
-  PackIndexMap map;
-  const std::vector<MetadataFlag> flags({Metadata::Sparse});
-  const auto &pack = md->PackVariables(flags, map);
-
-  const int num_blocks = pack.GetDim(5);
-  const int num_vars = pack.GetDim(4);
-
   auto control_vars = md->GetMeshPointer()->resolved_packages->GetControlVariables();
-
   const auto tup = SparsePack<>::Get(md, control_vars, {Metadata::Sparse});
-  auto pack2 = std::get<0>(tup);
-  auto pack2Idx = std::get<1>(tup);
-  for (int b = 0; b < num_blocks; ++b) {
-    for (auto &pair : pack2Idx) {
-      int lo = pack2.GetLowerBoundHost(b, PackIdx(pack2Idx[pair.first]));
-      int hi = pack2.GetUpperBoundHost(b, PackIdx(pack2Idx[pair.first]));
-    }
-  }
+  auto pack = std::get<0>(tup);
+  auto packIdx = std::get<1>(tup);
 
-  ParArray2D<bool> is_zero("IsZero", num_blocks, pack2.GetMaxNumberOfVars());
+  ParArray2D<bool> is_zero("IsZero", pack.GetNBlocks(), pack.GetMaxNumberOfVars());
   const int Ni = ib.e + 1 - ib.s;
   const int Nj = jb.e + 1 - jb.s;
   const int Nk = kb.e + 1 - kb.s;
@@ -175,15 +161,15 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   const int NkNjNi = Nk * NjNi;
   Kokkos::parallel_for(
       "SparseDealloc",
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), num_blocks, Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), pack.GetNBlocks(), Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
 
-        const int lo = pack2.GetLowerBound(b);
-        const int hi = pack2.GetUpperBound(b);
+        const int lo = pack.GetLowerBound(b);
+        const int hi = pack.GetUpperBound(b);
 
         for (int v = lo; v <= hi; ++v) {
-          const auto &var = pack2(b, v);
+          const auto &var = pack(b, v);
           const Real threshold = var.deallocation_threshold;
           is_zero(b, v) = true;
           Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NkNjNi),
@@ -201,10 +187,10 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
 
   auto is_zero_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), is_zero);
 
-  for (int b = 0; b < num_blocks; ++b) {
+  for (int b = 0; b < pack.GetNBlocks(); ++b) {
     for (auto &control_var : control_vars) {
-      int lo = pack2.GetLowerBoundHost(b, PackIdx(pack2Idx[control_var]));
-      int hi = pack2.GetUpperBoundHost(b, PackIdx(pack2Idx[control_var]));
+      int lo = pack.GetLowerBoundHost(b, PackIdx(packIdx[control_var]));
+      int hi = pack.GetUpperBoundHost(b, PackIdx(packIdx[control_var]));
       if (lo <= hi) { // Check that this control variable is actually in the pack
         auto &counter = md->GetBlockData(b)->Get(control_var).dealloc_count;
         bool all_zero = true;
