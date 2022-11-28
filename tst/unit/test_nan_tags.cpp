@@ -72,8 +72,8 @@ TEST_CASE("NaN payload tagging", "[NaN payload]") {
     Kokkos::parallel_reduce(
         policy2d({0, 0}, {N, N}),
         KOKKOS_LAMBDA(const int j, const int i, int &l_num_flag1, int &l_num_flag2) {
-          if (parthenon::BitwiseCompare(flag1, arr2d(i, j))) ++l_num_flag1;
-          if (parthenon::BitwiseCompare(flag2, arr2d(i, j))) ++l_num_flag2;
+          if (parthenon::BitwiseCompare(flag1, arr2d(j, i))) ++l_num_flag1;
+          if (parthenon::BitwiseCompare(flag2, arr2d(j, i))) ++l_num_flag2;
         },
         num_flag1, num_flag2);
 
