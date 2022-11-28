@@ -4,12 +4,15 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 699]](https://github.com/lanl/parthenon/pull/699) Add independent sparse thresholds and sparse control fields. Sparse bug fixes.
+- [[PR 780]](https://github.com/lanl/parthenon/pull/780) Add Burgers' benchmark, GetVector<T> interface for ParameterInput
+- [[PR 732]](https://github.com/lanl/parthenon/pull/732) Add `Metadata::ForceRemeshComm` flag
 - [[PR 755]](https://github.com/lanl/parthenon/pull/755) Add archive_parameters option to output all parameters to text file at start
 - [[PR 729]](https://github.com/lanl/parthenon/pull/729) Optional modifications to output format
 - [[PR 717]](https://github.com/lanl/parthenon/pull/717) Add ghost zone plotting capability to phdf.py and movie2d.py
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 781]](https://github.com/lanl/parthenon/pull/781) Output variables with same shape as in parthenon
 - [[PR 758]](https://github.com/lanl/parthenon/pull/758) Bump required C++ standard to C++17
 - [[PR 710]](https://github.com/lanl/parthenon/pull/710) Remove data transpose in hdf5 and restart outputs
 - [[PR 713]](https://github.com/lanl/parthenon/pull/713) Remove Coordinates stub in favor of Coordinates_t
@@ -17,7 +20,8 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
-- [[PR 743]](https://github.com/lanl/parthenon/pull/740) Faster PHDF file load times in phdf.py
+- [[PR 777]](https://github.com/parthenon-hpc-lab/parthenon/pull/784) Fix double-output of last file in rare cases 
+- [[PR 740]](https://github.com/lanl/parthenon/pull/740) Faster PHDF file load times in phdf.py
 - [[PR 751]](https://github.com/lanl/parthenon/pull/751) Delete useless file in advection example
 - [[PR 765]](https://github.com/lanl/parthenon/pull/765) Fix incorrect BC labeling in swarm
 - [[PR 759]](https://github.com/lanl/parthenon/pull/759) Add metadata so Visit treats outputs as time series
@@ -29,7 +33,9 @@
 - [[PR 716]](https://github.com/lanl/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
 ### Infrastructure (changes irrelevant to downstream codes)
-- [[PR 757]](https://github.com/lanl/parthenon/pull/757) Move to flux correction in-one and unify with bvals 
+- [[PR 777]](https://github.com/parthenon-hpc-lab/parthenon/pull/777) New action: check PR dependencies & warn until requirements merged
+- [[PR 772]](https://github.com/lanl/parthenon/pull/772) Trigger short CI only for PRs and remove old SpaceInstances test
+- [[PR 757]](https://github.com/lanl/parthenon/pull/757) Move to flux correction in-one and unify with bvals
 - [[PR 768]](https://github.com/lanl/parthenon/pull/768) Update CI image and move to new CI machine (short and extended tests)
 - [[PR 766]](https://github.com/lanl/parthenon/pull/766) Remove IAS performance regression test
 - [[PR 735]](https://github.com/lanl/parthenon/pull/735) Clean up HDF5 output

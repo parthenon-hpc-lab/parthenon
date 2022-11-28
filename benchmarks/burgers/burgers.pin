@@ -1,0 +1,73 @@
+# ========================================================================================
+#  Athena++ astrophysical MHD code
+#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+#  Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+#  (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+#
+#  This program was produced under U.S. Government contract 89233218CNA000001 for Los
+#  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+#  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+#  in the program are reserved by Triad National Security, LLC, and the U.S. Department
+#  of Energy/National Nuclear Security Administration. The Government is granted for
+#  itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+#  license in this material to reproduce, prepare derivative works, distribute copies to
+#  the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+
+<parthenon/job>
+problem_id = burgers
+
+<parthenon/mesh>
+nghost = 4
+refinement = adaptive
+numlevel = 2
+deref_count = 10
+
+nx1 = 128
+x1min = -0.5
+x1max = 0.5
+ix1_bc = periodic
+ox1_bc = periodic
+
+nx2 = 128
+x2min = -0.5
+x2max = 0.5
+ix2_bc = periodic
+ox2_bc = periodic
+
+nx3 = 128
+x3min = -0.5
+x3max = 0.5
+ix3_bc = periodic
+ox3_bc = periodic
+
+<parthenon/meshblock>
+nx1 = 16
+nx2 = 16
+nx3 = 16
+
+<parthenon/refinement0>
+method = derivative_order_1
+field = U
+vector_i = 3
+refine_tol = 0.5
+derefine_tol = 0.2
+
+<parthenon/time>
+nlim = -1
+tlim = 0.4
+integrator = rk2
+ncycle_out = 10
+ncycle_out_mesh = 100
+perf_cycle_offset = 0
+
+<parthenon/output0>
+file_type = hdf5
+dt = -0.4
+variables = U, derived
+
+<burgers>
+cfl = 0.8
+recon = weno5
+num_scalars = 8

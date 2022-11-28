@@ -6,6 +6,9 @@ on:
     - cron: '0 6 * * *'
   # when triggered manually
   workflow_dispatch:
+  # when auto merge is enabled (hack to make sure it's run before merging)
+  pull_request:
+    types: [auto_merge_enabled]
 
 # Cancel "duplicated" workflows triggered by pushes to internal
 # branches with associated PRs.
@@ -25,7 +28,7 @@ jobs:
       matrix:
         device: ['cuda', 'host']
         parallel: ['serial', 'mpi']
-    runs-on: self-hosted
+    runs-on: [self-hosted, A100]
     container:
       image: registry.gitlab.com/pgrete/parthenon/cuda11.6-mpi-hdf5
       # map to local user id on CI  machine to allow writing to build cache

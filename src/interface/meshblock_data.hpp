@@ -88,13 +88,13 @@ class MeshBlockData {
   auto GetParentPointer() const { return GetBlockPointer(); }
   void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
 
-  IndexRange GetBoundsI(const IndexDomain &domain) {
+  IndexRange GetBoundsI(const IndexDomain &domain) const {
     return GetBlockPointer()->cellbounds.GetBoundsI(domain);
   }
-  IndexRange GetBoundsJ(const IndexDomain &domain) {
+  IndexRange GetBoundsJ(const IndexDomain &domain) const {
     return GetBlockPointer()->cellbounds.GetBoundsJ(domain);
   }
-  IndexRange GetBoundsK(const IndexDomain &domain) {
+  IndexRange GetBoundsK(const IndexDomain &domain) const {
     return GetBlockPointer()->cellbounds.GetBoundsK(domain);
   }
 

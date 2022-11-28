@@ -120,7 +120,7 @@ how to use them.
 
 # Contributors
 
-| Name          | Handle                | Team              |
+| Name     | Handle       | Team       |
 |----------|--------------|------------|
 | Jonah Miller | @Yurlungur  | LANL Physics  |
 | Josh Dolence | @jdolence | LANL Physics |
@@ -137,4 +137,4 @@ how to use them.
 | Ben Ryan | @brryan | LANL Physics |
 | Clell J. (CJ) Solomon | @clellsolomon | LANL Physics |
 | Luke Roberts | @lroberts36 | LANL Physics |
-
+| Ben Prather | @bprather | LANL Physics |

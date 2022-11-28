@@ -33,7 +33,7 @@ include(CTest)
 # Compile Options
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
-option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "Allocate communication buffers on host" OFF)
+option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
@@ -279,6 +279,12 @@ if (Kokkos_ENABLE_SYCL)
   )
 endif()
 
+if (PARTHENON_ENABLE_HOST_COMM_BUFFERS)
+  if (NOT Kokkos_ENABLE_CUDA AND NOT Kokkos_ENABLE_HIP)
+    message(FATAL_ERROR "Host pinned buffers for MPI communication are supported only for CUDA and HIP backends.")
+  endif()
+endif()
+
 # Build Tests and download Catch2
 if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
 
@@ -349,6 +355,7 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(example)
+add_subdirectory(benchmarks)
 
 create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)

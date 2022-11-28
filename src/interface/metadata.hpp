@@ -52,6 +52,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Node)                                                      \
   /** particle variable */                                                               \
   PARTHENON_INTERNAL_FOR_FLAG(Particle)                                                  \
+  /** swarm */                                                                           \
+  PARTHENON_INTERNAL_FOR_FLAG(Swarm)                                                     \
   /************************************************/                                     \
   /** ROLE: Exactly one must be specified (default is Provides) */                       \
   /** Private to a package */                                                            \
@@ -101,7 +103,9 @@
   /** Do boundary communication */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(FillGhost)                                                 \
   /** does variable have fluxes */                                                       \
-  PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)
+  PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)                                                \
+  /** the variable needs to be communicated across ranks during remeshing */             \
+  PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)
 namespace parthenon {
 
 namespace internal {
@@ -193,9 +197,11 @@ class Metadata {
   // There are 3 optional arguments: shape, component_labels, and associated, so we'll
   // need 8 constructors to provide all possible variants
 
+  // By default shape is empty; this corresponds to scalar data on the mesh
+
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
-  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {1},
+  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
            const std::vector<std::string> &component_labels = {},
            const std::string &associated = "")
       : shape_(shape), component_labels_(component_labels), associated_(associated) {
@@ -224,7 +230,6 @@ class Metadata {
     // check shape is valid
     // TODO(JL) Should we be extra pedantic and check that shape matches Vector/Tensor
     // flags?
-    PARTHENON_REQUIRE_THROWS(shape_.size() > 0, "Shape must have at least rank 1");
     if (IsMeshTied()) {
       PARTHENON_REQUIRE_THROWS(
           shape_.size() <= 3,
