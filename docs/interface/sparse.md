@@ -89,15 +89,15 @@ field are:
   to a particular field in the pack can be accessed on device and iterated over (if the range has 
   positive size, a negative size for the range indicates that none of the corresponding fields are 
   allocated). Looping over fields in these type of packs generally requires hierarchichal parallelism. 
-  Currently, `VariablePack` and `MeshBlockPack` currently employ a "sparse sparse packing" 
-  strategy, where all fields are included in the index space of the pack but the allocation status of 
-  `(block, field)` must be checked before accessing `(block, field, k, j, i)` since this is not 
-  guaranteed to point to valid memory. *There is "dense sparse pack" implementation of `VariablePack` 
-  and `MeshBlockPack` in the branch `lroberts36/merge-sparse-with-jdolence-sparse` that is being used 
-  in `Riot`. This should probably be brought into `develop`, since the "sparse sparse pack" access 
-  pattern is probably not desirable.  
+  Currently, `VariablePack` and `MeshBlockPack` employ a "sparse sparse packing" strategy, where all 
+  fields are included in the index space of the pack but the allocation status of `(block, field)` must 
+  be checked before accessing `(block, field, k, j, i)` since this is not guaranteed to point to valid 
+  memory. *There is "dense sparse pack" implementation of `VariablePack` and `MeshBlockPack` in the 
+  branch `lroberts36/merge-sparse-with-jdolence-sparse` that is being used in `Riot`. This should 
+  probably be brought into `develop`, since the "sparse sparse pack" access pattern is probably not 
+  desirable.  
 
-In comparison, a dense field only requires the operation *Access*. 
+In comparison to a sparse field, a dense field only requires the operation *Access*. 
 
 **To set the thresholds for a sparse field, after creating the `Metadata` object that will be used for 
 the field, call `Metadata::SetSparseThresholds(allocation_threshold, deallocation_threshold, 
