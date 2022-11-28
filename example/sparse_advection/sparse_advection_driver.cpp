@@ -135,7 +135,7 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto init_allocated =
         tl.AddTask(set, InitNewlyAllocatedVars<MeshData<Real>>, mc1.get());
 
-    auto restrict = set;
+    auto restrict = init_allocated;
     if (pmesh->multilevel) {
       restrict = tl.AddTask(init_allocated,
                             parthenon::cell_centered_refinement::RestrictPhysicalBounds,
