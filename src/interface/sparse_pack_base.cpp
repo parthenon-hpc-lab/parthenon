@@ -113,7 +113,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   if (desc.with_fluxes) leading_dim += 3;
   pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
   auto pack_h = Kokkos::create_mirror_view(pack.pack_);
-  
+
   // Size is nvar + 1 to store the maximum idx for easy access
   pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar + 1);
   pack.bounds_h_ = Kokkos::create_mirror_view(pack.bounds_);
