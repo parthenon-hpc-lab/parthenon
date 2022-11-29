@@ -355,6 +355,7 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(example)
+add_subdirectory(benchmarks)
 
 create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)

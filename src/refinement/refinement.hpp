@@ -29,6 +29,7 @@ class MeshBlockData;
 template <typename T>
 class MeshData;
 class StateDescriptor;
+class AMRBounds;
 
 namespace Refinement {
 
@@ -38,7 +39,7 @@ TaskStatus Tag(T *rc);
 
 AmrTag CheckAllRefinement(MeshBlockData<Real> *rc);
 
-AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
+AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria);
 
 } // namespace Refinement
