@@ -86,8 +86,8 @@ AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
     return AmrTag::same;
   }
   auto bnds = GetBounds(rc);
-  auto q = rc->Get(field).data.Slice(comp6, comp5, comp4, Kokkos::ALL(), Kokkos::ALL(),
-                                     Kokkos::ALL());
+  auto q = Kokkos::subview(rc->Get(field).data, comp6, comp5, comp4, Kokkos::ALL(),
+                           Kokkos::ALL(), Kokkos::ALL());
   return Refinement::FirstDerivative(bnds, q, refine_criteria, derefine_criteria);
 }
 

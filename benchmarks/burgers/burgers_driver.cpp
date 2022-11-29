@@ -22,7 +22,7 @@
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
+#include "mesh/refinement_in_one.hpp"
 #include "parthenon/driver.hpp"
 #include "refinement/refinement.hpp"
 
@@ -131,7 +131,7 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     if (pmesh->multilevel) {
       tl.AddTask(set | set_local,
-                 parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
+                 parthenon::cell_centered_bvars::RestrictGhostHalos, mc1, false);
     }
     // estimate next time step
     if (stage == integrator->nstages) {
