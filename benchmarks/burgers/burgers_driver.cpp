@@ -130,8 +130,8 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
 
     if (pmesh->multilevel) {
-      tl.AddTask(set | set_local,
-                 parthenon::cell_centered_bvars::RestrictGhostHalos, mc1, false);
+      tl.AddTask(set | set_local, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1,
+                 false);
     }
     // estimate next time step
     if (stage == integrator->nstages) {
