@@ -56,12 +56,12 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
 
   int nvar = desc.vars.size();
 
-  std::vector<bool> astat;
+  std::vector<int> astat;
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     for (int i = 0; i < nvar; ++i) {
       for (auto &pv : pmbd->GetCellVariableVector()) {
         if (desc.IncludeVariable(i, pv)) {
-          astat.push_back(pv->IsAllocated());
+          astat.push_back(pv->GetAllocationStatus());
         }
       }
     }
@@ -114,8 +114,9 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
   auto pack_h = Kokkos::create_mirror_view(pack.pack_);
 
-  pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar);
-  auto bounds_h = Kokkos::create_mirror_view(pack.bounds_);
+  // Size is nvar + 1 to store the maximum idx for easy access
+  pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar + 1);
+  pack.bounds_h_ = Kokkos::create_mirror_view(pack.bounds_);
 
   pack.coords_ = coords_t("coords", nblocks);
   auto coords_h = Kokkos::create_mirror_view(pack.coords_);
@@ -126,7 +127,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
     coords_h(b) = pmbd->GetBlockPointer()->coords_device;
 
     for (int i = 0; i < nvar; ++i) {
-      bounds_h(0, b, i) = idx;
+      pack.bounds_h_(0, b, i) = idx;
 
       for (auto &pv : pmbd->GetCellVariableVector()) {
         if (desc.IncludeVariable(i, pv)) {
@@ -168,19 +169,21 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
         }
       }
 
-      bounds_h(1, b, i) = idx - 1;
+      pack.bounds_h_(1, b, i) = idx - 1;
 
-      if (bounds_h(1, b, i) < bounds_h(0, b, i)) {
+      if (pack.bounds_h_(1, b, i) < pack.bounds_h_(0, b, i)) {
         // Did not find any allocated variables meeting our criteria
-        bounds_h(0, b, i) = -1;
+        pack.bounds_h_(0, b, i) = -1;
         // Make the upper bound more negative so a for loop won't iterate once
-        bounds_h(1, b, i) = -2;
+        pack.bounds_h_(1, b, i) = -2;
       }
     }
+    // Record the maximum for easy access
+    pack.bounds_h_(1, b, nvar) = idx - 1;
   });
 
   Kokkos::deep_copy(pack.pack_, pack_h);
-  Kokkos::deep_copy(pack.bounds_, bounds_h);
+  Kokkos::deep_copy(pack.bounds_, pack.bounds_h_);
   Kokkos::deep_copy(pack.coords_, coords_h);
   pack.ndim_ = ndim;
   pack.dims_[1] = pack.nblocks_;
@@ -225,6 +228,7 @@ SparsePackCache::Get<MeshBlockData<Real>>(MeshBlockData<Real> *, const PackDescr
 template <class T>
 SparsePackBase &SparsePackCache::BuildAndAdd(T *pmd, const PackDescriptor &desc,
                                              const std::string &ident) {
+  if (pack_map.count(ident) > 0) pack_map.erase(ident);
   pack_map[ident] = {SparsePackBase::Build(pmd, desc),
                      SparsePackBase::GetAllocStatus(pmd, desc)};
   return pack_map[ident].first;

@@ -23,6 +23,7 @@
 #include <tuple>
 #include <vector>
 
+#include "globals.hpp"
 #include "mesh/mesh_refinement_ops.hpp"
 #include "mesh/refinement_in_one.hpp"
 #include "utils/error_checking.hpp"
@@ -251,6 +252,18 @@ class Metadata {
                                "Must provide either 0 component labels or the same "
                                "number as the number of components");
     }
+
+    // Set the allocation and deallocation thresholds
+    if (IsSet(Sparse)) {
+      allocation_threshold_ = Globals::sparse_config.allocation_threshold;
+      deallocation_threshold_ = Globals::sparse_config.deallocation_threshold;
+      default_value_ = 0.0;
+    } else {
+      // Not sparse, so set to zero so we are guaranteed never to deallocate
+      allocation_threshold_ = 0.0;
+      deallocation_threshold_ = 0.0;
+      default_value_ = 0.0;
+    }
   }
 
   // 1 constructor
@@ -270,6 +283,18 @@ class Metadata {
 
   // Static routines
   static MetadataFlag AllocateNewFlag(std::string &&name);
+
+  // Sparse threshold routines
+  void SetSparseThresholds(parthenon::Real alloc, parthenon::Real dealloc,
+                           parthenon::Real default_val = 0.0) {
+    allocation_threshold_ = alloc;
+    deallocation_threshold_ = dealloc;
+    default_value_ = default_val;
+  }
+
+  parthenon::Real GetDeallocationThreshold() const { return deallocation_threshold_; }
+  parthenon::Real GetAllocationThreshold() const { return allocation_threshold_; }
+  parthenon::Real GetDefaultValue() const { return default_value_; }
 
   // Individual flag setters, using these could result in an invalid set of flags, use
   // IsValid to check if the flags are valid
@@ -485,6 +510,10 @@ class Metadata {
   std::vector<int> shape_ = {1};
   std::vector<std::string> component_labels_ = {};
   std::string associated_ = "";
+
+  parthenon::Real allocation_threshold_;
+  parthenon::Real deallocation_threshold_;
+  parthenon::Real default_value_;
 
   /// if flag is true set bit, clears otherwise
   void DoBit(MetadataFlag bit, bool flag) {

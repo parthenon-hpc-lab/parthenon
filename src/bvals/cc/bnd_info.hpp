@@ -25,6 +25,7 @@
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "coordinates/coordinates.hpp"
+#include "interface/variable_state.hpp"
 #include "mesh/domain.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/object_pool.hpp"
@@ -67,10 +68,11 @@ struct BndInfo {
   RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
 
-  buf_pool_t<Real>::weak_t buf; // comm buffer from pool
-  ParArray6D<Real> var;         // data variable used for comms
-  ParArray6D<Real> fine;        // fine data variable for prolongation/restriction
-  ParArray6D<Real> coarse;      // coarse data variable for prolongation/restriction
+  buf_pool_t<Real>::weak_t buf;         // comm buffer from pool
+  ParArray6D<Real, VariableState> var;  // data variable used for comms
+  ParArray6D<Real, VariableState> fine; // fine data variable for prolongation/restriction
+  ParArray6D<Real, VariableState>
+      coarse; // coarse data variable for prolongation/restriction
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.

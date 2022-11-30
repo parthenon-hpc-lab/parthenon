@@ -190,14 +190,17 @@ class SparsePack : public SparsePackBase {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNDim() const { return ndim_; }
 
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetMaxNumberOfVars() const { return pack_.extent_int(2); }
+
   KOKKOS_INLINE_FUNCTION
   const Coordinates_t &GetCoordinates(const int b) const { return coords_(b)(); }
 
   // Bound overloads
-  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const { return bounds_(0, b, 0); }
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const { return 0; }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b) const {
-    return bounds_(1, b, nvar_ - 1);
+    return bounds_(1, b, nvar_);
   }
 
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const {
@@ -222,9 +225,51 @@ class SparsePack : public SparsePackBase {
     return bounds_(1, b, vidx);
   }
 
+  // Host Bound overloads
+  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const { return 0; }
+
+  KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b) const {
+    return bounds_h_(1, b, nvar_);
+  }
+
+  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b, PackIdx idx) const {
+    static_assert(sizeof...(Ts) == 0);
+    return bounds_h_(0, b, idx.VariableIdx());
+  }
+
+  KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b, PackIdx idx) const {
+    static_assert(sizeof...(Ts) == 0);
+    return bounds_h_(1, b, idx.VariableIdx());
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b, const TIn &) const {
+    const int vidx = GetTypeIdx<TIn, Ts...>::value;
+    return bounds_h_(0, b, vidx);
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b, const TIn &) const {
+    const int vidx = GetTypeIdx<TIn, Ts...>::value;
+    return bounds_h_(1, b, vidx);
+  }
+
   // operator() overloads
   KOKKOS_INLINE_FUNCTION
   auto &operator()(const int b, const int idx) const { return pack_(0, b, idx); }
+
+  KOKKOS_INLINE_FUNCTION
+  auto &operator()(const int b, PackIdx idx) const {
+    static_assert(sizeof...(Ts) == 0);
+    const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
+    return pack_(0, b, n);
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t) const {
+    const int vidx = GetLowerBound(b, t) + t.idx;
+    return pack_(0, b, vidx);
+  }
 
   KOKKOS_INLINE_FUNCTION
   Real &operator()(const int b, const int idx, const int k, const int j,

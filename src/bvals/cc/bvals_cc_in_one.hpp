@@ -25,6 +25,7 @@
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "coordinates/coordinates.hpp"
+#include "interface/variable_state.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/object_pool.hpp"
 

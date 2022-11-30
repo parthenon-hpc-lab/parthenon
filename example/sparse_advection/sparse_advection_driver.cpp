@@ -130,13 +130,15 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
         tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
     auto recv = tl.AddTask(update | start_bound,
                            parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
-
     auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
 
-    auto restrict = set;
+    auto init_allocated =
+        tl.AddTask(set, InitNewlyAllocatedVars<MeshData<Real>>, mc1.get());
+
+    auto restrict = init_allocated;
     if (pmesh->multilevel) {
       restrict =
-          tl.AddTask(set, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1, false);
+	tl.AddTask(init_allocated, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1, false);
     }
 
     // if this is the last stage, check if we can deallocate any sparse variables

@@ -370,10 +370,11 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
                                const OffsetIndices &) {
   BndInfo out;
   out.buf = buf->buffer();
-  if (buf->GetState() == BufferState::received) {
+  auto buf_state = buf->GetState();
+  if (buf_state == BufferState::received) {
     out.allocated = true;
     PARTHENON_DEBUG_REQUIRE(v->IsAllocated(), "Variable must be allocated to receive");
-  } else if (buf->GetState() == BufferState::received_null) {
+  } else if (buf_state == BufferState::received_null) {
     out.allocated = false;
   } else {
     PARTHENON_FAIL("Buffer should be in a received state.");
@@ -408,6 +409,18 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     CalcIndicesSetFromFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb,
                             pmb.get());
     out.var = v->data.Get();
+  }
+
+  if (buf_state == BufferState::received) {
+    // With control variables, we can end up in a state where a
+    // variable that is not receiving null data is unallocated.
+    // for allocated to be set, the buffer must be sending non-null
+    // data and the receiving variable must be allocated
+    out.allocated = v->IsAllocated();
+  } else if (buf_state == BufferState::received_null) {
+    out.allocated = false;
+  } else {
+    PARTHENON_FAIL("Buffer should be in a received state.");
   }
   return out;
 }

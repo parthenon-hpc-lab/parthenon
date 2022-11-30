@@ -160,7 +160,9 @@ In each cache, we build a `std::vector<CommBuffer<....>*> send_buf_vec, recv_buf
 - Launch kernels to copy from buffers into fields or copy default data into fields if sending null. 
 - Stale the communication buffers. 
 
-### Flux Correction Tasks 
+### Flux Correction Tasks
+Flux correction for sparse variables and dense variables is very similar, the only difference being that for sparse variables if 
+either the fine or the coarse block is unallocated no flux correction occurs. Flux correction communication cannot trigger allocation. 
 The flux correction routines mirror the boundary routines, except that they do not accept a `BoundaryType` template parameter since the flux corrections are limited to fine-to-coarse boundaries (which is its own `BoundaryType`). Cacheing and the "in one" machinery has not been implemented here yet and it probably does not have a big impact on performance, but it should be very straightforward to switch to cacheing if desired.   
 - **`StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)`**
 - **`LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>>&)`**

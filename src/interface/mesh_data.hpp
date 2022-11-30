@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -76,13 +76,13 @@ inline void AppendKey<vpack_types::StringPair>(vpack_types::StringPair *key_coll
 // partially specialized
 template <typename P>
 struct AllocationStatusCollector {
-  static inline void Append(std::vector<bool> *alloc_status_collection, const P &pack);
+  static inline void Append(std::vector<int> *alloc_status_collection, const P &pack);
 };
 
 // Specialization for VariablePack<T>
 template <typename T>
 struct AllocationStatusCollector<VariablePack<T>> {
-  static inline void Append(std::vector<bool> *alloc_status_collection,
+  static inline void Append(std::vector<int> *alloc_status_collection,
                             const VariablePack<T> &var_pack) {
     alloc_status_collection->insert(alloc_status_collection->end(),
                                     var_pack.alloc_status()->begin(),
@@ -93,7 +93,7 @@ struct AllocationStatusCollector<VariablePack<T>> {
 // Specialization for VariableFluxPack<T>
 template <typename T>
 struct AllocationStatusCollector<VariableFluxPack<T>> {
-  static inline void Append(std::vector<bool> *alloc_status_collection,
+  static inline void Append(std::vector<int> *alloc_status_collection,
                             const VariableFluxPack<T> &var_flux_pack) {
     alloc_status_collection->insert(alloc_status_collection->end(),
                                     var_flux_pack.alloc_status()->cbegin(),
@@ -119,7 +119,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   PackIndexMap pack_idx_map;
   PackIndexMap this_map;
 
-  std::vector<bool> alloc_status_collection;
+  std::vector<int> alloc_status_collection;
 
   for (size_t i = 0; i < nblocks; i++) {
     const auto &pack = packing_function(block_data_[i], this_map, this_key);
@@ -251,6 +251,19 @@ class MeshData {
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
     assert(n >= 0 && n < block_data_.size());
     return block_data_[n];
+  }
+
+  void SetAllVariablesToInitialized() {
+    std::for_each(block_data_.begin(), block_data_.end(),
+                  [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
+  }
+
+  bool AllVariablesInitialized() {
+    bool all_initialized = true;
+    std::for_each(block_data_.begin(), block_data_.end(), [&](auto &sp_block) {
+      all_initialized = all_initialized && sp_block->AllVariablesInitialized();
+    });
+    return all_initialized;
   }
 
  private:
@@ -415,7 +428,6 @@ class MeshData {
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
-
   // caches for boundary information
   cell_centered_bvars::BvarsCache_t bvars_cache_;
 };
