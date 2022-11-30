@@ -27,6 +27,7 @@
 #include "interface/sparse_pool.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
+#include "interface/variable_state.hpp"
 #include "mesh/mesh_refinement_ops.hpp"
 #include "mesh/refinement_in_one.hpp"
 
@@ -41,6 +42,7 @@ using parthenon::ResolvePackages;
 using parthenon::SparsePool;
 using parthenon::StateDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
+using parthenon::VariableState;
 
 // Some fake ops classes
 struct MyProlongOp {
@@ -50,7 +52,8 @@ struct MyProlongOp {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     return; // stub
   }
 };
@@ -61,7 +64,8 @@ struct MyRestrictOp {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     return; // stub
   }
 };

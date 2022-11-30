@@ -18,7 +18,8 @@ Do(const int l, const int m, const int n, const int ck, const int cj, const int 
    const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
    const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
    const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-   const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine)
+   const ParArray6D<Real, VariableState> *pcoarse,
+   const ParArray6D<Real, VariableState> *pfine)
 ```
 
 where `l`, `m`, `n` are the indices of a variable object not tied to
@@ -42,7 +43,8 @@ struct RestrictCellAverage {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
     const int i = (ci - cib.s) * 2 + ib.s;
