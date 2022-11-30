@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "interface/metadata.hpp"
 #include "interface/variable_state.hpp"
+#include "interface/metadata.hpp"
 
 namespace parthenon {
 

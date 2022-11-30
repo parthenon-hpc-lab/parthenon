@@ -137,8 +137,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
 
     auto restrict = init_allocated;
     if (pmesh->multilevel) {
-      restrict =
-	tl.AddTask(init_allocated, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1, false);
+      restrict = tl.AddTask(
+          init_allocated, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1, false);
     }
 
     // if this is the last stage, check if we can deallocate any sparse variables
