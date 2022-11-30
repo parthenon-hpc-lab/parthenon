@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 699]](https://github.com/lanl/parthenon/pull/699) Add independent sparse thresholds and sparse control fields. Sparse bug fixes.
 - [[PR 780]](https://github.com/lanl/parthenon/pull/780) Add Burgers' benchmark, GetVector<T> interface for ParameterInput
 - [[PR 732]](https://github.com/lanl/parthenon/pull/732) Add `Metadata::ForceRemeshComm` flag
 - [[PR 755]](https://github.com/lanl/parthenon/pull/755) Add archive_parameters option to output all parameters to text file at start

@@ -30,6 +30,7 @@
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
+#include "interface/variable_state.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "utils/error_checking.hpp"
@@ -148,7 +149,7 @@ class VarListWithLabels {
         (sparse_ids.count(var->GetSparseID()) > 0)) {
       vars_.push_back(var);
       labels_.push_back(var->label());
-      alloc_status_.push_back(var->IsAllocated());
+      alloc_status_.push_back(var->GetAllocationStatus());
     }
   }
 
@@ -159,7 +160,7 @@ class VarListWithLabels {
  private:
   CellVariableVector<T> vars_;
   std::vector<std::string> labels_;
-  std::vector<bool> alloc_status_;
+  std::vector<int> alloc_status_;
 };
 
 // using PackIndexMap = std::unordered_map<std::string, vpack_types::IndexPair>;
@@ -240,7 +241,7 @@ class PackIndexMap {
 };
 
 template <typename T>
-using ViewOfParArrays = ParArray1D<ParArray3D<T>>;
+using ViewOfParArrays = ParArray1D<ParArray3D<T, VariableState>>;
 
 template <typename T>
 using ViewOfParArrays1D = ParArray1D<ParArray1D<T>>;
@@ -305,7 +306,7 @@ class VariablePack {
 #endif
 
   KOKKOS_FORCEINLINE_FUNCTION
-  ParArray3D<T> &operator()(const int n) const {
+  ParArray3D<T, VariableState> &operator()(const int n) const {
     assert(IsAllocated(n));
     return v_(n);
   }
@@ -373,7 +374,7 @@ class VariablePack {
   int ndim_;
 
   // lives on host
-  const std::vector<bool> *alloc_status_;
+  const std::vector<int> *alloc_status_;
 };
 
 template <typename T>
@@ -455,7 +456,7 @@ class VariableFluxPack : public VariablePack<T> {
   ParArray1D<bool> flux_allocated_;
 
   // lives on host
-  const std::vector<bool> *flux_alloc_status_;
+  const std::vector<int> *flux_alloc_status_;
 };
 
 // Using std::map, not std::unordered_map because the key
@@ -469,8 +470,8 @@ template <typename PackType>
 struct PackAndIndexMap {
   PackType pack;
   PackIndexMap map;
-  std::vector<bool> alloc_status;
-  std::vector<bool> flux_alloc_status;
+  std::vector<int> alloc_status;
+  std::vector<int> flux_alloc_status;
 };
 
 template <typename T>

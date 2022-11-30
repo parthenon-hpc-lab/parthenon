@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -23,9 +23,10 @@
 #include <algorithm>
 #include <cstring>
 
-#include "coordinates/coordinates.hpp" // for coordinates
-#include "kokkos_abstraction.hpp"      // ParArray
-#include "mesh/domain.hpp"             // for IndesShape
+#include "coordinates/coordinates.hpp"  // for coordinates
+#include "interface/variable_state.hpp" // For variable state in ParArray
+#include "kokkos_abstraction.hpp"       // ParArray
+#include "mesh/domain.hpp"              // for IndesShape
 
 /*
  * Explanation---To be added to docs, when pulled through as a user
@@ -133,7 +134,8 @@ struct RestrictCellAverage {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
     const int i = (ci - cib.s) * 2 + ib.s;
@@ -176,7 +178,8 @@ struct ProlongateCellMinMod {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     using namespace util;
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
