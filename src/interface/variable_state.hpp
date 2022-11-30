@@ -16,6 +16,7 @@
 #include <limits>
 
 #include "basic_types.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "parthenon_arrays.hpp"
 
