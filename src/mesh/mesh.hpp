@@ -186,6 +186,15 @@ class Mesh {
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
 #endif
 
+  void SetAllVariablesToInitialized() {
+    for (auto &sp_mb : block_list) {
+      for (auto &pair : sp_mb->meshblock_data.Stages()) {
+        auto &sp_mbd = pair.second;
+        sp_mbd->SetAllVariablesToInitialized();
+      }
+    }
+  }
+
  private:
   // data
   int root_level, max_level, current_level;
