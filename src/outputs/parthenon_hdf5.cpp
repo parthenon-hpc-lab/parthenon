@@ -414,11 +414,6 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     xdmf << "      </Geometry>" << std::endl;
 
     // write graphics variables
-    // dims[1] = 1;
-    // dims[2] = nx3;
-    // dims[3] = nx2;
-    // dims[4] = nx1;
-
     int ndim;
     for (const auto &vinfo : var_list) {
       // TODO(BRR) just let vinfo provide this
@@ -440,11 +435,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
       }
 
       const int vlen = vinfo.vlen;
-      dims[1] = vlen;
-      printf("label: %s\n", vinfo.label.c_str());
-      for (auto &label : vinfo.component_labels) {
-        printf("  component: %s\n", label.c_str());
-      }
+      // dims[1] = vlen;
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
                                vlen, ndim, dims, dims321, vinfo.is_vector);
     }
