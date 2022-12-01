@@ -264,6 +264,11 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       pkg1->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
       pkg2->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
       pkg3->AddSparsePool("sparse", m_sparse_provides, sparse_ids);
+
+      pkg2->AddSparsePool("sparse_a", m_sparse_provides, sparse_ids);
+      pkg2->AddSparsePool("sparse_b", m_sparse_provides, "sparse_a", sparse_ids);
+      pkg2->AddSparsePool("sparse_c", m_sparse_provides, "sparse_b", sparse_ids);
+
       for (const int sid : sparse_ids) {
         REQUIRE(pkg1->FieldPresent("sparse", sid));
         REQUIRE(pkg2->FieldPresent("sparse", sid));
@@ -289,6 +294,27 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           for (const int sid : sparse_ids) {
             REQUIRE(pkg4->FieldMetadata("sparse", sid) == m_sparse_provides);
           }
+        }
+        AND_THEN("The correct sparse allocation control is resolved.") {
+          auto controlled_vars_a = pkg4->GetControlledVariables("sparse_a_3");
+          REQUIRE(std::count(controlled_vars_a.begin(), controlled_vars_a.end(),
+                             "sparse_a_3") == 1);
+          REQUIRE(std::count(controlled_vars_a.begin(), controlled_vars_a.end(),
+                             "sparse_b_3") == 1);
+          REQUIRE(controlled_vars_a.size() == 2);
+
+          auto controlled_vars_b = pkg4->GetControlledVariables("sparse_b_3");
+          REQUIRE(std::count(controlled_vars_b.begin(), controlled_vars_b.end(),
+                             "sparse_c_3") == 1);
+          REQUIRE(controlled_vars_b.size() == 1);
+
+          auto controlled_vars_c = pkg4->GetControlledVariables("sparse_c_3");
+          REQUIRE(controlled_vars_c.size() == 0);
+
+          auto controlled_vars_dense = pkg4->GetControlledVariables("dense");
+          REQUIRE(std::count(controlled_vars_dense.begin(), controlled_vars_dense.end(),
+                             "dense") == 1);
+          REQUIRE(controlled_vars_dense.size() == 1);
         }
       }
     }

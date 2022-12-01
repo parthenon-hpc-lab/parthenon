@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -386,6 +386,19 @@ class MeshBlockData {
     return true;
   }
 
+  void SetAllVariablesToInitialized() {
+    std::for_each(varVector_.begin(), varVector_.end(),
+                  [](auto &sp_var) { sp_var->data.initialized = true; });
+  }
+
+  bool AllVariablesInitialized() {
+    bool all_initialized = true;
+    std::for_each(varVector_.begin(), varVector_.end(), [&](auto &sp_var) {
+      all_initialized = all_initialized && sp_var->data.initialized;
+    });
+    return all_initialized;
+  }
+
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,
                 int sparse_id = InvalidSparseID);
@@ -395,7 +408,8 @@ class MeshBlockData {
     varMap_[var->label()] = var;
   }
 
-  std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label) {
+  std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label,
+                                                  bool flag_uninitialized = false) {
     if (!HasCellVariable(label)) {
       PARTHENON_THROW("Tried to allocate sparse variable '" + label +
                       "', but no such sparse variable exists");
@@ -405,7 +419,7 @@ class MeshBlockData {
     PARTHENON_REQUIRE_THROWS(var->IsSparse(),
                              "Tried to allocate non-sparse variable " + label);
 
-    var->Allocate(pmy_block);
+    var->Allocate(pmy_block, flag_uninitialized);
 
     return var;
   }
