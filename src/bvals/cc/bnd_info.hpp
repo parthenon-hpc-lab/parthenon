@@ -140,7 +140,6 @@ struct BvarsSubCache_t {
 };
 
 struct BvarsCache_t {
-  // The five here corresponds to the current size of the BoundaryType enum
   std::array<BvarsSubCache_t, NUM_BNDRY_TYPES * 2> caches;
   auto &GetSubCache(BoundaryType boundType, bool send) {
     return caches[2 * static_cast<int>(boundType) + send];
