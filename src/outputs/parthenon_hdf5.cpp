@@ -320,15 +320,18 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     // STRIDE: 1               1           1   1   1
     // COUNT:  1           vector_size    nx3 nx2 nx1
     if (isVector) {
-    fid << prefix << "    "
-        << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock << " "
-        << i << " 0 0 0 "
-        << " 1 1 1 1 1 1 " << vector_size << " " << dims321 << "</DataItem>" << std::endl;
+      fid << prefix << "    "
+          << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
+          << " " << i << " 0 0 0 "
+          << " 1 1 1 1 1 1 " << vector_size << " " << dims321 << "</DataItem>"
+          << std::endl;
     } else {
-    fid << prefix << "    "
-        << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock << " "
-        << " 0 0 0 "
-        << " 1 1 1 1 1 " << " " << dims321 << "</DataItem>" << std::endl;
+      fid << prefix << "    "
+          << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
+          << " "
+          << " 0 0 0 "
+          << " 1 1 1 1 1 "
+          << " " << dims321 << "</DataItem>" << std::endl;
     }
     writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
                       8);
@@ -411,17 +414,18 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     xdmf << "      </Geometry>" << std::endl;
 
     // write graphics variables
-    //dims[1] = 1;
-    //dims[2] = nx3;
-    //dims[3] = nx2;
-    //dims[4] = nx1;
+    // dims[1] = 1;
+    // dims[2] = nx3;
+    // dims[3] = nx2;
+    // dims[4] = nx1;
 
     int ndim;
     for (const auto &vinfo : var_list) {
-    // TODO(BRR) just let vinfo provide this
-    std::vector<hsize_t> alldims({static_cast<hsize_t>(vinfo.nx6), static_cast<hsize_t>(vinfo.nx5), static_cast<hsize_t>(vinfo.nx4), static_cast<hsize_t>(vinfo.nx3),
-                                   static_cast<hsize_t>(vinfo.nx2),
-                                   static_cast<hsize_t>(vinfo.nx1)});
+      // TODO(BRR) just let vinfo provide this
+      std::vector<hsize_t> alldims(
+          {static_cast<hsize_t>(vinfo.nx6), static_cast<hsize_t>(vinfo.nx5),
+           static_cast<hsize_t>(vinfo.nx4), static_cast<hsize_t>(vinfo.nx3),
+           static_cast<hsize_t>(vinfo.nx2), static_cast<hsize_t>(vinfo.nx1)});
       // Only cell-based data currently supported for visualization
       if (vinfo.where == MetadataFlag(Metadata::Cell)) {
         ndim = 3 + vinfo.tensor_rank + 1;
