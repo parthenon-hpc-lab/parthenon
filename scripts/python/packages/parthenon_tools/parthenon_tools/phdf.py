@@ -466,16 +466,17 @@ class phdf:
                     vLen = vShape[-1]
                 else:
                     vLen = vShape[1]  # index 0 is the block, so we need to use 1
-                # if variable is a scalar remove the component index
-                if vLen == 1:
-                    tmp = self.varData[variable].reshape(self.TotalCells)
-                    newShape = (
-                        self.NumBlocks,
-                        self.MeshBlockSize[2],
-                        self.MeshBlockSize[1],
-                        self.MeshBlockSize[0],
-                    )
-                    self.varData[variable] = tmp.reshape((newShape))
+                # in version 2, if variable is a scalar remove the component index
+                if self.OutputFormatVersion == 2:
+                  if vLen == 1:
+                      tmp = self.varData[variable].reshape(self.TotalCells)
+                      newShape = (
+                          self.NumBlocks,
+                          self.MeshBlockSize[2],
+                          self.MeshBlockSize[1],
+                          self.MeshBlockSize[0],
+                      )
+                      self.varData[variable] = tmp.reshape((newShape))
 
         except:
             print(
