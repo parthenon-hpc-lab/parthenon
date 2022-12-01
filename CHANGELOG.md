@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 774]](https://github.com/parthenon-hpc-lab/parthenon/pull/774) Add second order refinement criteria
+- [[PR 699]](https://github.com/lanl/parthenon/pull/699) Add independent sparse thresholds and sparse control fields. Sparse bug fixes.
 - [[PR 780]](https://github.com/lanl/parthenon/pull/780) Add Burgers' benchmark, GetVector<T> interface for ParameterInput
 - [[PR 732]](https://github.com/lanl/parthenon/pull/732) Add `Metadata::ForceRemeshComm` flag
 - [[PR 755]](https://github.com/lanl/parthenon/pull/755) Add archive_parameters option to output all parameters to text file at start
@@ -33,6 +34,7 @@
 - [[PR 716]](https://github.com/lanl/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 791]](https://github.com/parthenon-hpc-lab/parthenon/pull/791) Set KOKKOS_DISABLE_WARNINGS=TRUE
 - [[PR 777]](https://github.com/parthenon-hpc-lab/parthenon/pull/777) New action: check PR dependencies & warn until requirements merged
 - [[PR 772]](https://github.com/lanl/parthenon/pull/772) Trigger short CI only for PRs and remove old SpaceInstances test
 - [[PR 757]](https://github.com/lanl/parthenon/pull/757) Move to flux correction in-one and unify with bvals
