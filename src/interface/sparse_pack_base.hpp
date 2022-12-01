@@ -28,6 +28,7 @@
 
 #include "coordinates/coordinates.hpp"
 #include "interface/variable.hpp"
+#include "interface/variable_state.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -79,9 +80,7 @@ struct PackDescriptor {
     // TODO(LFR): Check that the shapes agree
     if (flags.size() > 0) {
       for (const auto &flag : flags) {
-        if (!pv->IsSet(flag)) {
-          return false;
-        }
+        if (!pv->IsSet(flag)) return false;
       }
     }
 
@@ -110,9 +109,10 @@ class SparsePackBase {
  protected:
   friend class SparsePackCache;
 
-  using alloc_t = std::vector<bool>;
-  using pack_t = ParArray3D<ParArray3D<Real>>;
+  using alloc_t = std::vector<int>;
+  using pack_t = ParArray3D<ParArray3D<Real, VariableState>>;
   using bounds_t = ParArray3D<int>;
+  using bounds_h_t = typename ParArray3D<int>::HostMirror;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 
   // Returns a SparsePackBase object that is either newly created or taken
@@ -147,6 +147,7 @@ class SparsePackBase {
 
   pack_t pack_;
   bounds_t bounds_;
+  bounds_h_t bounds_h_;
   coords_t coords_;
 
   bool with_fluxes_;
