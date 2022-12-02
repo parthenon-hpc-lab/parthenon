@@ -91,9 +91,9 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   const auto &v = swarm->Get<Real>("v").Get();
 
   // Assumes a grid with constant dx, dy, dz within a block
-  const Real &dx_i = pmb->coords.Dxf<1, 1>(0);
-  const Real &dx_j = pmb->coords.Dxf<2, 2>(0);
-  const Real &dx_k = pmb->coords.Dxf<3, 3>(0);
+  const Real &dx_i = pmb->coords.Dxf<1>(0);
+  const Real &dx_j = pmb->coords.Dxf<2>(0);
+  const Real &dx_k = pmb->coords.Dxf<3>(0);
   const Real &dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
 
   auto swarm_d = swarm->GetDeviceContext();
@@ -312,12 +312,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  const Real &x_min = pmb->coords.Xf<1, 1>(ib.s);
-  const Real &y_min = pmb->coords.Xf<2, 2>(jb.s);
-  const Real &z_min = pmb->coords.Xf<3, 3>(kb.s);
-  const Real &x_max = pmb->coords.Xf<1, 1>(ib.e + 1);
-  const Real &y_max = pmb->coords.Xf<2, 2>(jb.e + 1);
-  const Real &z_max = pmb->coords.Xf<3, 3>(kb.e + 1);
+  const Real &x_min = pmb->coords.Xf<1>(ib.s);
+  const Real &y_min = pmb->coords.Xf<2>(jb.s);
+  const Real &z_min = pmb->coords.Xf<3>(kb.s);
+  const Real &x_max = pmb->coords.Xf<1>(ib.e + 1);
+  const Real &y_max = pmb->coords.Xf<2>(jb.e + 1);
+  const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
 
   const auto &ic = particles_ic;
 

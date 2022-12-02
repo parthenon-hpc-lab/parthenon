@@ -58,41 +58,107 @@ class UniformCartesian {
     cell_volume_ = dx_[0] * dx_[1] * dx_[2];
   }
 
+  //----------------------------------------
+  // Dxc: Distance between cell centers
+  //----------------------------------------
   template <int dir, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(Args... args) const {
     assert(dir > 0 && dir < 4);
     return dx_[dir - 1];
   }
 
+  //----------------------------------------
+  // Dxf: Distance between cell faces
+  //----------------------------------------
   template <int dir, int face, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxf(Args... args) const {
     assert(dir > 0 && dir < 4 && face > 0 && face < 4);
     return dx_[face - 1];
   }
+  template <int dir, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxf(Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
+  }
 
+  //----------------------------------------
+  // Xf: Positions at cell centers
+  //----------------------------------------
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int idx) const {
     assert(dir > 0 && dir < 4);
     return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1];
   }
-
-  template <int face>
-  KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int idx) const {
-    assert(face > 0 && face < 4);
-    return Xf<face, face>(idx);
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    switch (dir) {
+    case 1:
+      return Xc<dir>(i);
+    case 2:
+      return Xc<dir>(j);
+    case 3:
+      return Xc<dir>(k);
+    default:
+      PARTHENON_THROW("Unknown dir");
+      return 0; // To appease compiler
+    }
   }
 
+  //----------------------------------------
+  // Xf: Positions on Faces
+  //----------------------------------------
   template <int dir, int face>
   KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int idx) const {
     assert(dir > 0 && dir < 4 && face > 0 && face < 4);
-    // Return position in direction "dir" along index "idx" on face "dir"
+    // Return position in direction "dir" along index "idx" on face "face"
     if constexpr (dir == face) {
       return xmin_[dir - 1] + idx * dx_[dir - 1];
     } else {
       return Xc<dir>(idx);
     }
   }
+  template <int dir, int face>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    switch (dir) {
+    case 1:
+      return Xf<dir, face>(i);
+    case 2:
+      return Xf<dir, face>(j);
+    case 3:
+      return Xf<dir, face>(k);
+    default:
+      PARTHENON_THROW("Unknown dir");
+      return 0; // To appease compiler
+    }
+  }
 
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int idx) const {
+    assert(dir > 0 && dir < 4);
+    // Return position in direction "dir" along index "idx" on face "dir"
+    return xmin_[dir - 1] + idx * dx_[dir - 1];
+  }
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    switch (dir) {
+    case 1:
+      return Xf<dir>(i);
+    case 2:
+      return Xf<dir>(j);
+    case 3:
+      return Xf<dir>(k);
+    default:
+      PARTHENON_THROW("Unknown dir");
+      return 0; // To appease compiler
+    }
+  }
+
+  //----------------------------------------
+  // CellWidth: Width of cells at cell centers
+  //----------------------------------------
   template <int dir, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(Args... args) const {
     assert(dir > 0 && dir < 4);
@@ -104,6 +170,9 @@ class UniformCartesian {
     return dx_[dir - 1];
   }
 
+  //----------------------------------------
+  // EdgeLength: Length of cell edges
+  //----------------------------------------
   template <int dir, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(Args... args) const {
     assert(dir > 0 && dir < 4);
@@ -114,6 +183,9 @@ class UniformCartesian {
     return cellWidth(dir);
   }
 
+  //----------------------------------------
+  // EdgeLength: Length of cell edges
+  //----------------------------------------
   template <int dir, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real FaceArea(Args... args) const {
     assert(dir > 0 && dir < 4);
@@ -125,6 +197,9 @@ class UniformCartesian {
     return area_[dir - 1];
   }
 
+  //----------------------------------------
+  // CellVolume
+  //----------------------------------------
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(Args... args) const {
     return cell_volume_;

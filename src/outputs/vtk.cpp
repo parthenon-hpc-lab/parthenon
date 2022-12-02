@@ -149,7 +149,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
       data[0] = static_cast<float>(pmb->coords.Xc<1>(out_ib.s));
     } else {
       for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
-        data[i - out_ib.s] = static_cast<float>(pmb->coords.Xf<1,1>(i));
+        data[i - out_ib.s] = static_cast<float>(pmb->coords.Xf<1>(i));
       }
     }
     if (!big_end) {
@@ -164,7 +164,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
       data[0] = static_cast<float>(pmb->coords.Xc<2>(out_jb.s));
     } else {
       for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
-        data[j - out_jb.s] = static_cast<float>(pmb->coords.Xf<2,2>(j));
+        data[j - out_jb.s] = static_cast<float>(pmb->coords.Xf<2>(j));
       }
     }
     if (!big_end) {
@@ -179,7 +179,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
       data[0] = static_cast<float>(pmb->coords.Xc<3>(out_kb.s));
     } else {
       for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
-        data[k - out_kb.s] = static_cast<float>(pmb->coords.Xf<3,3>(k));
+        data[k - out_kb.s] = static_cast<float>(pmb->coords.Xf<3>(k));
       }
     }
     if (!big_end) {

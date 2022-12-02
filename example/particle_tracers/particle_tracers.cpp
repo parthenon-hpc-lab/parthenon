@@ -205,11 +205,11 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   // again using scalar dx_D for assuming a uniform grid in this example
   const Real &dx_i = pmb->coords.Dxc<1>(0);
-  const Real &dx_j = pmb->coords.Dxf<2, 2>(0);
-  const Real &dx_k = pmb->coords.Dxf<3, 3>(0);
-  const Real &minx_i = pmb->coords.Xf<1, 1>(ib.s);
-  const Real &minx_j = pmb->coords.Xf<2, 2>(jb.s);
-  const Real &minx_k = pmb->coords.Xf<3, 3>(kb.s);
+  const Real &dx_j = pmb->coords.Dxf<2>(0);
+  const Real &dx_k = pmb->coords.Dxf<3>(0);
+  const Real &minx_i = pmb->coords.Xf<1>(ib.s);
+  const Real &minx_j = pmb->coords.Xf<2>(jb.s);
+  const Real &minx_k = pmb->coords.Xf<3>(kb.s);
 
   const auto &x = swarm->Get<Real>("x").Get();
   const auto &y = swarm->Get<Real>("y").Get();
@@ -337,12 +337,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real advected_amp = 0.5;
   PARTHENON_REQUIRE(advected_mean > advected_amp, "Cannot have negative densities!");
 
-  const Real &x_min = pmb->coords.Xf<1, 1>(ib.s);
-  const Real &y_min = pmb->coords.Xf<2, 2>(jb.s);
-  const Real &z_min = pmb->coords.Xf<3, 3>(kb.s);
-  const Real &x_max = pmb->coords.Xf<1, 1>(ib.e + 1);
-  const Real &y_max = pmb->coords.Xf<2, 2>(jb.e + 1);
-  const Real &z_max = pmb->coords.Xf<3, 3>(kb.e + 1);
+  const Real &x_min = pmb->coords.Xf<1>(ib.s);
+  const Real &y_min = pmb->coords.Xf<2>(jb.s);
+  const Real &z_min = pmb->coords.Xf<3>(kb.s);
+  const Real &x_max = pmb->coords.Xf<1>(ib.e + 1);
+  const Real &y_max = pmb->coords.Xf<2>(jb.e + 1);
+  const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
 
   const auto mesh_size = pmb->pmy_mesh->mesh_size;
   const Real x_min_mesh = mesh_size.x1min;
