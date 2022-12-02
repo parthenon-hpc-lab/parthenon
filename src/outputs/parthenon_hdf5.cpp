@@ -271,15 +271,18 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
     printf("  %i\n", dims[n]);
   }
   std::string mystr =
-      prefix + R"(<DataItem Format="HDF" Dimensions=")" + std::to_string(dims[0]);
-      printf("%s:%i isVector: %i\n", __FILE__, __LINE__, static_cast<int>(isVector));
-      if (isVector) {
-  for (int i = 1; i < ndims; i++)
+      prefix + R"(<DataItem Format="HDF" Dimensions=")";// + std::to_string(dims[0]);
+  //    printf("%s:%i isVector: %i\n", __FILE__, __LINE__, static_cast<int>(isVector));
+  //    if (isVector) {
+  //for (int i = 1; i < ndims; i++)
+  //  mystr += " " + std::to_string(dims[i]);
+  //    } else {
+  //for (int i = 2; i < ndims; i++)
+  //  mystr += " " + std::to_string(dims[i]);
+  //    }
+  for (int i = 0; i < ndims; i++) {
     mystr += " " + std::to_string(dims[i]);
-      } else {
-  for (int i = 2; i < ndims; i++)
-    mystr += " " + std::to_string(dims[i]);
-      }
+  }
   mystr += "\" Name=\"" + label + "\"";
   mystr += " NumberType=\"" + theType + "\"";
   mystr += R"( Precision=")" + std::to_string(precision) + R"(">)" + '\n';
@@ -322,15 +325,27 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
           << R"( Dimensions=")" << vector_size << " " << dims321 << R"(")";
     }
     fid << ">" << std::endl;
-    if (isVector) {
-    fid << prefix << "  "
-        << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
-        << vector_size << R"(">)" << std::endl;
-    } else {
-    fid << prefix << "  "
-        << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
-        << R"(">)" << std::endl;
+    printf("%s:%i\n", __FILE__, __LINE__);
+    printf("  name: %s isVector: %i dims321: %s vector_size: %i\n",
+      name.c_str(), isVector, dims321.c_str(), vector_size);
+    printf("  ndims: %i\n", ndims);
+    for (int i = 0; i < ndims; i++) {
+      printf("  [%i] %i\n", i, dims[i]);
     }
+    //if (isVector) {
+   //fid << prefix << "  "
+   //    << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
+   //    << vector_size << R"(">)" << std::endl;
+    fid << prefix << "  " << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
+    for (int i = 0; i < ndims; i++) {
+      fid << dims[i] << " ";
+    }
+    fid << R"(">)" << std::endl;
+    //} else {
+    //fid << prefix << "  "
+    //    << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
+    //    << R"(">)" << std::endl;
+   // }
     // TODO(JL) 3 and 5 are literals here, careful if they change.
     // "3" rows for START, STRIDE, and COUNT for each slab with "5" (H5_NDIM) entries.
     // START: iblock variable(_component)  0   0   0
