@@ -957,11 +957,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
 
     // write data to file
-    printf("var: %s ndim: %i dims: ", var_name.c_str(), ndim);
-    for (int i = 0; i < ndim; i++) {
-      printf("%i ", local_count[i]);
-    }
-    printf("\n");
     HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer, pl_dcreate);
   }
