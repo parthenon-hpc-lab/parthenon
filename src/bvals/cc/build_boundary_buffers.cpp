@@ -73,8 +73,8 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Get a bi-directional mpi tag for this pair of blocks
     tag = pmesh->tag_map.GetTag(pmb, nb);
     auto comm_label = v->label();
-    if constexpr (BTYPE == BoundaryType::fluxcor_send ||
-                  BTYPE == BoundaryType::fluxcor_recv)
+    if constexpr (BTYPE == BoundaryType::flxcor_send ||
+                  BTYPE == BoundaryType::flxcor_recv)
       comm_label += "_flcor";
     mpi_comm_t comm = pmesh->GetMPIComm(comm_label);
 #else
