@@ -84,7 +84,9 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
             if (!v->IsSet(Metadata::FillGhost)) continue;
             if (nb.snb.rank != Globals::my_rank) continue;
           } else if constexpr (bound == BoundaryType::nonlocal) {
-            if (!v->IsSet(Metadata::FillGhost)) continue;
+            if (!v->IsSet(Metadata::FillGhost)) {
+              continue;
+            }
             if (nb.snb.rank == Globals::my_rank) continue;
           } else if constexpr (bound == BoundaryType::flxcor_send) {
             if (!v->IsSet(Metadata::WithFluxes)) continue;
@@ -100,7 +102,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
             // No flux correction required unless boundaries share a face
             if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
               continue;
-          } else if constexpr (bound == BoundaryType::any) { 
+          } else if constexpr (bound == BoundaryType::any) {
             if (!v->IsSet(Metadata::FillGhost)) continue;
           }
           if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;

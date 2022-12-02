@@ -1282,7 +1282,7 @@ void Mesh::SetupMPIComms() {
 
   for (auto &pair : resolved_packages->AllFields()) {
     auto &metadata = pair.second;
-    // Create both boundary and flux communicators for everything with either FillGhost 
+    // Create both boundary and flux communicators for everything with either FillGhost
     // or WithFluxes just to be safe
     if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes)) {
       MPI_Comm mpi_comm;
