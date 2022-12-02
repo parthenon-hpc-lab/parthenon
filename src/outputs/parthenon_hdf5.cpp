@@ -265,21 +265,8 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
                                       const std::string &label, const hsize_t *dims,
                                       const int &ndims, const std::string &theType,
                                       const int &precision, bool isVector) {
-  printf("prefix: %s\n", label.c_str());
-  printf("ndims: %i\n", ndims);
-  for (int n = 0; n < ndims; n++) {
-    printf("  %i\n", dims[n]);
-  }
   std::string mystr =
-      prefix + R"(<DataItem Format="HDF" Dimensions=")";// + std::to_string(dims[0]);
-  //    printf("%s:%i isVector: %i\n", __FILE__, __LINE__, static_cast<int>(isVector));
-  //    if (isVector) {
-  //for (int i = 1; i < ndims; i++)
-  //  mystr += " " + std::to_string(dims[i]);
-  //    } else {
-  //for (int i = 2; i < ndims; i++)
-  //  mystr += " " + std::to_string(dims[i]);
-  //    }
+      prefix + R"(<DataItem Format="HDF" Dimensions=")"; // + std::to_string(dims[0]);
   for (int i = 0; i < ndims; i++) {
     mystr += " " + std::to_string(dims[i]);
   }
@@ -293,8 +280,10 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
 static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
                               const std::string &hdfPath, const std::string &label,
                               const hsize_t *dims, const int &ndims,
-                              const std::string &theType, const int &precision, bool isVector=false) {
-  fid << stringXdmfArrayRef(prefix, hdfPath, label, dims, ndims, theType, precision, isVector)
+                              const std::string &theType, const int &precision,
+                              bool isVector = false) {
+  fid << stringXdmfArrayRef(prefix, hdfPath, label, dims, ndims, theType, precision,
+                            isVector)
       << std::flush;
 }
 
@@ -325,50 +314,18 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
           << R"( Dimensions=")" << vector_size << " " << dims321 << R"(")";
     }
     fid << ">" << std::endl;
-    printf("%s:%i\n", __FILE__, __LINE__);
-    printf("  name: %s isVector: %i dims321: %s vector_size: %i\n",
-      name.c_str(), isVector, dims321.c_str(), vector_size);
-    printf("  ndims: %i\n", ndims);
-    for (int i = 0; i < ndims; i++) {
-      printf("  [%i] %i\n", i, dims[i]);
-    }
-    //if (isVector) {
-   //fid << prefix << "  "
-   //    << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
-   //    << vector_size << R"(">)" << std::endl;
-    fid << prefix << "  " << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
+    fid << prefix << "  "
+        << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
     for (int i = 0; i < ndims; i++) {
       fid << dims[i] << " ";
     }
     fid << R"(">)" << std::endl;
-    //} else {
-    //fid << prefix << "  "
-    //    << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
-    //    << R"(">)" << std::endl;
-   // }
-    // TODO(JL) 3 and 5 are literals here, careful if they change.
-    // "3" rows for START, STRIDE, and COUNT for each slab with "5" (H5_NDIM) entries.
-    // START: iblock variable(_component)  0   0   0
-    // STRIDE: 1               1           1   1   1
-    // COUNT:  1           vector_size    nx3 nx2 nx1
-    //if (isVector) {
-      fid << prefix << "    "
-          << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
-          << " " << i << " 0 0 0 "
-          << " 1 1 1 1 1 1 " << vector_size << " " << dims321 << "</DataItem>"
-          << std::endl;
-      writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
-                      8, true);
-    /*} else {
-      fid << prefix << "    "
-          << R"(<DataItem Dimensions="3 4" NumberType="Int" Format="XML">)" << iblock
-          << " "
-          << " 0 0 0 "
-          << " 1 1 1 1 1 "
-          << " " << dims321 << "</DataItem>" << std::endl;
-    writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
-                      8, false);
-    }*/
+    fid << prefix << "    "
+        << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock << " "
+        << i << " 0 0 0 "
+        << " 1 1 1 1 1 1 " << vector_size << " " << dims321 << "</DataItem>" << std::endl;
+    writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float", 8,
+                      true);
     fid << prefix << "  "
         << "</DataItem>" << std::endl;
     fid << prefix << "</Attribute>" << std::endl;
