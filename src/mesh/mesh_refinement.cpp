@@ -69,7 +69,7 @@ void MeshRefinement::RestrictCellCenteredValues(CellVariable<Real> *var, int sn,
                                                 int csi, int cei, int csj, int cej,
                                                 int csk, int cek) {
   const auto &metadata = var->metadata();
-  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + fine->base_name() +
+  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
                                                     " must be registered for refinement");
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const auto &refinement_funcs = metadata.GetRefinementFunctions();
