@@ -49,6 +49,12 @@ struct AMRFirstDerivative : public AMRCriteria {
   AmrTag operator()(const MeshBlockData<Real> *rc) const override;
 };
 
+struct AMRSecondDerivative : public AMRCriteria {
+  AMRSecondDerivative(ParameterInput *pin, std::string &block_name)
+      : AMRCriteria(pin, block_name) {}
+  AmrTag operator()(const MeshBlockData<Real> *rc) const override;
+};
+
 } // namespace parthenon
 
 #endif // REFINEMENT_AMR_CRITERIA_HPP_
