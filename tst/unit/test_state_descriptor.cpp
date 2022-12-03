@@ -352,7 +352,7 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       }
     }
 
-    WHEN("We register a dense variable withuot custom") {
+    WHEN("We register a dense variable custom prolongation/restriction") {
       pkg1->AddField("dense", m_provides);
       WHEN("We register a sparse variable with custom prolongation/restriction") {
         auto m_sparse_provides_ = m_sparse_provides;
