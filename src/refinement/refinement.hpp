@@ -42,6 +42,9 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc);
 AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria);
 
+AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
+                        const Real refine_criteria, const Real derefine_criteria);
+
 } // namespace Refinement
 
 } // namespace parthenon

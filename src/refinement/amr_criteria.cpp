@@ -70,6 +70,8 @@ std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string &criteria,
                                                           std::string &block_name) {
   if (criteria == "derivative_order_1")
     return std::make_shared<AMRFirstDerivative>(pin, block_name);
+  if (criteria == "derivative_order_2")
+    return std::make_shared<AMRSecondDerivative>(pin, block_name);
   throw std::invalid_argument("\n  Invalid selection for refinment method in " +
                               block_name + ": " + criteria);
 }
@@ -89,6 +91,16 @@ AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
   auto q = rc->Get(field).data.Slice(comp6, comp5, comp4, Kokkos::ALL(), Kokkos::ALL(),
                                      Kokkos::ALL());
   return Refinement::FirstDerivative(bnds, q, refine_criteria, derefine_criteria);
+}
+
+AmrTag AMRSecondDerivative::operator()(const MeshBlockData<Real> *rc) const {
+  if (!rc->HasCellVariable(field) || !rc->IsAllocated(field)) {
+    return AmrTag::same;
+  }
+  auto bnds = GetBounds(rc);
+  auto q = rc->Get(field).data.Slice(comp6, comp5, comp4, Kokkos::ALL(), Kokkos::ALL(),
+                                     Kokkos::ALL());
+  return Refinement::SecondDerivative(bnds, q, refine_criteria, derefine_criteria);
 }
 
 } // namespace parthenon

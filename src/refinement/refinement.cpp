@@ -116,6 +116,36 @@ AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
   return AmrTag::same;
 }
 
+AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
+                        const Real refine_criteria, const Real derefine_criteria) {
+  const int ndim = 1 + (bnds.je > bnds.js) + (bnds.ke > bnds.ks);
+  Real maxd = 0.0;
+  par_reduce(
+      loop_pattern_mdrange_tag, "refinement second derivative", DevExecSpace(), bnds.ks,
+      bnds.ke, bnds.js, bnds.je, bnds.is, bnds.ie,
+      KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
+        Real aqt = std::abs(q(k, j, i)) + TINY_NUMBER;
+        Real qavg = 0.5 * (q(k, j, i + 1) + q(k, j, i - 1));
+        Real d = std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
+        maxd = (d > maxd ? d : maxd);
+        if (ndim > 1) {
+          qavg = 0.5 * (q(k, j + 1, i) + q(k, j - 1, i));
+          d = std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
+          maxd = (d > maxd ? d : maxd);
+        }
+        if (ndim > 2) {
+          qavg = 0.5 * (q(k + 1, j, i) + q(k - 1, j, i));
+          d = std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
+          maxd = (d > maxd ? d : maxd);
+        }
+      },
+      Kokkos::Max<Real>(maxd));
+
+  if (maxd > refine_criteria) return AmrTag::refine;
+  if (maxd < derefine_criteria) return AmrTag::derefine;
+  return AmrTag::same;
+}
+
 void SetRefinement_(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   pmb->pmr->SetRefinement(CheckAllRefinement(rc));
