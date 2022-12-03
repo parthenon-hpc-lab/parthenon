@@ -65,10 +65,9 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
 //----------------------------------------------------------------------------------------
 //  \brief restrict cell centered values
 
-void MeshRefinement::RestrictCellCenteredValues(
-                                                CellVariable<Real> *var, int sn,
-                                                int en, int csi, int cei, int csj,
-                                                int cej, int csk, int cek) {
+void MeshRefinement::RestrictCellCenteredValues(CellVariable<Real> *var, int sn, int en,
+                                                int csi, int cei, int csj, int cej,
+                                                int csk, int cek) {
   const auto &metadata = var->metadata();
   PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + fine->base_name() +
                                                     " must be registered for refinement");
@@ -104,10 +103,9 @@ void MeshRefinement::RestrictCellCenteredValues(
 //----------------------------------------------------------------------------------------
 //  \brief Prolongate cell centered values
 
-void MeshRefinement::ProlongateCellCenteredValues(
-                                                  CellVariable<Real> *var, int sn,
-                                                  int en, int si, int ei, int sj, int ej,
-                                                  int sk, int ek) {
+void MeshRefinement::ProlongateCellCenteredValues(CellVariable<Real> *var, int sn, int en,
+                                                  int si, int ei, int sj, int ej, int sk,
+                                                  int ek) {
   const auto &metadata = var->metadata();
   PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
                                                     " must be registered for refinement");

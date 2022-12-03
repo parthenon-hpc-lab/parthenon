@@ -99,7 +99,7 @@ AmrTag AMRSecondDerivative::operator()(const MeshBlockData<Real> *rc) const {
   }
   auto bnds = GetBounds(rc);
   auto q = Kokkos::subview(rc->Get(field).data, comp6, comp5, comp4, Kokkos::ALL(),
-			   Kokkos::ALL(), Kokkos::ALL());
+                           Kokkos::ALL(), Kokkos::ALL());
   return Refinement::SecondDerivative(bnds, q, refine_criteria, derefine_criteria);
 }
 
