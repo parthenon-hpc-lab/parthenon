@@ -13,6 +13,7 @@
 #ifndef BENCHMARKS_BURGERS_BURGERS_PACKAGE_HPP_
 #define BENCHMARKS_BURGERS_BURGERS_PACKAGE_HPP_
 
+#include <algorithm>
 #include <memory>
 
 #include <parthenon/package.hpp>

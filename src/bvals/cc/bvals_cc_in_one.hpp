@@ -67,6 +67,10 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 
+// Restricts all relevant meshblock boundaries, but doesn't
+// communicate at all.
+TaskStatus RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset);
+
 // This task should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
