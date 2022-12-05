@@ -1461,9 +1461,9 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
   for (int i = 0; i < pmr->pvars_cc_.size(); ++i) {
     auto &cc_var = pmr->pvars_cc_[i];
     int nu = cc_var->GetDim(4) - 1;
-    PARTHENON_REQUIRE_THROWS(
-        cc_var->IsAllocated(),
-        "Mesh::FinishRecvCoarseToFineAMR: Failed to allocate variable " + cc_var->label());
+    //PARTHENON_REQUIRE_THROWS(
+        //cc_var->IsAllocated(),
+        //"Mesh::FinishRecvCoarseToFineAMR: Failed to allocate variable " + cc_var->label());
     if (cc_var->IsAllocated()) {
       ParArrayND<Real> var_cc = cc_var->data;
       PARTHENON_REQUIRE_THROWS(nu == cc_var->GetDim(4) - 1, "nu mismatch");

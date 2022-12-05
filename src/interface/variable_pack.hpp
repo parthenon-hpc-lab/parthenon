@@ -790,15 +790,6 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
   cv_size[3] = vsize;
 
   FillVarView(vars, coarse, cv, sparse_id, vector_component, allocated, pvmap);
-  //printf("Making pack of size %d: ", vsize);
-  //for (const auto &v : vars) {
-    //if (v->IsAllocated()) {
-      //printf("%s ", v->label().c_str());
-    //} else {
-      //printf("***%s*** ", v->label().c_str());
-    //}
-  //}
-  //printf("\n");
 
   return VariablePack<T>(cv, sparse_id, vector_component, allocated, cv_size);
 }

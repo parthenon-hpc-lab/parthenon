@@ -171,12 +171,13 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
     }
 
     std::array<int, 5> dims;
-    for (int i = 0; i < 3; i++) {
-      dims[i] = packs_host(0).GetDim(i + 1);
+    for (int i = 0; i < 4; i++) {
+      dims[i] = 0;;
     }
-    // for dims[3], set it to the max of all VariablePacks
-    dims[3] = 0;
     for (int i = 0; i < nblocks; i++) {
+      dims[0] = std::max(dims[0], packs_host(i).GetDim(1));
+      dims[1] = std::max(dims[1], packs_host(i).GetDim(2));
+      dims[2] = std::max(dims[2], packs_host(i).GetDim(3));
       dims[3] = std::max(dims[3], packs_host(i).GetDim(4));
     }
     dims[4] = nblocks;
