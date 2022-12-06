@@ -191,7 +191,7 @@ A description of mesh indexing classes [here](mesh/domain.md).
 
 ### Input file parameter
 
-An overview of input file parameters [here](input.md)
+An overview of input file parameters [here](inputs.md)
 
 Note that all parameters can be overridden (or new parameters added) through the command
 line by appending the parameters to the launch command.
