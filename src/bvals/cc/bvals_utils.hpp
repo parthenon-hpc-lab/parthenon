@@ -97,6 +97,8 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
             // No flux correction required unless boundaries share a face
             if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
               continue;
+          } else if (bound == BoundaryType::any) { 
+            if (!w_ghosts) continue;
           }
           if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
         }

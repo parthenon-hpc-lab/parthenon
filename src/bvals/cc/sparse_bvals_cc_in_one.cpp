@@ -51,7 +51,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   all_caches.clear();
 
   // Build buffers for all boundaries, both local and nonlocal
-  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BoundaryType::all_ghost_and_flux>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
 
@@ -316,6 +316,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                if (std::abs(val) >= threshold)
                                  sending_nonzero_flags(b) = true;
                              });
+        if (bnd_info(b).label.find("volume_frac") != std::string::npos && !sending_nonzero_flags(b)) 
+            printf("%s threshold = %e nonzero = %i.\n", bnd_info(b).label.c_str(), 
+                   threshold, sending_nonzero_flags(b));
       });
 
   // Send buffers
