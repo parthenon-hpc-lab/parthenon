@@ -159,9 +159,9 @@ TaskStatus SumMass(T *u, Real *reduce_sum) {
 
   auto coords = GetCoords(pm);
   const int ndim = v.GetNdim();
-  const Real dx = coords.cellWidth(X1DIR);
+  const Real dx = coords.CellWidthFA(X1DIR);
   for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.cellWidth(i);
+    const Real dy = coords.CellWidthFA(i);
     PARTHENON_REQUIRE_THROWS(dx == dy,
                              "SumMass requires that DX be equal in all directions.");
   }
@@ -230,9 +230,9 @@ TaskStatus UpdatePhi(T *u, T *du) {
 
   auto coords = GetCoords(pm);
   const int ndim = v.GetNdim();
-  const Real dx = coords.cellWidth(X1DIR);
+  const Real dx = coords.CellWidthFA(X1DIR);
   for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.cellWidth(i);
+    const Real dy = coords.CellWidthFA(i);
     PARTHENON_REQUIRE_THROWS(dx == dy,
                              "UpdatePhi requires that DX be equal in all directions.");
   }

@@ -112,10 +112,10 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
               // For the given set of offsets, etc. this should work for any
               // dimensionality since the same flux will be included multiple times
               // in the average
-              const Real area00 = coords.faceArea(binfo.dir, k, j, i);
-              const Real area01 = coords.faceArea(binfo.dir, k, j + joff, i + ioff);
-              const Real area10 = coords.faceArea(binfo.dir, k + koff, j + joff, i);
-              const Real area11 = coords.faceArea(binfo.dir, k + koff, j, i + ioff);
+              const Real area00 = coords.FaceAreaFA(binfo.dir, k, j, i);
+              const Real area01 = coords.FaceAreaFA(binfo.dir, k, j + joff, i + ioff);
+              const Real area10 = coords.FaceAreaFA(binfo.dir, k + koff, j + joff, i);
+              const Real area11 = coords.FaceAreaFA(binfo.dir, k + koff, j, i + ioff);
 
               Real avg_flx = area00 * binfo.var(t, u, v, k, j, i);
               avg_flx += area01 * binfo.var(t, u, v, k + koff, j + joff, i);

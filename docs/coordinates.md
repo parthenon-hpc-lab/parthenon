@@ -61,14 +61,14 @@ and cylindrical.
 ## Compile Time vs. Run Time Parameters
 
 For each of these functions that take parameters `dir`, `face`, and/or `edge`
-as template parameters at compile time we use uppercase first-letter names. As
-needed we also introduce versions with runtime parameters using lowercase function names. For example,
+as template parameters at compile time, we also introduce as needed versions
+with runtime parameters appending `FA` to the function name for
+"function-arguments." For example,
 ```
-xc( const int dir, const int idx); //Cell Centers
-da( const int dir, const int k, const int j, const int i); //Face Areas
+FaceAreaFA( const int dir, const int k, const int j, const int i); //Face Areas
 ```
 This convention avoids naming conflicts between simplified functions and
-runtime functions. These lowercase versions are implemented on an as-needed
+runtime functions. These run-time versions are implemented on an as-needed
 basis.
 
 *This page will be expanded with the implementation of spherical and cylindrical coordinates.*
