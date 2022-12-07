@@ -19,15 +19,18 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
+#include "interface/packages.hpp"
 #include "interface/params.hpp"
 #include "interface/sparse_pool.hpp"
 #include "interface/swarm.hpp"
 #include "interface/variable.hpp"
+#include "mesh/refinement_in_one.hpp"
 #include "refinement/amr_criteria.hpp"
 #include "utils/error_checking.hpp"
 
@@ -39,25 +42,6 @@ class MeshBlockData;
 template <typename T>
 class MeshData;
 
-class StateDescriptor; // forward declaration
-
-class Packages_t {
- public:
-  Packages_t() = default;
-  void Add(const std::shared_ptr<StateDescriptor> &package);
-
-  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
-    return packages_.at(name);
-  }
-
-  const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
-    return packages_;
-  }
-
- private:
-  Dictionary<std::shared_ptr<StateDescriptor>> packages_;
-};
-
 /// We uniquely identify a variable by it's full label, i.e. base name plus sparse ID.
 /// However, sometimes we also need to be able to separate the base name from the sparse
 /// ID. Instead of relying on the fact that they are separated by a "_", we store them
@@ -65,6 +49,9 @@ class Packages_t {
 /// have a sparse ID and a sparse field "foo_3" has base name "foo" and sparse ID 3,
 /// however, the two VarIDs representing them are still considered equal, so that we find
 /// such duplicates
+/// TODO(JMM): Using VarID machinery for prolongation/restriction
+/// implies that all vars in a sparse pool have the same custom
+/// prolongation/restriction operators.
 struct VarID {
   std::string base_name;
   int sparse_id;
@@ -81,6 +68,41 @@ struct VarIDHasher {
   auto operator()(const VarID &vid) const {
     return std::hash<std::string>{}(vid.label());
   }
+};
+
+/// A little container class owning refinement function properties
+/// needed for the state descriptor.
+/// Note using VarID here implies that custom prolongation/restriction
+/// is identical for all sparse vars in a pool.
+/// Note ignores sparse id, so all sparse ids of a
+/// given sparse name have the same prolongation/restriction
+/// operations
+/// TODO(JMM): Should this cache be a static member field of
+/// RefinementFunctions_t? That would mean we could avoid
+/// StateDescriptor entirely.
+struct RefinementFunctionMaps {
+  void Register(const Metadata &m) {
+    if (m.IsRefined()) {
+      const auto &funcs = m.GetRefinementFunctions();
+      bool in_map = (funcs_to_ids.count(funcs) > 0);
+      if (!in_map) {
+        funcs_to_ids[funcs] = next_refinement_id_++;
+      }
+    }
+  }
+
+  std::size_t size() const noexcept { return next_refinement_id_; }
+  // A unique enumeration of refinement functions starting from zero.
+  // This is used for caching which prolongation/restriction operator
+  // matches which BndInfo struct in the buffer packing caches.
+  // the other relevant information is in metadata, so this is all we
+  // need.
+  std::unordered_map<refinement::RefinementFunctions_t, std::size_t,
+                     refinement::RefinementFunctionsHasher>
+      funcs_to_ids;
+
+ private:
+  std::size_t next_refinement_id_ = 0;
 };
 
 /// The state metadata descriptor class.
@@ -203,6 +225,17 @@ class StateDescriptor {
   const auto &AllSwarms() const noexcept { return swarmMetadataMap_; }
   const auto &AllSwarmValues(const std::string &swarm_name) const noexcept {
     return swarmValueMetadataMap_.at(swarm_name);
+  }
+  std::size_t
+  RefinementFuncID(const refinement::RefinementFunctions_t &funcs) const noexcept {
+    return refinementFuncMaps_.funcs_to_ids.at(funcs);
+  }
+  std::size_t RefinementFuncID(const Metadata &m) const noexcept {
+    return RefinementFuncID(m.GetRefinementFunctions());
+  }
+  std::size_t NumRefinementFuncs() const noexcept { return refinementFuncMaps_.size(); }
+  const auto &RefinementFncsToIDs() const noexcept {
+    return refinementFuncMaps_.funcs_to_ids;
   }
   bool FieldPresent(const std::string &base_name,
                     int sparse_id = InvalidSparseID) const noexcept {
@@ -362,6 +395,8 @@ class StateDescriptor {
 
   Dictionary<Metadata> swarmMetadataMap_;
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
+
+  RefinementFunctionMaps refinementFuncMaps_;
 };
 
 inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {

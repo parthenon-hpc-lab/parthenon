@@ -14,6 +14,8 @@
 #ifndef BENCHMARKS_BURGERS_RECON_HPP_
 #define BENCHMARKS_BURGERS_RECON_HPP_
 
+#include <algorithm>
+
 #include "basic_types.hpp"
 using parthenon::Real;
 

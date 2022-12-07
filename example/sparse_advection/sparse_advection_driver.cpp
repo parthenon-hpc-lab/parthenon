@@ -20,7 +20,7 @@
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
+#include "mesh/refinement_in_one.hpp"
 #include "parthenon/driver.hpp"
 #include "refinement/refinement.hpp"
 #include "sparse_advection_driver.hpp"
@@ -137,9 +137,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
 
     auto restrict = init_allocated;
     if (pmesh->multilevel) {
-      restrict = tl.AddTask(init_allocated,
-                            parthenon::cell_centered_refinement::RestrictPhysicalBounds,
-                            mc1.get());
+      restrict = tl.AddTask(
+          init_allocated, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1, false);
     }
 
     // if this is the last stage, check if we can deallocate any sparse variables
