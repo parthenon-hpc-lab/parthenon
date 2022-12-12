@@ -189,7 +189,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   if (pm->multilevel) {
     CellVariableVector<Real> refine_vars = GetAnyVariables(
       real_container->GetCellVariableVector(), 
-      {Metadata::Independent, Metadata::FillGhost});       
+      {Metadata::Independent, Metadata::FillGhost, Metadata::RemeshComm});       
     pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
     for (int n = 0; n < refine_vars.size(); n++) {

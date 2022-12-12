@@ -78,7 +78,7 @@ void CellVariable<T>::CopyFluxesAndBdryVar(const CellVariable<T> *src) {
     }
   }
 
-  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) || IsSet(Metadata::RemeshComm)) {
     // no need to check mesh->multilevel, if false, we're just making a shallow copy of
     // an empty ParArrayND
     coarse_s = src->coarse_s;
@@ -154,7 +154,7 @@ void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
   }
 
   // Create the boundary object
-  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) || IsSet(Metadata::RemeshComm)) {
     if (wpmb.expired()) return;
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
@@ -183,7 +183,7 @@ void CellVariable<T>::Deallocate() {
     }
   }
 
-  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) || IsSet(Metadata::RemeshComm)) {
     coarse_s.Reset();
   }
 

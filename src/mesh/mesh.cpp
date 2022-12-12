@@ -1091,7 +1091,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       auto &pmb = block_list[i];
       pmb->swarm_data.Get()->SetupPersistentMPI();
     }
-
     // send FillGhost variables
     boundary_comm_map.clear();
     boundary_comm_flxcor_map.clear();

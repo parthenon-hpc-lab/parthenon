@@ -246,7 +246,7 @@ if (ENABLE_COMPILER_WARNINGS)
   message(STATUS "Enabling -Wall and setting Kokkos_ENABLE_COMPILER_WARNINGS=True")
   set(Kokkos_ENABLE_COMPILER_WARNINGS True CACHE BOOL
       "Make the compiler warn us about things")
-  add_compile_options(-Wall)
+  add_compile_options(-Wall -Wno-sign-compare -Wno-reorder -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas)
 endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

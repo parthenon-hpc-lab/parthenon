@@ -287,7 +287,7 @@ bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
   std::string controller_base = pool.controller_base_name();
   if (controller_base == "") controller_base = pool.base_name();
   // add all the sparse fields
-  for (const auto itr : pool.pool()) {
+  for (const auto &itr : pool.pool()) {
     if (!AddFieldImpl(VarID(pool.base_name(), itr.first), itr.second,
                       VarID(controller_base, itr.first))) {
       // a field with this name already exists, this would leave the StateDescriptor in an
@@ -401,13 +401,13 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
     // the same level for the purpose of dependency resolution)
     Dictionary<Metadata> field_dict;
 
-    for (const auto itr : package->AllFields()) {
+    for (const auto &itr : package->AllFields()) {
       if (!itr.second.IsSet(Metadata::Sparse)) {
         field_dict.insert({itr.first.label(), itr.second});
       }
     }
 
-    for (const auto itr : package->AllSparsePools()) {
+    for (const auto &itr : package->AllSparsePools()) {
       field_dict.insert({itr.first, itr.second.shared_metadata()});
     }
 

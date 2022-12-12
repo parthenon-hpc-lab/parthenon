@@ -316,9 +316,6 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                if (std::abs(val) >= threshold)
                                  sending_nonzero_flags(b) = true;
                              });
-        if (bnd_info(b).label.find("volume_frac") != std::string::npos && !sending_nonzero_flags(b)) 
-            printf("%s threshold = %e nonzero = %i.\n", bnd_info(b).label.c_str(), 
-                   threshold, sending_nonzero_flags(b));
       });
 
   // Send buffers

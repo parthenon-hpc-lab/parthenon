@@ -156,7 +156,7 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
         const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
 
         // add all sparse ids of the pool
-        for (const auto iter : sparse_pool.pool()) {
+        for (const auto &iter : sparse_pool.pool()) {
           // this variable must exist, if it doesn't something is very wrong
           const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
           add_var(v);
@@ -382,7 +382,7 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
 
       // add all sparse ids of the pool
-      for (const auto iter : sparse_pool.pool()) {
+      for (const auto &iter : sparse_pool.pool()) {
         // this variable must exist, if it doesn't something is very wrong
         const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
         var_list.Add(v, sparse_ids_set);

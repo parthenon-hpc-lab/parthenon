@@ -235,7 +235,7 @@ class PackIndexMap {
 
   // for debugging
   void print() const {
-    for (const auto itr : map_) {
+    for (const auto &itr : map_) {
       printf("%s: %i - %i\n", itr.first.c_str(), itr.second.first, itr.second.second);
     }
   }
@@ -607,7 +607,7 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
   auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
 
   int vindex = 0;
-  for (const auto v : vars) {
+  for (const auto &v : vars) {
     int vstart = vindex;
     for (int l = 0; l < v->GetDim(6); l++) {
       for (int m = 0; m < v->GetDim(5); m++) {
