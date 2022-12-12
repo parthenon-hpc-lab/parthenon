@@ -81,10 +81,12 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
 
-        // Question for reviewers: Are we happy with this "theoretical" undefined
-        // behavior?
-        sending_nonzero_flags(b) = false;
-        if (!bnd_info(b).allocated) return;
+        if (!bnd_info(b).allocated) {
+          if (team_member.team_rank() == 0) {
+            sending_nonzero_flags(b) = false;
+          }
+          return;
+        }
 
         const int &si = bnd_info(b).si;
         const int &ei = bnd_info(b).ei;
@@ -124,9 +126,11 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                 lnon_zero = true;
               }
             },
-            Kokkos::BOr<bool>(non_zero));
-        Kokkos::single(Kokkos::PerTeam(team_member),
-                       [&]() { sending_nonzero_flags(b) = non_zero; });
+            Kokkos::BOr<bool, parthenon::DevMemSpace>(non_zero));
+
+        if (team_member.team_rank() == 0) {
+          sending_nonzero_flags(b) = non_zero;
+        }
       });
 
   // Send buffers
