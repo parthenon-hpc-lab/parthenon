@@ -126,7 +126,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                 lnon_zero = true;
               }
             },
-            Kokkos::BOr<bool, parthenon::DevMemSpace>(non_zero));
+            Kokkos::LOr<bool, parthenon::DevMemSpace>(non_zero));
 
         if (team_member.team_rank() == 0) {
           sending_nonzero_flags(b) = non_zero;
