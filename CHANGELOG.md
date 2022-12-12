@@ -22,6 +22,7 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 800]](https://github.com/parthenon-hpc-lab/parthenon/pull/800) Fix rare and intermitted race condition to set allocation status
 - [[PR 777]](https://github.com/parthenon-hpc-lab/parthenon/pull/784) Fix double-output of last file in rare cases 
 - [[PR 740]](https://github.com/lanl/parthenon/pull/740) Faster PHDF file load times in phdf.py
 - [[PR 751]](https://github.com/lanl/parthenon/pull/751) Delete useless file in advection example

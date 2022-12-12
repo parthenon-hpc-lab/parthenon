@@ -81,6 +81,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
 
+        // Question for reviewers: Are we happy with this "theoretical" undefined
+        // behavior?
         sending_nonzero_flags(b) = false;
         if (!bnd_info(b).allocated) return;
 
@@ -105,20 +107,26 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
 
         Real threshold = bnd_info(b).var.allocation_threshold;
-        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
-                             [&](const int idx) {
-                               const int t = idx / NuNvNkNjNi;
-                               const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-                               const int v = (idx % NvNkNjNi) / NkNjNi;
-                               const int k = (idx % NkNjNi) / NjNi + sk;
-                               const int j = (idx % NjNi) / Ni + sj;
-                               const int i = idx % Ni + si;
+        bool non_zero = false;
+        Kokkos::parallel_reduce(
+            Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
+            [&](const int idx, bool &lnon_zero) {
+              const int t = idx / NuNvNkNjNi;
+              const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
+              const int v = (idx % NvNkNjNi) / NkNjNi;
+              const int k = (idx % NkNjNi) / NjNi + sk;
+              const int j = (idx % NjNi) / Ni + sj;
+              const int i = idx % Ni + si;
 
-                               const Real &val = bnd_info(b).var(t, u, v, k, j, i);
-                               bnd_info(b).buf(idx) = val;
-                               if (std::abs(val) >= threshold)
-                                 sending_nonzero_flags(b) = true;
-                             });
+              const Real &val = bnd_info(b).var(t, u, v, k, j, i);
+              bnd_info(b).buf(idx) = val;
+              if (std::abs(val) >= threshold) {
+                lnon_zero = true;
+              }
+            },
+            Kokkos::BOr<bool>(non_zero));
+        Kokkos::single(Kokkos::PerTeam(team_member),
+                       [&]() { sending_nonzero_flags(b) = non_zero; });
       });
 
   // Send buffers

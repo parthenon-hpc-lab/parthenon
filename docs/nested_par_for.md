@@ -5,7 +5,7 @@ The loop wrappers documented here abstracts a hierarchical parallelism model,
 which allows more fine grain control on core level vs. thread and vector level
 parallelism and allows explicitly defined caches for tightly nested loops.
 These wrappers provide a simplified interface of the [hierarchical parallelism
-in Kokkos](https://github.com/kokkos/kokkos/wiki/HierarchicalParallelism)
+in Kokkos](https://kokkos.github.io/kokkos-core-wiki/ProgrammingGuide/HierarchicalParallelism.html)
 
 
 For an example of the nested parallel wrappers in use, see [the unit
@@ -43,7 +43,7 @@ Data type for memory in scratch pad/cache memory. Use
 documentation](https://github.com/kokkos/kokkos/wiki/HierarchicalParallelism)
 for determining scratch pad memory needs before kernel launch.
 
-## Important usage hint
+## Important usage hints
 
 In order to ensure that individual threads of a team are synchronized always call
 `team_member.team_barrier();` after an `par_for_inner` if the following execution
@@ -51,6 +51,12 @@ depends on the results of the `par_for_inner`.
 This pertains, for example, to filling a `ScratchPadXD` array in one `par_inner_for`
 and using the scratch array in the next one, see 
 [the unit test](../tst/unit/kokkos_abstraction.cpp) for sample usage.
+
+In addition, the entry to a `par_for_inner` does **not** imply a barrier and
+not all threads of a team may even enter an inner parallel region (e.g., if there
+is not enough work -- read indices -- for all team members).
+This can lead to unintended side-effects when all team member write to common
+variables, see this [code](https://github.com/parthenon-hpc-lab/parthenon/issues/659#issuecomment-1346871509) for an example.
 
 ## Cmake Options
 
