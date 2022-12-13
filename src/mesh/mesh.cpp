@@ -47,7 +47,7 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
+#include "mesh/refinement_in_one.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -1106,19 +1106,20 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     } while (!all_received);
 
-    // unpack FillGhost variables
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
+      // unpack FillGhost variables
       cell_centered_bvars::SetBoundaries(md);
+      // restrict ghosts---needed for physical bounds
       if (multilevel) {
-        cell_centered_refinement::RestrictPhysicalBounds(md.get());
+        cell_centered_bvars::RestrictGhostHalos(md, true);
       }
     }
 
     //  Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
       auto &mbd = block_list[i]->meshblock_data.Get();
-      if (multilevel) {
+      if (multilevel) { // TODO(JMM): Do with meshdata
         ProlongateBoundaries(mbd);
       }
       ApplyBoundaryConditions(mbd);

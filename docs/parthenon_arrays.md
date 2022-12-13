@@ -63,24 +63,9 @@ assumed to be zero.
 
 ### Slicing
 
-You can slice a `ParArrayND` using `ParArrayND.Slice(Args...args)`. It
-takes the same arguments for slicing as `Kokkos::subview`.
-
-You can also slice with a syntax closer to `AthenArray`'s
-`InitWithShallowSlice`. It's called `SliceD`. It is templated on the
-dimension into which you want to slice. Then it can take a `std::pair`
-of the slice range `start:finish` or it can take two integgers,
-specifying the index and the number of elements in that dimension to
-include. E.g.,
- ```C+
-// this is equivalent to
-// b.InitWithShallowSlice(a, dim, indx, size);
-// for athena_arrays
-auto b = a.SliceD<dim>(indx,size);
-```
-You should *always* use `auto` when extracting slices from
-`ParArrayND` as the underlying, templated type may change. The same is
-true for `Get`, and `GetMirror`, which are described below.
+You can slice a `ParArrayND` using `Kokkos::subview` as described
+in Kokkos documentation. We have overloaded `Kokkos::subview`
+to support this.
 
 ### Get
 

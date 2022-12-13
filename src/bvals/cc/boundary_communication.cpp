@@ -32,7 +32,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
+#include "mesh/refinement_in_one.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -67,8 +67,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
   // Restrict
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  cell_centered_refinement::Restrict(cache.bnd_info, cache.bnd_info_h, pmb->cellbounds,
-                                     pmb->c_cellbounds);
+  StateDescriptor *resolved_packages = pmb->resolved_packages.get();
+  refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
 
   // Load buffer data
   auto &bnd_info = cache.bnd_info;
@@ -187,7 +187,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   int ibound = 0;
   if (Globals::sparse_config.enabled) {
     ForEachBoundary<bound_type>(
-        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v, OffsetIndices &no) {
           const std::size_t ibuf = cache.idx_vec[ibound];
           auto &buf = *cache.buf_vec[ibuf];
 
@@ -285,6 +285,38 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                 [](auto pbuf) { pbuf->Stale(); });
 
   Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
+  return TaskStatus::complete;
+}
+
+// Restricts all relevant meshblock boundaries, but doesn't
+// communicate at all.
+TaskStatus RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset_cache) {
+  constexpr BoundaryType bound_type = BoundaryType::restricted;
+  Kokkos::Profiling::pushRegion("Task_RestrictGhostHalos");
+  Mesh *pmesh = md->GetMeshPointer();
+  BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
+  // JMM: No buffers to communicate, but we still want the buffer info
+  // cache so we don't bother using the initialization routine, we
+  // just set the index to linear and go.
+  if (reset_cache || cache.idx_vec.size() == 0) {
+    cache.clear();
+    int buff_idx = 0;
+    ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
+                                        const sp_cv_t v, const OffsetIndices &no) {
+      cache.idx_vec.push_back(buff_idx++);
+      // must fill buf_vec even if we don't allocate new buffers
+      // because it's passed into the BoundaryCreator struct
+      cache.buf_vec.push_back(nullptr);
+    });
+  }
+  auto [rebuild, nbound] = CheckNoCommCacheForRebuild<bound_type, false>(md);
+  if (rebuild || reset_cache) {
+    RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetCCRestrictInfo);
+  }
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+  StateDescriptor *resolved_packages = pmb->resolved_packages.get();
+  refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
+  Kokkos::Profiling::popRegion(); // Task_RestrictGhostHalos
   return TaskStatus::complete;
 }
 

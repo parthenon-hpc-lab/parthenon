@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -137,6 +137,7 @@ add_library(parthenon
   interface/swarm_device_context.hpp
   interface/metadata.cpp
   interface/metadata.hpp
+  interface/packages.hpp
   interface/params.hpp
   interface/sparse_pack.hpp
   interface/sparse_pack_base.cpp
@@ -149,6 +150,7 @@ add_library(parthenon
   interface/update.hpp
   interface/variable_pack.hpp
   interface/variable_state.hpp
+  interface/variable_state.cpp
   interface/variable.cpp
   interface/variable.hpp
 
@@ -156,6 +158,7 @@ add_library(parthenon
   mesh/domain.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
+  mesh/mesh_refinement_loops.hpp
   mesh/mesh_refinement_ops.hpp
   mesh/mesh.cpp
   mesh/mesh.hpp
@@ -164,8 +167,8 @@ add_library(parthenon
   mesh/meshblock_tree.cpp
   mesh/meshblock_tree.hpp
   mesh/meshblock.cpp
-  mesh/refinement_cc_in_one.cpp
-  mesh/refinement_cc_in_one.hpp
+  mesh/refinement_in_one.cpp
+  mesh/refinement_in_one.hpp
 
   outputs/formatted_table.cpp
   outputs/history.cpp

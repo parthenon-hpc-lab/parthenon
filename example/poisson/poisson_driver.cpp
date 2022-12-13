@@ -21,7 +21,7 @@
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
+#include "mesh/refinement_in_one.hpp"
 #include "parthenon/driver.hpp"
 #include "poisson_driver.hpp"
 #include "poisson_package.hpp"

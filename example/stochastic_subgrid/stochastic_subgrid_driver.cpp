@@ -20,7 +20,7 @@
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
+#include "mesh/refinement_in_one.hpp"
 #include "parthenon/driver.hpp"
 #include "refinement/refinement.hpp"
 #include "stochastic_subgrid_driver.hpp"
@@ -161,8 +161,7 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
           tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<any>, mc1);
       auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<any>, mc1);
       if (pmesh->multilevel) {
-        tl.AddTask(set, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
-                   mc1.get());
+        tl.AddTask(set, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1, false);
       }
     }
   }

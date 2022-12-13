@@ -16,11 +16,13 @@
 //========================================================================================
 
 #include "tag_map.hpp"
+#include "bnd_info.hpp"
 #include "bvals_utils.hpp"
 
 namespace parthenon {
 
 using namespace cell_centered_bvars::impl;
+using namespace cell_centered_bvars;
 
 TagMap::rank_pair_t TagMap::MakeChannelPair(const std::shared_ptr<MeshBlock> &pmb,
                                             const NeighborBlock &nb) {
@@ -32,7 +34,8 @@ TagMap::rank_pair_t TagMap::MakeChannelPair(const std::shared_ptr<MeshBlock> &pm
 }
 
 void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
-  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
+                          const OffsetIndices &no) {
     const int other_rank = nb.snb.rank;
     if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
     auto &pair_map = map_[other_rank];

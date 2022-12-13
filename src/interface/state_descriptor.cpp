@@ -136,12 +136,14 @@ class FieldProvider : public VariableProvider {
   void AddPrivate(const std::string &package, const std::string &base_name,
                   const Metadata &metadata) {
     bool added = false;
+    const std::string new_name = package + "::" + base_name;
+    auto pkg = packages_.Get(package);
     if (metadata.IsSet(Metadata::Sparse)) {
-      const auto &src_pool = packages_.Get(package)->GetSparsePool(base_name);
-      added = state_->AddSparsePool(package + "::" + base_name, src_pool);
+      const auto &src_pool = pkg->GetSparsePool(base_name);
+      added = state_->AddSparsePool(new_name, src_pool);
     } else {
       auto controller = packages_.Get(package)->GetFieldController(base_name);
-      added = state_->AddField(package + "::" + base_name, metadata, controller);
+      added = state_->AddField(new_name, metadata, controller);
     }
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add private field '" + base_name +
@@ -150,8 +152,9 @@ class FieldProvider : public VariableProvider {
   void AddProvides(const std::string &package, const std::string &base_name,
                    const Metadata &metadata) {
     bool added = false;
+    auto pkg = packages_.Get(package);
     if (metadata.IsSet(Metadata::Sparse)) {
-      const auto &pool = packages_.Get(package)->GetSparsePool(base_name);
+      const auto &pool = pkg->GetSparsePool(base_name);
       added = state_->AddSparsePool(pool);
     } else {
       auto controller = packages_.Get(package)->GetFieldController(base_name);
@@ -162,17 +165,21 @@ class FieldProvider : public VariableProvider {
                                         "' to resolved state");
   }
   void AddOverridable(const std::string &base_name, Metadata &metadata) {
+    // we don't know which package this pool is coming from, so we need to search for it
+    std::shared_ptr<StateDescriptor> pkg;
+    bool found = false;
+    for (auto &pair : packages_.AllPackages()) {
+      pkg = pair.second;
+      if (pkg->SparseBaseNamePresent(base_name) || pkg->FieldPresent(base_name)) {
+        found = true;
+        break;
+      }
+    }
+    PARTHENON_REQUIRE_THROWS(found, "Cound't find overridable field " + base_name);
     bool added = false;
     if (metadata.IsSet(Metadata::Sparse)) {
-      // we don't know which package this pool is coming from, so we need to search for it
-      for (auto &pair : packages_.AllPackages()) {
-        auto &package = pair.second;
-        if (package->SparseBaseNamePresent(base_name)) {
-          const auto &pool = package->GetSparsePool(base_name);
-          added = state_->AddSparsePool(pool);
-          break;
-        }
-      }
+      const auto &pool = pkg->GetSparsePool(base_name);
+      added = state_->AddSparsePool(pool);
     } else {
       for (auto &pair : packages_.AllPackages()) {
         auto &package = pair.second;
@@ -264,6 +271,7 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
     return false; // this field has already been added
   } else {
     metadataMap_.insert({vid, m});
+    refinementFuncMaps_.Register(m);
     allocControllerReverseMap_.insert({vid, control_vid});
   }
 
@@ -281,6 +289,7 @@ bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
   }
 
   sparsePoolMap_.insert({pool.base_name(), pool});
+  refinementFuncMaps_.Register(pool.shared_metadata());
 
   std::string controller_base = pool.controller_base_name();
   if (controller_base == "") controller_base = pool.base_name();
