@@ -82,9 +82,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         const int b = team_member.league_rank();
 
         if (!bnd_info(b).allocated) {
-          Kokkos::single(Kokkos::PerTeam(team_member), [&] () {
-              sending_nonzero_flags(b) = false;
-            });
+          Kokkos::single(Kokkos::PerTeam(team_member),
+                         [&]() { sending_nonzero_flags(b) = false; });
           return;
         }
 
@@ -126,9 +125,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
             },
             Kokkos::LOr<bool, parthenon::DevMemSpace>(non_zero));
 
-        Kokkos::single(Kokkos::PerTeam(team_member), [&]() {
-            sending_nonzero_flags(b) = non_zero;
-           });
+        Kokkos::single(Kokkos::PerTeam(team_member),
+                       [&]() { sending_nonzero_flags(b) = non_zero; });
       });
 
   // Send buffers
