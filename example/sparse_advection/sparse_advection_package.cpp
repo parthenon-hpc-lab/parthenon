@@ -165,14 +165,11 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
       jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int v, const int k, const int j, const int i, Real &lmin_dt) {
         if (vx[v] != 0.0)
-          lmin_dt =
-              std::min(lmin_dt, coords.CellWidthFA(X1DIR, k, j, i) / std::abs(vx[v]));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X1DIR>(k, j, i) / std::abs(vx[v]));
         if (vy[v] != 0.0)
-          lmin_dt =
-              std::min(lmin_dt, coords.CellWidthFA(X2DIR, k, j, i) / std::abs(vy[v]));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X2DIR>(k, j, i) / std::abs(vy[v]));
         if (vz[v] != 0.0)
-          lmin_dt =
-              std::min(lmin_dt, coords.CellWidthFA(X3DIR, k, j, i) / std::abs(vz[v]));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X3DIR>(k, j, i) / std::abs(vz[v]));
       },
       Kokkos::Min<Real>(min_dt));
 

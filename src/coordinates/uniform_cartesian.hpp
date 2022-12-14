@@ -61,8 +61,18 @@ class UniformCartesian {
   //----------------------------------------
   // Dxc: Distance between cell centers
   //----------------------------------------
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxc() const {
+    assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
+  }
   template <int dir, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
+  }
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real DxcFA(const int dir, Args... args) const {
     assert(dir > 0 && dir < 4);
     return dx_[dir - 1];
   }
