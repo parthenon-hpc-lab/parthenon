@@ -149,9 +149,9 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
         ldt = std::min(
             ldt,
             1.0 /
-                ((std::abs(v(b, 0, k, j, i))) / coords.Dx(X1DIR, k, j, i) +
-                 (ndim > 1) * (std::abs(v(b, 1, k, j, i))) / coords.Dx(X2DIR, k, j, i) +
-                 (ndim > 2) * (std::abs(v(b, 2, k, j, i))) / coords.Dx(X3DIR, k, j, i)));
+                ((std::abs(v(b, 0, k, j, i))) / coords.Dxc<X1DIR>(k, j, i) +
+                 (ndim > 1) * (std::abs(v(b, 1, k, j, i))) / coords.Dxc<X2DIR>(k, j, i) +
+                 (ndim > 2) * (std::abs(v(b, 2, k, j, i))) / coords.Dxc<X3DIR>(k, j, i)));
       },
       Kokkos::Min<Real>(min_dt));
 
