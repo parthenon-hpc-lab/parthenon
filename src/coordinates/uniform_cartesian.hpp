@@ -58,98 +58,162 @@ class UniformCartesian {
     cell_volume_ = dx_[0] * dx_[1] * dx_[2];
   }
 
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Volume(Args... args) const {
-    return cell_volume_;
+  //----------------------------------------
+  // Dxc: Distance between cell centers
+  //----------------------------------------
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxc() const {
+    assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
   }
-
+  template <int dir, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxc(Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
+  }
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Dx(const int dir, Args... args) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real DxcFA(const int dir, Args... args) const {
     assert(dir > 0 && dir < 4);
     return dx_[dir - 1];
   }
 
+  //----------------------------------------
+  // Dxf: Distance between cell faces
+  //----------------------------------------
+  template <int dir, int face, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxf(Args... args) const {
+    assert(dir > 0 && dir < 4 && face > 0 && face < 4);
+    return dx_[face - 1];
+  }
+  template <int dir, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxf(Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
+  }
+
+  //----------------------------------------
+  // Xf: Positions at cell centers
+  //----------------------------------------
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int idx) const {
+    assert(dir > 0 && dir < 4);
+    return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1];
+  }
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    switch (dir) {
+    case 1:
+      return Xc<dir>(i);
+    case 2:
+      return Xc<dir>(j);
+    case 3:
+      return Xc<dir>(k);
+    default:
+      PARTHENON_THROW("Unknown dir");
+      return 0; // To appease compiler
+    }
+  }
+
+  //----------------------------------------
+  // Xf: Positions on Faces
+  //----------------------------------------
+  template <int dir, int face>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int idx) const {
+    assert(dir > 0 && dir < 4 && face > 0 && face < 4);
+    // Return position in direction "dir" along index "idx" on face "face"
+    if constexpr (dir == face) {
+      return xmin_[dir - 1] + idx * dx_[dir - 1];
+    } else {
+      return Xc<dir>(idx);
+    }
+  }
+  template <int dir, int face>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    switch (dir) {
+    case 1:
+      return Xf<dir, face>(i);
+    case 2:
+      return Xf<dir, face>(j);
+    case 3:
+      return Xf<dir, face>(k);
+    default:
+      PARTHENON_THROW("Unknown dir");
+      return 0; // To appease compiler
+    }
+  }
+
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int idx) const {
+    assert(dir > 0 && dir < 4);
+    // Return position in direction "dir" along index "idx" on face "dir"
+    return xmin_[dir - 1] + idx * dx_[dir - 1];
+  }
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    switch (dir) {
+    case 1:
+      return Xf<dir>(i);
+    case 2:
+      return Xf<dir>(j);
+    case 3:
+      return Xf<dir>(k);
+    default:
+      PARTHENON_THROW("Unknown dir");
+      return 0; // To appease compiler
+    }
+  }
+
+  //----------------------------------------
+  // CellWidth: Width of cells at cell centers
+  //----------------------------------------
+  template <int dir, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
+  }
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Area(const int dir, Args... args) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real CellWidthFA(const int dir, Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
+  }
+
+  //----------------------------------------
+  // EdgeLength: Length of cell edges
+  //----------------------------------------
+  template <int dir, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return CellWidth<dir>();
+  }
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLengthFA(const int dir, Args... args) const {
+    return CellWidthFA(dir);
+  }
+
+  //----------------------------------------
+  // FaceArea: Area of cell areas
+  //----------------------------------------
+  template <int dir, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real FaceArea(Args... args) const {
+    assert(dir > 0 && dir < 4);
+    return area_[dir - 1];
+  }
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real FaceAreaFA(const int dir, Args... args) const {
     assert(dir > 0 && dir < 4);
     return area_[dir - 1];
   }
 
+  //----------------------------------------
+  // CellVolume
+  //----------------------------------------
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx1f(Args... args) const {
-    return dx_[0];
+  KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(Args... args) const {
+    return cell_volume_;
   }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx2f(Args... args) const {
-    return dx_[1];
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx3f(Args... args) const {
-    return dx_[2];
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx1v(Args... args) const {
-    return dx_[0];
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx2v(Args... args) const {
-    return dx_[1];
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real dx3v(Args... args) const {
-    return dx_[2];
-  }
-
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int dir, Args... args) const {
-    return Dx(dir);
-  }
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x1v(const int i) const { return xmin_[0] + (i + 0.5) * dx_[0]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x1f(const int i) const { return xmin_[0] + i * dx_[0]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x2v(const int j) const { return xmin_[1] + (j + 0.5) * dx_[1]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x2f(const int j) const { return xmin_[1] + j * dx_[1]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3v(const int k) const { return xmin_[2] + (k + 0.5) * dx_[2]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3f(const int k) const { return xmin_[2] + k * dx_[2]; }
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x1s2(const int i) const { return x1v(i); }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x1s3(const int i) const { return x1v(i); }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x2s1(const int j) const { return x2v(j); }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x2s3(const int j) const { return x2v(j); }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3s1(const int k) const { return x3v(k); }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3s2(const int k) const { return x3v(k); }
-
-  // k, j, i grid functions
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x1v(const int k, const int j, const int i) const {
-    return xmin_[0] + (i + 0.5) * dx_[0];
-  }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x1f(const int k, const int j, const int i) const { return xmin_[0] + i * dx_[0]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x2v(const int k, const int j, const int i) const {
-    return xmin_[1] + (j + 0.5) * dx_[1];
-  }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x2f(const int k, const int j, const int i) const { return xmin_[1] + j * dx_[1]; }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3v(const int k, const int j, const int i) const {
-    return xmin_[2] + (k + 0.5) * dx_[2];
-  }
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real x3f(const int k, const int j, const int i) const { return xmin_[2] + k * dx_[2]; }
 
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
   const std::array<int, 3> &GetStartIndex() const { return istart_; }

@@ -78,15 +78,15 @@ template <int DIM>
 KOKKOS_INLINE_FUNCTION Real GetXCC(const Coordinates_t &coords, int i);
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<1>(const Coordinates_t &coords, int i) {
-  return coords.x1v(i);
+  return coords.Xc<1>(i);
 }
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<2>(const Coordinates_t &coords, int i) {
-  return coords.x2v(i);
+  return coords.Xc<2>(i);
 }
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<3>(const Coordinates_t &coords, int i) {
-  return coords.x3v(i);
+  return coords.Xc<3>(i);
 }
 // compute distances from cell center to the nearest center in the + or -
 // coordinate direction. Do so for both coarse and fine grids.
@@ -150,7 +150,7 @@ struct RestrictCellAverage {
     for (int ok = 0; ok < 1 + (DIM > 2); ++ok) {
       for (int oj = 0; oj < 1 + (DIM > 1); ++oj) {
         for (int oi = 0; oi < 1 + 1; ++oi) {
-          vol[ok][oj][oi] = coords.Volume(k + ok, j + oj, i + oi);
+          vol[ok][oj][oi] = coords.CellVolume(k + ok, j + oj, i + oi);
           terms[ok][oj][oi] = vol[ok][oj][oi] * fine(l, m, n, k + ok, j + oj, i + oi);
         }
       }
