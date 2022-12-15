@@ -118,6 +118,8 @@ Please see the [developer guidelines](CONTRIBUTING.md) for additional informatio
 Please see the [docs/](docs/README.md) folder for additional documentation on features and
 how to use them.
 
+We are migrating our legacy docs to sphinx, which can be found [here](https://parthenon-hpc-lab.github.io/parthenon).
+
 # Contributors
 
 | Name     | Handle       | Team       |
