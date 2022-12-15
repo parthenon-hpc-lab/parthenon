@@ -1,0 +1,40 @@
+name: Build and Deploy docs
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types:
+      - created
+
+jobs:
+    docs:
+      name: build and deploy docs
+      runs-on: ubuntu-latest
+
+      steps:      
+        - name: Checkout code
+          uses: actions/checkout@v2
+          with:
+            fetch-depth: 0
+        - name: Set system to non-interactive mode
+          run: export DEBIAN_FRONTEND=noninteractive
+        - name: install dependencies
+          run: |
+            pip install sphinx
+            pip install sphinx-rtd-theme
+            pip install sphinx-multiversion
+        - name: build docs
+          run: |
+            echo "Repo = ${GITHUB_REPOSITORY}"
+            cd doc/sphinx
+            make multiversion
+        - name: Deploy
+          if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          uses: peaceiris/actions-gh-pages@v3.7.3
+          with:
+            github_token: ${{ secrets.GITHUB_TOKEN }}
+            publish_dir: ./doc/sphinx/_build/html
+            force_orphan: true
