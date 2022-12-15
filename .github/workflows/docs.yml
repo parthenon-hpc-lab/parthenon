@@ -2,7 +2,7 @@ name: Build and Deploy docs
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, jmm/sphinx-doc-skeleton ]
   pull_request:
     branches: [ main ]
   release:
