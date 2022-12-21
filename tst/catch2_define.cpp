@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
   // parsed.
   for (auto i = 1; i < argc; i++) {
     if (std::string(argv[i]) == "--list-test-names-only") {
-      setenv("KOKKOS_DISABLE_WARNINGS", "ON", 1);
+      setenv("KOKKOS_DISABLE_WARNINGS", "TRUE", 1);
     }
   }
 

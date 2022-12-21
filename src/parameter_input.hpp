@@ -31,6 +31,7 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "outputs/io_wrapper.hpp"
+#include "utils/string_utils.hpp"
 
 namespace parthenon {
 
@@ -116,6 +117,34 @@ class ParameterInput {
   void CheckRequired(const std::string &block, const std::string &name);
   void CheckDesired(const std::string &block, const std::string &name);
 
+  template <typename T>
+  std::vector<T> GetVector(const std::string &block, const std::string &name) {
+    std::vector<std::string> fields = GetVector_(block, name);
+    if constexpr (std::is_same<T, std::string>::value) return fields;
+
+    std::vector<T> ret;
+    for (auto &f : fields) {
+      if constexpr (std::is_same<T, int>::value) {
+        ret.push_back(stoi(f));
+      } else if constexpr (std::is_same<T, Real>::value) {
+        ret.push_back(atof(f.c_str()));
+      } else if constexpr (std::is_same<T, bool>::value) {
+        ret.push_back(stob(f));
+      }
+    }
+    return ret;
+  }
+  template <typename T>
+  std::vector<T> GetOrAddVector(const std::string &block, const std::string &name,
+                                std::vector<T> def) {
+    if (DoesParameterExist(block, name)) return GetVector<T>(block, name);
+
+    std::string cname = ConcatVector_(def);
+    auto *pb = FindOrAddBlock(block);
+    AddParameter(pb, name, cname, "# Default value added at run time");
+    return def;
+  }
+
  private:
   std::string last_filename_; // last input file opened, to prevent duplicate reads
 
@@ -125,6 +154,20 @@ class ParameterInput {
                  std::string &comment);
   void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
                     const std::string &comment);
+  bool stob(std::string val) {
+    // check is string contains integers 0 or 1 (instead of true or false) and return
+    if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
+      return static_cast<bool>(stoi(val));
+    }
+
+    // convert string to all lower case
+    std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+    // Convert string to bool and return value
+    bool b;
+    std::istringstream is(val);
+    is >> std::boolalpha >> b;
+    return b;
+  }
   template <typename T, template <class...> class Container_t, class... extra>
   void CheckAllowedValues_(const std::string &block, const std::string &name,
                            const T &val, Container_t<T, extra...> allowed) {
@@ -141,6 +184,32 @@ class ParameterInput {
       msg << std::endl;
       PARTHENON_THROW(msg);
     }
+  }
+  std::vector<std::string> GetVector_(const std::string &block, const std::string &name) {
+    std::string s = GetString(block, name);
+    std::string delimiter = ",";
+    size_t pos = 0;
+    std::string token;
+    std::vector<std::string> variables;
+    while ((pos = s.find(delimiter)) != std::string::npos) {
+      token = s.substr(0, pos);
+      variables.push_back(string_utils::trim(token));
+      s.erase(0, pos + delimiter.length());
+    }
+    variables.push_back(string_utils::trim(s));
+    return variables;
+  }
+  template <typename T>
+  std::string ConcatVector_(std::vector<T> &vec) {
+    std::stringstream ss;
+    const int n = vec.size();
+    if (n == 0) return "";
+
+    ss << vec[0];
+    for (int i = 1; i < n; i++) {
+      ss << "," << vec[i];
+    }
+    return ss.str();
   }
 };
 } // namespace parthenon

@@ -76,7 +76,7 @@ GetLoopBoundsFromBndInfo(const Info_t &info, const int ckbs, const int cjbs, int
 // a device version, which requires the buffer cache device only,
 // and a version that automatically swaps between them depending on
 // the size of the buffer cache.
-template <int DIM, template <int> class Stencil>
+template <int DIM, class Stencil>
 inline void
 ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
                             const Idx_t &buffer_idxs, const IndexShape &cellbounds,
@@ -103,14 +103,15 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
                         info(buf).Nu - 1, 0, info(buf).Nv - 1, sk, ek, sj, ej, si, ei,
                         [&](const int t, const int u, const int v, const int k,
                             const int j, const int i) {
-                          Stencil<DIM>::Do(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib,
-                                           info(buf).coords, info(buf).coarse_coords,
-                                           &(info(buf).coarse), &(info(buf).fine));
+                          Stencil::template Do<DIM>(
+                              t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib,
+                              info(buf).coords, info(buf).coarse_coords,
+                              &(info(buf).coarse), &(info(buf).fine));
                         });
         }
       });
 }
-template <int DIM, template <int> class Stencil>
+template <int DIM, class Stencil>
 inline void
 ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h,
                             const IdxHost_t &buffer_idxs_h, const IndexShape &cellbounds,
@@ -140,13 +141,13 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h
           ej, si, ei,
           KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
                         const int i) {
-            Stencil<DIM>::Do(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib, coords,
-                             coarse_coords, &coarse, &fine);
+            Stencil::template Do<DIM>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib, coords,
+                                      coarse_coords, &coarse, &fine);
           });
     }
   }
 }
-template <int DIM, template <int> class Stencil>
+template <int DIM, class Stencil>
 inline void
 ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
                             const cell_centered_bvars::BufferCacheHost_t &info_h,
@@ -162,7 +163,7 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
   }
 }
 
-template <template <int> class Stencil, class... Args>
+template <class Stencil, class... Args>
 inline void DoProlongationRestrictionOp(const IndexShape &cellbnds, Args &&...args) {
   if (cellbnds.ncellsk(IndexDomain::entire) > 1) { // 3D
     ProlongationRestrictionLoop<3, Stencil>(std::forward<Args>(args)...);

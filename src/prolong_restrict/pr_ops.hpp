@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -23,9 +23,10 @@
 #include <algorithm>
 #include <cstring>
 
-#include "coordinates/coordinates.hpp" // for coordinates
-#include "kokkos_abstraction.hpp"      // ParArray
-#include "mesh/domain.hpp"             // for IndesShape
+#include "coordinates/coordinates.hpp"  // for coordinates
+#include "interface/variable_state.hpp" // For variable state in ParArray
+#include "kokkos_abstraction.hpp"       // ParArray
+#include "mesh/domain.hpp"              // for IndesShape
 
 // TODO(JMM): Is the "mesh" directory where prolongation/restriction
 // machinery belongs? Or should we have a separate directory for this?
@@ -81,15 +82,15 @@ template <int DIM>
 KOKKOS_INLINE_FUNCTION Real GetXCC(const Coordinates_t &coords, int i);
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<1>(const Coordinates_t &coords, int i) {
-  return coords.x1v(i);
+  return coords.Xc<1>(i);
 }
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<2>(const Coordinates_t &coords, int i) {
-  return coords.x2v(i);
+  return coords.Xc<2>(i);
 }
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<3>(const Coordinates_t &coords, int i) {
-  return coords.x3v(i);
+  return coords.Xc<3>(i);
 }
 // compute distances from cell center to the nearest center in the + or -
 // coordinate direction. Do so for both coarse and fine grids.
@@ -120,14 +121,15 @@ Real GradMinMod(const Real fc, const Real fm, const Real fp, const Real dxm,
 
 } // namespace util
 
-template <int DIM>
 struct RestrictCellAverage {
+  template <int DIM>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
     const int i = (ci - cib.s) * 2 + ib.s;
@@ -152,7 +154,7 @@ struct RestrictCellAverage {
     for (int ok = 0; ok < 1 + (DIM > 2); ++ok) {
       for (int oj = 0; oj < 1 + (DIM > 1); ++oj) {
         for (int oi = 0; oi < 1 + 1; ++oi) {
-          vol[ok][oj][oi] = coords.Volume(k + ok, j + oj, i + oi);
+          vol[ok][oj][oi] = coords.CellVolume(k + ok, j + oj, i + oi);
           terms[ok][oj][oi] = vol[ok][oj][oi] * fine(l, m, n, k + ok, j + oj, i + oi);
         }
       }
@@ -168,14 +170,15 @@ struct RestrictCellAverage {
   }
 };
 
-template <int DIM>
 struct ProlongateCellMinMod {
+  template <int DIM>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     using namespace util;
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
@@ -191,7 +194,7 @@ struct ProlongateCellMinMod {
 
     int fj = jb.s; // overwritten as needed
     Real dx2fm = 0;
-    Real dx2fp = 0;
+    [[maybe_unused]] Real dx2fp = 0;
     Real gx2c = 0;
     if constexpr (DIM > 1) {
       Real dx2m, dx2p;
@@ -202,7 +205,7 @@ struct ProlongateCellMinMod {
     }
     int fk = kb.s;
     Real dx3fm = 0;
-    Real dx3fp = 0;
+    [[maybe_unused]] Real dx3fp = 0;
     Real gx3c = 0;
     if constexpr (DIM > 2) {
       Real dx3m, dx3p;

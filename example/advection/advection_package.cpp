@@ -393,7 +393,7 @@ Real AdvectionHst(MeshData<Real> *md) {
         const auto &coords = advected_pack.GetCoords(b);
         // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same
         // call for different reductions
-        const Real vol = volume_weighting ? coords.Volume(k, j, i) : 1.0;
+        const Real vol = volume_weighting ? coords.CellVolume(k, j, i) : 1.0;
         reducer.join(lresult, advected_pack(b, 0, k, j, i) * vol);
       },
       reducer);
@@ -422,11 +422,11 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
       "advection_package::EstimateTimestep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
         if (vx != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X1DIR>(k, j, i) / std::abs(vx));
         if (vy != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X2DIR, k, j, i) / std::abs(vy));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X2DIR>(k, j, i) / std::abs(vy));
         if (vz != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X3DIR, k, j, i) / std::abs(vz));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X3DIR>(k, j, i) / std::abs(vz));
       },
       Kokkos::Min<Real>(min_dt));
 

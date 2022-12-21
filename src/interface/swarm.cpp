@@ -44,12 +44,12 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.ib_s_ = ib.s;
   context.jb_s_ = jb.s;
   context.kb_s_ = kb.s;
-  context.x_min_ = pmb->coords.x1f(ib.s);
-  context.y_min_ = pmb->coords.x2f(jb.s);
-  context.z_min_ = pmb->coords.x3f(kb.s);
-  context.x_max_ = pmb->coords.x1f(ib.e + 1);
-  context.y_max_ = pmb->coords.x2f(jb.e + 1);
-  context.z_max_ = pmb->coords.x3f(kb.e + 1);
+  context.x_min_ = pmb->coords.Xf<1>(ib.s);
+  context.y_min_ = pmb->coords.Xf<2>(jb.s);
+  context.z_min_ = pmb->coords.Xf<3>(kb.s);
+  context.x_max_ = pmb->coords.Xf<1>(ib.e + 1);
+  context.y_max_ = pmb->coords.Xf<2>(jb.e + 1);
+  context.z_max_ = pmb->coords.Xf<3>(kb.e + 1);
   context.x_min_global_ = mesh_size.x1min;
   context.x_max_global_ = mesh_size.x1max;
   context.y_min_global_ = mesh_size.x2min;
@@ -172,10 +172,13 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
                                 " already enrolled during Add()!");
   }
 
-  if (metadata.Type() == Metadata::Integer) {
-    Add_<int>(label, metadata);
-  } else if (metadata.Type() == Metadata::Real) {
-    Add_<Real>(label, metadata);
+  Metadata newm(metadata);
+  newm.Set(Metadata::Particle);
+
+  if (newm.Type() == Metadata::Integer) {
+    Add_<int>(label, newm);
+  } else if (newm.Type() == Metadata::Real) {
+    Add_<Real>(label, newm);
   } else {
     throw std::invalid_argument("swarm variable " + label +
                                 " does not have a valid type during Add()");

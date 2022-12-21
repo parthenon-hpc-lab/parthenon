@@ -85,13 +85,13 @@ struct RefinementFunctions_t {
   RefinementFunctions_t() = default;
   explicit RefinementFunctions_t(const std::string &label) : label_(label) {}
 
-  template <template <int> class ProlongationOp, template <int> class RestrictionOp>
+  template <class ProlongationOp, class RestrictionOp>
   static RefinementFunctions_t RegisterOps() {
     // We use the specialization to dim = 1 for this, but any int
     // specialization will do.
-    const std::string label = std::string(typeid(ProlongationOp<1>).name()) +
+    const std::string label = std::string(typeid(ProlongationOp).name()) +
                               std::string(" and ") +
-                              std::string(typeid(RestrictionOp<1>).name());
+                              std::string(typeid(RestrictionOp).name());
 
     RefinementFunctions_t funcs(label);
     funcs.restrictor = [](const cell_centered_bvars::BufferCache_t &info,

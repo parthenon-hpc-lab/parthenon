@@ -975,8 +975,8 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf) 
     alloc_subview_h(i) = cc_var->IsAllocated() ? 1.0 : 0.0;
     int nu = cc_var->GetDim(4) - 1;
     if (cc_var->IsAllocated()) {
-      pmr->RestrictCellCenteredValues(cc_var.get(), cc_var.get(), 0, nu, cib.s, cib.e,
-                                      cjb.s, cjb.e, ckb.s, ckb.e);
+      pmr->RestrictCellCenteredValues(cc_var.get(), 0, nu, cib.s, cib.e, cjb.s, cjb.e,
+                                      ckb.s, ckb.e);
       // TOGO(pgrete) remove temp var once Restrict func interface is updated
       ParArray4D<Real> coarse_cc = (cc_var->coarse_s).Get<4>();
       BufferUtility::PackData(coarse_cc, sendbuf, 0, nu, cib.s, cib.e, cjb.s, cjb.e,
@@ -1024,8 +1024,8 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
     }
     int nu = cc_var->GetDim(4) - 1;
     if (fine_allocated) {
-      pmr->RestrictCellCenteredValues(cc_var.get(), cc_var.get(), 0, nu, cib.s, cib.e,
-                                      cjb.s, cjb.e, ckb.s, ckb.e);
+      pmr->RestrictCellCenteredValues(cc_var.get(), 0, nu, cib.s, cib.e, cjb.s, cjb.e,
+                                      ckb.s, ckb.e);
     }
 
     // copy from old/original/other MeshBlock (pob) to newly created block (pmb)
@@ -1102,7 +1102,7 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
     //   }
     // }
     pmr->ProlongateCellCenteredValues(
-        cc_var.get(), cc_var.get(), 0, nu, pob->c_cellbounds.is(interior),
+        cc_var.get(), 0, nu, pob->c_cellbounds.is(interior),
         pob->c_cellbounds.ie(interior), pob->c_cellbounds.js(interior),
         pob->c_cellbounds.je(interior), pob->c_cellbounds.ks(interior),
         pob->c_cellbounds.ke(interior));
@@ -1136,6 +1136,10 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
         // need to allocate locally
         pmb->AllocateSparse(pvar_cc->label());
       }
+      PARTHENON_REQUIRE_THROWS(
+          pvar_cc->IsAllocated(),
+          "FinishRecvSameLevel: Received variable that was allocated on sending "
+          "block but it is not allocated on receiving block");
       ParArray4D<Real> var_cc_ = pvar_cc->data.Get<4>();
       BufferUtility::UnpackData(recvbuf, var_cc_, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s,
                                 kb.e, p, pmb);
@@ -1255,8 +1259,8 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
       PARTHENON_REQUIRE_THROWS(nu == cc_var->GetDim(4) - 1, "nu mismatch");
       ParArray4D<Real> coarse_cc = (cc_var->coarse_s).Get<4>();
       BufferUtility::UnpackData(recvbuf, coarse_cc, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
-      pmr->ProlongateCellCenteredValues(cc_var.get(), cc_var.get(), 0, nu, cib.s, cib.e,
-                                        cjb.s, cjb.e, ckb.s, ckb.e);
+      pmr->ProlongateCellCenteredValues(cc_var.get(), 0, nu, cib.s, cib.e, cjb.s, cjb.e,
+                                        ckb.s, ckb.e);
     } else {
       // increment offset
       p += (nu + 1) * (iu + 1 - il) * (ju + 1 - jl) * (ku + 1 - kl);

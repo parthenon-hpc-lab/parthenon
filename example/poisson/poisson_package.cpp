@@ -157,11 +157,11 @@ TaskStatus SumMass(T *u, Real *reduce_sum) {
   const auto &v = u->PackVariables(vars, imap);
   const int irho = imap["density"].first;
 
-  auto coords = GetCoords(pm);
+  const parthenon::Coordinates_t &coords = GetCoords(pm);
   const int ndim = v.GetNdim();
-  const Real dx = coords.Dx(X1DIR);
+  const Real dx = coords.Dxc<X1DIR>();
   for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.Dx(i);
+    const Real dy = coords.DxcFA(i);
     PARTHENON_REQUIRE_THROWS(dx == dy,
                              "SumMass requires that DX be equal in all directions.");
   }
@@ -228,11 +228,11 @@ TaskStatus UpdatePhi(T *u, T *du) {
 
   using PackType = decltype(v);
 
-  auto coords = GetCoords(pm);
+  const parthenon::Coordinates_t &coords = GetCoords(pm);
   const int ndim = v.GetNdim();
-  const Real dx = coords.Dx(X1DIR);
+  const Real dx = coords.Dxc<X1DIR>();
   for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.Dx(i);
+    const Real dy = coords.DxcFA(i);
     PARTHENON_REQUIRE_THROWS(dx == dy,
                              "UpdatePhi requires that DX be equal in all directions.");
   }

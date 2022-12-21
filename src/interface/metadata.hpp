@@ -53,6 +53,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Node)                                                      \
   /** particle variable */                                                               \
   PARTHENON_INTERNAL_FOR_FLAG(Particle)                                                  \
+  /** swarm */                                                                           \
+  PARTHENON_INTERNAL_FOR_FLAG(Swarm)                                                     \
   /************************************************/                                     \
   /** ROLE: Exactly one must be specified (default is Provides) */                       \
   /** Private to a package */                                                            \
@@ -196,9 +198,11 @@ class Metadata {
   // There are 3 optional arguments: shape, component_labels, and associated, so we'll
   // need 8 constructors to provide all possible variants
 
+  // By default shape is empty; this corresponds to scalar data on the mesh
+
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
-  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {1},
+  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
            const std::vector<std::string> &component_labels = {},
            const std::string &associated = "")
       : shape_(shape), component_labels_(component_labels), associated_(associated) {
@@ -232,7 +236,6 @@ class Metadata {
     // check shape is valid
     // TODO(JL) Should we be extra pedantic and check that shape matches Vector/Tensor
     // flags?
-    PARTHENON_REQUIRE_THROWS(shape_.size() > 0, "Shape must have at least rank 1");
     if (IsMeshTied()) {
       PARTHENON_REQUIRE_THROWS(
           shape_.size() <= 3,
@@ -247,6 +250,18 @@ class Metadata {
                                    (component_labels.size() == num_comp),
                                "Must provide either 0 component labels or the same "
                                "number as the number of components");
+    }
+
+    // Set the allocation and deallocation thresholds
+    if (IsSet(Sparse)) {
+      allocation_threshold_ = Globals::sparse_config.allocation_threshold;
+      deallocation_threshold_ = Globals::sparse_config.deallocation_threshold;
+      default_value_ = 0.0;
+    } else {
+      // Not sparse, so set to zero so we are guaranteed never to deallocate
+      allocation_threshold_ = 0.0;
+      deallocation_threshold_ = 0.0;
+      default_value_ = 0.0;
     }
   }
 
@@ -267,6 +282,18 @@ class Metadata {
 
   // Static routines
   static MetadataFlag AllocateNewFlag(std::string &&name);
+
+  // Sparse threshold routines
+  void SetSparseThresholds(parthenon::Real alloc, parthenon::Real dealloc,
+                           parthenon::Real default_val = 0.0) {
+    allocation_threshold_ = alloc;
+    deallocation_threshold_ = dealloc;
+    default_value_ = default_val;
+  }
+
+  parthenon::Real GetDeallocationThreshold() const { return deallocation_threshold_; }
+  parthenon::Real GetAllocationThreshold() const { return allocation_threshold_; }
+  parthenon::Real GetDefaultValue() const { return default_value_; }
 
   // Individual flag setters, using these could result in an invalid set of flags, use
   // IsValid to check if the flags are valid
@@ -425,7 +452,7 @@ class Metadata {
     PARTHENON_REQUIRE_THROWS(IsRefined(), "Variable must be registered for refinement");
     return refinement_funcs_;
   }
-  template <template <int> class ProlongationOp, template <int> class RestrictionOp>
+  template <class ProlongationOp, class RestrictionOp>
   void RegisterRefinementOps() {
     PARTHENON_REQUIRE_THROWS(
         IsRefined(),
@@ -482,6 +509,10 @@ class Metadata {
   std::vector<int> shape_ = {1};
   std::vector<std::string> component_labels_ = {};
   std::string associated_ = "";
+
+  parthenon::Real allocation_threshold_;
+  parthenon::Real deallocation_threshold_;
+  parthenon::Real default_value_;
 
   /// if flag is true set bit, clears otherwise
   void DoBit(MetadataFlag bit, bool flag) {

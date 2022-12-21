@@ -149,6 +149,8 @@ add_library(parthenon
   interface/update.cpp
   interface/update.hpp
   interface/variable_pack.hpp
+  interface/variable_state.hpp
+  interface/variable_state.cpp
   interface/variable.cpp
   interface/variable.hpp
 
@@ -214,6 +216,7 @@ add_library(parthenon
   utils/hash.hpp
   utils/loop_utils.hpp
   utils/mpi_types.hpp
+  utils/nan_payload_tag.hpp
   utils/object_pool.hpp
   utils/partition_stl_containers.hpp
   utils/reductions.hpp

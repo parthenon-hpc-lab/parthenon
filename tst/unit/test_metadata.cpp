@@ -15,6 +15,7 @@
 
 #include "coordinates/coordinates.hpp"
 #include "interface/metadata.hpp"
+#include "interface/variable_state.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "prolong_restrict/pr_ops.hpp"
@@ -25,27 +26,30 @@ using parthenon::IndexRange;
 using parthenon::Metadata;
 using parthenon::ParArray6D;
 using parthenon::Real;
+using parthenon::VariableState;
 
 // Some fake ops classes
-template <int DIM>
 struct MyProlongOp {
+  template <int DIM>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     return; // stub
   }
 };
-template <int DIM>
 struct MyRestrictOp {
+  template <int DIM>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     return; // stub
   }
 };

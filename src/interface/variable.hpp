@@ -30,6 +30,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <regex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -46,8 +47,6 @@ namespace parthenon {
 class MeshBlock;
 template <typename T>
 class MeshBlockData;
-
-static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
 
 inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
   return base_name +
@@ -125,18 +124,24 @@ class CellVariable {
 
   inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
-  ParArrayND<T> data;
-  ParArrayND<T> flux[4];  // used for boundary calculation
-  ParArrayND<T> coarse_s; // used for sending coarse boundary calculation
+  ParArrayND<T, VariableState> data;
+  ParArrayND<T, VariableState> flux[4];  // used for boundary calculation
+  ParArrayND<T, VariableState> coarse_s; // used for sending coarse boundary calculation
 
   int dealloc_count = 0;
 
+  int GetAllocationStatus() {
+    if (!is_allocated_) return 0;
+    return num_alloc_;
+  }
+
  private:
   // allocate data, fluxes, and boundary variable
-  void Allocate(std::weak_ptr<MeshBlock> wpmb);
+  void Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialized = false);
+  int num_alloc_ = 0;
 
   // allocate data only
-  void AllocateData();
+  void AllocateData(bool flag_uninitialized = false);
 
   // deallocate data, fluxes, and boundary variable
   void Deallocate();
@@ -144,6 +149,8 @@ class CellVariable {
   /// allocate fluxes (if Metadata::WithFluxes is set) and coarse data if
   /// (Metadata::FillGhost is set)
   void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
+
+  VariableState MakeVariableState() const { return VariableState(m_, sparse_id_); }
 
   Metadata m_;
   const std::string base_name_;
@@ -201,6 +208,38 @@ class ParticleVariable {
 
 template <typename T>
 using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;
+
+template <typename T>
+inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
+                                             std::vector<MetadataFlag> mflags) {
+  CellVariableVector<T> out;
+  for (auto &pvar : cv_in) {
+    if (std::any_of(mflags.begin(), mflags.end(),
+                    [&](const auto &in) { return pvar->IsSet(in); })) {
+      out.push_back(pvar);
+    }
+  }
+  return out;
+}
+
+template <typename T>
+inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
+                                             std::vector<std::string> base_names) {
+  CellVariableVector<T> out;
+
+  std::vector<std::regex> base_regexs;
+  for (auto &base_name : base_names)
+    base_regexs.push_back(std::regex(base_name + ".*"));
+
+  for (auto &pvar : cv_in) {
+    if (std::any_of(base_regexs.begin(), base_regexs.end(), [&](const auto &in) {
+          return std::regex_match(pvar->label(), in);
+        })) {
+      out.push_back(pvar);
+    }
+  }
+  return out;
+}
 
 template <typename T>
 using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;

@@ -69,19 +69,13 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
-//                           ParArrayND<Real> &coarse, int sn, int en,
-//                           int csi, int cei, int csj, int cej, int csk, int cek)
 //  \brief restrict cell centered values
 
-void MeshRefinement::RestrictCellCenteredValues(const CellVariable<Real> *fine,
-                                                CellVariable<Real> *coarse, int sn,
-                                                int en, int csi, int cei, int csj,
-                                                int cej, int csk, int cek) {
-  PARTHENON_DEBUG_REQUIRE(fine->label() == coarse->label(),
-                          "Variable " + fine->label() + "== " + coarse->label());
-  const auto &metadata = fine->metadata();
-  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + fine->base_name() +
+void MeshRefinement::RestrictCellCenteredValues(CellVariable<Real> *var, int sn, int en,
+                                                int csi, int cei, int csj, int cej,
+                                                int csk, int cek) {
+  const auto &metadata = var->metadata();
+  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
                                                     " must be registered for refinement");
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const auto &refinement_funcs = metadata.GetRefinementFunctions();
@@ -101,31 +95,25 @@ void MeshRefinement::RestrictCellCenteredValues(const CellVariable<Real> *fine,
   info_h(b).ej = cej;
   info_h(b).sk = csk;
   info_h(b).ek = cek;
-  info_h(b).Nt = fine->GetDim(6);
-  info_h(b).Nu = fine->GetDim(5);
-  info_h(b).Nv = fine->GetDim(4);
+  info_h(b).Nt = var->GetDim(6);
+  info_h(b).Nu = var->GetDim(5);
+  info_h(b).Nv = var->GetDim(4);
   info_h(b).refinement_op = RefinementOp_t::Restriction;
   info_h(b).coords = pmb->coords;
   info_h(b).coarse_coords = this->coarse_coords;
-  info_h(b).fine = (fine->data).Get();
-  info_h(b).coarse = (coarse->coarse_s).Get();
+  info_h(b).fine = (var->data).Get();
+  info_h(b).coarse = (var->coarse_s).Get();
   restrictor(info_h, idxs_h, pmb->cellbounds, pmb->c_cellbounds, nbuffers);
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void MeshRefinement::ProlongateCellCenteredValues(
-//        const ParArrayND<Real> &coarse,ParArrayND<Real> &fine, int sn, int en,,
-//        int si, int ei, int sj, int ej, int sk, int ek)
 //  \brief Prolongate cell centered values
 
-void MeshRefinement::ProlongateCellCenteredValues(const CellVariable<Real> *coarse,
-                                                  CellVariable<Real> *fine, int sn,
-                                                  int en, int si, int ei, int sj, int ej,
-                                                  int sk, int ek) {
-  PARTHENON_DEBUG_REQUIRE(fine->label() == coarse->label(),
-                          "Variable " + fine->label() + "== " + coarse->label());
-  const auto &metadata = coarse->metadata();
-  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + coarse->base_name() +
+void MeshRefinement::ProlongateCellCenteredValues(CellVariable<Real> *var, int sn, int en,
+                                                  int si, int ei, int sj, int ej, int sk,
+                                                  int ek) {
+  const auto &metadata = var->metadata();
+  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
                                                     " must be registered for refinement");
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const auto &refinement_funcs = metadata.GetRefinementFunctions();
@@ -145,14 +133,14 @@ void MeshRefinement::ProlongateCellCenteredValues(const CellVariable<Real> *coar
   info_h(b).ej = ej;
   info_h(b).sk = sk;
   info_h(b).ek = ek;
-  info_h(b).Nt = fine->GetDim(6);
-  info_h(b).Nu = fine->GetDim(5);
-  info_h(b).Nv = fine->GetDim(4);
+  info_h(b).Nt = var->GetDim(6);
+  info_h(b).Nu = var->GetDim(5);
+  info_h(b).Nv = var->GetDim(4);
   info_h(b).refinement_op = RefinementOp_t::Prolongation;
   info_h(b).coords = pmb->coords;
   info_h(b).coarse_coords = this->coarse_coords;
-  info_h(b).fine = (fine->data).Get();
-  info_h(b).coarse = (coarse->coarse_s).Get();
+  info_h(b).fine = (var->data).Get();
+  info_h(b).coarse = (var->coarse_s).Get();
   prolongator(info_h, idxs_h, pmb->cellbounds, pmb->c_cellbounds, nbuffers);
 }
 

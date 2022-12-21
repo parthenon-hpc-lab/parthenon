@@ -75,7 +75,6 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
 
   // Load buffer data
-  const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
@@ -86,8 +85,11 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
 
-        sending_nonzero_flags(b) = false;
-        if (!bnd_info(b).allocated) return;
+        if (!bnd_info(b).allocated) {
+          Kokkos::single(Kokkos::PerTeam(team_member),
+                         [&]() { sending_nonzero_flags(b) = false; });
+          return;
+        }
 
         const int &si = bnd_info(b).si;
         const int &ei = bnd_info(b).ei;
@@ -109,20 +111,26 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         const int NuNvNkNjNi = Nu * NvNkNjNi;
         const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
 
-        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
-                             [&](const int idx) {
-                               const int t = idx / NuNvNkNjNi;
-                               const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-                               const int v = (idx % NvNkNjNi) / NkNjNi;
-                               const int k = (idx % NkNjNi) / NjNi + sk;
-                               const int j = (idx % NjNi) / Ni + sj;
-                               const int i = idx % Ni + si;
+        Real threshold = bnd_info(b).var.allocation_threshold;
+        bool non_zero = false;
+        Kokkos::parallel_reduce(
+            Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
+            [&](const int idx, bool &lnon_zero) {
+              const int t = idx / NuNvNkNjNi;
+              const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
+              const int v = (idx % NvNkNjNi) / NkNjNi;
+              const int k = (idx % NkNjNi) / NjNi + sk;
+              const int j = (idx % NjNi) / Ni + sj;
+              const int i = idx % Ni + si;
 
-                               const Real &val = bnd_info(b).var(t, u, v, k, j, i);
-                               bnd_info(b).buf(idx) = val;
-                               if (std::abs(val) > threshold)
-                                 sending_nonzero_flags(b) = true;
-                             });
+              const Real &val = bnd_info(b).var(t, u, v, k, j, i);
+              bnd_info(b).buf(idx) = val;
+              lnon_zero = lnon_zero || (std::abs(val) >= threshold);
+            },
+            Kokkos::LOr<bool, parthenon::DevMemSpace>(non_zero));
+
+        Kokkos::single(Kokkos::PerTeam(team_member),
+                       [&]() { sending_nonzero_flags(b) = non_zero; });
       });
 
   // Send buffers
@@ -199,9 +207,9 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           // (the state could also be BufferState::received_null, which corresponds to no
           // data)
           if (buf.GetState() == BufferState::received && !v->IsAllocated()) {
-            pmb->AllocateSparse(v->label());
-            // TODO(lfroberts): Need to flag this so that the array gets filled with
-            //                  something sensible, currently just defaulted to zero.
+            constexpr bool flag_uninitialized = true;
+            constexpr bool only_control = true;
+            pmb->AllocateSparse(v->label(), only_control, flag_uninitialized);
           }
           ++ibound;
         });
@@ -269,6 +277,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                                  bnd_info(b).var(t, u, v, k, j, i) = bnd_info(b).buf(idx);
                                });
         } else if (bnd_info(b).var.size() > 0) {
+          const Real default_val = bnd_info(b).var.sparse_default_val;
           Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
                                [&](const int idx) {
                                  const int t = idx / NuNvNkNjNi;
@@ -277,7 +286,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                                  const int k = (idx % NkNjNi) / NjNi + sk;
                                  const int j = (idx % NjNi) / Ni + sj;
                                  const int i = idx % Ni + si;
-                                 bnd_info(b).var(t, u, v, k, j, i) = 0.0;
+                                 bnd_info(b).var(t, u, v, k, j, i) = default_val;
                                });
         }
       });

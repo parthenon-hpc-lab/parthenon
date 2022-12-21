@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -22,8 +22,9 @@ SparsePool::SparsePool(const std::string &base_name, const Metadata &metadata,
                        const std::vector<int> &sparse_ids,
                        const std::vector<std::vector<int>> &shapes,
                        const std::vector<MetadataFlag> &vector_tensor_flags,
-                       const std::vector<std::vector<std::string>> &component_labels)
-    : SparsePool(base_name, metadata) {
+                       const std::vector<std::vector<std::string>> &component_labels,
+                       const std::string &controller_base_name)
+    : SparsePool(base_name, metadata, controller_base_name) {
   const auto N = sparse_ids.size();
 
   const auto internal_shapes = shapes.empty() ? std::vector<std::vector<int>>(N) : shapes;
@@ -60,6 +61,10 @@ const Metadata &SparsePool::AddImpl(int sparse_id, const std::vector<int> &shape
                                   : shared_metadata_.getComponentLabels(),
       shared_metadata_.getAssociated());
 
+  this_metadata.SetSparseThresholds(shared_metadata_.GetAllocationThreshold(),
+                                    shared_metadata_.GetDeallocationThreshold(),
+                                    shared_metadata_.GetDefaultValue());
+
   // if vector_tensor is set, apply it
   if (vector_tensor != nullptr) {
     if (*vector_tensor == Metadata::Vector) {
@@ -81,6 +86,19 @@ const Metadata &SparsePool::AddImpl(int sparse_id, const std::vector<int> &shape
   this_metadata.IsValid(true);
 
   const auto ins = pool_.insert({sparse_id, this_metadata});
+  PARTHENON_REQUIRE_THROWS(ins.second, "Tried to add sparse ID " +
+                                           std::to_string(sparse_id) +
+                                           " to sparse pool '" + base_name_ +
+                                           "', but this sparse ID already exists");
+
+  return ins.first->second;
+}
+
+const Metadata &SparsePool::Add(int sparse_id, const Metadata &md) {
+  PARTHENON_REQUIRE_THROWS(sparse_id != InvalidSparseID,
+                           "Tried to add InvalidSparseID to sparse pool " + base_name_);
+
+  const auto ins = pool_.insert({sparse_id, md});
   PARTHENON_REQUIRE_THROWS(ins.second, "Tried to add sparse ID " +
                                            std::to_string(sparse_id) +
                                            " to sparse pool '" + base_name_ +
