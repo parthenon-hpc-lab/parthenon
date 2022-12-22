@@ -307,6 +307,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         bool non_zero = false; 
         Kokkos::parallel_reduce(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNj),
                              [&](int idx, bool &lnon_zero) {
+                               Real *buf = &bnd_info(b).buf(idx * Ni); 
                                const int t = idx / NuNvNkNj;
                                idx -= t * NuNvNkNj;
                                const int u = idx / NvNkNj;
@@ -317,7 +318,6 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                idx -= k * Nj;
                                k += sk;
                                int j = idx + sj;
-                               Real *buf = &bnd_info(b).buf(idx * Ni); 
                                Real *var = &bnd_info(b).var(t, u, v, k, j, si);
                                bool mnon_zero = false;
                                Kokkos::parallel_reduce(Kokkos::ThreadVectorRange<>(team_member, Ni),
@@ -517,6 +517,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
         if (bnd_info(b).allocated) {
           Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNj),
                                [&](int idx) {
+                                 auto *buf = &bnd_info(b).buf(idx * Ni);
                                  const int t = idx / NuNvNkNj;
                                  idx -= t * NuNvNkNj;
                                  const int u = idx / NvNkNj;
@@ -527,9 +528,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                                  idx -= k * Nj;
                                  k += sk;
                                  int j = idx + sj;
-                                
                                  auto *var = &bnd_info(b).var(t, u, v, k, j, si); 
-                                 auto *buf = &bnd_info(b).buf(idx * Ni);
                                  Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, Ni), 
                                    [&](int m) {
                                      var[m] = buf[m];
