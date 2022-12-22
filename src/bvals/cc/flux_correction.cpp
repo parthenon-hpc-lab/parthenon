@@ -55,12 +55,12 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
       CheckSendBufferCacheForRebuild<BoundaryType::flxcor_send, true>(md);
 
   if (nbound == 0) {
-    Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
+    Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
     return TaskStatus::complete;
   }
 
   if (other_communication_unfinished) {
-    Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
+    Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
     return TaskStatus::incomplete;
   }
 
@@ -112,10 +112,10 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
               // For the given set of offsets, etc. this should work for any
               // dimensionality since the same flux will be included multiple times
               // in the average
-              const Real area00 = coords.Area(binfo.dir, k, j, i);
-              const Real area01 = coords.Area(binfo.dir, k, j + joff, i + ioff);
-              const Real area10 = coords.Area(binfo.dir, k + koff, j + joff, i);
-              const Real area11 = coords.Area(binfo.dir, k + koff, j, i + ioff);
+              const Real area00 = coords.FaceAreaFA(binfo.dir, k, j, i);
+              const Real area01 = coords.FaceAreaFA(binfo.dir, k, j + joff, i + ioff);
+              const Real area10 = coords.FaceAreaFA(binfo.dir, k + koff, j + joff, i);
+              const Real area11 = coords.FaceAreaFA(binfo.dir, k + koff, j, i + ioff);
 
               Real avg_flx = area00 * binfo.var(t, u, v, k, j, i);
               avg_flx += area01 * binfo.var(t, u, v, k + koff, j + joff, i);
@@ -132,12 +132,12 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   // Calling Send will send null if the underlying buffer is unallocated
   for (auto &buf : cache.buf_vec)
     buf->Send();
-  Kokkos::Profiling::popRegion(); // Task_SetFluxCorrections
+  Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
   return TaskStatus::complete;
 }
 
 TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrections");
+  Kokkos::Profiling::pushRegion("Task_StartReceiveFluxCorrections");
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
   if (cache.buf_vec.size() == 0)
@@ -147,7 +147,7 @@ TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
 
-  Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrections
+  Kokkos::Profiling::popRegion(); // Task_StartReceiveFluxCorrections
   return TaskStatus::complete;
 }
 
@@ -222,7 +222,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->Stale(); });
 
-  Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
+  Kokkos::Profiling::popRegion(); // Task_SetFluxCorrections
   return TaskStatus::complete;
 }
 
