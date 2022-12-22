@@ -178,8 +178,9 @@ class Mesh {
   using channel_key_t = std::tuple<int, int, std::string, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
-  std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>
-      boundary_comm_map, boundary_comm_flxcor_map;
+  using comm_buf_map_t =
+      std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>;
+  comm_buf_map_t boundary_comm_map, boundary_comm_flxcor_map;
   TagMap tag_map;
 
 #ifdef MPI_PARALLEL
