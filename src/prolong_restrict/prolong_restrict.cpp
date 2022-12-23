@@ -17,10 +17,6 @@
 // so.
 //========================================================================================
 
-// TODO(JMM): Is the "mesh" directory where prolongation/restriction
-// machinery belongs? Or should we have a separate directory for this?
-// There's also the AMR criteria in the src/refinement directory
-
 #include <algorithm>
 #include <tuple> // std::tuple
 #include <utility>

@@ -20,10 +20,6 @@
 #ifndef PROLONG_RESTRICT_PROLONG_RESTRICT_HPP_
 #define PROLONG_RESTRICT_PROLONG_RESTRICT_HPP_
 
-// TODO(JMM): Is the "mesh" directory where prolongation/restriction
-// machinery belongs? Or should we have a separate directory for this?
-// There's also the AMR criteria in the src/refinement directory
-
 #include <algorithm>
 #include <functional> // std::function
 #include <string>     // std::string

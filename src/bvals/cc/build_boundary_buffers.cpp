@@ -41,20 +41,13 @@ namespace cell_centered_bvars {
 using namespace loops;
 using namespace loops::shorthands;
 
-// pmesh->boundary_comm_map.clear() after every remesh
-// in InitializeBlockTimeStepsAndBoundaries()
-TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
+namespace {
+template <BoundaryType BTYPE>
+void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
+                               Mesh::comm_buf_map_t &buf_map) {
   Mesh *pmesh = md->GetMeshPointer();
-  auto &all_caches = md->GetBvarsCache();
-
-  // Clear the fast access vectors for this block since they are no longer valid
-  // after all MeshData call BuildBoundaryBuffers
-  all_caches.clear();
-
-  // Build buffers for all boundaries, both local and nonlocal
-  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
-                          const OffsetIndices &no) {
+  ForEachBoundary<BTYPE>(md, [&](sp_mb_t pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v,
+                                 const OffsetIndices &no) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
 
@@ -81,51 +74,60 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 #ifdef MPI_PARALLEL
     // Get a bi-directional mpi tag for this pair of blocks
     tag = pmesh->tag_map.GetTag(pmb, nb);
-
-    mpi_comm_t comm = pmesh->GetMPIComm(v->label());
-    mpi_comm_t comm_flxcor = comm;
-    if (nb.snb.level != pmb->loc.level)
-      comm_flxcor = pmesh->GetMPIComm(v->label() + "_flcor");
+    auto comm_label = v->label();
+    if constexpr (BTYPE == BoundaryType::flxcor_send ||
+                  BTYPE == BoundaryType::flxcor_recv)
+      comm_label += "_flcor";
+    mpi_comm_t comm = pmesh->GetMPIComm(comm_label);
 #else
-    // Setting to zero is fine here since this doesn't actually get used when everything
-    // is on the same rank
-    mpi_comm_t comm = 0;
-    mpi_comm_t comm_flxcor = 0;
+      // Setting to zero is fine here since this doesn't actually get used when everything
+      // is on the same rank
+      mpi_comm_t comm = 0;
 #endif
-    // Build send buffers
-    auto s_key = SendKey(pmb, nb, v);
-    PARTHENON_DEBUG_REQUIRE(pmesh->boundary_comm_map.count(s_key) == 0,
-                            "Two communication buffers have the same key.");
 
+    bool use_sparse_buffers = v->IsSet(Metadata::Sparse);
     auto get_resource_method = [pmesh, buf_size]() {
       return buf_pool_t<Real>::owner_t(pmesh->pool_map.at(buf_size).Get());
     };
 
-    bool use_sparse_buffers = v->IsSet(Metadata::Sparse);
-    pmesh->boundary_comm_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-        tag, sender_rank, receiver_rank, comm, get_resource_method, use_sparse_buffers);
-
-    // Separate flxcor buffer if needed, first part of if statement checks that this
-    // is fine to coarse and the second checks the two blocks share a face
-    if ((nb.snb.level == pmb->loc.level - 1) &&
-        (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
-      pmesh->boundary_comm_flxcor_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-          tag, sender_rank, receiver_rank, comm_flxcor, get_resource_method,
-          use_sparse_buffers);
+    // Build send buffer (unless this is a receiving flux boundary)
+    if constexpr (!(BTYPE == BoundaryType::flxcor_recv)) {
+      auto s_key = SendKey(pmb, nb, v);
+      PARTHENON_DEBUG_REQUIRE(buf_map.count(s_key) == 0,
+                              "Two communication buffers have the same key.");
+      buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
+          tag, sender_rank, receiver_rank, comm, get_resource_method, use_sparse_buffers);
+    }
 
     // Also build the non-local receive buffers here
-    if (sender_rank != receiver_rank) {
-      auto r_key = ReceiveKey(pmb, nb, v);
-      pmesh->boundary_comm_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-          tag, receiver_rank, sender_rank, comm, get_resource_method, use_sparse_buffers);
-      // Separate flxcor buffer if needed
-      if ((nb.snb.level - 1 == pmb->loc.level) &&
-          (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 1))
-        pmesh->boundary_comm_flxcor_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-            tag, receiver_rank, sender_rank, comm_flxcor, get_resource_method,
+    if constexpr (!(BTYPE == BoundaryType::flxcor_send)) {
+      if (sender_rank != receiver_rank) {
+        auto r_key = ReceiveKey(pmb, nb, v);
+        buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
+            tag, receiver_rank, sender_rank, comm, get_resource_method,
             use_sparse_buffers);
+      }
     }
   });
+}
+} // namespace
+
+// pmesh->boundary_comm_map.clear() after every remesh
+// in InitializeBlockTimeStepsAndBoundaries()
+TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
+  Mesh *pmesh = md->GetMeshPointer();
+  auto &all_caches = md->GetBvarsCache();
+
+  // Clear the fast access vectors for this block since they are no longer valid
+  // after all MeshData call BuildBoundaryBuffers
+  all_caches.clear();
+
+  BuildBoundaryBufferSubset<BoundaryType::any>(md, pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::flxcor_send>(md,
+                                                       pmesh->boundary_comm_flxcor_map);
+  BuildBoundaryBufferSubset<BoundaryType::flxcor_recv>(md,
+                                                       pmesh->boundary_comm_flxcor_map);
 
   Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
   return TaskStatus::complete;

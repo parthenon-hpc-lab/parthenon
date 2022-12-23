@@ -28,10 +28,6 @@
 #include "kokkos_abstraction.hpp"       // ParArray
 #include "mesh/domain.hpp"              // for IndesShape
 
-// TODO(JMM): Is the "mesh" directory where prolongation/restriction
-// machinery belongs? Or should we have a separate directory for this?
-// There's also the AMR criteria in the src/refinement directory
-
 /*
  * Explanation---To be added to docs, when pulled through as a user
  * interface.

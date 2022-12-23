@@ -22,7 +22,8 @@
 #include <utility>     // std::forward
 
 #include "bvals/cc/bnd_info.hpp" // TODO(JMM): Remove me when possible
-#include "mesh/domain.hpp"       // TODO(JMM): Remove me when possible
+#include "interface/metadata.hpp"
+#include "mesh/domain.hpp" // TODO(JMM): Remove me when possible
 
 namespace parthenon {
 
@@ -79,20 +80,28 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
     for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(Metadata::FillGhost)) {
+      if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
         for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
           auto &nb = pmb->pbval->neighbor[n];
           if constexpr (bound == BoundaryType::local) {
+            if (!v->IsSet(Metadata::FillGhost)) continue;
             if (nb.snb.rank != Globals::my_rank) continue;
           } else if constexpr (bound == BoundaryType::nonlocal) {
+            if (!v->IsSet(Metadata::FillGhost)) {
+              continue;
+            }
             if (nb.snb.rank == Globals::my_rank) continue;
+          } else if constexpr (bound == BoundaryType::any) {
+            if (!v->IsSet(Metadata::FillGhost)) continue;
           } else if constexpr (bound == BoundaryType::flxcor_send) {
+            if (!v->IsSet(Metadata::WithFluxes)) continue;
             // Check if this boundary requires flux correction
             if (nb.snb.level != pmb->loc.level - 1) continue;
             // No flux correction required unless boundaries share a face
             if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
               continue;
           } else if constexpr (bound == BoundaryType::flxcor_recv) {
+            if (!v->IsSet(Metadata::WithFluxes)) continue;
             // Check if this boundary requires flux correction
             if (nb.snb.level - 1 != pmb->loc.level) continue;
             // No flux correction required unless boundaries share a face
@@ -100,8 +109,10 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
               continue;
           } else if constexpr (bound == BoundaryType::restricted) {
             // Check if restriction is required
+            if (!v->IsSet(Metadata::FillGhost)) continue;
             if (nb.snb.level >= pmb->loc.level) continue;
           }
+
           if constexpr (bound == BoundaryType::restricted) {
             IndexRange bni, bnj, bnk;
             cell_centered_bvars::ComputeRestrictionBounds(bni, bnj, bnk, nb, pmb);
