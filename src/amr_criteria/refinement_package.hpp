@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef REFINEMENT_REFINEMENT_HPP_
-#define REFINEMENT_REFINEMENT_HPP_
+#ifndef AMR_CRITERIA_REFINEMENT_PACKAGE_HPP_
+#define AMR_CRITERIA_REFINEMENT_PACKAGE_HPP_
 
 #include <memory>
 #include <string>
@@ -49,4 +49,4 @@ AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
 
 } // namespace parthenon
 
-#endif // REFINEMENT_REFINEMENT_HPP_
+#endif // AMR_CRITERIA_REFINEMENT_PACKAGE_HPP_

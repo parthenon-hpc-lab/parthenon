@@ -17,8 +17,8 @@
 // so.
 //========================================================================================
 
-#ifndef MESH_REFINEMENT_IN_ONE_HPP_
-#define MESH_REFINEMENT_IN_ONE_HPP_
+#ifndef PROLONG_RESTRICT_PROLONG_RESTRICT_HPP_
+#define PROLONG_RESTRICT_PROLONG_RESTRICT_HPP_
 
 #include <algorithm>
 #include <functional> // std::function
@@ -32,8 +32,8 @@
 #include "coordinates/coordinates.hpp"  // for coordinates
 #include "globals.hpp"                  // for Globals
 #include "mesh/domain.hpp"              // for IndexShape
-#include "mesh/mesh_refinement_loops.hpp"
-#include "mesh/mesh_refinement_ops.hpp"
+#include "prolong_restrict/pr_loops.hpp"
+#include "prolong_restrict/pr_ops.hpp"
 
 namespace parthenon {
 template <typename T>
@@ -152,4 +152,4 @@ struct RefinementFunctionsHasher {
 } // namespace refinement
 } // namespace parthenon
 
-#endif // MESH_REFINEMENT_IN_ONE_HPP_
+#endif // PROLONG_RESTRICT_PROLONG_RESTRICT_HPP_

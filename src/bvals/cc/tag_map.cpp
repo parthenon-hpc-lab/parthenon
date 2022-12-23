@@ -18,11 +18,13 @@
 #include "tag_map.hpp"
 #include "bnd_info.hpp"
 #include "bvals_utils.hpp"
+#include "utils/loop_utils.hpp"
 
 namespace parthenon {
 
-using namespace cell_centered_bvars::impl;
 using namespace cell_centered_bvars;
+using namespace loops;
+using namespace loops::shorthands;
 
 TagMap::rank_pair_t TagMap::MakeChannelPair(const std::shared_ptr<MeshBlock> &pmb,
                                             const NeighborBlock &nb) {

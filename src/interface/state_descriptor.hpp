@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "amr_criteria/amr_criteria.hpp"
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
 #include "interface/packages.hpp"
@@ -30,8 +31,7 @@
 #include "interface/sparse_pool.hpp"
 #include "interface/swarm.hpp"
 #include "interface/variable.hpp"
-#include "mesh/refinement_in_one.hpp"
-#include "refinement/amr_criteria.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

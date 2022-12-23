@@ -31,13 +31,15 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/refinement_in_one.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/loop_utils.hpp"
 
 namespace parthenon {
 namespace cell_centered_bvars {
 
-using namespace impl;
+using namespace loops;
+using namespace loops::shorthands;
 
 namespace {
 template <BoundaryType BTYPE>

@@ -31,25 +31,6 @@
 
 namespace parthenon {
 
-// -----------
-// NOTE ON SWITCHING BETWEEN PRIMITIVE VS. CONSERVED AND STANDARD VS. COARSE BUFFERS HERE:
-// -----------
-
-// -----------
-// There are several sets of variable pointers used in this file:
-// 1) MeshRefinement tuples of pointers: pvars_cc_
-// -- Used in ProlongateGhostCells_()
-
-// 2) Hardcoded pointers through MeshBlock members
-// -- Used in ProlongateGhostCells_() where
-// physical quantities are coupled through EquationOfState
-
-// NOTE(JMM): ProlongateBounds has been split into RestrictBoundaries
-// and ProlongateBoundaries,
-// which are now called together as ProlongateBoundaries in
-// `bvals/bondary_conditions.hpp`. This allows us to loop over all variables in a
-// container.
-
 void BoundaryValues::ProlongateBoundaries() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
@@ -112,38 +93,6 @@ void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int 
     kl = sk;
     ku = ek;
   }
-}
-
-void BoundaryValues::ComputeRestrictionIndices_(const NeighborBlock &nb, int nk, int nj,
-                                                int ni, int &ris, int &rie, int &rjs,
-                                                int &rje, int &rks, int &rke) {
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  const IndexDomain interior = IndexDomain::interior;
-  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-
-  auto CalcIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
-    if (n == 0) {
-      rs = b.s;
-      re = b.e;
-      if (ox == 1) {
-        rs = b.e;
-      } else if (ox == -1) {
-        re = b.s;
-      }
-    } else if (n == 1) {
-      rs = b.e + 1;
-      re = b.e + 1;
-    } else { //(n ==  - 1)
-      rs = b.s - 1;
-      re = b.s - 1;
-    }
-  };
-
-  CalcIndices(ris, rie, ni, nb.ni.ox1, cib);
-  CalcIndices(rjs, rje, nj, nb.ni.ox2, cjb);
-  CalcIndices(rks, rke, nk, nb.ni.ox3, ckb);
 }
 
 void BoundaryValues::ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi,

@@ -23,9 +23,8 @@
 #include <tuple>
 #include <vector>
 
-#include "globals.hpp"
-#include "mesh/mesh_refinement_ops.hpp"
-#include "mesh/refinement_in_one.hpp"
+#include "prolong_restrict/pr_ops.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
 /// The point of this macro is to generate code for each built-in flag using the

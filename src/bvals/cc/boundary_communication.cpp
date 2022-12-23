@@ -32,13 +32,17 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/refinement_in_one.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
+#include "tasks/task_id.hpp"
+#include "tasks/task_list.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/loop_utils.hpp"
 
 namespace parthenon {
 namespace cell_centered_bvars {
 
-using namespace impl;
+using namespace loops;
+using namespace loops::shorthands;
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -326,6 +330,28 @@ TaskStatus RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset_ca
   refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
   Kokkos::Profiling::popRegion(); // Task_RestrictGhostHalos
   return TaskStatus::complete;
+}
+
+// Adds all relevant boundary communication to a single task list
+TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
+                                std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
+  const auto local = BoundaryType::local;
+  const auto nonlocal = BoundaryType::nonlocal;
+
+  auto send = tl.AddTask(dependency, SendBoundBufs<nonlocal>, md);
+  auto send_local = tl.AddTask(dependency, SendBoundBufs<local>, md);
+
+  auto recv_local = tl.AddTask(dependency, ReceiveBoundBufs<local>, md);
+  auto set_local = tl.AddTask(recv_local, SetBounds<local>, md);
+
+  auto recv = tl.AddTask(dependency, ReceiveBoundBufs<nonlocal>, md);
+  auto set = tl.AddTask(recv, SetBounds<nonlocal>, md);
+
+  auto out = (set | set_local);
+  if (multilevel) {
+    out = tl.AddTask(out, RestrictGhostHalos, md, false);
+  }
+  return out;
 }
 
 template TaskStatus SetBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);

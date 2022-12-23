@@ -19,6 +19,12 @@
 //! \file mesh_refinement.hpp
 //  \brief defines MeshRefinement class used for static/adaptive mesh refinement
 
+// TODO(JMM): The MeshRefinement can likely be simplified and/or
+// removed entirely as we clean up our machinery and move to
+// refinement-in-one everywhere in the code. I leave it in the `mesh`
+// directory since it hooks into `Mesh` and `BoundaryValues` but in
+// the long term this should be cleaned up.
+
 #include <memory>
 #include <tuple>
 #include <vector>

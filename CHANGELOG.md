@@ -13,6 +13,7 @@
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 775]](https://github.com/parthenon-hpc-lab/parthenon/pull/775) Reorganize some of the bvals and prolongation/restriction machinery
 - [[PR 753]](https://github.com/parthenon-hpc-lab/parthenon/pull/753) Cleanup uniform Cartesian variable names
 - [[PR 769]](https://github.com/parthenon-hpc-lab/parthenon/pull/769) Thread custom prolongation-restriction functions through infrastructure and to userspace
 - [[PR 781]](https://github.com/lanl/parthenon/pull/781) Output variables with same shape as in parthenon

@@ -193,9 +193,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // (the next function is also called within 3x nested loops over nk,nj,ni)
   void ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei, int sj, int ej,
                              int sk, int ek);
-  void ComputeRestrictionIndices_(const NeighborBlock &nb, int nk, int nj, int ni,
-                                  int &ris, int &rie, int &rjs, int &rje, int &rks,
-                                  int &rke);
   void ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
                                   IndexRange &bk);
 
