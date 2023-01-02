@@ -128,7 +128,7 @@ class Metadata;
 class TensorShape {
  public:
   TensorShape() {}
-  explicit TensorShape(int scalar) {}
+  explicit TensorShape(int /*scalar*/) {}
   TensorShape(int rank, int *size) { shape_.insert(shape_.end(), size, size + rank); }
   std::vector<int> shape_;
 };
@@ -245,11 +245,12 @@ class Metadata {
       for (auto s : shape) {
         num_comp *= s;
       }
-
-      PARTHENON_REQUIRE_THROWS(component_labels.size() == 0 ||
-                                   (component_labels.size() == num_comp),
-                               "Must provide either 0 component labels or the same "
-                               "number as the number of components");
+      assert(num_comp >= 0);
+      PARTHENON_REQUIRE_THROWS(
+          component_labels.empty() ||
+              (component_labels.size() == (decltype(component_labels.size()))num_comp),
+          "Must provide either 0 component labels or the same "
+          "number as the number of components");
     }
 
     // Set the allocation and deallocation thresholds

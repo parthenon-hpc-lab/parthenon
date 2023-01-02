@@ -104,7 +104,8 @@ using H5T = H5Handle<&H5Tclose>;
 using H5S = H5Handle<&H5Sclose>;
 
 // Static functions to return HDF type
-static hid_t getHDF5Type(const hbool_t *) { return H5T_NATIVE_HBOOL; }
+// Reintroduce when required
+[[maybe_unused]] static hid_t getHDF5Type(const hbool_t *) { return H5T_NATIVE_HBOOL; }
 static hid_t getHDF5Type(const int32_t *) { return H5T_NATIVE_INT32; }
 static hid_t getHDF5Type(const int64_t *) { return H5T_NATIVE_INT64; }
 static hid_t getHDF5Type(const uint32_t *) { return H5T_NATIVE_UINT32; }
@@ -122,7 +123,7 @@ static hid_t getHDF5Type(const T *) {
   return H5T_NATIVE_ULONG;
 }
 
-static H5T getHDF5Type(const char *const *) {
+[[maybe_unused]] static H5T getHDF5Type(const char *const *) {
   H5T var_string_type = H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
   PARTHENON_HDF5_CHECK(H5Tset_size(var_string_type, H5T_VARIABLE));
   return var_string_type;

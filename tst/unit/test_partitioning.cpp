@@ -26,17 +26,19 @@
 using parthenon::partition::Partition_t;
 using parthenon::partition::partition_impl::IntCeil;
 
-inline void check_partitions_even(Partition_t<int> partitions, int nelements, int nparts,
+inline void check_partitions_even(Partition_t<int> partitions, int nparts,
                                   int elements_per_part) {
-  REQUIRE(partitions.size() == nparts);
-  for (int p = 0; p < partitions.size(); p++) {
-    REQUIRE(partitions[p].size() == elements_per_part);
+  assert(nparts > 0);
+  assert(elements_per_part > 0);
+  REQUIRE(partitions.size() == (decltype(partitions.size()))nparts);
+  for (size_t p = 0; p < partitions.size(); p++) {
+    REQUIRE(partitions[p].size() == (decltype(partitions[p].size()))elements_per_part);
   }
 
   int n_incorrect = 0;
-  for (int p = 0; p < partitions.size(); p++) {
+  for (size_t p = 0; p < partitions.size(); p++) {
     for (int i = 0; i < elements_per_part; i++) {
-      if (partitions[p][i] != p * elements_per_part + i) {
+      if (partitions[p][i] != (int)p * elements_per_part + i) {
         n_incorrect++;
       }
     }
@@ -114,13 +116,13 @@ TEST_CASE("Check that partitioning a container works", "[Partition]") {
     THEN("We can partition the list into 3 partitions of size 5 via Partition::ToSizeN") {
       auto partitions = parthenon::partition::ToSizeN(l, elements_per_part);
 
-      check_partitions_even(partitions, nelements, nparts, elements_per_part);
+      check_partitions_even(partitions, nparts, elements_per_part);
     }
     THEN("We can partition the list into 3 partitions of size 5 via "
          "Partition::ToNPartitions") {
       auto partitions = parthenon::partition::ToNPartitions(l, nparts);
 
-      check_partitions_even(partitions, nelements, nparts, elements_per_part);
+      check_partitions_even(partitions, nparts, elements_per_part);
     }
   }
   GIVEN("A list of size 17") {
@@ -137,7 +139,7 @@ TEST_CASE("Check that partitioning a container works", "[Partition]") {
 
       REQUIRE(partitions.size() == nparts);
       AND_THEN("The first 4 partitions are of size 4") {
-        for (int p = 0; p < partitions.size() - 1; p++) {
+        for (size_t p = 0; p < partitions.size() - 1; p++) {
           REQUIRE(partitions[p].size() == elements_per_part);
         }
         AND_THEN("The final partition is smaller, reflecting the mismatched sizes") {
@@ -146,9 +148,9 @@ TEST_CASE("Check that partitioning a container works", "[Partition]") {
       }
       AND_THEN("The elements are all correct for the first 4 partitions") {
         int n_incorrect = 0;
-        for (int p = 0; p < partitions.size() - 1; p++) {
+        for (size_t p = 0; p < partitions.size() - 1; p++) {
           for (int i = 0; i < elements_per_part; i++) {
-            if (partitions[p][i] != p * elements_per_part + i) {
+            if (partitions[p][i] != (int)p * elements_per_part + i) {
               n_incorrect++;
             }
           }
@@ -164,12 +166,12 @@ TEST_CASE("Check that partitioning a container works", "[Partition]") {
       AND_THEN("ToNPartitions and ToSizeN agree") {
         auto partitions_v2 = parthenon::partition::ToNPartitions(l, nparts);
         REQUIRE(partitions.size() == partitions_v2.size());
-        for (int p = 0; p < partitions.size(); p++) {
+        for (size_t p = 0; p < partitions.size(); p++) {
           REQUIRE(partitions[p].size() == partitions_v2[p].size());
         }
         int n_incorrect = 0;
-        for (int p = 0; p < partitions.size(); p++) {
-          for (int i = 0; i < partitions[p].size(); i++) {
+        for (size_t p = 0; p < partitions.size(); p++) {
+          for (size_t i = 0; i < partitions[p].size(); i++) {
             if (partitions[p][i] != partitions_v2[p][i]) {
               n_incorrect++;
             }

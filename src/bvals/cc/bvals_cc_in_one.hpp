@@ -33,8 +33,8 @@ namespace parthenon {
 
 template <typename T>
 class MeshData;
-class IndexRange;
-class NeighborBlock;
+struct IndexRange;
+struct NeighborBlock;
 template <typename T>
 class CellVariable;
 

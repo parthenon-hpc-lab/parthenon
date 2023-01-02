@@ -34,8 +34,8 @@ namespace parthenon {
 
 template <typename T>
 class MeshData;
-class IndexRange;
-class NeighborBlock;
+struct IndexRange;
+struct NeighborBlock;
 template <typename T>
 class CellVariable;
 
@@ -147,7 +147,7 @@ struct BvarsCache_t {
   // auto &operator[](BoundaryType boundType) { return
   // caches[static_cast<int>(boundType)]; }
   void clear() {
-    for (int i = 0; i < caches.size(); ++i)
+    for (size_t i = 0; i < caches.size(); ++i)
       caches[i].clear();
   }
 };

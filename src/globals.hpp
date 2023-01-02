@@ -47,7 +47,7 @@ namespace refinement {
 // if the size of this object is greater than min_num_bufs,
 // hierarchical parallelism is used for prolongation/restriction.
 // otherwise one kernel per buffer is launched.
-extern int min_num_bufs;
+extern size_t min_num_bufs;
 } // namespace refinement
 
 } // namespace Globals

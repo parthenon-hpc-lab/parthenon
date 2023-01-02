@@ -71,7 +71,7 @@ TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
       THEN("The check should print warnings") {
         in.CheckDesired("block2", "var2");
         in.CheckDesired("block3", "var4");
-        std::stringstream ss;
+        ss.str("");
         ss << std::endl
            << "### WARNING in CheckDesired:" << std::endl
            << "Parameter file missing desired field <block2>/var2" << std::endl

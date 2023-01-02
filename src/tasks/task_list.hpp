@@ -179,7 +179,11 @@ class TaskList {
     }
   }
   void ResetIteration(const int key) {
-    PARTHENON_REQUIRE_THROWS(key < iter_tasks.size(), "Invalid iteration key");
+    // TODO(the reviewers) how important is it that we can set key to -1 rather than
+    // making it a size_t/unit32_t in the first place?
+    assert(key >= 0);
+    PARTHENON_REQUIRE_THROWS((decltype(iter_tasks.size()))key < iter_tasks.size(),
+                             "Invalid iteration key");
     iter_tasks[key].IncrementCount();
     if (iter_tasks[key].GetIterationCount() == iter_tasks[key].GetMaxIterations()) {
       if (iter_tasks[key].ShouldThrowWithMax()) {
