@@ -248,6 +248,8 @@ if (ENABLE_COMPILER_WARNINGS)
   add_compile_options(-Wall)
 endif()
 
+set(Kokkos_ENABLE_DEPRECATED_CODE_3 OFF CACHE BOOL "No need for old/unused code.")
+
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
