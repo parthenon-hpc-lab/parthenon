@@ -53,39 +53,34 @@ class IterativeTasks {
   template <class T, class U, class... Args>
   TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args...), U *obj,
                  Args &&...args) {
-    return this->AddTask_(TaskType::iterative, 1, dep, [=]() mutable -> TaskStatus {
+    return this->AddTask_(TaskType::iterative, dep, [=]() mutable -> TaskStatus {
       return (obj->*func)(std::forward<Args>(args)...);
     });
   }
 
   template <class T, class... Args>
   TaskID AddTask(TaskID const &dep, T &&func, Args &&...args) {
-    return AddTask_(TaskType::iterative, 1, dep, std::forward<T>(func),
+    return AddTask_(TaskType::iterative, dep, std::forward<T>(func),
                     std::forward<Args>(args)...);
   }
 
   template <class T, class U, class... Args>
   TaskID SetCompletionTask(TaskID const &dep, TaskStatus (T::*func)(Args...), U *obj,
                            Args &&...args) {
-    return AddTask_(TaskType::completion_criteria, check_interval_, dep,
-                    [=]() mutable -> TaskStatus {
-                      return (obj->*func)(std::forward<Args>(args)...);
-                    });
+    return AddTask_(TaskType::completion_criteria, dep, [=]() mutable -> TaskStatus {
+      return (obj->*func)(std::forward<Args>(args)...);
+    });
   }
 
   template <class T, class... Args>
   TaskID SetCompletionTask(TaskID const &dep, T &&func, Args &&...args) {
-    return AddTask_(TaskType::completion_criteria, check_interval_, dep,
-                    std::forward<T>(func), std::forward<Args>(args)...);
+    return AddTask_(TaskType::completion_criteria, dep, std::forward<T>(func),
+                    std::forward<Args>(args)...);
   }
 
   void SetMaxIterations(const int max) {
     assert(max > 0);
     max_iterations_ = max;
-  }
-  void SetCheckInterval(const int chk) {
-    assert(chk > 0);
-    check_interval_ = chk;
   }
   void SetFailWithMaxIterations(const bool flag) { throw_with_max_iters_ = flag; }
   void SetWarnWithMaxIterations(const bool flag) { warn_with_max_iters_ = flag; }
@@ -97,8 +92,7 @@ class IterativeTasks {
 
  private:
   template <class F, class... Args>
-  TaskID AddTask_(const TaskType &type, const int interval, TaskID const &dep, F &&func,
-                  Args &&...args) {
+  TaskID AddTask_(const TaskType &type, TaskID const &dep, F &&func, Args &&...args) {
     TaskID id(0);
     id = task_list_impl::AddTaskHelper(
         tl_, Task(
@@ -113,7 +107,6 @@ class IterativeTasks {
   int key_;
   int max_iterations_;
   unsigned int count_ = 0;
-  int check_interval_ = 1;
   bool throw_with_max_iters_ = false;
   bool warn_with_max_iters_ = true;
 };

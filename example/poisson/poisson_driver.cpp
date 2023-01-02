@@ -51,7 +51,6 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
   auto pkg = pmesh->packages.Get("poisson_package");
   auto max_iters = pkg->Param<int>("max_iterations");
-  auto check_interval = pkg->Param<int>("check_interval");
   auto fail_flag = pkg->Param<bool>("fail_without_convergence");
   auto warn_flag = pkg->Param<bool>("warn_without_convergence");
 
@@ -146,7 +145,6 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     auto &solver = tl.AddIteration("poisson solver");
     solver.SetMaxIterations(max_iters);
-    solver.SetCheckInterval(check_interval);
     solver.SetFailWithMaxIterations(fail_flag);
     solver.SetWarnWithMaxIterations(warn_flag);
 

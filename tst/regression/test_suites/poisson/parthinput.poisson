@@ -56,7 +56,6 @@ variables = potential, density
 
 <poisson>
 max_iterations = 100000
-check_interval = 100
 error_tolerance = 1.e-8
 fail_without_convergence = false
 warn_without_convergence = true

@@ -37,9 +37,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   int max_poisson_iterations = pin->GetOrAddInteger("poisson", "max_iterations", 10000);
   pkg->AddParam<>("max_iterations", max_poisson_iterations);
 
-  int check_interval = pin->GetOrAddInteger("poisson", "check_interval", 100);
-  pkg->AddParam<>("check_interval", check_interval);
-
   Real err_tol = pin->GetOrAddReal("poisson", "error_tolerance", 1.e-8);
   pkg->AddParam<>("error_tolerance", err_tol);
 
