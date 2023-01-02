@@ -30,7 +30,7 @@ bool SatisfiesContainerRequirements(T &&in, VAL_TYPE val, size_t size_in) {
 
   // Check that we can access the data and they all have value val
   VAL_TYPE *pin = contiguous_container::data(in);
-  for (auto i = 0; i < size; ++i)
+  for (size_t i = 0; i < size; ++i)
     test = test && (val == pin[i]);
 
   return test;
@@ -43,7 +43,7 @@ TEST_CASE("Check that the contiguous container concept works", "") {
 
     int my_int = val;
     int my_c_array[SIZE];
-    for (int i = 0; i < SIZE; ++i)
+    for (size_t i = 0; i < SIZE; ++i)
       my_c_array[i] = val;
     std::vector<int> my_vec(SIZE, val);
     // This should also work fine for objects defined on device, but
@@ -58,7 +58,7 @@ TEST_CASE("Check that the contiguous container concept works", "") {
     // We do not expect standard map to conform to contiguous_container
     std::map<int, int> my_map;
 
-    for (int i = 0; i < SIZE; ++i) {
+    for (size_t i = 0; i < SIZE; ++i) {
       my_map[i] = val;
       my_pararr(i) = val;
       my_view(i) = val;
