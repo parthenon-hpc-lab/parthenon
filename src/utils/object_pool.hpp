@@ -98,7 +98,7 @@ class ObjectPool {
 // is in use or if it has been freed and allows
 // freeing of the storage.
 template <class T>
-struct ObjectPool<T>::weak_t : public T {
+class ObjectPool<T>::weak_t : public T {
   friend class ObjectPool;
 
  protected:

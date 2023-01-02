@@ -55,8 +55,8 @@ struct SimTime {
   SimTime(const Real tstart, const Real tstop, const int nmax, const int ncurr,
           const int nout, const int nout_mesh,
           const Real dt_in = std::numeric_limits<Real>::max())
-      : start_time(tstart), time(tstart), tlim(tstop), dt(dt_in), nlim(nmax),
-        ncycle(ncurr), ncycle_out(nout), ncycle_out_mesh(nout_mesh) {}
+      : start_time(tstart), time(tstart), tlim(tstop), dt(dt_in), ncycle(ncurr),
+        nlim(nmax), ncycle_out(nout), ncycle_out_mesh(nout_mesh) {}
   // beginning time, current time, maximum time, time step
   Real start_time, time, tlim, dt;
   // current cycle number, maximum number of cycles, cycles between diagnostic output
