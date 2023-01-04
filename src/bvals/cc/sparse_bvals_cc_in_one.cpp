@@ -318,15 +318,21 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                idx -= k * Nj;
                                k += sk;
                                int j = idx + sj;
+                               
                                Real *var = &bnd_info(b).var(t, u, v, k, j, si);
+                               Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, Ni),
+                                   [&](int m) {
+                                     buf[m] = var[m];  
+                                   });
+
                                bool mnon_zero = false;
                                Kokkos::parallel_reduce(Kokkos::ThreadVectorRange<>(team_member, Ni),
                                    [&](int m, bool &llnon_zero) {
-                                     buf[m] = var[m];  
-                                     llnon_zero = llnon_zero || (std::abs(var[m]) >= threshold);
+                                     llnon_zero = llnon_zero || (std::abs(buf[m]) >= threshold);
                                    }, Kokkos::LOr<bool, parthenon::DevMemSpace>(mnon_zero));
                                lnon_zero = lnon_zero || mnon_zero;
                              }, Kokkos::LOr<bool, parthenon::DevMemSpace>(non_zero));
+
         Kokkos::single(Kokkos::PerTeam(team_member), [&](){ sending_nonzero_flags(b) = non_zero; });
       });
 
