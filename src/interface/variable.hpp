@@ -94,8 +94,8 @@ class CellVariable {
   auto NumComponents() const { return dims_[5] * dims_[4] * dims_[3]; }
 
   ///< retrieve label for variable
-  inline const auto label() const { return MakeVarLabel(base_name_, sparse_id_); }
-  inline const auto base_name() const { return base_name_; }
+  inline const auto &label() const { return name_; }//return MakeVarLabel(base_name_, sparse_id_); }
+  inline const auto &base_name() const { return base_name_; }
 
   ///< retrieve metadata for variable
   inline Metadata metadata() const { return m_; }
@@ -147,6 +147,7 @@ class CellVariable {
   VariableState MakeVariableState() const { return VariableState(m_, sparse_id_); }
 
   Metadata m_;
+  const std::string name_;
   const std::string base_name_;
   const int sparse_id_;
   const std::array<int, 6> dims_, coarse_dims_;

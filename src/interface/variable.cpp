@@ -28,8 +28,9 @@ namespace parthenon {
 template <typename T>
 CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &metadata,
                               int sparse_id, std::weak_ptr<MeshBlock> wpmb)
-    : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
-      dims_(m_.GetArrayDims(wpmb, false)), coarse_dims_(m_.GetArrayDims(wpmb, true)) {
+    : m_{metadata}, name_{MakeVarLabel(base_name, sparse_id)}, base_name_{base_name}, 
+      sparse_id_{sparse_id}, dims_{m_.GetArrayDims(wpmb, false)}, 
+      coarse_dims_{m_.GetArrayDims(wpmb, true)} {
   PARTHENON_REQUIRE_THROWS(m_.IsSet(Metadata::Real),
                            "Only Real data type is currently supported for CellVariable");
 
