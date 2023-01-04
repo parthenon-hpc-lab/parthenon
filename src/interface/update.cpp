@@ -148,12 +148,7 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
   const IndexRange kb = md->GetBoundsK(IndexDomain::entire);
 
-  PackIndexMap map;
-  const std::vector<MetadataFlag> flags({Metadata::Sparse});
-  const auto &pack = md->PackVariables(flags, map);
-
-  const int num_blocks = pack.GetDim(5);
-  const int num_vars = pack.GetDim(4);
+  const int num_blocks = md->NumBlocks();
 
   auto control_vars = md->GetMeshPointer()->resolved_packages->GetControlVariables();
 

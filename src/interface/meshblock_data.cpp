@@ -15,6 +15,7 @@
 
 #include <cstdlib>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <unordered_set>
 #include <utility>
@@ -368,6 +369,7 @@ template <typename T>
 typename MeshBlockData<T>::VarLabelList
 MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
                                      const std::vector<int> &sparse_ids) {
+  Kokkos::Profiling::pushRegion("GetVariablesByName");
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
@@ -389,7 +391,7 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       }
     }
   }
-
+  Kokkos::Profiling::popRegion();
   return var_list;
 }
 
@@ -400,20 +402,43 @@ template <typename T>
 typename MeshBlockData<T>::VarLabelList
 MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
                                      bool match_all, const std::vector<int> &sparse_ids) {
+  Kokkos::Profiling::pushRegion("GetVariablesByFlag");
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
-  // let's use varMap_ here instead of varVector_ because iterating over either has O(N)
-  // complexity but with varMap_ we get a sorted list
-  for (const auto &pair : varMap_) {
-    const auto &v = pair.second;
-    // add this variable to the list if the Metadata flags match or no flags are specified
-    if (flags.empty() || (match_all && v->metadata().AllFlagsSet(flags)) ||
-        (!match_all && v->metadata().AnyFlagsSet(flags))) {
+  if (match_all) {
+    for (auto &v : flagMap_[flags[0]]) {
+      if (v->IsAllocated() && v->metadata().AllFlagsSet(flags)) {
+        var_list.Add(v, sparse_ids_set);
+      }
+    }
+  } else {
+    std::set<std::shared_ptr<CellVariable<T>>> vars;
+    for (auto &f : flags) {
+      for (auto &v : flagMap_[f]) {
+        if (v->IsAllocated()) {
+          vars.insert(v);
+        }
+      }
+    }
+    for (auto &v : vars) {
       var_list.Add(v, sparse_ids_set);
     }
   }
 
+  // let's use varMap_ here instead of varVector_ because iterating over either has O(N)
+  // complexity but with varMap_ we get a sorted list
+  //for (const auto &pair : varMap_) {
+    //const auto &v = pair.second;
+    //if (!v->IsAllocated()) continue;
+    //// add this variable to the list if the Metadata flags match or no flags are specified
+    //if (flags.empty() || (match_all && v->metadata().AllFlagsSet(flags)) ||
+        //(!match_all && v->metadata().AnyFlagsSet(flags))) {
+      //var_list.Add(v, sparse_ids_set);
+    //}
+  //}
+
+  Kokkos::Profiling::popRegion();
   return var_list;
 }
 

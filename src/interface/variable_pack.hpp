@@ -147,11 +147,11 @@ class VarListWithLabels {
            const std::unordered_set<int> &sparse_ids = {}) {
     if (!var->IsSparse() || sparse_ids.empty() ||
         (sparse_ids.count(var->GetSparseID()) > 0)) {
-      //if (var->IsAllocated()) {
+      if (var->IsAllocated()) {
         vars_.push_back(var);
         labels_.push_back(var->label());
         alloc_status_.push_back(var->GetAllocationStatus());
-      //}
+      }
     }
   }
 

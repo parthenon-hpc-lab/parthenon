@@ -446,6 +446,10 @@ class MeshBlockData {
   void Add(std::shared_ptr<CellVariable<T>> var) noexcept {
     varVector_.push_back(var);
     varMap_[var->label()] = var;
+    auto flags = var->metadata().Flags();
+    for (auto &f : flags) {
+      flagMap_[f].push_back(var);
+    }
   }
 
   void Add(std::shared_ptr<FaceVariable<T>> var) noexcept {
@@ -502,6 +506,9 @@ class MeshBlockData {
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
+
+  // quick access to vars by metadata
+  std::map<MetadataFlag, CellVariableVector<T>> flagMap_;
 
   // These functions have private scope and are visible only to MeshData
   const VariableFluxPack<T> &
