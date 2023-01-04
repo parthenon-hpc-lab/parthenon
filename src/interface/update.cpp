@@ -148,20 +148,13 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
   const IndexRange kb = md->GetBoundsK(IndexDomain::entire);
 
-  const int num_blocks = md->NumBlocks();
-
   auto control_vars = md->GetMeshPointer()->resolved_packages->GetControlVariables();
 
-  const auto tup = SparsePack<>::Get(md, control_vars, {Metadata::Sparse});
+  const auto tup = SparsePack<>::Get(md, control_vars);
   auto pack2 = std::get<0>(tup);
   auto pack2Idx = std::get<1>(tup);
-  for (int b = 0; b < num_blocks; ++b) {
-    for (auto &pair : pack2Idx) {
-      int lo = pack2.GetLowerBoundHost(b, PackIdx(pack2Idx[pair.first]));
-      int hi = pack2.GetUpperBoundHost(b, PackIdx(pack2Idx[pair.first]));
-    }
-  }
-
+  
+  const int num_blocks = pack2.GetNBlocks();
   ParArray2D<bool> is_zero("IsZero", num_blocks, pack2.GetMaxNumberOfVars());
   const int Ni = ib.e + 1 - ib.s;
   const int Nj = jb.e + 1 - jb.s;
@@ -180,17 +173,17 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
         for (int v = lo; v <= hi; ++v) {
           const auto &var = pack2(b, v);
           const Real threshold = var.deallocation_threshold;
-          is_zero(b, v) = true;
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NkNjNi),
-                               [&](const int idx) {
-                                 const int k = kb.s + idx / NjNi;
-                                 const int j = jb.s + (idx % NjNi) / Ni;
-                                 const int i = ib.s + idx % Ni;
-                                 if (std::abs(var(k, j, i)) > threshold) {
-                                   is_zero(b, v) = false;
-                                   return;
-                                 }
-                               });
+          if (threshold <= 0.0) {
+            Kokkos::single(Kokkos::PerTeam(team_member), [&](){is_zero(b, v) = false;});
+            continue;
+          }
+          bool zero = true; 
+          Real *pvar = &var(0, 0, 0);
+          Kokkos::parallel_reduce(Kokkos::TeamThreadRange<>(team_member, NkNjNi),
+                               [&](const int idx, bool &lzero) {
+                                 lzero = lzero && (std::abs(pvar[idx]) <= threshold);
+                               }, Kokkos::LAnd<bool, parthenon::DevMemSpace>(zero));
+          Kokkos::single(Kokkos::PerTeam(team_member), [&](){is_zero(b, v) = zero;});
         }
       });
 
