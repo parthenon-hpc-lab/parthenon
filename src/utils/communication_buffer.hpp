@@ -315,7 +315,8 @@ void CommBuffer<T>::TryStartReceive() noexcept {
 
 template <class T>
 bool CommBuffer<T>::TryReceive() noexcept {
-  if (*state_ == BufferState::received || *state_ == BufferState::received_null)
+  auto l_state = *state_;
+  if (l_state == BufferState::received || l_state == BufferState::received_null)
     return true;
 
   if (*comm_type_ == BuffCommType::receiver ||
@@ -402,10 +403,9 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
 template <class T>
 void CommBuffer<T>::Stale() {
-  PARTHENON_REQUIRE(*comm_type_ != BuffCommType::sender, "Should never get here.");
-
-  if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
-    PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");
+  PARTHENON_DEBUG_REQUIRE(*comm_type_ != BuffCommType::sender, "Should never get here.");
+  PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::received || *state_ == BufferState::received_null,
+    "Staling buffer not in a received state.");
 #ifdef MPI_PARALLEL
   if (MPI_REQUEST_NULL != *my_request_)
     PARTHENON_WARN("Staling buffer with pending request.");
