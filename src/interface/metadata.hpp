@@ -429,7 +429,7 @@ class Metadata {
 
   /// returns true if bit is set, false otherwise
   bool IsSet(MetadataFlag bit) const {
-    return bit.flag_ < bits_.size() && bits_[bit.flag_];
+    return bit.flag_ < bits_size_ && bits_[bit.flag_];
   }
 
   // Operators
@@ -437,8 +437,8 @@ class Metadata {
     auto const &a = *this;
 
     // Check extra bits are unset
-    auto const min_bits = std::min(a.bits_.size(), b.bits_.size());
-    auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
+    auto const min_bits = std::min(a.bits_size_, b.bits_size_);
+    auto const &longer = a.bits_size_ > b.bits_size_ ? a.bits_ : b.bits_;
     for (auto i = min_bits; i < longer.size(); i++) {
       if (longer[i]) {
         // Bits are default false, so if any bit in the extraneous portion of the longer
@@ -476,6 +476,7 @@ class Metadata {
  private:
   /// the attribute flags that are set for the class
   std::vector<bool> bits_;
+  std::size_t bits_size_ = 0;
   std::vector<int> shape_ = {1};
   std::vector<std::string> component_labels_ = {};
   std::string associated_ = "";
@@ -490,6 +491,7 @@ class Metadata {
       bits_.resize(bit.flag_ + 1);
     }
     bits_[bit.flag_] = flag;
+    bits_size_ = bits_.size();
   }
 
   /// count the number of set flags from the given list
