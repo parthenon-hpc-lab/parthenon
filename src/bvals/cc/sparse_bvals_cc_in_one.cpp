@@ -166,12 +166,12 @@ void BuildBufferCache(std::shared_ptr<MeshData<Real>> &md, V1 *pbuf_vec, V2 *pid
   // If desired, sort the keys and boundary indices by receiver_idx
   // std::sort(key_order.begin(), key_order.end(),
   //          [](auto a, auto b) { return std::get<0>(a) < std::get<0>(b); });
-
+  
   // Or, what the hell, you could put them in random order if you want, which
   // frighteningly seems to run faster in some cases
-  std::random_device rd;
-  std::mt19937 g(rd());
-  std::shuffle(key_order.begin(), key_order.end(), g);
+  //std::random_device rd;
+  //std::mt19937 g(rd());
+  //std::shuffle(key_order.begin(), key_order.end(), g);
 
   int buff_idx = 0;
   pbuf_vec->clear();
@@ -318,7 +318,6 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                idx -= k * Nj;
                                k += sk;
                                int j = idx + sj;
-                               
                                Real *var = &bnd_info(b).var(t, u, v, k, j, si);
                                Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, Ni),
                                    [&](int m) {
