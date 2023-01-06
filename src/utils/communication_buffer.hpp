@@ -320,6 +320,7 @@ void CommBuffer<T>::TryStartReceive() noexcept {
 
 template <class T>
 void CommBuffer<T>::SetToReceivedNull() noexcept {
+  if (!active_) Free();
   *state_ = BufferState::received_null;
 }
 

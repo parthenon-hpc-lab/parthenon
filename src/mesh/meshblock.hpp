@@ -198,6 +198,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
 #endif
 
+
+  void UserSetCost(double cost);
+
   void SetAllVariablesToInitialized() {
     auto &stages = meshblock_data.Stages();
     std::for_each(stages.begin(), stages.end(),

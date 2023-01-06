@@ -228,6 +228,12 @@ void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx
   InitializeIndexShapesImpl(nx1, nx2, nx3, init_coarse, multilevel);
 }
 
+
+void MeshBlock::UserSetCost(double cost) {
+  cost_ = cost;
+  pmy_mesh->lb_flag_ = true;
+}
+
 //----------------------------------------------------------------------------------------
 //! \fn void MeshBlock::SetCostForLoadBalancing(double cost)
 //  \brief stop time measurement and accumulate it in the MeshBlock cost
