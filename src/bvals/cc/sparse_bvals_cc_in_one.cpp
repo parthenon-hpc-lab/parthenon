@@ -52,6 +52,9 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
   // Build buffers for all boundaries, both local and nonlocal
   ForEachBoundary<BoundaryType::all_ghost_and_flux>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+    
+    if (v->IsSet(Metadata::FillGhost)) pmesh->var_label_to_idx[v->label()] = -1; 
+    
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
 
@@ -124,6 +127,9 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     }
   });
 
+  int idx = 0;
+  for (auto& p : pmesh->var_label_to_idx) p.second = idx++; 
+
   Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
   return TaskStatus::complete;
 }
@@ -142,9 +148,9 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 // simple tests, this did not have a big impact on performance but I think it is useful to
 // leave the machinery here since it doesn't seem to have a big overhead associated with
 // it (LFR).
-template <BoundaryType bound_type, class V1, class V2, class F>
+template <BoundaryType bound_type, class V1, class V2, class V3, class F>
 void BuildBufferCache(std::shared_ptr<MeshData<Real>> &md, V1 *pbuf_vec, V2 *pidx_vec,
-                      F KeyFunc) {
+                      V3 *bufidx_tag_pairs_per_rank, F KeyFunc) {
   Mesh *pmesh = md->GetMeshPointer();
 
   using key_t = std::tuple<int, int, std::string, int>;
@@ -169,15 +175,28 @@ void BuildBufferCache(std::shared_ptr<MeshData<Real>> &md, V1 *pbuf_vec, V2 *pid
   
   // Or, what the hell, you could put them in random order if you want, which
   // frighteningly seems to run faster in some cases
-  //std::random_device rd;
-  //std::mt19937 g(rd());
-  //std::shuffle(key_order.begin(), key_order.end(), g);
+  std::random_device rd;
+  std::mt19937 g(rd());
+  std::shuffle(key_order.begin(), key_order.end(), g);
 
   int buff_idx = 0;
   pbuf_vec->clear();
+
+  int nvar = pmesh->var_label_to_idx.size(); 
+  *bufidx_tag_pairs_per_rank = std::vector<std::vector<std::pair<int, int>>>(Globals::nranks);
+  
   *pidx_vec = std::vector<std::size_t>(key_order.size());
   std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
-    pbuf_vec->push_back(&(pmesh->boundary_comm_map[std::get<2>(t)]));
+    auto *pbuf = &pmesh->boundary_comm_map[std::get<2>(t)];
+    const int recv_rank = pbuf->GetRecvRank();
+    const int send_rank = pbuf->GetSendRank();
+    int rank = (recv_rank == Globals::my_rank) ? send_rank : recv_rank;
+
+    // This tag should be symmetric between sender and receiver
+    int tag = pbuf->GetTag() * nvar + pmesh->var_label_to_idx[std::get<2>(std::get<2>(t))]; 
+    (*bufidx_tag_pairs_per_rank)[rank].push_back({pbuf_vec->size(), tag});
+    
+    pbuf_vec->push_back(pbuf);
     (*pidx_vec)[std::get<1>(t)] = buff_idx++;
   });
 }
@@ -191,7 +210,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
   if (cache.send_buf_vec.size() == 0) {
     BuildBufferCache<bound_type>(md, &(cache.send_buf_vec), &(cache.send_idx_vec),
-                                 SendKey);
+                                 &(cache.rank_to_ibuf_tags), SendKey);
     const int nbound = cache.send_buf_vec.size();
     if (nbound > 0) {
       cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
@@ -341,13 +360,34 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 #ifdef MPI_PARALLEL
   if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal)
     Kokkos::fence();
+    
+  // Build and send messages containing allocation status of all buffers
+  cache.send_status_arrs = std::vector<std::vector<int>>(Globals::nranks); 
+  for (int r = 0; r < Globals::nranks; ++r) {
+    if (r == Globals::my_rank) continue;
+    if (cache.rank_to_ibuf_tags[r].size() == 0) continue;
+    cache.send_status_arrs[r] = std::vector<int>(cache.rank_to_ibuf_tags[r].size()); 
+    auto &sending_status = cache.send_status_arrs[r];
+    int num_nonzero = 0;
+    for (auto& p : cache.rank_to_ibuf_tags[r]) {
+      sending_status[p.second] = sending_nonzero_flags_h(p.first);
+      num_nonzero += sending_status[p.second];
+    }
+
+    //printf("[rank = %i] Buffer sending size: %i non-zero: %i\n", Globals::my_rank, sending_status.size(), num_nonzero);
+    //fflush(stdout);
+    mpi_request_t temp_req; 
+    PARTHENON_MPI_CHECK(MPI_Isend(sending_status.data(), sending_status.size(),
+        MPITypeMap<int>::type(), r, 1234, MPI_COMM_WORLD, &temp_req));
+    
+  }
 #endif
 
   for (int ibuf = 0; ibuf < cache.send_buf_vec.size(); ++ibuf) {
     auto &buf = *cache.send_buf_vec[ibuf];
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
       buf.Send();
-    else
+    else if (buf.GetRecvRank() == Globals::my_rank) 
       buf.SendNull();
   }
 
@@ -367,7 +407,7 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache()[bound_type];
   if (cache.recv_buf_vec.size() == 0)
     BuildBufferCache<bound_type>(md, &(cache.recv_buf_vec), &(cache.recv_idx_vec),
-                                 ReceiveKey);
+                                 &(cache.rank_to_ibuf_tags_recv), ReceiveKey);
 
   std::for_each(std::begin(cache.recv_buf_vec), std::end(cache.recv_buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -391,7 +431,25 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache()[bound_type];
   if (cache.recv_buf_vec.size() == 0)
     BuildBufferCache<bound_type>(md, &(cache.recv_buf_vec), &(cache.recv_idx_vec),
-                                 ReceiveKey);
+                                 &(cache.rank_to_ibuf_tags_recv), ReceiveKey);
+  
+  if (!cache.null_array_received) {
+    for (int r = 0; r < Globals::nranks; ++r) {
+      if (r == Globals::my_rank) continue;
+      if (cache.rank_to_ibuf_tags_recv[r].size() == 0) continue;
+      std::vector<int> receiving_status(cache.rank_to_ibuf_tags_recv[r].size());
+      MPI_Status status;
+      PARTHENON_MPI_CHECK(MPI_Recv(receiving_status.data(), receiving_status.size(),
+            MPITypeMap<int>::type(), r, 1234, MPI_COMM_WORLD, &status)); 
+      int nonzero = 0;  
+      for (auto stat : receiving_status) nonzero += stat;
+      //printf("[rank = %i] Buffer receiving size: %i nonzero: %i\n", Globals::my_rank, receiving_status.size(), nonzero);
+      for (auto& p : cache.rank_to_ibuf_tags_recv[r]) { 
+        if (receiving_status[p.second] == 0) cache.recv_buf_vec[p.first]->SetToReceivedNull();
+      }
+    }
+    cache.null_array_received = true;
+  }
 
   bool all_received = true;
   std::for_each(
@@ -418,8 +476,10 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   }
   Kokkos::Profiling::popRegion(); // Task_ReceiveBoundBufs
 
-  if (all_received) return TaskStatus::complete;
-
+  if (all_received) {
+    cache.null_array_received = false;
+    return TaskStatus::complete;
+  }
   return TaskStatus::incomplete;
 }
 

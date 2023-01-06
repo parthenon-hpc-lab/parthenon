@@ -180,6 +180,7 @@ class Mesh {
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
   std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>
       boundary_comm_map, boundary_comm_flxcor_map;
+  std::map<std::string, int> var_label_to_idx;
   TagMap tag_map;
 
 #ifdef MPI_PARALLEL

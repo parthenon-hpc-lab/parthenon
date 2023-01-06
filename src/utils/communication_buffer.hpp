@@ -82,6 +82,10 @@ class CommBuffer {
              std::function<T()> get_resource, bool do_sparse_allocation = false);
 
   ~CommBuffer();
+  
+  int GetSendRank() const {return send_rank_;}
+  int GetRecvRank() const {return recv_rank_;}
+  int GetTag() const {return tag_;}
 
   template <class U>
   CommBuffer(const CommBuffer<U> &in);
@@ -118,6 +122,7 @@ class CommBuffer {
 
   void TryStartReceive() noexcept;
   bool TryReceive() noexcept;
+  void SetToReceivedNull() noexcept;
 
   void Stale();
 };
@@ -314,6 +319,11 @@ void CommBuffer<T>::TryStartReceive() noexcept {
 }
 
 template <class T>
+void CommBuffer<T>::SetToReceivedNull() noexcept {
+  *state_ = BufferState::received_null;
+}
+
+template <class T>
 bool CommBuffer<T>::TryReceive() noexcept {
   auto l_state = *state_;
   if (l_state == BufferState::received || l_state == BufferState::received_null)
@@ -355,9 +365,9 @@ bool CommBuffer<T>::TryReceive() noexcept {
       // as the total number of buffers being communicated, I have found this can have
       // anywhere from no impact on the walltime to a factor of a few reduction in the
       // walltime. It seems to be unpredictable as far as I can tell.
-      for (int i = 0; i < 1; ++i)
-        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
-                                       MPI_STATUS_IGNORE));
+      //for (int i = 0; i < 0; ++i)
+      //  PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
+      //                                 MPI_STATUS_IGNORE));
       PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));
       if (flag) {
         // Check the size of the message, it will be zero if the sender wants you to use
