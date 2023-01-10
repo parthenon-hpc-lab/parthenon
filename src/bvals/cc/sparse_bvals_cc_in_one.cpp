@@ -53,8 +53,6 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   // Build buffers for all boundaries, both local and nonlocal
   ForEachBoundary<BoundaryType::all_ghost_and_flux>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     
-    if (v->IsSet(Metadata::FillGhost)) pmesh->var_label_to_idx[v->label()] = -1; 
-    
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
 
