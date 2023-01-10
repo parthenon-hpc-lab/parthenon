@@ -7,6 +7,8 @@ using namespace ascent;
 using namespace conduit;
 
 void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime &tm) {
+  // reference:
+  // https://llnl-conduit.readthedocs.io/en/latest/blueprint_mesh.html#complete-uniform-example
   //
   // Create a 3D mesh defined on a uniform grid of points
   // with a single vertex associated field named `alternating`
@@ -71,6 +73,7 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime &tm) {
   a.open(ascent_opts);
 
   // publish mesh to ascent
+  // IMPORTANT: an ascent 'mesh' object must be created/published for *each* Parthenon meshblock
   a.publish(mesh);
 
   // setup actions
