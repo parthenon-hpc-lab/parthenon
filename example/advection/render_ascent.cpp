@@ -85,11 +85,10 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     mesh["fields/ele_example/association"] = "element";
     // reference the topology this field is defined on by name
     mesh["fields/ele_example/topology"] = "topo";
+    
     // set the field values
     int nvar = 0;
     mesh["fields/ele_example/values"].set_external(&vars(nvar, 0, 0, 0), ncells);
-
-    float64 *ele_vals_ptr = mesh["fields/ele_example/values"].value();
 
     // make sure we conform:
     Node verify_info;
