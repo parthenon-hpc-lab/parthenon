@@ -16,12 +16,11 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
   // call Ascent every ascent_interval timesteps
   const int ascent_interval = 10;
   static int counter = 0;
-  counter++;
   if (!(counter % ascent_interval == 0)) {
     return;
   }
-
   std::cout << "\nRendering ascent (step = " << counter << ")..." << std::endl;
+  counter++;
 
   // Ascent needs the MPI communicator we are using
   Ascent a;
@@ -29,11 +28,19 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
   ascent_opts["mpi_comm"] = MPI_Comm_c2f(MPI_COMM_WORLD);
   a.open(ascent_opts);
 
-  // vector of all meshes
-  std::vector<Node> mesh_vec;
+  Node root;
 
   for (auto &thisMeshBlock : par_mesh->block_list) {
-    std::cout << "creating mesh for MeshBlock " << thisMeshBlock << std::endl;
+    // create a unique id for this MeshBlock
+    const std::string &meshblock_name = "domain_" + std::to_string(thisMeshBlock->gid);
+    Node &mesh = root[meshblock_name];
+
+    // add basic state info
+    mesh["state/domain_id"] = thisMeshBlock->gid;
+    mesh["state/cycle"] = tm.ncycle;
+    mesh["state/time"] = tm.time;
+
+    std::cout << "creating mesh for MeshBlock " << meshblock_name << std::endl;
 
     auto &bounds = thisMeshBlock->cellbounds;
     auto ib = bounds.GetBoundsI(IndexDomain::entire);
@@ -53,17 +60,13 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     auto &mbd = thisMeshBlock->meshblock_data.Get();
     auto &vars = mbd->PackVariables();
 
-    // create a Conduit node to hold our mesh data
-    // (we need to save this in a list for rendering)
-    Node mesh;
-
     // create the coordinate set
     mesh["coordsets/coords/type"] = "uniform";
 
-    mesh["coordsets/coords/dims/i"] = nx+1;
-    mesh["coordsets/coords/dims/j"] = ny+1;
+    mesh["coordsets/coords/dims/i"] = nx + 1;
+    mesh["coordsets/coords/dims/j"] = ny + 1;
     if (nz > 1) {
-      mesh["coordsets/coords/dims/k"] = nz+1;
+      mesh["coordsets/coords/dims/k"] = nz + 1;
     }
 
     // add origin and spacing to the coordset (optional)
@@ -88,34 +91,28 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     // for each variable:
 
     // add a simple element-associated field
-    mesh["fields/ele_example/association"] = "element";
+    mesh["fields/my_var_name/association"] = "element";
     // reference the topology this field is defined on by name
-    mesh["fields/ele_example/topology"] = "topo";
+    mesh["fields/my_var_name/topology"] = "topo";
 
     // set the field values
     int nvar = 0;
-    mesh["fields/ele_example/values"].set_external(&vars(nvar, 0, 0, 0), ncells);
-
-    // make sure we conform:
-    Node verify_info;
-    if (!blueprint::mesh::verify(mesh, verify_info)) {
-      std::cout << "Verify failed!" << std::endl;
-      verify_info.print();
-    }
-
-    // save our mesh to a file that can be read by VisIt
-    // this will create the file: complete_uniform_mesh_example.root
-    // which includes the mesh blueprint index and the mesh data
-    conduit::relay::io::blueprint::save_mesh(mesh, "complete_uniform_mesh_example",
-                                             "json");
-
-    mesh_vec.emplace_back(mesh);
+    mesh["fields/my_var_name/values"].set_external(&vars(nvar, 0, 0, 0), ncells);
   }
 
-  for (auto &mesh : mesh_vec) {
-    // publish mesh to ascent
-    a.publish(mesh);
+  // make sure we conform:
+  Node verify_info;
+  if (!blueprint::mesh::verify(root, verify_info)) {
+    std::cout << "Verify failed!" << std::endl;
+    verify_info.print();
   }
+
+  // save our mesh to a file that can be read by VisIt
+  // this will create the file: complete_uniform_mesh_example.root
+  // which includes the mesh blueprint index and the mesh data
+  // conduit::relay::io::blueprint::save_mesh(root, "complete_mesh", "json");
+
+  a.publish(root);
 
   // setup actions
   Node actions;
@@ -126,10 +123,10 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
   // to render the dataset
   Node &scenes = add_act["scenes"];
   scenes["s1/plots/p1/type"] = "pseudocolor";
-  scenes["s1/plots/p1/field"] = "ele_example";
+  scenes["s1/plots/p1/field"] = "my_var_name";
 
   // Set the output file name (ascent will add ".png")
-  scenes["s1/image_prefix"] = "out_ascent_render_uniform";
+  scenes["s1/image_prefix"] = "ascent_render";
 
   // execute the actions
   a.execute(actions);
