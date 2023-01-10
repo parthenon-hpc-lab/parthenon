@@ -35,15 +35,14 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
   for (auto &thisMeshBlock : par_mesh->block_list) {
     std::cout << "creating mesh for MeshBlock " << thisMeshBlock << std::endl;
 
-    auto &blockSize = thisMeshBlock->block_size;
-    int nx = blockSize.nx1;
-    int ny = blockSize.nx2;
-    int nz = blockSize.nx3;
-
     auto &bounds = thisMeshBlock->cellbounds;
     auto ib = bounds.GetBoundsI(IndexDomain::entire);
     auto jb = bounds.GetBoundsJ(IndexDomain::entire);
     auto kb = bounds.GetBoundsK(IndexDomain::entire);
+    int nx = ib.e - ib.s + 1;
+    int ny = jb.e - jb.s + 1;
+    int nz = kb.e - kb.s + 1;
+    uint64_t ncells = nx * ny * nz;
 
     auto &coords = thisMeshBlock->coords;
     Real dx1 = coords.CellWidth<X1DIR>(ib.s, jb.s, kb.s);
@@ -60,18 +59,25 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
 
     // create the coordinate set
     mesh["coordsets/coords/type"] = "uniform";
+
     mesh["coordsets/coords/dims/i"] = nx;
     mesh["coordsets/coords/dims/j"] = ny;
-    mesh["coordsets/coords/dims/k"] = nz;
-    uint64_t ncells = nx * ny * nz;
+    if (nz > 1) {
+      mesh["coordsets/coords/dims/k"] = nz;
+    }
 
     // add origin and spacing to the coordset (optional)
     mesh["coordsets/coords/origin/x"] = corner[0];
     mesh["coordsets/coords/origin/y"] = corner[1];
-    mesh["coordsets/coords/origin/z"] = corner[2];
+    if (nz > 1) {
+      mesh["coordsets/coords/origin/z"] = corner[2];
+    }
+
     mesh["coordsets/coords/spacing/dx"] = dx1;
     mesh["coordsets/coords/spacing/dy"] = dx2;
-    mesh["coordsets/coords/spacing/dz"] = dx3;
+    if (nz > 1) {
+      mesh["coordsets/coords/spacing/dz"] = dx3;
+    }
 
     // add the topology
     // this case is simple b/c it's implicitly derived from the coordinate set
@@ -85,7 +91,7 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     mesh["fields/ele_example/association"] = "element";
     // reference the topology this field is defined on by name
     mesh["fields/ele_example/topology"] = "topo";
-    
+
     // set the field values
     int nvar = 0;
     mesh["fields/ele_example/values"].set_external(&vars(nvar, 0, 0, 0), ncells);
