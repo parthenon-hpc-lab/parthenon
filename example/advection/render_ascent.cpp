@@ -60,10 +60,10 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     // create the coordinate set
     mesh["coordsets/coords/type"] = "uniform";
 
-    mesh["coordsets/coords/dims/i"] = nx;
-    mesh["coordsets/coords/dims/j"] = ny;
+    mesh["coordsets/coords/dims/i"] = nx+1;
+    mesh["coordsets/coords/dims/j"] = ny+1;
     if (nz > 1) {
-      mesh["coordsets/coords/dims/k"] = nz;
+      mesh["coordsets/coords/dims/k"] = nz+1;
     }
 
     // add origin and spacing to the coordset (optional)
