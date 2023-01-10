@@ -12,9 +12,10 @@
 
 #include "ascent.hpp"
 #include "conduit_blueprint.hpp"
-
+#include "conduit_relay_io.hpp"
+#include "conduit_relay_io_blueprint.hpp"
 
 void render_ascent(parthenon::Mesh *mesh, parthenon::ParameterInput *pin,
-                   parthenon::SimTime &tm);
+                   parthenon::SimTime const &tm);
 
 #endif // RENDER_ASCENT_HPP_

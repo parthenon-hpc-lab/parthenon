@@ -21,8 +21,8 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/variable_pack.hpp"
-#include "utils/error_checking.hpp"
 #include "render_ascent.hpp"
+#include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
 using namespace parthenon;
@@ -120,15 +120,17 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   }
 }
 
+void PostStepMeshUserWorkInLoop(Mesh *mesh, ParameterInput *pin, SimTime const &tm) {
+  // call ascent
+  render_ascent(mesh, pin, tm);
+}
+
 //========================================================================================
 //! \fn void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm)
 //  \brief Compute L1 error in advection test and output to file
 //========================================================================================
 
 void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
-  // ascent render
-  render_ascent(mesh, pin, tm);
-
   if (!pin->GetOrAddBoolean("Advection", "compute_error", false)) return;
 
   // Initialize errors to zero
