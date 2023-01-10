@@ -342,6 +342,11 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
   add_subdirectory(tst)
 endif()
 
+# include Ascent
+find_package(Ascent REQUIRED
+             NO_DEFAULT_PATH)
+
+
 # Globally turn on useful intel and/or nvcc compiler output
 if (Kokkos_ENABLE_CUDA)
   if(CHECK_REGISTRY_PRESSURE)
