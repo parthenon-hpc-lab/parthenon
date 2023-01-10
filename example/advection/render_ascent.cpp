@@ -15,13 +15,10 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
 
   // call Ascent every ascent_interval timesteps
   const int ascent_interval = 10;
-  static int counter = 0;
-  if (!(counter % ascent_interval == 0)) {
-    counter++;
+  if (!(tm.ncycle % ascent_interval == 0)) {
     return;
   }
-  std::cout << "\nRendering ascent (step = " << counter << ")..." << std::endl;
-  counter++;
+  std::cout << "\nRendering ascent (step = " << tm.ncycle << ")..." << std::endl;
 
   // Ascent needs the MPI communicator we are using
   Ascent a;
