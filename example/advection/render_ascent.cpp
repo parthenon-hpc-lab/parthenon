@@ -49,7 +49,7 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime &tm) {
   mesh["fields/alternating/values"].set_external(vals, numVertices);
 
   // print the mesh we created
-  std::cout << mesh.to_yaml() << std::endl;
+  //std::cout << mesh.to_yaml() << std::endl;
 
   //  make sure the mesh we created conforms to the blueprint
 
@@ -87,7 +87,7 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime &tm) {
   scenes["s1/image_prefix"] = "out_ascent_render_uniform";
 
   // print our full actions tree
-  std::cout << actions.to_yaml() << std::endl;
+  //std::cout << actions.to_yaml() << std::endl;
 
   // execute the actions
   a.execute(actions);
