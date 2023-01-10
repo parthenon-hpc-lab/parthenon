@@ -358,6 +358,12 @@ if (TEST_INTEL_OPTIMIZATION)
   add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
 endif()
 
+find_package(Ascent REQUIRED NO_DEFAULT_PATH)
+target_link_libraries(ascent::ascent_mpi)
+if(CMAKE_CUDA_COMPILER)
+  set_property(TARGET parthenonTargets PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+endif()
+
 add_subdirectory(src)
 add_subdirectory(example)
 add_subdirectory(benchmarks)
