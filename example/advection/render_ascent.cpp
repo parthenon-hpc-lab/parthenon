@@ -17,6 +17,7 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
   const int ascent_interval = 10;
   static int counter = 0;
   if (!(counter % ascent_interval == 0)) {
+    counter++;
     return;
   }
   std::cout << "\nRendering ascent (step = " << counter << ")..." << std::endl;
@@ -39,8 +40,6 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     mesh["state/domain_id"] = thisMeshBlock->gid;
     mesh["state/cycle"] = tm.ncycle;
     mesh["state/time"] = tm.time;
-
-    std::cout << "creating mesh for MeshBlock " << meshblock_name << std::endl;
 
     auto &bounds = thisMeshBlock->cellbounds;
     auto ib = bounds.GetBoundsI(IndexDomain::entire);
