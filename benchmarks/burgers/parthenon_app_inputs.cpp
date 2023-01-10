@@ -55,9 +55,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   pmb->par_for(
       "Burgers::ProblemGenerator", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        const Real x = coords.x1v(i);
-        const Real y = coords.x2v(j);
-        const Real z = coords.x3v(k);
+        const Real x = coords.Xc<1>(i);
+        const Real y = coords.Xc<2>(j);
+        const Real z = coords.Xc<3>(k);
 
         const Real qx = (std::tanh(-20.0 * x) * std::cos(M_PI * x) + 1.0) *
                         std::exp(-30.0 * y * y) * std::exp(-30.0 * z * z);

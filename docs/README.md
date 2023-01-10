@@ -189,9 +189,16 @@ container iterators, and variable packs.
 
 A description of mesh indexing classes [here](mesh/domain.md).
 
+### Coordinates
+
+Accessing coordinate information on each block is described
+[here](coordinates.md). Currently only uniform Cartesian coordinates are
+supported in Parthenon but uniform Spherical and cylindrical coordinates
+specified at compile time are forthcoming.
+
 ### Input file parameter
 
-An overview of input file parameters [here](input.md)
+An overview of input file parameters [here](inputs.md)
 
 Note that all parameters can be overridden (or new parameters added) through the command
 line by appending the parameters to the launch command.
@@ -207,3 +214,4 @@ Global reductions are a common need for downstream applications and can be accom
 ### Solvers
 
 Solvers are still a work in progress in Parthenon, but some basic building blocks are described [here](solvers.md).
+

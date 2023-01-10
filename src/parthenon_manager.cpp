@@ -26,6 +26,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
 #include "driver/driver.hpp"
 #include "globals.hpp"
@@ -33,7 +34,6 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/parthenon_hdf5.hpp"
-#include "refinement/refinement.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
@@ -138,7 +138,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
       pinput->GetOrAddReal("parthenon/time", "recv_bdry_buf_timeout_sec", -1.0);
 
   // set boundary comms buffer switch trigger
-  Globals::cell_centered_refinement::min_num_bufs =
+  Globals::refinement::min_num_bufs =
       pinput->GetOrAddReal("parthenon/mesh", "refinement_in_one_min_nbufs", 64);
 
   return ParthenonStatus::ok;
@@ -259,10 +259,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
   const auto indep_restart_vars =
-      mb.meshblock_data.Get()
-          ->GetVariablesByFlag(
-              {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, false)
-          .vars();
+      GetAnyVariables(mb.meshblock_data.Get()->GetCellVariableVector(),
+                      {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
 
   const auto sparse_info = resfile.GetSparseInfo();
   // create map of sparse field labels to index in the SparseInfo table

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,16 +19,19 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
+#include "amr_criteria/amr_criteria.hpp"
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
+#include "interface/packages.hpp"
 #include "interface/params.hpp"
 #include "interface/sparse_pool.hpp"
 #include "interface/swarm.hpp"
 #include "interface/variable.hpp"
-#include "refinement/amr_criteria.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -39,25 +42,6 @@ class MeshBlockData;
 template <typename T>
 class MeshData;
 
-class StateDescriptor; // forward declaration
-
-class Packages_t {
- public:
-  Packages_t() = default;
-  void Add(const std::shared_ptr<StateDescriptor> &package);
-
-  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
-    return packages_.at(name);
-  }
-
-  const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
-    return packages_;
-  }
-
- private:
-  Dictionary<std::shared_ptr<StateDescriptor>> packages_;
-};
-
 /// We uniquely identify a variable by it's full label, i.e. base name plus sparse ID.
 /// However, sometimes we also need to be able to separate the base name from the sparse
 /// ID. Instead of relying on the fact that they are separated by a "_", we store them
@@ -65,6 +49,9 @@ class Packages_t {
 /// have a sparse ID and a sparse field "foo_3" has base name "foo" and sparse ID 3,
 /// however, the two VarIDs representing them are still considered equal, so that we find
 /// such duplicates
+/// TODO(JMM): Using VarID machinery for prolongation/restriction
+/// implies that all vars in a sparse pool have the same custom
+/// prolongation/restriction operators.
 struct VarID {
   std::string base_name;
   int sparse_id;
@@ -81,6 +68,41 @@ struct VarIDHasher {
   auto operator()(const VarID &vid) const {
     return std::hash<std::string>{}(vid.label());
   }
+};
+
+/// A little container class owning refinement function properties
+/// needed for the state descriptor.
+/// Note using VarID here implies that custom prolongation/restriction
+/// is identical for all sparse vars in a pool.
+/// Note ignores sparse id, so all sparse ids of a
+/// given sparse name have the same prolongation/restriction
+/// operations
+/// TODO(JMM): Should this cache be a static member field of
+/// RefinementFunctions_t? That would mean we could avoid
+/// StateDescriptor entirely.
+struct RefinementFunctionMaps {
+  void Register(const Metadata &m) {
+    if (m.IsRefined()) {
+      const auto &funcs = m.GetRefinementFunctions();
+      bool in_map = (funcs_to_ids.count(funcs) > 0);
+      if (!in_map) {
+        funcs_to_ids[funcs] = next_refinement_id_++;
+      }
+    }
+  }
+
+  std::size_t size() const noexcept { return next_refinement_id_; }
+  // A unique enumeration of refinement functions starting from zero.
+  // This is used for caching which prolongation/restriction operator
+  // matches which BndInfo struct in the buffer packing caches.
+  // the other relevant information is in metadata, so this is all we
+  // need.
+  std::unordered_map<refinement::RefinementFunctions_t, std::size_t,
+                     refinement::RefinementFunctionsHasher>
+      funcs_to_ids;
+
+ private:
+  std::size_t next_refinement_id_ = 0;
 };
 
 /// The state metadata descriptor class.
@@ -150,19 +172,21 @@ class StateDescriptor {
  private:
   // internal function to add dense/sparse fields. Private because outside classes must
   // use the public interface below
-  bool AddFieldImpl(const VarID &vid, const Metadata &m);
+  bool AddFieldImpl(const VarID &vid, const Metadata &m, const VarID &control_vid);
 
   // add a sparse pool
   bool AddSparsePoolImpl(const SparsePool &pool);
 
  public:
-  bool AddField(const std::string &field_name, const Metadata &m) {
+  bool AddField(const std::string &field_name, const Metadata &m,
+                const std::string &controlling_field = "") {
     if (m.IsSet(Metadata::Sparse)) {
       PARTHENON_THROW(
           "Tried to add a sparse field with AddField, use AddSparsePool instead");
     }
-
-    return AddFieldImpl(VarID(field_name), m);
+    VarID controller = VarID(controlling_field);
+    if (controlling_field == "") controller = VarID(field_name);
+    return AddFieldImpl(VarID(field_name), m, controller);
   }
 
   // add sparse pool, all arguments will be forwarded to the SparsePool constructor, so
@@ -202,9 +226,23 @@ class StateDescriptor {
   const auto &AllSwarmValues(const std::string &swarm_name) const noexcept {
     return swarmValueMetadataMap_.at(swarm_name);
   }
+  std::size_t
+  RefinementFuncID(const refinement::RefinementFunctions_t &funcs) const noexcept {
+    return refinementFuncMaps_.funcs_to_ids.at(funcs);
+  }
+  std::size_t RefinementFuncID(const Metadata &m) const noexcept {
+    return RefinementFuncID(m.GetRefinementFunctions());
+  }
+  std::size_t NumRefinementFuncs() const noexcept { return refinementFuncMaps_.size(); }
+  const auto &RefinementFncsToIDs() const noexcept {
+    return refinementFuncMaps_.funcs_to_ids;
+  }
   bool FieldPresent(const std::string &base_name,
                     int sparse_id = InvalidSparseID) const noexcept {
     return metadataMap_.count(VarID(base_name, sparse_id)) > 0;
+  }
+  bool FieldPresent(const VarID &var_id) const noexcept {
+    return metadataMap_.count(var_id) > 0;
   }
   bool SparseBaseNamePresent(const std::string &base_name) const noexcept {
     return sparsePoolMap_.count(base_name) > 0;
@@ -216,6 +254,31 @@ class StateDescriptor {
                          const std::string &swarm_name) const noexcept {
     if (!SwarmPresent(swarm_name)) return false;
     return swarmValueMetadataMap_.at(swarm_name).count(value_name) > 0;
+  }
+
+  std::string GetFieldController(const std::string &field_name) {
+    VarID field_id(field_name);
+    auto controller = allocControllerReverseMap_.find(field_id);
+    PARTHENON_REQUIRE(controller != allocControllerReverseMap_.end(),
+                      "Asking for controlling field that is not in this package (" +
+                          field_name + ")");
+    return controller->second.label();
+  }
+
+  bool ControlVariablesSet() { return (allocControllerMap_.size() > 0); }
+
+  const std::vector<std::string> &GetControlledVariables(const std::string &field_name) {
+    auto iter = allocControllerMap_.find(field_name);
+    if (iter == allocControllerMap_.end()) return nullControl_;
+    return iter->second;
+  }
+
+  std::vector<std::string> GetControlVariables() {
+    std::vector<std::string> vars;
+    for (auto &pair : allocControllerMap_) {
+      vars.push_back(pair.first);
+    }
+    return vars;
   }
 
   // retrieve metadata for a specific field
@@ -283,6 +346,14 @@ class StateDescriptor {
     return AmrTag::derefine;
   }
 
+  void InitNewlyAllocatedVars(MeshData<Real> *rc) const {
+    if (InitNewlyAllocatedVarsMesh != nullptr) return InitNewlyAllocatedVarsMesh(rc);
+  }
+
+  void InitNewlyAllocatedVars(MeshBlockData<Real> *rc) const {
+    if (InitNewlyAllocatedVarsBlock != nullptr) return InitNewlyAllocatedVarsBlock(rc);
+  }
+
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
   std::function<void(MeshBlockData<Real> *rc)> PreFillDerivedBlock = nullptr;
@@ -302,20 +373,30 @@ class StateDescriptor {
 
   std::function<AmrTag(MeshBlockData<Real> *rc)> CheckRefinementBlock = nullptr;
 
+  std::function<void(MeshData<Real> *rc)> InitNewlyAllocatedVarsMesh = nullptr;
+  std::function<void(MeshBlockData<Real> *rc)> InitNewlyAllocatedVarsBlock = nullptr;
+
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
 
  private:
+  void InvertControllerMap();
+
   Params params_;
   const std::string label_;
 
   // for each variable label (full label for sparse variables) hold metadata
   std::unordered_map<VarID, Metadata, VarIDHasher> metadataMap_;
+  std::unordered_map<VarID, VarID, VarIDHasher> allocControllerReverseMap_;
+  std::unordered_map<std::string, std::vector<std::string>> allocControllerMap_;
+  const std::vector<std::string> nullControl_{};
 
   // for each sparse base name hold its sparse pool
   Dictionary<SparsePool> sparsePoolMap_;
 
   Dictionary<Metadata> swarmMetadataMap_;
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
+
+  RefinementFunctionMaps refinementFuncMaps_;
 };
 
 inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {

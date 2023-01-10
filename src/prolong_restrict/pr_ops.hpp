@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -17,15 +17,16 @@
 // so.
 //========================================================================================
 
-#ifndef MESH_MESH_REFINEMENT_OPS_HPP_
-#define MESH_MESH_REFINEMENT_OPS_HPP_
+#ifndef PROLONG_RESTRICT_PR_OPS_HPP_
+#define PROLONG_RESTRICT_PR_OPS_HPP_
 
 #include <algorithm>
 #include <cstring>
 
-#include "coordinates/coordinates.hpp" // for coordinates
-#include "kokkos_abstraction.hpp"      // ParArray
-#include "mesh/domain.hpp"             // for IndesShape
+#include "coordinates/coordinates.hpp"  // for coordinates
+#include "interface/variable_state.hpp" // For variable state in ParArray
+#include "kokkos_abstraction.hpp"       // ParArray
+#include "mesh/domain.hpp"              // for IndesShape
 
 /*
  * Explanation---To be added to docs, when pulled through as a user
@@ -49,13 +50,6 @@
  *
  * However the same call pattern would NOT work with a templated function.
  *
- * Note that inspection of assembly indicates that for if statements
- * that depend on a templated function, the if is resolved at compile
- * time EVEN WITHOUT CONSTEXPR FROM C++17. The compiler is smart
- * enough to optimize out the branching. This is why the template
- * machinery is used, rather than a simple run-time parameter for the
- * dimensionality.
- *
  * TODO(JMM): To enable custom prolongation/restriction operations, we
  * will need to provide (likely in state descriptor so it can be
  * per-variable) a templated function that registers the
@@ -73,9 +67,6 @@
  * TODO(JMM): Function signatures currently are real gross. Might be
  * worth coalescing some of this stuff into structs, rather than
  * unpacking it and then passing it in.
- *
- * TODO(JMM): Compared to the previous version of the code, this one
- * multiplies by zero sometimes.
  */
 
 namespace parthenon {
@@ -87,15 +78,15 @@ template <int DIM>
 KOKKOS_INLINE_FUNCTION Real GetXCC(const Coordinates_t &coords, int i);
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<1>(const Coordinates_t &coords, int i) {
-  return coords.x1v(i);
+  return coords.Xc<1>(i);
 }
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<2>(const Coordinates_t &coords, int i) {
-  return coords.x2v(i);
+  return coords.Xc<2>(i);
 }
 template <>
 KOKKOS_INLINE_FUNCTION Real GetXCC<3>(const Coordinates_t &coords, int i) {
-  return coords.x3v(i);
+  return coords.Xc<3>(i);
 }
 // compute distances from cell center to the nearest center in the + or -
 // coordinate direction. Do so for both coarse and fine grids.
@@ -126,34 +117,40 @@ Real GradMinMod(const Real fc, const Real fm, const Real fp, const Real dxm,
 
 } // namespace util
 
-template <int DIM>
 struct RestrictCellAverage {
+  template <int DIM>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
     const int i = (ci - cib.s) * 2 + ib.s;
     int j = jb.s;
-    if (DIM > 1) {
+    if constexpr (DIM > 1) {
       j = (cj - cjb.s) * 2 + jb.s;
     }
     int k = kb.s;
-    if (DIM > 2) {
+    if constexpr (DIM > 2) {
       k = (ck - ckb.s) * 2 + kb.s;
     }
     // JMM: If dimensionality is wrong, accesses are out of bounds. Only
     // access cells if dimensionality is correct.
-    Real vol[2][2][2], terms[2][2][2];
-    std::memset(&vol[0][0][0], 0., 8 * sizeof(Real));
-    std::memset(&terms[0][0][0], 0., 8 * sizeof(Real));
+    Real vol[2][2][2], terms[2][2][2]; // memset not available on all accelerators
+    for (int ok = 0; ok < 2; ++ok) {
+      for (int oj = 0; oj < 2; ++oj) {
+        for (int oi = 0; oi < 2; ++oi) {
+          vol[ok][oj][oi] = terms[ok][oj][oi] = 0;
+        }
+      }
+    }
     for (int ok = 0; ok < 1 + (DIM > 2); ++ok) {
       for (int oj = 0; oj < 1 + (DIM > 1); ++oj) {
         for (int oi = 0; oi < 1 + 1; ++oi) {
-          vol[ok][oj][oi] = coords.Volume(k + ok, j + oj, i + oi);
+          vol[ok][oj][oi] = coords.CellVolume(k + ok, j + oj, i + oi);
           terms[ok][oj][oi] = vol[ok][oj][oi] * fine(l, m, n, k + ok, j + oj, i + oi);
         }
       }
@@ -169,14 +166,15 @@ struct RestrictCellAverage {
   }
 };
 
-template <int DIM>
 struct ProlongateCellMinMod {
+  template <int DIM>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real> *pcoarse, const ParArray6D<Real> *pfine) {
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
     using namespace util;
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
@@ -192,9 +190,9 @@ struct ProlongateCellMinMod {
 
     int fj = jb.s; // overwritten as needed
     Real dx2fm = 0;
-    Real dx2fp = 0;
+    [[maybe_unused]] Real dx2fp = 0;
     Real gx2c = 0;
-    if (DIM > 1) { // TODO(c++17) make constexpr
+    if constexpr (DIM > 1) {
       Real dx2m, dx2p;
       GetGridSpacings<2>(coords, coarse_coords, cjb, jb, j, &fj, &dx2m, &dx2p, &dx2fm,
                          &dx2fp);
@@ -203,9 +201,9 @@ struct ProlongateCellMinMod {
     }
     int fk = kb.s;
     Real dx3fm = 0;
-    Real dx3fp = 0;
+    [[maybe_unused]] Real dx3fp = 0;
     Real gx3c = 0;
-    if (DIM > 2) { // TODO(c++17) make constexpr
+    if constexpr (DIM > 2) {
       Real dx3m, dx3p;
       GetGridSpacings<3>(coords, coarse_coords, ckb, kb, k, &fk, &dx3m, &dx3p, &dx3fm,
                          &dx3fp);
@@ -217,12 +215,12 @@ struct ProlongateCellMinMod {
     // JMM: Extraneous quantities are zero
     fine(l, m, n, fk, fj, fi) = fc - (gx1c * dx1fm + gx2c * dx2fm + gx3c * dx3fm);
     fine(l, m, n, fk, fj, fi + 1) = fc + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
-    if (DIM > 1) { // TODO(c++17) make constexpr
+    if constexpr (DIM > 1) {
       fine(l, m, n, fk, fj + 1, fi) = fc - (gx1c * dx1fm - gx2c * dx2fp + gx3c * dx3fm);
       fine(l, m, n, fk, fj + 1, fi + 1) =
           fc + (gx1c * dx1fp + gx2c * dx2fp - gx3c * dx3fm);
     }
-    if (DIM > 2) { // TODO(c++17) make constexpr
+    if constexpr (DIM > 2) {
       fine(l, m, n, fk + 1, fj, fi) = fc - (gx1c * dx1fm + gx2c * dx2fm - gx3c * dx3fp);
       fine(l, m, n, fk + 1, fj, fi + 1) =
           fc + (gx1c * dx1fp - gx2c * dx2fm + gx3c * dx3fp);
@@ -236,4 +234,4 @@ struct ProlongateCellMinMod {
 } // namespace refinement_ops
 } // namespace parthenon
 
-#endif // MESH_MESH_REFINEMENT_OPS_HPP_
+#endif // PROLONG_RESTRICT_PR_OPS_HPP_

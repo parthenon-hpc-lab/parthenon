@@ -16,13 +16,13 @@
 #include <vector>
 
 // Local Includes
+#include "amr_criteria/refinement_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
 #include "parthenon/driver.hpp"
-#include "refinement/refinement.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "stochastic_subgrid_driver.hpp"
 #include "stochastic_subgrid_package.hpp"
 
@@ -155,15 +155,8 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
                                mdudt.get(), beta * dt, mc1.get());
 
       // do boundary exchange
-      auto send =
-          tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<any>, mc1);
-      auto recv =
-          tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<any>, mc1);
-      auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<any>, mc1);
-      if (pmesh->multilevel) {
-        tl.AddTask(set, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
-                   mc1.get());
-      }
+      parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(update, tl, mc1,
+                                                               pmesh->multilevel);
     }
   }
 

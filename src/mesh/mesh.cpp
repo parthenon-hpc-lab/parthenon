@@ -47,10 +47,10 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/partition_stl_containers.hpp"
@@ -1065,6 +1065,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
           pmb->ProblemGenerator(pmb.get(), pin);
         }
       }
+      std::for_each(block_list.begin(), block_list.end(),
+                    [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
 
     // Build densely populated communication tags
@@ -1104,19 +1106,20 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     } while (!all_received);
 
-    // unpack FillGhost variables
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
+      // unpack FillGhost variables
       cell_centered_bvars::SetBoundaries(md);
+      // restrict ghosts---needed for physical bounds
       if (multilevel) {
-        cell_centered_refinement::RestrictPhysicalBounds(md.get());
+        cell_centered_bvars::RestrictGhostHalos(md, true);
       }
     }
 
     //  Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
       auto &mbd = block_list[i]->meshblock_data.Get();
-      if (multilevel) {
+      if (multilevel) { // TODO(JMM): Do with meshdata
         ProlongateBoundaries(mbd);
       }
       ApplyBoundaryConditions(mbd);
@@ -1280,7 +1283,9 @@ void Mesh::SetupMPIComms() {
 
   for (auto &pair : resolved_packages->AllFields()) {
     auto &metadata = pair.second;
-    if (metadata.IsSet(Metadata::FillGhost)) {
+    // Create both boundary and flux communicators for everything with either FillGhost
+    // or WithFluxes just to be safe
+    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes)) {
       MPI_Comm mpi_comm;
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});

@@ -16,15 +16,16 @@
 #include <vector>
 
 // Local Includes
+#include "amr_criteria/amr_criteria.hpp"
+#include "amr_criteria/refinement_package.hpp"
 #include "burgers_driver.hpp"
 #include "burgers_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
 #include "parthenon/driver.hpp"
-#include "refinement/refinement.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -130,8 +131,8 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
 
     if (pmesh->multilevel) {
-      tl.AddTask(set | set_local,
-                 parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
+      tl.AddTask(set | set_local, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1,
+                 false);
     }
     // estimate next time step
     if (stage == integrator->nstages) {

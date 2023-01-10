@@ -11,13 +11,14 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "refinement/refinement.hpp"
+#include "amr_criteria/refinement_package.hpp"
 
 #include <algorithm>
 #include <exception>
 #include <memory>
 #include <utility>
 
+#include "amr_criteria/amr_criteria.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -25,7 +26,6 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
-#include "refinement/amr_criteria.hpp"
 
 namespace parthenon {
 namespace Refinement {
@@ -106,6 +106,36 @@ AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
         }
         if (ndim > 2) {
           d = 0.5 * std::abs((q(k + 1, j, i) - q(k - 1, j, i))) / (scale + TINY_NUMBER);
+          maxd = (d > maxd ? d : maxd);
+        }
+      },
+      Kokkos::Max<Real>(maxd));
+
+  if (maxd > refine_criteria) return AmrTag::refine;
+  if (maxd < derefine_criteria) return AmrTag::derefine;
+  return AmrTag::same;
+}
+
+AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
+                        const Real refine_criteria, const Real derefine_criteria) {
+  const int ndim = 1 + (bnds.je > bnds.js) + (bnds.ke > bnds.ks);
+  Real maxd = 0.0;
+  par_reduce(
+      loop_pattern_mdrange_tag, "refinement second derivative", DevExecSpace(), bnds.ks,
+      bnds.ke, bnds.js, bnds.je, bnds.is, bnds.ie,
+      KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
+        Real aqt = std::abs(q(k, j, i)) + TINY_NUMBER;
+        Real qavg = 0.5 * (q(k, j, i + 1) + q(k, j, i - 1));
+        Real d = std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
+        maxd = (d > maxd ? d : maxd);
+        if (ndim > 1) {
+          qavg = 0.5 * (q(k, j + 1, i) + q(k, j - 1, i));
+          d = std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
+          maxd = (d > maxd ? d : maxd);
+        }
+        if (ndim > 2) {
+          qavg = 0.5 * (q(k + 1, j, i) + q(k - 1, j, i));
+          d = std::abs(qavg - q(k, j, i)) / (std::abs(qavg) + aqt);
           maxd = (d > maxd ? d : maxd);
         }
       },

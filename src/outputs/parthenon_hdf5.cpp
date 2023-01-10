@@ -24,6 +24,7 @@
 #ifdef ENABLE_HDF5
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <set>
 #include <type_traits>
@@ -676,15 +677,15 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       auto &pmb = pm->block_list[b];
 
       for (int i = out_ib.s; i <= out_ib.e + offset; ++i) {
-        loc_x[idx_x++] = face ? pmb->coords.x1f(0, 0, i) : pmb->coords.x1v(0, 0, i);
+        loc_x[idx_x++] = face ? pmb->coords.Xf<1>(i) : pmb->coords.Xc<1>(i);
       }
 
       for (int j = out_jb.s; j <= out_jb.e + offset; ++j) {
-        loc_y[idx_y++] = face ? pmb->coords.x2f(0, j, 0) : pmb->coords.x2v(0, j, 0);
+        loc_y[idx_y++] = face ? pmb->coords.Xf<2>(j) : pmb->coords.Xc<2>(j);
       }
 
       for (int k = out_kb.s; k <= out_kb.e + offset; ++k) {
-        loc_z[idx_z++] = face ? pmb->coords.x3f(k, 0, 0) : pmb->coords.x3v(k, 0, 0);
+        loc_z[idx_z++] = face ? pmb->coords.Xf<3>(k) : pmb->coords.Xc<3>(k);
       }
     }
 
@@ -740,16 +741,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // simulation, but not all variables may be allocated on all blocks
 
   auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
+    auto &var_vec = pmb->meshblock_data.Get()->GetCellVariableVector();
     if (restart_) {
       // get all vars with flag Independent OR restart
-      return pmb->meshblock_data.Get()
-          ->GetVariablesByFlag(
-              {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, false)
-          .vars();
+      return GetAnyVariables(
+          var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
     } else {
-      return pmb->meshblock_data.Get()
-          ->GetVariablesByName(output_params.variables)
-          .vars();
+      return GetAnyVariables(var_vec, output_params.variables);
     }
   };
 

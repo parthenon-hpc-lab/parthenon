@@ -34,7 +34,7 @@
 #include "globals.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/state_descriptor.hpp"
+#include "interface/packages.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -50,6 +50,7 @@ class Mesh;
 class MeshBlockTree;
 class MeshRefinement;
 class ParameterInput;
+class StateDescriptor;
 
 // Inner loop default pattern
 // - Defined outside of the MeshBlock class because it does not require an exec space
@@ -171,7 +172,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     Kokkos::deep_copy(exec_space, dst, src);
   }
 
-  void AllocateSparse(std::string const &label);
+  void AllocateSparse(std::string const &label, bool only_control = false,
+                      bool flag_uninitialized = false);
 
   void AllocSparseID(std::string const &base_name, const int sparse_id) {
     AllocateSparse(MakeVarLabel(base_name, sparse_id));
@@ -197,6 +199,12 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     return true;
   }
 #endif
+
+  void SetAllVariablesToInitialized() {
+    auto &stages = meshblock_data.Stages();
+    std::for_each(stages.begin(), stages.end(),
+                  [](auto &pair) { pair.second->SetAllVariablesToInitialized(); });
+  }
 
   template <class... Args>
   inline void par_for(Args &&...args) {

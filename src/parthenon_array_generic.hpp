@@ -238,27 +238,6 @@ class ParArrayGeneric : public State {
   }
   auto GetHostMirrorAndCopy() { return GetMirrorAndCopy(Kokkos::HostSpace()); }
 
-  template <typename... Args>
-  KOKKOS_INLINE_FUNCTION auto Slice(Args... args) const {
-    auto v = Kokkos::subview(data_, std::forward<Args>(args)...);
-    return ParArrayGeneric<decltype(v), State>(v, *this);
-  }
-
-  // translates into auto dest = src.SliceD<dim>(std::make_pair(indx,indx+nvar))
-  template <std::size_t N = Data::rank>
-  auto SliceD(index_pair_t slc) const {
-    static_assert(N <= Data::rank, "Slice dim larger than data rank");
-    static_assert(N > 0, "Slice dimension negative");
-    return SliceD(std::make_index_sequence<Data::rank - N>{},
-                  std::make_index_sequence<N - 1>{}, slc);
-  }
-
-  // translates into auto dest = src.SliceD<dim>(indx,nvar)
-  template <std::size_t N = Data::rank>
-  auto SliceD(const int indx, const int nvar) {
-    return SliceD<N>(std::make_pair(indx, indx + nvar));
-  }
-
   // Reset size to 0
   // Note: Copies of this array won't be affected
   void Reset() { data_ = Data(); }
@@ -314,12 +293,6 @@ class ParArrayGeneric : public State {
     return data_(((void)I, 0)..., args...);
   }
 
-  template <std::size_t... I, std::size_t... J>
-  auto SliceD(std::index_sequence<I...>, std::index_sequence<J...>,
-              index_pair_t slc) const {
-    return Slice(((void)I, std::make_pair(0, 1))..., slc, ((void)J, Kokkos::ALL())...);
-  }
-
   Data data_;
 
   template <class PA>
@@ -338,6 +311,14 @@ inline bool UseSameResource(const PA &pa1, const PA &pa2) {
 // Overload utility functions in the Kokkos namespace on ParArrays so old code that
 // assumed ParArrayGeneric = Kokkos::View does not need to be changed
 namespace Kokkos {
+
+// JMM: for some reason this works better than Slice. And it seems
+// like we're doing evil Kokkos namespace overloads anyway so...
+template <class U, class SU, typename... Args>
+inline auto subview(const parthenon::ParArrayGeneric<U, SU> &arr, Args... args) {
+  auto v = Kokkos::subview(static_cast<U>(arr), std::forward<Args>(args)...);
+  return parthenon::ParArrayGeneric<decltype(v), SU>(v, arr);
+}
 
 template <class Space, class U, class SU>
 inline auto create_mirror_view_and_copy(Space const &space,

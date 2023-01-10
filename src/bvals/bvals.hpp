@@ -179,10 +179,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // ------
   void ProlongateBoundaries();
 
-  int NumRestrictions();
-  void FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
-                               int &idx_start, std::shared_ptr<CellVariable<Real>> v);
-
  private:
   // ptr to MeshBlock containing this BoundaryValues
   std::weak_ptr<MeshBlock> pmy_block_;
@@ -197,11 +193,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // (the next function is also called within 3x nested loops over nk,nj,ni)
   void ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei, int sj, int ej,
                              int sk, int ek);
-  void ComputeRestrictionIndices_(const NeighborBlock &nb, int nk, int nj, int ni,
-                                  int &ris, int &rie, int &rjs, int &rje, int &rks,
-                                  int &rke);
-  void ComputeRestrictionBounds_(const NeighborBlock &nb, IndexRange &ni, IndexRange &nj,
-                                 IndexRange &nk);
   void ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
                                   IndexRange &bk);
 

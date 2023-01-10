@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef REFINEMENT_AMR_CRITERIA_HPP_
-#define REFINEMENT_AMR_CRITERIA_HPP_
+#ifndef AMR_CRITERIA_AMR_CRITERIA_HPP_
+#define AMR_CRITERIA_AMR_CRITERIA_HPP_
 
 #include <memory>
 #include <string>
@@ -49,6 +49,12 @@ struct AMRFirstDerivative : public AMRCriteria {
   AmrTag operator()(const MeshBlockData<Real> *rc) const override;
 };
 
+struct AMRSecondDerivative : public AMRCriteria {
+  AMRSecondDerivative(ParameterInput *pin, std::string &block_name)
+      : AMRCriteria(pin, block_name) {}
+  AmrTag operator()(const MeshBlockData<Real> *rc) const override;
+};
+
 } // namespace parthenon
 
-#endif // REFINEMENT_AMR_CRITERIA_HPP_
+#endif // AMR_CRITERIA_AMR_CRITERIA_HPP_

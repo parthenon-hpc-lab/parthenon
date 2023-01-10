@@ -39,8 +39,6 @@ enum class BufferState { stale, sending, sending_null, received, received_null }
 
 enum class BuffCommType { sender, receiver, both, sparse_receiver };
 
-enum class BoundaryType : int { local, nonlocal, any, flxcor_send, flxcor_recv };
-
 template <class T>
 class CommBuffer {
  private:
