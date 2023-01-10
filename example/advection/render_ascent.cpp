@@ -1,5 +1,6 @@
 #include "render_ascent.hpp"
 #include "defs.hpp"
+#include "mesh/domain.hpp"
 
 using namespace parthenon::package::prelude;
 using namespace parthenon;
@@ -30,25 +31,28 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
 
   // vector of all meshes
   std::vector<Node> mesh_vec;
-  std::vector<DataType> data_vec;
 
-  for (auto [name, thisMeshData] : par_mesh->mesh_data.Stages()) {
-    std::cout << "creating mesh for MeshBlock " << thisMeshData << std::endl;
+  for (auto &thisMeshBlock : par_mesh->block_list) {
+    std::cout << "creating mesh for MeshBlock " << thisMeshBlock << std::endl;
 
-    IndexRange ib = thisMeshData->GetBoundsI(IndexDomain::entire);
-    IndexRange jb = thisMeshData->GetBoundsJ(IndexDomain::entire);
-    IndexRange kb = thisMeshData->GetBoundsK(IndexDomain::entire);
-    int nx = ib.e - ib.s + 1;
-    int ny = jb.e - jb.s + 1;
-    int nz = kb.e - kb.s + 1;
+    auto &blockSize = thisMeshBlock->block_size;
+    int nx = blockSize.nx1;
+    int ny = blockSize.nx2;
+    int nz = blockSize.nx3;
 
-    std::vector<std::string> vars({"U"});
-    auto &v = thisMeshData->PackVariables(vars);
-    auto &coords = v.GetCoords(0);
+    auto &bounds = thisMeshBlock->cellbounds;
+    auto ib = bounds.GetBoundsI(IndexDomain::entire);
+    auto jb = bounds.GetBoundsJ(IndexDomain::entire);
+    auto kb = bounds.GetBoundsK(IndexDomain::entire);
+
+    auto &coords = thisMeshBlock->coords;
     Real dx1 = coords.CellWidth<X1DIR>(ib.s, jb.s, kb.s);
     Real dx2 = coords.CellWidth<X2DIR>(ib.s, jb.s, kb.s);
     Real dx3 = coords.CellWidth<X3DIR>(ib.s, jb.s, kb.s);
     std::array<Real, 3> corner = coords.GetXmin();
+
+    auto &mbd = thisMeshBlock->meshblock_data.Get();
+    auto &vars = mbd->PackVariables();
 
     // create a Conduit node to hold our mesh data
     // (we need to save this in a list for rendering)
@@ -56,9 +60,9 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
 
     // create the coordinate set
     mesh["coordsets/coords/type"] = "uniform";
-    mesh["coordsets/coords/dims/i"] = nx + 1;
-    mesh["coordsets/coords/dims/j"] = ny + 1;
-    mesh["coordsets/coords/dims/k"] = nz + 1;
+    mesh["coordsets/coords/dims/i"] = nx;
+    mesh["coordsets/coords/dims/j"] = ny;
+    mesh["coordsets/coords/dims/k"] = nz;
     uint64_t ncells = nx * ny * nz;
 
     // add origin and spacing to the coordset (optional)
@@ -82,14 +86,10 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     // reference the topology this field is defined on by name
     mesh["fields/ele_example/topology"] = "topo";
     // set the field values
-    auto data_values = DataType::float64(ncells);
-    mesh["fields/ele_example/values"].set(data_values);
+    int nvar = 0;
+    mesh["fields/ele_example/values"].set_external(&vars(nvar, 0, 0, 0), ncells);
 
     float64 *ele_vals_ptr = mesh["fields/ele_example/values"].value();
-
-    for (int i = 0; i < ncells; i++) {
-      ele_vals_ptr[i] = float64(i);
-    }
 
     // make sure we conform:
     Node verify_info;
@@ -105,7 +105,6 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
                                              "json");
 
     mesh_vec.emplace_back(mesh);
-    data_vec.emplace_back(data_values);
   }
 
   for (auto &mesh : mesh_vec) {
