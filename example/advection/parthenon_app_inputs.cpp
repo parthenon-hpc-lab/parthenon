@@ -22,6 +22,7 @@
 #include "defs.hpp"
 #include "interface/variable_pack.hpp"
 #include "utils/error_checking.hpp"
+#include "render_ascent.hpp"
 
 using namespace parthenon::package::prelude;
 using namespace parthenon;
@@ -125,6 +126,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 //========================================================================================
 
 void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
+  // ascent render
+  render_ascent(mesh, pin, tm);
+
   if (!pin->GetOrAddBoolean("Advection", "compute_error", false)) return;
 
   // Initialize errors to zero
