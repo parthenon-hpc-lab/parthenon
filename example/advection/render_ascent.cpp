@@ -20,7 +20,7 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     return;
   }
 
-  std::cout << "Rendering ascent (step = " << counter << ")..." << std::endl;
+  std::cout << "\nRendering ascent (step = " << counter << ")..." << std::endl;
 
   // Ascent needs the MPI communicator we are using
   Ascent a;
@@ -30,8 +30,11 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
 
   // vector of all meshes
   std::vector<Node> mesh_vec;
+  std::vector<DataType> data_vec;
 
   for (auto [name, thisMeshData] : par_mesh->mesh_data.Stages()) {
+    std::cout << "creating mesh for MeshBlock " << thisMeshData << std::endl;
+
     IndexRange ib = thisMeshData->GetBoundsI(IndexDomain::entire);
     IndexRange jb = thisMeshData->GetBoundsJ(IndexDomain::entire);
     IndexRange kb = thisMeshData->GetBoundsK(IndexDomain::entire);
@@ -42,9 +45,9 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     std::vector<std::string> vars({"U"});
     auto &v = thisMeshData->PackVariables(vars);
     auto &coords = v.GetCoords(0);
-    Real dx1 = coords.CellWidth<X1DIR>(0, 0, 0);
-    Real dx2 = coords.CellWidth<X2DIR>(0, 0, 0);
-    Real dx3 = coords.CellWidth<X3DIR>(0, 0, 0);
+    Real dx1 = coords.CellWidth<X1DIR>(ib.s, jb.s, kb.s);
+    Real dx2 = coords.CellWidth<X2DIR>(ib.s, jb.s, kb.s);
+    Real dx3 = coords.CellWidth<X3DIR>(ib.s, jb.s, kb.s);
     std::array<Real, 3> corner = coords.GetXmin();
 
     // create a Conduit node to hold our mesh data
@@ -72,21 +75,20 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     // reference the coordinate set by name
     mesh["topologies/topo/coordset"] = "coords";
 
-    // for each component:
-    {
-      // add a simple element-associated field
-      mesh["fields/ele_example/association"] = "element";
-      // reference the topology this field is defined on by name
-      mesh["fields/ele_example/topology"] = "topo";
-      // set the field values
-      auto data_values = DataType::float64(ncells);
-      mesh["fields/ele_example/values"].set(data_values);
+    // for each variable:
 
-      float64 *ele_vals_ptr = mesh["fields/ele_example/values"].value();
+    // add a simple element-associated field
+    mesh["fields/ele_example/association"] = "element";
+    // reference the topology this field is defined on by name
+    mesh["fields/ele_example/topology"] = "topo";
+    // set the field values
+    auto data_values = DataType::float64(ncells);
+    mesh["fields/ele_example/values"].set(data_values);
 
-      for (int i = 0; i < ncells; i++) {
-        ele_vals_ptr[i] = float64(i);
-      }
+    float64 *ele_vals_ptr = mesh["fields/ele_example/values"].value();
+
+    for (int i = 0; i < ncells; i++) {
+      ele_vals_ptr[i] = float64(i);
     }
 
     // make sure we conform:
@@ -103,6 +105,7 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
                                              "json");
 
     mesh_vec.emplace_back(mesh);
+    data_vec.emplace_back(data_values);
   }
 
   for (auto &mesh : mesh_vec) {
