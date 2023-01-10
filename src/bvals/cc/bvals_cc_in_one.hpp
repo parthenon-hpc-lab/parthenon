@@ -142,10 +142,6 @@ struct BvarsSubCache_t {
 
   BufferCache_t recv_bnd_info{};
   BufferCache_t::host_mirror_type recv_bnd_info_h{};
-  
-  std::vector<std::vector<int>> send_status_arrs;
-  std::vector<std::vector<std::pair<int, int>>> rank_to_ibuf_tags, rank_to_ibuf_tags_recv;
-  bool null_array_received = false;
 };
 
 struct BvarsCache_t {
