@@ -47,6 +47,10 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     int nz = kb.e - kb.s + 1;
     uint64_t ncells = nx * ny * nz;
 
+    auto ib_int = bounds.GetBoundsI(IndexDomain::interior);
+    auto jb_int = bounds.GetBoundsJ(IndexDomain::interior);
+    auto kb_int = bounds.GetBoundsK(IndexDomain::interior);
+
     auto &coords = thisMeshBlock->coords;
     Real dx1 = coords.CellWidth<X1DIR>(ib.s, jb.s, kb.s);
     Real dx2 = coords.CellWidth<X2DIR>(ib.s, jb.s, kb.s);
@@ -83,6 +87,26 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     mesh["topologies/topo/type"] = "uniform";
     // reference the coordinate set by name
     mesh["topologies/topo/coordset"] = "coords";
+
+    // indicate ghost zones with ascent_ghosts set to 1
+    Node &n_field = mesh["fields/ascent_ghosts"];
+    n_field["association"] = "element";
+    n_field["topology"] = "topo";
+    n_field["values"].set(DataType::int32(ncells));
+    int32_array vals_array = n_field["values"].value();
+
+    int idx = 0;
+    for (int k = kb.s; k <= kb.e; k++) {
+      for (int j = jb.s; j <= jb.e; j++) {
+        for (int i = ib.s; i <= ib.e; i++) {
+          if ((i < ib_int.s) || (ib_int.e < i) || (j < jb_int.s) || (jb_int.e < j) ||
+              ((nz > 1) && ((k < kb_int.s) || (kb_int.e < k)))) {
+            vals_array[idx] = 1;
+          }
+          idx++;
+        }
+      }
+    }
 
     // for each variable:
 
