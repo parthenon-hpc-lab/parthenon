@@ -354,10 +354,6 @@ if (TEST_INTEL_OPTIMIZATION)
 endif()
 
 find_package(Ascent REQUIRED NO_DEFAULT_PATH)
-target_link_libraries(ascent::ascent_mpi)
-if(CMAKE_CUDA_COMPILER)
-  set_property(TARGET parthenonTargets PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-endif()
 
 add_subdirectory(src)
 add_subdirectory(example)
