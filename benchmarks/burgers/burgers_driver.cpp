@@ -16,15 +16,16 @@
 #include <vector>
 
 // Local Includes
+#include "amr_criteria/amr_criteria.hpp"
+#include "amr_criteria/refinement_package.hpp"
 #include "burgers_driver.hpp"
 #include "burgers_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_in_one.hpp"
 #include "parthenon/driver.hpp"
-#include "refinement/refinement.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
 using namespace parthenon::driver::prelude;
 

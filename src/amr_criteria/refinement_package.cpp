@@ -11,13 +11,14 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "refinement/refinement.hpp"
+#include "amr_criteria/refinement_package.hpp"
 
 #include <algorithm>
 #include <exception>
 #include <memory>
 #include <utility>
 
+#include "amr_criteria/amr_criteria.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -25,7 +26,6 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
-#include "refinement/amr_criteria.hpp"
 
 namespace parthenon {
 namespace Refinement {

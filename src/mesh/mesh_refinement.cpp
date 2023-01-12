@@ -17,6 +17,12 @@
 //! \file mesh_refinement.cpp
 //  \brief implements functions for static/adaptive mesh refinement
 
+// TODO(JMM): The MeshRefinement can likely be simplified and/or
+// removed entirely as we clean up our machinery and move to
+// refinement-in-one everywhere in the code. I leave it in the `mesh`
+// directory since it hooks into `Mesh` and `BoundaryValues` but in
+// the long term this should be cleaned up.
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -26,18 +32,18 @@
 #include <string>
 #include <tuple>
 
+#include "amr_criteria/refinement_package.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
-#include "mesh/mesh_refinement_loops.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/refinement_in_one.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "refinement/refinement.hpp"
+#include "prolong_restrict/pr_loops.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

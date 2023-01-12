@@ -17,8 +17,8 @@
 // so.
 //========================================================================================
 
-#ifndef MESH_MESH_REFINEMENT_OPS_HPP_
-#define MESH_MESH_REFINEMENT_OPS_HPP_
+#ifndef PROLONG_RESTRICT_PR_OPS_HPP_
+#define PROLONG_RESTRICT_PR_OPS_HPP_
 
 #include <algorithm>
 #include <cstring>
@@ -234,4 +234,4 @@ struct ProlongateCellMinMod {
 } // namespace refinement_ops
 } // namespace parthenon
 
-#endif // MESH_MESH_REFINEMENT_OPS_HPP_
+#endif // PROLONG_RESTRICT_PR_OPS_HPP_

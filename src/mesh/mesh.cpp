@@ -47,10 +47,10 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
-#include "mesh/refinement_in_one.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/partition_stl_containers.hpp"
@@ -1283,7 +1283,9 @@ void Mesh::SetupMPIComms() {
 
   for (auto &pair : resolved_packages->AllFields()) {
     auto &metadata = pair.second;
-    if (metadata.IsSet(Metadata::FillGhost)) {
+    // Create both boundary and flux communicators for everything with either FillGhost
+    // or WithFluxes just to be safe
+    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes)) {
       MPI_Comm mpi_comm;
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});

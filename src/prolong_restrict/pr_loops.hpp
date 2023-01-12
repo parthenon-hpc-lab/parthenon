@@ -17,8 +17,8 @@
 // so.
 //========================================================================================
 
-#ifndef MESH_MESH_REFINEMENT_LOOPS_HPP_
-#define MESH_MESH_REFINEMENT_LOOPS_HPP_
+#ifndef PROLONG_RESTRICT_PR_LOOPS_HPP_
+#define PROLONG_RESTRICT_PR_LOOPS_HPP_
 
 #include <algorithm>
 #include <utility> // std::forward
@@ -174,4 +174,4 @@ inline void DoProlongationRestrictionOp(const IndexShape &cellbnds, Args &&...ar
 } // namespace refinement
 } // namespace parthenon
 
-#endif // MESH_MESH_REFINEMENT_LOOPS_HPP_
+#endif // PROLONG_RESTRICT_PR_LOOPS_HPP_

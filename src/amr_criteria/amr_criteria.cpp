@@ -10,15 +10,15 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "refinement/amr_criteria.hpp"
+#include "amr_criteria/amr_criteria.hpp"
 
 #include <memory>
 
+#include "amr_criteria/refinement_package.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
-#include "refinement/refinement.hpp"
 
 namespace parthenon {
 

@@ -26,6 +26,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
 #include "driver/driver.hpp"
 #include "globals.hpp"
@@ -33,7 +34,6 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/parthenon_hdf5.hpp"
-#include "refinement/refinement.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
