@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "Parthenon"
-copyright = "2022, Triad National Security"
+copyright = "2023, The Parthenon Collaboration and Triad National Security"
 author = "The Parthenon Collaboration"
 
 
