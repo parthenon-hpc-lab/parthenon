@@ -25,6 +25,7 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 805]](https://github.com/parthenon-hpc-lab/parthenon/pull/805) Add Crusher/Frontier machine file and bump Kokkos to 3.7.01
 - [[PR 797]](https://github.com/parthenon-hpc-lab/parthenon/pull/797) Fix boundary flux correction boundary logic 
 - [[PR 800]](https://github.com/parthenon-hpc-lab/parthenon/pull/800) Fix rare and intermitted race condition to set allocation status
 - [[PR 777]](https://github.com/parthenon-hpc-lab/parthenon/pull/784) Fix double-output of last file in rare cases 
