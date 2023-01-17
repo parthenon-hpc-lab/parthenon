@@ -19,4 +19,5 @@ detail.  Why is this change required?  What problem does it solve?-->
 - [ ] Code is formatted
 - [ ] Changes are summarized in CHANGELOG.md
 - [ ] CI has been triggered on [Darwin](https://re-git.lanl.gov/eap-oss/parthenon/-/pipelines) for performance regression tests.
+- [ ] Docs build
 - [ ] (@lanl.gov employees) Update copyright on changed files
