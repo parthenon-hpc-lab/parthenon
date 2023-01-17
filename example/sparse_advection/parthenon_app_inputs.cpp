@@ -66,9 +66,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++) {
-          auto x = coords.x1v(i) - x0;
-          auto y = coords.x2v(j) - y0;
-          auto z = coords.x3v(k);
+          auto x = coords.Xc<1>(i) - x0;
+          auto y = coords.Xc<2>(j) - y0;
+          auto z = coords.Xc<3>(k);
           auto r2 = x * x + y * y + z * z;
           if (r2 < this_size) {
             any_nonzero = true;
@@ -98,9 +98,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       pmb->par_for(
           "SparseAdvection::ProblemGenerator", 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e,
           ib.s, ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-            auto x = coords.x1v(i) - x0;
-            auto y = coords.x2v(j) - y0;
-            auto z = coords.x3v(k);
+            auto x = coords.Xc<1>(i) - x0;
+            auto y = coords.Xc<2>(j) - y0;
+            auto z = coords.Xc<3>(k);
             auto r2 = x * x + y * y + z * z;
             v(n, k, j, i) = (r2 < this_size ? 1.0 : 0.0);
           });

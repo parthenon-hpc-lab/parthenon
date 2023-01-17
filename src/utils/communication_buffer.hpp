@@ -39,8 +39,6 @@ enum class BufferState { stale, sending, sending_null, received, received_null }
 
 enum class BuffCommType { sender, receiver, both, sparse_receiver };
 
-enum class BoundaryType : int { local, nonlocal, any, flxcor_send, flxcor_recv };
-
 template <class T>
 class CommBuffer {
  private:
@@ -322,8 +320,8 @@ bool CommBuffer<T>::TryReceive() noexcept {
       *comm_type_ == BuffCommType::sparse_receiver) {
 #ifdef MPI_PARALLEL
     (*nrecv_tries_)++;
-    PARTHENON_REQUIRE(*nrecv_tries_ < 1e6,
-                      "MPI probably hanging after 1e6 receive tries.");
+    PARTHENON_REQUIRE(*nrecv_tries_ < 1e8,
+                      "MPI probably hanging after 1e8 receive tries.");
 
     TryStartReceive();
 

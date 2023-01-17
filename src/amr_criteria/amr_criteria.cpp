@@ -10,15 +10,15 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "refinement/amr_criteria.hpp"
+#include "amr_criteria/amr_criteria.hpp"
 
 #include <memory>
 
+#include "amr_criteria/refinement_package.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
-#include "refinement/refinement.hpp"
 
 namespace parthenon {
 
@@ -70,6 +70,8 @@ std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string &criteria,
                                                           std::string &block_name) {
   if (criteria == "derivative_order_1")
     return std::make_shared<AMRFirstDerivative>(pin, block_name);
+  if (criteria == "derivative_order_2")
+    return std::make_shared<AMRSecondDerivative>(pin, block_name);
   throw std::invalid_argument("\n  Invalid selection for refinment method in " +
                               block_name + ": " + criteria);
 }
@@ -86,9 +88,19 @@ AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
     return AmrTag::same;
   }
   auto bnds = GetBounds(rc);
-  auto q = rc->Get(field).data.Slice(comp6, comp5, comp4, Kokkos::ALL(), Kokkos::ALL(),
-                                     Kokkos::ALL());
+  auto q = Kokkos::subview(rc->Get(field).data, comp6, comp5, comp4, Kokkos::ALL(),
+                           Kokkos::ALL(), Kokkos::ALL());
   return Refinement::FirstDerivative(bnds, q, refine_criteria, derefine_criteria);
+}
+
+AmrTag AMRSecondDerivative::operator()(const MeshBlockData<Real> *rc) const {
+  if (!rc->HasCellVariable(field) || !rc->IsAllocated(field)) {
+    return AmrTag::same;
+  }
+  auto bnds = GetBounds(rc);
+  auto q = Kokkos::subview(rc->Get(field).data, comp6, comp5, comp4, Kokkos::ALL(),
+                           Kokkos::ALL(), Kokkos::ALL());
+  return Refinement::SecondDerivative(bnds, q, refine_criteria, derefine_criteria);
 }
 
 } // namespace parthenon

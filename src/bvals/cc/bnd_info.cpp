@@ -31,7 +31,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -236,6 +236,75 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
   }
 }
 
+void ComputeRestrictionBounds(IndexRange &ni, IndexRange &nj, IndexRange &nk,
+                              const NeighborBlock &nb,
+                              const std::shared_ptr<MeshBlock> &pmb) {
+  auto getbounds = [](const int nbx, IndexRange &n) {
+    n.s = std::max(nbx - 1, -1); // can be -1 or 0
+    n.e = std::min(nbx + 1, 1);  // can be 0 or 1
+  };
+  getbounds(nb.ni.ox1, ni);
+  if (pmb->block_size.nx2 == 1) {
+    nj.s = nj.e = 0;
+  } else {
+    getbounds(nb.ni.ox2, nj);
+  }
+
+  if (pmb->block_size.nx3 == 1) {
+    nk.s = nk.e = 0;
+  } else {
+    getbounds(nb.ni.ox3, nk);
+  }
+}
+
+// JMM: Finds the pieces of the coarse buffer, both interior and in
+// ghost halo, needed to be restricted to enable prolongation. This is
+// both the boundary buffer itself, and the regions *around* it.
+//
+// Here nk, nj, ni are offset indices. They indicate offsets from this
+// piece of the ghost halo to other pieces that may be relevant for
+// getting physical boundary conditions right.
+// They point to other neighbor blocks.
+// ris, rie, rjs, rje, rks, rke are the start and end i,j,k, indices
+// of the region of the ghost halo to restrict.
+void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, int &rje,
+                         int &rks, int &rke, const NeighborBlock &nb,
+                         std::shared_ptr<MeshBlock> &pmb) {
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
+  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
+  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
+
+  // JMM: rs and re are the bounds of the region to restrict
+  // n is the offset index from this boundary/ghost halo to other
+  // regions of the coarse buffer
+  // ox is the offset index of the neighbor block this boundary/ghost
+  // halo communicates with.
+  // note this func is called *per axis* so interior here might still
+  // be an edge or corner.
+  auto CalcIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
+    if (n == 0) { // need to fill "interior" of coarse buffer on this axis
+      rs = b.s;
+      re = b.e;
+      if (ox == 1) {
+        rs = b.e;
+      } else if (ox == -1) {
+        re = b.s;
+      }
+    } else if (n == 1) { // need to fill "edges" or "corners" on this axis
+      rs = b.e + 1;      // TODO(JMM): Is this always true?
+      re = b.e + 1;      // should this end at b.e + NG - 1?
+    } else {             //(n ==  - 1)
+      rs = b.s - 1;      // TODO(JMM): should this start at b.s - NG + 1?
+      re = b.s - 1;      // or something similar?
+    }
+  };
+
+  CalcIndices(ris, rie, ni, nb.ni.ox1, cib);
+  CalcIndices(rjs, rje, nj, nb.ni.ox2, cjb);
+  CalcIndices(rks, rke, nk, nb.ni.ox3, ckb);
+}
+
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                   std::shared_ptr<CellVariable<Real>> v) {
   auto &cb = pmb->cellbounds;
@@ -251,7 +320,8 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
 
 BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                 std::shared_ptr<CellVariable<Real>> v,
-                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+                                CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+                                const OffsetIndices &) {
   BndInfo out;
 
   out.allocated = v->IsAllocated();
@@ -296,7 +366,8 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 
 BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<CellVariable<Real>> v,
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+                               const OffsetIndices &) {
   BndInfo out;
   out.buf = buf->buffer();
   auto buf_state = buf->GetState();
@@ -356,7 +427,8 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 
 BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                   std::shared_ptr<CellVariable<Real>> v,
-                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+                                  const OffsetIndices &) {
   BndInfo out;
   out.allocated = v->IsAllocated();
   if (!v->IsAllocated()) {
@@ -414,7 +486,8 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
 
 BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                  std::shared_ptr<CellVariable<Real>> v,
-                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+                                 const OffsetIndices &) {
   BndInfo out;
 
   if (!v->IsAllocated() || buf->GetState() != BufferState::received) {
@@ -488,6 +561,30 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
 
   out.coords = pmb->coords;
 
+  return out;
+}
+
+BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
+                                   const NeighborBlock &nb,
+                                   std::shared_ptr<CellVariable<Real>> v,
+                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+                                   const OffsetIndices &no) {
+  BndInfo out;
+  if (!v->IsAllocated()) {
+    out.allocated = false;
+    return out;
+  }
+  out.allocated = true;
+  CalcIndicesRestrict(no.nk, no.nj, no.ni, out.si, out.ei, out.sj, out.ej, out.sk, out.ek,
+                      nb, pmb);
+  out.coords = pmb->coords;
+  out.coarse_coords = pmb->pmr->GetCoarseCoords();
+  out.fine = v->data.Get();
+  out.coarse = v->coarse_s.Get();
+  out.refinement_op = RefinementOp_t::Restriction;
+  out.Nt = v->GetDim(6);
+  out.Nu = v->GetDim(5);
+  out.Nv = v->GetDim(4);
   return out;
 }
 } // namespace cell_centered_bvars

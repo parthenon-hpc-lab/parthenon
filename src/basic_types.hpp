@@ -38,6 +38,18 @@ enum class TaskStatus { fail, complete, incomplete, iterate, skip };
 enum class AmrTag : int { derefine = -1, same = 0, refine = 1 };
 enum class RefinementOp_t { Prolongation, Restriction, None };
 
+// JMM: Not clear this is the best place for this but it minimizes
+// circular dependency nonsense.
+constexpr int NUM_BNDRY_TYPES = 6;
+enum class BoundaryType : int {
+  local,
+  nonlocal,
+  any,
+  flxcor_send,
+  flxcor_recv,
+  restricted
+};
+
 struct SimTime {
   SimTime() = default;
   SimTime(const Real tstart, const Real tstop, const int nmax, const int ncurr,

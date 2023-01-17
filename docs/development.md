@@ -122,7 +122,8 @@ Thus, barriers are required where the following code requires the successful exe
 There are three obvious places where this applies:
 1. Around MPI calls, e.g., sending a buffer should first be done when the kernel filling the buffer has finished. In order for the parallel execution to continue (e.g., multiple `MeshBlocks` in multiple device streams) the `fence` function of the corresponding execution space needs to be used, i.e., `pmb->exec_space.fence();` and *not* the global fence (`Kokkos::fence();`).
 2. Within a nested parallel regions when using scratch space. The threads within a team are independent and thus a `member.team_barrier()` is required between filling the scratch space and (re)using it.
-3. When collecting the results of a parallel reduction on a `View`. Usually `parallel_reduce` regions are blocking if the result of the reduction is a host variable, e.g., a simple `double` (or here a `Real`). If the result of the reduction is a `View` then the region is non-blocking and other places in the code should ensure that all reductions are finished (e.g., calculating the minimum timestep over all `MeshBlocks` of a single process.
+3. When collecting the results of a parallel reduction on a `View`. Usually `parallel_reduce` regions are blocking if the result of the reduction is a host variable (more precisely, of scalar type), e.g., a simple `double` (or here a `Real`). If the result of the reduction is a `View` then the region is non-blocking and other places in the code should ensure that all reductions are finished (e.g., calculating the minimum timestep over all `MeshBlocks` of a single process.
+This also applies to hierarchical parallelism, i.e., when an inner `parallel_reduce` reduces to a `ScratchPadView` then a `team_barrier()` is required.
 
 
 - Why do I need to redefine variables preceding a parallel region?

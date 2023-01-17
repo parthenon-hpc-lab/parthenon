@@ -38,8 +38,8 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
-#include "interface/variable_state.hpp"
 #include "parthenon_arrays.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -99,6 +99,12 @@ class CellVariable {
 
   ///< retrieve metadata for variable
   inline Metadata metadata() const { return m_; }
+
+  /// Refinement functions owned in metadata
+  inline bool IsRefined() const { return m_.IsRefined(); }
+  inline const refinement::RefinementFunctions_t &GetRefinementFunctions() const {
+    return m_.GetRefinementFunctions();
+  }
 
   /// Get Sparse ID (InvalidSparseID if not sparse)
   inline int GetSparseID() const { return IsSparse() ? sparse_id_ : InvalidSparseID; }

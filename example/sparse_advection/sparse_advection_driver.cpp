@@ -16,13 +16,13 @@
 #include <vector>
 
 // Local Includes
+#include "amr_criteria/refinement_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
 #include "parthenon/driver.hpp"
-#include "refinement/refinement.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "sparse_advection_driver.hpp"
 #include "sparse_advection_package.hpp"
 
@@ -126,21 +126,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    auto send =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
-    auto recv = tl.AddTask(update | start_bound,
-                           parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
-    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
-
-    auto init_allocated =
-        tl.AddTask(set, InitNewlyAllocatedVars<MeshData<Real>>, mc1.get());
-
-    auto restrict = init_allocated;
-    if (pmesh->multilevel) {
-      restrict = tl.AddTask(init_allocated,
-                            parthenon::cell_centered_refinement::RestrictPhysicalBounds,
-                            mc1.get());
-    }
+    auto restrict = parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(
+        update, tl, mc1, pmesh->multilevel);
 
     // if this is the last stage, check if we can deallocate any sparse variables
     if (stage == integrator->nstages) {

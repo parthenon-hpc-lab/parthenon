@@ -19,6 +19,12 @@
 //! \file mesh_refinement.hpp
 //  \brief defines MeshRefinement class used for static/adaptive mesh refinement
 
+// TODO(JMM): The MeshRefinement can likely be simplified and/or
+// removed entirely as we clean up our machinery and move to
+// refinement-in-one everywhere in the code. I leave it in the `mesh`
+// directory since it hooks into `Mesh` and `BoundaryValues` but in
+// the long term this should be cleaned up.
+
 #include <memory>
 #include <tuple>
 #include <vector>
@@ -49,18 +55,11 @@ class MeshRefinement {
  public:
   MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin);
 
-  // functions
-  void RestrictCellCenteredValues(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
-                                  int sn, int en, int csi, int cei, int csj, int cej,
-                                  int csk, int cek);
-  void RestrictFieldX1(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
-                       int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX2(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
-                       int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX3(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
-                       int cei, int csj, int cej, int csk, int cek);
-  void ProlongateCellCenteredValues(const ParArrayND<Real> &coarse,
-                                    ParArrayND<Real> &fine, int sn, int en, int si,
+  // JMM: fine and coarse may be on different meshblocks and thus
+  // different variable objects.
+  void RestrictCellCenteredValues(CellVariable<Real> *var, int sn, int en, int csi,
+                                  int cei, int csj, int cej, int csk, int cek);
+  void ProlongateCellCenteredValues(CellVariable<Real> *var, int sn, int en, int si,
                                     int ei, int sj, int ej, int sk, int ek);
   void CheckRefinementCondition();
   void SetRefinement(AmrTag flag);
@@ -69,6 +68,8 @@ class MeshRefinement {
   // and/or in BoundaryValues::ProlongateBoundaries() (for SMR and AMR)
   int AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar);
 
+  // TODO(JMM): coarse-coords maybe should move out of this code, or
+  // be made public
   Coordinates_t GetCoarseCoords() const { return coarse_coords; }
 
  private:
