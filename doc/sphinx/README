@@ -1,0 +1,3 @@
+index.rst is expected to live in doc/sphinx and contains the landing homepage of the documentation webpage
+image files like .png could go in doc/sphinx/_static
+main documentation text like .rst should go in doc/sphinx/src and be referenced accordingly in index.rst
