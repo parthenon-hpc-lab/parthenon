@@ -405,8 +405,10 @@ MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
   Kokkos::Profiling::pushRegion("GetVariablesByFlag");
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
-
-  if (match_all) {
+  if (flags.size() < 1) {
+    for (const auto &p : varMap_) var_list.Add(p.second, sparse_ids_set); 
+  }
+  else if (match_all) {
     for (auto &v : flagMap_[flags[0]]) {
       if (v->IsAllocated() && v->metadata().AllFlagsSet(flags)) {
         var_list.Add(v, sparse_ids_set);
