@@ -215,8 +215,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
         member.team_barrier();
 
         for (int n = 0; n < nvar; n++) {
-          if (!v.IsAllocated(n)) continue;
-          const auto this_v = vx[n % NUM_FIELDS];
+          const auto this_v = vx[v(n).sparse_id % NUM_FIELDS];
           par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
             v.flux(X1DIR, n, k, j, i) = (this_v > 0.0 ? ql(n, i) : qr(n, i)) * this_v;
           });
@@ -245,8 +244,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
           member.team_barrier();
 
           for (int n = 0; n < nvar; n++) {
-            if (!v.IsAllocated(n)) continue;
-            const auto this_v = vy[n % NUM_FIELDS];
+            const auto this_v = vy[v(n).sparse_id % NUM_FIELDS];
             par_for_inner(member, ib.s, ib.e, [&](const int i) {
               v.flux(X2DIR, n, k, j, i) = (this_v > 0.0 ? ql(n, i) : qr(n, i)) * this_v;
             });
