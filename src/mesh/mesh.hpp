@@ -103,7 +103,8 @@ class Mesh {
 
   int step_since_lb;
   int gflag;
-
+  
+  std::shared_ptr<MeshBlock> pdummy_block;
   BlockList_t block_list;
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;

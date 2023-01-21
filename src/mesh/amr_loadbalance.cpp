@@ -93,7 +93,7 @@ void AssignBlocks(std::vector<double> const &costlist, std::vector<int> &ranklis
 
   double const total_cost = std::accumulate(costlist.begin(), costlist.end(), 0.0);
 
-  int rank = (Globals::nranks)-1;
+  int rank = std::min(Globals::nranks, (int) ranklist.size())-1;
   double target_cost = total_cost / Globals::nranks;
   double my_cost = 0.0;
   double remaining_cost = total_cost;
@@ -503,11 +503,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   // TODO(JL) Why are we using all variables for same-level but only the variables in pmr
   // for c2f and f2c?s
-  int num_cc = block_list.front()->vars_cc_.size();
-  int num_pmr_cc = block_list.front()->pmr->pvars_cc_.size();
-  int num_fc = block_list.front()->vars_fc_.size();
+  int num_cc = pdummy_block->vars_cc_.size();
+  int num_pmr_cc = pdummy_block->pmr->pvars_cc_.size();
+  int num_fc = pdummy_block->vars_fc_.size();
   int nx4_tot = 0;
-  for (auto &pvar_cc : block_list.front()->vars_cc_) {
+  for (auto &pvar_cc : pdummy_block->vars_cc_) {
     nx4_tot += pvar_cc->GetDim(4);
   }
 

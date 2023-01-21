@@ -439,10 +439,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // check if there are sufficient blocks
   if (nbtotal < Globals::nranks) {
     if (mesh_test == 0) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-          << Globals::nranks << ")" << std::endl;
-      PARTHENON_FAIL(msg);
+      std::cout << "### Warning in Mesh constructor" << std::endl
+                << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
+                << Globals::nranks << ")" << std::endl;
     } else { // test
       std::cout << "### Warning in Mesh constructor" << std::endl
                 << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
@@ -489,6 +488,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // create MeshBlock list for this process
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
+  
+  // Initialize the dummy block just using the first block in the blocklist 
+  SetBlockSizeAndBoundaries(loclist[0], block_size, block_bcs);
+  Packages_t default_package;
+  pdummy_block = MeshBlock::Make(0, 0, loclist[0], block_size, block_bcs, this, pin, app_in,
+                        packages, resolved_packages, gflag);
+
   // create MeshBlock list for this process
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
@@ -753,6 +759,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   // Setup unique comms for each variable and swarm
   SetupMPIComms();
+  
+  // Initialize the dummy block just using the first block in the blocklist 
+  SetBlockSizeAndBoundaries(loclist[0], block_size, block_bcs);
+  Packages_t default_package;
+  pdummy_block = MeshBlock::Make(0, 0, loclist[0], block_size, block_bcs, this, pin, app_in,
+                        packages, resolved_packages, gflag);
 
   // Create MeshBlocks (parallel)
   block_list.clear();
@@ -1272,15 +1284,15 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 }
 
 std::int64_t Mesh::GetTotalCells() {
-  auto &pmb = block_list.front();
+  auto &pmb = pdummy_block;
   return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx1 * pmb->block_size.nx2 *
          pmb->block_size.nx3;
 }
 // TODO(JMM): Move block_size into mesh.
 int Mesh::GetNumberOfMeshBlockCells() const {
-  return block_list.front()->GetNumberOfMeshBlockCells();
+  return pdummy_block->GetNumberOfMeshBlockCells();
 }
-const RegionSize &Mesh::GetBlockSize() const { return block_list.front()->block_size; }
+const RegionSize &Mesh::GetBlockSize() const { return pdummy_block->block_size; }
 
 // Create separate communicators for all variables. Needs to be done at the mesh
 // level so that the communicators for each variable across all blocks is consistent.
