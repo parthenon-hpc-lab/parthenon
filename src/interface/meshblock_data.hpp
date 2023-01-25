@@ -358,9 +358,6 @@ class MeshBlockData {
   // return number of stored arrays
   int Size() noexcept { return varVector_.size(); }
 
-  // physical boundary routines
-  void ProlongateBoundaries();
-
   bool operator==(const MeshBlockData<T> &cmp) {
     // do some kind of check of equality
     // do the two containers contain the same named fields?

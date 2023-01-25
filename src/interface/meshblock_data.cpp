@@ -384,15 +384,6 @@ void MeshBlockData<T>::Remove(const std::string &label) {
 }
 
 template <typename T>
-void MeshBlockData<T>::ProlongateBoundaries() {
-  Kokkos::Profiling::pushRegion("ProlongateBoundaries");
-  // TODO(JMM): Change this upon refactor of BoundaryValues
-  auto pmb = GetBlockPointer();
-  pmb->pbval->ProlongateBoundaries();
-  Kokkos::Profiling::popRegion();
-}
-
-template <typename T>
 void MeshBlockData<T>::Print() {
   std::cout << "Variables are:\n";
   for (auto v : varVector_) {

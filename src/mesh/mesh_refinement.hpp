@@ -40,15 +40,12 @@ namespace parthenon {
 
 class MeshBlock;
 class ParameterInput;
-class BoundaryValues;
 
 //----------------------------------------------------------------------------------------
 //! \class MeshRefinement
 //  \brief
 
 class MeshRefinement {
-  // needs to access pcoarsec in ProlongateBoundaries() for passing to BoundaryFunc()
-  friend class BoundaryValues;
   // needs to access refine_flag_ in Mesh::AdaptiveMeshRefinement(). Make var public?
   friend class Mesh;
 
@@ -65,7 +62,6 @@ class MeshRefinement {
   void SetRefinement(AmrTag flag);
 
   // setter functions for "enrolling" variable arrays in refinement via Mesh::AMR()
-  // and/or in BoundaryValues::ProlongateBoundaries() (for SMR and AMR)
   int AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar);
 
   // TODO(JMM): coarse-coords maybe should move out of this code, or
