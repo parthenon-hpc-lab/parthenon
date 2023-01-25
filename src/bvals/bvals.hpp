@@ -30,6 +30,7 @@
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "defs.hpp"
 #include "mesh/domain.hpp"
+#include "mesh/mesh_refinement.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
@@ -176,7 +177,7 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // non-inhertied / unique functions (do not exist in BoundaryVariable objects):
   // (these typically involve a coupled interaction of boundary variable/quantities)
   // ------
-  void ProlongateBoundaries();
+  void ProlongateBoundaries(MeshRefinement *pmr = nullptr);
 
   int NumRestrictions();
   void FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
@@ -194,7 +195,8 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
 
   // ProlongateBoundaries() wraps the following S/AMR-operations (within neighbor loop):
   // (the next function is also called within 3x nested loops over nk,nj,ni)
-  void ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei, int sj, int ej,
+  void ProlongateGhostCells_(MeshRefinement *pmr,
+                             const NeighborBlock &nb, int si, int ei, int sj, int ej,
                              int sk, int ek);
   void ComputeRestrictionIndices_(const NeighborBlock &nb, int nk, int nj, int ni,
                                   int &ris, int &rie, int &rjs, int &rje, int &rks,

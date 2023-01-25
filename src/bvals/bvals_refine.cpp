@@ -121,7 +121,7 @@ void BoundaryValues::FillRestrictionMetadata(cell_centered_bvars::BufferCacheHos
   }
 }
 
-void BoundaryValues::ProlongateBoundaries() {
+void BoundaryValues::ProlongateBoundaries(MeshRefinement* pmr) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
   for (int n = 0; n < nneighbor; n++) {
@@ -130,14 +130,15 @@ void BoundaryValues::ProlongateBoundaries() {
     // calculate the loop limits for the ghost zones
     IndexRange bi, bj, bk;
     ComputeProlongationBounds_(nb, bi, bj, bk);
-    ProlongateGhostCells_(nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
+    ProlongateGhostCells_(pmr, nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
   } // end loop over nneighbor
 }
 
-void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei,
+void BoundaryValues::ProlongateGhostCells_(MeshRefinement *pmr,
+                                           const NeighborBlock &nb, int si, int ei,
                                            int sj, int ej, int sk, int ek) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  auto &pmr = pmb->pmr;
+  if (!pmr) pmr = pmb->pmr.get();
 
   for (auto cc_var : pmr->pvars_cc_) {
     if (!cc_var->IsAllocated()) continue;

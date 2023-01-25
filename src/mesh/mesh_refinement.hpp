@@ -49,6 +49,14 @@ class MeshRefinement {
  public:
   MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin);
 
+  MeshRefinement(MeshRefinement *pin) :  
+      pmy_block_(pin->pmy_block_),
+      coarse_coords(pin->coarse_coords),
+      refine_flag_(pin->refine_flag_),
+      deref_count_(pin->deref_count_),
+      deref_threshold_(pin->deref_threshold_){}
+  
+
   // functions
   void RestrictCellCenteredValues(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
                                   int sn, int en, int csi, int cei, int csj, int cej,

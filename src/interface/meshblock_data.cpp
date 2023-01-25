@@ -52,6 +52,9 @@ void MeshBlockData<T>::Initialize(
   for (auto const &q : resolved_packages->AllFields()) {
     AddField(q.first.base_name, q.second, q.first.sparse_id);
   }
+  
+  InitializeMeshRefinement();
+
 }
 
 ///
@@ -169,6 +172,7 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
                                           "' not found");
     }
   }
+  InitializeMeshRefinement();
 }
 
 // Constructor for getting sub-containers
@@ -454,7 +458,7 @@ void MeshBlockData<T>::ProlongateBoundaries() {
   Kokkos::Profiling::pushRegion("ProlongateBoundaries");
   // TODO(JMM): Change this upon refactor of BoundaryValues
   auto pmb = GetBlockPointer();
-  pmb->pbval->ProlongateBoundaries();
+  pmb->pbval->ProlongateBoundaries(pmr.get());
   Kokkos::Profiling::popRegion();
 }
 
