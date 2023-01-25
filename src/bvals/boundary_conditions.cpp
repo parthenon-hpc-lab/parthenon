@@ -66,7 +66,7 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
     // calculate the loop limits for the ghost zones
     IndexRange bi, bj, bk;
     boundary_cond_impl::ComputeProlongationBounds_(pmb, nb, bi, bj, bk);
-    boundary_cond_impl::ProlongateGhostCells_(pmb->meshblock_data.Get(), nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
+    boundary_cond_impl::ProlongateGhostCells_(rc, nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
   } // end loop over nneighbor  
 
   Kokkos::Profiling::popRegion(); // Task_ProlongateBoundaries
