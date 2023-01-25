@@ -28,12 +28,12 @@ namespace parthenon {
 namespace boundary_cond_impl {
 bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
                          const int ndim);
-void ComputeProlongationBounds_(const std::shared_ptr<MeshBlock> &pmb, 
-                                const NeighborBlock &nb, IndexRange &bi,
-                                IndexRange &bj, IndexRange &bk);
-void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc, 
-                           const NeighborBlock &nb, int si, int ei,
-                           int sj, int ej, int sk, int ek);                                
+void ComputeProlongationBounds_(const std::shared_ptr<MeshBlock> &pmb,
+                                const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
+                                IndexRange &bk);
+void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc,
+                           const NeighborBlock &nb, int si, int ei, int sj, int ej,
+                           int sk, int ek);
 } // namespace boundary_cond_impl
 
 TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
@@ -58,7 +58,7 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
   ApplyBoundaryConditionsOnCoarseOrFine(rc, true);
 
   // Step 2. Finally, the ghost-ghost zones are ready for prolongation:
-  const auto& pmb = rc->GetBlockPointer(); 
+  const auto &pmb = rc->GetBlockPointer();
   int &mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -67,7 +67,7 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
     IndexRange bi, bj, bk;
     boundary_cond_impl::ComputeProlongationBounds_(pmb, nb, bi, bj, bk);
     boundary_cond_impl::ProlongateGhostCells_(rc, nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
-  } // end loop over nneighbor  
+  } // end loop over nneighbor
 
   Kokkos::Profiling::popRegion(); // Task_ProlongateBoundaries
   return TaskStatus::complete;
@@ -215,28 +215,28 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
   return true; // reflect, outflow, user, dims correct
 }
 
-void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc, 
-                           const NeighborBlock &nb, int si, int ei,
-                           int sj, int ej, int sk, int ek) {
+void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc,
+                           const NeighborBlock &nb, int si, int ei, int sj, int ej,
+                           int sk, int ek) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto &pmr = pmb->pmr;
 
   for (auto cc_var : rc->GetCellVariableVector()) {
     if (!cc_var->IsAllocated()) continue;
-    if (!(cc_var->IsSet(Metadata::Independent) || 
-          cc_var->IsSet(Metadata::FillGhost))) continue;
+    if (!(cc_var->IsSet(Metadata::Independent) || cc_var->IsSet(Metadata::FillGhost)))
+      continue;
 
-    // TODO (LFR): Is this indexing correct for 5 and 6 dimensional fields? 
+    // TODO(LFR): Is this indexing correct for 5 and 6 dimensional fields?
     int nu = cc_var->GetDim(4) - 1;
     pmr->ProlongateCellCenteredValues(cc_var.get(), 0, nu, si, ei, sj, ej, sk, ek);
   }
 
-  // TODO (LFR): Deal with prolongation of non-cell centered values
+  // TODO(LFR): Deal with prolongation of non-cell centered values
 }
 
-void ComputeProlongationBounds_(const std::shared_ptr<MeshBlock> &pmb, 
-                                const NeighborBlock &nb, IndexRange &bi,
-                                IndexRange &bj, IndexRange &bk) {
+void ComputeProlongationBounds_(const std::shared_ptr<MeshBlock> &pmb,
+                                const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
+                                IndexRange &bk) {
   const IndexDomain interior = IndexDomain::interior;
   int cn = pmb->cnghost - 1;
 
