@@ -20,6 +20,7 @@
 #include "interface/meshblock_data.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 
 namespace parthenon {
@@ -27,6 +28,12 @@ namespace parthenon {
 namespace boundary_cond_impl {
 bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
                          const int ndim);
+void ComputeProlongationBounds_(const std::shared_ptr<MeshBlock> &pmb, 
+                                const NeighborBlock &nb, IndexRange &bi,
+                                IndexRange &bj, IndexRange &bk);
+void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc, 
+                           const NeighborBlock &nb, int si, int ei,
+                           int sj, int ej, int sk, int ek);                                
 } // namespace boundary_cond_impl
 
 TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
@@ -51,7 +58,16 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
   ApplyBoundaryConditionsOnCoarseOrFine(rc, true);
 
   // Step 2. Finally, the ghost-ghost zones are ready for prolongation:
-  rc->ProlongateBoundaries();
+  const auto& pmb = rc->GetBlockPointer(); 
+  int &mylevel = pmb->loc.level;
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    if (nb.snb.level >= mylevel) continue;
+    // calculate the loop limits for the ghost zones
+    IndexRange bi, bj, bk;
+    boundary_cond_impl::ComputeProlongationBounds_(pmb, nb, bi, bj, bk);
+    boundary_cond_impl::ProlongateGhostCells_(pmb->meshblock_data.Get(), nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
+  } // end loop over nneighbor  
 
   Kokkos::Profiling::popRegion(); // Task_ProlongateBoundaries
   return TaskStatus::complete;
@@ -211,6 +227,56 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
 
   return true; // reflect, outflow, user, dims correct
 }
+
+void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc, 
+                           const NeighborBlock &nb, int si, int ei,
+                           int sj, int ej, int sk, int ek) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto &pmr = pmb->pmr;
+
+  for (auto cc_var : rc->GetCellVariableVector()) {
+    if (!cc_var->IsAllocated()) continue;
+    if (!(cc_var->IsSet(Metadata::Independent) || 
+          cc_var->IsSet(Metadata::FillGhost))) continue;
+
+    // TODO (LFR): Is this indexing correct for 5 and 6 dimensional fields? 
+    int nu = cc_var->GetDim(4) - 1;
+    pmr->ProlongateCellCenteredValues(cc_var.get(), 0, nu, si, ei, sj, ej, sk, ek);
+  }
+
+  // TODO (LFR): Deal with prolongation of non-cell centered values
+}
+
+void ComputeProlongationBounds_(const std::shared_ptr<MeshBlock> &pmb, 
+                                const NeighborBlock &nb, IndexRange &bi,
+                                IndexRange &bj, IndexRange &bk) {
+  const IndexDomain interior = IndexDomain::interior;
+  int cn = pmb->cnghost - 1;
+
+  auto getbounds = [=](const int nbx, const std::int64_t &lx, const IndexRange bblock,
+                       IndexRange &bprol) {
+    if (nbx == 0) {
+      bprol.s = bblock.s;
+      bprol.e = bblock.e;
+      if ((lx & 1LL) == 0LL) {
+        bprol.e += cn;
+      } else {
+        bprol.s -= cn;
+      }
+    } else if (nbx > 0) {
+      bprol.s = bblock.e + 1;
+      bprol.e = bblock.e + cn;
+    } else {
+      bprol.s = bblock.s - cn;
+      bprol.e = bblock.s - 1;
+    }
+  };
+
+  getbounds(nb.ni.ox1, pmb->loc.lx1, pmb->c_cellbounds.GetBoundsI(interior), bi);
+  getbounds(nb.ni.ox2, pmb->loc.lx2, pmb->c_cellbounds.GetBoundsJ(interior), bj);
+  getbounds(nb.ni.ox3, pmb->loc.lx3, pmb->c_cellbounds.GetBoundsK(interior), bk);
+}
+
 } // namespace boundary_cond_impl
 
 } // namespace parthenon
