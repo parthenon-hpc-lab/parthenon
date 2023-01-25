@@ -355,12 +355,12 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   xdmf << "  <Domain>" << std::endl;
   xdmf << R"(  <Grid Name="Mesh" GridType="Collection">)" << std::endl;
   if (tm != nullptr) {
-    xdmf << R"(    <Time Value=")" << tm->time << R"("/>)" << std::endl;
     xdmf << R"(    <Information Name="Cycle" Value=")" << tm->ncycle << R"("/>)"
          << std::endl;
+    xdmf << R"(    <Time Value=")" << tm->time << R"("/>)" << std::endl;
   }
 
-  std::string blockTopology = R"(      <Topology Type="3DRectMesh" NumberOfElements=")" +
+  std::string blockTopology = R"(      <Topology TopologyType="3DRectMesh" Dimensions=")" +
                               std::to_string(nx3 + 1) + " " + std::to_string(nx2 + 1) +
                               " " + std::to_string(nx1 + 1) + R"("/>)" + '\n';
   const std::string slabPreDim = R"(        <DataItem ItemType="HyperSlab" Dimensions=")";
@@ -378,7 +378,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
     xdmf << blockTopology;
-    xdmf << R"(      <Geometry Type="VXVYVZ">)" << std::endl;
+    xdmf << R"(      <Geometry GeometryType="VXVYVZ">)" << std::endl;
     xdmf << slabPreDim << nx1 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx1 + 1
          << slabTrailer << std::endl;
 
