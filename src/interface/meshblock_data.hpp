@@ -25,7 +25,6 @@
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
-#include "mesh/mesh_refinement.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -162,8 +161,6 @@ class MeshBlockData {
     }
     return -1;
   }
-  
-  std::shared_ptr<MeshRefinement> pmr;
 
 #ifdef ENABLE_SPARSE
   inline bool IsAllocated(std::string const &label) const noexcept {
@@ -458,15 +455,6 @@ class MeshBlockData {
   void Add(std::shared_ptr<FaceVariable<T>> var) noexcept {
     faceVector_.push_back(var);
     faceMap_[var->label()] = var;
-  }
-
-  void InitializeMeshRefinement() {
-    if (GetBlockPointer()->pmr) {
-      pmr = std::make_shared<MeshRefinement>(GetBlockPointer()->pmr.get());
-      CellVariableVector<Real> vars = GetAnyVariables(varVector_, 
-          {Metadata::FillGhost});
-      for (auto& var : vars) pmr->AddToRefinement(var);
-    }
   }
 
   std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label,
