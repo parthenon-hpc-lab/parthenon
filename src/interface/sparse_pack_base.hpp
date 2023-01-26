@@ -62,7 +62,7 @@ class PackIdx {
   }
 
   IndexRange GetBounds(int iDim) const {
-    PARTHENON_REQUIRE_THROWS(iDim > ndim_"Dimension " + std::to_string(iDim) + " greater than rank " +
+    PARTHENON_REQUIRE_THROWS(iDim <= ndim_, "Dimension " + std::to_string(iDim) + " greater than rank " +
       std::to_string(ndim_) + ".");
     IndexRange rng;
     rng.s = 0;
