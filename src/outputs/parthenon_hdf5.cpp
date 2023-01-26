@@ -264,11 +264,12 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
                                       const std::string &hdfPath,
                                       const std::string &label, const hsize_t *dims,
                                       const int &ndims, const std::string &theType,
-                                      const int &precision) {
+                                      const int &precision, bool isVector) {
   std::string mystr =
-      prefix + R"(<DataItem Format="HDF" Dimensions=")" + std::to_string(dims[0]);
-  for (int i = 1; i < ndims; i++)
+      prefix + R"(<DataItem Format="HDF" Dimensions=")"; // + std::to_string(dims[0]);
+  for (int i = 0; i < ndims; i++) {
     mystr += " " + std::to_string(dims[i]);
+  }
   mystr += "\" Name=\"" + label + "\"";
   mystr += " NumberType=\"" + theType + "\"";
   mystr += R"( Precision=")" + std::to_string(precision) + R"(">)" + '\n';
@@ -279,8 +280,10 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
 static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
                               const std::string &hdfPath, const std::string &label,
                               const hsize_t *dims, const int &ndims,
-                              const std::string &theType, const int &precision) {
-  fid << stringXdmfArrayRef(prefix, hdfPath, label, dims, ndims, theType, precision)
+                              const std::string &theType, const int &precision,
+                              bool isVector = false) {
+  fid << stringXdmfArrayRef(prefix, hdfPath, label, dims, ndims, theType, precision,
+                            isVector)
       << std::flush;
 }
 
@@ -312,19 +315,18 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     }
     fid << ">" << std::endl;
     fid << prefix << "  "
-        << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
-        << vector_size << R"(">)" << std::endl;
-    // TODO(JL) 3 and 5 are literals here, careful if they change.
-    // "3" rows for START, STRIDE, and COUNT for each slab with "5" (H5_NDIM) entries.
-    // START: iblock variable(_component)  0   0   0
-    // STRIDE: 1               1           1   1   1
-    // COUNT:  1           vector_size    nx3 nx2 nx1
+        << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
+    fid << "1 ";
+    for (int i = 2; i < ndims; i++) {
+      fid << dims[i] << " ";
+    }
+    fid << R"(">)" << std::endl;
     fid << prefix << "    "
         << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock << " "
         << i << " 0 0 0 "
         << " 1 1 1 1 1 1 " << vector_size << " " << dims321 << "</DataItem>" << std::endl;
-    writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
-                      8);
+    writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float", 8,
+                      true);
     fid << prefix << "  "
         << "</DataItem>" << std::endl;
     fid << prefix << "</Attribute>" << std::endl;
@@ -373,8 +375,6 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   std::string dims321 =
       std::to_string(nx3) + " " + std::to_string(nx2) + " " + std::to_string(nx1);
 
-  int ndims = H5_NDIM;
-
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
     xdmf << blockTopology;
@@ -406,15 +406,30 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     xdmf << "      </Geometry>" << std::endl;
 
     // write graphics variables
-    dims[1] = 1;
-    dims[2] = nx3;
-    dims[3] = nx2;
-    dims[4] = nx1;
+    int ndim;
     for (const auto &vinfo : var_list) {
+      // TODO(BRR) just let vinfo provide this
+      std::vector<hsize_t> alldims(
+          {static_cast<hsize_t>(vinfo.nx6), static_cast<hsize_t>(vinfo.nx5),
+           static_cast<hsize_t>(vinfo.nx4), static_cast<hsize_t>(vinfo.nx3),
+           static_cast<hsize_t>(vinfo.nx2), static_cast<hsize_t>(vinfo.nx1)});
+      // Only cell-based data currently supported for visualization
+      if (vinfo.where == MetadataFlag(Metadata::Cell)) {
+        ndim = 3 + vinfo.tensor_rank + 1;
+        for (int i = 0; i < vinfo.tensor_rank; i++) {
+          dims[1 + i] = alldims[3 - vinfo.tensor_rank + i];
+        }
+        dims[vinfo.tensor_rank + 1] = nx3;
+        dims[vinfo.tensor_rank + 2] = nx2;
+        dims[vinfo.tensor_rank + 3] = nx1;
+      } else {
+        continue;
+      }
+
       const int vlen = vinfo.vlen;
-      dims[1] = vlen;
+      // dims[1] = vlen;
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
-                               vlen, ndims, dims, dims321, vinfo.is_vector);
+                               vlen, ndim, dims, dims321, vinfo.is_vector);
     }
     xdmf << "      </Grid>" << std::endl;
   }
