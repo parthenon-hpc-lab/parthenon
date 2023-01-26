@@ -3,6 +3,8 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 803]](https://github.com/parthenon-hpc-lab/parthenon/pull/803) Add skeleton for sphinx docs
+- [[PR 774]](https://github.com/parthenon-hpc-lab/parthenon/pull/774) Add second order refinement criteria
 - [[PR 699]](https://github.com/lanl/parthenon/pull/699) Add independent sparse thresholds and sparse control fields. Sparse bug fixes.
 - [[PR 780]](https://github.com/lanl/parthenon/pull/780) Add Burgers' benchmark, GetVector<T> interface for ParameterInput
 - [[PR 732]](https://github.com/lanl/parthenon/pull/732) Add `Metadata::ForceRemeshComm` flag
@@ -12,6 +14,9 @@
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 775]](https://github.com/parthenon-hpc-lab/parthenon/pull/775) Reorganize some of the bvals and prolongation/restriction machinery
+- [[PR 753]](https://github.com/parthenon-hpc-lab/parthenon/pull/753) Cleanup uniform Cartesian variable names
+- [[PR 769]](https://github.com/parthenon-hpc-lab/parthenon/pull/769) Thread custom prolongation-restriction functions through infrastructure and to userspace
 - [[PR 781]](https://github.com/lanl/parthenon/pull/781) Output variables with same shape as in parthenon
 - [[PR 758]](https://github.com/lanl/parthenon/pull/758) Bump required C++ standard to C++17
 - [[PR 710]](https://github.com/lanl/parthenon/pull/710) Remove data transpose in hdf5 and restart outputs
@@ -21,6 +26,9 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 795]](https://github.com/parthenon-hpc-lab/parthenon/pull/795) Fix length-1 vectors in output format version >= 3
+- [[PR 805]](https://github.com/parthenon-hpc-lab/parthenon/pull/805) Add Crusher/Frontier machine file and bump Kokkos to 3.7.01
+- [[PR 797]](https://github.com/parthenon-hpc-lab/parthenon/pull/797) Fix boundary flux correction boundary logic
+- [[PR 800]](https://github.com/parthenon-hpc-lab/parthenon/pull/800) Fix rare and intermitted race condition to set allocation status
 - [[PR 777]](https://github.com/parthenon-hpc-lab/parthenon/pull/784) Fix double-output of last file in rare cases
 - [[PR 740]](https://github.com/lanl/parthenon/pull/740) Faster PHDF file load times in phdf.py
 - [[PR 751]](https://github.com/lanl/parthenon/pull/751) Delete useless file in advection example

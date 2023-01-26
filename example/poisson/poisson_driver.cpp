@@ -17,15 +17,15 @@
 #include <vector>
 
 // Local Includes
+#include "amr_criteria/refinement_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
 #include "parthenon/driver.hpp"
 #include "poisson_driver.hpp"
 #include "poisson_package.hpp"
-#include "refinement/refinement.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
 using namespace parthenon::driver::prelude;
 

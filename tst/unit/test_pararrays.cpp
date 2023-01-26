@@ -261,47 +261,6 @@ TEST_CASE("ParArrayND", "[ParArrayND][Kokkos]") {
           REQUIRE(sum_host == sum_device);
         }
       }
-      THEN("slicing is possible") {
-        // auto b = a.SliceD(std::make_pair(1,3),3);
-        // auto b = a.SliceD<3>(std::make_pair(1,3));
-        auto b = a.SliceD<3>(1, 2); // indx,nvar
-        AND_THEN("slices have correct values.") {
-          int total_errors = 1; // != 0
-          Kokkos::parallel_reduce(
-              policy3d({0, 0, 0}, {2, N2, N1}),
-              KOKKOS_LAMBDA(const int k, const int j, const int i, int &update) {
-                update += (b(k, j, i) == a(k + 1, j, i)) ? 0 : 1;
-              },
-              total_errors);
-          REQUIRE(total_errors == 0);
-        }
-      }
-      THEN("We can slice the 2nd dimension") {
-        auto b = a.SliceD<2>(1, 2);
-        AND_THEN("slices have correct values.") {
-          int total_errors = 1;
-          Kokkos::parallel_reduce(
-              policy2d({0, 0}, {2, N1}),
-              KOKKOS_LAMBDA(const int j, const int i, int &update) {
-                update += (b(j, i) == a(j + 1, i)) ? 0 : 1;
-              },
-              total_errors);
-          REQUIRE(total_errors == 0);
-        }
-      }
-      THEN("We can slice the 1st dimension") {
-        auto b = a.SliceD<1>(1, N1 - 1);
-        AND_THEN("Slices have correct values.") {
-          int total_errors = 1;
-          Kokkos::parallel_reduce(
-              N1 - 1,
-              KOKKOS_LAMBDA(const int i, int &update) {
-                update += (b(i) == a(i + 1)) ? 0 : 1;
-              },
-              total_errors);
-          REQUIRE(total_errors == 0);
-        }
-      }
     }
   }
 }
@@ -338,34 +297,6 @@ TEST_CASE("ParArrayND with LayoutLeft", "[ParArrayND][Kokkos][LayoutLeft]") {
             },
             sum_device);
         REQUIRE(sum_host == sum_device);
-      }
-      THEN("slicing is possible") {
-        // auto b = a.SliceD(std::make_pair(1,3),3);
-        // auto b = a.SliceD<3>(std::make_pair(1,3));
-        auto b = a.SliceD<3>(1, 2); // indx,nvar
-        AND_THEN("slices have correct values.") {
-          int total_errors = 1; // != 0
-          Kokkos::parallel_reduce(
-              policy3d({0, 0, 0}, {2, N2, N1}),
-              KOKKOS_LAMBDA(const int k, const int j, const int i, int &update) {
-                update += (b(k, j, i) == a(k + 1, j, i)) ? 0 : 1;
-              },
-              total_errors);
-          REQUIRE(total_errors == 0);
-        }
-      }
-      THEN("We can slice the 1st dimension") {
-        auto b = a.SliceD<1>(1, N1 - 1);
-        AND_THEN("Slices have correct values.") {
-          int total_errors = 1;
-          Kokkos::parallel_reduce(
-              N1 - 1,
-              KOKKOS_LAMBDA(const int i, int &update) {
-                update += (b(i) == a(i + 1)) ? 0 : 1;
-              },
-              total_errors);
-          REQUIRE(total_errors == 0);
-        }
       }
     }
   }

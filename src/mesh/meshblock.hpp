@@ -34,7 +34,7 @@
 #include "globals.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/state_descriptor.hpp"
+#include "interface/packages.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -50,6 +50,7 @@ class Mesh;
 class MeshBlockTree;
 class MeshRefinement;
 class ParameterInput;
+class StateDescriptor;
 
 // Inner loop default pattern
 // - Defined outside of the MeshBlock class because it does not require an exec space

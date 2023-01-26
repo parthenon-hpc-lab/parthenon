@@ -18,13 +18,13 @@
 // Local Includes
 #include "advection_driver.hpp"
 #include "advection_package.hpp"
+#include "amr_criteria/refinement_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
 #include "parthenon/driver.hpp"
-#include "refinement/refinement.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -142,26 +142,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    const auto local = parthenon::BoundaryType::local;
-    const auto nonlocal = parthenon::BoundaryType::nonlocal;
-    auto send =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<nonlocal>, mc1);
-
-    auto send_local =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<local>, mc1);
-    auto recv_local =
-        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<local>, mc1);
-    auto set_local =
-        tl.AddTask(recv_local, parthenon::cell_centered_bvars::SetBounds<local>, mc1);
-
-    auto recv = tl.AddTask(
-        update, parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>, mc1);
-    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<nonlocal>, mc1);
-
-    if (pmesh->multilevel) {
-      tl.AddTask(set | set_local,
-                 parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
-    }
+    parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(update, tl, mc1,
+                                                             pmesh->multilevel);
   }
 
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);

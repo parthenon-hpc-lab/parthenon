@@ -13,9 +13,46 @@
 
 #include <catch2/catch.hpp>
 
+#include "coordinates/coordinates.hpp"
 #include "interface/metadata.hpp"
+#include "interface/variable_state.hpp"
+#include "kokkos_abstraction.hpp"
+#include "mesh/domain.hpp"
+#include "prolong_restrict/pr_ops.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
+using parthenon::Coordinates_t;
+using parthenon::IndexRange;
 using parthenon::Metadata;
+using parthenon::ParArray6D;
+using parthenon::Real;
+using parthenon::VariableState;
+
+// Some fake ops classes
+struct MyProlongOp {
+  template <int DIM>
+  KOKKOS_FORCEINLINE_FUNCTION static void
+  Do(const int l, const int m, const int n, const int k, const int j, const int i,
+     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+     const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
+    return; // stub
+  }
+};
+struct MyRestrictOp {
+  template <int DIM>
+  KOKKOS_FORCEINLINE_FUNCTION static void
+  Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
+     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+     const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
+    return; // stub
+  }
+};
 
 TEST_CASE("Built-in flags are registered", "[Metadata]") {
   GIVEN("The Built-In Flags") {
@@ -92,5 +129,39 @@ TEST_CASE("A Metadata struct is created", "[Metadata]") {
             Metadata({Metadata::Face, Metadata::Derived}));
     REQUIRE(Metadata({Metadata::Cell, Metadata::Derived}) !=
             Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
+  }
+}
+
+TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
+  GIVEN("A metadata struct with relevant flags set") {
+    Metadata m({Metadata::Cell, Metadata::FillGhost});
+    THEN("It knows it's registered for refinement") { REQUIRE(m.IsRefined()); }
+    THEN("It has the default Prolongation/Restriction ops") {
+      const auto cell_funcs = parthenon::refinement::RefinementFunctions_t::RegisterOps<
+          parthenon::refinement_ops::ProlongateCellMinMod,
+          parthenon::refinement_ops::RestrictCellAverage>();
+      REQUIRE(m.GetRefinementFunctions() == cell_funcs);
+    }
+    WHEN("We register new operations") {
+      m.RegisterRefinementOps<MyProlongOp, MyRestrictOp>();
+      THEN("The refinement func must be set to our custom ops") {
+        const auto my_funcs =
+            parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,
+                                                                      MyRestrictOp>();
+        REQUIRE(m.GetRefinementFunctions() == my_funcs);
+      }
+    }
+  }
+  // JMM: I also wanted to test registration of refinement operations
+  // but this turns out to be impossible because Catch2 macros are not
+  // careful with commas, and the macro interprets commas within the
+  // template as separate arguments.
+  GIVEN("A metadata struct without the relevant flags set") {
+    Metadata m;
+    WHEN("We try to request refinement functions") {
+      THEN("It should fail") {
+        REQUIRE_THROWS_AS(m.GetRefinementFunctions(), std::runtime_error);
+      }
+    }
   }
 }
