@@ -316,7 +316,6 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     fid << ">" << std::endl;
     fid << prefix << "  "
         << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
-    fid << "1 ";
     for (int i = 2; i < ndims; i++) {
       fid << dims[i] << " ";
     }
