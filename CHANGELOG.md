@@ -16,6 +16,7 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 743]](https://github.com/lanl/parthenon/pull/743) Add missing HDF5 type on MacOS
 - [[PR 724]](https://github.com/lanl/parthenon/pull/724) Fix failing CI on Darwin due to differing `OutputFormatVersion` attribute in hdf5 gold files.
 - [[PR 725]](https://github.com/lanl/parthenon/pull/725) Fix improperly exited kokkos profiling region
 - [[PR 719]](https://github.com/lanl/parthenon/pull/719) Fix type mismatch in swarm boundaries when host pinned memory enabled
