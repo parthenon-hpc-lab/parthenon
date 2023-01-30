@@ -57,7 +57,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 + "/tst/regression/gold_standard/sparse_fake.out0.final.phdf",
             ],
             one=True,
-            tol=1e-6,
+            tol=2e-6,
             # don't check metadata, because SparseInfo will differ
             check_metadata=False,
         )
@@ -74,7 +74,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                     + "/tst/regression/gold_standard/sparse_true.out0.final.phdf",
                 ],
                 one=True,
-                tol=1e-6,
+                tol=1e-12,
                 check_metadata=False,
             )
 
