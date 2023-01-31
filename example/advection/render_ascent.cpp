@@ -1,6 +1,10 @@
 #include "render_ascent.hpp"
 #include "defs.hpp"
+#include "interface/metadata.hpp"
+#include "interface/variable.hpp"
 #include "mesh/domain.hpp"
+#include <memory>
+#include <string>
 
 using namespace parthenon::package::prelude;
 using namespace parthenon;
@@ -8,24 +12,17 @@ using namespace parthenon;
 using namespace ascent;
 using namespace conduit;
 
+// reference:
+// https://llnl-conduit.readthedocs.io/en/latest/blueprint_mesh.html#complete-uniform-example
+//
 void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
-  //
-  // reference:
-  // https://llnl-conduit.readthedocs.io/en/latest/blueprint_mesh.html#complete-uniform-example
-
-  // call Ascent every ascent_interval timesteps
-  const int ascent_interval = 10;
-  if (!(tm.ncycle % ascent_interval == 0)) {
-    return;
-  }
-  std::cout << "\nRendering ascent (step = " << tm.ncycle << ")..." << std::endl;
-
   // Ascent needs the MPI communicator we are using
   Ascent a;
   Node ascent_opts;
   ascent_opts["mpi_comm"] = MPI_Comm_c2f(MPI_COMM_WORLD);
   a.open(ascent_opts);
 
+  // create root node for the whole mesh
   Node root;
 
   for (auto &thisMeshBlock : par_mesh->block_list) {
@@ -57,9 +54,6 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     Real dx3 = coords.CellWidth<X3DIR>(ib.s, jb.s, kb.s);
     std::array<Real, 3> corner = coords.GetXmin();
 
-    auto &mbd = thisMeshBlock->meshblock_data.Get();
-    auto &vars = mbd->PackVariables();
-
     // create the coordinate set
     mesh["coordsets/coords/type"] = "uniform";
 
@@ -83,9 +77,7 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
     }
 
     // add the topology
-    // this case is simple b/c it's implicitly derived from the coordinate set
     mesh["topologies/topo/type"] = "uniform";
-    // reference the coordinate set by name
     mesh["topologies/topo/coordset"] = "coords";
 
     // indicate ghost zones with ascent_ghosts set to 1
@@ -108,30 +100,31 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
       }
     }
 
-    // for each variable:
+    // create a field for each component of each variable pack
+    auto &mbd = thisMeshBlock->meshblock_data.Get();
 
-    // add a simple element-associated field
-    mesh["fields/my_var_name/association"] = "element";
-    // reference the topology this field is defined on by name
-    mesh["fields/my_var_name/topology"] = "topo";
+    for (auto &vars : mbd->GetCellVariableVector()) {
+      const std::string packname = vars->label();
+      auto const &labels = vars->metadata().getComponentLabels();
+      auto const &data = vars->data;
 
-    // set the field values
-    int nvar = 0;
-    mesh["fields/my_var_name/values"].set_external(&vars(nvar, 0, 0, 0), ncells);
+      for (int icomp = 0; icomp < labels.size(); ++icomp) {
+        const std::string varname = packname + ":" + labels.at(icomp);
+        mesh["fields/" + varname + "/association"] = "element";
+        mesh["fields/" + varname + "/topology"] = "topo";
+        mesh["fields/" + varname + "/values"].set_external(&data(icomp, 0, 0, 0), ncells);
+      }
+    }
   }
 
   // make sure we conform:
   Node verify_info;
   if (!blueprint::mesh::verify(root, verify_info)) {
-    std::cout << "Verify failed!" << std::endl;
+    if (parthenon::Globals::my_rank == 0) {
+      std::cout << "blueprint::mesh::verify failed!" << std::endl;
+    }
     verify_info.print();
   }
-
-  // save our mesh to a file that can be read by VisIt
-  // this will create the file: complete_uniform_mesh_example.root
-  // which includes the mesh blueprint index and the mesh data
-  // conduit::relay::io::blueprint::save_mesh(root, "complete_mesh", "json");
-
   a.publish(root);
 
   // setup actions
@@ -140,10 +133,9 @@ void render_ascent(Mesh *par_mesh, ParameterInput *pin, SimTime const &tm) {
   add_act["action"] = "add_scenes";
 
   // declare a scene (s1) with one plot (p1)
-  // to render the dataset
   Node &scenes = add_act["scenes"];
   scenes["s1/plots/p1/type"] = "pseudocolor";
-  scenes["s1/plots/p1/field"] = "my_var_name";
+  scenes["s1/plots/p1/field"] = "advected:Advected_0_0";
 
   // Set the output file name (ascent will add ".png")
   scenes["s1/image_prefix"] = "ascent_render";
