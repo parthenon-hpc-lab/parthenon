@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -357,9 +357,6 @@ class MeshBlockData {
 
   // return number of stored arrays
   int Size() noexcept { return varVector_.size(); }
-
-  // physical boundary routines
-  void ProlongateBoundaries();
 
   bool operator==(const MeshBlockData<T> &cmp) {
     // do some kind of check of equality
