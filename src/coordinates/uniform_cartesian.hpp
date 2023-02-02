@@ -110,7 +110,7 @@ class UniformCartesian {
     case 3:
       return Xc<dir>(k);
     default:
-      PARTHENON_THROW("Unknown dir");
+      PARTHENON_FAIL("Unknown dir");
       return 0; // To appease compiler
     }
   }
@@ -139,7 +139,7 @@ class UniformCartesian {
     case 3:
       return Xf<dir, face>(k);
     default:
-      PARTHENON_THROW("Unknown dir");
+      PARTHENON_FAIL("Unknown dir");
       return 0; // To appease compiler
     }
   }
@@ -161,7 +161,7 @@ class UniformCartesian {
     case 3:
       return Xf<dir>(k);
     default:
-      PARTHENON_THROW("Unknown dir");
+      PARTHENON_FAIL("Unknown dir");
       return 0; // To appease compiler
     }
   }
