@@ -54,10 +54,10 @@ class MeshRefinement {
 
   // JMM: fine and coarse may be on different meshblocks and thus
   // different variable objects.
-  void RestrictCellCenteredValues(CellVariable<Real> *var, int sn, int en, int csi,
-                                  int cei, int csj, int cej, int csk, int cek);
-  void ProlongateCellCenteredValues(CellVariable<Real> *var, int sn, int en, int si,
-                                    int ei, int sj, int ej, int sk, int ek);
+  void RestrictCellCenteredValues(CellVariable<Real> *var, int csi, int cei, int csj,
+                                  int cej, int csk, int cek);
+  void ProlongateCellCenteredValues(CellVariable<Real> *var, int si, int ei, int sj,
+                                    int ej, int sk, int ek);
   void CheckRefinementCondition();
   void SetRefinement(AmrTag flag);
 

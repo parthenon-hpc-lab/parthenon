@@ -228,7 +228,7 @@ void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc,
 
     // TODO(LFR): Is this indexing correct for 5 and 6 dimensional fields?
     int nu = cc_var->GetDim(4) - 1;
-    pmr->ProlongateCellCenteredValues(cc_var.get(), 0, nu, si, ei, sj, ej, sk, ek);
+    pmr->ProlongateCellCenteredValues(cc_var.get(), si, ei, sj, ej, sk, ek);
   }
 
   // TODO(LFR): Deal with prolongation of non-cell centered values
