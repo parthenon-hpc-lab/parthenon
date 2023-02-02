@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -381,15 +381,6 @@ MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
 template <typename T>
 void MeshBlockData<T>::Remove(const std::string &label) {
   throw std::runtime_error("MeshBlockData<T>::Remove not yet implemented");
-}
-
-template <typename T>
-void MeshBlockData<T>::ProlongateBoundaries() {
-  Kokkos::Profiling::pushRegion("ProlongateBoundaries");
-  // TODO(JMM): Change this upon refactor of BoundaryValues
-  auto pmb = GetBlockPointer();
-  pmb->pbval->ProlongateBoundaries();
-  Kokkos::Profiling::popRegion();
 }
 
 template <typename T>
