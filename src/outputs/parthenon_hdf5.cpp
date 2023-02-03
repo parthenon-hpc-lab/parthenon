@@ -266,7 +266,7 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
                                       const int &ndims, const std::string &theType,
                                       const int &precision, bool isVector) {
   std::string mystr =
-      prefix + R"(<DataItem Format="HDF" Dimensions=")"; // + std::to_string(dims[0]);
+      prefix + R"(<DataItem Format="HDF" Dimensions=")";
   for (int i = 0; i < ndims; i++) {
     mystr += " " + std::to_string(dims[i]);
   }
