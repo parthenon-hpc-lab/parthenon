@@ -94,7 +94,7 @@ void AssignBlocks(std::vector<double> const &costlist, std::vector<int> &ranklis
   double const total_cost = std::accumulate(costlist.begin(), costlist.end(), 0.0);
 
   int rank = std::min(Globals::nranks, (int) ranklist.size())-1;
-  double target_cost = total_cost / Globals::nranks;
+  double target_cost = total_cost / rank;
   double my_cost = 0.0;
   double remaining_cost = total_cost;
   // create rank list from the end: the master MPI rank should have less load
@@ -102,7 +102,7 @@ void AssignBlocks(std::vector<double> const &costlist, std::vector<int> &ranklis
     // ensure ranks get at least one block
     if (rank == block_id) {
       for (int b = block_id; b >= 0; b--) {
-        ranklist[b] = rank--;
+        ranklist[b] = b;
       }
       break;
     }
