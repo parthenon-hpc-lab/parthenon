@@ -461,21 +461,21 @@ class phdf:
             if self.varData[variable] is None:
                 self.varData[variable] = self.fid[variable][:]
                 vShape = self.varData[variable].shape
-                # TODO(tbd) remove legacy mode in next major rel.
-                if self.OutputFormatVersion == -1:
-                    vLen = vShape[-1]
-                else:
-                    vLen = vShape[1]  # index 0 is the block, so we need to use 1
-                # if variable is a scalar remove the component index
-                if vLen == 1:
-                    tmp = self.varData[variable].reshape(self.TotalCells)
-                    newShape = (
-                        self.NumBlocks,
-                        self.MeshBlockSize[2],
-                        self.MeshBlockSize[1],
-                        self.MeshBlockSize[0],
-                    )
-                    self.varData[variable] = tmp.reshape((newShape))
+                if self.OutputFormatVersion < 3:
+                    if self.OutputFormatVersion == -1:
+                        vLen = vShape[-1]
+                    else:
+                        vLen = vShape[1]  # index 0 is the block, so we need to use 1
+                    # in versions < 3, if variable is a scalar remove the component index
+                    if vLen == 1:
+                        tmp = self.varData[variable].reshape(self.TotalCells)
+                        newShape = (
+                            self.NumBlocks,
+                            self.MeshBlockSize[2],
+                            self.MeshBlockSize[1],
+                            self.MeshBlockSize[0],
+                        )
+                        self.varData[variable] = tmp.reshape((newShape))
 
         except:
             print(
