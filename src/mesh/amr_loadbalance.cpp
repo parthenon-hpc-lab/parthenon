@@ -99,6 +99,13 @@ void AssignBlocks(std::vector<double> const &costlist, std::vector<int> &ranklis
   double remaining_cost = total_cost;
   // create rank list from the end: the master MPI rank should have less load
   for (int block_id = costlist.size() - 1; block_id >= 0; block_id--) {
+    // ensure ranks get at least one block
+    if (rank == block_id) {
+      for (int b = block_id; b >= 0; b--) {
+        ranklist[b] = rank--;
+      }
+      break;
+    }
     if (target_cost == 0.0) {
       std::stringstream msg;
       msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
