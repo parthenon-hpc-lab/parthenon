@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -174,11 +174,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   void StartReceiving(BoundaryCommSubset phase) final;
   void ClearBoundary(BoundaryCommSubset phase) final;
 
-  // non-inhertied / unique functions (do not exist in BoundaryVariable objects):
-  // (these typically involve a coupled interaction of boundary variable/quantities)
-  // ------
-  void ProlongateBoundaries();
-
  private:
   // ptr to MeshBlock containing this BoundaryValues
   std::weak_ptr<MeshBlock> pmy_block_;
@@ -188,13 +183,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // false --> e.g. block, polar, periodic boundaries
   bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
   // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
-
-  // ProlongateBoundaries() wraps the following S/AMR-operations (within neighbor loop):
-  // (the next function is also called within 3x nested loops over nk,nj,ni)
-  void ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei, int sj, int ej,
-                             int sk, int ek);
-  void ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
-                                  IndexRange &bk);
 
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {
