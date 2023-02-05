@@ -165,7 +165,6 @@ add_library(parthenon
   mesh/meshblock_tree.hpp
   mesh/meshblock.cpp
 
-  outputs/formatted_table.cpp
   outputs/history.cpp
   outputs/io_wrapper.cpp
   outputs/io_wrapper.hpp
