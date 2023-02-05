@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 830]](https://github.com/parthenon-hpc-lab/parthenon/pull/830) Add particle output
 - [[PR 803]](https://github.com/parthenon-hpc-lab/parthenon/pull/803) Add skeleton for sphinx docs
 - [[PR 774]](https://github.com/parthenon-hpc-lab/parthenon/pull/774) Add second order refinement criteria
 - [[PR 699]](https://github.com/lanl/parthenon/pull/699) Add independent sparse thresholds and sparse control fields. Sparse bug fixes.
