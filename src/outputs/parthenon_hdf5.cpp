@@ -263,10 +263,13 @@ struct VarInfo {
 // need to be changed
 struct SwarmVarInfo {
   std::string label;
-  int npart;
-  int nvar;  
+  int npart; // assumes swarm has been defragmented.
+  int nvar;
   int tensor_rank;
   SwarmVarInfo() = delete;
+  explicit SwarmVarInfo(const std::shared_ptr<ParticleVariable<Real>> &var)
+      : label(var->label()), npart(var->GetDim(1)),
+        nvar(var->GetDim(2)), tensor_rank->(var->GetDim(2) > 1 ? 1 : 0) {}
 };
 
 // XDMF subroutine to write a dataitem that refers to an HDF array
