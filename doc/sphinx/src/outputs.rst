@@ -81,8 +81,9 @@ Tuning IO parameters can be passed to Parthenon through the use of
 environment variables. Available environment variables are:
 
 .. list-table: HDF5 Performance Parameters
-   : widths 25 25 25 50
-   :header-rows 1
+   :widths: 25 25 25 50
+   :header-rows: 1
+
    * - Environment Variable
      - Initial State
      - Value Type
