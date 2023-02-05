@@ -259,6 +259,16 @@ struct VarInfo {
                 var->IsSet(Metadata::Vector)) {}
 };
 
+// TODO(JMM): If higher tensorial rank swarms are ever added this will
+// need to be changed
+struct SwarmVarInfo {
+  std::string label;
+  int npart;
+  int nvar;  
+  int tensor_rank;
+  SwarmVarInfo() = delete;
+};
+
 // XDMF subroutine to write a dataitem that refers to an HDF array
 static std::string stringXdmfArrayRef(const std::string &prefix,
                                       const std::string &hdfPath,
