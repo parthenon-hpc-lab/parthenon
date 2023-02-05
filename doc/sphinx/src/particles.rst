@@ -19,11 +19,10 @@ specified by the metadata values ``Metadata::Real`` and ``Metadata::Integer``.
 ``ParticleVariable`` s should also contain the ``Metadata::Particle`` flag. By default,
 ``ParticleVariable`` s provide one scalar quantity per particle, but up to 2D data per particle is
 currently supported, by passing ``std::vector<int>{N1, N2}`` as the second argument to the
-``ParticleVariable`` ``Metadata``. All ``Swarm``s by default contain ``x``, ``y``, and ``z``
+``ParticleVariable`` ``Metadata`` . All ``Swarm`` s by default contain ``x``, ``y``, and ``z``
 ``ParticleVariable`` s; additional fields can be added as:
 
-.. code-block::
-   :language:C++
+.. code-block:: C++
 
    Swarm.Add(name, metadata)
 
@@ -38,8 +37,7 @@ Hereafter we refer to it as ``swarm_d``.
 
 To add particles to a ``Swarm``, one calls
 
-.. code-block::
-   :language:C++
+.. code-block:: C++
 
    ParArray1D<bool> new_particles_mask = swarm->AddEmptyParticles(num_to_add, new_indices)
 
@@ -50,8 +48,7 @@ contains the indices of each newly added particle.
 
 To remove particles from a ``Swarm``, one first calls
 
-.. code-block::
-   :language:C++
+.. code-block:: C++
 
    swarm_d.MarkParticleForRemoval(index_to_remove)
 
@@ -59,8 +56,7 @@ inside device code. This only indicates that this particle should be
 removed from the pool, it does not actually update any data. To remove
 all particles so marked, one then calls
 
-.. code-block::
-   :language:C++
+.. code-block:: C++
 
    swarm.RemoveMarkedParticles()
 
@@ -74,8 +70,7 @@ Parallel computations on particle data can be performed with the usual ``MeshBlo
 ``par_for`` calls. Typically one loops over the entire range of active indices and uses a
 mask variable to only perform computations on currently active particles:
 
-.. code-block::
-   :language:C++
+.. code-block:: C++
 
    auto &x = swarm.Get("x").Get();
    swarm.pmy_block->par_for("Simple loop", 0, swarm.GetMaxActiveIndex(),
@@ -108,25 +103,25 @@ fully parallelized so should be called only sparingly.
 SwarmContainer
 ---------------
 
-A ``SwarmContainer`` contains a set of related ``Swarm``s, such as the different stages used
+A ``SwarmContainer`` contains a set of related ``Swarm`` s, such as the different stages used
 by a higher order time integrator. This feature is currently not exercised in detail.
 
 ``particles`` Example
---------------------
+-----------------------
 
 An example showing how to create a Parthenon application that defines a ``Swarm`` and
 creates, destroys, and transports particles is available in
-``parthenon/examples/particles``.
+``parthenon/examples/particles`` .
 
 Communication
 ----------------
 
-Communication of particles across ``MeshBlock``s, including across MPI
+Communication of particles across ``MeshBlock`` s, including across MPI
 processors, is supported. Particle communication is currently handled via
 paired asynchronous/synchronous tasking regions on each MPI processor. The
 asynchronous tasks include transporting particles and ``SwarmContainer::Send``
 and ``SwarmContainer::Receive`` calls. The synchronous task checks every
-``MeshBlock`` on that MPI processor for whether the ``Swarm``s are finished
+``MeshBlock`` on that MPI processor for whether the ``Swarm`` s are finished
 transporting. This set of tasks must be repeated in the driver's evolution
 function until all particles are completed. See the ``particles`` example for
 further details. Note that this pattern is blocking, and may be replaced in the

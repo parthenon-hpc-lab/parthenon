@@ -80,8 +80,8 @@ Tuning HDF5 Performance
 Tuning IO parameters can be passed to Parthenon through the use of
 environment variables. Available environment variables are:
 
-.. list-table: HDF5 Performance Parameters
-   :widths: 25 25 25 50
+.. list-table:: HDF5 Performance Parameters
+   :widths: 35 20 20 50
    :header-rows: 1
 
    * - Environment Variable
@@ -189,8 +189,7 @@ for visualizing or analyzing data in the ``.phdf`` files.  The
 provides a convenient means of making movies of 2D simulations.  The
 script can be invoked as
 
-.. code-block::
-   :language:bash
+.. code-block:: bash
    
    python3 /path/to/movie2d.py name_of_variable *.phdf
 
@@ -220,10 +219,7 @@ are named with a list of names for each row while 3D variables are
 named with a single name.  For example, the following configurations
 are acceptable:
 
-.. _yt: https://yt-project.org/
-
-.. code-block::
-   :language:C++
+.. code-block:: C++
 
    auto pkg = std::make_shared<StateDescriptor>("Hydro");
    
@@ -277,8 +273,7 @@ interpret the data, namely adiabatic index and code unit information. These are
 identified by passing ``true`` as an optional boolean argument when adding
 parameters via ``StateDescriptor::AddParam``. For example,
 
-.. code-block::
-   :language:C++
+.. code-block:: C++
 
    pkg->AddParam<double>("CodeLength", 100,true);
    pkg->AddParam<double>("CodeMass", 1000,true);
@@ -311,8 +306,7 @@ The adiabatic index can also be specified via the parameter
 
 For example, the following methods are valid to load data with ``yt``
 
-.. code-block::
-   :language:python
+.. code-block:: python
 
    filename = "parthenon.out0.00000.phdf"
    
@@ -329,5 +323,7 @@ For example, the following methods are valid to load data with ``yt``
 Currently, the ``yt`` frontend for Parthenon is hosted on the
 ``athenapk-frontend`` on `this yt fork`_. In the future, the Parthenon
 frontend will be included in the main ``yt`` repo.
+
+.. _yt: https://yt-project.org/
 
 .. _this yt fork: https://github.com/forrestglines/yt/tree/athenapk-frontend
