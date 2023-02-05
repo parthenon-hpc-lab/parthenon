@@ -48,6 +48,8 @@ struct OutputParameters {
   std::string file_id;
   std::vector<std::string> variables;
   std::vector<std::string> component_labels;
+  std::vector<std::string> swarms; // TODO(JMM) is there a better way?
+  std::vector<std::string> swarm_vars;
   std::string file_type;
   std::string data_format;
   Real next_time, dt;

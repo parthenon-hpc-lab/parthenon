@@ -189,6 +189,12 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // set output variable and optional data format string used in formatted writes
       if ((op.file_type != "hst") && (op.file_type != "rst")) {
         op.variables = pin->GetVector<std::string>(pib->block_name, "variables");
+	// TODO(JMM): This model is based on the belief that the user
+	// may want to output some subset of swarm vars for some
+	// subset of swarms, but that e.g., the user doesn't want to
+	// output x,y,z for swarm A and only x,y for swarm B.
+	op.swarms = pin->GetVector<std::string>(pib->block_name, "swarms");
+	op.swarm_vars = pin->GetVector<std::string>(pib->block_name, "swarm_variables");
       }
       op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
       op.data_format.insert(0, " "); // prepend with blank to separate columns
