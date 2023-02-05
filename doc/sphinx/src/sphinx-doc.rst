@@ -32,6 +32,7 @@ some flavor)
 
 .. code-block::
    :language:bash
+
    $ python --version
    Python 3.9.7
 

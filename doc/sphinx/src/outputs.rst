@@ -13,19 +13,18 @@ In addition to time base outputs, two additional options to trigger
 outputs (applies to HDF5 and restart outputs) exist.
 
 * Signaling: If ``Parthenon`` catches a signal, e.g., ``SIGALRM``
-which is often sent by schedulers such as Slurm to signal a job of
-exceeding the job's allocated walltime, ``Parthenon`` will gracefully
-terminate and write output files with a ``final`` id rather than a
-number. This also applies to the ``Parthenon`` internal walltime
-limit, e.g., when executing an application with the :code:`-t
-HH:MM:SS` parameter on the command line.
-
+  which is often sent by schedulers such as Slurm to signal a job of
+  exceeding the job's allocated walltime, ``Parthenon`` will gracefully
+  terminate and write output files with a ``final`` id rather than a
+  number. This also applies to the ``Parthenon`` internal walltime
+  limit, e.g., when executing an application with the :code:`-t
+  HH:MM:SS` parameter on the command line.
 * File trigger: If a user places a file with the name ``output_now`` in
-the working directory of a running application, ``Parthenon`` will write
-output files with a ``now`` id rather than a number.  After the output
-is being written the ``output_now`` file is removed and the simulation
-continues normally.  The user can repeat the process any time by
-creating a new ``output_now`` file.
+  the working directory of a running application, ``Parthenon`` will write
+  output files with a ``now`` id rather than a number.  After the output
+  is being written the ``output_now`` file is removed and the simulation
+  continues normally.  The user can repeat the process any time by
+  creating a new ``output_now`` file.
 
 Note, in both cases the original numbering of the output will be unaffected and the
 ``final`` and ``now`` files will be overwritten each time without warning.
@@ -43,6 +42,7 @@ written in single precision.  A ``<parthenon/output*>`` block might look
 like:
 
 .. code-block::
+
    <parthenon/output1>
    file_type = hdf5
    variables = density, velocity, & # comments are still ok
@@ -140,6 +140,7 @@ frequency of outputs for simulations involving evolution. A
 :code:`<parthenon/output*>` block might look like
 
 .. code-block::
+
    <parthenon/output7>
    file_type = rst
    dt = 1.0
@@ -166,6 +167,7 @@ frequency of outputs for simulations involving evolution. A
 :code:`<parthenon/output*>` block might look like
 
 .. code-block::
+
    <parthenon/output8>
    file_type = hst
    dt = 1.0
@@ -182,12 +184,13 @@ Python scripts
 The :code:`scripts/python` folder includes scripts that may be useful
 for visualizing or analyzing data in the ``.phdf`` files.  The
 ``phdf.py`` file defines a class to read in and query data.  The
-``movie2d.py` script shows an example of using this class, and also
+``movie2d.py`` script shows an example of using this class, and also
 provides a convenient means of making movies of 2D simulations.  The
 script can be invoked as
 
 .. code-block::
-   :language: bash
+   :language:bash
+   
    python3 /path/to/movie2d.py name_of_variable *.phdf
 
 which will produce a ``png`` image per dump suitable for encoding into a movie.
@@ -201,7 +204,7 @@ opened. In ParaView, select the "XDMF Reader" when prompted.
 
 .. _ParaView: https://www.paraview.org/
 
-.. _VisIt`: https://wci.llnl.gov/simulation/computer-codes/visit/
+.. _VisIt: https://wci.llnl.gov/simulation/computer-codes/visit/
 
 Preparing outputs for ``yt``
 -----------------------------
@@ -219,7 +222,8 @@ are acceptable:
 .. _yt: https://yt-project.org/
 
 .. code-block::
-   :language: C++
+   :language:C++
+
    auto pkg = std::make_shared<StateDescriptor>("Hydro");
    
    /* ... */
@@ -273,7 +277,8 @@ identified by passing ``true`` as an optional boolean argument when adding
 parameters via ``StateDescriptor::AddParam``. For example,
 
 .. code-block::
-   :language: C++
+   :language:C++
+
    pkg->AddParam<double>("CodeLength", 100,true);
    pkg->AddParam<double>("CodeMass", 1000,true);
    pkg->AddParam<double>("CodeTime", 1,true);
@@ -306,7 +311,8 @@ The adiabatic index can also be specified via the parameter
 For example, the following methods are valid to load data with ``yt``
 
 .. code-block::
-   :language: python
+   :language:python
+
    filename = "parthenon.out0.00000.phdf"
    
    #Read units and adiabatic index from the HDF5 file or use defaults
