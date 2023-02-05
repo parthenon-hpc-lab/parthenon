@@ -268,8 +268,8 @@ struct SwarmVarInfo {
   int tensor_rank;
   SwarmVarInfo() = delete;
   explicit SwarmVarInfo(const std::shared_ptr<ParticleVariable<Real>> &var)
-      : label(var->label()), npart(var->GetDim(1)),
-        nvar(var->GetDim(2)), tensor_rank->(var->GetDim(2) > 1 ? 1 : 0) {}
+      : label(var->label()), npart(var->GetDim(1)), nvar(var->GetDim(2)),
+        tensor_rank(var->GetDim(2) > 1 ? 1 : 0) {}
 };
 
 // XDMF subroutine to write a dataitem that refers to an HDF array
