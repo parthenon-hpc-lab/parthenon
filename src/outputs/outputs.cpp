@@ -37,14 +37,14 @@
 // -----------------------------------
 // - outputs.cpp, OutputType:LoadOutputData() (below): conditionally add new OutputData
 // node to linked list, depending on the user-input 'variable' string.
-// 
+//
 // - parthenon_hdf5.cpp, PHDF5Output::WriteOutputFile(): need to allocate space for the
 // new OutputData node as an HDF5 "variable" inside an existing HDF5 "dataset"
 // (cell-centered vs. face-centered data).
-// 
+//
 // - history.cpp: Add the relevant history quantity to your package
 // -----------------------------------
-// 
+//
 // HDF5 note: packing gas velocity into the "prim" HDF5 dataset will cause VisIt to treat
 // the 3x components as independent scalars instead of a physical vector, unlike how it
 // treats .vtk velocity output from Athena++. The workaround is to import the
@@ -140,8 +140,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.cartesian_vector = false;
 
       // read single precision output option
-      const bool is_hdf5_output =
-          (op.file_type == "rst") || (op.file_type == "hdf5");
+      const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5");
 
       if (is_hdf5_output) {
         op.single_precision_output =
