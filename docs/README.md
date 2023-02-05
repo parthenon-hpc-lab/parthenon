@@ -178,7 +178,7 @@ The tasking capabilities in Parthenon are documented [here](tasks.md).
 
 ### Outputs
 
-Check [here](outputs.md) for a description of how to get data out of Parthenon and how to visualize it.
+Check [here](https://parthenon-hpc-lab.github.io/parthenon/develop/src/outputs.html) for a description of how to get data out of Parthenon and how to visualize it.
 
 ### MeshBlockDatas and MeshBlockData Iterators
 

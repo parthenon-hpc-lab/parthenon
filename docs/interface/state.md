@@ -39,7 +39,7 @@ In Parthenon, each `Mesh` and `MeshBlock` owns a `Packages_t` object, which is a
 
 Parthenon allows packages to enroll an arbitrary number of "history" functions that are all
 called at the interval according to the input parameters,
-see [output documention](../outputs.md#History-Files).
+see [output documention](https://parthenon-hpc-lab.github.io/parthenon/develop/src/outputs.html).
 
 To enroll functions create a list of callback function with the appropriate reduction operation:
 
