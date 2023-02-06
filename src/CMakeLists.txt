@@ -168,6 +168,7 @@ add_library(parthenon
   outputs/history.cpp
   outputs/io_wrapper.cpp
   outputs/io_wrapper.hpp
+  outputs/output_utils.hpp
   outputs/outputs.cpp
   outputs/outputs.hpp
   outputs/parthenon_hdf5.cpp
