@@ -172,6 +172,9 @@ add_library(parthenon
   outputs/outputs.cpp
   outputs/outputs.hpp
   outputs/parthenon_hdf5.cpp
+  outputs/parthenon_xdmf.cpp
+  outputs/parthenon_hdf5.hpp
+  outputs/parthenon_xdmf.hpp
   outputs/restart.cpp
   outputs/vtk.cpp
 

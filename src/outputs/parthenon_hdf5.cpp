@@ -37,370 +37,13 @@
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_hdf5.hpp"
+#include "outputs/parthenon_xdmf.hpp"
 #include "utils/string_utils.hpp"
 
 namespace parthenon {
-namespace HDF5 {
-
-// template specializations for std::string
-template <>
-void HDF5WriteAttribute(const std::string &name, const std::vector<std::string> &values,
-                        hid_t location) {
-  std::vector<const char *> char_ptrs(values.size());
-  for (size_t i = 0; i < values.size(); ++i) {
-    char_ptrs[i] = values[i].c_str();
-  }
-  HDF5WriteAttribute(name, char_ptrs, location);
-}
-
-template <>
-std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
-  // get strings as char pointers, HDF5 will allocate the memory and we need to free it
-  auto char_ptrs = HDF5ReadAttributeVec<char *>(location, name);
-
-  // make strings out of char pointers, which copies the memory and then free the memeory
-  std::vector<std::string> res(char_ptrs.size());
-  for (size_t i = 0; i < res.size(); ++i) {
-    res[i] = std::string(char_ptrs[i]);
-    free(char_ptrs[i]);
-  }
-
-  return res;
-}
-
-// template specialization for bool
-template <>
-void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values,
-                        hid_t location) {
-  // can't use std::vector here because std::vector<bool>  doesn't have .data() member
-  std::unique_ptr<hbool_t[]> data(new hbool_t[values.size()]);
-  for (size_t i = 0; i < values.size(); ++i) {
-    data[i] = values[i];
-  }
-  HDF5WriteAttribute(name, values.size(), data.get(), location);
-}
-
-hid_t GenerateFileAccessProps() {
-#ifdef MPI_PARALLEL
-  /* set the file access template for parallel IO access */
-  hid_t acc_file = H5Pcreate(H5P_FILE_ACCESS);
-
-  /* ---------------------------------------------------------------------
-     platform dependent code goes here -- the access template must be
-     tuned for a particular filesystem blocksize.  some of these
-     numbers are guesses / experiments, others come from the file system
-     documentation.
-
-     ---------------------------------------------------------------------- */
-
-  // use collective metadata optimizations
-#if H5_VERSION_GE(1, 10, 0)
-  PARTHENON_HDF5_CHECK(H5Pset_coll_metadata_write(acc_file, true));
-  PARTHENON_HDF5_CHECK(H5Pset_all_coll_metadata_ops(acc_file, true));
-#endif
-
-  bool exists, exists2;
-
-  // Set the HDF5 format versions used when creating objects
-  // Note, introducing API calls that create objects or features that are
-  // only available to versions of the library greater than 1.8.x release will fail.
-  // For that case, the highest version value will need to be increased.
-  H5Pset_libver_bounds(acc_file, H5F_LIBVER_V18, H5F_LIBVER_V18);
-
-  // Sets the maximum size of the data sieve buffer, in bytes.
-  // The sieve_buf_size should be equal to a multiple of the disk block size
-  // Default: Disabled
-  size_t sieve_buf_size = Env::get<size_t>("H5_sieve_buf_size", 256 * KiB, exists);
-  if (exists) {
-    PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, sieve_buf_size));
-  }
-
-  // Sets the minimum metadata block size, in bytes.
-  // Default: Disabled
-  hsize_t meta_block_size = Env::get<hsize_t>("H5_meta_block_size", 8 * MiB, exists);
-  if (exists) {
-    PARTHENON_HDF5_CHECK(H5Pset_meta_block_size(acc_file, meta_block_size));
-  }
-
-  // Sets alignment properties of a file access property list.
-  // Choose an alignment which is a multiple of the disk block size.
-  // Default: Disabled
-  hsize_t threshold; // Threshold value. Setting to 0 forces everything to be aligned.
-  hsize_t alignment; // Alignment value.
-
-  threshold = Env::get<hsize_t>("H5_alignment_threshold", 0, exists);
-  alignment = Env::get<hsize_t>("H5_alignment_alignment", 8 * MiB, exists2);
-  if (exists || exists2) {
-    PARTHENON_HDF5_CHECK(H5Pset_alignment(acc_file, threshold, alignment));
-  }
-
-  // Defer metadata flush
-  // Default: Disabled
-  bool defer_metadata_flush = Env::get<bool>("H5_defer_metadata_flush", false, exists);
-  if (defer_metadata_flush) {
-    H5AC_cache_config_t cache_config;
-    cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
-    PARTHENON_HDF5_CHECK(H5Pget_mdc_config(acc_file, &cache_config));
-    cache_config.set_initial_size = 1;
-    cache_config.initial_size = 16 * MiB;
-    cache_config.evictions_enabled = 0;
-    cache_config.incr_mode = H5C_incr__off;
-    cache_config.flash_incr_mode = H5C_flash_incr__off;
-    cache_config.decr_mode = H5C_decr__off;
-    PARTHENON_HDF5_CHECK(H5Pset_mdc_config(acc_file, &cache_config));
-  }
-
-  /* create an MPI_INFO object -- on some platforms it is useful to
-     pass some information onto the underlying MPI_File_open call */
-  MPI_Info FILE_INFO_TEMPLATE;
-  PARTHENON_MPI_CHECK(MPI_Info_create(&FILE_INFO_TEMPLATE));
-
-  // Free MPI_Info on error on return or throw
-  struct MPI_InfoDeleter {
-    MPI_Info info;
-    ~MPI_InfoDeleter() { MPI_Info_free(&info); }
-  } delete_info{FILE_INFO_TEMPLATE};
-
-  // Hint specifies the manner in which the file will be accessed until the file is closed
-  const auto access_style =
-      Env::get<std::string>("MPI_access_style", "write_once", exists);
-  PARTHENON_MPI_CHECK(
-      MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", access_style.c_str()));
-
-  // Specifies whether the application may benefit from collective buffering
-  // Default :: collective_buffering is disabled
-  bool collective_buffering = Env::get<bool>("MPI_collective_buffering", false, exists);
-  if (exists) {
-    PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
-    // Specifies the block size to be used for collective buffering file acces
-    const auto cb_block_size =
-        Env::get<std::string>("MPI_cb_block_size", "1048576", exists);
-    PARTHENON_MPI_CHECK(
-        MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", cb_block_size.c_str()));
-    // Specifies the total buffer space that can be used for collective buffering on each
-    // target node, usually a multiple of cb_block_size
-    const auto cb_buffer_size =
-        Env::get<std::string>("MPI_cb_buffer_size", "4194304", exists);
-    PARTHENON_MPI_CHECK(
-        MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", cb_buffer_size.c_str()));
-  }
-
-  /* tell the HDF5 library that we want to use MPI-IO to do the writing */
-  PARTHENON_HDF5_CHECK(H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, FILE_INFO_TEMPLATE));
-#else
-  hid_t acc_file = H5P_DEFAULT;
-#endif // ifdef MPI_PARALLEL
-  return acc_file;
-}
-
-} // namespace HDF5
-
-using namespace HDF5;
-
-// XDMF subroutine to write a dataitem that refers to an HDF array
-static std::string stringXdmfArrayRef(const std::string &prefix,
-                                      const std::string &hdfPath,
-                                      const std::string &label, const hsize_t *dims,
-                                      const int &ndims, const std::string &theType,
-                                      const int &precision) {
-  std::string mystr = prefix + R"(<DataItem Format="HDF" Dimensions=")";
-  for (int i = 0; i < ndims; i++) {
-    mystr += " " + std::to_string(dims[i]);
-  }
-  mystr += "\" Name=\"" + label + "\"";
-  mystr += " NumberType=\"" + theType + "\"";
-  mystr += R"( Precision=")" + std::to_string(precision) + R"(">)" + '\n';
-  mystr += prefix + "  " + hdfPath + label + "</DataItem>" + '\n';
-  return mystr;
-}
-
-static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
-                              const std::string &hdfPath, const std::string &label,
-                              const hsize_t *dims, const int &ndims,
-                              const std::string &theType, const int &precision) {
-  fid << stringXdmfArrayRef(prefix, hdfPath, label, dims, ndims, theType, precision)
-      << std::flush;
-}
-
-static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name,
-                                     const std::vector<std::string> &component_labels,
-                                     std::string &hdfFile, int iblock, const int &vlen,
-                                     int &ndims, hsize_t *dims,
-                                     const std::string &dims321, bool isVector) {
-  // writes a slab reference to file
-  std::vector<std::string> names;
-  int nentries = 1;
-  if (vlen == 1 || isVector) {
-    // we only make one entry, because either vlen == 1, or we write this as a vector
-    names.push_back(name);
-  } else {
-    nentries = vlen;
-    for (int i = 0; i < vlen; i++) {
-      names.push_back(component_labels[i]);
-    }
-  }
-  const int tensor_dims = ndims - 1 - 3;
-
-  if (tensor_dims == 0) {
-    const std::string prefix = "      ";
-    fid << prefix << R"(<Attribute Name=")" << names[0] << R"(" Center="Cell")";
-    fid << ">" << std::endl;
-    fid << prefix << "  "
-        << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
-    fid << dims321 << " ";
-    fid << R"(">)" << std::endl;
-    // "3" rows for START, STRIDE, and COUNT for each slab with "4" entries.
-    // START: iblock 0   0   0
-    // STRIDE: 1     1   1   1
-    // COUNT:  1     nx3 nx2 nx1
-    fid << prefix << "    "
-        << R"(<DataItem Dimensions="3 4" NumberType="Int" Format="XML">)" << iblock << " "
-        << " 0 0 0 "
-        << " 1 1 1 1 1 "
-        << " " << dims321 << "</DataItem>" << std::endl;
-    writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
-                      8);
-    fid << prefix << "  "
-        << "</DataItem>" << std::endl;
-    fid << prefix << "</Attribute>" << std::endl;
-  } else if (tensor_dims == 1) {
-    const std::string prefix = "      ";
-    for (int i = 0; i < nentries; i++) {
-      fid << prefix << R"(<Attribute Name=")" << names[i] << R"(" Center="Cell")";
-      if (isVector) {
-        fid << R"( AttributeType="Vector")"
-            << R"( Dimensions=")" << dims[1] << " " << dims321 << R"(")";
-      }
-      fid << ">" << std::endl;
-      fid << prefix << "  "
-          << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
-      fid << dims321 << " ";
-      fid << R"(">)" << std::endl;
-      // "3" rows for START, STRIDE, and COUNT for each slab with "5" entries.
-      // START: iblock variable(_component)  0   0   0
-      // STRIDE: 1               1           1   1   1
-      // COUNT:  1               dims[1]     nx3 nx2 nx1
-      fid << prefix << "    "
-          << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
-          << " " << i << " 0 0 0 "
-          << " 1 1 1 1 1 1 " << dims[1] << " " << dims321 << "</DataItem>" << std::endl;
-      writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
-                        8);
-      fid << prefix << "  "
-          << "</DataItem>" << std::endl;
-      fid << prefix << "</Attribute>" << std::endl;
-    }
-  }
-  // TODO(BRR) Support tensor dims 2 and 3
-}
-
-void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
-             const std::vector<VarInfo> &var_list) {
-  // using round robin generation.
-  // must switch to MPIIO at some point
-
-  // only rank 0 writes XDMF
-  if (Globals::my_rank != 0) {
-    return;
-  }
-  std::string filename_aux = hdfFile + ".xdmf";
-  std::ofstream xdmf;
-  hsize_t dims[H5_NDIM] = {0, 0, 0, 0, 0, 0, 0};
-
-  // open file
-  xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
-
-  // Write header
-  xdmf << R"(<?xml version="1.0" ?>)" << std::endl;
-  xdmf << R"(<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd">)" << std::endl;
-  xdmf << R"(<Xdmf Version="3.0">)" << std::endl;
-  xdmf << R"(<Information Name="TimeVaryingMetaData" Value="True"/>)" << std::endl;
-  xdmf << "  <Domain>" << std::endl;
-  xdmf << R"(  <Grid Name="Mesh" GridType="Collection">)" << std::endl;
-  if (tm != nullptr) {
-    xdmf << R"(    <Information Name="Cycle" Value=")" << tm->ncycle << R"("/>)"
-         << std::endl;
-    xdmf << R"(    <Time Value=")" << tm->time << R"("/>)" << std::endl;
-  }
-
-  std::string blockTopology =
-      R"(      <Topology TopologyType="3DRectMesh" Dimensions=")" +
-      std::to_string(nx3 + 1) + " " + std::to_string(nx2 + 1) + " " +
-      std::to_string(nx1 + 1) + R"("/>)" + '\n';
-  const std::string slabPreDim = R"(        <DataItem ItemType="HyperSlab" Dimensions=")";
-  const std::string slabPreBlock2D =
-      R"("><DataItem Dimensions="3 2" NumberType="Int" Format="XML">)";
-  const std::string slabTrailer = "</DataItem>";
-
-  // Now write Grid for each block
-  dims[0] = pm->nbtotal;
-  std::string dims321 =
-      std::to_string(nx3) + " " + std::to_string(nx2) + " " + std::to_string(nx1);
-
-  for (int ib = 0; ib < pm->nbtotal; ib++) {
-    xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
-    xdmf << blockTopology;
-    xdmf << R"(      <Geometry GeometryType="VXVYVZ">)" << std::endl;
-    xdmf << slabPreDim << nx1 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx1 + 1
-         << slabTrailer << std::endl;
-
-    dims[1] = nx1 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "x", dims, 2, "Float",
-                      8);
-    xdmf << "</DataItem>" << std::endl;
-
-    xdmf << slabPreDim << nx2 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx2 + 1
-         << slabTrailer << std::endl;
-
-    dims[1] = nx2 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "y", dims, 2, "Float",
-                      8);
-    xdmf << "</DataItem>" << std::endl;
-
-    xdmf << slabPreDim << nx3 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx3 + 1
-         << slabTrailer << std::endl;
-
-    dims[1] = nx3 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "z", dims, 2, "Float",
-                      8);
-    xdmf << "</DataItem>" << std::endl;
-
-    xdmf << "      </Geometry>" << std::endl;
-
-    // write graphics variables
-    int ndim;
-    for (const auto &vinfo : var_list) {
-      std::vector<hsize_t> alldims(
-          {static_cast<hsize_t>(vinfo.nx6), static_cast<hsize_t>(vinfo.nx5),
-           static_cast<hsize_t>(vinfo.nx4), static_cast<hsize_t>(vinfo.nx3),
-           static_cast<hsize_t>(vinfo.nx2), static_cast<hsize_t>(vinfo.nx1)});
-      // Only cell-based data currently supported for visualization
-      if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-        ndim = 3 + vinfo.tensor_rank + 1;
-        for (int i = 0; i < vinfo.tensor_rank; i++) {
-          dims[1 + i] = alldims[3 - vinfo.tensor_rank + i];
-        }
-        dims[vinfo.tensor_rank + 1] = nx3;
-        dims[vinfo.tensor_rank + 2] = nx2;
-        dims[vinfo.tensor_rank + 3] = nx1;
-      } else {
-        continue;
-      }
-
-      const int vlen = vinfo.vlen;
-      writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
-                               vlen, ndim, dims, dims321, vinfo.is_vector);
-    }
-    xdmf << "      </Grid>" << std::endl;
-  }
-  xdmf << "    </Grid>" << std::endl;
-  xdmf << "  </Domain>" << std::endl;
-  xdmf << "</Xdmf>" << std::endl;
-  xdmf.close();
-}
-
 void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                   const SignalHandler::OutputSignal signal) {
+  using namespace HDF5;
   if (output_params.single_precision_output) {
     this->template WriteOutputFileImpl<true>(pm, pin, tm, signal);
   } else {
@@ -415,6 +58,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 template <bool WRITE_SINGLE_PRECISION>
 void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                       const SignalHandler::OutputSignal signal) {
+  using namespace HDF5;
+
   // writes all graphics variables to hdf file
   // HDF5 structures
   // Also writes companion xdmf file
@@ -973,6 +618,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
 std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
                                            const SignalHandler::OutputSignal signal) {
+  using namespace HDF5;
+
   auto filename = std::string(output_params.file_basename);
   filename.append(".");
   filename.append(output_params.file_id);
@@ -1010,6 +657,159 @@ template void PHDF5Output::WriteOutputFileImpl<false>(Mesh *, ParameterInput *, 
 template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, SimTime *,
                                                      SignalHandler::OutputSignal);
 
+// Utility functions implemented
+namespace HDF5 {
+// template specializations for std::string
+template <>
+void HDF5WriteAttribute(const std::string &name, const std::vector<std::string> &values,
+                        hid_t location) {
+  std::vector<const char *> char_ptrs(values.size());
+  for (size_t i = 0; i < values.size(); ++i) {
+    char_ptrs[i] = values[i].c_str();
+  }
+  HDF5WriteAttribute(name, char_ptrs, location);
+}
+
+template <>
+std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
+  // get strings as char pointers, HDF5 will allocate the memory and we need to free it
+  auto char_ptrs = HDF5ReadAttributeVec<char *>(location, name);
+
+  // make strings out of char pointers, which copies the memory and then free the memeory
+  std::vector<std::string> res(char_ptrs.size());
+  for (size_t i = 0; i < res.size(); ++i) {
+    res[i] = std::string(char_ptrs[i]);
+    free(char_ptrs[i]);
+  }
+
+  return res;
+}
+
+// template specialization for bool
+template <>
+void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values,
+                        hid_t location) {
+  // can't use std::vector here because std::vector<bool>  doesn't have .data() member
+  std::unique_ptr<hbool_t[]> data(new hbool_t[values.size()]);
+  for (size_t i = 0; i < values.size(); ++i) {
+    data[i] = values[i];
+  }
+  HDF5WriteAttribute(name, values.size(), data.get(), location);
+}
+
+hid_t GenerateFileAccessProps() {
+#ifdef MPI_PARALLEL
+  /* set the file access template for parallel IO access */
+  hid_t acc_file = H5Pcreate(H5P_FILE_ACCESS);
+
+  /* ---------------------------------------------------------------------
+     platform dependent code goes here -- the access template must be
+     tuned for a particular filesystem blocksize.  some of these
+     numbers are guesses / experiments, others come from the file system
+     documentation.
+
+     ---------------------------------------------------------------------- */
+
+  // use collective metadata optimizations
+#if H5_VERSION_GE(1, 10, 0)
+  PARTHENON_HDF5_CHECK(H5Pset_coll_metadata_write(acc_file, true));
+  PARTHENON_HDF5_CHECK(H5Pset_all_coll_metadata_ops(acc_file, true));
+#endif
+
+  bool exists, exists2;
+
+  // Set the HDF5 format versions used when creating objects
+  // Note, introducing API calls that create objects or features that are
+  // only available to versions of the library greater than 1.8.x release will fail.
+  // For that case, the highest version value will need to be increased.
+  H5Pset_libver_bounds(acc_file, H5F_LIBVER_V18, H5F_LIBVER_V18);
+
+  // Sets the maximum size of the data sieve buffer, in bytes.
+  // The sieve_buf_size should be equal to a multiple of the disk block size
+  // Default: Disabled
+  size_t sieve_buf_size = Env::get<size_t>("H5_sieve_buf_size", 256 * KiB, exists);
+  if (exists) {
+    PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, sieve_buf_size));
+  }
+
+  // Sets the minimum metadata block size, in bytes.
+  // Default: Disabled
+  hsize_t meta_block_size = Env::get<hsize_t>("H5_meta_block_size", 8 * MiB, exists);
+  if (exists) {
+    PARTHENON_HDF5_CHECK(H5Pset_meta_block_size(acc_file, meta_block_size));
+  }
+
+  // Sets alignment properties of a file access property list.
+  // Choose an alignment which is a multiple of the disk block size.
+  // Default: Disabled
+  hsize_t threshold; // Threshold value. Setting to 0 forces everything to be aligned.
+  hsize_t alignment; // Alignment value.
+
+  threshold = Env::get<hsize_t>("H5_alignment_threshold", 0, exists);
+  alignment = Env::get<hsize_t>("H5_alignment_alignment", 8 * MiB, exists2);
+  if (exists || exists2) {
+    PARTHENON_HDF5_CHECK(H5Pset_alignment(acc_file, threshold, alignment));
+  }
+
+  // Defer metadata flush
+  // Default: Disabled
+  bool defer_metadata_flush = Env::get<bool>("H5_defer_metadata_flush", false, exists);
+  if (defer_metadata_flush) {
+    H5AC_cache_config_t cache_config;
+    cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
+    PARTHENON_HDF5_CHECK(H5Pget_mdc_config(acc_file, &cache_config));
+    cache_config.set_initial_size = 1;
+    cache_config.initial_size = 16 * MiB;
+    cache_config.evictions_enabled = 0;
+    cache_config.incr_mode = H5C_incr__off;
+    cache_config.flash_incr_mode = H5C_flash_incr__off;
+    cache_config.decr_mode = H5C_decr__off;
+    PARTHENON_HDF5_CHECK(H5Pset_mdc_config(acc_file, &cache_config));
+  }
+
+  /* create an MPI_INFO object -- on some platforms it is useful to
+     pass some information onto the underlying MPI_File_open call */
+  MPI_Info FILE_INFO_TEMPLATE;
+  PARTHENON_MPI_CHECK(MPI_Info_create(&FILE_INFO_TEMPLATE));
+
+  // Free MPI_Info on error on return or throw
+  struct MPI_InfoDeleter {
+    MPI_Info info;
+    ~MPI_InfoDeleter() { MPI_Info_free(&info); }
+  } delete_info{FILE_INFO_TEMPLATE};
+
+  // Hint specifies the manner in which the file will be accessed until the file is closed
+  const auto access_style =
+      Env::get<std::string>("MPI_access_style", "write_once", exists);
+  PARTHENON_MPI_CHECK(
+      MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", access_style.c_str()));
+
+  // Specifies whether the application may benefit from collective buffering
+  // Default :: collective_buffering is disabled
+  bool collective_buffering = Env::get<bool>("MPI_collective_buffering", false, exists);
+  if (exists) {
+    PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
+    // Specifies the block size to be used for collective buffering file acces
+    const auto cb_block_size =
+        Env::get<std::string>("MPI_cb_block_size", "1048576", exists);
+    PARTHENON_MPI_CHECK(
+        MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", cb_block_size.c_str()));
+    // Specifies the total buffer space that can be used for collective buffering on each
+    // target node, usually a multiple of cb_block_size
+    const auto cb_buffer_size =
+        Env::get<std::string>("MPI_cb_buffer_size", "4194304", exists);
+    PARTHENON_MPI_CHECK(
+        MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", cb_buffer_size.c_str()));
+  }
+
+  /* tell the HDF5 library that we want to use MPI-IO to do the writing */
+  PARTHENON_HDF5_CHECK(H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, FILE_INFO_TEMPLATE));
+#else
+  hid_t acc_file = H5P_DEFAULT;
+#endif // ifdef MPI_PARALLEL
+  return acc_file;
+}
+} // namespace HDF5
 } // namespace parthenon
 
 #endif // ifdef ENABLE_HDF5
