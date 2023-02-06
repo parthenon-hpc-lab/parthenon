@@ -5,7 +5,7 @@ Outputs from Parthenon are controled via `<parthenon/output*>` blocks, where `*`
 To disable an output block without removing it from the intput file set the block's `dt < 0.0`.
 
 In addition to time base outputs, two additional options to trigger outputs
-(applies to HDF5 and restart outputs) exist.
+(applies to HDF5, restart, and optional Ascent outputs) exist.
 
 - Signaling: If `Parthenon` catches a signal, e.g., `SIGALRM` which is often sent by
 schedulers such as Slurm to signal a job of exceeding the job's allocated walltime,
@@ -221,3 +221,7 @@ Currently, the `yt` frontend for Parthenon is hosted on the
 `athenapk-frontend` [on this `yt`
 fork](https://github.com/forrestglines/yt/tree/athenapk-frontend). In the
 future, the Parthenon frontend will be included in the main `yt` repo.
+
+## Ascent (optional)
+
+to be written

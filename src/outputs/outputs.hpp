@@ -186,6 +186,17 @@ class VTKOutput : public OutputType {
                        const SignalHandler::OutputSignal signal) override;
 };
 
+//----------------------------------------------------------------------------------------
+//! \class AscentOutput
+//  \brief derived OutputType class for Ascent in situ situ visualization and analysis
+
+class AscentOutput : public OutputType {
+ public:
+  explicit AscentOutput(const OutputParameters &oparams) : OutputType(oparams) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+};
+
 #ifdef ENABLE_HDF5
 //----------------------------------------------------------------------------------------
 //! \class PHDF5Output

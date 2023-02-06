@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2023 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
@@ -15,7 +19,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 //! \file outputs.cpp
-//  \brief implements functions for Athena++ outputs
+//  \brief implements functions for Parthenon outputs
 //
 // The number and types of outputs are all controlled by the number and values of
 // parameters specified in <output[n]> blocks in the input file.  Each output block must
@@ -275,7 +279,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       // set output variable and optional data format string used in formatted writes
-      if ((op.file_type != "hst") && (op.file_type != "rst")) {
+      if ((op.file_type != "hst") && (op.file_type != "rst") &&
+          (op.file_type != "ascent")) {
         op.variables = pin->GetVector<std::string>(pib->block_name, "variables");
       }
       op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
@@ -290,6 +295,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         pnew_type = new FormattedTableOutput(op);
       } else if (op.file_type == "vtk") {
         pnew_type = new VTKOutput(op);
+      } else if (op.file_type == "ascent") {
+        pnew_type = new AscentOutput(op);
       } else if (is_hdf5_output) {
         const bool restart = (op.file_type == "rst");
         if (restart) {
