@@ -276,6 +276,21 @@ endif()
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
+if (PARTHENON_ENABLE_ASCENT)
+  if (ENABLE_MPI)
+    target_link_libraries(parthenon PUBLIC ascent::ascent_mpi)
+  else()
+    target_link_libraries(parthenon PUBLIC ascent::ascent)
+  endif()
+  # From the Ascent doc (last checked 06 Feb 2023 - Ascent commit 33538e3):
+  # we need to make sure CUDA_RESOLVE_DEVICE_SYMBOLS is on for our target
+  # (it propgates some way magically in 3.14, but not in 3.21)
+  # TODO(pgrete) check if this has any performance implications
+  if(CMAKE_CUDA_COMPILER)
+    set_property(TARGET parthenon PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+  endif()
+endif()
+
 lint_target(parthenon)
 
 target_include_directories(parthenon PUBLIC

@@ -21,7 +21,6 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/variable_pack.hpp"
-#include "render_ascent.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -118,11 +117,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           q(idx_v + 2, 4, 10, 8) = -vz;
         });
   }
-}
-
-void PostStepMeshUserWorkInLoop(Mesh *mesh, ParameterInput *pin, SimTime const &tm) {
-  // call ascent
-  render_ascent(mesh, pin, tm);
 }
 
 //========================================================================================

@@ -24,7 +24,6 @@ int main(int argc, char *argv[]) {
   pman.app_input->ProcessPackages = advection_example::ProcessPackages;
   pman.app_input->ProblemGenerator = advection_example::ProblemGenerator;
   pman.app_input->UserWorkAfterLoop = advection_example::UserWorkAfterLoop;
-  pman.app_input->PostStepMeshUserWorkInLoop = advection_example::PostStepMeshUserWorkInLoop;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);

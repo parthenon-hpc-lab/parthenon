@@ -21,12 +21,7 @@ if( "advection-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
           advection_package.hpp
           main.cpp
           parthenon_app_inputs.cpp
-          render_ascent.cpp
   )
   target_link_libraries(advection-example PRIVATE Parthenon::parthenon)
-  target_link_libraries(advection-example PUBLIC ascent::ascent_mpi)
-  if(CMAKE_CUDA_COMPILER)
-    set_property(TARGET advection-example PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-  endif()
   lint_target(advection-example)
 endif()
