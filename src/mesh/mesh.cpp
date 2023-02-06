@@ -1109,22 +1109,16 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       cell_centered_bvars::BuildSparseBoundaryBuffers(md);
-      cell_centered_bvars::SendBoundaryBuffers(md);
+      while (cell_centered_bvars::SendBoundaryBuffers(md) != TaskStatus::complete) {}
     }
 
     // wait to receive FillGhost variables
     // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
     // https://github.com/lanl/parthenon/issues/418
-    bool all_received = true;
-    do {
-      all_received = true;
-      for (int i = 0; i < num_partitions; i++) {
-        auto &md = mesh_data.GetOrAdd("base", i);
-        if (cell_centered_bvars::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
-          all_received = false;
-        }
-      }
-    } while (!all_received);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd("base", i);
+      while (cell_centered_bvars::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {}
+    }
 
     // unpack FillGhost variables
     for (int i = 0; i < num_partitions; i++) {
