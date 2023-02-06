@@ -129,8 +129,12 @@ void UpdateBlockList(std::vector<int> const &ranklist, std::vector<int> &nslist,
   nslist.resize(Globals::nranks);
   nblist.resize(Globals::nranks);
 
-  nslist[0] = 0;
-  int rank = 0;
+  int rank = ranklist[0];
+  for (int r = 0; r < rank; r++) {
+    nslist[r] = -1;
+    nblist[r] = -1;
+  }
+  nslist[rank] = 0;
   for (int block_id = 1; block_id < ranklist.size(); block_id++) {
     if (ranklist[block_id] != ranklist[block_id - 1]) {
       nblist[rank] = block_id - nslist[rank];
