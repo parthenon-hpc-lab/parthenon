@@ -265,8 +265,7 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
                                       const std::string &label, const hsize_t *dims,
                                       const int &ndims, const std::string &theType,
                                       const int &precision) {
-  std::string mystr =
-      prefix + R"(<DataItem Format="HDF" Dimensions=")";
+  std::string mystr = prefix + R"(<DataItem Format="HDF" Dimensions=")";
   for (int i = 0; i < ndims; i++) {
     mystr += " " + std::to_string(dims[i]);
   }
@@ -280,8 +279,7 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
 static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
                               const std::string &hdfPath, const std::string &label,
                               const hsize_t *dims, const int &ndims,
-                              const std::string &theType, const int &precision,
-                              bool isVector = false) {
+                              const std::string &theType, const int &precision) {
   fid << stringXdmfArrayRef(prefix, hdfPath, label, dims, ndims, theType, precision)
       << std::flush;
 }
@@ -313,7 +311,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
         << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
     fid << dims321 << " ";
     fid << R"(">)" << std::endl;
-    // "3" rows for START, STRIDE, and COUNT for each slab with "4" (H5_NDIM) entries.
+    // "3" rows for START, STRIDE, and COUNT for each slab with "4" entries.
     // START: iblock 0   0   0
     // STRIDE: 1     1   1   1
     // COUNT:  1     nx3 nx2 nx1
@@ -322,8 +320,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
         << " 0 0 0 "
         << " 1 1 1 1 1 "
         << " " << dims321 << "</DataItem>" << std::endl;
-    writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float", 8,
-                      true);
+    writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
+                      8);
     fid << prefix << "  "
         << "</DataItem>" << std::endl;
     fid << prefix << "</Attribute>" << std::endl;
@@ -340,7 +338,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
           << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
       fid << dims321 << " ";
       fid << R"(">)" << std::endl;
-      // "3" rows for START, STRIDE, and COUNT for each slab with "5" (H5_NDIM) entries.
+      // "3" rows for START, STRIDE, and COUNT for each slab with "5" entries.
       // START: iblock variable(_component)  0   0   0
       // STRIDE: 1               1           1   1   1
       // COUNT:  1               dims[1]     nx3 nx2 nx1
@@ -349,7 +347,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
           << " " << i << " 0 0 0 "
           << " 1 1 1 1 1 1 " << dims[1] << " " << dims321 << "</DataItem>" << std::endl;
       writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
-                        8, true);
+                        8);
       fid << prefix << "  "
           << "</DataItem>" << std::endl;
       fid << prefix << "</Attribute>" << std::endl;
@@ -387,9 +385,10 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     xdmf << R"(    <Time Value=")" << tm->time << R"("/>)" << std::endl;
   }
 
-  std::string blockTopology = R"(      <Topology TopologyType="3DRectMesh" Dimensions=")" +
-                              std::to_string(nx3 + 1) + " " + std::to_string(nx2 + 1) +
-                              " " + std::to_string(nx1 + 1) + R"("/>)" + '\n';
+  std::string blockTopology =
+      R"(      <Topology TopologyType="3DRectMesh" Dimensions=")" +
+      std::to_string(nx3 + 1) + " " + std::to_string(nx2 + 1) + " " +
+      std::to_string(nx1 + 1) + R"("/>)" + '\n';
   const std::string slabPreDim = R"(        <DataItem ItemType="HyperSlab" Dimensions=")";
   const std::string slabPreBlock2D =
       R"("><DataItem Dimensions="3 2" NumberType="Int" Format="XML">)";
