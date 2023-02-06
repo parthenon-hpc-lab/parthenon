@@ -210,7 +210,8 @@ void EvolutionDriver::OutputCycleDiagnostics() {
       if (pmesh->adaptive) {
         std::cout << " zone-cycles/wsec="
                   << static_cast<double>(zonecycles) / (time_cycle_step + time_LBandAMR)
-                  << " wsec_AMR=" << time_LBandAMR;
+                  << " wsec_AMR=" << time_LBandAMR
+                  << " mbcnt=" << pmesh->mbcnt;
       }
 
       // insert more diagnostics here
