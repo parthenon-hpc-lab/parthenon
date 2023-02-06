@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -110,7 +110,7 @@ class UniformCartesian {
     case 3:
       return Xc<dir>(k);
     default:
-      PARTHENON_THROW("Unknown dir");
+      PARTHENON_FAIL("Unknown dir");
       return 0; // To appease compiler
     }
   }
@@ -139,7 +139,7 @@ class UniformCartesian {
     case 3:
       return Xf<dir, face>(k);
     default:
-      PARTHENON_THROW("Unknown dir");
+      PARTHENON_FAIL("Unknown dir");
       return 0; // To appease compiler
     }
   }
@@ -161,7 +161,7 @@ class UniformCartesian {
     case 3:
       return Xf<dir>(k);
     default:
-      PARTHENON_THROW("Unknown dir");
+      PARTHENON_FAIL("Unknown dir");
       return 0; // To appease compiler
     }
   }
