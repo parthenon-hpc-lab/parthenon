@@ -497,7 +497,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // create MeshBlock list for this process
   block_list.clear();
-  block_list.resize(nbe - nbs + 1);
+  block_list.resize(std::max(nbe - nbs + 1, 0));
   for (int i = nbs; i <= nbe; i++) {
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list

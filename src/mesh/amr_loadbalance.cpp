@@ -74,13 +74,118 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
       RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal);
       modified = true;
     }
-    lb_flag_ = false;
+    //lb_flag_ = false;
   }
   Kokkos::Profiling::popRegion(); // LoadBalancingAndAdaptiveMeshRefinement
 }
 
 // Private routines
 namespace {
+
+struct BlockRankRange {
+  BlockRankRange(int rank_start, int rank_stop, int block_start, int block_stop)
+    : rstart(rank_start), rstop(rank_stop), bstart(block_start), bstop(block_stop) {}
+  const int rstart, rstop, bstart, bstop;
+};
+
+void bisect_blocks(std::vector<Real> &sum_cost, BlockRankRange &r, std::vector<int> &start, std::vector<int> &nb) {
+  const int nranks = r.rstop - r.rstart + 1;
+  const int nleft = nranks / 2;
+  const int nright = nranks - nleft;
+  int split = (r.bstart + r.bstop + 1) / 2;
+  Real cost_left = sum_cost[split-1] - (r.bstart>0 ? sum_cost[r.bstart-1] : 0.0);
+  Real cost_right = sum_cost[r.bstop] - sum_cost[split-1];
+  const Real total_cost = cost_left + cost_right;
+  const Real cost_per_rank = total_cost/nranks;
+  const Real target_left = nleft * cost_per_rank;
+  const Real target_right = nright * cost_per_rank;
+
+  if (cost_left < target_left) {
+    while (r.bstop-split+1 > nright) {
+      const Real l = cost_left/nleft;
+      const Real r = cost_right/nright;
+      const Real om = std::max(l,r);
+      const Real delta = sum_cost[split] - sum_cost[split-1];
+      const Real nl = (cost_left + delta)/nleft;
+      const Real nr = (cost_right - delta)/nright;
+      const Real nm = std::max(nl,nr);
+      if (nm < om) {
+        cost_left += delta;
+        cost_right -= delta;
+        split++;
+      } else {
+        break;
+      }
+    }
+  } else if (cost_right < target_right) {
+    while (split - r.bstart > nleft) {
+      const Real l = cost_left/nleft;
+      const Real r = cost_right/nright;
+      const Real om = std::max(l,r);
+      const Real delta = sum_cost[split-1] - (split>1 ? sum_cost[split-2] : 0.0);
+      const Real nl = (cost_left - delta)/nleft;
+      const Real nr = (cost_right + delta)/nright;
+      const Real nm = std::max(nl,nr);
+      if (nm < om) {
+        cost_left -= delta;
+        cost_right += delta;
+        split -= 1;
+      } else {
+        break;
+      }
+    }
+  }
+
+  if (nleft == 1) {
+    start[r.rstart] = r.bstart;
+    nb[r.rstart] = split - r.bstart;
+  } else {
+    BlockRankRange rnew(r.rstart, r.rstart+nleft-1, r.bstart, split-1);
+    bisect_blocks(sum_cost, rnew, start, nb);
+  }
+
+  if (nright == 1) {
+    start[r.rstop] = split;
+    nb[r.rstop] = r.bstop - split + 1;
+  } else {
+    BlockRankRange rnew(r.rstart+nleft, r.rstop, split, r.bstop);
+    bisect_blocks(sum_cost, rnew, start, nb);
+  }
+}
+
+void AssignAndUpdateBlocks(std::vector<Real> const &costlist, std::vector<int> &ranklist,
+                           std::vector<int> &start, std::vector<int> &nb) {
+  start.resize(Globals::nranks);
+  nb.resize(Globals::nranks);
+  const int nblocks = costlist.size();
+  ranklist.resize(nblocks);
+  std::vector<Real> sum_costs(nblocks);
+  sum_costs[0] = costlist[0];
+  for (int b = 1; b < nblocks; b++) {
+    sum_costs[b] = sum_costs[b-1] + costlist[b];
+  }
+  for (int i = 0; i < Globals::nranks; i++) {
+    start[i] = -1;
+    nb[i] = 0;
+  }
+  int max_rank = std::min(Globals::nranks, nblocks) - 1;
+  if (max_rank == 0) {
+    start[0] = 0;
+    nb[0] = nblocks;
+    for (int b = 0; b < nblocks; b++) ranklist[b] = 0;
+  } else {
+    BlockRankRange root(0, max_rank, 0, nblocks-1);
+    bisect_blocks(sum_costs, root, start, nb);
+
+    for (int i = 0; i <= max_rank; i++) {
+      for (int b = start[i]; b < start[i]+nb[i]; b++) {
+        ranklist[b] = i;
+      }
+    }
+  }
+}
+
+
 /**
  * @brief This routine assigns blocks to ranks by attempting to place index-contiguous
  * blocks of equal total cost on each rank.
@@ -153,27 +258,15 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
   Kokkos::Profiling::pushRegion("CalculateLoadBalance");
   auto const total_blocks = costlist.size();
 
-  using it = std::vector<double>::const_iterator;
-  std::pair<it, it> const min_max = std::minmax_element(costlist.begin(), costlist.end());
-
-  double const mincost = min_max.first == costlist.begin() ? 0.0 : *min_max.first;
-  double const maxcost = min_max.second == costlist.begin() ? 0.0 : *min_max.second;
+  AssignAndUpdateBlocks(costlist, ranklist, nslist, nblist);
 
   // Assigns blocks to ranks on a rougly cost-equal basis.
-  AssignBlocks(costlist, ranklist);
+  //AssignBlocks(costlist, ranklist);
 
   // Updates nslist with the ID of the starting block on each rank and the count of blocks
   // on each rank.
-  UpdateBlockList(ranklist, nslist, nblist);
+  //UpdateBlockList(ranklist, nslist, nblist);
 
-#ifdef MPI_PARALLEL
-  if (total_blocks % (Globals::nranks) != 0 && !adaptive && !lb_flag_ &&
-      maxcost == mincost && Globals::my_rank == 0) {
-    std::cout << "### Warning in CalculateLoadBalance" << std::endl
-              << "The number of MeshBlocks cannot be divided evenly. "
-              << "This will result in poor load balancing." << std::endl;
-  }
-#endif
   if (Globals::nranks > total_blocks) {
     if (!adaptive) {
       // mesh is refined statically, treat this an as error (all ranks need to
@@ -187,12 +280,12 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
     } else if (Globals::my_rank == 0) {
       // we have AMR, print warning only on Rank 0
       std::cout << "### WARNING in CalculateLoadBalance" << std::endl
-                << "There are fewer MeshBlocks than OpenMP threads on each MPI rank"
+                << "There are fewer MeshBlocks than MPI ranks"
                 << std::endl
                 << "This is likely fine if the number of meshblocks is expected to grow "
                    "during the "
                    "simulations. Otherwise, it might be worthwhile to decrease the "
-                   "number of threads or "
+                   "number of ranks or "
                    "use more meshblocks."
                 << std::endl;
     }
@@ -211,7 +304,7 @@ void Mesh::ResetLoadBalanceVariables() {
       pmb->ResetTimeMeasurement();
     }
   }
-  lb_flag_ = false;
+  //lb_flag_ = false;
   step_since_lb = 0;
 }
 
