@@ -30,7 +30,6 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
-
 // Helper struct containing some information about a variable
 struct VarInfo {
   std::string label;

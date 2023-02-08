@@ -64,6 +64,7 @@
 
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
+#include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
@@ -193,8 +194,24 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         // may want to output some subset of swarm vars for some
         // subset of swarms, but that e.g., the user doesn't want to
         // output x,y,z for swarm A and only x,y for swarm B.
-        op.swarms = pin->GetVector<std::string>(pib->block_name, "swarms");
-        op.swarm_vars = pin->GetVector<std::string>(pib->block_name, "swarm_variables");
+        if (pin->DoesParameterExist(pib->block_name, "swarms")) {
+          op.swarms = pin->GetVector<std::string>(pib->block_name, "swarms");
+          if (pin->DoesParameterExist(pib->block_name, "swarm_variables")) {
+            op.swarm_vars = pin->GetVector<std::string>(pib->block_name, "swarm_variables");
+          }
+          else {
+            if (Globals::my_rank == 0) {
+              std::stringstream warn;
+              warn << "Swarm output enabled but no swarm variables present. "
+                   << "No swarm data will be output."
+                   << std::endl;
+              PARTHENON_WARN(warn);
+            }
+            op.swarm_vars.clear();
+          }
+        } else {
+          op.swarms.clear();
+        }
       }
       op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
       op.data_format.insert(0, " "); // prepend with blank to separate columns

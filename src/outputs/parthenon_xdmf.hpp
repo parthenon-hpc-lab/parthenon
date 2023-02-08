@@ -22,14 +22,11 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
+#include "outputs/output_utils.hpp"
+
 namespace parthenon {
 // forward declarations
-namespace HDF5 {
-  struct SimTime;
-  struct VarInfo;
-  struct SwarmVarInfo;
-} // namespace HDF5
-
 namespace XDMF {
 void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
              const std::vector<VarInfo> &var_list);

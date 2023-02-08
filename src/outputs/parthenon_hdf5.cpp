@@ -613,7 +613,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   } // SparseInfo and SparseFields sections
 
   // generate XDMF companion file
-  genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info);
+  XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info);
 }
 
 std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
