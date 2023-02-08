@@ -197,14 +197,13 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         if (pin->DoesParameterExist(pib->block_name, "swarms")) {
           op.swarms = pin->GetVector<std::string>(pib->block_name, "swarms");
           if (pin->DoesParameterExist(pib->block_name, "swarm_variables")) {
-            op.swarm_vars = pin->GetVector<std::string>(pib->block_name, "swarm_variables");
-          }
-          else {
+            op.swarm_vars =
+                pin->GetVector<std::string>(pib->block_name, "swarm_variables");
+          } else {
             if (Globals::my_rank == 0) {
               std::stringstream warn;
               warn << "Swarm output enabled but no swarm variables present. "
-                   << "No swarm data will be output."
-                   << std::endl;
+                   << "No swarm data will be output." << std::endl;
               PARTHENON_WARN(warn);
             }
             op.swarm_vars.clear();

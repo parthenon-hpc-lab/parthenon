@@ -23,12 +23,12 @@
 // only proceed if HDF5 output enabled
 #ifdef ENABLE_HDF5
 
+// HDF5
+#include <hdf5.h>
+
 // C++
 #include <iostream>
 #include <string>
-
-// HDF5
-#include <hdf5.h>
 
 // Parthenon
 #include "basic_types.hpp"

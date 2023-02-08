@@ -15,8 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef OUTPUTS_OTUPUT_UTILS_HPP_
-#define OUTPUTS_OTUPUT_UTILS_HPP_
+#ifndef OUTPUTS_OUTPUT_UTILS_HPP_
+#define OUTPUTS_OUTPUT_UTILS_HPP_
 
 // C++
 #include <memory>
@@ -107,4 +107,4 @@ struct SwarmVarInfo {
 };
 } // namespace parthenon
 
-#endif // OUTPUTS_OTUPUT_UTILS_HPP_
+#endif // OUTPUTS_OUTPUT_UTILS_HPP_
