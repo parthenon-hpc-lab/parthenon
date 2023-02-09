@@ -1,5 +1,7 @@
 # Outputs
 
+## Output types
+
 Outputs from Parthenon are controled via `<parthenon/output*>` blocks, where `*` should be replaced by a unique integer for each block.
 
 To disable an output block without removing it from the intput file set the block's `dt < 0.0`.
@@ -22,7 +24,7 @@ The user can repeat the process any time by creating a new `output_now` file.
 
 Note, in both cases the original numbering of the output will be unaffected and the
 `final` and `now` files will be overwritten each time without warning.
-## HDF5
+### HDF5
 
 Parthenon allows users to select which fields are captured in the HDF5 (`.phdf`) dumps at
 runtime.  In the input file, include a `<parthenon/output*>` block, list of variables, and
@@ -53,7 +55,7 @@ be used to set the compression level (between 1 and 9, default is 5). Compressio
 altogether with the CMake build option `PARTHENON_DISABLE_HDF5_COMPRESSION`. See the [build
 doc](building.md) for more details.
 
-## Tuning HDF5 Performance
+#### Tuning HDF5 Performance
 
 Tuning IO parameters can be passed to Parthenon through the use of environment variables. Available environment variables are:
 
@@ -69,7 +71,7 @@ Tuning IO parameters can be passed to Parthenon through the use of environment v
 | MPI_cb_block_size | N/A | int | Sets the block size, in bytes, to be used for collective buffering file access. Default is 1 MiB. |
 | MPI_cb_buffer_size | N/A | int | Sets the total buffer space, in bytes, that can be used for collective buffering on each target node,  usually a multiple of cb_block_size. Default is 4 MiB. |
 
-## Restart Files
+### Restart Files
 
 Parthenon allows users to output restart files for restarting a simulation.  The restart file captures the input file, so no input file is required to be specified.  Parameters for the input can be overriden in the usual way from the command line.  At a future date we will allow for users the ability to extensively edit the parameters stored within the restart file.
 
@@ -86,7 +88,7 @@ To use this restart file, simply specify the restart file with a `-r <restart.rh
 
 For physics developers: The fields to be output are automatically selected as all the variables that have either the `Independent` or `Restart` `Metadata` flags specified.  No other intervention is required by the developer.
 
-## History Files
+### History Files
 
 In the input file, include a `<parthenon/output*>` block and specify `file_type = hst`.  A `dt` parameter controls the frequency of outputs for simulations involving evolution. A `<parthenon/output*>` block might look like
 ```
@@ -97,6 +99,42 @@ dt = 1.0
 This will produce a text file (`.hst`) output file every 1 units of simulation time.
 The content of the file is determined by the functions enrolled by a specific package,
 see the [interface doc](interface/state.md#history-output).
+### Ascent (optional)
+
+Parthenon supports in situ visualization and analysis via the external
+[Ascent](https://ascent.readthedocs.io) library.
+Support for Ascent is disabled by default and must be enabled via `PARTHENON_ENABLE_ASCENT=ON` during configure.
+
+In the input file, include a `<parthenon/output*>` block and specify `file_type = ascent`.
+A `dt` parameter controls the frequency of outputs for simulations involving evolution.
+*Note* that in principle Ascent can control its own output cadence (including
+automated tiggers).
+If you want to call Ascent on every cycle, set `dt` to a value smaller than the actual simulation `dt`.
+The mandatory `actions_file` parameter points to a separate file that defines
+Ascent actions in `.yaml` or `.json` format, see
+[Ascent documentation](https://ascent.readthedocs.io/en/latest/Actions/index.html) for a complete list of options.
+
+A `<parthenon/output*>` block might look like
+```
+<parthenon/output9>
+file_type = ascent
+dt = 1.0
+actions_files = my_actions.yaml
+```
+see also the advection example
+[input file](../example/advection/parthinput.advection) and
+[actions file](../example/advection/custom_ascent_actions.yaml).
+
+*Note* by default "field filtering" is enabled for Ascent in Parthenon, i.e.,
+only fields that are used in Ascent actions are published.
+There may be cases, where Ascent cannot determine which fields it needs for
+an action and will fail.
+In this case, add an `ascent_options.yaml` file to the run directory containing
+```
+field_filtering: false
+```
+to override at runtime.
+See [Ascent documenation](https://ascent.readthedocs.io/en/latest/AscentAPI.html#field-filtering) for more information.
 
 ## Python scripts
 
@@ -221,7 +259,3 @@ Currently, the `yt` frontend for Parthenon is hosted on the
 `athenapk-frontend` [on this `yt`
 fork](https://github.com/forrestglines/yt/tree/athenapk-frontend). In the
 future, the Parthenon frontend will be included in the main `yt` repo.
-
-## Ascent (optional)
-
-to be written
