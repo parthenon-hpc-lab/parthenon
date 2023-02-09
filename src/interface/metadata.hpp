@@ -133,12 +133,11 @@ class TensorShape {
   std::vector<int> shape_;
 };
 
-struct MetadataFlagHasher;
 class MetadataFlag {
   // This allows `Metadata` and `UserMetadataState` to instantiate `MetadataFlag`.
   friend class Metadata;
   friend class internal::UserMetadataState;
-  friend class MetadataFlagHasher;
+  //friend class MetadataFlagHasher;
 
  public:
   MetadataFlag() :
@@ -173,11 +172,6 @@ class MetadataFlag {
   constexpr explicit MetadataFlag(int flag) : flag_(flag) {}
 
   int flag_;
-};
-struct MetadataFlagHasher {
-  auto operator()(const MetadataFlag &flag) const {
-    return std::hash<int>{}(flag.flag_);
-  }
 };
 
 /// @brief

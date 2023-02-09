@@ -24,7 +24,7 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
-#include <unordered_map>
+#include <map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -339,7 +339,8 @@ using SP_Swarm = std::shared_ptr<Swarm>;
 using SwarmVector = std::vector<SP_Swarm>;
 using SwarmSet = std::unordered_set<SP_Swarm>;
 using SwarmMap = std::unordered_map<std::string, SP_Swarm>;
-using SwarmMetadataMap = std::unordered_map<MetadataFlag, SwarmMap, MetadataFlagHasher>;
+// TODO(JMM): Should this be an unordered_map? If so, we need a hash function for MetadataFlag
+using SwarmMetadataMap = std::map<MetadataFlag, SwarmMap>;
 
 } // namespace parthenon
 
