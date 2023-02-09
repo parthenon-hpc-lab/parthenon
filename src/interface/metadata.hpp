@@ -137,8 +137,10 @@ class MetadataFlag {
   // This allows `Metadata` and `UserMetadataState` to instantiate `MetadataFlag`.
   friend class Metadata;
   friend class internal::UserMetadataState;
+  // friend class MetadataFlagHasher;
 
  public:
+  MetadataFlag() : flag_(static_cast<int>(internal::MetadataInternal::Ignore)) {}
   constexpr bool operator==(MetadataFlag const &other) const {
     return flag_ == other.flag_;
   }
@@ -193,6 +195,7 @@ class Metadata {
   PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
 
+  using FlagVec = std::vector<MetadataFlag>;
   Metadata() = default;
 
   // There are 3 optional arguments: shape, component_labels, and associated, so we'll
