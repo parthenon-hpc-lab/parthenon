@@ -142,6 +142,8 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
           if ((i < ib_int.s) || (ib_int.e < i) || (j < jb_int.s) || (jb_int.e < j) ||
               ((nz > 1) && ((k < kb_int.s) || (kb_int.e < k)))) {
             vals_array[idx] = 1;
+          } else {
+            vals_array[idx] = 0;
           }
           idx++;
         }

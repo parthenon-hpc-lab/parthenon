@@ -10,5 +10,5 @@
           max_value: 1.0
         plt2:
           type: "mesh"
-      image_prefix: "ascent_yaml"
+      image_prefix: "ascent_render_%02d"
 
