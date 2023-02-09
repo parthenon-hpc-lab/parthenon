@@ -1,0 +1,14 @@
+-
+  action: "add_scenes"
+  scenes:
+    scene1:
+      plots:
+        plt1:
+          type: "pseudocolor"
+          field: "advected:Advected_0_0"
+          min_value: 0.0
+          max_value: 1.0
+        plt2:
+          type: "mesh"
+      image_prefix: "ascent_yaml"
+

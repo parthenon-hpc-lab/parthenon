@@ -59,10 +59,16 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   using conduit::Node;
 
   // Ascent needs the MPI communicator we are using
-  ascent::Ascent a;
+  ascent::Ascent ascent;
   Node ascent_opts;
   ascent_opts["mpi_comm"] = MPI_Comm_c2f(MPI_COMM_WORLD);
-  a.open(ascent_opts);
+  ascent_opts["actions_file"] = pin->GetString(output_params.block_name, "actions_file");
+  // Only publish fields that are used within actions to reduce memory footprint.
+  // A user might need to override this, e.g., in a runtime ascent_options.yaml, if
+  // the required fields cannot be resolved by Ascent.
+  // See https://ascent.readthedocs.io/en/latest/AscentAPI.html#field-filtering
+  ascent_opts["field_filtering"] = "true";
+  ascent.open(ascent_opts);
 
   // create root node for the whole mesh
   Node root;
@@ -126,7 +132,7 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     Node &n_field = mesh["fields/ascent_ghosts"];
     n_field["association"] = "element";
     n_field["topology"] = "topo";
-    n_field["values"].set(conduit::DataType::int32(ncells));
+    n_field["values"].set(conduit::DataType::int32(ncells)); // NOLINT
     conduit::int32_array vals_array = n_field["values"].value();
 
     int idx = 0;
@@ -163,30 +169,20 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   Node verify_info;
   if (!conduit::blueprint::mesh::verify(root, verify_info)) {
     if (parthenon::Globals::my_rank == 0) {
-      std::cout << "blueprint::mesh::verify failed!" << std::endl;
+      PARTHENON_WARN("Ascent output: blueprint::mesh::verify failed!");
     }
     verify_info.print();
   }
-  a.publish(root);
+  ascent.publish(root);
 
-  // setup actions
+  // Create dummy action as we need to "execute" to override the actions defined in the
+  // yaml file.
   Node actions;
-  Node &add_act = actions.append();
-  add_act["action"] = "add_scenes";
-
-  // declare a scene (s1) with one plot (p1)
-  Node &scenes = add_act["scenes"];
-  scenes["s1/plots/p1/type"] = "pseudocolor";
-  scenes["s1/plots/p1/field"] = "advected:Advected_0_0";
-
-  // Set the output file name (ascent will add ".png")
-  scenes["s1/image_prefix"] = "ascent_render";
-
   // execute the actions
-  a.execute(actions);
+  ascent.execute(actions);
 
   // close ascent
-  a.close();
+  ascent.close();
 #endif // ifndef PARTHENON_ENABLE_ASCENT
 
   // advance output parameters
