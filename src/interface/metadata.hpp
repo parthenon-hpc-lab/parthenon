@@ -137,10 +137,8 @@ class MetadataFlag {
   // This allows `Metadata` and `UserMetadataState` to instantiate `MetadataFlag`.
   friend class Metadata;
   friend class internal::UserMetadataState;
-  // friend class MetadataFlagHasher;
 
  public:
-  MetadataFlag() : flag_(static_cast<int>(internal::MetadataInternal::Ignore)) {}
   constexpr bool operator==(MetadataFlag const &other) const {
     return flag_ == other.flag_;
   }

@@ -13,7 +13,6 @@
 #ifndef INTERFACE_SWARM_CONTAINER_HPP_
 #define INTERFACE_SWARM_CONTAINER_HPP_
 
-#include <algorithm>
 #include <map>
 #include <memory>
 #include <string>
@@ -144,8 +143,6 @@ class SwarmContainer {
 
   // Element accessor functions
   std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }
-
-  // Return swarms
 
   // Defragmentation task
   TaskStatus Defrag(double min_occupancy);
