@@ -20,11 +20,12 @@
 #include <array>
 #include <cstdint>
 #include <list>
+#include <map>
 #include <memory>
 #include <string>
 #include <tuple>
 #include <type_traits>
-#include <map>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -65,8 +66,7 @@ class Swarm {
 
  public:
   Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
-  Swarm() :
-    Swarm("default", Metadata()) {}
+  Swarm() : Swarm("default", Metadata()) {}
 
   ~Swarm() = default;
 
@@ -339,8 +339,9 @@ using SP_Swarm = std::shared_ptr<Swarm>;
 using SwarmVector = std::vector<SP_Swarm>;
 using SwarmSet = std::unordered_set<SP_Swarm>;
 using SwarmMap = std::unordered_map<std::string, SP_Swarm>;
-// TODO(JMM): Should this be an unordered_map? If so, we need a hash function for MetadataFlag
-using SwarmMetadataMap = std::map<MetadataFlag, SwarmMap>;
+// TODO(JMM): Should this be an unordered_map? If so, we need a hash function for
+// MetadataFlag
+using SwarmMetadataMap = std::map<MetadataFlag, SwarmSet>;
 
 } // namespace parthenon
 

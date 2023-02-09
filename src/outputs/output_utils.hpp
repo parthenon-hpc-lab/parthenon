@@ -105,16 +105,15 @@ struct SwarmVarInfo {
   int nvar;
   int tensor_rank;
   SwarmVarInfo() = delete;
-  SwarmVarInfo(const std::string &swarmname, const std::string &varname,
-               const int npart, const int nvar)
-    : swarmname(swarmname), varname(varname), npart(npart), nvar(nvar),
-      tensor_rank(nvar > 1 ? 1 : 0) {}
+  SwarmVarInfo(const std::string &swarmname, const std::string &varname, const int npart,
+               const int nvar)
+      : swarmname(swarmname), varname(varname), npart(npart), nvar(nvar),
+        tensor_rank(nvar > 1 ? 1 : 0) {}
   explicit SwarmVarInfo(const std::string &swarmname, const std::string &varname,
                         Mesh *pmesh)
-    : swarmname(swarmname), varname(varname) {
+      : swarmname(swarmname), varname(varname) {
     auto const &first_block = *(pmesh->block_list.front());
     auto swarms = first_block.swarm_data.Get();
-    
   }
 };
 } // namespace OutputUtils

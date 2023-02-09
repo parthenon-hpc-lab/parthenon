@@ -134,13 +134,11 @@ class SwarmContainer {
   // Element accessor functions
   std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }
 
-  // Return swarms 
+  // Return swarms
 
   // Defragmentation task
   TaskStatus Defrag(double min_occupancy);
-  TaskStatus DefragAll() {
-    return Defrag(1.0);
-  }
+  TaskStatus DefragAll() { return Defrag(1.0); }
 
   // Sort-by-cell task
   TaskStatus SortParticlesByCell();
@@ -178,9 +176,9 @@ class SwarmContainer {
 
  private:
   void UpdateMetadataMap_(std::shared_ptr<Swarm> swarm) {
-    // for (const auto &flag : swarm->metadata().Flags()) {
-    //   swarmMetadataMap_[flag].push_back(swarm);
-    // }
+    for (const auto &flag : swarm->metadata().Flags()) {
+      swarmMetadataMap_[flag].insert(swarm);
+    }
   }
 
   int debug = 0;
