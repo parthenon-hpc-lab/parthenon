@@ -339,7 +339,7 @@ using SP_Swarm = std::shared_ptr<Swarm>;
 using SwarmVector = std::vector<SP_Swarm>;
 using SwarmSet = std::unordered_set<SP_Swarm>;
 using SwarmMap = std::unordered_map<std::string, SP_Swarm>;
-  using SwarmMetadataMap = std::unordered_map<MetadataFlag, SwarmMap, MetadataFlagHasher>;
+using SwarmMetadataMap = std::unordered_map<MetadataFlag, SwarmMap, MetadataFlagHasher>;
 
 } // namespace parthenon
 
