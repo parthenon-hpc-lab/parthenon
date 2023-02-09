@@ -27,6 +27,8 @@
 // Parthenon
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
+#include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -97,14 +99,23 @@ struct VarInfo {
 // TODO(JMM): If higher tensorial rank swarms are ever added this will
 // need to be changed
 struct SwarmVarInfo {
-  std::string label;
+  std::string swarmname;
+  std::string varname;
   int npart; // assumes swarm has been defragmented.
   int nvar;
   int tensor_rank;
   SwarmVarInfo() = delete;
-  explicit SwarmVarInfo(const std::shared_ptr<ParticleVariable<Real>> &var)
-      : label(var->label()), npart(var->GetDim(1)), nvar(var->GetDim(2)),
-        tensor_rank(var->GetDim(2) > 1 ? 1 : 0) {}
+  SwarmVarInfo(const std::string &swarmname, const std::string &varname,
+               const int npart, const int nvar)
+    : swarmname(swarmname), varname(varname), npart(npart), nvar(nvar),
+      tensor_rank(nvar > 1 ? 1 : 0) {}
+  explicit SwarmVarInfo(const std::string &swarmname, const std::string &varname,
+                        Mesh *pmesh)
+    : swarmname(swarmname), varname(varname) {
+    auto const &first_block = *(pmesh->block_list.front());
+    auto swarms = first_block.swarm_data.Get();
+    
+  }
 };
 } // namespace OutputUtils
 } // namespace parthenon

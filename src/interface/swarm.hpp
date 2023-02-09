@@ -25,6 +25,7 @@
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -64,6 +65,8 @@ class Swarm {
 
  public:
   Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
+  Swarm() :
+    Swarm("default", Metadata()) {}
 
   ~Swarm() = default;
 
@@ -120,7 +123,7 @@ class Swarm {
   std::string label() const { return label_; }
 
   /// retrieve metadata for swarm
-  const Metadata metadata() const { return m_; }
+  const Metadata &metadata() const { return m_; }
 
   /// Assign info for swarm
   void setInfo(const std::string &info) { info_ = info; }
@@ -334,7 +337,9 @@ inline void Swarm::Add_(const std::string &label, const Metadata &m) {
 
 using SP_Swarm = std::shared_ptr<Swarm>;
 using SwarmVector = std::vector<SP_Swarm>;
+using SwarmSet = std::unordered_set<SP_Swarm>;
 using SwarmMap = std::unordered_map<std::string, SP_Swarm>;
+  using SwarmMetadataMap = std::unordered_map<MetadataFlag, SwarmMap, MetadataFlagHasher>;
 
 } // namespace parthenon
 

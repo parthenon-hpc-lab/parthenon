@@ -88,6 +88,7 @@ class SwarmContainer {
   void Add(std::shared_ptr<Swarm> swarm) {
     swarmVector_.push_back(swarm);
     swarmMap_[swarm->label()] = swarm;
+    UpdateMetadataMap_(swarm);
   }
 
   ///
@@ -133,8 +134,13 @@ class SwarmContainer {
   // Element accessor functions
   std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }
 
+  // Return swarms 
+
   // Defragmentation task
   TaskStatus Defrag(double min_occupancy);
+  TaskStatus DefragAll() {
+    return Defrag(1.0);
+  }
 
   // Sort-by-cell task
   TaskStatus SortParticlesByCell();
@@ -171,11 +177,18 @@ class SwarmContainer {
   }
 
  private:
+  void UpdateMetadataMap_(std::shared_ptr<Swarm> swarm) {
+    // for (const auto &flag : swarm->metadata().Flags()) {
+    //   swarmMetadataMap_[flag].push_back(swarm);
+    // }
+  }
+
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
 
   SwarmVector swarmVector_ = {};
   SwarmMap swarmMap_ = {};
+  SwarmMetadataMap swarmMetadataMap_ = {};
 };
 
 } // namespace parthenon
