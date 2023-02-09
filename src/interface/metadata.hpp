@@ -195,6 +195,7 @@ class Metadata {
   PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
 
+  using FlagVec = std::vector<MetadataFlag>;
   Metadata() = default;
 
   // There are 3 optional arguments: shape, component_labels, and associated, so we'll
