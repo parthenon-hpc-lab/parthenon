@@ -29,7 +29,7 @@ namespace parthenon {
 // forward declarations
 namespace XDMF {
 void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
-             const std::vector<VarInfo> &var_list);
+             const std::vector<OutputUtils::VarInfo> &var_list);
 } // namespace XDMF
 } // namespace parthenon
 

@@ -59,6 +59,7 @@ template <bool WRITE_SINGLE_PRECISION>
 void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                       const SignalHandler::OutputSignal signal) {
   using namespace HDF5;
+  using namespace OutputUtils;
 
   // writes all graphics variables to hdf file
   // HDF5 structures
@@ -72,7 +73,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   auto const &first_block = *(pm->block_list.front());
 
-  // shooting a blank just for getting the variable names
   const IndexRange out_ib = first_block.cellbounds.GetBoundsI(theDomain);
   const IndexRange out_jb = first_block.cellbounds.GetBoundsJ(theDomain);
   const IndexRange out_kb = first_block.cellbounds.GetBoundsK(theDomain);
@@ -228,18 +228,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // write Xmin[ndim] for blocks
     {
       std::vector<Real> tmpData(num_blocks_local * 3);
-      int i = 0;
-
-      for (auto &pmb : pm->block_list) {
-        auto xmin = pmb->coords.GetXmin();
-        tmpData[i++] = xmin[0];
-        if (pm->ndim > 1) {
-          tmpData[i++] = xmin[1];
-        }
-        if (pm->ndim > 2) {
-          tmpData[i++] = xmin[2];
-        }
-      }
+      ComputeXminBlocks_(pm, tmpData);
       local_count[1] = global_count[1] = pm->ndim;
       HDF5Write2D(gBlocks, "xmin", tmpData.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                   pl_xfer);
@@ -251,13 +240,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       hsize_t n = 3;
       std::vector<int64_t> tmpLoc(num_blocks_local * n);
       local_count[1] = global_count[1] = n;
-
-      int i = 0;
-      for (auto &pmb : pm->block_list) {
-        tmpLoc[i++] = pmb->loc.lx1;
-        tmpLoc[i++] = pmb->loc.lx2;
-        tmpLoc[i++] = pmb->loc.lx3;
-      }
+      ComputeLocs_(pm, tmpLoc);
       HDF5Write2D(gBlocks, "loc.lx123", tmpLoc.data(), p_loc_offset, p_loc_cnt,
                   p_glob_cnt, pl_xfer);
 
@@ -265,15 +248,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       n = 5; // this is NOT H5_NDIM
       std::vector<int> tmpID(num_blocks_local * n);
       local_count[1] = global_count[1] = n;
-
-      i = 0;
-      for (auto &pmb : pm->block_list) {
-        tmpID[i++] = pmb->loc.level;
-        tmpID[i++] = pmb->gid;
-        tmpID[i++] = pmb->lid;
-        tmpID[i++] = pmb->cnghost;
-        tmpID[i++] = pmb->gflag;
-      }
+      ComputeIDsAndFlags_(pm, tmpID);
       HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), p_loc_offset,
                   p_loc_cnt, p_glob_cnt, pl_xfer);
     }
@@ -282,42 +257,23 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // Write mesh coordinates to file
   for (const bool face : {true, false}) {
     const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
-    const int offset = face ? 1 : 0;
 
     // write X coordinates
-    std::vector<Real> loc_x((nx1 + offset) * num_blocks_local);
-    std::vector<Real> loc_y((nx2 + offset) * num_blocks_local);
-    std::vector<Real> loc_z((nx3 + offset) * num_blocks_local);
+    std::vector<Real> loc_x((nx1 + face) * num_blocks_local);
+    std::vector<Real> loc_y((nx2 + face) * num_blocks_local);
+    std::vector<Real> loc_z((nx3 + face) * num_blocks_local);
 
-    size_t idx_x = 0;
-    size_t idx_y = 0;
-    size_t idx_z = 0;
+    ComputeCoords_(pm, face, out_ib, out_jb, out_kb, loc_x, loc_y, loc_z);
 
-    for (size_t b = 0; b < pm->block_list.size(); ++b) {
-      auto &pmb = pm->block_list[b];
-
-      for (int i = out_ib.s; i <= out_ib.e + offset; ++i) {
-        loc_x[idx_x++] = face ? pmb->coords.Xf<1>(i) : pmb->coords.Xc<1>(i);
-      }
-
-      for (int j = out_jb.s; j <= out_jb.e + offset; ++j) {
-        loc_y[idx_y++] = face ? pmb->coords.Xf<2>(j) : pmb->coords.Xc<2>(j);
-      }
-
-      for (int k = out_kb.s; k <= out_kb.e + offset; ++k) {
-        loc_z[idx_z++] = face ? pmb->coords.Xf<3>(k) : pmb->coords.Xc<3>(k);
-      }
-    }
-
-    local_count[1] = global_count[1] = nx1 + offset;
+    local_count[1] = global_count[1] = nx1 + face;
     HDF5Write2D(gLocations, "x", loc_x.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
 
-    local_count[1] = global_count[1] = nx2 + offset;
+    local_count[1] = global_count[1] = nx2 + face;
     HDF5Write2D(gLocations, "y", loc_y.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
 
-    local_count[1] = global_count[1] = nx3 + offset;
+    local_count[1] = global_count[1] = nx3 + face;
     HDF5Write2D(gLocations, "z", loc_z.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
   }
@@ -649,6 +605,60 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
     pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
   }
   return filename;
+}
+// TODO(JMM): Should this live in the base class or output_utils?
+void PHDF5Output::ComputeXminBlocks_(Mesh *pm, std::vector<Real> &data) {
+  int i = 0;
+  for (auto &pmb : pm->block_list) {
+    auto xmin = pmb->coords.GetXmin();
+    data[i++] = xmin[0];
+    if (pm->ndim > 1) {
+      data[i++] = xmin[1];
+    }
+    if (pm->ndim > 2) {
+      data[i++] = xmin[2];
+    }
+  }
+}
+// TODO(JMM): Should this live in the base class or output_utils?
+void PHDF5Output::ComputeLocs_(Mesh *pm, std::vector<int64_t> &locs) {
+  int i = 0;
+  for (auto &pmb : pm->block_list) {
+    locs[i++] = pmb->loc.lx1;
+    locs[i++] = pmb->loc.lx2;
+    locs[i++] = pmb->loc.lx3;
+  }
+}
+// TODO(JMM): Should this live in the base class or output_utils?
+void PHDF5Output::ComputeIDsAndFlags_(Mesh *pm, std::vector<int> &data) {
+  int i = 0;
+  for (auto &pmb : pm->block_list) {
+    data[i++] = pmb->loc.level;
+    data[i++] = pmb->gid;
+    data[i++] = pmb->lid;
+    data[i++] = pmb->cnghost;
+    data[i++] = pmb->gflag;
+  }
+}
+// TODO(JMM): Should this live in the base class or output_utils?
+void PHDF5Output::ComputeCoords_(Mesh *pm, bool face, const IndexRange &ib,
+                                 const IndexRange &jb, const IndexRange &kb,
+                                 std::vector<Real> &x, std::vector<Real> &y,
+                                 std::vector<Real> &z) {
+  std::size_t idx_x = 0, idx_y = 0, idx_z = 0;
+
+  // note relies on casting of bool to int
+  for (auto &pmb : pm->block_list) {
+    for (int i = ib.s; i <= ib.e + face; ++i) {
+      x[idx_x++] = face ? pmb->coords.Xf<1>(i) : pmb->coords.Xc<1>(i);
+    }
+    for (int j = jb.s; j <= jb.e + face; ++j) {
+      y[idx_y++] = face ? pmb->coords.Xf<2>(j) : pmb->coords.Xc<2>(j);
+    }
+    for (int k = kb.s; k <= kb.e + face; ++k) {
+      z[idx_z++] = face ? pmb->coords.Xf<3>(k) : pmb->coords.Xc<3>(k);
+    }
+  }
 }
 
 // explicit template instantiation

@@ -30,6 +30,7 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+namespace OutputUtils {
 // Helper struct containing some information about a variable
 struct VarInfo {
   std::string label;
@@ -105,6 +106,7 @@ struct SwarmVarInfo {
       : label(var->label()), npart(var->GetDim(1)), nvar(var->GetDim(2)),
         tensor_rank(var->GetDim(2) > 1 ? 1 : 0) {}
 };
+} // namespace OutputUtils
 } // namespace parthenon
 
 #endif // OUTPUTS_OUTPUT_UTILS_HPP_
