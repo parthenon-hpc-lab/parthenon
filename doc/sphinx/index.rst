@@ -39,6 +39,7 @@ Community
    :maxdepth: 1
    :caption: Contents:
 
+   src/metadata
    src/sphinx-doc
 
 Indices and tables
