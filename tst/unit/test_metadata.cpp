@@ -142,21 +142,21 @@ TEST_CASE("A Metadata struct is created", "[Metadata]") {
   }
 }
 
-TEST_CASE("Metadata FlagSet", "[Metadata]") {
+TEST_CASE("Metadata FlagCollection", "[Metadata]") {
   GIVEN("Some metadata flag sets") {
     using parthenon::MetadataFlag;
-    using FS_t = Metadata::FlagSet;
-    FS_t set1(std::vector<MetadataFlag>{Metadata::Cell, Metadata::Face});
-    FS_t set2(Metadata::Requires, Metadata::Overridable);
-    FS_t set3({Metadata::Independent, Metadata::FillGhost}, true);
+    using FS_t = Metadata::FlagCollection;
+    FS_t set1(std::vector<MetadataFlag>{Metadata::Cell, Metadata::Face}, true);
+    FS_t set2({Metadata::Independent, Metadata::FillGhost}, true);
+    FS_t set3(Metadata::Requires, Metadata::Overridable);
     WHEN("We take the union") {
       auto s = set1 || set2;
       THEN("We get the flags we expect") {
         const auto &su = s.GetUnions();
-        REQUIRE(su.count(Metadata::Requires) > 0);
-        REQUIRE(su.count(Metadata::Overridable) > 0);
         REQUIRE(su.count(Metadata::Cell) > 0);
         REQUIRE(su.count(Metadata::Face) > 0);
+        REQUIRE(su.count(Metadata::Independent) > 0);
+        REQUIRE(su.count(Metadata::FillGhost) > 0);
         const auto &si = s.GetIntersections();
         REQUIRE(si.empty());
         const auto &se = s.GetExclusions();
@@ -177,11 +177,13 @@ TEST_CASE("Metadata FlagSet", "[Metadata]") {
       THEN("We get the flags we expect") {
         REQUIRE(s.GetUnions() == set1.GetUnions());
         REQUIRE(s.GetIntersections() == set1.GetIntersections());
-        REQUIRE(s.GetExclusions() == set2.GetUnions());
+        REQUIRE(s.GetExclusions() == set3.GetIntersections());
       }
     }
     WHEN("We perform more complicated set arithmetic") {
-      auto s = (FS_t(Metadata::Cell) + FS_t(Metadata::Face)) * set3 - set2;
+      auto s = (FS_t({Metadata::Cell}, true) + FS_t({Metadata::Face}, true)) *
+                   FS_t(Metadata::Requires) * FS_t(Metadata::Overridable) -
+               set2;
       THEN("We get the expected flags") {
         REQUIRE(s.GetUnions() == set1.GetUnions());
         REQUIRE(s.GetIntersections() == set3.GetIntersections());

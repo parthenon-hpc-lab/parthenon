@@ -199,104 +199,80 @@ class Metadata {
   // TODO(JMM): Kind of treating Metadata as a namespace here
   using FlagVec = std::vector<MetadataFlag>;
 
-  // FlagSet is a collection object that encapsulates the desire for
+  // FlagCollection is a collection object that encapsulates the desire for
   // target variables/swarms with:
   // - At least ONE of the "unions" flags,
   // - ALL of the "intersections" flags,
   // - and NONE of the "exclusions" flags
-  //
-  // Algebraic operations are supported, but are not entirely
-  // consistent with set arithmetic or order of operations. In particular:
-  //
-  // Set3 = Set1 + Set2
-  //
-  // produces a Set3 with the a unions field which is the set union of the
-  // union fields of set1 and set2. However,
-  //
-  // Set3 = Set1 * Set2
-  //
-  // Produces a set with a "unions" field of set1 and an intersections
-  // field containing the original intersections of set1, but BOTH the
-  // intersections and unions fields fo set2. Similarly,
-  //
-  // Set3 = Set1 - Set2
-  //
-  // Produces a set with the "unions" and "intersections" fields of set1
-  // and an exclusion field containing set1's exlcusion field
-  // as well as ALL THREE fields (union, intersection, exclusion) contained
-  // by set2.
-  //
-  // This feels unintuitive but it makes expressions like this:
-  //
-  // Set = {Flag1, Flag2} * {Flag3, Flag4} - {Flag5, Flag6}
-  //
-  // behave in an intuitive way. This translates to a desire for
-  // particles/fields with EITHER Flag1 or Flag2 AND Flag3 AND Flag4
-  // and NOT Flag5 or Flag6.
-  class FlagSet {
+  class FlagCollection {
    public:
+    FlagCollection() = default;
     // Container_t should be a stdlib container type
     // it needs at least the iterator first and last methods
     template <template <class...> class Container_t, class... extra>
-    FlagSet(const Container_t<MetadataFlag, extra...> &&flags,
-            bool take_intersection = false) {
-      if (take_intersection) {
-        intersections_.insert(flags.begin(), flags.end());
-      } else { // union
+    FlagCollection(const Container_t<MetadataFlag, extra...> &flags, bool take_union = false) {
+      if (take_union) {
         unions_.insert(flags.begin(), flags.end());
+      } else { // intersection
+        intersections_.insert(flags.begin(), flags.end());
       }
     }
     // Constructor that takes a brace-enclosed initializer list
     // TODO(JMM): The cast to to a vector here implies some extra
     // copies which aren't great. Don't do this too much I guess.
-    FlagSet(std::initializer_list<MetadataFlag> flags, bool take_intersection = false)
-        : FlagSet(FlagVec(flags), take_intersection) {}
+    // Also I don't totally understand why the templated constructor
+    // above doesn't capture this one. I guess it's not a const reference?
+    FlagCollection(std::initializer_list<MetadataFlag> flags, bool take_union = false)
+        : FlagCollection(FlagVec(flags), take_union) {}
     // Constructor from a comma-separated list. Default is union.
     // Force correct type inferrence by making the first arg a flag
     template <typename... Args>
-    FlagSet(MetadataFlag first, Args... args)
-        : FlagSet({first, std::forward<Args>(args)...}, false) {}
+    FlagCollection(MetadataFlag first, Args... args)
+        : FlagCollection({first, std::forward<Args>(args)...}, false) {}
+    // Check if set empty
+    bool Empty() const { return (unions_.empty() && intersections_.empty()); }
     // Union
     template <template <class...> class Container_t, class... extra>
-    void TakeUnion(const Container_t<MetadataFlag, extra...> &&flags) {
+    void TakeUnion(const Container_t<MetadataFlag, extra...> &flags) {
       unions_.insert(flags.begin(), flags.end());
     }
-    void TakeUnion(const FlagSet &other) {
+    void TakeUnion(const FlagCollection &other) {
       unions_.insert(other.unions_.begin(), other.unions_.end());
+      exclusions_.insert(other.exclusions_.begin(), other.exclusions_.end());
     }
-    FlagSet operator+(const FlagSet &other) {
-      FlagSet s(*this);
+    FlagCollection operator+(const FlagCollection &other) {
+      FlagCollection s(*this);
       s.TakeUnion(other);
       return s;
     }
-    FlagSet operator||(const FlagSet &other) { return (*this) + other; }
+    FlagCollection operator||(const FlagCollection &other) { return (*this) + other; }
     // Intersection
     template <template <class...> class Container_t, class... extra>
-    void TakeIntersection(const Container_t<MetadataFlag, extra...> &&flags) {
+    void TakeIntersection(const Container_t<MetadataFlag, extra...> &flags) {
       intersections_.insert(flags.begin(), flags.end());
     }
-    void TakeIntersection(const FlagSet &other) {
-      intersections_.insert(other.unions_.begin(), other.unions_.end());
+    void TakeIntersection(const FlagCollection &other) {
       intersections_.insert(other.intersections_.begin(), other.intersections_.end());
+      exclusions_.insert(other.exclusions_.begin(), other.exclusions_.end());
     }
-    FlagSet operator*(const FlagSet &other) {
-      FlagSet s(*this);
+    FlagCollection operator*(const FlagCollection &other) {
+      FlagCollection s(*this);
       s.TakeIntersection(other);
       return s;
     }
-    FlagSet operator&&(const FlagSet &other) { return (*this) * other; }
+    FlagCollection operator&&(const FlagCollection &other) { return (*this) * other; }
     // Set Difference
     template <template <class...> class Container_t, class... extra>
     void Exclude(const Container_t<MetadataFlag, extra...> &&flags) {
       exclusions_.insert(flags.begin(), flags.end());
     }
-    void Exclude(const FlagSet &other) {
+    void Exclude(const FlagCollection &other) {
       exclusions_.insert(other.unions_.begin(), other.unions_.end());
       exclusions_.insert(other.intersections_.begin(), other.intersections_.end());
       exclusions_.insert(other.exclusions_.begin(), other.exclusions_.end());
     }
-    FlagSet operator-(const FlagSet &other) {
-      FlagSet s(*this);
+    FlagCollection operator-(const FlagCollection &other) {
+      FlagCollection s(*this);
       s.Exclude(other);
       return s;
     }
@@ -546,17 +522,28 @@ class Metadata {
   /**
    * @brief Returns true if any flag is set
    */
-  bool AnyFlagsSet(std::vector<MetadataFlag> const &flags) const {
+  template <template <class...> class Container_t, class... extra>
+  bool AnyFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
     return std::any_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
+  template<typename... Args>
+  bool AnyFlagsSet(const MetadataFlag &flag, Args... args) const {
+    return AnyFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
+  }
 
-  bool AllFlagsSet(std::vector<MetadataFlag> const &flags) const {
+  template <template <class...> class Container_t, class... extra>
+  bool AllFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
     return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
+  template<typename... Args>
+  bool AllFlagsSet(const MetadataFlag &flag, Args... args) const {
+    return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
+  }
 
-  bool FlagsSet(std::vector<MetadataFlag> const &flags, bool matchAny = false) {
+  template <template <class...> class Container_t, class... extra>
+  bool FlagsSet(const Container_t<MetadataFlag, extra...> &flags, bool matchAny = false) const {
     return ((matchAny && AnyFlagsSet(flags)) || ((!matchAny) && AllFlagsSet(flags)));
   }
 

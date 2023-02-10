@@ -13,6 +13,7 @@
 
 #include "interface/meshblock_data.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <memory>
 #include <set>
@@ -72,6 +73,8 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
   }
 }
 
+// TODO(JMM): To use the set logic in GetVariablesFromFlags
+// that logic would need to be generalized. Not bothering for now.
 template <typename T>
 void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
                                 const std::vector<std::string> &names,
@@ -143,6 +146,9 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
   CopyFrom(src, true, names, {}, sparse_ids);
 }
 
+
+// TODO(JMM): To use the set logic in GetVariablesFromFlags
+// that logic would need to be generalized. Not bothering for now.
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
                                 const std::vector<MetadataFlag> &flags,
@@ -282,11 +288,10 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
 /// Variables and fluxes by Metadata Flags
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
-    const std::vector<MetadataFlag> &flags, const std::vector<int> &sparse_ids,
+    const Metadata::FlagCollection &flags, const std::vector<int> &sparse_ids,
     PackIndexMap *map, vpack_types::StringPair *key) {
-  return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, true, sparse_ids),
-                                      GetVariablesByFlag(flags, true, sparse_ids), map,
-                                      key);
+  return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, sparse_ids),
+                                      GetVariablesByFlag(flags, sparse_ids), map, key);
 }
 
 /// All variables and fluxes by Metadata Flags
@@ -309,11 +314,10 @@ MeshBlockData<T>::PackVariablesImpl(const std::vector<std::string> &names,
 /// Variables by Metadata Flags
 template <typename T>
 const VariablePack<T> &
-MeshBlockData<T>::PackVariablesImpl(const std::vector<MetadataFlag> &flags,
+MeshBlockData<T>::PackVariablesImpl(const Metadata::FlagCollection &flags,
                                     const std::vector<int> &sparse_ids, bool coarse,
                                     PackIndexMap *map, std::vector<std::string> *key) {
-  return PackListedVariables(GetVariablesByFlag(flags, true, sparse_ids), coarse, map,
-                             key);
+  return PackListedVariables(GetVariablesByFlag(flags, sparse_ids), coarse, map, key);
 }
 
 /// All variables
@@ -359,42 +363,53 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
 // From a given container, extract all variables whose Metadata matchs the all of the
 // given flags (if the list of flags is empty, extract all variables), optionally only
 // extracting sparse fields with an index from the given list of sparse indices
+//
+// JMM: This algorithm uses the map from metadata flags to variables
+// to accelerate performance.
 template <typename T>
 typename MeshBlockData<T>::VarLabelList
-MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
-                                     bool match_all, const std::vector<int> &sparse_ids) {
+MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
+                                     const std::vector<int> &sparse_ids) {
   Kokkos::Profiling::pushRegion("GetVariablesByFlag");
 
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
-  // TODO(JMM): Note that this treatment DOES NOT provide a lexical
+  // JMM: Note that this treatment DOES NOT provide a lexical
   // sort, but it IS deterministically ordered.
-  if (flags.empty()) {
+  if (flags.Empty()) { // Easy. Just do them all.
     for (const auto &p : varMap_) {
       var_list.Add(p.second, sparse_ids_set);
     }
-  } else if (match_all) {
-    for (auto &v : flagsToVars_[flags[0]]) {
-      // TODO(JMM): When dense sparse packing is moved to Parthenon
-      // develop we need an extra check for IsAllocated here.
-      // if (v->IsAllocated() && v->metadata().AllFlagsSet(flags)) {
-      if (v->metadata().AllFlagsSet(flags)) {
-        var_list.Add(v, sparse_ids_set);
-      }
-    }
   } else {
+    // Use set logic.
     // We use a std::set here to ensure a consistent ordering
-    std::set<std::shared_ptr<CellVariable<T>>> vars;
-    for (auto &f : flags) {
-      for (auto &v : flagsToVars_[f]) {
-        // TODO(JMM): See above
+    VariableSet<T> vars;
+    // Dirty trick to get literally any flag from the intersections set
+    MetadataFlag first_required = *(flags.GetIntersections().begin());
+    // The cost of this loop scales as O(Nflags * Nvars/flag) In worst
+    // case, this is linear in number of variables.  However, on
+    // average, the number of vars with a desired flag will be much
+    // smaller than all vars. So average performance is much better
+    // than linear.
+    for (auto &v : flagsToVars_[first_required]) {
+      const auto &m = v->metadata();
+      // TODO(JMM): Note that AnyFlagsSet returns FALSE if the set of flags
+      // it's asked about is empty.  Not sure that's desired
+      // behaviour, but whatever, let's just guard against edge cases
+      // here.
+      if (m.AllFlagsSet(flags.GetIntersections()) &&
+          !((flags.GetExclusions().size() > 0) && m.AnyFlagsSet(flags.GetExclusions()))
+          && (flags.GetUnions().empty() || m.AnyFlagsSet(flags.GetUnions()))) {
+        // TODO(JMM): When dense sparse packing is moved to Parthenon
+        // develop we need an extra check for IsAllocated here.
         // if (v->IsAllocated()) {
         if (true) {
           vars.insert(v);
         }
       }
     }
+    // Construct the var_list from the set.
     for (auto &v : vars) {
       var_list.Add(v, sparse_ids_set);
     }
