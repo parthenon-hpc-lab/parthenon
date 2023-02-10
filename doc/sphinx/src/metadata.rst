@@ -213,7 +213,7 @@ property of the ``FlagCollection``.
 
 .. code:: cpp
 
-   // Implicit construction form a container, which
+   // Implicit construction from a container, which
    // requests EITHER the following flags instead of BOTH
    FS_t set2({Metadata::Independent, Metadata::FillGhost}, true);
 
