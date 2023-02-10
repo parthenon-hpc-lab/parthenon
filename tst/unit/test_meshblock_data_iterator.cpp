@@ -75,7 +75,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     std::vector<int> vector_shape{16, 16, 16, 3};
 
     Metadata m_in({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
-    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes, Metadata::ForceRemeshComm, Metadata::Vector},
+    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes,
+                          Metadata::ForceRemeshComm, Metadata::Vector},
                          vector_shape);
     Metadata m_out({Metadata::Derived}, scalar_shape);
     Metadata m_out_vector({Metadata::Derived}, vector_shape);
@@ -109,7 +110,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       auto varlist = mbd.GetVariablesByFlag(flags).vars();
       THEN("The list containes the desired variables") {
         REQUIRE(varlist.size() > 0);
-        for (const auto &v : varlist) { 
+        for (const auto &v : varlist) {
           const auto &m = v->metadata();
           REQUIRE(m.AnyFlagsSet(Metadata::Independent, Metadata::Derived));
           REQUIRE(m.IsSet(Metadata::WithFluxes));

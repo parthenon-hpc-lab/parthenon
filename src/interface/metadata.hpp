@@ -210,7 +210,8 @@ class Metadata {
     // Container_t should be a stdlib container type
     // it needs at least the iterator first and last methods
     template <template <class...> class Container_t, class... extra>
-    FlagCollection(const Container_t<MetadataFlag, extra...> &flags, bool take_union = false) {
+    FlagCollection(const Container_t<MetadataFlag, extra...> &flags,
+                   bool take_union = false) {
       if (take_union) {
         unions_.insert(flags.begin(), flags.end());
       } else { // intersection
@@ -527,7 +528,7 @@ class Metadata {
     return std::any_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
-  template<typename... Args>
+  template <typename... Args>
   bool AnyFlagsSet(const MetadataFlag &flag, Args... args) const {
     return AnyFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
@@ -537,13 +538,14 @@ class Metadata {
     return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
-  template<typename... Args>
+  template <typename... Args>
   bool AllFlagsSet(const MetadataFlag &flag, Args... args) const {
     return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
 
   template <template <class...> class Container_t, class... extra>
-  bool FlagsSet(const Container_t<MetadataFlag, extra...> &flags, bool matchAny = false) const {
+  bool FlagsSet(const Container_t<MetadataFlag, extra...> &flags,
+                bool matchAny = false) const {
     return ((matchAny && AnyFlagsSet(flags)) || ((!matchAny) && AllFlagsSet(flags)));
   }
 

@@ -328,8 +328,7 @@ class MeshData {
   }
   // no sparse ids
   template <typename Selector>
-  const auto &PackVariablesAndFluxes(const Selector &names_or_flags,
-                                     PackIndexMap &map) {
+  const auto &PackVariablesAndFluxes(const Selector &names_or_flags, PackIndexMap &map) {
     return PackVariablesAndFluxesImpl(&map, names_or_flags);
   }
   template <typename Selector>

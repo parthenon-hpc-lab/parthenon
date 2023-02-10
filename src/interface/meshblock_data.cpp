@@ -146,7 +146,6 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
   CopyFrom(src, true, names, {}, sparse_ids);
 }
 
-
 // TODO(JMM): To use the set logic in GetVariablesFromFlags
 // that logic would need to be generalized. Not bothering for now.
 template <typename T>
@@ -399,8 +398,8 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
       // behaviour, but whatever, let's just guard against edge cases
       // here.
       if (m.AllFlagsSet(flags.GetIntersections()) &&
-          !((flags.GetExclusions().size() > 0) && m.AnyFlagsSet(flags.GetExclusions()))
-          && (flags.GetUnions().empty() || m.AnyFlagsSet(flags.GetUnions()))) {
+          !((flags.GetExclusions().size() > 0) && m.AnyFlagsSet(flags.GetExclusions())) &&
+          (flags.GetUnions().empty() || m.AnyFlagsSet(flags.GetUnions()))) {
         // TODO(JMM): When dense sparse packing is moved to Parthenon
         // develop we need an extra check for IsAllocated here.
         // if (v->IsAllocated()) {
