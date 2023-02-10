@@ -349,7 +349,7 @@ class MeshData {
   }
   const auto &PackVariablesAndFluxes() { return PackVariablesAndFluxesImpl(nullptr); }
 
-  // As above, DO NO Tuse variatic templates here. They shadow each other.
+  // As above, DO NOT use variatic templates here. They shadow each other.
   // covers names and metadata flags
   template <typename Selector>
   const auto &PackVariables(const Selector &names_or_flags,
