@@ -117,6 +117,9 @@ class StateDescriptor {
   // Preferred constructor
   explicit StateDescriptor(std::string const &label) : label_(label) {}
 
+  // Virtual destructor for subclassing
+  virtual ~StateDescriptor() = default;
+
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptor(Packages_t &packages);
 
