@@ -34,7 +34,7 @@ using Real = double;
 #endif
 #endif
 
-enum class TaskStatus { fail, complete, incomplete, iterate, skip };
+enum class TaskStatus { fail, complete, incomplete, iterate, skip, waiting };
 enum class AmrTag : int { derefine = -1, same = 0, refine = 1 };
 enum class RefinementOp_t { Prolongation, Restriction, None };
 

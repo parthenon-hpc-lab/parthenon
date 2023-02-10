@@ -101,10 +101,10 @@ add_library(parthenon
   bvals/cc/bnd_info.cpp
   bvals/cc/bnd_info.hpp
   bvals/cc/boundary_communication.cpp
-  bvals/cc/flux_correction.cpp 
-  bvals/cc/tag_map.cpp 
-  bvals/cc/tag_map.hpp 
-  
+  bvals/cc/flux_correction.cpp
+  bvals/cc/tag_map.cpp
+  bvals/cc/tag_map.hpp
+
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
 
@@ -194,7 +194,11 @@ add_library(parthenon
   amr_criteria/refinement_package.cpp
   amr_criteria/refinement_package.hpp
 
+  solvers/bicgstab_solver.hpp
+  solvers/cg_solver.hpp
+  solvers/newton_krylov.hpp
   solvers/solver_utils.hpp
+  solvers/solvers.cpp
 
   tasks/task_id.cpp
   tasks/task_id.hpp

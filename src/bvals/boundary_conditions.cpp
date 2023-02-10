@@ -73,6 +73,12 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
   return TaskStatus::complete;
 }
 
+TaskStatus ProlongateBoundariesMD(std::shared_ptr<MeshData<Real>> &pmd) {
+  for (int b = 0; b < pmd->NumBlocks(); ++b)
+    ProlongateBoundaries(pmd->GetBlockData(b));
+  return TaskStatus::complete;
+}
+
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse) {
   Kokkos::Profiling::pushRegion("Task_ApplyBoundaryConditionsOnCoarseOrFine");
