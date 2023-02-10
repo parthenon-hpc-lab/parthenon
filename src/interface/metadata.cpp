@@ -17,6 +17,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -49,7 +50,7 @@ class UserMetadataState {
 #undef PARTHENON_INTERNAL_FOR_FLAG
   }
 
-  MetadataFlag AllocateNewFlag(std::string &&name) {
+  MetadataFlag AllocateNewFlag(const std::string &name) {
     if (flag_names_.find(name) != flag_names_.end()) {
       std::stringstream ss;
       ss << "MetadataFlag with name '" << name << "' already exists.";
@@ -58,9 +59,10 @@ class UserMetadataState {
 
     auto const flag = flag_name_map_.size();
     flag_names_.insert(name);
-    flag_name_map_.push_back(std::move(name));
+    flag_name_map_.push_back(name);
 
     auto flag_obj = MetadataFlag(static_cast<int>(flag));
+    names_to_flags_.emplace(name, flag_obj);
 
     return flag_obj;
   }
@@ -68,8 +70,10 @@ class UserMetadataState {
   std::string const &FlagName(MetadataFlag flag) { return flag_name_map_.at(flag.flag_); }
 
   const auto &AllFlags() { return flag_name_map_; }
+  const auto &NamesToFlags() { return names_to_flags_; }
 
  private:
+  std::unordered_map<std::string, MetadataFlag> names_to_flags_;
   std::vector<std::string> flag_name_map_;
   std::unordered_set<std::string> flag_names_;
 };
@@ -79,11 +83,18 @@ class UserMetadataState {
 
 parthenon::internal::UserMetadataState metadata_state;
 
-MetadataFlag Metadata::AllocateNewFlag(std::string &&name) {
-  return metadata_state.AllocateNewFlag(std::move(name));
+MetadataFlag Metadata::AllocateNewFlag(const std::string &name) {
+  return metadata_state.AllocateNewFlag(name);
 }
 
 std::string const &MetadataFlag::Name() const { return metadata_state.FlagName(*this); }
+
+bool Metadata::FlagNameExists(const std::string &flagname) {
+  return (metadata_state.NamesToFlags().count(flagname) > 0);
+}
+MetadataFlag Metadata::FlagFromName(const std::string &flagname) {
+  return (metadata_state.NamesToFlags().at(flagname));
+}
 
 namespace parthenon {
 std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {

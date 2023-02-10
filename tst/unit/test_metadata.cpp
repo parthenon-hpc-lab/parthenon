@@ -64,7 +64,8 @@ TEST_CASE("Built-in flags are registered", "[Metadata]") {
 
 TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
   GIVEN("A User Flag") {
-    auto const f = Metadata::AllocateNewFlag("TestFlag");
+    const std::string name = "TestFlag";
+    auto const f = Metadata::AllocateNewFlag(name);
     // Note: `parthenon::internal` is subject to change, and so this test may
     // rightfully break later - this test needn't be maintained if so.
     //
@@ -72,10 +73,19 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
     // flag + 1.
     REQUIRE(f.InternalFlagValue() ==
             static_cast<int>(parthenon::internal::MetadataInternal::Max));
-    REQUIRE("TestFlag" == f.Name());
+    REQUIRE(name == f.Name());
+
+    // Metadata should be able to report that this flag exists and
+    // nonexistent flags don't.
+    REQUIRE(Metadata::FlagNameExists(name));
+    REQUIRE(!(Metadata::FlagNameExists("NoCanDoBuddy")));
+
+    // The identical flag should be retrievable
+    auto const f2 = Metadata::FlagFromName(name);
+    REQUIRE(f == f2);
 
     // It should throw an error if you try to allocate a new flag with the same name.
-    REQUIRE_THROWS_AS(Metadata::AllocateNewFlag("TestFlag"), std::runtime_error);
+    REQUIRE_THROWS_AS(Metadata::AllocateNewFlag(name), std::runtime_error);
   }
 }
 
@@ -129,6 +139,55 @@ TEST_CASE("A Metadata struct is created", "[Metadata]") {
             Metadata({Metadata::Face, Metadata::Derived}));
     REQUIRE(Metadata({Metadata::Cell, Metadata::Derived}) !=
             Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
+  }
+}
+
+TEST_CASE("Metadata FlagSet", "[Metadata]") {
+  GIVEN("Some metadata flag sets") {
+    using parthenon::MetadataFlag;
+    using FS_t = Metadata::FlagSet;
+    FS_t set1(std::vector<MetadataFlag>{Metadata::Cell, Metadata::Face});
+    FS_t set2(Metadata::Requires, Metadata::Overridable);
+    FS_t set3({Metadata::Independent, Metadata::FillGhost}, true);
+    WHEN("We take the union") {
+      auto s = set1 || set2;
+      THEN("We get the flags we expect") {
+        const auto &su = s.GetUnions();
+        REQUIRE(su.count(Metadata::Requires) > 0);
+        REQUIRE(su.count(Metadata::Overridable) > 0);
+        REQUIRE(su.count(Metadata::Cell) > 0);
+        REQUIRE(su.count(Metadata::Face) > 0);
+        const auto &si = s.GetIntersections();
+        REQUIRE(si.empty());
+        const auto &se = s.GetExclusions();
+        REQUIRE(se.empty());
+      }
+    }
+    WHEN("We take the intersection") {
+      auto s = set1 && set3;
+      THEN("We get the flags we expect") {
+        REQUIRE(s.GetUnions() == set1.GetUnions());
+        REQUIRE(s.GetIntersections() == set3.GetIntersections());
+        REQUIRE(s.GetExclusions().empty());
+      }
+    }
+    WHEN("We exclude some flags") {
+      auto s = set1;
+      s.Exclude({Metadata::Requires, Metadata::Overridable});
+      THEN("We get the flags we expect") {
+        REQUIRE(s.GetUnions() == set1.GetUnions());
+        REQUIRE(s.GetIntersections() == set1.GetIntersections());
+        REQUIRE(s.GetExclusions() == set2.GetUnions());
+      }
+    }
+    WHEN("We perform more complicated set arithmetic") {
+      auto s = (FS_t(Metadata::Cell) + FS_t(Metadata::Face)) * set3 - set2;
+      THEN("We get the expected flags") {
+        REQUIRE(s.GetUnions() == set1.GetUnions());
+        REQUIRE(s.GetIntersections() == set3.GetIntersections());
+        REQUIRE(s.GetExclusions() == set2.GetUnions());
+      }
+    }
   }
 }
 

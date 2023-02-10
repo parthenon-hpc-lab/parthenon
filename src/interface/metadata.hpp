@@ -16,11 +16,14 @@
 #include <algorithm>
 #include <bitset>
 #include <exception>
+#include <initializer_list>
 #include <iostream>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "prolong_restrict/pr_ops.hpp"
@@ -193,14 +196,118 @@ class Metadata {
   PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
 
-  /*
+  // TODO(JMM): Kind of treating Metadata as a namespace here
   using FlagVec = std::vector<MetadataFlag>;
+
+  // FlagSet is a collection object that encapsulates the desire for
+  // target variables/swarms with:
+  // - At least ONE of the "unions" flags,
+  // - ALL of the "intersections" flags,
+  // - and NONE of the "exclusions" flags
+  //
+  // Algebraic operations are supported, but are not entirely
+  // consistent with set arithmetic or order of operations. In particular:
+  //
+  // Set3 = Set1 + Set2
+  //
+  // produces a Set3 with the a unions field which is the set union of the
+  // union fields of set1 and set2. However,
+  //
+  // Set3 = Set1 * Set2
+  //
+  // Produces a set with a "unions" field of set1 and an intersections
+  // field containing the original intersections of set1, but BOTH the
+  // intersections and unions fields fo set2. Similarly,
+  //
+  // Set3 = Set1 - Set2
+  //
+  // Produces a set with the "unions" and "intersections" fields of set1
+  // and an exclusion field containing set1's exlcusion field
+  // as well as ALL THREE fields (union, intersection, exclusion) contained
+  // by set2.
+  //
+  // This feels unintuitive but it makes expressions like this:
+  //
+  // Set = {Flag1, Flag2} * {Flag3, Flag4} - {Flag5, Flag6}
+  //
+  // behave in an intuitive way. This translates to a desire for
+  // particles/fields with EITHER Flag1 or Flag2 AND Flag3 AND Flag4
+  // and NOT Flag5 or Flag6.
   class FlagSet {
-  public:
-  private:
-    FlagVec unions_, intersections_, negations_;
+   public:
+    // Container_t should be a stdlib container type
+    // it needs at least the iterator first and last methods
+    template <template <class...> class Container_t, class... extra>
+    FlagSet(const Container_t<MetadataFlag, extra...> &&flags,
+            bool take_intersection = false) {
+      if (take_intersection) {
+        intersections_.insert(flags.begin(), flags.end());
+      } else { // union
+        unions_.insert(flags.begin(), flags.end());
+      }
+    }
+    // Constructor that takes a brace-enclosed initializer list
+    // TODO(JMM): The cast to to a vector here implies some extra
+    // copies which aren't great. Don't do this too much I guess.
+    FlagSet(std::initializer_list<MetadataFlag> flags, bool take_intersection = false)
+        : FlagSet(FlagVec(flags), take_intersection) {}
+    // Constructor from a comma-separated list. Default is union.
+    // Force correct type inferrence by making the first arg a flag
+    template <typename... Args>
+    FlagSet(MetadataFlag first, Args... args)
+        : FlagSet({first, std::forward<Args>(args)...}, false) {}
+    // Union
+    template <template <class...> class Container_t, class... extra>
+    void TakeUnion(const Container_t<MetadataFlag, extra...> &&flags) {
+      unions_.insert(flags.begin(), flags.end());
+    }
+    void TakeUnion(const FlagSet &other) {
+      unions_.insert(other.unions_.begin(), other.unions_.end());
+    }
+    FlagSet operator+(const FlagSet &other) {
+      FlagSet s(*this);
+      s.TakeUnion(other);
+      return s;
+    }
+    FlagSet operator||(const FlagSet &other) { return (*this) + other; }
+    // Intersection
+    template <template <class...> class Container_t, class... extra>
+    void TakeIntersection(const Container_t<MetadataFlag, extra...> &&flags) {
+      intersections_.insert(flags.begin(), flags.end());
+    }
+    void TakeIntersection(const FlagSet &other) {
+      intersections_.insert(other.unions_.begin(), other.unions_.end());
+      intersections_.insert(other.intersections_.begin(), other.intersections_.end());
+    }
+    FlagSet operator*(const FlagSet &other) {
+      FlagSet s(*this);
+      s.TakeIntersection(other);
+      return s;
+    }
+    FlagSet operator&&(const FlagSet &other) { return (*this) * other; }
+    // Set Difference
+    template <template <class...> class Container_t, class... extra>
+    void Exclude(const Container_t<MetadataFlag, extra...> &&flags) {
+      exclusions_.insert(flags.begin(), flags.end());
+    }
+    void Exclude(const FlagSet &other) {
+      exclusions_.insert(other.unions_.begin(), other.unions_.end());
+      exclusions_.insert(other.intersections_.begin(), other.intersections_.end());
+      exclusions_.insert(other.exclusions_.begin(), other.exclusions_.end());
+    }
+    FlagSet operator-(const FlagSet &other) {
+      FlagSet s(*this);
+      s.Exclude(other);
+      return s;
+    }
+    // Accessors
+    const std::set<MetadataFlag> &GetUnions() const { return unions_; }
+    const std::set<MetadataFlag> &GetIntersections() const { return intersections_; }
+    const std::set<MetadataFlag> &GetExclusions() const { return exclusions_; }
+
+   private:
+    std::set<MetadataFlag> unions_, intersections_, exclusions_;
   };
-  */
 
   Metadata() = default;
 
@@ -290,7 +397,9 @@ class Metadata {
       : Metadata(bits, {1}, {}, associated) {}
 
   // Static routines
-  static MetadataFlag AllocateNewFlag(std::string &&name);
+  static MetadataFlag AllocateNewFlag(const std::string &name);
+  static bool FlagNameExists(const std::string &flagname);
+  static MetadataFlag FlagFromName(const std::string &flagname);
 
   // Sparse threshold routines
   void SetSparseThresholds(parthenon::Real alloc, parthenon::Real dealloc,
