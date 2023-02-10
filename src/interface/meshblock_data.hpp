@@ -403,6 +403,9 @@ class MeshBlockData {
   void Add(std::shared_ptr<CellVariable<T>> var) noexcept {
     varVector_.push_back(var);
     varMap_[var->label()] = var;
+    for (const auto &flag : var->metadata().Flags()) {
+      flagsToVars_[flag].insert(var);
+    }
   }
 
   std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label,
@@ -446,6 +449,7 @@ class MeshBlockData {
   CellVariableVector<T> varVector_; ///< the saved variable array
 
   MapToCellVars<T> varMap_;
+  MetadataFlagToVariableMap<T> flagsToVars_;
 
   // variable packing
   MapToVariablePack<T> varPackMap_;

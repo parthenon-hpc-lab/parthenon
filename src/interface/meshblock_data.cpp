@@ -15,6 +15,7 @@
 
 #include <cstdlib>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <unordered_set>
 #include <utility>
@@ -42,6 +43,7 @@ void MeshBlockData<T>::Initialize(
   // clear all variables, maps, and pack caches
   varVector_.clear();
   varMap_.clear();
+  flagsToVars_.clear();
   varPackMap_.clear();
   coarseVarPackMap_.clear();
   varFluxPackMap_.clear();
@@ -361,20 +363,44 @@ template <typename T>
 typename MeshBlockData<T>::VarLabelList
 MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
                                      bool match_all, const std::vector<int> &sparse_ids) {
+  Kokkos::Profiling::pushRegion("GetVariablesByFlag");
+
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
-  // let's use varMap_ here instead of varVector_ because iterating over either has O(N)
-  // complexity but with varMap_ we get a sorted list
-  for (const auto &pair : varMap_) {
-    const auto &v = pair.second;
-    // add this variable to the list if the Metadata flags match or no flags are specified
-    if (flags.empty() || (match_all && v->metadata().AllFlagsSet(flags)) ||
-        (!match_all && v->metadata().AnyFlagsSet(flags))) {
+  // TODO(JMM): Note that this treatment DOES NOT provide a lexical
+  // sort, but it IS deterministically ordered.
+  if (flags.empty()) {
+    for (const auto &p : varMap_) {
+      var_list.Add(p.second, sparse_ids_set);
+    }
+  } else if (match_all) {
+    for (auto &v : flagsToVars_[flags[0]]) {
+      // TODO(JMM): When dense sparse packing is moved to Parthenon
+      // develop we need an extra check for IsAllocated here.
+      // if (v->IsAllocated() && v->metadata().AllFlagsSet(flags)) {
+      if (v->metadata().AllFlagsSet(flags)) {
+        var_list.Add(v, sparse_ids_set);
+      }
+    }
+  } else {
+    // We use a std::set here to ensure a consistent ordering
+    std::set<std::shared_ptr<CellVariable<T>>> vars;
+    for (auto &f : flags) {
+      for (auto &v : flagsToVars_[f]) {
+        // TODO(JMM): See above
+        // if (v->IsAllocated()) {
+        if (true) {
+          vars.insert(v);
+        }
+      }
+    }
+    for (auto &v : vars) {
       var_list.Add(v, sparse_ids_set);
     }
   }
 
+  Kokkos::Profiling::popRegion();
   return var_list;
 }
 

@@ -32,6 +32,7 @@
 #include <memory>
 #include <regex>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -248,6 +249,10 @@ template <typename T>
 using ParticleVariableVector = std::vector<std::shared_ptr<ParticleVariable<T>>>;
 template <typename T>
 using MapToParticle = std::map<std::string, std::shared_ptr<ParticleVariable<T>>>;
+template <typename T>
+using VariableSet = std::unordered_set<std::shared_ptr<CellVariable<T>>>;
+template <typename T>
+using MetadataFlagToVariableMap = std::map<MetadataFlag, VariableSet<T>>;
 
 } // namespace parthenon
 
