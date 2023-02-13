@@ -22,7 +22,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 parser = ArgumentParser(
-    prog="movie2d", description="Plot snapshots of 2d parthenon output",
+    prog="movie2d",
+    description="Plot snapshots of 2d parthenon output",
 )
 parser.add_argument("field", type=str, help="field to plot")
 parser.add_argument(
