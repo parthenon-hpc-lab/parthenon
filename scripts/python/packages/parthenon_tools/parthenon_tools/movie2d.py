@@ -32,11 +32,11 @@ parser.add_argument(
     default=None,
     help=(
         "Vector component of field to plot. "
-        + "Mutually exclusive with --tensor-components."
+        + "Mutually exclusive with --tensor-component."
     ),
 )
 parser.add_argument(
-    "--tensor-components",
+    "--tensor-component",
     dest="tc",
     type=float,
     nargs=2,
@@ -84,6 +84,11 @@ def plot_dump(
         ye = yf
 
     # get tensor components
+    if len(q.shape) > 5:
+        raise ValueError(
+            "Tensor rank is higher than I can handle. "
+            + "Please revise the movie2d script"
+        )
     if len(q.shape) == 5:
         q = q[:, components[0], components[1], :, :]
     if len(q.shape) == 4:
@@ -151,9 +156,9 @@ if __name__ == "__main__":
             "Only one of --tensor-components and --vector-component should be set."
         )
     if args.tc is not None:
-        components = tc
+        components = args.tc
     if args.vc is not None:
-        components = [0, vc]
+        components = [0, args.vc]
     dump_id = 0
     debug_plot = False
     for f in files:
