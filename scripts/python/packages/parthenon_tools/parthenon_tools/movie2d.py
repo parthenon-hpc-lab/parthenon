@@ -154,7 +154,7 @@ if __name__ == "__main__":
     components = [0, 0]
     if (args.tc is not None) and (args.vc is not None):
         raise ValueError(
-            "Only one of --tensor-components and --vector-component should be set."
+            "Only one of --tensor-component and --vector-component should be set."
         )
     if args.tc is not None:
         components = args.tc
