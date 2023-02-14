@@ -25,6 +25,7 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 832]](https://github.com/parthenon-hpc-lab/parthenon/pull/833) Fix movie2d script after it broke due to change in HDF5 format
 - [[PR 820]](https://github.com/parthenon-hpc-lab/parthenon/pull/820) Fix XDMF spec to conform to standard and handle scalar and vector variables
 - [[PR 795]](https://github.com/parthenon-hpc-lab/parthenon/pull/795) Fix length-1 vectors in output format version >= 3
 - [[PR 824]](https://github.com/parthenon-hpc-lab/parthenon/pull/824) Remove unsupported exception handling from device methods in UniformCartesian
