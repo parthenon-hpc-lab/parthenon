@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include <string>
 #include "unique_id.hpp"
+#include <string>
 
 namespace parthenon {
 template class UniqueIDGenerator<std::string>;

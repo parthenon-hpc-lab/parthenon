@@ -255,16 +255,15 @@ inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
   return out;
 }
 
-
 // Enforces uid ordering of sets/maps of variables
-template<typename T>
+template <typename T>
 struct VarComp {
   bool operator()(const std::shared_ptr<T> &a, const std::shared_ptr<T> &b) const {
     return ((a->GetUniqueID()) < (b->GetUniqueID()));
   }
 };
 
-template<typename T>
+template <typename T>
 using VarPtr = std::shared_ptr<CellVariable<T>>;
 
 template <typename T>

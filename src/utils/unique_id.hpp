@@ -11,17 +11,17 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef UTILS_UNIQUE_ID_
-#define UTILS_UNIQUE_ID_
+#ifndef UTILS_UNIQUE_ID_HPP_
+#define UTILS_UNIQUE_ID_HPP_
 
 #include <cstddef>
 
 #include <unordered_map>
 
 namespace parthenon {
-template<typename T>
+template <typename T>
 class UniqueIDGenerator {
-public:
+ public:
   std::size_t operator()(const T &key) {
     if (uids_.count(key) > 0) {
       return uids_.at(key);
@@ -30,9 +30,10 @@ public:
     uids_.emplace(key, uid);
     return uid;
   }
-private:
-  std::unordered_map<T ,std::size_t> uids_;
+
+ private:
+  std::unordered_map<T, std::size_t> uids_;
 };
 } // namespace parthenon
 
-#endif // UTILS_UNIQUE_ID_
+#endif // UTILS_UNIQUE_ID_HPP_
