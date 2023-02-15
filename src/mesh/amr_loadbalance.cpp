@@ -717,7 +717,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             // fine to coarse on the same MPI rank (different AMR level) - restriction
             auto pob = FindMeshBlock(on + ll);
 
-            // allocte sparse variables that were allocated on old block
+            // allocate sparse variables that were allocated on old block
             for (auto var : pob->meshblock_data.Get()->GetCellVariableVector()) {
               if (var->IsSparse() && var->IsAllocated()) {
                 new_block_list[n - nbs]->AllocateSparse(var->label());
@@ -731,7 +731,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           // coarse to fine on the same MPI rank (different AMR level) - prolongation
           auto pob = FindMeshBlock(on);
 
-          // allocte sparse variables that were allocated on old block
+          // allocate sparse variables that were allocated on old block
           for (auto var : pob->meshblock_data.Get()->GetCellVariableVector()) {
             if (var->IsSparse() && var->IsAllocated()) {
               new_block_list[n - nbs]->AllocateSparse(var->label());
@@ -934,16 +934,17 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
   auto alloc_subview = Kokkos::subview(sendbuf, std::make_pair(0, p));
   auto alloc_subview_h = Kokkos::create_mirror_view(HostMemSpace(), alloc_subview);
 
-  for (int i = 0; i < pb->pmr->pvars_cc_.size(); ++i) {
-    auto &cc_var = pb->pmr->pvars_cc_[i];
+  int i = 0;
+  for (auto &cc_var : pb->pmr->pvars_cc_) {
     alloc_subview_h(i) = cc_var->IsAllocated() ? 1.0 : 0.0;
-    int nu = cc_var->GetDim(4) - 1;
+    int nu = cc_var->GetDim(4) - 1; // TODO(JMM): looks like this only supports vectors?
     if (cc_var->IsAllocated()) {
       ParArray4D<Real> var_cc = cc_var->data.Get<4>();
       BufferUtility::PackData(var_cc, sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
     } else {
       BufferUtility::PackZero(sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
     }
+    i++;
   }
 
   Kokkos::deep_copy(alloc_subview, alloc_subview_h);
@@ -970,8 +971,8 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf) 
   auto alloc_subview = Kokkos::subview(sendbuf, std::make_pair(0, p));
   auto alloc_subview_h = Kokkos::create_mirror_view(HostMemSpace(), alloc_subview);
 
-  for (int i = 0; i < pmr->pvars_cc_.size(); ++i) {
-    auto &cc_var = pmr->pvars_cc_[i];
+  int i = 0;
+  for (auto &cc_var : pmr->pvars_cc_) {
     alloc_subview_h(i) = cc_var->IsAllocated() ? 1.0 : 0.0;
     int nu = cc_var->GetDim(4) - 1;
     if (cc_var->IsAllocated()) {
@@ -985,6 +986,7 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf) 
       BufferUtility::PackZero(sendbuf, 0, nu, cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e, p,
                               pb);
     }
+    i++;
   }
 
   Kokkos::deep_copy(alloc_subview, alloc_subview_h);
@@ -1199,8 +1201,8 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
   auto alloc_subview_h =
       Kokkos::create_mirror_view_and_copy(HostMemSpace(), alloc_subview);
 
-  for (int i = 0; i < pb->pmr->pvars_cc_.size(); ++i) {
-    auto &cc_var = pb->pmr->pvars_cc_[i];
+  int i = 0;
+  for (auto &cc_var : pb->pmr->pvars_cc_) {
     int nu = cc_var->GetDim(4) - 1;
 
     if ((alloc_subview_h(i) == 1.0) && !cc_var->IsAllocated()) {
@@ -1218,6 +1220,7 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
       // increment offset
       p += (nu + 1) * (iu + 1 - il) * (ju + 1 - jl) * (ku + 1 - kl);
     }
+    i++;
   }
   return;
 }
@@ -1242,8 +1245,8 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
   int il = cib.s - 1, iu = cib.e + 1, jl = cjb.s - f2, ju = cjb.e + f2, kl = ckb.s - f3,
       ku = ckb.e + f3;
 
-  for (int i = 0; i < pmr->pvars_cc_.size(); ++i) {
-    auto &cc_var = pmr->pvars_cc_[i];
+  int i = 0;
+  for (auto &cc_var : pmr->pvars_cc_) {
     int nu = cc_var->GetDim(4) - 1;
 
     if ((alloc_subview_h(i) == 1.0) && !cc_var->IsAllocated()) {
@@ -1264,6 +1267,7 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
       // increment offset
       p += (nu + 1) * (iu + 1 - il) * (ju + 1 - jl) * (ku + 1 - kl);
     }
+    i++;
   }
 
   return;

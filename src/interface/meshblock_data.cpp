@@ -370,9 +370,6 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
 // case, this is linear in number of variables. However, on average,
 // the number of vars with a desired flag will be much smaller than
 // all vars. So average performance is much better than linear.
-//
-// Note that this treatment DOES NOT provide a lexical sort, but it IS
-// deterministically ordered.
 template <typename T>
 typename MeshBlockData<T>::VarLabelList
 MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
