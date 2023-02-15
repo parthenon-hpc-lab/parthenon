@@ -117,6 +117,22 @@ TEST_CASE("Can pull variables from containers based on Metadata",
           REQUIRE(!(m.IsSet(Metadata::ForceRemeshComm)));
         }
       }
+      WHEN("We construct a metadata flag collection with only unions") {
+	FS_t unions({Metadata::Derived, Metadata::ForceRemeshComm}, true);
+	THEN("The resulting var list contains the correct flags") {
+	  auto vlu = mbd.GetVariablesByFlag(unions).vars();
+	  std::set<std::string> varnames;
+	  for (const auto &v : vlu) {
+	    varnames.insert(v->label());
+	  }
+	  REQUIRE(varnames.count("v1") == 0);
+	  REQUIRE(varnames.count("v2") > 0);
+	  REQUIRE(varnames.count("v3") > 0);
+	  REQUIRE(varnames.count("v4") > 0);
+	  REQUIRE(varnames.count("v5") == 0);
+	  REQUIRE(varnames.count("v6") > 0);
+	}
+      }
     }
 
     WHEN("We extract a subcontainer") {

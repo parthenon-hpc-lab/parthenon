@@ -186,8 +186,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   const auto vars =
       real_container->GetVariablesByFlag(flags + FS_t({Metadata::ForceRemeshComm}, true))
           .vars();
-  for (int n = 0; n < vars.size(); ++n) {
-    RegisterMeshBlockData(vars[n]);
+  for (const auto &v : vars) {
+    RegisterMeshBlockData(v);
   }
 
   // No RemeshComm
@@ -195,9 +195,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     const auto refine_vars = real_container->GetVariablesByFlag(flags).vars();
     pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
-    for (int n = 0; n < refine_vars.size(); n++) {
+    for (const auto &v : vars) {
       // These are used for doing refinement
-      pmr->AddToRefinement(refine_vars[n]);
+      pmr->AddToRefinement(v);
     }
   }
 

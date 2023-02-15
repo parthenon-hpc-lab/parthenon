@@ -365,6 +365,14 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
 //
 // JMM: This algorithm uses the map from metadata flags to variables
 // to accelerate performance.
+// 
+// The cost of this loop scales as O(Nflags * Nvars/flag) In worst
+// case, this is linear in number of variables. However, on average,
+// the number of vars with a desired flag will be much smaller than
+// all vars. So average performance is much better than linear.
+//
+// Note that this treatment DOES NOT provide a lexical sort, but it IS
+// deterministically ordered.
 template <typename T>
 typename MeshBlockData<T>::VarLabelList
 MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
@@ -374,37 +382,45 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
-  // JMM: Note that this treatment DOES NOT provide a lexical
-  // sort, but it IS deterministically ordered.
+  // Note that only intersections and unions count for flags.Empty()
   if (flags.Empty()) { // Easy. Just do them all.
     for (const auto &p : varMap_) {
       var_list.Add(p.second, sparse_ids_set);
     }
-  } else {
-    // Use set logic.
-    // We use a std::set here to ensure a consistent ordering
-    VariableSet<T> vars;
-    // Dirty trick to get literally any flag from the intersections set
-    MetadataFlag first_required = *(flags.GetIntersections().begin());
-    // The cost of this loop scales as O(Nflags * Nvars/flag) In worst
-    // case, this is linear in number of variables.  However, on
-    // average, the number of vars with a desired flag will be much
-    // smaller than all vars. So average performance is much better
-    // than linear.
-    for (auto &v : flagsToVars_[first_required]) {
-      const auto &m = v->metadata();
-      // TODO(JMM): Note that AnyFlagsSet returns FALSE if the set of flags
-      // it's asked about is empty.  Not sure that's desired
-      // behaviour, but whatever, let's just guard against edge cases
-      // here.
-      if (m.AllFlagsSet(flags.GetIntersections()) &&
-          !((flags.GetExclusions().size() > 0) && m.AnyFlagsSet(flags.GetExclusions())) &&
-          (flags.GetUnions().empty() || m.AnyFlagsSet(flags.GetUnions()))) {
-        // TODO(JMM): When dense sparse packing is moved to Parthenon
-        // develop we need an extra check for IsAllocated here.
-        // if (v->IsAllocated()) {
-        if (true) {
-          vars.insert(v);
+  } else { // Use set logic.
+    VariableSet<T> vars; // ensures a consistent ordering
+    const auto &intersections = flags.GetIntersections();
+    const auto &unions = flags.GetUnions();
+    const auto &exclusions = flags.GetExclusions();
+    const bool check_excludes = exclusions.size() > 0;
+
+
+    if (intersections.size() > 0) {
+      // Dirty trick to get literally any flag from the intersections set
+      MetadataFlag first_required = *(intersections.begin());
+
+      for (auto &v : flagsToVars_[first_required]) {
+	const auto &m = v->metadata();
+	// TODO(JMM): Note that AnyFlagsSet returns FALSE if the set of flags
+	// it's asked about is empty.  Not sure that's desired
+	// behaviour, but whatever, let's just guard against edge cases
+	// here.
+	if (m.AllFlagsSet(intersections) &&
+	    !(check_excludes && m.AnyFlagsSet(exclusions)) &&
+	    (unions.empty() || m.AnyFlagsSet(unions))) {
+	  // TODO(JMM): When dense sparse packing is moved to Parthenon
+	  // develop we need an extra check for IsAllocated here.
+	  vars.insert(v);
+	}
+      }
+    } else { // unions.size() > 0.
+      for (const auto &f : unions) {
+	for (const auto &v : flagsToVars_[f]) {
+	  // we know intersections.size == 0
+          if (!(check_excludes && (v->metadata()).AnyFlagsSet(exclusions))) {
+            // TODO(JMM): see above regarding IsAllocated()
+	    vars.insert(v);
+          }
         }
       }
     }
@@ -413,7 +429,7 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
       var_list.Add(v, sparse_ids_set);
     }
   }
-
+  
   Kokkos::Profiling::popRegion();
   return var_list;
 }

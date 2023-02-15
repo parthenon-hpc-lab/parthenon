@@ -66,7 +66,7 @@ TaskStatus UpdateWithFluxDivergence(T *data_u0, T *data_u1, const Real gam0,
                                     const Real gam1, const Real beta_dt);
 
 template <typename F, typename T>
-TaskStatus WeightedSumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,
+TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1,
                            const Real w2, T *out) {
   Kokkos::Profiling::pushRegion("Task_WeightedSumData");
   const auto &x = in1->PackVariables(flags);
@@ -88,12 +88,12 @@ TaskStatus WeightedSumData(const std::vector<F> &flags, T *in1, T *in2, const Re
 }
 
 template <typename F, typename T>
-TaskStatus SumData(const std::vector<F> &flags, T *in1, T *in2, T *out) {
+TaskStatus SumData(const F &flags, T *in1, T *in2, T *out) {
   return WeightedSumData(flags, in1, in2, 1.0, 1.0, out);
 }
 
 template <typename F, typename T>
-TaskStatus UpdateData(const std::vector<F> &flags, T *in, T *dudt, const Real dt,
+TaskStatus UpdateData(const F &flags, T *in, T *dudt, const Real dt,
                       T *out) {
   return WeightedSumData(flags, in, dudt, 1.0, dt, out);
 }
