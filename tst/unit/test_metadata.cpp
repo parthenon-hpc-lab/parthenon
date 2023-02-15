@@ -65,7 +65,7 @@ TEST_CASE("Built-in flags are registered", "[Metadata]") {
 TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
   GIVEN("A User Flag") {
     const std::string name = "TestFlag";
-    auto const f = Metadata::AllocateNewFlag(name);
+    auto const f = Metadata::AddUserFlag(name);
     // Note: `parthenon::internal` is subject to change, and so this test may
     // rightfully break later - this test needn't be maintained if so.
     //
@@ -85,7 +85,7 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
     REQUIRE(f == f2);
 
     // It should throw an error if you try to allocate a new flag with the same name.
-    REQUIRE_THROWS_AS(Metadata::AllocateNewFlag(name), std::runtime_error);
+    REQUIRE_THROWS_AS(Metadata::AddUserFlag(name), std::runtime_error);
   }
 }
 

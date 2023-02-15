@@ -83,7 +83,7 @@ class UserMetadataState {
 
 parthenon::internal::UserMetadataState metadata_state;
 
-MetadataFlag Metadata::AllocateNewFlag(const std::string &name) {
+MetadataFlag Metadata::AddUserFlag(const std::string &name) {
   return metadata_state.AllocateNewFlag(name);
 }
 

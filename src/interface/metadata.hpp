@@ -386,7 +386,7 @@ class Metadata {
       : Metadata(bits, {1}, {}, associated) {}
 
   // Static routines
-  static MetadataFlag AllocateNewFlag(const std::string &name);
+  static MetadataFlag AddUserFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
   static MetadataFlag GetUserFlag(const std::string &flagname);
 
