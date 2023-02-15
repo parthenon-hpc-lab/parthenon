@@ -237,6 +237,10 @@ class Metadata {
     void TakeUnion(const Container_t<MetadataFlag, extra...> &flags) {
       unions_.insert(flags.begin(), flags.end());
     }
+    template <typename... Args>
+    void TakeUnion(MetadataFlag first, Args... args) {
+      TakeUnion(FlagVec({first, std::forward<Args>(args)...}));
+    }
     void TakeUnion(const FlagCollection &other) {
       unions_.insert(other.unions_.begin(), other.unions_.end());
       exclusions_.insert(other.exclusions_.begin(), other.exclusions_.end());
@@ -252,6 +256,10 @@ class Metadata {
     void TakeIntersection(const Container_t<MetadataFlag, extra...> &flags) {
       intersections_.insert(flags.begin(), flags.end());
     }
+    template <typename... Args>
+    void TakeIntersection(MetadataFlag first, Args... args) {
+      TakeIntersection(FlagVec({first, std::forward<Args>(args)...}));
+    }
     void TakeIntersection(const FlagCollection &other) {
       intersections_.insert(other.intersections_.begin(), other.intersections_.end());
       exclusions_.insert(other.exclusions_.begin(), other.exclusions_.end());
@@ -266,6 +274,10 @@ class Metadata {
     template <template <class...> class Container_t, class... extra>
     void Exclude(const Container_t<MetadataFlag, extra...> &&flags) {
       exclusions_.insert(flags.begin(), flags.end());
+    }
+    template <typename... Args>
+    void Exclude(MetadataFlag first, Args... args) {
+      Exclude(FlagVec({first, std::forward<Args>(args)...}));
     }
     void Exclude(const FlagCollection &other) {
       exclusions_.insert(other.unions_.begin(), other.unions_.end());
@@ -376,7 +388,7 @@ class Metadata {
   // Static routines
   static MetadataFlag AllocateNewFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
-  static MetadataFlag FlagFromName(const std::string &flagname);
+  static MetadataFlag GetUserFlag(const std::string &flagname);
 
   // Sparse threshold routines
   void SetSparseThresholds(parthenon::Real alloc, parthenon::Real dealloc,

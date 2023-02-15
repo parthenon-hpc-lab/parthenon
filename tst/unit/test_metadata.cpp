@@ -81,7 +81,7 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
     REQUIRE(!(Metadata::FlagNameExists("NoCanDoBuddy")));
 
     // The identical flag should be retrievable
-    auto const f2 = Metadata::FlagFromName(name);
+    auto const f2 = Metadata::GetUserFlag(name);
     REQUIRE(f == f2);
 
     // It should throw an error if you try to allocate a new flag with the same name.
@@ -147,7 +147,8 @@ TEST_CASE("Metadata FlagCollection", "[Metadata]") {
     using parthenon::MetadataFlag;
     using FS_t = Metadata::FlagCollection;
     FS_t set1(std::vector<MetadataFlag>{Metadata::Cell, Metadata::Face}, true);
-    FS_t set2({Metadata::Independent, Metadata::FillGhost}, true);
+    FS_t set2;
+    set2.TakeUnion(Metadata::Independent, Metadata::FillGhost);
     FS_t set3(Metadata::Requires, Metadata::Overridable);
     WHEN("We take the union") {
       auto s = set1 || set2;

@@ -92,7 +92,7 @@ std::string const &MetadataFlag::Name() const { return metadata_state.FlagName(*
 bool Metadata::FlagNameExists(const std::string &flagname) {
   return (metadata_state.NamesToFlags().count(flagname) > 0);
 }
-MetadataFlag Metadata::FlagFromName(const std::string &flagname) {
+MetadataFlag Metadata::GetUserFlag(const std::string &flagname) {
   return (metadata_state.NamesToFlags().at(flagname));
 }
 

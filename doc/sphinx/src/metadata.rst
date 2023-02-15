@@ -176,6 +176,16 @@ These can be used in all the same contexts that the built-in metadata
 flags are used. Parthenon will not interpret them in any way - it’s up
 to the application to interpret them.
 
+A user-registered metadata flag can be retrieved from the
+infrastructure by, for example:
+
+.. code:: cpp
+
+   MetadataFlag const my_app_flag = Metadata::GetUserFlag("MyAppFlag");
+
+Note that this call will return an error if a flag is requested that
+hasn't been registered.
+
 Flag Collections
 ~~~~~~~~~~~~~~~~~
 
@@ -235,7 +245,19 @@ packing, to compute the correct variables to pack.
 You can add flags to these property fields with the ``TakeUnion``,
 ``TakeIntersection``, and ``Exclude`` methods. These methods take
 either a standard library container of metadata flags, or another
-``FlagCollection`` instance.
+``FlagCollection`` instance. For example, you could write:
+
+.. code:: cpp
+
+   FS_t my_set;
+   my_set.TakeUnion(std::vector<MetadataFlag>{Flag1, Flag2});
+   my_set.TakeIntersection(Flag3, Flag4);
+   my_set.Exclude(Flag5, Flag6);
+
+which expresses a desire for particles/fields with EITHER Flag1 or
+Flag2 AND Flag3 AND Flag4 and NOT Flag5 or Flag6. Note that these
+methods accept standard library containers as well as simple
+comma-separated lists.
 
 The ``FlagCollection`` class supports algebraic operations, although they are
 not entirely consistent with standard arithmetic order of
@@ -270,7 +292,7 @@ This feels unintuitive, but it makes expressions like
 
 .. code:: cpp
 
-   auto s = {Flag1, FLag2} * {Flag3, Flag4} - {Flag5, Flag6}
+   auto s = FS_t({Flag1, Flag2},true) * FS_t({Flag3, Flag4}) - FS_t({Flag5, Flag6})
 
 behave in an intuitive way. This translates to a desire for
 particles/fields with EITHER Flag1 or Flag2 AND Flag3 AND Flag4 and
