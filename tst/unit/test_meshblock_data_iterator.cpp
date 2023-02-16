@@ -75,7 +75,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     std::vector<int> vector_shape{16, 16, 16, 3};
 
     Metadata m_in({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
-    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},
+    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes,
+                          Metadata::ForceRemeshComm, Metadata::Vector},
                          vector_shape);
     Metadata m_out({Metadata::Derived}, scalar_shape);
     Metadata m_out_vector({Metadata::Derived}, vector_shape);
@@ -95,6 +96,44 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     auto &mbd = *dummy_mb->meshblock_data.Get();
     mbd.Initialize(pkg, dummy_mb);
+
+    WHEN("We construct the VariableList by flags") {
+      using FS_t = Metadata::FlagCollection;
+      auto flags = (FS_t({Metadata::Independent, Metadata::Derived}, true) &&
+                    FS_t(Metadata::WithFluxes) - FS_t(Metadata::ForceRemeshComm));
+      THEN("Sanity check that the flags got set correctly") {
+        REQUIRE(flags.GetUnions().count(Metadata::Independent) > 0);
+        REQUIRE(flags.GetUnions().count(Metadata::Derived) > 0);
+        REQUIRE(flags.GetIntersections().count(Metadata::WithFluxes) > 0);
+        REQUIRE(flags.GetExclusions().count(Metadata::ForceRemeshComm) > 0);
+      }
+      auto varlist = mbd.GetVariablesByFlag(flags).vars();
+      THEN("The list containes the desired variables") {
+        REQUIRE(varlist.size() > 0);
+        for (const auto &v : varlist) {
+          const auto &m = v->metadata();
+          REQUIRE(m.AnyFlagsSet(Metadata::Independent, Metadata::Derived));
+          REQUIRE(m.IsSet(Metadata::WithFluxes));
+          REQUIRE(!(m.IsSet(Metadata::ForceRemeshComm)));
+        }
+      }
+      WHEN("We construct a metadata flag collection with only unions") {
+        FS_t unions({Metadata::Derived, Metadata::ForceRemeshComm}, true);
+        THEN("The resulting var list contains the correct flags") {
+          auto vlu = mbd.GetVariablesByFlag(unions).vars();
+          std::set<std::string> varnames;
+          for (const auto &v : vlu) {
+            varnames.insert(v->label());
+          }
+          REQUIRE(varnames.count("v1") == 0);
+          REQUIRE(varnames.count("v2") > 0);
+          REQUIRE(varnames.count("v3") > 0);
+          REQUIRE(varnames.count("v4") > 0);
+          REQUIRE(varnames.count("v5") == 0);
+          REQUIRE(varnames.count("v6") > 0);
+        }
+      }
+    }
 
     WHEN("We extract a subcontainer") {
       auto subcontainer = MeshBlockData<Real>(mbd, {"v1", "v3", "v5"});
@@ -155,6 +194,10 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we set Independent variables to one") {
+      THEN("Sanity check this produces the right varlist") {
+        auto varlist = mbd.GetVariablesByFlag({Metadata::Independent}).vars();
+        REQUIRE(varlist.size() == 3);
+      }
       // set "Independent" variables to one
       auto v = mbd.PackVariables({Metadata::Independent});
       par_for(
