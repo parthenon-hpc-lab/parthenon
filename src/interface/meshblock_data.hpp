@@ -30,8 +30,6 @@
 namespace parthenon {
 
 /// Interface to underlying infrastructure for data declaration and access.
-/// Date: August 22, 2019
-///
 ///
 /// The MeshBlockData class is a container for the variables that make up
 /// the simulation.  At this point it is expected that this includes
@@ -148,18 +146,20 @@ class MeshBlockData {
                              "Couldn't find variable '" + label + "'");
     return it->second;
   }
+  std::shared_ptr<CellVariable<T>> GetCellVarPtr(const Uid_t &uid) const {
+    return varUidMap_.at(uid);
+  }
 
   CellVariable<T> &Get(const std::string &base_name,
                        int sparse_id = InvalidSparseID) const {
     return *GetCellVarPtr(MakeVarLabel(base_name, sparse_id));
   }
-  CellVariable<T> &Get(const int index) const { return *(varVector_[index]); }
+  CellVariable<T> &Get(const Uid_t &uid) const { return *(varUidMap_.at(uid)); }
 
-  int Index(const std::string &label) noexcept {
-    for (int i = 0; i < (varVector_).size(); i++) {
-      if (!varVector_[i]->label().compare(label)) return i;
-    }
-    return -1;
+  Uid_t UniqueID(const std::string &label) noexcept {
+    auto it = varMap_.find(label);
+    if (it == varMap_.end()) return -1;
+    return (it->second)->GetUniqueID();
   }
 
 #ifdef ENABLE_SPARSE
@@ -197,6 +197,9 @@ class MeshBlockData {
   /// only given sparse ids
   VarList GetVariablesByFlag(const Metadata::FlagCollection &flags,
                                   const std::vector<int> &sparse_ids = {});
+
+  // Get list of variables specified by unique identifiers
+  VarList GetVariablesByUid(const std::vector<Uid_t> &uids);
 
   /// Get list of all variables and labels, optionally selecting only given sparse ids
   VarList GetAllVariables(const std::vector<int> &sparse_ids = {}) {
@@ -402,6 +405,7 @@ class MeshBlockData {
   void Add(std::shared_ptr<CellVariable<T>> var) noexcept {
     varVector_.push_back(var);
     varMap_[var->label()] = var;
+    varUidMap_[var->GetUniqueID()] = var;
     for (const auto &flag : var->metadata().Flags()) {
       flagsToVars_[flag].insert(var);
     }
@@ -446,6 +450,7 @@ class MeshBlockData {
   std::shared_ptr<StateDescriptor> resolved_packages_;
 
   CellVariableVector<T> varVector_; ///< the saved variable array
+  std::map<Uid_t, std::shared_ptr<CellVariable<T>>> varUidMap_;
 
   MapToCellVars<T> varMap_;
   MetadataFlagToVariableMap<T> flagsToVars_;
@@ -457,6 +462,21 @@ class MeshBlockData {
   SparsePackCache sparse_pack_cache_;
 
   // These functions have private scope and are visible only to MeshData
+  template<typename Key_t, typename Map_t, typename AllocationChecker_t>
+  auto CheckPack_(const Key_t &keys, Map_t &map,
+                  const AllocationChecker_t &invalid_allocation_status) {
+    bool make_new_pack = false;
+    auto itr = map.find(keys);
+    if (itr == map.end()) {
+      make_new_pack = true;
+    }
+    if (invalid_allocation_status(itr)) {
+      map.erase(itr);
+      make_new_pack = true;
+    }
+    return std::make_pair(itr, make_new_pack);
+  }
+
   const VariableFluxPack<T> &
   PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                          const std::vector<std::string> &flx_names,

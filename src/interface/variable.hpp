@@ -118,7 +118,7 @@ class CellVariable {
   inline std::string getAssociated() { return m_.getAssociated(); }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  std::size_t GetUniqueID() const { return uid_; }
+  Uid_t GetUniqueID() const { return uid_; }
 
   /// return information string
   std::string info();
@@ -166,7 +166,7 @@ class CellVariable {
 
   // Machinery for giving each variable a unique ID that is faster to
   // evaluate than a string. Assumes number of MPI ranks unchanged
-  std::size_t uid_;
+  Uid_t uid_;
   // Inline static initialization is a C++17 feature. Otherwise static
   // vars must be initialized in the implementation file.
   inline static UniqueIDGenerator<std::string> get_uid_;

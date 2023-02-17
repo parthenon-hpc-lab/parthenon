@@ -35,6 +35,7 @@
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/unique_id.hpp"
 
 namespace parthenon {
 
@@ -126,12 +127,12 @@ class FlatIdx {
 };
 
 // The key for variable packs
-using VPackKey_t = std::vector<std::size_t>;
+using VPackKey_t = std::vector<Uid_t>;
 
 // Flux packs require a set of names for the variables and a set of names for the fluxes
 // and order matters. So a pair forms the keys for the FluxPack cache.
 using StringPair = std::pair<std::vector<std::string>, std::vector<std::string>>;
-using UidPair = std::pair<std::vector<std::size_t>, std::vector<std::size_t>>;
+using UidPair = std::pair<std::vector<Uid_t>, std::vector<Uid_t>>;
 } // namespace vpack_types
 
 // helper class to make lists of variables with some kind of unique identifier per
@@ -161,7 +162,7 @@ class VarListWithKeys {
 
  private:
   CellVariableVector<T> vars_;
-  std::vector<std::size_t> uids_;
+  std::vector<Uid_t> uids_;
   std::vector<int> alloc_status_;
 };
 
@@ -482,11 +483,11 @@ using FluxPackIndxPair = PackAndIndexMap<VariableFluxPack<T>>;
 template <typename T>
 using SwarmPackIndxPair = PackAndIndexMap<SwarmVariablePack<T>>;
 template <typename T>
-using MapToVariablePack = std::map<std::vector<std::size_t>, PackIndxPair<T>>;
+using MapToVariablePack = std::map<std::vector<Uid_t>, PackIndxPair<T>>;
 template <typename T>
 using MapToVariableFluxPack = std::map<vpack_types::UidPair, FluxPackIndxPair<T>>;
 template <typename T>
-using MapToSwarmVariablePack = std::map<std::vector<std::size_t>, SwarmPackIndxPair<T>>;
+using MapToSwarmVariablePack = std::map<std::vector<Uid_t>, SwarmPackIndxPair<T>>;
 
 template <typename T>
 void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap) {

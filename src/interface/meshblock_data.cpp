@@ -44,6 +44,7 @@ void MeshBlockData<T>::Initialize(
   // clear all variables, maps, and pack caches
   varVector_.clear();
   varMap_.clear();
+  varUidMap_.clear();
   flagsToVars_.clear();
   varPackMap_.clear();
   coarseVarPackMap_.clear();
@@ -165,8 +166,6 @@ MeshBlockData<T>::SparseSlice(const std::vector<int> &sparse_ids) const {
 }
 
 /// Queries related to variable packs
-/// TODO(JMM): Make sure this is thread-safe
-/// TODO(JMM): Should the vector of names be sorted to enforce uniqueness?
 /// This is a helper function that queries the cache for the given pack.
 /// The strings are the keys and the lists are the values.
 /// Inputs:
@@ -181,20 +180,13 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
     vpack_types::UidPair *key) {
   vpack_types::UidPair keys = std::make_pair(var_list.unique_ids(), flux_list.unique_ids());
 
-  auto itr = varFluxPackMap_.find(keys);
-  bool make_new_pack = false;
-  if (itr == varFluxPackMap_.end()) {
-    // we don't have a cached pack, need to make a new one
-    make_new_pack = true;
-  } else {
-    // we have a cached pack, check allocation status
-    if ((var_list.alloc_status() != itr->second.alloc_status) ||
-        (flux_list.alloc_status() != itr->second.flux_alloc_status)) {
-      // allocation statuses differ, need to make a new pack and remove outdated one
-      make_new_pack = true;
-      varFluxPackMap_.erase(itr);
-    }
-  }
+  using itr_t = decltype(std::begin(varFluxPackMap_));
+  auto [itr, make_new_pack] = CheckPack_(keys, varFluxPackMap_,
+                        [&](const itr_t &itr) {
+                          return ((var_list.alloc_status() != itr->second.alloc_status)
+                                  || (flux_list.alloc_status() != itr->second.flux_alloc_status));
+                        });
+
 
   if (make_new_pack) {
     FluxPackIndxPair<T> new_item;
@@ -203,8 +195,6 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
     new_item.pack = MakeFluxPack(var_list, flux_list, &new_item.map);
     new_item.pack.coords = GetParentPointer()->coords_device;
     itr = varFluxPackMap_.insert({keys, new_item}).first;
-
-    // need to grab pointers here
     itr->second.pack.alloc_status_ = &itr->second.alloc_status;
     itr->second.pack.flux_alloc_status_ = &itr->second.flux_alloc_status;
   }
@@ -233,30 +223,18 @@ MeshBlockData<T>::PackListedVariables(const VarList &var_list, bool coarse,
                                       vpack_types::VPackKey_t *key_out) {
   const auto &key = var_list.unique_ids();
   auto &packmap = coarse ? coarseVarPackMap_ : varPackMap_;
-
-  auto itr = packmap.find(key);
-  bool make_new_pack = false;
-  if (itr == packmap.end()) {
-    // we don't have a cached pack, need to make a new one
-    make_new_pack = true;
-  } else {
-    // we have a cached pack, check allocation status
-    if (var_list.alloc_status() != itr->second.alloc_status) {
-      // allocation statuses differ, need to make a new pack and remove outdated one
-      make_new_pack = true;
-      packmap.erase(itr);
-    }
-  }
+  using itr_t = decltype(std::begin(packmap));
+  auto [itr, make_new_pack] = CheckPack_(key, packmap,
+                        [&](const itr_t &itr) {
+                          return (var_list.alloc_status() != itr->second.alloc_status);
+                        });
 
   if (make_new_pack) {
     PackIndxPair<T> new_item;
     new_item.alloc_status = var_list.alloc_status();
     new_item.pack = MakePack<T>(var_list, coarse, &new_item.map);
     new_item.pack.coords = GetParentPointer()->coords_device;
-
     itr = packmap.insert({key, new_item}).first;
-
-    // need to grab pointers after map insertion
     itr->second.pack.alloc_status_ = &itr->second.alloc_status;
   }
 
@@ -427,6 +405,17 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
   }
 
   Kokkos::Profiling::popRegion();
+  return var_list;
+}
+
+template<typename T>
+typename MeshBlockData<T>::VarList
+MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids) {
+  typename MeshBlockData<T>::VarList var_list;
+  for (auto i : uids) {
+    auto v = GetCellVarPtr(i);
+    var_list.Add(v);
+  }
   return var_list;
 }
 
