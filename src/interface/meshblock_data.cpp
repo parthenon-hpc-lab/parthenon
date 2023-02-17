@@ -176,9 +176,9 @@ MeshBlockData<T>::SparseSlice(const std::vector<int> &sparse_ids) const {
 /// keys
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
-    const VarLabelList &var_list, const VarLabelList &flux_list, PackIndexMap *map,
-    vpack_types::StringPair *key) {
-  vpack_types::StringPair keys = std::make_pair(var_list.labels(), flux_list.labels());
+    const VarList &var_list, const VarList &flux_list, PackIndexMap *map,
+    vpack_types::UidPair *key) {
+  auto keys = std::make_pair(var_list.unique_ids(), flux_list.unique_ids());
 
   auto itr = varFluxPackMap_.find(keys);
   bool make_new_pack = false;
@@ -227,10 +227,10 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
 /// A VarMetaPack<T> that contains the actual VariablePack, the PackIndexMap, and the key
 template <typename T>
 const VariablePack<T> &
-MeshBlockData<T>::PackListedVariables(const VarLabelList &var_list, bool coarse,
+MeshBlockData<T>::PackListedVariables(const VarList &var_list, bool coarse,
                                       PackIndexMap *map,
-                                      std::vector<std::string> *key_out) {
-  const auto &key = var_list.labels();
+                                      vpack_types::VPackKey_t *key_out) {
+  const auto &key = var_list.unique_ids();
   auto &packmap = coarse ? coarseVarPackMap_ : varPackMap_;
 
   auto itr = packmap.find(key);
