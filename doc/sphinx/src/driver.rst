@@ -46,7 +46,7 @@ tasks for each stage. Applications that derive from ``MultiStageDriver``
 are responsible for defining a ``MakeTaskCollection`` function that
 makes a ``TaskCollection`` given a ``BlockList_t &`` and an integer
 stage. The advection example
-(`here <../example/advection/advection_driver.hpp>`__) demonstrates the
+(`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/advection_driver.hpp>`__) demonstrates the
 use of this capability.
 
 MultiStageBlockTaskDriver
@@ -70,7 +70,7 @@ derive from ``Driver`` are intended to call these functions at the
 beginning and end of their ``Execute`` function if such reporting is
 desired. In addition, applications can extend these capabilities as
 desired, as demonstrated in the example
-`here <../example/calculate_pi/pi_driver.cpp>`__.
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/calculate_pi/pi_driver.cpp>`__.
 
 The ``EvolutionDriver``, which already defines the ``Execute`` function,
 extends the ``PostExecute`` function with additional reporting and calls

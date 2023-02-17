@@ -9,7 +9,7 @@ the `hierarchical parallelism in
 Kokkos <https://kokkos.github.io/kokkos-core-wiki/ProgrammingGuide/HierarchicalParallelism.html>`__
 
 For an example of the nested parallel wrappers in use, see `the unit
-test <../tst/unit/kokkos_abstraction.cpp>`__
+test <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/kokkos_abstraction.cpp>`__
 
 ``par_for_outer``
 -----------------
@@ -46,7 +46,7 @@ vector lanes within the team.
 
 Data type for memory in scratch pad/cache memory. Use
 ``ScratchPadXD::shmem_size``, which is documented in `the Kokkos
-documentation <https://github.com/kokkos/kokkos/wiki/HierarchicalParallelism>`__
+documentation <https://kokkos.github.io/kokkos-core-wiki/ProgrammingGuide/HierarchicalParallelism.html?highlight=hierarchical>`__
 for determining scratch pad memory needs before kernel launch.
 
 Important usage hints
@@ -58,7 +58,7 @@ if the following execution depends on the results of the
 ``par_for_inner``. This pertains, for example, to filling a
 ``ScratchPadXD`` array in one ``par_inner_for`` and using the scratch
 array in the next one, see `the unit
-test <../tst/unit/kokkos_abstraction.cpp>`__ for sample usage.
+test <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/kokkos_abstraction.cpp>`__ for sample usage.
 
 In addition, the entry to a ``par_for_inner`` does **not** imply a
 barrier and not all threads of a team may even enter an inner parallel

@@ -6,8 +6,11 @@ Boundary Conditions
 Built-in boundary conditions
 ----------------------------
 
-Natively, Parthenon supports three kinds of boundary conditions: -
-``periodic`` - ``outflow`` - ``reflecting``
+Natively, Parthenon supports three kinds of boundary conditions:
+
+- ``periodic``
+- ``outflow``
+- ``reflecting``
 
 which are all imposed on variables with the ``Metadata::FillGhost``
 metadata flag. To set the boundaries in each direction, set the
@@ -37,7 +40,7 @@ for your ``parthenon_manager``. e.g.,
 
 .. code:: c++
 
-   pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] = MyBoundaryInnerX1;`
+   pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] = MyBoundaryInnerX1;
 
 where ``BoundaryFace`` is an enum defined in ``defs.hpp`` as
 
@@ -81,16 +84,17 @@ Boundary conditions so defined should look roughly like
          });
    }
 
-Important things to note: - The signature is a
-``std::shared_ptr<MeshBlockData<Real>>`` and a boolean. - The boolean
-determines whether the boundary condition is applied over ghost cells on
-a coarse buffer (for mesh refinement) or for a fine buffer. - You can
-use the ``MeshBlock::par_for_bndry`` abstraction to loop over the
-appropriate cells by specifying the ``IndexDomain`` for the ghost region
-and whether or not the loop is coarse. For more information on the
-``IndexDomain`` object, see `here <mesh/domain.md>`__. - You can pack
-over all the coarse or fine buffers of a variable with the
-``PackVariables`` optional ``coarse`` boolean as seen here.
+Important things to note:
+
+- The signature is a ``std::shared_ptr<MeshBlockData<Real>>`` and a boolean.
+- The boolean determines whether the boundary condition is applied over ghost cells on
+  a coarse buffer (for mesh refinement) or for a fine buffer.
+- You can use the ``MeshBlock::par_for_bndry`` abstraction to loop over the
+  appropriate cells by specifying the ``IndexDomain`` for the ghost region
+  and whether or not the loop is coarse. For more information on the
+  ``IndexDomain`` object, see `here <mesh/domain.md>`__.
+- You can pack over all the coarse or fine buffers of a variable with the
+  ``PackVariables`` optional ``coarse`` boolean as seen here.
 
 Other than these requirements, the ``Boundary`` object can do whatever
 you like. Reference implementations of the standard boundary conditions

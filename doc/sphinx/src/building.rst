@@ -1,5 +1,5 @@
-Building Parthenon on Various Systems
-=====================================
+Building Parthenon
+==================
 
 *IMPORTANT: We try our best to keep the instructions up-to-date.
 However, Parthenon itself, dependencies, and environments constantly
@@ -10,376 +10,47 @@ propose an updated description in a pull request*
 General list of cmake options:
 ------------------------------
 
-+-------------------------------------+----------------+-----+----------+
-| Option                              | Default        | T   | Des      |
-|                                     |                | ype | cription |
-+=====================================+================+=====+==========+
-| PARTHENON_SINGLE_PRECISION          | OFF            | Opt | Enable   |
-|                                     |                | ion | single   |
-|                                     |                |     | p        |
-|                                     |                |     | recision |
-|                                     |                |     | mode if  |
-|                                     |                |     | r        |
-|                                     |                |     | equested |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_DISABLE_HDF5              | OFF            | Opt | HDF5 is  |
-|                                     |                | ion | enabled  |
-|                                     |                |     | by       |
-|                                     |                |     | default  |
-|                                     |                |     | if       |
-|                                     |                |     | found,   |
-|                                     |                |     | set this |
-|                                     |                |     | to True  |
-|                                     |                |     | to       |
-|                                     |                |     | disable  |
-|                                     |                |     | HDF5     |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_DISABLE_HDF5_COMPRESSION  | OFF            | Opt | HDF5     |
-|                                     |                | ion | com      |
-|                                     |                |     | pression |
-|                                     |                |     | is       |
-|                                     |                |     | enabled  |
-|                                     |                |     | by       |
-|                                     |                |     | default, |
-|                                     |                |     | set this |
-|                                     |                |     | to True  |
-|                                     |                |     | to       |
-|                                     |                |     | disable  |
-|                                     |                |     | com      |
-|                                     |                |     | pression |
-|                                     |                |     | in HDF5  |
-|                                     |                |     | output   |
-|                                     |                |     | /restart |
-|                                     |                |     | files    |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_DISABLE_MPI               | OFF            | Opt | MPI is   |
-|                                     |                | ion | enabled  |
-|                                     |                |     | by       |
-|                                     |                |     | default  |
-|                                     |                |     | if       |
-|                                     |                |     | found,   |
-|                                     |                |     | set this |
-|                                     |                |     | to True  |
-|                                     |                |     | to       |
-|                                     |                |     | disable  |
-|                                     |                |     | MPI      |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_ENABLE_HOST_COMM_BUFFERS  | OFF            | Opt | MPI      |
-|                                     |                | ion | commu    |
-|                                     |                |     | nication |
-|                                     |                |     | buffers  |
-|                                     |                |     | are by   |
-|                                     |                |     | default  |
-|                                     |                |     | a        |
-|                                     |                |     | llocated |
-|                                     |                |     | on the   |
-|                                     |                |     | e        |
-|                                     |                |     | xecution |
-|                                     |                |     | device.  |
-|                                     |                |     | This     |
-|                                     |                |     | options  |
-|                                     |                |     | forces   |
-|                                     |                |     | al       |
-|                                     |                |     | location |
-|                                     |                |     | in       |
-|                                     |                |     | memory   |
-|                                     |                |     | ac       |
-|                                     |                |     | cessible |
-|                                     |                |     | directly |
-|                                     |                |     | by the   |
-|                                     |                |     | host.    |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_DISABLE_SPARSE            | OFF            | Opt | Disable  |
-|                                     |                | ion | sparse   |
-|                                     |                |     | al       |
-|                                     |                |     | location |
-|                                     |                |     | of       |
-|                                     |                |     | sparse   |
-|                                     |                |     | va       |
-|                                     |                |     | riables, |
-|                                     |                |     | i.e.,    |
-|                                     |                |     | sparse   |
-|                                     |                |     | variable |
-|                                     |                |     | still    |
-|                                     |                |     | work but |
-|                                     |                |     | are      |
-|                                     |                |     | always   |
-|                                     |                |     | al       |
-|                                     |                |     | located. |
-|                                     |                |     | See also |
-|                                     |                |     | `sparse  |
-|                                     |                |     | do       |
-|                                     |                |     | c <inter |
-|                                     |                |     | face/spa |
-|                                     |                |     | rse.md#c |
-|                                     |                |     | ompile-t |
-|                                     |                |     | ime>`__. |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_DISABLE_OPENMP            | OFF            | Opt | OpenMP   |
-|                                     |                | ion | is       |
-|                                     |                |     | enabled  |
-|                                     |                |     | by       |
-|                                     |                |     | default  |
-|                                     |                |     | if       |
-|                                     |                |     | found,   |
-|                                     |                |     | set this |
-|                                     |                |     | to True  |
-|                                     |                |     | to       |
-|                                     |                |     | disable  |
-|                                     |                |     | OpenMP   |
-+-------------------------------------+----------------+-----+----------+
-| ENABLE_COMPILER_WARNINGS            | OFF            | Opt | Enable   |
-|                                     |                | ion | compiler |
-|                                     |                |     | warnings |
-+-------------------------------------+----------------+-----+----------+
-| TEST_ERROR_CHECKING                 | OFF            | Opt | Enables  |
-|                                     |                | ion | the      |
-|                                     |                |     | error    |
-|                                     |                |     | checking |
-|                                     |                |     | unit     |
-|                                     |                |     | test.    |
-|                                     |                |     | This     |
-|                                     |                |     | test     |
-|                                     |                |     | will     |
-|                                     |                |     | FAIL     |
-+-------------------------------------+----------------+-----+----------+
-| TEST_INTEL_OPTIMIZATION             | OFF            | Opt | Test     |
-|                                     |                | ion | intel    |
-|                                     |                |     | opti     |
-|                                     |                |     | mization |
-|                                     |                |     | and      |
-|                                     |                |     | vecto    |
-|                                     |                |     | rization |
-+-------------------------------------+----------------+-----+----------+
-| CHECK_REGISTRY_PRESSURE             | OFF            | Opt | Check    |
-|                                     |                | ion | the      |
-|                                     |                |     | registry |
-|                                     |                |     | pressure |
-|                                     |                |     | for      |
-|                                     |                |     | Kokkos   |
-|                                     |                |     | CUDA     |
-|                                     |                |     | kernels  |
-+-------------------------------------+----------------+-----+----------+
-| BUILD_TESTING                       | ON             | Opt | Enable   |
-|                                     |                | ion | test     |
-|                                     |                |     | (set by  |
-|                                     |                |     | CTest    |
-|                                     |                |     | itself)  |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_DISABLE_EXAMPLES          | OFF            | Opt | Toggle   |
-|                                     |                | ion | building |
-|                                     |                |     | of       |
-|                                     |                |     | e        |
-|                                     |                |     | xamples, |
-|                                     |                |     | if       |
-|                                     |                |     | re       |
-|                                     |                |     | gression |
-|                                     |                |     | tests    |
-|                                     |                |     | are on,  |
-|                                     |                |     | drivers  |
-|                                     |                |     | needed   |
-|                                     |                |     | by the   |
-|                                     |                |     | tests    |
-|                                     |                |     | will     |
-|                                     |                |     | still be |
-|                                     |                |     | built    |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_ENABLE_TESTING            | ${             | Opt | Default  |
-|                                     | BUILD_TESTING} | ion | value to |
-|                                     |                |     | enable   |
-|                                     |                |     | P        |
-|                                     |                |     | arthenon |
-|                                     |                |     | tests    |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_ENABLE_INTEGRATION_TESTS  | ${PARTHENON_E  | Opt | Enable   |
-|                                     | NABLE_TESTING} | ion | int      |
-|                                     |                |     | egration |
-|                                     |                |     | tests    |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_ENABLE_REGRESSION_TESTS   | ${PARTHENON_E  | Opt | Enable   |
-|                                     | NABLE_TESTING} | ion | re       |
-|                                     |                |     | gression |
-|                                     |                |     | tests    |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_ENABLE_UNIT_TESTS         | ${PARTHENON_E  | Opt | Enable   |
-|                                     | NABLE_TESTING} | ion | unit     |
-|                                     |                |     | tests    |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_PERFORMANCE_TESTS         | ${PARTHENON_E  | Opt | Enable   |
-|                                     | NABLE_TESTING} | ion | per      |
-|                                     |                |     | formance |
-|                                     |                |     | tests    |
-+-------------------------------------+----------------+-----+----------+
-| NUM_MPI_PROC_TESTING                | 4              | Str | Number   |
-|                                     |                | ing | of MPI   |
-|                                     |                |     | ranks    |
-|                                     |                |     | used for |
-|                                     |                |     | MPI      |
-|                                     |                |     | -enabled |
-|                                     |                |     | re       |
-|                                     |                |     | gression |
-|                                     |                |     | tests    |
-+-------------------------------------+----------------+-----+----------+
-| NUM_GPU_DEVICES_PER_NODE            | 1              | Str | Number   |
-|                                     |                | ing | of GPUs  |
-|                                     |                |     | per node |
-|                                     |                |     | to use   |
-|                                     |                |     | if built |
-|                                     |                |     | with     |
-|                                     |                |     | ``Kokk   |
-|                                     |                |     | os_ENABL |
-|                                     |                |     | E_CUDA`` |
-+-------------------------------------+----------------+-----+----------+
-| P                                   | ${PARTHENON_E  | Opt | Enable   |
-| ARTHENON_ENABLE_PYTHON_MODULE_CHECK | NABLE_TESTING} | ion | checking |
-|                                     |                |     | if       |
-|                                     |                |     | python   |
-|                                     |                |     | modules  |
-|                                     |                |     | used in  |
-|                                     |                |     | re       |
-|                                     |                |     | gression |
-|                                     |                |     | tests    |
-|                                     |                |     | are      |
-|                                     |                |     | a        |
-|                                     |                |     | vailable |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_ENABLE_GPU_MPI_CHECKS     | ON             | Opt | Enable   |
-|                                     |                | ion | pre-test |
-|                                     |                |     | gpu-mpi  |
-|                                     |                |     | checks   |
-+-------------------------------------+----------------+-----+----------+
-| REGRESSION_GOLD_STANDARD_VER        | #              | Int | Version  |
-|                                     |                |     | of       |
-|                                     |                |     | current  |
-|                                     |                |     | gold     |
-|                                     |                |     | standard |
-|                                     |                |     | file     |
-|                                     |                |     | used in  |
-|                                     |                |     | re       |
-|                                     |                |     | gression |
-|                                     |                |     | tests.   |
-|                                     |                |     | Default  |
-|                                     |                |     | is set   |
-|                                     |                |     | to       |
-|                                     |                |     | latest   |
-|                                     |                |     | version  |
-|                                     |                |     | matching |
-|                                     |                |     | the      |
-|                                     |                |     | source.  |
-+-------------------------------------+----------------+-----+----------+
-| REGRESSION_GOLD_STANDARD_HASH       | SHA512=…       | Str | Hash     |
-|                                     |                | ing | value of |
-|                                     |                |     | gold     |
-|                                     |                |     | standard |
-|                                     |                |     | file to  |
-|                                     |                |     | be       |
-|                                     |                |     | dow      |
-|                                     |                |     | nloaded. |
-|                                     |                |     | Used to  |
-|                                     |                |     | ensure   |
-|                                     |                |     | that the |
-|                                     |                |     | download |
-|                                     |                |     | is not   |
-|                                     |                |     | co       |
-|                                     |                |     | rrupted. |
-+-------------------------------------+----------------+-----+----------+
-| REGRESSION_GOLD_STANDARD_SYNC       | ON             | Opt | Create   |
-|                                     |                | ion | `        |
-|                                     |                |     | `gold_st |
-|                                     |                |     | andard`` |
-|                                     |                |     | target   |
-|                                     |                |     | to       |
-|                                     |                |     | download |
-|                                     |                |     | gold     |
-|                                     |                |     | standard |
-|                                     |                |     | files    |
-+-------------------------------------+----------------+-----+----------+
-| CODE_COVERAGE                       | OFF            | Opt | Builds   |
-|                                     |                | ion | with     |
-|                                     |                |     | code     |
-|                                     |                |     | coverage |
-|                                     |                |     | flags    |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_LINT_DEFAULT              | OFF            | Opt | Lint the |
-|                                     |                | ion | code as  |
-|                                     |                |     | part of  |
-|                                     |                |     | the      |
-|                                     |                |     | default  |
-|                                     |                |     | target   |
-|                                     |                |     | (o       |
-|                                     |                |     | therwise |
-|                                     |                |     | use the  |
-|                                     |                |     | ``lint`` |
-|                                     |                |     | target)  |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_COPYRIGHT_CHECK_DEFAULT   | OFF            | Opt | Check    |
-|                                     |                | ion | c        |
-|                                     |                |     | opyright |
-|                                     |                |     | as part  |
-|                                     |                |     | of the   |
-|                                     |                |     | default  |
-|                                     |                |     | target   |
-|                                     |                |     | (o       |
-|                                     |                |     | therwise |
-|                                     |                |     | use the  |
-|                                     |                |     | ``c      |
-|                                     |                |     | heck-cop |
-|                                     |                |     | yright`` |
-|                                     |                |     | target)  |
-+-------------------------------------+----------------+-----+----------+
-| CMAKE_INSTALL_PREFIX                | machine        | Str | Optional |
-|                                     | specific       | ing | path for |
-|                                     |                |     | library  |
-|                                     |                |     | inst     |
-|                                     |                |     | allation |
-+-------------------------------------+----------------+-----+----------+
-| Kokkos_ROOT                         | unset          | Str | Path to  |
-|                                     |                | ing | a Kokkos |
-|                                     |                |     | source   |
-|                                     |                |     | d        |
-|                                     |                |     | irectory |
-|                                     |                |     | (co      |
-|                                     |                |     | ntaining |
-|                                     |                |     | CMakeLi  |
-|                                     |                |     | sts.txt) |
-+-------------------------------------+----------------+-----+----------+
-| PARTHENON_IMPORT_KOKKOS             | ON/OFF         | Opt | If ON,   |
-|                                     |                | ion | attempt  |
-|                                     |                |     | to link  |
-|                                     |                |     | to an    |
-|                                     |                |     | external |
-|                                     |                |     | Kokkos   |
-|                                     |                |     | library. |
-|                                     |                |     | If OFF,  |
-|                                     |                |     | build    |
-|                                     |                |     | Kokkos   |
-|                                     |                |     | from     |
-|                                     |                |     | source   |
-|                                     |                |     | and      |
-|                                     |                |     | package  |
-|                                     |                |     | with     |
-|                                     |                |     | P        |
-|                                     |                |     | arthenon |
-+-------------------------------------+----------------+-----+----------+
-| BUILD_SHARED_LIBS                   | OFF            | Opt | If       |
-|                                     |                | ion | in       |
-|                                     |                |     | stalling |
-|                                     |                |     | Pa       |
-|                                     |                |     | rthenon, |
-|                                     |                |     | whether  |
-|                                     |                |     | to build |
-|                                     |                |     | as       |
-|                                     |                |     | shared   |
-|                                     |                |     | rather   |
-|                                     |                |     | than     |
-|                                     |                |     | static   |
-+-------------------------------------+----------------+-----+----------+
++-------------------------------------------+--------------------------------+---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Option                                    | Default                        | Type    | Description                                                                                                                                                         |
++===========================================+================================+=========+=====================================================================================================================================================================+
+|| PARTHENON\_SINGLE\_PRECISION             || OFF                           || Option || Enable single precision mode if requested                                                                                                                          |
+|| PARTHENON\_DISABLE\_HDF5                 || OFF                           || Option || HDF5 is enabled by default if found, set this to True to disable HDF5                                                                                              |
+|| PARTHENON\_DISABLE_HDF5\_COMPRESSION     || OFF                           || Option || HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files                                                       |
+|| PARTHENON\_DISABLE\_MPI                  || OFF                           || Option || MPI is enabled by default if found, set this to True to disable MPI                                                                                                |
+|| PARTHENON\_ENABLE\_HOST\_COMM\_BUFFERS   || OFF                           || Option || MPI communication buffers are by default allocated on the execution device. This options forces allocation in memory accessible directly by the host.              |
+|| PARTHENON\_DISABLE\_SPARSE               || OFF                           || Option || Disable sparse allocation of sparse variables, i.e., sparse variable still work but are always allocated. See also [sparse doc](interface/sparse.md#compile-time). |
+|| PARTHENON\_DISABLE\_OPENMP               || OFF                           || Option || OpenMP is enabled by default if found, set this to True to disable OpenMP                                                                                          |
+|| ENABLE\_COMPILER\_WARNINGS               || OFF                           || Option || Enable compiler warnings                                                                                                                                           |
+|| TEST\_ERROR\_CHECKING                    || OFF                           || Option || Enables the error checking unit test. This test will FAIL                                                                                                          |
+|| TEST\_INTEL\_OPTIMIZATION                || OFF                           || Option || Test intel optimization and vectorization                                                                                                                          |
+|| CHECK\_REGISTRY\_PRESSURE                || OFF                           || Option || Check the registry pressure for Kokkos CUDA kernels                                                                                                                |
+|| BUILD\_TESTING                           || ON                            || Option || Enable test (set by CTest itself)                                                                                                                                  |
+|| PARTHENON\_DISABLE\_EXAMPLES             || OFF                           || Option || Toggle building of examples, if regression tests are on, drivers needed by the tests will still be built                                                           |
+|| PARTHENON\_ENABLE\_TESTING               || ${BUILD\_TESTING}             || Option || Default value to enable Parthenon tests                                                                                                                            |
+|| PARTHENON\_ENABLE\_INTEGRATION\_TESTS    || ${PARTHENON\_ENABLE\_TESTING} || Option || Enable integration tests                                                                                                                                           |
+|| PARTHENON\_ENABLE\_REGRESSION\_TESTS     || ${PARTHENON\_ENABLE\_TESTING} || Option || Enable regression tests                                                                                                                                            |
+|| PARTHENON\_ENABLE\_UNIT\_TESTS           || ${PARTHENON\_ENABLE\_TESTING} || Option || Enable unit tests                                                                                                                                                  |
+|| PARTHENON\_PERFORMANCE\_TESTS            || ${PARTHENON\_ENABLE\_TESTING} || Option || Enable performance tests                                                                                                                                           |
+|| NUM\_MPI\_PROC\_TESTING                  || 4                             || String || Number of MPI ranks used for MPI-enabled regression tests                                                                                                          |
+|| NUM\_GPU\_DEVICES\_PER\_NODE             || 1                             || String || Number of GPUs per node to use if built with `Kokkos_ENABLE_CUDA`                                                                                                  |
+|| PARTHENON\_ENABLE\_PYTHON\_MODULE\_CHECK || ${PARTHENON\_ENABLE\_TESTING} || Option || Enable checking if python modules used in regression tests are available                                                                                           |
+|| PARTHENON\_ENABLE\_GPU\_MPI\_CHECKS      || ON                            || Option || Enable pre-test gpu-mpi checks                                                                                                                                     |
+|| REGRESSION\_GOLD\_STANDARD\_VER          || #                             || Int    || Version of current gold standard file used in regression tests. Default is set to latest version matching the source.                                              |
+|| REGRESSION\_GOLD\_STANDARD\_HASH         || SHA512=...                    || String || Hash value of gold standard file to be downloaded. Used to ensure that the download is not corrupted.                                                              |
+|| REGRESSION\_GOLD\_STANDARD\_SYNC         || ON                            || Option || Create `gold_standard` target to download gold standard files                                                                                                      |
+|| CODE\_COVERAGE                           || OFF                           || Option || Builds with code coverage flags                                                                                                                                    |
+|| PARTHENON\_LINT\_DEFAULT                 || OFF                           || Option || Lint the code as part of the default target (otherwise use the `lint` target)                                                                                      |
+|| PARTHENON\_COPYRIGHT\_CHECK\_DEFAULT     || OFF                           || Option || Check copyright as part of the default target (otherwise use the `check-copyright` target)                                                                         |
+|| CMAKE\_INSTALL\_PREFIX                   || machine specific              || String || Optional path for library installation                                                                                                                             |
+|| Kokkos\_ROOT                             || unset                         || String || Path to a Kokkos source directory (containing CMakeLists.txt)                                                                                                      |
+|| PARTHENON\_IMPORT\_KOKKOS                || ON/OFF                        || Option || If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon                                                  |
+|| BUILD\_SHARED\_LIBS                      || OFF                           || Option || If installing Parthenon, whether to build as shared rather than static                                                                                             |
++-------------------------------------------+--------------------------------+---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-NB: CMake options prefixed with *PARTHENON\_* modify behavior.
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-NB: On MPI usage
-~~~~~~~~~~~~~~~~
+**NB: CMake options prefixed with *PARTHENON\_* modify behavior.**
+
+**NB: On MPI usage:**
 
 By default communication buffers are allocated in the execution device’s
 memory, e.g., directly on the GPU when using Cuda. This requires the MPI

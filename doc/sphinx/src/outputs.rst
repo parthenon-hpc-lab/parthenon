@@ -62,8 +62,8 @@ size (and decrease I/O performance) without compression. The optional
 parameter ``hdf5_compression_level`` can be used to set the compression
 level (between 1 and 9, default is 5). Compression can be disabled
 altogether with the CMake build option
-``PARTHENON_DISABLE_HDF5_COMPRESSION``. See the `build
-doc <building.md>`__ for more details.
+``PARTHENON_DISABLE_HDF5_COMPRESSION``.
+See the :ref:`building parthenon` for more details.
 
 Tuning HDF5 Performance
 -----------------------
@@ -71,141 +71,19 @@ Tuning HDF5 Performance
 Tuning IO parameters can be passed to Parthenon through the use of
 environment variables. Available environment variables are:
 
-+-----------------+-----------------+-----------------+-----------------+
-| Environment     | Initial State   | Value Type      | Description     |
-| Variable        |                 |                 |                 |
-+=================+=================+=================+=================+
-| H5              | disabled        | int             | Sets the        |
-| _sieve_buf_size |                 |                 | maximum size of |
-|                 |                 |                 | the data sieve  |
-|                 |                 |                 | buffer, in      |
-|                 |                 |                 | bytes. The      |
-|                 |                 |                 | value should be |
-|                 |                 |                 | equal to a      |
-|                 |                 |                 | multiple of the |
-|                 |                 |                 | disk block      |
-|                 |                 |                 | size. If no     |
-|                 |                 |                 | value is set    |
-|                 |                 |                 | then the        |
-|                 |                 |                 | default is 256  |
-|                 |                 |                 | KiB.            |
-+-----------------+-----------------+-----------------+-----------------+
-| H5_             | disabled        | int             | Sets the        |
-| meta_block_size |                 |                 | minimum         |
-|                 |                 |                 | metadata block  |
-|                 |                 |                 | size, in bytes. |
-|                 |                 |                 | If no value is  |
-|                 |                 |                 | set then the    |
-|                 |                 |                 | default is 8    |
-|                 |                 |                 | MiB. May help   |
-|                 |                 |                 | performance if  |
-|                 |                 |                 | enabled.        |
-+-----------------+-----------------+-----------------+-----------------+
-| H5_alig         | disabled        | int             | The threshold   |
-| nment_threshold |                 |                 | value, in       |
-|                 |                 |                 | bytes, of       |
-|                 |                 |                 | H5              |
-|                 |                 |                 | Pset_alignment. |
-|                 |                 |                 | Setting to 0    |
-|                 |                 |                 | forces          |
-|                 |                 |                 | everything to   |
-|                 |                 |                 | be aligned. If  |
-|                 |                 |                 | a value is not  |
-|                 |                 |                 | set then the    |
-|                 |                 |                 | default is 0.   |
-|                 |                 |                 | Setting the     |
-|                 |                 |                 | environment     |
-|                 |                 |                 | variable        |
-|                 |                 |                 | automatically   |
-|                 |                 |                 | enables         |
-|                 |                 |                 | alignment.      |
-+-----------------+-----------------+-----------------+-----------------+
-| H5_alig         | disabled        | int             | The alignment   |
-| nment_alignment |                 |                 | value, in       |
-|                 |                 |                 | bytes, of       |
-|                 |                 |                 | H5              |
-|                 |                 |                 | Pset_alignment. |
-|                 |                 |                 | If a value is   |
-|                 |                 |                 | not set then    |
-|                 |                 |                 | the default is  |
-|                 |                 |                 | 8 MiB. Setting  |
-|                 |                 |                 | the environment |
-|                 |                 |                 | variable        |
-|                 |                 |                 | automatically   |
-|                 |                 |                 | enables         |
-|                 |                 |                 | alignment.      |
-|                 |                 |                 | H               |
-|                 |                 |                 | 5Pset_alignment |
-|                 |                 |                 | sets the        |
-|                 |                 |                 | alignment       |
-|                 |                 |                 | properties of a |
-|                 |                 |                 | file access     |
-|                 |                 |                 | property list.  |
-|                 |                 |                 | Choose an       |
-|                 |                 |                 | alignment that  |
-|                 |                 |                 | is a multiple   |
-|                 |                 |                 | of the disk     |
-|                 |                 |                 | block size,     |
-|                 |                 |                 | enabling this   |
-|                 |                 |                 | usually shows   |
-|                 |                 |                 | better          |
-|                 |                 |                 | performance on  |
-|                 |                 |                 | parallel file   |
-|                 |                 |                 | systems.        |
-|                 |                 |                 | However,        |
-|                 |                 |                 | enabling may    |
-|                 |                 |                 | increase the    |
-|                 |                 |                 | file size       |
-|                 |                 |                 | significantly.  |
-+-----------------+-----------------+-----------------+-----------------+
-| H5_defer        | disabled        | int             | Value of 1      |
-| _metadata_flush |                 |                 | enables         |
-|                 |                 |                 | deferring       |
-|                 |                 |                 | metadata flush. |
-|                 |                 |                 | Value of 0      |
-|                 |                 |                 | disables.       |
-|                 |                 |                 | Experiment with |
-|                 |                 |                 | before using.   |
-+-----------------+-----------------+-----------------+-----------------+
-| M               | enabled         | string          | Specifies the   |
-| PI_access_style |                 |                 | manner in which |
-|                 |                 |                 | the file will   |
-|                 |                 |                 | be accessed     |
-|                 |                 |                 | until the file  |
-|                 |                 |                 | is closed.      |
-|                 |                 |                 | Default is      |
-|                 |                 |                 | “write_once”    |
-+-----------------+-----------------+-----------------+-----------------+
-| MPI_colle       | disabled        | int             | Value of 1      |
-| ctive_buffering |                 |                 | enables MPI     |
-|                 |                 |                 | collective      |
-|                 |                 |                 | buffering.      |
-|                 |                 |                 | Value of 0      |
-|                 |                 |                 | disables.       |
-|                 |                 |                 | Experiment with |
-|                 |                 |                 | before using.   |
-+-----------------+-----------------+-----------------+-----------------+
-| MP              | N/A             | int             | Sets the block  |
-| I_cb_block_size |                 |                 | size, in bytes, |
-|                 |                 |                 | to be used for  |
-|                 |                 |                 | collective      |
-|                 |                 |                 | buffering file  |
-|                 |                 |                 | access. Default |
-|                 |                 |                 | is 1 MiB.       |
-+-----------------+-----------------+-----------------+-----------------+
-| MPI             | N/A             | int             | Sets the total  |
-| _cb_buffer_size |                 |                 | buffer space,   |
-|                 |                 |                 | in bytes, that  |
-|                 |                 |                 | can be used for |
-|                 |                 |                 | collective      |
-|                 |                 |                 | buffering on    |
-|                 |                 |                 | each target     |
-|                 |                 |                 | node, usually a |
-|                 |                 |                 | multiple of     |
-|                 |                 |                 | cb_block_size.  |
-|                 |                 |                 | Default is 4    |
-|                 |                 |                 | MiB.            |
-+-----------------+-----------------+-----------------+-----------------+
++---------------------------+---------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Environment Variable      | Initial State | Value Type | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                |
++===========================+===============+============+============================================================================================================================================================================================================================================================================================================================================================================================================================================================+
+|| H5_sieve_buf_size        || disabled     || int       || Sets the maximum size of the data sieve buffer, in bytes. The value should be equal to a multiple of the disk block size. If no value is set then the default is 256 KiB.                                                                                                                                                                                                                                                                                 |
+|| H5_meta_block_size       || disabled     || int       || Sets the minimum metadata block size, in bytes. If no value is set then the default is 8 MiB. May help performance if enabled.                                                                                                                                                                                                                                                                                                                            |
+|| H5_alignment_threshold   || disabled     || int       || The threshold value, in bytes, of H5Pset_alignment. Setting to 0 forces everything to be aligned. If a value is not set then the default is 0. Setting the environment variable automatically enables alignment.                                                                                                                                                                                                                                          |
+|| H5_alignment_alignment   || disabled     || int       || The alignment value, in bytes, of H5Pset_alignment. If a value is not set then the default is 8 MiB. Setting the environment variable automatically enables alignment. H5Pset_alignment sets the alignment properties of a file access property list. Choose an alignment that is a multiple of the disk block size, enabling this usually shows better performance on parallel file systems. However, enabling may increase the file size significantly. |
+|| H5_defer_metadata_flush  || disabled     || int       || Value of 1 enables deferring metadata flush. Value of 0 disables. Experiment with before using.                                                                                                                                                                                                                                                                                                                                                           |
+|| MPI_access_style         || enabled      || string    || Specifies the manner in which the file will be accessed until the file is closed. Default is "write_once"                                                                                                                                                                                                                                                                                                                                                 |
+|| MPI_collective_buffering || disabled     || int       || Value of 1 enables MPI collective buffering. Value of 0 disables. Experiment with before using.                                                                                                                                                                                                                                                                                                                                                           |
+|| MPI_cb_block_size        || N/A          || int       || Sets the block size, in bytes, to be used for collective buffering file access. Default is 1 MiB.                                                                                                                                                                                                                                                                                                                                                         |
+|| MPI_cb_buffer_size       || N/A          || int       || Sets the total buffer space, in bytes, that can be used for collective buffering on each target node, usually a multiple of cb_block_size. Default is 4 MiB.                                                                                                                                                                                                                                                                                              |
++---------------------------+---------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 Restart Files
 -------------
@@ -256,8 +134,7 @@ block might look like
 
 This will produce a text file (``.hst``) output file every 1 units of
 simulation time. The content of the file is determined by the functions
-enrolled by a specific package, see the `interface
-doc <interface/state.md#history-output>`__.
+enrolled by a specific package, see :ref:`history output`.
 
 Python scripts
 --------------
@@ -399,7 +276,6 @@ For example, the following methods are valid to load data with ``yt``
    ds = yt.load(filename,units_override=units_override,gamma=5./3.)
 
 Currently, the ``yt`` frontend for Parthenon is hosted on the
-``athenapk-frontend`` `on this ``yt``
-fork <https://github.com/forrestglines/yt/tree/athenapk-frontend>`__. In
+``parthenon-frontend`` branch of this `yt fork <https://github.com/forrestglines/yt/tree/parthenon-frontend>`_. In
 the future, the Parthenon frontend will be included in the main ``yt``
 repo.

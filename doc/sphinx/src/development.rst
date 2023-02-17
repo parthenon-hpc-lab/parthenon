@@ -84,11 +84,11 @@ the abstracted ``parallel_for`` and ``parallel_reduce`` executions are
 nearly identical, with calls to ``par_reduce`` having one additional
 final argument compared to ``par_for``. The additional argument should
 be a Kokkos Reducer, for example one of the built-in
-`Reducers <https://github.com/kokkos/kokkos/wiki/Custom-Reductions%3A-Built-In-Reducers>`__
+`Reducers <https://kokkos.github.io/kokkos-core-wiki/ProgrammingGuide/Custom-Reductions-Built-In-Reducers.html>`__
 that ship with Kokkos.
 
 Examples can be found in the `advection
-example <../example/advection/advection_package.cpp>`__
+example <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/advection_package.cpp>`__
 
 .. code:: diff
 
@@ -112,7 +112,7 @@ example <../example/advection/advection_package.cpp>`__
    +     },
    +     Kokkos::MinMax<Real>(minmax));
 
-or in the `buffer packing <>`__ functions
+or in the buffer packing functions
 
 .. code:: diff
 
@@ -149,7 +149,7 @@ explicit increment of the offset by the full extent after the kernel.
 FAQ
 ---
 
--  What’s the difference between ``GetDim`` and ``extent``?
+-  What's the difference between ``GetDim`` and ``extent``?
 
 ``ParArrayND`` offer ``GetDim`` to access the underlying array
 dimension. Here, ``GetDim(0)`` refers to the “first” dimension (e.g.,

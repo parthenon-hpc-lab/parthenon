@@ -123,9 +123,11 @@ following fails:
    auto b = ndarray.Get<4>();
    doNothingByReference(b);
 
-To avoid this issue, you can: - Explicitly typecast ``ParArrayND`` when
-using it in conjunction with Kokkos views. - Pass views by reference -
-Template appropriate functions on array type
+To avoid this issue, you can:
+
+- Explicitly typecast ``ParArrayND`` when using it in conjunction with Kokkos views.
+- Pass views by reference
+- Template appropriate functions on array type
 
 For more details, see
 `here <https://github.com/lanl/parthenon/issues/143>`__.
@@ -180,5 +182,5 @@ available are as follows:
 Examples of use
 ---------------
 
-See the `unit test <../tst/unit/test_pararrays.cpp>`__ for how to use
+See the `unit test <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/test_pararrays.cpp>`__ for how to use
 ``ParArrayND``.
