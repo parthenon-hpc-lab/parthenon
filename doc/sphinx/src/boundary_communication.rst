@@ -328,88 +328,101 @@ ordering.*
 Boundary Communication Tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**``BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>>&)``** -
-Iterates over communication channels sending or receiving from blocks in
-``md``. For every sending channel it creates a communication channel for
-each in the ``Mesh::boundary_comm_map``. For receiving channels where
-the blocks are on different ranks, it also creates a receiving channel
-in ``Mesh::boundary_comm_map`` since the sender will not add this
-channel on the current rank. Also creates new ``buf_pool_t``\ s for the
-required buffer sizes if they don’t already exist. Note that no memory
-is saved for the communication buffers at this point. - This is called
-during ``Mesh::Initialize(...)`` and during
-``EvolutionDriver::InitializeBlockTimeStepsAndBoundaries()`` and before
-this task is called ``Mesh::boundary_comm_map`` is cleared. **This
-should not be called in downstream code.**
+.. topic:: ``BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>>&)``
 
-| **``SendBoundBufs<bound_type>(std::shared_ptr<MeshData<Real>>&)``** -
-  Iterates over boundaries of ``bound_type``, which supports ``any``,
-  ``local`` which implies the communicating blocks are on the same rank,
-  and ``nonlocal`` which implies differing ranks for the two blocks.
-  Could have one task with ``any`` or split communication into separate
-  ``local`` and ``nonlocal`` tasks. - ``SendBoundaryBuffers`` is just an
-  alias for ``SendBoundBufs<any>`` to ensure backward compatibility.
-| - Allocates buffers if necessary based on allocation status of block
-  fields and checks if ``MeshData::send_bnd_info`` objects are stale. -
-  Rebuilds the ``MeshData::send_bnd_info`` objects if they are stale -
-  Restricts where necessary - Launches kernels to load data from fields
-  into buffers, checks whether any of the data is above the sparse
-  allocation threshold. - Calls ``Send()`` or ``SendNull()`` from all of
-  the boundary buffers depending on their status.
+  * Iterates over communication channels sending or receiving from blocks in
+    ``md``. For every sending channel it creates a communication channel for
+    each in the ``Mesh::boundary_comm_map``. For receiving channels where
+    the blocks are on different ranks, it also creates a receiving channel
+    in ``Mesh::boundary_comm_map`` since the sender will not add this
+    channel on the current rank. Also creates new ``buf_pool_t``\ s for the
+    required buffer sizes if they don’t already exist. Note that no memory
+    is saved for the communication buffers at this point.
+  * This is called
+    during ``Mesh::Initialize(...)`` and during
+    ``EvolutionDriver::InitializeBlockTimeStepsAndBoundaries()`` and before
+    this task is called ``Mesh::boundary_comm_map`` is cleared.
+    **This should not be called in downstream code.**
 
-**``StartReceiveBoundBufs<bound_type>(std::shared_ptr<MeshData<Real>>&)``**
-- Iterates over boundaries of ``bound_type``, which supports ``any``,
-``local`` which implies the communicating blocks are on the same rank,
-and ``nonlocal`` which implies differing ranks for the two blocks. This
-is a no-op for ``local`` boundaries. - Posts/tries to post an
-``MPI_Irecv`` for receiving buffers. For performance, it is often
-necessary to call this early in the task list before the rest of the
-communication routines get called. Codes will produce correct results
-without ever calling this task though.
+.. topic:: ``SendBoundBufs<bound_type>(std::shared_ptr<MeshData<Real>>&)``
 
-| **``ReceiveBoundBufs<bound_type>(std::shared_ptr<MeshData<Real>> &)``**
-  - Iterates over boundaries of ``bound_type``, which supports ``any``,
-  ``local`` which implies the communicating blocks are on the same rank,
-  and ``nonlocal`` which implies differing ranks for the two blocks.
-  Could have one task with ``any`` or split communication into separate
-  ``local`` and ``nonlocal`` tasks. - ``ReceiveBoundaryBuffers`` is just
-  an alias for ``ReceiveBoundBufs<any>`` to ensure backward
-  compatibility.
-| - Tries to receive from each of the receive channels associated with
-  ``md`` of the chosen boundary type. - If the receive is succesful, and
-  allocation of the associated field is required, allocate it.
+  * Iterates over boundaries of ``bound_type``, which supports ``any``,
+    ``local`` which implies the communicating blocks are on the same rank,
+    and ``nonlocal`` which implies differing ranks for the two blocks.
+    Could have one task with ``any`` or split communication into separate
+    ``local`` and ``nonlocal`` tasks.
+  * ``SendBoundaryBuffers`` is just an
+    alias for ``SendBoundBufs<any>`` to ensure backward compatibility.
+  * Allocates buffers if necessary based on allocation status of block
+    fields and checks if ``MeshData::send_bnd_info`` objects are stale.
+  * Rebuilds the ``MeshData::send_bnd_info`` objects if they are stale
+  * Restricts where necessary
+  * Launches kernels to load data from fields
+    into buffers, checks whether any of the data is above the sparse
+    allocation threshold.
+  * Calls ``Send()`` or ``SendNull()`` from all of
+    the boundary buffers depending on their status.
 
-**``SetBounds<bound_type>(std::shared_ptr<MeshData<Real>>& md)``** -
-Iterates over boundaries of ``bound_type``, which supports ``any``,
-``local`` which implies the communicating blocks are on the same rank,
-and ``nonlocal`` which implies differing ranks for the two blocks. Could
-have one task with ``any`` or split communication into separate
-``local`` and ``nonlocal`` tasks. - ``SetBoundaries`` is just an alias
-for ``SetBounds<any>`` to ensure backward compatibility. - Check if
-``MeshData::recv_bnd_info`` needs to be rebuilt because of changed
-allocation status. - Rebuild ``MeshData::recv_bnd_info`` if necessary. -
-Launch kernels to copy from buffers into fields or copy default data
-into fields if sending null. - Stale the communication buffers.
+.. topic:: ``StartReceiveBoundBufs<bound_type>(std::shared_ptr<MeshData<Real>>&)``
+
+  * Iterates over boundaries of ``bound_type``, which supports ``any``,
+    ``local`` which implies the communicating blocks are on the same rank,
+    and ``nonlocal`` which implies differing ranks for the two blocks. This
+    is a no-op for ``local`` boundaries.
+  * Posts/tries to post an
+    ``MPI_Irecv`` for receiving buffers. For performance, it is often
+    necessary to call this early in the task list before the rest of the
+    communication routines get called. Codes will produce correct results
+    without ever calling this task though.
+
+.. topic:: ``ReceiveBoundBufs<bound_type>(std::shared_ptr<MeshData<Real>> &)``
+
+  * Iterates over boundaries of ``bound_type``, which supports ``any``,
+    ``local`` which implies the communicating blocks are on the same rank,
+    and ``nonlocal`` which implies differing ranks for the two blocks.
+    Could have one task with ``any`` or split communication into separate
+    ``local`` and ``nonlocal`` tasks.
+  * ``ReceiveBoundaryBuffers`` is just an alias for ``ReceiveBoundBufs<any>``
+    to ensure backward compatibility.
+  * Tries to receive from each of the receive channels associated with
+    ``md`` of the chosen boundary type.
+  * If the receive is succesful, and
+    allocation of the associated field is required, allocate it.
+
+.. topic:: ``SetBounds<bound_type>(std::shared_ptr<MeshData<Real>>& md)``
+
+  * Iterates over boundaries of ``bound_type``, which supports ``any``,
+    ``local`` which implies the communicating blocks are on the same rank,
+    and ``nonlocal`` which implies differing ranks for the two blocks. Could
+    have one task with ``any`` or split communication into separate
+    ``local`` and ``nonlocal`` tasks.
+  * ``SetBoundaries`` is just an alias for ``SetBounds<any>`` to ensure backward compatibility.
+  * Check if ``MeshData::recv_bnd_info`` needs to be rebuilt because of changed
+    allocation status.
+  * Rebuild ``MeshData::recv_bnd_info`` if necessary.
+  * Launch kernels to copy from buffers into fields or copy default data
+    into fields if sending null.
+  * Stale the communication buffers.
 
 Flux Correction Tasks
 ~~~~~~~~~~~~~~~~~~~~~
 
-| Flux correction for sparse variables and dense variables is very
-  similar, the only difference being that for sparse variables if either
-  the fine or the coarse block is unallocated no flux correction occurs.
-  Flux correction communication cannot trigger allocation. The flux
-  correction routines mirror the boundary routines, except that they do
-  not accept a ``BoundaryType`` template parameter since the flux
-  corrections are limited to fine-to-coarse boundaries (which is its own
-  ``BoundaryType``). Cacheing and the “in one” machinery has not been
-  implemented here yet and it probably does not have a big impact on
-  performance, but it should be very straightforward to switch to
-  cacheing if desired.
-| -
-  **``StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)``**
-  - **``LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>>&)``**
-  - **``ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)``** -
-  **``SetFluxCorrections(std::shared_ptr<MeshData<Real>>&)``**
+Flux correction for sparse variables and dense variables is very
+similar, the only difference being that for sparse variables if either
+the fine or the coarse block is unallocated no flux correction occurs.
+Flux correction communication cannot trigger allocation. The flux
+correction routines mirror the boundary routines, except that they do
+not accept a ``BoundaryType`` template parameter since the flux
+corrections are limited to fine-to-coarse boundaries (which is its own
+``BoundaryType``). Cacheing and the “in one” machinery has not been
+implemented here yet and it probably does not have a big impact on
+performance, but it should be very straightforward to switch to
+cacheing if desired.
+
+- ``StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
+- ``LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
+- ``ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
+- ``SetFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
 
 Non-communication tasks
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -417,7 +430,8 @@ Non-communication tasks
 These tasks use the same infrastructure as the boundary communication
 machinery but do not communicate.
 
-**``RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset_cache)``**
-- Loops over parts of the mesh with a coarse-fine boundary and restricts
-from the fine buffer to the coarse buffer of a variable when relevant.
-This is needed for physical boundary conditions to be applied correctly.
+.. topic:: ``RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset_cache)``
+
+  Loops over parts of the mesh with a coarse-fine boundary and restricts
+  from the fine buffer to the coarse buffer of a variable when relevant.
+  This is needed for physical boundary conditions to be applied correctly.

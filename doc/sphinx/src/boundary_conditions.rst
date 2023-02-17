@@ -1,3 +1,5 @@
+.. _sphinx-doc:
+
 Boundary Conditions
 ===================
 

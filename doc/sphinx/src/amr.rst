@@ -13,7 +13,7 @@ Enable AMR
 To enable AMR, the following lines are required in the
 ``<parthenon/mesh>`` block of your input file.
 
-.. code:: cpp
+.. code::
 
    refinement = adaptive    # enable adaptive mesh refinement
    numlevel = 5             # how many refined levels can parthenon produce
@@ -30,7 +30,7 @@ looking for blocks with names ``<parthenon/refinement#>`` where ``#`` is
 a zero-based sequential indexing of Refinement criteria. An input file
 might looks like
 
-.. code:: cpp
+.. code::
 
    <parthenon/mesh>
    refinement = adaptive
@@ -64,13 +64,13 @@ Predefined Criteria
 ~~~~~~~~~~~~~~~~~~~
 
 The predefined refinement criteria are calculated in terms of the user
-selected variable :math:`q` as follows. \| Method \| Description \|
-\|——–\|————-\| \| derivative_order_1 \| |formula| \| \|
-derivative_order_2 \|
+selected variable :math:`q` as follows.
+Method:
 
-.. math:: \frac{\delta x^2}{4\|q\|} \left\| \frac{\partial^2 q}{\partial x^2} \right\| = \frac{ \| q_{i-1} - 2 q_{i} + q_{i+1} \| }{ 2\| q_{i} \| + \| q_{i-1} + q_{i+1} \| } 
-
-\ Note that this quantity is bounded by :math:`\[0,1\]`. \|
+* ``derivative_order_1``: :math:`|\partial \ln q / \partial \ln x|`
+* ``derivative_order_2``:
+  :math:`\frac{\delta x^2}{4\|q\|} \left\| \frac{\partial^2 q}{\partial x^2} \right\| = \frac{ \| q_{i-1} - 2 q_{i} + q_{i+1} \| }{ 2\| q_{i} \| + \| q_{i-1} + q_{i+1} \| }` 
+  Note that this quantity is bounded by :math:`[0,1]`.
 
 Package-specific Criteria
 -------------------------
@@ -81,7 +81,7 @@ indicate the block should be derefined, left alone, or refined,
 respectively. This function should be registered in a
 ``StateDescriptor`` object by assigning the ``CheckRefinement`` function
 pointer to point at the packages function. An example is demonstrated
-`here <../example/calculate_pi/pi.cpp>`__.
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/calculate_pi/calculate_pi.cpp>`__.
 
 Ensuring your data is consistent after re-meshing
 -------------------------------------------------
