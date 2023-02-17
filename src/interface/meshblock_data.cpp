@@ -176,17 +176,24 @@ MeshBlockData<T>::SparseSlice(const std::vector<int> &sparse_ids) const {
 /// keys
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
-    const VarList &var_list, const VarList &flux_list, PackIndexMap *map,
-    vpack_types::UidPair *key) {
-  vpack_types::UidPair keys = std::make_pair(var_list.unique_ids(), flux_list.unique_ids());
+    const VarLabelList &var_list, const VarLabelList &flux_list, PackIndexMap *map,
+    vpack_types::StringPair *key) {
+  vpack_types::StringPair keys = std::make_pair(var_list.labels(), flux_list.labels());
 
-  using itr_t = decltype(std::begin(varFluxPackMap_));
-  auto [itr, make_new_pack] = CheckPack_(keys, varFluxPackMap_,
-                        [&](const itr_t &itr) {
-                          return ((var_list.alloc_status() != itr->second.alloc_status)
-                                  || (flux_list.alloc_status() != itr->second.flux_alloc_status));
-                        });
-
+  auto itr = varFluxPackMap_.find(keys);
+  bool make_new_pack = false;
+  if (itr == varFluxPackMap_.end()) {
+    // we don't have a cached pack, need to make a new one
+    make_new_pack = true;
+  } else {
+    // we have a cached pack, check allocation status
+    if ((var_list.alloc_status() != itr->second.alloc_status) ||
+        (flux_list.alloc_status() != itr->second.flux_alloc_status)) {
+      // allocation statuses differ, need to make a new pack and remove outdated one
+      make_new_pack = true;
+      varFluxPackMap_.erase(itr);
+    }
+  }
 
   if (make_new_pack) {
     FluxPackIndxPair<T> new_item;
@@ -195,6 +202,8 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
     new_item.pack = MakeFluxPack(var_list, flux_list, &new_item.map);
     new_item.pack.coords = GetParentPointer()->coords_device;
     itr = varFluxPackMap_.insert({keys, new_item}).first;
+
+    // need to grab pointers here
     itr->second.pack.alloc_status_ = &itr->second.alloc_status;
     itr->second.pack.flux_alloc_status_ = &itr->second.flux_alloc_status;
   }
@@ -218,23 +227,35 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
 /// A VarMetaPack<T> that contains the actual VariablePack, the PackIndexMap, and the key
 template <typename T>
 const VariablePack<T> &
-MeshBlockData<T>::PackListedVariables(const VarList &var_list, bool coarse,
+MeshBlockData<T>::PackListedVariables(const VarLabelList &var_list, bool coarse,
                                       PackIndexMap *map,
-                                      vpack_types::VPackKey_t *key_out) {
-  const auto &key = var_list.unique_ids();
+                                      std::vector<std::string> *key_out) {
+  const auto &key = var_list.labels();
   auto &packmap = coarse ? coarseVarPackMap_ : varPackMap_;
-  using itr_t = decltype(std::begin(packmap));
-  auto [itr, make_new_pack] = CheckPack_(key, packmap,
-                        [&](const itr_t &itr) {
-                          return (var_list.alloc_status() != itr->second.alloc_status);
-                        });
+
+  auto itr = packmap.find(key);
+  bool make_new_pack = false;
+  if (itr == packmap.end()) {
+    // we don't have a cached pack, need to make a new one
+    make_new_pack = true;
+  } else {
+    // we have a cached pack, check allocation status
+    if (var_list.alloc_status() != itr->second.alloc_status) {
+      // allocation statuses differ, need to make a new pack and remove outdated one
+      make_new_pack = true;
+      packmap.erase(itr);
+    }
+  }
 
   if (make_new_pack) {
     PackIndxPair<T> new_item;
     new_item.alloc_status = var_list.alloc_status();
     new_item.pack = MakePack<T>(var_list, coarse, &new_item.map);
     new_item.pack.coords = GetParentPointer()->coords_device;
+
     itr = packmap.insert({key, new_item}).first;
+
+    // need to grab pointers after map insertion
     itr->second.pack.alloc_status_ = &itr->second.alloc_status;
   }
 

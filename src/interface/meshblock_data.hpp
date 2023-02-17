@@ -462,21 +462,6 @@ class MeshBlockData {
   SparsePackCache sparse_pack_cache_;
 
   // These functions have private scope and are visible only to MeshData
-  template<typename Key_t, typename Map_t, typename AllocationChecker_t>
-  auto CheckPack_(const Key_t &keys, Map_t &map,
-                  const AllocationChecker_t &invalid_allocation_status) {
-    bool make_new_pack = false;
-    auto itr = map.find(keys);
-    if (itr == map.end()) {
-      make_new_pack = true;
-    }
-    if (invalid_allocation_status(itr)) {
-      map.erase(itr);
-      make_new_pack = true;
-    }
-    return std::make_pair(itr, make_new_pack);
-  }
-
   const VariableFluxPack<T> &
   PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                          const std::vector<std::string> &flx_names,
