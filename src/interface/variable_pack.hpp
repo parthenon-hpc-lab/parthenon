@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <forward_list>
 #include <map>
 #include <memory>
@@ -125,19 +126,20 @@ class FlatIdx {
 };
 
 // The key for variable packs
-using VPackKey_t = std::vector<std::string>;
+using VPackKey_t = std::vector<std::size_t>;
 
-// Flux packs require a set of names for the variables and a set of names for the strings
-// and order matters. So StringPair forms the keys for the FluxPack cache.
+// Flux packs require a set of names for the variables and a set of names for the fluxes
+// and order matters. So a pair forms the keys for the FluxPack cache.
 using StringPair = std::pair<std::vector<std::string>, std::vector<std::string>>;
-
+using UidPair = std::pair<std::vector<std::size_t>, std::vector<std::size_t>>;
 } // namespace vpack_types
 
-// helper class to make lists of variables with labels
+// helper class to make lists of variables with some kind of unique identifier per
+// variable.
 template <typename T>
-class VarListWithLabels {
+class VarListWithKeys {
  public:
-  VarListWithLabels<T>() = default;
+  VarListWithKeys<T>() = default;
 
   // Adds a variable to the list if one of the following is true:
   // a) The variable is not sparse
@@ -148,18 +150,18 @@ class VarListWithLabels {
     if (!var->IsSparse() || sparse_ids.empty() ||
         (sparse_ids.count(var->GetSparseID()) > 0)) {
       vars_.push_back(var);
-      labels_.push_back(var->label());
+      uids_.push_back(var->GetUniqueID());
       alloc_status_.push_back(var->GetAllocationStatus());
     }
   }
 
   const auto &vars() const { return vars_; }
-  const auto &labels() const { return labels_; }
+  const auto &unique_ids() const { return uids_; }
   const auto &alloc_status() const { return alloc_status_; }
 
  private:
   CellVariableVector<T> vars_;
-  std::vector<std::string> labels_;
+  std::vector<std::size_t> uids_;
   std::vector<int> alloc_status_;
 };
 
@@ -480,11 +482,11 @@ using FluxPackIndxPair = PackAndIndexMap<VariableFluxPack<T>>;
 template <typename T>
 using SwarmPackIndxPair = PackAndIndexMap<SwarmVariablePack<T>>;
 template <typename T>
-using MapToVariablePack = std::map<std::vector<std::string>, PackIndxPair<T>>;
+using MapToVariablePack = std::map<std::vector<std::size_t>, PackIndxPair<T>>;
 template <typename T>
-using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair<T>>;
+using MapToVariableFluxPack = std::map<vpack_types::UidPair, FluxPackIndxPair<T>>;
 template <typename T>
-using MapToSwarmVariablePack = std::map<std::vector<std::string>, SwarmPackIndxPair<T>>;
+using MapToSwarmVariablePack = std::map<std::vector<std::size_t>, SwarmPackIndxPair<T>>;
 
 template <typename T>
 void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap) {
@@ -676,8 +678,8 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
 }
 
 template <typename T>
-VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
-                                 const VarListWithLabels<T> &flux_var_list,
+VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
+                                 const VarListWithKeys<T> &flux_var_list,
                                  PackIndexMap *pvmap) {
   const auto &vars = var_list.vars();           // for convenience
   const auto &flux_vars = flux_var_list.vars(); // for convenience
@@ -735,7 +737,7 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
 }
 
 template <typename T>
-VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
+VariablePack<T> MakePack(const VarListWithKeys<T> &var_list, bool coarse,
                          PackIndexMap *pvmap) {
   const auto &vars = var_list.vars(); // for convenience
 

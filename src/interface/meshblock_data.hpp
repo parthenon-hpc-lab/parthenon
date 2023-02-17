@@ -185,21 +185,21 @@ class MeshBlockData {
   }
 #endif
 
-  using VarLabelList = VarListWithLabels<T>;
+  using VarList = VarListWithKeys<T>;
 
   /// Get list of variables and labels by names (either a full variable name or sparse
   /// base name), optionally selecting only given sparse ids
-  VarLabelList GetVariablesByName(const std::vector<std::string> &names,
+  VarList GetVariablesByName(const std::vector<std::string> &names,
                                   const std::vector<int> &sparse_ids = {});
 
   /// Get list of variables and labels by metadata flags (must match all flags if
   /// match_all is true, otherwise must only match at least one), optionally selecting
   /// only given sparse ids
-  VarLabelList GetVariablesByFlag(const Metadata::FlagCollection &flags,
+  VarList GetVariablesByFlag(const Metadata::FlagCollection &flags,
                                   const std::vector<int> &sparse_ids = {});
 
   /// Get list of all variables and labels, optionally selecting only given sparse ids
-  VarLabelList GetAllVariables(const std::vector<int> &sparse_ids = {}) {
+  VarList GetAllVariables(const std::vector<int> &sparse_ids = {}) {
     return GetVariablesByFlag(Metadata::FlagCollection(), sparse_ids);
   }
 
@@ -461,82 +461,82 @@ class MeshBlockData {
   PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                          const std::vector<std::string> &flx_names,
                          const std::vector<int> &sparse_ids, PackIndexMap &map,
-                         vpack_types::StringPair &key) {
+                         vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(var_names, flx_names, sparse_ids, &map, &key);
   }
   const VariableFluxPack<T> &
   PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                          const std::vector<std::string> &flx_names,
                          const std::vector<int> &sparse_ids,
-                         vpack_types::StringPair &key) {
+                         vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(var_names, flx_names, sparse_ids, nullptr, &key);
   }
   const VariableFluxPack<T> &
   PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                          const std::vector<std::string> &flx_names, PackIndexMap &map,
-                         vpack_types::StringPair &key) {
+                         vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(var_names, flx_names, {}, &map, &key);
   }
   const VariableFluxPack<T> &
   PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                          const std::vector<std::string> &flx_names,
-                         vpack_types::StringPair &key) {
+                         vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(var_names, flx_names, {}, nullptr, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const std::vector<std::string> &names,
                                                     const std::vector<int> &sparse_ids,
                                                     PackIndexMap &map,
-                                                    vpack_types::StringPair &key) {
+                                                    vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(names, names, sparse_ids, &map, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const std::vector<std::string> &names,
                                                     const std::vector<int> &sparse_ids,
-                                                    vpack_types::StringPair &key) {
+                                                    vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(names, names, sparse_ids, nullptr, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const std::vector<std::string> &names,
                                                     PackIndexMap &map,
-                                                    vpack_types::StringPair &key) {
+                                                    vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(names, names, {}, &map, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const std::vector<std::string> &names,
-                                                    vpack_types::StringPair &key) {
+                                                    vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(names, names, {}, nullptr, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
                                                     const std::vector<int> &sparse_ids,
                                                     PackIndexMap &map,
-                                                    vpack_types::StringPair &key) {
+                                                    vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(flags, sparse_ids, &map, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
                                                     const std::vector<int> &sparse_ids,
-                                                    vpack_types::StringPair &key) {
+                                                    vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(flags, sparse_ids, nullptr, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
                                                     PackIndexMap &map,
-                                                    vpack_types::StringPair &key) {
+                                                    vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(flags, {}, &map, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
-                                                    vpack_types::StringPair &key) {
+                                                    vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(flags, {}, nullptr, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const std::vector<int> &sparse_ids,
                                                     PackIndexMap &map,
-                                                    vpack_types::StringPair &key) {
+                                                    vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(sparse_ids, &map, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const std::vector<int> &sparse_ids,
-                                                    vpack_types::StringPair &key) {
+                                                    vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(sparse_ids, nullptr, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(PackIndexMap &map,
-                                                    vpack_types::StringPair &key) {
+                                                    vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl({}, &map, &key);
   }
-  const VariableFluxPack<T> &PackVariablesAndFluxes(vpack_types::StringPair &key) {
+  const VariableFluxPack<T> &PackVariablesAndFluxes(vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl({}, nullptr, &key);
   }
   const VariablePack<T> &PackVariables(const std::vector<std::string> &names,
@@ -606,42 +606,42 @@ class MeshBlockData {
 
   // These helper functions are private scope because they assume that
   // the names include the components of sparse variables.
-  const VariableFluxPack<T> &PackListedVariablesAndFluxes(const VarLabelList &var_list,
-                                                          const VarLabelList &flux_list,
+  const VariableFluxPack<T> &PackListedVariablesAndFluxes(const VarList &var_list,
+                                                          const VarList &flux_list,
                                                           PackIndexMap *map,
-                                                          vpack_types::StringPair *key);
+                                                          vpack_types::UidPair *key);
   const VariableFluxPack<T> &
   PackVariablesAndFluxesImpl(const std::vector<std::string> &var_names,
                              const std::vector<std::string> &flx_names,
                              const std::vector<int> &sparse_ids, PackIndexMap *map,
-                             vpack_types::StringPair *key);
+                             vpack_types::UidPair *key);
 
   const VariableFluxPack<T> &
   PackVariablesAndFluxesImpl(const Metadata::FlagCollection &flags,
                              const std::vector<int> &sparse_ids, PackIndexMap *map,
-                             vpack_types::StringPair *key);
+                             vpack_types::UidPair *key);
 
   const VariableFluxPack<T> &
   PackVariablesAndFluxesImpl(const std::vector<int> &sparse_ids, PackIndexMap *map,
-                             vpack_types::StringPair *key);
+                             vpack_types::UidPair *key);
 
-  const VariablePack<T> &PackListedVariables(const VarLabelList &var_list, bool coarse,
+  const VariablePack<T> &PackListedVariables(const VarList &var_list, bool coarse,
                                              PackIndexMap *map,
-                                             std::vector<std::string> *key);
+                                             vpack_types::VPackKey_t *key);
 
   const VariablePack<T> &PackVariablesImpl(const std::vector<std::string> &names,
                                            const std::vector<int> &sparse_ids,
                                            bool coarse, PackIndexMap *map,
-                                           std::vector<std::string> *key);
+                                           vpack_types::VPackKey_t *key);
 
   const VariablePack<T> &PackVariablesImpl(const Metadata::FlagCollection &flags,
                                            const std::vector<int> &sparse_ids,
                                            bool coarse, PackIndexMap *map,
-                                           std::vector<std::string> *key);
+                                           vpack_types::VPackKey_t *key);
 
   const VariablePack<T> &PackVariablesImpl(const std::vector<int> &sparse_ids,
                                            bool coarse, PackIndexMap *map,
-                                           std::vector<std::string> *key);
+                                           vpack_types::VPackKey_t *key);
 };
 
 } // namespace parthenon

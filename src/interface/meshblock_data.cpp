@@ -177,9 +177,9 @@ MeshBlockData<T>::SparseSlice(const std::vector<int> &sparse_ids) const {
 /// keys
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
-    const VarLabelList &var_list, const VarLabelList &flux_list, PackIndexMap *map,
-    vpack_types::StringPair *key) {
-  vpack_types::StringPair keys = std::make_pair(var_list.labels(), flux_list.labels());
+    const VarList &var_list, const VarList &flux_list, PackIndexMap *map,
+    vpack_types::UidPair *key) {
+  vpack_types::UidPair keys = std::make_pair(var_list.unique_ids(), flux_list.unique_ids());
 
   auto itr = varFluxPackMap_.find(keys);
   bool make_new_pack = false;
@@ -228,10 +228,10 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
 /// A VarMetaPack<T> that contains the actual VariablePack, the PackIndexMap, and the key
 template <typename T>
 const VariablePack<T> &
-MeshBlockData<T>::PackListedVariables(const VarLabelList &var_list, bool coarse,
+MeshBlockData<T>::PackListedVariables(const VarList &var_list, bool coarse,
                                       PackIndexMap *map,
-                                      std::vector<std::string> *key_out) {
-  const auto &key = var_list.labels();
+                                      vpack_types::VPackKey_t *key_out) {
+  const auto &key = var_list.unique_ids();
   auto &packmap = coarse ? coarseVarPackMap_ : varPackMap_;
 
   auto itr = packmap.find(key);
@@ -278,7 +278,7 @@ MeshBlockData<T>::PackListedVariables(const VarLabelList &var_list, bool coarse,
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
-    const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::StringPair *key) {
+    const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByName(var_names, sparse_ids),
                                       GetVariablesByName(flx_names, sparse_ids), map,
                                       key);
@@ -288,7 +288,7 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const Metadata::FlagCollection &flags, const std::vector<int> &sparse_ids,
-    PackIndexMap *map, vpack_types::StringPair *key) {
+    PackIndexMap *map, vpack_types::UidPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, sparse_ids),
                                       GetVariablesByFlag(flags, sparse_ids), map, key);
 }
@@ -296,7 +296,7 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
 /// All variables and fluxes by Metadata Flags
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
-    const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::StringPair *key) {
+    const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidPair *key) {
   return PackListedVariablesAndFluxes(GetAllVariables(sparse_ids),
                                       GetAllVariables(sparse_ids), map, key);
 }
@@ -306,7 +306,7 @@ template <typename T>
 const VariablePack<T> &
 MeshBlockData<T>::PackVariablesImpl(const std::vector<std::string> &names,
                                     const std::vector<int> &sparse_ids, bool coarse,
-                                    PackIndexMap *map, std::vector<std::string> *key) {
+                                    PackIndexMap *map, vpack_types::VPackKey_t *key) {
   return PackListedVariables(GetVariablesByName(names, sparse_ids), coarse, map, key);
 }
 
@@ -315,7 +315,7 @@ template <typename T>
 const VariablePack<T> &
 MeshBlockData<T>::PackVariablesImpl(const Metadata::FlagCollection &flags,
                                     const std::vector<int> &sparse_ids, bool coarse,
-                                    PackIndexMap *map, std::vector<std::string> *key) {
+                                    PackIndexMap *map, vpack_types::VPackKey_t *key) {
   return PackListedVariables(GetVariablesByFlag(flags, sparse_ids), coarse, map, key);
 }
 
@@ -323,7 +323,7 @@ MeshBlockData<T>::PackVariablesImpl(const Metadata::FlagCollection &flags,
 template <typename T>
 const VariablePack<T> &
 MeshBlockData<T>::PackVariablesImpl(const std::vector<int> &sparse_ids, bool coarse,
-                                    PackIndexMap *map, std::vector<std::string> *key) {
+                                    PackIndexMap *map, vpack_types::VPackKey_t *key) {
   return PackListedVariables(GetAllVariables(sparse_ids), coarse, map, key);
 }
 
@@ -331,10 +331,10 @@ MeshBlockData<T>::PackVariablesImpl(const std::vector<int> &sparse_ids, bool coa
 // label or a sparse base name. Optionally only extract sparse fields with a sparse id in
 // the given set of sparse ids
 template <typename T>
-typename MeshBlockData<T>::VarLabelList
+typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
                                      const std::vector<int> &sparse_ids) {
-  typename MeshBlockData<T>::VarLabelList var_list;
+  typename MeshBlockData<T>::VarList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
   for (const auto &name : names) {
@@ -371,12 +371,12 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
 // the number of vars with a desired flag will be much smaller than
 // all vars. So average performance is much better than linear.
 template <typename T>
-typename MeshBlockData<T>::VarLabelList
+typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
                                      const std::vector<int> &sparse_ids) {
   Kokkos::Profiling::pushRegion("GetVariablesByFlag");
 
-  typename MeshBlockData<T>::VarLabelList var_list;
+  typename MeshBlockData<T>::VarList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
   // Note that only intersections and unions count for flags.Empty()

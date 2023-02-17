@@ -48,20 +48,19 @@ namespace pack_on_mesh_impl {
 template <typename K>
 inline void AppendKey(K *key_collection, const K *new_key);
 
-// Specialization for variable packs where key is a std::vector<std::string>
+// Specialization for variable packs where key is a vpack_types::VPackKey_t
 template <>
-inline void AppendKey<std::vector<std::string>>(std::vector<std::string> *key_collection,
-                                                const std::vector<std::string> *new_key) {
+inline void AppendKey<vpack_types::VPackKey_t>(vpack_types::VPackKey_t *key_collection,
+                                               const vpack_types::VPackKey_t *new_key) {
   for (const auto &k : *new_key) {
     key_collection->push_back(k);
   }
 }
 
-// Specialization for flux-variable packs where key is a vpack_types::StringPair (which is
-// a pair of std::vector<std::string>)
+// Specialization for flux-variable packs where key is a vpack_types::UidPair
 template <>
-inline void AppendKey<vpack_types::StringPair>(vpack_types::StringPair *key_collection,
-                                               const vpack_types::StringPair *new_key) {
+inline void AppendKey<vpack_types::UidPair>(vpack_types::UidPair *key_collection,
+                                               const vpack_types::UidPair *new_key) {
   for (const auto &k : new_key->first) {
     key_collection->first.push_back(k);
   }
@@ -270,19 +269,19 @@ class MeshData {
   template <typename... Args>
   const auto &PackVariablesAndFluxesImpl(PackIndexMap *map_out, Args &&...args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
-                             PackIndexMap &map, vpack_types::StringPair &key) {
+                             PackIndexMap &map, vpack_types::UidPair &key) {
       return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)..., map,
                                                     key);
     };
 
-    return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>, vpack_types::StringPair>(
+    return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>, vpack_types::UidPair>(
         varFluxPackMap_, block_data_, pack_function, map_out);
   }
 
   template <typename... Args>
   const auto &PackVariablesImpl(PackIndexMap *map_out, bool coarse, Args &&...args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
-                             PackIndexMap &map, std::vector<std::string> &key) {
+                             PackIndexMap &map, vpack_types::VPackKey_t &key) {
       return meshblock_data->PackVariables(std::forward<Args>(args)..., map, key, coarse);
     };
     return pack_on_mesh_impl::PackOnMesh<VariablePack<T>, vpack_types::VPackKey_t>(
