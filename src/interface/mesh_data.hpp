@@ -60,7 +60,7 @@ inline void AppendKey<vpack_types::VPackKey_t>(vpack_types::VPackKey_t *key_coll
 // Specialization for flux-variable packs where key is a vpack_types::UidPair
 template <>
 inline void AppendKey<vpack_types::UidPair>(vpack_types::UidPair *key_collection,
-                                               const vpack_types::UidPair *new_key) {
+                                            const vpack_types::UidPair *new_key) {
   for (const auto &k : new_key->first) {
     key_collection->first.push_back(k);
   }

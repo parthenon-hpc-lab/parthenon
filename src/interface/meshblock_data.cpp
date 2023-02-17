@@ -429,7 +429,7 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
   return var_list;
 }
 
-template<typename T>
+template <typename T>
 typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids) {
   typename MeshBlockData<T>::VarList var_list;

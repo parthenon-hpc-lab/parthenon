@@ -190,13 +190,13 @@ class MeshBlockData {
   /// Get list of variables and labels by names (either a full variable name or sparse
   /// base name), optionally selecting only given sparse ids
   VarList GetVariablesByName(const std::vector<std::string> &names,
-                                  const std::vector<int> &sparse_ids = {});
+                             const std::vector<int> &sparse_ids = {});
 
   /// Get list of variables and labels by metadata flags (must match all flags if
   /// match_all is true, otherwise must only match at least one), optionally selecting
   /// only given sparse ids
   VarList GetVariablesByFlag(const Metadata::FlagCollection &flags,
-                                  const std::vector<int> &sparse_ids = {});
+                             const std::vector<int> &sparse_ids = {});
 
   // Get list of variables specified by unique identifiers
   VarList GetVariablesByUid(const std::vector<Uid_t> &uids);
@@ -472,8 +472,7 @@ class MeshBlockData {
   const VariableFluxPack<T> &
   PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                          const std::vector<std::string> &flx_names,
-                         const std::vector<int> &sparse_ids,
-                         vpack_types::UidPair &key) {
+                         const std::vector<int> &sparse_ids, vpack_types::UidPair &key) {
     return PackVariablesAndFluxesImpl(var_names, flx_names, sparse_ids, nullptr, &key);
   }
   const VariableFluxPack<T> &
