@@ -26,7 +26,7 @@ expressing a global reduction. The basic strategy follows:
 To facilitate this pattern, parthenon provides an ``AllReduce`` struct,
 described below. Examples of the pattern above and the usage of
 ``AllReduce`` are provided
-`here <../example/poisson/poisson_driver.cpp>`__.
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/poisson_driver.cpp>`__.
 
 AllReduce
 ---------

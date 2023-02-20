@@ -1,15 +1,12 @@
-Anonymous Variables
-===================
-
 Metadata
---------
+========
 
 Variables can be tagged with a variety of ``MetadataFlag`` values. These
 flags primarily allow an application to tell Parthenon to apply certain
 behaviors to each field.
 
 Dependency Management
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 Several packages may add variables of the same name. These metadata
 flags tell ``Parthenon`` how to resolve conflicts.
@@ -30,11 +27,11 @@ flags tell ``Parthenon`` how to resolve conflicts.
    the package that registers them unless another package provides said
    variable (with the Provides flag), in which case, that other package
    determines what happens to that variable. If two packages request an
-   Overridable variable, but it is not provided, it’s undefined
+   Overridable variable, but it is not provided, it's undefined
    behaviour and Parthenon warns as such.
 
 Variable Topology
-~~~~~~~~~~~~~~~~~
+-----------------
 
 Topology essentially specifies on which place on the finite volume grid
 the variable is defined. These fields specify what index space the
@@ -57,7 +54,7 @@ mutually exclusive:
    pointwise.
 
 Variable Behaviors
-~~~~~~~~~~~~~~~~~~
+------------------
 
 These flags can be used to tell an application code how to treat a
 variable in relation to the problem.
@@ -71,7 +68,7 @@ variable in relation to the problem.
    may not be allocated on all blocks.
 
 Output
-~~~~~~
+------
 
 These flags specify how a variable interacts with I/O. Enable them to
 enable output properties.
@@ -79,7 +76,7 @@ enable output properties.
 -  ``Metadata::Restart`` implies a variable is required in restart files
 
 Tensor properties and boundaries
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------
 
 For multidimensional variables, these flags specify how to treat the
 individual components at boundaries. For concreteness, we will discuss
@@ -97,7 +94,7 @@ flags are mutually exclusive.
    condition, but for tensor quantities.
 
 Independent/Derived
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
 These flags specify to an application code, and the infrastructure,
 whether or not a variable is part of independent state. Derived
@@ -114,7 +111,7 @@ derived.
    the independent state. This is the default.
 
 Communication
-~~~~~~~~~~~~~
+-------------
 
 These flags specify both how ghost zones are treated, and whether
 variables are copied or not in multiple stages.
@@ -127,7 +124,7 @@ variables are copied or not in multiple stages.
    this.
 
 Ghost Zones, Communication, and Fluxes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------
 
 Depending on a combination of flags, extra communication buffers and
 classes may be allocated. The behaviours are the following:
@@ -160,7 +157,7 @@ classes may be allocated. The behaviours are the following:
    codes.*
 
 Application Metadata Flags
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------
 
 Applications can allocate their own flags by calling
 ``Metadata::AllocateNewFlag("FlagName")``. For example:

@@ -1,14 +1,14 @@
-MeshBlockData, MeshBlockData Iterators, and Variable Packs
-==========================================================
+Containers
+==========
 
-MeshBlockData
--------------
+``MeshBlockData``
+-----------------
 
-A *``MeshBlockData`` container* owns *``Variable``\ s.* Each
+A ``MeshBlockData`` container owns ``Variable``\ s. Each
 ``Variable`` is named, and the ``MeshBlockData`` container knows about
 various types of ``Variable``\ s, such as whether the ``Variable`` is
 for cell-centered data, face-centered data, sparse data, or dense data.
-(For more details on anonymous variables, see `here <Metadata.md>`__.)
+(For more details on anonymous variables, see :ref:`here <src/interface/metadata:Metadata>`\ .)
 ``Variable``\ s in a ``MeshBlockData`` container can be different
 shapes, e.g., scalar, tensor, etc. A ``Variable`` can be added to a
 ``MeshBlockData`` container as:
@@ -82,7 +82,7 @@ If you do not care about indexing into ``Variable``\ s by name, you can
 ommit the ``map`` argument in any of the above calls.
 
 For examples of use, see
-`here <../../tst/unit/test_meshblock_data_iterator.cpp>`__.
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/test_meshblock_data_iterator.cpp>`__.
 
 Coordinates
 ~~~~~~~~~~~
@@ -105,7 +105,7 @@ for any ``i``. This latter API is used for consistency with
 ``MeshBlockPack``\ s.
 
 ``MeshData`` and ``MeshBlockPack``\ s
-=====================================
+-------------------------------------
 
 ``Kokkos`` kernel launches come with an overhead (e.g., about 6
 microsecond on a V100). For small kernels that perform little work
@@ -127,7 +127,7 @@ first before it can be accessed through ``MeshData`` and
 ``MeshBlockPacks``.
 
 Registering ``MeshData``
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``MeshData`` is a lightweight object that aggregates multiple
 ``MeshBlock``\ s. Therefore, it needs to be setup/registered with some
@@ -135,16 +135,16 @@ number of ``MeshBlock``\ s (at least one and at most all), which is
 referred to as partitioning.
 
 The ``Partition`` machinery is implemented in
-```utils/partition_stl_containers.hpp`` <../../src/utils/partition_stl_containers.hpp>`__.
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/src/utils/partition_stl_containers.hpp>`__.
 
 Registration and partitioning can be controlled manually or
 automatically (recommended in multi-stage drivers).
 
 Manual registration
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 The following steps (used in the ``calculate_pi`` example
-`here <../../example/calculate_pi/pi_driver.cpp>`__ ) are needed to
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/calculate_pi/pi_driver.cpp>`__ ) are needed to
 manually register and fill a ``MeshData`` object.
 
 .. code:: cpp
@@ -202,13 +202,13 @@ the ``Get(label)`` function:
    auto &md = pmesh->mesh_data.Get(std::to_string(i));
 
 Automatic registration
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 For ease of use, the steps illustrated in the manual registration are
 automated in the
 ``mesh_data.GetOrAdd(string MeshBlockData_label, int partition_id)``
 function (e.g., used in the ``advection`` example
-`here <../../example/advection/advection_driver.cpp>`__ ). Here, the
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/advection_driver.cpp>`__ ). Here, the
 partitioning in the background uses the default Mesh partition size
 (``pack_size``) and the the total number of partition is accesse through
 ``pmesh->DefaultNumPartitions();``. Thus, a sample usage in a driver
@@ -232,7 +232,7 @@ that executes Tasks on multiple partitions in parallel may look like
    }
 
 ``MeshBlockPack`` Access and Data Layout
-----------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``MeshBlockPack`` is indexable as a five-dimensional
 ``Kokkos::View``. The slowest moving index indexes into a 4-dimensional
@@ -279,7 +279,7 @@ and fields:
    int dim = meshblockpack.GetDim(n);
 
 For an example using all these methods see the ``FluxDivergence``
-function in `update.cpp <../../src/interface/update.cpp>`__.
+function in `update.cpp <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/src/interface/update.cpp>`__.
 
 Type
 ~~~~

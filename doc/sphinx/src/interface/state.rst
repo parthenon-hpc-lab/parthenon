@@ -7,74 +7,78 @@ high-performance in low-level, performance critical kernels. This page
 gives an overview of the basic classes involved in state management.
 
 Metadata
-========
+--------
 
 The ``Metadata`` class provides a means of defining self-describing
-variables within Parthenon. It’s documentation can be found
-`here <Metadata.md>`__.
+variables within Parthenon. It's documentation can be found
+:ref:`here <metadata>`.
 
 StateDescriptor
-===============
+---------------
 
 The ``StateDescriptor`` class is intended to be used to inform Parthenon
 about the needs of an application and store relevant parameters that
 control application-specific behavior at runtime. The class provides
-several useful features and functions. \*
-``bool AddField(const std::string& field_name, Metadata& m)`` provides
-the means to add new (dense) variables to a Parthenon-based application
-with associated ``Metadata``. This function does not allocate any
-storage or create any of the objects below, it simply adds the name and
-``Metadata`` to a list so that those objects can be populated at the
-appropriate time. \* ``bool AddSparsePool(...)`` either adds a given
-``SparsePool`` or forwards the arguments to the ``SparsePool``
-constructor. A ``SparsePool`` is a collection of sparse variable fields
-that share the same base name and ``Metadata``, except that the shape,
-``Vector``/``Tensor`` metadata flags, and component names can be
-specified per sparse id. Currently, sparse variables are allocated on
-all blocks just like dense variables, however, in a future upgrade, they
-will only be allocated on those blocks where the user explicitly
-allocates them or non-zero values are advected into. \*
-``void AddParam<T>(const std::string& key, T& value, bool is_mutable)``
-adds a parameter (e.g. a timestep control coefficient, refinement
-tolerance, etc.) with name ``key`` and value ``value``. If
-``is_mutable`` is true, parameters can be more easily modified. \*
-``void UpdateParam<T>(const std::string& key, T& value)``\ updates a
-parameter (e.g. a timestep control coefficient, refinement tolerance,
-etc.) with name ``key`` and value ``value``. A parameter of the same
-type must exist. \* ``const T& Param(const std::string& key)`` provides
-the getter to access parameters previously added by ``AddParam``. \*
-``T *MutableParam(const std::string &key)`` returns a pointer to a
-parameter that has been marked mutable when it was added. Note this
-pointer is *not* marked ``const``. \*
-``void FillDerivedBlock(MeshBlockData<Real>* rc)`` delgates to the
-``std::function`` member ``FillDerivedBlock`` if set (defaults to
-``nullptr`` and therefore a no-op) that allows an application to provide
-a function that fills in derived quantities from independent state per
-``MeshBlockData<Real>``. \* ``void FillDerivedMesh(MeshData<Real>* rc)``
-delgates to the ``std::function`` member ``FillDerivedMesh`` if set
-(defaults to ``nullptr`` and therefore a no-op) that allows an
-application to provide a function that fills in derived quantities from
-independent state per ``MeshData<Real>``. \*
-``Real EstimateTimestepBlock(MeshBlockData<Real>* rc)`` delgates to the
-``std::function`` member ``EstimateTimestepBlock`` if set (defaults to
-``nullptr`` and therefore a no-op) that allows an application to provide
-a means of computing stable/accurate timesteps for a mesh block. \*
-``Real EstimateTimestepMesh(MeshData<Real>* rc)`` delgates to the
-``std::function`` member ``EstimateTimestepBlock`` if set (defaults to
-``nullptr`` and therefore a no-op) that allows an application to provide
-a means of computing stable/accurate timesteps for a mesh block. \*
-``AmrTag CheckRefinement(MeshBlockData<Real>* rc)`` delegates to the
-``std::function`` member ``CheckRefinementBlock`` if set (defaults to
-``nullptr`` and therefore a no-op) that allows an application to define
-an application-specific refinement/de-refinement tagging function. \*
-``void PreStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc)``
-deletgates to the ``std::function`` member ``PreStepDiagnosticsMesh`` if
-set (defaults to ``nullptr`` an therefore a no-op) to print diagnostics
-before the time-integration advance \*
-``void PostStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc)``
-deletgates to the ``std::function`` member ``PostStepDiagnosticsMesh``
-if set (defaults to ``nullptr`` an therefore a no-op) to print
-diagnostics after the time-integration advance
+several useful features and functions.
+
+- ``bool AddField(const std::string& field_name, Metadata& m)`` provides
+  the means to add new (dense) variables to a Parthenon-based application
+  with associated ``Metadata``. This function does not allocate any
+  storage or create any of the objects below, it simply adds the name and
+  ``Metadata`` to a list so that those objects can be populated at the
+  appropriate time.
+- ``bool AddSparsePool(...)`` either adds a given
+  ``SparsePool`` or forwards the arguments to the ``SparsePool``
+  constructor. A ``SparsePool`` is a collection of sparse variable fields
+  that share the same base name and ``Metadata``, except that the shape,
+  ``Vector``/``Tensor`` metadata flags, and component names can be
+  specified per sparse id. Currently, sparse variables are allocated on
+  all blocks just like dense variables, however, in a future upgrade, they
+  will only be allocated on those blocks where the user explicitly
+  allocates them or non-zero values are advected into.
+- ``void AddParam<T>(const std::string& key, T& value, bool is_mutable)``
+  adds a parameter (e.g. a timestep control coefficient, refinement
+  tolerance, etc.) with name ``key`` and value ``value``. If
+  ``is_mutable`` is true, parameters can be more easily modified.
+- ``void UpdateParam<T>(const std::string& key, T& value)``\ updates a
+  parameter (e.g. a timestep control coefficient, refinement tolerance,
+  etc.) with name ``key`` and value ``value``. A parameter of the same
+  type must exist.
+- ``const T& Param(const std::string& key)`` provides
+  the getter to access parameters previously added by ``AddParam``.
+- ``T *MutableParam(const std::string &key)`` returns a pointer to a
+  parameter that has been marked mutable when it was added. Note this
+  pointer is *not* marked ``const``.
+- ``void FillDerivedBlock(MeshBlockData<Real>* rc)`` delgates to the
+  ``std::function`` member ``FillDerivedBlock`` if set (defaults to
+  ``nullptr`` and therefore a no-op) that allows an application to provide
+  a function that fills in derived quantities from independent state per
+  ``MeshBlockData<Real>``.
+- ``void FillDerivedMesh(MeshData<Real>* rc)``
+  delegates to the ``std::function`` member ``FillDerivedMesh`` if set
+  (defaults to ``nullptr`` and therefore a no-op) that allows an
+  application to provide a function that fills in derived quantities from
+  independent state per ``MeshData<Real>``.
+- ``Real EstimateTimestepBlock(MeshBlockData<Real>* rc)`` delgates to the
+  ``std::function`` member ``EstimateTimestepBlock`` if set (defaults to
+  ``nullptr`` and therefore a no-op) that allows an application to provide
+  a means of computing stable/accurate timesteps for a mesh block.
+- ``Real EstimateTimestepMesh(MeshData<Real>* rc)`` delgates to the
+  ``std::function`` member ``EstimateTimestepBlock`` if set (defaults to
+  ``nullptr`` and therefore a no-op) that allows an application to provide
+  a means of computing stable/accurate timesteps for a mesh block.
+- ``AmrTag CheckRefinement(MeshBlockData<Real>* rc)`` delegates to the
+  ``std::function`` member ``CheckRefinementBlock`` if set (defaults to
+  ``nullptr`` and therefore a no-op) that allows an application to define
+  an application-specific refinement/de-refinement tagging function.
+- ``void PreStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc)``
+  deletgates to the ``std::function`` member ``PreStepDiagnosticsMesh`` if
+  set (defaults to ``nullptr`` an therefore a no-op) to print diagnostics
+  before the time-integration advance.
+- ``void PostStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc)``
+  deletgates to the ``std::function`` member ``PostStepDiagnosticsMesh``
+  if set (defaults to ``nullptr`` an therefore a no-op) to print
+  diagnostics after the time-integration advance
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``
 function pointers appropriate for usage with both ``MeshData`` and
@@ -92,7 +96,7 @@ object, which is a
 ``std::map<std::string, std::shared_ptr<StateDescriptor>>``. The object
 is intended to be populated with a ``StateDescriptor`` object per
 package via an ``Initialize`` function as in the advection example
-`here <../example/advection/advection.cpp>`__. When Parthenon makes use
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/docs/example/advection/advection.cpp>`__. When Parthenon makes use
 of the ``Packages_t`` object, it iterates over all entries in the
 ``std::map``. Note that it’s often useful to add a ``StateDescriptor``
 to the ``Packages_t`` object for the overall application, allowing for a
@@ -103,7 +107,7 @@ History output
 
 Parthenon allows packages to enroll an arbitrary number of “history”
 functions that are all called at the interval according to the input
-parameters, see `output documention <../outputs.md#History-Files>`__.
+parameters, see :ref:`output documention <../outputs.md#History-Files>`.
 
 To enroll functions create a list of callback function with the
 appropriate reduction operation:
@@ -134,7 +138,7 @@ which all match their respective MPI counterpart. *Note*, in case of
 volume weighting being desired (e.g., to calculate the total value in
 the simulation domain of some density) the volume weighting need to be
 done within the callback function, see the `advection
-example <../../example/advection/advection_package.cpp>`__.
+example <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/advection_package.cpp>`__.
 
 Callback functions need to have the following signature
 
@@ -153,43 +157,32 @@ expectation that the “base” container holds the most recent data at the
 end of a timestep.
 
 ParArrayND
-==========
+----------
 
 This provides a light wrapper around ``Kokkos::View`` with some
 convenience features. It is described fully
-`here <../parthenon_arrays.md>`__.
+:ref:`here <../parthenon_arrays.md>`__.
 
 CellVariable
-============
+------------
 
 The ``CellVariable`` class collects several associated objects that are
 needed to store, describe, and update simulation data. ``CellVariable``
 is templated on type ``T`` and includes the following member data (names
 preceded by ``_`` have private scope):
 
-+---------+------------------------------------------------------------+
-| Member  | Description                                                |
-| Data    |                                                            |
-+=========+============================================================+
-| `       | Storage for the cell-centered associated with the object.  |
-| `ParArr |                                                            |
-| ayND<T> |                                                            |
-|  data`` |                                                            |
-+---------+------------------------------------------------------------+
-| ``Pa    | Storage for the face-centered intercell fluxes in each     |
-| rArrayN | direction.Only allocated for fields registered with the    |
-| D<T> fl | ``Metadata::Independent`` flag.                            |
-| ux[3]`` |                                                            |
-+---------+------------------------------------------------------------+
-| ``Par   | Storage for coarse buffers need for multilevel setups.     |
-| ArrayND |                                                            |
-| <T> coa |                                                            |
-| rse_s`` |                                                            |
-+---------+------------------------------------------------------------+
-| `       | See `here <Metadata.md>`__.                                |
-| `Metada |                                                            |
-| ta m_`` |                                                            |
-+---------+------------------------------------------------------------+
++----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| Member Data                | Description                                                                                                                                     |
++============================+=================================================================================================================================================+
+| ``ParArrayND<T> data``     | Storage for the cell-centered associated with the object.                                                                                       |
++----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| ``ParArrayND<T> flux[3]``  | Storage for the face-centered intercell fluxes in each direction. Only allocated for fields registered with the ``Metadata::Independent`` flag. |
++----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| ``ParArrayND<T> coarse_s`` | Storage for coarse buffers need for multilevel setups.                                                                                          |
++----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| ``Metadata m_``            | See :ref:`here <interface/metadata:metadata>`.                                                                                                  |
++----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+
 
 Additionally, the class overloads the ``()`` operator to provide
 convenient access to the ``data`` array, though this may be less
@@ -200,14 +193,14 @@ Finally, the ``bool IsSet(const MetadataFlag bit)`` member function
 provides a convenient mechanism to query whether a particular
 ``Metadata`` flag is set for the ``CellVariable``.
 
-FaceVariable (Work in progress…)
-================================
+FaceVariable (Work in progress...)
+----------------------------------
 
-EdgeVariable (Work in progress…)
-================================
+EdgeVariable (Work in progress...)
+----------------------------------
 
 Sparse fields
-=============
+-------------
 
 Sparse fields can be added via the ``StateDescriptor::AddSparsePool``
 function. A ``SparsePool`` is a collection of sparse fields that share a
@@ -233,7 +226,7 @@ the same pool, so if the metadata used to create the pool has associated
 “foo”, then all the sparse IDs of that pool will have associated “foo”.
 
 MeshBlockData
-=============
+-------------
 
 The ``MeshBlockData`` class provides a means of organizing and accessing
 simulation data. New ``Variable``\ s are added to a ``MeshBlockData``
@@ -243,7 +236,7 @@ various kinds of ``Variable`` objects described above, typically by
 name.
 
 DataCollection
-==============
+--------------
 
 The ``DataCollection`` class is the highest level abstraction in
 Parthenon’s state management. Each ``MeshBlock`` in a simulation owns a

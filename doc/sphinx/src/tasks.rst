@@ -27,7 +27,7 @@ dependencies and function arguments should be provided as described
 above.
 
 Examples of both ``AddTask`` calls can be found in the advection example
-`here <../example/advection/advection_driver.cpp>`__.
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/advection_driver.cpp>`__.
 
 AddIteration
 ~~~~~~~~~~~~
@@ -62,7 +62,10 @@ subsequent calls to ``TaskList::AddTask`` as a dependency for other
 tasks. When used as a dependency, ``TaskID`` objects can be combined
 with the bitwise or operator (``|``) to specify multiple dependencies.
 
-## TaskRegion ``TaskRegion`` is a lightweight class that wraps
+TaskRegion
+----------
+
+``TaskRegion`` is a lightweight class that wraps
 ``std::vector<TaskList>``, providing a little extra functionality.
 During task execution (described below), all task lists in a
 ``TaskRegion`` can be operated on concurrently. For example, a
@@ -73,12 +76,15 @@ For example, a global iterative solver cannot be considered complete
 until the stopping criteria are satisfied everywhere, which may require
 evaluating those criteria in tasks that live in different lists within a
 region. An example of this use case is
-shown\ `here <../example/poisson/poisson_driver.cpp>`__. The mechanism
+shown `here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/poisson_driver.cpp>`__. The mechanism
 to mark a task so that dependent tasks will wait until all lists have
 completed it is to call ``AddRegionalDependencies``, as shown in the
 Poisson example.
 
-## TaskCollection A ``TaskCollection`` contains a
+TaskCollection
+--------------
+
+A ``TaskCollection`` contains a
 ``std::vector<TaskRegion>``, i.e. an ordered list of ``TaskRegion``\ s.
 Importantly, each ``TaskRegion`` will be executed to completion before
 subsequent ``TaskRegion``\ s, introducing a notion of sequential
@@ -86,15 +92,25 @@ execution and enabling flexibility in task granularity. For example, the
 following code fragment uses the ``TaskCollection`` and ``TaskRegion``
 abstractions to express work that can be done asynchronously across
 blocks, followed by a bulk synchronous task involving all blocks, and
-finally another round of asynchronous work. \```c++ TaskCollection tc;
-TaskRegion &tr1 = tc.AddRegion(nmb); for (int i = 0; i < nmb; i++) {
-auto task_id = tr1[i].AddTask(dep, foo, args, blocks[i]); }
+finally another round of asynchronous work.
 
-{ TaskRegion &tr2 = tc.AddRegion(1); auto sync_task =
-tr2[0].AddTask(dep, bar, args, blocks); }
+.. code:: cpp
 
-TaskRegion &tr3 = tc.AddRegion(nmb); for (int i = 0; i < nmb; i++) {
-auto task_id = tr3[i].AddTask(dep, foo, args, blocks[i]); } \``\`
+  TaskCollection tc;
+  TaskRegion &tr1 = tc.AddRegion(nmb);
+  for (int i = 0; i < nmb; i++) {
+    auto task_id = tr1[i].AddTask(dep, foo, args, blocks[i]);
+  }
+
+  {
+    TaskRegion &tr2 = tc.AddRegion(1);
+    auto sync_task = tr2[0].AddTask(dep, bar, args, blocks);
+  }
+
+  TaskRegion &tr3 = tc.AddRegion(nmb);
+  for (int i = 0; i < nmb; i++) {
+    auto task_id = tr3[i].AddTask(dep, foo, args, blocks[i]);
+  }
 
 A diagram illustrating the relationship between these different classes
 is shown below.
@@ -102,18 +118,18 @@ is shown below.
 .. figure:: TaskDiagram.png
    :alt: Task Diagram
 
-   Task Diagram
-
 ``TaskCollection`` provides two member functions, ``AddRegion`` and
 ``Execute``.
 
-### AddRegion
+AddRegion
+~~~~~~~~~
 
 ``AddRegion`` simply adds a new ``TaskRegion`` to the back of the
 collection and returns it as a reference. The integer argument
 determines how many task lists make up the region.
 
-### Execute
+Execute
+~~~~~~~
 
 Calling the ``Execute`` method on the ``TaskCollection`` executes all
 the tasks that have been added to the collection, processing each

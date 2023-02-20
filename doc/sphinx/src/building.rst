@@ -48,17 +48,17 @@ General list of cmake options:
 +-------------------------------------------+--------------------------------+---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 
-**NB: CMake options prefixed with *PARTHENON\_* modify behavior.**
+.. note::
+   CMake options prefixed with *PARTHENON\_* modify behavior.
 
-**NB: On MPI usage:**
-
-By default communication buffers are allocated in the execution device’s
-memory, e.g., directly on the GPU when using Cuda. This requires the MPI
-library to be compiled with support for directly accessing device memory
-(e.g., often referred to as “Cuda-aware MPI”). To force buffer
-allocation in host memory (currently *not* recommended as it typically
-results in a performance degradation) set
-``PARTHENON_ENABLE_HOST_COMM_BUFFERS=ON``.
+.. note::
+  **On MPI usage:** By default communication buffers are allocated in the execution device’s
+  memory, e.g., directly on the GPU when using Cuda. This requires the MPI
+  library to be compiled with support for directly accessing device memory
+  (e.g., often referred to as “Cuda-aware MPI”). To force buffer
+  allocation in host memory (currently *not* recommended as it typically
+  results in a performance degradation) set
+  ``PARTHENON_ENABLE_HOST_COMM_BUFFERS=ON``.
 
 Using Parthenon as a Subdirectory
 ---------------------------------

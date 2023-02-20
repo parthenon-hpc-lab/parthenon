@@ -16,7 +16,10 @@ blocks but not others. However, in practice these two concepts are often
 used together. As a result, the current implementation of sparse fields
 in parthenon only allows fields to be sparse if they are sparsely named.
 This should be relaxed in the future. These two concepts are addressed
-in separate sections below. ## Sparse Fields
+in separate sections below.
+
+Sparse Fields
+-------------
 
 For computation and memory savings, it may be desirable to explicitly
 evolve certain fields only on certain sub-regions of the grid. In
@@ -26,22 +29,25 @@ fields does not need to be allocated in those sub-regions. Fields that
 are explicitly evolved on only certain sub-regions of the grid are
 termed “sparse fields.”
 
-Some examples of where sparse fields might be desirable: - Properties
-(density, temperature, etc.) of materials that are only present in
-certain parts of the simulation. One does not want to allocate memory
-that contains all zeros and perform operations on zeros in regions where
-the material is not present. - A self-gravitating fluid in a vacuum.
-Often, astrophysics codes will model this by including fluid throughout
-the entire simulation domain but set a floor on the density and
-temperature of the material to create an effective “atmosphere” around
-the actual self-gravitating system. Regions that are set to the floor do
-not necessarily need to be explicitly tracked and the fluid quantities
-could be treated as sparse fields. - Material that is transitioning
-between non-equilibrium nuclear burning and nuclear statistical
-equilibrium (NSE). In the non-equilibrium regions, the abundances of all
-nuclear species are required to define the composition of the material
-while in the regions that are in NSE only one field (the electron
-fraction) is required to define the composition.
+Some examples of where sparse fields might be desirable:
+
+- Properties (density, temperature, etc.) of materials that are only present in
+  certain parts of the simulation. One does not want to allocate memory
+  that contains all zeros and perform operations on zeros in regions where
+  the material is not present.
+- A self-gravitating fluid in a vacuum.
+  Often, astrophysics codes will model this by including fluid throughout
+  the entire simulation domain but set a floor on the density and
+  temperature of the material to create an effective “atmosphere” around
+  the actual self-gravitating system. Regions that are set to the floor do
+  not necessarily need to be explicitly tracked and the fluid quantities
+  could be treated as sparse fields.
+- Material that is transitioning
+  between non-equilibrium nuclear burning and nuclear statistical
+  equilibrium (NSE). In the non-equilibrium regions, the abundances of all
+  nuclear species are required to define the composition of the material
+  while in the regions that are in NSE only one field (the electron
+  fraction) is required to define the composition.
 
 In Parthenon, sparse fields are implemented at the block level, meaning
 that a field is allocated everywhere or nowhere on each block in the
@@ -67,7 +73,7 @@ simulation. The set of possible operations for a sparse field are:
    sparse field if it is unallocated before loading the ghost data.
    ``allocation_threshold`` is set in the ``Metadata`` of a field. A
    detailed description of sparse ghost zone communication is given
-   `here <../sparse_boundary_communication.md>`__.
+   :ref:`here <Sparse Boundary Communication>`.
 -  *Allocation due to other fields:* In some instances, we may want to
    allocate or deallocate a sparse field when another sparse field is
    allocated or deallocated, not when the field itself changes state
@@ -174,7 +180,10 @@ always be all true, thus not resulting in any additional cache misses.
 
 If sparse is compile-time disabled, this information is passed through
 to the regression test suite, which will adjust its comparison to gold
-results accordingly. ## Sparse naming
+results accordingly.
+
+Sparse naming
+-------------
 
 Of the two sparse concepts described above, sparse naming is much
 simpler to implement, because it is essentially just a convenient front
@@ -243,13 +252,13 @@ Implementing the sparse allocation capability requires deep changes in
 the entire infrastructure, because the entire infrastructure assumed
 that all variables are always allocated on all blocks. It also raises
 the question of how to handle the case when one block has a sparse
-variable allocated and its neighbor doesn’t. Under what circumstances
+variable allocated and its neighbor doesn't. Under what circumstances
 will the neighboring block have to allocate that sparse variable and how
 will this be communicated? Furthermore, the use of MPI to communicate
 boundary and other data between blocks on different MPI ranks requires
 that the sending and receiving ranks both call send and receive
 functions for each message passed between them, which complicates the
-situation where two neighboring blocks don’t have the same sparse
+situation where two neighboring blocks don't have the same sparse
 variables allocated and thus would like to communicate data for
 different sets of variables.
 
@@ -262,9 +271,9 @@ changes that are necessary for sparse variables to work.
    and ``coarse_s``).
 -  A ``CellVariable`` now knows its dimensions and coarse dimensions.
    Because the ``ParArrayND<T> data`` member holding the actual variable
-   data is not necessarily allocated (i.e. it has a size of 0), we can
+   data is not necessarily allocated (i.e., it has a size of 0), we can
    no longer use its size to get the dimension of the ``CellVariable``,
-   but we still need to know its dimensions when it’s unallocated, for
+   but we still need to know its dimensions when it's unallocated, for
    example when adding it to a pack. Similarly, the ``coarse_s`` member
    used to be queried to get the coarse dimensions, but that is also not
    always allocated, thus ``CellVariable`` also directly knows its
@@ -278,18 +287,18 @@ changes that are necessary for sparse variables to work.
    ``std::vector<std::shared_ptr<CellVariable<Real>>>`` instead of a
    ``std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>>``. The
    problem with storing (shallow) copies of the ``ParArrayND``\ s
-   ``data`` and ``coarse_s`` is that they don’t point to the newly
+   ``data`` and ``coarse_s`` is that they don't point to the newly
    allocated views if a variable is initially unallocated and then gets
    allocated during the evolution. Storing a pointer to the
    ``CellVariable`` instance works because that one remains the same
    when it gets allocated.
 -  The caching mechanisms for variable packs, mesh block packs, send
-   buffers, receive (i.e. set) buffers, and restrict buffers now all
+   buffers, receive (i.e., set) buffers, and restrict buffers now all
    include the allocation status of all the contained variables (as a
-   ``std::vector<int>`` because it’s only used on the host). When a pack
+   ``std::vector<int>`` because it's only used on the host). When a pack
    or buffers collection is requested, the allocation status of the
    cached entity is compared to the current allocation status of the
-   variables and if they don’t match, the pack or buffer collection is
+   variables and if they don't match, the pack or buffer collection is
    recreated.
 -  The ``Globals`` namespace contains some global sparse settings
    (whether sparse is enabled, allocation/deallocation thresholds, and
@@ -303,7 +312,7 @@ Allocation status
 
 Every ``CellVariable`` is either allocated or deallocated at all times.
 Furthermore, the ``CellVariable``\ s with the same label but
-corresponding to different stages (i.e. ``MeshBlockData`` instances) of
+corresponding to different stages (i.e., ``MeshBlockData`` instances) of
 the same ``MeshBlock`` are always either allocated or deallocated on all
 stages of the mesh block. This is enforced by the fact that the only
 public methods to (de)allocate a variable is through the mesh block. The
@@ -312,9 +321,9 @@ are meant to be used in the user code to specifically allocate a sparse
 variable on a given block (usually, this would be done in the problem
 generator). They are also used internally by the infrastructure to
 allocate a sparse variable on a block if it receives non-zero boundary
-data for that block, see `Boundary exchange <#boundary-exchange>`__ for
+data for that block, see :ref:`Boundary exchange <#boundary-exchange>`__ for
 details. The infrastructure can also automatically deallocate sparse
-variables on a block, see `Deallocation <#deallocation>`__.
+variables on a block, see :ref:`Deallocation <#deallocation>`__.
 
 When a ``CellVariable`` is allocated, its ``data``, ``flux``, and
 ``coarse_s`` fields are allocated. When the variable is deallocated,
@@ -343,7 +352,7 @@ receiving block if the communicated ghost data is above the allocation
 threshold. Otherwise sparse boundary communication is the same as dense
 boundary communication. A detailed description of the boundary
 communication and flux correction implementation in Parthenon is given
-`here <../sparse_boundary_communication.md>`__.
+:ref:`here <../sparse_boundary_communication.md>`.
 
 AMR and load balancing
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -366,17 +375,17 @@ block. The remaining changes are as follows:
 -  In ``Mesh::PrepareSendSameLevel`` we only fill the send buffer (using
    ``BufferUtility::PackData``) if the variable is allocated, otherwise
    we simply skip that region of the buffer (and leave its values
-   uninitialized, since they won’t be read) so that the data for each
+   uninitialized, since they won't be read) so that the data for each
    variable is in the same place as if all variables were allocated.
 -  In ``Mesh::PrepareSendCoarseToFineAMR`` and
    ``Mesh::PrepareSendFineToCoarseAMR`` we do the same as above, but
    instead of leaving regions of the buffer belonging to unallocated
    variables uninitialized, we fill them with zeros (using
    ``BufferUtility::PackZero``) since the target block may have the
-   variable allocated even if the sender doesn’t (actually, I think this
+   variable allocated even if the sender doesn't (actually, I think this
    can only happen for fine-to-coarse and not for coarse-to-fine).
 -  In ``Mesh::FillSameRankFineToCoarseAMR`` when filling in the
-   destination data, we write zeros if the fine source block doesn’t
+   destination data, we write zeros if the fine source block doesn't
    have the variable allocated. Whereas in
    ``Mesh::FillSameRankCoarseToFineAMR`` we make sure the source and
    destination blocks have the same allocation status for each variable
@@ -384,6 +393,6 @@ block. The remaining changes are as follows:
 -  In all three types of ``Mesh::FinishRecv*`` functions, we read the
    allocation flags for all variables from the buffer, and we allocate
    it on the receiving block if the sending block had it allocated but
-   it’s not yet allocated on the receiving block. We then proceed to
+   it's not yet allocated on the receiving block. We then proceed to
    read the buffer only if the variable is allocated on the receiving
    block.

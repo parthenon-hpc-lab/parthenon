@@ -85,9 +85,10 @@ although the implementation obviously differs.
 The default operations
 ----------------------
 
-The default operations for cell-centered variables are named -
-``parthenon::refinement_ops::RestrictCellAverage`` -
-``parthenon::refinement_ops::ProlongateCellMinMod``
+The default operations for cell-centered variables are named
+
+- ``parthenon::refinement_ops::RestrictCellAverage``
+- ``parthenon::refinement_ops::ProlongateCellMinMod``
 
 both structs are templated on dimension via ``template<int DIM>``.
 

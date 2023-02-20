@@ -12,7 +12,7 @@ This class provides a very simple and efficient means of storing a
 sparse matrix with the special form that every row has identical entries
 relative to the matrix diagonal. A good example of this is in the
 straightforward finite difference discretization of the Poisson equation
-(see `here <../example/poisson/poisson_package.cpp>`__ for example
+(see `here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/poisson_package.cpp>`__ for example
 usage). The ``Stencil`` object is extremely efficient at storing these
 sparse matrices because it only has to store the matrix values and
 offsets from the diagnonal for a single row. The ``Stencil`` class
@@ -29,10 +29,10 @@ matrix than ``Stencil`` provides. Like ``Stencil``, the
 matrix elements have fixed offsets from the diagonal in every row. Here,
 though, the values of the matrix elements can be different from row to
 row. The sparse matrix itself can be stored in a normal
-```CellVariable`` <interface/state.md>`__ with the number of components
+:ref:`CellVariable` with the number of components
 equal to the number of nonzero elements in a row of the matrix. The
 ``SparseMatrixAccessor`` class than associates each of these components
 with a particular matrix element. Like ``Stencil``, the
 ``SparseMatrixAccessor`` class provides ``MatVec`` and ``Jacobi`` member
 functions. A simple demonstration of usage can be found in the `Poisson
-example <../example/poisson/poisson_package.cpp>`__.
+example <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/poisson_package.cpp>`__.
