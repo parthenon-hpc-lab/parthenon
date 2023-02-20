@@ -1,3 +1,5 @@
+.. _reductions:
+
 Task-based reductions
 =====================
 

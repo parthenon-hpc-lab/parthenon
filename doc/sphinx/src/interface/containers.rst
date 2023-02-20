@@ -1,3 +1,5 @@
+.. _containers:
+
 Containers
 ==========
 
@@ -8,7 +10,7 @@ A ``MeshBlockData`` container owns ``Variable``\ s. Each
 ``Variable`` is named, and the ``MeshBlockData`` container knows about
 various types of ``Variable``\ s, such as whether the ``Variable`` is
 for cell-centered data, face-centered data, sparse data, or dense data.
-(For more details on anonymous variables, see :ref:`here <src/interface/metadata:Metadata>`\ .)
+(For more details on anonymous variables, see :ref:`here <metadata>`\ .)
 ``Variable``\ s in a ``MeshBlockData`` container can be different
 shapes, e.g., scalar, tensor, etc. A ``Variable`` can be added to a
 ``MeshBlockData`` container as:

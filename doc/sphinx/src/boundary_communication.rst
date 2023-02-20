@@ -36,6 +36,8 @@ The ``buffer_subsets`` array is a matrix, where the rows index the
 subset, and the columns point to the indices in the ``bnd_info`` array
 containing the subset of sub-halos you wish to operate on.
 
+.. _sparse boundary comm:
+
 Sparse boundary communication
 =============================
 

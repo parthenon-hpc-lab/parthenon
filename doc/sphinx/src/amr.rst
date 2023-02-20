@@ -1,3 +1,5 @@
+.. _amr:
+
 Adaptive Mesh Refinement
 ========================
 

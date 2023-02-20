@@ -1,3 +1,5 @@
+.. _outputs:
+
 Outputs
 =======
 
@@ -5,14 +7,14 @@ Outputs from Parthenon are controled via ``<parthenon/output*>`` blocks,
 where ``*`` should be replaced by a unique integer for each block.
 
 To disable an output block without removing it from the intput file set
-the block’s ``dt < 0.0``.
+the block's ``dt < 0.0``.
 
 In addition to time base outputs, two additional options to trigger
 outputs (applies to HDF5 and restart outputs) exist.
 
 -  Signaling: If ``Parthenon`` catches a signal, e.g., ``SIGALRM`` which
    is often sent by schedulers such as Slurm to signal a job of
-   exceeding the job’s allocated walltime, ``Parthenon`` will gracefully
+   exceeding the job's allocated walltime, ``Parthenon`` will gracefully
    terminate and write output files with a ``final`` id rather than a
    number. This also applies to the ``Parthenon`` internal walltime
    limit, e.g., when executing an application with the ``-t HH:MM:SS``
@@ -63,7 +65,7 @@ parameter ``hdf5_compression_level`` can be used to set the compression
 level (between 1 and 9, default is 5). Compression can be disabled
 altogether with the CMake build option
 ``PARTHENON_DISABLE_HDF5_COMPRESSION``.
-See the :ref:`building parthenon` for more details.
+See the :ref:`building` for more details.
 
 Tuning HDF5 Performance
 -----------------------
@@ -118,6 +120,8 @@ selected as all the variables that have either the ``Independent`` or
 ``Restart`` ``Metadata`` flags specified. No other intervention is
 required by the developer.
 
+.. _output hist files:
+
 History Files
 -------------
 
@@ -134,7 +138,7 @@ block might look like
 
 This will produce a text file (``.hst``) output file every 1 units of
 simulation time. The content of the file is determined by the functions
-enrolled by a specific package, see :ref:`history output`.
+enrolled by a specific package, see :ref:`state history output`.
 
 Python scripts
 --------------

@@ -1,3 +1,5 @@
+.. _inputs:
+
 Input Parameters
 ================
 
@@ -44,7 +46,7 @@ Options related to time-stepping and printing of diagnostic data.
 ``<parthenon/mesh>``
 --------------------
 
-See the :ref:`adaptive mesh refinement` documentation for details of the required
+See the :ref:`amr` documentation for details of the required
 parameters in ``<parthenon/mesh>`` and ``<parthenon/meshblock>``.
 
 +--------+---------+------+---------------------------------------------------------+
@@ -57,12 +59,12 @@ parameters in ``<parthenon/mesh>`` and ``<parthenon/meshblock>``.
 ``<parthenon/sparse>``
 ----------------------
 
-See the :ref:`sparse implementation` documentation for details.
+See the :ref:`sparse impl` documentation for details.
 
 +--------------------+---------+--------+----------------------------------------------------------------------------------------------------------------------------------------------+
 | Option             | Default | Type   | Description                                                                                                                                  |
 +====================+=========+========+==============================================================================================================================================+
-|| enable_sparse     || `true` || bool  || If set to false, sparse variables will always be allocated, see also :ref:`run-time`                                                        |
+|| enable_sparse     || `true` || bool  || If set to false, sparse variables will always be allocated, see also :ref:`sparse run-time`                                                 |
 || alloc_threshold   || 1e-12  || float || Global (for all sparse variables) threshold to trigger allocation of a variable if cells in the receiving ghost cells are above this value. |
 || dealloc_threshold || 1e-14  || float || Global (for all sparse variables) threshold to trigger deallocation if all active cells of a variable in a block are below this value.      |
 || dealloc_count     || 5      || int   || First deallocate a sparse variable if the `dealloc_threshold` has been met in this number of consecutive cycles.                            |

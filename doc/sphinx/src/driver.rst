@@ -1,3 +1,5 @@
+.. _driver:
+
 Application Drivers
 ===================
 

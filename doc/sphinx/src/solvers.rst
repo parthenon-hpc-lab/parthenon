@@ -1,3 +1,5 @@
+.. _solvers:
+
 Solvers
 =======
 
@@ -29,7 +31,7 @@ matrix than ``Stencil`` provides. Like ``Stencil``, the
 matrix elements have fixed offsets from the diagonal in every row. Here,
 though, the values of the matrix elements can be different from row to
 row. The sparse matrix itself can be stored in a normal
-:ref:`CellVariable` with the number of components
+:ref:`cell var` with the number of components
 equal to the number of nonzero elements in a row of the matrix. The
 ``SparseMatrixAccessor`` class than associates each of these components
 with a particular matrix element. Like ``Stencil``, the

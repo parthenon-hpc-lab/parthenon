@@ -1,3 +1,5 @@
+.. _sparse impl:
+
 Sparse implementation
 =====================
 
@@ -73,7 +75,7 @@ simulation. The set of possible operations for a sparse field are:
    sparse field if it is unallocated before loading the ghost data.
    ``allocation_threshold`` is set in the ``Metadata`` of a field. A
    detailed description of sparse ghost zone communication is given
-   :ref:`here <Sparse Boundary Communication>`.
+   :ref:`here <Sparse boundary comm>`.
 -  *Allocation due to other fields:* In some instances, we may want to
    allocate or deallocate a sparse field when another sparse field is
    allocated or deallocated, not when the field itself changes state
@@ -148,6 +150,8 @@ Turning off sparse
 
 The sparse allocation feature can be turned off at run- or compile-time.
 The sparse naming feature cannot be turned off.
+
+.. _sparse run-time:
 
 Run-time
 ~~~~~~~~
@@ -321,9 +325,9 @@ are meant to be used in the user code to specifically allocate a sparse
 variable on a given block (usually, this would be done in the problem
 generator). They are also used internally by the infrastructure to
 allocate a sparse variable on a block if it receives non-zero boundary
-data for that block, see :ref:`Boundary exchange <#boundary-exchange>`__ for
+data for that block, see `Boundary exchange`_ for
 details. The infrastructure can also automatically deallocate sparse
-variables on a block, see :ref:`Deallocation <#deallocation>`__.
+variables on a block, see `Deallocation`_.
 
 When a ``CellVariable`` is allocated, its ``data``, ``flux``, and
 ``coarse_s`` fields are allocated. When the variable is deallocated,
@@ -352,7 +356,7 @@ receiving block if the communicated ghost data is above the allocation
 threshold. Otherwise sparse boundary communication is the same as dense
 boundary communication. A detailed description of the boundary
 communication and flux correction implementation in Parthenon is given
-:ref:`here <../sparse_boundary_communication.md>`.
+:ref:`here <Sparse boundary comm>`.
 
 AMR and load balancing
 ~~~~~~~~~~~~~~~~~~~~~~

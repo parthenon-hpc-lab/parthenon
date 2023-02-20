@@ -7,7 +7,7 @@ features in Parthenon and how to use them.
 Building parthenon
 ------------------
 
-See the :ref:`build doc <building.md>` for details on building Parthenon
+See the :ref:`build doc <building>` for details on building Parthenon
 for specific systems.
 
 Description of examples
@@ -233,14 +233,14 @@ a rule of thumb:
 Developer guide
 ~~~~~~~~~~~~~~~
 
-Please see the :ref:`full development guide <development.md>` on how to use
+Please see the :ref:`full development guide <development>` on how to use
 Kokkos-based performance portable abstractions available within
 Parthenon and how to write performance portable code.
 
 State Management
 ~~~~~~~~~~~~~~~~
 
-:ref:`Full Documentation <interface/state.md>`
+:ref:`Full Documentation <state>`
 
 Parthenon provides a convenient means of managing simulation data.
 Variables can be registered with Parthenon to have the framework
@@ -252,49 +252,49 @@ Application Drivers
 
 A description of the Parthenon-provided classes that facilitate
 developing the high-level functionality of an application (e..g. time
-stepping) can be found :ref:`here <driver.md>`.
+stepping) can be found :ref:`here <driver>`.
 
 Adaptive Mesh Refinement
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 A description of how to enable and extend the AMR capabilities of
-Parthenon is provided :ref:`here <amr.md>`.
+Parthenon is provided :ref:`here <amr>`.
 
 Tasks
 ~~~~~
 
 The tasking capabilities in Parthenon are documented
-:ref:`here <tasks.md>`.
+:ref:`here <tasks>`.
 
 Outputs
 ~~~~~~~
 
-Check :ref:`here <outputs.md>` for a description of how to get data out of
+Check :ref:`here <outputs>` for a description of how to get data out of
 Parthenon and how to visualize it.
 
 MeshBlockDatas and MeshBlockData Iterators
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-See :ref:`here <interface/containers.md>` for a description of containers,
+See :ref:`here <containers>` for a description of containers,
 container iterators, and variable packs.
 
 Index Shape and Index Range
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A description of mesh indexing classes :ref:`here <mesh/domain.md>`.
+A description of mesh indexing classes :ref:`here <domain>`.
 
 Coordinates
 ~~~~~~~~~~~
 
 Accessing coordinate information on each block is described
-:ref:`here <coordinates.md>`. Currently only uniform Cartesian coordinates
+:ref:`here <coordinates>`. Currently only uniform Cartesian coordinates
 are supported in Parthenon but uniform Spherical and cylindrical
 coordinates specified at compile time are forthcoming.
 
 Input file parameter
 ~~~~~~~~~~~~~~~~~~~~
 
-An overview of input file parameters :ref:`here <inputs.md>`
+An overview of input file parameters :ref:`here <inputs>`
 
 Note that all parameters can be overridden (or new parameters added)
 through the command line by appending the parameters to the launch
@@ -310,10 +310,10 @@ Global reductions
 
 Global reductions are a common need for downstream applications and can
 be accomplished within Parthenon’s task-based execution as described
-:ref:`here <reductions.md>`.
+:ref:`here <reductions>`.
 
 Solvers
 ~~~~~~~
 
 Solvers are still a work in progress in Parthenon, but some basic
-building blocks are described :ref:`here <solvers.md>`.
+building blocks are described :ref:`here <solvers>`.

@@ -1,3 +1,5 @@
+.. _pararrays:
+
 Parthenon Set-Dimensional Arrays
 ================================
 

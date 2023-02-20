@@ -1,3 +1,5 @@
+.. _state:
+
 State Management
 ================
 
@@ -37,11 +39,11 @@ several useful features and functions.
   will only be allocated on those blocks where the user explicitly
   allocates them or non-zero values are advected into.
 - ``void AddParam<T>(const std::string& key, T& value, bool is_mutable)``
-  adds a parameter (e.g. a timestep control coefficient, refinement
+  adds a parameter (e.g., a timestep control coefficient, refinement
   tolerance, etc.) with name ``key`` and value ``value``. If
   ``is_mutable`` is true, parameters can be more easily modified.
 - ``void UpdateParam<T>(const std::string& key, T& value)``\ updates a
-  parameter (e.g. a timestep control coefficient, refinement tolerance,
+  parameter (e.g., a timestep control coefficient, refinement tolerance,
   etc.) with name ``key`` and value ``value``. A parameter of the same
   type must exist.
 - ``const T& Param(const std::string& key)`` provides
@@ -102,12 +104,14 @@ of the ``Packages_t`` object, it iterates over all entries in the
 to the ``Packages_t`` object for the overall application, allowing for a
 convenient way to define global parameters, for example.
 
+.. _state history output:
+
 History output
 --------------
 
 Parthenon allows packages to enroll an arbitrary number of “history”
 functions that are all called at the interval according to the input
-parameters, see :ref:`output documention <../outputs.md#History-Files>`.
+parameters, see :ref:`output documention <output hist files>`.
 
 To enroll functions create a list of callback function with the
 appropriate reduction operation:
@@ -153,7 +157,7 @@ non existent) a single “base” ``MeshData`` object containing *all*
 blocks of a rank. This simplifies the the logic for reductions over all
 blocks of a rank and also (generally) resuls in better performance as
 the number of kernel calls is reduced. However, this also implies the
-expectation that the “base” container holds the most recent data at the
+expectation that the "base" container holds the most recent data at the
 end of a timestep.
 
 ParArrayND
@@ -161,7 +165,9 @@ ParArrayND
 
 This provides a light wrapper around ``Kokkos::View`` with some
 convenience features. It is described fully
-:ref:`here <../parthenon_arrays.md>`__.
+:ref:`here <pararrays>`.
+
+.. _cell var:
 
 CellVariable
 ------------
@@ -180,7 +186,7 @@ preceded by ``_`` have private scope):
 +----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``ParArrayND<T> coarse_s`` | Storage for coarse buffers need for multilevel setups.                                                                                          |
 +----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``Metadata m_``            | See :ref:`here <interface/metadata:metadata>`.                                                                                                  |
+| ``Metadata m_``            | See :ref:`here <metadata>`.                                                                                                                     |
 +----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
 
 
