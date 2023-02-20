@@ -1,3 +1,5 @@
+.. _nested par for:
+
 Nested Parallelism
 ==================
 

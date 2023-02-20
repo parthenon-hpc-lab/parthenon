@@ -55,12 +55,12 @@ Kokkos wrappers/abstractions
    deallocation calls are not performant and should be used minimally.
 
 An arbitrary-dimensional wrapper for ``Kokkos::Views`` is available as
-``ParArrayND``. See documentation `here <parthenon_arrays.md>`__.
+``ParArrayND``. See documentation :ref:`here <pararrays>`.
 
 The wrappers ``par_for_outer`` and ``par_for_inner`` provide a nested
 parallelism interface that is needed for managing memory cached in
 tightly nested loops. The wrappers are documented
-`here <nested_par_for.md>`__.
+:ref:`here <nested par for>`.
 
 The need for reductions within function handling ``MeshBlock`` data
 -------------------------------------------------------------------

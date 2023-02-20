@@ -92,10 +92,10 @@ Important things to note:
 - You can use the ``MeshBlock::par_for_bndry`` abstraction to loop over the
   appropriate cells by specifying the ``IndexDomain`` for the ghost region
   and whether or not the loop is coarse. For more information on the
-  ``IndexDomain`` object, see `here <mesh/domain.md>`__.
+  ``IndexDomain`` object, see :ref:`here <domain>`.
 - You can pack over all the coarse or fine buffers of a variable with the
   ``PackVariables`` optional ``coarse`` boolean as seen here.
 
 Other than these requirements, the ``Boundary`` object can do whatever
 you like. Reference implementations of the standard boundary conditions
-are available `here <../src/bvals/boundary_conditions.cpp>`__.
+are available `here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/src/bvals/boundary_conditions.cpp>`__.

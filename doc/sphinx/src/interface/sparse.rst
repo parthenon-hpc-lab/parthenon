@@ -166,6 +166,8 @@ perform ``IsAllocated`` checks, so this mode does not remove the sparse
 infrastructure overhead, but it is useful to debug issues arising with
 the usage of sparse variables.
 
+.. _sparse compile-time:
+
 Compile-time
 ~~~~~~~~~~~~
 
