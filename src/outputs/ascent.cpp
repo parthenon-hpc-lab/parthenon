@@ -67,7 +67,7 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // A user might need to override this, e.g., in a runtime ascent_options.yaml, if
   // the required fields cannot be resolved by Ascent.
   // See https://ascent.readthedocs.io/en/latest/AscentAPI.html#field-filtering
-  ascent_opts["field_filtering"] = "true";
+  // ascent_opts["field_filtering"] = "true";
   ascent.open(ascent_opts);
 
   // create root node for the whole mesh
