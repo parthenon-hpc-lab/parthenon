@@ -31,6 +31,7 @@
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
+#include "utils/error_checking.hpp"
 
 // Ascent headers
 #ifdef PARTHENON_ENABLE_ASCENT
@@ -153,16 +154,21 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     // create a field for each component of each variable pack
     auto &mbd = pmb->meshblock_data.Get();
 
-    for (auto &vars : mbd->GetCellVariableVector()) {
-      const std::string packname = vars->label();
-      auto const &labels = vars->metadata().getComponentLabels();
-      auto const &data = vars->data;
+    for (const auto &var : mbd->GetCellVariableVector()) {
+      PARTHENON_REQUIRE(var->GetDim(6) * var->GetDim(5) == 1,
+                        "Only scalar and vector fields are currently exported in Ascent. "
+                        "Please open an issue on GitHub if you have a use case.");
+
+      const std::string packname = var->label();
+      auto const &labels = var->metadata().getComponentLabels();
 
       for (int icomp = 0; icomp < labels.size(); ++icomp) {
+        auto const data = Kokkos::subview(var->data, 0, 0, icomp, Kokkos::ALL(),
+                                          Kokkos::ALL(), Kokkos::ALL());
         const std::string varname = packname + ":" + labels.at(icomp);
         mesh["fields/" + varname + "/association"] = "element";
         mesh["fields/" + varname + "/topology"] = "topo";
-        mesh["fields/" + varname + "/values"].set_external(&data(icomp, 0, 0, 0), ncells);
+        mesh["fields/" + varname + "/values"].set_external(data.data(), ncells);
       }
     }
   }
