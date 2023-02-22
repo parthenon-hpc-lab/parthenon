@@ -16,7 +16,7 @@
 
 namespace parthenon {
 
-template class MultiStageDriver<LowStorageIntegrator>;
-template class MultiStageBlockTaskDriver<LowStorageIntegrator>;
+template class MultiStageDriverGeneric<LowStorageIntegrator>;
+template class MultiStageBlockTaskDriverGeneric<LowStorageIntegrator>;
 
 } // namespace parthenon

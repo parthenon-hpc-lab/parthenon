@@ -28,9 +28,9 @@
 namespace parthenon {
 
 template<typename Integrator=LowStorageIntegrator>
-class MultiStageDriver : public EvolutionDriver {
+class MultiStageDriverGeneric : public EvolutionDriver {
  public:
-  MultiStageDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+  MultiStageDriverGeneric(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : EvolutionDriver(pin, app_in, pm),
         integrator(std::make_unique<Integrator>(pin)) {}
   // An application driver that derives from this class must define this
@@ -57,12 +57,13 @@ class MultiStageDriver : public EvolutionDriver {
  protected:
   std::unique_ptr<Integrator> integrator;
 };
+using MultiStageDriver = MultiStageDriverGeneric<LowStorageIntegrator>;
 
 template<typename Integrator=LowStorageIntegrator>
-class MultiStageBlockTaskDriver : public MultiStageDriver<Integrator> {
+class MultiStageBlockTaskDriverGeneric : public MultiStageDriverGeneric<Integrator> {
  public:
-  MultiStageBlockTaskDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-    : MultiStageDriver<Integrator>(pin, app_in, pm) {}
+  MultiStageBlockTaskDriverGeneric(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+    : MultiStageDriverGeneric<Integrator>(pin, app_in, pm) {}
   virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
   virtual TaskListStatus Step() {
     Kokkos::Profiling::pushRegion("MultiStageBlockTask_Step");
@@ -81,6 +82,7 @@ class MultiStageBlockTaskDriver : public MultiStageDriver<Integrator> {
 protected:
   std::unique_ptr<Integrator> integrator;
 };
+using MultiStageBlockTaskDriver = MultiStageBlockTaskDriverGeneric<LowStorageIntegrator>;
 
 } // namespace parthenon
 
