@@ -26,12 +26,13 @@
 #include <catch2/catch.hpp>
 
 #include "basic_types.hpp"
-#include "driver/multistage.hpp"
+#include "time_integration/staged_integrator.hpp"
 #include "parameter_input.hpp"
 
 using parthenon::ParameterInput;
 using parthenon::Real;
 using parthenon::StagedIntegrator;
+using parthenon::LowStorageIntegrator;
 
 // Test our integrators by integrating the equation
 // for a harmonic oscillator:
@@ -66,7 +67,7 @@ void GetInitialData(State_t &u) {
 auto Make2SStarIntegrator(const std::string &integration_strategy) {
   ParameterInput in;
   in.SetString("parthenon/time", "integrator", integration_strategy);
-  return StagedIntegrator(&in);
+  return LowStorageIntegrator(&in);
 }
 
 /*

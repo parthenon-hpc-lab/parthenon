@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,26 +23,15 @@
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "tasks/task_list.hpp"
+#include "time_integration/staged_integrator.hpp"
 
 namespace parthenon {
-
-struct StagedIntegrator {
-  StagedIntegrator() = default;
-  explicit StagedIntegrator(ParameterInput *pin);
-  int nstages;
-  std::vector<Real> delta;
-  std::vector<Real> beta;
-  std::vector<Real> gam0;
-  std::vector<Real> gam1;
-  std::vector<std::string> stage_name;
-  Real dt;
-};
 
 class MultiStageDriver : public EvolutionDriver {
  public:
   MultiStageDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : EvolutionDriver(pin, app_in, pm),
-        integrator(std::make_unique<StagedIntegrator>(pin)) {}
+        integrator(std::make_unique<LowStorageIntegrator>(pin)) {}
   // An application driver that derives from this class must define this
   // function, which defines the application specific list of tasks and
   // the dependencies that must be executed.
@@ -50,7 +39,7 @@ class MultiStageDriver : public EvolutionDriver {
   virtual TaskListStatus Step();
 
  protected:
-  std::unique_ptr<StagedIntegrator> integrator;
+  std::unique_ptr<LowStorageIntegrator> integrator;
 };
 
 class MultiStageBlockTaskDriver : public MultiStageDriver {
