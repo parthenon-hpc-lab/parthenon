@@ -159,7 +159,7 @@ classes may be allocated. The behaviours are the following:
    codes.*
 
 Application Metadata Flags
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------
 
 Applications can allocate their own flags by calling
 ``Metadata::AllocateNewFlag("FlagName")``. For example:
@@ -186,7 +186,7 @@ Note that this call will return an error if a flag is requested that
 hasn't been registered.
 
 Flag Collections
-~~~~~~~~~~~~~~~~~
+-----------------
 
 The ``Metadata::FlagCollection`` class provides a way to express a desire for
 a collection of ``Parthenon`` fields that satisfy some combinations of
