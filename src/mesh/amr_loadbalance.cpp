@@ -74,6 +74,7 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
       RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal);
       modified = true;
     }
+    step_since_lb = 0;
     //lb_flag_ = false;
   }
   Kokkos::Profiling::popRegion(); // LoadBalancingAndAdaptiveMeshRefinement
