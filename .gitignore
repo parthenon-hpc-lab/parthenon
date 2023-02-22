@@ -40,3 +40,7 @@ compile_commands.json
 # Files created by bad CMake hygiene
 a.out
 cmake_hdf5_test.o
+
+# Python artifacts
+*.pyc
+*.egg-info
