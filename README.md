@@ -1,7 +1,7 @@
 # Parthenon
 
-[![testing](https://github.com/lanl/parthenon/actions/workflows/ci-short.yml/badge.svg?branch=develop)](https://github.com/lanl/parthenon/actions/workflows/ci-short.yml)
-[![Extended CI](https://github.com/lanl/parthenon/actions/workflows/ci-extended.yml/badge.svg?branch=develop)](https://github.com/lanl/parthenon/actions/workflows/ci-extended.yml)
+[![testing](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/ci-short.yml/badge.svg?branch=develop)](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/ci-short.yml)
+[![Extended CI](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/ci-extended.yml/badge.svg?branch=develop)](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/ci-extended.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Matrix chat](https://img.shields.io/matrix/parthenon-general:matrix.org)](https://app.element.io/#/room/#parthenon-general:matrix.org)
 
@@ -46,7 +46,7 @@ Parthenon -- a performance portable block-structured adaptive mesh refinement fr
 
 # Quick start guide
 
-For detailed instructions for a given system, see our [build doc](docs/building.md).
+For detailed instructions for a given system, see our [build doc](https://parthenon-hpc-lab.github.io/parthenon/develop/src/building.html).
 
 ## Basics
 
@@ -116,10 +116,8 @@ Please see the [developer guidelines](CONTRIBUTING.md) for additional informatio
 
 # Documentation
 
-Please see the [docs/](docs/README.md) folder for additional documentation on features and
+Please see the [docs](https://parthenon-hpc-lab.github.io/parthenon) for additional documentation on features and
 how to use them.
-
-We are migrating our legacy docs to sphinx, which can be found [here](https://parthenon-hpc-lab.github.io/parthenon).
 
 # Contributors
 
