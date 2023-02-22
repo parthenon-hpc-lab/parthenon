@@ -140,6 +140,44 @@ This will produce a text file (``.hst``) output file every 1 units of
 simulation time. The content of the file is determined by the functions
 enrolled by a specific package, see :ref:`state history output`.
 
+Ascent (optional)
+-----------------
+
+Parthenon supports in situ visualization and analysis via the external
+`Ascent <https://ascent.readthedocs.io>`__ library.
+Support for Ascent is disabled by default and must be enabled via ``PARTHENON_ENABLE_ASCENT=ON`` during configure.
+
+In the input file, include a ``<parthenon/output*>`` block and specify ``file_type = ascent``.
+A ``dt`` parameter controls the frequency of outputs for simulations involving evolution.
+*Note* that in principle Ascent can control its own output cadence (including
+automated tiggers).
+If you want to call Ascent on every cycle, set ``dt`` to a value smaller than the actual simulation ``dt``.
+The mandatory ``actions_file`` parameter points to a separate file that defines
+Ascent actions in ``.yaml`` or ``.json`` format, see
+`Ascent documentation <https://ascent.readthedocs.io/en/latest/Actions/index.html>`__ for a complete list of options.
+
+A ``<parthenon/output*>`` block might look like::
+
+  <parthenon/output9>
+  file_type = ascent
+  dt = 1.0
+  actions_files = my_actions.yaml
+
+see also the advection example
+`input file <https://github.com/parthenon-hpc-lab/parthenon/blob/ascent-support/example/advection/parthinput.advection>`__ and
+`actions file <https://github.com/parthenon-hpc-lab/parthenon/blob/ascent-support/example/advection/custom_ascent_actions.yaml>`__.
+
+*Note* by default "field filtering" is enabled for Ascent in Parthenon, i.e.,
+only fields that are used in Ascent actions are published.
+There may be cases, where Ascent cannot determine which fields it needs for
+an action and will fail.
+In this case, add an ``ascent_options.yaml`` file to the run directory containing::
+
+  field_filtering: false
+
+to override at runtime.
+See `Ascent documenation <https://ascent.readthedocs.io/en/latest/AscentAPI.html#field-filtering>`__ for more information.
+
 Python scripts
 --------------
 
