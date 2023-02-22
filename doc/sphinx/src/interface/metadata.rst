@@ -190,7 +190,7 @@ Flag Collections
 
 The ``Metadata::FlagCollection`` class provides a way to express a desire for
 a collection of ``Parthenon`` fields that satisfy some combinations of
-``MetadataFlag`` s. In particular, a ``FlagCollection`` specifies for a
+``MetadataFlag``\ s. In particular, a ``FlagCollection`` specifies for a
 desire for fields with:
 
 - At least **one** of the flags in the ``Unions`` property of the ``FlagCollection``
