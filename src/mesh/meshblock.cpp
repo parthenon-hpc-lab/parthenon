@@ -195,7 +195,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     const auto refine_vars = real_container->GetVariablesByFlag(flags).vars();
     pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
-    for (const auto &v : vars) {
+    for (const auto &v : refine_vars) {
       // These are used for doing refinement
       pmr->AddToRefinement(v);
     }
