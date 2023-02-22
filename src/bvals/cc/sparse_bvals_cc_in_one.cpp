@@ -70,7 +70,6 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
             }
             return buf_t(chunk, std::make_pair(0, buf_size));
           })));
-      pmesh->LogBufferMem(nbuf*buf_size*sizeof(Real));
     }
 
     const int receiver_rank = nb.snb.rank;

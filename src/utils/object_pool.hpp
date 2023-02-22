@@ -61,6 +61,14 @@ class ObjectPool {
     std::cout << available_.size() << " unused objects." << std::endl;
     std::cout << inuse_.size() << " used objects." << std::endl;
   }
+  
+  std::uint64_t ByteSize() const {
+    constexpr std::uint64_t datum_size = sizeof(base_t::value_type);
+    std::uint64_t object_size = 0; 
+    if (inuse_.size() > 0) object_size = inuse_.begin()->second.first.size();
+    else if (available_.size() > 0) object_size = available_.top().size();
+    return datum_size * object_size * (inuse_.size() + available_.size());
+  }
 
   // This should be used with care since it can't generically be
   // checked that the input object has the same size as other objects

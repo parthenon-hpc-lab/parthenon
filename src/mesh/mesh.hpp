@@ -196,12 +196,12 @@ class Mesh {
     }
   }
 
-  uint64_t GetBufferPoolSize() const {
-    return buffer_mem_;
-  }
-
-  void LogBufferMem(uint64_t size) {
-    buffer_mem_ += size;
+  uint64_t GetBufferPoolSizeInBytes() const {
+    std::uint64_t buffer_memory = 0; 
+    for (auto &p : pool_map) { 
+     buffer_memory += p.second.ByteSize();
+    }
+    return buffer_memory; 
   }
 
  private:
@@ -244,9 +244,6 @@ class Mesh {
 
   // size of default MeshBlockPacks
   int default_pack_size_;
-
-  // memory allocated in buffers
-  uint64_t buffer_mem_;
 
 #ifdef MPI_PARALLEL
   // Global map of MPI comms for separate variables
