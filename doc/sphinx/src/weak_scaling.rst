@@ -20,7 +20,7 @@ To Build
 
    module purge
    module load cmake gcc/7.4.0 cuda/10.2 openmpi/p9/4.0.1-gcc_7.4.0 anaconda/Anaconda3.2019.10
-   git clone git@github.com:lanl/parthenon.git --recursive
+   git clone git@github.com:parthenon-hpc-lab/parthenon.git --recursive
    cd parthenon
    git checkout develop && git pull
    git submodule update --init --recursive

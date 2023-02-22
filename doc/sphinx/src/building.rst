@@ -70,7 +70,7 @@ your project. For example, you can add parthenon as a git submodule:
 
 ::
 
-   git submodule add https://github.com/lanl/parthenon.git
+   git submodule add https://github.com/parthenon-hpc-lab/parthenon.git
 
 And then you can use parthenon in your CMake project by adding it as a
 subdirectory:
@@ -193,7 +193,7 @@ dependencies (mostly Kokkos)
 .. code:: bash
 
    # Clone parthenon, with submodules
-   git clone --recursive https://github.com/lanl/parthenon.git
+   git clone --recursive https://github.com/parthenon-hpc-lab/parthenon.git
    export PARTHENON_ROOT=$(pwd)/parthenon
 
 We set the latter variable for easier reference in out-of-source builds.

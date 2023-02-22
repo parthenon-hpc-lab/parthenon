@@ -1,5 +1,5 @@
-Parthenon documentation
-=======================
+Overview
+========
 
 This file provides an overview of different (not necessarily all)
 features in Parthenon and how to use them.

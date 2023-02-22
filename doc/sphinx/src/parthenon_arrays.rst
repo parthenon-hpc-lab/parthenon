@@ -132,7 +132,7 @@ To avoid this issue, you can:
 - Template appropriate functions on array type
 
 For more details, see
-`here <https://github.com/lanl/parthenon/issues/143>`__.
+`here <https://github.com/parthenon-hpc-lab/parthenon/issues/143>`__.
 
 Mirrors and Deep Copies
 -----------------------
