@@ -55,7 +55,7 @@ jobs:
 
       # run performance "unit" tests (none use MPI)
       - name: Performance tests
-        if: ${{ matrix.parallel}} == 'serial'
+        if: ${{ matrix.parallel == 'serial' }}
         run: |
           cd build
           ctest -L performance -LE perf-reg
@@ -67,8 +67,8 @@ jobs:
           ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
 
       # Test Ascent integration (only most complex setup with MPI and on device)
-      - name: Performance tests
-        if: ${{ matrix.parallel}} == 'mpi' && ${{ matrix.device}} == 'cuda'
+      - name: Ascent tests
+        if: ${{ matrix.parallel == 'mpi' && matrix.device == 'cuda' }}
         run: |
           cmake -B build-ascent \
             -DCMAKE_BUILD_TYPE=Release \
