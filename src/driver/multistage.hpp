@@ -27,27 +27,59 @@
 
 namespace parthenon {
 
+template<typename Integrator=LowStorageIntegrator>
 class MultiStageDriver : public EvolutionDriver {
  public:
   MultiStageDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : EvolutionDriver(pin, app_in, pm),
-        integrator(std::make_unique<LowStorageIntegrator>(pin)) {}
+        integrator(std::make_unique<Integrator>(pin)) {}
   // An application driver that derives from this class must define this
   // function, which defines the application specific list of tasks and
   // the dependencies that must be executed.
   virtual TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage) = 0;
-  virtual TaskListStatus Step();
+  virtual TaskListStatus Step() {
+    Kokkos::Profiling::pushRegion("MultiStage_Step");
+    using DriverUtils::ConstructAndExecuteTaskLists;
+    TaskListStatus status;
+    integrator->dt = tm.dt;
+    for (int stage = 1; stage <= integrator->nstages; stage++) {
+      // Clear any initialization info. We should be relying
+      // on only the immediately preceding stage to contain
+      // reasonable data
+      pmesh->SetAllVariablesToInitialized();
+      status = ConstructAndExecuteTaskLists<>(this, stage);
+      if (status != TaskListStatus::complete) break;
+    }
+    Kokkos::Profiling::popRegion(); // MultiStage_Step
+    return status;
+  }
 
  protected:
-  std::unique_ptr<LowStorageIntegrator> integrator;
+  std::unique_ptr<Integrator> integrator;
 };
 
-class MultiStageBlockTaskDriver : public MultiStageDriver {
+template<typename Integrator=LowStorageIntegrator>
+class MultiStageBlockTaskDriver : public MultiStageDriver<Integrator> {
  public:
   MultiStageBlockTaskDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : MultiStageDriver(pin, app_in, pm) {}
+    : MultiStageDriver<Integrator>(pin, app_in, pm) {}
   virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
-  virtual TaskListStatus Step();
+  virtual TaskListStatus Step() {
+    Kokkos::Profiling::pushRegion("MultiStageBlockTask_Step");
+    using DriverUtils::ConstructAndExecuteBlockTasks;
+    TaskListStatus status;
+    Integrator *integrator = (this->integrator).get();
+    SimTime tm = this->tm;
+    integrator->dt = tm.dt;
+    for (int stage = 1; stage <= integrator->nstages; stage++) {
+      status = ConstructAndExecuteBlockTasks<>(this, stage);
+      if (status != TaskListStatus::complete) break;
+    }
+    Kokkos::Profiling::popRegion(); // MultiStageBlockTask_Step
+    return status;
+  }
+protected:
+  std::unique_ptr<Integrator> integrator;
 };
 
 } // namespace parthenon

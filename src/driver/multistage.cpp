@@ -16,34 +16,7 @@
 
 namespace parthenon {
 
-TaskListStatus MultiStageDriver::Step() {
-  Kokkos::Profiling::pushRegion("MultiStage_Step");
-  using DriverUtils::ConstructAndExecuteTaskLists;
-  TaskListStatus status;
-  integrator->dt = tm.dt;
-  for (int stage = 1; stage <= integrator->nstages; stage++) {
-    // Clear any initialization info. We should be relying
-    // on only the immediately preceding stage to contain
-    // reasonable data
-    pmesh->SetAllVariablesToInitialized();
-    status = ConstructAndExecuteTaskLists<>(this, stage);
-    if (status != TaskListStatus::complete) break;
-  }
-  Kokkos::Profiling::popRegion(); // MultiStage_Step
-  return status;
-}
-
-TaskListStatus MultiStageBlockTaskDriver::Step() {
-  Kokkos::Profiling::pushRegion("MultiStageBlockTask_Step");
-  using DriverUtils::ConstructAndExecuteBlockTasks;
-  TaskListStatus status;
-  integrator->dt = tm.dt;
-  for (int stage = 1; stage <= integrator->nstages; stage++) {
-    status = ConstructAndExecuteBlockTasks<>(this, stage);
-    if (status != TaskListStatus::complete) break;
-  }
-  Kokkos::Profiling::popRegion(); // MultiStageBlockTask_Step
-  return status;
-}
+template class MultiStageDriver<LowStorageIntegrator>;
+template class MultiStageBlockTaskDriver<LowStorageIntegrator>;
 
 } // namespace parthenon
