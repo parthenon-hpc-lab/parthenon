@@ -135,10 +135,10 @@ class CellVariable {
   int num_alloc_ = 0;
 
   // allocate data only
-  void AllocateData(bool flag_uninitialized = false);
+  void AllocateData(MeshBlock *pmb, bool flag_uninitialized = false);
 
   // deallocate data, fluxes, and boundary variable
-  void Deallocate();
+  int Deallocate();
 
   /// allocate fluxes (if Metadata::WithFluxes is set) and coarse data if
   /// (Metadata::FillGhost is set)

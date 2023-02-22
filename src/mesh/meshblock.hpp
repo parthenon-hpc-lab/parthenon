@@ -285,6 +285,14 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }
 
+  void LogMemUsage(int delta) {
+    mem_usage += delta;
+  }
+
+  uint64_t ReportMemUsage() {
+    return mem_usage;
+  }
+
   // It would be nice for these par_dispatch_ functions to be private, but they can't be
   // 1D default loop pattern
   template <typename Tag, typename Function, class... Args>
@@ -409,6 +417,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
       new_block_dt_user_;
   std::vector<std::shared_ptr<CellVariable<Real>>> vars_cc_;
   std::vector<std::shared_ptr<FaceField>> vars_fc_;
+  uint64_t mem_usage;
 
   // Initializer to set up a meshblock called with the default constructor
   // This is necessary because the back pointers can't be set up until

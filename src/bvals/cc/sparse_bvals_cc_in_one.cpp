@@ -58,11 +58,11 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
     // Add a buffer pool if one does not exist for this size
     if (pmesh->pool_map.count(buf_size) == 0) {
+      // TODO(LFR): Make nbuf a user settable parameter
+      const int nbuf = 200;
       pmesh->pool_map.emplace(std::make_pair(
-          buf_size, buf_pool_t<Real>([buf_size](buf_pool_t<Real> *pool) {
+          buf_size, buf_pool_t<Real>([buf_size,nbuf](buf_pool_t<Real> *pool) {
             using buf_t = buf_pool_t<Real>::base_t;
-            // TODO(LFR): Make nbuf a user settable parameter
-            const int nbuf = 200;
             buf_t chunk("pool buffer", buf_size * nbuf);
             for (int i = 1; i < nbuf; ++i) {
               pool->AddFreeObjectToPool(
@@ -70,6 +70,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
             }
             return buf_t(chunk, std::make_pair(0, buf_size));
           })));
+      pmesh->LogBufferMem(nbuf*buf_size*sizeof(Real));
     }
 
     const int receiver_rank = nb.snb.rank;

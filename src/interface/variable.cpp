@@ -96,7 +96,7 @@ CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
   auto cv = std::make_shared<CellVariable<T>>(base_name_, m, sparse_id_, wpmb);
 
   if (is_allocated_) {
-    cv->AllocateData();
+    cv->AllocateData(wpmb.lock().get());
   }
 
   cv->CopyFluxesAndBdryVar(this);
@@ -110,12 +110,12 @@ void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitia
     return;
   }
 
-  AllocateData(flag_uninitialized);
+  AllocateData(wpmb.lock().get(), flag_uninitialized);
   AllocateFluxesAndCoarse(wpmb);
 }
 
 template <typename T>
-void CellVariable<T>::AllocateData(bool flag_uninitialized) {
+void CellVariable<T>::AllocateData(MeshBlock *pmb, bool flag_uninitialized) {
   PARTHENON_REQUIRE_THROWS(
       !is_allocated_,
       "Tried to allocate data for variable that's already allocated: " + label());
@@ -126,6 +126,8 @@ void CellVariable<T>::AllocateData(bool flag_uninitialized) {
 
   data.initialized = !flag_uninitialized;
   is_allocated_ = true;
+
+  pmb->LogMemUsage(data.size()*sizeof(T));
 }
 
 /// allocate communication space based on info in MeshBlock
@@ -152,6 +154,8 @@ void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
     for (int d = X1DIR; d <= n_outer; ++d) {
       flux[d] = flux_data_.Get(d - 1);
     }
+    std::shared_ptr<MeshBlock> pmb = wpmb.lock();
+    pmb->LogMemUsage(flux_data_.size()*sizeof(T));
   }
 
   // Create the boundary object
@@ -163,20 +167,25 @@ void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
       coarse_s = ParArrayND<T, VariableState>(
           base_name + ".coarse", MakeVariableState(), coarse_dims_[5], coarse_dims_[4],
           coarse_dims_[3], coarse_dims_[2], coarse_dims_[1], coarse_dims_[0]);
+      pmb->LogMemUsage(coarse_s.size()*sizeof(T));
     }
   }
 }
 
 template <typename T>
-void CellVariable<T>::Deallocate() {
+int CellVariable<T>::Deallocate() {
 #ifdef ENABLE_SPARSE
   if (!IsAllocated()) {
-    return;
+    return 0;
   }
 
+  int mem_size = 0;
+
+  mem_size += data.size()*sizeof(T);
   data.Reset();
 
   if (IsSet(Metadata::WithFluxes)) {
+    mem_size += flux_data_.size()*sizeof(T);
     flux_data_.Reset();
     int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
     for (int d = X1DIR; d <= n_outer; ++d) {
@@ -185,6 +194,7 @@ void CellVariable<T>::Deallocate() {
   }
 
   if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) || IsSet(Metadata::RemeshComm)) {
+    mem_size += coarse_s.size() * sizeof(T);
     coarse_s.Reset();
   }
 
@@ -192,6 +202,7 @@ void CellVariable<T>::Deallocate() {
 #else
   PARTHENON_THROW("CellVariable<T>::Deallocate(): Sparse is compile-time disabled");
 #endif
+  return mem_size;
 }
 
 // TODO(jcd): clean these next two info routines up
