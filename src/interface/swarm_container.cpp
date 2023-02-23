@@ -45,6 +45,7 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
   swarm->AllocateComms(GetBlockPointer());
   swarmVector_.push_back(swarm);
   swarmMap_[label] = swarm;
+  UpdateMetadataMap_(swarm);
 }
 
 void SwarmContainer::Remove(const std::string &label) {

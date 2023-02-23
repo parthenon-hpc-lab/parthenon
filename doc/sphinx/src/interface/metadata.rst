@@ -159,7 +159,7 @@ classes may be allocated. The behaviours are the following:
    codes.*
 
 Application Metadata Flags
---------------------------
+---------------------------
 
 Applications can allocate their own flags by calling
 ``Metadata::AllocateNewFlag("FlagName")``. For example:
@@ -174,3 +174,130 @@ Applications can allocate their own flags by calling
 These can be used in all the same contexts that the built-in metadata
 flags are used. Parthenon will not interpret them in any way - it’s up
 to the application to interpret them.
+
+A user-registered metadata flag can be retrieved from the
+infrastructure by, for example:
+
+.. code:: cpp
+
+   MetadataFlag const my_app_flag = Metadata::GetUserFlag("MyAppFlag");
+
+Note that this call will return an error if a flag is requested that
+hasn't been registered.
+
+Flag Collections
+-----------------
+
+The ``Metadata::FlagCollection`` class provides a way to express a desire for
+a collection of ``Parthenon`` fields that satisfy some combinations of
+``MetadataFlag``\ s. In particular, a ``FlagCollection`` specifies for a
+desire for fields with:
+
+- At least **one** of the flags in the ``Unions`` property of the ``FlagCollection``
+
+- **All** of the flags in the ``Intersections`` property of the ``FlagCollection``
+
+- **None** of the flags in the ``Exclusions`` property of the ``FlagCollection``
+
+Flag collections can be constructed from a C++
+standard library container of ``MetadataFlag`` objects, or simply a
+comma separated list of them. For example:
+
+.. code:: cpp
+
+   using parthenon::Metadata;
+   using parthenon::MetadataFlag;
+   using FS_t = Metadata::FlagCollection
+   // Constructor from a container
+   FS_t set1(std::vector<MetadataFlag>{Metadata::Cell, Metadata::Face});
+   // Constructor from a comma separated list
+   FS_t set2(Metadata::Requires, Metadata::Overridable);
+
+By default constructor arguments go into the ``Intersections`` property
+of the ``FlagCollection``. However, if a container is passed into the
+constructor, you can also pass in an optional boolean flag to specify
+whether or not you want to match **any** flags instead of **all**
+flag. This adds the constructor arguments to the ``Unions``
+property of the ``FlagCollection``.
+
+.. code:: cpp
+
+   // Implicit construction from a container, which
+   // requests EITHER the following flags instead of BOTH
+   FS_t set2({Metadata::Independent, Metadata::FillGhost}, true);
+
+The flags contained in the ``Unions``, ``Intersections``, and
+``Exclusions`` properties of the ``FlagCollection`` can be extracted via
+equivalently named accessors, which return a ``std::set``. For
+example:
+
+.. code:: cpp
+
+   const std::set<MetadataFlag> &u = set1.Unions();
+   const std::set<MetadataFlag> &i = set1.Intersections();
+   const std::set<MetadataFlag> &e = set1.Exclusions();
+
+For the most part, you should not need these accessors. They are used
+by Parthenon internal functions, such as variable and meshblock
+packing, to compute the correct variables to pack.
+
+You can add flags to these property fields with the ``TakeUnion``,
+``TakeIntersection``, and ``Exclude`` methods. These methods take
+either a standard library container of metadata flags, or another
+``FlagCollection`` instance. For example, you could write:
+
+.. code:: cpp
+
+   FS_t my_set;
+   my_set.TakeUnion(std::vector<MetadataFlag>{Flag1, Flag2});
+   my_set.TakeIntersection(Flag3, Flag4);
+   my_set.Exclude(Flag5, Flag6);
+
+which expresses a desire for particles/fields with EITHER Flag1 or
+Flag2 AND Flag3 AND Flag4 and NOT Flag5 or Flag6. Note that these
+methods accept standard library containers as well as simple
+comma-separated lists.
+
+The ``FlagCollection`` class supports algebraic operations, although they are
+not entirely consistent with standard arithmetic order of
+operations. In particular:
+
+.. code:: cpp
+
+   // this could also be auto s = set1 || set2;
+   auto s = set1 + set2;
+
+produces a set s with the a unions field which is the set union of the
+union fields of set1 and set2. However,
+
+.. code:: cpp
+
+   // this could also be s = set1 && set2;
+   auto s = set1 * set2;
+
+Produces a set s with a "unions" field of set1 and an intersections
+field containing the original intersections of set1, and the
+intersections of set2.
+
+.. code:: cpp
+
+   auto s = Set1 - Set2
+
+Produces a set s with the "unions" and "intersections" fields of set1
+and an exclusion field containing set1's exlcusion field as well as
+ALL THREE fields (union, intersection, exclusion) contained by set2.
+
+This feels unintuitive, but it makes expressions like
+
+.. code:: cpp
+
+   auto s = FS_t({Flag1, Flag2},true) * FS_t({Flag3, Flag4}) - FS_t({Flag5, Flag6})
+
+behave in an intuitive way. This translates to a desire for
+particles/fields with EITHER Flag1 or Flag2 AND Flag3 AND Flag4 and
+NOT Flag5 or Flag6.
+
+When in doubt about arithmetic with FlagCollections, aggressively use
+parenthesis to enforce the order of operations you expect.
+
+Note that the unary inverse operator is **not** supported.
