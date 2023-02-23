@@ -165,7 +165,8 @@ class CellVariable {
   const std::array<int, 6> dims_, coarse_dims_;
 
   // Machinery for giving each variable a unique ID that is faster to
-  // evaluate than a string. Assumes number of MPI ranks unchanged
+  // evaluate than a string. uid is determined by order of variable
+  // creation, which is deterministic.
   std::size_t uid_;
   // Inline static initialization is a C++17 feature. Otherwise static
   // vars must be initialized in the implementation file.
