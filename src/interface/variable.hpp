@@ -168,8 +168,8 @@ class CellVariable {
   // evaluate than a string. uid is determined by order of variable
   // creation, which is deterministic.
   std::size_t uid_;
-  // Inline static initialization is a C++17 feature. Otherwise static
-  // vars must be initialized in the implementation file.
+  // This generator needs to be global so that different instances of
+  // variable have the same unique ID.
   inline static UniqueIDGenerator<std::string> get_uid_;
 
   bool is_allocated_ = false;
