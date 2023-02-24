@@ -35,6 +35,7 @@ CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &meta
 
   PARTHENON_REQUIRE_THROWS(IsSparse() == (sparse_id_ != InvalidSparseID),
                            "Mismatch between sparse flag and sparse ID");
+  uid_ = get_uid_(label());
 
   if (m_.getAssociated() == "") {
     m_.Associate(label());
