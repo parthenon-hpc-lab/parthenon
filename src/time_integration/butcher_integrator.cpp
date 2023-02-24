@@ -77,10 +77,10 @@ ButcherIntegrator::ButcherIntegrator(ParameterInput *pin)
     // a | beta
     // --+-----
     //   | c
-    // 
+    //
     // Feagin's 10th-order method has the same number of stages
     // as Fehlberg's classic RK8(9) adaptive method
-    // 
+    //
     // Feagin's coefficients are vailable on his website:
     // https://sce.uhcl.edu/rungekutta/
 

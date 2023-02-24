@@ -22,12 +22,11 @@
 
 namespace parthenon {
 class StagedIntegrator {
-public:
+ public:
   StagedIntegrator() = default;
-  explicit StagedIntegrator(const std::string &name)
-    : name_(name) {}
+  explicit StagedIntegrator(const std::string &name) : name_(name) {}
   explicit StagedIntegrator(ParameterInput *pin)
-    : name_(pin->GetOrAddString("parthenon/time", "integrator", "rk2")) {}
+      : name_(pin->GetOrAddString("parthenon/time", "integrator", "rk2")) {}
 
   // JMM: These might be better as private with accessors, but I will
   // leave them public for backwards compatibility.
@@ -39,17 +38,16 @@ public:
   // Names of integration stages (for backwards compatibility)
   // TODO(JMM): Remove this eventually
   std::vector<std::string> stage_name;
-    
-  const std::string &GetName() const {
-    return name_;
-  }
-protected:
+
+  const std::string &GetName() const { return name_; }
+
+ protected:
   std::string name_;
   void MakePeriodicNames_(std::vector<std::string> &names, int n);
 };
 
 class LowStorageIntegrator : public StagedIntegrator {
-public:
+ public:
   LowStorageIntegrator() = default;
   explicit LowStorageIntegrator(ParameterInput *pin);
   std::vector<Real> delta;
@@ -60,14 +58,14 @@ public:
 
 // TODO(JMM): Should this be named ButcherTableauIntegrator?
 class ButcherIntegrator : public StagedIntegrator {
-public:
+ public:
   ButcherIntegrator() = default;
   explicit ButcherIntegrator(ParameterInput *pin);
   // TODO(JMM): Should I do a flat array with indexing instead?
   std::vector<std::vector<Real>> a;
   std::vector<Real> b, c;
 
-protected:
+ protected:
   void Resize_(int nstages);
 };
 

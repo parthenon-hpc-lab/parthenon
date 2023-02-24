@@ -44,7 +44,7 @@ namespace parthenon {
  * See equations 11 through 15.
  */
 LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
-  : StagedIntegrator(pin->GetOrAddString("parthenon/time", "integrator", "rk2")) {
+    : StagedIntegrator(pin->GetOrAddString("parthenon/time", "integrator", "rk2")) {
   if (name_ == "rk1") {
     nstages = 1;
     nbuffers = 1;
@@ -149,8 +149,7 @@ LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
     gam0[4] = 0.770411587328417;
     gam1[4] = 0.229588412671583;
   } else {
-    throw std::invalid_argument("Invalid selection for the time integrator: " +
-                                name_);
+    throw std::invalid_argument("Invalid selection for the time integrator: " + name_);
   }
   MakePeriodicNames_(buffer_name, nbuffers);
   MakePeriodicNames_(stage_name, nstages);

@@ -224,7 +224,7 @@ TaskStatus SumButcher(const F &flags, std::shared_ptr<T> base_data,
   return TaskStatus::complete;
 }
 template <typename T>
-TaskStatus SumButcherIndependent(const F &flags, std::shared_ptr<T> base_data,
+TaskStatus SumButcherIndependent(std::shared_ptr<T> base_data,
                                  std::vector<std::shared_ptr<T>> stage_data,
                                  std::shared_ptr<T> out_data,
                                  const ButcherIntegrator *pint, Real dt, int stage) {

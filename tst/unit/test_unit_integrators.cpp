@@ -26,14 +26,14 @@
 #include <catch2/catch.hpp>
 
 #include "basic_types.hpp"
-#include "time_integration/staged_integrator.hpp"
 #include "parameter_input.hpp"
+#include "time_integration/staged_integrator.hpp"
 
+using parthenon::ButcherIntegrator;
+using parthenon::LowStorageIntegrator;
 using parthenon::ParameterInput;
 using parthenon::Real;
 using parthenon::StagedIntegrator;
-using parthenon::ButcherIntegrator;
-using parthenon::LowStorageIntegrator;
 
 // Test our integrators by integrating the equation
 // for a harmonic oscillator:
@@ -48,24 +48,22 @@ using parthenon::LowStorageIntegrator;
 // This is a strenuous test since any integrator that isn't
 // time-reversible will accrue error every period.
 
-constexpr Real K = 2*M_PI;
+constexpr Real K = 2 * M_PI;
 constexpr std::size_t NVARS = 2;
 using State_t = std::array<Real, NVARS>;
 void GetRHS(const State_t &u, State_t &rhs) {
   rhs[0] = u[1];
-  rhs[1] = -K*K*u[0];
+  rhs[1] = -K * K * u[0];
 }
 
 void GetTrueSolution(const Real t, State_t &u) {
-  u[0] = std::cos(K*t);
-  u[1] = -K*std::sin(K*t);
+  u[0] = std::cos(K * t);
+  u[1] = -K * std::sin(K * t);
 }
 
-void GetInitialData(State_t &u) {
-  GetTrueSolution(0, u);
-}
+void GetInitialData(State_t &u) { GetTrueSolution(0, u); }
 
-template<typename T>
+template <typename T>
 auto MakeIntegrator(const std::string &integration_strategy) {
   ParameterInput in;
   in.SetString("parthenon/time", "integrator", integration_strategy);
@@ -76,8 +74,7 @@ auto MakeIntegrator(const std::string &integration_strategy) {
  * See Equation 14 in
  * Ketchson, Jcomp 229 (2010) 1763-1773
  */
-void Step2SStar(const LowStorageIntegrator &integrator,
-                Real dt, State_t &u) {
+void Step2SStar(const LowStorageIntegrator &integrator, Real dt, State_t &u) {
   const int nstages = integrator.nstages;
   State_t &S0 = u;
   State_t S1;
@@ -86,53 +83,51 @@ void Step2SStar(const LowStorageIntegrator &integrator,
   }
   for (int stage = 1; stage <= nstages; stage++) {
     State_t rhs;
-    const Real delta = integrator.delta[stage-1];
-    const Real beta = integrator.beta[stage-1];
-    const Real gam0 = integrator.gam0[stage-1];
-    const Real gam1 = integrator.gam1[stage-1];
+    const Real delta = integrator.delta[stage - 1];
+    const Real beta = integrator.beta[stage - 1];
+    const Real gam0 = integrator.gam0[stage - 1];
+    const Real gam1 = integrator.gam1[stage - 1];
     GetRHS(S0, rhs);
     for (int v = 0; v < NVARS; ++v) {
-      //S1[v] = S1[v] + delta * S0[v];
-      // printf("%.14e %d: %.14e * %.14e + %.14e * %.14e + %.14e * %.14e\n",
-      //        t, stage, gam0, S0[v], gam1, S1[v], beta, rhs[v]);
+      // S1[v] = S1[v] + delta * S0[v];
+      //  printf("%.14e %d: %.14e * %.14e + %.14e * %.14e + %.14e * %.14e\n",
+      //         t, stage, gam0, S0[v], gam1, S1[v], beta, rhs[v]);
       S0[v] = gam0 * S0[v] + gam1 * S1[v] + beta * dt * rhs[v];
     }
   }
-  for(int v = 0; v < NVARS; ++v) {
+  for (int v = 0; v < NVARS; ++v) {
     u[v] = S0[v];
   }
 }
 
-void StepButcher(const ButcherIntegrator &integrator,
-                 Real dt, State_t &u) {
+void StepButcher(const ButcherIntegrator &integrator, Real dt, State_t &u) {
   const int nstages = integrator.nstages;
   std::vector<State_t> K(nstages);
   for (int stage = 0; stage < nstages; ++stage) {
     State_t scratch;
-    for(int v = 0; v < NVARS; ++v) {
+    for (int v = 0; v < NVARS; ++v) {
       scratch[v] = u[v];
     }
     for (int prev = 0; prev < stage; ++prev) {
-      for(int v = 0; v < NVARS; ++v) {
+      for (int v = 0; v < NVARS; ++v) {
         scratch[v] += dt * integrator.a[stage][prev] * K[prev][v];
       }
     }
     GetRHS(scratch, K[stage]);
   }
   for (int stage = 0; stage < nstages; ++stage) {
-    for(int v = 0; v < NVARS; ++v) {
-      u[v] += dt * integrator.b[stage]*K[stage][v];
+    for (int v = 0; v < NVARS; ++v) {
+      u[v] += dt * integrator.b[stage] * K[stage][v];
     }
   }
 }
 
-template<typename Integrator, typename Stepper>
-void Integrate(const Integrator &integrator,
-               const Stepper &step,
-               const Real tf, Real dt, State_t &u0) {
-  assert( tf > 0 );
-  assert( dt > 0 );
-  assert( dt < tf );
+template <typename Integrator, typename Stepper>
+void Integrate(const Integrator &integrator, const Stepper &step, const Real tf, Real dt,
+               State_t &u0) {
+  assert(tf > 0);
+  assert(dt > 0);
+  assert(dt < tf);
   // stupid game to align to EXACTLY tf
   int NT = std::ceil(tf / dt);
   Real t = 0;
