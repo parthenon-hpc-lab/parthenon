@@ -20,13 +20,49 @@
 
 namespace parthenon {
 
-void StagedIntegrator::MakePeriodicNames_(std::vector<std::string> &names, int n) {
-  names.resize(n + 1);
-  names[0] = "base";
-  for (int i = 0; i < n; i++) {
-    names[i] = std::to_string(i);
+// classic Butcher Tableau integrators
+// TODO(JMM): Should the names for butcher-tableau-based be the same?
+ButcherIntegrator::ButcherIntegrator(ParameterInput *pin)
+  : StagedIntegrator(pin->GetOrAddString("parthenon/time", "integrator", "rk2")) {
+  if (name_ == "rk1") {
+    nstages = nbuffers = 1;
+    Resize_(nstages);
+
+    a[0][0] = 0;
+    b[0] = 1;
+    c[0] = 0;
+  } else if (name_ == "rk2") {
+    // Heun's method. Should match minimal storage solution
+    nstages = nbuffers = 2;
+    Resize_(nstages);
+
+    a[0] = {0, 0};
+    a[1] = {1, 0};
+    b = {0, 1};
+    c = {0, 1./3., 2./3.};
+  } else if (name_ == "rk4") {
+    // Classic RK4 because why not
+    nstages = nbuffers = 4;
+    Resize_(nstages);
+
+    /* clang-format off */
+    a[0] = {0,   0,   0, 0};
+    a[1] = {0.5, 0,   0, 0};
+    a[2] = {0,   0.5, 0, 0};
+    a[3] = {0,   0,   1, 0};
+    /* clang-format on */
+    b = {1./6., 1./3., 1./3., 1./6.};
+    c = {0, 0.5, 0.5, 1};
   }
-  names[n] = names[0];
+}
+
+void ButcherIntegrator::Resize_(int nstages) {
+  a.resize(nstages);
+  for (int i = 0; i < a.size(); ++i) {
+    a[i].resize(nstages);
+  }
+  b.resize(nstages);
+  c.resize(nstages);
 }
 
 } // namespace parthenon

@@ -32,6 +32,7 @@
 using parthenon::ParameterInput;
 using parthenon::Real;
 using parthenon::StagedIntegrator;
+using parthenon::ButcherIntegrator;
 using parthenon::LowStorageIntegrator;
 
 // Test our integrators by integrating the equation
@@ -64,21 +65,21 @@ void GetInitialData(State_t &u) {
   GetTrueSolution(0, u);
 }
 
-auto Make2SStarIntegrator(const std::string &integration_strategy) {
+template<typename T>
+auto MakeIntegrator(const std::string &integration_strategy) {
   ParameterInput in;
   in.SetString("parthenon/time", "integrator", integration_strategy);
-  return LowStorageIntegrator(&in);
+  return T(&in);
 }
 
 /*
  * See Equation 14 in
  * Ketchson, Jcomp 229 (2010) 1763-1773
  */
-template<typename Integrator_t>
-void Step2SStar(const Integrator_t &integrator,
+void Step2SStar(const LowStorageIntegrator &integrator,
                 Real dt, State_t &u) {
   const int nstages = integrator.nstages;
-  State_t S0, S1;
+  static State_t S0, S1;
   for (int v = 0; v < NVARS; ++v) {
     S0[v] = u[v];
     S1[v] = 0; // set "last step" to prepare for next cycle
@@ -101,9 +102,34 @@ void Step2SStar(const Integrator_t &integrator,
     u[v] = S0[v];
   }
 }
-template<typename Integrator_t>
-void Integrate2SStar(const Integrator_t &integrator,
-                     const Real tf, Real dt, State_t &u0) {
+
+void StepButcher(const ButcherIntegrator &integrator,
+                 Real dt, State_t &u) {
+  const int nstages = integrator.nstages;
+  static std::vector<State_t> K(nstages);
+  for (int stage = 0; stage < nstages; ++stage) {
+    State_t scratch;
+    for(int v = 0; v < NVARS; ++v) {
+      scratch[v] = u[v];
+    }
+    for (int prev = 0; prev < stage; ++prev) {
+      for(int v = 0; v < NVARS; ++v) {
+        scratch[v] += dt * integrator.a[stage][prev] * K[prev][v];
+      }
+    }
+    GetRHS(scratch, K[stage]);
+  }
+  for (int stage = 0; stage < nstages; ++stage) {
+    for(int v = 0; v < NVARS; ++v) {
+      u[v] += dt * integrator.b[stage]*K[stage][v];
+    }
+  }
+}
+
+template<typename Integrator, typename Stepper>
+void Integrate(const Integrator &integrator,
+               const Stepper &step,
+               const Real tf, Real dt, State_t &u0) {
   assert( tf > 0 );
   assert( dt > 0 );
   assert( dt < tf );
@@ -111,70 +137,92 @@ void Integrate2SStar(const Integrator_t &integrator,
   int NT = std::ceil(tf / dt);
   Real t = 0;
   for (int i = 0; i < NT; ++i) {
-    Step2SStar(integrator, dt, u0);
+    step(integrator, dt, u0);
     t += dt;
   }
   if ((t < tf) && (std::abs(tf - t) > 1e-12)) {
     dt = tf - t;
-    Step2SStar(integrator, dt, u0);
+    step(integrator, dt, u0);
   }
 }
 
-TEST_CASE("Integrators", "[StagedIntegrator]") {
+TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
   GIVEN("A state with an initial condition") {
     Real t0 = 0, tf = 1.15; // delibarately not a nice fraction of a period
     State_t ufinal;
     GetTrueSolution(tf, ufinal);
-    WHEN("We integrate with rk1") {
+    WHEN("We integrate with LowStorage rk1") {
       constexpr Real dt = 1e-5;
-      auto integrator = Make2SStarIntegrator("rk1");
+      auto integrator = MakeIntegrator<LowStorageIntegrator>("rk1");
       State_t u;
       GetInitialData(u);
-      Integrate2SStar(integrator, tf, dt, u);
+      Integrate(integrator, Step2SStar, tf, dt, u);
       THEN("The final state doesn't differ too much from the true solution") {
         REQUIRE(std::abs(u[0] - ufinal[0]) <= 1e-2);
         REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-2);
       }
     }
-    WHEN("We integrate with rk2") {
+    WHEN("We integrate with LowStorage rk2") {
       constexpr Real dt = 1e-3;
-      auto integrator = Make2SStarIntegrator("rk2");
+      auto integrator = MakeIntegrator<LowStorageIntegrator>("rk2");
       State_t u;
       GetInitialData(u);
-      Integrate2SStar(integrator, tf, dt, u);
+      Integrate(integrator, Step2SStar, tf, dt, u);
       THEN("The final state doesn't differ too much from the true solution") {
         REQUIRE(std::abs(u[0] - ufinal[0]) <= 1e-2);
         REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-2);
       }
     }
-    WHEN("We integrate with vl2") {
+    WHEN("We integrate with LowStorage vl2") {
       constexpr Real dt = 1e-3;
-      auto integrator = Make2SStarIntegrator("vl2");
+      auto integrator = MakeIntegrator<LowStorageIntegrator>("vl2");
       State_t u;
       GetInitialData(u);
-      Integrate2SStar(integrator, tf, dt, u);
+      Integrate(integrator, Step2SStar, tf, dt, u);
       THEN("The final state doesn't differ too much from the true solution") {
         REQUIRE(std::abs(u[0] - ufinal[0]) <= 1e-2);
         REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-2);
       }
     }
-    WHEN("We integrate with rk3") {
+    WHEN("We integrate with LowStorage rk3") {
       constexpr Real dt = 1e-2;
-      auto integrator = Make2SStarIntegrator("rk3");
+      auto integrator = MakeIntegrator<LowStorageIntegrator>("rk3");
       State_t u;
       GetInitialData(u);
-      Integrate2SStar(integrator, tf, dt, u);
+      Integrate(integrator, Step2SStar, tf, dt, u);
       THEN("The final state doesn't differ too much from the true solution") {
         REQUIRE(std::abs(u[0] - ufinal[0]) <= 1e-2);
         REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-2);
       }
     }
-    WHEN("We integrate with rk4") {
+    WHEN("We integrate with LowStorage rk4") {
       constexpr Real dt = 1e-2;
-      auto integrator = Make2SStarIntegrator("rk4");
+      auto integrator = MakeIntegrator<LowStorageIntegrator>("rk4");
       State_t u;
       GetInitialData(u);
-      Integrate2SStar(integrator, tf, dt, u);
+      Integrate(integrator, Step2SStar, tf, dt, u);
+      THEN("The final state doesn't differ too much from the true solution") {
+        REQUIRE(std::abs(u[0] - ufinal[0]) <= 1e-2);
+        REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-2);
+      }
+    }
+    WHEN("We integrate with butcher rk1") {
+      constexpr Real dt = 1e-5;
+      auto integrator = MakeIntegrator<ButcherIntegrator>("rk1");
+      State_t u;
+      GetInitialData(u);
+      Integrate(integrator, StepButcher, tf, dt, u);
+      THEN("The final state doesn't differ too much from the true solution") {
+        REQUIRE(std::abs(u[0] - ufinal[0]) <= 1e-2);
+        REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-2);
+      }
+    }
+    WHEN("We integrate with butcher rk2") {
+      constexpr Real dt = 1e-5;
+      auto integrator = MakeIntegrator<ButcherIntegrator>("rk1");
+      State_t u;
+      GetInitialData(u);
+      Integrate(integrator, StepButcher, tf, dt, u);
       THEN("The final state doesn't differ too much from the true solution") {
         // debug
         std::printf("\t%.14e\t%.14e\t%.14e\t%.14e\t%.14e\t%.14e\n",

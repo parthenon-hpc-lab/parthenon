@@ -16,7 +16,11 @@
 
 namespace parthenon {
 
+template class MultiStageDriverGeneric<StagedIntegrator>;
+template class MultiStageBlockTaskDriverGeneric<StagedIntegrator>;
 template class MultiStageDriverGeneric<LowStorageIntegrator>;
 template class MultiStageBlockTaskDriverGeneric<LowStorageIntegrator>;
+template class MultiStageDriverGeneric<ButcherIntegrator>;
+template class MultiStageBlockTaskDriverGeneric<ButcherIntegrator>;
 
 } // namespace parthenon

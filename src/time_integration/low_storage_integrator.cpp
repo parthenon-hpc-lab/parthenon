@@ -34,6 +34,7 @@ LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
   : StagedIntegrator(pin->GetOrAddString("parthenon/time", "integrator", "rk2")) {
   if (name_ == "rk1") {
     nstages = 1;
+    nbuffers = 1;
     delta.resize(nstages);
     beta.resize(nstages);
     gam0.resize(nstages);
@@ -45,6 +46,7 @@ LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
     gam1[0] = 1.0;
   } else if (name_ == "rk2") {
     nstages = 2;
+    nbuffers = 2;
     delta.resize(nstages);
     beta.resize(nstages);
     gam0.resize(nstages);
@@ -61,6 +63,7 @@ LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
     gam1[1] = 0.5;
   } else if (name_ == "vl2") {
     nstages = 2;
+    nbuffers = 2;
     delta.resize(nstages);
     beta.resize(nstages);
     gam0.resize(nstages);
@@ -77,6 +80,7 @@ LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
     gam1[1] = 1.0;
   } else if (name_ == "rk3") {
     nstages = 3;
+    nbuffers = 2;
     delta.resize(nstages);
     beta.resize(nstages);
     gam0.resize(nstages);
@@ -99,6 +103,7 @@ LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
   } else if (name_ == "rk4") {
     // From Table 4 of Ketchson, Jcomp 229 (2010) 1763-1773
     nstages = 5;
+    nbuffers = 2;
     delta.resize(nstages);
     beta.resize(nstages);
     gam0.resize(nstages);
@@ -132,7 +137,8 @@ LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
     throw std::invalid_argument("Invalid selection for the time integrator: " +
                                 name_);
   }
-  InitStages_(nstages);
+  MakePeriodicNames_(buffer_name, nbuffers);
+  MakePeriodicNames_(stage_name, nstages);
 }
 
 } // namespace parthenon
