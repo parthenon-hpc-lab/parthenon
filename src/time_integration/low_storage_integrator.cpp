@@ -24,6 +24,19 @@ namespace parthenon {
  * These integrators are of the 2S form as described in
  * Ketchson, Jcomp 229 (2010) 1763-1773
  * See Equation 14.
+ *
+ * These integrators are of the classic Shu Osher form
+ * u^(0) = u^n
+ * u^(i) = sum_{k=0}^{i-1} (alpha_{i,k} u^(k) + \delta t \beta_{i, k} F(u^(k))
+ * u^{n+1} = u^(m)
+ * See Shu and Osher, JComp 77 (1988)  439-471
+ *
+ * The difference between these low-storage methods and classic SSPK
+ * methods in Shu Osher form is that low-storage methods typically have
+ * sparse alpha and beta matrices, meaning fewer past stages are
+ * needed. Here the alpha and beta matrices are replaced by their
+ * diagonal terms, named gamma0 and gamma1.
+ *
  * They can be generalized to support more general methods with the
  * introduction of a delta term for a first averaging.
  * The form is also described in Section 3.2.3 of the Athena++ paper:
@@ -101,6 +114,8 @@ LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
     gam0[2] = 2.0 / 3.0;
     gam1[2] = 1.0 / 3.0;
   } else if (name_ == "rk4") {
+    // Classic 5-stage SSPRK(5)4 in low-storage form
+    // ceff = 0.377
     // From Table 4 of Ketchson, Jcomp 229 (2010) 1763-1773
     nstages = 5;
     nbuffers = 2;

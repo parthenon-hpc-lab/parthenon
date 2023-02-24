@@ -79,7 +79,7 @@ auto MakeIntegrator(const std::string &integration_strategy) {
 void Step2SStar(const LowStorageIntegrator &integrator,
                 Real dt, State_t &u) {
   const int nstages = integrator.nstages;
-  static State_t S0, S1;
+  State_t S0, S1;
   for (int v = 0; v < NVARS; ++v) {
     S0[v] = u[v];
     S1[v] = 0; // set "last step" to prepare for next cycle
@@ -106,7 +106,7 @@ void Step2SStar(const LowStorageIntegrator &integrator,
 void StepButcher(const ButcherIntegrator &integrator,
                  Real dt, State_t &u) {
   const int nstages = integrator.nstages;
-  static std::vector<State_t> K(nstages);
+  std::vector<State_t> K(nstages);
   for (int stage = 0; stage < nstages; ++stage) {
     State_t scratch;
     for(int v = 0; v < NVARS; ++v) {
@@ -143,7 +143,9 @@ void Integrate(const Integrator &integrator,
   if ((t < tf) && (std::abs(tf - t) > 1e-12)) {
     dt = tf - t;
     step(integrator, dt, u0);
+    t += dt;
   }
+  // printf("%.14e %.14e\n", t, tf);
 }
 
 TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
@@ -219,16 +221,29 @@ TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
     }
     WHEN("We integrate with butcher rk2") {
       constexpr Real dt = 1e-5;
-      auto integrator = MakeIntegrator<ButcherIntegrator>("rk1");
+      auto integrator = MakeIntegrator<ButcherIntegrator>("rk2");
       State_t u;
       GetInitialData(u);
       Integrate(integrator, StepButcher, tf, dt, u);
       THEN("The final state doesn't differ too much from the true solution") {
+        REQUIRE(std::abs(u[0] - ufinal[0]) <= 1e-2);
+        REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-2);
+      }
+    }
+    WHEN("We integrate with butcher rk4") {
+      constexpr Real dt = 1e-2;
+      auto integrator = MakeIntegrator<ButcherIntegrator>("rk4");
+      State_t u;
+      GetInitialData(u);
+      Integrate(integrator, StepButcher, tf, dt, u);
+      THEN("The final state doesn't differ too much from the true solution") {
+        /*
         // debug
         std::printf("\t%.14e\t%.14e\t%.14e\t%.14e\t%.14e\t%.14e\n",
                     u[0], u[1], ufinal[0], ufinal[1],
                     std::abs(u[0] - ufinal[0]),
                     std::abs(u[1] - ufinal[1]));
+        */
         REQUIRE(std::abs(u[0] - ufinal[0]) <= 1e-2);
         REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-2);
       }
