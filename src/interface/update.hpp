@@ -115,6 +115,63 @@ TaskStatus AverageIndependentData(T *c1, T *c2, const Real wgt1) {
                          (1.0 - wgt1), c1);
 }
 
+// See equation 14 in Ketchson, Jcomp 229 (2010) 1763-1773
+// In Parthenon language, s0 is the variable we are updating
+// and rhs should be computed with respect to s0.
+// s1 should be set at the beginning of the RK update to be a copy of base.
+// in the final stage, base for the next cycle should be set to s0.
+template <typename F, typename T>
+TaskStatus Update2SStar(const std::vector<F> &flags,
+                        T *s0_data, T *s1_data, T *rhs_data,
+                        const LowStorageIntegrator *pint, Real dt, int stage) {
+  Kokkos::Profiling::pushRegion("Task_2S_Update");
+  const auto &s0  = s0_data->PackVariables(flags);
+  const auto &s1  = s1_data->PackVariables(flags);
+  const auto &rhs = rhs_data->PackVariables(flags);
+
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ib = s0_data->GetBoundsI(interior);
+  const IndexRange jb = s0_data->GetBoundsJ(interior);
+  const IndexRange kb = s0_data->GetBoundsK(interior);
+
+  Real delta = pint->delta[stage-1];
+  Real beta = pint->beta[stage-1];
+  Real gam0 = pint->gam0[stage-1];
+  Real gam1 = pint->gam1[stage-1];
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "2S_Update", DevExecSpace(), 0, s0.GetDim(5) - 1, 0,
+      s0.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        if (u0.IsAllocated(b, l) && u1.IsAllocated(b, l) && rhs.IsAllocated(b, l)) {
+          // This term is required for more advanced low-storage integrators.
+          // However, the 2S* family doesn't require it
+          // s1(b, l, k, j, i) = s1(b, l, k, j, i) + delta * s0(b, l, k, j, i);
+          s0(b, l, k, j, i) = gam0 * s0(b, l, k, j, i) + gam1 * s1(b, l, k, j, i) + beta * dt * rhs(b, l, k, j, i);
+        }
+      });
+  Kokkos::Profiling::popRegion(); // Task_2S_Update
+  return TaskStatus::complete;
+}
+
+// For integration with Butcher tableaus
+// returns sum_{j=0}^{k-1} b_{kj} S_k
+// for stage S_k.
+// This can then be used to compute right-hand sides.
+template<typename F, typename T>
+TaskStatus SumButcher(const std::vector<F> &flags,
+                      std::vector<std::shared_ptr<T>> stage_data,
+                      std::shared_ptr<T> out_data,
+                      const ButcherIntegrator *pint, Real dt, int stage) {
+  Kokkos::Profiling::pushRegion("Task_Butcher_Update");
+  const IndexDomain interior = IndexDomain::interior;
+  const auto &out = out_data->PackVariables({Metadata::Independent});
+  for (int prev = 0; prev < stage; ++prev) {
+    
+  }
+  Kokkos::Profiling::popRegion(); // Task_Butcher_Update
+  return TaskStatus::complete;
+}
+
 template <typename T>
 TaskStatus EstimateTimestep(T *rc) {
   Kokkos::Profiling::pushRegion("Task_EstimateTimestep");

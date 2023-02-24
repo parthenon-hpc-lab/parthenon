@@ -79,10 +79,10 @@ auto MakeIntegrator(const std::string &integration_strategy) {
 void Step2SStar(const LowStorageIntegrator &integrator,
                 Real dt, State_t &u) {
   const int nstages = integrator.nstages;
-  State_t S0, S1;
+  State_t &S0 = u;
+  State_t S1;
   for (int v = 0; v < NVARS; ++v) {
-    S0[v] = u[v];
-    S1[v] = 0; // set "last step" to prepare for next cycle
+    S1[v] = u[v]; // set "last step" to prepare for next cycle
   }
   for (int stage = 1; stage <= nstages; stage++) {
     State_t rhs;
@@ -92,7 +92,7 @@ void Step2SStar(const LowStorageIntegrator &integrator,
     const Real gam1 = integrator.gam1[stage-1];
     GetRHS(S0, rhs);
     for (int v = 0; v < NVARS; ++v) {
-      S1[v] = S1[v] + delta * S0[v];
+      //S1[v] = S1[v] + delta * S0[v];
       // printf("%.14e %d: %.14e * %.14e + %.14e * %.14e + %.14e * %.14e\n",
       //        t, stage, gam0, S0[v], gam1, S1[v], beta, rhs[v]);
       S0[v] = gam0 * S0[v] + gam1 * S1[v] + beta * dt * rhs[v];
@@ -237,15 +237,8 @@ TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
       GetInitialData(u);
       Integrate(integrator, StepButcher, tf, dt, u);
       THEN("The final state doesn't differ too much from the true solution") {
-        /*
-        // debug
-        std::printf("\t%.14e\t%.14e\t%.14e\t%.14e\t%.14e\t%.14e\n",
-                    u[0], u[1], ufinal[0], ufinal[1],
-                    std::abs(u[0] - ufinal[0]),
-                    std::abs(u[1] - ufinal[1]));
-        */
-        REQUIRE(std::abs(u[0] - ufinal[0]) <= 1e-2);
-        REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-2);
+        REQUIRE(std::abs(u[0] - ufinal[0]) <= 1e-4);
+        REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-4);
       }
     }
     WHEN("We integrate with butcher rk10") {
