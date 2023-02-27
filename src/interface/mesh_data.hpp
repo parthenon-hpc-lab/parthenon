@@ -315,25 +315,24 @@ class MeshData {
     return PackVariablesAndFluxesImpl(nullptr, var_names, flx_names);
   }
   // Pack by either the same variable and flux names, or by metadata flags
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags,
+  template <typename Selector>
+  const auto &PackVariablesAndFluxes(const Selector &names_or_flags,
                                      const std::vector<int> &sparse_ids,
                                      PackIndexMap &map) {
     return PackVariablesAndFluxesImpl(&map, names_or_flags, sparse_ids);
   }
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags,
+  template <typename Selector>
+  const auto &PackVariablesAndFluxes(const Selector &names_or_flags,
                                      const std::vector<int> &sparse_ids) {
     return PackVariablesAndFluxesImpl(nullptr, names_or_flags, sparse_ids);
   }
   // no sparse ids
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags,
-                                     PackIndexMap &map) {
+  template <typename Selector>
+  const auto &PackVariablesAndFluxes(const Selector &names_or_flags, PackIndexMap &map) {
     return PackVariablesAndFluxesImpl(&map, names_or_flags);
   }
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags) {
+  template <typename Selector>
+  const auto &PackVariablesAndFluxes(const Selector &names_or_flags) {
     return PackVariablesAndFluxesImpl(nullptr, names_or_flags);
   }
   // only sparse ids
@@ -350,27 +349,27 @@ class MeshData {
   }
   const auto &PackVariablesAndFluxes() { return PackVariablesAndFluxesImpl(nullptr); }
 
-  // As above, DO NOT use variatic templates here. They shadow each other.
+  // As above, DO NOT use variadic templates here. They shadow each other.
   // covers names and metadata flags
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags,
+  template <typename Selector>
+  const auto &PackVariables(const Selector &names_or_flags,
                             const std::vector<int> &sparse_ids, PackIndexMap &map,
                             bool coarse = false) {
     return PackVariablesImpl(&map, coarse, names_or_flags, sparse_ids);
   }
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags,
+  template <typename Selector>
+  const auto &PackVariables(const Selector &names_or_flags,
                             const std::vector<int> &sparse_ids, bool coarse = false) {
     return PackVariablesImpl(nullptr, coarse, names_or_flags, sparse_ids);
   }
   // no sparse ids
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags, PackIndexMap &map,
+  template <typename Selector>
+  const auto &PackVariables(const Selector &names_or_flags, PackIndexMap &map,
                             bool coarse = false) {
     return PackVariablesImpl(&map, coarse, names_or_flags);
   }
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags, bool coarse = false) {
+  template <typename Selector>
+  const auto &PackVariables(const Selector &names_or_flags, bool coarse = false) {
     return PackVariablesImpl(nullptr, coarse, names_or_flags);
   }
   // No names or flags

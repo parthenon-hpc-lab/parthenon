@@ -211,7 +211,7 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
 // TODO(felker): consider merging w/ MeshBlock::pvars_cc, etc. See meshblock.cpp
 
 int MeshRefinement::AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar) {
-  pvars_cc_.push_back(pvar);
+  pvars_cc_.insert(pvar);
   return static_cast<int>(pvars_cc_.size() - 1);
 }
 
