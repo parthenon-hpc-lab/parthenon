@@ -1110,18 +1110,22 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     //int rb_idx;
     bool all_received;
     int niter = 0;
+    std::vector<bool> finished((nbe - nbs + 1) * FindMeshBlock(nbs)->vars_cc_.size() * 8, false);
     do {
       all_received = true; 
       niter++; 
       //rb_idx = 0; // recv buffer index
+      int idx = 0; 
       for (int n = nbs; n <= nbe; n++) {
         int on = newtoold[n];
         LogicalLocation &oloc = loclist[on];
         LogicalLocation &nloc = newloc[n];
         auto pb = FindMeshBlock(n);
         if (oloc.level == nloc.level && ranklist[on] != Globals::my_rank) { // same level, different rank
-          for (auto& var : pb->vars_cc_)
-            all_received = TryRecvSameToSame(n - nbs, ranklist[on], var.get(), pb.get()) && all_received; 
+          for (auto& var : pb->vars_cc_) {
+            if (!finished[idx]) finished[idx] = TryRecvSameToSame(n - nbs, ranklist[on], var.get(), pb.get());
+            all_received = finished[idx++] && all_received; 
+          }
           //if (ranklist[on] == Globals::my_rank) continue;
           //if (!received[rb_idx]) {
           //  PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
@@ -1137,8 +1141,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             const int ox1 = ((oloc.lx1 & 1LL) == 1LL);
             const int ox2 = ((oloc.lx2 & 1LL) == 1LL);
             const int ox3 = ((oloc.lx3 & 1LL) == 1LL); 
-            for (auto& var : pb->vars_cc_)
-              all_received = TryRecvFineToCoarse(n - nbs, ranklist[on + l], ox1, ox2, ox3, var.get(), pb.get()) && all_received;
+            for (auto& var : pb->vars_cc_) {
+              if (!finished[idx]) finished[idx] = TryRecvFineToCoarse(n - nbs, ranklist[on + l], ox1, ox2, ox3, var.get(), pb.get());
+              all_received = finished[idx++] && all_received; 
+            }
             //if (ranklist[on + l] == Globals::my_rank) continue;
             //if (!received[rb_idx]) {
             //  PARTHENON_MPI_CHECK(
@@ -1154,8 +1160,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           const int ox1 = ((nloc.lx1 & 1LL) == 1LL);
           const int ox2 = ((nloc.lx2 & 1LL) == 1LL);
           const int ox3 = ((nloc.lx3 & 1LL) == 1LL);
-          for (auto& var : pb->vars_cc_)
-            all_received = TryRecvCoarseToFine(n - nbs, ranklist[on], ox1, ox2, ox3, var.get(), pb.get()) && all_received;
+          for (auto& var : pb->vars_cc_) {
+            if (!finished[idx]) finished[idx] = TryRecvCoarseToFine(n - nbs, ranklist[on], ox1, ox2, ox3, var.get(), pb.get());
+            all_received = finished[idx++] && all_received;
+          }
           //if (ranklist[on] == Globals::my_rank) continue;
           //if (!received[rb_idx]) {
           //  PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
@@ -1168,7 +1176,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         }
       }
       // rb_idx is a running index, so we repeat the loop until all vals are true
-    } while (!all_received && niter < 1);
+    } while (!all_received && niter < 1e4);
     //} while (!std::all_of(received.begin(), received.begin() + rb_idx,
     //                      [](bool v) { return v; }));
     if (!all_received) PARTHENON_FAIL("AMR Receive failed");
