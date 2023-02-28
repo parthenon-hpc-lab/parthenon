@@ -216,9 +216,9 @@ class IndexShape {
     case IndexDomain::interior:
       return x_[1].e;
     case IndexDomain::interior_coarse:
-      return (x_[1].e - x_[1].s + 1) / 2 + x_[1].s - 1;
+      return std::max((x_[1].e - x_[1].s + 1) / 2 + x_[1].s - 1, 0);
     case IndexDomain::entire_coarse:
-      return (x_[1].e - x_[1].s + 1) / 2 + 2 * x_[1].s - 1;
+      return std::max((x_[1].e - x_[1].s + 1) / 2 + 2 * x_[1].s - 1, 0);
     case IndexDomain::inner_x2:
       return x_[1].s == 0 ? 0 : x_[1].s - 1;
     default:
@@ -231,9 +231,9 @@ class IndexShape {
     case IndexDomain::interior:
       return x_[2].e;
     case IndexDomain::interior_coarse:
-      return (x_[2].e - x_[2].s + 1) / 2 + x_[2].s - 1;
+      return std::max((x_[2].e - x_[2].s + 1) / 2 + x_[2].s - 1, 0);
     case IndexDomain::entire_coarse:
-      return (x_[2].e - x_[2].s + 1) / 2 + 2 * x_[2].s - 1;
+      return std::max((x_[2].e - x_[2].s + 1) / 2 + 2 * x_[2].s - 1, 0);
     case IndexDomain::inner_x3:
       return x_[2].s == 0 ? 0 : x_[2].s - 1;
     default:
