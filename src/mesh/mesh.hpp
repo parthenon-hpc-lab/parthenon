@@ -277,7 +277,16 @@ class Mesh {
   void FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
                                  LogicalLocation &lloc);
   void FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf);
+ 
 
+  // New shit 
+  MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, int ox1, int ox2, int ox3, CellVariable<Real> *var);
+  bool TryRecvCoarseToFine(int lid_recv, int send_rank, int ox1, int ox2, int ox3, 
+                           CellVariable<Real>* var, MeshBlock *pmb);
+  MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, int ox1, int ox2, int ox3, CellVariable<Real> *var);
+  bool TryRecvFineToCoarse(int lid_recv, int send_rank, int ox1, int ox2, int ox3, CellVariable<Real> *var, MeshBlock *pmb);
+  MPI_Request SendSameToSame(int lid_recv, int dest_rank, CellVariable<Real> *var);
+  bool TryRecvSameToSame(int lid_recv, int send_rank, CellVariable<Real> *var, MeshBlock *pmb);
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =

@@ -202,7 +202,7 @@ class IndexShape {
       return x_[0].e;
     case IndexDomain::interior_coarse:
       return (x_[0].e - x_[0].s + 1) / 2 + x_[0].s - 1;
-    case IndexDomain::exterior_coarse:
+    case IndexDomain::entire_coarse:
       return (x_[0].e - x_[0].s + 1) / 2 + 2 * x_[0].s - 1;
     case IndexDomain::inner_x1:
       return x_[0].s == 0 ? 0 : x_[0].s - 1;
@@ -217,7 +217,7 @@ class IndexShape {
       return x_[1].e;
     case IndexDomain::interior_coarse:
       return (x_[1].e - x_[1].s + 1) / 2 + x_[1].s - 1;
-    case IndexDomain::exterior_coarse:
+    case IndexDomain::entire_coarse:
       return (x_[1].e - x_[1].s + 1) / 2 + 2 * x_[1].s - 1;
     case IndexDomain::inner_x2:
       return x_[1].s == 0 ? 0 : x_[1].s - 1;
@@ -232,7 +232,7 @@ class IndexShape {
       return x_[2].e;
     case IndexDomain::interior_coarse:
       return (x_[2].e - x_[2].s + 1) / 2 + x_[2].s - 1;
-    case IndexDomain::exterior_coarse:
+    case IndexDomain::entire_coarse:
       return (x_[2].e - x_[2].s + 1) / 2 + 2 * x_[2].s - 1;
     case IndexDomain::inner_x3:
       return x_[2].s == 0 ? 0 : x_[2].s - 1;
