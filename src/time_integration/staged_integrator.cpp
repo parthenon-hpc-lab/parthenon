@@ -23,7 +23,7 @@ namespace parthenon {
 void StagedIntegrator::MakePeriodicNames_(std::vector<std::string> &names, int n) {
   names.resize(n + 1);
   names[0] = "base";
-  for (int i = 0; i < n; i++) {
+  for (int i = 1; i < n; i++) {
     names[i] = std::to_string(i);
   }
   names[n] = names[0];
