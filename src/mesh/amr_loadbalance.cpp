@@ -569,34 +569,32 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
-#ifdef MPI_PARALLEL
   // Step 7 - eps: Restrict fine to coarse buffers 
-  //if (nsend != 0) { 
-    for (int on = onbs; on <= onbe; on++) { 
-      int nn = oldtonew[on]; 
-      if (newloc[nn].level < loclist[on].level) {
-        const IndexDomain interior = IndexDomain::interior;
-        auto pmb = FindMeshBlock(on); 
-        IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-        IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-        IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-        printf("Restricting old block %i.", on);
-        // Need to restrict this block before doing sends
-        for (auto& var : pmb->vars_cc_) {
-          if (var->IsAllocated()) {
-            ParArrayND<Real> fb = var->data; 
-            ParArrayND<Real> cb = var->coarse_s;
-            pmb->pmr->RestrictCellCenteredValues(fb, cb, 0, var->GetDim(4) - 1, 
-                                                 cib.s, cib.e, cjb.s,cjb.e, ckb.s, ckb.e); 
-          }
+  for (int on = onbs; on <= onbe; on++) { 
+    int nn = oldtonew[on]; 
+    if (newloc[nn].level < loclist[on].level) {
+      const IndexDomain interior = IndexDomain::interior;
+      auto pmb = FindMeshBlock(on); 
+      IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
+      IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
+      IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
+      printf("Restricting old block %i.", on);
+      // Need to restrict this block before doing sends
+      for (auto& var : pmb->vars_cc_) {
+        if (var->IsAllocated()) {
+          ParArrayND<Real> fb = var->data; 
+          ParArrayND<Real> cb = var->coarse_s;
+          pmb->pmr->RestrictCellCenteredValues(fb, cb, 0, var->GetDim(4) - 1, 
+                                               cib.s, cib.e, cjb.s,cjb.e, ckb.s, ckb.e); 
         }
-      } 
-    }
-  //}
+      }
+    } 
+  }
   Kokkos::fence(); 
 
-  // Step 7. allocate, pack and start sending buffers
-  Kokkos::Profiling::pushRegion("Step 7: Pack and send buffers");
+#ifdef MPI_PARALLEL
+  // Step 7. Send data from old to new blocks
+  Kokkos::Profiling::pushRegion("Step 7: Send");
   std::vector<MPI_Request> send_reqs; 
   for (int n = onbs; n <= onbe; n++) {
     int nn = oldtonew[n];
@@ -610,22 +608,15 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
       for (int l = 0; l < nleaf; l++) {
         LogicalLocation &nloc = newloc[nn + l]; 
-        const int ox1 = ((nloc.lx1 & 1LL) == 1LL);
-        const int ox2 = ((nloc.lx2 & 1LL) == 1LL);
-        const int ox3 = ((nloc.lx3 & 1LL) == 1LL);
         const int nl = nn + l; // Leaf block index in new global block list 
         for (auto& var : pb->vars_cc_) 
           send_reqs.emplace_back(SendCoarseToFine(nl - nslist[newrank[nl]], newrank[nl], 
-                                                  ox1, ox2, ox3, var.get()));
+                                                  nloc, var.get()));
       }      // end loop over nleaf (unique to c2f branch in this step 6)
     } else if (nloc.level < oloc.level) { // f2c: restrict + pack + send
-      const int ox1 = ((oloc.lx1 & 1LL) == 1LL);
-      const int ox2 = ((oloc.lx2 & 1LL) == 1LL);
-      const int ox3 = ((oloc.lx3 & 1LL) == 1LL);
-      printf("Sending c2f from old block %i to new block %i\n", n, nn);
       for (auto& var : pb->vars_cc_) 
         send_reqs.emplace_back(SendFineToCoarse(nn - nslist[newrank[nn]], newrank[nn], 
-                                                ox1, ox2, ox3, var.get()));
+                                                oloc, var.get()));
     }
   }                              
   Kokkos::Profiling::popRegion(); // Step 7
@@ -633,35 +624,33 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   // Step 8. construct a new MeshBlock list (moving the data within the MPI rank)
   Kokkos::Profiling::pushRegion("Step 8: Construct new MeshBlockList");
-  {
-    RegionSize block_size = GetBlockSize();
+  RegionSize block_size = GetBlockSize();
 
-    BlockList_t new_block_list(nbe - nbs + 1);
-    for (int n = nbs; n <= nbe; n++) {
-      int on = newtoold[n];
-      if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
-        // on the same MPI rank and same level -> just move it
-        new_block_list[n - nbs] = FindMeshBlock(on);
-      } else {
-        // on a different refinement level or MPI rank - create a new block
-        BoundaryFlag block_bcs[6];
-        SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
-        // append new block to list of MeshBlocks
-        new_block_list[n - nbs] =
-            MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
-                            app_in, packages, resolved_packages, gflag);
-      }
+  BlockList_t new_block_list(nbe - nbs + 1);
+  for (int n = nbs; n <= nbe; n++) {
+    int on = newtoold[n];
+    if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
+      // on the same MPI rank and same level -> just move it
+      new_block_list[n - nbs] = FindMeshBlock(on);
+    } else {
+      // on a different refinement level or MPI rank - create a new block
+      BoundaryFlag block_bcs[6];
+      SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
+      // append new block to list of MeshBlocks
+      new_block_list[n - nbs] =
+          MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
+                          app_in, packages, resolved_packages, gflag);
     }
+  }
 
-    // Replace the MeshBlock list
-    auto old_block_list = std::move(block_list);
-    block_list = std::move(new_block_list);
+  // Replace the MeshBlock list
+  auto old_block_list = std::move(block_list);
+  block_list = std::move(new_block_list);
 
-    // Ensure local and global ids are correct
-    for (int n = nbs; n <= nbe; n++) {
-      block_list[n - nbs]->gid = n;
-      block_list[n - nbs]->lid = n - nbs;
-    }
+  // Ensure local and global ids are correct
+  for (int n = nbs; n <= nbe; n++) {
+    block_list[n - nbs]->gid = n;
+    block_list[n - nbs]->lid = n - nbs;
   }
   Kokkos::Profiling::popRegion(); // Step 8: Construct new MeshBlockList
 
@@ -689,20 +678,14 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         } else if (oloc.level > nloc.level) { // f2c
           for (int l = 0; l < nleaf; l++) {
             LogicalLocation &oloc = loclist[on + l];
-            const int ox1 = ((oloc.lx1 & 1LL) == 1LL);
-            const int ox2 = ((oloc.lx2 & 1LL) == 1LL);
-            const int ox3 = ((oloc.lx3 & 1LL) == 1LL); 
             for (auto& var : pb->vars_cc_) {
-              if (!finished[idx]) finished[idx] = TryRecvFineToCoarse(n - nbs, ranklist[on + l], ox1, ox2, ox3, var.get(), pb.get());
+              if (!finished[idx]) finished[idx] = TryRecvFineToCoarse(n - nbs, ranklist[on + l], oloc, var.get(), pb.get());
               all_received = finished[idx++] && all_received; 
             }
           }
         } else if (oloc.level < nloc.level) { // c2f 
-          const int ox1 = ((nloc.lx1 & 1LL) == 1LL);
-          const int ox2 = ((nloc.lx2 & 1LL) == 1LL);
-          const int ox3 = ((nloc.lx3 & 1LL) == 1LL);
           for (auto& var : pb->vars_cc_) {
-            if (!finished[idx]) finished[idx] = TryRecvCoarseToFine(n - nbs, ranklist[on], ox1, ox2, ox3, var.get(), pb.get());
+            if (!finished[idx]) finished[idx] = TryRecvCoarseToFine(n - nbs, ranklist[on], nloc, var.get(), pb.get());
             all_received = finished[idx++] && all_received;
           }
         }
@@ -712,6 +695,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     if (!all_received) PARTHENON_FAIL("AMR Receive failed");
     Kokkos::fence();
 
+    // Prolongate blocks that had a coarse buffer filled (i.e. c2f blocks) 
     for (int nn = nbs; nn <= nbe; nn++) { 
       int on = newtoold[nn]; 
       LogicalLocation &oloc = loclist[on]; 
@@ -764,9 +748,12 @@ int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
   return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
 }
 
-MPI_Request Mesh::SendCoarseToFine(int lid_recv, int dest_rank, int ox1, int ox2, int ox3, CellVariable<Real> *var) {
+MPI_Request Mesh::SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation &fine_loc, CellVariable<Real> *var) {
   MPI_Request req;
   MPI_Comm comm = mpi_comm_map_[var->label()];
+  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL); 
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   if (var->IsAllocated()){
     PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
@@ -778,7 +765,7 @@ MPI_Request Mesh::SendCoarseToFine(int lid_recv, int dest_rank, int ox1, int ox2
   return req; 
 }
 
-bool Mesh::TryRecvCoarseToFine(int lid_recv, int send_rank, int ox1, int ox2, int ox3, 
+bool Mesh::TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fine_loc, 
                          CellVariable<Real>* var, MeshBlock *pmb) {
   static const IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::entire);
   static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -789,6 +776,9 @@ bool Mesh::TryRecvCoarseToFine(int lid_recv, int send_rank, int ox1, int ox2, in
   static const IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   
   MPI_Comm comm = mpi_comm_map_[var->label()];
+  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL); 
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   
   int test; 
@@ -825,9 +815,12 @@ bool Mesh::TryRecvCoarseToFine(int lid_recv, int send_rank, int ox1, int ox2, in
   return test; 
 } 
 
-MPI_Request Mesh::SendFineToCoarse(int lid_recv, int dest_rank, int ox1, int ox2, int ox3, CellVariable<Real> *var) {
+MPI_Request Mesh::SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation &fine_loc, CellVariable<Real> *var) {
   MPI_Request req;
   MPI_Comm comm = mpi_comm_map_[var->label()];
+  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL); 
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   if (var->IsAllocated()){
     PARTHENON_MPI_CHECK(MPI_Isend(var->coarse_s.data(), var->coarse_s.size(), MPI_PARTHENON_REAL,
@@ -839,7 +832,7 @@ MPI_Request Mesh::SendFineToCoarse(int lid_recv, int dest_rank, int ox1, int ox2
   return req; 
 }
 
-bool Mesh::TryRecvFineToCoarse(int lid_recv, int send_rank, int ox1, int ox2, int ox3, CellVariable<Real> *var, MeshBlock *pmb) {
+bool Mesh::TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fine_loc, CellVariable<Real> *var, MeshBlock *pmb) {
   static const IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::interior);
   static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior);
   static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior);
@@ -847,13 +840,17 @@ bool Mesh::TryRecvFineToCoarse(int lid_recv, int send_rank, int ox1, int ox2, in
   static const IndexRange ib_int = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   static const IndexRange jb_int = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   static const IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  
+  MPI_Comm comm = mpi_comm_map_[var->label()];
+  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL); 
+  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+
   const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
   const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
   const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
   
-  MPI_Comm comm = mpi_comm_map_[var->label()];
-  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
-
   int test; 
   MPI_Status status; 
   PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
@@ -883,19 +880,6 @@ bool Mesh::TryRecvFineToCoarse(int lid_recv, int send_rank, int ox1, int ox2, in
     } else { 
       PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), 0,
                                    MPI_PARTHENON_REAL, send_rank, tag, comm, MPI_STATUS_IGNORE)); 
-      if (pmb->IsAllocated(var->label())) {
-        auto fb = var->data; 
-        const int nt = fb.GetDim(6) - 1;
-        const int nu = fb.GetDim(5) - 1;
-        const int nv = fb.GetDim(4) - 1;
-        const int t = 0; 
-        const int u = 0; 
-        parthenon::par_for(DEFAULT_LOOP_PATTERN, 
-              "FillSameRankCoarseToFineAMR", DevExecSpace(), 0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-              KOKKOS_LAMBDA(const int v, const int k, const int j, const int i) {
-              fb(t, u, v, k + ks, j + js, i + is) = 0.0;
-            });
-      }
     }
   }
   
@@ -903,7 +887,7 @@ bool Mesh::TryRecvFineToCoarse(int lid_recv, int send_rank, int ox1, int ox2, in
 }
 
 MPI_Request Mesh::SendSameToSame(int lid_recv, int dest_rank, CellVariable<Real> *var) {
-  return SendCoarseToFine(lid_recv, dest_rank, 0, 0, 0, var); 
+  return SendCoarseToFine(lid_recv, dest_rank, LogicalLocation(), var); 
 }
 
 bool Mesh::TryRecvSameToSame(int lid_recv, int send_rank, CellVariable<Real> *var, MeshBlock *pmb) {
