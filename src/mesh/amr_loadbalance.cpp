@@ -578,7 +578,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
       IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
       IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-      printf("Restricting old block %i.", on);
       // Need to restrict this block before doing sends
       for (auto& var : pmb->vars_cc_) {
         if (var->IsAllocated()) {
