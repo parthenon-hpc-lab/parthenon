@@ -43,6 +43,169 @@
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 
+namespace {
+
+int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
+  // the trailing zero is used as "id" to indicate an AMR related tag
+  return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
+}
+
+struct SendStatus { 
+  MPI_Request req; 
+  bool IsComplete() {
+    int test; 
+    PARTHENON_MPI_CHECK(MPI_Test(&req, &test, MPI_STATUS_IGNORE)) 
+    return static_cast<bool>(test); 
+  }
+}; 
+
+struct RecvStatus { 
+  MPI_Request req; 
+  bool IsComplete() {
+    int test; 
+    PARTHENON_MPI_CHECK(MPI_Test(&req, &test, MPI_STATUS_IGNORE)) 
+    return static_cast<bool>(test); 
+  }
+}; 
+
+MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, int ox1, int ox2, int ox3, CellVariable<Real> *var) {
+  SendStatus req;
+  int idx = 0; 
+  MPI_Comm comm = mpi_comm_map_[var->label()];
+  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+  if (var->IsAllocated()){
+    PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
+                                  dest_rank, tag, comm, &req)); 
+  } else { 
+    PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), 0, MPI_PARTHENON_REAL,
+                                  dest_rank, tag, comm, &req));
+  }
+  return req; 
+}
+
+bool TryRecvCoarseToFine(int lid_recv, int send_rank, int ox1, int ox2, int ox3, 
+                         CellVariable<Real>* var, MeshBlock *pmb, RecvState *state) {
+  static const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexRange::entire_coarse);
+  static const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexRange::entire_coarse);
+  static const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexRange::entire_coarse);
+  
+  static const IndexRange ib_int = pmb->cellbounds.GetBoundsI(IndexRange::interior);
+  static const IndexRange jb_int = pmb->cellbounds.GetBoundsJ(IndexRange::interior);
+  static const IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexRange::interior);
+  
+  MPI_Comm comm = mpi_comm_map_[var->label()];
+  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+
+  int test; 
+  MPI_Status status; 
+  PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
+  if (test) {
+    PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPI_PARTHENON_REAL, &size));
+    if (size > 0) {
+      if (!pmb->IsAllocated(var->label())) pmb->AllocateSparse(var->label()); 
+      PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), var.data.size(),
+                                   MPI_PARTHENON_REAL, send_rank, tag, comm));
+      const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
+      const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
+      const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
+      pmb->par_for("FillSameRankCoarseToFineAMR", 0, nt, nu, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j, const int i) {
+            var->coarse_s(t, u, v, k, j, i) = var(t, u, v, k + ks, j + js, i + is);
+          }); 
+    } else { 
+      if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label()); 
+      PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), 0, MPI_PARTHENON_REAL, send_rank, tag, comm)); 
+    }
+  }
+  
+  return test; 
+} 
+
+MPI_Request SendFineToCoarse(int lid_recv, int ox1, int ox2, int ox3, CellVariable<Real> *var) {
+  MPI_Request req;
+  int idx = 0; 
+  MPI_Comm comm = mpi_comm_map_[var->label()];
+  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+  if (var->IsAllocated()){
+    PARTHENON_MPI_CHECK(MPI_Isend(var->coarse_s.data(), var->coarse_s.size(), MPI_PARTHENON_REAL,
+                                  dest_rank, tag, comm, &req)); 
+  } else { 
+    PARTHENON_MPI_CHECK(MPI_Isend(var->coarse_s.data(), 0, MPI_PARTHENON_REAL,
+                                  dest_rank, tag, comm, &req));
+  }
+  return req; 
+}
+
+bool TryRecvFineToCoarse(int lid_recv, int ox1, int ox2, int ox3, CellVariable<Real> *var, MeshBlock *pmb) {
+  static const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexRange::interior_coarse);
+  static const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexRange::interior_coarse);
+  static const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexRange::interior_coarse);
+  
+  static const IndexRange ib_int = pmb->cellbounds.GetBoundsI(IndexRange::interior);
+  static const IndexRange jb_int = pmb->cellbounds.GetBoundsJ(IndexRange::interior);
+  static const IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexRange::interior);
+  
+  MPI_Comm comm = mpi_comm_map_[var->label()];
+  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+
+  int test; 
+  MPI_Status status; 
+  PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
+  if (test) {
+    PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPI_PARTHENON_REAL, &size));
+    if (size > 0) {
+      if (!pmb->IsAllocated(var->label())) pmb->AllocateSparse(var->label()); 
+      // This has to be an MPI_Recv w/o buffering 
+      PARTHENON_MPI_CHECK(MPI_Recv(var->coarse_s.data(), var.coarse_s.size(),
+                                   MPI_PARTHENON_REAL, send_rank, tag, comm));
+      const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb.int.s + 1) / 2;
+      const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
+      const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
+      parthenon::par_for("FillSameRankCoarseToFineAMR", 0, nt, nu, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j, const int i) {
+            var(t, u, v, k + ks, j + js, i + is) = var->coarse_s(t, u, v, k, j, i);
+          }); 
+      // We have to block here w/o buffering so that the write is guaranteed to be finished 
+      // before we get here again 
+      Kokkos::fence();
+    } else { 
+      if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label()); 
+      PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), 0,
+                                   MPI_PARTHENON_REAL, send_rank, tag, comm)); 
+    }
+  }
+  
+  return test;  
+}
+
+MPI_Request SendSameToSame(int lid_recv, int recv_rank, CellVariable<Real> *var) {
+  return SendCoarseToFine(int lid_recv, int dest_rank, 0, 0, 0, var); 
+}
+
+bool TryRecvSameToSame(int lid_recv, int send_rank, CellVariable<Real> *var) {
+  MPI_Comm comm = mpi_comm_map_[var->label()];
+  int tag = CreateAMRMPITag(lid_recv, 0, 0, 0);
+
+  int test; 
+  MPI_Status status; 
+  PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
+  if (test) {
+    PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPI_PARTHENON_REAL, &size));
+    if (size > 0) {
+      if (!pmb->IsAllocated(var->label())) pmb->AllocateSparse(var->label()); 
+      PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), var.data.size(),
+                                   MPI_PARTHENON_REAL, send_rank, tag, comm));
+    } else { 
+      if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label());
+      PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), 0,
+                                   MPI_PARTHENON_REAL, send_rank, tag, comm)); 
+    }
+  }
+  
+  return test;  
+}
+} // unnamed namespace
+
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
@@ -597,210 +760,244 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   Kokkos::Profiling::popRegion(); // Step 3
   // Step 4. calculate buffer sizes
-  Kokkos::Profiling::pushRegion("Step 4: Calc buffer sizes");
-  BufArray1D<Real> *sendbuf, *recvbuf;
-  // use the first MeshBlock in the linked list of blocks belonging to this MPI rank as a
-  // representative of all MeshBlocks for counting the "load-balancing registered" and
-  // "SMR/AMR-enrolled" quantities (loop over MeshBlock::vars_cc_, not MeshRefinement)
+  //Kokkos::Profiling::pushRegion("Step 4: Calc buffer sizes");
+  //BufArray1D<Real> *sendbuf, *recvbuf;
+  //// use the first MeshBlock in the linked list of blocks belonging to this MPI rank as a
+  //// representative of all MeshBlocks for counting the "load-balancing registered" and
+  //// "SMR/AMR-enrolled" quantities (loop over MeshBlock::vars_cc_, not MeshRefinement)
 
-  // TODO(felker): add explicit check to ensure that elements of pb->vars_cc/fc_ and
-  // pb->pmr->pvars_cc/fc_ v point to the same objects, if adaptive
+  //// TODO(felker): add explicit check to ensure that elements of pb->vars_cc/fc_ and
+  //// pb->pmr->pvars_cc/fc_ v point to the same objects, if adaptive
 
-  // TODO(JL) Why are we using all variables for same-level but only the variables in pmr
-  // for c2f and f2c?s
-  int num_cc = pdummy_block->vars_cc_.size();
-  int num_pmr_cc = pdummy_block->pmr->pvars_cc_.size();
-  int num_fc = pdummy_block->vars_fc_.size();
-  int nx4_tot = 0;
-  for (auto &pvar_cc : pdummy_block->vars_cc_) {
-    nx4_tot += pvar_cc->GetDim(4);
-  }
+  //// TODO(JL) Why are we using all variables for same-level but only the variables in pmr
+  //// for c2f and f2c?s
+  //int num_cc = pdummy_block->vars_cc_.size();
+  //int num_pmr_cc = pdummy_block->pmr->pvars_cc_.size();
+  //int num_fc = pdummy_block->vars_fc_.size();
+  //int nx4_tot = 0;
+  //for (auto &pvar_cc : pdummy_block->vars_cc_) {
+  //  nx4_tot += pvar_cc->GetDim(4);
+  //}
 
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
+  //const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  //const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
-  // cell-centered quantities enrolled in SMR/AMR
-  int bssame = bnx1 * bnx2 * bnx3 * nx4_tot;
-  int bsf2c = (bnx1 / 2) * ((bnx2 + 1) / 2) * ((bnx3 + 1) / 2) * nx4_tot;
-  int bsc2f =
-      (bnx1 / 2 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) * nx4_tot;
-  // face-centered quantities enrolled in SMR/AMR
-  bssame += num_fc * ((bnx1 + 1) * bnx2 * bnx3 + bnx1 * (bnx2 + f2) * bnx3 +
-                      bnx1 * bnx2 * (bnx3 + f3));
-  bsf2c += num_fc * (((bnx1 / 2) + 1) * ((bnx2 + 1) / 2) * ((bnx3 + 1) / 2) +
-                     (bnx1 / 2) * (((bnx2 + 1) / 2) + f2) * ((bnx3 + 1) / 2) +
-                     (bnx1 / 2) * ((bnx2 + 1) / 2) * (((bnx3 + 1) / 2) + f3));
-  bsc2f +=
-      num_fc *
-      (((bnx1 / 2) + 1 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) +
-       (bnx1 / 2 + 2) * (((bnx2 + 1) / 2) + f2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) +
-       (bnx1 / 2 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * (((bnx3 + 1) / 2) + f3 + 2 * f3));
+  //// cell-centered quantities enrolled in SMR/AMR
+  //int bssame = bnx1 * bnx2 * bnx3 * nx4_tot;
+  //int bsf2c = (bnx1 / 2) * ((bnx2 + 1) / 2) * ((bnx3 + 1) / 2) * nx4_tot;
+  //int bsc2f =
+  //    (bnx1 / 2 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) * nx4_tot;
+  //// face-centered quantities enrolled in SMR/AMR
+  //bssame += num_fc * ((bnx1 + 1) * bnx2 * bnx3 + bnx1 * (bnx2 + f2) * bnx3 +
+  //                    bnx1 * bnx2 * (bnx3 + f3));
+  //bsf2c += num_fc * (((bnx1 / 2) + 1) * ((bnx2 + 1) / 2) * ((bnx3 + 1) / 2) +
+  //                   (bnx1 / 2) * (((bnx2 + 1) / 2) + f2) * ((bnx3 + 1) / 2) +
+  //                   (bnx1 / 2) * ((bnx2 + 1) / 2) * (((bnx3 + 1) / 2) + f3));
+  //bsc2f +=
+  //    num_fc *
+  //    (((bnx1 / 2) + 1 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) +
+  //     (bnx1 / 2 + 2) * (((bnx2 + 1) / 2) + f2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) +
+  //     (bnx1 / 2 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * (((bnx3 + 1) / 2) + f3 + 2 * f3));
 
-  // add num_cc/num_pmr_cc to all buffer sizes for storing allocation statuses
-  bssame += num_cc;
-  bsc2f += num_pmr_cc;
-  bsf2c += num_pmr_cc;
+  //// add num_cc/num_pmr_cc to all buffer sizes for storing allocation statuses
+  //bssame += num_cc;
+  //bsc2f += num_pmr_cc;
+  //bsf2c += num_pmr_cc;
 
-  // add one more element to buffer size for storing the derefinement counter
-  bssame++;
-  Kokkos::Profiling::popRegion(); // Step 4
+  //// add one more element to buffer size for storing the derefinement counter
+  //bssame++;
+  //Kokkos::Profiling::popRegion(); // Step 4
 
-  MPI_Request *req_send, *req_recv;
+  //MPI_Request *req_send, *req_recv;
 
-  // Step 5. Allocate space for send and recieve buffers
-  Kokkos::Profiling::pushRegion("Step 5: Allocate send and recv buf");
-  size_t buf_size = 0;
-  if (nrecv != 0) {
-    recvbuf = new BufArray1D<Real>[nrecv];
-    for (int n = nbs; n <= nbe; n++) {
-      int on = newtoold[n];
-      LogicalLocation &oloc = loclist[on];
-      LogicalLocation &nloc = newloc[n];
-      if (oloc.level > nloc.level) { // f2c
-        for (int l = 0; l < nleaf; l++) {
-          if (ranklist[on + l] == Globals::my_rank) continue;
-          buf_size += bsf2c;
-        }
-      } else { // same level or c2f
-        if (ranklist[on] == Globals::my_rank) continue;
-        int size;
-        if (oloc.level == nloc.level) {
-          size = bssame;
-        } else {
-          size = bsc2f;
-        }
-        buf_size += size;
-      }
-    }
-  }
-  if (nsend != 0) {
-    sendbuf = new BufArray1D<Real>[nsend];
-    for (int n = onbs; n <= onbe; n++) {
-      int nn = oldtonew[n];
-      LogicalLocation &oloc = loclist[n];
-      LogicalLocation &nloc = newloc[nn];
-      auto pb = FindMeshBlock(n);
-      if (nloc.level == oloc.level) { // same level
-        if (newrank[nn] == Globals::my_rank) continue;
-        buf_size += bssame;
-      } else if (nloc.level > oloc.level) { // c2f
-        // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
-        for (int l = 0; l < nleaf; l++) {
-          if (newrank[nn + l] == Globals::my_rank) continue;
-          buf_size += bsc2f;
-        }      // end loop over nleaf (unique to c2f branch in this step 6)
-      } else { // f2c: restrict + pack + send
-        if (newrank[nn] == Globals::my_rank) continue;
-        buf_size += bsf2c;
-      }
-    }
-  }
-  BufArray1D<Real> bufs("RedistributeAndRefineMeshBlocks sendrecv bufs", buf_size);
-  Kokkos::Profiling::popRegion(); // Step 5
+  //// Step 5. Allocate space for send and recieve buffers
+  //Kokkos::Profiling::pushRegion("Step 5: Allocate send and recv buf");
+  //size_t buf_size = 0;
+  //if (nrecv != 0) {
+  //  recvbuf = new BufArray1D<Real>[nrecv];
+  //  for (int n = nbs; n <= nbe; n++) {
+  //    int on = newtoold[n];
+  //    LogicalLocation &oloc = loclist[on];
+  //    LogicalLocation &nloc = newloc[n];
+  //    if (oloc.level > nloc.level) { // f2c
+  //      for (int l = 0; l < nleaf; l++) {
+  //        if (ranklist[on + l] == Globals::my_rank) continue;
+  //        buf_size += bsf2c;
+  //      }
+  //    } else { // same level or c2f
+  //      if (ranklist[on] == Globals::my_rank) continue;
+  //      int size;
+  //      if (oloc.level == nloc.level) {
+  //        size = bssame;
+  //      } else {
+  //        size = bsc2f;
+  //      }
+  //      buf_size += size;
+  //    }
+  //  }
+  //}
+  //if (nsend != 0) {
+  //  sendbuf = new BufArray1D<Real>[nsend];
+  //  for (int n = onbs; n <= onbe; n++) {
+  //    int nn = oldtonew[n];
+  //    LogicalLocation &oloc = loclist[n];
+  //    LogicalLocation &nloc = newloc[nn];
+  //    auto pb = FindMeshBlock(n);
+  //    if (nloc.level == oloc.level) { // same level
+  //      if (newrank[nn] == Globals::my_rank) continue;
+  //      buf_size += bssame;
+  //    } else if (nloc.level > oloc.level) { // c2f
+  //      // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
+  //      for (int l = 0; l < nleaf; l++) {
+  //        if (newrank[nn + l] == Globals::my_rank) continue;
+  //        buf_size += bsc2f;
+  //      }      // end loop over nleaf (unique to c2f branch in this step 6)
+  //    } else { // f2c: restrict + pack + send
+  //      if (newrank[nn] == Globals::my_rank) continue;
+  //      buf_size += bsf2c;
+  //    }
+  //  }
+  //}
+  //BufArray1D<Real> bufs("RedistributeAndRefineMeshBlocks sendrecv bufs", buf_size);
+  //Kokkos::Profiling::popRegion(); // Step 5
 
   // Step 6. allocate and start receiving buffers
-  Kokkos::Profiling::pushRegion("Step 6: Pack buffer and start recv");
-  size_t buf_offset = 0;
-  if (nrecv != 0) {
-    req_recv = new MPI_Request[nrecv];
-    int rb_idx = 0; // recv buffer index
-    for (int n = nbs; n <= nbe; n++) {
-      int on = newtoold[n];
-      LogicalLocation &oloc = loclist[on];
-      LogicalLocation &nloc = newloc[n];
-      if (oloc.level > nloc.level) { // f2c
-        for (int l = 0; l < nleaf; l++) {
-          if (ranklist[on + l] == Globals::my_rank) continue;
-          LogicalLocation &lloc = loclist[on + l];
-          int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
-              ox3 = ((lloc.lx3 & 1LL) == 1LL);
-          recvbuf[rb_idx] =
-              BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
-          buf_offset += bsf2c;
-          int tag = CreateAMRMPITag(n - nbs, ox1, ox2, ox3);
-          PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_PARTHENON_REAL,
-                                        ranklist[on + l], tag, MPI_COMM_WORLD,
-                                        &(req_recv[rb_idx])));
-          rb_idx++;
-        }
-      } else { // same level or c2f
-        if (ranklist[on] == Globals::my_rank) continue;
-        int size;
-        if (oloc.level == nloc.level) {
-          size = bssame;
-        } else {
-          size = bsc2f;
-        }
-        recvbuf[rb_idx] =
-            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + size));
-        buf_offset += size;
-        int tag = CreateAMRMPITag(n - nbs, 0, 0, 0);
-        PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_PARTHENON_REAL,
-                                      ranklist[on], tag, MPI_COMM_WORLD,
-                                      &(req_recv[rb_idx])));
-        rb_idx++;
-      }
+  //Kokkos::Profiling::pushRegion("Step 6: Pack buffer and start recv");
+  //size_t buf_offset = 0;
+  //if (nrecv != 0) {
+  //  req_recv = new MPI_Request[nrecv];
+  //  int rb_idx = 0; // recv buffer index
+  //  for (int n = nbs; n <= nbe; n++) {
+  //    int on = newtoold[n];
+  //    LogicalLocation &oloc = loclist[on];
+  //    LogicalLocation &nloc = newloc[n];
+  //    if (oloc.level > nloc.level) { // f2c
+  //      for (int l = 0; l < nleaf; l++) {
+  //        if (ranklist[on + l] == Globals::my_rank) continue;
+  //        LogicalLocation &lloc = loclist[on + l];
+  //        int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
+  //            ox3 = ((lloc.lx3 & 1LL) == 1LL);
+  //        recvbuf[rb_idx] =
+  //            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
+  //        buf_offset += bsf2c;
+  //        int tag = CreateAMRMPITag(n - nbs, ox1, ox2, ox3);
+  //        PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_PARTHENON_REAL,
+  //                                      ranklist[on + l], tag, MPI_COMM_WORLD,
+  //                                      &(req_recv[rb_idx])));
+  //        rb_idx++;
+  //      }
+  //    } else { // same level or c2f
+  //      if (ranklist[on] == Globals::my_rank) continue;
+  //      int size;
+  //      if (oloc.level == nloc.level) {
+  //        size = bssame;
+  //      } else {
+  //        size = bsc2f;
+  //      }
+  //      recvbuf[rb_idx] =
+  //          BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + size));
+  //      buf_offset += size;
+  //      int tag = CreateAMRMPITag(n - nbs, 0, 0, 0);
+  //      PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_PARTHENON_REAL,
+  //                                    ranklist[on], tag, MPI_COMM_WORLD,
+  //                                    &(req_recv[rb_idx])));
+  //      rb_idx++;
+  //    }
+  //  }
+  //}
+  //Kokkos::Profiling::popRegion(); // Step 6
+  
+  // Step 7 - eps: Restrict fine to coarse buffers 
+  if (nsend != 0) { 
+    for (int on = onbs; on <= onbe; on++) { 
+      int nn = oldtonew[on]; 
+      LogicalLocation &oloc = loclist[on]; 
+      LogicalLocation &nloc = newloc[nn];
+      auto pmb = FindMeshBlock(on); 
+      if (nloc.level < oloc.level) {
+        const IndexDomain interior = IndexDomain::interior;
+        IndexRange cib = pb->c_cellbounds.GetBoundsI(interior);
+        IndexRange cjb = pb->c_cellbounds.GetBoundsJ(interior);
+        IndexRange ckb = pb->c_cellbounds.GetBoundsK(interior);
+        
+        // Need to restrict this block before doing sends
+        for (auto& var : pb->vars_cc_)
+          pmb->pmr->RestrictCellCenteredValues(var->data, var->coarse_s, 0, var->GetDim(4) - 1, 
+                                               cib.s, cib.e, cjb.s,cjb.e, ckb.s, ckb.e); 
+      } 
     }
   }
-  Kokkos::Profiling::popRegion(); // Step 6
+  Kokkos::fence(); 
 
   // Step 7. allocate, pack and start sending buffers
   Kokkos::Profiling::pushRegion("Step 7: Pack and send buffers");
+  std::vector<MPI_Request> send_reqs; 
   if (nsend != 0) {
-    req_send = new MPI_Request[nsend];
-    std::vector<int> tags(nsend);
-    std::vector<int> dest(nsend);
-    std::vector<int> count(nsend);
-    int sb_idx = 0; // send buffer index
+    //req_send = new MPI_Request[nsend];
+    //std::vector<int> tags(nsend);
+    //std::vector<int> dest(nsend);
+    //std::vector<int> count(nsend);
+    //int sb_idx = 0; // send buffer index
     for (int n = onbs; n <= onbe; n++) {
       int nn = oldtonew[n];
       LogicalLocation &oloc = loclist[n];
       LogicalLocation &nloc = newloc[nn];
       auto pb = FindMeshBlock(n);
-      if (nloc.level == oloc.level) { // same level
-        if (newrank[nn] == Globals::my_rank) continue;
-        sendbuf[sb_idx] =
-            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bssame));
-        buf_offset += bssame;
-        PrepareSendSameLevel(pb.get(), sendbuf[sb_idx]);
-        tags[sb_idx] = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
-        dest[sb_idx] = newrank[nn];
-        count[sb_idx] = bssame;
-        sb_idx++;
+      if (nloc.level == oloc.level && newrank[nn] != Globals::my_rank) { // same level, different rank
+        for (auto& var : pb->vars_cc_)
+          send_reqs.emplace_back(SendSameToSame(nn - nslist[newrank[nn]], 0, 0, 0, var.get())); 
+        //sendbuf[sb_idx] =
+        //    BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bssame));
+        //buf_offset += bssame;
+        //PrepareSendSameLevel(pb.get(), sendbuf[sb_idx]);
+        //tags[sb_idx] = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
+        //dest[sb_idx] = newrank[nn];
+        //count[sb_idx] = bssame;
+        //sb_idx++;
       } else if (nloc.level > oloc.level) { // c2f
         // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
         for (int l = 0; l < nleaf; l++) {
-          if (newrank[nn + l] == Globals::my_rank) continue;
-          sendbuf[sb_idx] =
-              BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsc2f));
-          buf_offset += bsc2f;
-          PrepareSendCoarseToFineAMR(pb.get(), sendbuf[sb_idx], newloc[nn + l]);
-          tags[sb_idx] = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
-          dest[sb_idx] = newrank[nn + l];
-          count[sb_idx] = bsc2f;
-          sb_idx++;
+          int ox3 = l % 8 / 4; 
+          int ox2 = l % 4 / 2; 
+          int ox1 = l % 2 / 1;
+          for (auto& var : pb->vars_cc_) 
+            send_reqs.emplace_back(SendCoarseToFine(nn + l - nslist[newrank[nn + l]], ox1, ox2, ox3, var.get()));
+          //if (newrank[nn + l] == Globals::my_rank) continue;
+          //sendbuf[sb_idx] =
+          //    BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsc2f));
+          //buf_offset += bsc2f;
+          //PrepareSendCoarseToFineAMR(pb.get(), sendbuf[sb_idx], newloc[nn + l]);
+          //tags[sb_idx] = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
+          //dest[sb_idx] = newrank[nn + l];
+          //count[sb_idx] = bsc2f;
+          //sb_idx++;
         }      // end loop over nleaf (unique to c2f branch in this step 6)
       } else { // f2c: restrict + pack + send
-        if (newrank[nn] == Globals::my_rank) continue;
-        sendbuf[sb_idx] =
-            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
-        buf_offset += bsf2c;
-        PrepareSendFineToCoarseAMR(pb.get(), sendbuf[sb_idx]);
-        int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
-            ox3 = ((oloc.lx3 & 1LL) == 1LL);
-        tags[sb_idx] = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
-        dest[sb_idx] = newrank[nn];
-        count[sb_idx] = bsf2c;
-        sb_idx++;
+        const int ox1 = ((oloc.lx1 & 1LL) == 1LL);
+        const int ox2 = ((oloc.lx2 & 1LL) == 1LL),
+        const int ox3 = ((oloc.lx3 & 1LL) == 1LL);
+        for (auto& var : pb->vars_cc_) 
+          send_reqs.emplace_back(SendFineToCoarse(nn - nslist[newrank[nn]], ox1, ox2, ox3, var.get()));
+        //if (newrank[nn] == Globals::my_rank) continue;
+        //sendbuf[sb_idx] =
+        //    BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
+        //buf_offset += bsf2c;
+        //PrepareSendFineToCoarseAMR(pb.get(), sendbuf[sb_idx]);
+        //int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
+        //    ox3 = ((oloc.lx3 & 1LL) == 1LL);
+        //tags[sb_idx] = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
+        //dest[sb_idx] = newrank[nn];
+        //count[sb_idx] = bsf2c;
+        //sb_idx++;
       }
     }
-    // wait until all send buffers are filled
-    Kokkos::fence();
-    for (auto idx = 0; idx < sb_idx; idx++) {
-      PARTHENON_MPI_CHECK(MPI_Isend(sendbuf[idx].data(), count[idx], MPI_PARTHENON_REAL,
-                                    dest[idx], tags[idx], MPI_COMM_WORLD,
-                                    &(req_send[idx])));
-    }
+    //// wait until all send buffers are filled
+    //Kokkos::fence();
+    //for (auto idx = 0; idx < sb_idx; idx++) {
+    //  PARTHENON_MPI_CHECK(MPI_Isend(sendbuf[idx].data(), count[idx], MPI_PARTHENON_REAL,
+    //                                dest[idx], tags[idx], MPI_COMM_WORLD,
+    //                                &(req_send[idx])));
+    //}
   }                               // if (nsend !=0)
   Kokkos::Profiling::popRegion(); // Step 7
 #endif                            // MPI_PARALLEL
@@ -825,35 +1022,35 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
                             app_in, packages, resolved_packages, gflag);
         // fill the conservative variables
-        if ((loclist[on].level > newloc[n].level)) { // fine to coarse (f2c)
-          for (int ll = 0; ll < nleaf; ll++) {
-            if (ranklist[on + ll] != Globals::my_rank) continue;
-            // fine to coarse on the same MPI rank (different AMR level) - restriction
-            auto pob = FindMeshBlock(on + ll);
+        //if ((loclist[on].level > newloc[n].level)) { // fine to coarse (f2c)
+        //  for (int ll = 0; ll < nleaf; ll++) {
+        //    if (ranklist[on + ll] != Globals::my_rank) continue;
+        //    // fine to coarse on the same MPI rank (different AMR level) - restriction
+        //    auto pob = FindMeshBlock(on + ll);
 
-            // allocte sparse variables that were allocated on old block
-            for (auto var : pob->meshblock_data.Get()->GetCellVariableVector()) {
-              if (var->IsSparse() && var->IsAllocated()) {
-                new_block_list[n - nbs]->AllocateSparse(var->label());
-              }
-            }
-            FillSameRankFineToCoarseAMR(pob.get(), new_block_list[n - nbs].get(),
-                                        loclist[on + ll]);
-          }
-        } else if ((loclist[on].level < newloc[n].level) && // coarse to fine (c2f)
-                   (ranklist[on] == Globals::my_rank)) {
-          // coarse to fine on the same MPI rank (different AMR level) - prolongation
-          auto pob = FindMeshBlock(on);
+        //    // allocte sparse variables that were allocated on old block
+        //    for (auto var : pob->meshblock_data.Get()->GetCellVariableVector()) {
+        //      if (var->IsSparse() && var->IsAllocated()) {
+        //        new_block_list[n - nbs]->AllocateSparse(var->label());
+        //      }
+        //    }
+        //    FillSameRankFineToCoarseAMR(pob.get(), new_block_list[n - nbs].get(),
+        //                                loclist[on + ll]);
+        //  }
+        //} else if ((loclist[on].level < newloc[n].level) && // coarse to fine (c2f)
+        //           (ranklist[on] == Globals::my_rank)) {
+        //  // coarse to fine on the same MPI rank (different AMR level) - prolongation
+        //  auto pob = FindMeshBlock(on);
 
-          // allocte sparse variables that were allocated on old block
-          for (auto var : pob->meshblock_data.Get()->GetCellVariableVector()) {
-            if (var->IsSparse() && var->IsAllocated()) {
-              new_block_list[n - nbs]->AllocateSparse(var->label());
-            }
-          }
-          FillSameRankCoarseToFineAMR(pob.get(), new_block_list[n - nbs].get(),
-                                      newloc[n]);
-        }
+        //  // allocte sparse variables that were allocated on old block
+        //  for (auto var : pob->meshblock_data.Get()->GetCellVariableVector()) {
+        //    if (var->IsSparse() && var->IsAllocated()) {
+        //      new_block_list[n - nbs]->AllocateSparse(var->label());
+        //    }
+        //  }
+        //  FillSameRankCoarseToFineAMR(pob.get(), new_block_list[n - nbs].get(),
+        //                              newloc[n]);
+        //}
       }
     }
 
@@ -876,51 +1073,67 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     int test;
     std::vector<bool> received(nrecv, false);
     int rb_idx;
+    bool all_received;
     do {
+      all_received = true; 
       rb_idx = 0; // recv buffer index
       for (int n = nbs; n <= nbe; n++) {
         int on = newtoold[n];
         LogicalLocation &oloc = loclist[on];
         LogicalLocation &nloc = newloc[n];
         auto pb = FindMeshBlock(n);
-        if (oloc.level == nloc.level) { // same
-          if (ranklist[on] == Globals::my_rank) continue;
-          if (!received[rb_idx]) {
-            PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
-            if (static_cast<bool>(test)) {
-              FinishRecvSameLevel(pb.get(), recvbuf[rb_idx]);
-              received[rb_idx] = true;
-            }
-          }
-          rb_idx++;
+        if (oloc.level == nloc.level && ranklist[on] != Globals::my_rank) { // same
+          for (auto& var : pb->vars_cc)
+            all_received = TryRecvSameToSame(n - nbs, ranklist[on], var.get()) && all_received; 
+          //if (ranklist[on] == Globals::my_rank) continue;
+          //if (!received[rb_idx]) {
+          //  PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
+          //  if (static_cast<bool>(test)) {
+          //    FinishRecvSameLevel(pb.get(), recvbuf[rb_idx]);
+          //    received[rb_idx] = true;
+          //  }
+          //}
+          //rb_idx++;
         } else if (oloc.level > nloc.level) { // f2c
           for (int l = 0; l < nleaf; l++) {
-            if (ranklist[on + l] == Globals::my_rank) continue;
-            if (!received[rb_idx]) {
-              PARTHENON_MPI_CHECK(
-                  MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
-              if (static_cast<bool>(test)) {
-                FinishRecvFineToCoarseAMR(pb.get(), recvbuf[rb_idx], loclist[on + l]);
-                received[rb_idx] = true;
-              }
-            }
-            rb_idx++;
+            int ox3 = l % 8 / 4; 
+            int ox2 = l % 4 / 2; 
+            int ox1 = l % 2 / 1;
+            for (auto& var : pb->vars_cc)
+              all_received = TryReceiveFineToCoarse(n - nbs, ox1, ox2, ox3, var.get(), pb.get()) && all_received;
+            //if (ranklist[on + l] == Globals::my_rank) continue;
+            //if (!received[rb_idx]) {
+            //  PARTHENON_MPI_CHECK(
+            //      MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
+            //  if (static_cast<bool>(test)) {
+            //    FinishRecvFineToCoarseAMR(pb.get(), recvbuf[rb_idx], loclist[on + l]);
+            //    received[rb_idx] = true;
+            //  }
+            //}
+            //rb_idx++;
           }
-        } else { // c2f
-          if (ranklist[on] == Globals::my_rank) continue;
-          if (!received[rb_idx]) {
-            PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
-            if (static_cast<bool>(test)) {
-              FinishRecvCoarseToFineAMR(pb.get(), recvbuf[rb_idx]);
-              received[rb_idx] = true;
-            }
-          }
-          rb_idx++;
+        } else { // c2f 
+          const int ox1 = ((nloc.lx1 & 1LL) == 1LL);
+          const int ox2 = ((nloc.lx2 & 1LL) == 1LL),
+          const int ox3 = ((nloc.lx3 & 1LL) == 1LL); 
+          for (auto& var : pb->vars_cc)
+            all_received = TryReceiveCoarseToFine(n - nbs, ox1, ox2, ox3, var.get(), pb.get()) && all_received;
+          
+          //if (ranklist[on] == Globals::my_rank) continue;
+          //if (!received[rb_idx]) {
+          //  PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
+          //  if (static_cast<bool>(test)) {
+          //    FinishRecvCoarseToFineAMR(pb.get(), recvbuf[rb_idx]);
+          //    received[rb_idx] = true;
+          //  }
+          //}
+          //rb_idx++;
         }
       }
       // rb_idx is a running index, so we repeat the loop until all vals are true
-    } while (!std::all_of(received.begin(), received.begin() + rb_idx,
-                          [](bool v) { return v; }));
+    } while (!all_received);
+    //} while (!std::all_of(received.begin(), received.begin() + rb_idx,
+    //                      [](bool v) { return v; }));
     Kokkos::fence();
   }
 #endif
@@ -930,17 +1143,19 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   oldtonew.clear();
 #ifdef MPI_PARALLEL
   if (nsend != 0) {
-    PARTHENON_MPI_CHECK(MPI_Waitall(nsend, req_send, MPI_STATUSES_IGNORE));
-    delete[] sendbuf;
-    delete[] req_send;
+    PARTHENON_MPI_CHECK(MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
+    //PARTHENON_MPI_CHECK(MPI_Waitall(nsend, req_send, MPI_STATUSES_IGNORE));
+    //delete[] sendbuf;
+    //delete[] req_send;
   }
-  if (nrecv != 0) {
-    delete[] recvbuf;
-    delete[] req_recv;
-  }
+  //if (nrecv != 0) {
+  //  delete[] recvbuf;
+  //  delete[] req_recv;
+  //}
 #endif
   Kokkos::Profiling::popRegion(); // Step 9
-
+  
+  // TODO(LFR): Need to prolongate where necessary 
   // update the lists
   loclist = std::move(newloc);
   ranklist = std::move(newrank);
@@ -1612,10 +1827,5 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
 //       + physics(5 bits)
 
 // See comments on BoundaryBase::CreateBvalsMPITag()
-
-int Mesh::CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
-  // the trailing zero is used as "id" to indicate an AMR related tag
-  return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
-}
 
 } // namespace parthenon

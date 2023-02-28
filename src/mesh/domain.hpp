@@ -69,6 +69,8 @@ struct IndexRange {
 enum class IndexDomain {
   entire,
   interior,
+  entire_coarse,
+  interior_coarse,
   inner_x1,
   outer_x1,
   inner_x2,
@@ -159,6 +161,8 @@ class IndexShape {
     switch (domain) {
     case IndexDomain::interior:
       return x_[0].s;
+    case IndexDomain::interior_coarse:
+      return x_[0].s;
     case IndexDomain::outer_x1:
       return entire_ncells_[0] == 1 ? 0 : x_[0].e + 1;
     default:
@@ -169,6 +173,8 @@ class IndexShape {
   KOKKOS_INLINE_FUNCTION int js(const IndexDomain &domain) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
+      return x_[1].s;
+    case IndexDomain::interior_coarse:
       return x_[1].s;
     case IndexDomain::outer_x2:
       return entire_ncells_[1] == 1 ? 0 : x_[1].e + 1;
@@ -181,6 +187,8 @@ class IndexShape {
     switch (domain) {
     case IndexDomain::interior:
       return x_[2].s;
+    case IndexDomain::interior_coarse:
+      return x_[2].s;
     case IndexDomain::outer_x3:
       return entire_ncells_[2] == 1 ? 0 : x_[2].e + 1;
     default:
@@ -192,6 +200,10 @@ class IndexShape {
     switch (domain) {
     case IndexDomain::interior:
       return x_[0].e;
+    case IndexDomain::interior_coarse:
+      return (x_[0].e - x_[0].s + 1) / 2 + x_[0].s - 1;
+    case IndexDomain::exterior_coarse:
+      return (x_[0].e - x_[0].s + 1) / 2 + 2 * x_[0].s - 1;
     case IndexDomain::inner_x1:
       return x_[0].s == 0 ? 0 : x_[0].s - 1;
     default:
@@ -203,6 +215,10 @@ class IndexShape {
     switch (domain) {
     case IndexDomain::interior:
       return x_[1].e;
+    case IndexDomain::interior_coarse:
+      return (x_[1].e - x_[1].s + 1) / 2 + x_[1].s - 1;
+    case IndexDomain::exterior_coarse:
+      return (x_[1].e - x_[1].s + 1) / 2 + 2 * x_[1].s - 1;
     case IndexDomain::inner_x2:
       return x_[1].s == 0 ? 0 : x_[1].s - 1;
     default:
@@ -214,6 +230,10 @@ class IndexShape {
     switch (domain) {
     case IndexDomain::interior:
       return x_[2].e;
+    case IndexDomain::interior_coarse:
+      return (x_[2].e - x_[2].s + 1) / 2 + x_[2].s - 1;
+    case IndexDomain::exterior_coarse:
+      return (x_[2].e - x_[2].s + 1) / 2 + 2 * x_[2].s - 1;
     case IndexDomain::inner_x3:
       return x_[2].s == 0 ? 0 : x_[2].s - 1;
     default:
