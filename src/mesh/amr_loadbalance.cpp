@@ -1202,7 +1202,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   newtoold.clear();
   oldtonew.clear();
 #ifdef MPI_PARALLEL
-  if (nsend != 0) {
+  if (send_reqs.size() != 0) {
     PARTHENON_MPI_CHECK(MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
     //PARTHENON_MPI_CHECK(MPI_Waitall(nsend, req_send, MPI_STATUSES_IGNORE));
     //delete[] sendbuf;
