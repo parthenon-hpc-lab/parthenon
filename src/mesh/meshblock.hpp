@@ -179,6 +179,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   void DeallocateSparse(std::string const &label);
 
+  size_t ComputeSendSize(int delta_level);
+
 #ifdef ENABLE_SPARSE
   inline bool IsAllocated(std::string const &label) const noexcept {
     return meshblock_data.Get()->IsAllocated(label);
