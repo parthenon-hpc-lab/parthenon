@@ -703,8 +703,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // rb_idx is a running index, so we repeat the loop until all vals are true
     } while (!all_received && niter < 1e7);
     if (!all_received) PARTHENON_FAIL("AMR Receive failed");
-    Kokkos::fence();
-  }  
+  }
+#endif
 
   // Prolongate blocks that had a coarse buffer filled (i.e. c2f blocks) 
   for (int nn = nbs; nn <= nbe; nn++) { 
@@ -729,10 +729,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     } 
   }
 
-#endif
-  // deallocate arrays
-  newtoold.clear();
-  oldtonew.clear();
 #ifdef MPI_PARALLEL
   if (send_reqs.size() != 0)
     PARTHENON_MPI_CHECK(MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
@@ -903,7 +899,7 @@ MPI_Request Mesh::SendSameToSame(int lid_recv, int dest_rank, CellVariable<Real>
     auto counter_subview = Kokkos::subview(var->data.KokkosView(), 
                                                  0, 0, 0, 0, 0, std::make_pair(0, 2));
     auto counter_subview_h = Kokkos::create_mirror_view(HostMemSpace(), counter_subview);
-    counter_subview_h(0) = static_cast<Real>(pmb->pmr->counter_);
+    counter_subview_h(0) = static_cast<Real>(pmb->pmr->deref_count_);
     counter_subview_h(1) = static_cast<Real>(var->dealloc_count);
     Kokkos::deep_copy(counter_subview, counter_subview_h);
 
@@ -933,7 +929,7 @@ bool Mesh::TryRecvSameToSame(int lid_recv, int send_rank, CellVariable<Real> *va
       auto counter_subview = Kokkos::subview(var->data.KokkosView(), 
                                                  0, 0, 0, 0, 0, std::make_pair(0, 2));
       auto counter_subview_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), counter_subview);
-      pmb->pmr->counter_ = static_cast<int>(counter_subview_h(0));
+      pmb->pmr->deref_count_ = static_cast<int>(counter_subview_h(0));
       var->dealloc_count = static_cast<int>(counter_subview_h(1));
     } else { 
       if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label());
