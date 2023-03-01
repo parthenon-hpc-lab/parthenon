@@ -29,6 +29,8 @@
 #include <string>
 #include <tuple>
 
+#include <unistd.h> 
+
 #include "parthenon_mpi.hpp"
 
 #include "bvals/boundary_conditions.hpp"
@@ -631,6 +633,13 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
       // on the same MPI rank and same level -> just move it
       new_block_list[n - nbs] = FindMeshBlock(on);
+      if (!new_block_list[n-nbs]) {
+        BoundaryFlag block_bcs[6];
+        SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs); 
+        new_block_list[n - nbs] =
+          MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
+                          app_in, packages, resolved_packages, gflag); 
+      }
     } else {
       // on a different refinement level or MPI rank - create a new block
       BoundaryFlag block_bcs[6];
@@ -651,15 +660,17 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     block_list[n - nbs]->gid = n;
     block_list[n - nbs]->lid = n - nbs;
   }
+
   Kokkos::Profiling::popRegion(); // Step 8: Construct new MeshBlockList
 
   // Step 9. Receive the data and load into MeshBlocks
   Kokkos::Profiling::pushRegion("Step 9: Recv data and unpack");
 #ifdef MPI_PARALLEL
-    int test;
-    bool all_received;
-    int niter = 0;
-    std::vector<bool> finished((nbe - nbs + 1) * FindMeshBlock(nbs)->vars_cc_.size() * 8, false);
+  int test;
+  bool all_received;
+  int niter = 0;
+  if (block_list.size() > 0) {
+    std::vector<bool> finished(std::max((nbe - nbs + 1), 1) * FindMeshBlock(nbs)->vars_cc_.size() * 8, false);
     do {
       all_received = true; 
       niter++; 
@@ -690,32 +701,34 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         }
       }
       // rb_idx is a running index, so we repeat the loop until all vals are true
-    } while (!all_received && niter < 1e4);
+    } while (!all_received && niter < 1e7);
     if (!all_received) PARTHENON_FAIL("AMR Receive failed");
     Kokkos::fence();
+  }  
 
-    // Prolongate blocks that had a coarse buffer filled (i.e. c2f blocks) 
-    for (int nn = nbs; nn <= nbe; nn++) { 
-      int on = newtoold[nn]; 
-      LogicalLocation &oloc = loclist[on]; 
-      LogicalLocation &nloc = newloc[nn];
-      auto pmb = FindMeshBlock(nn); 
-      if (nloc.level > oloc.level) {
-        const IndexDomain interior = IndexDomain::interior;
-        IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-        IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-        IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-        // Need to restrict this block before doing sends
-        for (auto& var : pmb->vars_cc_) {
-          if (var->IsAllocated()) {
-            ParArrayND<Real> fb = var->data; 
-            ParArrayND<Real> cb = var->coarse_s;
-            pmb->pmr->ProlongateCellCenteredValues(cb, fb, 0, var->GetDim(4) - 1, 
-                                                   cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e);                                      
-          } 
-        }
-      } 
-    }
+  // Prolongate blocks that had a coarse buffer filled (i.e. c2f blocks) 
+  for (int nn = nbs; nn <= nbe; nn++) { 
+    int on = newtoold[nn]; 
+    LogicalLocation &oloc = loclist[on]; 
+    LogicalLocation &nloc = newloc[nn];
+    auto pmb = FindMeshBlock(nn); 
+    if (nloc.level > oloc.level) {
+      const IndexDomain interior = IndexDomain::interior;
+      IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
+      IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
+      IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
+      // Need to restrict this block before doing sends
+      for (auto& var : pmb->vars_cc_) {
+        if (var->IsAllocated()) {
+          ParArrayND<Real> fb = var->data; 
+          ParArrayND<Real> cb = var->coarse_s;
+          pmb->pmr->ProlongateCellCenteredValues(cb, fb, 0, var->GetDim(4) - 1, 
+                                                 cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e);                                      
+        } 
+      }
+    } 
+  }
+
 #endif
   // deallocate arrays
   newtoold.clear();
