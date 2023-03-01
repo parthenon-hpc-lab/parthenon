@@ -31,7 +31,10 @@
 #include <map>
 #include <memory>
 #include <regex>
+#include <set>
 #include <string>
+#include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -41,6 +44,7 @@
 #include "parthenon_arrays.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/unique_id.hpp"
 
 namespace parthenon {
 
@@ -113,6 +117,9 @@ class CellVariable {
 
   inline std::string getAssociated() { return m_.getAssociated(); }
 
+  KOKKOS_FORCEINLINE_FUNCTION
+  std::size_t GetUniqueID() const { return uid_; }
+
   /// return information string
   std::string info();
 
@@ -156,6 +163,14 @@ class CellVariable {
   const std::string base_name_;
   const int sparse_id_;
   const std::array<int, 6> dims_, coarse_dims_;
+
+  // Machinery for giving each variable a unique ID that is faster to
+  // evaluate than a string. uid is determined by order of variable
+  // creation, which is deterministic.
+  std::size_t uid_;
+  // This generator needs to be global so that different instances of
+  // variable have the same unique ID.
+  inline static UniqueIDGenerator<std::string> get_uid_;
 
   bool is_allocated_ = false;
   ParArray7D<T> flux_data_; // unified par array for the fluxes
@@ -241,6 +256,17 @@ inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
   return out;
 }
 
+// Enforces uid ordering of sets/maps of variables
+template <typename T>
+struct VarComp {
+  bool operator()(const std::shared_ptr<T> &a, const std::shared_ptr<T> &b) const {
+    return ((a->GetUniqueID()) < (b->GetUniqueID()));
+  }
+};
+
+template <typename T>
+using VarPtr = std::shared_ptr<CellVariable<T>>;
+
 template <typename T>
 using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
 
@@ -248,6 +274,10 @@ template <typename T>
 using ParticleVariableVector = std::vector<std::shared_ptr<ParticleVariable<T>>>;
 template <typename T>
 using MapToParticle = std::map<std::string, std::shared_ptr<ParticleVariable<T>>>;
+template <typename T>
+using VariableSet = std::set<VarPtr<T>, VarComp<CellVariable<T>>>;
+template <typename T>
+using MetadataFlagToVariableMap = std::map<MetadataFlag, VariableSet<T>>;
 
 } // namespace parthenon
 

@@ -10,11 +10,6 @@ Parthenon: A Performance Portable Block-Structured Adaptive Mesh Refinement Fram
 
 .. _Parthenon: https://github.com/parthenon-hpc-lab/parthenon
 
-We are currently in the process of migrating to new documentation
-here. The old documentation can be found in markdown `here`_.
-
-.. _`here`: https://github.com/parthenon-hpc-lab/parthenon/docs
-
 Key Features
 ^^^^^^^^^^^^^
 
@@ -38,14 +33,14 @@ Community
 .. toctree::
    :maxdepth: 1
    :caption: Contents:
+   :glob:
 
-   src/particles
-   src/outputs
-   src/sphinx-doc
+   src/*
+   src/interface/*
+   src/mesh/*
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`

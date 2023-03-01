@@ -30,7 +30,8 @@ jobs:
           run: |
             echo "Repo = ${GITHUB_REPOSITORY}"
             cd doc/sphinx
-            make multiversion
+            # throw warnings as error to make sure docs properly build
+            make multiversion SPHINXOPTS="-W --keep-going -n"
         - name: Deploy
           if: ${{ (github.event.pull_request.head.repo.full_name == github.repository) || (github.ref == 'refs/heads/develop') }}
           uses: peaceiris/actions-gh-pages@v3.7.3
