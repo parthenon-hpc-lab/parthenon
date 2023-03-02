@@ -270,7 +270,7 @@ class Mesh {
                            CellVariable<Real>* var, MeshBlock *pmb);
   MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation &fine_loc, CellVariable<Real> *var);
   bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fine_loc, CellVariable<Real> *var, MeshBlock *pmb);
-  MPI_Request SendSameToSame(int lid_recv, int dest_rank, CellVariable<Real> *var);
+  MPI_Request SendSameToSame(int lid_recv, int dest_rank, CellVariable<Real> *var, MeshBlock *pmb);
   bool TryRecvSameToSame(int lid_recv, int send_rank, CellVariable<Real> *var, MeshBlock *pmb);
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);

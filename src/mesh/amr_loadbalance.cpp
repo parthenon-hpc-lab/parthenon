@@ -604,7 +604,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     auto pb = FindMeshBlock(n);
     if (nloc.level == oloc.level && newrank[nn] != Globals::my_rank) { // same level, different rank
       for (auto& var : pb->vars_cc_)
-        send_reqs.emplace_back(SendSameToSame(nn - nslist[newrank[nn]], newrank[nn], var.get())); 
+        send_reqs.emplace_back(SendSameToSame(nn - nslist[newrank[nn]], newrank[nn], var.get(), pb.get())); 
     } else if (nloc.level > oloc.level) { // c2f
       // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
       for (int l = 0; l < nleaf; l++) {
@@ -849,19 +849,15 @@ bool Mesh::TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocatio
   static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior);
   static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior);
   
-  static const IndexRange ib_int = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  static const IndexRange jb_int = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  static const IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  
   MPI_Comm comm = mpi_comm_map_[var->label()];
   const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
   const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
   const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL); 
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
 
-  const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
-  const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
-  const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
+  const int ks = (ox3 == 0) ? 0 : (kb.e - kb.s + 1);
+  const int js = (ox2 == 0) ? 0 : (jb.e - jb.s + 1);
+  const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1);
   
   int test; 
   MPI_Status status; 
@@ -898,8 +894,26 @@ bool Mesh::TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocatio
   return test;  
 }
 
-MPI_Request Mesh::SendSameToSame(int lid_recv, int dest_rank, CellVariable<Real> *var) {
-  return SendCoarseToFine(lid_recv, dest_rank, LogicalLocation(), var); 
+MPI_Request Mesh::SendSameToSame(int lid_recv, int dest_rank, CellVariable<Real> *var, MeshBlock *pmb) {
+  MPI_Request req;
+  MPI_Comm comm = mpi_comm_map_[var->label()];
+  int tag = CreateAMRMPITag(lid_recv, 0, 0, 0);
+  if (var->IsAllocated()){
+    // This assumes we have two ghost zones
+    auto counter_subview = Kokkos::subview(var->data.KokkosView(), 
+                                                 0, 0, 0, 0, 0, std::make_pair(0, 2));
+    auto counter_subview_h = Kokkos::create_mirror_view(HostMemSpace(), counter_subview);
+    counter_subview_h(0) = static_cast<Real>(pmb->pmr->counter_);
+    counter_subview_h(1) = static_cast<Real>(var->dealloc_count);
+    Kokkos::deep_copy(counter_subview, counter_subview_h);
+
+    PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
+                                  dest_rank, tag, comm, &req)); 
+  } else { 
+    PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), 0, MPI_PARTHENON_REAL,
+                                  dest_rank, tag, comm, &req));
+  }
+  return req;  
 }
 
 bool Mesh::TryRecvSameToSame(int lid_recv, int send_rank, CellVariable<Real> *var, MeshBlock *pmb) {
@@ -916,6 +930,11 @@ bool Mesh::TryRecvSameToSame(int lid_recv, int send_rank, CellVariable<Real> *va
       if (!pmb->IsAllocated(var->label())) pmb->AllocateSparse(var->label()); 
       PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), var->data.size(),
                                    MPI_PARTHENON_REAL, send_rank, tag, comm, MPI_STATUS_IGNORE));
+      auto counter_subview = Kokkos::subview(var->data.KokkosView(), 
+                                                 0, 0, 0, 0, 0, std::make_pair(0, 2));
+      auto counter_subview_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), counter_subview);
+      pmb->pmr->counter_ = static_cast<int>(counter_subview_h(0));
+      var->dealloc_count = static_cast<int>(counter_subview_h(1));
     } else { 
       if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label());
       PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), 0,
