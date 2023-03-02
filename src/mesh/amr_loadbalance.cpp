@@ -532,9 +532,6 @@ size_t MeshBlock::ComputeSendSize(int delta_level) {
 
 void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                            int ntot) {
-  static bool first_c2f = true;
-  static bool first_f2c = true;
-  static bool first_same = true;
   Kokkos::Profiling::pushRegion("RedistributeAndRefineMeshBlocks");
   // kill any cached packs
   mesh_data.PurgeNonBase();
@@ -685,19 +682,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             BufArray1D<Real>(sendbuf_data, std::make_pair(buf_offset, buf_offset + block_cells));
         buf_offset += block_cells;
         PrepareSendSameLevel(pb.get(), sendbuf[sb_idx]);
-        if (first_same) {
-          first_same = false;
-          printf("First time sending same.\n");
-        }
         tags[sb_idx] = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
-        int lid_check, ox1_check, ox2_check, ox3_check;
-        InvertAMRMPITag(tags[sb_idx], lid_check, ox1_check, ox2_check, ox3_check);
-        if (lid_check != nn - nslist[newrank[nn]] || ox1_check != 0 || ox2_check != 0 || ox3_check != 0) {
-          std::cout << "Tag mismatch! " << lid_check << " " << nn-nslist[newrank[nn]]
-                                        << ox1_check << " " << 0
-                                        << ox2_check << " " << 0
-                                        << ox3_check << " " << 0 << std::endl;
-        }
         dest[sb_idx] = newrank[nn];
         count[sb_idx] = block_cells;
         sb_idx++;
@@ -710,19 +695,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
               BufArray1D<Real>(sendbuf_data, std::make_pair(buf_offset, buf_offset + block_cells));
           buf_offset += block_cells;
           PrepareSendCoarseToFineAMR(pb.get(), sendbuf[sb_idx], newloc[nn + l]);
-          if (first_c2f) {
-            first_c2f = false;
-            printf("First time sending c2f.\n");
-          }
           tags[sb_idx] = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
-        int lid_check, ox1_check, ox2_check, ox3_check;
-        InvertAMRMPITag(tags[sb_idx], lid_check, ox1_check, ox2_check, ox3_check);
-        if (lid_check != nn + l - nslist[newrank[nn+l]] || ox1_check != 0 || ox2_check != 0 || ox3_check != 0) {
-          std::cout << "Tag mismatch! " << lid_check << " " << nn-nslist[newrank[nn]]
-                                        << ox1_check << " " << 0
-                                        << ox2_check << " " << 0
-                                        << ox3_check << " " << 0 << std::endl;
-        }
           dest[sb_idx] = newrank[nn + l];
           count[sb_idx] = block_cells;
           sb_idx++;
@@ -734,22 +707,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             BufArray1D<Real>(sendbuf_data, std::make_pair(buf_offset, buf_offset + block_cells));
         buf_offset += block_cells;
         PrepareSendFineToCoarseAMR(pb.get(), sendbuf[sb_idx]);
-        if (first_f2c) {
-          first_f2c = false;
-          printf("First time sending f2c.\n");
-        }
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
         tags[sb_idx] = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
-        printf("FinToCoarse send tag: %d %d %d %d %d\n", tags[sb_idx], nn-nslist[newrank[nn]],ox1,ox2,ox3);
-        int lid_check, ox1_check, ox2_check, ox3_check;
-        InvertAMRMPITag(tags[sb_idx], lid_check, ox1_check, ox2_check, ox3_check);
-        if (lid_check != nn - nslist[newrank[nn]] || ox1_check != ox1 || ox2_check != ox2 || ox3_check != ox3) {
-          std::cout << "Tag mismatch! " << lid_check << " " << nn-nslist[newrank[nn]]
-                                        << ox1_check << " " << ox1
-                                        << ox2_check << " " << ox2
-                                        << ox3_check << " " << ox3 << std::endl;
-        }
         dest[sb_idx] = newrank[nn];
         count[sb_idx] = block_cells;
         sb_idx++;
@@ -765,7 +725,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   }                               // if (nsend !=0)
   Kokkos::Profiling::popRegion(); // Step 5
 
-    std::vector<bool> setblock(nbe-nbs+1,false);
   // Step 6. construct a new MeshBlock list (moving the data within the MPI rank)
   Kokkos::Profiling::pushRegion("Step 6: Construct new MeshBlockList");
   {
@@ -777,8 +736,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
         // on the same MPI rank and same level -> just move it
         new_block_list[n - nbs] = FindMeshBlock(on);
-        setblock[n-nbs] = true;
-        if (!new_block_list[n-nbs]) printf("Why the hell is this null!\n");
       } else {
         // on a different refinement level or MPI rank - create a new block
         BoundaryFlag block_bcs[6];
@@ -802,7 +759,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             }
             FillSameRankFineToCoarseAMR(pob.get(), new_block_list[n - nbs].get(),
                                         loclist[on + ll]);
-            setblock[n-nbs] = true;
           }
         } else if ((loclist[on].level < newloc[n].level) && // coarse to fine (c2f)
                    (ranklist[on] == Globals::my_rank)) {
@@ -817,7 +773,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           }
           FillSameRankCoarseToFineAMR(pob.get(), new_block_list[n - nbs].get(),
                                       newloc[n]);
-          setblock[n-nbs] = true;
         }
       }
     }
@@ -835,61 +790,39 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   // Step 7. probe for messages and fill in remaining blocks
   Kokkos::Profiling::pushRegion("Step 7: Recv messsages and fill blocks");
-  int ndone = 0;
   BufArray1D<Real> recvbuf("RedistributeAndRefineMeshBlocks recv buf", 0);
-  while (ndone < nrecv) {
+  for (int nmesg = 0; nmesg < nrecv; nmesg++) {
     MPI_Status status;
-    int here;
-    MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &here, &status);
-    if (here) { // got a message, process it
-      auto source = status.MPI_SOURCE;
-      if (source == Globals::my_rank) {
-        printf("got a mesg from myself!!\n");
-      }
-      auto tag = status.MPI_TAG;
-      int count;
-      MPI_Get_count(&status, MPI_PARTHENON_REAL, &count);
-      // resize buffer if needed, waiting for the buffer to be ready
-      Kokkos::fence();
-      if (recvbuf.size() < count)
-        Kokkos::realloc(recvbuf, count);
-      // and actually receive the message
-      MPI_Recv(recvbuf.data(), count, MPI_PARTHENON_REAL, source, tag, MPI_COMM_WORLD, &status);
-      // invert the tag to get location
-      int lid, ox1, ox2, ox3;
-      InvertAMRMPITag(tag, lid, ox1, ox2, ox3);
-      // get the meshblock
-      auto &pmb = MeshBlockFromLID(lid);
-      auto gid = pmb->gid;
-      if (gid != lid+nbs) {
-        printf("gid and lid do not match!\n");
-      }
-      int on = newtoold[gid];
-      LogicalLocation &oloc = loclist[on];
-      LogicalLocation &nloc = newloc[gid];
-      if (oloc.level == nloc.level) {
-        FinishRecvSameLevel(pmb.get(), recvbuf);
-        if (pmb->ComputeSendSize(0) != count) printf("size mismatch same\n");
-      } else if (oloc.level > nloc.level) {
-        printf("FinToCoarse recv tag: %d %d %d %d %d\n", tag, lid,ox1,ox2,ox3);
-        FinishRecvFineToCoarseAMR(pmb.get(), recvbuf, ox1, ox2, ox3);
-        if (pmb->ComputeSendSize(-1) != count) printf("size mismatch f2c %ld %d\n", pmb->ComputeSendSize(-1), count);
-      } else {
-        FinishRecvCoarseToFineAMR(pmb.get(), recvbuf);
-        if (pmb->ComputeSendSize(1) != count) printf("size mismatch c2f %ld %d\n", pmb->ComputeSendSize(1), count);
-      }
-      setblock[lid] = true;
-      ndone++;
+    MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    auto source = status.MPI_SOURCE;
+    auto tag = status.MPI_TAG;
+    int count;
+    MPI_Get_count(&status, MPI_PARTHENON_REAL, &count);
+    // resize buffer if needed, waiting for the buffer to be ready
+    Kokkos::fence();
+    if (recvbuf.size() < count)
+      Kokkos::realloc(recvbuf, count);
+    // and actually receive the message
+    MPI_Recv(recvbuf.data(), count, MPI_PARTHENON_REAL, source, tag, MPI_COMM_WORLD, &status);
+    // invert the tag to get location
+    int lid, ox1, ox2, ox3;
+    InvertAMRMPITag(tag, lid, ox1, ox2, ox3);
+    // get the meshblock
+    auto &pmb = MeshBlockFromLID(lid);
+    auto gid = pmb->gid;
+    int on = newtoold[gid];
+    LogicalLocation &oloc = loclist[on];
+    LogicalLocation &nloc = newloc[gid];
+    if (oloc.level == nloc.level) {
+      FinishRecvSameLevel(pmb.get(), recvbuf);
+    } else if (oloc.level > nloc.level) {
+      FinishRecvFineToCoarseAMR(pmb.get(), recvbuf, ox1, ox2, ox3);
+    } else {
+      FinishRecvCoarseToFineAMR(pmb.get(), recvbuf);
     }
   }
   Kokkos::Profiling::popRegion(); // Step 7
 #endif                            // MPI_PARALLEL
-
-  for (int b = 0; b <= nbe-nbs; b++) {
-    if (!setblock[b]) {
-      printf("missed block %d\n", b);
-    }
-  }
 
   // deallocate arrays
   newtoold.clear();
@@ -984,8 +917,6 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pmb, BufArray1D<Real> &sendbuf) {
 void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
                                       LogicalLocation &lloc) {
 
-  printf("In PrepareSendCoarseToFine\n");
-  fflush(stdout);
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   int ox1 = static_cast<int>((lloc.lx1 & 1LL) == 1LL);
@@ -1051,8 +982,6 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
 // step 6, branch 3 (f2c: restrict, pack, send)
 
 void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf) {
-  printf("In PrepareSendFineToCoarse\n");
-  fflush(stdout);
   // restrict and pack
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
@@ -1392,8 +1321,6 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
 // step 8 (receive and load), branch 2 (f2c: unpack)
 void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
                                      int ox1, int ox2, int ox3) {
-  printf("In FinishRecvFineToCoarse\n");
-  fflush(stdout);
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
@@ -1468,8 +1395,6 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
 
 // step 8 (receive and load), branch 2 (c2f: unpack+prolongate)
 void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
-  printf("In FinishRecvCoarseToFine\n");
-  fflush(stdout);
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   auto &pmr = pb->pmr;
