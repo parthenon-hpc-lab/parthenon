@@ -81,6 +81,8 @@ struct VarIDHasher {
 /// TODO(JMM): Should this cache be a static member field of
 /// RefinementFunctions_t? That would mean we could avoid
 /// StateDescriptor entirely.
+/// TODO(JMM): The IDs here are not the same as the variable unique
+/// IDs but they maybe could be? We should consider unifying that.
 struct RefinementFunctionMaps {
   void Register(const Metadata &m, std::string varname) {
     if (m.IsRefined()) {
