@@ -17,6 +17,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -81,9 +82,19 @@ struct VarIDHasher {
 /// RefinementFunctions_t? That would mean we could avoid
 /// StateDescriptor entirely.
 struct RefinementFunctionMaps {
-  void Register(const Metadata &m) {
+  void Register(const Metadata &m, std::string varname) {
     if (m.IsRefined()) {
       const auto &funcs = m.GetRefinementFunctions();
+      // Guard against uninitialized refinement functions by checking
+      // if the label is the empty string.
+      if (funcs.label().size() == 0) {
+	std::stringstream ss;
+	ss << "Variable " << varname << " registed for refinement, "
+	   << "but no prolongation/restriction options found!"
+	   << "Please register them with Metadata::RegisterRefinementOps."
+	   << std::endl;
+	PARTHENON_THROW(ss);
+      }
       bool in_map = (funcs_to_ids.count(funcs) > 0);
       if (!in_map) {
         funcs_to_ids[funcs] = next_refinement_id_++;

@@ -27,6 +27,7 @@
 #include "kokkos_abstraction.hpp"
 #include "prolong_restrict/pr_ops.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 namespace refinement {
@@ -39,6 +40,7 @@ void Restrict(const StateDescriptor *resolved_packages,
   const auto &ref_func_map = resolved_packages->RefinementFncsToIDs();
   for (const auto &[func, idx] : ref_func_map) {
     auto restrictor = func.restrictor;
+    PARTHENON_DEBUG_REQUIRE_THROWS(restrictor != nullptr, "Valid restriction op");
     loops::Idx_t subset = Kokkos::subview(cache.buffer_subsets, idx, Kokkos::ALL());
     loops::IdxHost_t subset_h =
         Kokkos::subview(cache.buffer_subsets_h, idx, Kokkos::ALL());
