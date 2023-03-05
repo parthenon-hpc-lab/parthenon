@@ -402,7 +402,7 @@ class Metadata {
 
   // Individual flag setters, using these could result in an invalid set of flags, use
   // IsValid to check if the flags are valid
-  // TODO(JMM):
+  // TODO(JMM): This is dangerous. See Issue #844.
   void Set(MetadataFlag f) { DoBit(f, true); }    ///< Set specific bit
   void Unset(MetadataFlag f) { DoBit(f, false); } ///< Unset specific bit
 
