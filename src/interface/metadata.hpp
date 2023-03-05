@@ -355,6 +355,7 @@ class Metadata {
     }
 
     // Set the allocation and deallocation thresholds
+    // TODO(JMM): This is dangerous. See Issue #844.
     if (IsSet(Sparse)) {
       allocation_threshold_ = Globals::sparse_config.allocation_threshold;
       deallocation_threshold_ = Globals::sparse_config.deallocation_threshold;
@@ -401,7 +402,7 @@ class Metadata {
 
   // Individual flag setters, using these could result in an invalid set of flags, use
   // IsValid to check if the flags are valid
-  // TODO(JMM): 
+  // TODO(JMM):
   void Set(MetadataFlag f) { DoBit(f, true); }    ///< Set specific bit
   void Unset(MetadataFlag f) { DoBit(f, false); } ///< Unset specific bit
 

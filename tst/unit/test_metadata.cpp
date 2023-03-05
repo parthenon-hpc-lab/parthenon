@@ -225,5 +225,12 @@ TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
         REQUIRE_THROWS_AS(m.GetRefinementFunctions(), std::runtime_error);
       }
     }
+    WHEN("We set the refinement flag after the fact") {
+      m.Set(Metadata::FillGhost);
+      THEN("The refinement funcs should be present with a valid label") {
+        const auto &my_funcs = m.GetRefinementFunctions();
+        REQUIRE(my_funcs.label().size() > 0);
+      }
+    }
   }
 }

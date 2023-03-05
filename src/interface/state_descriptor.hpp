@@ -90,12 +90,11 @@ struct RefinementFunctionMaps {
       // Guard against uninitialized refinement functions by checking
       // if the label is the empty string.
       if (funcs.label().size() == 0) {
-	std::stringstream ss;
-	ss << "Variable " << varname << " registed for refinement, "
-	   << "but no prolongation/restriction options found!"
-	   << "Please register them with Metadata::RegisterRefinementOps."
-	   << std::endl;
-	PARTHENON_THROW(ss);
+        std::stringstream ss;
+        ss << "Variable " << varname << " registed for refinement, "
+           << "but no prolongation/restriction options found!"
+           << "Please register them with Metadata::RegisterRefinementOps." << std::endl;
+        PARTHENON_THROW(ss);
       }
       bool in_map = (funcs_to_ids.count(funcs) > 0);
       if (!in_map) {
