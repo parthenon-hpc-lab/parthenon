@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 830]](https://github.com/parthenon-hpc-lab/parthenon/pull/830) Add particle output
+- [[PR 831]](https://github.com/parthenon-hpc-lab/parthenon/pull/831) Add set-based MetadataFlag logic
 - [[PR 803]](https://github.com/parthenon-hpc-lab/parthenon/pull/803) Add skeleton for sphinx docs
 - [[PR 774]](https://github.com/parthenon-hpc-lab/parthenon/pull/774) Add second order refinement criteria
 - [[PR 699]](https://github.com/lanl/parthenon/pull/699) Add independent sparse thresholds and sparse control fields. Sparse bug fixes.
@@ -47,6 +48,7 @@
 - [[PR 716]](https://github.com/lanl/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 837]](https://github.com/parthenon-hpc-lab/parthenon/pull/837) Migrate docs to Sphinx
 - [[PR 791]](https://github.com/parthenon-hpc-lab/parthenon/pull/791) Set KOKKOS_DISABLE_WARNINGS=TRUE
 - [[PR 777]](https://github.com/parthenon-hpc-lab/parthenon/pull/777) New action: check PR dependencies & warn until requirements merged
 - [[PR 772]](https://github.com/lanl/parthenon/pull/772) Trigger short CI only for PRs and remove old SpaceInstances test
