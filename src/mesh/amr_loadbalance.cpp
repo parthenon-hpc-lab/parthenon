@@ -496,6 +496,36 @@ bool Mesh::GatherCostListAndCheckBalance() {
   return true;
 }
 
+size_t MeshBlock::ComputeSendSize(int delta_level) {
+  size_t size = 0;
+  const int nx1 = block_size.nx1;
+  const int nx2 = block_size.nx2;
+  const int nx3 = block_size.nx3;
+  int block_cells;
+  if (delta_level == 0) { // same level
+    block_cells = nx1 * nx2 * nx3;
+  } else if (delta_level == 1) { // coarse to fine
+    const int dim2 = (nx2 > 1) ? 1 : 0;
+    const int dim3 = (nx3 > 1) ? 1 : 0;
+    block_cells = (nx1/2+2) * ((nx2+1)/2 + 2*dim2) * ((nx3+1)/2 + 2*dim3);
+  } else { // fine to coarse
+    block_cells = (nx1 / 2) * ((nx2 + 1)/2) * ((nx3 + 1)/2);
+  }
+  for (auto &v : vars_cc_) {
+    if (v->IsAllocated()) {
+      size += v->GetDim(4) * block_cells;
+    }
+  }
+
+  // add in space for storing allocation statuses
+  size += vars_cc_.size();
+
+  // add in space for derefinement counter
+  size += (delta_level == 0);
+
+  return size;
+}
+
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot)
 // \brief redistribute MeshBlocks according to the new load balance
@@ -596,83 +626,12 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   }
 
   Kokkos::Profiling::popRegion(); // Step 3
-  // Step 4. calculate buffer sizes
-  Kokkos::Profiling::pushRegion("Step 4: Calc buffer sizes");
-  BufArray1D<Real> *sendbuf, *recvbuf;
-  // use the first MeshBlock in the linked list of blocks belonging to this MPI rank as a
-  // representative of all MeshBlocks for counting the "load-balancing registered" and
-  // "SMR/AMR-enrolled" quantities (loop over MeshBlock::vars_cc_, not MeshRefinement)
 
-  // TODO(felker): add explicit check to ensure that elements of pb->vars_cc/fc_ and
-  // pb->pmr->pvars_cc/fc_ v point to the same objects, if adaptive
-
-  // TODO(JL) Why are we using all variables for same-level but only the variables in pmr
-  // for c2f and f2c?s
-  int num_cc = pdummy_block->vars_cc_.size();
-  int num_pmr_cc = pdummy_block->pmr->pvars_cc_.size();
-  int num_fc = pdummy_block->vars_fc_.size();
-  int nx4_tot = 0;
-  for (auto &pvar_cc : pdummy_block->vars_cc_) {
-    nx4_tot += pvar_cc->GetDim(4);
-  }
-
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
-
-  // cell-centered quantities enrolled in SMR/AMR
-  int bssame = bnx1 * bnx2 * bnx3 * nx4_tot;
-  int bsf2c = (bnx1 / 2) * ((bnx2 + 1) / 2) * ((bnx3 + 1) / 2) * nx4_tot;
-  int bsc2f =
-      (bnx1 / 2 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) * nx4_tot;
-  // face-centered quantities enrolled in SMR/AMR
-  bssame += num_fc * ((bnx1 + 1) * bnx2 * bnx3 + bnx1 * (bnx2 + f2) * bnx3 +
-                      bnx1 * bnx2 * (bnx3 + f3));
-  bsf2c += num_fc * (((bnx1 / 2) + 1) * ((bnx2 + 1) / 2) * ((bnx3 + 1) / 2) +
-                     (bnx1 / 2) * (((bnx2 + 1) / 2) + f2) * ((bnx3 + 1) / 2) +
-                     (bnx1 / 2) * ((bnx2 + 1) / 2) * (((bnx3 + 1) / 2) + f3));
-  bsc2f +=
-      num_fc *
-      (((bnx1 / 2) + 1 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) +
-       (bnx1 / 2 + 2) * (((bnx2 + 1) / 2) + f2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) +
-       (bnx1 / 2 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * (((bnx3 + 1) / 2) + f3 + 2 * f3));
-
-  // add num_cc/num_pmr_cc to all buffer sizes for storing allocation statuses
-  bssame += num_cc;
-  bsc2f += num_pmr_cc;
-  bsf2c += num_pmr_cc;
-
-  // add one more element to buffer size for storing the derefinement counter
-  bssame++;
-  Kokkos::Profiling::popRegion(); // Step 4
-
-  MPI_Request *req_send, *req_recv;
-
-  // Step 5. Allocate space for send and recieve buffers
-  Kokkos::Profiling::pushRegion("Step 5: Allocate send and recv buf");
-  size_t buf_size = 0;
-  if (nrecv != 0) {
-    recvbuf = new BufArray1D<Real>[nrecv];
-    for (int n = nbs; n <= nbe; n++) {
-      int on = newtoold[n];
-      LogicalLocation &oloc = loclist[on];
-      LogicalLocation &nloc = newloc[n];
-      if (oloc.level > nloc.level) { // f2c
-        for (int l = 0; l < nleaf; l++) {
-          if (ranklist[on + l] == Globals::my_rank) continue;
-          buf_size += bsf2c;
-        }
-      } else { // same level or c2f
-        if (ranklist[on] == Globals::my_rank) continue;
-        int size;
-        if (oloc.level == nloc.level) {
-          size = bssame;
-        } else {
-          size = bsc2f;
-        }
-        buf_size += size;
-      }
-    }
-  }
+  // Step 4. Allocate space for send and recieve buffers
+  Kokkos::Profiling::pushRegion("Step 4: Allocate send buf");
+  BufArray1D<Real> *sendbuf;
+  size_t send_buf_size = 0;
+  std::vector<size_t> send_size;
   if (nsend != 0) {
     sendbuf = new BufArray1D<Real>[nsend];
     for (int n = onbs; n <= onbe; n++) {
@@ -682,76 +641,35 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       auto pb = FindMeshBlock(n);
       if (nloc.level == oloc.level) { // same level
         if (newrank[nn] == Globals::my_rank) continue;
-        buf_size += bssame;
+        send_size.push_back(pb->ComputeSendSize(0));
+        send_buf_size += send_size.back();
       } else if (nloc.level > oloc.level) { // c2f
         // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
         for (int l = 0; l < nleaf; l++) {
           if (newrank[nn + l] == Globals::my_rank) continue;
-          buf_size += bsc2f;
+          send_size.push_back(pb->ComputeSendSize(1));
+          send_buf_size += send_size.back();
         }      // end loop over nleaf (unique to c2f branch in this step 6)
       } else { // f2c: restrict + pack + send
         if (newrank[nn] == Globals::my_rank) continue;
-        buf_size += bsf2c;
+        send_size.push_back(pb->ComputeSendSize(-1));
+        send_buf_size += send_size.back();
       }
     }
   }
-  BufArray1D<Real> bufs("RedistributeAndRefineMeshBlocks sendrecv bufs", buf_size);
-  Kokkos::Profiling::popRegion(); // Step 5
+  BufArray1D<Real> sendbuf_data("RedistributeAndRefineMeshBlocks send bufs", send_buf_size);
+  Kokkos::Profiling::popRegion(); // Step 4
 
-  // Step 6. allocate and start receiving buffers
-  Kokkos::Profiling::pushRegion("Step 6: Pack buffer and start recv");
-  size_t buf_offset = 0;
-  if (nrecv != 0) {
-    req_recv = new MPI_Request[nrecv];
-    int rb_idx = 0; // recv buffer index
-    for (int n = nbs; n <= nbe; n++) {
-      int on = newtoold[n];
-      LogicalLocation &oloc = loclist[on];
-      LogicalLocation &nloc = newloc[n];
-      if (oloc.level > nloc.level) { // f2c
-        for (int l = 0; l < nleaf; l++) {
-          if (ranklist[on + l] == Globals::my_rank) continue;
-          LogicalLocation &lloc = loclist[on + l];
-          int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
-              ox3 = ((lloc.lx3 & 1LL) == 1LL);
-          recvbuf[rb_idx] =
-              BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
-          buf_offset += bsf2c;
-          int tag = CreateAMRMPITag(n - nbs, ox1, ox2, ox3);
-          PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_PARTHENON_REAL,
-                                        ranklist[on + l], tag, MPI_COMM_WORLD,
-                                        &(req_recv[rb_idx])));
-          rb_idx++;
-        }
-      } else { // same level or c2f
-        if (ranklist[on] == Globals::my_rank) continue;
-        int size;
-        if (oloc.level == nloc.level) {
-          size = bssame;
-        } else {
-          size = bsc2f;
-        }
-        recvbuf[rb_idx] =
-            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + size));
-        buf_offset += size;
-        int tag = CreateAMRMPITag(n - nbs, 0, 0, 0);
-        PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_PARTHENON_REAL,
-                                      ranklist[on], tag, MPI_COMM_WORLD,
-                                      &(req_recv[rb_idx])));
-        rb_idx++;
-      }
-    }
-  }
-  Kokkos::Profiling::popRegion(); // Step 6
-
-  // Step 7. allocate, pack and start sending buffers
-  Kokkos::Profiling::pushRegion("Step 7: Pack and send buffers");
+  // Step 5. allocate, pack and start sending buffers
+  Kokkos::Profiling::pushRegion("Step 5: Pack and send buffers");
+  MPI_Request *req_send;
   if (nsend != 0) {
     req_send = new MPI_Request[nsend];
     std::vector<int> tags(nsend);
     std::vector<int> dest(nsend);
     std::vector<int> count(nsend);
     int sb_idx = 0; // send buffer index
+    size_t buf_offset = 0;
     for (int n = onbs; n <= onbe; n++) {
       int nn = oldtonew[n];
       LogicalLocation &oloc = loclist[n];
@@ -759,38 +677,41 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       auto pb = FindMeshBlock(n);
       if (nloc.level == oloc.level) { // same level
         if (newrank[nn] == Globals::my_rank) continue;
+        size_t block_cells = send_size[sb_idx];
         sendbuf[sb_idx] =
-            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bssame));
-        buf_offset += bssame;
+            BufArray1D<Real>(sendbuf_data, std::make_pair(buf_offset, buf_offset + block_cells));
+        buf_offset += block_cells;
         PrepareSendSameLevel(pb.get(), sendbuf[sb_idx]);
         tags[sb_idx] = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
         dest[sb_idx] = newrank[nn];
-        count[sb_idx] = bssame;
+        count[sb_idx] = block_cells;
         sb_idx++;
       } else if (nloc.level > oloc.level) { // c2f
         // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
         for (int l = 0; l < nleaf; l++) {
           if (newrank[nn + l] == Globals::my_rank) continue;
+          size_t block_cells = send_size[sb_idx];
           sendbuf[sb_idx] =
-              BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsc2f));
-          buf_offset += bsc2f;
+              BufArray1D<Real>(sendbuf_data, std::make_pair(buf_offset, buf_offset + block_cells));
+          buf_offset += block_cells;
           PrepareSendCoarseToFineAMR(pb.get(), sendbuf[sb_idx], newloc[nn + l]);
           tags[sb_idx] = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
           dest[sb_idx] = newrank[nn + l];
-          count[sb_idx] = bsc2f;
+          count[sb_idx] = block_cells;
           sb_idx++;
         }      // end loop over nleaf (unique to c2f branch in this step 6)
       } else { // f2c: restrict + pack + send
         if (newrank[nn] == Globals::my_rank) continue;
+        size_t block_cells = send_size[sb_idx];
         sendbuf[sb_idx] =
-            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
-        buf_offset += bsf2c;
+            BufArray1D<Real>(sendbuf_data, std::make_pair(buf_offset, buf_offset + block_cells));
+        buf_offset += block_cells;
         PrepareSendFineToCoarseAMR(pb.get(), sendbuf[sb_idx]);
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
         tags[sb_idx] = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
         dest[sb_idx] = newrank[nn];
-        count[sb_idx] = bsf2c;
+        count[sb_idx] = block_cells;
         sb_idx++;
       }
     }
@@ -802,11 +723,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                                     &(req_send[idx])));
     }
   }                               // if (nsend !=0)
-  Kokkos::Profiling::popRegion(); // Step 7
-#endif                            // MPI_PARALLEL
+  Kokkos::Profiling::popRegion(); // Step 5
 
-  // Step 8. construct a new MeshBlock list (moving the data within the MPI rank)
-  Kokkos::Profiling::pushRegion("Step 8: Construct new MeshBlockList");
+  // Step 6. construct a new MeshBlock list (moving the data within the MPI rank)
+  Kokkos::Profiling::pushRegion("Step 6: Construct new MeshBlockList");
   {
     RegionSize block_size = GetBlockSize();
 
@@ -866,64 +786,43 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       block_list[n - nbs]->lid = n - nbs;
     }
   }
-  Kokkos::Profiling::popRegion(); // Step 8: Construct new MeshBlockList
+  Kokkos::Profiling::popRegion(); // Step 6: Construct new MeshBlockList
 
-  // Step 9. Receive the data and load into MeshBlocks
-  Kokkos::Profiling::pushRegion("Step 9: Recv data and unpack");
-  // This is a test: try MPI_Waitall later.
-#ifdef MPI_PARALLEL
-  if (nrecv != 0) {
-    int test;
-    std::vector<bool> received(nrecv, false);
-    int rb_idx;
-    do {
-      rb_idx = 0; // recv buffer index
-      for (int n = nbs; n <= nbe; n++) {
-        int on = newtoold[n];
-        LogicalLocation &oloc = loclist[on];
-        LogicalLocation &nloc = newloc[n];
-        auto pb = FindMeshBlock(n);
-        if (oloc.level == nloc.level) { // same
-          if (ranklist[on] == Globals::my_rank) continue;
-          if (!received[rb_idx]) {
-            PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
-            if (static_cast<bool>(test)) {
-              FinishRecvSameLevel(pb.get(), recvbuf[rb_idx]);
-              received[rb_idx] = true;
-            }
-          }
-          rb_idx++;
-        } else if (oloc.level > nloc.level) { // f2c
-          for (int l = 0; l < nleaf; l++) {
-            if (ranklist[on + l] == Globals::my_rank) continue;
-            if (!received[rb_idx]) {
-              PARTHENON_MPI_CHECK(
-                  MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
-              if (static_cast<bool>(test)) {
-                FinishRecvFineToCoarseAMR(pb.get(), recvbuf[rb_idx], loclist[on + l]);
-                received[rb_idx] = true;
-              }
-            }
-            rb_idx++;
-          }
-        } else { // c2f
-          if (ranklist[on] == Globals::my_rank) continue;
-          if (!received[rb_idx]) {
-            PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
-            if (static_cast<bool>(test)) {
-              FinishRecvCoarseToFineAMR(pb.get(), recvbuf[rb_idx]);
-              received[rb_idx] = true;
-            }
-          }
-          rb_idx++;
-        }
-      }
-      // rb_idx is a running index, so we repeat the loop until all vals are true
-    } while (!std::all_of(received.begin(), received.begin() + rb_idx,
-                          [](bool v) { return v; }));
+  // Step 7. probe for messages and fill in remaining blocks
+  Kokkos::Profiling::pushRegion("Step 7: Recv messsages and fill blocks");
+  BufArray1D<Real> recvbuf("RedistributeAndRefineMeshBlocks recv buf", 0);
+  for (int nmesg = 0; nmesg < nrecv; nmesg++) {
+    MPI_Status status;
+    MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    auto source = status.MPI_SOURCE;
+    auto tag = status.MPI_TAG;
+    int count;
+    MPI_Get_count(&status, MPI_PARTHENON_REAL, &count);
+    // resize buffer if needed, waiting for the buffer to be ready
     Kokkos::fence();
+    if (recvbuf.size() < count)
+      Kokkos::realloc(recvbuf, count);
+    // and actually receive the message
+    MPI_Recv(recvbuf.data(), count, MPI_PARTHENON_REAL, source, tag, MPI_COMM_WORLD, &status);
+    // invert the tag to get location
+    int lid, ox1, ox2, ox3;
+    InvertAMRMPITag(tag, lid, ox1, ox2, ox3);
+    // get the meshblock
+    auto &pmb = MeshBlockFromLID(lid);
+    auto gid = pmb->gid;
+    int on = newtoold[gid];
+    LogicalLocation &oloc = loclist[on];
+    LogicalLocation &nloc = newloc[gid];
+    if (oloc.level == nloc.level) {
+      FinishRecvSameLevel(pmb.get(), recvbuf);
+    } else if (oloc.level > nloc.level) {
+      FinishRecvFineToCoarseAMR(pmb.get(), recvbuf, ox1, ox2, ox3);
+    } else {
+      FinishRecvCoarseToFineAMR(pmb.get(), recvbuf);
+    }
   }
-#endif
+  Kokkos::Profiling::popRegion(); // Step 7
+#endif                            // MPI_PARALLEL
 
   // deallocate arrays
   newtoold.clear();
@@ -934,12 +833,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     delete[] sendbuf;
     delete[] req_send;
   }
-  if (nrecv != 0) {
-    delete[] recvbuf;
-    delete[] req_recv;
-  }
 #endif
-  Kokkos::Profiling::popRegion(); // Step 9
 
   // update the lists
   loclist = std::move(newloc);
@@ -991,9 +885,6 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pmb, BufArray1D<Real> &sendbuf) {
       ParArray4D<Real> var_cc = pvar_cc->data.Get<4>();
       BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e,
                               p, pmb);
-    } else {
-      // increment offset
-      p += (nu + 1) * (ib.e + 1 - ib.s) * (jb.e + 1 - jb.s) * (kb.e + 1 - kb.s);
     }
   }
   for (auto &pvar_fc : pmb->vars_fc_) {
@@ -1025,6 +916,7 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pmb, BufArray1D<Real> &sendbuf) {
 
 void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
                                       LogicalLocation &lloc) {
+
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   int ox1 = static_cast<int>((lloc.lx1 & 1LL) == 1LL);
@@ -1056,21 +948,19 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
   }
 
   // inital offset, data starts after allocation flags
-  int p = pb->pmr->pvars_cc_.size();
+  int p = pb->vars_cc_.size();
 
   // subview to set allocation flags
   auto alloc_subview = Kokkos::subview(sendbuf, std::make_pair(0, p));
   auto alloc_subview_h = Kokkos::create_mirror_view(HostMemSpace(), alloc_subview);
 
-  for (int i = 0; i < pb->pmr->pvars_cc_.size(); ++i) {
-    auto &cc_var = pb->pmr->pvars_cc_[i];
+  for (int i = 0; i < pb->vars_cc_.size(); ++i) {
+    auto &cc_var = pb->vars_cc_[i];
     alloc_subview_h(i) = cc_var->IsAllocated() ? 1.0 : 0.0;
     int nu = cc_var->GetDim(4) - 1;
     if (cc_var->IsAllocated()) {
       ParArray4D<Real> var_cc = cc_var->data.Get<4>();
       BufferUtility::PackData(var_cc, sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
-    } else {
-      BufferUtility::PackZero(sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
     }
   }
 
@@ -1102,16 +992,15 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf) 
   IndexRange ckb = pb->c_cellbounds.GetBoundsK(interior);
 
   auto &pmr = pb->pmr;
-
   // inital offset, data starts after allocation flags
-  int p = pmr->pvars_cc_.size();
+  int p = pb->vars_cc_.size();
 
   // subview to set allocation flags
   auto alloc_subview = Kokkos::subview(sendbuf, std::make_pair(0, p));
   auto alloc_subview_h = Kokkos::create_mirror_view(HostMemSpace(), alloc_subview);
 
-  for (int i = 0; i < pmr->pvars_cc_.size(); ++i) {
-    auto &cc_var = pmr->pvars_cc_[i];
+  for (int i = 0; i < pb->vars_cc_.size(); ++i) {
+    auto &cc_var = pb->vars_cc_[i];
     alloc_subview_h(i) = cc_var->IsAllocated() ? 1.0 : 0.0;
     int nu = cc_var->GetDim(4) - 1;
     if (cc_var->IsAllocated()) {
@@ -1123,9 +1012,6 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf) 
       ParArray4D<Real> coarse_cc_ = coarse_cc.Get<4>();
       BufferUtility::PackData(coarse_cc_, sendbuf, 0, nu, cib.s, cib.e, cjb.s, cjb.e,
                               ckb.s, ckb.e, p, pb);
-    } else {
-      BufferUtility::PackZero(sendbuf, 0, nu, cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e, p,
-                              pb);
     }
   }
 
@@ -1173,29 +1059,22 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
   // absent a zip() feature for range-based for loops, manually advance the
   // iterator over "SMR/AMR-enrolled" cell-centered quantities on the new
   // MeshBlock in lock-step with pob
-  auto pmb_cc_it = pmb->pmr->pvars_cc_.begin();
+  //auto pmb_cc_it = pmb->vars_cc_.begin();
   // iterate MeshRefinement std::vectors on pob
-  for (auto cc_var : pmr->pvars_cc_) {
+  for (int n = 0; n < pob->vars_cc_.size(); n++) {
+    auto &cc_var = pob->vars_cc_[n];
+    if (!pmb->vars_cc_[n]->IsAllocated()) continue;
     const bool fine_allocated = cc_var->IsAllocated();
-    if (!(*pmb_cc_it)->IsAllocated()) {
-      PARTHENON_REQUIRE_THROWS(!fine_allocated,
-                               "Mesh::FillSameRankFineToCoarseAMR: Destination not "
-                               "allocated but source allocated");
-      pmb_cc_it++;
-      continue;
-    }
     ParArrayND<Real> var_cc = cc_var->data;
     ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = cc_var->GetDim(4) - 1;
 
-    if (fine_allocated) {
-      pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s,
-                                      cjb.e, ckb.s, ckb.e);
-    }
+    pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s,
+                                    cjb.e, ckb.s, ckb.e);
 
     // copy from old/original/other MeshBlock (pob) to newly created block (pmb)
     ParArrayND<Real> src = coarse_cc;
-    ParArrayND<Real> dst = (*pmb_cc_it)->data;
+    ParArrayND<Real> dst = pmb->vars_cc_[n]->data;
     int koff = kl - ckb.s;
     int joff = jl - cjb.s;
     int ioff = il - cib.s;
@@ -1206,7 +1085,6 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
           // we just fill destination with 0's
           dst(nv, k + koff, j + joff, i + ioff) = fine_allocated ? src(nv, k, j, i) : 0.0;
         });
-    pmb_cc_it++;
   }
 
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
@@ -1287,21 +1165,15 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
   int cks = ((newloc.lx3 & 1LL) == 1LL) * pob->block_size.nx3 / 2 +
             pob->cellbounds.ks(interior) - f3;
 
-  auto pob_cc_it = pob->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on new pmb
-  for (auto cc_var : pmr->pvars_cc_) {
-    PARTHENON_REQUIRE_THROWS(cc_var->IsAllocated() == (*pob_cc_it)->IsAllocated(),
-                             "Mesh::FillSameRankCoarseToFineAMR: Allocation mismatch");
-    if (!cc_var->IsAllocated()) {
-      pob_cc_it++;
-      continue;
-    }
-
+  for (int n = 0; n < pob->vars_cc_.size(); n++) {
+    auto &cc_var = pmb->vars_cc_[n];
+    if (!cc_var->IsAllocated()) continue;
     ParArrayND<Real> var_cc = cc_var->data;
     ParArrayND<Real> coarse_cc = cc_var->coarse_s;
     int nu = var_cc.GetDim(4) - 1;
 
-    ParArrayND<Real> src = (*pob_cc_it)->data;
+    ParArrayND<Real> src = pob->vars_cc_[n]->data;
     ParArrayND<Real> dst = coarse_cc;
     // fill the coarse buffer
     // WARNING: potential Cuda stream pitfall (exec space of coarse and fine MB)
@@ -1325,7 +1197,6 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
         pob->c_cellbounds.ie(interior), pob->c_cellbounds.js(interior),
         pob->c_cellbounds.je(interior), pob->c_cellbounds.ks(interior),
         pob->c_cellbounds.ke(interior));
-    pob_cc_it++;
   }
   auto pob_fc_it = pob->pmr->pvars_fc_.begin();
   // iterate MeshRefinement std::vectors on new pmb
@@ -1413,13 +1284,6 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
       ParArray4D<Real> var_cc_ = pvar_cc->data.Get<4>();
       BufferUtility::UnpackData(recvbuf, var_cc_, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s,
                                 kb.e, p, pmb);
-    } else {
-      // increment offset
-      p += (nu + 1) * (ib.e + 1 - ib.s) * (jb.e + 1 - jb.s) * (kb.e + 1 - kb.s);
-      PARTHENON_REQUIRE_THROWS(
-          !pvar_cc->IsAllocated(),
-          "FinishRecvSameLevel: Received variable that was not allocated on sending "
-          "block but it is allocated on receiving block");
     }
   }
   for (auto &pvar_fc : pmb->vars_fc_) {
@@ -1456,7 +1320,7 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
 
 // step 8 (receive and load), branch 2 (f2c: unpack)
 void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
-                                     LogicalLocation &lloc) {
+                                     int ox1, int ox2, int ox3) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
@@ -1465,9 +1329,6 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
   IndexRange jb = pb->cellbounds.GetBoundsJ(interior);
   IndexRange kb = pb->cellbounds.GetBoundsK(interior);
 
-  int ox1 = static_cast<int>((lloc.lx1 & 1LL) == 1LL);
-  int ox2 = static_cast<int>((lloc.lx2 & 1LL) == 1LL);
-  int ox3 = static_cast<int>((lloc.lx3 & 1LL) == 1LL);
   int il, iu, jl, ju, kl, ku;
 
   if (ox1 == 0)
@@ -1484,15 +1345,15 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
     kl = kb.s + pb->block_size.nx3 / 2, ku = kb.e;
 
   // inital offset, data starts after allocation flags
-  int p = pb->pmr->pvars_cc_.size();
+  int p = pb->vars_cc_.size();
 
   // subview to set allocation flags
   auto alloc_subview = Kokkos::subview(recvbuf, std::make_pair(0, p));
   auto alloc_subview_h =
       Kokkos::create_mirror_view_and_copy(HostMemSpace(), alloc_subview);
 
-  for (int i = 0; i < pb->pmr->pvars_cc_.size(); ++i) {
-    auto &cc_var = pb->pmr->pvars_cc_[i];
+  for (int i = 0; i < pb->vars_cc_.size(); ++i) {
+    auto &cc_var = pb->vars_cc_[i];
     int nu = cc_var->GetDim(4) - 1;
 
     if ((alloc_subview_h(i) == 1.0) && !cc_var->IsAllocated()) {
@@ -1502,13 +1363,11 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
           cc_var->IsAllocated(),
           "Mesh::FinishRecvFineToCoarseAMR: Failed to allocate variable");
     }
+    if (alloc_subview_h(i) == 0.0) continue;
 
     if (cc_var->IsAllocated()) {
       ParArray4D<Real> var_cc = cc_var->data.Get<4>();
       BufferUtility::UnpackData(recvbuf, var_cc, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
-    } else {
-      // increment offset
-      p += (nu + 1) * (iu + 1 - il) * (ju + 1 - jl) * (ku + 1 - kl);
     }
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
@@ -1540,7 +1399,7 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   auto &pmr = pb->pmr;
   // inital offset, data starts after allocation flags
-  int p = pmr->pvars_cc_.size();
+  int p = pb->vars_cc_.size();
 
   // subview to set allocation flags
   auto alloc_subview = Kokkos::subview(recvbuf, std::make_pair(0, p));
@@ -1554,8 +1413,8 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
   int il = cib.s - 1, iu = cib.e + 1, jl = cjb.s - f2, ju = cjb.e + f2, kl = ckb.s - f3,
       ku = ckb.e + f3;
 
-  for (int i = 0; i < pmr->pvars_cc_.size(); ++i) {
-    auto &cc_var = pmr->pvars_cc_[i];
+  for (int i = 0; i < pb->vars_cc_.size(); ++i) {
+    auto &cc_var = pb->vars_cc_[i];
     int nu = cc_var->GetDim(4) - 1;
     if ((alloc_subview_h(i) == 1.0) && !cc_var->IsAllocated()) {
       // need to allocate locally
@@ -1563,8 +1422,8 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
     }
   }
 
-  for (int i = 0; i < pmr->pvars_cc_.size(); ++i) {
-    auto &cc_var = pmr->pvars_cc_[i];
+  for (int i = 0; i < pb->vars_cc_.size(); ++i) {
+    auto &cc_var = pb->vars_cc_[i];
     int nu = cc_var->GetDim(4) - 1;
     //PARTHENON_REQUIRE_THROWS(
         //cc_var->IsAllocated(),
@@ -1578,9 +1437,6 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
                                 pb);
       pmr->ProlongateCellCenteredValues(coarse_cc, var_cc, 0, nu, cib.s, cib.e, cjb.s,
                                         cjb.e, ckb.s, ckb.e);
-    } else {
-      // increment offset
-      p += (nu + 1) * (iu + 1 - il) * (ju + 1 - jl) * (ku + 1 - kl);
     }
   }
 
@@ -1616,6 +1472,16 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
 int Mesh::CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
   // the trailing zero is used as "id" to indicate an AMR related tag
   return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
+}
+
+void Mesh::InvertAMRMPITag(int tag, int &lid, int &ox1, int &ox2, int &ox3) {
+  tag = tag >> 5;
+  ox3 = tag & 1;
+  tag = tag >> 1;
+  ox2 = tag & 1;
+  tag = tag >> 1;
+  ox1 = tag & 1;
+  lid = tag >> 1;
 }
 
 } // namespace parthenon

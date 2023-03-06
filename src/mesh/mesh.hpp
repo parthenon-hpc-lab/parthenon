@@ -133,8 +133,10 @@ class Mesh {
                                    LogicalLocation &newloc);
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
   int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
+  void InvertAMRMPITag(int tag, int &lid, int &ox1, int &ox2, int &ox3);
 
   std::shared_ptr<MeshBlock> FindMeshBlock(int tgid) const;
+  std::shared_ptr<MeshBlock>& MeshBlockFromLID(int lid);
 
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
 
@@ -276,7 +278,7 @@ class Mesh {
   // step 8: receive
   void FinishRecvSameLevel(MeshBlock *pb, BufArray1D<Real> &recvbuf);
   void FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
-                                 LogicalLocation &lloc);
+                                 int ox1, int ox2, int ox3);
   void FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/

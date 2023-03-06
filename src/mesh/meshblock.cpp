@@ -183,6 +183,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   CellVariableVector<Real> vars = GetAnyVariables(real_container->GetCellVariableVector(), 
     {Metadata::Independent, Metadata::FillGhost, Metadata::RemeshComm});
   for (int n = 0; n < vars.size(); ++n) {
+    //std::cout << "vars_cc_: " << vars[n]->label() << std::endl;
     RegisterMeshBlockData(vars[n]);
   }
 
@@ -194,6 +195,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     // This is very redundant, I think, but necessary for now
     for (int n = 0; n < refine_vars.size(); n++) {
       // These are used for doing refinement
+      //std::cout << "pvars_cc_: " << refine_vars[n]->label() << std::endl;
       pmr->AddToRefinement(refine_vars[n]);
     }
   }
