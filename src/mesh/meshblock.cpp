@@ -88,7 +88,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   gid = igid;
   lid = ilid;
   gflag = igflag;
-  physics_init_complete = false;
   this->packages = packages;
   this->resolved_packages = resolved_packages;
   cost_ = icost;

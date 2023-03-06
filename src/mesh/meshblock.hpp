@@ -140,7 +140,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   int gid, lid;
   int cnghost;
   int gflag;
-  bool physics_init_complete;
 
   // The User defined containers
   DataCollection<MeshBlockData<Real>> meshblock_data;
