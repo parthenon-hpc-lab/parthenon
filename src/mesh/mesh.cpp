@@ -1047,12 +1047,19 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   const int nb_initial = nbtotal;
   do {
     int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
+    BlockList_t changed_blocks;
 
     // init meshblock data
     for (int i = 0; i < nmb; ++i) {
-      MeshBlock *pmb = block_list[i].get();
-      pmb->InitMeshBlockUserData(pmb, pin);
+      auto &pmb = block_list[i];
+      if (!pmb->physics_init_complete || init_problem) {
+        changed_blocks.push_back(pmb);
+        pmb->InitMeshBlockUserData(pmb.get(), pin);
+        pmb->physics_init_complete = true;
+      }
     }
+    auto changed_md = std::make_shared<MeshData<Real>>();
+    changed_md->Set(changed_blocks, "base", this);
 
     const int num_partitions = DefaultNumPartitions();
 
@@ -1081,14 +1088,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
 
-    for(int i = 0; i < nmb; ++i) {
-      auto &mbd = block_list[i]->meshblock_data.Get();
-      Update::PreCommFillDerived(mbd.get());
+    for (auto &pmb : changed_blocks) {
+        auto &mbd = pmb->meshblock_data.Get();
+        Update::PreCommFillDerived(mbd.get());
     }
-    for (int i = 0; i < num_partitions; i++) {
-      auto &md = mesh_data.GetOrAdd("base", i);
-      Update::PreCommFillDerived(md.get());
-    }
+    if (changed_blocks.size())
+      Update::PreCommFillDerived(changed_md.get());
 
     // Build densely populated communication tags
     tag_map.clear();
@@ -1130,8 +1135,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
 
     //  Now do prolongation, compute primitives, apply BCs
-    for (int i = 0; i < nmb; ++i) {
-      auto &mbd = block_list[i]->meshblock_data.Get();
+    for (auto &pmb : changed_blocks) {
+      auto &mbd = pmb->meshblock_data.Get();
       if (multilevel) {
         ProlongateBoundaries(mbd);
       }
@@ -1139,11 +1144,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       // Call MeshBlockData based FillDerived functions
       Update::FillDerived(mbd.get());
     }
-    for (int i = 0; i < num_partitions; i++) {
-      auto &md = mesh_data.GetOrAdd("base", i);
-      // Call MeshData based FillDerived functions
-      Update::FillDerived(md.get());
-    }
+    if (changed_blocks.size())
+      Update::FillDerived(changed_md.get());
 
     if (init_problem && adaptive) {
       for (int i = 0; i < nmb; ++i) {
