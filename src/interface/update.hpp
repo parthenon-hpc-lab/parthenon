@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -26,6 +26,7 @@
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
+#include "interface/sparse_pack.hpp"
 #include "interface/state_descriptor.hpp"
 
 #include "kokkos_abstraction.hpp"
@@ -39,17 +40,17 @@ namespace Update {
 KOKKOS_FORCEINLINE_FUNCTION
 Real FluxDivHelper(const int l, const int k, const int j, const int i, const int ndim,
                    const Coordinates_t &coords, const VariableFluxPack<Real> &v) {
-  Real du = (coords.Area(X1DIR, k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
-             coords.Area(X1DIR, k, j, i) * v.flux(X1DIR, l, k, j, i));
+  Real du = (coords.FaceArea<X1DIR>(k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
+             coords.FaceArea<X1DIR>(k, j, i) * v.flux(X1DIR, l, k, j, i));
   if (ndim >= 2) {
-    du += (coords.Area(X2DIR, k, j + 1, i) * v.flux(X2DIR, l, k, j + 1, i) -
-           coords.Area(X2DIR, k, j, i) * v.flux(X2DIR, l, k, j, i));
+    du += (coords.FaceArea<X2DIR>(k, j + 1, i) * v.flux(X2DIR, l, k, j + 1, i) -
+           coords.FaceArea<X2DIR>(k, j, i) * v.flux(X2DIR, l, k, j, i));
   }
   if (ndim == 3) {
-    du += (coords.Area(X3DIR, k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
-           coords.Area(X3DIR, k, j, i) * v.flux(X3DIR, l, k, j, i));
+    du += (coords.FaceArea<X3DIR>(k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
+           coords.FaceArea<X3DIR>(k, j, i) * v.flux(X3DIR, l, k, j, i));
   }
-  return -du / coords.Volume(k, j, i);
+  return -du / coords.CellVolume(k, j, i);
 }
 
 template <typename T>
@@ -65,8 +66,8 @@ TaskStatus UpdateWithFluxDivergence(T *data_u0, T *data_u1, const Real gam0,
                                     const Real gam1, const Real beta_dt);
 
 template <typename F, typename T>
-TaskStatus WeightedSumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,
-                           const Real w2, T *out) {
+TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1, const Real w2,
+                           T *out) {
   Kokkos::Profiling::pushRegion("Task_WeightedSumData");
   const auto &x = in1->PackVariables(flags);
   const auto &y = in2->PackVariables(flags);
@@ -87,13 +88,12 @@ TaskStatus WeightedSumData(const std::vector<F> &flags, T *in1, T *in2, const Re
 }
 
 template <typename F, typename T>
-TaskStatus SumData(const std::vector<F> &flags, T *in1, T *in2, T *out) {
+TaskStatus SumData(const F &flags, T *in1, T *in2, T *out) {
   return WeightedSumData(flags, in1, in2, 1.0, 1.0, out);
 }
 
 template <typename F, typename T>
-TaskStatus UpdateData(const std::vector<F> &flags, T *in, T *dudt, const Real dt,
-                      T *out) {
+TaskStatus UpdateData(const F &flags, T *in, T *dudt, const Real dt, T *out) {
   return WeightedSumData(flags, in, dudt, 1.0, dt, out);
 }
 
@@ -147,6 +147,70 @@ TaskStatus FillDerived(T *rc) {
   }
   Kokkos::Profiling::popRegion(); // PostFillDerived
   Kokkos::Profiling::popRegion(); // Task_FillDerived
+  return TaskStatus::complete;
+}
+
+template <typename T>
+TaskStatus InitNewlyAllocatedVars(T *rc) {
+  if (!rc->AllVariablesInitialized()) {
+    const IndexDomain interior = IndexDomain::interior;
+    const IndexRange ib = rc->GetBoundsI(interior);
+    const IndexRange jb = rc->GetBoundsJ(interior);
+    const IndexRange kb = rc->GetBoundsK(interior);
+    const int Ni = ib.e + 1 - ib.s;
+    const int Nj = jb.e + 1 - jb.s;
+    const int Nk = kb.e + 1 - kb.s;
+    const int NjNi = Nj * Ni;
+    const int NkNjNi = Nk * NjNi;
+
+    // This pack will always be freshly built, since we only get here if sparse data
+    // was allocated and hasn't been initialized, which in turn implies the cached
+    // pack must be stale.
+    auto v = parthenon::SparsePack<variable_names::any>::Get(rc, {Metadata::Sparse});
+
+    Kokkos::parallel_for(
+        "Set newly allocated interior to default",
+        Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), v.GetNBlocks(), Kokkos::AUTO),
+        KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+          const int b = team_member.league_rank();
+          int lo = v.GetLowerBound(b, variable_names::any());
+          int hi = v.GetUpperBound(b, variable_names::any());
+
+          for (int vidx = lo; vidx <= hi; ++vidx) {
+            if (!v(b, vidx).initialized) {
+              Real val = v(b, vidx).sparse_default_val;
+              Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NkNjNi),
+                                   [&](const int idx) {
+                                     const int k = kb.s + idx / NjNi;
+                                     const int j = jb.s + (idx % NjNi) / Ni;
+                                     const int i = ib.s + idx % Ni;
+                                     v(b, vidx, k, j, i) = val;
+                                   });
+            }
+          }
+        });
+
+    // Set initialized here since everything has been filled with default values,
+    // user defined functions may overwrite these in the next step but that doesn't
+    // change initialization status of the interior
+    rc->SetAllVariablesToInitialized();
+  }
+
+  // Do user defined initializations if present
+  // This has to be done even in the case where no blocks have been allocated
+  // since the boundaries of allocated blocks could have received default data
+  // in any case
+  Kokkos::Profiling::pushRegion("Task_InitNewlyAllocatedVars");
+  auto pm = rc->GetParentPointer();
+  for (const auto &pkg : pm->packages.AllPackages()) {
+    pkg.second->InitNewlyAllocatedVars(rc);
+  }
+  Kokkos::Profiling::popRegion();
+
+  // Don't worry about flagging variables as initialized
+  // since they will be flagged at the beginning of the
+  // next step in the evolution driver
+
   return TaskStatus::complete;
 }
 

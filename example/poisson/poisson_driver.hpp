@@ -52,7 +52,7 @@ class PoissonDriver : public Driver {
   // We reduce a view too, but it's stored as a param.
 };
 
-void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);
+void ProblemGenerator(Mesh *pm, parthenon::ParameterInput *pin, MeshData<Real> *md);
 parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);
 
 } // namespace poisson_example

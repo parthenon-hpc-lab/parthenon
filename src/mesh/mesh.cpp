@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -47,10 +47,10 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/partition_stl_containers.hpp"
@@ -94,7 +94,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                      : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
-      next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),
@@ -108,12 +107,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
-
-#ifdef MPI_PARALLEL
-  // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
-  next_phys_id_ = 1;
-  ReserveMeshBlockPhysIDs();
-#endif
 
   // check number of OpenMP threads for mesh
   if (num_mesh_threads_ < 1) {
@@ -172,6 +165,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
+  }
+  if (app_in->MeshProblemGenerator != nullptr) {
+    ProblemGenerator = app_in->MeshProblemGenerator;
   }
   if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
     PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
@@ -290,7 +286,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     max_level = 63;
   }
 
-  InitUserMeshData(pin);
+  InitUserMeshData(this, pin);
 
   if (multilevel) {
     if (block_size.nx1 % 2 == 1 || (block_size.nx2 % 2 == 1 && (ndim >= 2)) ||
@@ -485,6 +481,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   mesh_data.SetMeshPointer(this);
 
+  resolved_packages = ResolvePackages(packages);
+
+  // Setup unique comms for each variable and swarm
+  SetupMPIComms();
+
   // create MeshBlock list for this process
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
@@ -494,17 +495,17 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   for (int i = nbs; i <= nbe; i++) {
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
-    block_list[i - nbs] = MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs,
-                                          this, pin, app_in, packages, gflag);
+    block_list[i - nbs] =
+        MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
+                        packages, resolved_packages, gflag);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run
-  if (block_list.size() > 0 && Globals::my_rank == 0) {
-    std::cout << "#Variables in use:\n"
-              << *(block_list[0]->resolved_packages) << std::endl;
+  if (Globals::my_rank == 0) {
+    std::cout << "#Variables in use:\n" << *(resolved_packages) << std::endl;
   }
 }
 
@@ -546,7 +547,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                      : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
-      next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),
@@ -559,12 +559,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
-
-#ifdef MPI_PARALLEL
-  // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
-  next_phys_id_ = 1;
-  ReserveMeshBlockPhysIDs();
-#endif
 
   // check the number of OpenMP threads for mesh
   if (num_mesh_threads_ < 1) {
@@ -675,7 +669,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     max_level = 63;
   }
 
-  InitUserMeshData(pin);
+  InitUserMeshData(this, pin);
 
   // Populate logical locations
   auto lx123 = rr.ReadDataset<int64_t>("/Blocks/loc.lx123");
@@ -755,6 +749,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   mesh_data.SetMeshPointer(this);
 
+  resolved_packages = ResolvePackages(packages);
+
+  // Setup unique comms for each variable and swarm
+  SetupMPIComms();
+
   // Create MeshBlocks (parallel)
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
@@ -767,23 +766,30 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     // create a block and add into the link list
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
-                        packages, gflag, costlist[i]);
+                        packages, resolved_packages, gflag, costlist[i]);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run
-  if (block_list.size() > 0 && Globals::my_rank == 0) {
-    std::cout << "#Variables in use:\n"
-              << *(block_list[0]->resolved_packages) << std::endl;
+  if (Globals::my_rank == 0) {
+    std::cout << "#Variables in use:\n" << *(resolved_packages) << std::endl;
   }
 }
 
 //----------------------------------------------------------------------------------------
 // destructor
 
-Mesh::~Mesh() = default;
+Mesh::~Mesh() {
+#ifdef MPI_PARALLEL
+  // Cleanup MPI comms
+  for (auto &pair : mpi_comm_map_) {
+    PARTHENON_MPI_CHECK(MPI_Comm_free(&(pair.second)));
+  }
+  mpi_comm_map_.clear();
+#endif
+}
 
 //----------------------------------------------------------------------------------------
 //! \fn void Mesh::OutputMeshStructure(int ndim)
@@ -960,6 +966,18 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
     default: // periodic/block BCs handled elsewhere.
       break;
     }
+
+    switch (mesh_bcs[f]) {
+    case BoundaryFlag::user:
+      if (app_in->swarm_boundary_conditions[f] != nullptr) {
+        // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user
+        // boundaries are requested but no swarms are used.
+        SwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
+      }
+      break;
+    default: // Default BCs handled elsewhere
+      break;
+    }
   }
 }
 
@@ -1003,7 +1021,7 @@ void Mesh::EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg) {
 
 void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
   for (auto &pmb : block_list) {
-    pmb->UserWorkBeforeOutput(pin);
+    pmb->UserWorkBeforeOutput(pmb.get(), pin);
   }
 }
 
@@ -1024,33 +1042,53 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       pmb->InitMeshBlockUserData(pmb, pin);
     }
 
+    const int num_partitions = DefaultNumPartitions();
+
     // problem generator
     if (init_problem) {
-      for (int i = 0; i < nmb; ++i) {
-        auto &pmb = block_list[i];
-        pmb->ProblemGenerator(pmb.get(), pin);
+      PARTHENON_REQUIRE_THROWS(
+          !(ProblemGenerator != nullptr && block_list[0]->ProblemGenerator != nullptr),
+          "Mesh and MeshBlock ProblemGenerators are defined. Please use only one.");
+
+      // Call Mesh ProblemGenerator
+      if (ProblemGenerator != nullptr) {
+        PARTHENON_REQUIRE(num_partitions == 1,
+                          "Mesh ProblemGenerator requires parthenon/mesh/pack_size=-1 "
+                          "during first initialization.");
+
+        auto &md = mesh_data.GetOrAdd("base", 0);
+        ProblemGenerator(this, pin, md.get());
+        // Call individual MeshBlock ProblemGenerator
+      } else {
+        for (int i = 0; i < nmb; ++i) {
+          auto &pmb = block_list[i];
+          pmb->ProblemGenerator(pmb.get(), pin);
+        }
       }
+      std::for_each(block_list.begin(), block_list.end(),
+                    [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
+
+    // Build densely populated communication tags
+    tag_map.clear();
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd("base", i);
+      tag_map.AddMeshDataToMap(md);
+    }
+    tag_map.ResolveMap();
 
     // Create send/recv MPI_Requests for all BoundaryData objects
     for (int i = 0; i < nmb; ++i) {
       auto &pmb = block_list[i];
-      // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
-      pmb->pbval->SetupPersistentMPI();
-      pmb->meshblock_data.Get()->SetupPersistentMPI();
       pmb->swarm_data.Get()->SetupPersistentMPI();
     }
 
-    // prepare to receive conserved variables
-    for (int i = 0; i < nmb; ++i) {
-      block_list[i]->meshblock_data.Get()->StartReceiving(BoundaryCommSubset::mesh_init);
-    }
-
-    const int num_partitions = DefaultNumPartitions();
-
     // send FillGhost variables
+    boundary_comm_map.clear();
+    boundary_comm_flxcor_map.clear();
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
+      cell_centered_bvars::BuildBoundaryBuffers(md);
       cell_centered_bvars::SendBoundaryBuffers(md);
     }
 
@@ -1068,22 +1106,20 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     } while (!all_received);
 
-    // unpack FillGhost variables
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
+      // unpack FillGhost variables
       cell_centered_bvars::SetBoundaries(md);
+      // restrict ghosts---needed for physical bounds
       if (multilevel) {
-        cell_centered_refinement::RestrictPhysicalBounds(md.get());
+        cell_centered_bvars::RestrictGhostHalos(md, true);
       }
     }
 
-    for (int i = 0; i < nmb; ++i) {
-      block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
-    }
-    // Now do prolongation, compute primitives, apply BCs
+    //  Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
       auto &mbd = block_list[i]->meshblock_data.Get();
-      if (multilevel) {
+      if (multilevel) { // TODO(JMM): Do with meshdata
         ProlongateBoundaries(mbd);
       }
       ApplyBoundaryConditions(mbd);
@@ -1226,34 +1262,7 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
   block_size.x1rat = mesh_size.x1rat;
   block_size.x2rat = mesh_size.x2rat;
   block_size.x3rat = mesh_size.x3rat;
-
-  return;
 }
-
-// Public function for advancing next_phys_id_ counter
-
-// Store signed, but positive, integer corresponding to the next unused value to be used
-// as unique ID for a BoundaryVariable object's single set of MPI calls (formerly "enum
-// AthenaTagMPI"). 5 bits of unsigned integer representation are currently reserved
-// for this "phys" part of the bitfield tag, making 0, ..., 31 legal values
-
-int Mesh::ReserveTagPhysIDs(int num_phys) {
-  // TODO(felker): add safety checks? input, output are positive, obey <= 31=
-  // MAX_NUM_PHYS
-  int start_id = next_phys_id_;
-  next_phys_id_ += num_phys;
-  return start_id;
-}
-
-// private member fn, called in Mesh() ctor
-
-// depending on compile- and runtime options, reserve the maximum number of "int physid"
-// that might be necessary for each MeshBlock's BoundaryValues object to perform MPI
-// communication for all BoundaryVariable objects
-
-// TODO(felker): deduplicate this logic, which combines conditionals in MeshBlock ctor
-
-void Mesh::ReserveMeshBlockPhysIDs() { return; }
 
 std::int64_t Mesh::GetTotalCells() {
   auto &pmb = block_list.front();
@@ -1265,5 +1274,43 @@ int Mesh::GetNumberOfMeshBlockCells() const {
   return block_list.front()->GetNumberOfMeshBlockCells();
 }
 const RegionSize &Mesh::GetBlockSize() const { return block_list.front()->block_size; }
+
+// Create separate communicators for all variables. Needs to be done at the mesh
+// level so that the communicators for each variable across all blocks is consistent.
+// As variables are identical across all blocks, we just use the info from the first.
+void Mesh::SetupMPIComms() {
+#ifdef MPI_PARALLEL
+
+  for (auto &pair : resolved_packages->AllFields()) {
+    auto &metadata = pair.second;
+    // Create both boundary and flux communicators for everything with either FillGhost
+    // or WithFluxes just to be safe
+    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes)) {
+      MPI_Comm mpi_comm;
+      PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+      const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});
+      PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
+
+      if (multilevel) {
+        MPI_Comm mpi_comm_flcor;
+        PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm_flcor));
+        const auto ret =
+            mpi_comm_map_.insert({pair.first.label() + "_flcor", mpi_comm_flcor});
+        PARTHENON_REQUIRE_THROWS(ret.second,
+                                 "Flux corr. communicator with same name already in map");
+      }
+    }
+  }
+  for (auto &pair : resolved_packages->AllSwarms()) {
+    MPI_Comm mpi_comm;
+    PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+    const auto ret = mpi_comm_map_.insert({pair.first, mpi_comm});
+    PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
+  }
+  // TODO(everying during a sync) we should discuss what to do with face vars as they
+  // are currently not handled in pmb->meshblock_data.Get()->SetupPersistentMPI(); nor
+  // inserted into pmb->pbval->bvars.
+#endif
+}
 
 } // namespace parthenon

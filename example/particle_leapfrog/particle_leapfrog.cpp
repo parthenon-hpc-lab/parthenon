@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2021 The Parthenon collaboration
+// Copyright(C) 2021-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -69,11 +69,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::string swarm_name = "my particles";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
-  Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
-  pkg->AddSwarmValue("vx", swarm_name, real_swarmvalue_metadata);
-  pkg->AddSwarmValue("vy", swarm_name, real_swarmvalue_metadata);
-  pkg->AddSwarmValue("vz", swarm_name, real_swarmvalue_metadata);
+  Metadata vreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{3});
+  pkg->AddSwarmValue("v", swarm_name, vreal_swarmvalue_metadata);
+  Metadata vvreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{3, 3});
+  pkg->AddSwarmValue("vv", swarm_name, vvreal_swarmvalue_metadata);
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
@@ -88,14 +88,12 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 
   int max_active_index = swarm->GetMaxActiveIndex();
 
-  const auto &vx = swarm->Get<Real>("vx").Get();
-  const auto &vy = swarm->Get<Real>("vy").Get();
-  const auto &vz = swarm->Get<Real>("vz").Get();
+  const auto &v = swarm->Get<Real>("v").Get();
 
   // Assumes a grid with constant dx, dy, dz within a block
-  const Real &dx_i = pmb->coords.dx1f(0);
-  const Real &dx_j = pmb->coords.dx2f(0);
-  const Real &dx_k = pmb->coords.dx3f(0);
+  const Real &dx_i = pmb->coords.Dxf<1>(0);
+  const Real &dx_j = pmb->coords.Dxf<2>(0);
+  const Real &dx_k = pmb->coords.Dxf<3>(0);
   const Real &dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
 
   auto swarm_d = swarm->GetDeviceContext();
@@ -105,9 +103,10 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
       "particle_leapfrog:EstimateTimestep", 0, max_active_index,
       KOKKOS_LAMBDA(const int n, Real &lmin_dt) {
         if (swarm_d.IsActive(n)) {
-          Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
-          if (v != 0.0) {
-            lmin_dt = std::min(lmin_dt, dx_push / v);
+          const Real vel =
+              sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
+          if (vel != 0.0) {
+            lmin_dt = std::min(lmin_dt, dx_push / vel);
           }
         }
       },
@@ -136,8 +135,9 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
     auto &pmb = blocks[i];
 
     auto swarm = pmb->swarm_data.Get()->Get("my particles");
-    const auto &is_active = swarm->GetMask().Get().GetHostMirrorAndCopy();
-    for (auto n = 0; n < is_active.GetSize(); n++) {
+    const auto &is_active =
+        Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
+    for (auto n = 0; n <= swarm->GetMaxActiveIndex(); n++) {
       if (is_active(n)) {
         num_particles_this_rank += 1;
       }
@@ -158,23 +158,50 @@ TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
     const auto &x = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
     const auto &y = swarm->Get<Real>("y").Get().GetHostMirrorAndCopy();
     const auto &z = swarm->Get<Real>("z").Get().GetHostMirrorAndCopy();
-    const auto &vx = swarm->Get<Real>("vx").Get().GetHostMirrorAndCopy();
-    const auto &vy = swarm->Get<Real>("vy").Get().GetHostMirrorAndCopy();
-    const auto &vz = swarm->Get<Real>("vz").Get().GetHostMirrorAndCopy();
+    const auto &v = swarm->Get<Real>("v").Get().GetHostMirrorAndCopy();
+    const auto &vv = swarm->Get<Real>("vv").Get().GetHostMirrorAndCopy();
 
-    const auto &is_active = swarm->GetMask().Get().GetHostMirrorAndCopy();
-    for (auto n = 0; n < is_active.GetSize(); n++) {
+    PackIndexMap imap;
+    std::vector<std::string> pack_names = {"v", "vv"};
+    auto vp = swarm->PackVariables<Real>(pack_names, imap);
+    auto iv = imap.GetFlatIdx("v");
+    auto ivv = imap.GetFlatIdx("vv");
+
+    const auto &is_active =
+        Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
+    for (auto n = 0; n <= swarm->GetMaxActiveIndex(); n++) {
       if (is_active(n)) {
         particle_output_this_rank(offset++) = static_cast<Real>(pmb->gid);
         particle_output_this_rank(offset++) = static_cast<Real>(id(n));
         particle_output_this_rank(offset++) = x(n);
         particle_output_this_rank(offset++) = y(n);
         particle_output_this_rank(offset++) = z(n);
-        particle_output_this_rank(offset++) = vx(n);
-        particle_output_this_rank(offset++) = vy(n);
-        particle_output_this_rank(offset++) = vz(n);
+        particle_output_this_rank(offset++) = v(0, n);
+        particle_output_this_rank(offset++) = v(1, n);
+        particle_output_this_rank(offset++) = v(2, n);
+
+        // Check that vv is still consistent with v
+        for (int i = 0; i < 3; i++) {
+          for (int j = 0; j < 3; j++) {
+            PARTHENON_REQUIRE(vv(i, j, n) == v(i, n) * v(j, n),
+                              "vv not consistent with v*v!");
+          }
+        }
       }
     }
+
+    const auto is_active_d = swarm->GetMask();
+    pmb->par_for(
+        "CheckParticlePacks", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+          if (is_active_d(n)) {
+            for (int i = 0; i < 3; i++) {
+              for (int j = 0; j < 3; j++) {
+                PARTHENON_REQUIRE(vp(ivv(i, j), n) == vp(iv(i), n) * vp(iv(j), n),
+                                  "packed vv not consistent with packed v*v!");
+              }
+            }
+          }
+        });
   }
 
   // Step 2b. Gather data on root process
@@ -285,12 +312,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  const Real &x_min = pmb->coords.x1f(ib.s);
-  const Real &y_min = pmb->coords.x2f(jb.s);
-  const Real &z_min = pmb->coords.x3f(kb.s);
-  const Real &x_max = pmb->coords.x1f(ib.e + 1);
-  const Real &y_max = pmb->coords.x2f(jb.e + 1);
-  const Real &z_max = pmb->coords.x3f(kb.e + 1);
+  const Real &x_min = pmb->coords.Xf<1>(ib.s);
+  const Real &y_min = pmb->coords.Xf<2>(jb.s);
+  const Real &z_min = pmb->coords.Xf<3>(kb.s);
+  const Real &x_max = pmb->coords.Xf<1>(ib.e + 1);
+  const Real &y_max = pmb->coords.Xf<2>(jb.e + 1);
+  const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
 
   const auto &ic = particles_ic;
 
@@ -324,9 +351,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
   auto &z = swarm->Get<Real>("z").Get();
-  auto &vx = swarm->Get<Real>("vx").Get();
-  auto &vy = swarm->Get<Real>("vy").Get();
-  auto &vz = swarm->Get<Real>("vz").Get();
+  auto &v = swarm->Get<Real>("v").Get();
+  auto &vv = swarm->Get<Real>("vv").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
   // This hardcoded implementation should only used in PGEN and not during runtime
@@ -339,9 +365,14 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         x(n) = ic[m][0];
         y(n) = ic[m][1];
         z(n) = ic[m][2];
-        vx(n) = ic[m][3];
-        vy(n) = ic[m][4];
-        vz(n) = ic[m][5];
+        v(0, n) = ic[m][3];
+        v(1, n) = ic[m][4];
+        v(2, n) = ic[m][5];
+        for (int i = 0; i < 3; i++) {
+          for (int j = 0; j < 3; j++) {
+            vv(i, j, n) = v(i, n) * v(j, n);
+          }
+        }
       });
 }
 
@@ -357,9 +388,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
   auto &z = swarm->Get<Real>("z").Get();
-  auto &vx = swarm->Get<Real>("vx").Get();
-  auto &vy = swarm->Get<Real>("vy").Get();
-  auto &vz = swarm->Get<Real>("vz").Get();
+  auto &v = swarm->Get<Real>("v").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
   // keep particles on existing trajectory for now
@@ -369,22 +398,20 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   pmb->par_for(
       "Leapfrog", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
-          Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
-
           // drift
-          x(n) += vx(n) * 0.5 * dt;
-          y(n) += vy(n) * 0.5 * dt;
-          z(n) += vz(n) * 0.5 * dt;
+          x(n) += v(0, n) * 0.5 * dt;
+          y(n) += v(1, n) * 0.5 * dt;
+          z(n) += v(2, n) * 0.5 * dt;
 
           // kick
-          vx(n) += ax * dt;
-          vy(n) += ay * dt;
-          vz(n) += az * dt;
+          v(0, n) += ax * dt;
+          v(1, n) += ay * dt;
+          v(2, n) += az * dt;
 
           // drift
-          x(n) += vx(n) * 0.5 * dt;
-          y(n) += vy(n) * 0.5 * dt;
-          z(n) += vz(n) * 0.5 * dt;
+          x(n) += v(0, n) * 0.5 * dt;
+          y(n) += v(1, n) * 0.5 * dt;
+          z(n) += v(2, n) * 0.5 * dt;
 
           bool on_current_mesh_block = true;
           swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);

@@ -45,7 +45,7 @@ list(APPEND TEST_DIRS advection_performance)
 list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
 list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_performance/parthinput.advection_performance \
---num_steps 5")
+--num_steps 4")
 list(APPEND EXTRA_TEST_LABELS "perf-reg")
 
 list(APPEND TEST_DIRS particle_leapfrog)
@@ -126,7 +126,8 @@ endif()
 
 # Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES
 # list variable, before including TestSetup.cmake.
-list(APPEND REQUIRED_PYTHON_MODULES matplotlib numpy)
+list(APPEND REQUIRED_PYTHON_MODULES numpy)
+list(APPEND DESIRED_PYTHON_MODULES matplotlib)
 
 # Include test setup functions, and check for python interpreter and modules
 #  setup_test_serial

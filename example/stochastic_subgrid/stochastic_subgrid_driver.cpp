@@ -16,13 +16,13 @@
 #include <vector>
 
 // Local Includes
+#include "amr_criteria/refinement_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
 #include "parthenon/driver.hpp"
-#include "refinement/refinement.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "stochastic_subgrid_driver.hpp"
 #include "stochastic_subgrid_package.hpp"
 
@@ -111,14 +111,8 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
       // effectively, sc1 = sc0 + dudt*dt
       auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-      auto start_recv = tl.AddTask(none, &MeshBlockData<Real>::StartReceiving, sc1.get(),
-                                   BoundaryCommSubset::all);
       auto advect_flux =
           tl.AddTask(none, stochastic_subgrid_package::CalculateFluxes, sc0);
-      auto send_flux =
-          tl.AddTask(advect_flux, &MeshBlockData<Real>::SendFluxCorrection, sc0.get());
-      auto recv_flux =
-          tl.AddTask(advect_flux, &MeshBlockData<Real>::ReceiveFluxCorrection, sc0.get());
     }
   }
 
@@ -138,9 +132,21 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
       auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
       auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
+      const auto any = parthenon::BoundaryType::any;
+
+      tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
+      tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+
+      auto send_flx = tl.AddTask(
+          none, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
+      auto recv_flx =
+          tl.AddTask(none, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
+      auto set_flx =
+          tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+
       // compute the divergence of fluxes of conserved variables
       auto flux_div =
-          tl.AddTask(none, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
+          tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
 
       auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
                                  mc0.get(), mbase.get(), beta);
@@ -149,15 +155,8 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
                                mdudt.get(), beta * dt, mc1.get());
 
       // do boundary exchange
-      auto send =
-          tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
-      auto recv =
-          tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
-      auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
-      if (pmesh->multilevel) {
-        tl.AddTask(set, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
-                   mc1.get());
-      }
+      parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(update, tl, mc1,
+                                                               pmesh->multilevel);
     }
   }
 
@@ -170,9 +169,6 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
       auto &pmb = blocks[i];
       auto &tl = async_region2[i];
       auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
-
-      auto clear_comm_flags = tl.AddTask(none, &MeshBlockData<Real>::ClearBoundary,
-                                         sc1.get(), BoundaryCommSubset::all);
 
       auto prolongBound = none;
       if (pmesh->multilevel) {

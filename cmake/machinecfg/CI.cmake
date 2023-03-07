@@ -19,11 +19,11 @@ message(STATUS "Loading machine configuration for default CI machine. "
   "Supported MACHINE_VARIANT includes 'cuda', 'mpi', and 'cuda-mpi'")
 
 # common options
-set(Kokkos_ARCH_WSM ON CACHE BOOL "CPU architecture")
-set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
+set(Kokkos_ARCH_ZEN2 ON CACHE BOOL "CPU architecture")
+set(NUM_MPI_PROC_TESTING "4" CACHE STRING "CI runs tests with 4 MPI ranks")
 # variants
 if (${MACHINE_VARIANT} MATCHES "cuda")
-  set(Kokkos_ARCH_PASCAL61 ON CACHE BOOL "GPU architecture")
+  set(Kokkos_ARCH_AMPERE80 ON CACHE BOOL "GPU architecture")
   set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Enable Cuda")
   set(CMAKE_CXX_COMPILER ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/bin/nvcc_wrapper CACHE STRING "Use nvcc_wrapper")
 else()
@@ -33,7 +33,6 @@ endif()
 if (${MACHINE_VARIANT} MATCHES "mpi")
   # not using the following as the default is determined correctly
   #set(TEST_MPIEXEC mpiexec CACHE STRING "Command to launch MPI applications")
-  list(APPEND TEST_MPIOPTS "--allow-run-as-root")
   set(HDF5_ROOT /usr/local/hdf5/parallel CACHE STRING "HDF5 path")
 else()
   set(HDF5_ROOT /usr/local/hdf5/serial CACHE STRING "HDF5 path")

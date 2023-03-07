@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "application_input.hpp"
+#include "bvals/bvals.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
@@ -33,7 +34,7 @@
 #include "globals.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/state_descriptor.hpp"
+#include "interface/packages.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -49,6 +50,7 @@ class Mesh;
 class MeshBlockTree;
 class MeshRefinement;
 class ParameterInput;
+class StateDescriptor;
 
 // Inner loop default pattern
 // - Defined outside of the MeshBlock class because it does not require an exec space
@@ -74,11 +76,11 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   ~MeshBlock();
 
   // Factory method deals with initialization for you
-  static std::shared_ptr<MeshBlock> Make(int igid, int ilid, LogicalLocation iloc,
-                                         RegionSize input_block, BoundaryFlag *input_bcs,
-                                         Mesh *pm, ParameterInput *pin,
-                                         ApplicationInput *app_in, Packages_t &packages,
-                                         int igflag, double icost = 1.0);
+  static std::shared_ptr<MeshBlock>
+  Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
+       BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
+       Packages_t &packages, std::shared_ptr<StateDescriptor> resolved_packages,
+       int igflag, double icost = 1.0);
 
   // Kokkos execution space for this MeshBlock
   DevExecSpace exec_space;
@@ -170,7 +172,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     Kokkos::deep_copy(exec_space, dst, src);
   }
 
-  void AllocateSparse(std::string const &label);
+  void AllocateSparse(std::string const &label, bool only_control = false,
+                      bool flag_uninitialized = false);
 
   void AllocSparseID(std::string const &base_name, const int sparse_id) {
     AllocateSparse(MakeVarLabel(base_name, sparse_id));
@@ -197,14 +200,25 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
 #endif
 
-  template <class... Args>
-  inline void par_for(Args &&... args) {
-    par_dispatch_(std::forward<Args>(args)...);
+  void SetAllVariablesToInitialized() {
+    auto &stages = meshblock_data.Stages();
+    std::for_each(stages.begin(), stages.end(),
+                  [](auto &pair) { pair.second->SetAllVariablesToInitialized(); });
   }
 
   template <class... Args>
-  inline void par_reduce(Args &&... args) {
-    par_dispatch_(std::forward<Args>(args)...);
+  inline void par_for(Args &&...args) {
+    par_dispatch_<dispatch_impl::ParallelForDispatch>(std::forward<Args>(args)...);
+  }
+
+  template <class... Args>
+  inline void par_reduce(Args &&...args) {
+    par_dispatch_<dispatch_impl::ParallelReduceDispatch>(std::forward<Args>(args)...);
+  }
+
+  template <class... Args>
+  inline void par_scan(Args &&...args) {
+    par_dispatch_<dispatch_impl::ParallelScanDispatch>(std::forward<Args>(args)...);
   }
 
   template <typename Function>
@@ -254,140 +268,137 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   }
 
-  void ResetToIC() { ProblemGenerator(nullptr, nullptr); }
-
   // inform MeshBlock which arrays contained in member Field, Particles,
   // ... etc. classes are the "primary" representations of a quantity. when registered,
   // that data are used for (1) load balancing (2) (future) dumping to restart file
   void RegisterMeshBlockData(std::shared_ptr<CellVariable<Real>> pvar_cc);
-  void RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void
-  UserWorkBeforeOutputDefault(ParameterInput *pin); // called in Mesh fn (friend class)
-  std::function<void(ParameterInput *)> UserWorkBeforeOutput =
+  UserWorkBeforeOutputDefault(MeshBlock *pmb,
+                              ParameterInput *pin); // called in Mesh fn (friend class)
+  std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeOutput =
       &UserWorkBeforeOutputDefault;
-  static void UserWorkInLoopDefault(); // called in TimeIntegratorTaskList
-  std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
   void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }
 
   // It would be nice for these par_dispatch_ functions to be private, but they can't be
   // 1D default loop pattern
-  template <typename Function, class... Args>
+  template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const int &il, const int &iu,
-                const Function &function, Args &&... args) {
+                const Function &function, Args &&...args) {
     // using loop_pattern_flatrange_tag instead of DEFAULT_LOOP_PATTERN for now
     // as the other wrappers are not implemented yet for 1D loops
-    parthenon::par_dispatch(loop_pattern_flatrange_tag, name, exec_space, il, iu,
-                            function, std::forward<Args>(args)...);
+    parthenon::par_dispatch<Tag>(loop_pattern_flatrange_tag, name, exec_space, il, iu,
+                                 function, std::forward<Args>(args)...);
   }
 
   // index domain version
-  template <typename Function, class... Args>
+  template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &ib, const Function &function,
-                Args &&... args) {
+                Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
-    parthenon::par_dispatch(loop_type, name, exec_space, ib.s, ib.e, function,
-                            std::forward<Args>(args)...);
+    parthenon::par_dispatch<Tag>(loop_type, name, exec_space, ib.s, ib.e, function,
+                                 std::forward<Args>(args)...);
   }
 
   // 2D default loop pattern
-  template <typename Function, class... Args>
+  template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const int &jl, const int &ju, const int &il,
-                const int &iu, const Function &function, Args &&... args) {
+                const int &iu, const Function &function, Args &&...args) {
     // using loop_pattern_mdrange_tag instead of DEFAULT_LOOP_PATTERN for now
     // as the other wrappers are not implemented yet for 1D loops
-    parthenon::par_dispatch(loop_pattern_mdrange_tag, name, exec_space, jl, ju, il, iu,
-                            function, std::forward<Args>(args)...);
+    parthenon::par_dispatch<Tag>(loop_pattern_mdrange_tag, name, exec_space, jl, ju, il,
+                                 iu, function, std::forward<Args>(args)...);
   }
 
   // index domain version
-  template <typename Function, class... Args>
+  template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &jb, const IndexRange &ib,
-                const Function &function, Args &&... args) {
+                const Function &function, Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
-    parthenon::par_dispatch(loop_type, name, exec_space, jb.s, jb.e, ib.s, ib.e, function,
-                            std::forward<Args>(args)...);
+    parthenon::par_dispatch<Tag>(loop_type, name, exec_space, jb.s, jb.e, ib.s, ib.e,
+                                 function, std::forward<Args>(args)...);
   }
 
   // 3D default loop pattern
-  template <typename Function, class... Args>
+  template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const int &kl, const int &ku, const int &jl,
                 const int &ju, const int &il, const int &iu, const Function &function,
-                Args &&... args) {
+                Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
-    parthenon::par_dispatch(loop_type, name, exec_space, kl, ku, jl, ju, il, iu, function,
-                            std::forward<Args>(args)...);
+    parthenon::par_dispatch<Tag>(loop_type, name, exec_space, kl, ku, jl, ju, il, iu,
+                                 function, std::forward<Args>(args)...);
   }
 
   // index domain version
-  template <typename Function, class... Args>
+  template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &kb, const IndexRange &jb,
-                const IndexRange &ib, const Function &function, Args &&... args) {
+                const IndexRange &ib, const Function &function, Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
-    parthenon::par_dispatch(loop_type, name, exec_space, kb.s, kb.e, jb.s, jb.e, ib.s,
-                            ib.e, function, std::forward<Args>(args)...);
+    parthenon::par_dispatch<Tag>(loop_type, name, exec_space, kb.s, kb.e, jb.s, jb.e,
+                                 ib.s, ib.e, function, std::forward<Args>(args)...);
   }
 
   // 4D default loop pattern
-  template <typename Function, class... Args>
+  template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const int &nl, const int &nu, const int &kl,
                 const int &ku, const int &jl, const int &ju, const int &il, const int &iu,
-                const Function &function, Args &&... args) {
+                const Function &function, Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
-    parthenon::par_dispatch(loop_type, name, exec_space, nl, nu, kl, ku, jl, ju, il, iu,
-                            function, std::forward<Args>(args)...);
+    parthenon::par_dispatch<Tag>(loop_type, name, exec_space, nl, nu, kl, ku, jl, ju, il,
+                                 iu, function, std::forward<Args>(args)...);
   }
 
   // IndexDomain version
-  template <typename Function, class... Args>
+  template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &nb, const IndexRange &kb,
                 const IndexRange &jb, const IndexRange &ib, const Function &function,
-                Args &&... args) {
+                Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
-    parthenon::par_dispatch(loop_type, name, exec_space, nb.s, nb.e, kb.s, kb.e, jb.s,
-                            jb.e, ib.s, ib.e, function, std::forward<Args>(args)...);
+    parthenon::par_dispatch<Tag>(loop_type, name, exec_space, nb.s, nb.e, kb.s, kb.e,
+                                 jb.s, jb.e, ib.s, ib.e, function,
+                                 std::forward<Args>(args)...);
   }
 
   // 5D default loop pattern
-  template <typename Function, class... Args>
+  template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const int &bl, const int &bu, const int &nl,
                 const int &nu, const int &kl, const int &ku, const int &jl, const int &ju,
-                const int &il, const int &iu, const Function &function, Args &&... args) {
+                const int &il, const int &iu, const Function &function, Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
-    parthenon::par_dispatch(loop_type, name, exec_space, bl, bu, nl, nu, kl, ku, jl, ju,
-                            il, iu, function, std::forward<Args>(args)...);
+    parthenon::par_dispatch<Tag>(loop_type, name, exec_space, bl, bu, nl, nu, kl, ku, jl,
+                                 ju, il, iu, function, std::forward<Args>(args)...);
   }
 
   // IndexDomain version
-  template <typename Function, class... Args>
+  template <typename Tag, typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &bb, const IndexRange &nb,
                 const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
-                const Function &function, Args &&... args) {
+                const Function &function, Args &&...args) {
     typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
                               LoopPatternMDRange>::type loop_type;
-    parthenon::par_dispatch(loop_type, name, exec_space, bb.s, bb.e, nb.s, nb.e, kb.s,
-                            kb.e, jb.s, jb.e, ib.s, ib.e, function,
-                            std::forward<Args>(args)...);
+    parthenon::par_dispatch<Tag>(loop_type, name, exec_space, bb.s, bb.e, nb.s, nb.e,
+                                 kb.s, kb.e, jb.s, jb.e, ib.s, ib.e, function,
+                                 std::forward<Args>(args)...);
   }
 
  private:
@@ -395,14 +406,14 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
       new_block_dt_user_;
   std::vector<std::shared_ptr<CellVariable<Real>>> vars_cc_;
-  std::vector<std::shared_ptr<FaceField>> vars_fc_;
 
   // Initializer to set up a meshblock called with the default constructor
   // This is necessary because the back pointers can't be set up until
   // the block is allocated.
   void Initialize(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                   BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                  ApplicationInput *app_in, Packages_t &packages, int igflag,
+                  ApplicationInput *app_in, Packages_t &packages,
+                  std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
                   double icost = 1.0);
 
   void InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
@@ -413,8 +424,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin);
-  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator =
-      &ProblemGeneratorDefault;
+  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
   static pMeshBlockApplicationData_t
   InitApplicationMeshBlockDataDefault(MeshBlock *, ParameterInput *pin);
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>

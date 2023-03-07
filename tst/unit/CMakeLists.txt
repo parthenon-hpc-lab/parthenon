@@ -1,7 +1,7 @@
 
 ##========================================================================================
-## Athena++ astrophysical MHD code
-## Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+## Parthenon performance portable AMR framework
+## Copyright(C) 2020-2022 The Parthenon collaboration
 ## Licensed under the 3-clause BSD License, see LICENSE file for details
 ##========================================================================================
 ## (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
@@ -17,10 +17,10 @@
 ##========================================================================================
 
 list(APPEND unit_tests_SOURCES
+    test_concepts_lite.cpp    
     test_data_collection.cpp
     test_taskid.cpp
     test_tasklist.cpp
-    test_unit_face_variables.cpp
     test_unit_params.cpp
     test_unit_constants.cpp
     test_unit_domain.cpp
@@ -30,6 +30,8 @@ list(APPEND unit_tests_SOURCES
     test_pararrays.cpp
     test_meshblock_data_iterator.cpp
     test_mesh_data.cpp
+    test_nan_tags.cpp
+    test_sparse_pack.cpp
     test_swarm.cpp
     test_required_desired.cpp
     test_error_checking.cpp
@@ -48,7 +50,10 @@ endif()
 
 lint_target(unit_tests)
 
-ParseAndAddCatchTests(unit_tests)
+# separating test cases here because performance tests should (later) only be run
+# for Release build types.
+catch_discover_tests(unit_tests TEST_SPEC "~[performance]" PROPERTIES LABELS "unit")
+catch_discover_tests(unit_tests TEST_SPEC "[performance]" PROPERTIES LABELS "performance")
 
 get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)
 

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -27,6 +27,7 @@
 #include "parthenon_mpi.hpp"
 
 #include "bvals/bvals_interfaces.hpp"
+#include "bvals/cc/bnd_info.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "defs.hpp"
 #include "mesh/domain.hpp"
@@ -44,7 +45,6 @@ class Mesh;
 class MeshBlock;
 class MeshBlockTree;
 class ParameterInput;
-class Coordinates;
 struct RegionSize;
 
 // free functions to return boundary flag given input string, and vice versa
@@ -73,7 +73,7 @@ class BoundaryBase {
   LogicalLocation loc;
   BoundaryFlag block_bcs[6];
 
-  static int CreateBvalsMPITag(int lid, int bufid, int phys);
+  static int CreateBvalsMPITag(int lid, int bufid);
   static int CreateBufferID(int ox1, int ox2, int ox3, int fi1, int fi2);
   static int BufferID(int dim, bool multilevel);
   static int FindBufferID(int ox1, int ox2, int ox3, int fi1, int fi2);
@@ -122,8 +122,6 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
   void StartReceiving(BoundaryCommSubset phase) final {}
   void ClearBoundary(BoundaryCommSubset phase) final {}
 
-  int AdvanceCounterPhysID(int num_phys) { return 0; }
-
  private:
   // ptr to MeshBlock containing this BoundaryValues
   std::weak_ptr<MeshBlock> pmy_block_;
@@ -133,10 +131,6 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
   // false --> e.g. block, polar, periodic boundaries
   // bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
   // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
-
-  // local counter for generating unique MPI tags for per-MeshBlock BoundarySwarm
-  // communication (subset of Mesh::next_phys_id_)
-  int bvars_next_phys_id_;
 
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {
@@ -180,17 +174,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   void StartReceiving(BoundaryCommSubset phase) final;
   void ClearBoundary(BoundaryCommSubset phase) final;
 
-  // non-inhertied / unique functions (do not exist in BoundaryVariable objects):
-  // (these typically involve a coupled interaction of boundary variable/quantities)
-  // ------
-  void ProlongateBoundaries();
-
-  int NumRestrictions();
-  void FillRestrictionMetadata(cell_centered_bvars::BufferCacheHost_t &info,
-                               int &idx_start, std::shared_ptr<CellVariable<Real>> v);
-
-  int AdvanceCounterPhysID(int num_phys);
-
  private:
   // ptr to MeshBlock containing this BoundaryValues
   std::weak_ptr<MeshBlock> pmy_block_;
@@ -200,22 +183,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // false --> e.g. block, polar, periodic boundaries
   bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
   // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
-
-  // local counter for generating unique MPI tags for per-MeshBlock BoundaryVariable
-  // communication (subset of Mesh::next_phys_id_)
-  int bvars_next_phys_id_;
-
-  // ProlongateBoundaries() wraps the following S/AMR-operations (within neighbor loop):
-  // (the next function is also called within 3x nested loops over nk,nj,ni)
-  void ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei, int sj, int ej,
-                             int sk, int ek);
-  void ComputeRestrictionIndices_(const NeighborBlock &nb, int nk, int nj, int ni,
-                                  int &ris, int &rie, int &rjs, int &rje, int &rks,
-                                  int &rke);
-  void ComputeRestrictionBounds_(const NeighborBlock &nb, IndexRange &ni, IndexRange &nj,
-                                 IndexRange &nk);
-  void ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
-                                  IndexRange &bk);
 
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {
@@ -233,7 +200,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   friend class BoundaryVariable;
   friend class FaceCenteredBoundaryVariable; // needs nface_, nedge_, num_north/south_...
   // TODO(KGF): consider removing these friendship designations:
-  friend class CellCenteredBoundaryVariable;
   friend class BoundarySwarm;
 };
 

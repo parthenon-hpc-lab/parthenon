@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,14 +13,15 @@
 
 #include "interface/meshblock_data.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "bvals/cc/bvals_cc.hpp"
 #include "globals.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
@@ -42,9 +43,8 @@ void MeshBlockData<T>::Initialize(
 
   // clear all variables, maps, and pack caches
   varVector_.clear();
-  faceVector_.clear();
   varMap_.clear();
-  faceMap_.clear();
+  flagsToVars_.clear();
   varPackMap_.clear();
   coarseVarPackMap_.clear();
   varFluxPackMap_.clear();
@@ -64,40 +64,16 @@ void MeshBlockData<T>::Initialize(
 template <typename T>
 void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &metadata,
                                 int sparse_id) {
-  // branch on kind of variable
-  if (metadata.Where() == Metadata::Node) {
-    PARTHENON_THROW("Node variables are not implemented yet");
-  } else if (metadata.Where() == Metadata::Edge) {
-    // add an edge variable
-    std::cerr << "Accessing unliving edge array in stage" << std::endl;
-    std::exit(1);
-    // s->_edgeVector.push_back(
-    //     new EdgeVariable(label, metadata,
-    //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
-  } else if (metadata.Where() == Metadata::Face) {
-    if (!(metadata.IsSet(Metadata::OneCopy))) {
-      std::cerr << "Currently one one-copy face fields are supported" << std::endl;
-      std::exit(1);
-    }
-    if (metadata.IsSet(Metadata::FillGhost)) {
-      std::cerr << "Ghost zones not yet supported for face fields" << std::endl;
-      std::exit(1);
-    }
-    // add a face variable
-    auto pfv = std::make_shared<FaceVariable<T>>(
-        base_name, metadata.GetArrayDims(pmy_block, false), metadata);
-    Add(pfv);
-  } else {
-    auto pvar =
-        std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
-    Add(pvar);
+  auto pvar =
+      std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
+  Add(pvar);
 
-    if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
-      pvar->Allocate(pmy_block);
-    }
+  if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
+    pvar->Allocate(pmy_block);
   }
 }
 
+// TODO(JMM): Add CopyFrom that takes unique IDs
 template <typename T>
 void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
                                 const std::vector<std::string> &names,
@@ -128,12 +104,8 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
     for (auto v : src.GetCellVariableVector()) {
       add_var(v);
     }
-    for (auto fv : src.GetFaceVector()) {
-      add_var(fv);
-    }
   } else {
     auto var_map = src.GetCellVariableMap();
-    auto face_map = src.GetFaceMap();
 
     for (const auto &name : names) {
       bool found = false;
@@ -141,14 +113,6 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
       if (v != var_map.end()) {
         found = true;
         add_var(v->second);
-      }
-
-      auto fv = face_map.find(name);
-      if (fv != face_map.end()) {
-        PARTHENON_REQUIRE_THROWS(!found, "MeshBlockData::CopyFrom: Variable '" + name +
-                                             "' found more than once");
-        found = true;
-        add_var(fv->second);
       }
 
       if (!found && (resolved_packages_ != nullptr)) {
@@ -181,6 +145,7 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
   CopyFrom(src, true, names, {}, sparse_ids);
 }
 
+// TODO(JMM): Add constructor that takes unique IDs
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
                                 const std::vector<MetadataFlag> &flags,
@@ -212,8 +177,7 @@ template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
     const VarLabelList &var_list, const VarLabelList &flux_list, PackIndexMap *map,
     vpack_types::StringPair *key) {
-  vpack_types::StringPair keys =
-      std::make_pair(std::move(var_list.labels()), std::move(flux_list.labels()));
+  vpack_types::StringPair keys = std::make_pair(var_list.labels(), flux_list.labels());
 
   auto itr = varFluxPackMap_.find(keys);
   bool make_new_pack = false;
@@ -321,11 +285,10 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
 /// Variables and fluxes by Metadata Flags
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
-    const std::vector<MetadataFlag> &flags, const std::vector<int> &sparse_ids,
+    const Metadata::FlagCollection &flags, const std::vector<int> &sparse_ids,
     PackIndexMap *map, vpack_types::StringPair *key) {
-  return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, true, sparse_ids),
-                                      GetVariablesByFlag(flags, true, sparse_ids), map,
-                                      key);
+  return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, sparse_ids),
+                                      GetVariablesByFlag(flags, sparse_ids), map, key);
 }
 
 /// All variables and fluxes by Metadata Flags
@@ -348,11 +311,10 @@ MeshBlockData<T>::PackVariablesImpl(const std::vector<std::string> &names,
 /// Variables by Metadata Flags
 template <typename T>
 const VariablePack<T> &
-MeshBlockData<T>::PackVariablesImpl(const std::vector<MetadataFlag> &flags,
+MeshBlockData<T>::PackVariablesImpl(const Metadata::FlagCollection &flags,
                                     const std::vector<int> &sparse_ids, bool coarse,
                                     PackIndexMap *map, std::vector<std::string> *key) {
-  return PackListedVariables(GetVariablesByFlag(flags, true, sparse_ids), coarse, map,
-                             key);
+  return PackListedVariables(GetVariablesByFlag(flags, sparse_ids), coarse, map, key);
 }
 
 /// All variables
@@ -398,24 +360,71 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
 // From a given container, extract all variables whose Metadata matchs the all of the
 // given flags (if the list of flags is empty, extract all variables), optionally only
 // extracting sparse fields with an index from the given list of sparse indices
+//
+// JMM: This algorithm uses the map from metadata flags to variables
+// to accelerate performance.
+//
+// The cost of this loop scales as O(Nflags * Nvars/flag) In worst
+// case, this is linear in number of variables. However, on average,
+// the number of vars with a desired flag will be much smaller than
+// all vars. So average performance is much better than linear.
 template <typename T>
 typename MeshBlockData<T>::VarLabelList
-MeshBlockData<T>::GetVariablesByFlag(const std::vector<MetadataFlag> &flags,
-                                     bool match_all, const std::vector<int> &sparse_ids) {
+MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
+                                     const std::vector<int> &sparse_ids) {
+  Kokkos::Profiling::pushRegion("GetVariablesByFlag");
+
   typename MeshBlockData<T>::VarLabelList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
-  // let's use varMap_ here instead of varVector_ because iterating over either has O(N)
-  // complexity but with varMap_ we get a sorted list
-  for (const auto &pair : varMap_) {
-    const auto &v = pair.second;
-    // add this variable to the list if the Metadata flags match or no flags are specified
-    if (flags.empty() || (match_all && v->metadata().AllFlagsSet(flags)) ||
-        (!match_all && v->metadata().AnyFlagsSet(flags))) {
+  // Note that only intersections and unions count for flags.Empty()
+  if (flags.Empty()) { // Easy. Just do them all.
+    for (const auto &p : varMap_) {
+      var_list.Add(p.second, sparse_ids_set);
+    }
+  } else {               // Use set logic.
+    VariableSet<T> vars; // ensures a consistent ordering
+    const auto &intersections = flags.GetIntersections();
+    const auto &unions = flags.GetUnions();
+    const auto &exclusions = flags.GetExclusions();
+    const bool check_excludes = exclusions.size() > 0;
+
+    if (intersections.size() > 0) {
+      // Dirty trick to get literally any flag from the intersections set
+      MetadataFlag first_required = *(intersections.begin());
+
+      for (auto &v : flagsToVars_[first_required]) {
+        const auto &m = v->metadata();
+        // TODO(JMM): Note that AnyFlagsSet returns FALSE if the set of flags
+        // it's asked about is empty.  Not sure that's desired
+        // behaviour, but whatever, let's just guard against edge cases
+        // here.
+        if (m.AllFlagsSet(intersections) &&
+            !(check_excludes && m.AnyFlagsSet(exclusions)) &&
+            (unions.empty() || m.AnyFlagsSet(unions))) {
+          // TODO(JMM): When dense sparse packing is moved to Parthenon
+          // develop we need an extra check for IsAllocated here.
+          vars.insert(v);
+        }
+      }
+    } else { // unions.size() > 0.
+      for (const auto &f : unions) {
+        for (const auto &v : flagsToVars_[f]) {
+          // we know intersections.size == 0
+          if (!(check_excludes && (v->metadata()).AnyFlagsSet(exclusions))) {
+            // TODO(JMM): see above regarding IsAllocated()
+            vars.insert(v);
+          }
+        }
+      }
+    }
+    // Construct the var_list from the set.
+    for (auto &v : vars) {
       var_list.Add(v, sparse_ids_set);
     }
   }
 
+  Kokkos::Profiling::popRegion();
   return var_list;
 }
 
@@ -425,165 +434,10 @@ void MeshBlockData<T>::Remove(const std::string &label) {
 }
 
 template <typename T>
-void MeshBlockData<T>::SetLocalNeighborAllocated() {
-#ifdef ENABLE_SPARSE
-  Kokkos::Profiling::pushRegion("SetLocalNeighborAllocated");
-
-  const auto &bval = pmy_block.lock()->pbval;
-  // set local_neighbor_allocated for each variable
-  for (int n = 0; n < bval->nneighbor; n++) {
-    // find neighbor block
-    if (bval->neighbor[n].snb.rank != Globals::my_rank) {
-      continue;
-    }
-
-    auto neighbor_data = pmy_block.lock()
-                             ->pmy_mesh->FindMeshBlock(bval->neighbor[n].snb.gid)
-                             ->meshblock_data.Get();
-
-    assert(varVector_.size() == neighbor_data->varVector_.size());
-    for (size_t i = 0; i < varVector_.size(); ++i) {
-      assert(varVector_[i]->label() == neighbor_data->varVector_[i]->label());
-      if (!varVector_[i]->IsSet(Metadata::FillGhost)) {
-        continue;
-      }
-
-      varVector_[i]->vbvar->local_neighbor_allocated[n] =
-          neighbor_data->varVector_[i]->IsAllocated();
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // SetLocalNeighborAllocated
-
-#endif // ENABLE_SPARSE
-}
-
-template <typename T>
-TaskStatus MeshBlockData<T>::SendFluxCorrection() {
-  Kokkos::Profiling::pushRegion("Task_SendFluxCorrection");
-  for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
-      v->vbvar->SendFluxCorrection(v->IsAllocated());
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_SendFluxCorrection
-  return TaskStatus::complete;
-}
-
-template <typename T>
-TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
-  Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrection");
-  int success = 0, total = 0;
-  for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::WithFluxes) && v->IsSet(Metadata::FillGhost)) {
-      if (v->vbvar->ReceiveFluxCorrection(v->IsAllocated())) {
-        success++;
-      }
-      total++;
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrection
-  if (success == total) return TaskStatus::complete;
-  return TaskStatus::incomplete;
-}
-
-template <typename T>
-void MeshBlockData<T>::SetupPersistentMPI() {
-  // setup persistent MPI
-  for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      v->resetBoundary();
-      v->vbvar->SetupPersistentMPI();
-    }
-  }
-}
-
-template <typename T>
-TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
-  Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers_MeshBlockData");
-  bool ret = true;
-  // receives the boundary
-  for (auto &v : varVector_) {
-    if (!v->mpiStatus) {
-      if (v->IsSet(Metadata::FillGhost)) {
-        // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
-        // In case we have trouble with multiple arrays causing
-        // problems with task status, we should comment one line
-        // above and uncomment the if block below
-        v->resetBoundary();
-        v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers(v->IsAllocated());
-        ret = (ret & v->mpiStatus);
-      }
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_ReceiveBoundaryBuffers_MeshBlockData
-  if (ret) return TaskStatus::complete;
-  return TaskStatus::incomplete;
-}
-
-template <typename T>
-void MeshBlockData<T>::ResetBoundaryCellVariables() {
-  Kokkos::Profiling::pushRegion("ResetBoundaryCellVariables");
-  for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      v->vbvar->var_cc = v->data;
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // ResetBoundaryCellVariables
-}
-
-template <typename T>
-TaskStatus MeshBlockData<T>::StartReceiving(BoundaryCommSubset phase) {
-  Kokkos::Profiling::pushRegion("Task_StartReceiving");
-
-  SetLocalNeighborAllocated();
-
-  for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      v->resetBoundary();
-      v->vbvar->StartReceiving(phase);
-      v->mpiStatus = false;
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_StartReceiving
-  return TaskStatus::complete;
-}
-
-template <typename T>
-TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
-  Kokkos::Profiling::pushRegion("Task_ClearBoundary");
-  for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      v->vbvar->ClearBoundary(phase);
-    }
-  }
-
-  Kokkos::Profiling::popRegion(); // Task_ClearBoundary
-  return TaskStatus::complete;
-}
-
-template <typename T>
-void MeshBlockData<T>::ProlongateBoundaries() {
-  Kokkos::Profiling::pushRegion("ProlongateBoundaries");
-  // TODO(JMM): Change this upon refactor of BoundaryValues
-  auto pmb = GetBlockPointer();
-  pmb->pbval->ProlongateBoundaries();
-  Kokkos::Profiling::popRegion();
-}
-
-template <typename T>
 void MeshBlockData<T>::Print() {
   std::cout << "Variables are:\n";
   for (auto v : varVector_) {
     std::cout << " cell: " << v->info() << std::endl;
-  }
-  for (auto v : faceVector_) {
-    std::cout << " face: " << v->info() << std::endl;
   }
 }
 

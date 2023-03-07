@@ -17,15 +17,15 @@
 #include <vector>
 
 // Local Includes
+#include "amr_criteria/refinement_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
 #include "parthenon/driver.hpp"
 #include "poisson_driver.hpp"
 #include "poisson_package.hpp"
-#include "refinement/refinement.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -149,8 +149,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     solver.SetCheckInterval(check_interval);
     solver.SetFailWithMaxIterations(fail_flag);
     solver.SetWarnWithMaxIterations(warn_flag);
-    auto start_recv = solver.AddTask(none, &MeshData<Real>::StartReceiving, md.get(),
-                                     BoundaryCommSubset::all);
+
+    auto start_recv = solver.AddTask(
+        none, parthenon::cell_centered_bvars::StartReceiveBoundaryBuffers, md);
 
     auto update = solver.AddTask(mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
                                  md.get(), mdelta.get());
@@ -184,11 +185,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     auto setb = solver.AddTask(recv | update, cell_centered_bvars::SetBoundaries, md);
 
-    auto clear = solver.AddTask(send | setb | report_norm, &MeshData<Real>::ClearBoundary,
-                                md.get(), BoundaryCommSubset::all);
-
     auto check = solver.SetCompletionTask(
-        clear, poisson_package::CheckConvergence<MeshData<Real>>, md.get(), mdelta.get());
+        send | setb | report_norm, poisson_package::CheckConvergence<MeshData<Real>>,
+        md.get(), mdelta.get());
     // mark task so that dependent tasks (below) won't execute
     // until all task lists have completed it
     solver_region.AddRegionalDependencies(reg_dep_id, i, check);

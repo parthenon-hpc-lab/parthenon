@@ -1,4 +1,9 @@
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+//========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2022 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,9 +17,9 @@
 #ifndef OUTPUTS_PARTHENON_HDF5_HPP_
 #define OUTPUTS_PARTHENON_HDF5_HPP_
 
-#ifndef ENABLE_HDF5
-#error "parthenon_hdf5.hpp requires HDF5 output to be enabled"
-#endif // ifndef ENABLE_HDF5
+#include "config.hpp"
+// Only proceed if HDF5 output enabled
+#ifdef ENABLE_HDF5
 
 // Definitions common to parthenon restart and parthenon output for HDF5
 
@@ -33,8 +38,10 @@
 namespace parthenon {
 namespace HDF5 {
 
-// Number of dimension of HDF5 field data sets (block x nx x ny x nz x num vars)
-static constexpr size_t H5_NDIM = 5;
+// Number of dimension of HDF5 field data sets (block x nv x nu x nt x nz x ny x nx)
+static constexpr size_t H5_NDIM = 7;
+
+static constexpr int OUTPUT_VERSION_FORMAT = 3;
 
 /**
  * @brief RAII handles for HDF5. Use the typedefs directly (e.g. `H5A`, `H5D`, etc.)
@@ -104,11 +111,25 @@ static hid_t getHDF5Type(const uint32_t *) { return H5T_NATIVE_UINT32; }
 static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
+
+// On MacOS size_t is "unsigned long" and uint64_t is != "unsigned long".
+// Thus, size_t is not captured by the overload above and needs to selectively enabled.
+template <typename T,
+          typename std::enable_if<std::is_same<T, unsigned long>::value && // NOLINT
+                                      !std::is_same<T, uint64_t>::value,
+                                  bool>::type = true>
+static hid_t getHDF5Type(const T *) {
+  return H5T_NATIVE_ULONG;
+}
+
 static H5T getHDF5Type(const char *const *) {
   H5T var_string_type = H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
   PARTHENON_HDF5_CHECK(H5Tset_size(var_string_type, H5T_VARIABLE));
   return var_string_type;
 }
+
+//  Implemented in CPP file as it's complex
+hid_t GenerateFileAccessProps();
 
 inline H5G MakeGroup(hid_t file, const std::string &name) {
   return H5G::FromHIDCheck(
@@ -228,5 +249,7 @@ std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string 
 
 } // namespace HDF5
 } // namespace parthenon
+
+#endif // ifdef ENABLE_HDF5
 
 #endif // OUTPUTS_PARTHENON_HDF5_HPP_

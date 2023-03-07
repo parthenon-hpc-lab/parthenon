@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "interface/data_collection.hpp"
+#include "interface/sparse_pack_base.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
@@ -87,13 +88,13 @@ class MeshBlockData {
   auto GetParentPointer() const { return GetBlockPointer(); }
   void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
 
-  IndexRange GetBoundsI(const IndexDomain &domain) {
+  IndexRange GetBoundsI(const IndexDomain &domain) const {
     return GetBlockPointer()->cellbounds.GetBoundsI(domain);
   }
-  IndexRange GetBoundsJ(const IndexDomain &domain) {
+  IndexRange GetBoundsJ(const IndexDomain &domain) const {
     return GetBlockPointer()->cellbounds.GetBoundsJ(domain);
   }
-  IndexRange GetBoundsK(const IndexDomain &domain) {
+  IndexRange GetBoundsK(const IndexDomain &domain) const {
     return GetBlockPointer()->cellbounds.GetBoundsK(domain);
   }
 
@@ -184,39 +185,6 @@ class MeshBlockData {
   }
 #endif
 
-  //
-  // Queries related to FaceVariable objects
-  //
-  const FaceVector<T> &GetFaceVector() const noexcept { return faceVector_; }
-  const MapToFace<T> &GetFaceMap() const noexcept { return faceMap_; }
-  // DO NOT make this a const reference. Passing in C-style string literals
-  // cuases it to misbehave.
-  FaceVariable<T> &GetFace(std::string label) {
-    auto it = faceMap_.find(label);
-    if (it == faceMap_.end()) {
-      PARTHENON_THROW(std::string("\n") + std::string(label) +
-                      std::string(" array not found in Get() Face\n"));
-    }
-    return *(it->second);
-  }
-
-  ParArrayND<Real> &GetFace(std::string &label, int dir) {
-    return GetFace(label).Get(dir);
-  }
-
-  ///
-  /// Get an edge variable from the container
-  /// @param label the name of the variable
-  /// @return the CellVariable<T> if found or throw exception
-  ///
-  EdgeVariable<T> *GetEdge(std::string label) {
-    // for (auto v : edgeVector_) {
-    //   if (! v->label().compare(label)) return v;
-    // }
-    PARTHENON_THROW(std::string("\n") + std::string(label) +
-                    std::string(" array not found in Get() Edge\n"));
-  }
-
   using VarLabelList = VarListWithLabels<T>;
 
   /// Get list of variables and labels by names (either a full variable name or sparse
@@ -227,12 +195,12 @@ class MeshBlockData {
   /// Get list of variables and labels by metadata flags (must match all flags if
   /// match_all is true, otherwise must only match at least one), optionally selecting
   /// only given sparse ids
-  VarLabelList GetVariablesByFlag(const std::vector<MetadataFlag> &flags, bool match_all,
+  VarLabelList GetVariablesByFlag(const Metadata::FlagCollection &flags,
                                   const std::vector<int> &sparse_ids = {});
 
   /// Get list of all variables and labels, optionally selecting only given sparse ids
   VarLabelList GetAllVariables(const std::vector<int> &sparse_ids = {}) {
-    return GetVariablesByFlag({}, false, sparse_ids);
+    return GetVariablesByFlag(Metadata::FlagCollection(), sparse_ids);
   }
 
   /// Queries related to variable packs
@@ -242,6 +210,8 @@ class MeshBlockData {
   /// always included (if they match name or flags), but sparse variables are only
   /// included if sparse_ids is not empty and contains the sparse id of the sparse
   /// variable
+
+  SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
   /// Pack variables and fluxes by separate variables and fluxes names
   const VariableFluxPack<T> &
@@ -287,22 +257,21 @@ class MeshBlockData {
   }
 
   /// Pack variables and fluxes by Metadata flags
-  const VariableFluxPack<T> &
-  PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                         const std::vector<int> &sparse_ids, PackIndexMap &map) {
+  const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
+                                                    const std::vector<int> &sparse_ids,
+                                                    PackIndexMap &map) {
     return PackVariablesAndFluxesImpl(flags, sparse_ids, &map, nullptr);
   }
-  const VariableFluxPack<T> &
-  PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                         const std::vector<int> &sparse_ids) {
+  const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
+                                                    const std::vector<int> &sparse_ids) {
     return PackVariablesAndFluxesImpl(flags, sparse_ids, nullptr, nullptr);
   }
-  const VariableFluxPack<T> &
-  PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags, PackIndexMap &map) {
+  const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
+                                                    PackIndexMap &map) {
     return PackVariablesAndFluxesImpl(flags, {}, &map, nullptr);
   }
   const VariableFluxPack<T> &
-  PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags) {
+  PackVariablesAndFluxes(const Metadata::FlagCollection &flags) {
     return PackVariablesAndFluxesImpl(flags, {}, nullptr, nullptr);
   }
 
@@ -342,21 +311,21 @@ class MeshBlockData {
   }
 
   /// Pack variables by Metadata flags
-  const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
+  const VariablePack<T> &PackVariables(const Metadata::FlagCollection &flags,
                                        const std::vector<int> &sparse_ids,
                                        PackIndexMap &map, bool coarse = false) {
     return PackVariablesImpl(flags, sparse_ids, coarse, &map, nullptr);
   }
-  const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
+  const VariablePack<T> &PackVariables(const Metadata::FlagCollection &flags,
                                        const std::vector<int> &sparse_ids,
                                        bool coarse = false) {
     return PackVariablesImpl(flags, sparse_ids, coarse, nullptr, nullptr);
   }
-  const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
+  const VariablePack<T> &PackVariables(const Metadata::FlagCollection &flags,
                                        PackIndexMap &map, bool coarse = false) {
     return PackVariablesImpl(flags, {}, coarse, &map, nullptr);
   }
-  const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
+  const VariablePack<T> &PackVariables(const Metadata::FlagCollection &flags,
                                        bool coarse = false) {
     return PackVariablesImpl(flags, {}, coarse, nullptr, nullptr);
   }
@@ -388,19 +357,6 @@ class MeshBlockData {
   // return number of stored arrays
   int Size() noexcept { return varVector_.size(); }
 
-  // Communication routines
-  void SetLocalNeighborAllocated();
-  void ResetBoundaryCellVariables();
-  void SetupPersistentMPI();
-  TaskStatus ReceiveBoundaryBuffers();
-  TaskStatus StartReceiving(BoundaryCommSubset phase);
-  TaskStatus ClearBoundary(BoundaryCommSubset phase);
-  TaskStatus SendFluxCorrection();
-  TaskStatus ReceiveFluxCorrection();
-
-  // physical boundary routines
-  void ProlongateBoundaries();
-
   bool operator==(const MeshBlockData<T> &cmp) {
     // do some kind of check of equality
     // do the two containers contain the same named fields?
@@ -409,13 +365,7 @@ class MeshBlockData {
     for (auto &v : varMap_) {
       my_keys.push_back(v.first);
     }
-    for (auto &v : faceMap_) {
-      my_keys.push_back(v.first);
-    }
     for (auto &v : cmp.GetCellVariableMap()) {
-      cmp_keys.push_back(v.first);
-    }
-    for (auto &v : cmp.GetFaceMap()) {
       cmp_keys.push_back(v.first);
     }
     return (my_keys == cmp_keys);
@@ -423,7 +373,6 @@ class MeshBlockData {
 
   bool Contains(const std::string &name) const noexcept {
     if (varMap_.find(name) != varMap_.end()) return true;
-    if (faceMap_.find(name) != faceMap_.end()) return true;
     return false;
   }
   bool Contains(const std::vector<std::string> &names) const noexcept {
@@ -433,6 +382,19 @@ class MeshBlockData {
     return true;
   }
 
+  void SetAllVariablesToInitialized() {
+    std::for_each(varVector_.begin(), varVector_.end(),
+                  [](auto &sp_var) { sp_var->data.initialized = true; });
+  }
+
+  bool AllVariablesInitialized() {
+    bool all_initialized = true;
+    std::for_each(varVector_.begin(), varVector_.end(), [&](auto &sp_var) {
+      all_initialized = all_initialized && sp_var->data.initialized;
+    });
+    return all_initialized;
+  }
+
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,
                 int sparse_id = InvalidSparseID);
@@ -440,14 +402,13 @@ class MeshBlockData {
   void Add(std::shared_ptr<CellVariable<T>> var) noexcept {
     varVector_.push_back(var);
     varMap_[var->label()] = var;
+    for (const auto &flag : var->metadata().Flags()) {
+      flagsToVars_[flag].insert(var);
+    }
   }
 
-  void Add(std::shared_ptr<FaceVariable<T>> var) noexcept {
-    faceVector_.push_back(var);
-    faceMap_[var->label()] = var;
-  }
-
-  std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label) {
+  std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label,
+                                                  bool flag_uninitialized = false) {
     if (!HasCellVariable(label)) {
       PARTHENON_THROW("Tried to allocate sparse variable '" + label +
                       "', but no such sparse variable exists");
@@ -457,7 +418,7 @@ class MeshBlockData {
     PARTHENON_REQUIRE_THROWS(var->IsSparse(),
                              "Tried to allocate non-sparse variable " + label);
 
-    var->Allocate(pmy_block);
+    var->Allocate(pmy_block, flag_uninitialized);
 
     return var;
   }
@@ -473,8 +434,8 @@ class MeshBlockData {
                                  "', but no such sparse variable exists");
 
     auto var = GetCellVarPtr(label);
-    PARTHENON_REQUIRE_THROWS(var->IsSparse(),
-                             "Tried to deallocate non-sparse variable " + label);
+    // PARTHENON_REQUIRE_THROWS(var->IsSparse(),
+    //                         "Tried to deallocate non-sparse variable " + label);
 
     if (var->IsAllocated()) {
       var->Deallocate();
@@ -485,15 +446,15 @@ class MeshBlockData {
   std::shared_ptr<StateDescriptor> resolved_packages_;
 
   CellVariableVector<T> varVector_; ///< the saved variable array
-  FaceVector<T> faceVector_;        ///< the saved face arrays
 
   MapToCellVars<T> varMap_;
-  MapToFace<T> faceMap_;
+  MetadataFlagToVariableMap<T> flagsToVars_;
 
   // variable packing
   MapToVariablePack<T> varPackMap_;
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
+  SparsePackCache sparse_pack_cache_;
 
   // These functions have private scope and are visible only to MeshData
   const VariableFluxPack<T> &
@@ -542,26 +503,24 @@ class MeshBlockData {
                                                     vpack_types::StringPair &key) {
     return PackVariablesAndFluxesImpl(names, names, {}, nullptr, &key);
   }
-  const VariableFluxPack<T> &
-  PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                         const std::vector<int> &sparse_ids, PackIndexMap &map,
-                         vpack_types::StringPair &key) {
+  const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
+                                                    const std::vector<int> &sparse_ids,
+                                                    PackIndexMap &map,
+                                                    vpack_types::StringPair &key) {
     return PackVariablesAndFluxesImpl(flags, sparse_ids, &map, &key);
   }
-  const VariableFluxPack<T> &
-  PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                         const std::vector<int> &sparse_ids,
-                         vpack_types::StringPair &key) {
+  const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
+                                                    const std::vector<int> &sparse_ids,
+                                                    vpack_types::StringPair &key) {
     return PackVariablesAndFluxesImpl(flags, sparse_ids, nullptr, &key);
   }
-  const VariableFluxPack<T> &
-  PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags, PackIndexMap &map,
-                         vpack_types::StringPair &key) {
+  const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
+                                                    PackIndexMap &map,
+                                                    vpack_types::StringPair &key) {
     return PackVariablesAndFluxesImpl(flags, {}, &map, &key);
   }
-  const VariableFluxPack<T> &
-  PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                         vpack_types::StringPair &key) {
+  const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
+                                                    vpack_types::StringPair &key) {
     return PackVariablesAndFluxesImpl(flags, {}, nullptr, &key);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const std::vector<int> &sparse_ids,
@@ -602,24 +561,24 @@ class MeshBlockData {
                                        bool coarse = false) {
     return PackVariablesImpl(names, {}, coarse, nullptr, &key);
   }
-  const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
+  const VariablePack<T> &PackVariables(const Metadata::FlagCollection &flags,
                                        const std::vector<int> &sparse_ids,
                                        PackIndexMap &map, vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(flags, sparse_ids, coarse, &map, &key);
   }
-  const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
+  const VariablePack<T> &PackVariables(const Metadata::FlagCollection &flags,
                                        const std::vector<int> &sparse_ids,
                                        vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(flags, sparse_ids, coarse, nullptr, &key);
   }
-  const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
+  const VariablePack<T> &PackVariables(const Metadata::FlagCollection &flags,
                                        PackIndexMap &map, vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(flags, {}, coarse, &map, &key);
   }
-  const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
+  const VariablePack<T> &PackVariables(const Metadata::FlagCollection &flags,
                                        vpack_types::VPackKey_t &key,
                                        bool coarse = false) {
     return PackVariablesImpl(flags, {}, coarse, nullptr, &key);
@@ -658,7 +617,7 @@ class MeshBlockData {
                              vpack_types::StringPair *key);
 
   const VariableFluxPack<T> &
-  PackVariablesAndFluxesImpl(const std::vector<MetadataFlag> &flags,
+  PackVariablesAndFluxesImpl(const Metadata::FlagCollection &flags,
                              const std::vector<int> &sparse_ids, PackIndexMap *map,
                              vpack_types::StringPair *key);
 
@@ -675,7 +634,7 @@ class MeshBlockData {
                                            bool coarse, PackIndexMap *map,
                                            std::vector<std::string> *key);
 
-  const VariablePack<T> &PackVariablesImpl(const std::vector<MetadataFlag> &flags,
+  const VariablePack<T> &PackVariablesImpl(const Metadata::FlagCollection &flags,
                                            const std::vector<int> &sparse_ids,
                                            bool coarse, PackIndexMap *map,
                                            std::vector<std::string> *key);

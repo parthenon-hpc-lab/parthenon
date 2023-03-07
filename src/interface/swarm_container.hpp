@@ -88,6 +88,7 @@ class SwarmContainer {
   void Add(std::shared_ptr<Swarm> swarm) {
     swarmVector_.push_back(swarm);
     swarmMap_[swarm->label()] = swarm;
+    UpdateMetadataMap_(swarm);
   }
 
   ///
@@ -100,6 +101,16 @@ class SwarmContainer {
                                   std::string(" swarm not found in Get()\n"));
     }
     return swarmMap_[label];
+  }
+  SwarmSet GetSwarmsByFlag(const Metadata::FlagVec &flags) {
+    SwarmSet out;
+    for (const auto &f : flags) {
+      if (swarmMetadataMap_.count(f) > 0) {
+        const auto &swarms = swarmMetadataMap_.at(f);
+        out.insert(swarms.begin(), swarms.end());
+      }
+    }
+    return out;
   }
 
   std::shared_ptr<Swarm> &Get(const int index) { return swarmVector_[index]; }
@@ -135,6 +146,7 @@ class SwarmContainer {
 
   // Defragmentation task
   TaskStatus Defrag(double min_occupancy);
+  TaskStatus DefragAll() { return Defrag(1.0); }
 
   // Sort-by-cell task
   TaskStatus SortParticlesByCell();
@@ -171,11 +183,18 @@ class SwarmContainer {
   }
 
  private:
+  void UpdateMetadataMap_(std::shared_ptr<Swarm> swarm) {
+    for (const auto &flag : swarm->metadata().Flags()) {
+      swarmMetadataMap_[flag].insert(swarm);
+    }
+  }
+
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
 
   SwarmVector swarmVector_ = {};
   SwarmMap swarmMap_ = {};
+  SwarmMetadataMap swarmMetadataMap_ = {};
 };
 
 } // namespace parthenon

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
 #include "io_wrapper.hpp"
 #include "parthenon_arrays.hpp"
@@ -33,7 +34,6 @@ namespace parthenon {
 // forward declarations
 class Mesh;
 class ParameterInput;
-class Coordinates;
 
 //----------------------------------------------------------------------------------------
 //! \struct OutputParameters
@@ -43,27 +43,22 @@ struct OutputParameters {
   int block_number;
   std::string block_name;
   std::string file_basename;
+  int file_number_width;
+  bool file_label_final;
   std::string file_id;
-  std::string variable;
   std::vector<std::string> variables;
   std::vector<std::string> component_labels;
   std::string file_type;
   std::string data_format;
   Real next_time, dt;
   int file_number;
-  bool output_slicex1, output_slicex2, output_slicex3;
-  bool output_sumx1, output_sumx2, output_sumx3;
   bool include_ghost_zones, cartesian_vector;
-  int islice, jslice, kslice;
-  Real x1_slice, x2_slice, x3_slice;
   bool single_precision_output;
   int hdf5_compression_level;
   // TODO(felker): some of the parameters in this class are not initialized in constructor
   OutputParameters()
-      : block_number(0), next_time(0.0), dt(-1.0), file_number(0), output_slicex1(false),
-        output_slicex2(false), output_slicex3(false), output_sumx1(false),
-        output_sumx2(false), output_sumx3(false), include_ghost_zones(false),
-        cartesian_vector(false), islice(0), jslice(0), kslice(0),
+      : block_number(0), next_time(0.0), dt(-1.0), file_number(0),
+        include_ghost_zones(false), cartesian_vector(false),
         single_precision_output(false), hdf5_compression_level(5) {}
 };
 
@@ -111,11 +106,6 @@ class OutputType {
   void AppendOutputDataNode(OutputData *pdata);
   void ReplaceOutputDataNode(OutputData *pold, OutputData *pnew);
   void ClearOutputData();
-  bool TransformOutputData(MeshBlock *pmb);
-  bool SliceOutputData(MeshBlock *pmb, int dim);
-  void SumOutputData(MeshBlock *pmb, int dim);
-  void CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
-                                Coordinates *pco);
   // following pure virtual function must be implemented in all derived classes
   virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                const SignalHandler::OutputSignal signal) = 0;
@@ -162,17 +152,6 @@ class HistoryOutput : public OutputType {
 };
 
 //----------------------------------------------------------------------------------------
-//! \class FormattedTableOutput
-//  \brief derived OutputType class for formatted table (tabular) data
-
-class FormattedTableOutput : public OutputType {
- public:
-  explicit FormattedTableOutput(const OutputParameters &oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
-                       const SignalHandler::OutputSignal signal) override;
-};
-
-//----------------------------------------------------------------------------------------
 //! \class VTKOutput
 //  \brief derived OutputType class for vtk dumps
 
@@ -201,6 +180,8 @@ class PHDF5Output : public OutputType {
                            const SignalHandler::OutputSignal signal);
 
  private:
+  std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
+                                const SignalHandler::OutputSignal signal);
   const bool restart_; // true if we write a restart file, false for regular output files
 };
 #endif // ifdef ENABLE_HDF5
@@ -223,8 +204,6 @@ class Outputs {
  private:
   OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list
   // (not storing a reference to the tail node)
-  std::vector<std::string> SetOutputVariables(ParameterInput *pin,
-                                              std::string block_name);
 };
 
 } // namespace parthenon

@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2022 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -20,9 +24,11 @@
 #include <string>
 #include <vector>
 
+#include "config.hpp"
 #ifdef ENABLE_HDF5
 #include <hdf5.h>
 
+#include "interface/metadata.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 
 using namespace parthenon::HDF5;
@@ -76,6 +82,9 @@ class RestartReader {
   };
 
   SparseInfo GetSparseInfo() const;
+
+  // Return output format version number. Return -1 if not existent.
+  int GetOutputFormatVersion() const;
 
  private:
   struct DatasetHandle {
@@ -134,23 +143,69 @@ class RestartReader {
   // fills internal data for given pointer
   template <typename T>
   void ReadBlocks(const std::string &name, IndexRange range, std::vector<T> &dataVec,
-                  const std::vector<size_t> &bsize, size_t vlen = 1) const {
+                  const std::vector<size_t> &bsize, int file_output_format_version,
+                  MetadataFlag where, const std::vector<int> &shape = {}) const {
 #ifndef ENABLE_HDF5
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
     auto hdl = OpenDataset<T>(name);
 
-    PARTHENON_REQUIRE_THROWS(hdl.rank == 5, "Expected data set of rank 5, but dataset " +
-                                                name + " has rank " +
-                                                std::to_string(hdl.rank));
+    constexpr int CHUNK_MAX_DIM = 7;
 
     /** Select hyperslab in dataset **/
-    hsize_t offset[5] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0};
-    hsize_t count[5] = {static_cast<hsize_t>(range.e - range.s + 1), bsize[2], bsize[1],
-                        bsize[0], vlen};
+    hsize_t offset[CHUNK_MAX_DIM] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0, 0, 0};
+    hsize_t count[CHUNK_MAX_DIM];
+    int total_dim = 0;
+    if (file_output_format_version == -1) {
+      size_t vlen = 1;
+      for (int i = 0; i < shape.size(); i++) {
+        vlen *= shape[i];
+      }
+      count[0] = static_cast<hsize_t>(range.e - range.s + 1);
+      count[1] = bsize[2];
+      count[2] = bsize[1];
+      count[3] = bsize[0];
+      count[4] = vlen;
+      total_dim = 5;
+    } else if (file_output_format_version == 2) {
+      PARTHENON_REQUIRE(
+          shape.size() <= 1,
+          "Higher than vector datatypes are unstable in output versions < 3");
+      size_t vlen = 1;
+      for (int i = 0; i < shape.size(); i++) {
+        vlen *= shape[i];
+      }
+      count[0] = static_cast<hsize_t>(range.e - range.s + 1);
+      count[1] = vlen;
+      count[2] = bsize[2];
+      count[3] = bsize[1];
+      count[4] = bsize[0];
+      total_dim = 5;
+    } else if (file_output_format_version == HDF5::OUTPUT_VERSION_FORMAT) {
+      count[0] = static_cast<hsize_t>(range.e - range.s + 1);
+      const int ndim = shape.size();
+      if (where == MetadataFlag(Metadata::Cell)) {
+        for (int i = 0; i < ndim; i++) {
+          count[1 + i] = shape[ndim - i - 1];
+        }
+        count[ndim + 1] = bsize[2];
+        count[ndim + 2] = bsize[1];
+        count[ndim + 3] = bsize[0];
+        total_dim = 3 + ndim + 1;
+      } else if (where == MetadataFlag(Metadata::None)) {
+        for (int i = 0; i < ndim; i++) {
+          count[1 + i] = shape[ndim - i - 1];
+        }
+        total_dim = ndim + 1;
+      } else {
+        PARTHENON_THROW("Only Cell and None locations supported!");
+      }
+    } else {
+      PARTHENON_THROW("Unknown output format version in restart file.")
+    }
 
     hsize_t total_count = 1;
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < total_dim; ++i) {
       total_count *= count[i];
     }
 
@@ -161,7 +216,7 @@ class RestartReader {
     PARTHENON_HDF5_CHECK(
         H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
 
-    const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(5, count, NULL));
+    const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(total_dim, count, NULL));
     PARTHENON_HDF5_CHECK(
         H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
 

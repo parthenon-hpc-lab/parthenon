@@ -46,7 +46,6 @@ namespace parthenon {
 
 // forward declarations needed for function pointer type aliases
 class MeshBlock;
-class Coordinates;
 class ParameterInput;
 
 //--------------------------------------------------------------------------------------

@@ -3,7 +3,7 @@
 # Copyright(C) 2020 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,10 +18,20 @@
 # Modules
 import math
 import numpy as np
-import matplotlib
 
-matplotlib.use("agg")
-import matplotlib.pylab as plt
+try:
+    import matplotlib
+
+    matplotlib.use("agg")
+    import matplotlib.pylab as plt
+
+    have_matplotlib = True
+except ImportError:
+    import warnings
+
+    warnings.warn("Matplotlib not found, not making plots.")
+    have_matplotlib = False
+
 import sys
 import os
 import utils.test_case
@@ -29,7 +39,7 @@ import utils.test_case
 # To prevent littering up imported folders with .pyc files or __pycache_ folder
 sys.dont_write_bytecode = True
 
-mb_sizes = [256, 128, 64, 32, 16]  # meshblock sizes
+mb_sizes = [256, 128, 64, 32]  # meshblock sizes
 
 
 class TestCase(utils.test_case.TestCaseAbs):
@@ -94,19 +104,21 @@ class TestCase(utils.test_case.TestCaseAbs):
                 )
 
         # Plot results
-        fig, p = plt.subplots(2, 1, figsize=(4, 8), sharex=True)
+        if have_matplotlib:
+            fig, p = plt.subplots(2, 1, figsize=(4, 8), sharex=True)
 
-        p[0].loglog(mb_sizes, perfs, label="$256^3$ Mesh")
-        p[1].loglog(mb_sizes, perfs[0] / perfs)
+            p[0].loglog(mb_sizes, perfs, label="$256^3$ Mesh")
+            p[1].loglog(mb_sizes, perfs[0] / perfs)
 
-        for i in range(2):
-            p[i].grid()
-        p[0].legend()
-        p[0].set_ylabel("zone-cycles/s")
-        p[1].set_ylabel("normalized overhead")
-        p[1].set_xlabel("Meshblock size")
-        fig.savefig(
-            os.path.join(parameters.output_path, "performance.png"), bbox_inches="tight"
-        )
+            for i in range(2):
+                p[i].grid()
+            p[0].legend()
+            p[0].set_ylabel("zone-cycles/s")
+            p[1].set_ylabel("normalized overhead")
+            p[1].set_xlabel("Meshblock size")
+            fig.savefig(
+                os.path.join(parameters.output_path, "performance.png"),
+                bbox_inches="tight",
+            )
 
         return True

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -75,7 +75,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     std::vector<int> vector_shape{16, 16, 16, 3};
 
     Metadata m_in({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
-    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},
+    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes,
+                          Metadata::ForceRemeshComm, Metadata::Vector},
                          vector_shape);
     Metadata m_out({Metadata::Derived}, scalar_shape);
     Metadata m_out_vector({Metadata::Derived}, vector_shape);
@@ -95,6 +96,44 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     auto &mbd = *dummy_mb->meshblock_data.Get();
     mbd.Initialize(pkg, dummy_mb);
+
+    WHEN("We construct the VariableList by flags") {
+      using FS_t = Metadata::FlagCollection;
+      auto flags = (FS_t({Metadata::Independent, Metadata::Derived}, true) &&
+                    FS_t(Metadata::WithFluxes) - FS_t(Metadata::ForceRemeshComm));
+      THEN("Sanity check that the flags got set correctly") {
+        REQUIRE(flags.GetUnions().count(Metadata::Independent) > 0);
+        REQUIRE(flags.GetUnions().count(Metadata::Derived) > 0);
+        REQUIRE(flags.GetIntersections().count(Metadata::WithFluxes) > 0);
+        REQUIRE(flags.GetExclusions().count(Metadata::ForceRemeshComm) > 0);
+      }
+      auto varlist = mbd.GetVariablesByFlag(flags).vars();
+      THEN("The list containes the desired variables") {
+        REQUIRE(varlist.size() > 0);
+        for (const auto &v : varlist) {
+          const auto &m = v->metadata();
+          REQUIRE(m.AnyFlagsSet(Metadata::Independent, Metadata::Derived));
+          REQUIRE(m.IsSet(Metadata::WithFluxes));
+          REQUIRE(!(m.IsSet(Metadata::ForceRemeshComm)));
+        }
+      }
+      WHEN("We construct a metadata flag collection with only unions") {
+        FS_t unions({Metadata::Derived, Metadata::ForceRemeshComm}, true);
+        THEN("The resulting var list contains the correct flags") {
+          auto vlu = mbd.GetVariablesByFlag(unions).vars();
+          std::set<std::string> varnames;
+          for (const auto &v : vlu) {
+            varnames.insert(v->label());
+          }
+          REQUIRE(varnames.count("v1") == 0);
+          REQUIRE(varnames.count("v2") > 0);
+          REQUIRE(varnames.count("v3") > 0);
+          REQUIRE(varnames.count("v4") > 0);
+          REQUIRE(varnames.count("v5") == 0);
+          REQUIRE(varnames.count("v6") > 0);
+        }
+      }
+    }
 
     WHEN("We extract a subcontainer") {
       auto subcontainer = MeshBlockData<Real>(mbd, {"v1", "v3", "v5"});
@@ -155,6 +194,10 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we set Independent variables to one") {
+      THEN("Sanity check this produces the right varlist") {
+        auto varlist = mbd.GetVariablesByFlag({Metadata::Independent}).vars();
+        REQUIRE(varlist.size() == 3);
+      }
       // set "Independent" variables to one
       auto v = mbd.PackVariables({Metadata::Independent});
       par_for(
@@ -513,12 +556,20 @@ TEST_CASE("Get the correct access pattern when using FlatIdx", "[FlatIdx]") {
                 Real n_expected =
                     i + N * (j + N * (k + N1 * (idx1 + N2 * (idx2 + N3 * idx3))));
                 Real n_actual = v(idx_v3(idx1, idx2, idx3), k, j, i);
-                lerr += abs(n_actual - n_expected);
+                lerr += std::abs(n_actual - n_expected);
               }
             },
             err3);
 
         REQUIRE(err3 == 0.0);
+      }
+
+      THEN("We can ask for FlatIdxs of fields that don't exist in the pack") {
+        PackIndexMap imap;
+        auto v = pmbd->PackVariables(std::vector<std::string>{"v2", "v3"}, imap);
+        auto idx_v4 = imap.GetFlatIdx("v4", false);
+        REQUIRE(idx_v4() == -1);
+        REQUIRE(!idx_v4.IsValid());
       }
     }
   }

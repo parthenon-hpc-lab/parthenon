@@ -15,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/cc/bvals_cc.hpp"
 #include "globals.hpp" // my_rank
 #include "mesh/mesh.hpp"
 #include "swarm_container.hpp"
@@ -46,6 +45,7 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
   swarm->AllocateComms(GetBlockPointer());
   swarmVector_.push_back(swarm);
   swarmMap_[label] = swarm;
+  UpdateMetadataMap_(swarm);
 }
 
 void SwarmContainer::Remove(const std::string &label) {

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -57,6 +57,7 @@
 #include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
 
 #include "globals.hpp"
 #include "utils/error_checking.hpp"
@@ -412,22 +413,30 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     // get pointer to node with same block name in singly linked list of InputBlocks
     pb = GetPtrToBlock(block);
     if (pb == nullptr) {
-      msg << "### FATAL ERROR in function [ParameterInput::ModifyFromCmdline]"
-          << std::endl
-          << "Block name '" << block << "' on command line not found";
-      PARTHENON_FAIL(msg.str().c_str());
+      if (Globals::my_rank == 0) {
+        msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
+            << "               Block name '" << block
+            << "' on command line not found in input/restart file. Block will be added.";
+        PARTHENON_WARN(msg);
+      }
+      pb = FindOrAddBlock(block);
     }
 
     // get pointer to node with same parameter name in singly linked list of InputLines
     pl = pb->GetPtrToLine(name);
     if (pl == nullptr) {
-      msg << "### FATAL ERROR in function [ParameterInput::ModifyFromCmdline]"
-          << std::endl
-          << "Parameter '" << name << "' in block '" << block
-          << "' on command line not found";
-      PARTHENON_FAIL(msg.str().c_str());
+      if (Globals::my_rank == 0) {
+        msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
+            << "               Parameter '" << name << "' in block '" << block
+            << "' on command line not found in input/restart file. Parameter will be "
+               "added.";
+        PARTHENON_WARN(msg);
+      }
+      AddParameter(pb, name, value, " # Added from command line");
+
+    } else {
+      pl->param_value.assign(value); // replace existing value
     }
-    pl->param_value.assign(value); // replace existing value
 
     if (value.length() > pb->max_len_parvalue) pb->max_len_parvalue = value.length();
   }
@@ -590,20 +599,7 @@ bool ParameterInput::GetBoolean(const std::string &block, const std::string &nam
   }
 
   std::string val = pl->param_value;
-
-  // check is string contains integers 0 or 1 (instead of true or false) and return
-  if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
-    return static_cast<bool>(stoi(val));
-  }
-
-  // convert string to all lower case
-  std::transform(val.begin(), val.end(), val.begin(), ::tolower);
-  // Convert string to bool and return value
-  bool b;
-  std::istringstream is(val);
-  is >> std::boolalpha >> b;
-
-  return (b);
+  return stob(val);
 }
 
 //----------------------------------------------------------------------------------------
@@ -636,6 +632,13 @@ std::string ParameterInput::GetString(const std::string &block, const std::strin
   std::string val = pl->param_value;
 
   // return value
+  return val;
+}
+
+std::string ParameterInput::GetString(const std::string &block, const std::string &name,
+                                      const std::vector<std::string> &allowed_values) {
+  auto val = GetString(block, name);
+  CheckAllowedValues_(block, name, val, allowed_values);
   return val;
 }
 
@@ -688,34 +691,11 @@ Real ParameterInput::GetOrAddReal(const std::string &block, const std::string &n
     ret = static_cast<Real>(atof(val.c_str()));
   } else {
     pb = FindOrAddBlock(block);
+    static_assert(sizeof(Real) <= sizeof(double), "Real is greater than double!");
+    ss_value.precision(std::numeric_limits<double>::max_digits10);
     ss_value << def_value;
     AddParameter(pb, name, ss_value.str(), "# Default value added at run time");
     ret = def_value;
-  }
-  return ret;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn Real ParameterInput::GetOrAddPrecise(const std::string & block, const std::string
-//! & name,
-//    Real def_value)
-//  \brief returns real value stored in block/name if it exists, or creates and sets
-//  value to def_value if it does not exist.  Value is read with full precision.
-
-Real ParameterInput::GetOrAddPrecise(const std::string &block, const std::string &name,
-                                     Real def_value) {
-  InputBlock *pb;
-  InputLine *pl;
-  std::stringstream ss_value;
-  Real ret;
-
-  if (DoesParameterExist(block, name)) {
-    pb = GetPtrToBlock(block);
-    pl = pb->GetPtrToLine(name);
-    std::string val = pl->param_value;
-    ret = static_cast<Real>(atof(val.c_str()));
-  } else {
-    ret = SetPrecise(block, name, def_value);
   }
   return ret;
 }
@@ -780,6 +760,14 @@ std::string ParameterInput::GetOrAddString(const std::string &block,
   }
   return ret;
 }
+std::string
+ParameterInput::GetOrAddString(const std::string &block, const std::string &name,
+                               const std::string &def_value,
+                               const std::vector<std::string> &allowed_values) {
+  auto val = GetOrAddString(block, name, def_value);
+  CheckAllowedValues_(block, name, val, allowed_values);
+  return val;
+}
 
 //----------------------------------------------------------------------------------------
 //! \fn int ParameterInput::SetInteger(const std::string & block, const std::string &
@@ -798,9 +786,9 @@ int ParameterInput::SetInteger(const std::string &block, const std::string &name
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn Real ParameterInput::SetReal(const std::string & block, const std::string & name,
-//! Real value)
-//  \brief updates a real parameter; creates it if it does not exist
+//! \fn Real ParameterInput::SetReal(const std::string & block, const std::string &
+//! name, Real value)
+//  \brief updates a real parameter with full precision; creates it if it does not exist
 
 Real ParameterInput::SetReal(const std::string &block, const std::string &name,
                              Real value) {
@@ -808,22 +796,7 @@ Real ParameterInput::SetReal(const std::string &block, const std::string &name,
   std::stringstream ss_value;
 
   pb = FindOrAddBlock(block);
-  ss_value << value;
-  AddParameter(pb, name, ss_value.str(), "# Updated during run time");
-  return value;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn Real ParameterInput::SetPrecise(const std::string & block, const std::string &
-//! name, Real value)
-//  \brief updates a real parameter with full precision; creates it if it does not exist
-
-Real ParameterInput::SetPrecise(const std::string &block, const std::string &name,
-                                Real value) {
-  InputBlock *pb;
-  std::stringstream ss_value;
-
-  pb = FindOrAddBlock(block);
+  static_assert(sizeof(Real) <= sizeof(double), "Real is greater than double!");
   ss_value.precision(std::numeric_limits<double>::max_digits10);
   ss_value << value;
   AddParameter(pb, name, ss_value.str(), "# Updated during run time");

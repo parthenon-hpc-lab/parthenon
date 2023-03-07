@@ -1,5 +1,9 @@
 # =========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020-2022 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+# =========================================================================================
+# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -110,6 +114,10 @@ class phdf:
             self.BlocksPerPE = info.attrs["BlocksPerPE"]
         except:
             self.BlocksPerPE = np.array((1), self.NumBlocks)
+        try:
+            self.OutputFormatVersion = info.attrs["OutputFormatVersion"]
+        except:
+            self.OutputFormatVersion = -1
         self.Coordinates = info.attrs["Coordinates"]
         self.CellsPerBlock = np.prod(self.MeshBlockSize)
         self.TotalCells = self.NumBlocks * self.CellsPerBlock
@@ -137,15 +145,69 @@ class phdf:
                         )
             return coord, coordf
 
+        def load_ghost_coords(coord_i):
+            """
+            Here, ghost coordinates refers to coordinates that are offset from the physical coordinates
+            to include ghost zones. All coordinates are defined on vertices.
+
+            On completion:
+            coordg - ghost coords corresponding to the variable arrays
+            coordi - ghost coords of points on the interior of the block
+                     (which equals coordg when the data is only given in the interior)
+            coorde - ghost coords of the entire block
+                     (which equals coordg when the data includes ghost data)
+            coordi_ng - The non-ghost coordinates of the interior of the block
+            """
+            coord_name = ["x", "y", "z"][coord_i]
+            logical_locations = np.array(f["/LogicalLocations"][:, coord_i])
+            coordg = np.array(f["/Locations/" + coord_name][:, :])
+            levels = np.array(f["/Levels"])
+
+            if not self.IncludesGhost:
+                coordi_ng = np.array(coordg)
+            else:
+                coordi_ng = np.array(coordg[:, self.NGhost : -self.NGhost])
+
+            for iblock in range(coordg.shape[0]):
+                dx = coordg[iblock, 1] - coordg[iblock, 0]
+                coordg[iblock, :] += (
+                    (logical_locations[iblock] * 2 + 1) * dx * self.NGhost
+                )
+
+            if self.IncludesGhost:
+                coordi = coordg[:, self.NGhost : -self.NGhost]
+                coorde = coordg
+
+            else:
+                coordi = coordg
+                coorde = np.zeros((coordg.shape[0], coordg.shape[1] + 2 * self.NGhost))
+                coorde[:, self.NGhost : -self.NGhost] = coordg
+                dx_all = coordg[:, 1] - coordg[:, 0]
+                for i in range(self.NGhost):
+                    coorde[:, self.NGhost - 1 - i] = coorde[:, self.NGhost - i] - dx_all
+                    coorde[:, -self.NGhost + i] = (
+                        coorde[:, -self.NGhost - 1 + i] + dx_all
+                    )
+
+            return coordg, coordi, coorde, coordi_ng
+
         self.x, self.xf = load_coord(0)
         self.y, self.yf = load_coord(1)
         self.z, self.zf = load_coord(2)
+
+        self.xg, self.xig, self.xeg, self.xng = load_ghost_coords(0)
+        self.yg, self.yig, self.yeg, self.yng = load_ghost_coords(1)
+        self.zg, self.zig, self.zeg, self.zng = load_ghost_coords(2)
 
         # fill in self.offset and block bounds
         self.offset = [0, 0, 0]
         for i in range(3):
             if self.MeshBlockSize[i] > 1:
                 self.offset[i] = self.NGhost * self.IncludesGhost
+
+        # Read in block ids and sparse info
+        self.level = np.array(f["/Blocks/loc.level-gid-lid-cnghost-gflag"][:, 0])
+        self.gid = np.array(f["/Blocks/loc.level-gid-lid-cnghost-gflag"][:, 1])
 
         # fill in self.BlockBounds
         self.BlockBounds = [None] * self.NumBlocks
@@ -243,22 +305,18 @@ class phdf:
         yo = [self.offset[1], self.MeshBlockSize[1] - self.offset[1]]
         zo = [self.offset[2], self.MeshBlockSize[2] - self.offset[2]]
 
-        self.BlockIdx = [None] * self.CellsPerBlock
-        self.isGhost = np.ones(self.CellsPerBlock, dtype=bool)
-        index = 0
-        yMask = False
-        zMask = False
-        for k in zRange:
-            if self.NumDims > 2:
-                zMask = k < zo[0] or k >= zo[1]
-            for j in yRange:
-                if self.NumDims > 1:
-                    yMask = j < yo[0] or j >= yo[1]
-                for i in xRange:
-                    xMask = i < xo[0] or i >= xo[1]
-                    self.isGhost[index] = xMask or yMask or zMask
-                    self.BlockIdx[index] = [k, j, i]
-                    index += 1
+        self.BlockIdx = np.reshape(
+            np.array(np.meshgrid(zRange, yRange, xRange)).transpose(2, 1, 3, 0),
+            (self.MeshBlockSize[0] * self.MeshBlockSize[1] * self.MeshBlockSize[2], 3),
+        )
+        self.isGhost = (
+            (zo[0] > self.BlockIdx[:, 0])
+            | (self.BlockIdx[:, 0] >= zo[1])
+            | (yo[0] > self.BlockIdx[:, 1])
+            | (self.BlockIdx[:, 1] >= yo[1])
+            | (xo[0] > self.BlockIdx[:, 2])
+            | (self.BlockIdx[:, 2] >= xo[1])
+        )
 
     def ToLocation(self, index):
         """
@@ -279,10 +337,6 @@ class phdf:
         later
         """
         [ib, bidx, iz, iy, ix] = self.ToLocation(idx)
-
-        nx = int(other.MeshBlockSize[0])
-        ny = int(other.MeshBlockSize[1])
-        nz = int(other.MeshBlockSize[2])
 
         (myX, myY, myZ) = (self.x[ib, ix], self.y[ib, iy], self.z[ib, iz])
 
@@ -382,7 +436,7 @@ class phdf:
             print(f"Block id: {ib} with bounds {myibBounds} not found in {other.file}")
         return None  # block index not found
 
-    def Get(self, variable, flatten=True):
+    def Get(self, variable, flatten=True, interior=False):
         """
         Reads data for the named variable from file.
 
@@ -399,21 +453,29 @@ class phdf:
         Nx are the number of cells in the z, y, and x directions
         respectively.
 
+        If flatten is False and interior is True, only non-ghost data
+        will be returned. This array will correspond to the coordinates
+        xg and xng, etc.
         """
         try:
             if self.varData[variable] is None:
                 self.varData[variable] = self.fid[variable][:]
                 vShape = self.varData[variable].shape
-                vLen = vShape[-1]
-                if vLen == 1:
-                    tmp = self.varData[variable].reshape(self.TotalCells)
-                    newShape = (
-                        self.NumBlocks,
-                        self.MeshBlockSize[2],
-                        self.MeshBlockSize[1],
-                        self.MeshBlockSize[0],
-                    )
-                    self.varData[variable] = tmp.reshape((newShape))
+                if self.OutputFormatVersion < 3:
+                    if self.OutputFormatVersion == -1:
+                        vLen = vShape[-1]
+                    else:
+                        vLen = vShape[1]  # index 0 is the block, so we need to use 1
+                    # in versions < 3, if variable is a scalar remove the component index
+                    if vLen == 1:
+                        tmp = self.varData[variable].reshape(self.TotalCells)
+                        newShape = (
+                            self.NumBlocks,
+                            self.MeshBlockSize[2],
+                            self.MeshBlockSize[1],
+                            self.MeshBlockSize[0],
+                        )
+                        self.varData[variable] = tmp.reshape((newShape))
 
         except:
             print(
@@ -426,11 +488,113 @@ class phdf:
 
         vShape = self.varData[variable].shape
         if flatten:
-            if np.prod(vShape) > self.TotalCells:
-                return self.varData[variable][:].reshape(self.TotalCells, vShape[-1])
-            else:
-                return self.varData[variable][:].reshape(self.TotalCells)
+            # TODO(tbd) remove legacy mode in next major rel.
+            if self.OutputFormatVersion == -1:
+                if np.prod(vShape) > self.TotalCells:
+                    return self.varData[variable][:].reshape(
+                        self.TotalCells, vShape[-1]
+                    )
+                else:
+                    return self.varData[variable][:].reshape(self.TotalCells)
 
+            elif self.OutputFormatVersion == 2:
+                if np.prod(vShape) > self.TotalCells:
+                    ret = np.empty(
+                        (vShape[1], self.TotalCells), dtype=self.varData[variable].dtype
+                    )
+                    ret[:] = np.nan
+                    for i in range(vShape[1]):
+                        ret[i] = self.varData[variable][:, i, :, :, :].ravel()
+                    assert (ret != np.nan).all()
+                    return ret
+                else:
+                    return self.varData[variable][:].reshape(self.TotalCells)
+
+            elif self.OutputFormatVersion == 3:
+                # Check for cell-centered data
+                if (
+                    vShape[-1] == self.MeshBlockSize[0]
+                    and vShape[-2] == self.MeshBlockSize[1]
+                    and vShape[-3] == self.MeshBlockSize[2]
+                ):
+                    fieldShape = vShape[1:-3]
+                    totalFieldEntries = np.prod(fieldShape)
+                    ndim = len(fieldShape)
+                    if ndim == 0:
+                        return self.varData[variable].ravel()
+                    else:
+                        if ndim == 1:
+                            ret = np.empty(
+                                (vShape[1], self.TotalCells),
+                                dtype=self.varData[variable].dtype,
+                            )
+                            ret[:] = np.nan
+                            for i in range(vShape[1]):
+                                ret[i] = self.varData[variable][:, i, :, :, :].ravel()
+                            assert (ret != np.nan).all()
+                            return ret
+                        elif ndim == 2:
+                            ret = np.empty(
+                                (vShape[1] * vShape[2], self.TotalCells),
+                                dtype=self.varData[variable].dtype,
+                            )
+                            ret[:] = np.nan
+                            for i in range(vShape[1]):
+                                for j in range(vShape[2]):
+                                    ret[i + vShape[1] * j] = self.varData[variable][
+                                        :, i, j, :, :, :
+                                    ].ravel()
+                            assert (ret != np.nan).all()
+                            return ret
+                        else:
+                            ret = np.empty(
+                                (vShape[1] * vShape[2] * vShape[3], self.TotalCells),
+                                dtype=self.varData[variable].dtype,
+                            )
+                            ret[:] = np.nan
+                            for i in range(vShape[1]):
+                                for j in range(vShape[2]):
+                                    for k in range(vShape[3]):
+                                        ret[
+                                            i + vShape[1] * (j + vShape[2] * k)
+                                        ] = self.varData[variable][
+                                            :, i, j, k, :, :, :
+                                        ].ravel()
+                            assert (ret != np.nan).all()
+                            return ret
+                else:
+                    # Not cell-based variable
+                    raise Exception(
+                        f"Flattening only supported for cell-based variables but requested for {variable}"
+                    )
+
+        if self.IncludesGhost and interior:
+            nghost = self.NGhost
+            # TODO(tbd) remove legacy mode in next major rel.
+            if self.OutputFormatVersion == -1:
+                if vShape[3] == 1:
+                    return self.varData[variable][:, :, :, :]
+                elif vShape[2] == 1:
+                    return self.varData[variable][:, :, :, nghost:-nghost]
+                elif vShape[1] == 1:
+                    return self.varData[variable][:, :, nghost:-nghost, nghost:-nghost]
+                else:
+                    return self.varData[variable][
+                        :, nghost:-nghost, nghost:-nghost, nghost:-nghost
+                    ]
+            else:
+                if vShape[-1] == 1:
+                    return self.varData[variable][:, :, :, :, :]
+                elif vShape[-2] == 1:
+                    return self.varData[variable][:, :, :, :, nghost:-nghost]
+                elif vShape[-3] == 1:
+                    return self.varData[variable][
+                        :, :, :, nghost:-nghost, nghost:-nghost
+                    ]
+                else:
+                    return self.varData[variable][
+                        :, :, nghost:-nghost, nghost:-nghost, nghost:-nghost
+                    ]
         return self.varData[variable][:]
 
     def GetComponents(self, components, flatten=True):
@@ -489,8 +653,16 @@ class phdf:
                         # If dataset isn't a vector, just save dataset
                         component_data[component] = dataset
                     else:
+                        # TODO(tbd) remove legacy mode in next major rel.
                         # Data is a vector, save only the component
-                        component_data[component] = dataset[..., idx]
+                        if self.OutputFormatVersion == -1:
+                            component_data[component] = dataset[..., idx]
+                        else:
+                            if flatten:
+                                component_data[component] = dataset[idx, ...]
+                            # need to take leading block index into account
+                            else:
+                                component_data[component] = dataset[:, idx, ...]
 
         return component_data
 
@@ -569,6 +741,7 @@ class phdf:
               NGhost=%d
        IncludesGhost=%d
          Coordinates=%s
+ OutputFormatVersion=%d
 --------------------------------------------
            Variables="""
             % (
@@ -587,6 +760,7 @@ class phdf:
                 self.NGhost,
                 self.IncludesGhost,
                 self.Coordinates,
+                self.OutputFormatVersion,
             )
             + str([k for k in self.Variables])
             + """

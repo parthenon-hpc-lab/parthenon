@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -22,7 +22,7 @@ endif()
 # The following lines determine the default loop pattern by setting the
 # default defines to the appropriate "tags" in the config.hpp file.
 # See `kokkos_abstraction.hpp` for available tags and what they translate to.
-if ((${Kokkos_ENABLE_CUDA} OR ${Kokkos_ENABLE_HIP}) OR (${Kokkos_ENABLE_SYCL}))
+if (${Kokkos_ENABLE_CUDA} OR ${Kokkos_ENABLE_HIP})
   set(PAR_LOOP_LAYOUT "MANUAL1D_LOOP" CACHE STRING
     "Default loop layout for parallel_for wrapper")
 
@@ -95,16 +95,16 @@ set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
 add_library(parthenon
-  bvals/cc/bvals_cc.cpp
-  bvals/cc/bvals_cc.hpp
-  bvals/cc/bvals_cc_in_one.cpp
   bvals/cc/bvals_cc_in_one.hpp
-  bvals/cc/flux_correction_cc.cpp
-
-  bvals/fc/bvals_fc.cpp
-  bvals/fc/bvals_fc.hpp
-  bvals/fc/flux_correction_fc.cpp
-
+  bvals/cc/bvals_utils.hpp
+  bvals/cc/build_boundary_buffers.cpp
+  bvals/cc/bnd_info.cpp
+  bvals/cc/bnd_info.hpp
+  bvals/cc/boundary_communication.cpp
+  bvals/cc/flux_correction.cpp 
+  bvals/cc/tag_map.cpp 
+  bvals/cc/tag_map.hpp 
+  
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
 
@@ -113,7 +113,6 @@ add_library(parthenon
   bvals/bvals_base.cpp
   bvals/bvals_interfaces.hpp
   bvals/boundary_flag.cpp
-  bvals/bvals_refine.cpp
   bvals/bvals_var.cpp
   bvals/bvals_swarm.cpp
 
@@ -137,7 +136,11 @@ add_library(parthenon
   interface/swarm_device_context.hpp
   interface/metadata.cpp
   interface/metadata.hpp
+  interface/packages.hpp
   interface/params.hpp
+  interface/sparse_pack.hpp
+  interface/sparse_pack_base.cpp
+  interface/sparse_pack_base.hpp
   interface/sparse_pool.cpp
   interface/sparse_pool.hpp
   interface/state_descriptor.hpp
@@ -145,6 +148,8 @@ add_library(parthenon
   interface/update.cpp
   interface/update.hpp
   interface/variable_pack.hpp
+  interface/variable_state.hpp
+  interface/variable_state.cpp
   interface/variable.cpp
   interface/variable.hpp
 
@@ -159,10 +164,7 @@ add_library(parthenon
   mesh/meshblock_tree.cpp
   mesh/meshblock_tree.hpp
   mesh/meshblock.cpp
-  mesh/refinement_cc_in_one.cpp
-  mesh/refinement_cc_in_one.hpp
 
-  outputs/formatted_table.cpp
   outputs/history.cpp
   outputs/io_wrapper.cpp
   outputs/io_wrapper.hpp
@@ -179,13 +181,18 @@ add_library(parthenon
 
   pgen/default_pgen.cpp
 
+  prolong_restrict/pr_loops.hpp
+  prolong_restrict/pr_ops.hpp
+  prolong_restrict/prolong_restrict.cpp
+  prolong_restrict/prolong_restrict.hpp
+
   reconstruct/dc_inline.hpp
   reconstruct/plm_inline.hpp
 
-  refinement/amr_criteria.cpp
-  refinement/amr_criteria.hpp
-  refinement/refinement.cpp
-  refinement/refinement.hpp
+  amr_criteria/amr_criteria.cpp
+  amr_criteria/amr_criteria.hpp
+  amr_criteria/refinement_package.cpp
+  amr_criteria/refinement_package.hpp
 
   solvers/solver_utils.hpp
 
@@ -199,10 +206,16 @@ add_library(parthenon
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
+  utils/communication_buffer.hpp
   utils/cleantypes.hpp
+  utils/concepts_lite.hpp
   utils/error_checking.hpp
   utils/error_checking.cpp
+  utils/hash.hpp
+  utils/loop_utils.hpp
   utils/mpi_types.hpp
+  utils/nan_payload_tag.hpp
+  utils/object_pool.hpp
   utils/partition_stl_containers.hpp
   utils/reductions.hpp
   utils/show_config.cpp
@@ -210,6 +223,8 @@ add_library(parthenon
   utils/sort.hpp
   utils/string_utils.cpp
   utils/string_utils.hpp
+  utils/unique_id.cpp
+  utils/unique_id.hpp
   utils/utils.hpp
 
   argument_parser.hpp
@@ -220,6 +235,7 @@ add_library(parthenon
   kokkos_abstraction.hpp
   parameter_input.cpp
   parameter_input.hpp
+  parthenon_array_generic.hpp
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
@@ -228,11 +244,7 @@ add_library(Parthenon::parthenon ALIAS parthenon)
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
-if (PARTHENON_ENABLE_CPP17)
-  target_compile_features(parthenon PUBLIC cxx_std_17)
-else()
-  target_compile_features(parthenon PUBLIC cxx_std_14)
-endif()
+target_compile_features(parthenon PUBLIC cxx_std_17)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)

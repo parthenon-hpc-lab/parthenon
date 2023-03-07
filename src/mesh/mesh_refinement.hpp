@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,7 +19,14 @@
 //! \file mesh_refinement.hpp
 //  \brief defines MeshRefinement class used for static/adaptive mesh refinement
 
+// TODO(JMM): The MeshRefinement can likely be simplified and/or
+// removed entirely as we clean up our machinery and move to
+// refinement-in-one everywhere in the code. I leave it in the `mesh`
+// directory since it hooks into `Mesh` and `BoundaryValues` but in
+// the long term this should be cleaned up.
+
 #include <memory>
+#include <set>
 #include <tuple>
 #include <vector>
 
@@ -34,50 +41,32 @@ namespace parthenon {
 
 class MeshBlock;
 class ParameterInput;
-class BoundaryValues;
 
 //----------------------------------------------------------------------------------------
 //! \class MeshRefinement
 //  \brief
 
 class MeshRefinement {
-  // needs to access pcoarsec in ProlongateBoundaries() for passing to BoundaryFunc()
-  friend class BoundaryValues;
   // needs to access refine_flag_ in Mesh::AdaptiveMeshRefinement(). Make var public?
   friend class Mesh;
 
  public:
   MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin);
 
-  // functions
-  void RestrictCellCenteredValues(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
-                                  int sn, int en, int csi, int cei, int csj, int cej,
-                                  int csk, int cek);
-  void RestrictFieldX1(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
-                       int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX2(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
-                       int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX3(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
-                       int cei, int csj, int cej, int csk, int cek);
-  void ProlongateCellCenteredValues(const ParArrayND<Real> &coarse,
-                                    ParArrayND<Real> &fine, int sn, int en, int si,
-                                    int ei, int sj, int ej, int sk, int ek);
-  void ProlongateSharedFieldX1(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
-                               int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateSharedFieldX2(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
-                               int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateSharedFieldX3(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
-                               int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateInternalField(FaceField &fine, int si, int ei, int sj, int ej, int sk,
-                               int ek);
+  // JMM: fine and coarse may be on different meshblocks and thus
+  // different variable objects.
+  void RestrictCellCenteredValues(CellVariable<Real> *var, int csi, int cei, int csj,
+                                  int cej, int csk, int cek);
+  void ProlongateCellCenteredValues(CellVariable<Real> *var, int si, int ei, int sj,
+                                    int ej, int sk, int ek);
   void CheckRefinementCondition();
   void SetRefinement(AmrTag flag);
 
   // setter functions for "enrolling" variable arrays in refinement via Mesh::AMR()
-  // and/or in BoundaryValues::ProlongateBoundaries() (for SMR and AMR)
   int AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar);
-  int AddToRefinement(FaceField *pvar_fc, FaceField *pcoarse_fc);
 
+  // TODO(JMM): coarse-coords maybe should move out of this code, or
+  // be made public
   Coordinates_t GetCoarseCoords() const { return coarse_coords; }
 
  private:
@@ -88,8 +77,7 @@ class MeshRefinement {
   int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;
 
   // tuples of references to AMR-enrolled arrays (quantity, coarse_quantity)
-  std::vector<std::shared_ptr<CellVariable<Real>>> pvars_cc_;
-  std::vector<std::tuple<FaceField *, FaceField *>> pvars_fc_;
+  VariableSet<Real> pvars_cc_;
 
   // Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {

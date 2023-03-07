@@ -1,0 +1,126 @@
+name: CI short
+
+on: [pull_request]
+
+# Cancel "duplicated" workflows triggered by pushes to internal
+# branches with associated PRs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CTEST_OUTPUT_ON_FAILURE: 1
+  CMAKE_BUILD_PARALLEL_LEVEL: 5 # num threads for build
+  MACHINE_CFG: cmake/machinecfg/CI.cmake
+  OMPI_MCA_mpi_common_cuda_event_max: 1000
+
+jobs:
+  style:
+    runs-on: [self-hosted, A100]
+    container:
+      image: registry.gitlab.com/pgrete/parthenon/cuda11.6-mpi-hdf5
+      # map to local user id on CI  machine to allow writing to build cache
+      options: --user 1001
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+      - name: cpplint
+        run: python ./tst/style/cpplint.py --counting=detailed --recursive src example tst
+      - name: copyright
+        run: |
+          cmake -DCMAKE_CXX_FLAGS=-Werror -Bbuild-copyright-check
+          cmake --build build-copyright-check -t check-copyright
+      - uses: actions/upload-artifact@v3
+        with:
+          name: configure-log-style
+          path: build-copyright-check/CMakeFiles/CMakeOutput.log
+          retention-days: 3
+
+  unit:
+    strategy:
+      matrix:
+        device: ['cuda', 'host']
+    runs-on: [self-hosted, A100]
+    container:
+      image: registry.gitlab.com/pgrete/parthenon/cuda11.6-mpi-hdf5
+      # map to local user id on CI  machine to allow writing to build cache
+      options: --user 1001
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DMACHINE_VARIANT=${{ matrix.device }}-mpi
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: |
+          cd build
+          ctest -LE 'performance|regression'
+      - uses: actions/upload-artifact@v3
+        with:
+          name: configure-log-unit-${{ matrix.device }}
+          path: build/CMakeFiles/CMakeOutput.log
+          retention-days: 3
+
+  integration:
+    strategy:
+      matrix:
+        device: ['cuda', 'host']
+    runs-on: [self-hosted, A100]
+    container:
+      image: registry.gitlab.com/pgrete/parthenon/cuda11.6-mpi-hdf5
+      # map to local user id on CI  machine to allow writing to build cache
+      options: --user 1001
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMACHINE_VARIANT=${{ matrix.device }}-mpi
+      # Test example with "variables" and output
+      - name: advection
+        run: |
+          cmake --build build -t advection-example
+          cd build
+          ctest -R regression_mpi_test:output_hdf5
+      # Test example with swarms
+      - name: particle-leapfrog
+        run: |
+          cmake --build build -t particle-leapfrog
+          cd build
+          ctest -R regression_mpi_test:particle_leapfrog
+
+      # Now testing if there are no hidden memcopies between host and device.
+      # Using a static grid (i.e., not AMR) as additional transfers are expected
+      # during loadbalance and refinement, but not for a static grid. We also need to
+      # turn off sparse, since sparse results in additional transfers.
+      # Also delaying start as there are explicit copies during initialization, e.g.,
+      # when the Variable caches are created.
+      - name: host-device-copy
+        if: ${{ matrix.device }} == 'cuda'
+        run: |
+          cd build
+          nsys profile --delay=5 --duration=5 --stats=true -s none -t cuda example/advection/advection-example \
+            -i ../tst/regression/test_suites/advection_performance/parthinput.advection_performance \
+            parthenon/mesh/nx1=128 parthenon/mesh/nx2=128  parthenon/mesh/nx3=128 \
+            parthenon/meshblock/nx1=64 parthenon/meshblock/nx2=64 parthenon/meshblock/nx3=64 \
+            parthenon/sparse/enable_sparse=false parthenon/time/nlim=200000 parthenon/time/tlim=200 2>&1 | tee profile.txt
+          if grep HtoD profile.txt; then exit 1; fi
+          if grep DtoH profile.txt; then exit 1; fi
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: configure-log-integration-${{ matrix.device }}
+          path: |
+            build/CMakeFiles/CMakeOutput.log
+            build/profile.txt
+          retention-days: 3
+

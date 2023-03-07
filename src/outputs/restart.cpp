@@ -1,6 +1,6 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
@@ -51,6 +51,21 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
 #endif // ENABLE_HDF5
 }
 
+int RestartReader::GetOutputFormatVersion() const {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else  // HDF5 enabled
+  const H5O obj = H5O::FromHIDCheck(H5Oopen(fh_, "Info", H5P_DEFAULT));
+  auto status = PARTHENON_HDF5_CHECK(H5Aexists(obj, "OutputFormatVersion"));
+  // file contains version info
+  if (status > 0) {
+    return GetAttr<int>("Info", "OutputFormatVersion");
+  } else {
+    return -1;
+  }
+#endif // ENABLE_HDF5
+}
+
 RestartReader::SparseInfo RestartReader::GetSparseInfo() const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
@@ -59,7 +74,7 @@ RestartReader::SparseInfo RestartReader::GetSparseInfo() const {
 
   // check if SparseInfo exists, if not, return the default-constructed SparseInfo
   // instance
-  auto status = PARTHENON_HDF5_CHECK(H5Oexists_by_name(fh_, "SparseInfo", H5P_DEFAULT));
+  auto status = PARTHENON_HDF5_CHECK(H5Lexists(fh_, "SparseInfo", H5P_DEFAULT));
   if (status > 0) {
     // SparseInfo exists, read its contents
     auto hdl = OpenDataset<bool>("SparseInfo");

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -136,11 +136,14 @@ class FieldProvider : public VariableProvider {
   void AddPrivate(const std::string &package, const std::string &base_name,
                   const Metadata &metadata) {
     bool added = false;
+    const std::string new_name = package + "::" + base_name;
+    auto pkg = packages_.Get(package);
     if (metadata.IsSet(Metadata::Sparse)) {
-      const auto &src_pool = packages_.Get(package)->GetSparsePool(base_name);
-      added = state_->AddSparsePool(package + "::" + base_name, src_pool);
+      const auto &src_pool = pkg->GetSparsePool(base_name);
+      added = state_->AddSparsePool(new_name, src_pool);
     } else {
-      added = state_->AddField(package + "::" + base_name, metadata);
+      auto controller = packages_.Get(package)->GetFieldController(base_name);
+      added = state_->AddField(new_name, metadata, controller);
     }
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add private field '" + base_name +
@@ -149,30 +152,43 @@ class FieldProvider : public VariableProvider {
   void AddProvides(const std::string &package, const std::string &base_name,
                    const Metadata &metadata) {
     bool added = false;
+    auto pkg = packages_.Get(package);
     if (metadata.IsSet(Metadata::Sparse)) {
-      const auto &pool = packages_.Get(package)->GetSparsePool(base_name);
+      const auto &pool = pkg->GetSparsePool(base_name);
       added = state_->AddSparsePool(pool);
     } else {
-      added = state_->AddField(base_name, metadata);
+      auto controller = packages_.Get(package)->GetFieldController(base_name);
+      added = state_->AddField(base_name, metadata, controller);
     }
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add provided field '" + base_name +
                                         "' to resolved state");
   }
   void AddOverridable(const std::string &base_name, Metadata &metadata) {
+    // we don't know which package this pool is coming from, so we need to search for it
+    std::shared_ptr<StateDescriptor> pkg;
+    bool found = false;
+    for (auto &pair : packages_.AllPackages()) {
+      pkg = pair.second;
+      if (pkg->SparseBaseNamePresent(base_name) || pkg->FieldPresent(base_name)) {
+        found = true;
+        break;
+      }
+    }
+    PARTHENON_REQUIRE_THROWS(found, "Cound't find overridable field " + base_name);
     bool added = false;
     if (metadata.IsSet(Metadata::Sparse)) {
-      // we don't know which package this pool is coming from, so we need to search for it
+      const auto &pool = pkg->GetSparsePool(base_name);
+      added = state_->AddSparsePool(pool);
+    } else {
       for (auto &pair : packages_.AllPackages()) {
         auto &package = pair.second;
-        if (package->SparseBaseNamePresent(base_name)) {
-          const auto &pool = package->GetSparsePool(base_name);
-          added = state_->AddSparsePool(pool);
+        if (package->FieldPresent(base_name)) {
+          auto controller = package->GetFieldController(base_name);
+          added = state_->AddField(base_name, metadata, controller);
           break;
         }
       }
-    } else {
-      added = state_->AddField(base_name, metadata);
     }
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add overridable field '" + base_name +
@@ -212,7 +228,9 @@ class SwarmProvider : public VariableProvider {
  private:
   void AddSwarm_(StateDescriptor *package, const std::string &swarm,
                  const std::string &swarm_name, const Metadata &metadata) {
-    state_->AddSwarm(swarm_name, metadata);
+    Metadata newm(metadata);
+    newm.Set(Metadata::Swarm);
+    state_->AddSwarm(swarm_name, newm);
     for (auto &p : package->AllSwarmValues(swarm)) {
       auto &val_name = p.first;
       auto &val_meta = p.second;
@@ -226,18 +244,23 @@ class SwarmProvider : public VariableProvider {
 
 bool StateDescriptor::AddSwarmValue(const std::string &value_name,
                                     const std::string &swarm_name, const Metadata &m) {
+  // Swarm variables are always Metadata::Particle
+  Metadata newm(m);
+  newm.Set(Metadata::Particle);
+
   if (swarmMetadataMap_.count(swarm_name) == 0) {
     throw std::invalid_argument("Swarm " + swarm_name + " does not exist!");
   }
   if (swarmValueMetadataMap_[swarm_name].count(value_name) > 0) {
     throw std::invalid_argument("Swarm value " + value_name + " already exists!");
   }
-  swarmValueMetadataMap_[swarm_name][value_name] = m;
+  swarmValueMetadataMap_[swarm_name][value_name] = newm;
 
   return true;
 }
 
-bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in) {
+bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
+                                   const VarID &control_vid) {
   Metadata m = m_in; // Force const correctness
 
   const std::string &assoc = m.getAssociated();
@@ -248,6 +271,8 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in) {
     return false; // this field has already been added
   } else {
     metadataMap_.insert({vid, m});
+    refinementFuncMaps_.Register(m);
+    allocControllerReverseMap_.insert({vid, control_vid});
   }
 
   return true;
@@ -264,10 +289,14 @@ bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
   }
 
   sparsePoolMap_.insert({pool.base_name(), pool});
+  refinementFuncMaps_.Register(pool.shared_metadata());
 
+  std::string controller_base = pool.controller_base_name();
+  if (controller_base == "") controller_base = pool.base_name();
   // add all the sparse fields
   for (const auto itr : pool.pool()) {
-    if (!AddFieldImpl(VarID(pool.base_name(), itr.first), itr.second)) {
+    if (!AddFieldImpl(VarID(pool.base_name(), itr.first), itr.second,
+                      VarID(controller_base, itr.first))) {
       // a field with this name already exists, this would leave the StateDescriptor in an
       // inconsistent state, so throw
       PARTHENON_THROW("Couldn't add sparse field " +
@@ -328,6 +357,32 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
   return os;
 }
 
+// Take a map going from variable 1 -> variable that controls variable 1 and invert it
+// to give control variable -> list of variables controlled by control variable.
+// TODO(LFR): Currently, calling this repeatedly will just add a controlled variable
+// to the vector of a controlling variable repeatedly. I think this shouldn't cause any
+// issues since allocating or deallocating a variable multiple times in a row is the
+// same as allocating it or deallocating it once. That being said, it could be switched
+// to an unordered_set from a vector so that variable names can only show up once. Also,
+// it is not clear to me exactly what behavior this should have if invert control map is
+// called more than once (I think the normal use case would be for just a single call
+// during resolution of the combined state descriptor). It may be that we should be
+// calling allocControllerMap_.clear() before starting the for_each loop.
+void StateDescriptor::InvertControllerMap() {
+  std::for_each(allocControllerReverseMap_.begin(), allocControllerReverseMap_.end(),
+                [this](const auto &pair) {
+                  auto var = pair.first.label();
+                  auto cont = pair.second.label();
+                  auto iter = allocControllerMap_.find(cont);
+                  if (iter == allocControllerMap_.end()) {
+                    allocControllerMap_.emplace(
+                        std::make_pair(cont, std::vector<std::string>{var}));
+                  } else {
+                    iter->second.push_back(var);
+                  }
+                });
+}
+
 // Takes all packages and combines them into a single state descriptor
 // containing all variables with conflicts resolved.  Note the new
 // state descriptor DOES not have any of its function pointers set.
@@ -379,6 +434,8 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   // and optionally throw a warning.
   field_tracker.CheckOverridable(&field_provider);
   swarm_tracker.CheckOverridable(&swarm_provider);
+
+  state->InvertControllerMap();
 
   return state;
 }

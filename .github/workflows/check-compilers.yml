@@ -1,0 +1,72 @@
+name: Check compilers
+
+on: [push, pull_request]
+
+# Cancel "duplicated" workflows triggered by pushes to internal
+# branches with associated PRs.
+concurrency:
+  group: ${{ github.ref }}-${{ github.head_ref }}-check-compilers
+  cancel-in-progress: true
+
+jobs:
+  CI-Cuda-Host:
+    continue-on-error: true
+    strategy:
+      matrix:
+        cxx: ['g++', 'clang++-13']
+        cmake_build_type: ['Release', 'Debug']
+        device: ['cuda', 'host']
+        parallel: ['serial', 'mpi']
+        exclude:
+          # Debug cuda clang build fail for the unit test.
+          # Exclude for now until we figure out what's going on.
+          # https://github.com/lanl/parthenon/issues/630
+          - cxx: clang++-13
+            device: cuda
+            cmake_build_type: Debug
+    runs-on: ubuntu-latest
+    container:
+      image: registry.gitlab.com/pgrete/parthenon/cuda11.4.2-mpi-hdf5
+    env:
+      CMAKE_GENERATOR: Ninja
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'true'
+      - name: CMake
+        run: |
+          cmake -B builddir \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
+            -DMACHINE_VARIANT=${{ matrix.device }}_${{ matrix.parallel }}
+      - name: Build
+        run: |
+          cmake --build builddir --parallel 2
+  CI-Rocm-HIP:
+    continue-on-error: true
+    strategy:
+      matrix:
+        cxx: ['hipcc']
+        cmake_build_type: ['Release', 'Debug']
+        device: ['hip']
+        parallel: ['serial', 'mpi']
+    runs-on: ubuntu-latest
+    container:
+      image: registry.gitlab.com/pgrete/parthenon/rocm4.5-mpi-hdf5
+    env:
+      CMAKE_GENERATOR: Ninja
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'true'
+      - name: CMake
+        run: |
+          cmake -B builddir \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
+            -DMACHINE_VARIANT=${{ matrix.device }}_${{ matrix.parallel }}
+      - name: Build
+        run: |
+          cmake --build builddir --parallel 2

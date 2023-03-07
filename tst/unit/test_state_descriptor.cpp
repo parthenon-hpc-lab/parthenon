@@ -27,15 +27,47 @@
 #include "interface/sparse_pool.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
+#include "prolong_restrict/pr_ops.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
+using parthenon::Coordinates_t;
+using parthenon::IndexRange;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::Packages_t;
+using parthenon::ParArray6D;
 using parthenon::Real;
 using parthenon::ResolvePackages;
 using parthenon::SparsePool;
 using parthenon::StateDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
+using parthenon::VariableState;
+
+// Some fake ops classes
+struct MyProlongOp {
+  template <int DIM>
+  KOKKOS_FORCEINLINE_FUNCTION static void
+  Do(const int l, const int m, const int n, const int k, const int j, const int i,
+     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+     const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
+    return; // stub
+  }
+};
+struct MyRestrictOp {
+  template <int DIM>
+  KOKKOS_FORCEINLINE_FUNCTION static void
+  Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
+     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+     const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+     const ParArray6D<Real, VariableState> *pcoarse,
+     const ParArray6D<Real, VariableState> *pfine) {
+    return; // stub
+  }
+};
 
 TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
   GIVEN("A Packages_t object and a few packages") {
@@ -264,6 +296,11 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       pkg1->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
       pkg2->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
       pkg3->AddSparsePool("sparse", m_sparse_provides, sparse_ids);
+
+      pkg2->AddSparsePool("sparse_a", m_sparse_provides, sparse_ids);
+      pkg2->AddSparsePool("sparse_b", m_sparse_provides, "sparse_a", sparse_ids);
+      pkg2->AddSparsePool("sparse_c", m_sparse_provides, "sparse_b", sparse_ids);
+
       for (const int sid : sparse_ids) {
         REQUIRE(pkg1->FieldPresent("sparse", sid));
         REQUIRE(pkg2->FieldPresent("sparse", sid));
@@ -271,12 +308,15 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       }
 
       THEN("We can safely resolve conflicts") {
+        Metadata m_provides_swarm(m_provides);
+        // This is set automatically when adding a Swarm if not already set
+        m_provides_swarm.Set(Metadata::Swarm);
         auto pkg4 = ResolvePackages(packages);
         AND_THEN("The provides variables take precedence.") {
           REQUIRE(pkg4->FieldPresent("dense"));
           REQUIRE(pkg4->FieldMetadata("dense") == m_provides);
           REQUIRE(pkg4->SwarmPresent("swarm"));
-          REQUIRE(pkg4->SwarmMetadata("swarm") == m_provides);
+          REQUIRE(pkg4->SwarmMetadata("swarm") == m_provides_swarm);
           REQUIRE(pkg4->SwarmValuePresent("provides", "swarm"));
           REQUIRE(!(pkg4->SwarmValuePresent("overridable", "swarm")));
           REQUIRE(pkg4->SparseBaseNamePresent("sparse"));
@@ -285,6 +325,52 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           }
           for (const int sid : sparse_ids) {
             REQUIRE(pkg4->FieldMetadata("sparse", sid) == m_sparse_provides);
+          }
+        }
+        AND_THEN("The correct sparse allocation control is resolved.") {
+          auto controlled_vars_a = pkg4->GetControlledVariables("sparse_a_3");
+          REQUIRE(std::count(controlled_vars_a.begin(), controlled_vars_a.end(),
+                             "sparse_a_3") == 1);
+          REQUIRE(std::count(controlled_vars_a.begin(), controlled_vars_a.end(),
+                             "sparse_b_3") == 1);
+          REQUIRE(controlled_vars_a.size() == 2);
+
+          auto controlled_vars_b = pkg4->GetControlledVariables("sparse_b_3");
+          REQUIRE(std::count(controlled_vars_b.begin(), controlled_vars_b.end(),
+                             "sparse_c_3") == 1);
+          REQUIRE(controlled_vars_b.size() == 1);
+
+          auto controlled_vars_c = pkg4->GetControlledVariables("sparse_c_3");
+          REQUIRE(controlled_vars_c.size() == 0);
+
+          auto controlled_vars_dense = pkg4->GetControlledVariables("dense");
+          REQUIRE(std::count(controlled_vars_dense.begin(), controlled_vars_dense.end(),
+                             "dense") == 1);
+          REQUIRE(controlled_vars_dense.size() == 1);
+        }
+      }
+    }
+
+    WHEN("We register a dense variable custom prolongation/restriction") {
+      pkg1->AddField("dense", m_provides);
+      WHEN("We register a sparse variable with custom prolongation/restriction") {
+        auto m_sparse_provides_ = m_sparse_provides;
+        m_sparse_provides_.RegisterRefinementOps<MyProlongOp, MyRestrictOp>();
+        pkg2->AddSparsePool("sparse", m_sparse_provides_, sparse_ids);
+        THEN("We can perform dependency resolution") {
+          auto pkg3 = ResolvePackages(packages);
+          AND_THEN("The two relevant prolongation restriction operators exist and have "
+                   "unique ids") {
+            const auto my_funcs =
+                parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,
+                                                                          MyRestrictOp>();
+            const auto cell_funcs =
+                parthenon::refinement::RefinementFunctions_t::RegisterOps<
+                    parthenon::refinement_ops::ProlongateCellMinMod,
+                    parthenon::refinement_ops::RestrictCellAverage>();
+            REQUIRE(pkg3->NumRefinementFuncs() == 2);
+            REQUIRE((pkg3->RefinementFuncID(my_funcs)) !=
+                    (pkg3->RefinementFuncID(cell_funcs)));
           }
         }
       }

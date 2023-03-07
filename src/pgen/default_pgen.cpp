@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -39,14 +39,16 @@ namespace parthenon {
 //  functions in this file.  Called in Mesh constructor.
 //========================================================================================
 
-void Mesh::InitUserMeshDataDefault(ParameterInput *pin) {
+void Mesh::InitUserMeshDataDefault(Mesh *, ParameterInput *) {
   // do nothing
   return;
 }
 
 //========================================================================================
 //! \fn void Mesh::UserWorkInLoopDefault()
-//  \brief Function called once every time step for user-defined work.
+//  \brief Dummy function that is set by default as PreStepMeshUserWorkInLoop and
+//  PostStepMeshUserWorkInLoop. One should set the latter separately (or only one) instead
+//  of redefining this function.
 //========================================================================================
 
 void Mesh::UserWorkInLoopDefault(Mesh *, ParameterInput *, SimTime const &) {
@@ -119,21 +121,11 @@ void MeshBlock::ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin) {
 }
 
 //========================================================================================
-//! \fn void MeshBlock::UserWorkInLoopDefault()
-//  \brief Function called once every time step for user-defined work.
-//========================================================================================
-
-void MeshBlock::UserWorkInLoopDefault() {
-  // do nothing
-  return;
-}
-
-//========================================================================================
-//! \fn void MeshBlock::UserWorkBeforeOutputDefault(ParameterInput *pin)
+//! \fn void MeshBlock::UserWorkBeforeOutputDefault(MeshBlock *pmb, ParameterInput *pin)
 //  \brief Function called before generating output files
 //========================================================================================
 
-void MeshBlock::UserWorkBeforeOutputDefault(ParameterInput *pin) {
+void MeshBlock::UserWorkBeforeOutputDefault(MeshBlock *pmb, ParameterInput *pin) {
   // do nothing
   return;
 }

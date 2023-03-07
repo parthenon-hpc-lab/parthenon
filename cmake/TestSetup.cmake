@@ -29,7 +29,7 @@ endif()
 if (PARTHENON_ENABLE_PYTHON_MODULE_CHECK)
   # Ensure all required packages are present
   include(${parthenon_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
-  required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
+  python_modules_found("${REQUIRED_PYTHON_MODULES}" "${DESIRED_PYTHON_MODULES}")
 endif()
 
 # Adds the drivers used in the regression tests to a global cmake property: DRIVERS_USED_IN_TESTS
@@ -97,10 +97,10 @@ endfunction()
 
 # Adds test that will run in serial
 # test output will be sent to /tst/regression/outputs/dir
-# test property labels: regression, mpi-no
+# test property labels: regression, serial
 function(setup_test_serial dir arg extra_labels)
   separate_arguments(arg) 
-  list(APPEND labels "regression;mpi-no")
+  list(APPEND labels "regression;serial")
   list(APPEND labels "${extra_labels}")
   if (Kokkos_ENABLE_OPENMP)
     set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
@@ -121,12 +121,12 @@ endfunction()
 
 # Adds test that will run in serial with code coverage
 # test output will be sent to /tst/regression/outputs/dir_cov
-# test property labels: regression, mpi-no; coverage
+# test property labels: regression, serial; coverage
 function(setup_test_coverage dir arg extra_labels)
   if( CODE_COVERAGE )
     separate_arguments(arg) 
 
-    list(APPEND labels "regression;coverage;mpi-no")
+    list(APPEND labels "regression;coverage;serial")
     list(APPEND labels "${extra_labels}")
     if (SERIAL_WITH_MPIEXEC)
       process_args_serial_with_mpi()
@@ -144,11 +144,11 @@ endfunction()
 
 # Adds test that will run in parallel with mpi
 # test output will be sent to /tst/regression/outputs/dir_mpi
-# test property labels: regression, mpi-yes
+# test property labels: regression, mpi
 function(setup_test_parallel nproc dir arg extra_labels)
   if( MPI_FOUND )
     separate_arguments(arg) 
-    list(APPEND labels "regression;mpi-yes")
+    list(APPEND labels "regression;mpi")
     list(APPEND labels "${extra_labels}")
 
     if(Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
@@ -189,12 +189,12 @@ endfunction()
 
 # Adds test that will run in parallel with mpi and code coverage
 # test output will be sent to /tst/regression/outputs/dir_mpi_cov
-# test property labels: regression, mpi-yes, coverage
+# test property labels: regression, mpi, coverage
 function(setup_test_mpi_coverage nproc dir arg extra_labels)
   if( MPI_FOUND )
     if( CODE_COVERAGE )
 
-      list(APPEND labels "regression;coverage;mpi-yes")
+      list(APPEND labels "regression;coverage;mpi")
       list(APPEND labels "${extra_labels}")
       separate_arguments(arg) 
       process_mpi_args(${nproc})

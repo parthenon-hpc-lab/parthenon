@@ -1,5 +1,9 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020-2022 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+#=========================================================================================
+# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,7 +20,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.6.1 LANGUAGES C CXX)
+project(parthenon VERSION 0.7.0 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -29,7 +33,7 @@ include(CTest)
 # Compile Options
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
-option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "Allocate communication buffers on host" OFF)
+option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
@@ -49,7 +53,6 @@ option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${PARTHENON
 option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${PARTHENON_ENABLE_TESTING})
 option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${PARTHENON_ENABLE_TESTING})
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
-option(PARTHENON_ENABLE_CPP17 "Build Parthenon using C++17 standard" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
@@ -66,9 +69,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 13 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 15 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=e7713ea82a389c2ce3929263adcc6292659a8f80dde213dee9ef972a925e287d47db355a51ab94436ecdeec6c9976ed0c534c54ebad87cd9a0910fd5606b7554"
+  "SHA512=33a2e58f9e8970652febcc3564bb8be02186e0eafbde58417bdf9ee89b0ee9a62ad4058acc6bb4ed9a755c092a0d16323884c8bd29336836c8a7040375fb37c6"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -245,14 +248,10 @@ if (ENABLE_COMPILER_WARNINGS)
   add_compile_options(-Wall)
 endif()
 
+set(Kokkos_ENABLE_DEPRECATED_CODE_3 OFF CACHE BOOL "No need for old/unused code.")
+
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-if (PARTHENON_ENABLE_CPP17)
-  set(CMAKE_CXX_STANDARD 17)
-# Ensure correct flag is used as deprecated c++1z is not supported by nvcc.
-#  set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++17")
-else()
-  set(CMAKE_CXX_STANDARD 14)
-endif()
+set(CMAKE_CXX_STANDARD 17)
 
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
@@ -280,6 +279,12 @@ if (Kokkos_ENABLE_SYCL)
     "It may or may not work. Use at your own risk. "
     "Please get in contact for support."
   )
+endif()
+
+if (PARTHENON_ENABLE_HOST_COMM_BUFFERS)
+  if (NOT Kokkos_ENABLE_CUDA AND NOT Kokkos_ENABLE_HIP)
+    message(FATAL_ERROR "Host pinned buffers for MPI communication are supported only for CUDA and HIP backends.")
+  endif()
 endif()
 
 # Build Tests and download Catch2
@@ -319,7 +324,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
   endif()
 
   # Try finding an installed Catch2 first
-  find_package(Catch2 2.11.1 QUIET)
+  find_package(Catch2 2.13.8 QUIET)
 
   if (NOT Catch2_FOUND)
     # If Catch2 is not found, instead use the git submodule
@@ -335,7 +340,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/Catch2/contrib")
   endif()
 
-  include(ParseAndAddCatchTests)
+  include(Catch)
   add_subdirectory(tst)
 endif()
 
@@ -352,6 +357,7 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(example)
+add_subdirectory(benchmarks)
 
 create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)

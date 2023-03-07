@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,6 +17,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -49,7 +50,7 @@ class UserMetadataState {
 #undef PARTHENON_INTERNAL_FOR_FLAG
   }
 
-  MetadataFlag AllocateNewFlag(std::string &&name) {
+  MetadataFlag AllocateNewFlag(const std::string &name) {
     if (flag_names_.find(name) != flag_names_.end()) {
       std::stringstream ss;
       ss << "MetadataFlag with name '" << name << "' already exists.";
@@ -58,9 +59,10 @@ class UserMetadataState {
 
     auto const flag = flag_name_map_.size();
     flag_names_.insert(name);
-    flag_name_map_.push_back(std::move(name));
+    flag_name_map_.push_back(name);
 
     auto flag_obj = MetadataFlag(static_cast<int>(flag));
+    names_to_flags_.emplace(name, flag_obj);
 
     return flag_obj;
   }
@@ -68,8 +70,10 @@ class UserMetadataState {
   std::string const &FlagName(MetadataFlag flag) { return flag_name_map_.at(flag.flag_); }
 
   const auto &AllFlags() { return flag_name_map_; }
+  const auto &NamesToFlags() { return names_to_flags_; }
 
  private:
+  std::unordered_map<std::string, MetadataFlag> names_to_flags_;
   std::vector<std::string> flag_name_map_;
   std::unordered_set<std::string> flag_names_;
 };
@@ -79,11 +83,18 @@ class UserMetadataState {
 
 parthenon::internal::UserMetadataState metadata_state;
 
-MetadataFlag Metadata::AllocateNewFlag(std::string &&name) {
-  return metadata_state.AllocateNewFlag(std::move(name));
+MetadataFlag Metadata::AddUserFlag(const std::string &name) {
+  return metadata_state.AllocateNewFlag(name);
 }
 
 std::string const &MetadataFlag::Name() const { return metadata_state.FlagName(*this); }
+
+bool Metadata::FlagNameExists(const std::string &flagname) {
+  return (metadata_state.NamesToFlags().count(flagname) > 0);
+}
+MetadataFlag Metadata::GetUserFlag(const std::string &flagname) {
+  return (metadata_state.NamesToFlags().at(flagname));
+}
 
 namespace parthenon {
 std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
@@ -128,7 +139,7 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
     // classes add the +1's where needed.  They all expect
     // these dimensions to be the number of cells in each
     // direction, NOT the size of the arrays
-    assert(N >= 1 && N <= 3);
+    assert(N >= 0 && N <= 3);
     PARTHENON_REQUIRE_THROWS(!wpmb.expired(),
                              "Cannot determine array dimensions for mesh-tied entity "
                              "without a valid meshblock");
@@ -141,6 +152,17 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
       arrDims[i + 3] = shape[i];
     for (int i = N; i < 3; i++)
       arrDims[i + 3] = 1;
+  } else if (IsSet(Particle)) {
+    assert(N >= 0 && N <= 5);
+    arrDims[0] = 1; // To be updated by swarm based on pool size before allocation
+    for (int i = 0; i < N; i++)
+      arrDims[i + 1] = shape[i];
+    for (int i = N; i < 5; i++)
+      arrDims[i + 1] = 1;
+  } else if (IsSet(Swarm)) {
+    // No dimensions
+    // TODO(BRR) This will be replaced in the swarm packing PR, but is currently required
+    // since swarms carry metadata but do not have an array size.
   } else {
     // This variable is not necessarily tied to any specific
     // mesh element, so dims will be used as the actual array
