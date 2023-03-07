@@ -88,10 +88,10 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     auto ib = bounds.GetBoundsI(IndexDomain::entire);
     auto jb = bounds.GetBoundsJ(IndexDomain::entire);
     auto kb = bounds.GetBoundsK(IndexDomain::entire);
-    int nx = ib.e - ib.s + 1;
-    int ny = jb.e - jb.s + 1;
-    int nz = kb.e - kb.s + 1;
-    uint64_t ncells = nx * ny * nz;
+    auto ni = ib.e - ib.s + 1;
+    auto nj = jb.e - jb.s + 1;
+    auto nk = kb.e - kb.s + 1;
+    uint64_t ncells = ni * nj * nk;
 
     auto ib_int = bounds.GetBoundsI(IndexDomain::interior);
     auto jb_int = bounds.GetBoundsJ(IndexDomain::interior);
@@ -106,22 +106,22 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     // create the coordinate set
     mesh["coordsets/coords/type"] = "uniform";
 
-    mesh["coordsets/coords/dims/i"] = nx + 1;
-    mesh["coordsets/coords/dims/j"] = ny + 1;
-    if (nz > 1) {
-      mesh["coordsets/coords/dims/k"] = nz + 1;
+    mesh["coordsets/coords/dims/i"] = ni + 1;
+    mesh["coordsets/coords/dims/j"] = nj + 1;
+    if (nk > 1) {
+      mesh["coordsets/coords/dims/k"] = nk + 1;
     }
 
     // add origin and spacing to the coordset (optional)
     mesh["coordsets/coords/origin/x"] = corner[0];
     mesh["coordsets/coords/origin/y"] = corner[1];
-    if (nz > 1) {
+    if (nk > 1) {
       mesh["coordsets/coords/origin/z"] = corner[2];
     }
 
     mesh["coordsets/coords/spacing/dx"] = dx1;
     mesh["coordsets/coords/spacing/dy"] = dx2;
-    if (nz > 1) {
+    if (nk > 1) {
       mesh["coordsets/coords/spacing/dz"] = dx3;
     }
 
@@ -133,23 +133,28 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     Node &n_field = mesh["fields/ascent_ghosts"];
     n_field["association"] = "element";
     n_field["topology"] = "topo";
-    n_field["values"].set(conduit::DataType::int32(ncells)); // NOLINT
-    conduit::int32_array vals_array = n_field["values"].value();
 
-    int idx = 0;
-    for (int k = kb.s; k <= kb.e; k++) {
-      for (int j = jb.s; j <= jb.e; j++) {
-        for (int i = ib.s; i <= ib.e; i++) {
-          if ((i < ib_int.s) || (ib_int.e < i) || (j < jb_int.s) || (jb_int.e < j) ||
-              ((nz > 1) && ((k < kb_int.s) || (kb_int.e < k)))) {
-            vals_array[idx] = 1;
-          } else {
-            vals_array[idx] = 0;
-          }
-          idx++;
-        }
-      }
+    // allocate ghost mask if not already done
+    if (ghost_mask.data() == nullptr) {
+      ghost_mask = ParArray1D<std::int32_t>("Ascent ghost mask", ncells);
+
+      const int njni = nj * ni;
+      pmb->par_for(
+          "Set ascent ghost mask", 0, ncells, KOKKOS_LAMBDA(const int &idx) {
+            const int k = idx / (njni);
+            const int j = (idx - k * njni) / ni;
+            const int i = idx - k * njni - j * nj;
+
+            if ((i < ib_int.s) || (ib_int.e < i) || (j < jb_int.s) || (jb_int.e < j) ||
+                ((nk > 1) && ((k < kb_int.s) || (kb_int.e < k)))) {
+              ghost_mask(idx) = 1;
+            } else {
+              ghost_mask(idx) = 0;
+            }
+          });
     }
+    // Set ghost mask
+    n_field["values"].set_external(ghost_mask.data(), ncells);
 
     // create a field for each component of each variable pack
     auto &mbd = pmb->meshblock_data.Get();

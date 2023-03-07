@@ -172,6 +172,9 @@ class AscentOutput : public OutputType {
   explicit AscentOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
+
+ private:
+  ParArray1D<std::int32_t> ghost_mask;
 };
 
 #ifdef ENABLE_HDF5
