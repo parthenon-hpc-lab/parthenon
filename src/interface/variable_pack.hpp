@@ -163,7 +163,6 @@ class VarListWithLabels {
   std::vector<int> alloc_status_;
 };
 
-// using PackIndexMap = std::unordered_map<std::string, vpack_types::IndexPair>;
 class PackIndexMap {
  public:
   PackIndexMap() = default;
