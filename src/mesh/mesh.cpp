@@ -1155,7 +1155,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       init_done = false;
       // caching nbtotal the private variable my be updated in the following function
       const int nb_before_loadbalance = nbtotal;
-      LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
+      LoadBalancingAndAdaptiveMeshRefinement(pin, app_in, true);
       if (nbtotal == nb_before_loadbalance) {
         init_done = true;
       } else if (nbtotal < nb_before_loadbalance && Globals::my_rank == 0) {

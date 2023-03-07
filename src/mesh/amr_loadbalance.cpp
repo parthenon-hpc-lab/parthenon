@@ -50,9 +50,27 @@ namespace parthenon {
 // \brief Main function for adaptive mesh refinement
 
 void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
-                                                  ApplicationInput *app_in) {
+                                                  ApplicationInput *app_in,
+                                                  bool init) {
+  static std::chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
   Kokkos::Profiling::pushRegion("LoadBalancingAndAdaptiveMeshRefinement");
   int nnew = 0, ndel = 0;
+
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto diff = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  lb_timer = static_cast<Real>(diff.count());
+
+  std::vector<Real> times(Globals::nranks);
+  MPI_Gather(&lb_timer, 1, MPI_PARTHENON_REAL, times.data(), 1, MPI_PARTHENON_REAL, 0, MPI_COMM_WORLD);
+  if (Globals::my_rank == 0) {
+    std::ofstream fp;
+    fp.open("rank_times.txt", std::ios::out | std::ios::app);
+    for (int i = 0; i < Globals::nranks; i++) {
+      fp << times[i] << " ";
+    }
+    fp << std::endl;
+    fp.close();
+  }
 
   if (adaptive) {
     UpdateMeshBlockTree(nnew, ndel);
@@ -62,17 +80,20 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
 
   lb_flag_ |= lb_automatic_;
 
-  UpdateCostList();
-
   modified = false;
   if (nnew != 0 || ndel != 0) { // at least one (de)refinement happened
+    if (init) lb_timer = -1.0;
+    UpdateCostList();
     GatherCostListAndCheckBalance();
     RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal + nnew - ndel);
     modified = true;
+    start = std::chrono::high_resolution_clock::now();
   } else if (lb_flag_ && step_since_lb >= lb_interval_) {
+    UpdateCostList();
     if (!GatherCostListAndCheckBalance()) { // load imbalance detected
       RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal);
       modified = true;
+      start = std::chrono::high_resolution_clock::now();
     }
     step_since_lb = 0;
     //lb_flag_ = false;
@@ -154,6 +175,77 @@ void bisect_blocks(std::vector<Real> &sum_cost, BlockRankRange &r, std::vector<i
   }
 }
 
+void min_max(std::vector<Real> &v, int &argmin, int &argmax, Real &min, Real &max) {
+  min = 1e100;
+  max = 0.0;
+  for (int i = 0; i < v.size(); i++) {
+    if (v[i] > max) {
+      argmax = i;
+      max = v[i];
+    }
+    if (v[i] < min) {
+      argmin = i;
+      min = v[i];
+    }
+  }
+}
+
+bool adjust(std::vector<Real> const &cost, std::vector<Real> &rank_cost, std::vector<int> &start,
+            std::vector<int> &nb, const int min_cost_rank, const int max_cost_rank,
+            const Real min_cost, const Real max_cost, bool normal) {
+  bool success = false;
+  int shift = -1;
+  Real running_max = 0.0;
+  Real cost_next = rank_cost[max_cost_rank];
+  if ((min_cost_rank > max_cost_rank && normal) 
+   || (min_cost_rank < max_cost_rank && !normal)) {
+    for (int i = max_cost_rank; i < rank_cost.size()-1; i++) {
+      const Real cost_stop = cost[start[i]+nb[i]-1];
+      const Real costi = cost_next - cost_stop;
+      running_max = std::max(running_max, costi);
+      cost_next = rank_cost[i+1] + cost_stop;
+      if (running_max < max_cost && cost_next < max_cost) {
+        shift = i;
+        break;
+      }
+    }
+    if (shift >= 0) {
+      for (int i = max_cost_rank; i <= shift; i++) {
+        const Real cost_stop = cost[start[i]+nb[i]-1];
+        rank_cost[i] -= cost_stop;
+        nb[i]--;
+        rank_cost[i+1] += cost_stop;
+        start[i+1]--;
+        nb[i+1]++;
+      }
+      success = true;
+    }
+  } else {
+    for (int i = max_cost_rank; i > 0; i--) {
+      const Real cost_start = cost[start[i]];
+      const Real costi = cost_next - cost_start;
+      running_max = std::max(running_max, costi);
+      cost_next = rank_cost[i-1] + cost_start;
+      if (running_max < max_cost && cost_next < max_cost) {
+        shift = i;
+        break;
+      }
+    }
+    if (shift >= 0) {
+      for (int i = max_cost_rank; i >= shift; i--) {
+        const Real cost_start = cost[start[i]];
+        rank_cost[i] -= cost_start;
+        start[i]++;
+        nb[i]--;
+        rank_cost[i-1] += cost_start;
+        nb[i-1]++;
+      }
+      success = true;
+    }
+  }
+  return success;
+}
+
 void AssignAndUpdateBlocks(std::vector<Real> const &costlist, std::vector<int> &ranklist,
                            std::vector<int> &start, std::vector<int> &nb) {
   start.resize(Globals::nranks);
@@ -177,6 +269,20 @@ void AssignAndUpdateBlocks(std::vector<Real> const &costlist, std::vector<int> &
   } else {
     BlockRankRange root(0, max_rank, 0, nblocks-1);
     bisect_blocks(sum_costs, root, start, nb);
+    std::vector<Real> rank_cost(start.size(), 0.0);
+    rank_cost[0] = sum_costs[nb[0]-1];
+    for (int i = 1; i < Globals::nranks; i++) {
+      rank_cost[i] = sum_costs[start[i]+nb[i]-1] - sum_costs[start[i]-1];
+    }
+    bool success0, success1;
+    do {
+      int argmin, argmax;
+      Real min, max;
+      min_max(rank_cost, argmin, argmax, min, max);
+      success0 = adjust(costlist, rank_cost, start, nb, argmin, argmax, min, max, true);
+      if (success0) min_max(rank_cost, argmin, argmax, min, max);
+      success1 = adjust(costlist, rank_cost, start, nb, argmin, argmax, min, max, success0);
+    } while(success0 || success1);
 
     for (int i = 0; i <= max_rank; i++) {
       for (int b = start[i]; b < start[i]+nb[i]; b++) {
@@ -261,6 +367,20 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
 
   AssignAndUpdateBlocks(costlist, ranklist, nslist, nblist);
 
+  if (Globals::my_rank == 0) {
+    std::ofstream fp;
+    fp.open("load_balance.txt", std::ios::out | std::ios::app);
+    for (int i = 0; i < nslist.size(); i++) {
+      Real total_cost = 0.0;
+      for (int j = nslist[i]; j < nslist[i]+nblist[i]; j++) {
+        total_cost += costlist[j];
+      }
+      fp << total_cost << " ";
+    }
+    fp << std::endl;
+    fp.close();
+  }
+
   // Assigns blocks to ranks on a rougly cost-equal basis.
   //AssignBlocks(costlist, ranklist);
 
@@ -320,8 +440,17 @@ void Mesh::UpdateCostList() {
       costlist[pmb->gid] = costlist[pmb->gid] * w + pmb->cost_;
     }
   } else if (lb_flag_) {
+    Real total_cost = 0.0;
+    if (lb_timer < 0.0) {
+      total_cost = 1.0;
+      lb_timer = 1.0;
+    } else {
+      for (auto &pmb : block_list) {
+        total_cost += pmb->cost_;
+      }
+    }
     for (auto &pmb : block_list) {
-      costlist[pmb->gid] = pmb->cost_;
+      costlist[pmb->gid] = pmb->cost_ * (lb_timer/total_cost);
     }
   }
 }

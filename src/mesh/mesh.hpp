@@ -21,6 +21,7 @@
 //  The Mesh is the overall grid structure, and MeshBlocks are local patches of data
 //  (potentially on different levels) that tile the entire domain.
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -102,6 +103,7 @@ class Mesh {
   std::uint64_t mbcnt;
 
   int step_since_lb;
+  Real lb_timer;
   int gflag;
   
   std::shared_ptr<MeshBlock> pdummy_block;
@@ -117,7 +119,8 @@ class Mesh {
                                  BoundaryFlag *block_bcs);
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
-                                              ApplicationInput *app_in);
+                                              ApplicationInput *app_in,
+                                              bool init=false);
   int DefaultPackSize() {
     return default_pack_size_ < 1 ? block_list.size() : default_pack_size_;
   }
