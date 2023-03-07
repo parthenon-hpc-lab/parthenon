@@ -22,7 +22,7 @@ endif()
 # The following lines determine the default loop pattern by setting the
 # default defines to the appropriate "tags" in the config.hpp file.
 # See `kokkos_abstraction.hpp` for available tags and what they translate to.
-if (${Kokkos_ENABLE_CUDA} OR ${Kokkos_ENABLE_HIP})
+if (${Kokkos_ENABLE_CUDA} OR ${Kokkos_ENABLE_HIP} OR ${Kokkos_ENABLE_SYCL})
   set(PAR_LOOP_LAYOUT "MANUAL1D_LOOP" CACHE STRING
     "Default loop layout for parallel_for wrapper")
 

@@ -498,7 +498,7 @@ TEST_CASE("Time simple stencil operations", "[ParArrayND][performance]") {
   //   profile_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag);
   // }
 
-#if !(defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP))
+#if !(defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL))
   // SECTION("tptvr") {
   //   std::cout << "tptvr range:" << std::endl;
   //   profile_wrapper_3d(parthenon::loop_pattern_tptvr_tag);
