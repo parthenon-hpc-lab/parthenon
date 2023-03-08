@@ -386,9 +386,8 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
         continue;
       }
 
-      const int vlen = vinfo.vlen;
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
-                               vlen, ndim, dims, dims321, vinfo.is_vector);
+                               vinfo.num_components, ndim, dims, dims321, vinfo.is_vector);
     }
     xdmf << "      </Grid>" << std::endl;
   }

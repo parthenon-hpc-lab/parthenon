@@ -160,17 +160,12 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     auto &mbd = pmb->meshblock_data.Get();
 
     for (const auto &var : mbd->GetCellVariableVector()) {
-      PARTHENON_REQUIRE(var->GetDim(6) * var->GetDim(5) == 1,
-                        "Only scalar and vector fields are currently exported in Ascent. "
-                        "Please open an issue on GitHub if you have a use case.");
+      const auto var_info = VarInfo(var);
 
-      const std::string packname = var->label();
-      auto const &labels = var->metadata().getComponentLabels();
-
-      for (int icomp = 0; icomp < labels.size(); ++icomp) {
+      for (int icomp = 0; icomp < var_info.num_components; ++icomp) {
         auto const data = Kokkos::subview(var->data, 0, 0, icomp, Kokkos::ALL(),
                                           Kokkos::ALL(), Kokkos::ALL());
-        const std::string varname = packname + ":" + labels.at(icomp);
+        const std::string varname = var_info.component_labels.at(icomp);
         mesh["fields/" + varname + "/association"] = "element";
         mesh["fields/" + varname + "/topology"] = "topo";
         mesh["fields/" + varname + "/values"].set_external(data.data(), ncells);
