@@ -25,8 +25,8 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <set>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -121,6 +121,9 @@ class Swarm {
 
   /// retrieve label for swarm
   std::string label() const { return label_; }
+
+  // Unique ID for swarm
+  std::size_t GetUniqueID() const { return uid_; }
 
   /// retrieve metadata for swarm
   const Metadata &metadata() const { return m_; }
@@ -237,6 +240,9 @@ class Swarm {
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
 
+  std::size_t uid_;
+  inline static UniqueIDGenerator<std::string> get_uid_;
+
   int max_active_index_ = 0;
   int num_active_ = 0;
   std::string label_;
@@ -337,7 +343,7 @@ inline void Swarm::Add_(const std::string &label, const Metadata &m) {
 
 using SP_Swarm = std::shared_ptr<Swarm>;
 using SwarmVector = std::vector<SP_Swarm>;
-using SwarmSet = std::unordered_set<SP_Swarm>;
+using SwarmSet = std::set<SP_Swarm, VarComp<Swarm>>;
 using SwarmMap = std::unordered_map<std::string, SP_Swarm>;
 // TODO(JMM): Should this be an unordered_map? If so, we need a hash function for
 // MetadataFlag
