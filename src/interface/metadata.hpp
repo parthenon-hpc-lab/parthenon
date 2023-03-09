@@ -207,8 +207,10 @@ class Metadata {
   class FlagCollection {
    public:
     FlagCollection() = default;
-    // Container_t should be a stdlib container type
-    // it needs at least the iterator first and last methods
+    // This is cleaner but the linter doesn't like it.
+    // template <typename T,
+    //           REQUIRES(std::is_same<typename T::value_type, MetadataFlag>::value)>
+    // FlagCollection(const T &flags, bool take_union = false) {
     template <template <class...> class Container_t, class... extra>
     FlagCollection(const Container_t<MetadataFlag, extra...> &flags,
                    bool take_union = false) {
@@ -222,7 +224,7 @@ class Metadata {
     // TODO(JMM): The cast to to a vector here implies some extra
     // copies which aren't great. Don't do this too much I guess.
     // Also I don't totally understand why the templated constructor
-    // above doesn't capture this one. I guess it's not a const reference?
+    // above doesn't capture this one.
     FlagCollection(std::initializer_list<MetadataFlag> flags, bool take_union = false)
         : FlagCollection(FlagVec(flags), take_union) {}
     // Constructor from a comma-separated list. Default is union.

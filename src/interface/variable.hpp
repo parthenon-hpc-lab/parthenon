@@ -167,8 +167,8 @@ class CellVariable {
   // Machinery for giving each variable a unique ID that is faster to
   // evaluate than a string. Assumes number of MPI ranks unchanged
   Uid_t uid_;
-  // Inline static initialization is a C++17 feature. Otherwise static
-  // vars must be initialized in the implementation file.
+  // This generator needs to be global so that different instances of
+  // variable have the same unique ID.
   inline static UniqueIDGenerator<std::string> get_uid_;
 
   bool is_allocated_ = false;
