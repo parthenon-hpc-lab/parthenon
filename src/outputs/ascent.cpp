@@ -105,6 +105,8 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
     // create the coordinate set
     mesh["coordsets/coords/type"] = "uniform";
+    PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
+                             "Ascent currently only supports Cartesian coordinates.");
 
     mesh["coordsets/coords/dims/i"] = ni + 1;
     mesh["coordsets/coords/dims/j"] = nj + 1;
