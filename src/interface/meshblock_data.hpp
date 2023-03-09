@@ -260,10 +260,11 @@ class MeshBlockData {
   }
 
   /// Pack variables and fluxes by Metadata flags
-  template <class... ARGS> 
+  template <class... ARGS>
   const VariableFluxPack<T> &PackVariablesAndFluxes(std::vector<MetadataFlag> flags,
-                                                    ARGS&&... args) {
-    return PackVariablesAndFluxes(Metadata::FlagCollection(flags), std::forward<ARGS>(args)...);
+                                                    ARGS &&...args) {
+    return PackVariablesAndFluxes(Metadata::FlagCollection(flags),
+                                  std::forward<ARGS>(args)...);
   }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
                                                     const std::vector<int> &sparse_ids,
@@ -319,9 +320,9 @@ class MeshBlockData {
   }
 
   /// Pack variables by Metadata flags
-  template <class... ARGS> 
+  template <class... ARGS>
   const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
-                                       ARGS&&... args) {
+                                       ARGS &&...args) {
     return PackVariables(Metadata::FlagCollection(flags), std::forward<ARGS>(args)...);
   }
   const VariablePack<T> &PackVariables(const Metadata::FlagCollection &flags,

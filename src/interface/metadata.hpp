@@ -217,8 +217,8 @@ class Metadata {
       }
     }
     // Constructor that takes a brace-enclosed initializer list
-    // Required since the type of {...} cannot be deduced since it 
-    // could be the type of any object that could be initialized by 
+    // Required since the type of {...} cannot be deduced since it
+    // could be the type of any object that could be initialized by
     // an initializer list
     // TODO(JMM): The cast to to a vector here implies some extra
     // copies which aren't great. Don't do this too much I guess.
@@ -299,7 +299,7 @@ class Metadata {
 
   Metadata() = default;
   // Include explicit destructor to get rid of CUDA __host__ __device__ warning
-  ~Metadata(){};
+  ~Metadata() {}
 
   // There are 3 optional arguments: shape, component_labels, and associated, so we'll
   // need 8 constructors to provide all possible variants
