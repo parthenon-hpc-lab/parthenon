@@ -132,6 +132,7 @@ class SwarmContainer {
   /// Remove a variable from the container or throw exception if not
   /// found.
   /// @param label the name of the variable to be deleted
+  /// TODO(JMM): Should we support this operation?
   void Remove(const std::string &label);
 
   // Temporary functions till we implement a *real* iterator
@@ -145,7 +146,8 @@ class SwarmContainer {
   // Element accessor functions
   std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }
 
-  // Return swarms
+  // Return swarms meeting some conditions
+  SwarmSet GetSwarmsByFlag(const Metadata::FlagCollection &flags);
 
   // Defragmentation task
   TaskStatus Defrag(double min_occupancy);
