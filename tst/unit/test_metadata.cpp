@@ -226,4 +226,14 @@ TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
       }
     }
   }
+  GIVEN("A simple metadata object") {
+    using FlagVec = std::vector<parthenon::MetadataFlag>;
+    Metadata m(FlagVec{Metadata::Derived, Metadata::OneCopy});
+    THEN("It's valid") { REQUIRE(m.IsValid()); }
+    // TODO(JMM): This test should go away when issue #844 is resolved
+    WHEN("We improperly set prolongation/restriction") {
+      m.Set(Metadata::FillGhost);
+      THEN("The metadata is no longer valid") { REQUIRE(!m.IsValid()); }
+    }
+  }
 }
