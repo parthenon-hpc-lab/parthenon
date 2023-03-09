@@ -331,6 +331,12 @@ class Metadata {
     if (CountSet({Independent, Derived}) == 0) {
       DoBit(Derived, true);
     }
+    // If variable is refined, set a default prolongation/restriction op
+    // TODO(JMM): This is dangerous. See Issue #844.
+    if (IsRefined()) {
+      refinement_funcs_ = refinement::RefinementFunctions_t::RegisterOps<
+          refinement_ops::ProlongateCellMinMod, refinement_ops::RestrictCellAverage>();
+    }
 
     // check if all flag constraints are satisfied, throw if not
     IsValid(true);
@@ -622,9 +628,7 @@ class Metadata {
 
  private:
   /// the attribute flags that are set for the class
-  refinement::RefinementFunctions_t refinement_funcs_ =
-      refinement::RefinementFunctions_t::RegisterOps<
-          refinement_ops::ProlongateCellMinMod, refinement_ops::RestrictCellAverage>();
+  refinement::RefinementFunctions_t refinement_funcs_;
   std::vector<bool> bits_;
   std::vector<int> shape_ = {1};
   std::vector<std::string> component_labels_ = {};

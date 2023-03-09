@@ -374,6 +374,14 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           }
         }
       }
+      WHEN("We register a var that needs prolongation/restriction without ops") {
+        Metadata m_dangerous(
+            FlagVec{Metadata::Sparse, Metadata::Derived, Metadata::OneCopy});
+        m_dangerous.Set(Metadata::FillGhost);
+        THEN("Dependency resolution captures an ill-formed variable") {
+          REQUIRE_THROWS(pkg2->AddSparsePool("sparse", m_dangerous, sparse_ids));
+        }
+      }
     }
   }
 }
