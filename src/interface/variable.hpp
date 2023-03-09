@@ -120,6 +120,8 @@ class CellVariable {
   KOKKOS_FORCEINLINE_FUNCTION
   Uid_t GetUniqueID() const { return uid_; }
 
+  static Uid_t GetUniqueID(const std::string &var_label) { return get_uid_(var_label); }
+
   /// return information string
   std::string info();
 
