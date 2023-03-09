@@ -472,7 +472,8 @@ class MeshBlockData {
   const VariableFluxPack<T> &
   PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                          const std::vector<std::string> &flx_names,
-                         const std::vector<int> &sparse_ids, vpack_types::UidVecPair &key) {
+                         const std::vector<int> &sparse_ids,
+                         vpack_types::UidVecPair &key) {
     return PackVariablesAndFluxesImpl(var_names, flx_names, sparse_ids, nullptr, &key);
   }
   const VariableFluxPack<T> &
