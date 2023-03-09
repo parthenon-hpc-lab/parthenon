@@ -27,7 +27,9 @@ class UniqueIDGenerator {
     if (uids_.count(key) > 0) {
       return uids_.at(key);
     }
-    Uid_t uid = uids_.size();
+    // Ensure that all uids > 0, 0 reserved 
+    // as an invalid id
+    Uid_t uid = uids_.size() + 1;
     uids_.emplace(key, uid);
     return uid;
   }

@@ -158,7 +158,7 @@ class MeshBlockData {
 
   Uid_t UniqueID(const std::string &label) noexcept {
     auto it = varMap_.find(label);
-    if (it == varMap_.end()) return -1;
+    if (it == varMap_.end()) return 0; // Invalid ID
     return (it->second)->GetUniqueID();
   }
 
@@ -260,6 +260,11 @@ class MeshBlockData {
   }
 
   /// Pack variables and fluxes by Metadata flags
+  template <class... ARGS> 
+  const VariableFluxPack<T> &PackVariablesAndFluxes(std::vector<MetadataFlag> flags,
+                                                    ARGS&&... args) {
+    return PackVariablesAndFluxes(Metadata::FlagCollection(flags), std::forward<ARGS>(args)...);
+  }
   const VariableFluxPack<T> &PackVariablesAndFluxes(const Metadata::FlagCollection &flags,
                                                     const std::vector<int> &sparse_ids,
                                                     PackIndexMap &map) {
@@ -314,6 +319,11 @@ class MeshBlockData {
   }
 
   /// Pack variables by Metadata flags
+  template <class... ARGS> 
+  const VariablePack<T> &PackVariables(const std::vector<MetadataFlag> &flags,
+                                       ARGS&&... args) {
+    return PackVariables(Metadata::FlagCollection(flags), std::forward<ARGS>(args)...);
+  }
   const VariablePack<T> &PackVariables(const Metadata::FlagCollection &flags,
                                        const std::vector<int> &sparse_ids,
                                        PackIndexMap &map, bool coarse = false) {
