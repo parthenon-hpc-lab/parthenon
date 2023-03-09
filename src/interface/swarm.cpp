@@ -70,7 +70,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
-  uid_ = get_uid_(label());
+  uid_ = get_uid_(label_);
 
   Add("x", Metadata({Metadata::Real}));
   Add("y", Metadata({Metadata::Real}));

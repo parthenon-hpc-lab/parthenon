@@ -669,7 +669,9 @@ namespace MetadataUtils {
 // all vars. So average performance is much better than linear.
 template <typename Set_t, typename NameMap_t, typename MetadataMap_t>
 Set_t GetByFlag(const Metadata::FlagCollection &flags,
-		const NameMap_t &nameMap, const MetadataMap_t &metadataMap) {
+		NameMap_t &nameMap, MetadataMap_t &metadataMap) {
+  // JMM: I'd like to make all inputs const, but apparently for (const
+  // auto &thing : container) violates const correctness
   Set_t out;
   if (flags.Empty()) {
     for (const auto &p : nameMap) {
@@ -686,7 +688,7 @@ Set_t GetByFlag(const Metadata::FlagCollection &flags,
     // Dirty trick to get literally any flag from the intersections set
     MetadataFlag first_required = *(intersections.begin());
     
-    for (auto &v : metadataMap_[first_required]) {
+    for (const auto &v : metadataMap[first_required]) {
         const auto &m = v->metadata();
         // TODO(JMM): Note that AnyFlagsSet returns FALSE if the set of flags
         // it's asked about is empty.  Not sure that's desired
@@ -702,7 +704,7 @@ Set_t GetByFlag(const Metadata::FlagCollection &flags,
       }
   } else { // unions.size() > 0.
     for (const auto &f : unions) {
-      for (const auto &v : metadataMap_[f]) {
+      for (const auto &v : metadataMap[f]) {
 	// we know intersections.size == 0
 	if (!(check_excludes && (v->metadata()).AnyFlagsSet(exclusions))) {
 	  // TODO(JMM): see above regarding IsAllocated()
