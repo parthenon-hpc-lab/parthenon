@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -27,6 +27,7 @@
 #include "kokkos_abstraction.hpp"
 #include "prolong_restrict/pr_ops.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 namespace refinement {
@@ -39,6 +40,7 @@ void Restrict(const StateDescriptor *resolved_packages,
   const auto &ref_func_map = resolved_packages->RefinementFncsToIDs();
   for (const auto &[func, idx] : ref_func_map) {
     auto restrictor = func.restrictor;
+    PARTHENON_DEBUG_REQUIRE_THROWS(restrictor != nullptr, "Valid restriction op");
     loops::Idx_t subset = Kokkos::subview(cache.buffer_subsets, idx, Kokkos::ALL());
     loops::IdxHost_t subset_h =
         Kokkos::subview(cache.buffer_subsets_h, idx, Kokkos::ALL());

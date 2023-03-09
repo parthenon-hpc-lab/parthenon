@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -271,7 +271,7 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
     return false; // this field has already been added
   } else {
     metadataMap_.insert({vid, m});
-    refinementFuncMaps_.Register(m);
+    refinementFuncMaps_.Register(m, vid.label());
     allocControllerReverseMap_.insert({vid, control_vid});
   }
 
@@ -289,7 +289,7 @@ bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
   }
 
   sparsePoolMap_.insert({pool.base_name(), pool});
-  refinementFuncMaps_.Register(pool.shared_metadata());
+  refinementFuncMaps_.Register(pool.shared_metadata(), pool.base_name());
 
   std::string controller_base = pool.controller_base_name();
   if (controller_base == "") controller_base = pool.base_name();
