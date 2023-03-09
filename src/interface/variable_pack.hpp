@@ -132,7 +132,7 @@ using VPackKey_t = std::vector<Uid_t>;
 // Flux packs require a set of names for the variables and a set of names for the fluxes
 // and order matters. So a pair forms the keys for the FluxPack cache.
 using StringPair = std::pair<std::vector<std::string>, std::vector<std::string>>;
-using UidPair = std::pair<std::vector<Uid_t>, std::vector<Uid_t>>;
+using UidVecPair = std::pair<std::vector<Uid_t>, std::vector<Uid_t>>;
 } // namespace vpack_types
 
 // helper class to make lists of variables with some kind of unique identifier per
@@ -485,7 +485,7 @@ using SwarmPackIndxPair = PackAndIndexMap<SwarmVariablePack<T>>;
 template <typename T>
 using MapToVariablePack = std::map<std::vector<Uid_t>, PackIndxPair<T>>;
 template <typename T>
-using MapToVariableFluxPack = std::map<vpack_types::UidPair, FluxPackIndxPair<T>>;
+using MapToVariableFluxPack = std::map<vpack_types::UidVecPair, FluxPackIndxPair<T>>;
 template <typename T>
 using MapToSwarmVariablePack = std::map<std::vector<Uid_t>, SwarmPackIndxPair<T>>;
 

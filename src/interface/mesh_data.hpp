@@ -57,10 +57,10 @@ inline void AppendKey<vpack_types::VPackKey_t>(vpack_types::VPackKey_t *key_coll
   }
 }
 
-// Specialization for flux-variable packs where key is a vpack_types::UidPair
+// Specialization for flux-variable packs where key is a vpack_types::UidVecPair
 template <>
-inline void AppendKey<vpack_types::UidPair>(vpack_types::UidPair *key_collection,
-                                            const vpack_types::UidPair *new_key) {
+inline void AppendKey<vpack_types::UidVecPair>(vpack_types::UidVecPair *key_collection,
+                                            const vpack_types::UidVecPair *new_key) {
   for (const auto &k : new_key->first) {
     key_collection->first.push_back(k);
   }
@@ -269,12 +269,12 @@ class MeshData {
   template <typename... Args>
   const auto &PackVariablesAndFluxesImpl(PackIndexMap *map_out, Args &&...args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
-                             PackIndexMap &map, vpack_types::UidPair &key) {
+                             PackIndexMap &map, vpack_types::UidVecPair &key) {
       return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)..., map,
                                                     key);
     };
 
-    return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>, vpack_types::UidPair>(
+    return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>, vpack_types::UidVecPair>(
         varFluxPackMap_, block_data_, pack_function, map_out);
   }
 

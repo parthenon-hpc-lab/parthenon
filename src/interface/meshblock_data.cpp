@@ -175,7 +175,7 @@ MeshBlockData<T>::SparseSlice(const std::vector<int> &sparse_ids) const {
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackListedVariablesAndFluxes(
     const VarList &var_list, const VarList &flux_list, PackIndexMap *map,
-    vpack_types::UidPair *key) {
+    vpack_types::UidVecPair *key) {
   auto keys = std::make_pair(var_list.unique_ids(), flux_list.unique_ids());
 
   auto itr = varFluxPackMap_.find(keys);
@@ -275,7 +275,7 @@ MeshBlockData<T>::PackListedVariables(const VarList &var_list, bool coarse,
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
-    const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidPair *key) {
+    const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidVecPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByName(var_names, sparse_ids),
                                       GetVariablesByName(flx_names, sparse_ids), map,
                                       key);
@@ -285,7 +285,7 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const Metadata::FlagCollection &flags, const std::vector<int> &sparse_ids,
-    PackIndexMap *map, vpack_types::UidPair *key) {
+    PackIndexMap *map, vpack_types::UidVecPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, sparse_ids),
                                       GetVariablesByFlag(flags, sparse_ids), map, key);
 }
@@ -293,7 +293,7 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
 /// All variables and fluxes by Metadata Flags
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
-    const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidPair *key) {
+    const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidVecPair *key) {
   return PackListedVariablesAndFluxes(GetAllVariables(sparse_ids),
                                       GetAllVariables(sparse_ids), map, key);
 }
