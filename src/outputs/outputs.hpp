@@ -35,6 +35,36 @@ namespace parthenon {
 class Mesh;
 class ParameterInput;
 
+// Helper struct containing some information about a variable
+struct VarInfo {
+  std::string label;
+  int num_components;
+  int nx6;
+  int nx5;
+  int nx4;
+  int nx3;
+  int nx2;
+  int nx1;
+  int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
+                   // variables
+  MetadataFlag where;
+  bool is_sparse;
+  bool is_vector;
+  std::vector<std::string> component_labels;
+
+  VarInfo() = delete;
+
+  VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
+          int num_components, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
+          Metadata metadata, bool is_sparse, bool is_vector);
+
+  explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
+      : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
+                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->GetDim(3),
+                var->GetDim(2), var->GetDim(1), var->metadata(), var->IsSparse(),
+                var->IsSet(Metadata::Vector)) {}
+};
+
 //----------------------------------------------------------------------------------------
 //! \struct OutputParameters
 //  \brief  container for parameters read from <output> block in the input file
@@ -172,6 +202,9 @@ class AscentOutput : public OutputType {
   explicit AscentOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
+
+ private:
+  ParArray1D<std::int32_t> ghost_mask;
 };
 
 #ifdef ENABLE_HDF5
