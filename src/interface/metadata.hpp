@@ -457,6 +457,17 @@ class Metadata {
       }
     }
 
+    // Prolongation/restriction
+    if (IsRefined()) {
+      if (refinement_funcs_.label().size() == 0) {
+        valid = false;
+        if (throw_on_fail) {
+          PARTHENON_THROW(
+              "Registered for refinment but no prolongation/restriction ops found");
+        }
+      }
+    }
+
     return valid;
   }
 

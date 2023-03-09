@@ -374,6 +374,7 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           }
         }
       }
+      // TODO(JMM): This test should go away when issue #844 is resolved
       WHEN("We register a var that needs prolongation/restriction without ops") {
         Metadata m_dangerous(
             FlagVec{Metadata::Sparse, Metadata::Derived, Metadata::OneCopy});
