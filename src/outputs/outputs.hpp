@@ -19,6 +19,7 @@
 //! \file outputs.hpp
 //  \brief provides classes to handle ALL types of data output
 
+#include <memory>
 #include <string>
 #include <vector>
 
