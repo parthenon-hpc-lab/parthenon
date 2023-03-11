@@ -27,6 +27,9 @@
 
 #include "defs.hpp"
 #include "utils/error_checking.hpp"
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 namespace parthenon {
 
@@ -39,7 +42,13 @@ void ChangeRunDir(const char *pdir) {
 
   if (pdir == nullptr || *pdir == '\0') return;
 
-  mkdir(pdir, 0775);
+  if (!fs::exists(pdir)) {
+    if (!fs::create_directories(pdir)) {
+      msg << "Failed to create directory: " << pdir << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+  }
+
   if (chdir(pdir)) {
     msg << "### FATAL ERROR in function [ChangeToRunDir]" << std::endl
         << "Cannot cd to directory '" << pdir << "'";
