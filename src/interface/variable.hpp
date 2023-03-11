@@ -167,7 +167,8 @@ class CellVariable {
   const std::array<int, 6> dims_, coarse_dims_;
 
   // Machinery for giving each variable a unique ID that is faster to
-  // evaluate than a string. Assumes number of MPI ranks unchanged
+  // evaluate than a string. Safe so long as the number of MPI ranks
+  // does not change while the code is running (restarts are fine).
   Uid_t uid_;
   // This generator needs to be global so that different instances of
   // variable have the same unique ID.
