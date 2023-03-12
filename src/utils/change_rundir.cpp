@@ -21,13 +21,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <filesystem>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 
 #include "defs.hpp"
 #include "utils/error_checking.hpp"
-#include <filesystem>
 
 namespace fs = std::filesystem;
 
