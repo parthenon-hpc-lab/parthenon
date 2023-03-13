@@ -45,7 +45,7 @@ void ChangeRunDir(const char *pdir) {
   if (!fs::exists(pdir)) {
     if (!fs::create_directories(pdir)) {
       msg << "### FATAL ERROR in function [ChangeToRunDir]" << std::endl
-          << "Cannot create directory '" << pdir << "";
+          << "Cannot create directory '" << pdir << "'";
       PARTHENON_THROW(msg);
     }
   }
