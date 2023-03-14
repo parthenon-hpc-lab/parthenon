@@ -21,6 +21,8 @@ message(STATUS "Loading machine configuration for OLCF's Frontier and Crusher.\n
   "  $ module load PrgEnv-amd craype-accel-amd-gfx90a cmake hdf5 cray-python amd/5.4.0 cray-mpich/8.1.21\n"
   "and environment variables:\n"
   "  $ export MPICH_GPU_SUPPORT_ENABLED=1\n\n"
+  "On Frontier, different modules are required (tested on 2022-03-14): \n"
+  "  $ module load PrgEnv-cray craype-accel-amd-gfx90a cmake hdf5 rocm/5.3.0 cray-mpich/8.1.23\n\n"
   "NOTE: In order to run the test suite, the build directory should be on GPFS work\n"
   "filesystem and not in your NFS user or project home (because they are read-only\n"
   "on compute nodes.\n\n")
