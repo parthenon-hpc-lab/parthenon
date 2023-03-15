@@ -48,6 +48,11 @@ void ChangeRunDir(const char *pdir) {
           << "Cannot create directory '" << pdir << "'";
       PARTHENON_THROW(msg);
     }
+
+    // in POSIX, this is 0755 permission, rwxr-xr-x
+    auto perms = fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
+                 fs::perms::others_read | fs::perms::others_exec;
+    fs::permissions(pdir, perms, fs::perm_options::replace);
   }
 
   if (chdir(pdir)) {
