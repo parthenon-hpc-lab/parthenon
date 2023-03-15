@@ -164,8 +164,8 @@ A ``<parthenon/output*>`` block might look like::
   actions_files = my_actions.yaml
 
 see also the advection example
-`input file <https://github.com/parthenon-hpc-lab/parthenon/blob/ascent-support/example/advection/parthinput.advection>`__ and
-`actions file <https://github.com/parthenon-hpc-lab/parthenon/blob/ascent-support/example/advection/custom_ascent_actions.yaml>`__.
+`input file <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/parthinput.advection>`__ and
+`actions file <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/custom_ascent_actions.yaml>`__.
 
 *Note* by default "field filtering" is enabled for Ascent in Parthenon, i.e.,
 only fields that are used in Ascent actions are published.

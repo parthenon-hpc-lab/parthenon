@@ -68,6 +68,9 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // A user might need to override this, e.g., in a runtime ascent_options.yaml, if
   // the required fields cannot be resolved by Ascent.
   // See https://ascent.readthedocs.io/en/latest/AscentAPI.html#field-filtering
+  // TODO(some in mid 2023) Reenable this as this currently only works in develop of
+  // Ascent and not in published release (expected in 0.9.1), see
+  // https://github.com/Alpine-DAV/ascent/pull/1109
   // ascent_opts["field_filtering"] = "true";
   ascent.open(ascent_opts);
 
