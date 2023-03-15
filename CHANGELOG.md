@@ -16,7 +16,6 @@
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
-- [[PR 848]](https://github.com/parthenon-hpc-lab/parthenon/pull/848) Implement recursive mkdir using [`std::filesystem`](https://en.cppreference.com/w/cpp/filesystem) in **src/utils/change_rundir.cpp**
 - [[PR 775]](https://github.com/parthenon-hpc-lab/parthenon/pull/775) Reorganize some of the bvals and prolongation/restriction machinery
 - [[PR 753]](https://github.com/parthenon-hpc-lab/parthenon/pull/753) Cleanup uniform Cartesian variable names
 - [[PR 769]](https://github.com/parthenon-hpc-lab/parthenon/pull/769) Thread custom prolongation-restriction functions through infrastructure and to userspace
@@ -50,6 +49,7 @@
 - [[PR 716]](https://github.com/lanl/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 848]](https://github.com/parthenon-hpc-lab/parthenon/pull/848) Implement recursive mkdir using [`std::filesystem`](https://en.cppreference.com/w/cpp/filesystem) in **src/utils/change_rundir.cpp**
 - [[PR 837]](https://github.com/parthenon-hpc-lab/parthenon/pull/837) Migrate docs to Sphinx
 - [[PR 791]](https://github.com/parthenon-hpc-lab/parthenon/pull/791) Set KOKKOS_DISABLE_WARNINGS=TRUE
 - [[PR 777]](https://github.com/parthenon-hpc-lab/parthenon/pull/777) New action: check PR dependencies & warn until requirements merged
