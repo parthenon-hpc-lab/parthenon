@@ -205,7 +205,7 @@ class AscentOutput : public OutputType {
                        const SignalHandler::OutputSignal signal) override;
 
  private:
-  ParArray1D<std::int32_t> ghost_mask;
+  HostArray1D<std::int32_t> ghost_mask;
 };
 
 #ifdef ENABLE_HDF5
