@@ -141,22 +141,22 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
     // allocate ghost mask if not already done
     if (ghost_mask.data() == nullptr) {
-      ghost_mask = HostArray1D<std::int32_t>("Ascent ghost mask", ncells);
+      ghost_mask = ParArray1D<std::int32_t>("Ascent ghost mask", ncells);
 
-      int idx = 0;
-      for (int k = kb.s; k <= kb.e; k++) {
-        for (int j = jb.s; j <= jb.e; j++) {
-          for (int i = ib.s; i <= ib.e; i++) {
+      const int njni = nj * ni;
+      pmb->par_for(
+          "Set ascent ghost mask", 0, ncells, KOKKOS_LAMBDA(const int &idx) {
+            const int k = idx / (njni);
+            const int j = (idx - k * njni) / ni;
+            const int i = idx - k * njni - j * nj;
+
             if ((i < ib_int.s) || (ib_int.e < i) || (j < jb_int.s) || (jb_int.e < j) ||
                 ((nk > 1) && ((k < kb_int.s) || (kb_int.e < k)))) {
               ghost_mask(idx) = 1;
             } else {
               ghost_mask(idx) = 0;
             }
-            idx++;
-          }
-        }
-      }
+          });
     }
     // Set ghost mask
     n_field["values"].set_external(ghost_mask.data(), ncells);
