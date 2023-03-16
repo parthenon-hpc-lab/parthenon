@@ -140,10 +140,11 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     n_field["topology"] = "topo";
 
     // allocate ghost mask if not already done
-    if (ghost_mask.data() == nullptr) {
-      ghost_mask = ParArray1D<std::int32_t>("Ascent ghost mask", ncells);
+    if (ghost_mask_.data() == nullptr) {
+      ghost_mask_ = ParArray1D<Real>("Ascent ghost mask", ncells);
 
       const int njni = nj * ni;
+      auto &ghost_mask = ghost_mask_; // redef to lambda capture class member
       pmb->par_for(
           "Set ascent ghost mask", 0, ncells, KOKKOS_LAMBDA(const int &idx) {
             const int k = idx / (njni);
@@ -159,7 +160,7 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
           });
     }
     // Set ghost mask
-    n_field["values"].set_external(ghost_mask.data(), ncells);
+    n_field["values"].set_external(ghost_mask_.data(), ncells);
 
     // create a field for each component of each variable pack
     auto &mbd = pmb->meshblock_data.Get();

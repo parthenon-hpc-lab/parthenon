@@ -205,7 +205,9 @@ class AscentOutput : public OutputType {
                        const SignalHandler::OutputSignal signal) override;
 
  private:
-  ParArray1D<std::int32_t> ghost_mask;
+  //  Ghost mask currently (Ascent 0.9) needs to be of float type on device as the
+  //  automated conversion between int and float does not work
+  ParArray1D<Real> ghost_mask_;
 };
 
 #ifdef ENABLE_HDF5
