@@ -37,12 +37,16 @@ int main(int argc, char *argv[]) {
   // Now that ParthenonInit has been called and setup succeeded, the code can now
   // make use of MPI and Kokkos
 
-  // Initialize the driver
-  poisson_example::PoissonDriver driver(pman.pinput.get(), pman.app_input.get(),
-                                        pman.pmesh.get());
+  // This block ensures the driver is deleted before MPI is finalized,
+  // as some of its members control MPI resources
+  {
+    // Initialize the driver
+    poisson_example::PoissonDriver driver(pman.pinput.get(), pman.app_input.get(),
+                                          pman.pmesh.get());
 
-  // This line actually runs the simulation
-  auto driver_status = driver.Execute();
+    // This line actually runs the simulation
+    auto driver_status = driver.Execute();
+  }
 
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();

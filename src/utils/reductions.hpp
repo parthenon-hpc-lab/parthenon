@@ -59,7 +59,7 @@ struct ReductionBase {
   T val;
 #ifdef MPI_PARALLEL
   MPI_Request req;
-  std::shared_ptr<MPI_Comm> comm;
+  std::shared_ptr<MPI_Comm> pcomm;
 #endif
   bool active = false;
   ReductionBase() {
@@ -68,9 +68,8 @@ struct ReductionBase {
     // MPI_Comm_free is called, but only when the last
     // copy of this ReductionBase is destroyed.
     // TODO should Comm_free be MPI_CHECKed?
-    MPI_Comm *comm_tmp;
-    PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, comm_tmp));
-    comm = std::shared_ptr<MPI_Comm>(comm_tmp, MPI_Comm_free);
+    pcomm = std::shared_ptr<MPI_Comm>(new MPI_Comm, MPI_Comm_free);
+    PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, pcomm.get()));
 #endif
   }
 
@@ -96,7 +95,7 @@ struct AllReduce : public ReductionBase<T> {
     PARTHENON_MPI_CHECK(
         MPI_Iallreduce(MPI_IN_PLACE, contiguous_container::data(this->val),
                        contiguous_container::size(this->val),
-                       GetContainerMPIType(this->val), op, *(this->comm), &(this->req)));
+                       GetContainerMPIType(this->val), op, *(this->pcomm), &(this->req)));
 #endif
     this->active = true;
     return TaskStatus::complete;
@@ -112,13 +111,13 @@ struct Reduce : public ReductionBase<T> {
       PARTHENON_MPI_CHECK(MPI_Ireduce(MPI_IN_PLACE, contiguous_container::data(this->val),
                                       contiguous_container::size(this->val),
                                       GetContainerMPIType(this->val), op, n,
-                                      *(this->comm), &(this->req)));
+                                      *(this->pcomm), &(this->req)));
 
     } else {
       PARTHENON_MPI_CHECK(MPI_Ireduce(contiguous_container::data(this->val), nullptr,
                                       contiguous_container::size(this->val),
                                       GetContainerMPIType(this->val), op, n,
-                                      *(this->comm), &(this->req)));
+                                      *(this->pcomm), &(this->req)));
     }
 #endif
     this->active = true;
