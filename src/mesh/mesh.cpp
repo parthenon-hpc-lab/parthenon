@@ -1189,6 +1189,12 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
   return block_list[i];
 }
 
+std::shared_ptr<MeshBlock>& Mesh::MeshBlockFromLID(const int lid) {
+  PARTHENON_DEBUG_REQUIRE(0 <= lid && lid < block_list.size(),
+                          "MeshBlock lid out of bounds.");
+  return block_list[lid];
+}
+
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc,
 //                 RegionSize &block_size, BundaryFlag *block_bcs)
