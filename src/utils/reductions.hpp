@@ -13,12 +13,12 @@
 #ifndef UTILS_REDUCTIONS_HPP_
 #define UTILS_REDUCTIONS_HPP_
 
+#include <memory>
 #include <vector>
 
 #include <config.hpp>
 #include <globals.hpp>
 #include <kokkos_abstraction.hpp>
-#include <memory>
 #include <parthenon_mpi.hpp>
 #include <utils/cleantypes.hpp>
 #include <utils/concepts_lite.hpp>
