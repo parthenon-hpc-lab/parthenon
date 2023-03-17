@@ -279,11 +279,11 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
       // "3" rows for START, STRIDE, and COUNT for each slab with "5" entries.
       // START: iblock variable(_component)  0   0   0
       // STRIDE: 1               1           1   1   1
-      // COUNT:  1               dims[1]     nx3 nx2 nx1
+      // COUNT:  1               1           nx3 nx2 nx1
       fid << prefix << "    "
           << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
           << " " << i << " 0 0 0 "
-          << " 1 1 1 1 1 1 " << dims[1] << " " << dims321 << "</DataItem>" << std::endl;
+          << " 1 1 1 1 1 1 1 " << dims321 << "</DataItem>" << std::endl;
       writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
                         8);
       fid << prefix << "  "
