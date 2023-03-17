@@ -18,6 +18,7 @@
 #include <config.hpp>
 #include <globals.hpp>
 #include <kokkos_abstraction.hpp>
+#include <memory>
 #include <parthenon_mpi.hpp>
 #include <utils/cleantypes.hpp>
 #include <utils/concepts_lite.hpp>
@@ -67,7 +68,6 @@ struct ReductionBase {
     // Store the communicator in a shared_ptr, so that
     // MPI_Comm_free is called, but only when the last
     // copy of this ReductionBase is destroyed.
-    // TODO should Comm_free be MPI_CHECKed?
     pcomm = std::shared_ptr<MPI_Comm>(new MPI_Comm, MPI_Comm_free);
     PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, pcomm.get()));
 #endif
