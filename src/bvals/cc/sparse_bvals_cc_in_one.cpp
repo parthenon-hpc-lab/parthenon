@@ -394,9 +394,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     std::vector<int> &block_null_buffer = *cache.send_block_buf_vec[ibuf];  
     const auto& var_idx = cache.send_var_idx_vec[ibuf];
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled) {
-      block_null_buffer[var_idx] = 1;
+      block_null_buffer[var_idx] = false;
     } else {
-      block_null_buffer[var_idx] = 0;
+      block_null_buffer[var_idx] = true;
     }
   }
 
@@ -468,9 +468,9 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (all_received) {
     for (int ibuf = 0; ibuf < cache.recv_buf_vec.size(); ++ibuf) {
       std::vector<int> &block_null_buffer = *cache.recv_block_buf_vec[ibuf];
-      bool is_full = block_null_buffer[cache.recv_var_idx_vec[ibuf]];
+      bool is_null = block_null_buffer[cache.recv_var_idx_vec[ibuf]];
       auto &buf = *cache.recv_buf_vec[ibuf]; 
-      if (!is_full) buf.SetToReceivedNull(); 
+      if (is_null) buf.SetToReceivedNull(); 
     }
   } else { 
     Kokkos::Profiling::popRegion();
@@ -504,10 +504,10 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (all_received) {
     //for (int ibuf = 0; ibuf < cache.recv_buf_vec.size(); ++ibuf) {
     //  std::vector<int> &block_null_buffer = *cache.recv_block_buf_vec[ibuf];
-    //  bool is_full = block_null_buffer[cache.recv_var_idx_vec[ibuf]];
+    //  bool is_null = block_null_buffer[cache.recv_var_idx_vec[ibuf]];
     //  auto &buf = *cache.recv_buf_vec[ibuf]; 
-    //  bool buf_is_full = (buf.GetState() == BufferState::received);
-    //  if (is_full != buf_is_full) printf("Bad buffer state on rank %i [%i, %i]\n", Globals::my_rank, is_full, buf_is_full);
+    //  bool buf_is_null = (buf.GetState() == BufferState::received_null);
+    //  if (is_null != buf_is_null) printf("Bad buffer state on rank %i [%i, %i]\n", Globals::my_rank, is_null, buf_is_null);
     //} 
     std::for_each(std::begin(cache.recv_block_unique_bufs), std::end(cache.recv_block_unique_bufs),
                 [](auto pbuf) { pbuf->Stale(); });
