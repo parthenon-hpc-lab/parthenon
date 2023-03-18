@@ -183,10 +183,17 @@ class Mesh {
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
   std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>
       boundary_comm_map, boundary_comm_flxcor_map;
+
+  using block_channel_key_t = std::tuple<int, int, int>;
+  using block_comm_buf_t = CommBuffer<std::vector<int>>;  
+  std::unordered_map<block_channel_key_t, block_comm_buf_t, tuple_hash<block_channel_key_t>> block_null_comm_map; 
+  std::unordered_map<std::string, int> ghost_var_idx_map;
+
   TagMap tag_map;
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
+  MPI_Comm GetCoalescedNullMPIComm() const { return comm_coalesced_null_; }
 #endif
 
   void SetAllVariablesToInitialized() {
@@ -250,6 +257,7 @@ class Mesh {
 #ifdef MPI_PARALLEL
   // Global map of MPI comms for separate variables
   std::unordered_map<std::string, MPI_Comm> mpi_comm_map_;
+  MPI_Comm comm_coalesced_null_;
 #endif
 
   // functions

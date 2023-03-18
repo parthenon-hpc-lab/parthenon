@@ -134,6 +134,9 @@ struct BvarsSubCache_t {
 
   std::vector<std::size_t> send_idx_vec, recv_idx_vec;
   std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
+  std::vector<CommBuffer<std::vector<int>> *> send_block_buf_vec, recv_block_buf_vec;
+  std::vector<int> send_var_idx_vec, recv_var_idx_vec; 
+
   ParArray1D<bool> sending_non_zero_flags;
   ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h;
 

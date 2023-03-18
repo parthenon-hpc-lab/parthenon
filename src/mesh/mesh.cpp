@@ -796,6 +796,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 Mesh::~Mesh() {
 #ifdef MPI_PARALLEL
   // Cleanup MPI comms
+  PARTHENON_MPI_CHECK(MPI_Comm_free(&comm_coalesced_null_));
   for (auto &pair : mpi_comm_map_) {
     PARTHENON_MPI_CHECK(MPI_Comm_free(&(pair.second)));
   }
@@ -1106,6 +1107,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // send FillGhost variables
     boundary_comm_map.clear();
     boundary_comm_flxcor_map.clear();
+    block_null_comm_map.clear();
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       cell_centered_bvars::BuildSparseBoundaryBuffers(md);
@@ -1299,6 +1301,7 @@ const RegionSize &Mesh::GetBlockSize() const { return pdummy_block->block_size; 
 // As variables are identical across all blocks, we just use the info from the first.
 void Mesh::SetupMPIComms() {
 #ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &comm_coalesced_null_));
 
   for (auto &pair : resolved_packages->AllFields()) {
     auto &metadata = pair.second;
