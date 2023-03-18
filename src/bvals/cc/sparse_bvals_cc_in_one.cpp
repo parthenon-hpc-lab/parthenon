@@ -122,7 +122,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     
     if (pmesh->block_null_comm_map.count(s_block_key) == 0) {
       pmesh->block_null_comm_map[s_block_key] = CommBuffer<std::vector<int>>(
-        tag, sender_rank, receiver_rank, comm_null, [nvars](){return std::vector<int>(nvars);}, false); 
+        tag, sender_rank, receiver_rank, comm_null, [nvars](){return std::vector<int>(nvars);}, true); 
       pmesh->block_null_comm_map[s_block_key].Allocate(); 
     }
 
@@ -144,7 +144,7 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
           tag, receiver_rank, sender_rank, comm, get_resource_method, use_sparse_buffers);
       if (pmesh->block_null_comm_map.count(r_block_key) == 0) {
         pmesh->block_null_comm_map[r_block_key] = CommBuffer<std::vector<int>>(
-          tag, receiver_rank, sender_rank, comm_null, [nvars](){return std::vector<int>(nvars);}, false); 
+          tag, receiver_rank, sender_rank, comm_null, [nvars](){return std::vector<int>(nvars);}, true); 
         pmesh->block_null_comm_map[r_block_key].Allocate(); 
       }
       // Separate flxcor buffer if needed
@@ -174,9 +174,9 @@ TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 // simple tests, this did not have a big impact on performance but I think it is useful to
 // leave the machinery here since it doesn't seem to have a big overhead associated with
 // it (LFR).
-template <BoundaryType bound_type, class V1, class V2, class V3, class V4, class F>
+template <BoundaryType bound_type, class V1, class V2, class V3, class V4, class SET, class F>
 void BuildBufferCache(std::shared_ptr<MeshData<Real>> &md, V1 *pbuf_vec, V2 *pidx_vec, 
-                      V3 *pblock_buf_vec, V4* pvar_idx_vec, F KeyFunc) {
+                      V3 *pblock_buf_vec, V4* pvar_idx_vec, SET* pblock_unique_buf_set, F KeyFunc) {
   Mesh *pmesh = md->GetMeshPointer();
 
   using key_t = std::tuple<int, int, std::string, int>;
@@ -209,6 +209,7 @@ void BuildBufferCache(std::shared_ptr<MeshData<Real>> &md, V1 *pbuf_vec, V2 *pid
   pbuf_vec->clear();
   pblock_buf_vec->clear();
   pvar_idx_vec->clear();
+  pblock_unique_buf_set->clear();
 
   *pidx_vec = std::vector<std::size_t>(key_order.size());
   std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
@@ -219,8 +220,8 @@ void BuildBufferCache(std::shared_ptr<MeshData<Real>> &md, V1 *pbuf_vec, V2 *pid
     auto block_key = std::make_tuple(std::get<0>(key), std::get<1>(key), std::get<3>(key)); 
     auto *pblock_buf = &pmesh->block_null_comm_map[block_key]; 
     pblock_buf_vec->push_back(pblock_buf);
+    pblock_unique_buf_set->insert(pblock_buf);
     pvar_idx_vec->push_back(pmesh->ghost_var_idx_map[std::get<3>(t)]);
-
     (*pidx_vec)[std::get<1>(t)] = buff_idx++;
   });
 }
@@ -234,7 +235,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
   if (cache.send_buf_vec.size() == 0) {
     BuildBufferCache<bound_type>(md, &(cache.send_buf_vec), &(cache.send_idx_vec), 
-                                 &(cache.send_block_buf_vec), &(cache.send_var_idx_vec), SendKey);
+                                 &(cache.send_block_buf_vec), &(cache.send_var_idx_vec), 
+                                 &(cache.send_block_unique_bufs), SendKey);
     const int nbound = cache.send_buf_vec.size();
     if (nbound > 0) {
       cache.sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
@@ -389,20 +391,27 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 #endif
 
   for (int ibuf = 0; ibuf < cache.send_buf_vec.size(); ++ibuf) {
-    auto &buf = *cache.send_buf_vec[ibuf];
     std::vector<int> &block_null_buffer = *cache.send_block_buf_vec[ibuf];  
     const auto& var_idx = cache.send_var_idx_vec[ibuf];
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled) {
-      buf.Send();
       block_null_buffer[var_idx] = 1;
     } else {
-      //buf.SendNull();
       block_null_buffer[var_idx] = 0;
     }
   }
 
-  for (auto &buf : cache.send_block_buf_vec) { 
-    if (buf->GetState() == BufferState::stale) buf->Send();
+  for (auto &buf : cache.send_block_unique_bufs) { 
+    buf->Send();
+  }
+  
+  for (int ibuf = 0; ibuf < cache.send_buf_vec.size(); ++ibuf) {
+    auto &buf = *cache.send_buf_vec[ibuf];
+    const auto& var_idx = cache.send_var_idx_vec[ibuf];
+    if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled) {
+      buf.Send();
+    } else {
+      //buf.SendNull();
+    }
   }
 
   Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
@@ -421,10 +430,15 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache()[bound_type];
   if (cache.recv_buf_vec.size() == 0)
     BuildBufferCache<bound_type>(md, &(cache.recv_buf_vec), &(cache.recv_idx_vec), 
-                                 &(cache.recv_block_buf_vec), &(cache.recv_var_idx_vec), ReceiveKey);
+                                 &(cache.recv_block_buf_vec), &(cache.recv_var_idx_vec), 
+                                 &(cache.recv_block_unique_bufs), ReceiveKey);
+  std::for_each(
+      std::begin(cache.recv_block_unique_bufs), std::end(cache.recv_block_unique_bufs),
+      [](auto pbuf) { pbuf->TryStartReceive(); });
+
   std::for_each(std::begin(cache.recv_buf_vec), std::end(cache.recv_buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
-
+  
   Kokkos::Profiling::popRegion(); // Task_StartReceiveBoundBufs
 
   return TaskStatus::complete;
@@ -444,11 +458,12 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache()[bound_type];
   if (cache.recv_buf_vec.size() == 0)
     BuildBufferCache<bound_type>(md, &(cache.recv_buf_vec), &(cache.recv_idx_vec), 
-                                 &(cache.recv_block_buf_vec), &(cache.recv_var_idx_vec), ReceiveKey);
+                                 &(cache.recv_block_buf_vec), &(cache.recv_var_idx_vec),
+                                 &(cache.recv_block_unique_bufs), ReceiveKey);
 
   bool all_received = true;
   std::for_each(
-      std::begin(cache.recv_block_buf_vec), std::end(cache.recv_block_buf_vec),
+      std::begin(cache.recv_block_unique_bufs), std::end(cache.recv_block_unique_bufs),
       [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
   if (all_received) {
     for (int ibuf = 0; ibuf < cache.recv_buf_vec.size(); ++ibuf) {
@@ -457,6 +472,9 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       auto &buf = *cache.recv_buf_vec[ibuf]; 
       if (!is_full) buf.SetToReceivedNull(); 
     }
+  } else { 
+    Kokkos::Profiling::popRegion();
+    return TaskStatus::incomplete; 
   }
 
   std::for_each(
@@ -491,8 +509,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     //  bool buf_is_full = (buf.GetState() == BufferState::received);
     //  if (is_full != buf_is_full) printf("Bad buffer state on rank %i [%i, %i]\n", Globals::my_rank, is_full, buf_is_full);
     //} 
-    std::for_each(std::begin(cache.recv_block_buf_vec), std::end(cache.recv_block_buf_vec),
-                [](auto pbuf) { if (pbuf->GetState() != BufferState::stale) pbuf->Stale(); });
+    std::for_each(std::begin(cache.recv_block_unique_bufs), std::end(cache.recv_block_unique_bufs),
+                [](auto pbuf) { pbuf->Stale(); });
     return TaskStatus::complete;
   }
   return TaskStatus::incomplete;

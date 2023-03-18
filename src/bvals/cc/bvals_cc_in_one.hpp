@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -124,6 +125,14 @@ struct BvarsSubCache_t {
     recv_buf_vec.clear();
     send_idx_vec.clear();
     recv_idx_vec.clear();
+
+    send_var_idx_vec.clear();
+    recv_var_idx_vec.clear();
+    send_block_buf_vec.clear();
+    recv_block_buf_vec.clear();
+    send_block_unique_bufs.clear();
+    recv_block_unique_bufs.clear();
+    
     sending_non_zero_flags = ParArray1D<bool>{};
     sending_non_zero_flags_h = ParArray1D<bool>::host_mirror_type{};
     send_bnd_info = BufferCache_t{};
@@ -134,6 +143,8 @@ struct BvarsSubCache_t {
 
   std::vector<std::size_t> send_idx_vec, recv_idx_vec;
   std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> send_buf_vec, recv_buf_vec;
+
+  std::unordered_set<CommBuffer<std::vector<int>> *> send_block_unique_bufs, recv_block_unique_bufs;
   std::vector<CommBuffer<std::vector<int>> *> send_block_buf_vec, recv_block_buf_vec;
   std::vector<int> send_var_idx_vec, recv_var_idx_vec; 
 
