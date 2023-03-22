@@ -591,7 +591,14 @@ class AutomaticTimingGuard {
     for (auto& pmbd : bdl_) 
       pmbd->GetBlockPointer()->StopTimeMeasurement();
   }
-
+  
+  // This should not be copyable or movable so that every destructor is paired
+  // with a single constructor 
+  AutomaticTimingGuard(const AutomaticTimingGuard&) = delete; 
+  AutomaticTimingGuard(AutomaticTimingGuard&&) = delete; 
+  AutomaticTimingGuard &operator=(const AutomaticTimingGuard&) = delete; 
+  AutomaticTimingGuard &operator=(AutomaticTimingGuard&&) = delete; 
+  
  private: 
   BlockDataList_t<Real> bdl_; 
   MeshBlockData<Real> *single_pmbd_;
