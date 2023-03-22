@@ -41,6 +41,7 @@ using namespace impl;
 
 TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_LoadAndSendFluxCorrections");
+  AutomaticTimingGuard block_timing_guard(md);
 
   Mesh *pmesh = md->GetMeshPointer();
 
@@ -214,7 +215,8 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetFluxCorrections");
-
+  AutomaticTimingGuard block_timing_guard(md);
+   
   Mesh *pmesh = md->GetMeshPointer();
 
   ForEachBoundary<BoundaryType::flxcor_recv>(

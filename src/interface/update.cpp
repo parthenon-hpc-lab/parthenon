@@ -143,7 +143,8 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   }
 
   Kokkos::Profiling::pushRegion("Task_SparseDealloc");
-
+  AutomaticTimingGuard block_timing_guard(md);
+  
   const IndexRange ib = md->GetBoundsI(IndexDomain::entire);
   const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
   const IndexRange kb = md->GetBoundsK(IndexDomain::entire);

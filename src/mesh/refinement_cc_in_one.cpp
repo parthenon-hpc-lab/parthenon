@@ -74,7 +74,8 @@ std::vector<bool> ComputePhysicalRestrictBoundsAllocStatus(MeshData<Real> *md) {
 
 TaskStatus RestrictPhysicalBounds(MeshData<Real> *md) {
   Kokkos::Profiling::pushRegion("Task_RestrictPhysicalBounds_MeshData");
-
+  AutomaticTimingGuard block_timing_guard(md); 
+  
   // get alloc status
   auto alloc_status = ComputePhysicalRestrictBoundsAllocStatus(md);
 

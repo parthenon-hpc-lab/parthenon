@@ -39,6 +39,7 @@ void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc,
 TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
   if (!(rc->GetBlockPointer()->pmy_mesh->multilevel)) return TaskStatus::complete;
   Kokkos::Profiling::pushRegion("Task_ProlongateBoundaries");
+  AutomaticTimingGuard block_timing_guard(rc);
 
   // Impose physical boundaries on the coarse zones and prolongate to
   // the fine as needed.
@@ -89,6 +90,8 @@ TaskStatus ApplyBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd) {
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse) {
   Kokkos::Profiling::pushRegion("Task_ApplyBoundaryConditionsOnCoarseOrFine");
+  AutomaticTimingGuard block_timing_guard(rc); 
+
   using namespace boundary_cond_impl;
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   Mesh *pmesh = pmb->pmy_mesh;

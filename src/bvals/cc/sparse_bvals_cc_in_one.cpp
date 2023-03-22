@@ -43,6 +43,7 @@ using namespace impl;
 // in InitializeBlockTimeStepsAndBoundaries()
 TaskStatus BuildSparseBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
+  AutomaticTimingGuard block_timing_guard(md);
   Mesh *pmesh = md->GetMeshPointer();
   auto &all_caches = md->GetBvarsCache();
 
@@ -229,6 +230,7 @@ void BuildBufferCache(std::shared_ptr<MeshData<Real>> &md, V1 *pbuf_vec, V2 *pid
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundBufs");
+  AutomaticTimingGuard block_timing_guard(md); 
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
@@ -413,7 +415,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       //buf.SendNull();
     }
   }
-
+  
+  for (auto& pmbd : md->GetBlockData()) 
+      pmbd->GetBlockPointer()->StopTimeMeasurement();
   Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
   return TaskStatus::complete;
 }
@@ -526,7 +530,8 @@ ReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetInternalBoundaries");
-
+  AutomaticTimingGuard block_timing_guard(md);
+  
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache()[bound_type];
 

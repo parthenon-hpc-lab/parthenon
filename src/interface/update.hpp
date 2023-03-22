@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "defs.hpp"
+#include "interface/mesh_data.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
 #include "interface/sparse_pack.hpp"
@@ -69,6 +70,7 @@ template <typename F, typename T>
 TaskStatus WeightedSumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,
                            const Real w2, T *out) {
   Kokkos::Profiling::pushRegion("Task_WeightedSumData");
+  AutomaticTimingGuard block_timing_guard(out);
   const auto &x = in1->PackVariables(flags);
   const auto &y = in2->PackVariables(flags);
   const auto &z = out->PackVariables(flags);
@@ -118,6 +120,7 @@ TaskStatus AverageIndependentData(T *c1, T *c2, const Real wgt1) {
 template <typename T>
 TaskStatus EstimateTimestep(T *rc) {
   Kokkos::Profiling::pushRegion("Task_EstimateTimestep");
+  AutomaticTimingGuard block_timing_guard(rc);
   Real dt_min = std::numeric_limits<Real>::max();
   for (const auto &pkg : rc->GetParentPointer()->packages.AllPackages()) {
     Real dt = pkg.second->EstimateTimestep(rc);
@@ -131,6 +134,7 @@ TaskStatus EstimateTimestep(T *rc) {
 template <typename T>
 TaskStatus PreCommFillDerived(T *rc) {
   Kokkos::Profiling::pushRegion("Task_PreCommFillDerived");
+  AutomaticTimingGuard block_timing_guard(rc);
   auto pm = rc->GetParentPointer();
   for (const auto &pkg : pm->packages.AllPackages()) {
     pkg.second->PreCommFillDerived(rc);
@@ -142,6 +146,7 @@ TaskStatus PreCommFillDerived(T *rc) {
 template <typename T>
 TaskStatus FillDerived(T *rc) {
   Kokkos::Profiling::pushRegion("Task_FillDerived");
+  AutomaticTimingGuard block_timing_guard(rc);
   auto pm = rc->GetParentPointer();
   Kokkos::Profiling::pushRegion("PreFillDerived");
   for (const auto &pkg : pm->packages.AllPackages()) {
@@ -164,6 +169,7 @@ TaskStatus FillDerived(T *rc) {
 
 template <typename T>
 TaskStatus InitNewlyAllocatedVars(T *rc) {
+  AutomaticTimingGuard block_timing_guard(rc);
   if (!rc->AllVariablesInitialized()) {
     std::cout << "Initializing variable interiors after allocation" << std::endl;
 
