@@ -178,6 +178,28 @@ void AssignAndUpdateBlocksBisect(std::vector<Real> const &costlist, std::vector<
     BlockRankRange root(0, max_rank, 0, nblocks-1);
     bisect_blocks(sum_costs, root, start, nb);
 
+    if (Globals::my_rank == 0) { 
+      // Calculate the cost per rank that we have assigned 
+      Real cost_min = std::numeric_limits<Real>::max(); 
+      Real cost_max = std::numeric_limits<Real>::min(); 
+      Real cost_average = 0.0; 
+      for (int i = 0; i <= max_rank; ++i) { 
+        Real cost = 0.0; 
+        for (int b = start[i]; b < start[i] + nb[i]; ++b) cost += costlist[b]; 
+        cost_average += cost; 
+        cost_min = std::min(cost_min, cost); 
+        cost_max = std::max(cost_max, cost); 
+      }
+      cost_average /= max_rank + 1;
+      //FILE * fp;
+      //fp = fopen ("cost_lists.txt", "a+");
+      printf("Load balancing rank costs: min = %e avg = %e max = %e\n", cost_min, cost_average, cost_max);
+      //for (int b=0; b < nblocks; ++b) 
+      //  fprintf(fp, "%i %e\n", b, costlist[b]);  
+      //fprintf(fp, "\n"); 
+      //fclose(fp);
+    }
+
     for (int i = 0; i <= max_rank; i++) {
       for (int b = start[i]; b < start[i]+nb[i]; b++) {
         ranklist[b] = i;
@@ -228,9 +250,9 @@ void AssignAndUpdateBlocks(std::vector<Real> const &cost, std::vector<int> &rank
     total_cost += cost[b];
     max_block_cost = std::max(max_block_cost, cost[b]);
   }
-  const int max_rank = std::min(Globals::nranks, nblocks);
-  const Real avg_cost = total_cost / max_rank;
-  for (int i = max_rank; i < Globals::nranks; i++) {
+  const int nranks = std::min(Globals::nranks, nblocks);
+  const Real avg_cost = total_cost / nranks;
+  for (int i = nranks; i < Globals::nranks; i++) {
     start[i] = -1;
     nb[i] = 0;
   }
@@ -243,8 +265,8 @@ void AssignAndUpdateBlocks(std::vector<Real> const &cost, std::vector<int> &rank
   constexpr Real invphi2 = 0.38196601125010515179541316563436188228;
   Real c = a + invphi2 * h;
   Real d = a + invphi * h;
-  Real yc = DistributeTrial(cost, start, nb, max_rank, c);
-  Real yd = DistributeTrial(cost, start, nb, max_rank, d);
+  Real yc = DistributeTrial(cost, start, nb, nranks, c);
+  Real yd = DistributeTrial(cost, start, nb, nranks, d);
 
   while (yc != yd) {
     if (yc < yd) {
@@ -253,18 +275,40 @@ void AssignAndUpdateBlocks(std::vector<Real> const &cost, std::vector<int> &rank
       yd = yc;
       h = invphi * h;
       c = a + invphi2 * h;
-      yc = DistributeTrial(cost, start, nb, max_rank, c);
+      yc = DistributeTrial(cost, start, nb, nranks, c);
     } else {
       a = c;
       c = d;
       yc = yd;
       h = invphi * h;
       d = a + invphi * h;
-      yd = DistributeTrial(cost, start, nb, max_rank, d);
+      yd = DistributeTrial(cost, start, nb, nranks, d);
     }
   }
+  
+  if (Globals::my_rank == 0) { 
+    // Calculate the cost per rank that we have assigned 
+    Real cost_min = std::numeric_limits<Real>::max(); 
+    Real cost_max = std::numeric_limits<Real>::min(); 
+    Real cost_average = 0.0; 
+    for (int i = 0; i < nranks; ++i) { 
+      Real lcost = 0.0; 
+      for (int b = start[i]; b < start[i] + nb[i]; ++b) lcost += cost[b]; 
+      cost_average += lcost; 
+      cost_min = std::min(cost_min, lcost); 
+      cost_max = std::max(cost_max, lcost); 
+    }
+    cost_average /= nranks;
+    //FILE * fp;
+    //fp = fopen ("cost_lists.txt", "a+");
+    printf("Load balancing rank costs: min = %e avg = %e max = %e\n", cost_min, cost_average, cost_max);
+    //for (int b=0; b < nblocks; ++b) 
+    //  fprintf(fp, "%i %e\n", b, costlist[b]);  
+    //fprintf(fp, "\n"); 
+    //fclose(fp);
+  }
 
-  for (int i = 0; i < max_rank; i++) {
+  for (int i = 0; i < nranks; i++) {
     for (int b = start[i]; b < start[i]+nb[i]; b++) {
       ranklist[b] = i;
     }
