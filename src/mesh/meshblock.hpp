@@ -450,6 +450,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // functions and variables for automatic load balancing based on timing
   Kokkos::Timer lb_timer;
   double cost_;
+ public:
   void ResetTimeMeasurement();
   void StartTimeMeasurement();
   void StopTimeMeasurement();
