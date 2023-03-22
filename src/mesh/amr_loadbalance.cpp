@@ -154,7 +154,7 @@ void bisect_blocks(std::vector<Real> &sum_cost, BlockRankRange &r, std::vector<i
   }
 }
 
-void AssignAndUpdateBlocks(std::vector<Real> const &costlist, std::vector<int> &ranklist,
+void AssignAndUpdateBlocksBisect(std::vector<Real> const &costlist, std::vector<int> &ranklist,
                            std::vector<int> &start, std::vector<int> &nb) {
   start.resize(Globals::nranks);
   nb.resize(Globals::nranks);
@@ -182,6 +182,91 @@ void AssignAndUpdateBlocks(std::vector<Real> const &costlist, std::vector<int> &
       for (int b = start[i]; b < start[i]+nb[i]; b++) {
         ranklist[b] = i;
       }
+    }
+  }
+}
+
+Real DistributeTrial(std::vector<Real> const &cost, std::vector<int> &start,
+                     std::vector<int> &nb, const int nranks, Real target_max) {
+  Real trial_max = 0.0;
+  const int nblocks = cost.size();
+  int nleft = nblocks;
+  int last = 0;
+  for (int rank = 0; rank < nranks; rank++) {
+    const int ranks_left = nranks - rank;
+    start[rank] = last;
+    Real rank_cost = cost[last];
+    nleft--;
+    while (nleft > ranks_left && rank_cost + cost[last+1] < target_max) {
+      last += 1;
+      rank_cost += cost[last];
+      nleft--;
+    }
+    last++;
+    if (rank == nranks-1) {
+      for (int n = last; n < nblocks; n++) {
+        rank_cost += cost[n];
+      }
+      last = nblocks;
+    }
+    nb[rank] = last - start[rank];
+    trial_max = std::max(trial_max, rank_cost);
+  }
+  return trial_max;
+}
+
+void AssignAndUpdateBlocks(std::vector<Real> const &cost, std::vector<int> &ranklist,
+                           std::vector<int> &start, std::vector<int> &nb) {
+  start.resize(Globals::nranks);
+  nb.resize(Globals::nranks);
+  const int nblocks = cost.size();
+  ranklist.resize(nblocks);
+
+  Real total_cost = 0.0;
+  Real max_block_cost = 0.0;
+  for (int b = 0; b < nblocks; b++) {
+    total_cost += cost[b];
+    max_block_cost = std::max(max_block_cost, cost[b]);
+  }
+  const int max_rank = std::min(Globals::nranks, nblocks);
+  const Real avg_cost = total_cost / max_rank;
+  for (int i = max_rank; i < Globals::nranks; i++) {
+    start[i] = -1;
+    nb[i] = 0;
+  }
+
+  // set the bounds for the search
+  Real a = avg_cost;
+  Real b = std::max(2.0*avg_cost, 1.01*max_block_cost);
+  Real h = b - a;
+  constexpr Real invphi = 0.618033988749894848204586834366;
+  constexpr Real invphi2 = 0.38196601125010515179541316563436188228;
+  Real c = a + invphi2 * h;
+  Real d = a + invphi * h;
+  Real yc = DistributeTrial(cost, start, nb, max_rank, c);
+  Real yd = DistributeTrial(cost, start, nb, max_rank, d);
+
+  while (yc != yd) {
+    if (yc < yd) {
+      b = d;
+      d = c;
+      yd = yc;
+      h = invphi * h;
+      c = a + invphi2 * h;
+      yc = DistributeTrial(cost, start, nb, max_rank, c);
+    } else {
+      a = c;
+      c = d;
+      yc = yd;
+      h = invphi * h;
+      d = a + invphi * h;
+      yd = DistributeTrial(cost, start, nb, max_rank, d);
+    }
+  }
+
+  for (int i = 0; i < max_rank; i++) {
+    for (int b = start[i]; b < start[i]+nb[i]; b++) {
+      ranklist[b] = i;
     }
   }
 }
