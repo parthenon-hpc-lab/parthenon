@@ -402,7 +402,9 @@ void Mesh::UpdateCostList() {
   if (lb_automatic_) {
     double w = static_cast<double>(lb_interval_ - 1) / static_cast<double>(lb_interval_);
     for (auto &pmb : block_list) {
-      costlist[pmb->gid] = costlist[pmb->gid] * w + pmb->cost_;
+      //costlist[pmb->gid] = costlist[pmb->gid] * w + pmb->cost_;
+      costlist[pmb->gid] = pmb->cost_; 
+      pmb->ResetTimeMeasurement();
     }
   } else if (lb_flag_) {
     for (auto &pmb : block_list) {
