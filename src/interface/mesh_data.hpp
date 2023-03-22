@@ -304,7 +304,8 @@ class MeshData {
       block_data_[i]->Copy(src->GetBlockData(i), std::forward<Args>(args)...);
     }
   }
-
+  
+  BlockDataList_t<Real> &GetBlockData() { return block_data_; } 
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
     assert(n >= 0 && n < block_data_.size());
     return block_data_[n];
@@ -562,6 +563,38 @@ class MeshData {
   // Cache both host and device buffer info. Reduces mallocs, and also
   // means the bounds values are available on host if needed.
   cell_centered_bvars::BufferCacheHost_t restrict_buffers_h_{};
+};
+
+class AutomaticTimingGuard {
+ public:
+  AutomaticTimingGuard(MeshData<Real> *md) : bdl_(md->GetBlockData()), single_pmbd_(nullptr) {
+    for (auto& pmbd : bdl_) 
+      pmbd->GetBlockPointer()->StartTimeMeasurement();
+  }
+  
+  AutomaticTimingGuard(std::shared_ptr<MeshData<Real>> &md) : bdl_(md->GetBlockData()), single_pmbd_(nullptr) {
+    for (auto& pmbd : bdl_) 
+      pmbd->GetBlockPointer()->StartTimeMeasurement();
+  }
+  
+  AutomaticTimingGuard(std::shared_ptr<MeshBlockData<Real>> &mbd) : bdl_{mbd}, single_pmbd_(nullptr) {
+    for (auto& pmbd : bdl_) 
+      pmbd->GetBlockPointer()->StartTimeMeasurement();
+  }
+  
+  AutomaticTimingGuard(MeshBlockData<Real> *mbd) : bdl_{}, single_pmbd_(mbd) {
+    single_pmbd_->GetBlockPointer()->StartTimeMeasurement();
+  }
+
+  ~AutomaticTimingGuard() { 
+    if (single_pmbd_) single_pmbd_->GetBlockPointer()->StopTimeMeasurement();
+    for (auto& pmbd : bdl_) 
+      pmbd->GetBlockPointer()->StopTimeMeasurement();
+  }
+
+ private: 
+  BlockDataList_t<Real> bdl_; 
+  MeshBlockData<Real> *single_pmbd_;
 };
 
 } // namespace parthenon
