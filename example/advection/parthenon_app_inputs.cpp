@@ -250,21 +250,21 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
 }
 
 void MeshBlockFillDerivedVars(MeshBlock *pmb, ParameterInput *pin) {
-  auto cellbounds = pmb->cellbounds;
-  IndexRange ib = cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
-
   auto &data = pmb->meshblock_data.Get();
-  PackIndexMap index_map;
-  auto cons =
-      data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, index_map);
-  const auto idx_adv = index_map.get("advected").first;
+
+  // get advected variable pack
+  PackIndexMap map;
+  const auto &cons = data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, map);
+  const auto idx_adv = map.get("advected").first;
 
   // get derived variable pack
-  auto deriv = data->PackVariables(std::vector<std::string>{"derived"});
+  auto &deriv = data->PackVariables(std::vector<std::string>{"my_derived_var"});
 
-  // fill derived var
+  // fill derived var (including ghost cells)
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+
   pmb->par_for(
       "FillDerived", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {

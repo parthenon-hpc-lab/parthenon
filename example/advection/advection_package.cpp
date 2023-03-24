@@ -191,6 +191,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     pkg->AddSparsePool(field_name, m, std::vector<int>{12, 37});
   }
 
+  // add derived output variable
+  m = Metadata({Metadata::Cell, Metadata::OneCopy}, std::vector<int>({1}));
+  pkg->AddField("my_derived_var", m);
+
   // List (vector) of HistoryOutputVar that will all be enrolled as output variables
   parthenon::HstVar_list hst_vars = {};
   // Now we add a couple of callback functions
