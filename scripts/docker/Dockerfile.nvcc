@@ -3,7 +3,7 @@ FROM nvidia/cuda:11.6.1-devel-ubuntu20.04
 RUN apt-get clean && apt-get update -y && \
     DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-11-6 cmake ninja-build
 
-RUN pip3 install --user unyt
+RUN pip3 install unyt
 
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
     echo "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-15 main" > /etc/apt/sources.list.d/llvm.list
@@ -37,3 +37,18 @@ RUN cd /tmp && \
     rm -rf /tmp/hdf5-1.12.2*
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 10
+
+RUN curl -L https://github.com/Kitware/CMake/releases/download/v3.23.2/cmake-3.23.2-linux-x86_64.tar.gz -o cmake-3.23.2-linux-x86_64.tar.gz && \
+    tar -xzf cmake-3.23.2-linux-x86_64.tar.gz -C /opt
+
+ENV PATH=/opt/cmake-3.23.2-linux-x86_64/bin:$PATH
+
+COPY build_ascent_cuda.sh /tmp/build-ascent/build_ascent_cuda.sh
+
+RUN cd /tmp/build-ascent && \
+    bash build_ascent_cuda.sh && \
+    cd / && \
+    rm -rf /tmp/build-ascent
+
+# manually downgrade numpy as deprecated `typeDict` is still used by h5py
+RUN pip install numpy==1.21
