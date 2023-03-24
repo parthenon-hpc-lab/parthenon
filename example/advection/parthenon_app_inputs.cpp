@@ -253,9 +253,7 @@ void MeshBlockFillDerivedVars(MeshBlock *pmb, ParameterInput *pin) {
   auto &data = pmb->meshblock_data.Get();
 
   // get advected variable pack
-  PackIndexMap map;
-  const auto &cons = data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, map);
-  const auto idx_adv = map.get("advected").first;
+  const auto &cons = data->PackVariables(std::vector<std::string>{"advected"});
 
   // get derived variable pack
   auto &deriv = data->PackVariables(std::vector<std::string>{"my_derived_var"});
@@ -268,7 +266,7 @@ void MeshBlockFillDerivedVars(MeshBlock *pmb, ParameterInput *pin) {
   pmb->par_for(
       "FillDerived", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        deriv(0, k, j, i) = std::log10(cons(idx_adv, k, j, i));
+        deriv(0, k, j, i) = std::log10(cons(0, k, j, i) + 1.0e-5);
       });
 }
 

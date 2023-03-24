@@ -75,7 +75,8 @@ dt = 0.05
 variables = advected, advected_1, & # comments are ok
             one_minus_advected, &
             one_minus_advected_sq, & # on every (& characters are ok in comments)
-            one_minus_sqrt_one_minus_advected_sq # line
+            one_minus_sqrt_one_minus_advected_sq, & # line
+            my_derived_var
 
 <parthenon/output3>
 file_type = hst
