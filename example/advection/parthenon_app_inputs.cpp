@@ -21,6 +21,7 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/variable_pack.hpp"
+#include "parameter_input.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -246,6 +247,32 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   }
 
   return;
+}
+
+void MeshBlockFillDerivedVars(MeshBlock *pmb, ParameterInput *pin) {
+  // fill derived vars as desired
+  auto cellbounds = pmb->cellbounds;
+  IndexRange ib = cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
+
+  auto &data = pmb->meshblock_data.Get();
+  PackIndexMap index_map;
+  auto cons =
+      data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, index_map);
+  const auto idx_adv = index_map.get("advected").first;
+
+  // get derived variable pack
+  PackIndexMap index_map_derived;
+  auto derivPack = data->PackVariables(std::vector<std::string>{"derived"}, index_map);
+  auto deriv = derivPack(0);
+  const auto idx_deriv = index_map_derived.get("log_advected").first;
+
+  pmb->par_for(
+      "FillDerived", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        deriv(idx_deriv, k, j, i) = std::log10(cons(idx_adv, k, j, i));
+      });
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {

@@ -114,6 +114,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   } else if (app_in->MeshProblemGenerator == nullptr) {
     ProblemGenerator = &ProblemGeneratorDefault;
   }
+  if (app_in->MeshBlockFillDerivedVars != nullptr) {
+    FillDerivedVars = app_in->MeshBlockFillDerivedVars;
+  }
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;
   }

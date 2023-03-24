@@ -275,6 +275,12 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void
+  FillDerivedVarsDefault(MeshBlock *pmb, ParameterInput *pin); // called in Mesh fn (friend class)
+  std::function<void(MeshBlock *, ParameterInput *)> FillDerivedVars =
+      &FillDerivedVarsDefault;
+
+  // defined in either the prob file or default_pgen.cpp in ../pgen/
+  static void
   UserWorkBeforeOutputDefault(MeshBlock *pmb,
                               ParameterInput *pin); // called in Mesh fn (friend class)
   std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeOutput =

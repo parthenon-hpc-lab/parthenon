@@ -121,6 +121,16 @@ void MeshBlock::ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin) {
 }
 
 //========================================================================================
+//! \fn void MeshBlock::FillDerivedVarsDefault(MeshBlock *pmb, ParameterInput *pin)
+//  \brief Function called before generating output files
+//========================================================================================
+
+void MeshBlock::FillDerivedVarsDefault(MeshBlock *pmb, ParameterInput *pin) {
+  // do nothing
+  return;
+}
+
+//========================================================================================
 //! \fn void MeshBlock::UserWorkBeforeOutputDefault(MeshBlock *pmb, ParameterInput *pin)
 //  \brief Function called before generating output files
 //========================================================================================

@@ -39,6 +39,9 @@ class AdvectionDriver : public MultiStageDriver {
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);
 void UserWorkAfterLoop(Mesh *mesh, parthenon::ParameterInput *pin,
                        parthenon::SimTime &tm);
+
+void MeshBlockFillDerivedVars(MeshBlock *pmb, ParameterInput *pin);
+
 parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);
 
 } // namespace advection_example

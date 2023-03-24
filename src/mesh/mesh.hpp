@@ -135,6 +135,7 @@ class Mesh {
 
   std::shared_ptr<MeshBlock> FindMeshBlock(int tgid) const;
 
+  void FillDerivedVars(ParameterInput *pin);
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
 
   // Boundary Functions
