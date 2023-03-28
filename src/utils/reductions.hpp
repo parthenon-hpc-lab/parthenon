@@ -68,7 +68,7 @@ struct ReductionBase {
     // Store the communicator in a shared_ptr, so that
     // MPI_Comm_free is called, but only when the last
     // copy of this ReductionBase is destroyed.
-    pcomm = std::shared_ptr<MPI_Comm>(new MPI_Comm, MPI_Comm_free);
+    pcomm = std::shared_ptr<MPI_Comm>(new MPI_Comm, MPI_Comm_disconnect);
     PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, pcomm.get()));
 #endif
   }
