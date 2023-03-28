@@ -247,6 +247,9 @@ set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
 target_compile_features(parthenon PUBLIC cxx_std_17)
 
+target_link_options(parthenon PUBLIC "$<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.1>>:-lstdc++fs>" )
+target_link_options(parthenon PUBLIC "$<$<AND:$<CXX_COMPILER_ID:Clang>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lc++fs>" )
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
 endif()
@@ -274,6 +277,7 @@ endif()
 if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
    target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
 endif()
+
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
