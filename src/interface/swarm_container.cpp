@@ -18,6 +18,7 @@
 #include "globals.hpp" // my_rank
 #include "mesh/mesh.hpp"
 #include "swarm_container.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -43,11 +44,10 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
   auto swarm = std::make_shared<Swarm>(label, metadata);
   swarm->SetBlockPointer(GetBlockPointer());
   swarm->AllocateComms(GetBlockPointer());
-  swarmVector_.push_back(swarm);
-  swarmMap_[label] = swarm;
-  UpdateMetadataMap_(swarm);
+  Add(swarm);
 }
 
+// TODO(JMM): Should we support this operation
 void SwarmContainer::Remove(const std::string &label) {
   // Find index of swarm
   int isize = swarmVector_.size();
@@ -59,10 +59,14 @@ void SwarmContainer::Remove(const std::string &label) {
     idx++;
   }
   if (idx >= isize) {
-    throw std::invalid_argument("swarm not found in Remove()");
+    PARTHENON_FAIL("swarm not found in Remove()");
   }
 
-  // first delete the variable
+  // Pull out metadata
+  const SP_Swarm pswarm = swarmVector_[idx];
+  const Metadata &m = pswarm->metadata();
+
+  // Delete the variable
   swarmVector_[idx].reset();
 
   // Next move the last element into idx and pop last entry
@@ -72,6 +76,19 @@ void SwarmContainer::Remove(const std::string &label) {
 
   // Also remove swarm from map
   swarmMap_.erase(label);
+  for (const auto &flag : m.Flags()) {
+    swarmMetadataMap_[flag].erase(pswarm);
+  }
+}
+
+// Return swarms meeting some conditions
+SwarmSet SwarmContainer::GetSwarmsByFlag(const Metadata::FlagCollection &flags) {
+  Kokkos::Profiling::pushRegion("GetSwarmsByFlag");
+  
+  auto swarms = MetadataUtils::GetByFlag<SwarmSet>(flags, swarmMap_, swarmMetadataMap_);
+
+  Kokkos::Profiling::popRegion(); // GetSwarmsByName
+  return swarms;
 }
 
 TaskStatus SwarmContainer::Defrag(double min_occupancy) {

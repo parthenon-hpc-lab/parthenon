@@ -168,9 +168,10 @@ Outputs
 Outputs for swarms can be set in an output block, just like any other
 variable. The user must specify two comma separated lists:
 
-* ``swarms = swarm1, swarm2, ...`` etc. This specifies that these
-  swarms are marked for output.
+* ``swarms = swarm1, swarm2, ...`` etc. This specifies that these swarms
+  are marked for output.
+
 * ``swarm_variables = var1, var2, ...`` etc. This specifies that for
   each swarm the listed variables should be output. Note that if a
-  swarm is missing a variable in the swarm_variables list, no error is
-  raised. All available variables are output.
+  swarm is missing a variable in the ``swarm_variables`` list, no
+  error is raised. All available variables are output.

@@ -140,10 +140,8 @@ class MetadataFlag {
   // This allows `Metadata` and `UserMetadataState` to instantiate `MetadataFlag`.
   friend class Metadata;
   friend class internal::UserMetadataState;
-  // friend class MetadataFlagHasher;
 
  public:
-  MetadataFlag() : flag_(static_cast<int>(internal::MetadataInternal::Ignore)) {}
   constexpr bool operator==(MetadataFlag const &other) const {
     return flag_ == other.flag_;
   }
@@ -656,6 +654,68 @@ class Metadata {
     return num;
   }
 };
+
+namespace MetadataUtils {
+// From a given container, extract all variables whose Metadata matchs the all of the
+// given flags (if the list of flags is empty, extract all variables), optionally only
+// extracting sparse fields with an index from the given list of sparse indices
+//
+// JMM: This algorithm uses the map from metadata flags to variables
+// to accelerate performance.
+//
+// The cost of this loop scales as O(Nflags * Nvars/flag) In worst
+// case, this is linear in number of variables. However, on average,
+// the number of vars with a desired flag will be much smaller than
+// all vars. So average performance is much better than linear.
+template <typename Set_t, typename NameMap_t, typename MetadataMap_t>
+Set_t GetByFlag(const Metadata::FlagCollection &flags,
+		NameMap_t &nameMap, MetadataMap_t &metadataMap) {
+  // JMM: I'd like to make all inputs const, but apparently for (const
+  // auto &thing : container) violates const correctness
+  Set_t out;
+  if (flags.Empty()) {
+    for (const auto &p : nameMap) {
+      out.insert(p.second);
+    }
+    return out;
+  }
+  const auto &intersections = flags.GetIntersections();
+  const auto &unions = flags.GetUnions();
+  const auto &exclusions = flags.GetExclusions();
+  const bool check_excludes = exclusions.size() > 0;
+  
+  if (intersections.size() > 0) {
+    // Dirty trick to get literally any flag from the intersections set
+    MetadataFlag first_required = *(intersections.begin());
+    
+    for (const auto &v : metadataMap[first_required]) {
+        const auto &m = v->metadata();
+        // TODO(JMM): Note that AnyFlagsSet returns FALSE if the set of flags
+        // it's asked about is empty.  Not sure that's desired
+        // behaviour, but whatever, let's just guard against edge cases
+        // here.
+        if (m.AllFlagsSet(intersections) &&
+            !(check_excludes && m.AnyFlagsSet(exclusions)) &&
+            (unions.empty() || m.AnyFlagsSet(unions))) {
+          // TODO(JMM): When dense sparse packing is moved to Parthenon
+          // develop we need an extra check for IsAllocated here.
+          out.insert(v);
+        }
+      }
+  } else { // unions.size() > 0.
+    for (const auto &f : unions) {
+      for (const auto &v : metadataMap[f]) {
+	// we know intersections.size == 0
+	if (!(check_excludes && (v->metadata()).AnyFlagsSet(exclusions))) {
+	  // TODO(JMM): see above regarding IsAllocated()
+	  out.insert(v);
+	}
+      }
+    }
+  }
+  return out;
+}
+} // namespace MetadataUtils
 
 } // namespace parthenon
 
