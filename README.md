@@ -35,6 +35,7 @@ Parthenon -- a performance portable block-structured adaptive mesh refinement fr
 * MPI
 * OpenMP
 * HDF5 (for outputs)
+* Ascent (for in situ visualization and analysis)
 
 ## Other
 

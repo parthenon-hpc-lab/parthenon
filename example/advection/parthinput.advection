@@ -80,3 +80,8 @@ variables = advected, advected_1, & # comments are ok
 <parthenon/output3>
 file_type = hst
 dt = 0.05
+
+<parthenon/output4>
+file_type = ascent
+dt = -0.05   # soft disabled by default, as Ascent is an optional dependency
+actions_file = custom_ascent_actions.yaml
