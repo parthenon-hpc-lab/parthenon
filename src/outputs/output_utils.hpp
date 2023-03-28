@@ -36,7 +36,7 @@ namespace OutputUtils {
 // Helper struct containing some information about a variable
 struct VarInfo {
   std::string label;
-  int vlen;
+  int num_components;
   int nx6;
   int nx5;
   int nx4;
@@ -52,16 +52,18 @@ struct VarInfo {
 
   VarInfo() = delete;
 
+  // TODO(JMM): Separate this into an implementation file again?
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
-          int vlen, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
+          int num_components, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
           Metadata metadata, bool is_sparse, bool is_vector)
-      : label(label), vlen(vlen), nx6(nx6), nx5(nx5), nx4(nx4), nx3(nx3), nx2(nx2),
-        nx1(nx1), tensor_rank(metadata.Shape().size()), where(metadata.Where()),
-        is_sparse(is_sparse), is_vector(is_vector) {
-    if (vlen <= 0) {
+      : label(label), num_components(num_components), nx6(nx6), nx5(nx5), nx4(nx4),
+        nx3(nx3), nx2(nx2), nx1(nx1), tensor_rank(metadata.Shape().size()),
+        where(metadata.Where()), is_sparse(is_sparse), is_vector(is_vector) {
+    if (num_components <= 0) {
       std::stringstream msg;
-      msg << "### ERROR: Got variable " << label << " with length " << vlen
-          << ". vlen must be greater than 0" << std::endl;
+      msg << "### ERROR: Got variable " << label << " with " << num_components
+          << " components."
+          << " num_components must be greater than 0" << std::endl;
       PARTHENON_FAIL(msg);
     }
 
@@ -77,13 +79,13 @@ struct VarInfo {
     // Similarly, if component labels are given for all components, those will be used
     // without the prefixed label.
     component_labels = {};
-    if (vlen == 1 || is_vector) {
+    if (num_components == 1 || is_vector) {
       component_labels = component_labels_.size() > 0 ? component_labels_
                                                       : std::vector<std::string>({label});
-    } else if (component_labels_.size() == vlen) {
+    } else if (component_labels_.size() == num_components) {
       component_labels = component_labels_;
     } else {
-      for (int i = 0; i < vlen; i++) {
+      for (int i = 0; i < num_components; i++) {
         component_labels.push_back(label + "_" + std::to_string(i));
       }
     }

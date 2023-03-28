@@ -54,7 +54,7 @@ static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
 
 static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name,
                                      const std::vector<std::string> &component_labels,
-                                     std::string &hdfFile, int iblock, const int &vlen,
+                                     std::string &hdfFile, int iblock, const int &num_components,
                                      int &ndims, hsize_t *dims,
                                      const std::string &dims321, bool isVector);
 } // namespace impl
@@ -155,9 +155,9 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
         continue;
       }
 
-      const int vlen = vinfo.vlen;
+      const int num_components = vinfo.num_components;
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
-                               vlen, ndim, dims, dims321, vinfo.is_vector);
+                               num_components, ndim, dims, dims321, vinfo.is_vector);
     }
     xdmf << "      </Grid>" << std::endl;
   }
@@ -195,18 +195,18 @@ static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
 
 static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name,
                                      const std::vector<std::string> &component_labels,
-                                     std::string &hdfFile, int iblock, const int &vlen,
+                                     std::string &hdfFile, int iblock, const int &num_components,
                                      int &ndims, hsize_t *dims,
                                      const std::string &dims321, bool isVector) {
   // writes a slab reference to file
   std::vector<std::string> names;
   int nentries = 1;
-  if (vlen == 1 || isVector) {
-    // we only make one entry, because either vlen == 1, or we write this as a vector
+  if (num_components == 1 || isVector) {
+    // we only make one entry, because either num_components == 1, or we write this as a vector
     names.push_back(name);
   } else {
-    nentries = vlen;
-    for (int i = 0; i < vlen; i++) {
+    nentries = num_components;
+    for (int i = 0; i < num_components; i++) {
       names.push_back(component_labels[i]);
     }
   }
