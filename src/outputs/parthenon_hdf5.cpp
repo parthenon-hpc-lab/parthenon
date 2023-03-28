@@ -41,6 +41,7 @@
 #include "utils/string_utils.hpp"
 
 namespace parthenon {
+
 void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                   const SignalHandler::OutputSignal signal) {
   using namespace HDF5;

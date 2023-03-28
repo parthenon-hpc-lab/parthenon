@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -332,6 +332,7 @@ class Metadata {
       DoBit(Derived, true);
     }
     // If variable is refined, set a default prolongation/restriction op
+    // TODO(JMM): This is dangerous. See Issue #844.
     if (IsRefined()) {
       refinement_funcs_ = refinement::RefinementFunctions_t::RegisterOps<
           refinement_ops::ProlongateCellMinMod, refinement_ops::RestrictCellAverage>();
@@ -360,6 +361,7 @@ class Metadata {
     }
 
     // Set the allocation and deallocation thresholds
+    // TODO(JMM): This is dangerous. See Issue #844.
     if (IsSet(Sparse)) {
       allocation_threshold_ = Globals::sparse_config.allocation_threshold;
       deallocation_threshold_ = Globals::sparse_config.deallocation_threshold;
@@ -406,6 +408,7 @@ class Metadata {
 
   // Individual flag setters, using these could result in an invalid set of flags, use
   // IsValid to check if the flags are valid
+  // TODO(JMM): This is dangerous. See Issue #844.
   void Set(MetadataFlag f) { DoBit(f, true); }    ///< Set specific bit
   void Unset(MetadataFlag f) { DoBit(f, false); } ///< Unset specific bit
 
@@ -451,6 +454,17 @@ class Metadata {
       valid = false;
       if (throw_on_fail) {
         PARTHENON_THROW("Either the Independent or Derived flag must be set");
+      }
+    }
+
+    // Prolongation/restriction
+    if (IsRefined()) {
+      if (refinement_funcs_.label().size() == 0) {
+        valid = false;
+        if (throw_on_fail) {
+          PARTHENON_THROW(
+              "Registered for refinment but no prolongation/restriction ops found");
+        }
       }
     }
 

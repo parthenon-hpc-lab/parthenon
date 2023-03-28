@@ -41,13 +41,16 @@ int main(int argc, char *argv[]) {
   // Now that ParthenonInit has been called and setup succeeded, the code can now
   // make use of MPI and Kokkos
 
-  // Initialize the driver
-  sparse_advection_example::SparseAdvectionDriver driver(
-      pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
+  DriverStatus driver_status;
+  // This needs to be scoped so that the driver object is destructed before Finalize
+  {
+    // Initialize the driver
+    sparse_advection_example::SparseAdvectionDriver driver(
+        pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 
-  // This line actually runs the simulation
-  auto driver_status = driver.Execute();
-
+    // This line actually runs the simulation
+    driver_status = driver.Execute();
+  }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
 

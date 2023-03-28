@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2023 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
@@ -15,7 +19,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 //! \file outputs.cpp
-//  \brief implements functions for Athena++ outputs
+//  \brief implements functions for Parthenon outputs
 //
 // The number and types of outputs are all controlled by the number and values of
 // parameters specified in <output[n]> blocks in the input file.  Each output block must
@@ -72,6 +76,47 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+
+//----------------------------------------------------------------------------------------
+// VarInfo constructor
+VarInfo::VarInfo(const std::string &label,
+                 const std::vector<std::string> &component_labels_, int num_components,
+                 int nx6, int nx5, int nx4, int nx3, int nx2, int nx1, Metadata metadata,
+                 bool is_sparse, bool is_vector)
+    : label(label), num_components(num_components), nx6(nx6), nx5(nx5), nx4(nx4),
+      nx3(nx3), nx2(nx2), nx1(nx1), tensor_rank(metadata.Shape().size()),
+      where(metadata.Where()), is_sparse(is_sparse), is_vector(is_vector) {
+  if (num_components <= 0) {
+    std::stringstream msg;
+    msg << "### ERROR: Got variable " << label << " with " << num_components
+        << " components."
+        << " num_components must be greater than 0" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+
+  // Note that this logic does not subscript components without component_labels if
+  // there is only one component. Component names will be e.g.
+  //   my_scalar
+  // or
+  //   my_non-vector_set_0
+  //   my_non-vector_set_1
+  // Note that this means the subscript will be dropped for multidim quantities if their
+  // Nx6, Nx5, Nx4 are set to 1 at runtime e.g.
+  //   my_non-vector_set
+  // Similarly, if component labels are given for all components, those will be used
+  // without the prefixed label.
+  component_labels = {};
+  if (num_components == 1 || is_vector) {
+    component_labels = component_labels_.size() > 0 ? component_labels_
+                                                    : std::vector<std::string>({label});
+  } else if (component_labels_.size() == num_components) {
+    component_labels = component_labels_;
+  } else {
+    for (int i = 0; i < num_components; i++) {
+      component_labels.push_back(label + "_" + std::to_string(i));
+    }
+  }
+}
 
 //----------------------------------------------------------------------------------------
 // OutputType constructor
@@ -188,7 +233,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       // set output variable and optional data format string used in formatted writes
-      if ((op.file_type != "hst") && (op.file_type != "rst")) {
+      if ((op.file_type != "hst") && (op.file_type != "rst") &&
+          (op.file_type != "ascent")) {
         op.variables = pin->GetVector<std::string>(pib->block_name, "variables");
         // TODO(JMM): This model is based on the belief that the user
         // may want to output some subset of swarm vars for some
@@ -222,6 +268,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         num_hst_outputs++;
       } else if (op.file_type == "vtk") {
         pnew_type = new VTKOutput(op);
+      } else if (op.file_type == "ascent") {
+        pnew_type = new AscentOutput(op);
       } else if (is_hdf5_output) {
         const bool restart = (op.file_type == "rst");
         if (restart) {
