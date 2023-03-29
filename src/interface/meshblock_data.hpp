@@ -148,7 +148,7 @@ class MeshBlockData {
   }
   std::shared_ptr<CellVariable<T>> GetCellVarPtr(const Uid_t &uid) const {
     PARTHENON_REQUIRE_THROWS(varUidMap_.count(uid),
-                             "Variable ID " + std::string(uid) + "not found!");
+                             "Variable ID " + std::to_string(uid) + "not found!");
     return varUidMap_.at(uid);
   }
 
