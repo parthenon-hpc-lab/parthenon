@@ -20,6 +20,7 @@
 
 namespace parthenon {
 using Uid_t = std::size_t; // change this to something else if needed
+constexpr Uid_t INVALID_UID = 0;
 template <typename T>
 class UniqueIDGenerator {
  public:

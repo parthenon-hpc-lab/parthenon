@@ -147,6 +147,8 @@ class MeshBlockData {
     return it->second;
   }
   std::shared_ptr<CellVariable<T>> GetCellVarPtr(const Uid_t &uid) const {
+    PARTHENON_REQUIRE_THROWS(varUidMap_.count(uid),
+                             "Variable ID " + std::string(uid) + "not found!");
     return varUidMap_.at(uid);
   }
 
@@ -158,7 +160,7 @@ class MeshBlockData {
 
   Uid_t UniqueID(const std::string &label) noexcept {
     auto it = varMap_.find(label);
-    if (it == varMap_.end()) return 0; // Invalid ID
+    if (it == varMap_.end()) return INVALID_UID;
     return (it->second)->GetUniqueID();
   }
 
