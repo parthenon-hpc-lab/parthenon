@@ -26,6 +26,7 @@
 // the long term this should be cleaned up.
 
 #include <memory>
+#include <set>
 #include <tuple>
 #include <vector>
 
@@ -76,7 +77,7 @@ class MeshRefinement {
   int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;
 
   // tuples of references to AMR-enrolled arrays (quantity, coarse_quantity)
-  std::vector<std::shared_ptr<CellVariable<Real>>> pvars_cc_;
+  VariableSet<Real> pvars_cc_;
 
   // Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {

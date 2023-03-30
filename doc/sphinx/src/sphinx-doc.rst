@@ -5,6 +5,29 @@
 How to Use Sphinx for Writing Docs
 ===================================
 
+How to convert a Markdown file to rst
+------------------------------------------
+
+We are using the `reStructuredText`_ (rst) format for our documentation.
+If you have a markdown file you would like to convert to rst,
+as a first pass, you can have `Pandoc`_ convert your file. For example:
+
+.. code-block:: bash
+
+    pandoc Metadata.md --from markdown --to rst -s -o metadata.rst
+
+Pandoc can be installed easily through a Linux package manager. For example on Ubuntu,
+
+.. code-block:: bash
+
+   apt install pandoc
+
+will get you the tool.
+
+.. _reStructuredText: https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html
+
+.. _Pandoc: https://pandoc.org/
+
 How to have github build your documentation for you
 ----------------------------------------------------
 
@@ -24,21 +47,20 @@ Building documentation locally
 
 While you can rely on the CI to build the documentation associated with your
 branch, you can also very easily build sphinx documentation locally through
-python. These instructions also _do not_ require admin access and are usable
+python. These instructions also *do not* require admin access and are usable
 with shared machines or python distributions.
 
 First, ensure that you are running a modern version of python (i.e. python 3 of
 some flavor)
 
-.. code-block::
-   :language:bash
+.. code-block:: bash
+
    $ python --version
    Python 3.9.7
 
 Then, use pip to install :code:`spinx` and the RTD theme
 
-.. code-block::
-   :language:bash
+.. code-block:: bash
 
    pip install --user sphinx sphinx-rtd-theme
 
@@ -46,7 +68,6 @@ Now, navigate to the :code:`../doc/sphinx` directory where a :code:`make help`
 shows all of the available ways to build the documentation
 
 .. code-block::
-   :language:bash
 
    $ make help
    Sphinx v4.2.0

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,11 +16,14 @@
 #include <algorithm>
 #include <bitset>
 #include <exception>
+#include <initializer_list>
 #include <iostream>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "prolong_restrict/pr_ops.hpp"
@@ -193,6 +196,110 @@ class Metadata {
   PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
 
+  // TODO(JMM): Kind of treating Metadata as a namespace here
+  using FlagVec = std::vector<MetadataFlag>;
+
+  // FlagCollection is a collection object that encapsulates the desire for
+  // target variables/swarms with:
+  // - At least ONE of the "unions" flags,
+  // - ALL of the "intersections" flags,
+  // - and NONE of the "exclusions" flags
+  class FlagCollection {
+   public:
+    FlagCollection() = default;
+    // This is cleaner but the linter doesn't like it.
+    // template <typename T,
+    //           REQUIRES(std::is_same<typename T::value_type, MetadataFlag>::value)>
+    // FlagCollection(const T &flags, bool take_union = false) {
+    template <template <class...> class Container_t, class... extra>
+    FlagCollection(const Container_t<MetadataFlag, extra...> &flags,
+                   bool take_union = false) {
+      if (take_union) {
+        unions_.insert(flags.begin(), flags.end());
+      } else { // intersection
+        intersections_.insert(flags.begin(), flags.end());
+      }
+    }
+    // Constructor that takes a brace-enclosed initializer list
+    // TODO(JMM): The cast to to a vector here implies some extra
+    // copies which aren't great. Don't do this too much I guess.
+    // Also I don't totally understand why the templated constructor
+    // above doesn't capture this one.
+    FlagCollection(std::initializer_list<MetadataFlag> flags, bool take_union = false)
+        : FlagCollection(FlagVec(flags), take_union) {}
+    // Constructor from a comma-separated list. Default is union.
+    // Force correct type inferrence by making the first arg a flag
+    template <typename... Args>
+    FlagCollection(MetadataFlag first, Args... args)
+        : FlagCollection({first, std::forward<Args>(args)...}, false) {}
+    // Check if set empty
+    bool Empty() const { return (unions_.empty() && intersections_.empty()); }
+    // Union
+    template <template <class...> class Container_t, class... extra>
+    void TakeUnion(const Container_t<MetadataFlag, extra...> &flags) {
+      unions_.insert(flags.begin(), flags.end());
+    }
+    template <typename... Args>
+    void TakeUnion(MetadataFlag first, Args... args) {
+      TakeUnion(FlagVec({first, std::forward<Args>(args)...}));
+    }
+    void TakeUnion(const FlagCollection &other) {
+      unions_.insert(other.unions_.begin(), other.unions_.end());
+      exclusions_.insert(other.exclusions_.begin(), other.exclusions_.end());
+    }
+    FlagCollection operator+(const FlagCollection &other) {
+      FlagCollection s(*this);
+      s.TakeUnion(other);
+      return s;
+    }
+    FlagCollection operator||(const FlagCollection &other) { return (*this) + other; }
+    // Intersection
+    template <template <class...> class Container_t, class... extra>
+    void TakeIntersection(const Container_t<MetadataFlag, extra...> &flags) {
+      intersections_.insert(flags.begin(), flags.end());
+    }
+    template <typename... Args>
+    void TakeIntersection(MetadataFlag first, Args... args) {
+      TakeIntersection(FlagVec({first, std::forward<Args>(args)...}));
+    }
+    void TakeIntersection(const FlagCollection &other) {
+      intersections_.insert(other.intersections_.begin(), other.intersections_.end());
+      exclusions_.insert(other.exclusions_.begin(), other.exclusions_.end());
+    }
+    FlagCollection operator*(const FlagCollection &other) {
+      FlagCollection s(*this);
+      s.TakeIntersection(other);
+      return s;
+    }
+    FlagCollection operator&&(const FlagCollection &other) { return (*this) * other; }
+    // Set Difference
+    template <template <class...> class Container_t, class... extra>
+    void Exclude(const Container_t<MetadataFlag, extra...> &&flags) {
+      exclusions_.insert(flags.begin(), flags.end());
+    }
+    template <typename... Args>
+    void Exclude(MetadataFlag first, Args... args) {
+      Exclude(FlagVec({first, std::forward<Args>(args)...}));
+    }
+    void Exclude(const FlagCollection &other) {
+      exclusions_.insert(other.unions_.begin(), other.unions_.end());
+      exclusions_.insert(other.intersections_.begin(), other.intersections_.end());
+      exclusions_.insert(other.exclusions_.begin(), other.exclusions_.end());
+    }
+    FlagCollection operator-(const FlagCollection &other) {
+      FlagCollection s(*this);
+      s.Exclude(other);
+      return s;
+    }
+    // Accessors
+    const std::set<MetadataFlag> &GetUnions() const { return unions_; }
+    const std::set<MetadataFlag> &GetIntersections() const { return intersections_; }
+    const std::set<MetadataFlag> &GetExclusions() const { return exclusions_; }
+
+   private:
+    std::set<MetadataFlag> unions_, intersections_, exclusions_;
+  };
+
   Metadata() = default;
 
   // There are 3 optional arguments: shape, component_labels, and associated, so we'll
@@ -225,6 +332,7 @@ class Metadata {
       DoBit(Derived, true);
     }
     // If variable is refined, set a default prolongation/restriction op
+    // TODO(JMM): This is dangerous. See Issue #844.
     if (IsRefined()) {
       refinement_funcs_ = refinement::RefinementFunctions_t::RegisterOps<
           refinement_ops::ProlongateCellMinMod, refinement_ops::RestrictCellAverage>();
@@ -253,6 +361,7 @@ class Metadata {
     }
 
     // Set the allocation and deallocation thresholds
+    // TODO(JMM): This is dangerous. See Issue #844.
     if (IsSet(Sparse)) {
       allocation_threshold_ = Globals::sparse_config.allocation_threshold;
       deallocation_threshold_ = Globals::sparse_config.deallocation_threshold;
@@ -281,7 +390,9 @@ class Metadata {
       : Metadata(bits, {1}, {}, associated) {}
 
   // Static routines
-  static MetadataFlag AllocateNewFlag(std::string &&name);
+  static MetadataFlag AddUserFlag(const std::string &name);
+  static bool FlagNameExists(const std::string &flagname);
+  static MetadataFlag GetUserFlag(const std::string &flagname);
 
   // Sparse threshold routines
   void SetSparseThresholds(parthenon::Real alloc, parthenon::Real dealloc,
@@ -297,6 +408,7 @@ class Metadata {
 
   // Individual flag setters, using these could result in an invalid set of flags, use
   // IsValid to check if the flags are valid
+  // TODO(JMM): This is dangerous. See Issue #844.
   void Set(MetadataFlag f) { DoBit(f, true); }    ///< Set specific bit
   void Unset(MetadataFlag f) { DoBit(f, false); } ///< Unset specific bit
 
@@ -342,6 +454,17 @@ class Metadata {
       valid = false;
       if (throw_on_fail) {
         PARTHENON_THROW("Either the Independent or Derived flag must be set");
+      }
+    }
+
+    // Prolongation/restriction
+    if (IsRefined()) {
+      if (refinement_funcs_.label().size() == 0) {
+        valid = false;
+        if (throw_on_fail) {
+          PARTHENON_THROW(
+              "Registered for refinment but no prolongation/restriction ops found");
+        }
       }
     }
 
@@ -428,17 +551,29 @@ class Metadata {
   /**
    * @brief Returns true if any flag is set
    */
-  bool AnyFlagsSet(std::vector<MetadataFlag> const &flags) const {
+  template <template <class...> class Container_t, class... extra>
+  bool AnyFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
     return std::any_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
+  template <typename... Args>
+  bool AnyFlagsSet(const MetadataFlag &flag, Args... args) const {
+    return AnyFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
+  }
 
-  bool AllFlagsSet(std::vector<MetadataFlag> const &flags) const {
+  template <template <class...> class Container_t, class... extra>
+  bool AllFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
     return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
+  template <typename... Args>
+  bool AllFlagsSet(const MetadataFlag &flag, Args... args) const {
+    return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
+  }
 
-  bool FlagsSet(std::vector<MetadataFlag> const &flags, bool matchAny = false) {
+  template <template <class...> class Container_t, class... extra>
+  bool FlagsSet(const Container_t<MetadataFlag, extra...> &flags,
+                bool matchAny = false) const {
     return ((matchAny && AnyFlagsSet(flags)) || ((!matchAny) && AllFlagsSet(flags)));
   }
 

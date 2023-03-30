@@ -30,7 +30,7 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: [self-hosted, A100]
     container:
-      image: registry.gitlab.com/pgrete/parthenon/cuda11.6-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
       options: --user 1001
     steps:
@@ -55,7 +55,7 @@ jobs:
 
       # run performance "unit" tests (none use MPI)
       - name: Performance tests
-        if: ${{ matrix.parallel}} == 'serial'
+        if: ${{ matrix.parallel == 'serial' }}
         run: |
           cd build
           ctest -L performance -LE perf-reg
@@ -66,6 +66,24 @@ jobs:
           cd build
           ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
 
+      # Test Ascent integration (only most complex setup with MPI and on device)
+      - name: Ascent tests
+        if: ${{ matrix.parallel == 'mpi' && matrix.device == 'cuda' }}
+        run: |
+          cmake -B build-ascent \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMACHINE_VARIANT=${{ matrix.device }}-${{ matrix.parallel }} \
+            -DPARTHENON_ENABLE_ASCENT=ON \
+            -DAscent_DIR=/usr/local/ascent-develop/lib/cmake/ascent
+          cmake --build build-ascent
+          cd example/advection/
+          mpirun -np 2 ../../build-ascent/example/advection/advection-example \
+            -i parthinput.advection \
+            parthenon/output4/dt=0.05 \
+            parthenon/time/tlim=0.1
+          # check if file exists
+          test -f ascent_render_57.png
+
       - uses: actions/upload-artifact@v3
         with:
           name: log-and-convergence-${{ matrix.device }}-${{ matrix.parallel }}
@@ -73,5 +91,6 @@ jobs:
             build/CMakeFiles/CMakeOutput.log
             build/tst/regression/outputs/advection_convergence*/advection-errors.dat
             build/tst/regression/outputs/advection_convergence*/advection-errors.png
+            example/advection/ascent_render_57.png
           retention-days: 3
 

@@ -1,9 +1,13 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2023 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,7 +19,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 //! \file outputs.cpp
-//  \brief implements functions for Athena++ outputs
+//  \brief implements functions for Parthenon outputs
 //
 // The number and types of outputs are all controlled by the number and values of
 // parameters specified in <output[n]> blocks in the input file.  Each output block must
@@ -27,21 +31,6 @@
 // number of <output[n]> blocks does not need to be specified -- in Athena++ a new output
 // type will be created for each and every <output[n]> block in the input file.
 //
-// Required parameters that must be specified in an <output[n]> block are:
-//   - variable     = cons,prim,D,d,E,e,m,m1,m2,m3,v,v1=vx,v2=vy,v3=vz,p,
-//                    bcc,bcc1,bcc2,bcc3,b,b1,b2,b3,phi,uov
-//   - file_type    = rst,tab,vtk,hst,hdf5
-//   - dt           = problem time between outputs
-//
-// EXAMPLE of an <output[n]> block for a VTK dump:
-//   <output3>
-//   file_type   = tab       # Tabular data dump
-//   variable    = prim      # variables to be output
-//   data_format = %12.5e    # Optional data format string
-//   dt          = 0.01      # time increment between outputs
-//   x2_slice    = 0.0       # slice in x2
-//   x3_slice    = 0.0       # slice in x3
-//
 // Each <output[n]> block will result in a new node being created in a linked list of
 // OutputType stored in the Outputs class.  During a simulation, outputs are made when
 // the simulation time satisfies the criteria implemented in the MakeOutputs() function.
@@ -51,24 +40,15 @@
 // comment text: 'NEW_OUTPUT_TYPES'. Current summary:
 // -----------------------------------
 // - outputs.cpp, OutputType:LoadOutputData() (below): conditionally add new OutputData
-// node to linked list, depending on the user-input 'variable' string. Provide direction
-// on how to slice a possible 4D source ParArrayND into separate 3D arrays; automatically
-// enrolls quantity in vtk.cpp, formatted_table.cpp outputs.
-
+// node to linked list, depending on the user-input 'variable' string.
+//
 // - parthenon_hdf5.cpp, PHDF5Output::WriteOutputFile(): need to allocate space for the
 // new OutputData node as an HDF5 "variable" inside an existing HDF5 "dataset"
 // (cell-centered vs. face-centered data).
-
-// - mesh/meshblock.cpp, MeshBlock restart constructor: memcpy quantity (IN THE SAME ORDER
-// AS THE VARIABLES ARE WRITTEN IN restart.cpp) from the loaded .rst file to the
-// MeshBlock's appropriate physics member object
-
-// - history.cpp, HistoryOutput::WriteOutputFile() (3x places): 1) modify NHISTORY_VARS
-// macro so that the size of data_sum[] can accommodate the new physics, when active.
-// 2) Compute volume-weighted data_sum[i] for the new quantity + etc. factors
-// 3) Provide short string to serve as the column header description of new quantity
+//
+// - history.cpp: Add the relevant history quantity to your package
 // -----------------------------------
-
+//
 // HDF5 note: packing gas velocity into the "prim" HDF5 dataset will cause VisIt to treat
 // the 3x components as independent scalars instead of a physical vector, unlike how it
 // treats .vtk velocity output from Athena++. The workaround is to import the
@@ -95,6 +75,47 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+
+//----------------------------------------------------------------------------------------
+// VarInfo constructor
+VarInfo::VarInfo(const std::string &label,
+                 const std::vector<std::string> &component_labels_, int num_components,
+                 int nx6, int nx5, int nx4, int nx3, int nx2, int nx1, Metadata metadata,
+                 bool is_sparse, bool is_vector)
+    : label(label), num_components(num_components), nx6(nx6), nx5(nx5), nx4(nx4),
+      nx3(nx3), nx2(nx2), nx1(nx1), tensor_rank(metadata.Shape().size()),
+      where(metadata.Where()), is_sparse(is_sparse), is_vector(is_vector) {
+  if (num_components <= 0) {
+    std::stringstream msg;
+    msg << "### ERROR: Got variable " << label << " with " << num_components
+        << " components."
+        << " num_components must be greater than 0" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+
+  // Note that this logic does not subscript components without component_labels if
+  // there is only one component. Component names will be e.g.
+  //   my_scalar
+  // or
+  //   my_non-vector_set_0
+  //   my_non-vector_set_1
+  // Note that this means the subscript will be dropped for multidim quantities if their
+  // Nx6, Nx5, Nx4 are set to 1 at runtime e.g.
+  //   my_non-vector_set
+  // Similarly, if component labels are given for all components, those will be used
+  // without the prefixed label.
+  component_labels = {};
+  if (num_components == 1 || is_vector) {
+    component_labels = component_labels_.size() > 0 ? component_labels_
+                                                    : std::vector<std::string>({label});
+  } else if (component_labels_.size() == num_components) {
+    component_labels = component_labels_;
+  } else {
+    for (int i = 0; i < num_components; i++) {
+      component_labels.push_back(label + "_" + std::to_string(i));
+    }
+  }
+}
 
 //----------------------------------------------------------------------------------------
 // OutputType constructor
@@ -157,69 +178,6 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
       op.file_type = pin->GetString(op.block_name, "file_type");
 
-      // read slicing options.  Check that slice is within mesh
-      if (pin->DoesParameterExist(op.block_name, "x1_slice")) {
-        Real x1 = pin->GetReal(op.block_name, "x1_slice");
-        if (x1 >= pm->mesh_size.x1min && x1 < pm->mesh_size.x1max) {
-          op.x1_slice = x1;
-          op.output_slicex1 = true;
-        } else {
-          msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Slice at x1=" << x1 << " in output block '" << op.block_name
-              << "' is out of range of Mesh" << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-      }
-
-      if (pin->DoesParameterExist(op.block_name, "x2_slice")) {
-        Real x2 = pin->GetReal(op.block_name, "x2_slice");
-        if (x2 >= pm->mesh_size.x2min && x2 < pm->mesh_size.x2max) {
-          op.x2_slice = x2;
-          op.output_slicex2 = true;
-        } else {
-          msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Slice at x2=" << x2 << " in output block '" << op.block_name
-              << "' is out of range of Mesh" << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-      }
-
-      if (pin->DoesParameterExist(op.block_name, "x3_slice")) {
-        Real x3 = pin->GetReal(op.block_name, "x3_slice");
-        if (x3 >= pm->mesh_size.x3min && x3 < pm->mesh_size.x3max) {
-          op.x3_slice = x3;
-          op.output_slicex3 = true;
-        } else {
-          msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Slice at x3=" << x3 << " in output block '" << op.block_name
-              << "' is out of range of Mesh" << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-      }
-
-      // read sum options.  Check for conflicts with slicing.
-      op.output_sumx1 = pin->GetOrAddBoolean(op.block_name, "x1_sum", false);
-      if ((op.output_slicex1) && (op.output_sumx1)) {
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Cannot request both slice and sum along x1-direction"
-            << " in output block '" << op.block_name << "'" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-      op.output_sumx2 = pin->GetOrAddBoolean(op.block_name, "x2_sum", false);
-      if ((op.output_slicex2) && (op.output_sumx2)) {
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Cannot request both slice and sum along x2-direction"
-            << " in output block '" << op.block_name << "'" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-      op.output_sumx3 = pin->GetOrAddBoolean(op.block_name, "x3_sum", false);
-      if ((op.output_slicex3) && (op.output_sumx3)) {
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Cannot request both slice and sum along x3-direction"
-            << " in output block '" << op.block_name << "'" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-
       // read ghost cell option
       op.include_ghost_zones = pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
 
@@ -227,8 +185,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.cartesian_vector = false;
 
       // read single precision output option
-      const bool is_hdf5_output =
-          (op.file_type == "rst") || (op.file_type == "ath5") || (op.file_type == "hdf5");
+      const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5");
 
       if (is_hdf5_output) {
         op.single_precision_output =
@@ -275,7 +232,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       // set output variable and optional data format string used in formatted writes
-      if ((op.file_type != "hst") && (op.file_type != "rst")) {
+      if ((op.file_type != "hst") && (op.file_type != "rst") &&
+          (op.file_type != "ascent")) {
         op.variables = pin->GetVector<std::string>(pib->block_name, "variables");
       }
       op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
@@ -286,10 +244,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       if (op.file_type == "hst") {
         pnew_type = new HistoryOutput(op);
         num_hst_outputs++;
-      } else if (op.file_type == "tab") {
-        pnew_type = new FormattedTableOutput(op);
       } else if (op.file_type == "vtk") {
         pnew_type = new VTKOutput(op);
+      } else if (op.file_type == "ascent") {
+        pnew_type = new AscentOutput(op);
       } else if (is_hdf5_output) {
         const bool restart = (op.file_type == "rst");
         if (restart) {
@@ -464,229 +422,5 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
   }
   Kokkos::Profiling::popRegion(); // MakeOutputs
 }
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputType::TransformOutputData(MeshBlock *pmb)
-//  \brief Calls sum and slice functions on each direction in turn, in order to allow
-//  mulitple operations performed on the same data set
-
-bool OutputType::TransformOutputData(MeshBlock *pmb) {
-  bool flag = true;
-  if (output_params.output_slicex3) {
-    bool ret = SliceOutputData(pmb, 3);
-    if (!ret) flag = false;
-  }
-  if (output_params.output_slicex2) {
-    bool ret = SliceOutputData(pmb, 2);
-    if (!ret) flag = false;
-  }
-  if (output_params.output_slicex1) {
-    bool ret = SliceOutputData(pmb, 1);
-    if (!ret) flag = false;
-  }
-  if (output_params.output_sumx3) {
-    SumOutputData(pmb, 3);
-  }
-  if (output_params.output_sumx2) {
-    SumOutputData(pmb, 2);
-  }
-  if (output_params.output_sumx1) {
-    SumOutputData(pmb, 1);
-  }
-  return flag;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn bool OutputType::SliceOutputData(MeshBlock *pmb, int dim)
-//  \brief perform data slicing and update the data list
-
-bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
-  int islice(0), jslice(0), kslice(0);
-
-  // Compute i,j,k indices of slice; check if in range of data in this block
-  const IndexDomain interior = IndexDomain::interior;
-  if (dim == 1) {
-    if (output_params.x1_slice >= pmb->block_size.x1min &&
-        output_params.x1_slice < pmb->block_size.x1max) {
-      for (int i = pmb->cellbounds.is(interior) + 1;
-           i <= pmb->cellbounds.ie(interior) + 1; ++i) {
-        if (pmb->coords.Xf<1>(i) > output_params.x1_slice) {
-          islice = i - 1;
-          output_params.islice = islice;
-          break;
-        }
-      }
-    } else {
-      return false;
-    }
-  } else if (dim == 2) {
-    if (output_params.x2_slice >= pmb->block_size.x2min &&
-        output_params.x2_slice < pmb->block_size.x2max) {
-      for (int j = pmb->cellbounds.js(interior) + 1;
-           j <= pmb->cellbounds.je(interior) + 1; ++j) {
-        if (pmb->coords.Xf<2>(j) > output_params.x2_slice) {
-          jslice = j - 1;
-          output_params.jslice = jslice;
-          break;
-        }
-      }
-    } else {
-      return false;
-    }
-  } else {
-    if (output_params.x3_slice >= pmb->block_size.x3min &&
-        output_params.x3_slice < pmb->block_size.x3max) {
-      for (int k = pmb->cellbounds.ks(interior) + 1;
-           k <= pmb->cellbounds.ke(interior) + 1; ++k) {
-        if (pmb->coords.Xf<3>(k) > output_params.x3_slice) {
-          kslice = k - 1;
-          output_params.kslice = kslice;
-          break;
-        }
-      }
-    } else {
-      return false;
-    }
-  }
-
-  // For each node in OutputData doubly linked list, slice arrays containing output data
-  OutputData *pdata, *pnew;
-  pdata = pfirst_data_;
-
-  while (pdata != nullptr) {
-    pnew = new OutputData;
-    pnew->type = pdata->type;
-    pnew->name = pdata->name;
-    int nx4 = pdata->data.GetDim(4);
-    int nx3 = pdata->data.GetDim(3);
-    int nx2 = pdata->data.GetDim(2);
-    int nx1 = pdata->data.GetDim(1);
-
-    // Loop over variables and dimensions, extract slice
-    if (dim == 3) {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, 1, nx2, nx1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int j = out_js; j <= out_je; ++j) {
-          for (int i = out_is; i <= out_ie; ++i) {
-            pnew->data(n, 0, j, i) = pdata->data(n, kslice, j, i);
-          }
-        }
-      }
-    } else if (dim == 2) {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, nx3, 1, nx1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int k = out_ks; k <= out_ke; ++k) {
-          for (int i = out_is; i <= out_ie; ++i) {
-            pnew->data(n, k, 0, i) = pdata->data(n, k, jslice, i);
-          }
-        }
-      }
-    } else {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, nx3, nx2, 1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int k = out_ks; k <= out_ke; ++k) {
-          for (int j = out_js; j <= out_je; ++j) {
-            pnew->data(n, k, j, 0) = pdata->data(n, k, j, islice);
-          }
-        }
-      }
-    }
-
-    ReplaceOutputDataNode(pdata, pnew);
-    pdata = pnew->pnext;
-  }
-
-  // modify array indices
-  if (dim == 3) {
-    out_ks = 0;
-    out_ke = 0;
-  } else if (dim == 2) {
-    out_js = 0;
-    out_je = 0;
-  } else {
-    out_is = 0;
-    out_ie = 0;
-  }
-  return true;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputType::SumOutputData(OutputData* pod, int dim)
-//  \brief perform data summation and update the data list
-
-void OutputType::SumOutputData(MeshBlock *pmb, int dim) {
-  // For each node in OutputData doubly linked list, sum arrays containing output data
-  OutputData *pdata = pfirst_data_;
-
-  while (pdata != nullptr) {
-    OutputData *pnew = new OutputData;
-    pnew->type = pdata->type;
-    pnew->name = pdata->name;
-    int nx4 = pdata->data.GetDim(4);
-    int nx3 = pdata->data.GetDim(3);
-    int nx2 = pdata->data.GetDim(2);
-    int nx1 = pdata->data.GetDim(1);
-
-    // Loop over variables and dimensions, sum over specified dimension
-    if (dim == 3) {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, 1, nx2, nx1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int k = out_ks; k <= out_ke; ++k) {
-          for (int j = out_js; j <= out_je; ++j) {
-            for (int i = out_is; i <= out_ie; ++i) {
-              pnew->data(n, 0, j, i) += pdata->data(n, k, j, i);
-            }
-          }
-        }
-      }
-    } else if (dim == 2) {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, nx3, 1, nx1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int k = out_ks; k <= out_ke; ++k) {
-          for (int j = out_js; j <= out_je; ++j) {
-            for (int i = out_is; i <= out_ie; ++i) {
-              pnew->data(n, k, 0, i) += pdata->data(n, k, j, i);
-            }
-          }
-        }
-      }
-    } else {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, nx3, nx2, 1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int k = out_ks; k <= out_ke; ++k) {
-          for (int j = out_js; j <= out_je; ++j) {
-            for (int i = out_is; i <= out_ie; ++i) {
-              pnew->data(n, k, j, 0) += pdata->data(n, k, j, i);
-            }
-          }
-        }
-      }
-    }
-
-    ReplaceOutputDataNode(pdata, pnew);
-    pdata = pdata->pnext;
-  }
-
-  // modify array indices
-  if (dim == 3) {
-    out_ks = 0;
-    out_ke = 0;
-  } else if (dim == 2) {
-    out_js = 0;
-    out_je = 0;
-  } else {
-    out_is = 0;
-    out_ie = 0;
-  }
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputType::CalculateCartesianVector(ParArrayND<Real> &src,
-//                                ParArrayND<Real> &dst, Coordinates *pco)
-//  \brief Convert vectors in curvilinear coordinates into Cartesian
-
-void OutputType::CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
-                                          Coordinates_t *pco) {}
 
 } // namespace parthenon

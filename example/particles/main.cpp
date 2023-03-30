@@ -56,13 +56,15 @@ int main(int argc, char *argv[]) {
   }
   pman.ParthenonInitPackagesAndMesh();
 
-  // Initialize the driver
-  particles_example::ParticleDriver driver(pman.pinput.get(), pman.app_input.get(),
-                                           pman.pmesh.get());
+  // This needs to be scoped so that the driver object is destructed before Finalize
+  {
+    // Initialize the driver
+    particles_example::ParticleDriver driver(pman.pinput.get(), pman.app_input.get(),
+                                             pman.pmesh.get());
 
-  // This line actually runs the simulation
-  auto driver_status = driver.Execute();
-
+    // This line actually runs the simulation
+    auto driver_status = driver.Execute();
+  }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
 

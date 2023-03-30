@@ -49,10 +49,12 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  PiDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
+  // This needs to be scoped so that the driver object is destructed before Finalize
+  {
+    PiDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 
-  auto driver_status = driver.Execute();
-
+    auto driver_status = driver.Execute();
+  }
   // call MPI_Finalize if necessary
   pman.ParthenonFinalize();
 

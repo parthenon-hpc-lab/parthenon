@@ -1,5 +1,5 @@
 # =========================================================================================
-# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,11 +13,41 @@
 
 from __future__ import print_function
 
+from argparse import ArgumentParser
+
 import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+
+parser = ArgumentParser(
+    prog="movie2d",
+    description="Plot snapshots of 2d parthenon output",
+)
+parser.add_argument("field", type=str, help="field to plot")
+parser.add_argument(
+    "--vector-component",
+    dest="vc",
+    type=float,
+    default=None,
+    help=(
+        "Vector component of field to plot. "
+        + "Mutually exclusive with --tensor-component."
+    ),
+)
+parser.add_argument(
+    "--tensor-component",
+    dest="tc",
+    type=float,
+    nargs=2,
+    default=None,
+    help=(
+        "Tensor components of field to plot "
+        + "Mutally exclusive with --vector-component."
+    ),
+)
+parser.add_argument("files", type=str, nargs="+", help="files to plot")
 
 
 def addPath():
@@ -36,13 +66,34 @@ def read(filename, nGhost=0):
 
 
 def plot_dump(
-    xf, yf, q, name, with_mesh=False, block_ids=[], xi=None, yi=None, xe=None, ye=None
+    xf,
+    yf,
+    q,
+    name,
+    with_mesh=False,
+    block_ids=[],
+    xi=None,
+    yi=None,
+    xe=None,
+    ye=None,
+    components=[0, 0],
 ):
 
     if xe is None:
         xe = xf
     if ye is None:
         ye = yf
+
+    # get tensor components
+    if len(q.shape) > 5:
+        raise ValueError(
+            "Tensor rank is higher than I can handle. "
+            + "Please revise the movie2d script"
+        )
+    if len(q.shape) == 5:
+        q = q[:, components[0], components[1], :, :]
+    if len(q.shape) == 4:
+        q = q[:, components[-1], :, :]
 
     fig = plt.figure()
     p = fig.add_subplot(111, aspect=1)
@@ -53,7 +104,7 @@ def plot_dump(
     for i in range(NumBlocks):
         # Plot the actual data, should work if parthenon/output*/ghost_zones = true or false
         # but obviously no ghost data will be shown if ghost_zones = false
-        p.pcolormesh(xf[i, :], yf[i, :], q[i, 0, :, :], vmin=qmin, vmax=qmax)
+        p.pcolormesh(xf[i, :], yf[i, :], q[i, :, :], vmin=qmin, vmax=qmax)
 
         # Print the block gid in the center of the block
         if len(block_ids) > 0:
@@ -97,8 +148,18 @@ def plot_dump(
 
 if __name__ == "__main__":
     addPath()
-    field = sys.argv[1]
-    files = sys.argv[2:]
+    args = parser.parse_args()
+    field = args.field
+    files = args.files
+    components = [0, 0]
+    if (args.tc is not None) and (args.vc is not None):
+        raise ValueError(
+            "Only one of --tensor-component and --vector-component should be set."
+        )
+    if args.tc is not None:
+        components = args.tc
+    if args.vc is not None:
+        components = [0, args.vc]
     dump_id = 0
     debug_plot = False
     for f in files:
@@ -118,6 +179,7 @@ if __name__ == "__main__":
                 data.yig,
                 data.xeg,
                 data.yeg,
+                components,
             )
         else:
             plot_dump(data.xng, data.yng, q, name, True)
