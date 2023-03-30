@@ -13,6 +13,7 @@
 
 from __future__ import print_function
 
+import re
 import os
 import logging
 import numpy as np
@@ -79,6 +80,12 @@ parser.add_argument(
     type=Path,
     default=os.getcwd(),
     metavar="DIR",
+)
+parser.add_argument(
+    "--prefix",
+    help="Prefix for the file name to save. (default: default_run)",
+    default="default_run",
+    metavar="PREFIX",
 )
 parser.add_argument(
     "--debug",
@@ -218,7 +225,10 @@ This will lead to stop further processing'
 
             logger.debug(f"Submitting {file_name}")
             q = data.Get(args.field, False, not args.debug)
-            name = args.output_directory / Path(str(dump_id).rjust(4, "0") + ".png")
+            stem = f"{args.prefix}_{str(dump_id).rjust(4, '0')}".strip()
+            stem = re.sub(r"^_", "", stem)
+            name = stem + ".png"
+            output_file = args.output_directory / name
             if args.debug:
                 pool.submit(
                     plot_dump,
@@ -226,7 +236,7 @@ This will lead to stop further processing'
                     data.yg,
                     q,
                     current_time,
-                    name,
+                    output_file,
                     True,
                     data.gid,
                     data.xig,
@@ -236,7 +246,9 @@ This will lead to stop further processing'
                     components,
                 )
             else:
-                pool.submit(plot_dump, data.xng, data.yng, q, current_time, name, True)
+                pool.submit(
+                    plot_dump, data.xng, data.yng, q, current_time, output_file, True
+                )
             if args.time_step:
                 current_time += args.time_step
                 current_time = round(current_time, ndigits=2)
