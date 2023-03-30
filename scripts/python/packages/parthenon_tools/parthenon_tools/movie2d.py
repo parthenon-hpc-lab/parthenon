@@ -215,8 +215,7 @@ if __name__ == "__main__":
             data = phdf(file_name)
             if args.field not in data.Variables:
                 logging.error(
-                    f'No such field "{args.field}" in {file_name}. \
-This will lead to stop further processing'
+                    f'No such field "{args.field}" in {file_name}. This will lead to stop further processing'
                 )
                 break
 
