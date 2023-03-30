@@ -2,6 +2,7 @@
 build*/
 bin/
 debug*
+.cache/
 
 # Visualization package files
 .smhist

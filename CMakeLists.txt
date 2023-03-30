@@ -38,6 +38,7 @@ option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
+option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
 this to True to enable linting in the default target" OFF)
 option(PARTHENON_COPYRIGHT_CHECK_DEFAULT "Copyright check is turned off by default, use the \
@@ -353,6 +354,10 @@ endif()
 # Note that these options may not play nice with nvcc wrapper
 if (TEST_INTEL_OPTIMIZATION)
   add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
+endif()
+
+if (PARTHENON_ENABLE_ASCENT)
+  find_package(Ascent REQUIRED NO_DEFAULT_PATH)
 endif()
 
 add_subdirectory(src)
