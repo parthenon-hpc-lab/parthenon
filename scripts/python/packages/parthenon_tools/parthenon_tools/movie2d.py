@@ -82,7 +82,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--debug",
-    help="Enable graph debug mode. This will run in the single thread. (default: false)",
+    help="Enable graph debug mode. (default: false)",
     action="store_true",
     default=False,
 )
