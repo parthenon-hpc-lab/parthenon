@@ -25,30 +25,71 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
-logging.basicConfig(level=logging.CRITICAL,
-                    format='%(asctime)s [%(levelname)s]\t%(message)s')
+logging.basicConfig(
+    level=logging.CRITICAL, format="%(asctime)s [%(levelname)s]\t%(message)s"
+)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-parser = ArgumentParser(prog="movie2d",description="Plot snapshots of 2d parthenon output")
+parser = ArgumentParser(
+    prog="movie2d", description="Plot snapshots of 2d parthenon output"
+)
 
-parser.add_argument("--vector-component", dest="vc", type=float, default=None,
-                    help="Vector component of field to plot. Mutually exclusive with --tensor-component.")
-parser.add_argument("--tensor-component", dest="tc", type=float, nargs=2, default=None, 
-                    help="Tensor components of field to plot. Mutally exclusive with --vector-component.")
-parser.add_argument("--workers", "-w", help="Number of parallel workers to use (default: 10)", 
-                    type=int, metavar="COUNT", default=10)
-parser.add_argument("--worker-type", help="Type of worker to use (default: process)", 
-                    choices=["process", "thread"], default="process", metavar="TYPE")
-parser.add_argument("--time-step", help="Value of dt parameter from parthenon/output* block", 
-                    metavar="DT", default=1.0, type=float)
-parser.add_argument("--output-directory", "-d", help=f"Output directory to save the images (default: {os.getcwd()})", 
-                    type=Path, default=os.getcwd(), metavar="DIR")
-parser.add_argument("--debug", help="Enable graph debug mode. This will run in the single thread. (default: false)", 
-                    action="store_true", default=False)
+parser.add_argument(
+    "--vector-component",
+    dest="vc",
+    type=float,
+    default=None,
+    help="Vector component of field to plot. Mutually exclusive with --tensor-component.",
+)
+parser.add_argument(
+    "--tensor-component",
+    dest="tc",
+    type=float,
+    nargs=2,
+    default=None,
+    help="Tensor components of field to plot. Mutally exclusive with --vector-component.",
+)
+parser.add_argument(
+    "--workers",
+    "-w",
+    help="Number of parallel workers to use (default: 10)",
+    type=int,
+    metavar="COUNT",
+    default=10,
+)
+parser.add_argument(
+    "--worker-type",
+    help="Type of worker to use (default: process)",
+    choices=["process", "thread"],
+    default="process",
+    metavar="TYPE",
+)
+parser.add_argument(
+    "--time-step",
+    help="Value of dt parameter from parthenon/output* block",
+    metavar="DT",
+    default=1.0,
+    type=float,
+)
+parser.add_argument(
+    "--output-directory",
+    "-d",
+    help=f"Output directory to save the images (default: {os.getcwd()})",
+    type=Path,
+    default=os.getcwd(),
+    metavar="DIR",
+)
+parser.add_argument(
+    "--debug",
+    help="Enable graph debug mode. This will run in the single thread. (default: false)",
+    action="store_true",
+    default=False,
+)
 
 parser.add_argument("field", type=str, help="field to plot")
 parser.add_argument("files", type=str, nargs="+", help="files to plot")
+
 
 def plot_dump(
     xf,
@@ -64,7 +105,6 @@ def plot_dump(
     ye=None,
     components=[0, 0],
 ):
-
     if xe is None:
         xe = xf
     if ye is None:
@@ -136,7 +176,6 @@ def plot_dump(
     logger.debug(f"Saved {time_title}s time-step to {output_file}")
 
 
-
 if __name__ == "__main__":
     # addPath()
     args = parser.parse_args()
@@ -148,8 +187,12 @@ if __name__ == "__main__":
         )
 
     if args.workers > 1:
-        logger.warning("Matplotlib is not multi-thread friendly. Read this for more details https://matplotlib.org/stable/users/faq/howto_faq.html#work-with-threads")
-        logger.warning("Try decreasing threads if you encounter any undefined behaviour")
+        logger.warning(
+            "Matplotlib is not multi-thread friendly. Read this for more details https://matplotlib.org/stable/users/faq/howto_faq.html#work-with-threads"
+        )
+        logger.warning(
+            "Try decreasing threads if you encounter any undefined behaviour"
+        )
     # Create output director if does't exists
     args.output_directory.mkdir(0o755, True, True)
     logger.info(f"Total files to process: {len(args.files)}")
@@ -159,30 +202,42 @@ if __name__ == "__main__":
         components = args.tc
     if args.vc is not None:
         components = [0, args.vc]
-    
+
     _x = ProcessPoolExecutor if args.worker_type == "process" else ThreadPoolExecutor
     current_time = 0.0
     with _x(max_workers=args.workers) as pool:
         for dump_id, file_name in enumerate(args.files):
             data = phdf(file_name)
             if args.field not in data.Variables:
-                logging.error(f"No such field \"{args.field}\" in {file_name}. \
-This will lead to stop further processing")
+                logging.error(
+                    f'No such field "{args.field}" in {file_name}. \
+This will lead to stop further processing'
+                )
                 break
-            
+
             logger.debug(f"Submitting {file_name}")
             q = data.Get(args.field, False, not args.debug)
             name = args.output_directory / Path(str(dump_id).rjust(4, "0") + ".png")
             if args.debug:
-                pool.submit(plot_dump, data.xg, data.yg, q, current_time, name, True,
-                            data.gid, data.xig, data.yig, data.xeg, data.yeg,
-                            components)
+                pool.submit(
+                    plot_dump,
+                    data.xg,
+                    data.yg,
+                    q,
+                    current_time,
+                    name,
+                    True,
+                    data.gid,
+                    data.xig,
+                    data.yig,
+                    data.xeg,
+                    data.yeg,
+                    components,
+                )
             else:
-                pool.submit(plot_dump, data.xng, data.yng, 
-                            q, current_time, name, True)
+                pool.submit(plot_dump, data.xng, data.yng, q, current_time, name, True)
             current_time += args.time_step
             current_time = round(current_time, ndigits=2)
-
 
     logger.info("All files are sent to the processor")
 
