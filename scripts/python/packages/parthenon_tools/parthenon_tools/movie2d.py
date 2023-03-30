@@ -123,7 +123,8 @@ def plot_dump(
 
     fig = plt.figure()
     p = fig.add_subplot(111, aspect=1)
-    p.set_title(f"t = {time_title} seconds")
+    if time_title is not None:
+        p.set_title(f"t = {time_title} seconds")
 
     qm = np.ma.masked_where(np.isnan(q), q)
     qmin = qm.min()
@@ -204,7 +205,7 @@ if __name__ == "__main__":
         components = [0, args.vc]
 
     _x = ProcessPoolExecutor if args.worker_type == "process" else ThreadPoolExecutor
-    current_time = 0.0
+    current_time = 0.0 if args.time_step else None
     with _x(max_workers=args.workers) as pool:
         for dump_id, file_name in enumerate(args.files):
             data = phdf(file_name)
@@ -236,8 +237,9 @@ This will lead to stop further processing'
                 )
             else:
                 pool.submit(plot_dump, data.xng, data.yng, q, current_time, name, True)
-            current_time += args.time_step
-            current_time = round(current_time, ndigits=2)
+            if args.time_step:
+                current_time += args.time_step
+                current_time = round(current_time, ndigits=2)
 
     logger.info("All files are sent to the processor")
 
