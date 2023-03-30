@@ -64,14 +64,6 @@ parser.add_argument(
     help="Type of worker to use (default: process)",
     choices=["process", "thread"],
     default="process",
-    metavar="TYPE",
-)
-parser.add_argument(
-    "--time-step",
-    help="Value of dt parameter from parthenon/output* block",
-    metavar="DT",
-    default=1.0,
-    type=float,
 )
 parser.add_argument(
     "--output-directory",
@@ -92,6 +84,12 @@ parser.add_argument(
     help="Enable graph debug mode. (default: false)",
     action="store_true",
     default=False,
+)
+parser.add_argument(
+    "--log-level",
+    choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+    default="INFO",
+    help="Log level to set for the logger. (default: INFO)",
 )
 
 parser.add_argument("field", type=str, help="field to plot")
@@ -187,7 +185,7 @@ def plot_dump(
 if __name__ == "__main__":
     # addPath()
     args = parser.parse_args()
-    logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
+    logger.setLevel(args.log_level)
 
     if args.tc and args.vc:
         raise ValueError(
@@ -212,7 +210,6 @@ if __name__ == "__main__":
         components = [0, args.vc]
 
     _x = ProcessPoolExecutor if args.worker_type == "process" else ThreadPoolExecutor
-    current_time = 0.0 if args.time_step else None
     with _x(max_workers=args.workers) as pool:
         for dump_id, file_name in enumerate(args.files):
             data = phdf(file_name)
@@ -223,12 +220,14 @@ This will lead to stop further processing'
                 )
                 break
 
-            logger.debug(f"Submitting {file_name}")
             q = data.Get(args.field, False, not args.debug)
             stem = f"{args.prefix}_{str(dump_id).rjust(4, '0')}".strip()
             stem = re.sub(r"^_", "", stem)
             name = stem + ".png"
             output_file = args.output_directory / name
+
+            # NOTE: After doing 5 test on different precision, keeping 2 looks more promising
+            current_time = format(round(data.Time, 2), ".2f")
             if args.debug:
                 pool.submit(
                     plot_dump,
@@ -249,9 +248,6 @@ This will lead to stop further processing'
                 pool.submit(
                     plot_dump, data.xng, data.yng, q, current_time, output_file, True
                 )
-            if args.time_step:
-                current_time += args.time_step
-                current_time = round(current_time, ndigits=2)
 
     logger.info("All files are sent to the processor")
 
