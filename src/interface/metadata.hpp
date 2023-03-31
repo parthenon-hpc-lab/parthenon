@@ -207,13 +207,9 @@ class Metadata {
   class FlagCollection {
    public:
     FlagCollection() = default;
-    // This is cleaner but the linter doesn't like it.
-    // template <typename T,
-    //           REQUIRES(std::is_same<typename T::value_type, MetadataFlag>::value)>
-    // FlagCollection(const T &flags, bool take_union = false) {
-    template <template <class...> class Container_t, class... extra>
-    FlagCollection(const Container_t<MetadataFlag, extra...> &flags,
-                   bool take_union = false) {
+    template <typename T,
+              REQUIRES(std::is_same<typename T::value_type, MetadataFlag>::value)>
+    explicit FlagCollection(const T &flags, bool take_union = false) {
       if (take_union) {
         unions_.insert(flags.begin(), flags.end());
       } else { // intersection
@@ -221,12 +217,13 @@ class Metadata {
       }
     }
     // Constructor that takes a brace-enclosed initializer list
+    // Required since the type of {...} cannot be deduced since it
+    // could be the type of any object that could be initialized by
+    // an initializer list
     // TODO(JMM): The cast to to a vector here implies some extra
     // copies which aren't great. Don't do this too much I guess.
-    // Also I don't totally understand why the templated constructor
-    // above doesn't capture this one.
     FlagCollection(std::initializer_list<MetadataFlag> flags, bool take_union = false)
-        : FlagCollection(FlagVec(flags), take_union) {}
+        : FlagCollection(FlagVec(std::move(flags)), take_union) {}
     // Constructor from a comma-separated list. Default is union.
     // Force correct type inferrence by making the first arg a flag
     template <typename... Args>
@@ -301,6 +298,8 @@ class Metadata {
   };
 
   Metadata() = default;
+  // Include explicit destructor to get rid of CUDA __host__ __device__ warning
+  ~Metadata() {}
 
   // There are 3 optional arguments: shape, component_labels, and associated, so we'll
   // need 8 constructors to provide all possible variants

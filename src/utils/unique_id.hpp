@@ -19,20 +19,24 @@
 #include <unordered_map>
 
 namespace parthenon {
+using Uid_t = std::size_t; // change this to something else if needed
+constexpr Uid_t INVALID_UID = 0;
 template <typename T>
 class UniqueIDGenerator {
  public:
-  std::size_t operator()(const T &key) {
+  Uid_t operator()(const T &key) {
     if (uids_.count(key) > 0) {
       return uids_.at(key);
     }
-    std::size_t uid = uids_.size();
+    // Ensure that all uids > 0, 0 reserved
+    // as an invalid id
+    Uid_t uid = uids_.size() + 1;
     uids_.emplace(key, uid);
     return uid;
   }
 
  private:
-  std::unordered_map<T, std::size_t> uids_;
+  std::unordered_map<T, Uid_t> uids_;
 };
 } // namespace parthenon
 
