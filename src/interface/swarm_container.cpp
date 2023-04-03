@@ -87,7 +87,7 @@ SwarmSet SwarmContainer::GetSwarmsByFlag(const Metadata::FlagCollection &flags) 
 
   auto swarms = MetadataUtils::GetByFlag<SwarmSet>(flags, swarmMap_, swarmMetadataMap_);
 
-  Kokkos::Profiling::popRegion(); // GetSwarmsByName
+  Kokkos::Profiling::popRegion(); // GetSwarmsByFlag
   return swarms;
 }
 

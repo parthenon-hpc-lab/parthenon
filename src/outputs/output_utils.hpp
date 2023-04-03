@@ -100,23 +100,17 @@ struct VarInfo {
 
 // TODO(JMM): If higher tensorial rank swarms are ever added this will
 // need to be changed
-struct SwarmVarInfo {
+template<typename T>
+struct SwarmVarInfo { // Type here is ENTIRELY for introspection
   std::string swarmname;
   std::string varname;
-  int npart; // assumes swarm has been defragmented.
   int nvar;
   int tensor_rank;
   SwarmVarInfo() = delete;
-  SwarmVarInfo(const std::string &swarmname, const std::string &varname, const int npart,
+  SwarmVarInfo(const std::string &swarmname, const std::string &varname,
                const int nvar)
-      : swarmname(swarmname), varname(varname), npart(npart), nvar(nvar),
+      : swarmname(swarmname), varname(varname), nvar(nvar),
         tensor_rank(nvar > 1 ? 1 : 0) {}
-  explicit SwarmVarInfo(const std::string &swarmname, const std::string &varname,
-                        Mesh *pmesh)
-      : swarmname(swarmname), varname(varname) {
-    auto const &first_block = *(pmesh->block_list.front());
-    auto swarms = first_block.swarm_data.Get();
-  }
 };
 } // namespace OutputUtils
 } // namespace parthenon

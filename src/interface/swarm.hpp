@@ -111,6 +111,10 @@ class Swarm {
   }
 
   /// Get particle variable
+  template <typename T>
+  bool Contains(const std::string &label) {
+    return std::get<getType<T>()>(Maps_).count(label);
+  }
   template <class T>
   ParticleVariable<T> &Get(const std::string &label) {
     return *std::get<getType<T>()>(Maps_).at(label);
@@ -215,6 +219,11 @@ class Swarm {
   void ApplyBoundaries_(const int nparticles, ParArrayND<int> indices);
 
   std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds_uptrs[6];
+
+  template<typename T>
+  const &auto GetVariableVector() const {
+    return std::get<getType<T>()>(Vectors_);
+  }
 
  private:
   template <class T>

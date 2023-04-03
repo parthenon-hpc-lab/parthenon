@@ -103,16 +103,6 @@ class SwarmContainer {
     }
     return swarmMap_[label];
   }
-  SwarmSet GetSwarmsByFlag(const Metadata::FlagVec &flags) {
-    SwarmSet out;
-    for (const auto &f : flags) {
-      if (swarmMetadataMap_.count(f) > 0) {
-        const auto &swarms = swarmMetadataMap_.at(f);
-        out.insert(swarms.begin(), swarms.end());
-      }
-    }
-    return out;
-  }
 
   std::shared_ptr<Swarm> &Get(const int index) { return swarmVector_[index]; }
 
