@@ -681,8 +681,8 @@ namespace MetadataUtils {
 // the number of vars with a desired flag will be much smaller than
 // all vars. So average performance is much better than linear.
 template <typename Set_t, typename NameMap_t, typename MetadataMap_t>
-Set_t GetByFlag(const Metadata::FlagCollection &flags,
-		NameMap_t &nameMap, MetadataMap_t &metadataMap) {
+Set_t GetByFlag(const Metadata::FlagCollection &flags, NameMap_t &nameMap,
+                MetadataMap_t &metadataMap) {
   // JMM: I'd like to make all inputs const, but apparently for (const
   // auto &thing : container) violates const correctness
   Set_t out;
@@ -696,33 +696,33 @@ Set_t GetByFlag(const Metadata::FlagCollection &flags,
   const auto &unions = flags.GetUnions();
   const auto &exclusions = flags.GetExclusions();
   const bool check_excludes = exclusions.size() > 0;
-  
+
   if (intersections.size() > 0) {
     // Dirty trick to get literally any flag from the intersections set
     MetadataFlag first_required = *(intersections.begin());
-    
+
     for (const auto &v : metadataMap[first_required]) {
-        const auto &m = v->metadata();
-        // TODO(JMM): Note that AnyFlagsSet returns FALSE if the set of flags
-        // it's asked about is empty.  Not sure that's desired
-        // behaviour, but whatever, let's just guard against edge cases
-        // here.
-        if (m.AllFlagsSet(intersections) &&
-            !(check_excludes && m.AnyFlagsSet(exclusions)) &&
-            (unions.empty() || m.AnyFlagsSet(unions))) {
-          // TODO(JMM): When dense sparse packing is moved to Parthenon
-          // develop we need an extra check for IsAllocated here.
-          out.insert(v);
-        }
+      const auto &m = v->metadata();
+      // TODO(JMM): Note that AnyFlagsSet returns FALSE if the set of flags
+      // it's asked about is empty.  Not sure that's desired
+      // behaviour, but whatever, let's just guard against edge cases
+      // here.
+      if (m.AllFlagsSet(intersections) &&
+          !(check_excludes && m.AnyFlagsSet(exclusions)) &&
+          (unions.empty() || m.AnyFlagsSet(unions))) {
+        // TODO(JMM): When dense sparse packing is moved to Parthenon
+        // develop we need an extra check for IsAllocated here.
+        out.insert(v);
       }
+    }
   } else { // unions.size() > 0.
     for (const auto &f : unions) {
       for (const auto &v : metadataMap[f]) {
-	// we know intersections.size == 0
-	if (!(check_excludes && (v->metadata()).AnyFlagsSet(exclusions))) {
-	  // TODO(JMM): see above regarding IsAllocated()
-	  out.insert(v);
-	}
+        // we know intersections.size == 0
+        if (!(check_excludes && (v->metadata()).AnyFlagsSet(exclusions))) {
+          // TODO(JMM): see above regarding IsAllocated()
+          out.insert(v);
+        }
       }
     }
   }

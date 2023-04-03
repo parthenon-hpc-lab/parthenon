@@ -84,7 +84,7 @@ void SwarmContainer::Remove(const std::string &label) {
 // Return swarms meeting some conditions
 SwarmSet SwarmContainer::GetSwarmsByFlag(const Metadata::FlagCollection &flags) {
   Kokkos::Profiling::pushRegion("GetSwarmsByFlag");
-  
+
   auto swarms = MetadataUtils::GetByFlag<SwarmSet>(flags, swarmMap_, swarmMetadataMap_);
 
   Kokkos::Profiling::popRegion(); // GetSwarmsByName

@@ -54,8 +54,8 @@ static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
 
 static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name,
                                      const std::vector<std::string> &component_labels,
-                                     std::string &hdfFile, int iblock, const int &num_components,
-                                     int &ndims, hsize_t *dims,
+                                     std::string &hdfFile, int iblock,
+                                     const int &num_components, int &ndims, hsize_t *dims,
                                      const std::string &dims321, bool isVector);
 } // namespace impl
 
@@ -195,14 +195,15 @@ static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
 
 static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name,
                                      const std::vector<std::string> &component_labels,
-                                     std::string &hdfFile, int iblock, const int &num_components,
-                                     int &ndims, hsize_t *dims,
+                                     std::string &hdfFile, int iblock,
+                                     const int &num_components, int &ndims, hsize_t *dims,
                                      const std::string &dims321, bool isVector) {
   // writes a slab reference to file
   std::vector<std::string> names;
   int nentries = 1;
   if (num_components == 1 || isVector) {
-    // we only make one entry, because either num_components == 1, or we write this as a vector
+    // we only make one entry, because either num_components == 1, or we write this as a
+    // vector
     names.push_back(name);
   } else {
     nentries = num_components;
@@ -254,7 +255,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
       fid << prefix << "    "
           << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
           << " " << i << " 0 0 0 "
-          << " 1 1 1 1 1 1 1" << " " << dims321 << "</DataItem>" << std::endl;
+          << " 1 1 1 1 1 1 1"
+          << " " << dims321 << "</DataItem>" << std::endl;
       writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
                         8);
       fid << prefix << "  "
