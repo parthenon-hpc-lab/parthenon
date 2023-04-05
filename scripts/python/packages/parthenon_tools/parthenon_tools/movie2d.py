@@ -268,7 +268,7 @@ if __name__ == "__main__":
                 )
             else:
                 pool.submit(
-                    plot_dump, data.xng, data.yng, q, current_time, output_file, True
+                    plot_dump, data.xng, data.yng, q, current_time, output_file, True, components=components
                 )
 
     if not ERROR_FLAG:
