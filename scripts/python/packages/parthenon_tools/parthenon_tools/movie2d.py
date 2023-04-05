@@ -80,8 +80,8 @@ parser.add_argument(
     metavar="PREFIX",
 )
 parser.add_argument(
-    "--debug",
-    help="Enable graph debug mode. (default: false)",
+    "--debug-plot",
+    help="Make plots with an exploded grid and including ghost zones. (default: false)",
     action="store_true",
     default=False,
 )
@@ -244,13 +244,13 @@ if __name__ == "__main__":
                 ERROR_FLAG = True
                 break
 
-            q = data.Get(args.field, False, not args.debug)
+            q = data.Get(args.field, False, not args.debug_plot)
             name = "{}_{:04d}.png".format(args.prefix, frame_id).strip()
             output_file = args.output_directory / name
 
             # NOTE: After doing 5 test on different precision, keeping 2 looks more promising
             current_time = format(round(data.Time, 2), ".2f")
-            if args.debug:
+            if args.debug_plot:
                 pool.submit(
                     plot_dump,
                     data.xg,
