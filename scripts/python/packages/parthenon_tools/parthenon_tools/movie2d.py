@@ -234,7 +234,7 @@ if __name__ == "__main__":
 
     _x = ProcessPoolExecutor if args.worker_type == "process" else ThreadPoolExecutor
     with _x(max_workers=args.workers) as pool:
-        for dump_id, file_name in enumerate(args.files):
+        for frame_id, file_name in enumerate(args.files):
             data = phdf(file_name)
             if args.field not in data.Variables:
                 logger.error(
@@ -245,7 +245,7 @@ if __name__ == "__main__":
                 break
 
             q = data.Get(args.field, False, not args.debug)
-            name = "{}_{:04d}.png".format(args.prefix, dump_id).strip()
+            name = "{}_{:04d}.png".format(args.prefix, frame_id).strip()
             output_file = args.output_directory / name
 
             # NOTE: After doing 5 test on different precision, keeping 2 looks more promising
