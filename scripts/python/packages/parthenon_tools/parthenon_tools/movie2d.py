@@ -246,9 +246,7 @@ if __name__ == "__main__":
                 break
 
             q = data.Get(args.field, False, not args.debug)
-            stem = f"{args.prefix}_{str(dump_id).rjust(4, '0')}".strip()
-            stem = re.sub(r"^_", "", stem)
-            name = stem + ".png"
+            name = "{}_{:04d}.png".format(args.prefix, dump_id).strip()
             output_file = args.output_directory / name
 
             # NOTE: After doing 5 test on different precision, keeping 2 looks more promising
