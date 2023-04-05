@@ -272,7 +272,7 @@ if __name__ == "__main__":
                 )
 
     if not ERROR_FLAG:
-        logger.info("All files are sent to the processor")
+        logger.info("All frames produced.")
 
         if not args.no_render:
             logger.info(f"Generating {args.movie_format} movie")
