@@ -206,7 +206,6 @@ def plot_dump(
 
 
 if __name__ == "__main__":
-    # addPath()
     ERROR_FLAG = False
     args = parser.parse_args()
     logger.setLevel(args.log_level)
