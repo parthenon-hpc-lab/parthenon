@@ -235,7 +235,7 @@ if __name__ == "__main__":
 
     _x = ProcessPoolExecutor if args.worker_type == "process" else ThreadPoolExecutor
     with _x(max_workers=args.workers) as pool:
-        for dump_id, file_name in enumerate([]):
+        for dump_id, file_name in enumerate(args.files):
             data = phdf(file_name)
             if args.field not in data.Variables:
                 logger.error(
