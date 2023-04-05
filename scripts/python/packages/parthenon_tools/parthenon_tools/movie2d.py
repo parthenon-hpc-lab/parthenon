@@ -110,8 +110,8 @@ parser.add_argument(
     default="output",
 )
 parser.add_argument(
-    "--no-render",
-    help="Prevent generating the movie from the parsed output files (default: false)",
+    "--render",
+    help="Generate the movie from the parsed output files (default: false)",
     default=False,
     action="store_true",
 )
@@ -274,7 +274,7 @@ if __name__ == "__main__":
     if not ERROR_FLAG:
         logger.info("All frames produced.")
 
-        if not args.no_render:
+        if args.render:
             logger.info(f"Generating {args.movie_format} movie")
             input_pattern = args.output_directory / "*.png"
             ffmpeg_cmd = f"ffmpeg -hide_banner -loglevel error -y -framerate {args.frame_rate} -pattern_type glob -i '{input_pattern}' "
