@@ -75,8 +75,8 @@ parser.add_argument(
 )
 parser.add_argument(
     "--prefix",
-    help="Prefix for the file name to save. (default: default_run)",
-    default="default_run",
+    help="Prefix for the file name to save",
+    default="",
     metavar="PREFIX",
 )
 parser.add_argument(
@@ -91,7 +91,30 @@ parser.add_argument(
     default="INFO",
     help="Log level to set for the logger. (default: INFO)",
 )
-
+parser.add_argument(
+    "--frame-rate",
+    type=int,
+    default=24,
+    help="Movie framerate (default: 24)",
+    metavar="FRAMERATE",
+)
+parser.add_argument(
+    "--movie-format",
+    choices=("gif", "mp4"),
+    default="mp4",
+    help="Movie output format. (default: mp4)",
+)
+parser.add_argument(
+    "--movie-filename",
+    help="Basename of the output movie file. (default: output.FORMAT)",
+    default="output",
+)
+parser.add_argument(
+    "--no-render",
+    help="Prevent generating the movie from the parsed output files (default: false)",
+    default=False,
+    action="store_true",
+)
 parser.add_argument("field", type=str, help="field to plot")
 parser.add_argument("files", type=str, nargs="+", help="files to plot")
 
@@ -184,6 +207,7 @@ def plot_dump(
 
 if __name__ == "__main__":
     # addPath()
+    ERROR_FLAG = False
     args = parser.parse_args()
     logger.setLevel(args.log_level)
 
@@ -211,12 +235,14 @@ if __name__ == "__main__":
 
     _x = ProcessPoolExecutor if args.worker_type == "process" else ThreadPoolExecutor
     with _x(max_workers=args.workers) as pool:
-        for dump_id, file_name in enumerate(args.files):
+        for dump_id, file_name in enumerate([]):
             data = phdf(file_name)
             if args.field not in data.Variables:
-                logging.error(
+                logger.error(
                     f'No such field "{args.field}" in {file_name}. This will lead to stop further processing'
                 )
+                logger.info(f"Available fields: {data.Variables}")
+                ERROR_FLAG = True
                 break
 
             q = data.Get(args.field, False, not args.debug)
@@ -248,6 +274,23 @@ if __name__ == "__main__":
                     plot_dump, data.xng, data.yng, q, current_time, output_file, True
                 )
 
-    logger.info("All files are sent to the processor")
+    if not ERROR_FLAG:
+        logger.info("All files are sent to the processor")
 
-logger.info("All done")
+        if not args.no_render:
+            logger.info(f"Generating {args.movie_format} movie")
+            input_pattern = args.output_directory / "*.png"
+            ffmpeg_cmd = f"ffmpeg -hide_banner -loglevel error -y -framerate {args.frame_rate} -pattern_type glob -i '{input_pattern}' "
+            output_filename = (
+                args.output_directory / f"{args.movie_filename}.{args.movie_format}"
+            )
+
+            if args.movie_format == "gif":
+                ffmpeg_cmd += '-vf "scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" '
+            elif args.movie_format == "mp4":
+                ffmpeg_cmd += "-c:v libx264 -pix_fmt yuv420p "
+
+            ffmpeg_cmd += f"{output_filename}"
+            logger.debug(f"Executing ffmpeg command: {ffmpeg_cmd}")
+            os.system(ffmpeg_cmd)
+            logger.info(f"Movie saved to {output_filename}")
