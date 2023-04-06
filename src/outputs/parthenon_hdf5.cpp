@@ -576,7 +576,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   
   OutputUtils::AllSwarmInfo swarm_info(pm->block_list, output_params.swarms,
                                        output_params.swarm_vars,
-                                       my_offset,
                                        restart_);
   
   // generate XDMF companion file

@@ -122,7 +122,6 @@ struct AllSwarmInfo {
   AllSwarmInfo(BlockList_t &block_list,
                const std::vector<std::string> &swarmnames,
                const std::vector<std::string> &varnames,
-               int block_offset,
                bool is_restart);
 };
 

@@ -31,10 +31,11 @@
 namespace parthenon {
 namespace OutputUtils {
 
+// TODO(JMM): Could probably reduce boiler plate/code duplication
+// below with some more clever templating, but I don't care.
 AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
                            const std::vector<std::string> &swarmnames,
                            const std::vector<std::string> &varnames,
-                           int block_offset,
                            bool is_restart) {
   for (auto &pmb : block_list) {
     auto &swarm_container = pmb->swarm_data.Get();
