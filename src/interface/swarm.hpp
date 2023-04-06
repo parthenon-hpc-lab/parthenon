@@ -115,9 +115,16 @@ class Swarm {
   bool Contains(const std::string &label) {
     return std::get<getType<T>()>(Maps_).count(label);
   }
+  // TODO(JMM): Kind of sucks to have two Gets here.
+  // Ben could we remove the get reference one and always get a
+  // pointer?
   template <class T>
   ParticleVariable<T> &Get(const std::string &label) {
     return *std::get<getType<T>()>(Maps_).at(label);
+  }
+  template <class T>
+  std::shared_ptr<ParticleVariable<T>> GetP(const std::string &label) const {
+    return std::get<getType<T>()>(Maps_).at(label);
   }
 
   /// Assign label for swarm
@@ -221,7 +228,7 @@ class Swarm {
   std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds_uptrs[6];
 
   template<typename T>
-  const &auto GetVariableVector() const {
+  const auto &GetVariableVector() const {
     return std::get<getType<T>()>(Vectors_);
   }
 

@@ -92,6 +92,10 @@ class SwarmContainer {
     UpdateMetadataMap_(swarm);
   }
 
+  bool Contains(const std::string &label) const {
+    return swarmMap_.count(label);
+  }
+
   ///
   /// Get a swarm from the container
   /// @param label the name of the swarm

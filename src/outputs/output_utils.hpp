@@ -19,6 +19,7 @@
 #define OUTPUTS_OUTPUT_UTILS_HPP_
 
 // C++
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -100,18 +101,36 @@ struct VarInfo {
 
 // TODO(JMM): If higher tensorial rank swarms are ever added this will
 // need to be changed
-template<typename T>
-struct SwarmVarInfo { // Type here is ENTIRELY for introspection
-  std::string swarmname;
-  std::string varname;
+struct SwarmVarInfo {
   int nvar;
   int tensor_rank;
-  SwarmVarInfo() = delete;
-  SwarmVarInfo(const std::string &swarmname, const std::string &varname,
-               const int nvar)
-      : swarmname(swarmname), varname(varname), nvar(nvar),
-        tensor_rank(nvar > 1 ? 1 : 0) {}
+  SwarmVarInfo() = default;
+  SwarmVarInfo(const int nvar)
+    : nvar(nvar), tensor_rank(nvar > 1 ? 1 : 0) {}
 };
+struct SwarmInfo {
+  std::map<std::string, ParticleVariableVector<int>> int_vars;
+  std::map<std::string, ParticleVariableVector<Real>> real_vars;
+  std::map<std::string, SwarmVarInfo> var_info;
+  std::size_t  count_on_rank; // per-meshblock
+  std::vector<std::size_t> counts;  // per-meshblock
+  std::vector<std::size_t> offsets; // global
+  SwarmInfo() = default;
+};
+struct AllSwarmInfo {
+  std::map<std::string, SwarmInfo> all_info;
+  AllSwarmInfo(BlockList_t &block_list,
+               const std::vector<std::string> &swarmnames,
+               const std::vector<std::string> &varnames,
+               int block_offset,
+               bool is_restart);
+};
+
+// TODO(JMM): Potentially unsafe if these types aren't compatible
+// TODO(JMM): If we ever need non-int need to generalize
+using MPI_SIZE_t = unsigned long long int;
+MPI_SIZE_t MPIPrefixSum(MPI_SIZE_t local);
+
 } // namespace OutputUtils
 } // namespace parthenon
 

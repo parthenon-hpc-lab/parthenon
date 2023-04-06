@@ -574,52 +574,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   //   WRITING PARTICLE DATA                                                          //
   // -------------------------------------------------------------------------------- //
   
-  // first loop to get variables we output
-  std::set<std::string> swarm_names;
-  std::vector<SwarmVarInfo> real_particles, int_particles;
-  { // scope to hide meshblock and swarm_container
-    auto pmb = pm->block_list.front();
-    auto &swarm_container = pmb->swarm_data.get();
-    if (restart_) {
-      using FC = parthenon::Metadata::FlagCollection;
-      auto flags =
-        FC({parthenon::Metadata::Independent, Parthenon::Metadata::Restart}, true);
-      swarms = swarm_container->GetSwarmsByFlag(flags);
-      for (auto &swarm : swarms.GetSwarmVector()) {
-        swarm->Defrag(); // just to be safe
-        auto swarmname = swarm->label();
-        for (const auto &var : swarm->GetVariableVector<Real>()) {
-          auto varname = var.label();
-          int nvar = var.GetDim(2);
-          swarm_names.insert(swarmname);
-          real_particles.emplace_back(swarmname, varname, nvar);
-        }
-        for (const auto &var : swarm->GetVariableVector<int>()) {
-          auto varname = var->label();
-          int nvar = var->GetDim(2);
-          swarm_names.insert(swarmname);
-          int_particles.emplace_back(swarmname, varname, nvar);
-        }
-      }
-    } else {
-      for (const auto &sw_name : op.swarms) {
-        swarm->Defrag();
-        for (const auto &var_name : op.swarm_vars) {
-          if (swarm->Contains<Real>(var_name)) {
-            const auto &var = swarm->Get<Real>(var_name);
-            int nvar = var->GetDim(2);
-            swarm_names.insert(swarmname);
-            real_particles.emplace_back(sw_name, var_name, nvar);
-          } else if (swarm->Contains<int>(var_name)) {
-            const auto &var = swarm->Get<int>(var_name);
-            int nvar = var->GetDim(2);
-            swarm_names.insert(swarmname);
-            int_particles.emplace_back(sw_name, var_name, nvar);
-          }
-        }
-      }
-    }
-  } //scoping
+  OutputUtils::AllSwarmInfo swarm_info(pm->block_list, output_params.swarms,
+                                       output_params.swarm_vars,
+                                       my_offset,
+                                       restart_);
   
   // generate XDMF companion file
   XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info);
