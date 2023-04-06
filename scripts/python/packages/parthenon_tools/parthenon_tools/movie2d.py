@@ -245,7 +245,7 @@ if __name__ == "__main__":
                 break
 
             q = data.Get(args.field, False, not args.debug_plot)
-            name = "{}_{:04d}.png".format(args.prefix, frame_id).strip()
+            name = "{}{:04d}.png".format(args.prefix, frame_id).strip()
             output_file = args.output_directory / name
 
             # NOTE: After doing 5 test on different precision, keeping 2 looks more promising
