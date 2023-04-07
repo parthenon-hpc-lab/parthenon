@@ -592,7 +592,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // TODO(JMM): Could probably reduce boiler plate with clever
     // templating?
     for (auto &[vname, swmvarvec] : swinfo.int_vars) {
-      std:: cout << "Swarmvarvec size = " << swmvarvec.size() << std::endl;
       const auto &vinfo = swinfo.var_info.at(vname);
       std::vector<int> host_data(swinfo.count_on_rank*vinfo.nvar);
       int ivec = 0;
@@ -603,7 +602,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 	  // with multiple components
 	  auto v_h = swmvar->GetHostMirrorAndCopy(comp);
 	  int npart_block = swinfo.counts[block_idx];
-	  std::printf("swmvar [%d] size = %d\n", block_idx, npart_block);
 	  for (int i = 0; i < npart_block; ++i) {
 	    host_data[ivec++] = v_h(i);
 	  }
