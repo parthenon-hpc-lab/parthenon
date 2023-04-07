@@ -377,9 +377,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   ParArrayND<int> new_indices;
   swarm->AddEmptyParticles(num_tracers_meshblock, new_indices);
 
+  int id_offset = (num_tracers_meshblock + 1) * pmb->gid;
+
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
   auto &z = swarm->Get<Real>("z").Get();
+  auto &id = swarm->Get<int>("id").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
   // This hardcoded implementation should only used in PGEN and not during runtime
@@ -397,6 +400,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
         y(n) = y_min + rng_gen.drand() * (y_max - y_min);
         z(n) = z_min + rng_gen.drand() * (z_max - z_min);
+        id(n) = id_offset + n;
 
         rng_pool.free_state(rng_gen);
       });
