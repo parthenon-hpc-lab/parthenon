@@ -591,39 +591,69 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const H5G g_var = MakeGroup(g_swm, "SwarmVars");
     // TODO(JMM): Could probably reduce boiler plate with clever
     // templating?
-    for (auto &[vname, swmvar] : swinfo.int_vars) {
+    for (auto &[vname, swmvarvec] : swinfo.int_vars) {
+      std:: cout << "Swarmvarvec size = " << swmvarvec.size() << std::endl;
       const auto &vinfo = swinfo.var_info.at(vname);
-      auto v_h = swmvar->Get().GetHostMirrorAndCopy();
+      std::vector<int> host_data(swinfo.count_on_rank*vinfo.nvar);
+      int ivec = 0;
+      int block_idx = 0;
+      for (int comp = 0; comp < vinfo.nvar; ++comp) {
+	for (auto &swmvar : swmvarvec) {
+	  // Prevents us from having to copy extra data for swarm vars
+	  // with multiple components
+	  auto v_h = swmvar->GetHostMirrorAndCopy(comp);
+	  int npart_block = swinfo.counts[block_idx];
+	  std::printf("swmvar [%d] size = %d\n", block_idx, npart_block);
+	  for (int i = 0; i < npart_block; ++i) {
+	    host_data[ivec++] = v_h(i);
+	  }
+	  ++block_idx;
+	}
+      }
       if (vinfo.tensor_rank == 0) { // scalar
         local_offset[0] = swinfo.global_offset;
         local_count[0] = swinfo.count_on_rank;
         global_count[0] = swinfo.global_count;
-        HDF5Write1D(g_var, vname, v_h.data(), local_offset,
+        HDF5Write1D(g_var, vname, host_data.data(), local_offset,
                     local_count, global_count, pl_xfer);
       } else { // tensor_rank == 1, vector
         local_offset[0] = 0;
         local_offset[1] = swinfo.global_offset;
         local_count[0] = vinfo.nvar;
         global_count[1]= swinfo.global_count;
-        HDF5Write2D(g_var, vname, v_h.data(), local_offset,
+        HDF5Write2D(g_var, vname, host_data.data(), local_offset,
                     local_count, global_count, pl_xfer);
       }
     }
-    for (auto &[vname, swmvar] : swinfo.real_vars) {
+    for (auto &[vname, swmvarvec] : swinfo.real_vars) {
       const auto &vinfo = swinfo.var_info.at(vname);
-      auto v_h = swmvar->Get().GetHostMirrorAndCopy();
+      std::vector<Real> host_data(swinfo.count_on_rank*vinfo.nvar);
+      int ivec = 0;
+      int block_idx = 0;
+      for (int comp = 0; comp < vinfo.nvar; ++comp) {
+	for (auto &swmvar : swmvarvec) {
+	  // Prevents us from having to copy extra data for swarm vars
+	  // with multiple components
+	  auto v_h = swmvar->GetHostMirrorAndCopy(comp);
+	  int npart_block = swinfo.counts[block_idx];
+	  for (int i = 0; i < npart_block; ++i) {
+	    host_data[ivec++] = v_h(i);
+	  }
+	  ++block_idx;
+	}
+      }
       if (vinfo.tensor_rank == 0) { // scalar
         local_offset[0] = swinfo.global_offset;
         local_count[0] = swinfo.count_on_rank;
         global_count[0] = swinfo.global_count;
-        HDF5Write1D(g_var, vname, v_h.data(), local_offset,
+        HDF5Write1D(g_var, vname, host_data.data(), local_offset,
                     local_count, global_count, pl_xfer);
       } else { // tensor_rank == 1, vector
         local_offset[0] = 0;
         local_offset[1] = swinfo.global_offset;
         local_count[0] = vinfo.nvar;
         global_count[1]= swinfo.global_count;
-        HDF5Write2D(g_var, vname, v_h.data(), local_offset,
+        HDF5Write2D(g_var, vname, host_data.data(), local_offset,
                     local_count, global_count, pl_xfer);
       }
     }

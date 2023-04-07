@@ -56,12 +56,12 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
         info.count_on_rank += count;
         for (const auto &var : swarm->GetVariableVector<int>()) {
           const auto &varname = var->label();
-          info.int_vars[varname] = var;
+          info.int_vars[varname].push_back(var);
           info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
         }
         for (const auto &var : swarm->GetVariableVector<Real>()) {
           const auto &varname = var->label();
-          info.real_vars[varname] = var;
+          info.real_vars[varname].push_back(var);
           info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
         }
       }
@@ -79,11 +79,11 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           for (const auto &varname : varnames) {
             if (swarm->Contains<int>(varname)) {
               auto var = swarm->GetP<int>(varname);
-              info.int_vars[varname] = var;
+              info.int_vars[varname].push_back(var);
               info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
             } else if (swarm->Contains<Real>(varname)) {
               auto var = swarm->GetP<Real>(varname);
-              info.real_vars[varname] = var;
+              info.real_vars[varname].push_back(var);
               info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
             } // else nothing
           }

@@ -109,8 +109,8 @@ struct SwarmVarInfo {
     : nvar(nvar), tensor_rank(nvar > 1 ? 1 : 0) {}
 };
 struct SwarmInfo {
-  MapToParticle<int> int_vars; // TODO(JMM): this could be a vector
-  MapToParticle<Real> real_vars;
+  std::map<std::string, ParticleVariableVector<int>> int_vars;
+  std::map<std::string, ParticleVariableVector<Real>> real_vars;
   std::map<std::string, SwarmVarInfo> var_info;
   std::size_t count_on_rank; // per-meshblock
   std::size_t global_offset; // global

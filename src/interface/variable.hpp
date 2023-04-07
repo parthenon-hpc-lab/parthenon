@@ -192,6 +192,19 @@ class ParticleVariable {
     return data(std::forward<Args>(args)...);
   }
 
+  auto GetHostMirrorAndCopy() {
+    return data.GetHostMirrorAndCopy();
+  }
+
+  template<typename... Args>
+  auto GetHostMirrorAndCopy(Args... args) {
+    auto data_slice = Kokkos::subview(data, std::forward<Args>(args)...);
+    return data_slice.GetHostMirrorAndCopy();
+  }
+  auto GetHostMirrorAndCopy(int component) {
+    return GetHostMirrorAndCopy(0, 0, 0, 0, component, Kokkos::ALL());
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
     PARTHENON_DEBUG_REQUIRE(0 < i && i <= 6, "ParArrayNDGenerics are max 6D");
