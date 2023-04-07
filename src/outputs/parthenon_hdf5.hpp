@@ -154,6 +154,14 @@ void HDF5WriteND(hid_t location, const std::string &name, const T *data, int ran
 }
 
 template <typename T>
+void HDF5Write1D(hid_t location, const std::string &name, const T *data,
+                 const hsize_t *local_offset, const hsize_t *local_count,
+                 const hsize_t *global_count, const H5P &plist_xfer) {
+  HDF5WriteND(location, name, data, 1, local_offset, local_count, global_count,
+              plist_xfer, H5P_DEFAULT);
+}
+
+template <typename T>
 void HDF5Write2D(hid_t location, const std::string &name, const T *data,
                  const hsize_t *local_offset, const hsize_t *local_count,
                  const hsize_t *global_count, const H5P &plist_xfer) {

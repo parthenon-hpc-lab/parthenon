@@ -109,10 +109,12 @@ struct SwarmVarInfo {
     : nvar(nvar), tensor_rank(nvar > 1 ? 1 : 0) {}
 };
 struct SwarmInfo {
-  std::map<std::string, ParticleVariableVector<int>> int_vars;
-  std::map<std::string, ParticleVariableVector<Real>> real_vars;
+  MapToParticle<int> int_vars; // TODO(JMM): this could be a vector
+  MapToParticle<Real> real_vars;
   std::map<std::string, SwarmVarInfo> var_info;
-  std::size_t  count_on_rank; // per-meshblock
+  std::size_t count_on_rank; // per-meshblock
+  std::size_t global_offset; // global
+  std::size_t global_count; // global
   std::vector<std::size_t> counts;  // per-meshblock
   std::vector<std::size_t> offsets; // global
   SwarmInfo() = default;
@@ -128,7 +130,7 @@ struct AllSwarmInfo {
 // TODO(JMM): Potentially unsafe if these types aren't compatible
 // TODO(JMM): If we ever need non-int need to generalize
 using MPI_SIZE_t = unsigned long long int;
-MPI_SIZE_t MPIPrefixSum(MPI_SIZE_t local);
+MPI_SIZE_t MPIPrefixSum(MPI_SIZE_t local, MPI_SIZE_t &tot_count);
 
 } // namespace OutputUtils
 } // namespace parthenon

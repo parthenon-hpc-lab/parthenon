@@ -577,6 +577,57 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   OutputUtils::AllSwarmInfo swarm_info(pm->block_list, output_params.swarms,
                                        output_params.swarm_vars,
                                        restart_);
+  for (auto &[swname, swinfo] : swarm_info.all_info) {
+    const H5G g_swm = MakeGroup(file, swname);
+    // offsets/counts are NOT the same here vs the grid data
+    // TODO(JMM): need to change if swarms get higher-rank vars
+    hsize_t local_offset[2] = {static_cast<hsize_t>(my_offset)};
+    hsize_t local_count[2] = {static_cast<hsize_t>(num_blocks_local)};
+    hsize_t global_count[2] = {static_cast<hsize_t>(max_blocks_global)};
+    HDF5Write1D(g_swm, "counts", swinfo.counts.data(), local_offset,
+                local_count, global_count, pl_xfer);
+    HDF5Write1D(g_swm, "offsets", swinfo.offsets.data(), local_offset,
+                local_count, global_count, pl_xfer);
+    const H5G g_var = MakeGroup(g_swm, "SwarmVars");
+    // TODO(JMM): Could probably reduce boiler plate with clever
+    // templating?
+    for (auto &[vname, swmvar] : swinfo.int_vars) {
+      const auto &vinfo = swinfo.var_info.at(vname);
+      auto v_h = swmvar->Get().GetHostMirrorAndCopy();
+      if (vinfo.tensor_rank == 0) { // scalar
+        local_offset[0] = swinfo.global_offset;
+        local_count[0] = swinfo.count_on_rank;
+        global_count[0] = swinfo.global_count;
+        HDF5Write1D(g_var, vname, v_h.data(), local_offset,
+                    local_count, global_count, pl_xfer);
+      } else { // tensor_rank == 1, vector
+        local_offset[0] = 0;
+        local_offset[1] = swinfo.global_offset;
+        local_count[0] = vinfo.nvar;
+        global_count[1]= swinfo.global_count;
+        HDF5Write2D(g_var, vname, v_h.data(), local_offset,
+                    local_count, global_count, pl_xfer);
+      }
+    }
+    for (auto &[vname, swmvar] : swinfo.real_vars) {
+      const auto &vinfo = swinfo.var_info.at(vname);
+      auto v_h = swmvar->Get().GetHostMirrorAndCopy();
+      if (vinfo.tensor_rank == 0) { // scalar
+        local_offset[0] = swinfo.global_offset;
+        local_count[0] = swinfo.count_on_rank;
+        global_count[0] = swinfo.global_count;
+        HDF5Write1D(g_var, vname, v_h.data(), local_offset,
+                    local_count, global_count, pl_xfer);
+      } else { // tensor_rank == 1, vector
+        local_offset[0] = 0;
+        local_offset[1] = swinfo.global_offset;
+        local_count[0] = vinfo.nvar;
+        global_count[1]= swinfo.global_count;
+        HDF5Write2D(g_var, vname, v_h.data(), local_offset,
+                    local_count, global_count, pl_xfer);
+      }
+    }
+  }
   
   // generate XDMF companion file
   XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info);

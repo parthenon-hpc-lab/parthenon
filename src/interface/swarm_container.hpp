@@ -145,7 +145,7 @@ class SwarmContainer {
 
   // Defragmentation task
   TaskStatus Defrag(double min_occupancy);
-  TaskStatus DefragAll() { return Defrag(1.0); }
+  TaskStatus DefragAll();
 
   // Sort-by-cell task
   TaskStatus SortParticlesByCell();

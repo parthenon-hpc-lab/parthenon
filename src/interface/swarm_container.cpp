@@ -108,6 +108,15 @@ TaskStatus SwarmContainer::Defrag(double min_occupancy) {
   return TaskStatus::complete;
 }
 
+TaskStatus SwarmContainer::DefragAll() {
+  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Defrag");
+  for (auto &s : swarmVector_) {
+    s->Defrag();
+  }
+  Kokkos::Profiling::popRegion();
+  return TaskStatus::complete;
+}
+
 TaskStatus SwarmContainer::SortParticlesByCell() {
   Kokkos::Profiling::pushRegion("Task_SwarmContainer_SortParticlesByCell");
 

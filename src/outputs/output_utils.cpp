@@ -56,12 +56,12 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
         info.count_on_rank += count;
         for (const auto &var : swarm->GetVariableVector<int>()) {
           const auto &varname = var->label();
-          info.int_vars[varname].push_back(var);
+          info.int_vars[varname] = var;
           info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
         }
         for (const auto &var : swarm->GetVariableVector<Real>()) {
           const auto &varname = var->label();
-          info.real_vars[varname].push_back(var);
+          info.real_vars[varname] = var;
           info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
         }
       }
@@ -79,11 +79,11 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           for (const auto &varname : varnames) {
             if (swarm->Contains<int>(varname)) {
               auto var = swarm->GetP<int>(varname);
-              info.int_vars[varname].push_back(var);
+              info.int_vars[varname] = var;
               info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
             } else if (swarm->Contains<Real>(varname)) {
               auto var = swarm->GetP<Real>(varname);
-              info.real_vars[varname].push_back(var);
+              info.real_vars[varname] = var;
               info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
             } // else nothing
           }
@@ -94,16 +94,19 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
   for (auto &[name,info] : all_info) {
     // TODO(JMM): Implies a bunch of blocking MPIAllReduces... but
     // we're just doing I/O right now, so probably ok?
-    std::size_t prefix_offset = MPIPrefixSum(info.count_on_rank);
+    MPI_SIZE_t tot_count;
+    info.global_offset = MPIPrefixSum(info.count_on_rank, tot_count);
     for (int i = 0; i < info.offsets.size(); ++i) {
-      info.offsets[i] += prefix_offset;
+      info.offsets[i] += info.global_offset;
     }
+    info.global_count = tot_count;
   }
 }
 
 // TODO(JMM): may need to generalize this
-MPI_SIZE_t MPIPrefixSum(MPI_SIZE_t local) {
+MPI_SIZE_t MPIPrefixSum(MPI_SIZE_t local, MPI_SIZE_t &tot_count) {
   MPI_SIZE_t out = 0;
+  tot_count = 0;
 #ifdef MPI_PARALLEL
   std::vector<MPI_SIZE_t> buffer(Globals::nranks);
   MPI_Allgather(&local, 1, MPI_UNSIGNED_LONG_LONG, buffer.data(), 1,
@@ -111,6 +114,11 @@ MPI_SIZE_t MPIPrefixSum(MPI_SIZE_t local) {
   for (int i = 0; i < Globals::my_rank; ++i) {
     out += buffer[i];
   }
+  for (int i = 0; i < buffer.size(); ++i) {
+    tot_count += buffer[i];
+  }
+#else
+  tot_count = local;
 #endif // MPI_PARALLEL
   return out;
 }
