@@ -60,7 +60,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
 } // namespace impl
 
 void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
-             const std::vector<OutputUtils::VarInfo> &var_list) {
+             const std::vector<OutputUtils::VarInfo> &var_list,
+	     const OutputUtils::AllSwarmInfo &all_swarm_info) {
   using namespace HDF5;
   using namespace OutputUtils;
   using namespace impl;

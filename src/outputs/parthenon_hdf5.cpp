@@ -622,7 +622,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   }
   
   // generate XDMF companion file
-  XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info);
+  XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info, swarm_info);
 }
 
 std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
