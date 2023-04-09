@@ -286,9 +286,11 @@ template <typename T>
 using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
 
 template <typename T>
-using ParticleVariableVector = std::vector<std::shared_ptr<ParticleVariable<T>>>;
+using ParticleVarPtr = std::shared_ptr<ParticleVariable<T>>;
 template <typename T>
-using MapToParticle = std::map<std::string, std::shared_ptr<ParticleVariable<T>>>;
+using ParticleVariableVector = std::vector<ParticleVarPtr<T>>;
+template <typename T>
+using MapToParticle = std::map<std::string, ParticleVarPtr<T>>;
 template <typename T>
 using VariableSet = std::set<VarPtr<T>, VarComp<CellVariable<T>>>;
 template <typename T>

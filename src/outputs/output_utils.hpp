@@ -23,6 +23,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 // Parthenon
@@ -108,16 +109,62 @@ struct SwarmVarInfo {
   SwarmVarInfo(const int nvar)
     : nvar(nvar), tensor_rank(nvar > 1 ? 1 : 0) {}
 };
+// Contains information about a particle swarm spanning
+// meshblocks. Everything needed for output
 struct SwarmInfo {
-  std::map<std::string, ParticleVariableVector<int>> int_vars;
-  std::map<std::string, ParticleVariableVector<Real>> real_vars;
-  std::map<std::string, SwarmVarInfo> var_info;
+  SwarmInfo() = default;
+  template<typename T>
+  using MapToVarVec = std::map<std::string, ParticleVariableVector<T>>;
+  std::tuple<MapToVarVec<int>, MapToVarVec<Real>> vars; // SwarmVars on each meshblock
+  std::map<std::string, SwarmVarInfo> var_info; // size of each swarmvar
   std::size_t count_on_rank; // per-meshblock
   std::size_t global_offset; // global
   std::size_t global_count; // global
   std::vector<std::size_t> counts;  // per-meshblock
   std::vector<std::size_t> offsets; // global
-  SwarmInfo() = default;
+  std::vector<ParArray1D<bool>> masks; // used for reading swarms without defrag
+  std::vector<std::size_t> max_indices; // JMM: If we defrag, unneeded?
+  void AddOffsets(const SP_Swarm &swarm); // sets above metadata
+  template<typename T>
+  MapToVarVec<T> &Vars() {
+    return std::get<MapToVarVec<T>>(vars);
+  }
+  template<typename T>
+  void Add(const std::string &varname, const ParticleVarPtr<T> &var) {
+    Vars<T>()[varname].push_back(var);
+    var_info[varname] = SwarmVarInfo(var->GetDim(2));
+  }
+  // Copies swarmvar to host in prep for output
+  template <typename T>
+  std::vector<T> FillHostBuffer(const std::string vname,
+                                ParticleVariableVector<T> &swmvarvec) {
+    const auto &vinfo = var_info.at(vname);
+    std::vector<T> host_data(count_on_rank * vinfo.nvar);
+    std::size_t ivec = 0;
+    std::size_t block_idx = 0;
+    for (int comp = 0; comp < vinfo.nvar; ++comp) {
+      for (auto &swmvar : swmvarvec) {
+	// Copied extra times. JMM: If we defrag, unneeded?
+	auto mask_h = masks[block_idx].GetHostMirrorAndCopy();
+        // Prevents us from having to copy extra data for swarm vars
+        // with multiple components
+        auto v_h = swmvar->GetHostMirrorAndCopy(comp);
+        // DO NOT use GetDim, as it does not reflect particle count
+	std::size_t max_index = max_indices[block_idx];
+	std::size_t particles_added = 0;
+        for (std::size_t i = 0; i < max_index; ++i) {
+	  if (mask_h(i)) {
+	    host_data[ivec++] = v_h(i);
+	    particles_added++;
+	  }
+        }
+	PARTHENON_REQUIRE_THROWS(particles_added == counts[block_idx],
+				 "All active particles set for output");
+        ++block_idx;
+      }
+    }
+    return host_data; // move semantics
+  }
 };
 struct AllSwarmInfo {
   std::map<std::string, SwarmInfo> all_info;

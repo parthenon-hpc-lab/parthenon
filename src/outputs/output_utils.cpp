@@ -31,15 +31,25 @@
 namespace parthenon {
 namespace OutputUtils {
 
-// TODO(JMM): Could probably reduce boiler plate/code duplication
-// below with some more clever templating, but I don't care.
+void SwarmInfo::AddOffsets(const SP_Swarm &swarm) {
+  std::size_t count = swarm->GetNumActive();
+  std::size_t offset = (offsets.size() > 0) ? offsets.back() : 0;
+  offset += (counts.size() > 0) ? counts.back() : 0;
+  counts.push_back(count);
+  offsets.push_back(offset);
+  count_on_rank += count;
+  // JMM: If we defrag, we don't need these
+  masks.push_back(swarm->GetMask());
+  max_indices.push_back(swarm->GetMaxActiveIndex());
+}
+
 AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
                            const std::vector<std::string> &swarmnames,
                            const std::vector<std::string> &varnames,
                            bool is_restart) {
   for (auto &pmb : block_list) {
     auto &swarm_container = pmb->swarm_data.Get();
-    swarm_container->DefragAll();
+    // swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
     if (is_restart) {
       using FC = parthenon::Metadata::FlagCollection;
       auto flags =
@@ -48,21 +58,14 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
       for (auto &swarm : swarms) {
         auto swarmname = swarm->label();
         auto &info = all_info[swarmname];
-        std::size_t count = swarm->GetNumActive();
-        std::size_t offset = (info.offsets.size() > 0) ? info.offsets.back() : 0;
-        offset += (info.counts.size() > 0) ? info.counts.back() : 0;
-        info.counts.push_back(count);
-        info.offsets.push_back(offset);
-        info.count_on_rank += count;
+	info.AddOffsets(swarm);
         for (const auto &var : swarm->GetVariableVector<int>()) {
           const auto &varname = var->label();
-          info.int_vars[varname].push_back(var);
-          info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
+	  info.Add(varname, var);
         }
         for (const auto &var : swarm->GetVariableVector<Real>()) {
           const auto &varname = var->label();
-          info.real_vars[varname].push_back(var);
-          info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
+	  info.Add(varname, var);
         }
       }
     } else {
@@ -70,21 +73,14 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
         if (swarm_container->Contains(swarmname)) {
           auto &swarm = swarm_container->Get(swarmname);
           auto &info = all_info[swarmname];
-          std::size_t count = swarm->GetNumActive();
-          std::size_t offset = (info.offsets.size() > 0) ? info.offsets.back() : 0;
-          offset += (info.counts.size() > 0) ? info.counts.back() : 0;
-          info.counts.push_back(count);
-          info.offsets.push_back(offset);
-          info.count_on_rank += count;
+	  info.AddOffsets(swarm);
           for (const auto &varname : varnames) {
             if (swarm->Contains<int>(varname)) {
               auto var = swarm->GetP<int>(varname);
-              info.int_vars[varname].push_back(var);
-              info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
+              info.Add(varname, var);
             } else if (swarm->Contains<Real>(varname)) {
               auto var = swarm->GetP<Real>(varname);
-              info.real_vars[varname].push_back(var);
-              info.var_info[varname] = SwarmVarInfo(var->GetDim(2));
+	      info.Add(varname, var);
             } // else nothing
           }
         }
