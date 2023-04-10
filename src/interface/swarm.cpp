@@ -283,6 +283,7 @@ ParArray1D<bool> Swarm::AddEmptyParticles(const int num_to_add,
     new_indices = ParArrayND<int>();
     return ParArray1D<bool>();
   }
+  printf("[%i] Add %i particles\n", GetBlockPointer()->gid, num_to_add);
 
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
@@ -303,8 +304,20 @@ ParArray1D<bool> Swarm::AddEmptyParticles(const int num_to_add,
   new_indices = ParArrayND<int>("New indices", num_to_add);
   auto new_indices_h = new_indices.GetHostMirror();
 
+  {
+    printf("[%i] nmask before update:\n", GetBlockPointer()->gid);
+    int nmask = 0;
+  for (int n = 0; n <= max_active_index_; n++) {
+    if (mask_h(n)) {
+      nmask++;
+    }
+  }
+  printf("[%i] nmask: %i num_active: %i\n", GetBlockPointer()->gid, nmask, num_active_);
+  }
+
   // Don't bother sanitizing the memory
   for (int n = 0; n < num_to_add; n++) {
+    printf("  free index: %i current mask? %i\n", *free_index, static_cast<int>(mask_h(*free_index)));
     mask_h(*free_index) = true;
     new_mask_h(*free_index) = true;
     blockIndex_h(*free_index) = this_block_;
@@ -322,6 +335,16 @@ ParArray1D<bool> Swarm::AddEmptyParticles(const int num_to_add,
   Kokkos::deep_copy(mask_, mask_h);
   blockIndex_.DeepCopy(blockIndex_h);
 
+  // DEBUG
+  int nmask = 0;
+  for (int n = 0; n <= max_active_index_; n++) {
+    if (mask_h(n)) {
+      nmask++;
+    }
+  }
+  printf("[%i] nmask: %i num_active: %i\n", GetBlockPointer()->gid, nmask, num_active_);
+  PARTHENON_REQUIRE(nmask == num_active_, "???");
+
   return new_mask;
 }
 
@@ -337,6 +360,7 @@ void Swarm::RemoveMarkedParticles() {
   for (int n = max_active_index_; n >= 0; n--) {
     if (mask_h(n)) {
       if (marked_for_removal_h(n)) {
+        printf("[%i] removing particle %i!\n", GetBlockPointer()->gid, n);
         mask_h(n) = false;
         free_indices_.push_front(n);
         num_active_ -= 1;

@@ -180,6 +180,17 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
   const auto &vy = adv_pkg->Param<Real>("vy");
   const auto &vz = adv_pkg->Param<Real>("vz");
 
+  printf("[%i] num particles: %i\n", pmb->gid, swarm->GetNumActive());
+  const auto &mask = swarm->GetMask();
+  int nmask = 0;
+  for (int n = 0; n <= swarm->GetMaxActiveIndex(); n++) {
+    if (mask(n)) {
+      nmask++;
+    }
+  }
+  printf("[%i] nmask: %i nactive: %i\n", pmb->gid, nmask, swarm->GetMaxActiveIndex());
+  PARTHENON_REQUIRE(nmask == swarm->GetNumActive(), "hmm");
+
   auto swarm_d = swarm->GetDeviceContext();
   pmb->par_for(
       "Tracer advection", 0, max_active_index, KOKKOS_LAMBDA(const int n) {

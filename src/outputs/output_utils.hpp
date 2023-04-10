@@ -169,6 +169,7 @@ struct SwarmInfo {
                 std::size_t particles_added = 0;
                 for (std::size_t i = 0; i <= max_index; ++i) {
                   if (mask_h(i)) {
+//                  if (true) {
                     host_data[ivec++] = v_h(i);
                     particles_added++;
                   }

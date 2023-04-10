@@ -49,7 +49,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
                            bool is_restart) {
   for (auto &pmb : block_list) {
     auto &swarm_container = pmb->swarm_data.Get();
-    // swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
+    //swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
     if (is_restart) {
       using FC = parthenon::Metadata::FlagCollection;
       auto flags =
