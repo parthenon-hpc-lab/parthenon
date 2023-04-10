@@ -36,7 +36,7 @@ ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 8
+nx1 = 64
 nx2 = 1
 nx3 = 1
 

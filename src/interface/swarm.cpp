@@ -261,9 +261,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
   blockIndex_.Resize(nmax_pool);
 
-  auto &intMap_ = std::get<getType<int>()>(Maps_);
   auto &intVector_ = std::get<getType<int>()>(Vectors_);
-  auto &realMap_ = std::get<getType<Real>()>(Maps_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
 
   for (auto &d : intVector_) {

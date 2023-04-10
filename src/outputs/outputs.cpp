@@ -57,6 +57,7 @@
 
 #include "outputs/outputs.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -195,26 +196,27 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       if ((op.file_type != "hst") && (op.file_type != "rst") &&
           (op.file_type != "ascent")) {
         op.variables = pin->GetVector<std::string>(pib->block_name, "variables");
-        // TODO(JMM): This model is based on the belief that the user
-        // may want to output some subset of swarm vars for some
-        // subset of swarms, but that e.g., the user doesn't want to
-        // output x,y,z for swarm A and only x,y for swarm B.
+        // JMM: swarmvars not specified separately per swarm. If the
+        // requested var isn't present for a given swarm, it is simply
+        // not output.
         if (pin->DoesParameterExist(pib->block_name, "swarms")) {
           op.swarms = pin->GetVector<std::string>(pib->block_name, "swarms");
           if (pin->DoesParameterExist(pib->block_name, "swarm_variables")) {
             op.swarm_vars =
                 pin->GetVector<std::string>(pib->block_name, "swarm_variables");
           } else {
-            if (Globals::my_rank == 0) {
-              std::stringstream warn;
-              warn << "Swarm output enabled but no swarm variables present. "
-                   << "No swarm data will be output." << std::endl;
-              PARTHENON_WARN(warn);
-            }
             op.swarm_vars.clear();
+          }
+          // Always output x, y, and z for swarms so that they work with vis tools.
+          for (const auto &var : std::vector<std::string>{"x", "y", "z"}) {
+            if (std::find(op.swarm_vars.begin(), op.swarm_vars.end(), var) ==
+                op.swarm_vars.end()) {
+              op.swarm_vars.push_back(var);
+            }
           }
         } else {
           op.swarms.clear();
+          op.swarm_vars.clear();
         }
       }
       op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");

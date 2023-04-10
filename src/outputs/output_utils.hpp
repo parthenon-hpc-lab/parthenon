@@ -19,6 +19,7 @@
 #define OUTPUTS_OUTPUT_UTILS_HPP_
 
 // C++
+#include <array>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -100,14 +101,18 @@ struct VarInfo {
                 var->IsSet(Metadata::Vector)) {}
 };
 
-// TODO(JMM): If higher tensorial rank swarms are ever added this will
-// need to be changed
 struct SwarmVarInfo {
-  int nvar;
-  int tensor_rank;
+  std::array<int, 5> n;
+  int nvar, tensor_rank;
+  bool vector;
   SwarmVarInfo() = default;
-  SwarmVarInfo(const int nvar)
-    : nvar(nvar), tensor_rank(nvar > 1 ? 1 : 0) {}
+  SwarmVarInfo(int n6, int n5, int n4, int n3, int n2, int rank, bool vector)
+    : n({n2, n3, n4, n5, n6}), nvar(n6 * n5 * n4 * n3 * n2),
+        tensor_rank(rank), vector((tensor_rank == 1) && (nvar == 3) && vector) {}
+  int GetN(int d) const {
+    PARTHENON_DEBUG_REQUIRE_THROWS(1 < d && d <= 6, "allowed dim");
+    return n[d - 2];
+  }
 };
 // Contains information about a particle swarm spanning
 // meshblocks. Everything needed for output
@@ -117,7 +122,7 @@ struct SwarmInfo {
   using MapToVarVec = std::map<std::string, ParticleVariableVector<T>>;
   std::tuple<MapToVarVec<int>, MapToVarVec<Real>> vars; // SwarmVars on each meshblock
   std::map<std::string, SwarmVarInfo> var_info; // size of each swarmvar
-  std::size_t count_on_rank; // per-meshblock
+  std::size_t count_on_rank = 0; // per-meshblock
   std::size_t global_offset; // global
   std::size_t global_count; // global
   std::vector<std::size_t> counts;  // per-meshblock
@@ -132,7 +137,13 @@ struct SwarmInfo {
   template<typename T>
   void Add(const std::string &varname, const ParticleVarPtr<T> &var) {
     Vars<T>()[varname].push_back(var);
-    var_info[varname] = SwarmVarInfo(var->GetDim(2));
+    auto m = var->metadata();
+    bool vector = m.IsSet(Metadata::Vector);
+    auto shape = m.Shape();
+    int rank = shape.size();
+    std::cout << "tensor_rank = " << rank << std::endl; // DEBUG
+    var_info[varname] = SwarmVarInfo(var->GetDim(6), var->GetDim(5), var->GetDim(4),
+                                     var->GetDim(3), var->GetDim(2), rank, vector);
   }
   // Copies swarmvar to host in prep for output
   template <typename T>
@@ -142,25 +153,36 @@ struct SwarmInfo {
     std::vector<T> host_data(count_on_rank * vinfo.nvar);
     std::size_t ivec = 0;
     std::size_t block_idx = 0;
-    for (int comp = 0; comp < vinfo.nvar; ++comp) {
-      for (auto &swmvar : swmvarvec) {
-	// Copied extra times. JMM: If we defrag, unneeded?
-	auto mask_h = masks[block_idx].GetHostMirrorAndCopy();
-        // Prevents us from having to copy extra data for swarm vars
-        // with multiple components
-        auto v_h = swmvar->GetHostMirrorAndCopy(comp);
-        // DO NOT use GetDim, as it does not reflect particle count
-	std::size_t max_index = max_indices[block_idx];
-	std::size_t particles_added = 0;
-        for (std::size_t i = 0; i < max_index; ++i) {
-	  if (mask_h(i)) {
-	    host_data[ivec++] = v_h(i);
-	    particles_added++;
-	  }
+    for (int n6 = 0; n6 < vinfo.GetN(6); ++n6) {
+      for (int n5 = 0; n5 < vinfo.GetN(5); ++n5) {
+        for (int n4 = 0; n4 < vinfo.GetN(4); ++n4) {
+          for (int n3 = 0; n3 < vinfo.GetN(3); ++n3) {
+            for (int n2 = 0; n2 < vinfo.GetN(2); ++n2) {
+              for (auto &swmvar : swmvarvec) {
+                // Copied extra times. JMM: If we defrag, unneeded?
+                auto mask_h = masks[block_idx].GetHostMirrorAndCopy();
+                // Prevents us from having to copy extra data for swarm vars
+                // with multiple components
+                auto v_h = swmvar->GetHostMirrorAndCopy(n6, n5, n4, n3, n2);
+                // DO NOT use GetDim, as it does not reflect particle count
+                std::size_t max_index = max_indices[block_idx];
+                std::size_t particles_added = 0;
+                for (std::size_t i = 0; i <= max_index; ++i) {
+                  if (mask_h(i)) {
+                    host_data[ivec++] = v_h(i);
+                    particles_added++;
+                  }
+                }
+                std::cout << "particles added, counts = " << particles_added
+                          << ", " << counts[block_idx]
+                          << std::endl;
+                PARTHENON_REQUIRE_THROWS(particles_added == counts[block_idx],
+                                         "All active particles set for output");
+                ++block_idx;
+              }
+            }
+          }
         }
-	PARTHENON_REQUIRE_THROWS(particles_added == counts[block_idx],
-				 "All active particles set for output");
-        ++block_idx;
       }
     }
     return host_data; // move semantics
