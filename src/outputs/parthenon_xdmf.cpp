@@ -36,8 +36,11 @@
 #include "outputs/output_utils.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_xdmf.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
+using namespace OutputUtils;
+
 namespace XDMF {
 namespace impl {
 // XDMF subroutine to write a dataitem that refers to an HDF array
@@ -46,22 +49,24 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
                                       const std::string &label, const hsize_t *dims,
                                       const int &ndims, const std::string &theType,
                                       const int &precision);
-
 static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
                               const std::string &hdfPath, const std::string &label,
                               const hsize_t *dims, const int &ndims,
                               const std::string &theType, const int &precision);
-
 static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name,
                                      const std::vector<std::string> &component_labels,
                                      std::string &hdfFile, int iblock,
                                      const int &num_components, int &ndims, hsize_t *dims,
                                      const std::string &dims321, bool isVector);
+static std::string ParticleDatasetRef(const std::string &prefix,
+                                      const std::string &swmname,
+                                      const std::string &varname,
+                                      const std::string &hdffile, int particle_count);
 } // namespace impl
 
 void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
-             const std::vector<OutputUtils::VarInfo> &var_list,
-	     const OutputUtils::AllSwarmInfo &all_swarm_info) {
+             const std::vector<VarInfo> &var_list,
+             const AllSwarmInfo &all_swarm_info) {
   using namespace HDF5;
   using namespace OutputUtils;
   using namespace impl;
@@ -162,6 +167,27 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     }
     xdmf << "      </Grid>" << std::endl;
   }
+  // Particles are defined as their own "mesh"
+  for (const auto &[swmname, swminfo] : all_swarm_info.all_info) {
+    xdmf << StringPrintf(
+        "    <Grid GridType=\"Uniform\" Name=\"%s\">\n"
+	"      <Topology TopologyType=\"Polyvertex\" Dimensions=\"%d\" "
+	"NodesPerElement=\"1\"/>\n"
+	"        <DataItem Format=\"HDF\" Dimensions=\"%d\" NumberType=\"Int\">\n"
+	"          %s:/%s/SwarmVars/id"
+	"        </DataItem>\n"
+	"      </Topology>\n"
+	"      <Geometry GeometryType=\"VXVYVZ\">\n",
+	swmname.c_str(), swminfo.global_count, swminfo.global_count, hdfFile.c_str(),
+	swmname.c_str());
+    xdmf << ParticleDatasetRef("        ", swmname, "x", hdfFile, swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, "y", hdfFile, swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, "z", hdfFile, swminfo.global_count);
+    xdmf << "      </Geometry>\n" << std::endl;
+    xdmf << "    </Grid>" << std::endl;
+  }
+
+  // Cleanup
   xdmf << "    </Grid>" << std::endl;
   xdmf << "  </Domain>" << std::endl;
   xdmf << "</Xdmf>" << std::endl;
@@ -266,6 +292,19 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     }
   }
   // TODO(BRR) Support tensor dims 2 and 3
+}
+static std::string ParticleDatasetRef(const std::string &prefix,
+                                      const std::string &swmname,
+                                      const std::string &varname,
+                                      const std::string &hdffile, int particle_count) {
+  auto part =
+      StringPrintf("%s<DataItem Format=\"HDF\" Dimensions=\"%d\" Name=\"%s\" "
+                   "NumberType=\"Float\" Precision=\"8\">\n"
+                   "%s  %s:\%s/SwarmVars/%s\n"
+                   "%s</DataItem>\n",
+                   prefix.c_str(), particle_count, varname.c_str(), prefix.c_str(),
+                   hdffile.c_str(), swmname.c_str(), varname.c_str(), prefix.c_str());
+  return part;
 }
 } // namespace impl
 } // namespace XDMF
