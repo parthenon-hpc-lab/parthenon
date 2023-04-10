@@ -235,8 +235,10 @@ class StateDescriptor {
   const auto &AllFields() const noexcept { return metadataMap_; }
   const auto &AllSparsePools() const noexcept { return sparsePoolMap_; }
   const auto &AllSwarms() const noexcept { return swarmMetadataMap_; }
-  const auto &AllSwarmValues(const std::string &swarm_name) const noexcept {
-    return swarmValueMetadataMap_.at(swarm_name);
+  const auto &AllSwarmValues(const std::string &swarm_name) noexcept {
+    // JMM: It's ok for this to be empty. Swarms with no values
+    // automatically have x, y, z.
+    return swarmValueMetadataMap_[swarm_name];
   }
   std::size_t
   RefinementFuncID(const refinement::RefinementFunctions_t &funcs) const noexcept {

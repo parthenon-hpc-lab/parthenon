@@ -17,7 +17,7 @@ problem_id = particle_tracers
 <parthenon/mesh>
 refinement = none
 
-nx1 = 128
+nx1 = 64
 x1min = -0.5
 x1max = 0.5
 ix1_bc = periodic
@@ -54,7 +54,7 @@ file_type = hdf5
 dt = 0.05
 variables = advected, tracer_deposition
 swarms = tracers
-swarm_variables = x, y, z, id
+swarm_variables = x, y, z, id, toy
 
 <Tracers>
 num_tracers = 10000

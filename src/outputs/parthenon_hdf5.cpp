@@ -594,38 +594,16 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     auto SetCounts = [&](const SwarmInfo &swinfo, const SwarmVarInfo &vinfo) {
       const int rank = vinfo.tensor_rank;
       for (int i = 0; i < 6; ++i) {
-        local_offset[i] = 0;
+        local_offset[i] = 0; // reset everything
+        local_count[i] = 0;
+        global_count[i] = 0;
       }
       for (int i = 0; i < rank; ++i) {
-        local_count[i] = global_count[i] = vinfo.GetN(6 - i);
+        local_count[i] = global_count[i] = vinfo.GetN(rank + 1 - i);
       }
       local_offset[rank] = swinfo.global_offset;
       local_count[rank] = swinfo.count_on_rank;
       global_count[rank] = swinfo.global_count;
-      // DEBUG
-      std::cout << "Arrays for rank " << rank << ":\n"
-                << "\tlocal_offset = ";
-      for (int i = 0; i < 6; ++i) {
-        std::cout << local_offset[i] << " ";
-      }
-      std::cout << "\n\tlocal_count = ";
-      for (int i = 0; i < 6; ++i) {
-        std::cout << local_count[i] << " ";
-      }
-      std::cout << "\n\tglobal_count = ";
-      for (int i = 0; i < 6; ++i) {
-        std::cout << global_count[i] << " ";
-      }
-      std::cout << std::endl;
-      /*
-      if (vinfo.tensor_rank == 0) { // scalar
-        local_count[0] = swinfo.count_on_rank;
-        global_count[0] = swinfo.global_count;
-      } else if (vinfo.tensor_rank == 1) {
-        local_count[0] = global_count[0] = vinfo.n2;
-        global_count[1] = swinfo.global_count;
-      }
-      */
     };
     auto &int_vars = std::get<SwarmInfo::MapToVarVec<int>>(swinfo.vars);
     for (auto &[vname, swmvarvec] : int_vars) {

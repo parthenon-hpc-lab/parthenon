@@ -61,7 +61,9 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
 static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &swmname,
                                       const std::string &varname,
-                                      const std::string &hdffile, int particle_count);
+                                      const std::string &hdffile,
+                                      const std::string &datatype,
+                                      int particle_count);
 } // namespace impl
 
 void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
@@ -165,7 +167,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
                                num_components, ndim, dims, dims321, vinfo.is_vector);
     }
-    xdmf << "      </Grid>" << std::endl;
+    xdmf << "    </Grid>" << std::endl;
   }
   // Particles are defined as their own "mesh"
   for (const auto &[swmname, swminfo] : all_swarm_info.all_info) {
@@ -174,21 +176,30 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
 	"      <Topology TopologyType=\"Polyvertex\" Dimensions=\"%d\" "
 	"NodesPerElement=\"1\"/>\n"
 	"        <DataItem Format=\"HDF\" Dimensions=\"%d\" NumberType=\"Int\">\n"
-	"          %s:/%s/SwarmVars/id"
+	"          %s:/%s/SwarmVars/id\n"
 	"        </DataItem>\n"
 	"      </Topology>\n"
 	"      <Geometry GeometryType=\"VXVYVZ\">\n",
 	swmname.c_str(), swminfo.global_count, swminfo.global_count, hdfFile.c_str(),
 	swmname.c_str());
-    xdmf << ParticleDatasetRef("        ", swmname, "x", hdfFile, swminfo.global_count);
-    xdmf << ParticleDatasetRef("        ", swmname, "y", hdfFile, swminfo.global_count);
-    xdmf << ParticleDatasetRef("        ", swmname, "z", hdfFile, swminfo.global_count);
-    xdmf << "      </Geometry>\n" << std::endl;
+    xdmf << ParticleDatasetRef("        ", swmname, "x", hdfFile, "Float",
+                               swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, "y", hdfFile, "Float",
+                               swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, "z", hdfFile, "Float",
+                               swminfo.global_count);
+    xdmf << "      </Geometry>" << std::endl;
     xdmf << "    </Grid>" << std::endl;
+    for (const auto &[varname, varinfo] : swminfo.var_info) {
+      if (varname == "id") {
+        continue; // We already did this one!
+      }
+      xdmf << ParticleDatasetRef("      ", swmname, varname, hdfFile, varinfo.swtype,
+                                 swminfo.global_count);
+    }
   }
 
   // Cleanup
-  xdmf << "    </Grid>" << std::endl;
   xdmf << "  </Domain>" << std::endl;
   xdmf << "</Xdmf>" << std::endl;
   xdmf.close();
@@ -296,13 +307,18 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
 static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &swmname,
                                       const std::string &varname,
-                                      const std::string &hdffile, int particle_count) {
+                                      const std::string &hdffile,
+                                      const std::string &datatype,
+                                      int particle_count) {
+  std::string precision_string = (datatype == "Float") ? " Precision=\"8\"" : "";
   auto part =
       StringPrintf("%s<DataItem Format=\"HDF\" Dimensions=\"%d\" Name=\"%s\" "
-                   "NumberType=\"Float\" Precision=\"8\">\n"
+                   "NumberType=\"%s\"%s>\n"
                    "%s  %s:\%s/SwarmVars/%s\n"
                    "%s</DataItem>\n",
-                   prefix.c_str(), particle_count, varname.c_str(), prefix.c_str(),
+                   prefix.c_str(), particle_count, varname.c_str(), datatype.c_str(),
+                   precision_string.c_str(),
+                   prefix.c_str(),
                    hdffile.c_str(), swmname.c_str(), varname.c_str(), prefix.c_str());
   return part;
 }

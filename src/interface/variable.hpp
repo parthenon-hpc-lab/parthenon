@@ -196,13 +196,9 @@ class ParticleVariable {
     return data.GetHostMirrorAndCopy();
   }
 
-  template<typename... Args>
-  auto GetHostMirrorAndCopy(Args... args) {
-    auto data_slice = Kokkos::subview(data, std::forward<Args>(args)...);
-    return data_slice.GetHostMirrorAndCopy();
-  }
   auto GetHostMirrorAndCopy(int n6, int n5, int n4, int n3, int n2) {
-    return GetHostMirrorAndCopy(n6, n5, n4, n3, n2, Kokkos::ALL());
+    auto data_slice = Kokkos::subview(data, n6, n5, n4, n3, n2, Kokkos::ALL());
+    return data_slice.GetHostMirrorAndCopy();
   }
 
   KOKKOS_FORCEINLINE_FUNCTION

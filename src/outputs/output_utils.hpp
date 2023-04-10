@@ -105,10 +105,12 @@ struct SwarmVarInfo {
   std::array<int, 5> n;
   int nvar, tensor_rank;
   bool vector;
+  std::string swtype; // string for xdmf. "Int" or "Float"
   SwarmVarInfo() = default;
-  SwarmVarInfo(int n6, int n5, int n4, int n3, int n2, int rank, bool vector)
-    : n({n2, n3, n4, n5, n6}), nvar(n6 * n5 * n4 * n3 * n2),
-        tensor_rank(rank), vector((tensor_rank == 1) && (nvar == 3) && vector) {}
+  SwarmVarInfo(int n6, int n5, int n4, int n3, int n2, int rank,
+               const std::string &swtype, bool vector)
+      : n({n2, n3, n4, n5, n6}), nvar(n6 * n5 * n4 * n3 * n2), tensor_rank(rank),
+        swtype(swtype), vector((tensor_rank == 1) && (nvar == 3) && vector) {}
   int GetN(int d) const {
     PARTHENON_DEBUG_REQUIRE_THROWS(1 < d && d <= 6, "allowed dim");
     return n[d - 2];
@@ -141,9 +143,9 @@ struct SwarmInfo {
     bool vector = m.IsSet(Metadata::Vector);
     auto shape = m.Shape();
     int rank = shape.size();
-    std::cout << "tensor_rank = " << rank << std::endl; // DEBUG
+    std::string t = std::is_same<T, int>::value ? "Int" : "Float";
     var_info[varname] = SwarmVarInfo(var->GetDim(6), var->GetDim(5), var->GetDim(4),
-                                     var->GetDim(3), var->GetDim(2), rank, vector);
+                                     var->GetDim(3), var->GetDim(2), rank, t, vector);
   }
   // Copies swarmvar to host in prep for output
   template <typename T>
@@ -152,15 +154,15 @@ struct SwarmInfo {
     const auto &vinfo = var_info.at(vname);
     std::vector<T> host_data(count_on_rank * vinfo.nvar);
     std::size_t ivec = 0;
-    std::size_t block_idx = 0;
     for (int n6 = 0; n6 < vinfo.GetN(6); ++n6) {
       for (int n5 = 0; n5 < vinfo.GetN(5); ++n5) {
         for (int n4 = 0; n4 < vinfo.GetN(4); ++n4) {
           for (int n3 = 0; n3 < vinfo.GetN(3); ++n3) {
             for (int n2 = 0; n2 < vinfo.GetN(2); ++n2) {
+              std::size_t block_idx = 0;
               for (auto &swmvar : swmvarvec) {
                 // Copied extra times. JMM: If we defrag, unneeded?
-                auto mask_h = masks[block_idx].GetHostMirrorAndCopy();
+                // auto mask_h = masks[block_idx].GetHostMirrorAndCopy();
                 // Prevents us from having to copy extra data for swarm vars
                 // with multiple components
                 auto v_h = swmvar->GetHostMirrorAndCopy(n6, n5, n4, n3, n2);
@@ -168,14 +170,11 @@ struct SwarmInfo {
                 std::size_t max_index = max_indices[block_idx];
                 std::size_t particles_added = 0;
                 for (std::size_t i = 0; i <= max_index; ++i) {
-                  if (mask_h(i)) {
+                  if (true) { //(mask_h(i)) {
                     host_data[ivec++] = v_h(i);
                     particles_added++;
                   }
                 }
-                std::cout << "particles added, counts = " << particles_added
-                          << ", " << counts[block_idx]
-                          << std::endl;
                 PARTHENON_REQUIRE_THROWS(particles_added == counts[block_idx],
                                          "All active particles set for output");
                 ++block_idx;
