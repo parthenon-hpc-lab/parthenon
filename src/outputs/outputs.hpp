@@ -19,6 +19,7 @@
 //! \file outputs.hpp
 //  \brief provides classes to handle ALL types of data output
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -34,6 +35,36 @@ namespace parthenon {
 // forward declarations
 class Mesh;
 class ParameterInput;
+
+// Helper struct containing some information about a variable
+struct VarInfo {
+  std::string label;
+  int num_components;
+  int nx6;
+  int nx5;
+  int nx4;
+  int nx3;
+  int nx2;
+  int nx1;
+  int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
+                   // variables
+  MetadataFlag where;
+  bool is_sparse;
+  bool is_vector;
+  std::vector<std::string> component_labels;
+
+  VarInfo() = delete;
+
+  VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
+          int num_components, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
+          Metadata metadata, bool is_sparse, bool is_vector);
+
+  explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
+      : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
+                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->GetDim(3),
+                var->GetDim(2), var->GetDim(1), var->metadata(), var->IsSparse(),
+                var->IsSet(Metadata::Vector)) {}
+};
 
 //----------------------------------------------------------------------------------------
 //! \struct OutputParameters
@@ -161,6 +192,22 @@ class VTKOutput : public OutputType {
   void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
+};
+
+//----------------------------------------------------------------------------------------
+//! \class AscentOutput
+//  \brief derived OutputType class for Ascent in situ situ visualization and analysis
+
+class AscentOutput : public OutputType {
+ public:
+  explicit AscentOutput(const OutputParameters &oparams) : OutputType(oparams) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+
+ private:
+  //  Ghost mask currently (Ascent 0.9) needs to be of float type on device as the
+  //  automated conversion between int and float does not work
+  ParArray1D<Real> ghost_mask_;
 };
 
 #ifdef ENABLE_HDF5

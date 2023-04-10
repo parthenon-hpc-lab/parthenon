@@ -73,8 +73,7 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
   }
 }
 
-// TODO(JMM): To use the set logic in GetVariablesFromFlags
-// that logic would need to be generalized. Not bothering for now.
+// TODO(JMM): Add CopyFrom that takes unique IDs
 template <typename T>
 void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
                                 const std::vector<std::string> &names,
@@ -146,8 +145,7 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
   CopyFrom(src, true, names, {}, sparse_ids);
 }
 
-// TODO(JMM): To use the set logic in GetVariablesFromFlags
-// that logic would need to be generalized. Not bothering for now.
+// TODO(JMM): Add constructor that takes unique IDs
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
                                 const std::vector<MetadataFlag> &flags,

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -207,8 +207,10 @@ class Metadata {
   class FlagCollection {
    public:
     FlagCollection() = default;
-    // Container_t should be a stdlib container type
-    // it needs at least the iterator first and last methods
+    // This is cleaner but the linter doesn't like it.
+    // template <typename T,
+    //           REQUIRES(std::is_same<typename T::value_type, MetadataFlag>::value)>
+    // FlagCollection(const T &flags, bool take_union = false) {
     template <template <class...> class Container_t, class... extra>
     FlagCollection(const Container_t<MetadataFlag, extra...> &flags,
                    bool take_union = false) {
@@ -222,7 +224,7 @@ class Metadata {
     // TODO(JMM): The cast to to a vector here implies some extra
     // copies which aren't great. Don't do this too much I guess.
     // Also I don't totally understand why the templated constructor
-    // above doesn't capture this one. I guess it's not a const reference?
+    // above doesn't capture this one.
     FlagCollection(std::initializer_list<MetadataFlag> flags, bool take_union = false)
         : FlagCollection(FlagVec(flags), take_union) {}
     // Constructor from a comma-separated list. Default is union.
@@ -330,6 +332,7 @@ class Metadata {
       DoBit(Derived, true);
     }
     // If variable is refined, set a default prolongation/restriction op
+    // TODO(JMM): This is dangerous. See Issue #844.
     if (IsRefined()) {
       refinement_funcs_ = refinement::RefinementFunctions_t::RegisterOps<
           refinement_ops::ProlongateCellMinMod, refinement_ops::RestrictCellAverage>();
@@ -358,6 +361,7 @@ class Metadata {
     }
 
     // Set the allocation and deallocation thresholds
+    // TODO(JMM): This is dangerous. See Issue #844.
     if (IsSet(Sparse)) {
       allocation_threshold_ = Globals::sparse_config.allocation_threshold;
       deallocation_threshold_ = Globals::sparse_config.deallocation_threshold;
@@ -404,6 +408,7 @@ class Metadata {
 
   // Individual flag setters, using these could result in an invalid set of flags, use
   // IsValid to check if the flags are valid
+  // TODO(JMM): This is dangerous. See Issue #844.
   void Set(MetadataFlag f) { DoBit(f, true); }    ///< Set specific bit
   void Unset(MetadataFlag f) { DoBit(f, false); } ///< Unset specific bit
 
@@ -449,6 +454,17 @@ class Metadata {
       valid = false;
       if (throw_on_fail) {
         PARTHENON_THROW("Either the Independent or Derived flag must be set");
+      }
+    }
+
+    // Prolongation/restriction
+    if (IsRefined()) {
+      if (refinement_funcs_.label().size() == 0) {
+        valid = false;
+        if (throw_on_fail) {
+          PARTHENON_THROW(
+              "Registered for refinment but no prolongation/restriction ops found");
+        }
       }
     }
 

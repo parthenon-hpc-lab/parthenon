@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 810]](https://github.com/parthenon-hpc-lab/parthenon/pull/810) Add suport for Ascent in-situ visualization
 - [[PR 831]](https://github.com/parthenon-hpc-lab/parthenon/pull/831) Add set-based MetadataFlag logic
 - [[PR 803]](https://github.com/parthenon-hpc-lab/parthenon/pull/803) Add skeleton for sphinx docs
 - [[PR 774]](https://github.com/parthenon-hpc-lab/parthenon/pull/774) Add second order refinement criteria
@@ -26,6 +27,9 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 841]](https://github.com/parthenon-hpc-lab/parthenon/pull/841) De-allocate MPI communicators when freeing `Reduction` objects
+- [[PR 851]](https://github.com/parthenon-hpc-lab/parthenon/pull/851) Fix xdmf hyperslab definition for vectors
+- [[PR 843]](https://github.com/parthenon-hpc-lab/parthenon/pull/843) Add guard rails to prolongation/restriction infrastructure
 - [[PR 832]](https://github.com/parthenon-hpc-lab/parthenon/pull/833) Fix movie2d script after it broke due to change in HDF5 format
 - [[PR 820]](https://github.com/parthenon-hpc-lab/parthenon/pull/820) Fix XDMF spec to conform to standard and handle scalar and vector variables
 - [[PR 795]](https://github.com/parthenon-hpc-lab/parthenon/pull/795) Fix length-1 vectors in output format version >= 3
@@ -47,6 +51,8 @@
 - [[PR 716]](https://github.com/lanl/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 848]](https://github.com/parthenon-hpc-lab/parthenon/pull/848) Implement recursive mkdir using [`std::filesystem`](https://en.cppreference.com/w/cpp/filesystem) in **src/utils/change_rundir.cpp**
+- [[PR 837]](https://github.com/parthenon-hpc-lab/parthenon/pull/837) Migrate docs to Sphinx
 - [[PR 791]](https://github.com/parthenon-hpc-lab/parthenon/pull/791) Set KOKKOS_DISABLE_WARNINGS=TRUE
 - [[PR 777]](https://github.com/parthenon-hpc-lab/parthenon/pull/777) New action: check PR dependencies & warn until requirements merged
 - [[PR 772]](https://github.com/lanl/parthenon/pull/772) Trigger short CI only for PRs and remove old SpaceInstances test

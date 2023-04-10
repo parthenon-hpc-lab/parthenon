@@ -179,12 +179,12 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // potentially used in the load balancing calculation, but not all
   // variables that we may want to communicate are necessarily relevant
   // to the cost per meshblock.
-  using FS_t = Metadata::FlagCollection;
+  using FC_t = Metadata::FlagCollection;
   // union of Independent and FillGhost
-  FS_t flags({Metadata::Independent, Metadata::FillGhost}, true);
+  FC_t flags({Metadata::Independent, Metadata::FillGhost}, true);
   // Toss in RemeshComm for this one
   const auto vars =
-      real_container->GetVariablesByFlag(flags + FS_t({Metadata::ForceRemeshComm}, true))
+      real_container->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true))
           .vars();
   for (const auto &v : vars) {
     RegisterMeshBlockData(v);
@@ -195,7 +195,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     const auto refine_vars = real_container->GetVariablesByFlag(flags).vars();
     pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
-    for (const auto &v : vars) {
+    for (const auto &v : refine_vars) {
       // These are used for doing refinement
       pmr->AddToRefinement(v);
     }
