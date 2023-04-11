@@ -188,7 +188,7 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
       nmask++;
     }
   }
-  printf("[%i] nmask: %i nactive: %i\n", pmb->gid, nmask, swarm->GetMaxActiveIndex());
+  printf("[%i] nmask: %i nactive: %i\n", pmb->gid, nmask, swarm->GetNumActive());
   PARTHENON_REQUIRE(nmask == swarm->GetNumActive(), "hmm");
 
   auto swarm_d = swarm->GetDeviceContext();

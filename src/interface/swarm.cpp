@@ -355,6 +355,7 @@ void Swarm::RemoveMarkedParticles() {
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
   auto marked_for_removal_h =
       Kokkos::create_mirror_view_and_copy(HostMemSpace(), marked_for_removal_);
+  printf("[%i] Remove marked particles?\n", GetBlockPointer()->gid);
 
   // loop backwards to keep free_indices_ updated correctly
   for (int n = max_active_index_; n >= 0; n--) {
@@ -363,6 +364,7 @@ void Swarm::RemoveMarkedParticles() {
         printf("[%i] removing particle %i!\n", GetBlockPointer()->gid, n);
         mask_h(n) = false;
         free_indices_.push_front(n);
+        printf("  remove from num_active_!\n");
         num_active_ -= 1;
         if (n == max_active_index_) {
           max_active_index_ -= 1;
@@ -371,6 +373,17 @@ void Swarm::RemoveMarkedParticles() {
       }
     }
   }
+
+  // DEBUG
+  printf("%s:%i\n", __FILE__, __LINE__);
+  int nmask = 0;
+  for (int n = 0; n <= max_active_index_; n++) {
+    if (mask_h(n)) {
+      nmask++;
+    }
+  }
+  printf("[%i] nmask: %i num_active: %i\n", GetBlockPointer()->gid, nmask, num_active_);
+  PARTHENON_REQUIRE(nmask == num_active_, "???");
 
   Kokkos::deep_copy(mask_, mask_h);
   Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
