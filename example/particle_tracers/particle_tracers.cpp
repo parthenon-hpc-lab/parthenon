@@ -154,10 +154,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::string swarm_name = "tracers";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None});
   pkg->AddSwarm(swarm_name, swarm_metadata);
-  //pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
-  // Metadata toy_metadata({Metadata::Real, Metadata::Vector}, std::vector<int>{3});
-  Metadata toy_metadata({Metadata::Real}, std::vector<int>{3, 3});
-  pkg->AddSwarmValue("toy", swarm_name, toy_metadata);
+  Metadata real_swarmvalue_metadata({Metadata::Real});
+  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
@@ -378,14 +376,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   ParArrayND<int> new_indices;
   swarm->AddEmptyParticles(num_tracers_meshblock, new_indices);
- 
-  int id_offset = (num_tracers_meshblock + 1) * pmb->gid;
 
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
   auto &z = swarm->Get<Real>("z").Get();
-  // auto &toy = swarm->Get<Real>("toy").Get();
-  // auto &id = swarm->Get<int>("id").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
   // This hardcoded implementation should only used in PGEN and not during runtime
@@ -403,12 +397,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
         y(n) = y_min + rng_gen.drand() * (y_max - y_min);
         z(n) = z_min + rng_gen.drand() * (z_max - z_min);
-        // for (int k = 0; k < 3; ++k) {
-        //   for (int j = 0; j < 3; ++j) {
-        //     toy(k,j,n) = 3*k + j;
-        //   }
-        // }
-        // id(n) = id_offset + n;
 
         rng_pool.free_state(rng_gen);
       });
