@@ -52,3 +52,9 @@ integrator = rk1
 <Particles>
 cfl = 0.3
 write_particle_log_nth_cycle = 10
+
+<parthenon/output0>
+file_type = hdf5
+dt = 0.05
+swarms = my particles
+swarm_variables = v, vv

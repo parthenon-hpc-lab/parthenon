@@ -195,7 +195,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // set output variable and optional data format string used in formatted writes
       if ((op.file_type != "hst") && (op.file_type != "rst") &&
           (op.file_type != "ascent")) {
-        op.variables = pin->GetVector<std::string>(pib->block_name, "variables");
+        op.variables = pin->GetOrAddVector<std::string>(pib->block_name, "variables",
+                                                        std::vector<std::string>());
         // JMM: swarmvars not specified separately per swarm. If the
         // requested var isn't present for a given swarm, it is simply
         // not output.

@@ -167,16 +167,23 @@ struct SwarmInfo {
                 // with multiple components
                 auto v_h = swmvar->GetHostMirrorAndCopy(n6, n5, n4, n3, n2);
                 // DO NOT use GetDim, as it does not reflect particle count
-                std::size_t max_index = max_indices[block_idx];
+                std::size_t particles_to_add = counts[block_idx];
                 std::size_t particles_added = 0;
-                for (std::size_t i = 0; i <= max_index; ++i) {
+                for (std::size_t i = 0; i < particles_to_add; ++i) {
                   if (true) { //(mask_h(i)) {
                     host_data[ivec++] = v_h(i);
                     particles_added++;
                   }
                 }
-                PARTHENON_REQUIRE_THROWS(particles_added == counts[block_idx],
-                                         "All active particles set for output");
+                if (particles_added != particles_to_add) {
+                  std::string msg = StringPrintf(
+                      "Not all active particles output! "
+                      "var, n6, n5, n4, n3, n2, block, particles_added, counts = "
+                      "%s %d %d %d %d %d %d %d %d",
+                      vname, n6, n5, n4, n3, n2, block_idx, particles_added,
+                      particles_to_add);
+                  PARTHENON_THROW(msg);
+                }
                 ++block_idx;
               }
             }

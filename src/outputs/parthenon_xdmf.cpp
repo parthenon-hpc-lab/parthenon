@@ -194,7 +194,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
                                "", swminfo.global_count);
     xdmf << "      </Geometry>" << std::endl;
     for (const auto &[varname, varinfo] : swminfo.var_info) {
-      if ((varname == "id") || (varname == "x") || (varname == "y")) || (varname == "z")) {
+      if ((varname == "id") || (varname == "x") || (varname == "y") || (varname == "z")) {
         continue; // We already did this one!
       }
       ParticleVariableRef(xdmf, varname, varinfo, swmname, hdfFile, swminfo.global_count);
