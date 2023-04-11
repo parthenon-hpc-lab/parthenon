@@ -38,9 +38,9 @@ void SwarmInfo::AddOffsets(const SP_Swarm &swarm) {
   counts.push_back(count);
   offsets.push_back(offset);
   count_on_rank += count;
-  // JMM: If we defrag, we don't need these
-  masks.push_back(swarm->GetMask());
   max_indices.push_back(swarm->GetMaxActiveIndex());
+  // JMM: If we defrag, we don't need these
+  // masks.push_back(swarm->GetMask());
 }
 
 AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
