@@ -59,6 +59,9 @@ class Swarm:
     def z(self):
         return self.Get('z')
 
+    def __getitem__(self, key):
+        return self.Get(key)
+
 class phdf:
     """A reader for the new HDF5 output.  Reads in a hdf5 file which
     is the only argument to the constructor.

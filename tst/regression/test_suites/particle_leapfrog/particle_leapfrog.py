@@ -34,12 +34,17 @@ class TestCase(utils.test_case.TestCaseAbs):
         return parameters
 
     def Analyse(self, parameters):
-
-        data = np.genfromtxt("particles.csv", delimiter=",", names=True)
-
-        # pick last cycle (given current parameter file)
-        final_data = data[data["ncycle"] == 184]
-        final_data.sort(order="particles_id")
+        sys.path.insert(
+            1,
+            parameters.parthenon_path
+            + "/scripts/python/packages/parthenon_tools/parthenon_tools",
+        )
+        from phdf import phdf
+        data = phdf('particles.out0.final.phdf')
+        swarm = data.GetSwarm('my particles')
+        inds = np.argsort(swarm['id'])
+        final_data = np.vstack((swarm.x, swarm.y, swarm.z, swarm['v']))
+        final_data = final_data.transpose()[inds]
 
         # see examples/particle_leapfrog/particle_leapfrog.cpp for reference data
         ref_data = np.array(
@@ -60,10 +65,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 [0.0, 0.0, 0.0, -1.0, -1.0, -1.0],
             ]
         )
-        final_data = structured_to_unstructured(
-            final_data[["x", "y", "z", "vx", "vy", "vz"]]
-        )
         if ref_data.shape != final_data.shape:
             print("TEST FAIL: Mismatch between actual and reference data shape.")
             return False
-        return (final_data == ref_data).all()
+        return (np.abs(final_data - ref_data) <= 1e-10).all()
