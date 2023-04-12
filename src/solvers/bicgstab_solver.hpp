@@ -38,14 +38,15 @@ class BiCGStabSolver : BiCGStabCounter {
  public:
   BiCGStabSolver() = default;
   BiCGStabSolver(StateDescriptor *pkg, const Real error_tol_in,
-                const SparseMatrixAccessor &sp, const std::vector<std::string>& aux_vars = {})
+                const SparseMatrixAccessor &sp, const std::vector<std::string>& aux_vars = {},
+                std::vector<MetadataFlag> user_flags={})
     : error_tol(error_tol_in), sp_accessor(sp),
       max_iters(pkg->Param<int>("bicgstab_max_iterations")),
       check_interval(pkg->Param<int>("bicgstab_check_interval")),
       fail_flag(pkg->Param<bool>("bicgstab_abort_on_fail")),
       warn_flag(pkg->Param<bool>("bicgstab_warn_on_fail")), 
       aux_vars(aux_vars) {
-    Init(pkg);
+    Init(pkg, user_flags);
   }
   std::vector<std::string> SolverState() const {
     std::vector<std::string> vars{spm_name, rhs_name, res, res0, vk, pk, tk, temp}; 
@@ -81,7 +82,7 @@ class BiCGStabSolver : BiCGStabCounter {
   std::vector<std::string> aux_vars; 
 
  private:
-  void Init(StateDescriptor *pkg) {
+  void Init(StateDescriptor *pkg, std::vector<MetadataFlag> user_flags) {
     // create vectors used internally by the solver
     spm_name = pkg->Param<std::string>("spm_name");
     sol_name = pkg->Param<std::string>("sol_name");
@@ -91,19 +92,25 @@ class BiCGStabSolver : BiCGStabCounter {
     solver_name = "internal_bicgstab_" + bicg_id;
     
     res0 = "res_0" + bicg_id;
-    auto meta = Metadata({Metadata::Cell, Metadata::OneCopy});
+    std::vector<MetadataFlag> base_flags({Metadata::Cell, Metadata::OneCopy});
+    base_flags.insert(base_flags.end(), user_flags.begin(), user_flags.end());
+    auto meta = Metadata(base_flags);
     pkg->AddField(res0, meta);
     
     vk = "vk" + bicg_id;
     tk = "tk" + bicg_id;
-    meta = Metadata({Metadata::Cell, Metadata::OneCopy, Metadata::WithFluxes});
+    auto flux_flags = base_flags;
+    flux_flags.push_back(Metadata::WithFluxes);
+    meta = Metadata(flux_flags);
     pkg->AddField(vk, meta);
     pkg->AddField(tk, meta);
 
     res = "res" + bicg_id;
     pk = "pk" + bicg_id;
     temp = "temp" + bicg_id;
-    meta = Metadata({Metadata::Cell, Metadata::OneCopy, Metadata::FillGhost});
+    auto ghost_flags = base_flags;
+    ghost_flags.push_back(Metadata::FillGhost);
+    meta = Metadata(ghost_flags);
     pkg->AddField(pk, meta);
     pkg->AddField(res, meta);
     pkg->AddField(temp, meta);
