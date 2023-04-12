@@ -570,7 +570,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     HDF5WriteAttribute("SparseFields", names, dset);
   } // SparseInfo and SparseFields sections
 
-
   // -------------------------------------------------------------------------------- //
   //   WRITING PARTICLE DATA                                                          //
   // -------------------------------------------------------------------------------- //
@@ -585,10 +584,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     hsize_t global_count[6] = {static_cast<hsize_t>(max_blocks_global), 0, 0, 0, 0, 0};
     // These indicate particles/meshblock and location in global index
     // space where each meshblock starts
-    HDF5Write1D(g_swm, "counts", swinfo.counts.data(), local_offset,
-                local_count, global_count, pl_xfer);
-    HDF5Write1D(g_swm, "offsets", swinfo.offsets.data(), local_offset,
-                local_count, global_count, pl_xfer);
+    HDF5Write1D(g_swm, "counts", swinfo.counts.data(), local_offset, local_count,
+                global_count, pl_xfer);
+    HDF5Write1D(g_swm, "offsets", swinfo.offsets.data(), local_offset, local_count,
+                global_count, pl_xfer);
 
     const H5G g_var = MakeGroup(g_swm, "SwarmVars");
     auto SetCounts = [&](const SwarmInfo &swinfo, const SwarmVarInfo &vinfo) {
@@ -633,7 +632,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                   pl_xfer);
     }
   }
-  
+
   // generate XDMF companion file
   XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info, swarm_info);
 }

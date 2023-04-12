@@ -120,23 +120,23 @@ struct SwarmVarInfo {
 // meshblocks. Everything needed for output
 struct SwarmInfo {
   SwarmInfo() = default;
-  template<typename T>
+  template <typename T>
   using MapToVarVec = std::map<std::string, ParticleVariableVector<T>>;
   std::tuple<MapToVarVec<int>, MapToVarVec<Real>> vars; // SwarmVars on each meshblock
-  std::map<std::string, SwarmVarInfo> var_info; // size of each swarmvar
-  std::size_t count_on_rank = 0; // per-meshblock
-  std::size_t global_offset; // global
-  std::size_t global_count; // global
-  std::vector<std::size_t> counts;  // per-meshblock
-  std::vector<std::size_t> offsets; // global
+  std::map<std::string, SwarmVarInfo> var_info;         // size of each swarmvar
+  std::size_t count_on_rank = 0;                        // per-meshblock
+  std::size_t global_offset;                            // global
+  std::size_t global_count;                             // global
+  std::vector<std::size_t> counts;                      // per-meshblock
+  std::vector<std::size_t> offsets;                     // global
   // std::vector<ParArray1D<bool>> masks; // used for reading swarms without defrag
-  std::vector<std::size_t> max_indices; // JMM: If we defrag, unneeded?
+  std::vector<std::size_t> max_indices;   // JMM: If we defrag, unneeded?
   void AddOffsets(const SP_Swarm &swarm); // sets above metadata
-  template<typename T>
+  template <typename T>
   MapToVarVec<T> &Vars() {
     return std::get<MapToVarVec<T>>(vars);
   }
-  template<typename T>
+  template <typename T>
   void Add(const std::string &varname, const ParticleVarPtr<T> &var) {
     Vars<T>()[varname].push_back(var);
     auto m = var->metadata();
@@ -196,16 +196,15 @@ struct SwarmInfo {
 };
 struct AllSwarmInfo {
   std::map<std::string, SwarmInfo> all_info;
-  AllSwarmInfo(BlockList_t &block_list,
-               const std::vector<std::string> &swarmnames,
-               const std::vector<std::string> &varnames,
-               bool is_restart);
+  AllSwarmInfo(BlockList_t &block_list, const std::vector<std::string> &swarmnames,
+               const std::vector<std::string> &varnames, bool is_restart);
 };
 
-// TODO(JMM): Potentially unsafe if these types aren't compatible
+// TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
+// however I think it's probably safe to assume we'll be on systems
+// where tis is the case?
 // TODO(JMM): If we ever need non-int need to generalize
-using MPI_SIZE_t = unsigned long long int;
-MPI_SIZE_t MPIPrefixSum(MPI_SIZE_t local, MPI_SIZE_t &tot_count);
+std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
 
 } // namespace OutputUtils
 } // namespace parthenon

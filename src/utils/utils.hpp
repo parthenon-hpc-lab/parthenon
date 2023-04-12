@@ -46,7 +46,7 @@ void ShowConfig();
 // 1. To compute string size
 // 2. To actually format the string into the buffer
 // 3. To copy the char* into a std::string
-template<typename... Args>
+template <typename... Args>
 std::string StringPrintf(const char *fmt, Args... args) {
   // Get size of format string, including null terminator by passing
   // in nullptr as target buffer
@@ -60,7 +60,7 @@ std::string StringPrintf(const char *fmt, Args... args) {
   // Return cast to string
   return std::string(pbuffer);
 }
-template<typename... Args>
+template <typename... Args>
 std::string StringPrintf(const std::string &fmt, Args... args) {
   return StringPrintf(fmt.c_str(), std::forward<Args>(args)...);
 }

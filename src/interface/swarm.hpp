@@ -227,7 +227,7 @@ class Swarm {
 
   std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds_uptrs[6];
 
-  template<typename T>
+  template <typename T>
   const auto &GetVariableVector() const {
     return std::get<getType<T>()>(Vectors_);
   }

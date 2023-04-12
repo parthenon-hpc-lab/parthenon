@@ -45,27 +45,26 @@ void SwarmInfo::AddOffsets(const SP_Swarm &swarm) {
 
 AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
                            const std::vector<std::string> &swarmnames,
-                           const std::vector<std::string> &varnames,
-                           bool is_restart) {
+                           const std::vector<std::string> &varnames, bool is_restart) {
   for (auto &pmb : block_list) {
     auto &swarm_container = pmb->swarm_data.Get();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
     if (is_restart) {
       using FC = parthenon::Metadata::FlagCollection;
       auto flags =
-        FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+          FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       auto swarms = swarm_container->GetSwarmsByFlag(flags);
       for (auto &swarm : swarms) {
         auto swarmname = swarm->label();
         auto &info = all_info[swarmname];
-	info.AddOffsets(swarm);
+        info.AddOffsets(swarm);
         for (const auto &var : swarm->GetVariableVector<int>()) {
           const auto &varname = var->label();
-	  info.Add(varname, var);
+          info.Add(varname, var);
         }
         for (const auto &var : swarm->GetVariableVector<Real>()) {
           const auto &varname = var->label();
-	  info.Add(varname, var);
+          info.Add(varname, var);
         }
       }
     } else {
@@ -73,24 +72,24 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
         if (swarm_container->Contains(swarmname)) {
           auto &swarm = swarm_container->Get(swarmname);
           auto &info = all_info[swarmname];
-	  info.AddOffsets(swarm);
+          info.AddOffsets(swarm);
           for (const auto &varname : varnames) {
             if (swarm->Contains<int>(varname)) {
               auto var = swarm->GetP<int>(varname);
               info.Add(varname, var);
             } else if (swarm->Contains<Real>(varname)) {
               auto var = swarm->GetP<Real>(varname);
-	      info.Add(varname, var);
+              info.Add(varname, var);
             } // else nothing
           }
         }
       }
     }
   }
-  for (auto &[name,info] : all_info) {
+  for (auto &[name, info] : all_info) {
     // TODO(JMM): Implies a bunch of blocking MPIAllReduces... but
     // we're just doing I/O right now, so probably ok?
-    MPI_SIZE_t tot_count;
+    std::size_t tot_count;
     info.global_offset = MPIPrefixSum(info.count_on_rank, tot_count);
     for (int i = 0; i < info.offsets.size(); ++i) {
       info.offsets[i] += info.global_offset;
@@ -100,11 +99,11 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
 }
 
 // TODO(JMM): may need to generalize this
-MPI_SIZE_t MPIPrefixSum(MPI_SIZE_t local, MPI_SIZE_t &tot_count) {
-  MPI_SIZE_t out = 0;
+std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
+  std::size_t out = 0;
   tot_count = 0;
 #ifdef MPI_PARALLEL
-  std::vector<MPI_SIZE_t> buffer(Globals::nranks);
+  std::vector<std::size_t> buffer(Globals::nranks);
   MPI_Allgather(&local, 1, MPI_UNSIGNED_LONG_LONG, buffer.data(), 1,
                 MPI_UNSIGNED_LONG_LONG, MPI_COMM_WORLD);
   for (int i = 0; i < Globals::my_rank; ++i) {
@@ -118,7 +117,6 @@ MPI_SIZE_t MPIPrefixSum(MPI_SIZE_t local, MPI_SIZE_t &tot_count) {
 #endif // MPI_PARALLEL
   return out;
 }
-
 
 } // namespace OutputUtils
 } // namespace parthenon

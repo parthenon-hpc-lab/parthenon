@@ -63,16 +63,14 @@ static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &varname,
                                       const std::string &hdffile,
                                       const std::string &datatype,
-                                      const std::string &extradims,
-                                      int particle_count);
+                                      const std::string &extradims, int particle_count);
 static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
                                 const SwarmVarInfo &varinfo, const std::string &swmname,
                                 const std::string &hdffile, int particle_count);
 } // namespace impl
 
 void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
-             const std::vector<VarInfo> &var_list,
-             const AllSwarmInfo &all_swarm_info) {
+             const std::vector<VarInfo> &var_list, const AllSwarmInfo &all_swarm_info) {
   using namespace HDF5;
   using namespace OutputUtils;
   using namespace impl;
@@ -177,21 +175,21 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   for (const auto &[swmname, swminfo] : all_swarm_info.all_info) {
     xdmf << StringPrintf(
         "    <Grid GridType=\"Uniform\" Name=\"%s\">\n"
-	"      <Topology TopologyType=\"Polyvertex\" Dimensions=\"%d\" "
-	"NodesPerElement=\"1\">\n"
-	"        <DataItem Format=\"HDF\" Dimensions=\"%d\" NumberType=\"Int\">\n"
-	"          %s:/%s/SwarmVars/id\n"
-	"        </DataItem>\n"
-	"      </Topology>\n"
-	"      <Geometry GeometryType=\"VXVYVZ\">\n",
-	swmname.c_str(), swminfo.global_count, swminfo.global_count, hdfFile.c_str(),
-	swmname.c_str());
-    xdmf << ParticleDatasetRef("        ", swmname, "x", hdfFile, "Float",
-                               "", swminfo.global_count);
-    xdmf << ParticleDatasetRef("        ", swmname, "y", hdfFile, "Float",
-                               "", swminfo.global_count);
-    xdmf << ParticleDatasetRef("        ", swmname, "z", hdfFile, "Float",
-                               "", swminfo.global_count);
+        "      <Topology TopologyType=\"Polyvertex\" Dimensions=\"%d\" "
+        "NodesPerElement=\"1\">\n"
+        "        <DataItem Format=\"HDF\" Dimensions=\"%d\" NumberType=\"Int\">\n"
+        "          %s:/%s/SwarmVars/id\n"
+        "        </DataItem>\n"
+        "      </Topology>\n"
+        "      <Geometry GeometryType=\"VXVYVZ\">\n",
+        swmname.c_str(), swminfo.global_count, swminfo.global_count, hdfFile.c_str(),
+        swmname.c_str());
+    xdmf << ParticleDatasetRef("        ", swmname, "x", hdfFile, "Float", "",
+                               swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, "y", hdfFile, "Float", "",
+                               swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, "z", hdfFile, "Float", "",
+                               swminfo.global_count);
     xdmf << "      </Geometry>" << std::endl;
     for (const auto &[varname, varinfo] : swminfo.var_info) {
       if ((varname == "id") || (varname == "x") || (varname == "y") || (varname == "z")) {
@@ -313,13 +311,12 @@ static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &varname,
                                       const std::string &hdffile,
                                       const std::string &datatype,
-                                      const std::string &extradims,
-                                      int particle_count) {
+                                      const std::string &extradims, int particle_count) {
   std::string precision_string = (datatype == "Float") ? " Precision=\"8\"" : "";
   auto part =
       StringPrintf("%s<DataItem Format=\"HDF\" Dimensions=\"%s%d\" Name=\"%s\" "
                    "NumberType=\"%s\"%s>\n"
-                   "%s  %s:\%s/SwarmVars/%s\n"
+                   "%s  %s:/%s/SwarmVars/%s\n"
                    "%s</DataItem>\n",
                    prefix.c_str(), extradims.c_str(), particle_count, varname.c_str(),
                    datatype.c_str(), precision_string.c_str(), prefix.c_str(),
@@ -334,27 +331,29 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
   if (varinfo.vector) { // vector logic
     std::string name = swmname + "/" + varname;
     xdmf << StringPrintf(fmt, name.c_str(), "Vector");
-    xdmf << StringPrintf("        <DataItem Dimensions=\"%d 3\" Function=\"JOIN($0, $1, $2)\" ItemType=\"Function\">\n",
+    xdmf << StringPrintf("        <DataItem Dimensions=\"%d 3\" Function=\"JOIN($0, $1, "
+                         "$2)\" ItemType=\"Function\">\n",
                          particle_count);
     for (int d = 0; d < 3; ++d) {
-      xdmf << StringPrintf("          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\">\n"
-                           "            <DataItem Dimensions=\"3 2\" Format=\"XML\">\n"
-                           "              %d 0\n"
-                           "              1 1\n"
-                           "              1 %d\n"
-                           "            </DataItem>\n",
-                           particle_count, d, particle_count);
+      xdmf << StringPrintf(
+          "          <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\">\n"
+          "            <DataItem Dimensions=\"3 2\" Format=\"XML\">\n"
+          "              %d 0\n"
+          "              1 1\n"
+          "              1 %d\n"
+          "            </DataItem>\n",
+          particle_count, d, particle_count);
       xdmf << ParticleDatasetRef("            ", swmname, varname, hdffile,
                                  varinfo.swtype, "3 ", particle_count);
       xdmf << "          </DataItem>" << std::endl;
     }
     xdmf << "        </DataItem>" << std::endl;
-    xdmf << "      </Attribute>" << std::endl;;
+    xdmf << "      </Attribute>" << std::endl;
   } else {
     const int rank = varinfo.tensor_rank;
     std::string extradims;
     for (int i = 6; i >= 2; --i) {
-      extradims += StringPrintf("%d ",varinfo.GetN(i));
+      extradims += StringPrintf("%d ", varinfo.GetN(i));
     }
     for (int n6 = 0; n6 < varinfo.GetN(6); ++n6) {
       for (int n5 = 0; n5 < varinfo.GetN(5); ++n5) {
@@ -390,15 +389,16 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
                     "            %s%d\n"
                     "          </DataItem>\n"
                     "        </DataItem>\n",
-                    particle_count, rank+1, starts.c_str(), strides.c_str(),
+                    particle_count, rank + 1, starts.c_str(), strides.c_str(),
                     counts.c_str(), particle_count);
                 xdmf << ParticleDatasetRef("        ", swmname, varname, hdffile,
-                                           varinfo.swtype, extradims.c_str(), particle_count);
+                                           varinfo.swtype, extradims.c_str(),
+                                           particle_count);
               } else {
                 xdmf << ParticleDatasetRef("        ", swmname, varname, hdffile,
                                            varinfo.swtype, "", particle_count);
               }
-              xdmf << "      </Attribute>" << std::endl;;
+              xdmf << "      </Attribute>" << std::endl;
             }
           }
         }
