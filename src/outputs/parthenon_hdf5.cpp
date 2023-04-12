@@ -625,7 +625,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // one for vis.
     if (swinfo.var_info.count("id") == 0) {
       std::vector<int> ids(swinfo.global_count);
-      std::iota(std::begin(ids), std::end(ids), 0);
+      std::iota(std::begin(ids), std::end(ids), swinfo.global_offset);
       local_offset[0] = swinfo.global_offset;
       local_count[0] = swinfo.count_on_rank;
       global_count[0] = swinfo.global_count;

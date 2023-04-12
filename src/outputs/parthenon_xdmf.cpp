@@ -127,7 +127,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     dims[1] = nx1 + 1;
     writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "x", dims, 2, "Float",
                       8);
-    xdmf << "</DataItem>" << std::endl;
+    xdmf << "        </DataItem>" << std::endl;
 
     xdmf << slabPreDim << nx2 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx2 + 1
          << slabTrailer << std::endl;
@@ -135,7 +135,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     dims[1] = nx2 + 1;
     writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "y", dims, 2, "Float",
                       8);
-    xdmf << "</DataItem>" << std::endl;
+    xdmf << "        </DataItem>" << std::endl;
 
     xdmf << slabPreDim << nx3 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx3 + 1
          << slabTrailer << std::endl;
@@ -143,7 +143,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     dims[1] = nx3 + 1;
     writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "z", dims, 2, "Float",
                       8);
-    xdmf << "</DataItem>" << std::endl;
+    xdmf << "        </DataItem>" << std::endl;
 
     xdmf << "      </Geometry>" << std::endl;
 
@@ -178,7 +178,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     xdmf << StringPrintf(
         "    <Grid GridType=\"Uniform\" Name=\"%s\">\n"
 	"      <Topology TopologyType=\"Polyvertex\" Dimensions=\"%d\" "
-	"NodesPerElement=\"1\"/>\n"
+	"NodesPerElement=\"1\">\n"
 	"        <DataItem Format=\"HDF\" Dimensions=\"%d\" NumberType=\"Int\">\n"
 	"          %s:/%s/SwarmVars/id\n"
 	"        </DataItem>\n"
@@ -199,10 +199,10 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
       }
       ParticleVariableRef(xdmf, varname, varinfo, swmname, hdfFile, swminfo.global_count);
     }
+    xdmf << "    </Grid>" << std::endl;
   }
 
   // Cleanup
-  xdmf << "    </Grid>" << std::endl;
   xdmf << "    </Grid>" << std::endl;
   xdmf << "  </Domain>" << std::endl;
   xdmf << "</Xdmf>" << std::endl;
@@ -223,7 +223,7 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
   mystr += "\" Name=\"" + label + "\"";
   mystr += " NumberType=\"" + theType + "\"";
   mystr += R"( Precision=")" + std::to_string(precision) + R"(">)" + '\n';
-  mystr += prefix + "  " + hdfPath + label + "</DataItem>" + '\n';
+  mystr += prefix + "  " + hdfPath + label + '\n' + prefix + "</DataItem>" + '\n';
   return mystr;
 }
 
@@ -348,6 +348,7 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
                                  varinfo.swtype, "3 ", particle_count);
       xdmf << "          </DataItem>" << std::endl;
     }
+    xdmf << "        </DataItem>" << std::endl;
     xdmf << "      </Attribute>" << std::endl;;
   } else {
     const int rank = varinfo.tensor_rank;
