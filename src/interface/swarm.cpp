@@ -371,6 +371,8 @@ void Swarm::Defrag() {
   }
 
   std::list<int> new_free_indices;
+  
+  free_indices_.sort();
 
   int index = max_active_index_;
   int num_to_move = std::min<int>(num_free, num_active_);
@@ -392,7 +394,6 @@ void Swarm::Defrag() {
   }
 
   // TODO(BRR) Not all these sorts may be necessary
-  free_indices_.sort();
   new_free_indices.sort();
   free_indices_.merge(new_free_indices);
 
