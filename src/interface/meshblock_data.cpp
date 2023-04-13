@@ -356,9 +356,10 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
   return var_list;
 }
 
-// From a given container, extract all variables whose Metadata matchs the all of the
-// given flags (if the list of flags is empty, extract all variables), optionally only
-// extracting sparse fields with an index from the given list of sparse indices
+// From a given container, extract all variables (and UIDs) whose
+// Metadata matchs the all of the given flags (if the list of flags is
+// empty, extract all variables), optionally only extracting sparse
+// fields with an index from the given list of sparse indices
 //
 // JMM: This algorithm uses the map from metadata flags to variables
 // to accelerate performance.
