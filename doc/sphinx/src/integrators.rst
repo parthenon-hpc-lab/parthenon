@@ -65,17 +65,19 @@ buffers required to compute the update for a given Runge-Kutta stage
 .. _Athena++ paper: https://doi.org/10.3847/1538-4365/ab929b
 
 The ``LowStorageIntegrator`` contains arrays for ``delta``, ``beta``,
-``gam0``, and ``gam1``. Available integratioon methods are:
+``gam0``, and ``gam1``. Available integration methods are:
 
-* ``RK1``, which is simply forward Euler
+* ``RK1``, which is simply forward Euler.
 
-* ``RK2``, which is Heun's method
+* ``RK2``, which is Heun's method.
 
-* ``VL2``
+* ``VL2``, 2nd-order Van Leer predictor-corrector from Stone and
+  Gardiner 2009. Requires donor-cell reconstruction for the predictor
+  stage.
 
-* ``RK3``, a strong stability preserving variant
+* ``RK3``, a strong stability preserving variant.
 
-* ``RK4``, a strong stability preserving variant
+* ``RK4``, a strong stability preserving variant.
 
 ButcherIntegrator
 ---------------------
@@ -85,10 +87,10 @@ arrays :math:`a` to compute the stages, :math:`c` to compute the time
 offsets, and :math:`b` to compute the final update for a time
 step. Available integration methods are:
 
-* ``RK1``, simple forward Euler
+* ``RK1``, simple forward Euler.
 
-* ``RK2``, Heun's method
+* ``RK2``, Heun's method.
 
-* ``RK4``, The classic 4th-order method
+* ``RK4``, The classic 4th-order method.
 
 * ``RK10``, A recent version with fewer stages than Fehlberg's classic RK8(9), computed by Faegin and tabulated `here <https://sce.uhcl.edu/rungekutta/>`__.

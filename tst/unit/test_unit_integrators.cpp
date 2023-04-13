@@ -193,6 +193,7 @@ TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
       }
     }
     WHEN("We integrate with LowStorage rk4") {
+      // still accurate with large timestep
       constexpr Real dt = 1e-2;
       auto integrator = MakeIntegrator<LowStorageIntegrator>("rk4");
       State_t u;
@@ -226,6 +227,7 @@ TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
       }
     }
     WHEN("We integrate with butcher rk4") {
+      // Still good accuracy with large timestep.
       constexpr Real dt = 1e-2;
       auto integrator = MakeIntegrator<ButcherIntegrator>("rk4");
       State_t u;
@@ -237,7 +239,7 @@ TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
       }
     }
     WHEN("We integrate with butcher rk10") {
-      constexpr Real dt = 5e-2; // appears to be smallest stable timestep
+      constexpr Real dt = 5e-2; // appears to be largest stable timestep
       auto integrator = MakeIntegrator<ButcherIntegrator>("rk10");
       State_t u;
       GetInitialData(u);
