@@ -118,7 +118,9 @@ class CellVariable {
   inline std::string getAssociated() { return m_.getAssociated(); }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  std::size_t GetUniqueID() const { return uid_; }
+  Uid_t GetUniqueID() const { return uid_; }
+
+  static Uid_t GetUniqueID(const std::string &var_label) { return get_uid_(var_label); }
 
   /// return information string
   std::string info();
@@ -165,9 +167,9 @@ class CellVariable {
   const std::array<int, 6> dims_, coarse_dims_;
 
   // Machinery for giving each variable a unique ID that is faster to
-  // evaluate than a string. uid is determined by order of variable
-  // creation, which is deterministic.
-  std::size_t uid_;
+  // evaluate than a string. Safe so long as the number of MPI ranks
+  // does not change while the code is running (restarts are fine).
+  Uid_t uid_;
   // This generator needs to be global so that different instances of
   // variable have the same unique ID.
   inline static UniqueIDGenerator<std::string> get_uid_;

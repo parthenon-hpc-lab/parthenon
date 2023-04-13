@@ -79,6 +79,8 @@ using ProlongatorHost_t = std::function<void(
 // RestrictionOp.
 struct RefinementFunctions_t {
   RefinementFunctions_t() = default;
+  // Include explicit destructor to get rid of CUDA __host__ __device__ warning
+  ~RefinementFunctions_t() {}
   explicit RefinementFunctions_t(const std::string &label) : label_(label) {}
 
   template <class ProlongationOp, class RestrictionOp>
