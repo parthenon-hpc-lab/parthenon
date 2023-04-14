@@ -227,7 +227,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   IndexRange myBlocks{nbs, nbe};
 
   // TODO(cleanup) why is this code here and not contained in the restart reader?
-  std::cout << "Blocks assigned to rank:" << Globals::my_rank << ":" << nbs << ":" << nbe
+  std::cout << "Blocks assigned to rank " << Globals::my_rank << ": " << nbs << ":" << nbe
             << std::endl;
 
   const auto file_output_format_ver = resfile.GetOutputFormatVersion();
@@ -302,7 +302,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     const auto &Nu = v_info->GetDim(5);
     const auto &Nt = v_info->GetDim(6);
 
-    if (Globals::my_rank == 0) std::cout << "Var:" << label << ":" << vlen << std::endl;
+    if (Globals::my_rank == 0) {
+      std::cout << "Var: " << label << ":" << vlen << std::endl;
+    }
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
       resfile.ReadBlocks(label, myBlocks, tmp, bsize, file_output_format_ver,
@@ -363,6 +365,30 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
       v->data.DeepCopy(v_h);
     }
+  }
+
+  // Swarm data
+  using FC = parthenon::Metadata::FlagCollection;
+  auto flags =
+    FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+  auto swarms = (mb.swarm_data.Get())->GetSwarmsByFlag(flags);
+  for (auto &swarm : swarms) {
+    auto swarmname = swarm->label();
+    if (Globals::my_rank == 0) {
+      std::cout << "Swarm: " << swarmname << std::endl;
+    }
+    std::vector<std::size_t> counts, offsets;
+    std::size_t count_on_rank = resfile.GetSwarmCounts(swarmname, myBlocks, counts, offsets);
+    std::size_t block_index = 0;
+    // only want to do this once per block
+    for (auto &pmb : rm.block_list) {
+      ParArrayND<int> new_indices;
+      auto pswarm_blk = (pmb->swarm_data.Get())->Get(swarmname);
+      pswarm_blk->AddEmptyParticles(counts[block_index], new_indices);
+      block_index++;
+    }
+    ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
+    ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
   }
 #endif // ifdef ENABLE_HDF5
 }
