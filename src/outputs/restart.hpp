@@ -232,11 +232,11 @@ class RestartReader {
   // metadata.
   template <typename T>
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
-                    const std::size_t count, const std::size_t offset,
-                    const Metadata &m, std::vector<T> &dataVec) {
+                    const std::size_t count, const std::size_t offset, const Metadata &m,
+                    std::vector<T> &dataVec) {
     auto hdl = OpenDataset<T>(swarmname + "/SwarmVars/" + varname);
 
-    constexpr int CHUNK_MAX_DIM=6;
+    constexpr int CHUNK_MAX_DIM = 6;
     hsize_t h5_offset[CHUNK_MAX_DIM];
     hsize_t h5_count[CHUNK_MAX_DIM];
     const auto &shape = m.Shape();
@@ -255,8 +255,8 @@ class RestartReader {
     if (dataVec.size() < total_count) { // greedy re-alloc
       dataVec.resize(total_count);
     }
-    PARTHENON_HDF5_CHECK(
-        H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, h5_offset, NULL, h5_count, NULL));
+    PARTHENON_HDF5_CHECK(H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, h5_offset,
+                                             NULL, h5_count, NULL));
     const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(rank + 1, h5_count, NULL));
     PARTHENON_HDF5_CHECK(H5Dread(hdl.dataset, hdl.type, memspace, hdl.dataspace,
                                  H5P_DEFAULT, dataVec.data()));

@@ -15,6 +15,8 @@
 #define PARTHENON_MANAGER_HPP_
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "application_input.hpp"
 #include "argument_parser.hpp"
@@ -84,27 +86,27 @@ class ParthenonManager {
       // If hdf5 output format changes, this needs to change too.
       std::size_t ivec = 0;
       for (int n6 = 0; n6 < arrdims[5]; ++n6) {
-	for (int n5 = 0; n5 < arrdims[4]; ++n5) {
-	  for (int n4 = 0; n4 < arrdims[3]; ++n4) {
-	    for (int n3 = 0; n3 < arrdims[2]; ++n3) {
-	      for (int n2 = 0; n2 < arrdims[1]; ++n2) {
-		for (auto &pmb : block_list) {
-		  // 1 deep copy per tensor component per swarmvar per
-		  // block, unfortunately. But only at initialization.
-		  auto swarm_container = pmb->swarm_data.Get();
-		  auto pswarm_blk = swarm_container->Get(swarmname);
-		  auto v = Kokkos::subview(pswarm_blk->Get<T>(varname).data, n6, n5, n4,
-					   n3, n2, Kokkos::ALL());
-		  auto v_h = Kokkos::create_mirror_view(v);
-		  for (int n1 = 0; n1 < pswarm_blk->GetNumActive(); ++n1) {
-		    v_h(n1) = dataVec[ivec++];
-		  }
-		  Kokkos::deep_copy(v, v_h);
-		}
-	      }
-	    }
-	  }
-	}
+        for (int n5 = 0; n5 < arrdims[4]; ++n5) {
+          for (int n4 = 0; n4 < arrdims[3]; ++n4) {
+            for (int n3 = 0; n3 < arrdims[2]; ++n3) {
+              for (int n2 = 0; n2 < arrdims[1]; ++n2) {
+                for (auto &pmb : block_list) {
+                  // 1 deep copy per tensor component per swarmvar per
+                  // block, unfortunately. But only at initialization.
+                  auto swarm_container = pmb->swarm_data.Get();
+                  auto pswarm_blk = swarm_container->Get(swarmname);
+                  auto v = Kokkos::subview(pswarm_blk->Get<T>(varname).data, n6, n5, n4,
+                                           n3, n2, Kokkos::ALL());
+                  auto v_h = Kokkos::create_mirror_view(v);
+                  for (int n1 = 0; n1 < pswarm_blk->GetNumActive(); ++n1) {
+                    v_h(n1) = dataVec[ivec++];
+                  }
+                  Kokkos::deep_copy(v, v_h);
+                }
+              }
+            }
+          }
+        }
       }
     }
   }

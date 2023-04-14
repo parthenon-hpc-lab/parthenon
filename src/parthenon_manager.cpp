@@ -369,8 +369,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // Swarm data
   using FC = parthenon::Metadata::FlagCollection;
-  auto flags =
-    FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+  auto flags = FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
   auto swarms = (mb.swarm_data.Get())->GetSwarmsByFlag(flags);
   for (auto &swarm : swarms) {
     auto swarmname = swarm->label();
@@ -378,7 +377,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       std::cout << "Swarm: " << swarmname << std::endl;
     }
     std::vector<std::size_t> counts, offsets;
-    std::size_t count_on_rank = resfile.GetSwarmCounts(swarmname, myBlocks, counts, offsets);
+    std::size_t count_on_rank =
+        resfile.GetSwarmCounts(swarmname, myBlocks, counts, offsets);
     std::size_t block_index = 0;
     // only want to do this once per block
     for (auto &pmb : rm.block_list) {
