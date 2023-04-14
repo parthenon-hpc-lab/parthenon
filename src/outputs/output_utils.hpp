@@ -180,7 +180,7 @@ struct SwarmInfo {
                       "Not all active particles output! "
                       "var, n6, n5, n4, n3, n2, block, particles_added, counts = "
                       "%s %d %d %d %d %d %d %d %d",
-                      vname, n6, n5, n4, n3, n2, block_idx, particles_added,
+                      vname.c_str(), n6, n5, n4, n3, n2, block_idx, particles_added,
                       particles_to_add);
                   PARTHENON_THROW(msg);
                 }
