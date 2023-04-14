@@ -30,7 +30,18 @@ sys.dont_write_bytecode = True
 
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
+        # enable coverage testing on pass where restart
+        # files are both read and written
+        parameters.coverage_status = "both"
 
+        if step == 1:
+            parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
+        else: # step == 2
+            parameters.driver_cmd_line_args = [
+                "-r",
+                "gold.out1.00001.rhdf",
+                "parthenon/job/problem_id=particles",
+            ]
         return parameters
 
     def Analyse(self, parameters):
