@@ -141,14 +141,16 @@ def report_find_fail(key, search_location, available, logger):
     logger.info(f"Available fields: {available}")
     return
 
+
 def subsample(array, maxlen):
     "Subsample array to have a maximum length of maxlen by even sampling"
     ratio = len(array) / maxlen
-    if ratio >=1:
-        aout = array[::int(ratio)]
+    if ratio >= 1:
+        aout = array[:: int(ratio)]
     else:
         aout = array
     return aout[:maxlen]
+
 
 def plot_dump(
     xf,

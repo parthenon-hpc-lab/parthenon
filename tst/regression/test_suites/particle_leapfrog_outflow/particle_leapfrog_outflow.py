@@ -38,10 +38,11 @@ class TestCase(utils.test_case.TestCaseAbs):
             + "/scripts/python/packages/parthenon_tools/parthenon_tools",
         )
         from phdf import phdf
-        data = phdf('particles.out0.final.phdf')
-        swarm = data.GetSwarm('my particles')
-        inds = np.argsort(swarm['id'])
-        final_data = np.vstack((swarm.x, swarm.y, swarm.z, swarm['v']))
+
+        data = phdf("particles.out0.final.phdf")
+        swarm = data.GetSwarm("my particles")
+        inds = np.argsort(swarm["id"])
+        final_data = np.vstack((swarm.x, swarm.y, swarm.z, swarm["v"]))
         final_data = final_data.transpose()[inds]
 
         # see examples/particle_leapfrog/particle_leapfrog.cpp for reference data
