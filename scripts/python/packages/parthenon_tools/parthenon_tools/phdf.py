@@ -29,9 +29,10 @@ class Swarm:
           varData: The swarm variables. Greedily accessed.
           x, y, z: The x, y, and z positions of the swarm
     """
+
     def __init__(self, fid, swarmname):
         self.fid = fid
-        self.gid = fid[f'/{swarmname}/SwarmVars']
+        self.gid = fid[f"/{swarmname}/SwarmVars"]
         self.name = swarmname
         self.variables = list(self.gid.keys())
         self.varData = {}
@@ -49,18 +50,22 @@ class Swarm:
         except KeyError:
             print(f"ERROR: {variable} not found in {self.name}")
             return None
+
     @property
     def x(self):
-        return self.Get('x')
+        return self.Get("x")
+
     @property
     def y(self):
-        return self.Get('y')
+        return self.Get("y")
+
     @property
     def z(self):
-        return self.Get('z')
+        return self.Get("z")
 
     def __getitem__(self, key):
         return self.Get(key)
+
 
 class phdf:
     """A reader for the new HDF5 output.  Reads in a hdf5 file which

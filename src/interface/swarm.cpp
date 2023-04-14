@@ -371,7 +371,7 @@ void Swarm::Defrag() {
   }
 
   std::list<int> new_free_indices;
-  
+
   free_indices_.sort();
 
   int index = max_active_index_;

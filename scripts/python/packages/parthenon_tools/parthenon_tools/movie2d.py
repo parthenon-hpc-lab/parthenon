@@ -25,6 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from matplotlib.colors import is_color_like
 
 logging.basicConfig(
     level=logging.CRITICAL, format="%(asctime)s [%(levelname)s]\t%(message)s"
@@ -52,6 +53,25 @@ parser.add_argument(
     help="Tensor components of field to plot. Mutally exclusive with --vector-component.",
 )
 parser.add_argument(
+    "--swarm",
+    type=str,
+    default=None,
+    help="Optional particle swarm to overplot figure",
+)
+parser.add_argument(
+    "--swarmcolor",
+    type=str,
+    default=None,
+    help="Optional color of overplotted particle positions. Default is black. You may specify a scalar swarm variable as the color or a matplotlib color string.",
+)
+parser.add_argument(
+    "--subsample",
+    metavar="N",
+    type=int,
+    default=None,
+    help="Optionally plot only every Nth particle",
+)
+parser.add_argument(
     "--workers",
     "-w",
     help="Number of parallel workers to use (default: 10)",
@@ -74,10 +94,7 @@ parser.add_argument(
     metavar="DIR",
 )
 parser.add_argument(
-    "--prefix",
-    help="Prefix for the file name to save",
-    default="",
-    metavar="PREFIX",
+    "--prefix", help="Prefix for the file name to save", default="", metavar="PREFIX",
 )
 parser.add_argument(
     "--debug-plot",
@@ -119,6 +136,12 @@ parser.add_argument("field", type=str, help="field to plot")
 parser.add_argument("files", type=str, nargs="+", help="files to plot")
 
 
+def report_find_fail(key, search_location, available, logger):
+    logger.error(f"{key} not found in {search_location}. Further processing stopped.")
+    logger.info(f"Available fields: {available}")
+    return
+
+
 def plot_dump(
     xf,
     yf,
@@ -132,6 +155,9 @@ def plot_dump(
     xe=None,
     ye=None,
     components=[0, 0],
+    swarmx=None,
+    swarmy=None,
+    swarmcolor=None,
 ):
     if xe is None:
         xe = xf
@@ -199,6 +225,8 @@ def plot_dump(
                     linestyle="dashed",
                 )
                 p.add_patch(rect)
+    if swarmx is not None and swarmy is not None:
+        p.scatter(swarmx, swarmy, c=swarmcolor)
 
     fig.savefig(output_file, dpi=300)
     plt.close(fig=fig)
@@ -231,20 +259,57 @@ if __name__ == "__main__":
         components = args.tc
     if args.vc is not None:
         components = [0, args.vc]
+    do_swarm = args.swarm is not None
 
     _x = ProcessPoolExecutor if args.worker_type == "process" else ThreadPoolExecutor
     with _x(max_workers=args.workers) as pool:
         for frame_id, file_name in enumerate(args.files):
             data = phdf(file_name)
+
             if args.field not in data.Variables:
-                logger.error(
-                    f'No such field "{args.field}" in {file_name}. Further processing stopped.'
-                )
-                logger.info(f"Available fields: {data.Variables}")
+                report_find_fail(args.field, file_name, data.Variables, logger)
                 ERROR_FLAG = True
                 break
-
             q = data.Get(args.field, False, not args.debug_plot)
+
+            if do_swarm:
+                if args.swarm not in data.Variables:
+                    report_find_fail(args.swarm, file_name, data.Variables, logger)
+                    ERROR_FLAG = True
+                    break
+                swarm = data.GetSwarm(args.swarm)
+                swarmx = swarm.x
+                swarmy = swarm.y
+                if args.subsample is not None:
+                    swarmx = swarmx[:: args.subsample]
+                    swarmy = swarmy[:: args.subsample]
+                if args.swarmcolor is not None:
+                    if not is_color_like(args.swarmcolor):
+                        if args.swarmcolor not in swarm.variables:
+                            report_find_fail(
+                                args.swarmcolor, args.swarm, swarm.variables, logger
+                            )
+                            ERROR_FLAG = True
+                            break
+                        swarmcolor = swarm[args.swarmcolor]
+                        if len(swarmcolor.shape) > 1:
+                            logger.error(
+                                f"{args.swarmcolor} has nonzero tensor rank, which is not supported."
+                            )
+                            ERROR_FLAG = True
+                            break
+                        if args.subsample is not None:
+                            swarmcolor = swarmcolor[:: args.subsample]
+                    else:
+                        swarmcolor = args.swarmcolor
+                else:
+                    swarmcolor = "k"
+            else:
+                swarm = None
+                swarmx = None
+                swarmy = None
+                swarmcolor = None
+
             name = "{}{:04d}.png".format(args.prefix, frame_id).strip()
             output_file = args.output_directory / name
 
@@ -265,6 +330,9 @@ if __name__ == "__main__":
                     data.xeg,
                     data.yeg,
                     components,
+                    swarmx,
+                    swarmy,
+                    swarmcolor,
                 )
             else:
                 pool.submit(
@@ -276,6 +344,9 @@ if __name__ == "__main__":
                     output_file,
                     True,
                     components=components,
+                    swarmx=swarmx,
+                    swarmy=swarmy,
+                    swarmcolor=swarmcolor,
                 )
 
     if not ERROR_FLAG:
