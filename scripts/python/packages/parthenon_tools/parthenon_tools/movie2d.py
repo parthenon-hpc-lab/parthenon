@@ -94,7 +94,10 @@ parser.add_argument(
     metavar="DIR",
 )
 parser.add_argument(
-    "--prefix", help="Prefix for the file name to save", default="", metavar="PREFIX",
+    "--prefix",
+    help="Prefix for the file name to save",
+    default="",
+    metavar="PREFIX",
 )
 parser.add_argument(
     "--debug-plot",
