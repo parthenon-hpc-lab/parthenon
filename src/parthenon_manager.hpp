@@ -26,6 +26,7 @@
 #include "mesh/mesh.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -62,31 +63,48 @@ class ParthenonManager {
     std::vector<T> dataVec;
     for (const auto &var : pswarm->GetVariableVector<T>()) {
       const std::string &varname = var->label();
+      std::cout << "SwarmVar: " << varname << std::endl;
       const auto &m = var->metadata();
+      auto arrdims = m.GetArrayDims(pswarm->GetBlockPointer(), false);
 
-      restartReader->ReadSwarmVar(swarmname, varname, count_on_rank, offset, m, dataVec);
+      try {
+        restartReader->ReadSwarmVar(swarmname, varname, count_on_rank, offset, m,
+                                    dataVec);
+      } catch (std::exception &ex) {
+        std::cout << StringPrintf("[%d] WARNING: Failed to read Swarm %s Variable %s "
+                                  "from restart file:\n%s",
+                                  Globals::my_rank, swarmname.c_str(), varname.c_str(),
+                                  ex.what())
+                  << std::endl;
+        continue;
+      }
 
-      std::size_t vidx = 0;
-      for (auto &pmb : block_list) {
-	auto swarm_container = pmb->swarm_data.Get();
-	auto pswarm_blk = swarm_container->Get(swarmname);
-        auto &v = pswarm_blk->Get<T>(varname);
-	auto v_h = v.data.GetHostMirror();
-	for (int n6 = 0; n6 < v_h.GetDim(6); ++n6) {
-	  for (int n5 = 0; n5 < v_h.GetDim(5); ++n5) {
-	    for (int n4 = 0; n4 < v_h.GetDim(4); ++n4) {
-	      for (int n3 = 0; n3 < v_h.GetDim(3); ++n3) {
-		for (int n2 = 0; n2 < v_h.GetDim(2); ++n2) {
-		  // only safe because swarm starts completely defragged
+      // Only safe because swarm starts completely defragged.
+      // Note ordering here: block is second-inner-most loop.
+      // If hdf5 output format changes, this needs to change too.
+      std::size_t ivec = 0;
+      for (int n6 = 0; n6 < arrdims[5]; ++n6) {
+	for (int n5 = 0; n5 < arrdims[4]; ++n5) {
+	  for (int n4 = 0; n4 < arrdims[3]; ++n4) {
+	    for (int n3 = 0; n3 < arrdims[2]; ++n3) {
+	      for (int n2 = 0; n2 < arrdims[1]; ++n2) {
+		for (auto &pmb : block_list) {
+		  // 1 deep copy per tensor component per swarmvar per
+		  // block, unfortunately. But only at initialization.
+		  auto swarm_container = pmb->swarm_data.Get();
+		  auto pswarm_blk = swarm_container->Get(swarmname);
+		  auto v = Kokkos::subview(pswarm_blk->Get<T>(varname).data, n6, n5, n4,
+					   n3, n2, Kokkos::ALL());
+		  auto v_h = Kokkos::create_mirror_view(v);
 		  for (int n1 = 0; n1 < pswarm_blk->GetNumActive(); ++n1) {
-		    v_h(n6, n5, n4, n3, n2, n1) = dataVec[vidx++];
+		    v_h(n1) = dataVec[ivec++];
 		  }
+		  Kokkos::deep_copy(v, v_h);
 		}
 	      }
 	    }
 	  }
 	}
-	v.data.DeepCopy(v_h);
       }
     }
   }

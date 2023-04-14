@@ -227,7 +227,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   IndexRange myBlocks{nbs, nbe};
 
   // TODO(cleanup) why is this code here and not contained in the restart reader?
-  std::cout << "Blocks assigned to rank:" << Globals::my_rank << ":" << nbs << ":" << nbe
+  std::cout << "Blocks assigned to rank " << Globals::my_rank << ": " << nbs << ":" << nbe
             << std::endl;
 
   const auto file_output_format_ver = resfile.GetOutputFormatVersion();
@@ -302,7 +302,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     const auto &Nu = v_info->GetDim(5);
     const auto &Nt = v_info->GetDim(6);
 
-    if (Globals::my_rank == 0) std::cout << "Var:" << label << ":" << vlen << std::endl;
+    if (Globals::my_rank == 0) {
+      std::cout << "Var: " << label << ":" << vlen << std::endl;
+    }
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
       resfile.ReadBlocks(label, myBlocks, tmp, bsize, file_output_format_ver,
@@ -372,6 +374,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   auto swarms = (mb.swarm_data.Get())->GetSwarmsByFlag(flags);
   for (auto &swarm : swarms) {
     auto swarmname = swarm->label();
+    if (Globals::my_rank == 0) {
+      std::cout << "Swarm: " << swarmname << std::endl;
+    }
     std::vector<std::size_t> counts, offsets;
     std::size_t count_on_rank = resfile.GetSwarmCounts(swarmname, myBlocks, counts, offsets);
     std::size_t block_index = 0;
@@ -382,17 +387,6 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       pswarm_blk->AddEmptyParticles(counts[block_index], new_indices);
       block_index++;
     }
-    std::cout << "counts =";
-    for (auto c : counts) {
-      std::cout << " " << c;
-    }
-    std::cout << std::endl;
-    std::cout << "offsets =";
-    for (auto o : offsets) {
-      std::cout << " " << o;
-    }
-    std::cout << std::endl;
-    std::cout << "count on rank = " << count_on_rank << std::endl;
     ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
     ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
   }
