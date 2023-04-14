@@ -65,11 +65,11 @@ parser.add_argument(
     help="Optional color of overplotted particle positions. Default is black. You may specify a scalar swarm variable as the color or a matplotlib color string.",
 )
 parser.add_argument(
-    "--subsample",
+    "--maxparticles",
     metavar="N",
     type=int,
-    default=None,
-    help="Optionally plot only every Nth particle",
+    default=100,
+    help="Limit plot to only N particles at most. Default is 100.",
 )
 parser.add_argument(
     "--workers",
@@ -141,6 +141,14 @@ def report_find_fail(key, search_location, available, logger):
     logger.info(f"Available fields: {available}")
     return
 
+def subsample(array, maxlen):
+    "Subsample array to have a maximum length of maxlen by even sampling"
+    ratio = len(array) / maxlen
+    if ratio >=1:
+        aout = array[::int(ratio)]
+    else:
+        aout = array
+    return aout[:maxlen]
 
 def plot_dump(
     xf,
@@ -278,11 +286,8 @@ if __name__ == "__main__":
                     ERROR_FLAG = True
                     break
                 swarm = data.GetSwarm(args.swarm)
-                swarmx = swarm.x
-                swarmy = swarm.y
-                if args.subsample is not None:
-                    swarmx = swarmx[:: args.subsample]
-                    swarmy = swarmy[:: args.subsample]
+                swarmx = subsample(swarm.x, args.maxparticles)
+                swarmy = subsample(swarm.y, args.maxparticles)
                 if args.swarmcolor is not None:
                     if not is_color_like(args.swarmcolor):
                         if args.swarmcolor not in swarm.variables:
@@ -298,8 +303,7 @@ if __name__ == "__main__":
                             )
                             ERROR_FLAG = True
                             break
-                        if args.subsample is not None:
-                            swarmcolor = swarmcolor[:: args.subsample]
+                        swarmcolor = subsample(swarmcolor, args.maxparticles)
                     else:
                         swarmcolor = args.swarmcolor
                 else:
