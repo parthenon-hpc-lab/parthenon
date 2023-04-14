@@ -58,3 +58,6 @@ dt = 2.0
 swarms = my particles
 swarm_variables = id, v, vv
 
+<parthenon/output1>
+file_type = rst
+dt = 1.0

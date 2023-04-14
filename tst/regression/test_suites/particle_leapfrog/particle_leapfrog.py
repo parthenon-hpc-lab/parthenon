@@ -30,6 +30,23 @@ sys.dont_write_bytecode = True
 
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
+        # enable coverage testing on pass where restart
+        # files are both read and written
+        parameters.coverage_status = "both"
+
+        # run baseline (to the very end)
+        if step == 1:
+            parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
+        # restart from an early snapshot
+        # Don't check time-based restarts, since that's covered by
+        # advection and it's the same codepath. Also I'm not sure this
+        # sim takes 2s to run.
+        else: # step == 2:
+            parameters.driver_cmd_line_args = [
+                "-r",
+                "gold.out1.00001.rhdf",
+                "parthenon/job/problem_id=particles",
+            ]
 
         return parameters
 
@@ -45,6 +62,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         inds = np.argsort(swarm['id'])
         final_data = np.vstack((swarm.x, swarm.y, swarm.z, swarm['v']))
         final_data = final_data.transpose()[inds]
+        final_data[np.abs(final_data) < 1e-12] = 0
+        print(final_data)
 
         # see examples/particle_leapfrog/particle_leapfrog.cpp for reference data
         ref_data = np.array(

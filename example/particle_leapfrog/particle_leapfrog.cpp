@@ -67,7 +67,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("write_particle_log_nth_cycle", write_particle_log_nth_cycle);
 
   std::string swarm_name = "my particles";
-  Metadata swarm_metadata({Metadata::Provides, Metadata::None});
+  Metadata swarm_metadata({Metadata::Provides, Metadata::None, Metadata::Independent});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
   Metadata vreal_swarmvalue_metadata({Metadata::Real, Metadata::Vector},
@@ -187,7 +187,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &v = swarm->Get<Real>("v").Get();
   auto &vv = swarm->Get<Real>("vv").Get();
 
-  auto swarm_d = swarm->GetDeviceContext();
   // This hardcoded implementation should only used in PGEN and not during runtime
   // addition of particles as indices need to be taken into account.
   pmb->par_for(

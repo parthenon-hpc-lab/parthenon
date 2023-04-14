@@ -18,6 +18,7 @@
 //  \brief writes restart files
 
 #include <memory>
+#include <numeric>
 #include <string>
 #include <utility>
 
@@ -99,6 +100,42 @@ RestartReader::SparseInfo RestartReader::GetSparseInfo() const {
   }
 
   return info;
+#endif // ENABLE_HDF5
+}
+
+  // Gets the counts and offsets for MPI ranks for the meshblocks set
+  // by the indexrange. Returns the total count on this rank.
+std::size_t RestartReader::GetSwarmCounts(const std::string &swarm,
+                                          const IndexRange &range,
+                                          std::vector<std::size_t> &counts,
+                                          std::vector<std::size_t> &offsets) {
+#ifndef ENABLE_HDF5
+    PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+    return 0;
+#else  // HDF5 enabled
+    // datasets
+    auto counts_dset = OpenDataset<std::size_t>(swarm + "/counts");
+    auto offsets_dset = OpenDataset<std::size_t>(swarm + "/offsets");
+    // hyperslab
+    hsize_t h5slab_offset[1] = {static_cast<hsize_t>(range.s)};
+    hsize_t h5slab_count[1] = {static_cast<hsize_t>(range.e - range.s + 1)};
+    PARTHENON_HDF5_CHECK(H5Sselect_hyperslab(counts_dset.dataspace, H5S_SELECT_SET,
+                                             h5slab_offset, NULL, h5slab_count, NULL));
+    PARTHENON_HDF5_CHECK(H5Sselect_hyperslab(offsets_dset.dataspace, H5S_SELECT_SET,
+                                             h5slab_offset, NULL, h5slab_count, NULL));
+    const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(1, h5slab_count, NULL));
+
+    // Read data
+    counts.resize(range.e - range.s + 1);
+    offsets.resize(range.e - range.s + 1);
+    PARTHENON_HDF5_CHECK(H5Dread(counts_dset.dataset, counts_dset.type, memspace,
+                                 counts_dset.dataspace, H5P_DEFAULT, counts.data()));
+    PARTHENON_HDF5_CHECK(H5Dread(offsets_dset.dataset, offsets_dset.type, memspace,
+                                 offsets_dset.dataspace, H5P_DEFAULT, offsets.data()));
+
+    // Compute total count rank
+    std::size_t total_count_on_rank = std::accumulate(counts.begin(), counts.end(), 0);
+    return total_count_on_rank;
 #endif // ENABLE_HDF5
 }
 

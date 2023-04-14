@@ -364,6 +364,38 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       v->data.DeepCopy(v_h);
     }
   }
+
+  // Swarm data
+  using FC = parthenon::Metadata::FlagCollection;
+  auto flags =
+    FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+  auto swarms = (mb.swarm_data.Get())->GetSwarmsByFlag(flags);
+  for (auto &swarm : swarms) {
+    auto swarmname = swarm->label();
+    std::vector<std::size_t> counts, offsets;
+    std::size_t count_on_rank = resfile.GetSwarmCounts(swarmname, myBlocks, counts, offsets);
+    std::size_t block_index = 0;
+    // only want to do this once per block
+    for (auto &pmb : rm.block_list) {
+      ParArrayND<int> new_indices;
+      auto pswarm_blk = (pmb->swarm_data.Get())->Get(swarmname);
+      pswarm_blk->AddEmptyParticles(counts[block_index], new_indices);
+      block_index++;
+    }
+    std::cout << "counts =";
+    for (auto c : counts) {
+      std::cout << " " << c;
+    }
+    std::cout << std::endl;
+    std::cout << "offsets =";
+    for (auto o : offsets) {
+      std::cout << " " << o;
+    }
+    std::cout << std::endl;
+    std::cout << "count on rank = " << count_on_rank << std::endl;
+    ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
+    ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
+  }
 #endif // ifdef ENABLE_HDF5
 }
 
