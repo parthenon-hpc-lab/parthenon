@@ -36,7 +36,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         if step == 1:
             parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
-        else:  # step == 2
+        else: # step == 2
             parameters.driver_cmd_line_args = [
                 "-r",
                 "gold.out1.00001.rhdf",
