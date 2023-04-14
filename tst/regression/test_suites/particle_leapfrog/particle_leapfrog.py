@@ -41,7 +41,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         # Don't check time-based restarts, since that's covered by
         # advection and it's the same codepath. Also I'm not sure this
         # sim takes 2s to run.
-        else: # step == 2:
+        else:  # step == 2:
             parameters.driver_cmd_line_args = [
                 "-r",
                 "gold.out1.00001.rhdf",
