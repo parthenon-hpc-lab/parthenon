@@ -178,7 +178,7 @@ def plot_dump(
     fig = plt.figure()
     p = fig.add_subplot(111, aspect=1)
     if time_title is not None:
-        p.set_title(f"t = {time_title} seconds")
+        p.set_title(f"t = {time_title}")
 
     qm = np.ma.masked_where(np.isnan(q), q)
     qmin = qm.min()
