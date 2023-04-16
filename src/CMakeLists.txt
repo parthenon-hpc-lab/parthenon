@@ -202,6 +202,11 @@ add_library(parthenon
   tasks/task_list.hpp
   tasks/task_types.hpp
 
+  time_integration/butcher_integrator.cpp
+  time_integration/low_storage_integrator.cpp
+  time_integration/staged_integrator.cpp
+  time_integration/staged_integrator.hpp
+
   utils/alias_method.cpp
   utils/alias_method.hpp
   utils/buffer_utils.cpp
