@@ -16,7 +16,7 @@ It has a single pure virtual member function called ``Execute`` that
 must be defined by a derived class and is intended to be called from
 ``main()``. A simple example of defining an application based on
 inheriting from this class can be found
-`here <../example/calculate_pi/pi_driver.hpp>`__.
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/calculate_pi/pi_driver.hpp>`__.
 
 EvolutionDriver
 ---------------
@@ -38,9 +38,10 @@ MultiStageDriver
 ----------------
 
 The ``MultiStageDriver`` derives from the ``EvolutionDriver``, extending
-it in two important ways. First, it holds a
-``std::unique_ptr<StagedIntegrator>`` object which includes members for
+it in two important ways. First, it is templated on an ``Integrator`` type and
+holds a ``std::unique_ptr<Integrator>`` object which includes members for
 the number of stages, the stage weights, and the names of the stages.
+More details on integrators can be found on the :ref:`integrators` page.
 Second, it defines a ``Step()`` function, which is reponsible for taking
 a timestep by looping over stages and calling the
 ``ConstructAndExecuteTaskLists`` function which builds and executes the

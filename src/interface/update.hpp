@@ -28,6 +28,7 @@
 #include "interface/params.hpp"
 #include "interface/sparse_pack.hpp"
 #include "interface/state_descriptor.hpp"
+#include "time_integration/staged_integrator.hpp"
 
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
@@ -88,6 +89,27 @@ TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1, const 
 }
 
 template <typename F, typename T>
+TaskStatus CopyData(const F &flags, T *in, T *out) {
+  return WeightedSumData(flags, in, in, 1, 0, out);
+}
+
+template <typename F, typename T>
+TaskStatus SetDataToConstant(const F &flags, T *data, const Real val) {
+  Kokkos::Profiling::pushRegion("Task_SetDataToConstant");
+  const auto &x = data->PackVariables(flags);
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "SetDataToConstant", DevExecSpace(), 0, x.GetDim(5) - 1, 0,
+      x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0, x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        if (x.IsAllocated(b, l)) {
+          x(b, l, k, j, i) = val;
+        }
+      });
+  Kokkos::Profiling::popRegion(); // Task_SetDataToConstant
+  return TaskStatus::complete;
+}
+
+template <typename F, typename T>
 TaskStatus SumData(const F &flags, T *in1, T *in2, T *out) {
   return WeightedSumData(flags, in1, in2, 1.0, 1.0, out);
 }
@@ -112,6 +134,139 @@ template <typename T>
 TaskStatus AverageIndependentData(T *c1, T *c2, const Real wgt1) {
   return WeightedSumData(std::vector<MetadataFlag>({Metadata::Independent}), c1, c2, wgt1,
                          (1.0 - wgt1), c1);
+}
+
+// See equation 14 in Ketcheson, Jcomp 229 (2010) 1763-1773
+// In Parthenon language, s0 is the variable we are updating
+// and rhs should be computed with respect to s0.
+// if update_s1, s1 should be set at the beginning of the cycle to 0
+// otherwise, s1 should be set at the beginning of the RK update to be
+// a copy of base. in the final stage, base for the next cycle should
+// be set to s0.
+template <typename F, typename T>
+TaskStatus Update2S(const F &flags, T *s0_data, T *s1_data, T *rhs_data,
+                    const LowStorageIntegrator *pint, Real dt, int stage,
+                    bool update_s1) {
+  Kokkos::Profiling::pushRegion("Task_2S_Update");
+  const auto &s0 = s0_data->PackVariables(flags);
+  const auto &s1 = s1_data->PackVariables(flags);
+  const auto &rhs = rhs_data->PackVariables(flags);
+
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ib = s0_data->GetBoundsI(interior);
+  const IndexRange jb = s0_data->GetBoundsJ(interior);
+  const IndexRange kb = s0_data->GetBoundsK(interior);
+
+  Real delta = pint->delta[stage - 1];
+  Real beta = pint->beta[stage - 1];
+  Real gam0 = pint->gam0[stage - 1];
+  Real gam1 = pint->gam1[stage - 1];
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "2S_Update", DevExecSpace(), 0, s0.GetDim(5) - 1, 0,
+      s0.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        if (s0.IsAllocated(b, l) && s1.IsAllocated(b, l) && rhs.IsAllocated(b, l)) {
+          if (update_s1) {
+            s1(b, l, k, j, i) = s1(b, l, k, j, i) + delta * s0(b, l, k, j, i);
+          }
+          s0(b, l, k, j, i) = gam0 * s0(b, l, k, j, i) + gam1 * s1(b, l, k, j, i) +
+                              beta * dt * rhs(b, l, k, j, i);
+        }
+      });
+  Kokkos::Profiling::popRegion(); // Task_2S_Update
+  return TaskStatus::complete;
+}
+template <typename T>
+TaskStatus Update2SIndependent(T *s0_data, T *s1_data, T *rhs_data,
+                               const LowStorageIntegrator *pint, Real dt, int stage,
+                               bool update_s1) {
+  return Update2S(std::vector<MetadataFlag>({Metadata::Independent}), s0_data, s1_data,
+                  rhs_data, pint, dt, stage, update_s1);
+}
+
+// For integration with Butcher tableaus
+// returns base + dt * sum_{j=0}^{k-1} a_{kj} S_j
+// for stages S_j
+// This can then be used to compute right-hand sides.
+template <typename F, typename T>
+TaskStatus SumButcher(const F &flags, std::shared_ptr<T> base_data,
+                      std::vector<std::shared_ptr<T>> stage_data,
+                      std::shared_ptr<T> out_data, const ButcherIntegrator *pint, Real dt,
+                      int stage) {
+  Kokkos::Profiling::pushRegion("Task_Butcher_Sum");
+  const auto &out = out_data->PackVariables(flags);
+  const auto &in = base_data->PackVariables(flags);
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ib = out_data->GetBoundsI(interior);
+  const IndexRange jb = out_data->GetBoundsJ(interior);
+  const IndexRange kb = out_data->GetBoundsK(interior);
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "ButcherSumInit", DevExecSpace(), 0, out.GetDim(5) - 1, 0,
+      out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
+          out(b, l, k, j, i) = in(b, l, k, j, i);
+        }
+      });
+  for (int prev = 0; prev < stage; ++prev) {
+    Real a = pint->a[stage - 1][prev];
+    const auto &in = stage_data[stage]->PackVariables(flags);
+    parthenon::par_for(
+        DEFAULT_LOOP_PATTERN, "ButcherSum", DevExecSpace(), 0, out.GetDim(5) - 1, 0,
+        out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+          if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
+            out(b, l, k, j, i) += dt * a * in(b, l, k, j, i);
+          }
+        });
+  }
+  Kokkos::Profiling::popRegion(); // Task_Butcher_Sum
+  return TaskStatus::complete;
+}
+template <typename T>
+TaskStatus SumButcherIndependent(std::shared_ptr<T> base_data,
+                                 std::vector<std::shared_ptr<T>> stage_data,
+                                 std::shared_ptr<T> out_data,
+                                 const ButcherIntegrator *pint, Real dt, int stage) {
+  return SumButcher(std::vector<MetadataFlag>({Metadata::Independent}), base_data,
+                    stage_data, out_data, pint, dt, stage);
+}
+
+// The actual butcher update at the final stage of a cycle
+template <typename F, typename T>
+TaskStatus UpdateButcher(const F &flags, std::vector<std::shared_ptr<T>> stage_data,
+                         std::shared_ptr<T> out_data, const ButcherIntegrator *pint,
+                         Real dt) {
+  Kokkos::Profiling::pushRegion("Task_Butcher_Update");
+
+  const auto &out = out_data->PackVariables(flags);
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ib = out_data->GetBoundsI(interior);
+  const IndexRange jb = out_data->GetBoundsJ(interior);
+  const IndexRange kb = out_data->GetBoundsK(interior);
+
+  const int nstages = pint->nstages;
+  for (int stage = 0; stage < nstages; ++stage) {
+    const Real butcher_b = pint->b[stage];
+    const auto &in = stage_data[stage]->PackVariables(flags);
+    parthenon::par_for(
+        DEFAULT_LOOP_PATTERN, "ButcherUpdate", DevExecSpace(), 0, out.GetDim(5) - 1, 0,
+        out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+          if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
+            out(b, l, k, j, i) += dt * b * in(b, l, k, j, i);
+          }
+        });
+  }
+  Kokkos::Profiling::popRegion(); // Task_Butcher_Update
+  return TaskStatus::complete;
+}
+template <typename F, typename T>
+TaskStatus UpdateButcherIndependent(std::vector<std::shared_ptr<T>> stage_data,
+                                    std::shared_ptr<T> out_data,
+                                    const ButcherIntegrator *pint, Real dt) {
+  return UpdateButcherIndependent(std::vector<MetadataFlag>({Metadata::Independent}),
+                                  stage_data, out_data, pint, dt);
 }
 
 template <typename T>
