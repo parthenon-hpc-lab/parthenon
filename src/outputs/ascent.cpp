@@ -31,6 +31,7 @@
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
+#include "outputs/output_utils.hpp"
 #include "utils/error_checking.hpp"
 
 // Ascent headers
