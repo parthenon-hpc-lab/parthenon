@@ -22,7 +22,7 @@ namespace parthenon {
 
 /*
  * These integrators are of the 2S form as described in
- * Ketchson, Jcomp 229 (2010) 1763-1773
+ * Ketcheson, Jcomp 229 (2010) 1763-1773
  * See Equation 14.
  *
  * These integrators are of the classic Shu Osher form
@@ -116,7 +116,7 @@ LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
   } else if (name_ == "rk4") {
     // Classic 5-stage SSPRK(5)4 in low-storage form
     // ceff = 0.377
-    // From Table 4 of Ketchson, Jcomp 229 (2010) 1763-1773
+    // From Table 4 of Ketcheson, Jcomp 229 (2010) 1763-1773
     nstages = 5;
     nbuffers = 2;
     delta.resize(nstages);

@@ -32,7 +32,7 @@ described in `Ketchson (2010)`_. These integrators are of the classic
 .. math::
 
    u^{(0)} &= u^n \\
-   u^{(i)} &= sum_{k=0}^{i-1} (\alpha_{i,k} u^{(k)} + \Delta t \beta_{i, k} F(u^{(k)})\\
+   u^{(i)} &= \sum_{k=0}^{i-1} (\alpha_{i,k} u^{(k)} + \Delta t \beta_{i, k} F(u^{(k)})\\
    u^{n+1} &= u^{(m)}
 
 where superscripts in parentheses mean subcycles in a Runge-Kutta

@@ -72,7 +72,7 @@ auto MakeIntegrator(const std::string &integration_strategy) {
 
 /*
  * See Equation 14 in
- * Ketchson, Jcomp 229 (2010) 1763-1773
+ * Ketcheson, Jcomp 229 (2010) 1763-1773
  */
 void Step2SStar(const LowStorageIntegrator &integrator, Real dt, State_t &u) {
   const int nstages = integrator.nstages;
@@ -90,8 +90,6 @@ void Step2SStar(const LowStorageIntegrator &integrator, Real dt, State_t &u) {
     GetRHS(S0, rhs);
     for (int v = 0; v < NVARS; ++v) {
       // S1[v] = S1[v] + delta * S0[v];
-      //  printf("%.14e %d: %.14e * %.14e + %.14e * %.14e + %.14e * %.14e\n",
-      //         t, stage, gam0, S0[v], gam1, S1[v], beta, rhs[v]);
       S0[v] = gam0 * S0[v] + gam1 * S1[v] + beta * dt * rhs[v];
     }
   }
@@ -140,7 +138,6 @@ void Integrate(const Integrator &integrator, const Stepper &step, const Real tf,
     step(integrator, dt, u0);
     t += dt;
   }
-  // printf("%.14e %.14e\n", t, tf);
 }
 
 TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
