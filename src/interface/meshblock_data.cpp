@@ -399,17 +399,6 @@ MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids) {
 }
 
 template <typename T>
-typename MeshBlockData<T>::VarList
-MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids) {
-  typename MeshBlockData<T>::VarList var_list;
-  for (auto i : uids) {
-    auto v = GetCellVarPtr(i);
-    var_list.Add(v);
-  }
-  return var_list;
-}
-
-template <typename T>
 void MeshBlockData<T>::Remove(const std::string &label) {
   throw std::runtime_error("MeshBlockData<T>::Remove not yet implemented");
 }
