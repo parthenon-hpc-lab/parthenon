@@ -119,6 +119,11 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
+# Require C++17's std::filesystem
+# This is fully standard, but links a separate library when using old compilers
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+find_package(Filesystem REQUIRED)
+
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
 if (NOT PARTHENON_DISABLE_MPI)

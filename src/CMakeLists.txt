@@ -252,6 +252,10 @@ set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
 target_compile_features(parthenon PUBLIC cxx_std_17)
 
+# This will automatically link any extra libraries (or no extra libraries)
+# depending on the compiler, so it doesn't require an if() statement
+target_link_libraries(parthenon PUBLIC std::filesystem)
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
 endif()
