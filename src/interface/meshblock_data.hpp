@@ -194,7 +194,7 @@ class MeshBlockData {
   VarList GetVariablesByName(const std::vector<std::string> &names,
                              const std::vector<int> &sparse_ids = {});
 
-  /// Get list of variables and labels by metadata flags (must match all flags if
+  /// Get list of variables and UIDs by metadata flags (must match all flags if
   /// match_all is true, otherwise must only match at least one), optionally selecting
   /// only given sparse ids
   VarList GetVariablesByFlag(const Metadata::FlagCollection &flags,

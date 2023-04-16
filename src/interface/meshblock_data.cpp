@@ -356,6 +356,18 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
   return var_list;
 }
 
+// From a given container, extract all variables (and UIDs) whose
+// Metadata matchs the all of the given flags (if the list of flags is
+// empty, extract all variables), optionally only extracting sparse
+// fields with an index from the given list of sparse indices
+//
+// JMM: This algorithm uses the map from metadata flags to variables
+// to accelerate performance.
+//
+// The cost of this loop scales as O(Nflags * Nvars/flag) In worst
+// case, this is linear in number of variables. However, on average,
+// the number of vars with a desired flag will be much smaller than
+// all vars. So average performance is much better than linear.
 template <typename T>
 typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
@@ -372,6 +384,17 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
   }
 
   Kokkos::Profiling::popRegion(); // GetVariablesByFlag
+  return var_list;
+}
+
+template <typename T>
+typename MeshBlockData<T>::VarList
+MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids) {
+  typename MeshBlockData<T>::VarList var_list;
+  for (auto i : uids) {
+    auto v = GetCellVarPtr(i);
+    var_list.Add(v);
+  }
   return var_list;
 }
 
