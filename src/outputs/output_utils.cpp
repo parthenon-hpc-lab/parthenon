@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -44,8 +45,8 @@ void SwarmInfo::AddOffsets(const SP_Swarm &swarm) {
 }
 
 AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
-                           const std::vector<std::string> &swarmnames,
-                           const std::vector<std::string> &varnames, bool is_restart) {
+                           const std::map<std::string, std::set<std::string>> &swarmnames,
+                           bool is_restart) {
   for (auto &pmb : block_list) {
     auto &swarm_container = pmb->swarm_data.Get();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
@@ -68,7 +69,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
         }
       }
     } else {
-      for (const auto &swarmname : swarmnames) {
+      for (const auto &[swarmname, varnames] : swarmnames) {
         if (swarm_container->Contains(swarmname)) {
           auto &swarm = swarm_container->Get(swarmname);
           auto &info = all_info[swarmname];

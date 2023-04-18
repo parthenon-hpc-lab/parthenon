@@ -40,7 +40,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         from phdf import phdf
 
         data = phdf("particles.out0.final.phdf")
-        swarm = data.GetSwarm("my particles")
+        swarm = data.GetSwarm("my_particles")
         inds = np.argsort(swarm["id"])
         final_data = np.vstack((swarm.x, swarm.y, swarm.z, swarm["v"]))
         final_data = final_data.transpose()[inds]

@@ -166,12 +166,77 @@ Outputs
 --------
 
 Outputs for swarms can be set in an output block, just like any other
-variable. The user must specify two comma separated lists:
+variable. The user must specify a comma separated list denoting which
+swarms are marked for output:
 
-* ``swarms = swarm1, swarm2, ...`` etc. This specifies that these swarms
-  are marked for output.
+::
 
-* ``swarm_variables = var1, var2, ...`` etc. This specifies that for
-  each swarm the listed variables should be output. Note that if a
-  swarm is missing a variable in the ``swarm_variables`` list, no
-  error is raised. All available variables are output.
+   swarms = swarm1, swarm2, ...
+
+By default every swarm is initialized with ``x``, ``y``, and ``z``
+position variables. These are automatically output.
+
+To specify additional outputs, one may add an additional comma
+separated list:
+
+::
+
+   swarmname_variables = var1, var2, ...
+
+Here ``swarmname`` is the name of the swarm in question, and ``var1``,
+``var2``, etc., are the variables to output for that particular
+swarm. You may still specify ``x``, ``y``, and ``z``, but specifying
+them is superfluous as they are automatically output for any swarm
+that is output.
+
+Alternatively, you may provide the
+
+::
+
+   swarm_variables = var1, var2, ...
+
+input as a comma separated list. This will output each variable in the
+``swarm_variables`` list for **every** swarm. This is most useful if
+all the swarms contain similar variable structure, or if you only have
+one swarm to output. The per-swarm lists can be composed with the
+``swarm_variables`` field. Every swarm will output the vars in
+``swarm_variables`` but then **additionally** the variables in a
+per-swarm list will be output for that swarm.
+
+.. note::
+
+   Some visualization tools, like Visit and Paraview, prefer to have
+   access to an ``id`` field for each particle, however it's not clear
+   that a unique ID is required for each particle in
+   general. Therefore, swarms do not automatically contain an ID swarm
+   variable. However, when Parthenon outputs a swarm, it automatically
+   generates an ID variable even if one is not present or
+   requested. If a variable named ``id'' is available **and** the user
+   requests it be output, Parthenon will use it. Otherwise, Parthenon
+   will generate an ``id`` variable just for output and write it to
+   file.
+
+.. warning::
+
+   The automatically generted ``id`` is unique for a snapshot in time,
+   but not guaranteed to be time invariant. Indeed it is likely
+   **not** the same between dumps.
+
+Putting it all together, you might have an output block that looks like this:
+
+::
+
+   <parthenon/output1>
+   file_type = hdf5
+   dt = 1.0
+   swarms = swarm1, swarm2
+   swarm_variables = shared_var
+   swarm1_variables = per_swarm_var
+   swarm2_variables = id
+
+The result would be that both ``swarm1`` and ``swarm2`` output the
+variables ``x``, ``y``, ``z``, and ``shared_var``. But only ``swarm1``
+outputs ``per_swarm_var``. Both ``swarm1`` and ``swarm2`` will output
+an ``id`` field. But the ``id`` field for ``swarm1`` will be
+automatically generated, but the ``id`` field for ``swarm2`` will use
+the user-initialized value if such a quantity is available.

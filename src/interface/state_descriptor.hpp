@@ -169,6 +169,11 @@ class StateDescriptor {
   const std::string &label() const noexcept { return label_; }
 
   bool AddSwarm(const std::string &swarm_name, const Metadata &m) {
+    PARTHENON_REQUIRE(
+        swarm_name != "swarm",
+        "A swarm may not be named \"swarm\", as this may cause name collisions.");
+    PARTHENON_REQUIRE(swarm_name.find_first_of("\n\t ") == std::string::npos,
+                      "A swarm name may not contain whitespace");
     if (swarmMetadataMap_.count(swarm_name) > 0) {
       throw std::invalid_argument("Swarm " + swarm_name + " already exists!");
     }

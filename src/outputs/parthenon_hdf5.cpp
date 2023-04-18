@@ -574,8 +574,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   //   WRITING PARTICLE DATA                                                          //
   // -------------------------------------------------------------------------------- //
 
-  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, output_params.swarm_vars,
-                          restart_);
+  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_);
   for (auto &[swname, swinfo] : swarm_info.all_info) {
     const H5G g_swm = MakeGroup(file, swname);
     // offsets/counts are NOT the same here vs the grid data

@@ -63,6 +63,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -156,9 +157,9 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
         if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
           std::stringstream warn;
-          warn << "### WARNING Output option single_precision_output only applies to "
+          warn << "Output option single_precision_output only applies to "
                   "HDF5 outputs or restarts. Ignoring it for output block '"
-               << op.block_name << "'" << std::endl;
+               << op.block_name << "'";
           PARTHENON_WARN(warn);
         }
       }
@@ -175,8 +176,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
         if (op.hdf5_compression_level != 0) {
           std::stringstream err;
-          err << "### ERROR: HDF5 compression requested for output block '"
-              << op.block_name << "', but HDF5 compression is disabled" << std::endl;
+          err << "HDF5 compression requested for output block '"
+              << op.block_name << "', but HDF5 compression is disabled";
           PARTHENON_THROW(err)
         }
 #endif
@@ -185,9 +186,9 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
         if (pin->DoesParameterExist(op.block_name, "hdf5_compression_level")) {
           std::stringstream warn;
-          warn << "### WARNING Output option hdf5_compression_level only applies to "
+          warn << "Output option hdf5_compression_level only applies to "
                   "HDF5 outputs or restarts. Ignoring it for output block '"
-               << op.block_name << "'" << std::endl;
+               << op.block_name << "'";
           PARTHENON_WARN(warn);
         }
       }
@@ -197,27 +198,37 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           (op.file_type != "ascent")) {
         op.variables = pin->GetOrAddVector<std::string>(pib->block_name, "variables",
                                                         std::vector<std::string>());
-        // JMM: swarmvars not specified separately per swarm. If the
-        // requested var isn't present for a given swarm, it is simply
-        // not output.
+        // JMM: If the requested var isn't present for a given swarm,
+        // it is simply not output.
+        op.swarms.clear(); // Not sure this is needed
         if (pin->DoesParameterExist(pib->block_name, "swarms")) {
-          op.swarms = pin->GetVector<std::string>(pib->block_name, "swarms");
-          if (pin->DoesParameterExist(pib->block_name, "swarm_variables")) {
-            op.swarm_vars =
-                pin->GetVector<std::string>(pib->block_name, "swarm_variables");
-          } else {
-            op.swarm_vars.clear();
+          std::vector<std::string> swarmnames =
+            pin->GetVector<std::string>(pib->block_name, "swarms");
+          std::size_t nswarms = swarmnames.size();
+          if ((pin->DoesParameterExist(pib->block_name, "swarm_variables")) &&
+              (nswarms > 1)) {
+            std::stringstream msg;
+            msg << "The swarm_variables field is set in the block '" << pib->block_name
+                << "' however, there are " << nswarms << " swarms."
+                << " All swarms will be assumed to request the vars listed in "
+                   "swarm_variables.";
+            PARTHENON_WARN(msg);
           }
-          // Always output x, y, and z for swarms so that they work with vis tools.
-          for (const auto &var : std::vector<std::string>{"x", "y", "z"}) {
-            if (std::find(op.swarm_vars.begin(), op.swarm_vars.end(), var) ==
-                op.swarm_vars.end()) {
-              op.swarm_vars.push_back(var);
+          for (const auto &swname : swarmnames) {
+            if (pin->DoesParameterExist(pib->block_name, "swarm_variables")) {
+              auto varnames =
+                  pin->GetVector<std::string>(pib->block_name, "swarm_variables");
+              op.swarms[swname].insert(varnames.begin(), varnames.end());
             }
+            if (pin->DoesParameterExist(pib->block_name, swname + "_variables")) {
+              auto varnames =
+                  pin->GetVector<std::string>(pib->block_name, swname + "_variables");
+              op.swarms[swname].insert(varnames.begin(), varnames.end());
+            }
+            // Always output x, y, and z for swarms so that they work with vis tools.
+            std::vector<std::string> coords = {"x", "y", "z"};
+            op.swarms[swname].insert(coords.begin(), coords.end());
           }
-        } else {
-          op.swarms.clear();
-          op.swarm_vars.clear();
         }
       }
       op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");

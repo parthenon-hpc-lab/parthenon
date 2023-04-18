@@ -19,7 +19,9 @@
 //! \file outputs.hpp
 //  \brief provides classes to handle ALL types of data output
 
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -49,7 +51,7 @@ struct OutputParameters {
   std::string file_id;
   std::vector<std::string> variables;
   std::vector<std::string> component_labels;
-  std::vector<std::string> swarms; // TODO(JMM) is there a better way?
+  std::map<std::string, std::set<std::string>> swarms;
   std::vector<std::string> swarm_vars;
   std::string file_type;
   std::string data_format;

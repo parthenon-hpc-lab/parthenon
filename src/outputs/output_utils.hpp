@@ -22,6 +22,7 @@
 #include <array>
 #include <map>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -196,8 +197,9 @@ struct SwarmInfo {
 };
 struct AllSwarmInfo {
   std::map<std::string, SwarmInfo> all_info;
-  AllSwarmInfo(BlockList_t &block_list, const std::vector<std::string> &swarmnames,
-               const std::vector<std::string> &varnames, bool is_restart);
+  AllSwarmInfo(BlockList_t &block_list,
+               const std::map<std::string, std::set<std::string>> &swarmnames,
+               bool is_restart);
 };
 
 // TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
