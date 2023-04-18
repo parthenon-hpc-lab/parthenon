@@ -255,6 +255,10 @@ target_compile_features(parthenon PUBLIC cxx_std_17)
 # This will automatically link any extra libraries (or no extra libraries)
 # depending on the compiler, so it doesn't require an if() statement
 target_link_libraries(parthenon PUBLIC std::filesystem)
+target_compile_definitions(parthenon PRIVATE
+    FS_HEADER=<${CXX_FILESYSTEM_HEADER}>
+    FS_NAMESPACE=${CXX_FILESYSTEM_NAMESPACE}
+    )
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
