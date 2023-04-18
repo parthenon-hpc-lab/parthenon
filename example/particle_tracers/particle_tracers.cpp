@@ -400,7 +400,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
         y(n) = y_min + rng_gen.drand() * (y_max - y_min);
         z(n) = z_min + rng_gen.drand() * (z_max - z_min);
-        id(n) = (num_tracers / nbtotal) * gid + n;
+        id(n) = num_tracers * gid + n;
 
         rng_pool.free_state(rng_gen);
       });
