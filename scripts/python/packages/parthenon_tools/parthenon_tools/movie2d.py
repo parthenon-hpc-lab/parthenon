@@ -146,7 +146,7 @@ def report_find_fail(key, search_location, available, logger):
 
 
 def subsample(array, maxlen):
-    "Subsample array to have a maximum length of maxlen by even sampling"
+    "Subsample array with fixed stride to have a maximum length of maxlen"
     ratio = len(array) / maxlen
     if ratio >= 1:
         aout = array[:: int(ratio)]
