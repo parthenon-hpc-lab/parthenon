@@ -79,6 +79,13 @@ parser.add_argument(
     help="Optional size of overplotted particles. Default is standard size chosen by matplotlib. You may specify either a scalar swarm variable or a float.",
 )
 parser.add_argument(
+    "--maxparticlesize",
+    dest="pscale",
+    type=float,
+    default=mpl.rcParams["lines.markersize"] ** 2,
+    help="If --particlesize is set by swarm variable, rescales it to scale from 0 to this value. Default is default matplotlib markersize**2.",
+)
+parser.add_argument(
     "--maxparticles",
     metavar="N",
     type=int,
@@ -167,6 +174,14 @@ def subsample(array, maxlen):
     else:
         aout = array
     return aout[:maxlen]
+
+
+def rescale(array, amax):
+    "Makes all vars in array range from 0 to amax. Destructive operation"
+    out = array.astype(float)
+    out -= out.min()
+    out *= np.array((amax / float(out.max())), dtype=float)
+    return out
 
 
 def plot_dump(
@@ -343,6 +358,7 @@ if __name__ == "__main__":
                         ERROR_FLAG = True
                         break
                     particlesize = subsample(particlesize, args.maxparticles)
+                    particlesize = rescale(particlesize, args.pscale)
                 else:
                     particlesize = args.particlesize
             else:
