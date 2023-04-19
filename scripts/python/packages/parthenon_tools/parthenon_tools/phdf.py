@@ -41,7 +41,7 @@ class Swarm:
 
     def Block(self, b):
         """Returns a Python slice for the particles only on block b"""
-        return slice(self.offsets[b], self.offsets[b]+self.counts[b]+1)
+        return slice(self.offsets[b], self.offsets[b] + self.counts[b] + 1)
 
     def Get(self, variable):
         """Reads data for the named swarm var from file and caches it in the
