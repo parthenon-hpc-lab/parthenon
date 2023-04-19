@@ -72,7 +72,7 @@ auto MakeIntegrator(const std::string &integration_strategy) {
 
 /*
  * See Equation 14 in
- * Ketchson, Jcomp 229 (2010) 1763-1773
+ * Ketcheson, Jcomp 229 (2010) 1763-1773
  */
 void Step2SStar(const LowStorageIntegrator &integrator, Real dt, State_t &u) {
   const int nstages = integrator.nstages;
@@ -90,8 +90,6 @@ void Step2SStar(const LowStorageIntegrator &integrator, Real dt, State_t &u) {
     GetRHS(S0, rhs);
     for (int v = 0; v < NVARS; ++v) {
       // S1[v] = S1[v] + delta * S0[v];
-      //  printf("%.14e %d: %.14e * %.14e + %.14e * %.14e + %.14e * %.14e\n",
-      //         t, stage, gam0, S0[v], gam1, S1[v], beta, rhs[v]);
       S0[v] = gam0 * S0[v] + gam1 * S1[v] + beta * dt * rhs[v];
     }
   }
@@ -140,7 +138,6 @@ void Integrate(const Integrator &integrator, const Stepper &step, const Real tf,
     step(integrator, dt, u0);
     t += dt;
   }
-  // printf("%.14e %.14e\n", t, tf);
 }
 
 TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
@@ -193,6 +190,7 @@ TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
       }
     }
     WHEN("We integrate with LowStorage rk4") {
+      // still accurate with large timestep
       constexpr Real dt = 1e-2;
       auto integrator = MakeIntegrator<LowStorageIntegrator>("rk4");
       State_t u;
@@ -226,6 +224,7 @@ TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
       }
     }
     WHEN("We integrate with butcher rk4") {
+      // Still good accuracy with large timestep.
       constexpr Real dt = 1e-2;
       auto integrator = MakeIntegrator<ButcherIntegrator>("rk4");
       State_t u;
@@ -237,7 +236,7 @@ TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
       }
     }
     WHEN("We integrate with butcher rk10") {
-      constexpr Real dt = 5e-2; // appears to be smallest stable timestep
+      constexpr Real dt = 5e-2; // appears to be largest stable timestep
       auto integrator = MakeIntegrator<ButcherIntegrator>("rk10");
       State_t u;
       GetInitialData(u);

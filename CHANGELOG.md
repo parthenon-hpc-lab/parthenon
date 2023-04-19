@@ -17,6 +17,7 @@
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 853]](https://github.com/parthenon-hpc-lab/parthenon/pull/853) Add multiple features and improve the performance of the movie2d.py tool
 - [[PR 775]](https://github.com/parthenon-hpc-lab/parthenon/pull/775) Reorganize some of the bvals and prolongation/restriction machinery
 - [[PR 753]](https://github.com/parthenon-hpc-lab/parthenon/pull/753) Cleanup uniform Cartesian variable names
 - [[PR 769]](https://github.com/parthenon-hpc-lab/parthenon/pull/769) Thread custom prolongation-restriction functions through infrastructure and to userspace
@@ -28,6 +29,8 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 861]](https://github.com/parthenon-hpc-lab/parthenon/pull/861) Fix filesystem include for experimental namespace
+- [[PR 859]](https://github.com/parthenon-hpc-lab/parthenon/pull/859) fix off-by-one indexing error in Ascent ghost mask
 - [[PR 841]](https://github.com/parthenon-hpc-lab/parthenon/pull/841) De-allocate MPI communicators when freeing `Reduction` objects
 - [[PR 851]](https://github.com/parthenon-hpc-lab/parthenon/pull/851) Fix xdmf hyperslab definition for vectors
 - [[PR 843]](https://github.com/parthenon-hpc-lab/parthenon/pull/843) Add guard rails to prolongation/restriction infrastructure

@@ -30,7 +30,7 @@ namespace parthenon {
  *
  * Note that a good resource is NASA-TR-R-287
  * https://ntrs.nasa.gov/citations/19680027281
- * Note that in the report, Fehblerg used the following notation,
+ * Note that in the report, Fehlberg used the following notation,
  * as translated into standard Butcher tableau notation:
  * beta_{k lambda} = a_{ij}
  * alpha_k = c_k

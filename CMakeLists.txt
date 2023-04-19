@@ -119,6 +119,11 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
+# Require C++17's std::filesystem
+# This is fully standard, but links a separate library when using old compilers
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+find_package(Filesystem REQUIRED COMPONENTS Experimental Final)
+
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
 if (NOT PARTHENON_DISABLE_MPI)
@@ -289,10 +294,10 @@ if (PARTHENON_ENABLE_HOST_COMM_BUFFERS)
 endif()
 
 # Build Tests and download Catch2
-if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
+if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHENON_ENABLE_REGRESSION_TESTS OR PARTHENON_ENABLE_PERFORMANCE_TESTS)
 
   # if running regression test automatically synch gold standard
-  if (${PARTHENON_ENABLE_REGRESSION_TESTS} AND ${REGRESSION_GOLD_STANDARD_SYNC})
+  if (PARTHENON_ENABLE_REGRESSION_TESTS AND REGRESSION_GOLD_STANDARD_SYNC)
     if (EXISTS ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version)
       file(READ ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version REGRESSION_GOLD_STANDARD_ON_DISK)
     else()

@@ -41,7 +41,7 @@ The ``MultiStageDriver`` derives from the ``EvolutionDriver``, extending
 it in two important ways. First, it is templated on an ``Integrator`` type and
 holds a ``std::unique_ptr<Integrator>`` object which includes members for
 the number of stages, the stage weights, and the names of the stages.
-More details on integrators can be found on the `integrators`_ page.
+More details on integrators can be found on the :ref:`integrators` page.
 Second, it defines a ``Step()`` function, which is reponsible for taking
 a timestep by looping over stages and calling the
 ``ConstructAndExecuteTaskLists`` function which builds and executes the

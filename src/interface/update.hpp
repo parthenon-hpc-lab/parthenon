@@ -105,7 +105,7 @@ TaskStatus SetDataToConstant(const F &flags, T *data, const Real val) {
           x(b, l, k, j, i) = val;
         }
       });
-  Kokkos::Profiling::popRegion(); // Task_WeightedSumData
+  Kokkos::Profiling::popRegion(); // Task_SetDataToConstant
   return TaskStatus::complete;
 }
 
@@ -136,7 +136,7 @@ TaskStatus AverageIndependentData(T *c1, T *c2, const Real wgt1) {
                          (1.0 - wgt1), c1);
 }
 
-// See equation 14 in Ketchson, Jcomp 229 (2010) 1763-1773
+// See equation 14 in Ketcheson, Jcomp 229 (2010) 1763-1773
 // In Parthenon language, s0 is the variable we are updating
 // and rhs should be computed with respect to s0.
 // if update_s1, s1 should be set at the beginning of the cycle to 0
