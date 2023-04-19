@@ -22,7 +22,7 @@ endif()
 # The following lines determine the default loop pattern by setting the
 # default defines to the appropriate "tags" in the config.hpp file.
 # See `kokkos_abstraction.hpp` for available tags and what they translate to.
-if (${Kokkos_ENABLE_CUDA} OR ${Kokkos_ENABLE_HIP})
+if (Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
   set(PAR_LOOP_LAYOUT "MANUAL1D_LOOP" CACHE STRING
     "Default loop layout for parallel_for wrapper")
 
@@ -35,7 +35,7 @@ if (${Kokkos_ENABLE_CUDA} OR ${Kokkos_ENABLE_HIP})
   set(PAR_LOOP_INNER_LAYOUT_VALUES "TVR_INNER_LOOP"
     CACHE STRING "Possible inner loop layout options.")
 
-elseif(${Kokkos_ENABLE_HPX})
+elseif(Kokkos_ENABLE_HPX)
   message( FATAL_ERROR "Need to add/fix/test default loop layouts for HPX backend.")
 
 else()
@@ -255,6 +255,10 @@ target_compile_features(parthenon PUBLIC cxx_std_17)
 # This will automatically link any extra libraries (or no extra libraries)
 # depending on the compiler, so it doesn't require an if() statement
 target_link_libraries(parthenon PUBLIC std::filesystem)
+target_compile_definitions(parthenon PRIVATE
+    FS_HEADER=<${CXX_FILESYSTEM_HEADER}>
+    FS_NAMESPACE=${CXX_FILESYSTEM_NAMESPACE}
+    )
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)

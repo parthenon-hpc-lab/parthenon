@@ -161,7 +161,7 @@ A ``<parthenon/output*>`` block might look like::
   <parthenon/output9>
   file_type = ascent
   dt = 1.0
-  actions_files = my_actions.yaml
+  actions_file = my_actions.yaml
 
 see also the advection example
 `input file <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/parthinput.advection>`__ and
