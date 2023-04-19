@@ -66,7 +66,6 @@ class Swarm {
 
  public:
   Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
-  Swarm() : Swarm("default", Metadata()) {}
 
   ~Swarm() = default;
 
