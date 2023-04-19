@@ -23,9 +23,16 @@ from argparse import ArgumentParser
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import is_color_like
+
+def maybe_float(string):
+    try:
+        return float(string)
+    except:
+        return string
 
 logging.basicConfig(
     level=logging.CRITICAL, format="%(asctime)s [%(levelname)s]\t%(message)s"
@@ -36,7 +43,6 @@ logger.setLevel(logging.DEBUG)
 parser = ArgumentParser(
     prog="movie2d", description="Plot snapshots of 2d parthenon output"
 )
-
 parser.add_argument(
     "--vector-component",
     dest="vc",
@@ -63,6 +69,12 @@ parser.add_argument(
     type=str,
     default=None,
     help="Optional color of overplotted particle positions. Default is black. You may specify a scalar swarm variable as the color or a matplotlib color string.",
+)
+parser.add_argument(
+    "--particlesize",
+    type=maybe_float,
+    default=mpl.rcParams['lines.markersize'] ** 2,
+    help="Optional size of overplotted particles. Default is standard size chosen by matplotlib. You may specify either a scalar swarm variable or a float.",
 )
 parser.add_argument(
     "--maxparticles",
@@ -171,6 +183,7 @@ def plot_dump(
     swarmx=None,
     swarmy=None,
     swarmcolor=None,
+    particlesize=None,
 ):
     if xe is None:
         xe = xf
@@ -239,7 +252,7 @@ def plot_dump(
                 )
                 p.add_patch(rect)
     if swarmx is not None and swarmy is not None:
-        p.scatter(swarmx, swarmy, c=swarmcolor)
+        p.scatter(swarmx, swarmy, s=particlesize, c=swarmcolor)
 
     fig.savefig(output_file, dpi=300)
     plt.close(fig=fig)
@@ -313,11 +326,29 @@ if __name__ == "__main__":
                         swarmcolor = args.swarmcolor
                 else:
                     swarmcolor = "k"
+                if not isinstance(args.particlesize, float):
+                    if args.particlesize not in swarm.variables:
+                        report_find_fail(
+                            args.particlesize, args.swarm, swarm.variables, logger
+                        )
+                        ERROR_FLAG=True
+                        break
+                    particlesize=swarm[args.particlesize]
+                    if len(particlesize.shape) > 1:
+                        logger.error(
+                            f"{args.particlesize} has nonzero tensor rank, which is not supported."
+                        )
+                        ERROR_FLAG = True
+                        break
+                    particlesize = subsample(particlesize, args.maxparticles)
+                else:
+                    particlesize = args.particlesize
             else:
                 swarm = None
                 swarmx = None
                 swarmy = None
                 swarmcolor = None
+                particlesize = None
 
             name = "{}{:04d}.png".format(args.prefix, frame_id).strip()
             output_file = args.output_directory / name
@@ -342,6 +373,7 @@ if __name__ == "__main__":
                     swarmx,
                     swarmy,
                     swarmcolor,
+                    particlesize,
                 )
             else:
                 pool.submit(
@@ -356,6 +388,7 @@ if __name__ == "__main__":
                     swarmx=swarmx,
                     swarmy=swarmy,
                     swarmcolor=swarmcolor,
+                    particlesize=particlesize,
                 )
 
     if not ERROR_FLAG:
