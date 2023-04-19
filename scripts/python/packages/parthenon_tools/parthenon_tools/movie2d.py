@@ -28,11 +28,13 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import is_color_like
 
+
 def maybe_float(string):
     try:
         return float(string)
     except:
         return string
+
 
 logging.basicConfig(
     level=logging.CRITICAL, format="%(asctime)s [%(levelname)s]\t%(message)s"
@@ -73,7 +75,7 @@ parser.add_argument(
 parser.add_argument(
     "--particlesize",
     type=maybe_float,
-    default=mpl.rcParams['lines.markersize'] ** 2,
+    default=mpl.rcParams["lines.markersize"] ** 2,
     help="Optional size of overplotted particles. Default is standard size chosen by matplotlib. You may specify either a scalar swarm variable or a float.",
 )
 parser.add_argument(
@@ -331,9 +333,9 @@ if __name__ == "__main__":
                         report_find_fail(
                             args.particlesize, args.swarm, swarm.variables, logger
                         )
-                        ERROR_FLAG=True
+                        ERROR_FLAG = True
                         break
-                    particlesize=swarm[args.particlesize]
+                    particlesize = swarm[args.particlesize]
                     if len(particlesize.shape) > 1:
                         logger.error(
                             f"{args.particlesize} has nonzero tensor rank, which is not supported."
