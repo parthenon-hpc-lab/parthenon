@@ -48,14 +48,14 @@ parser = ArgumentParser(
 parser.add_argument(
     "--vector-component",
     dest="vc",
-    type=float,
+    type=int,
     default=None,
     help="Vector component of field to plot. Mutually exclusive with --tensor-component.",
 )
 parser.add_argument(
     "--tensor-component",
     dest="tc",
-    type=float,
+    type=int,
     nargs=2,
     default=None,
     help="Tensor components of field to plot. Mutally exclusive with --vector-component.",
@@ -208,15 +208,17 @@ def plot_dump(
         ye = yf
 
     # get tensor components
-    if len(q.shape) > 5:
+    if len(q.shape) > 6:
         raise ValueError(
             "Tensor rank is higher than I can handle. "
             + "Please revise the movie2d script"
         )
+    if len(q.shape) == 6:
+        q = q[:, components[0], components[1], 0, :, :]
     if len(q.shape) == 5:
-        q = q[:, components[0], components[1], :, :]
+        q = q[:, components[-1], 0, :, :]
     if len(q.shape) == 4:
-        q = q[:, components[-1], :, :]
+        q = q[:, 0, :, :]
 
     fig = plt.figure()
     p = fig.add_subplot(111, aspect=1)

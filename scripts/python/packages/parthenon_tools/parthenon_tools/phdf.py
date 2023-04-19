@@ -639,17 +639,16 @@ class phdf:
                         :, nghost:-nghost, nghost:-nghost, nghost:-nghost
                     ]
             else:
+                print(vShape)
                 if vShape[-1] == 1:
-                    return self.varData[variable][:, :, :, :, :]
+                    return self.varData[variable][:]
                 elif vShape[-2] == 1:
-                    return self.varData[variable][:, :, :, :, nghost:-nghost]
+                    return self.varData[variable][..., nghost:-nghost]
                 elif vShape[-3] == 1:
-                    return self.varData[variable][
-                        :, :, :, nghost:-nghost, nghost:-nghost
-                    ]
+                    return self.varData[variable][..., nghost:-nghost, nghost:-nghost]
                 else:
                     return self.varData[variable][
-                        :, :, nghost:-nghost, nghost:-nghost, nghost:-nghost
+                        ..., nghost:-nghost, nghost:-nghost, nghost:-nghost
                     ]
         return self.varData[variable][:]
 
