@@ -176,8 +176,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
         if (op.hdf5_compression_level != 0) {
           std::stringstream err;
-          err << "HDF5 compression requested for output block '"
-              << op.block_name << "', but HDF5 compression is disabled";
+          err << "HDF5 compression requested for output block '" << op.block_name
+              << "', but HDF5 compression is disabled";
           PARTHENON_THROW(err)
         }
 #endif
@@ -203,7 +203,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         op.swarms.clear(); // Not sure this is needed
         if (pin->DoesParameterExist(pib->block_name, "swarms")) {
           std::vector<std::string> swarmnames =
-            pin->GetVector<std::string>(pib->block_name, "swarms");
+              pin->GetVector<std::string>(pib->block_name, "swarms");
           std::size_t nswarms = swarmnames.size();
           if ((pin->DoesParameterExist(pib->block_name, "swarm_variables")) &&
               (nswarms > 1)) {
