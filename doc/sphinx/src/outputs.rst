@@ -43,9 +43,18 @@ look like
 
    <parthenon/output1>
    file_type = hdf5
+   # nonexistent variables/swarms are ignored
    variables = density, velocity, & # comments are still ok
                energy               # notice the & continuation character
                                     # for multiline lists
+   swarms = tracers, photons  # Particle swarms
+   swarm_variables = x, y, z  # swarm variables output for every swarm
+
+   # Each swarm can sepcify in a separate list which additional
+   # variables it would like to output.
+   tracers_variables = x, y, z, rho, id
+   photons_variables = x, y, z, frequency
+
    dt = 1.0
    file_number_width = 6 # default: 5
    use_final_label = true # default: true

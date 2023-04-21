@@ -13,6 +13,7 @@
 #ifndef INTERFACE_SWARM_CONTAINER_HPP_
 #define INTERFACE_SWARM_CONTAINER_HPP_
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <string>
@@ -91,6 +92,8 @@ class SwarmContainer {
     UpdateMetadataMap_(swarm);
   }
 
+  bool Contains(const std::string &label) const { return swarmMap_.count(label); }
+
   ///
   /// Get a swarm from the container
   /// @param label the name of the swarm
@@ -101,16 +104,6 @@ class SwarmContainer {
                                   std::string(" swarm not found in Get()\n"));
     }
     return swarmMap_[label];
-  }
-  SwarmSet GetSwarmsByFlag(const Metadata::FlagVec &flags) {
-    SwarmSet out;
-    for (const auto &f : flags) {
-      if (swarmMetadataMap_.count(f) > 0) {
-        const auto &swarms = swarmMetadataMap_.at(f);
-        out.insert(swarms.begin(), swarms.end());
-      }
-    }
-    return out;
   }
 
   std::shared_ptr<Swarm> &Get(const int index) { return swarmVector_[index]; }
@@ -131,6 +124,7 @@ class SwarmContainer {
   /// Remove a variable from the container or throw exception if not
   /// found.
   /// @param label the name of the variable to be deleted
+  /// TODO(JMM): Should we support this operation?
   void Remove(const std::string &label);
 
   // Temporary functions till we implement a *real* iterator
@@ -144,9 +138,12 @@ class SwarmContainer {
   // Element accessor functions
   std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }
 
+  // Return swarms meeting some conditions
+  SwarmSet GetSwarmsByFlag(const Metadata::FlagCollection &flags);
+
   // Defragmentation task
   TaskStatus Defrag(double min_occupancy);
-  TaskStatus DefragAll() { return Defrag(1.0); }
+  TaskStatus DefragAll();
 
   // Sort-by-cell task
   TaskStatus SortParticlesByCell();

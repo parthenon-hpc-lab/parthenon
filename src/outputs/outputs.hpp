@@ -19,7 +19,9 @@
 //! \file outputs.hpp
 //  \brief provides classes to handle ALL types of data output
 
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -36,36 +38,6 @@ namespace parthenon {
 class Mesh;
 class ParameterInput;
 
-// Helper struct containing some information about a variable
-struct VarInfo {
-  std::string label;
-  int num_components;
-  int nx6;
-  int nx5;
-  int nx4;
-  int nx3;
-  int nx2;
-  int nx1;
-  int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
-                   // variables
-  MetadataFlag where;
-  bool is_sparse;
-  bool is_vector;
-  std::vector<std::string> component_labels;
-
-  VarInfo() = delete;
-
-  VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
-          int num_components, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
-          Metadata metadata, bool is_sparse, bool is_vector);
-
-  explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
-      : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
-                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->GetDim(3),
-                var->GetDim(2), var->GetDim(1), var->metadata(), var->IsSparse(),
-                var->IsSet(Metadata::Vector)) {}
-};
-
 //----------------------------------------------------------------------------------------
 //! \struct OutputParameters
 //  \brief  container for parameters read from <output> block in the input file
@@ -79,6 +51,8 @@ struct OutputParameters {
   std::string file_id;
   std::vector<std::string> variables;
   std::vector<std::string> component_labels;
+  std::map<std::string, std::set<std::string>> swarms;
+  std::vector<std::string> swarm_vars;
   std::string file_type;
   std::string data_format;
   Real next_time, dt;
@@ -230,6 +204,13 @@ class PHDF5Output : public OutputType {
   std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
                                 const SignalHandler::OutputSignal signal);
   const bool restart_; // true if we write a restart file, false for regular output files
+  // TODO(JMM): these methods might want to live in the base class or in output_utils.hpp
+  void ComputeXminBlocks_(Mesh *pm, std::vector<Real> &data);
+  void ComputeLocs_(Mesh *pm, std::vector<int64_t> &locs);
+  void ComputeIDsAndFlags_(Mesh *pm, std::vector<int> &data);
+  void ComputeCoords_(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &jb,
+                      const IndexRange &kb, std::vector<Real> &x, std::vector<Real> &y,
+                      std::vector<Real> &z);
 };
 #endif // ifdef ENABLE_HDF5
 
