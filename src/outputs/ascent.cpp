@@ -44,6 +44,8 @@
 
 namespace parthenon {
 
+using namespace OutputUtils;
+
 //----------------------------------------------------------------------------------------
 //! \fn void AscentOutput:::WriteOutputFile(Mesh *pm)
 //  \brief  Expose mesh and all Cell variables for processing with Ascent

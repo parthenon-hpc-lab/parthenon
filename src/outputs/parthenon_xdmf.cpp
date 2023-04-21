@@ -38,6 +38,8 @@
 #include "outputs/parthenon_xdmf.hpp"
 #include "utils/utils.hpp"
 
+#define PARTHENON_ENABLE_PARTICLE_XDMF 0
+
 namespace parthenon {
 using namespace OutputUtils;
 
@@ -172,6 +174,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     xdmf << "    </Grid>" << std::endl;
   }
   // Particles are defined as their own "mesh"
+#if PARTHENON_ENABLE_PARTICLE_XDMF
   for (const auto &[swmname, swminfo] : all_swarm_info.all_info) {
     xdmf << StringPrintf(
         "    <Grid GridType=\"Uniform\" Name=\"%s\">\n"
@@ -199,6 +202,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     }
     xdmf << "    </Grid>" << std::endl;
   }
+#endif
 
   // Cleanup
   xdmf << "    </Grid>" << std::endl;
