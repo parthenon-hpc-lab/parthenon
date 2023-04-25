@@ -234,6 +234,9 @@ class RestartReader {
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                     const std::size_t count, const std::size_t offset, const Metadata &m,
                     std::vector<T> &dataVec) {
+#ifndef ENABLE_HDF5
+    PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else
     auto hdl = OpenDataset<T>(swarmname + "/SwarmVars/" + varname);
 
     constexpr int CHUNK_MAX_DIM = 6;
@@ -260,6 +263,7 @@ class RestartReader {
     const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(rank + 1, h5_count, NULL));
     PARTHENON_HDF5_CHECK(H5Dread(hdl.dataset, hdl.type, memspace, hdl.dataspace,
                                  H5P_DEFAULT, dataVec.data()));
+#endif // ENABLE_HDF5
   }
 
   // Reads an array dataset from file as a 1D vector.
