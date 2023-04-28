@@ -225,6 +225,7 @@ add_library(parthenon
   utils/hash.hpp
   utils/loop_utils.hpp
   utils/mpi_types.hpp
+  utils/multi_pointer.hpp
   utils/nan_payload_tag.hpp
   utils/object_pool.hpp
   utils/partition_stl_containers.hpp
