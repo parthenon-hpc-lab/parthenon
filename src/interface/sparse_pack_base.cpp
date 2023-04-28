@@ -59,7 +59,7 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
   std::vector<int> astat;
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     for (int i = 0; i < nvar; ++i) {
-      for (auto &pv : pmbd->GetCellVariableVector()) {
+      for (auto &pv : pmbd->GetVariableVector()) {
         if (desc.IncludeVariable(i, pv)) {
           astat.push_back(pv->GetAllocationStatus());
         }
@@ -93,7 +93,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     int size = 0;
     nblocks++;
-    for (auto &pv : pmbd->GetCellVariableVector()) {
+    for (auto &pv : pmbd->GetVariableVector()) {
       for (int i = 0; i < nvar; ++i) {
         if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
@@ -129,7 +129,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
     for (int i = 0; i < nvar; ++i) {
       pack.bounds_h_(0, b, i) = idx;
 
-      for (auto &pv : pmbd->GetCellVariableVector()) {
+      for (auto &pv : pmbd->GetVariableVector()) {
         if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
             for (int t = 0; t < pv->GetDim(6); ++t) {

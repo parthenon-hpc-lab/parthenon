@@ -168,7 +168,7 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     // create a field for each component of each variable pack
     auto &mbd = pmb->meshblock_data.Get();
 
-    for (const auto &var : mbd->GetCellVariableVector()) {
+    for (const auto &var : mbd->GetVariableVector()) {
       const auto var_info = VarInfo(var);
 
       for (int icomp = 0; icomp < var_info.num_components; ++icomp) {

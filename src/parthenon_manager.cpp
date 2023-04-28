@@ -259,7 +259,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
   const auto indep_restart_vars =
-      GetAnyVariables(mb.meshblock_data.Get()->GetCellVariableVector(),
+      GetAnyVariables(mb.meshblock_data.Get()->GetVariableVector(),
                       {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
 
   const auto sparse_info = resfile.GetSparseInfo();
@@ -329,7 +329,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
         }
       }
 
-      auto v = pmb->meshblock_data.Get()->GetCellVarPtr(label);
+      auto v = pmb->meshblock_data.Get()->GetVarPtr(label);
       auto v_h = v->data.GetHostMirror();
 
       // Double note that this also needs to be update in case

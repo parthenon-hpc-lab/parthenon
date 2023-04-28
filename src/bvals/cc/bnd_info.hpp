@@ -37,7 +37,7 @@ class MeshData;
 class IndexRange;
 class NeighborBlock;
 template <typename T>
-class CellVariable;
+class Variable;
 
 namespace cell_centered_bvars {
 
@@ -77,30 +77,30 @@ struct BndInfo {
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                std::shared_ptr<CellVariable<Real>> v,
+                                std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                 const OffsetIndices &);
   static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v,
+                               std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                const OffsetIndices &);
   static BndInfo GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                  std::shared_ptr<CellVariable<Real>> v,
+                                  std::shared_ptr<Variable<Real>> v,
                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                   const OffsetIndices &);
   static BndInfo GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                 std::shared_ptr<CellVariable<Real>> v,
+                                 std::shared_ptr<Variable<Real>> v,
                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                  const OffsetIndices &);
   static BndInfo GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
                                    const NeighborBlock &nb,
-                                   std::shared_ptr<CellVariable<Real>> v,
+                                   std::shared_ptr<Variable<Real>> v,
                                    CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                    const OffsetIndices &no);
 };
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                  std::shared_ptr<CellVariable<Real>> v);
+                  std::shared_ptr<Variable<Real>> v);
 
 using BufferCache_t = ParArray1D<BndInfo>;
 using BufferCacheHost_t = typename BufferCache_t::HostMirror;

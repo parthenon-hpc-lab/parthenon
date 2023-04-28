@@ -221,7 +221,7 @@ void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc,
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   auto &pmr = pmb->pmr;
 
-  for (auto cc_var : rc->GetCellVariableVector()) {
+  for (auto cc_var : rc->GetVariableVector()) {
     if (!cc_var->IsAllocated()) continue;
     if (!(cc_var->IsSet(Metadata::Independent) || cc_var->IsSet(Metadata::FillGhost)))
       continue;

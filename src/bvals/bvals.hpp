@@ -40,7 +40,7 @@ namespace parthenon {
 // TODO(felker): how many of these foward declarations are actually needed now?
 // Can #include "./bvals_interfaces.hpp" suffice?
 template <typename T>
-class CellVariable;
+class Variable;
 class Mesh;
 class MeshBlock;
 class MeshBlockTree;

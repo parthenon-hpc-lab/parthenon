@@ -39,7 +39,7 @@ namespace cell_centered_bvars {
 
 inline std::tuple<int, int, std::string, int>
 SendKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-        const std::shared_ptr<CellVariable<Real>> &pcv) {
+        const std::shared_ptr<Variable<Real>> &pcv) {
   const int sender_id = pmb->gid;
   const int receiver_id = nb.snb.gid;
   const int location_idx = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
@@ -48,7 +48,7 @@ SendKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
 
 inline std::tuple<int, int, std::string, int>
 ReceiveKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-           const std::shared_ptr<CellVariable<Real>> &pcv) {
+           const std::shared_ptr<Variable<Real>> &pcv) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.snb.gid;
   const int location_idx = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
@@ -213,7 +213,7 @@ inline auto CheckNoCommCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
 
 using F_BND_INFO = std::function<BndInfo(
     std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-    std::shared_ptr<CellVariable<Real>> v, CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+    std::shared_ptr<Variable<Real>> v, CommBuffer<buf_pool_t<Real>::owner_t> *buf,
     const OffsetIndices &no)>;
 
 template <BoundaryType BOUND_TYPE, bool SENDER>

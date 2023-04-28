@@ -76,7 +76,7 @@ struct PackDescriptor {
 
   // Method for determining if variable pv should be included in pack for this
   // PackDescriptor
-  bool IncludeVariable(int vidx, const std::shared_ptr<CellVariable<Real>> &pv) const {
+  bool IncludeVariable(int vidx, const std::shared_ptr<Variable<Real>> &pv) const {
     // TODO(LFR): Check that the shapes agree
     if (flags.size() > 0) {
       for (const auto &flag : flags) {

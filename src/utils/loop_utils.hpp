@@ -34,14 +34,14 @@ class MeshBlockData;
 template <typename T>
 class MeshData;
 template <typename T>
-class CellVariable;
+class Variable;
 class NeighborBlock;
 
 namespace loops {
 namespace shorthands {
 using sp_mb_t = std::shared_ptr<MeshBlock>;
 using sp_mbd_t = std::shared_ptr<MeshBlockData<Real>>;
-using sp_cv_t = std::shared_ptr<CellVariable<Real>>;
+using sp_cv_t = std::shared_ptr<Variable<Real>>;
 using nb_t = NeighborBlock;
 } // namespace shorthands
 
@@ -79,7 +79,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
-    for (auto &v : rc->GetCellVariableVector()) {
+    for (auto &v : rc->GetVariableVector()) {
       if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
         for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
           auto &nb = pmb->pbval->neighbor[n];

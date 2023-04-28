@@ -36,7 +36,7 @@ class MeshData;
 class IndexRange;
 class NeighborBlock;
 template <typename T>
-class CellVariable;
+class Variable;
 
 namespace cell_centered_bvars {
 

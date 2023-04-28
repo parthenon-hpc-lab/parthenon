@@ -36,8 +36,8 @@
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 
-using parthenon::CellVariable;
-using parthenon::CellVariableVector;
+using parthenon::Variable;
+using parthenon::VariableVector;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::MeshBlock;
@@ -115,7 +115,7 @@ std::function<void()> createLambdaRaw(T &raw_array) {
 
 std::function<void()> createLambdaContainer(MeshBlockData<Real> &container) {
   return [&]() {
-    const CellVariableVector<Real> &cv = container.GetCellVariableVector();
+    const VariableVector<Real> &cv = container.GetVariableVector();
     for (int n = 0; n < cv.size(); n++) {
       ParArrayND<Real> v = cv[n]->data;
       par_for(
@@ -129,11 +129,11 @@ std::function<void()> createLambdaContainer(MeshBlockData<Real> &container) {
   };
 }
 
-std::function<void()> createLambdaContainerCellVar(MeshBlockData<Real> &container,
+std::function<void()> createLambdaContainerVar(MeshBlockData<Real> &container,
                                                    std::vector<std::string> &names) {
   return [&]() {
     for (int n = 0; n < names.size(); n++) {
-      CellVariable<Real> &v = container.Get(names[n]);
+      Variable<Real> &v = container.Get(names[n]);
       auto data = v.data;
       par_for(
           DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0,
@@ -201,7 +201,7 @@ TEST_CASE("Catch2 Container Iterator Performance",
 
       // Make a function for initializing the container variables
       performance_test_wrapper("Mask: Iterate Variables Perf", init_container, [&]() {
-        const CellVariableVector<Real> &cv = container.GetCellVariableVector();
+        const VariableVector<Real> &cv = container.GetVariableVector();
         for (int n = 0; n < cv.size(); n++) {
           ParArrayND<Real> v = cv[n]->data;
           par_for(
@@ -213,19 +213,19 @@ TEST_CASE("Catch2 Container Iterator Performance",
         }
       });
     } // GIVEN
-    GIVEN("A container cellvar.") {
+    GIVEN("A container Var.") {
       auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
       MeshBlockData<Real> container = createTestContainer(dummy_mb);
       std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
-      auto init_container = createLambdaContainerCellVar(container, names);
+      auto init_container = createLambdaContainerVar(container, names);
 
       // Make a function for initializing the container variables
       performance_test_wrapper("Mask: Iterate Variables Perf", init_container, [&]() {
         for (int n = 0; n < names.size(); n++) {
-          CellVariable<Real> &v = container.Get(names[n]);
+          Variable<Real> &v = container.Get(names[n]);
           // Do something trivial, square each term
           par_for(
-              DEFAULT_LOOP_PATTERN, "Iterate CellVariables Perf", DevExecSpace(), 0,
+              DEFAULT_LOOP_PATTERN, "Iterate Variables Perf", DevExecSpace(), 0,
               v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 v.data(l, k, j, i) *= v.data(l, k, j, i);
