@@ -29,21 +29,33 @@
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_array_generic.hpp"
+#include "utils/multi_pointer.hpp"
 
 // Macro for automatically creating a useful name
 #define PARARRAY_TEMP                                                                    \
   "ParArrayND:" + std::string(__FILE__) + ":" + std::to_string(__LINE__)
 
+inline constexpr std::size_t MAX_VARIABLE_DIMENSION = 7;
+
 namespace parthenon {
 
 template <typename T, typename Layout = LayoutWrapper>
-using device_view_t = Kokkos::View<T ******, Layout, DevMemSpace>;
+using device_view_t = Kokkos::View<multi_pointer_t<T, MAX_VARIABLE_DIMENSION>, Layout, DevMemSpace>;
+
+template <typename T, typename Layout = LayoutWrapper>
+using device_view6_t = Kokkos::View<multi_pointer_t<T, 6>, Layout, DevMemSpace>;
+
+template <typename T, typename Layout = LayoutWrapper>
+using device_view_flux_t = Kokkos::View<multi_pointer_t<T, MAX_VARIABLE_DIMENSION + 1>, Layout, DevMemSpace>;
 
 template <typename T, typename Layout = LayoutWrapper>
 using host_view_t = typename device_view_t<T, Layout>::HostMirror;
 
 template <typename T, typename State = empty_state_t, typename Layout = LayoutWrapper>
 using ParArrayND = ParArrayGeneric<device_view_t<T, Layout>, State>;
+
+template <typename T, typename State = empty_state_t, typename Layout = LayoutWrapper>
+using ParArrayNDFlux = ParArrayGeneric<device_view_flux_t<T, Layout>, State>;
 
 template <typename T, typename State = empty_state_t, typename Layout = LayoutWrapper>
 using ParArrayHost = ParArrayGeneric<host_view_t<T, Layout>, State>;

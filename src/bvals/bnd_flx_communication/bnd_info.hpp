@@ -69,9 +69,9 @@ struct BndInfo {
   Coordinates_t coords, coarse_coords; // coords
 
   buf_pool_t<Real>::weak_t buf;         // comm buffer from pool
-  ParArray6D<Real, VariableState> var;  // data variable used for comms
-  ParArray6D<Real, VariableState> fine; // fine data variable for prolongation/restriction
-  ParArray6D<Real, VariableState>
+  ParArrayND<Real, VariableState> var;  // data variable used for comms
+  ParArrayND<Real, VariableState> fine; // fine data variable for prolongation/restriction
+  ParArrayND<Real, VariableState>
       coarse; // coarse data variable for prolongation/restriction
 
   // These are are used to generate the BndInfo struct for various

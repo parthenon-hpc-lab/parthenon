@@ -46,7 +46,7 @@
 #include "utils/error_checking.hpp"
 #include "utils/unique_id.hpp"
 
-namespace parthenon {
+namespace parthenon { 
 
 class MeshBlock;
 template <typename T>
@@ -136,6 +136,26 @@ class Variable {
   ParArrayND<T, VariableState> data;
   ParArrayND<T, VariableState> flux[4];  // used for boundary calculation
   ParArrayND<T, VariableState> coarse_s; // used for sending coarse boundary calculation
+  
+  template<std::size_t... I, class... Args>
+  auto GetTensorComponentImpl(ParArrayND<T, VariableState>& d, std::index_sequence<I...>, Args&&... args) { 
+    return d.Get(((void) I, 0)..., std::forward<Args>(args)...);
+  }
+
+  template<std::size_t DIR, class... Args>
+  auto GetFluxTensorComponent(Args&&... args) { 
+    return GetTensorComponentImpl(flux[DIR], std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
+  }
+  
+  template<class... Args>
+  auto GetCoarseTensorComponent(Args&&... args) { 
+    return GetTensorComponentImpl(coarse_s, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
+  }
+
+  template<class... Args>
+  auto GetTensorComponent(Args&&... args) { 
+    return GetTensorComponentImpl(data, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
+  }
 
   int dealloc_count = 0;
 
@@ -164,7 +184,7 @@ class Variable {
   Metadata m_;
   const std::string base_name_;
   const int sparse_id_;
-  const std::array<int, 6> dims_, coarse_dims_;
+  const std::array<int, MAX_VARIABLE_DIMENSION> dims_, coarse_dims_;
 
   // Machinery for giving each variable a unique ID that is faster to
   // evaluate than a string. Safe so long as the number of MPI ranks
@@ -175,7 +195,7 @@ class Variable {
   inline static UniqueIDGenerator<std::string> get_uid_;
 
   bool is_allocated_ = false;
-  ParArray7D<T> flux_data_; // unified par array for the fluxes
+  ParArrayNDFlux<T> flux_data_; // unified par array for the fluxes
 };
 
 template <typename T>
@@ -220,11 +240,21 @@ class ParticleVariable {
 
   /// return information string
   std::string info() const;
-
+  
+  template<std::size_t... I, class... Args>
+  auto GetTensorComponentImpl(ParArrayND<T>& d, std::index_sequence<I...>, Args&&... args) { 
+    return d.Get(((void) I, 0)..., std::forward<Args>(args)...);  
+  }
+  
+  template<class... Args>
+  auto GetTensorComponent(Args&&... args) { 
+    return GetTensorComponentImpl(data, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 1>(), std::forward<Args>(args)...);
+  }
+  
  private:
   Metadata m_;
   std::string label_;
-  std::array<int, 6> dims_;
+  std::array<int, MAX_VARIABLE_DIMENSION> dims_;
 
  public:
   ParArrayND<T> data;

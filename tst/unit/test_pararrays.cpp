@@ -525,16 +525,16 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
   // https://github.com/kokkos/kokkos/wiki/View#6232-whats-the-problem-with-a-view-of-views
   using view_3d_t =
       Kokkos::View<Real ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;
-  using arrays_t = Kokkos::View<ParArrayND<Real> *, UVMSpace>;
+  using arrays_t = Kokkos::View<parthenon::ParArray6D<Real> *, UVMSpace>;
   using views_t = Kokkos::View<view_3d_t *, UVMSpace>;
-  using device_view_t = parthenon::device_view_t<Real>;
+  using device_view_t = parthenon::device_view6_t<Real>;
   arrays_t arrays(Kokkos::view_alloc(std::string("arrays"), Kokkos::WithoutInitializing),
                   NARRAYS);
   views_t views(Kokkos::view_alloc(std::string("views"), Kokkos::WithoutInitializing),
                 NARRAYS);
   for (int n = 0; n < NARRAYS; n++) {
     std::string label = std::string("array ") + std::to_string(n);
-    new (&arrays[n]) ParArrayND<Real>(device_view_t(
+    new (&arrays[n]) parthenon::ParArray6D<Real>(device_view_t(
         Kokkos::view_alloc(label, Kokkos::WithoutInitializing), 1, 1, 1, N, N, N));
     label = std::string("view ") + std::to_string(n);
     new (&views[n])
@@ -568,7 +568,7 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
   auto time_views = timer.seconds();
   timer.reset();
   parthenon::par_for(
-      parthenon::loop_pattern_flatrange_tag, "compute intensive task for ParArrayND",
+      parthenon::loop_pattern_flatrange_tag, "compute intensive task for ParArray6D",
       exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         for (int n = 0; n < NARRAYS; n++) {
