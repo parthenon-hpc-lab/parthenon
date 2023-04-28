@@ -65,7 +65,7 @@ class Variable {
 
  public:
   Variable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
-                  std::weak_ptr<MeshBlock> wpmb);
+              std::weak_ptr<MeshBlock> wpmb);
 
   // copy fluxes and boundary variable from src Variable (shallow copy)
   void CopyFluxesAndBdryVar(const Variable<T> *src);
@@ -235,7 +235,7 @@ using VariableVector = std::vector<std::shared_ptr<Variable<T>>>;
 
 template <typename T>
 inline VariableVector<T> GetAnyVariables(const VariableVector<T> &cv_in,
-                                             std::vector<MetadataFlag> mflags) {
+                                         std::vector<MetadataFlag> mflags) {
   VariableVector<T> out;
   for (auto &pvar : cv_in) {
     if (std::any_of(mflags.begin(), mflags.end(),
@@ -248,7 +248,7 @@ inline VariableVector<T> GetAnyVariables(const VariableVector<T> &cv_in,
 
 template <typename T>
 inline VariableVector<T> GetAnyVariables(const VariableVector<T> &cv_in,
-                                             std::vector<std::string> base_names) {
+                                         std::vector<std::string> base_names) {
   VariableVector<T> out;
 
   std::vector<std::regex> base_regexs;

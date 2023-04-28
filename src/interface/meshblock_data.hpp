@@ -134,9 +134,7 @@ class MeshBlockData {
     return varMap_.count(label) > 0;
   }
 
-  const VariableVector<T> &GetVariableVector() const noexcept {
-    return varVector_;
-  }
+  const VariableVector<T> &GetVariableVector() const noexcept { return varVector_; }
 
   const MapToVars<T> &GetVariableMap() const noexcept { return varMap_; }
 
@@ -152,8 +150,7 @@ class MeshBlockData {
     return varUidMap_.at(uid);
   }
 
-  Variable<T> &Get(const std::string &base_name,
-                       int sparse_id = InvalidSparseID) const {
+  Variable<T> &Get(const std::string &base_name, int sparse_id = InvalidSparseID) const {
     return *GetVarPtr(MakeVarLabel(base_name, sparse_id));
   }
   Variable<T> &Get(const Uid_t &uid) const { return *(varUidMap_.at(uid)); }
@@ -425,7 +422,7 @@ class MeshBlockData {
   }
 
   std::shared_ptr<Variable<T>> AllocateSparse(std::string const &label,
-                                                  bool flag_uninitialized = false) {
+                                              bool flag_uninitialized = false) {
     if (!HasVariable(label)) {
       PARTHENON_THROW("Tried to allocate sparse variable '" + label +
                       "', but no such sparse variable exists");
@@ -441,7 +438,7 @@ class MeshBlockData {
   }
 
   std::shared_ptr<Variable<T>> AllocSparseID(std::string const &base_name,
-                                                 const int sparse_id) {
+                                             const int sparse_id) {
     return AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 

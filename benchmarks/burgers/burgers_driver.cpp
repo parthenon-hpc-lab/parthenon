@@ -87,16 +87,16 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     auto start_bnd =
         tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveBoundBufs<any>, mc1);
-    auto start_flx_recv = tl.AddTask(
-        none, parthenon::var_boundary_comm::StartReceiveFluxCorrections, mc0);
+    auto start_flx_recv =
+        tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveFluxCorrections, mc0);
 
     // this is the main task where most of the real work is done
     auto flx = tl.AddTask(none, burgers_package::CalculateFluxes, mc0.get());
 
     auto send_flx =
         tl.AddTask(flx, parthenon::var_boundary_comm::LoadAndSendFluxCorrections, mc0);
-    auto recv_flx = tl.AddTask(
-        start_flx_recv, parthenon::var_boundary_comm::ReceiveFluxCorrections, mc0);
+    auto recv_flx = tl.AddTask(start_flx_recv,
+                               parthenon::var_boundary_comm::ReceiveFluxCorrections, mc0);
     auto set_flx =
         tl.AddTask(recv_flx, parthenon::var_boundary_comm::SetFluxCorrections, mc0);
 
@@ -123,9 +123,8 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     auto set_local =
         tl.AddTask(recv_local, parthenon::var_boundary_comm::SetBounds<local>, mc1);
 
-    auto recv =
-        tl.AddTask(start_bnd | update,
-                   parthenon::var_boundary_comm::ReceiveBoundBufs<nonlocal>, mc1);
+    auto recv = tl.AddTask(start_bnd | update,
+                           parthenon::var_boundary_comm::ReceiveBoundBufs<nonlocal>, mc1);
     auto set = tl.AddTask(recv, parthenon::var_boundary_comm::SetBounds<nonlocal>, mc1);
 
     auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());

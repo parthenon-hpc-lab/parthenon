@@ -22,8 +22,8 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/bvals_interfaces.hpp"
 #include "bvals/bnd_flx_communication/bnd_info.hpp"
+#include "bvals/bvals_interfaces.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"

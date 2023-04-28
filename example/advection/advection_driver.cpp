@@ -143,7 +143,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     // do boundary exchange
     parthenon::var_boundary_comm::AddBoundaryExchangeTasks(update, tl, mc1,
-                                                             pmesh->multilevel);
+                                                           pmesh->multilevel);
   }
 
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);

@@ -29,9 +29,9 @@
 #include <vector>
 
 #include "bvals/bnd_flx_communication/bvals_in_one.hpp" // for buffercache_t
-#include "coordinates/coordinates.hpp"  // for coordinates
-#include "globals.hpp"                  // for Globals
-#include "mesh/domain.hpp"              // for IndexShape
+#include "coordinates/coordinates.hpp"                  // for coordinates
+#include "globals.hpp"                                  // for Globals
+#include "mesh/domain.hpp"                              // for IndexShape
 #include "prolong_restrict/pr_loops.hpp"
 #include "prolong_restrict/pr_ops.hpp"
 
@@ -47,8 +47,8 @@ namespace refinement {
 // TODO(JMM): Add a prolongate when prolongation is called in-one
 // TODO(JMM): Is this actually the API we want?
 void Restrict(const StateDescriptor *resolved_packages,
-              const var_boundary_comm::BvarsSubCache_t &cache,
-              const IndexShape &cellbnds, const IndexShape &c_cellbnds);
+              const var_boundary_comm::BvarsSubCache_t &cache, const IndexShape &cellbnds,
+              const IndexShape &c_cellbnds);
 
 // std::function closures for the top-level restriction functions The
 // existence of host/device overloads here allows us to avoid a
@@ -61,16 +61,16 @@ using Restrictor_t = std::function<void(
     const var_boundary_comm::BufferCache_t &,
     const var_boundary_comm::BufferCacheHost_t &, const loops::Idx_t &,
     const loops::IdxHost_t &, const IndexShape &, const IndexShape &, const std::size_t)>;
-using RestrictorHost_t = std::function<void(
-    const var_boundary_comm::BufferCacheHost_t &, const loops::IdxHost_t &,
-    const IndexShape &, const IndexShape &, const std::size_t)>;
+using RestrictorHost_t = std::function<void(const var_boundary_comm::BufferCacheHost_t &,
+                                            const loops::IdxHost_t &, const IndexShape &,
+                                            const IndexShape &, const std::size_t)>;
 using Prolongator_t = std::function<void(
     const var_boundary_comm::BufferCache_t &,
     const var_boundary_comm::BufferCacheHost_t &, const loops::Idx_t &,
     const loops::IdxHost_t &, const IndexShape &, const IndexShape &, const std::size_t)>;
-using ProlongatorHost_t = std::function<void(
-    const var_boundary_comm::BufferCacheHost_t &, const loops::IdxHost_t &,
-    const IndexShape &, const IndexShape &, const std::size_t)>;
+using ProlongatorHost_t = std::function<void(const var_boundary_comm::BufferCacheHost_t &,
+                                             const loops::IdxHost_t &, const IndexShape &,
+                                             const IndexShape &, const std::size_t)>;
 
 // Container struct owning refinement functions/closures.
 // this container needs to be uniquely hashable, and always the same

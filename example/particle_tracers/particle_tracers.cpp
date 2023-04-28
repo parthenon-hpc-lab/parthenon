@@ -474,7 +474,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
 
     // do boundary exchange
     parthenon::var_boundary_comm::AddBoundaryExchangeTasks(update, tl, mc1,
-                                                             pmesh->multilevel);
+                                                           pmesh->multilevel);
   }
 
   TaskRegion &async_region1 = tc.AddRegion(nblocks);

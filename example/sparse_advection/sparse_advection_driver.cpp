@@ -103,8 +103,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
     const auto any = parthenon::BoundaryType::any;
-    auto start_flxcor = tl.AddTask(
-        none, parthenon::var_boundary_comm::StartReceiveFluxCorrections, mc0);
+    auto start_flxcor =
+        tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveFluxCorrections, mc0);
     auto start_bound =
         tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveBoundBufs<any>, mc1);
 

@@ -65,8 +65,7 @@ void MeshBlockData<T>::Initialize(
 template <typename T>
 void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &metadata,
                                 int sparse_id) {
-  auto pvar =
-      std::make_shared<Variable<T>>(base_name, metadata, sparse_id, pmy_block);
+  auto pvar = std::make_shared<Variable<T>>(base_name, metadata, sparse_id, pmy_block);
   Add(pvar);
 
   if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {

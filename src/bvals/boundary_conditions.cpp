@@ -223,14 +223,13 @@ void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc,
 
   for (auto var : rc->GetVariableVector()) {
     if (!var->IsAllocated()) continue;
-    if (!(var->IsSet(Metadata::Independent) || var->IsSet(Metadata::FillGhost)))
-      continue;
+    if (!(var->IsSet(Metadata::Independent) || var->IsSet(Metadata::FillGhost))) continue;
 
     if (var->IsSet(Metadata::Cell)) {
       // TODO(LFR): Is this indexing correct for 5 and 6 dimensional fields?
       int nu = var->GetDim(4) - 1;
       pmr->ProlongateCellCenteredValues(var.get(), si, ei, sj, ej, sk, ek);
-    } else { 
+    } else {
       PARTHENON_FAIL("Prolongation not implemented for non-cell centered variables.");
     }
   }

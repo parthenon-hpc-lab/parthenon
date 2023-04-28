@@ -15,8 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BVALS_BND_FLX_COMMUNICATION_BVALS_HPP_
-#define BVALS_BND_FLX_COMMUNICATION_BVALS_HPP_
+#ifndef BVALS_BND_FLX_COMMUNICATION_BVALS_IN_ONE_HPP_
+#define BVALS_BND_FLX_COMMUNICATION_BVALS_IN_ONE_HPP_
 
 #include <memory>
 #include <string>

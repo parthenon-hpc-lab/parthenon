@@ -137,8 +137,8 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
       tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveBoundBufs<any>, mc1);
       tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveFluxCorrections, mc0);
 
-      auto send_flx = tl.AddTask(
-          none, parthenon::var_boundary_comm::LoadAndSendFluxCorrections, mc0);
+      auto send_flx =
+          tl.AddTask(none, parthenon::var_boundary_comm::LoadAndSendFluxCorrections, mc0);
       auto recv_flx =
           tl.AddTask(none, parthenon::var_boundary_comm::ReceiveFluxCorrections, mc0);
       auto set_flx =
@@ -156,7 +156,7 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
 
       // do boundary exchange
       parthenon::var_boundary_comm::AddBoundaryExchangeTasks(update, tl, mc1,
-                                                               pmesh->multilevel);
+                                                             pmesh->multilevel);
     }
   }
 

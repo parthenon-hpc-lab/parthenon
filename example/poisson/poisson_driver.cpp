@@ -180,8 +180,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     auto send = solver.AddTask(update, var_boundary_comm::SendBoundaryBuffers, md);
 
-    auto recv =
-        solver.AddTask(start_recv, var_boundary_comm::ReceiveBoundaryBuffers, md);
+    auto recv = solver.AddTask(start_recv, var_boundary_comm::ReceiveBoundaryBuffers, md);
 
     auto setb = solver.AddTask(recv | update, var_boundary_comm::SetBoundaries, md);
 
