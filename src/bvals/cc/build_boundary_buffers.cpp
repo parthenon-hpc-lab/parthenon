@@ -48,6 +48,11 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
   Mesh *pmesh = md->GetMeshPointer();
   ForEachBoundary<BTYPE>(md, [&](sp_mb_t pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v,
                                  const OffsetIndices & /*no*/) {
+    // TODO(LFR): Remove temporary check that variables with FillGhost and/or WithFluxes 
+    // are cell centered, since communication only is currently implemented for those types
+    // of variables
+    PARTHENON_REQUIRE(v->IsSet(Metadata::Cell), "Boundary communication only implemented for cell variables.");
+    
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
 

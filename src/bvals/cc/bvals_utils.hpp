@@ -82,6 +82,11 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   int boundary_idx = 0;
   ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
                                       const OffsetIndices &) {
+    // TODO(LFR): Remove temporary check that variables with FillGhost and/or WithFluxes 
+    // are cell centered, since communication only is currently implemented for those types
+    // of variables
+    PARTHENON_REQUIRE(v->IsSet(Metadata::Cell), "Boundary communication only implemented for cell variables.");
+    
     auto key = KeyFunc(pmb, nb, v);
     PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
                             "Boundary communicator does not exist");
@@ -246,6 +251,12 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   int ibound = 0;
   ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
                                       const OffsetIndices &no) {
+    
+    // TODO(LFR): Remove temporary check that variables with FillGhost and/or WithFluxes 
+    // are cell centered, since communication only is currently implemented for those types
+    // of variables
+    PARTHENON_REQUIRE(v->IsSet(Metadata::Cell), "Boundary communication only implemented for cell variables.");
+    
     // bnd_info
     const std::size_t ibuf = cache.idx_vec[ibound];
     cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf], no);
