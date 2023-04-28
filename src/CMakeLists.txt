@@ -95,15 +95,15 @@ set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
 add_library(parthenon
-  bvals/bnd_flux_communication/bvals_cc_in_one.hpp
-  bvals/bnd_flux_communication/bvals_utils.hpp
-  bvals/bnd_flux_communication/build_boundary_buffers.cpp
-  bvals/bnd_flux_communication/bnd_info.cpp
-  bvals/bnd_flux_communication/bnd_info.hpp
-  bvals/bnd_flux_communication/boundary_communication.cpp
-  bvals/bnd_flux_communication/flux_correction.cpp 
-  bvals/bnd_flux_communication/tag_map.cpp 
-  bvals/bnd_flux_communication/tag_map.hpp 
+  bvals/bnd_flx_communication/bvals_cc_in_one.hpp
+  bvals/bnd_flx_communication/bvals_utils.hpp
+  bvals/bnd_flx_communication/build_boundary_buffers.cpp
+  bvals/bnd_flx_communication/bnd_info.cpp
+  bvals/bnd_flx_communication/bnd_info.hpp
+  bvals/bnd_flx_communication/boundary_communication.cpp
+  bvals/bnd_flx_communication/flux_correction.cpp 
+  bvals/bnd_flx_communication/tag_map.cpp 
+  bvals/bnd_flx_communication/tag_map.hpp 
   
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp

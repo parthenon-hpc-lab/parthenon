@@ -15,8 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BVALS_CC_BVALS_CC_IN_ONE_HPP_
-#define BVALS_CC_BVALS_CC_IN_ONE_HPP_
+#ifndef BVALS_BND_FLX_COMMUNICATION_BVALS_CC_HPP_
+#define BVALS_BND_FLX_COMMUNICATION_BVALS_CC_HPP_
 
 #include <memory>
 #include <string>
@@ -38,7 +38,7 @@ class NeighborBlock;
 template <typename T>
 class Variable;
 
-namespace cell_centered_bvars {
+namespace var_boundary_comm {
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md);
@@ -78,7 +78,7 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
 // This task should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
-} // namespace cell_centered_bvars
+} // namespace var_boundary_comm
 } // namespace parthenon
 
-#endif // BVALS_CC_BVALS_CC_IN_ONE_HPP_
+#endif // BVALS_BND_FLX_COMMUNICATION_BVALS_CC_IN_ONE_HPP_

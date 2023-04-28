@@ -19,7 +19,7 @@
 #include "advection_driver.hpp"
 #include "advection_package.hpp"
 #include "amr_criteria/refinement_package.hpp"
-#include "bvals/bnd_flux_communication/bvals_cc_in_one.hpp"
+#include "bvals/bnd_flx_communication/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -86,8 +86,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     const auto any = parthenon::BoundaryType::any;
 
-    tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
-    tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+    tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveBoundBufs<any>, mc1);
+    tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveFluxCorrections, mc0);
   }
 
   // Number of task lists that can be executed independently and thus *may*
@@ -125,11 +125,11 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
     auto send_flx =
-        tl.AddTask(none, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
+        tl.AddTask(none, parthenon::var_boundary_comm::LoadAndSendFluxCorrections, mc0);
     auto recv_flx =
-        tl.AddTask(none, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
+        tl.AddTask(none, parthenon::var_boundary_comm::ReceiveFluxCorrections, mc0);
     auto set_flx =
-        tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+        tl.AddTask(recv_flx, parthenon::var_boundary_comm::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
@@ -142,7 +142,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(update, tl, mc1,
+    parthenon::var_boundary_comm::AddBoundaryExchangeTasks(update, tl, mc1,
                                                              pmesh->multilevel);
   }
 

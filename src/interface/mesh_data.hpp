@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/bnd_flux_communication/bnd_info.hpp"
+#include "bvals/bnd_flx_communication/bnd_info.hpp"
 #include "interface/sparse_pack_base.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
@@ -427,7 +427,7 @@ class MeshData {
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
   // caches for boundary information
-  cell_centered_bvars::BvarsCache_t bvars_cache_;
+  var_boundary_comm::BvarsCache_t bvars_cache_;
 };
 
 } // namespace parthenon

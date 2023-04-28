@@ -33,7 +33,7 @@
 
 #include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
-#include "bvals/bnd_flux_communication/tag_map.hpp"
+#include "bvals/bnd_flx_communication/tag_map.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"

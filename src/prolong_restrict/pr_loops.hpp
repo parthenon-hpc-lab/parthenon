@@ -24,7 +24,7 @@
 #include <utility> // std::forward
 #include <vector>
 
-#include "bvals/bnd_flux_communication/bnd_info.hpp"       // for buffercache_t
+#include "bvals/bnd_flx_communication/bnd_info.hpp"       // for buffercache_t
 #include "coordinates/coordinates.hpp" // for coordinates
 #include "globals.hpp"                 // for Globals
 #include "kokkos_abstraction.hpp"      // for ParArray
@@ -74,7 +74,7 @@ GetLoopBoundsFromBndInfo(const Info_t &info, const int ckbs, const int cjbs, int
 // the size of the buffer cache.
 template <int DIM, class Stencil>
 inline void
-ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
+ProlongationRestrictionLoop(const var_boundary_comm::BufferCache_t &info,
                             const Idx_t &buffer_idxs, const IndexShape &cellbounds,
                             const IndexShape &c_cellbounds, const RefinementOp_t op,
                             const std::size_t nbuffers) {
@@ -109,7 +109,7 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
 }
 template <int DIM, class Stencil>
 inline void
-ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h,
+ProlongationRestrictionLoop(const var_boundary_comm::BufferCacheHost_t &info_h,
                             const IdxHost_t &buffer_idxs_h, const IndexShape &cellbounds,
                             const IndexShape &c_cellbounds, const RefinementOp_t op,
                             const std::size_t nbuffers) {
@@ -145,8 +145,8 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h
 }
 template <int DIM, class Stencil>
 inline void
-ProlongationRestrictionLoop(const cell_centered_bvars::BufferCache_t &info,
-                            const cell_centered_bvars::BufferCacheHost_t &info_h,
+ProlongationRestrictionLoop(const var_boundary_comm::BufferCache_t &info,
+                            const var_boundary_comm::BufferCacheHost_t &info_h,
                             const Idx_t &buffer_idxs, const IdxHost_t &buffer_idxs_h,
                             const IndexShape &cellbounds, const IndexShape &c_cellbounds,
                             const RefinementOp_t op, const std::size_t nbuffers) {

@@ -36,7 +36,7 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
-namespace cell_centered_bvars {
+namespace var_boundary_comm {
 
 using namespace impl;
 
@@ -226,5 +226,5 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-} // namespace cell_centered_bvars
+} // namespace var_boundary_comm
 } // namespace parthenon

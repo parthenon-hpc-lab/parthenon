@@ -23,7 +23,7 @@
 
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
-#include "bvals/bnd_flux_communication/bnd_info.hpp"
+#include "bvals/bnd_flx_communication/bnd_info.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -36,10 +36,10 @@
 
 namespace parthenon {
 
-namespace cell_centered_bvars {
+namespace var_boundary_comm {
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesSetSame(int ox, int &s, int &e,
+//! \fn void var_boundary_comm::CalcIndicesSetSame(int ox, int &s, int &e,
 //                                                   const IndexRange &bounds)
 //  \brief Calculate indices for SetBoundary routines for buffers on the same level
 
@@ -57,7 +57,7 @@ void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesSetFomCoarser(const int &ox, int &s, int &e,
+//! \fn void var_boundary_comm::CalcIndicesSetFomCoarser(const int &ox, int &s, int &e,
 //                                                         const IndexRange &bounds,
 //                                                         const std::int64_t &lx,
 //                                                         const int &cng,
@@ -87,7 +87,7 @@ void CalcIndicesSetFromCoarser(const int &ox, int &s, int &e, const IndexRange &
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesSetFromFiner(int &si, int &ei, int &sj,
+//! \fn void var_boundary_comm::CalcIndicesSetFromFiner(int &si, int &ei, int &sj,
 //                                                        int &ej, int &sk, int &ek,
 //                                                        const NeighborBlock &nb,
 //                                                        MeshBlock *pmb)
@@ -162,7 +162,7 @@ void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &e
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesLoadSame(int ox, int &s, int &e,
+//! \fn void var_boundary_comm::CalcIndicesLoadSame(int ox, int &s, int &e,
 //                                                    const IndexRange &bounds)
 //  \brief Calculate indices for LoadBoundary routines for buffers on the same level
 //         and to coarser.
@@ -181,7 +181,7 @@ void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesLoadToFiner(int &si, int &ei, int &sj,
+//! \fn void var_boundary_comm::CalcIndicesLoadToFiner(int &si, int &ei, int &sj,
 //                                                       int &ej, int &sk, int &ek,
 //                                                       const NeighborBlock &nb,
 //                                                       MeshBlock *pmb)
@@ -587,5 +587,5 @@ BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
   out.Nv = v->GetDim(4);
   return out;
 }
-} // namespace cell_centered_bvars
+} // namespace var_boundary_comm
 } // namespace parthenon

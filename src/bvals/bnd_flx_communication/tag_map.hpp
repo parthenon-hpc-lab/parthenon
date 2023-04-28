@@ -15,8 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BVALS_CC_TAG_MAP_HPP_
-#define BVALS_CC_TAG_MAP_HPP_
+#ifndef BVALS_BND_FLX_COMMUNICATION_TAG_MAP_HPP_
+#define BVALS_BND_FLX_COMMUNICATION_TAG_MAP_HPP_
 
 #include <map>
 #include <memory>
@@ -111,4 +111,4 @@ class TagMap {
 };
 } // namespace parthenon
 
-#endif // BVALS_CC_TAG_MAP_HPP_
+#endif // BVALS_BND_FLX_COMMUNICATION_TAG_MAP_HPP_

@@ -20,7 +20,7 @@
 #include "amr_criteria/refinement_package.hpp"
 #include "burgers_driver.hpp"
 #include "burgers_package.hpp"
-#include "bvals/bnd_flux_communication/bvals_cc_in_one.hpp"
+#include "bvals/bnd_flx_communication/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -86,19 +86,19 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     const auto any = parthenon::BoundaryType::any;
 
     auto start_bnd =
-        tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
+        tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveBoundBufs<any>, mc1);
     auto start_flx_recv = tl.AddTask(
-        none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+        none, parthenon::var_boundary_comm::StartReceiveFluxCorrections, mc0);
 
     // this is the main task where most of the real work is done
     auto flx = tl.AddTask(none, burgers_package::CalculateFluxes, mc0.get());
 
     auto send_flx =
-        tl.AddTask(flx, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
+        tl.AddTask(flx, parthenon::var_boundary_comm::LoadAndSendFluxCorrections, mc0);
     auto recv_flx = tl.AddTask(
-        start_flx_recv, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
+        start_flx_recv, parthenon::var_boundary_comm::ReceiveFluxCorrections, mc0);
     auto set_flx =
-        tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+        tl.AddTask(recv_flx, parthenon::var_boundary_comm::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
@@ -114,24 +114,24 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     const auto local = parthenon::BoundaryType::local;
     const auto nonlocal = parthenon::BoundaryType::nonlocal;
     auto send =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<nonlocal>, mc1);
+        tl.AddTask(update, parthenon::var_boundary_comm::SendBoundBufs<nonlocal>, mc1);
 
     auto send_local =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<local>, mc1);
+        tl.AddTask(update, parthenon::var_boundary_comm::SendBoundBufs<local>, mc1);
     auto recv_local =
-        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<local>, mc1);
+        tl.AddTask(update, parthenon::var_boundary_comm::ReceiveBoundBufs<local>, mc1);
     auto set_local =
-        tl.AddTask(recv_local, parthenon::cell_centered_bvars::SetBounds<local>, mc1);
+        tl.AddTask(recv_local, parthenon::var_boundary_comm::SetBounds<local>, mc1);
 
     auto recv =
         tl.AddTask(start_bnd | update,
-                   parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>, mc1);
-    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<nonlocal>, mc1);
+                   parthenon::var_boundary_comm::ReceiveBoundBufs<nonlocal>, mc1);
+    auto set = tl.AddTask(recv, parthenon::var_boundary_comm::SetBounds<nonlocal>, mc1);
 
     auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
 
     if (pmesh->multilevel) {
-      tl.AddTask(set | set_local, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1,
+      tl.AddTask(set | set_local, parthenon::var_boundary_comm::RestrictGhostHalos, mc1,
                  false);
     }
     // estimate next time step

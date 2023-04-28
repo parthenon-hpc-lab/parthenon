@@ -18,7 +18,7 @@
 
 // Local Includes
 #include "amr_criteria/refinement_package.hpp"
-#include "bvals/bnd_flux_communication/bvals_cc_in_one.hpp"
+#include "bvals/bnd_flx_communication/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -151,7 +151,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     solver.SetWarnWithMaxIterations(warn_flag);
 
     auto start_recv = solver.AddTask(
-        none, parthenon::cell_centered_bvars::StartReceiveBoundaryBuffers, md);
+        none, parthenon::var_boundary_comm::StartReceiveBoundaryBuffers, md);
 
     auto update = solver.AddTask(mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
                                  md.get(), mdelta.get());
@@ -178,12 +178,12 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
                                      &update_norm.val)
                                : none);
 
-    auto send = solver.AddTask(update, cell_centered_bvars::SendBoundaryBuffers, md);
+    auto send = solver.AddTask(update, var_boundary_comm::SendBoundaryBuffers, md);
 
     auto recv =
-        solver.AddTask(start_recv, cell_centered_bvars::ReceiveBoundaryBuffers, md);
+        solver.AddTask(start_recv, var_boundary_comm::ReceiveBoundaryBuffers, md);
 
-    auto setb = solver.AddTask(recv | update, cell_centered_bvars::SetBoundaries, md);
+    auto setb = solver.AddTask(recv | update, var_boundary_comm::SetBoundaries, md);
 
     auto check = solver.SetCompletionTask(
         send | setb | report_norm, poisson_package::CheckConvergence<MeshData<Real>>,

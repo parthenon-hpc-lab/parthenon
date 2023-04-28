@@ -17,7 +17,7 @@
 
 // Local Includes
 #include "amr_criteria/refinement_package.hpp"
-#include "bvals/bnd_flux_communication/bvals_cc_in_one.hpp"
+#include "bvals/bnd_flx_communication/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -104,16 +104,16 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
 
     const auto any = parthenon::BoundaryType::any;
     auto start_flxcor = tl.AddTask(
-        none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+        none, parthenon::var_boundary_comm::StartReceiveFluxCorrections, mc0);
     auto start_bound =
-        tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
+        tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveBoundBufs<any>, mc1);
 
     auto send_flxcor = tl.AddTask(
-        start_flxcor, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
+        start_flxcor, parthenon::var_boundary_comm::LoadAndSendFluxCorrections, mc0);
     auto recv_flxcor = tl.AddTask(
-        start_flxcor, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
+        start_flxcor, parthenon::var_boundary_comm::ReceiveFluxCorrections, mc0);
     auto set_flxcor =
-        tl.AddTask(recv_flxcor, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+        tl.AddTask(recv_flxcor, parthenon::var_boundary_comm::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
@@ -126,7 +126,7 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    auto restrict = parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(
+    auto restrict = parthenon::var_boundary_comm::AddBoundaryExchangeTasks(
         update, tl, mc1, pmesh->multilevel);
 
     // if this is the last stage, check if we can deallocate any sparse variables

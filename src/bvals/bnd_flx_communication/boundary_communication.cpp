@@ -39,7 +39,7 @@
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
-namespace cell_centered_bvars {
+namespace var_boundary_comm {
 
 using namespace loops;
 using namespace loops::shorthands;
@@ -358,5 +358,5 @@ template TaskStatus SetBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>>
 template TaskStatus SetBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus SetBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
-} // namespace cell_centered_bvars
+} // namespace var_boundary_comm
 } // namespace parthenon
