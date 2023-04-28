@@ -26,7 +26,7 @@
 #include <vector>
 
 #include "bvals/bnd_flx_communication/bnd_info.hpp"
-#include "bvals/bnd_flx_communication/bvals_cc_in_one.hpp"
+#include "bvals/bnd_flx_communication/bvals_in_one.hpp"
 #include "interface/variable.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"

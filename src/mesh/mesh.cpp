@@ -34,7 +34,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/bnd_flx_communication/bvals_cc_in_one.hpp"
+#include "bvals/bnd_flx_communication/bvals_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "bvals/boundary_conditions.hpp"

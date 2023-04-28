@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "bnd_info.hpp"
-#include "bvals_cc_in_one.hpp"
+#include "bvals_in_one.hpp"
 #include "bvals_utils.hpp"
 #include "config.hpp"
 #include "globals.hpp"

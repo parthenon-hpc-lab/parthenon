@@ -15,8 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BVALS_BND_FLX_COMMUNICATION_BVALS_CC_HPP_
-#define BVALS_BND_FLX_COMMUNICATION_BVALS_CC_HPP_
+#ifndef BVALS_BND_FLX_COMMUNICATION_BVALS_HPP_
+#define BVALS_BND_FLX_COMMUNICATION_BVALS_HPP_
 
 #include <memory>
 #include <string>
@@ -81,4 +81,4 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 } // namespace var_boundary_comm
 } // namespace parthenon
 
-#endif // BVALS_BND_FLX_COMMUNICATION_BVALS_CC_IN_ONE_HPP_
+#endif // BVALS_BND_FLX_COMMUNICATION_BVALS_IN_ONE_HPP_
