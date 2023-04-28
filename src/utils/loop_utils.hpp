@@ -21,7 +21,7 @@
 #include <type_traits> // std::enable_if
 #include <utility>     // std::forward
 
-#include "bvals/cc/bnd_info.hpp" // TODO(JMM): Remove me when possible
+#include "bvals/bnd_flux_communication/bnd_info.hpp" // TODO(JMM): Remove me when possible
 #include "interface/metadata.hpp"
 #include "mesh/domain.hpp" // TODO(JMM): Remove me when possible
 

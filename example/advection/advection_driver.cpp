@@ -19,7 +19,7 @@
 #include "advection_driver.hpp"
 #include "advection_package.hpp"
 #include "amr_criteria/refinement_package.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/bnd_flux_communication/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"

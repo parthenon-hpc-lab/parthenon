@@ -28,7 +28,7 @@
 #include <utility>    // std::forward
 #include <vector>
 
-#include "bvals/cc/bvals_cc_in_one.hpp" // for buffercache_t
+#include "bvals/bnd_flux_communication/bvals_cc_in_one.hpp" // for buffercache_t
 #include "coordinates/coordinates.hpp"  // for coordinates
 #include "globals.hpp"                  // for Globals
 #include "mesh/domain.hpp"              // for IndexShape
