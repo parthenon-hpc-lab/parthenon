@@ -167,11 +167,11 @@ std::array<int, MAX_VARIABLE_DIMENSION> Metadata::GetArrayDims(std::weak_ptr<Mes
       if (arrDims[2] > 1) arrDims[2]++;
     }
   } else if (IsSet(Particle)) {
-    assert(N >= 0 && N <= 5);
+    assert(N >= 0 && N <= MAX_VARIABLE_DIMENSION - 1);
     arrDims[0] = 1; // To be updated by swarm based on pool size before allocation
     for (int i = 0; i < N; i++)
       arrDims[i + 1] = shape[i];
-    for (int i = N; i < 5; i++)
+    for (int i = N; i < MAX_VARIABLE_DIMENSION - 1; i++)
       arrDims[i + 1] = 1;
   } else if (IsSet(Swarm)) {
     // No dimensions
