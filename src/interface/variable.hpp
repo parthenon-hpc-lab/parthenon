@@ -46,7 +46,7 @@
 #include "utils/error_checking.hpp"
 #include "utils/unique_id.hpp"
 
-namespace parthenon { 
+namespace parthenon {
 
 class MeshBlock;
 template <typename T>
@@ -136,25 +136,34 @@ class Variable {
   ParArrayND<T, VariableState> data;
   ParArrayND<T, VariableState> flux[4];  // used for boundary calculation
   ParArrayND<T, VariableState> coarse_s; // used for sending coarse boundary calculation
-  
-  template<std::size_t DIR, std::size_t... I, class... Args>
-  auto GetTensorComponentImpl(ParArrayND<T, VariableState>& d, std::index_sequence<I...>, Args&&... args) { 
-    return d.Get(((void) I, DIR)..., std::forward<Args>(args)...);
+
+  template <std::size_t DIR, std::size_t... I, class... Args>
+  auto GetTensorComponentImpl(ParArrayND<T, VariableState> &d, std::index_sequence<I...>,
+                              Args &&...args) {
+    return d.Get(((void)I, DIR)..., std::forward<Args>(args)...);
   }
 
-  template<std::size_t DIR, class... Args>
-  auto GetFluxTensorComponent(Args&&... args) { 
-    return GetTensorComponentImpl<0>(flux[DIR], std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
-  }
-  
-  template<std::size_t DIR = 0, class... Args>
-  auto GetCoarseTensorComponent(Args&&... args) { 
-    return GetTensorComponentImpl<DIR>(coarse_s, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
+  template <std::size_t DIR, class... Args>
+  auto GetFluxTensorComponent(Args &&...args) {
+    return GetTensorComponentImpl<0>(
+        flux[DIR],
+        std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(),
+        std::forward<Args>(args)...);
   }
 
-  template<std::size_t DIR = 0, class... Args>
-  auto GetTensorComponent(Args&&... args) { 
-    return GetTensorComponentImpl<DIR>(data, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
+  template <std::size_t DIR = 0, class... Args>
+  auto GetCoarseTensorComponent(Args &&...args) {
+    return GetTensorComponentImpl<DIR>(
+        coarse_s,
+        std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(),
+        std::forward<Args>(args)...);
+  }
+
+  template <std::size_t DIR = 0, class... Args>
+  auto GetTensorComponent(Args &&...args) {
+    return GetTensorComponentImpl<DIR>(
+        data, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(),
+        std::forward<Args>(args)...);
   }
 
   int dealloc_count = 0;
@@ -240,17 +249,20 @@ class ParticleVariable {
 
   /// return information string
   std::string info() const;
-  
-  template<std::size_t... I, class... Args>
-  auto GetTensorComponentImpl(ParArrayND<T>& d, std::index_sequence<I...>, Args&&... args) { 
-    return d.Get(((void) I, 0)..., std::forward<Args>(args)...);  
+
+  template <std::size_t... I, class... Args>
+  auto GetTensorComponentImpl(ParArrayND<T> &d, std::index_sequence<I...>,
+                              Args &&...args) {
+    return d.Get(((void)I, 0)..., std::forward<Args>(args)...);
   }
-  
-  template<class... Args>
-  auto GetTensorComponent(Args&&... args) { 
-    return GetTensorComponentImpl(data, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 1>(), std::forward<Args>(args)...);
+
+  template <class... Args>
+  auto GetTensorComponent(Args &&...args) {
+    return GetTensorComponentImpl(
+        data, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 1>(),
+        std::forward<Args>(args)...);
   }
-  
+
  private:
   Metadata m_;
   std::string label_;

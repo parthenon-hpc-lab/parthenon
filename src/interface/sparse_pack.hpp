@@ -255,13 +255,13 @@ class SparsePack : public SparsePackBase {
   }
 
   // operator() overloads
-  template <std::size_t DIR = 0> 
-  KOKKOS_INLINE_FUNCTION
-  auto &operator()(const int b, const int idx) const { return pack_(DIR, b, idx); }
+  template <std::size_t DIR = 0>
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const int idx) const {
+    return pack_(DIR, b, idx);
+  }
 
-  template <std::size_t DIR = 0> 
-  KOKKOS_INLINE_FUNCTION
-  auto &operator()(const int b, PackIdx idx) const {
+  template <std::size_t DIR = 0>
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(DIR, b, n);
@@ -272,18 +272,16 @@ class SparsePack : public SparsePackBase {
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(DIR, b, vidx);
   }
-  
-  template <std::size_t DIR = 0> 
-  KOKKOS_INLINE_FUNCTION
-  Real &operator()(const int b, const int idx, const int k, const int j,
-                   const int i) const {
+
+  template <std::size_t DIR = 0>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const int idx, const int k,
+                                          const int j, const int i) const {
     return pack_(DIR, b, idx)(k, j, i);
   }
 
-  template <std::size_t DIR = 0> 
-  KOKKOS_INLINE_FUNCTION
-  Real &operator()(const int b, PackIdx idx, const int k, const int j,
-                   const int i) const {
+  template <std::size_t DIR = 0>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, PackIdx idx, const int k,
+                                          const int j, const int i) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(DIR, b, n)(k, j, i);

@@ -558,7 +558,8 @@ void FillVarView(const VariableVector<T> &vars, bool coarse, ViewOfParArrays<T> 
 
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
-            host_cv(vindex) = coarse ? v->GetCoarseTensorComponent(k, j, i) : v->GetTensorComponent(k, j, i);
+            host_cv(vindex) = coarse ? v->GetCoarseTensorComponent(k, j, i)
+                                     : v->GetTensorComponent(k, j, i);
           }
 
           vindex++;
@@ -586,8 +587,6 @@ void FillVarView(const VariableVector<T> &vars, bool coarse, ViewOfParArrays<T> 
   Kokkos::deep_copy(allocated_out, host_al);
 #endif
 }
-
-
 
 template <typename T>
 void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
@@ -649,8 +648,10 @@ void FillFluxViews(const VariableVector<T> &vars, const int ndim,
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
             host_f1(vindex) = v->template GetFluxTensorComponent<1>(k, j, i);
-            if (ndim >= 2) host_f2(vindex) = v->template GetFluxTensorComponent<2>(k, j, i);
-            if (ndim >= 3) host_f3(vindex) = v->template GetFluxTensorComponent<3>(k, j, i);
+            if (ndim >= 2)
+              host_f2(vindex) = v->template GetFluxTensorComponent<2>(k, j, i);
+            if (ndim >= 3)
+              host_f3(vindex) = v->template GetFluxTensorComponent<3>(k, j, i);
           }
 
           vindex++;

@@ -30,4 +30,4 @@ using multi_pointer_t = typename multi_pointer<T, N>::type;
 
 } // namespace parthenon
 
-#endif
+#endif // UTILS_MULTI_POINTER_HPP_
