@@ -137,24 +137,24 @@ class Variable {
   ParArrayND<T, VariableState> flux[4];  // used for boundary calculation
   ParArrayND<T, VariableState> coarse_s; // used for sending coarse boundary calculation
   
-  template<std::size_t... I, class... Args>
+  template<std::size_t DIR, std::size_t... I, class... Args>
   auto GetTensorComponentImpl(ParArrayND<T, VariableState>& d, std::index_sequence<I...>, Args&&... args) { 
-    return d.Get(((void) I, 0)..., std::forward<Args>(args)...);
+    return d.Get(((void) I, DIR)..., std::forward<Args>(args)...);
   }
 
   template<std::size_t DIR, class... Args>
   auto GetFluxTensorComponent(Args&&... args) { 
-    return GetTensorComponentImpl(flux[DIR], std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
+    return GetTensorComponentImpl<0>(flux[DIR], std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
   }
   
-  template<class... Args>
+  template<std::size_t DIR = 0, class... Args>
   auto GetCoarseTensorComponent(Args&&... args) { 
-    return GetTensorComponentImpl(coarse_s, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
+    return GetTensorComponentImpl<DIR>(coarse_s, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
   }
 
-  template<class... Args>
+  template<std::size_t DIR = 0, class... Args>
   auto GetTensorComponent(Args&&... args) { 
-    return GetTensorComponentImpl(data, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
+    return GetTensorComponentImpl<DIR>(data, std::make_index_sequence<MAX_VARIABLE_DIMENSION - sizeof...(Args) - 3>(), std::forward<Args>(args)...);
   }
 
   int dealloc_count = 0;

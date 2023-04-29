@@ -255,41 +255,45 @@ class SparsePack : public SparsePackBase {
   }
 
   // operator() overloads
+  template <std::size_t DIR = 0> 
   KOKKOS_INLINE_FUNCTION
-  auto &operator()(const int b, const int idx) const { return pack_(0, b, idx); }
+  auto &operator()(const int b, const int idx) const { return pack_(DIR, b, idx); }
 
+  template <std::size_t DIR = 0> 
   KOKKOS_INLINE_FUNCTION
   auto &operator()(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
-    return pack_(0, b, n);
+    return pack_(DIR, b, n);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <std::size_t DIR = 0, class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t) const {
     const int vidx = GetLowerBound(b, t) + t.idx;
-    return pack_(0, b, vidx);
+    return pack_(DIR, b, vidx);
   }
-
+  
+  template <std::size_t DIR = 0> 
   KOKKOS_INLINE_FUNCTION
   Real &operator()(const int b, const int idx, const int k, const int j,
                    const int i) const {
-    return pack_(0, b, idx)(k, j, i);
+    return pack_(DIR, b, idx)(k, j, i);
   }
 
+  template <std::size_t DIR = 0> 
   KOKKOS_INLINE_FUNCTION
   Real &operator()(const int b, PackIdx idx, const int k, const int j,
                    const int i) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
-    return pack_(0, b, n)(k, j, i);
+    return pack_(DIR, b, n)(k, j, i);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <std::size_t DIR = 0, class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int k,
                                           const int j, const int i) const {
     const int vidx = GetLowerBound(b, t) + t.idx;
-    return pack_(0, b, vidx)(k, j, i);
+    return pack_(DIR, b, vidx)(k, j, i);
   }
 
   // flux() overloads
