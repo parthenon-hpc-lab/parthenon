@@ -204,7 +204,7 @@ class Variable {
   inline static UniqueIDGenerator<std::string> get_uid_;
 
   bool is_allocated_ = false;
-  ParArrayNDFlux<T> flux_data_; // unified par array for the fluxes
+  ParArrayND<T> flux_data_; // unified par array for the fluxes
 };
 
 template <typename T>

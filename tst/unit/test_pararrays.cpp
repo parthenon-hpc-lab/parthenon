@@ -52,6 +52,9 @@ using UVMSpace = Kokkos::Experimental::HIPHostPinnedSpace;
 using UVMSpace = DevMemSpace;
 #endif
 
+template <typename T, typename Layout = parthenon::LayoutWrapper>
+using device_view6_t = Kokkos::View<parthenon::multi_pointer_t<T, 6>, Layout, DevMemSpace>;
+
 KOKKOS_INLINE_FUNCTION Real coord(const int i, const int n) {
   const Real dx = 2.0 / (n - 1.0);
   return -1.0 + dx * i;
@@ -527,7 +530,7 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
       Kokkos::View<Real ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;
   using arrays_t = Kokkos::View<parthenon::ParArray6D<Real> *, UVMSpace>;
   using views_t = Kokkos::View<view_3d_t *, UVMSpace>;
-  using device_view_t = parthenon::device_view6_t<Real>;
+  using device_view_t = device_view6_t<Real>;
   arrays_t arrays(Kokkos::view_alloc(std::string("arrays"), Kokkos::WithoutInitializing),
                   NARRAYS);
   views_t views(Kokkos::view_alloc(std::string("views"), Kokkos::WithoutInitializing),
