@@ -135,7 +135,18 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
                 for (int v = 0; v < pv->GetDim(4); ++v) {
-                  if (pv->IsSet(Metadata::Cell) || pv->IsSet(Metadata::Node)) {
+                  if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge)) {
+                    if (pack.coarse_) {
+                      pack_h(1, b, idx) = pv->GetCoarseTensorComponent<0>(t, u, v);
+                      pack_h(2, b, idx) = pv->GetCoarseTensorComponent<1>(t, u, v);
+                      pack_h(3, b, idx) = pv->GetCoarseTensorComponent<2>(t, u, v);
+                    } else {
+                      pack_h(1, b, idx) = pv->GetTensorComponent<0>(t, u, v);
+                      pack_h(2, b, idx) = pv->GetTensorComponent<1>(t, u, v);
+                      pack_h(3, b, idx) = pv->GetTensorComponent<2>(t, u, v);
+                    }
+                  } else { // This is a cell, node, or a variable that doesn't have
+                           // topology information
                     if (pack.coarse_) {
                       pack_h(0, b, idx) = pv->GetCoarseTensorComponent(t, u, v);
                     } else {
@@ -161,16 +172,6 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                                               pack_h(0, b, idx).size(),
                                           "Different size fluxes.");
                       }
-                    }
-                  } else if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge)) {
-                    if (pack.coarse_) {
-                      pack_h(1, b, idx) = pv->GetCoarseTensorComponent<0>(t, u, v);
-                      pack_h(2, b, idx) = pv->GetCoarseTensorComponent<1>(t, u, v);
-                      pack_h(3, b, idx) = pv->GetCoarseTensorComponent<2>(t, u, v);
-                    } else {
-                      pack_h(1, b, idx) = pv->GetTensorComponent<0>(t, u, v);
-                      pack_h(2, b, idx) = pv->GetTensorComponent<1>(t, u, v);
-                      pack_h(3, b, idx) = pv->GetTensorComponent<2>(t, u, v);
                     }
                   }
                   idx++;
