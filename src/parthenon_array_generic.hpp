@@ -148,7 +148,8 @@ class ParArrayGeneric : public State {
                   label);
   }
 
-  template <class... Args, REQUIRES(all_implement<integral_or_enum_or_pair(Args...)>::value),
+  template <class... Args,
+            REQUIRES(all_implement<integral_or_enum_or_pair(Args...)>::value),
             REQUIRES(Data::rank - sizeof...(Args) >= 0)>
   KOKKOS_FORCEINLINE_FUNCTION auto Get(Args... args) const {
     return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{},

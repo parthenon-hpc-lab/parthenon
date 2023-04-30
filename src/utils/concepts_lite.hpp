@@ -14,6 +14,7 @@
 #define UTILS_CONCEPTS_LITE_HPP_
 
 #include <type_traits>
+#include <utility>
 
 // These macros are just to make code more readable and self-explanatory,
 // generally it is best to write template<..., REQUIRES(... && ...)> in the code
@@ -193,17 +194,15 @@ struct integral_or_enum {
 };
 
 template <typename>
-struct is_pair : std::false_type
-{ };
+struct is_pair : std::false_type {};
 
 template <typename T, typename U>
-struct is_pair<std::pair<T, U>> : std::true_type
-{ };
+struct is_pair<std::pair<T, U>> : std::true_type {};
 
 struct integral_or_enum_or_pair {
   template <class T>
-  auto requires_(T)
-      -> void_t<ENABLEIF(std::is_integral<T>::value || std::is_enum<T>::value || is_pair<T>::value)>;
+  auto requires_(T) -> void_t<ENABLEIF(std::is_integral<T>::value ||
+                                       std::is_enum<T>::value || is_pair<T>::value)>;
 };
 
 struct kokkos_view {

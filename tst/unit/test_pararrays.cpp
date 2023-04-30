@@ -53,7 +53,8 @@ using UVMSpace = DevMemSpace;
 #endif
 
 template <typename T, typename Layout = parthenon::LayoutWrapper>
-using device_view6_t = Kokkos::View<parthenon::multi_pointer_t<T, 6>, Layout, DevMemSpace>;
+using device_view6_t =
+    Kokkos::View<parthenon::multi_pointer_t<T, 6>, Layout, DevMemSpace>;
 
 KOKKOS_INLINE_FUNCTION Real coord(const int i, const int n) {
   const Real dx = 2.0 / (n - 1.0);

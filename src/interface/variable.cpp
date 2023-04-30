@@ -166,9 +166,6 @@ void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
       coarse_s = std::make_from_tuple<ParArrayND<T, VariableState>>(
           std::tuple_cat(std::make_tuple(label() + ".coarse", MakeVariableState()),
                          ArrayToReverseTuple(coarse_dims_)));
-      // coarse_s = ParArrayND<T, VariableState>(
-      //    base_name + ".coarse", MakeVariableState(), coarse_dims_[5], coarse_dims_[4],
-      //    coarse_dims_[3], coarse_dims_[2], coarse_dims_[1], coarse_dims_[0]);
     }
   }
 }
