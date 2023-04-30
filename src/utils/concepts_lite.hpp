@@ -192,6 +192,20 @@ struct integral_or_enum {
       -> void_t<ENABLEIF(std::is_integral<T>::value || std::is_enum<T>::value)>;
 };
 
+template <typename>
+struct is_pair : std::false_type
+{ };
+
+template <typename T, typename U>
+struct is_pair<std::pair<T, U>> : std::true_type
+{ };
+
+struct integral_or_enum_or_pair {
+  template <class T>
+  auto requires_(T)
+      -> void_t<ENABLEIF(std::is_integral<T>::value || std::is_enum<T>::value || is_pair<T>::value)>;
+};
+
 struct kokkos_view {
   template <class T>
   auto requires_(T x) -> void_t<ENABLEIF(implements<contiguous_container(T)>::value),
