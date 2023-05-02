@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 868]](https://github.com/parthenon-hpc-lab/parthenon/pull/868) Add block-local face, edge, and nodal fields and allow for packing
 - [[PR 830]](https://github.com/parthenon-hpc-lab/parthenon/pull/830) Add particle output
 - [[PR 840]](https://github.com/parthenon-hpc-lab/parthenon/pull/840) Generalized integrators infrastructure in a backwards compatible way
 - [[PR 810]](https://github.com/parthenon-hpc-lab/parthenon/pull/810) Add suport for Ascent in-situ visualization
