@@ -32,8 +32,8 @@
 #include <vector>
 
 #include "application_input.hpp"
-#include "bvals/comms/tag_map.hpp"
 #include "bvals/boundary_conditions.hpp"
+#include "bvals/comms/tag_map.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
