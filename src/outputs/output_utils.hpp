@@ -71,23 +71,20 @@ struct VarInfo {
       PARTHENON_FAIL(msg);
     }
 
-    // Note that this logic does not subscript components without component_labels if
-    // there is only one component. Component names will be e.g.
-    //   my_scalar
-    // or
-    //   my_non-vector_set_0
-    //   my_non-vector_set_1
-    // Note that this means the subscript will be dropped for multidim quantities if their
-    // Nx6, Nx5, Nx4 are set to 1 at runtime e.g.
-    //   my_non-vector_set
-    // Similarly, if component labels are given for all components, those will be used
-    // without the prefixed label.
+    // Full components labels will be composed according to the following rules:
+    // If there just one component (e.g., a scalar var or a vector/tensor with a single
+    // component) no suffix is used and the name is either the single component label (if
+    // available) or the basename. For variables with >1 components, the final component
+    // label will be composed of the basename and a suffix. This suffix is either a
+    // integer if no component labels are given, or the component label itself.
     component_labels = {};
-    if (num_components == 1 || is_vector) {
-      component_labels = component_labels_.size() > 0 ? component_labels_
-                                                      : std::vector<std::string>({label});
+    if (num_components == 1) {
+      component_labels = component_labels_.empty() ? std::vector<std::string>({label})
+                                                   : component_labels_;
     } else if (component_labels_.size() == num_components) {
-      component_labels = component_labels_;
+      for (int i = 0; i < num_components; i++) {
+        component_labels.push_back(label + "_" + component_labels_[i]);
+      }
     } else {
       for (int i = 0; i < num_components; i++) {
         component_labels.push_back(label + "_" + std::to_string(i));

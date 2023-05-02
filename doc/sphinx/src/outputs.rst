@@ -165,6 +165,20 @@ The mandatory ``actions_file`` parameter points to a separate file that defines
 Ascent actions in ``.yaml`` or ``.json`` format, see
 `Ascent documentation <https://ascent.readthedocs.io/en/latest/Actions/index.html>`__ for a complete list of options.
 
+Parthenon currently only publishes cell-centered variables to Ascent.
+Moreover, the published name of the field is
+
+* for scalars and vectors/tensors with only a single component, the variable name itself
+  (or the component label if provided)
+* for vectors/tensors with more than one component, the variable name followed by
+
+  * ``_#`` with ``#`` being the (flattened) component index, if no component labels
+    have been defined, or
+  * ``_component-label``, if components labels are given.
+
+The definition of component labels for variables is typically done by downstream codes
+so that the downstream documention should be consulted for more specific information.
+
 A ``<parthenon/output*>`` block might look like::
 
   <parthenon/output9>
