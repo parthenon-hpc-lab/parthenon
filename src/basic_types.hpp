@@ -17,7 +17,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <Kokkos_Core.hpp> 
+#include <Kokkos_Core.hpp>
 
 #include "config.hpp"
 
@@ -54,28 +54,37 @@ enum class BoundaryType : int {
 
 // Enumeration for accessing a field on different locations of the grid:
 // C = cell center of (i, j, k)
-// FX = x-face at (i - 1/2, j, k) 
-// FY = y-face at (i, j - 1/2, k) 
+// FX = x-face at (i - 1/2, j, k)
+// FY = y-face at (i, j - 1/2, k)
 // FZ = z-face at (i, j, k - 1/2)
-// EXY = edge at (i - 1/2, j - 1/2, k) 
-// EXZ = edge at (i - 1/2, j, k - 1/2) 
+// EXY = edge at (i - 1/2, j - 1/2, k)
+// EXZ = edge at (i - 1/2, j, k - 1/2)
 // EXY = edge at (i, j - 1/2, k - 1/2)
-// NXYZ = edge at (i - 1/2, j - 1/2, k - 1/2) 
-enum class TopologicalElement : std::size_t {C = 0, FX = 3, FY = 4, FZ = 5, EYZ = 6, EXZ = 7, EXY = 8, NXYZ = 9};
-enum class TopologicalType {Cell, Face, Edge, Node}; 
+// NXYZ = edge at (i - 1/2, j - 1/2, k - 1/2)
+enum class TopologicalElement : std::size_t {
+  C = 0,
+  FX = 3,
+  FY = 4,
+  FZ = 5,
+  EYZ = 6,
+  EXZ = 7,
+  EXY = 8,
+  NXYZ = 9
+};
+enum class TopologicalType { Cell, Face, Edge, Node };
 
 KOKKOS_FORCEINLINE_FUNCTION
-TopologicalType GetTopologicalType(TopologicalElement el) { 
+TopologicalType GetTopologicalType(TopologicalElement el) {
   using te = TopologicalElement;
   using tt = TopologicalType;
-  if (el == te::C) { 
+  if (el == te::C) {
     return tt::Cell;
-  } else if (el == te::NXYZ) { 
+  } else if (el == te::NXYZ) {
     return tt::Node;
-  } else if (el == te::FX || el == te::FY || el == te::FZ) { 
+  } else if (el == te::FX || el == te::FY || el == te::FZ) {
     return tt::Face;
-  } else { 
-    return tt::Edge; 
+  } else {
+    return tt::Edge;
   }
 }
 

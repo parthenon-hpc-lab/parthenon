@@ -155,11 +155,15 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
             pack.GetDim(5) - 1, kb.s, kb.e + 1, jb.s, jb.e + 1, ib.s, ib.e + 1,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
               Real n = i + 1e1 * j + 1e2 * k + 1e3 * c + 1e4 * v + 1e5 * b;
-              if (n != pack(b, v5lo, k, j, i) && k <= kb.e && j <= jb.e && i <= ib.e) ltot += 1;
+              if (n != pack(b, v5lo, k, j, i) && k <= kb.e && j <= jb.e && i <= ib.e)
+                ltot += 1;
               n = i + 1e1 * j + 1e2 * k + 1e3 * c + 1e4 * 4 + 1e5 * b;
-              if (3 * n + 0 != pack(b, te::FX, v6lo, k, j, i) && k <= kb.e && j <= jb.e) ltot += 1;
-              if (3 * n + 1 != pack(b, te::FY, v6lo, k, j, i) && k <= kb.e && i <= ib.e) ltot += 1;
-              if (3 * n + 2 != pack(b, te::FZ, v6lo, k, j, i) && j <= jb.e && i <= ib.e) ltot += 1;
+              if (3 * n + 0 != pack(b, te::FX, v6lo, k, j, i) && k <= kb.e && j <= jb.e)
+                ltot += 1;
+              if (3 * n + 1 != pack(b, te::FY, v6lo, k, j, i) && k <= kb.e && i <= ib.e)
+                ltot += 1;
+              if (3 * n + 2 != pack(b, te::FZ, v6lo, k, j, i) && j <= jb.e && i <= ib.e)
+                ltot += 1;
             },
             nwrong);
         REQUIRE(nwrong == 0);

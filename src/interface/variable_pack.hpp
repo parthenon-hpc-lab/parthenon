@@ -263,14 +263,12 @@ class VariablePack {
 
   VariablePack() = default;
 
-  VariablePack(const ViewOfParArrays<T> &view0, 
-               const ViewOfParArrays<T> &view1,
-               const ViewOfParArrays<T> &view2,
-               const ParArray1D<int> &sparse_ids,
+  VariablePack(const ViewOfParArrays<T> &view0, const ViewOfParArrays<T> &view1,
+               const ViewOfParArrays<T> &view2, const ParArray1D<int> &sparse_ids,
                const ParArray1D<int> &vector_component, const ParArray1D<bool> &allocated,
                const std::array<int, 4> &dims)
-      : v_{view0, view1, view2}, sparse_ids_(sparse_ids), vector_component_(vector_component),
-        allocated_(allocated), dims_(dims),
+      : v_{view0, view1, view2}, sparse_ids_(sparse_ids),
+        vector_component_(vector_component), allocated_(allocated), dims_(dims),
         ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {
     // don't check length of allocation_status_, because it can be different from
     // dims_[3]. There is one entry in allocation_status_ per VARIABLE, but dims_[3] is
@@ -309,11 +307,12 @@ class VariablePack {
   KOKKOS_FORCEINLINE_FUNCTION
   constexpr bool IsAllocated(const int /*m*/, const int /*n*/) const { return true; }
 #endif
-  
+
   KOKKOS_FORCEINLINE_FUNCTION
   ParArray3D<T, VariableState> &operator()(TopologicalElement el, const int n) const {
     assert(IsAllocated(n));
-    assert(v_[static_cast<std::size_t>(el) % 3](n).topological_type == GetTopologicalType(el));
+    assert(v_[static_cast<std::size_t>(el) % 3](n).topological_type ==
+           GetTopologicalType(el));
     return v_[static_cast<std::size_t>(el) % 3](n);
   }
 
@@ -325,11 +324,13 @@ class VariablePack {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(TopologicalElement el, const int n, const int k, const int j, const int i) const {
+  T &operator()(TopologicalElement el, const int n, const int k, const int j,
+                const int i) const {
     assert(IsAllocated(n));
-    assert(v_[static_cast<std::size_t>(el) % 3](n).topological_type == GetTopologicalType(el));
+    assert(v_[static_cast<std::size_t>(el) % 3](n).topological_type ==
+           GetTopologicalType(el));
     return v_[static_cast<std::size_t>(el) % 3](n)(k, j, i);
-  } 
+  }
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(const int n, const int k, const int j, const int i) const {
     assert(IsAllocated(n));
@@ -346,7 +347,8 @@ class VariablePack {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(const int m, TopologicalElement dir, const int n, const int k, const int j, const int i) const {
+  T &operator()(const int m, TopologicalElement dir, const int n, const int k,
+                const int j, const int i) const {
     assert(m == 0);
     return (*this)(dir, n, k, j, i);
   }
@@ -433,17 +435,16 @@ class VariableFluxPack : public VariablePack<T> {
 
  public:
   VariableFluxPack() = default;
-  VariableFluxPack(const ViewOfParArrays<T> &view0, 
-                   const ViewOfParArrays<T> &view1,
-                   const ViewOfParArrays<T> &view2,
-                   const ViewOfParArrays<T> &f0,
+  VariableFluxPack(const ViewOfParArrays<T> &view0, const ViewOfParArrays<T> &view1,
+                   const ViewOfParArrays<T> &view2, const ViewOfParArrays<T> &f0,
                    const ViewOfParArrays<T> &f1, const ViewOfParArrays<T> &f2,
                    const ParArray1D<bool> &flux_allocated,
                    const ParArray1D<int> &sparse_ids,
                    const ParArray1D<int> &vector_component,
                    const ParArray1D<bool> &allocated, const std::array<int, 4> &dims,
                    int fsize)
-      : VariablePack<T>(view0, view1, view2, sparse_ids, vector_component, allocated, dims),
+      : VariablePack<T>(view0, view1, view2, sparse_ids, vector_component, allocated,
+                        dims),
         f_({f0, f1, f2}), flux_allocated_(flux_allocated), fsize_(fsize) {
     // don't check flux_allocation_status (see note in constructor of VariablePack)
     assert(fsize == f0.extent(0));
@@ -556,10 +557,8 @@ void AppendSparseBaseMap(const VariableVector<T> &vars, PackIndexMap *pvmap) {
 }
 
 template <typename T>
-void FillVarView(const VariableVector<T> &vars, bool coarse, 
-                 ViewOfParArrays<T> &cv0_out,
-                 ViewOfParArrays<T> &cv1_out,
-                 ViewOfParArrays<T> &cv2_out,
+void FillVarView(const VariableVector<T> &vars, bool coarse, ViewOfParArrays<T> &cv0_out,
+                 ViewOfParArrays<T> &cv1_out, ViewOfParArrays<T> &cv2_out,
                  ParArray1D<int> &sparse_id_out, ParArray1D<int> &vector_component_out,
                  ParArray1D<bool> &allocated_out, PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
@@ -593,13 +592,13 @@ void FillVarView(const VariableVector<T> &vars, bool coarse,
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
             if (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) {
-              host_cv0(vindex) = coarse ? v-> template GetCoarseTensorComponent<0>(k, j, i)
-                                        : v-> template GetTensorComponent<0>(k, j, i);
-              host_cv1(vindex) = coarse ? v-> template GetCoarseTensorComponent<1>(k, j, i)
-                                        : v-> template GetTensorComponent<1>(k, j, i);
-              host_cv2(vindex) = coarse ? v-> template GetCoarseTensorComponent<2>(k, j, i)
-                                        : v-> template GetTensorComponent<2>(k, j, i);
-            } else { 
+              host_cv0(vindex) = coarse ? v->template GetCoarseTensorComponent<0>(k, j, i)
+                                        : v->template GetTensorComponent<0>(k, j, i);
+              host_cv1(vindex) = coarse ? v->template GetCoarseTensorComponent<1>(k, j, i)
+                                        : v->template GetTensorComponent<1>(k, j, i);
+              host_cv2(vindex) = coarse ? v->template GetCoarseTensorComponent<2>(k, j, i)
+                                        : v->template GetTensorComponent<2>(k, j, i);
+            } else {
               host_cv0(vindex) = coarse ? v->GetCoarseTensorComponent(k, j, i)
                                         : v->GetTensorComponent(k, j, i);
               host_cv1(vindex) = host_cv0(vindex);
@@ -774,7 +773,8 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
     }
     cv_size[3] = vsize;
 
-    FillVarView(vars, false, cv0, cv1, cv2, sparse_id, vector_component, allocated, pvmap);
+    FillVarView(vars, false, cv0, cv1, cv2, sparse_id, vector_component, allocated,
+                pvmap);
 
     if (fsize > 0) {
       // add fluxes
@@ -783,8 +783,8 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
     }
   }
 
-  return VariableFluxPack<T>(cv0, cv1, cv2, f1, f2, f3, flux_allocated, sparse_id, vector_component,
-                             allocated, cv_size, fsize);
+  return VariableFluxPack<T>(cv0, cv1, cv2, f1, f2, f3, flux_allocated, sparse_id,
+                             vector_component, allocated, cv_size, fsize);
 }
 
 template <typename T>
@@ -823,7 +823,8 @@ VariablePack<T> MakePack(const VarListWithKeys<T> &var_list, bool coarse,
     }
     cv_size[3] = vsize;
 
-    FillVarView(vars, coarse, cv0, cv1, cv2, sparse_id, vector_component, allocated, pvmap);
+    FillVarView(vars, coarse, cv0, cv1, cv2, sparse_id, vector_component, allocated,
+                pvmap);
   }
 
   return VariablePack<T>(cv0, cv1, cv2, sparse_id, vector_component, allocated, cv_size);
