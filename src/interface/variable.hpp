@@ -67,6 +67,7 @@ class Variable {
   Variable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
               std::weak_ptr<MeshBlock> wpmb);
 
+  ~Variable() {}
   // copy fluxes and boundary variable from src Variable (shallow copy)
   void CopyFluxesAndBdryVar(const Variable<T> *src);
 
@@ -76,7 +77,7 @@ class Variable {
   // accessors
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) const {
-    assert(IsAllocated());
+    assert(data.size() > 0);
     return data(std::forward<Args>(args)...);
   }
 

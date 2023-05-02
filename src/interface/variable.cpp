@@ -145,8 +145,10 @@ void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
     // flux_data_ object reduces the number of memory allocations per
     // variable per meshblock from 5 to 3.
     int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
+    if (IsSet(Metadata::Edge)) n_outer = 1;
     // allocate fluxes
     auto dims_flux = dims_;
+    // A nodal field is the appropriate flux field for an edge variable
     dims_flux[MAX_VARIABLE_DIMENSION - 1] = n_outer;
     flux_data_ = std::make_from_tuple<ParArrayND<T, VariableState>>(
         std::tuple_cat(std::make_tuple(label() + ".flux_data", MakeVariableState()),
