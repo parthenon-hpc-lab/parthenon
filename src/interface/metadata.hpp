@@ -669,6 +669,14 @@ class Metadata {
   }
 };
 
+inline TopologicalType GetTopologicalType(const Metadata &md) { 
+  using tt = TopologicalType;
+  if (md.IsSet(Metadata::Face)) return tt::Face;
+  if (md.IsSet(Metadata::Edge)) return tt::Edge;
+  if (md.IsSet(Metadata::Node)) return tt::Node;
+  return tt::Cell; // Default case 
+}
+
 namespace MetadataUtils {
 // From a given container, extract all variables whose Metadata matchs the all of the
 // given flags (if the list of flags is empty, extract all variables), optionally only
