@@ -15,8 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BVALS_BND_FLX_COMMUNICATION_BND_INFO_HPP_
-#define BVALS_BND_FLX_COMMUNICATION_BND_INFO_HPP_
+#ifndef BVALS_COMMS_BND_INFO_HPP_
+#define BVALS_COMMS_BND_INFO_HPP_
 
 #include <memory>
 #include <string>
@@ -155,4 +155,4 @@ struct BvarsCache_t {
 } // namespace var_boundary_comm
 } // namespace parthenon
 
-#endif // BVALS_BND_FLX_COMMUNICATION_BND_INFO_HPP_
+#endif // BVALS_COMMS_BND_INFO_HPP_

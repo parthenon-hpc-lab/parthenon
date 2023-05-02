@@ -27,7 +27,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/bnd_flx_communication/bvals_in_one.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"

@@ -26,8 +26,8 @@
 #include "basic_types.hpp"
 #include "parthenon_mpi.hpp"
 
-#include "bvals/bnd_flx_communication/bnd_info.hpp"
-#include "bvals/bnd_flx_communication/bvals_in_one.hpp"
+#include "bvals/comms/bnd_info.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "defs.hpp"
 #include "mesh/domain.hpp"
