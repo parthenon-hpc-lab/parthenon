@@ -22,6 +22,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
@@ -68,10 +69,12 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
     Metadata m({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
     Metadata m_vector({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},
                       vector_shape);
+    Metadata m_face({Metadata::Face, Metadata::Independent, Metadata::WithFluxes});
     auto pkg = std::make_shared<StateDescriptor>("Test package");
     pkg->AddField("v1", m);
     pkg->AddField("v3", m_vector);
     pkg->AddField("v5", m);
+    pkg->AddField("v6", m_face);
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
     MeshData<Real> mesh_data;
@@ -101,6 +104,15 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
                 }
               });
         }
+        auto var = pmbd->Get("v6");
+        par_for(
+            loop_pattern_mdrange_tag, "initialize v6", DevExecSpace(), kb.s, kb.e + 1,
+            jb.s, jb.e + 1, ib.s, ib.e + 1, KOKKOS_LAMBDA(int k, int j, int i) {
+              Real n = i + 1e1 * j + 1e2 * k + 1e3 * 0 + 1e4 * 4 + 1e5 * b;
+              if (k <= kb.e && j <= jb.e) var(0, 0, 0, 0, k, j, i) = 3 * n + 0;
+              if (k <= kb.e && i <= ib.e) var(1, 0, 0, 0, k, j, i) = 3 * n + 1;
+              if (j <= jb.e && i <= ib.e) var(2, 0, 0, 0, k, j, i) = 3 * n + 2;
+            });
       }
 
       THEN("A pack for a scalar with a PackIndexMap works") {
@@ -121,6 +133,33 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
               Real n = i + 1e1 * j + 1e2 * k + 1e3 * c + 1e4 * v + 1e5 * b;
               if (n != pack(b, vlo, k, j, i)) ltot += 1;
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+
+      THEN("A pack for a scalar and a face field with a PackIndexMap works") {
+        PackIndexMap imap;
+        const std::vector<std::string> vlist{"v5", "v6"};
+        auto pack = mesh_data.PackVariables(vlist, imap);
+        const int v5lo = imap["v5"].first;
+        const int v6lo = imap["v6"].first;
+        const int v6hi = imap["v6"].second;
+
+        const int c = 0;
+        const int v = 2;
+        int nwrong = 0;
+        using te = parthenon::TopologicalElement;
+        par_reduce(
+            loop_pattern_mdrange_tag, "check imap, scalar", DevExecSpace(), 0,
+            pack.GetDim(5) - 1, kb.s, kb.e + 1, jb.s, jb.e + 1, ib.s, ib.e + 1,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              Real n = i + 1e1 * j + 1e2 * k + 1e3 * c + 1e4 * v + 1e5 * b;
+              if (n != pack(b, v5lo, k, j, i) && k <= kb.e && j <= jb.e && i <= ib.e) ltot += 1;
+              n = i + 1e1 * j + 1e2 * k + 1e3 * c + 1e4 * 4 + 1e5 * b;
+              if (3 * n + 0 != pack(b, te::FX, v6lo, k, j, i) && k <= kb.e && j <= jb.e) ltot += 1;
+              if (3 * n + 1 != pack(b, te::FY, v6lo, k, j, i) && k <= kb.e && i <= ib.e) ltot += 1;
+              if (3 * n + 2 != pack(b, te::FZ, v6lo, k, j, i) && j <= jb.e && i <= ib.e) ltot += 1;
             },
             nwrong);
         REQUIRE(nwrong == 0);
