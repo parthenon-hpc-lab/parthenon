@@ -166,16 +166,12 @@ Ascent actions in ``.yaml`` or ``.json`` format, see
 `Ascent documentation <https://ascent.readthedocs.io/en/latest/Actions/index.html>`__ for a complete list of options.
 
 Parthenon currently only publishes cell-centered variables to Ascent.
-Moreover, the published name of the field is
-
-* for scalars and vectors/tensors with only a single component, the variable name itself
-  (or the component label if provided)
-* for vectors/tensors with more than one component, the variable name followed by
-
-  * ``_#`` with ``#`` being the (flattened) component index, if no component labels
-    have been defined, or
-  * ``_component-label``, if components labels are given.
-
+Moreover, the published name of the field always starts with the base name (to avoid
+name clashes between multiple fields that may have the same [component] labels).
+If component label(s) are provided, they will be added as a suffix, e.g,.
+``basename_component-label`` for all variable types (even scalars).
+Otherwise, an integer index is added for vectors/tensors with more than one component, i.e.,
+vectors/tensors with a single component and without component labels will not contain a suffix.
 The definition of component labels for variables is typically done by downstream codes
 so that the downstream documention should be consulted for more specific information.
 

@@ -73,14 +73,15 @@ struct VarInfo {
 
     // Full components labels will be composed according to the following rules:
     // If there just one component (e.g., a scalar var or a vector/tensor with a single
-    // component) no suffix is used and the name is either the single component label (if
-    // available) or the basename. For variables with >1 components, the final component
-    // label will be composed of the basename and a suffix. This suffix is either a
-    // integer if no component labels are given, or the component label itself.
+    // component) only the basename and no suffix is used unless a component label is
+    // provided (which will then be added as suffix following an `_`). For variables with
+    // >1 components, the final component label will be composed of the basename and a
+    // suffix. This suffix is either a integer if no component labels are given, or the
+    // component label itself.
     component_labels = {};
     if (num_components == 1) {
-      component_labels = component_labels_.empty() ? std::vector<std::string>({label})
-                                                   : component_labels_;
+      const auto suffix = component_labels_.empty() ? "" : "_" + component_labels_[0];
+      component_labels = std::vector<std::string>({label + suffix})
     } else if (component_labels_.size() == num_components) {
       for (int i = 0; i < num_components; i++) {
         component_labels.push_back(label + "_" + component_labels_[i]);
