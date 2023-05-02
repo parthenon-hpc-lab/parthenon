@@ -21,7 +21,7 @@
 #include <tuple> // std::tuple
 #include <utility>
 
-#include "bvals/bnd_flx_communication/bnd_info.hpp"
+#include "bvals/comms/bnd_info.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"

@@ -14,8 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef BVALS_BND_FLX_COMMUNICATION_BVALS_UTILS_HPP_
-#define BVALS_BND_FLX_COMMUNICATION_BVALS_UTILS_HPP_
+#ifndef BVALS_COMMS_BVALS_UTILS_HPP_
+#define BVALS_COMMS_BVALS_UTILS_HPP_
 
 #include <algorithm>
 #include <memory>
@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/bnd_flx_communication/bnd_info.hpp"
-#include "bvals/bnd_flx_communication/bvals_in_one.hpp"
+#include "bvals/comms/bnd_info.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/variable.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
@@ -290,4 +290,4 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
 } // namespace var_boundary_comm
 } // namespace parthenon
 
-#endif // BVALS_BND_FLX_COMMUNICATION_BVALS_UTILS_HPP_
+#endif // BVALS_COMMS_BVALS_UTILS_HPP_

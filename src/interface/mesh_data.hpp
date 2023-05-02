@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/bnd_flx_communication/bnd_info.hpp"
+#include "bvals/comms/bnd_info.hpp"
 #include "interface/sparse_pack_base.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"

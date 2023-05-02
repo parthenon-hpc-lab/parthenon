@@ -24,7 +24,7 @@
 #include <utility> // std::forward
 #include <vector>
 
-#include "bvals/bnd_flx_communication/bnd_info.hpp" // for buffercache_t
+#include "bvals/comms/bnd_info.hpp" // for buffercache_t
 #include "coordinates/coordinates.hpp"              // for coordinates
 #include "globals.hpp"                              // for Globals
 #include "kokkos_abstraction.hpp"                   // for ParArray
