@@ -29,9 +29,9 @@
 #include <vector>
 
 #include "bvals/comms/bvals_in_one.hpp" // for buffercache_t
-#include "coordinates/coordinates.hpp"                  // for coordinates
-#include "globals.hpp"                                  // for Globals
-#include "mesh/domain.hpp"                              // for IndexShape
+#include "coordinates/coordinates.hpp"  // for coordinates
+#include "globals.hpp"                  // for Globals
+#include "mesh/domain.hpp"              // for IndexShape
 #include "prolong_restrict/pr_loops.hpp"
 #include "prolong_restrict/pr_ops.hpp"
 
