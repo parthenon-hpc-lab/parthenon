@@ -85,20 +85,15 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     const auto any = parthenon::BoundaryType::any;
 
-    auto start_bnd =
-        tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveBoundBufs<any>, mc1);
-    auto start_flx_recv =
-        tl.AddTask(none, parthenon::var_boundary_comm::StartReceiveFluxCorrections, mc0);
+    auto start_bnd = tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
+    auto start_flx_recv = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
 
     // this is the main task where most of the real work is done
     auto flx = tl.AddTask(none, burgers_package::CalculateFluxes, mc0.get());
 
-    auto send_flx =
-        tl.AddTask(flx, parthenon::var_boundary_comm::LoadAndSendFluxCorrections, mc0);
-    auto recv_flx = tl.AddTask(start_flx_recv,
-                               parthenon::var_boundary_comm::ReceiveFluxCorrections, mc0);
-    auto set_flx =
-        tl.AddTask(recv_flx, parthenon::var_boundary_comm::SetFluxCorrections, mc0);
+    auto send_flx = tl.AddTask(flx, parthenon::LoadAndSendFluxCorrections, mc0);
+    auto recv_flx = tl.AddTask(start_flx_recv, parthenon::ReceiveFluxCorrections, mc0);
+    auto set_flx = tl.AddTask(recv_flx, parthenon::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
@@ -113,25 +108,20 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     // do boundary exchange
     const auto local = parthenon::BoundaryType::local;
     const auto nonlocal = parthenon::BoundaryType::nonlocal;
-    auto send =
-        tl.AddTask(update, parthenon::var_boundary_comm::SendBoundBufs<nonlocal>, mc1);
+    auto send = tl.AddTask(update, parthenon::SendBoundBufs<nonlocal>, mc1);
 
-    auto send_local =
-        tl.AddTask(update, parthenon::var_boundary_comm::SendBoundBufs<local>, mc1);
-    auto recv_local =
-        tl.AddTask(update, parthenon::var_boundary_comm::ReceiveBoundBufs<local>, mc1);
-    auto set_local =
-        tl.AddTask(recv_local, parthenon::var_boundary_comm::SetBounds<local>, mc1);
+    auto send_local = tl.AddTask(update, parthenon::SendBoundBufs<local>, mc1);
+    auto recv_local = tl.AddTask(update, parthenon::ReceiveBoundBufs<local>, mc1);
+    auto set_local = tl.AddTask(recv_local, parthenon::SetBounds<local>, mc1);
 
-    auto recv = tl.AddTask(start_bnd | update,
-                           parthenon::var_boundary_comm::ReceiveBoundBufs<nonlocal>, mc1);
-    auto set = tl.AddTask(recv, parthenon::var_boundary_comm::SetBounds<nonlocal>, mc1);
+    auto recv =
+        tl.AddTask(start_bnd | update, parthenon::ReceiveBoundBufs<nonlocal>, mc1);
+    auto set = tl.AddTask(recv, parthenon::SetBounds<nonlocal>, mc1);
 
     auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
 
     if (pmesh->multilevel) {
-      tl.AddTask(set | set_local, parthenon::var_boundary_comm::RestrictGhostHalos, mc1,
-                 false);
+      tl.AddTask(set | set_local, parthenon::RestrictGhostHalos, mc1, false);
     }
     // estimate next time step
     if (stage == integrator->nstages) {

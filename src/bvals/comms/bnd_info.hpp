@@ -40,8 +40,6 @@ class NeighborBlock;
 template <typename T>
 class Variable;
 
-namespace var_boundary_comm {
-
 void ComputeRestrictionBounds(IndexRange &ni, IndexRange &nj, IndexRange &nk,
                               const NeighborBlock &nb,
                               const std::shared_ptr<MeshBlock> &pmb);
@@ -159,7 +157,6 @@ struct BvarsCache_t {
   }
 };
 
-} // namespace var_boundary_comm
 } // namespace parthenon
 
 #endif // BVALS_COMMS_BND_INFO_HPP_

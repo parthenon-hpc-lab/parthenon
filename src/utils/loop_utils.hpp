@@ -115,7 +115,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
 
           if constexpr (bound == BoundaryType::restricted) {
             IndexRange bni, bnj, bnk;
-            var_boundary_comm::ComputeRestrictionBounds(bni, bnj, bnk, nb, pmb);
+            ComputeRestrictionBounds(bni, bnj, bnk, nb, pmb);
             // This loop is only over {-1, 0, 1}^3 at most
             for (int nk = bnk.s; nk <= bnk.e; ++nk) {
               for (int nj = bnj.s; nj <= bnj.e; ++nj) {
@@ -125,7 +125,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
                   if (ntype == 0 ||
                       pmb->pbval->nblevel[nk + 1][nj + 1][ni + 1] != pmb->loc.level)
                     continue;
-                  var_boundary_comm::OffsetIndices offsets(nk, nj, ni);
+                  OffsetIndices offsets(nk, nj, ni);
                   if (func_caller(func, pmb, rc, nb, v, offsets) ==
                       LoopControl::break_out)
                     return;
@@ -133,7 +133,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
               }
             }
           } else {
-            var_boundary_comm::OffsetIndices junk;
+            OffsetIndices junk;
             if (func_caller(func, pmb, rc, nb, v, junk) == LoopControl::break_out) return;
           }
         }

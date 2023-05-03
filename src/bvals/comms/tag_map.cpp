@@ -22,7 +22,6 @@
 
 namespace parthenon {
 
-using namespace var_boundary_comm;
 using namespace loops;
 using namespace loops::shorthands;
 

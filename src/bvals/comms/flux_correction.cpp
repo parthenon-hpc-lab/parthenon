@@ -36,8 +36,6 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
-namespace var_boundary_comm {
-
 using namespace impl;
 
 TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
@@ -194,5 +192,4 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-} // namespace var_boundary_comm
 } // namespace parthenon

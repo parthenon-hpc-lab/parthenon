@@ -1088,8 +1088,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     boundary_comm_flxcor_map.clear();
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
-      var_boundary_comm::BuildBoundaryBuffers(md);
-      var_boundary_comm::SendBoundaryBuffers(md);
+      BuildBoundaryBuffers(md);
+      SendBoundaryBuffers(md);
     }
 
     // wait to receive FillGhost variables
@@ -1100,7 +1100,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       all_received = true;
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
-        if (var_boundary_comm::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
+        if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
           all_received = false;
         }
       }
@@ -1109,10 +1109,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       // unpack FillGhost variables
-      var_boundary_comm::SetBoundaries(md);
+      SetBoundaries(md);
       // restrict ghosts---needed for physical bounds
       if (multilevel) {
-        var_boundary_comm::RestrictGhostHalos(md, true);
+        RestrictGhostHalos(md, true);
       }
     }
 

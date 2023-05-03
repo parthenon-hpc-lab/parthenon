@@ -36,10 +36,8 @@
 
 namespace parthenon {
 
-namespace var_boundary_comm {
-
 //----------------------------------------------------------------------------------------
-//! \fn void var_boundary_comm::CalcIndicesSetSame(int ox, int &s, int &e,
+//! \fn void CalcIndicesSetSame(int ox, int &s, int &e,
 //                                                   const IndexRange &bounds)
 //  \brief Calculate indices for SetBoundary routines for buffers on the same level
 
@@ -57,7 +55,7 @@ void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void var_boundary_comm::CalcIndicesSetFomCoarser(const int &ox, int &s, int &e,
+//! \fn void CalcIndicesSetFomCoarser(const int &ox, int &s, int &e,
 //                                                         const IndexRange &bounds,
 //                                                         const std::int64_t &lx,
 //                                                         const int &cng,
@@ -87,7 +85,7 @@ void CalcIndicesSetFromCoarser(const int &ox, int &s, int &e, const IndexRange &
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void var_boundary_comm::CalcIndicesSetFromFiner(int &si, int &ei, int &sj,
+//! \fn void CalcIndicesSetFromFiner(int &si, int &ei, int &sj,
 //                                                        int &ej, int &sk, int &ek,
 //                                                        const NeighborBlock &nb,
 //                                                        MeshBlock *pmb)
@@ -162,7 +160,7 @@ void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &e
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void var_boundary_comm::CalcIndicesLoadSame(int ox, int &s, int &e,
+//! \fn void CalcIndicesLoadSame(int ox, int &s, int &e,
 //                                                    const IndexRange &bounds)
 //  \brief Calculate indices for LoadBoundary routines for buffers on the same level
 //         and to coarser.
@@ -212,7 +210,7 @@ Indexer6D CalcIndicesSetSame(std::array<int, 3> offsets, TopologicalElement el,
 // }
 
 //----------------------------------------------------------------------------------------
-//! \fn void var_boundary_comm::CalcIndicesLoadToFiner(int &si, int &ei, int &sj,
+//! \fn void CalcIndicesLoadToFiner(int &si, int &ei, int &sj,
 //                                                       int &ej, int &sk, int &ek,
 //                                                       const NeighborBlock &nb,
 //                                                       MeshBlock *pmb)
@@ -653,5 +651,4 @@ BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
                            {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   return out;
 }
-} // namespace var_boundary_comm
 } // namespace parthenon
