@@ -592,15 +592,15 @@ void FillVarView(const VariableVector<T> &vars, bool coarse, ViewOfParArrays<T> 
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
             if (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) {
-              host_cv0(vindex) = coarse ? v->template GetCoarseTensorComponent<0>(k, j, i)
-                                        : v->template GetTensorComponent<0>(k, j, i);
-              host_cv1(vindex) = coarse ? v->template GetCoarseTensorComponent<1>(k, j, i)
-                                        : v->template GetTensorComponent<1>(k, j, i);
-              host_cv2(vindex) = coarse ? v->template GetCoarseTensorComponent<2>(k, j, i)
-                                        : v->template GetTensorComponent<2>(k, j, i);
+              host_cv0(vindex) =
+                  coarse ? v->coarse_s.Get(0, k, j, i) : v->data.Get(0, k, j, i);
+              host_cv1(vindex) =
+                  coarse ? v->coarse_s.Get(1, k, j, i) : v->data.Get(1, k, j, i);
+              host_cv2(vindex) =
+                  coarse ? v->coarse_s.Get(2, k, j, i) : v->data.Get(2, k, j, i);
             } else {
-              host_cv0(vindex) = coarse ? v->GetCoarseTensorComponent(k, j, i)
-                                        : v->GetTensorComponent(k, j, i);
+              host_cv0(vindex) =
+                  coarse ? v->coarse_s.Get(0, k, j, i) : v->data.Get(0, k, j, i);
               host_cv1(vindex) = host_cv0(vindex);
               host_cv2(vindex) = host_cv0(vindex);
             }
@@ -648,7 +648,7 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
         for (int n = 0; n < v->GetDim(4); n++) {
           for (int t = 0; t < v->GetDim(3); t++) {
             for (int u = 0; u < v->GetDim(2); u++) {
-              host_cv(vindex) = v->GetTensorComponent(l, m, n, t, u);
+              host_cv(vindex) = v->data.Get(0, l, m, n, t, u);
               vindex++;
             }
           }
@@ -692,11 +692,9 @@ void FillFluxViews(const VariableVector<T> &vars, const int ndim,
         for (int i = 0; i < v->GetDim(4); i++) {
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
-            host_f1(vindex) = v->template GetFluxTensorComponent<1>(k, j, i);
-            if (ndim >= 2)
-              host_f2(vindex) = v->template GetFluxTensorComponent<2>(k, j, i);
-            if (ndim >= 3)
-              host_f3(vindex) = v->template GetFluxTensorComponent<3>(k, j, i);
+            host_f1(vindex) = v->flux[X1DIR].Get(0, k, j, i);
+            if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(0, k, j, i);
+            if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(0, k, j, i);
           }
 
           vindex++;
