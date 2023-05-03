@@ -16,7 +16,8 @@
 #include <type_traits>
 
 namespace parthenon {
-
+// The main (only?) use case of multi_pointer is to create arbitrary
+// rank views via Kokkos::View<multi_pointer_t<Real, NDIM>, ...>.
 template <class T, int N>
 struct multi_pointer : multi_pointer<std::add_pointer_t<T>, N - 1> {};
 

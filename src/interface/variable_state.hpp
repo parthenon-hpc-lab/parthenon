@@ -62,7 +62,7 @@ struct VariableState : public empty_state_t {
   int vector_component = NODIR;
   bool initialized = true;
 
-  TopologicalType topological_type;
+  TopologicalType topological_type = TopologicalType::Cell;
   std::size_t tensor_components;
   std::size_t tensor_shape[3];
 };
