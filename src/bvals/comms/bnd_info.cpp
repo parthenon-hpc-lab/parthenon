@@ -202,12 +202,45 @@ Indexer6D CalcIndicesSetSame(std::array<int, 3> offsets, TopologicalElement el,
                    {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-// Indexer6D CalcIndicesLoadSame(std::tuple<int, int, int> offsets,
-//                               TopologicalElement el,
-//                               std::tuple<int, int, int> tensor_shape,
-//                               const parthenon::IndexShape &shape) {
-//
-// }
+Indexer6D CalcIndicesLoadSame(std::array<int, 3> offsets,
+                              TopologicalElement el,
+                              std::array<int, 3> tensor_shape,
+                              const parthenon::IndexShape &shape) {
+  IndexDomain interior = IndexDomain::interior;
+  std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
+                                   shape.GetBoundsJ(interior, el),
+                                   shape.GetBoundsK(interior, el)};
+  std::array<int, 3> s, e;
+
+  // Account for the fact that the neighbor block may duplicate
+  // some active zones on the loading block for face, edge, and nodal
+  // fields, so the boundary of the neighbor block is one deeper into 
+  // the current block in some cases 
+  std::array<int, 3> dir_offset{0, 0, 0}; 
+  if (el == TopologicalElement::FX) dir_offset = {1, 0, 0}; 
+  if (el == TopologicalElement::FY) dir_offset = {0, 1, 0}; 
+  if (el == TopologicalElement::FZ) dir_offset = {0, 0, 1}; 
+  if (el == TopologicalElement::EXY) dir_offset = {1, 1, 0}; 
+  if (el == TopologicalElement::EXZ) dir_offset = {1, 0, 1}; 
+  if (el == TopologicalElement::EYZ) dir_offset = {0, 1, 1}; 
+  if (el == TopologicalElement::NXYZ) dir_offset = {1, 1, 1}; 
+
+  for (int dir = 0; dir < 3; ++dir) {
+    if (offsets[dir] == 0) {
+      s[dir] = bounds[dir].s;
+      e[dir] = bounds[dir].e;
+    } else if (offsets[dir] > 0) {
+      s[dir] = bounds[dir].e - Globals::nghost + 1 - dir_offset[dir];
+      e[dir] = bounds[dir].e - dir_offset[dir];
+    } else {
+      s[dir] = bounds[dir].s + dir_offset[dir];
+      e[dir] = bounds[dir].s + Globals::nghost - 1 + dir_offset[dir];
+    }
+  }
+  return Indexer6D({0, tensor_shape[0] - 1}, {0, tensor_shape[1] - 1},
+                   {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
+
+}
 
 //----------------------------------------------------------------------------------------
 //! \fn void CalcIndicesLoadToFiner(int &si, int &ei, int &sj,
@@ -372,27 +405,33 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 
   IndexDomain interior = IndexDomain::interior;
   if (nb.snb.level == mylevel) {
-    const parthenon::IndexShape &cellbounds = pmb->cellbounds;
-    CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, cellbounds.GetBoundsI(interior));
-    CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, cellbounds.GetBoundsJ(interior));
-    CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, cellbounds.GetBoundsK(interior));
+    //const parthenon::IndexShape &cellbounds = pmb->cellbounds;
+    //CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, cellbounds.GetBoundsI(interior));
+    //CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, cellbounds.GetBoundsJ(interior));
+    //CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, cellbounds.GetBoundsK(interior));
+    out.idxer[0] =
+        CalcIndicesLoadSame({nb.ni.ox1, nb.ni.ox2, nb.ni.ox3}, TopologicalElement::C,
+                           {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
     out.var = v->data.Get();
   } else if (nb.snb.level < mylevel) {
     // "Same" logic is the same for loading to a coarse buffer, just using
     // c_cellbounds
-    const IndexShape &c_cellbounds = pmb->c_cellbounds;
-    CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, c_cellbounds.GetBoundsI(interior));
-    CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, c_cellbounds.GetBoundsJ(interior));
-    CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, c_cellbounds.GetBoundsK(interior));
+    //const IndexShape &c_cellbounds = pmb->c_cellbounds;
+    //CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, c_cellbounds.GetBoundsI(interior));
+    //CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, c_cellbounds.GetBoundsJ(interior));
+    //CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, c_cellbounds.GetBoundsK(interior));
+    out.idxer[0] =
+        CalcIndicesLoadSame({nb.ni.ox1, nb.ni.ox2, nb.ni.ox3}, TopologicalElement::C,
+                           {out.Nt, out.Nu, out.Nv}, pmb->c_cellbounds);
     out.refinement_op = RefinementOp_t::Restriction;
     out.var = v->coarse_s.Get();
   } else {
     CalcIndicesLoadToFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb, pmb.get());
     out.var = v->data.Get();
+    out.idxer[0] =
+        Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1},
+                  {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   }
-  out.idxer[0] =
-      Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1},
-                {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   return out;
 }
 
