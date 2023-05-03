@@ -214,7 +214,7 @@ ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
 void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
-#else  // HDF5 enabled
+#else // HDF5 enabled
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
   const IndexDomain theDomain =
@@ -379,6 +379,15 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     std::vector<std::size_t> counts, offsets;
     std::size_t count_on_rank =
         resfile.GetSwarmCounts(swarmname, myBlocks, counts, offsets);
+    // Compute total count and skip this swarm if total count is zero.
+    std::size_t total_count = count_on_rank;
+#ifdef MPI_PARALLEL
+    MPI_Allreduce(&total_count, &total_count, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM,
+                  MPI_COMM_WORLD);
+#endif // MPI_PARALLEL
+    if (total_count == 0) {
+      continue;
+    }
     std::size_t block_index = 0;
     // only want to do this once per block
     for (auto &pmb : rm.block_list) {
