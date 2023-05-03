@@ -81,15 +81,19 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
         int ioff = binfo.dir == X1DIR ? 0 : 1;
         int joff = (binfo.dir == X2DIR) || (ndim < 2) ? 0 : 1;
         int koff = (binfo.dir == X3DIR) || (ndim < 3) ? 0 : 1;
-        auto &idxer = binfo.idxer; 
+        auto &idxer = binfo.idxer[0];
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange<>(team_member, idxer.size()), [&](const int idx) {
               const auto [t, u, v, ck, cj, ci] = idxer(idx);
-              // Move from a coarse grid index to the corresponding lower left fine grid index,
-              // StartIdx<I>() should return the index of the first non-ghost zone in direction I
-              const int k = idxer.template StartIdx<3>() + 2 * (ck - idxer.template StartIdx<3>());
-              const int j = idxer.template StartIdx<4>() + 2 * (cj - idxer.template StartIdx<4>());
-              const int i = idxer.template StartIdx<5>() + 2 * (ci - idxer.template StartIdx<5>());
+              // Move from a coarse grid index to the corresponding lower left fine grid
+              // index, StartIdx<I>() should return the index of the first non-ghost zone
+              // in direction I
+              const int k =
+                  idxer.template StartIdx<3>() + 2 * (ck - idxer.template StartIdx<3>());
+              const int j =
+                  idxer.template StartIdx<4>() + 2 * (cj - idxer.template StartIdx<4>());
+              const int i =
+                  idxer.template StartIdx<5>() + 2 * (ci - idxer.template StartIdx<5>());
 
               // For the given set of offsets, etc. this should work for any
               // dimensionality since the same flux will be included multiple times
@@ -173,7 +177,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
         const int b = team_member.league_rank();
         if (!bnd_info(b).allocated) return;
 
-        auto &idxer = bnd_info(b).idxer; 
+        auto &idxer = bnd_info(b).idxer[0];
         Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
                              [&](const int idx) {
                                const auto [t, u, v, k, j, i] = idxer(idx);

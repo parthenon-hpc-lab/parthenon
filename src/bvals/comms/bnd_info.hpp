@@ -64,8 +64,9 @@ struct BndInfo {
   int Nu = 0;
   int Nv = 0;
 
-  Indexer6D idxer; 
-  
+  int ntopological_elements = 1;
+  Indexer6D idxer[3];
+
   CoordinateDirection dir;
   bool allocated = true;
   RefinementOp_t refinement_op = RefinementOp_t::None;
@@ -76,9 +77,9 @@ struct BndInfo {
   ParArrayND<Real, VariableState> fine; // fine data variable for prolongation/restriction
   ParArrayND<Real, VariableState>
       coarse; // coarse data variable for prolongation/restriction
-  
-  BndInfo() = default; 
-  BndInfo(const BndInfo&) = default; 
+
+  BndInfo() = default;
+  BndInfo(const BndInfo &) = default;
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.

@@ -180,41 +180,36 @@ void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds) {
   }
 }
 
-Indexer6D CalcIndicesSetSame(std::array<int, 3> offsets, 
-                             TopologicalElement el,
-                             std::array<int, 3> tensor_shape,  
-                             const parthenon::IndexShape &shape) { 
-  IndexDomain interior = IndexDomain::interior; 
-  std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el), 
-                                   shape.GetBoundsJ(interior, el), 
+Indexer6D CalcIndicesSetSame(std::array<int, 3> offsets, TopologicalElement el,
+                             std::array<int, 3> tensor_shape,
+                             const parthenon::IndexShape &shape) {
+  IndexDomain interior = IndexDomain::interior;
+  std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
+                                   shape.GetBoundsJ(interior, el),
                                    shape.GetBoundsK(interior, el)};
-  std::array<int, 3> s, e; 
+  std::array<int, 3> s, e;
   for (int dir = 0; dir < 3; ++dir) {
-    if (offsets[dir] == 0) { 
+    if (offsets[dir] == 0) {
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
-    } else if (offsets[dir] > 0) { 
-      s[dir] = bounds[dir].e + 1; 
+    } else if (offsets[dir] > 0) {
+      s[dir] = bounds[dir].e + 1;
       e[dir] = bounds[dir].e + Globals::nghost;
     } else {
-      s[dir] = bounds[dir].s - Globals::nghost; 
+      s[dir] = bounds[dir].s - Globals::nghost;
       e[dir] = bounds[dir].s - 1;
     }
-  } 
-  return Indexer6D({0, tensor_shape[0] - 1}, 
-                   {0, tensor_shape[1] - 1}, 
-                   {0, tensor_shape[2] - 1}, 
-                   {s[2], e[2]}, 
-                   {s[1], e[1]}, 
-                   {s[0], e[0]}); 
+  }
+  return Indexer6D({0, tensor_shape[0] - 1}, {0, tensor_shape[1] - 1},
+                   {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-//Indexer6D CalcIndicesLoadSame(std::tuple<int, int, int> offsets, 
-//                              TopologicalElement el,
-//                              std::tuple<int, int, int> tensor_shape,  
-//                              const parthenon::IndexShape &shape) { 
-//  
-//}
+// Indexer6D CalcIndicesLoadSame(std::tuple<int, int, int> offsets,
+//                               TopologicalElement el,
+//                               std::tuple<int, int, int> tensor_shape,
+//                               const parthenon::IndexShape &shape) {
+//
+// }
 
 //----------------------------------------------------------------------------------------
 //! \fn void var_boundary_comm::CalcIndicesLoadToFiner(int &si, int &ei, int &sj,
@@ -397,8 +392,9 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
     CalcIndicesLoadToFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb, pmb.get());
     out.var = v->data.Get();
   }
-  out.idxer = Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1}, 
-                        {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+  out.idxer[0] =
+      Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1},
+                {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   return out;
 }
 
@@ -430,16 +426,27 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     CalcIndicesSetSame(nb.ni.ox2, out.sj, out.ej, cellbounds.GetBoundsJ(interior));
     CalcIndicesSetSame(nb.ni.ox3, out.sk, out.ek, cellbounds.GetBoundsK(interior));
     out.var = v->data.Get();
-    out.idxer = CalcIndicesSetSame({nb.ni.ox1, nb.ni.ox2, nb.ni.ox3}, TopologicalElement::C, {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
-    PARTHENON_REQUIRE(out.si == out.idxer.template StartIdx<5>(), "Starting i indices don't match");
-    PARTHENON_REQUIRE(out.ei == out.idxer.template EndIdx<5>(), "Ending i indices don't match");
-    PARTHENON_REQUIRE(out.sj == out.idxer.template StartIdx<4>(), "Starting j indices don't match");
-    PARTHENON_REQUIRE(out.ej == out.idxer.template EndIdx<4>(), "Ending j indices don't match");
-    PARTHENON_REQUIRE(out.sk == out.idxer.template StartIdx<3>(), "Starting k indices don't match");
-    PARTHENON_REQUIRE(out.ek == out.idxer.template EndIdx<3>(), "Ending k indices don't match");
-    PARTHENON_REQUIRE(out.Nt == out.idxer.template EndIdx<0>() + 1, "Ending t index is incorrect");
-    PARTHENON_REQUIRE(out.Nu == out.idxer.template EndIdx<1>() + 1, "Ending u index is incorrect");
-    PARTHENON_REQUIRE(out.Nv == out.idxer.template EndIdx<2>() + 1, "Ending v index is incorrect");
+    out.idxer[0] =
+        CalcIndicesSetSame({nb.ni.ox1, nb.ni.ox2, nb.ni.ox3}, TopologicalElement::C,
+                           {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+    PARTHENON_REQUIRE(out.si == out.idxer[0].template StartIdx<5>(),
+                      "Starting i indices don't match");
+    PARTHENON_REQUIRE(out.ei == out.idxer[0].template EndIdx<5>(),
+                      "Ending i indices don't match");
+    PARTHENON_REQUIRE(out.sj == out.idxer[0].template StartIdx<4>(),
+                      "Starting j indices don't match");
+    PARTHENON_REQUIRE(out.ej == out.idxer[0].template EndIdx<4>(),
+                      "Ending j indices don't match");
+    PARTHENON_REQUIRE(out.sk == out.idxer[0].template StartIdx<3>(),
+                      "Starting k indices don't match");
+    PARTHENON_REQUIRE(out.ek == out.idxer[0].template EndIdx<3>(),
+                      "Ending k indices don't match");
+    PARTHENON_REQUIRE(out.Nt == out.idxer[0].template EndIdx<0>() + 1,
+                      "Ending t index is incorrect");
+    PARTHENON_REQUIRE(out.Nu == out.idxer[0].template EndIdx<1>() + 1,
+                      "Ending u index is incorrect");
+    PARTHENON_REQUIRE(out.Nv == out.idxer[0].template EndIdx<2>() + 1,
+                      "Ending v index is incorrect");
   } else if (nb.snb.level < mylevel) {
     const IndexShape &c_cellbounds = pmb->c_cellbounds;
     const auto &cng = pmb->cnghost;
@@ -453,14 +460,16 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
                               pmb->block_size.nx3 > 1);
 
     out.var = v->coarse_s.Get();
-    out.idxer = Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1}, 
-                          {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+    out.idxer[0] =
+        Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1},
+                  {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   } else {
     CalcIndicesSetFromFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb,
                             pmb.get());
     out.var = v->data.Get();
-    out.idxer = Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1}, 
-                          {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+    out.idxer[0] =
+        Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1},
+                  {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   }
 
   if (buf_state == BufferState::received) {
@@ -533,8 +542,8 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
   out.Nu = out.var.GetDim(5);
   out.Nt = out.var.GetDim(6);
   out.coords = pmb->coords;
-  out.idxer = Indexer6D({0, out.Nt - 1}, {0, out.Nu - 1}, {0, out.Nv - 1}, 
-                        {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+  out.idxer[0] = Indexer6D({0, out.Nt - 1}, {0, out.Nu - 1}, {0, out.Nv - 1},
+                           {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   return out;
 }
 
@@ -614,8 +623,8 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
   out.Nt = out.var.GetDim(6);
 
   out.coords = pmb->coords;
-  out.idxer = Indexer6D({0, out.Nt - 1}, {0, out.Nu - 1}, {0, out.Nv - 1}, 
-                        {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+  out.idxer[0] = Indexer6D({0, out.Nt - 1}, {0, out.Nu - 1}, {0, out.Nv - 1},
+                           {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   return out;
 }
 
@@ -640,8 +649,8 @@ BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
   out.Nt = v->GetDim(6);
   out.Nu = v->GetDim(5);
   out.Nv = v->GetDim(4);
-  out.idxer = Indexer6D({0, out.Nt - 1}, {0, out.Nu - 1}, {0, out.Nv - 1}, 
-                        {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+  out.idxer[0] = Indexer6D({0, out.Nt - 1}, {0, out.Nu - 1}, {0, out.Nv - 1},
+                           {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   return out;
 }
 } // namespace var_boundary_comm

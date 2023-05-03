@@ -90,21 +90,23 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                          [&]() { sending_nonzero_flags(b) = false; });
           return;
         }
-        auto &idxer = bnd_info(b).idxer;
         Real threshold = bnd_info(b).var.allocation_threshold;
-        bool non_zero = false;
-        Kokkos::parallel_reduce(
-            Kokkos::TeamThreadRange<>(team_member, idxer.size()),
-            [&](const int idx, bool &lnon_zero) {
-              const auto [t, u, v, k, j, i] = idxer(idx); 
-              const Real &val = bnd_info(b).var(t, u, v, k, j, i);
-              bnd_info(b).buf(idx) = val;
-              lnon_zero = lnon_zero || (std::abs(val) >= threshold);
-            },
-            Kokkos::LOr<bool, parthenon::DevMemSpace>(non_zero));
-
-        Kokkos::single(Kokkos::PerTeam(team_member),
-                       [&]() { sending_nonzero_flags(b) = non_zero; });
+        bool non_zero[3]{false, false, false};
+        for (int iel = 0; iel < bnd_info(b).ntopological_elements; ++iel) {
+          auto &idxer = bnd_info(b).idxer[iel];
+          Kokkos::parallel_reduce(
+              Kokkos::TeamThreadRange<>(team_member, idxer.size()),
+              [&](const int idx, bool &lnon_zero) {
+                const auto [t, u, v, k, j, i] = idxer(idx);
+                const Real &val = bnd_info(b).var(t, u, v, k, j, i);
+                bnd_info(b).buf(idx) = val;
+                lnon_zero = lnon_zero || (std::abs(val) >= threshold);
+              },
+              Kokkos::LOr<bool, parthenon::DevMemSpace>(non_zero[iel]));
+        }
+        Kokkos::single(Kokkos::PerTeam(team_member), [&]() {
+          sending_nonzero_flags(b) = non_zero[0] || non_zero[1] || non_zero[2];
+        });
       });
 
   // Send buffers
@@ -217,20 +219,22 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
-        auto &idxer = bnd_info(b).idxer; 
-        if (bnd_info(b).allocated) {
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
-                               [&](const int idx) {
-                                 const auto [t, u, v, k, j, i] = idxer(idx); 
-                                 bnd_info(b).var(t, u, v, k, j, i) = bnd_info(b).buf(idx);
-                               });
-        } else if (bnd_info(b).var.size() > 0) {
-          const Real default_val = bnd_info(b).var.sparse_default_val;
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
-                               [&](const int idx) {
-                                 const auto [t, u, v, k, j, i] = idxer(idx); 
-                                 bnd_info(b).var(t, u, v, k, j, i) = default_val;
-                               });
+        for (int iel = 0; iel < bnd_info(b).ntopological_elements; ++iel) {
+          auto &idxer = bnd_info(b).idxer[iel];
+          if (bnd_info(b).allocated) {
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange<>(team_member, idxer.size()), [&](const int idx) {
+                  const auto [t, u, v, k, j, i] = idxer(idx);
+                  bnd_info(b).var(t, u, v, k, j, i) = bnd_info(b).buf(idx);
+                });
+          } else if (bnd_info(b).var.size() > 0) {
+            const Real default_val = bnd_info(b).var.sparse_default_val;
+            Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
+                                 [&](const int idx) {
+                                   const auto [t, u, v, k, j, i] = idxer(idx);
+                                   bnd_info(b).var(t, u, v, k, j, i) = default_val;
+                                 });
+          }
         }
       });
 #ifdef MPI_PARALLEL
