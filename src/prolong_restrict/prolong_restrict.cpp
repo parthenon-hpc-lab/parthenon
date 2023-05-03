@@ -34,9 +34,8 @@ namespace refinement {
 
 // TODO(JMM): Add a prolongate when prolongation is called in-one
 // TODO(JMM): Is this actually the API we want?
-void Restrict(const StateDescriptor *resolved_packages,
-              const var_boundary_comm::BvarsSubCache_t &cache, const IndexShape &cellbnds,
-              const IndexShape &c_cellbnds) {
+void Restrict(const StateDescriptor *resolved_packages, const BvarsSubCache_t &cache,
+              const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
   const auto &ref_func_map = resolved_packages->RefinementFncsToIDs();
   for (const auto &[func, idx] : ref_func_map) {
     auto restrictor = func.restrictor;

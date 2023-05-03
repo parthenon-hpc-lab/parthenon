@@ -36,7 +36,6 @@
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
-namespace var_boundary_comm {
 
 using namespace loops;
 using namespace loops::shorthands;
@@ -138,5 +137,4 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
   return TaskStatus::complete;
 }
-} // namespace var_boundary_comm
 } // namespace parthenon

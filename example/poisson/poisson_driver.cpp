@@ -150,8 +150,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     solver.SetFailWithMaxIterations(fail_flag);
     solver.SetWarnWithMaxIterations(warn_flag);
 
-    auto start_recv = solver.AddTask(
-        none, parthenon::var_boundary_comm::StartReceiveBoundaryBuffers, md);
+    auto start_recv = solver.AddTask(none, parthenon::StartReceiveBoundaryBuffers, md);
 
     auto update = solver.AddTask(mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
                                  md.get(), mdelta.get());
@@ -178,11 +177,11 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
                                      &update_norm.val)
                                : none);
 
-    auto send = solver.AddTask(update, var_boundary_comm::SendBoundaryBuffers, md);
+    auto send = solver.AddTask(update, SendBoundaryBuffers, md);
 
-    auto recv = solver.AddTask(start_recv, var_boundary_comm::ReceiveBoundaryBuffers, md);
+    auto recv = solver.AddTask(start_recv, ReceiveBoundaryBuffers, md);
 
-    auto setb = solver.AddTask(recv | update, var_boundary_comm::SetBoundaries, md);
+    auto setb = solver.AddTask(recv | update, SetBoundaries, md);
 
     auto check = solver.SetCompletionTask(
         send | setb | report_norm, poisson_package::CheckConvergence<MeshData<Real>>,

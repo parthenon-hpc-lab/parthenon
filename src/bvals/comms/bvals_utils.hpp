@@ -35,8 +35,6 @@
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
-namespace var_boundary_comm {
-
 inline std::tuple<int, int, std::string, int>
 SendKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
         const std::shared_ptr<Variable<Real>> &pcv) {
@@ -287,7 +285,6 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   }
 }
 
-} // namespace var_boundary_comm
 } // namespace parthenon
 
 #endif // BVALS_COMMS_BVALS_UTILS_HPP_
