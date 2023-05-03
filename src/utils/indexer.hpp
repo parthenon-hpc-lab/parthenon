@@ -24,6 +24,7 @@ struct Indexer {
   Indexer(std::pair<Ts, Ts>... Ns) 
     : N{GetFactors(std::make_tuple((Ns.second - Ns.first + 1)...), std::make_index_sequence<sizeof...(Ts)>())}, 
       start{Ns.first...},
+      end{Ns.second...},
       _size(((Ns.second - Ns.first + 1) * ...)) {}
   
   Indexer(Indexer&&) = default;
@@ -41,7 +42,13 @@ struct Indexer {
   
   template <std::size_t I> 
   KOKKOS_FORCEINLINE_FUNCTION 
-  auto StartIdx() { return std::get<I>(start); }
+  auto StartIdx() const { return std::get<I>(start); }
+
+  template <std::size_t I> 
+  KOKKOS_FORCEINLINE_FUNCTION 
+  auto EndIdx() const { return std::get<I>(end); }
+  
+  static const constexpr std::size_t rank = sizeof...(Ts); 
 
  private: 
   template<std::size_t... Is>
@@ -71,6 +78,7 @@ struct Indexer {
 
   std::tuple<Ts...> N;
   std::tuple<Ts...> start;
+  std::tuple<Ts...> end;
   std::size_t _size;
 };
 
