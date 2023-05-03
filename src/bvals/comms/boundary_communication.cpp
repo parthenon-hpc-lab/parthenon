@@ -90,39 +90,13 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                          [&]() { sending_nonzero_flags(b) = false; });
           return;
         }
-
-        const int &si = bnd_info(b).si;
-        const int &ei = bnd_info(b).ei;
-        const int &sj = bnd_info(b).sj;
-        const int &ej = bnd_info(b).ej;
-        const int &sk = bnd_info(b).sk;
-        const int &ek = bnd_info(b).ek;
-        const int Ni = ei + 1 - si;
-        const int Nj = ej + 1 - sj;
-        const int Nk = ek + 1 - sk;
-
-        const int &Nt = bnd_info(b).Nt;
-        const int &Nu = bnd_info(b).Nu;
-        const int &Nv = bnd_info(b).Nv;
-
-        const int NjNi = Nj * Ni;
-        const int NkNjNi = Nk * NjNi;
-        const int NvNkNjNi = Nv * NkNjNi;
-        const int NuNvNkNjNi = Nu * NvNkNjNi;
-        const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
-
+        auto &idxer = bnd_info(b).idxer;
         Real threshold = bnd_info(b).var.allocation_threshold;
         bool non_zero = false;
         Kokkos::parallel_reduce(
-            Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
+            Kokkos::TeamThreadRange<>(team_member, idxer.size()),
             [&](const int idx, bool &lnon_zero) {
-              const int t = idx / NuNvNkNjNi;
-              const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-              const int v = (idx % NvNkNjNi) / NkNjNi;
-              const int k = (idx % NkNjNi) / NjNi + sk;
-              const int j = (idx % NjNi) / Ni + sj;
-              const int i = idx % Ni + si;
-
+              const auto [t, u, v, k, j, i] = idxer(idx); 
               const Real &val = bnd_info(b).var(t, u, v, k, j, i);
               bnd_info(b).buf(idx) = val;
               lnon_zero = lnon_zero || (std::abs(val) >= threshold);
@@ -243,49 +217,18 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
-
-        const int &si = bnd_info(b).si;
-        const int &ei = bnd_info(b).ei;
-        const int &sj = bnd_info(b).sj;
-        const int &ej = bnd_info(b).ej;
-        const int &sk = bnd_info(b).sk;
-        const int &ek = bnd_info(b).ek;
-
-        const int Ni = ei + 1 - si;
-        const int Nj = ej + 1 - sj;
-        const int Nk = ek + 1 - sk;
-        const int &Nv = bnd_info(b).Nv;
-        const int &Nu = bnd_info(b).Nu;
-        const int &Nt = bnd_info(b).Nt;
-
-        const int NjNi = Nj * Ni;
-        const int NkNjNi = Nk * NjNi;
-        const int NvNkNjNi = Nv * NkNjNi;
-        const int NuNvNkNjNi = Nu * NvNkNjNi;
-        const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
-
+        auto &idxer = bnd_info(b).idxer; 
         if (bnd_info(b).allocated) {
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
+          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
                                [&](const int idx) {
-                                 const int t = idx / NuNvNkNjNi;
-                                 const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-                                 const int v = (idx % NvNkNjNi) / NkNjNi;
-                                 const int k = (idx % NkNjNi) / NjNi + sk;
-                                 const int j = (idx % NjNi) / Ni + sj;
-                                 const int i = idx % Ni + si;
-
+                                 const auto [t, u, v, k, j, i] = idxer(idx); 
                                  bnd_info(b).var(t, u, v, k, j, i) = bnd_info(b).buf(idx);
                                });
         } else if (bnd_info(b).var.size() > 0) {
           const Real default_val = bnd_info(b).var.sparse_default_val;
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
+          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
                                [&](const int idx) {
-                                 const int t = idx / NuNvNkNjNi;
-                                 const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-                                 const int v = (idx % NvNkNjNi) / NkNjNi;
-                                 const int k = (idx % NkNjNi) / NjNi + sk;
-                                 const int j = (idx % NjNi) / Ni + sj;
-                                 const int i = idx % Ni + si;
+                                 const auto [t, u, v, k, j, i] = idxer(idx); 
                                  bnd_info(b).var(t, u, v, k, j, i) = default_val;
                                });
         }

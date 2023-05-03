@@ -28,6 +28,7 @@
 #include "interface/variable_state.hpp"
 #include "mesh/domain.hpp"
 #include "utils/communication_buffer.hpp"
+#include "utils/indexer.hpp"
 #include "utils/object_pool.hpp"
 
 namespace parthenon {
@@ -63,6 +64,8 @@ struct BndInfo {
   int Nu = 0;
   int Nv = 0;
 
+  Indexer6D idxer; 
+  
   CoordinateDirection dir;
   bool allocated = true;
   RefinementOp_t refinement_op = RefinementOp_t::None;
@@ -73,6 +76,9 @@ struct BndInfo {
   ParArrayND<Real, VariableState> fine; // fine data variable for prolongation/restriction
   ParArrayND<Real, VariableState>
       coarse; // coarse data variable for prolongation/restriction
+  
+  BndInfo() = default; 
+  BndInfo(const BndInfo&) = default; 
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.

@@ -361,6 +361,8 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
     CalcIndicesLoadToFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb, pmb.get());
     out.var = v->data.Get();
   }
+  out.idxer = Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1}, 
+                        {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   return out;
 }
 
@@ -422,6 +424,9 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   } else {
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
+
+  out.idxer = Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1}, 
+                        {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   return out;
 }
 
@@ -480,7 +485,8 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
   out.Nu = out.var.GetDim(5);
   out.Nt = out.var.GetDim(6);
   out.coords = pmb->coords;
-
+  out.idxer = Indexer6D({0, out.Nt - 1}, {0, out.Nu - 1}, {0, out.Nv - 1}, 
+                        {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   return out;
 }
 
@@ -560,7 +566,8 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
   out.Nt = out.var.GetDim(6);
 
   out.coords = pmb->coords;
-
+  out.idxer = Indexer6D({0, out.Nt - 1}, {0, out.Nu - 1}, {0, out.Nv - 1}, 
+                        {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   return out;
 }
 
