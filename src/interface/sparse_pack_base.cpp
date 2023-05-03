@@ -137,13 +137,13 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                 for (int v = 0; v < pv->GetDim(4); ++v) {
                   if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge)) {
                     if (pack.coarse_) {
-                      pack_h(1, b, idx) = pv->coarse_s.Get(0, t, u, v);
-                      pack_h(2, b, idx) = pv->coarse_s.Get(1, t, u, v);
-                      pack_h(3, b, idx) = pv->coarse_s.Get(2, t, u, v);
+                      pack_h(0, b, idx) = pv->coarse_s.Get(0, t, u, v);
+                      pack_h(1, b, idx) = pv->coarse_s.Get(1, t, u, v);
+                      pack_h(2, b, idx) = pv->coarse_s.Get(2, t, u, v);
                     } else {
-                      pack_h(1, b, idx) = pv->data.Get(0, t, u, v);
-                      pack_h(2, b, idx) = pv->data.Get(1, t, u, v);
-                      pack_h(3, b, idx) = pv->data.Get(2, t, u, v);
+                      pack_h(0, b, idx) = pv->data.Get(0, t, u, v);
+                      pack_h(1, b, idx) = pv->data.Get(1, t, u, v);
+                      pack_h(2, b, idx) = pv->data.Get(2, t, u, v);
                     }
                   } else { // This is a cell, node, or a variable that doesn't have
                            // topology information

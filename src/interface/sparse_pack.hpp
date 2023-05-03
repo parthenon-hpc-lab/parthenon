@@ -255,43 +255,71 @@ class SparsePack : public SparsePackBase {
   }
 
   // operator() overloads
-  template <std::size_t DIR = 0>
+  using TE = TopologicalElement;
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, const int idx) const {
+    return pack_(static_cast<int>(el) % 3, b, idx);
+  }
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const int idx) const {
-    return pack_(DIR, b, idx);
+    return pack_(0, b, idx);
   }
 
-  template <std::size_t DIR = 0>
-  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, PackIdx idx) const {
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
-    return pack_(DIR, b, n);
+    return pack_(static_cast<int>(el) % 3, b, n);
+  }
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, PackIdx idx) const {
+    return (*this)(b, TE::C, idx);
   }
 
-  template <std::size_t DIR = 0, class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, const TIn &t) const {
+    const int vidx = GetLowerBound(b, t) + t.idx;
+    return pack_(static_cast<int>(el) % 3, b, vidx);
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t) const {
     const int vidx = GetLowerBound(b, t) + t.idx;
-    return pack_(DIR, b, vidx);
+    return pack_(0, b, vidx);
   }
 
-  template <std::size_t DIR = 0>
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const int idx, const int k,
                                           const int j, const int i) const {
-    return pack_(DIR, b, idx)(k, j, i);
+    return pack_(0, b, idx)(k, j, i);
   }
 
-  template <std::size_t DIR = 0>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TE el, const int idx,
+                                          const int k, const int j, const int i) const {
+    return pack_(static_cast<int>(el) % 3, b, idx)(k, j, i);
+  }
+
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, PackIdx idx, const int k,
                                           const int j, const int i) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
-    return pack_(DIR, b, n)(k, j, i);
+    return pack_(0, b, n)(k, j, i);
   }
 
-  template <std::size_t DIR = 0, class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TE el, PackIdx idx,
+                                          const int k, const int j, const int i) const {
+    static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
+    const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
+    return pack_(static_cast<int>(el) % 3, b, n)(k, j, i);
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int k,
                                           const int j, const int i) const {
     const int vidx = GetLowerBound(b, t) + t.idx;
-    return pack_(DIR, b, vidx)(k, j, i);
+    return pack_(0, b, vidx)(k, j, i);
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TE el, const TIn &t,
+                                          const int k, const int j, const int i) const {
+    const int vidx = GetLowerBound(b, t) + t.idx;
+    return pack_(static_cast<int>(el) % 3, b, vidx)(k, j, i);
   }
 
   // flux() overloads
