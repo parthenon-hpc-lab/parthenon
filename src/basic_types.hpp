@@ -61,6 +61,9 @@ enum class BoundaryType : int {
 // EXZ = edge at (i - 1/2, j, k - 1/2)
 // EXY = edge at (i, j - 1/2, k - 1/2)
 // NXYZ = edge at (i - 1/2, j - 1/2, k - 1/2)
+//
+// The values of the enumeration are chosen so we can do te % 3 to get
+// the correct index for each type of element in Variable::data
 enum class TopologicalElement : std::size_t {
   C = 0,
   FX = 3,
