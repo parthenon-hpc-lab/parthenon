@@ -576,6 +576,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_);
   for (auto &[swname, swinfo] : swarm_info.all_info) {
+    if (swinfo.global_count == 0) {
+      continue;
+    }
     const H5G g_swm = MakeGroup(file, swname);
     // offsets/counts are NOT the same here vs the grid data
     hsize_t local_offset[6] = {static_cast<hsize_t>(my_offset), 0, 0, 0, 0, 0};
