@@ -38,8 +38,6 @@ class NeighborBlock;
 template <typename T>
 class Variable;
 
-namespace var_boundary_comm {
-
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md);
 template <BoundaryType bound_type>
@@ -78,7 +76,6 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
 // This task should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
-} // namespace var_boundary_comm
 } // namespace parthenon
 
 #endif // BVALS_COMMS_BVALS_IN_ONE_HPP_

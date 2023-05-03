@@ -427,7 +427,7 @@ class MeshData {
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
   // caches for boundary information
-  var_boundary_comm::BvarsCache_t bvars_cache_;
+  BvarsCache_t bvars_cache_;
 };
 
 } // namespace parthenon

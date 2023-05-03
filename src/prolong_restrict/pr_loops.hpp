@@ -74,10 +74,9 @@ GetLoopBoundsFromBndInfo(const Info_t &info, const int ckbs, const int cjbs, int
 // the size of the buffer cache.
 template <int DIM, class Stencil>
 inline void
-ProlongationRestrictionLoop(const var_boundary_comm::BufferCache_t &info,
-                            const Idx_t &buffer_idxs, const IndexShape &cellbounds,
-                            const IndexShape &c_cellbounds, const RefinementOp_t op,
-                            const std::size_t nbuffers) {
+ProlongationRestrictionLoop(const BufferCache_t &info, const Idx_t &buffer_idxs,
+                            const IndexShape &cellbounds, const IndexShape &c_cellbounds,
+                            const RefinementOp_t op, const std::size_t nbuffers) {
   const IndexDomain interior = IndexDomain::interior;
   auto ckb = c_cellbounds.GetBoundsK(interior);
   auto cjb = c_cellbounds.GetBoundsJ(interior);
@@ -109,7 +108,7 @@ ProlongationRestrictionLoop(const var_boundary_comm::BufferCache_t &info,
 }
 template <int DIM, class Stencil>
 inline void
-ProlongationRestrictionLoop(const var_boundary_comm::BufferCacheHost_t &info_h,
+ProlongationRestrictionLoop(const BufferCacheHost_t &info_h,
                             const IdxHost_t &buffer_idxs_h, const IndexShape &cellbounds,
                             const IndexShape &c_cellbounds, const RefinementOp_t op,
                             const std::size_t nbuffers) {
@@ -145,8 +144,7 @@ ProlongationRestrictionLoop(const var_boundary_comm::BufferCacheHost_t &info_h,
 }
 template <int DIM, class Stencil>
 inline void
-ProlongationRestrictionLoop(const var_boundary_comm::BufferCache_t &info,
-                            const var_boundary_comm::BufferCacheHost_t &info_h,
+ProlongationRestrictionLoop(const BufferCache_t &info, const BufferCacheHost_t &info_h,
                             const Idx_t &buffer_idxs, const IdxHost_t &buffer_idxs_h,
                             const IndexShape &cellbounds, const IndexShape &c_cellbounds,
                             const RefinementOp_t op, const std::size_t nbuffers) {
