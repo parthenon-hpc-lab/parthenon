@@ -23,8 +23,18 @@ from argparse import ArgumentParser
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from matplotlib.colors import is_color_like
+
+
+def maybe_float(string):
+    try:
+        return float(string)
+    except:
+        return string
+
 
 logging.basicConfig(
     level=logging.CRITICAL, format="%(asctime)s [%(levelname)s]\t%(message)s"
@@ -35,21 +45,52 @@ logger.setLevel(logging.DEBUG)
 parser = ArgumentParser(
     prog="movie2d", description="Plot snapshots of 2d parthenon output"
 )
-
 parser.add_argument(
     "--vector-component",
     dest="vc",
-    type=float,
+    type=int,
     default=None,
     help="Vector component of field to plot. Mutually exclusive with --tensor-component.",
 )
 parser.add_argument(
     "--tensor-component",
     dest="tc",
-    type=float,
+    type=int,
     nargs=2,
     default=None,
     help="Tensor components of field to plot. Mutally exclusive with --vector-component.",
+)
+parser.add_argument(
+    "--swarm",
+    type=str,
+    default=None,
+    help="Optional particle swarm to overplot figure",
+)
+parser.add_argument(
+    "--swarmcolor",
+    type=str,
+    default=None,
+    help="Optional color of overplotted particle positions. Default is black. You may specify a scalar swarm variable as the color or a matplotlib color string.",
+)
+parser.add_argument(
+    "--particlesize",
+    type=maybe_float,
+    default=mpl.rcParams["lines.markersize"] ** 2,
+    help="Optional size of overplotted particles. Default is standard size chosen by matplotlib. You may specify either a scalar swarm variable or a float.",
+)
+parser.add_argument(
+    "--maxparticlesize",
+    dest="pscale",
+    type=float,
+    default=mpl.rcParams["lines.markersize"] ** 2,
+    help="If --particlesize is set by swarm variable, rescales it to scale from 0 to this value. Default is default matplotlib markersize**2.",
+)
+parser.add_argument(
+    "--maxparticles",
+    metavar="N",
+    type=int,
+    default=100,
+    help="Limit plot to only N particles at most. Default is 100.",
 )
 parser.add_argument(
     "--workers",
@@ -119,6 +160,30 @@ parser.add_argument("field", type=str, help="field to plot")
 parser.add_argument("files", type=str, nargs="+", help="files to plot")
 
 
+def report_find_fail(key, search_location, available, logger):
+    logger.error(f"{key} not found in {search_location}. Further processing stopped.")
+    logger.info(f"Available fields: {available}")
+    return
+
+
+def subsample(array, maxlen):
+    "Subsample array with fixed stride to have a maximum length of maxlen"
+    ratio = len(array) / maxlen
+    if ratio >= 1:
+        aout = array[:: int(ratio)]
+    else:
+        aout = array
+    return aout[:maxlen]
+
+
+def rescale(array, amax):
+    "Makes all vars in array range from 0 to amax. Destructive operation"
+    out = array.astype(float)
+    out -= out.min()
+    out *= np.array((amax / float(out.max())), dtype=float)
+    return out
+
+
 def plot_dump(
     xf,
     yf,
@@ -132,6 +197,10 @@ def plot_dump(
     xe=None,
     ye=None,
     components=[0, 0],
+    swarmx=None,
+    swarmy=None,
+    swarmcolor=None,
+    particlesize=None,
 ):
     if xe is None:
         xe = xf
@@ -139,20 +208,22 @@ def plot_dump(
         ye = yf
 
     # get tensor components
-    if len(q.shape) > 5:
+    if len(q.shape) > 6:
         raise ValueError(
             "Tensor rank is higher than I can handle. "
             + "Please revise the movie2d script"
         )
+    if len(q.shape) == 6:
+        q = q[:, components[0], components[1], 0, :, :]
     if len(q.shape) == 5:
-        q = q[:, components[0], components[1], :, :]
+        q = q[:, components[-1], 0, :, :]
     if len(q.shape) == 4:
-        q = q[:, components[-1], :, :]
+        q = q[:, 0, :, :]
 
     fig = plt.figure()
     p = fig.add_subplot(111, aspect=1)
     if time_title is not None:
-        p.set_title(f"t = {time_title} seconds")
+        p.set_title(f"t = {time_title}")
 
     qm = np.ma.masked_where(np.isnan(q), q)
     qmin = qm.min()
@@ -199,6 +270,8 @@ def plot_dump(
                     linestyle="dashed",
                 )
                 p.add_patch(rect)
+    if swarmx is not None and swarmy is not None:
+        p.scatter(swarmx, swarmy, s=particlesize, c=swarmcolor)
 
     fig.savefig(output_file, dpi=300)
     plt.close(fig=fig)
@@ -231,20 +304,72 @@ if __name__ == "__main__":
         components = args.tc
     if args.vc is not None:
         components = [0, args.vc]
+    do_swarm = args.swarm is not None
 
     _x = ProcessPoolExecutor if args.worker_type == "process" else ThreadPoolExecutor
     with _x(max_workers=args.workers) as pool:
         for frame_id, file_name in enumerate(args.files):
             data = phdf(file_name)
+
             if args.field not in data.Variables:
-                logger.error(
-                    f'No such field "{args.field}" in {file_name}. Further processing stopped.'
-                )
-                logger.info(f"Available fields: {data.Variables}")
+                report_find_fail(args.field, file_name, data.Variables, logger)
                 ERROR_FLAG = True
                 break
-
             q = data.Get(args.field, False, not args.debug_plot)
+
+            if do_swarm:
+                if args.swarm not in data.Variables:
+                    report_find_fail(args.swarm, file_name, data.Variables, logger)
+                    ERROR_FLAG = True
+                    break
+                swarm = data.GetSwarm(args.swarm)
+                swarmx = subsample(swarm.x, args.maxparticles)
+                swarmy = subsample(swarm.y, args.maxparticles)
+                if args.swarmcolor is not None:
+                    if not is_color_like(args.swarmcolor):
+                        if args.swarmcolor not in swarm.variables:
+                            report_find_fail(
+                                args.swarmcolor, args.swarm, swarm.variables, logger
+                            )
+                            ERROR_FLAG = True
+                            break
+                        swarmcolor = swarm[args.swarmcolor]
+                        if len(swarmcolor.shape) > 1:
+                            logger.error(
+                                f"{args.swarmcolor} has nonzero tensor rank, which is not supported."
+                            )
+                            ERROR_FLAG = True
+                            break
+                        swarmcolor = subsample(swarmcolor, args.maxparticles)
+                    else:
+                        swarmcolor = args.swarmcolor
+                else:
+                    swarmcolor = "k"
+                if not isinstance(args.particlesize, float):
+                    if args.particlesize not in swarm.variables:
+                        report_find_fail(
+                            args.particlesize, args.swarm, swarm.variables, logger
+                        )
+                        ERROR_FLAG = True
+                        break
+                    particlesize = swarm[args.particlesize]
+                    if len(particlesize.shape) > 1:
+                        logger.error(
+                            f"{args.particlesize} has nonzero tensor rank, which is not supported."
+                        )
+                        ERROR_FLAG = True
+                        break
+                    particlesize = subsample(particlesize, args.maxparticles)
+                    particlesize = rescale(particlesize, args.pscale)
+                else:
+                    particlesize = args.particlesize
+            else:
+                swarm = None
+                swarmx = None
+                swarmy = None
+                swarmcolor = None
+                particlesize = None
+
             name = "{}{:04d}.png".format(args.prefix, frame_id).strip()
             output_file = args.output_directory / name
 
@@ -265,6 +390,10 @@ if __name__ == "__main__":
                     data.xeg,
                     data.yeg,
                     components,
+                    swarmx,
+                    swarmy,
+                    swarmcolor,
+                    particlesize,
                 )
             else:
                 pool.submit(
@@ -276,6 +405,10 @@ if __name__ == "__main__":
                     output_file,
                     True,
                     components=components,
+                    swarmx=swarmx,
+                    swarmy=swarmy,
+                    swarmcolor=swarmcolor,
+                    particlesize=particlesize,
                 )
 
     if not ERROR_FLAG:
