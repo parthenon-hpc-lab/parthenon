@@ -1,5 +1,5 @@
-#ifndef INTERPOLATE_HPP_
-#define INTERPOLATE_HPP_
+#ifndef PARTHENON_UTILS_INTERPOLATE_HPP_
+#define PARTHENON_UTILS_INTERPOLATE_HPP_
 //========================================================================================
 // Parthenon performance portable AMR framework
 // Copyright(C) 2022 The Parthenon collaboration
@@ -15,6 +15,8 @@
 
 #include "../kokkos_abstraction.hpp"
 #include <ostream>
+
+namespace parthenon {
 
 template <class VectorContainer>
 class MonotoneInterpolator {
@@ -130,5 +132,6 @@ MonotoneInterpolator<T>::operator()(Real x) const -> Real {
   // evaluate the interpolant
   return p(x);
 }
+} // namespace parthenon
 
-#endif // INTERPOLATE_HPP_
+#endif // PARTHENON_UTILS_INTERPOLATE_HPP_
