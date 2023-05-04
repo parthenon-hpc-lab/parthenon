@@ -111,6 +111,8 @@ Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc, bool c2
   std::array<int, 2> face_offset{ni.fi1, ni.fi2};
   std::array<int, 3> s, e;
 
+  // This is the inverse of CalcLoadIndices, but we don't require any topological element
+  // information beyond what we have in the IndexRanges
   int off_idx = 0;
   for (int dir = 0; dir < 3; ++dir) {
     if (block_offset[dir] == 0) {
@@ -242,24 +244,31 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
 
-  IndexDomain interior = IndexDomain::interior;
-  if (nb.snb.level == mylevel) {
-    out.idxer[0] = CalcLoadIndices(nb.ni, false, TopologicalElement::C,
-                                   {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
-    out.var = v->data.Get();
-  } else if (nb.snb.level < mylevel) {
-    // "Same" logic is the same for loading to a coarse buffer, just using
-    // c_cellbounds
-    out.idxer[0] = CalcLoadIndices(nb.ni, false, TopologicalElement::C,
-                                   {out.Nt, out.Nu, out.Nv}, pmb->c_cellbounds);
-    out.refinement_op = RefinementOp_t::Restriction;
-    out.var = v->coarse_s.Get();
-  } else {
-    out.idxer[0] = CalcLoadIndices(nb.ni, true, TopologicalElement::C,
-                                   {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
-    out.var = v->data.Get();
-  }
+  using TE = TopologicalElement;
+  std::vector<TopologicalElement> elements = {TE::C};
+  if (v->IsSet(Metadata::Face)) elements = {TE::FX, TE::FY, TE::FZ};
+  if (v->IsSet(Metadata::Edge)) elements = {TE::EXY, TE::EXZ, TE::EYZ};
+  if (v->IsSet(Metadata::Node)) elements = {TE::NXYZ};
 
+  for (auto el : elements) {
+    int idx = static_cast<int>(el) % 3;
+    if (nb.snb.level == mylevel) {
+      out.idxer[idx] =
+          CalcLoadIndices(nb.ni, false, el, {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+      out.var = v->data.Get();
+    } else if (nb.snb.level < mylevel) {
+      // "Same" logic is the same for loading to a coarse buffer, just using
+      // c_cellbounds
+      out.idxer[idx] =
+          CalcLoadIndices(nb.ni, false, el, {out.Nt, out.Nu, out.Nv}, pmb->c_cellbounds);
+      out.refinement_op = RefinementOp_t::Restriction;
+      out.var = v->coarse_s.Get();
+    } else {
+      out.idxer[idx] =
+          CalcLoadIndices(nb.ni, true, el, {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+      out.var = v->data.Get();
+    }
+  }
   // Still don't understand why, but these have to be set
   out.si = out.idxer[0].template StartIdx<5>();
   out.ei = out.idxer[0].template EndIdx<5>();
@@ -290,22 +299,30 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   out.Nu = v->GetDim(5);
   out.Nt = v->GetDim(6);
 
-  int mylevel = pmb->loc.level;
-  IndexDomain interior = IndexDomain::interior;
-  if (nb.snb.level == mylevel) {
-    out.var = v->data.Get();
-    out.idxer[0] = CalcSetIndices(nb.ni, pmb->loc, false, false, TopologicalElement::C,
-                                  {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
-  } else if (nb.snb.level < mylevel) {
-    out.idxer[0] = CalcSetIndices(nb.ni, pmb->loc, true, false, TopologicalElement::C,
-                                  {out.Nt, out.Nu, out.Nv}, pmb->c_cellbounds);
-    out.var = v->coarse_s.Get();
-  } else {
-    out.idxer[0] = CalcSetIndices(nb.ni, pmb->loc, false, true, TopologicalElement::C,
-                                  {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
-    out.var = v->data.Get();
-  }
+  using TE = TopologicalElement;
+  std::vector<TopologicalElement> elements = {TE::C};
+  if (v->IsSet(Metadata::Face)) elements = {TE::FX, TE::FY, TE::FZ};
+  if (v->IsSet(Metadata::Edge)) elements = {TE::EXY, TE::EXZ, TE::EYZ};
+  if (v->IsSet(Metadata::Node)) elements = {TE::NXYZ};
 
+  int mylevel = pmb->loc.level;
+
+  for (auto el : elements) {
+    int idx = static_cast<int>(el) % 3;
+    if (nb.snb.level == mylevel) {
+      out.var = v->data.Get();
+      out.idxer[idx] = CalcSetIndices(nb.ni, pmb->loc, false, false, el,
+                                      {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+    } else if (nb.snb.level < mylevel) {
+      out.idxer[idx] = CalcSetIndices(nb.ni, pmb->loc, true, false, el,
+                                      {out.Nt, out.Nu, out.Nv}, pmb->c_cellbounds);
+      out.var = v->coarse_s.Get();
+    } else {
+      out.idxer[idx] = CalcSetIndices(nb.ni, pmb->loc, false, true, el,
+                                      {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+      out.var = v->data.Get();
+    }
+  }
   if (buf_state == BufferState::received) {
     // With control variables, we can end up in a state where a
     // variable that is not receiving null data is unallocated.
