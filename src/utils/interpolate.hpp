@@ -18,7 +18,7 @@
 
 namespace parthenon {
 
-template <class VectorContainer>
+template<typename VectorContainer, class = ENABLEIF(implements<contiguous_container(VectorContainer)>::value)>
 class MonotoneInterpolator {
  public:
   using Real = typename VectorContainer::value_type;
