@@ -208,8 +208,7 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
   // cases there will be some extra storage that is not required, but there
   // will always be enough storage
   auto &cb = pmb->cellbounds;
-  int topo_comp = 1;
-  if (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) topo_comp = 3;
+  int topo_comp = (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) ? 3 : 1;
   const IndexDomain in = IndexDomain::interior;
   // The plus 2 instead of 1 is to account for the possible size of face, edge, and nodal
   // fields
