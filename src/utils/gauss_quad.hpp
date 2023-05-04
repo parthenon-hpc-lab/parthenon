@@ -41,8 +41,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef GAUSS_QUAD_HPP
-#define GAUSS_QUAD_HPP
+#ifndef PARTHENON_UTILS_GAUSS_QUAD_HPP_
+#define PARTHENON_UTILS_GAUSS_QUAD_HPP_
 
 #include <array>
 #include <cmath>
@@ -53,32 +53,32 @@
 namespace parthenon::math::quadrature {
 namespace detail {
 
+enum class precision { Invalid, Float, Double, LongDouble };
+
 template <class T>
 struct gauss_constant_category {
-  static const unsigned value =
-      (std::numeric_limits<T>::is_specialized == 0) ? 999
+  static constexpr unsigned value =
+      (std::numeric_limits<T>::is_specialized == 0) ? precision::Invalid
       : (std::numeric_limits<T>::radix == 2)
           ? ((std::numeric_limits<T>::digits <= std::numeric_limits<float>::digits) &&
                      std::is_convertible<float, T>::value
-                 ? 0
+                 ? precision::Float
              : (std::numeric_limits<T>::digits <= std::numeric_limits<double>::digits) &&
                      std::is_convertible<double, T>::value
-                 ? 1
+                 ? precision::Double
              : (std::numeric_limits<T>::digits <=
                 std::numeric_limits<long double>::digits) &&
                      std::is_convertible<long double, T>::value
-                 ? 2
-             : (std::numeric_limits<T>::digits10 <= 110) ? 4
-                                                         : 999)
-      : (std::numeric_limits<T>::digits10 <= 110) ? 4
-                                                  : 999;
+                 ? precision::LongDouble
+                 : precision::Invalid)
+          : precision::Invalid;
 };
 
-template <class Real, unsigned N, unsigned Category>
+template <class Real, unsigned N, precision>
 class gauss_detail;
 
 template <class T>
-class gauss_detail<T, 7, 0> {
+class gauss_detail<T, 7, precision::Float> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 4> const & {
     static constexpr std::array<T, 4> data = {
@@ -101,7 +101,7 @@ class gauss_detail<T, 7, 0> {
 };
 
 template <class T>
-class gauss_detail<T, 7, 1> {
+class gauss_detail<T, 7, precision::Double> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 4> const & {
     static constexpr std::array<T, 4> data = {
@@ -124,7 +124,7 @@ class gauss_detail<T, 7, 1> {
 };
 
 template <class T>
-class gauss_detail<T, 7, 2> {
+class gauss_detail<T, 7, precision::LongDouble> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 4> const & {
     static constexpr std::array<T, 4> data = {
@@ -147,7 +147,7 @@ class gauss_detail<T, 7, 2> {
 };
 
 template <class T>
-class gauss_detail<T, 10, 0> {
+class gauss_detail<T, 10, precision::Float> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 5> const & {
     static constexpr std::array<T, 5> data = {
@@ -166,7 +166,7 @@ class gauss_detail<T, 10, 0> {
 };
 
 template <class T>
-class gauss_detail<T, 10, 1> {
+class gauss_detail<T, 10, precision::Double> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 5> const & {
     static constexpr std::array<T, 5> data = {
@@ -185,7 +185,7 @@ class gauss_detail<T, 10, 1> {
 };
 
 template <class T>
-class gauss_detail<T, 10, 2> {
+class gauss_detail<T, 10, precision::LongDouble> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 5> const & {
     static constexpr std::array<T, 5> data = {
@@ -210,7 +210,7 @@ class gauss_detail<T, 10, 2> {
 };
 
 template <class T>
-class gauss_detail<T, 15, 0> {
+class gauss_detail<T, 15, precision::Float> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 8> const & {
     static constexpr std::array<T, 8> data = {
@@ -229,7 +229,7 @@ class gauss_detail<T, 15, 0> {
 };
 
 template <class T>
-class gauss_detail<T, 15, 1> {
+class gauss_detail<T, 15, precision::Double> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 8> const & {
     static constexpr std::array<T, 8> data = {
@@ -250,7 +250,7 @@ class gauss_detail<T, 15, 1> {
 };
 
 template <class T>
-class gauss_detail<T, 15, 2> {
+class gauss_detail<T, 15, precision::LongDouble> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 8> const & {
     static constexpr std::array<T, 8> data = {
@@ -281,7 +281,7 @@ class gauss_detail<T, 15, 2> {
 };
 
 template <class T>
-class gauss_detail<T, 20, 0> {
+class gauss_detail<T, 20, precision::Float> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 10> const & {
     static constexpr std::array<T, 10> data = {
@@ -302,7 +302,7 @@ class gauss_detail<T, 20, 0> {
 };
 
 template <class T>
-class gauss_detail<T, 20, 1> {
+class gauss_detail<T, 20, precision::Double> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 10> const & {
     static constexpr std::array<T, 10> data = {
@@ -325,7 +325,7 @@ class gauss_detail<T, 20, 1> {
 };
 
 template <class T>
-class gauss_detail<T, 20, 2> {
+class gauss_detail<T, 20, precision::LongDouble> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 10> const & {
     static constexpr std::array<T, 10> data = {
@@ -360,7 +360,7 @@ class gauss_detail<T, 20, 2> {
 };
 
 template <class T>
-class gauss_detail<T, 25, 0> {
+class gauss_detail<T, 25, precision::Float> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 13> const & {
     static constexpr std::array<T, 13> data = {
@@ -383,7 +383,7 @@ class gauss_detail<T, 25, 0> {
 };
 
 template <class T>
-class gauss_detail<T, 25, 1> {
+class gauss_detail<T, 25, precision::Double> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 13> const & {
     static constexpr std::array<T, 13> data = {
@@ -408,7 +408,7 @@ class gauss_detail<T, 25, 1> {
 };
 
 template <class T>
-class gauss_detail<T, 25, 2> {
+class gauss_detail<T, 25, precision::LongDouble> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 13> const & {
     static constexpr std::array<T, 13> data = {
@@ -449,7 +449,7 @@ class gauss_detail<T, 25, 2> {
 };
 
 template <class T>
-class gauss_detail<T, 30, 0> {
+class gauss_detail<T, 30, precision::Float> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 15> const & {
     static constexpr std::array<T, 15> data = {
@@ -472,7 +472,7 @@ class gauss_detail<T, 30, 0> {
 };
 
 template <class T>
-class gauss_detail<T, 30, 1> {
+class gauss_detail<T, 30, precision::Double> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 15> const & {
     static constexpr std::array<T, 15> data = {
@@ -497,7 +497,7 @@ class gauss_detail<T, 30, 1> {
 };
 
 template <class T>
-class gauss_detail<T, 30, 2> {
+class gauss_detail<T, 30, precision::LongDouble> {
  public:
   KOKKOS_FUNCTION static auto abscissa() -> std::array<T, 15> const & {
     static constexpr std::array<T, 15> data = {
@@ -654,4 +654,4 @@ class gauss
 
 } // namespace parthenon::math::quadrature
 
-#endif // GAUSS_QUAD_HPP
+#endif // PARTHENON_UTILS_GAUSS_QUAD_HPP_
