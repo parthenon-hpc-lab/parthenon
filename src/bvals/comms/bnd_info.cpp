@@ -178,19 +178,41 @@ void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds) {
   }
 }
 
-Indexer6D CalcIndicesSetSame(std::array<int, 3> offsets, TopologicalElement el,
-                             std::array<int, 3> tensor_shape,
-                             const parthenon::IndexShape &shape) {
+Indexer6D CalcSetIndices(const NeighborIndexes &ni,
+                         LogicalLocation loc,
+                         bool c2f, bool f2c,
+                         TopologicalElement el,
+                         std::array<int, 3> tensor_shape,
+                         const parthenon::IndexShape &shape) {
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
                                    shape.GetBoundsJ(interior, el),
                                    shape.GetBoundsK(interior, el)};
+  
+  std::array<int, 3> block_offset{ni.ox1, ni.ox2, ni.ox3};
+  // This is gross, but the face offsets do not contain the correct 
+  // information for going from coarse to fine and the neighbor block 
+  // structure does not contain the logical location of the neighbor 
+  // block  
+  std::array<std::int64_t, 3> logic_loc{loc.lx1, loc.lx2, loc.lx3};
+  std::array<int, 2> face_offset{ni.fi1, ni.fi2};  
   std::array<int, 3> s, e;
+  
+  int off_idx = 0; 
   for (int dir = 0; dir < 3; ++dir) {
-    if (offsets[dir] == 0) {
+    if (block_offset[dir] == 0) {
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
-    } else if (offsets[dir] > 0) {
+      if (c2f && bounds[dir].e > bounds[dir].s) { 
+        s[dir] -= logic_loc[dir] % 2 == 1 ? Globals::nghost : 0; 
+        e[dir] += logic_loc[dir] % 2 == 0 ? Globals::nghost : 0; 
+      } else if (f2c) {
+        const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2; 
+        s[dir] += face_offset[off_idx] == 1 ? half_grid : 0; 
+        e[dir] -= face_offset[off_idx] == 0 ? half_grid : 0; 
+      }
+      ++off_idx;
+    } else if (block_offset[dir] > 0) {
       s[dir] = bounds[dir].e + 1;
       e[dir] = bounds[dir].e + Globals::nghost;
     } else {
@@ -202,39 +224,59 @@ Indexer6D CalcIndicesSetSame(std::array<int, 3> offsets, TopologicalElement el,
                    {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-Indexer6D CalcIndicesLoadSame(std::array<int, 3> offsets,
-                              TopologicalElement el,
-                              std::array<int, 3> tensor_shape,
-                              const parthenon::IndexShape &shape) {
+Indexer6D CalcLoadIndices(const NeighborIndexes &ni,
+                          bool c2f,
+                          TopologicalElement el,
+                          std::array<int, 3> tensor_shape,
+                          const parthenon::IndexShape &shape) {
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
                                    shape.GetBoundsJ(interior, el),
                                    shape.GetBoundsK(interior, el)};
-  std::array<int, 3> s, e;
 
   // Account for the fact that the neighbor block may duplicate
   // some active zones on the loading block for face, edge, and nodal
   // fields, so the boundary of the neighbor block is one deeper into 
   // the current block in some cases 
-  std::array<int, 3> dir_offset{0, 0, 0}; 
-  if (el == TopologicalElement::FX) dir_offset = {1, 0, 0}; 
-  if (el == TopologicalElement::FY) dir_offset = {0, 1, 0}; 
-  if (el == TopologicalElement::FZ) dir_offset = {0, 0, 1}; 
-  if (el == TopologicalElement::EXY) dir_offset = {1, 1, 0}; 
-  if (el == TopologicalElement::EXZ) dir_offset = {1, 0, 1}; 
-  if (el == TopologicalElement::EYZ) dir_offset = {0, 1, 1}; 
-  if (el == TopologicalElement::NXYZ) dir_offset = {1, 1, 1}; 
-
+  std::array<int, 3> top_offset{0, 0, 0}; 
+  if (el == TopologicalElement::FX) top_offset = {1, 0, 0}; 
+  if (el == TopologicalElement::FY) top_offset = {0, 1, 0}; 
+  if (el == TopologicalElement::FZ) top_offset = {0, 0, 1}; 
+  if (el == TopologicalElement::EXY) top_offset = {1, 1, 0}; 
+  if (el == TopologicalElement::EXZ) top_offset = {1, 0, 1}; 
+  if (el == TopologicalElement::EYZ) top_offset = {0, 1, 1}; 
+  if (el == TopologicalElement::NXYZ) top_offset = {1, 1, 1}; 
+  
+  std::array<int, 3> block_offset{ni.ox1, ni.ox2, ni.ox3}; 
+  std::array<int, 2> face_offset{ni.fi1, ni.fi2}; 
+  
+  int off_idx = 0; 
+  std::array<int, 3> s, e;
   for (int dir = 0; dir < 3; ++dir) {
-    if (offsets[dir] == 0) {
+    if (block_offset[dir] == 0) {
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
-    } else if (offsets[dir] > 0) {
-      s[dir] = bounds[dir].e - Globals::nghost + 1 - dir_offset[dir];
-      e[dir] = bounds[dir].e - dir_offset[dir];
+      if (c2f && bounds[dir].e > bounds[dir].s) { // Check that this dimension has ghost zones
+        // We are sending from a coarser level to the coarse buffer of a finer level, 
+        // so we need to only send the approximately half of the indices that overlap 
+        // with the other block. We also send nghost "extra" zones in the interior 
+        // to ensure there is enough information for prolongation. Also note for 
+        // non-cell centered values the number of grid points may be odd, so we 
+        // pick up an extra zone that is communicated. I think this is ok, but 
+        // something to keep in mind if there are issues.  
+        const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
+        s[dir] += face_offset[off_idx] == 1 ? half_grid - Globals::nghost : 0;
+        e[dir] -= face_offset[off_idx] == 0 ? half_grid - Globals::nghost : 0;
+      }
+      ++off_idx; // Offsets are listed in X1,X2,X3 order, should never try to access 
+                 // with off_idx > 1 since all neighbors must have a non-zero block 
+                 // offset in some direction 
+    } else if (block_offset[dir] > 0) {
+      s[dir] = bounds[dir].e - Globals::nghost + 1 - top_offset[dir];
+      e[dir] = bounds[dir].e - top_offset[dir];
     } else {
-      s[dir] = bounds[dir].s + dir_offset[dir];
-      e[dir] = bounds[dir].s + Globals::nghost - 1 + dir_offset[dir];
+      s[dir] = bounds[dir].s + top_offset[dir];
+      e[dir] = bounds[dir].s + Globals::nghost - 1 + top_offset[dir];
     }
   }
   return Indexer6D({0, tensor_shape[0] - 1}, {0, tensor_shape[1] - 1},
@@ -405,33 +447,32 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 
   IndexDomain interior = IndexDomain::interior;
   if (nb.snb.level == mylevel) {
-    //const parthenon::IndexShape &cellbounds = pmb->cellbounds;
-    //CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, cellbounds.GetBoundsI(interior));
-    //CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, cellbounds.GetBoundsJ(interior));
-    //CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, cellbounds.GetBoundsK(interior));
     out.idxer[0] =
-        CalcIndicesLoadSame({nb.ni.ox1, nb.ni.ox2, nb.ni.ox3}, TopologicalElement::C,
-                           {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+        CalcLoadIndices(nb.ni, false, TopologicalElement::C,
+                        {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
     out.var = v->data.Get();
   } else if (nb.snb.level < mylevel) {
     // "Same" logic is the same for loading to a coarse buffer, just using
     // c_cellbounds
-    //const IndexShape &c_cellbounds = pmb->c_cellbounds;
-    //CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, c_cellbounds.GetBoundsI(interior));
-    //CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, c_cellbounds.GetBoundsJ(interior));
-    //CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, c_cellbounds.GetBoundsK(interior));
     out.idxer[0] =
-        CalcIndicesLoadSame({nb.ni.ox1, nb.ni.ox2, nb.ni.ox3}, TopologicalElement::C,
-                           {out.Nt, out.Nu, out.Nv}, pmb->c_cellbounds);
+        CalcLoadIndices(nb.ni, false, TopologicalElement::C,
+                        {out.Nt, out.Nu, out.Nv}, pmb->c_cellbounds);
     out.refinement_op = RefinementOp_t::Restriction;
     out.var = v->coarse_s.Get();
   } else {
-    CalcIndicesLoadToFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb, pmb.get());
-    out.var = v->data.Get();
     out.idxer[0] =
-        Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1},
-                  {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+        CalcLoadIndices(nb.ni, true, TopologicalElement::C,
+                        {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+    out.var = v->data.Get();
   }
+
+  // Still don't understand why, but these have to be set 
+  out.si = out.idxer[0].template StartIdx<5>(); 
+  out.ei = out.idxer[0].template EndIdx<5>(); 
+  out.sj = out.idxer[0].template StartIdx<4>(); 
+  out.ej = out.idxer[0].template EndIdx<4>(); 
+  out.sk = out.idxer[0].template StartIdx<3>(); 
+  out.ek = out.idxer[0].template EndIdx<3>(); 
   return out;
 }
 
@@ -464,8 +505,8 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     CalcIndicesSetSame(nb.ni.ox3, out.sk, out.ek, cellbounds.GetBoundsK(interior));
     out.var = v->data.Get();
     out.idxer[0] =
-        CalcIndicesSetSame({nb.ni.ox1, nb.ni.ox2, nb.ni.ox3}, TopologicalElement::C,
-                           {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+        CalcSetIndices(nb.ni, pmb->loc, false, false, TopologicalElement::C,
+                       {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
     PARTHENON_REQUIRE(out.si == out.idxer[0].template StartIdx<5>(),
                       "Starting i indices don't match");
     PARTHENON_REQUIRE(out.ei == out.idxer[0].template EndIdx<5>(),
@@ -495,18 +536,60 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     CalcIndicesSetFromCoarser(nb.ni.ox3, out.sk, out.ek,
                               c_cellbounds.GetBoundsK(interior), pmb->loc.lx3, cng,
                               pmb->block_size.nx3 > 1);
-
-    out.var = v->coarse_s.Get();
     out.idxer[0] =
-        Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1},
-                  {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+        CalcSetIndices(nb.ni, pmb->loc, true, false, TopologicalElement::C,
+                       {out.Nt, out.Nu, out.Nv}, pmb->c_cellbounds);
+    out.var = v->coarse_s.Get();
+    //out.idxer[0] =
+    //    Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1},
+    //              {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+    PARTHENON_REQUIRE(out.si == out.idxer[0].template StartIdx<5>(),
+                      "Starting i indices don't match");
+    PARTHENON_REQUIRE(out.ei == out.idxer[0].template EndIdx<5>(),
+                      "Ending i indices don't match");
+    PARTHENON_REQUIRE(out.sj == out.idxer[0].template StartIdx<4>(),
+                      "Starting j indices don't match");
+    PARTHENON_REQUIRE(out.ej == out.idxer[0].template EndIdx<4>(),
+                      "Ending j indices don't match");
+    PARTHENON_REQUIRE(out.sk == out.idxer[0].template StartIdx<3>(),
+                      "Starting k indices don't match");
+    PARTHENON_REQUIRE(out.ek == out.idxer[0].template EndIdx<3>(),
+                      "Ending k indices don't match");
+    PARTHENON_REQUIRE(out.Nt == out.idxer[0].template EndIdx<0>() + 1,
+                      "Ending t index is incorrect");
+    PARTHENON_REQUIRE(out.Nu == out.idxer[0].template EndIdx<1>() + 1,
+                      "Ending u index is incorrect");
+    PARTHENON_REQUIRE(out.Nv == out.idxer[0].template EndIdx<2>() + 1,
+                      "Ending v index is incorrect");
   } else {
     CalcIndicesSetFromFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb,
                             pmb.get());
-    out.var = v->data.Get();
+    
     out.idxer[0] =
-        Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1},
-                  {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+        CalcSetIndices(nb.ni, pmb->loc, false, true, TopologicalElement::C,
+                       {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+    out.var = v->data.Get();
+    PARTHENON_REQUIRE(out.si == out.idxer[0].template StartIdx<5>(),
+                      "Starting i indices don't match");
+    PARTHENON_REQUIRE(out.ei == out.idxer[0].template EndIdx<5>(),
+                      "Ending i indices don't match");
+    PARTHENON_REQUIRE(out.sj == out.idxer[0].template StartIdx<4>(),
+                      "Starting j indices don't match");
+    PARTHENON_REQUIRE(out.ej == out.idxer[0].template EndIdx<4>(),
+                      "Ending j indices don't match");
+    PARTHENON_REQUIRE(out.sk == out.idxer[0].template StartIdx<3>(),
+                      "Starting k indices don't match");
+    PARTHENON_REQUIRE(out.ek == out.idxer[0].template EndIdx<3>(),
+                      "Ending k indices don't match");
+    PARTHENON_REQUIRE(out.Nt == out.idxer[0].template EndIdx<0>() + 1,
+                      "Ending t index is incorrect");
+    PARTHENON_REQUIRE(out.Nu == out.idxer[0].template EndIdx<1>() + 1,
+                      "Ending u index is incorrect");
+    PARTHENON_REQUIRE(out.Nv == out.idxer[0].template EndIdx<2>() + 1,
+                      "Ending v index is incorrect");
+    //out.idxer[0] =
+    //    Indexer6D({0, v->GetDim(6) - 1}, {0, v->GetDim(5) - 1}, {0, v->GetDim(4) - 1},
+    //              {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
   }
 
   if (buf_state == BufferState::received) {
@@ -520,6 +603,14 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   } else {
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
+
+  // Still don't understand why, but these have to be set 
+  out.si = out.idxer[0].template StartIdx<5>(); 
+  out.ei = out.idxer[0].template EndIdx<5>(); 
+  out.sj = out.idxer[0].template StartIdx<4>(); 
+  out.ej = out.idxer[0].template EndIdx<4>(); 
+  out.sk = out.idxer[0].template StartIdx<3>(); 
+  out.ek = out.idxer[0].template EndIdx<3>(); 
 
   return out;
 }
