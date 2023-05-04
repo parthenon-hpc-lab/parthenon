@@ -13,8 +13,8 @@
 //            Vol. 17, No. 2, April 1980. [https://doi.org/10.1137/0717021]
 //========================================================================================
 
-#include <ostream>
 #include "../kokkos_abstraction.hpp"
+#include <ostream>
 
 template <class VectorContainer>
 class MonotoneInterpolator {
