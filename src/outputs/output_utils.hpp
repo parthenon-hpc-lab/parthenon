@@ -81,7 +81,7 @@ struct VarInfo {
     component_labels = {};
     if (num_components == 1) {
       const auto suffix = component_labels_.empty() ? "" : "_" + component_labels_[0];
-      component_labels = std::vector<std::string>({label + suffix})
+      component_labels = std::vector<std::string>({label + suffix});
     } else if (component_labels_.size() == num_components) {
       for (int i = 0; i < num_components; i++) {
         component_labels.push_back(label + "_" + component_labels_[i]);
