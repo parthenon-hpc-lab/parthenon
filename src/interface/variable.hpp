@@ -192,6 +192,13 @@ class ParticleVariable {
     return data(std::forward<Args>(args)...);
   }
 
+  auto GetHostMirrorAndCopy() { return data.GetHostMirrorAndCopy(); }
+
+  auto GetHostMirrorAndCopy(int n6, int n5, int n4, int n3, int n2) {
+    auto data_slice = Kokkos::subview(data, n6, n5, n4, n3, n2, Kokkos::ALL());
+    return data_slice.GetHostMirrorAndCopy();
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
     PARTHENON_DEBUG_REQUIRE(0 < i && i <= 6, "ParArrayNDGenerics are max 6D");
@@ -273,9 +280,11 @@ template <typename T>
 using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
 
 template <typename T>
-using ParticleVariableVector = std::vector<std::shared_ptr<ParticleVariable<T>>>;
+using ParticleVarPtr = std::shared_ptr<ParticleVariable<T>>;
 template <typename T>
-using MapToParticle = std::map<std::string, std::shared_ptr<ParticleVariable<T>>>;
+using ParticleVariableVector = std::vector<ParticleVarPtr<T>>;
+template <typename T>
+using MapToParticle = std::map<std::string, ParticleVarPtr<T>>;
 template <typename T>
 using VariableSet = std::set<VarPtr<T>, VarComp<CellVariable<T>>>;
 template <typename T>

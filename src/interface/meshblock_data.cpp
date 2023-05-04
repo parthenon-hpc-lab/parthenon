@@ -377,54 +377,13 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
   typename MeshBlockData<T>::VarList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
-  // Note that only intersections and unions count for flags.Empty()
-  if (flags.Empty()) { // Easy. Just do them all.
-    for (const auto &p : varMap_) {
-      var_list.Add(p.second, sparse_ids_set);
-    }
-  } else {               // Use set logic.
-    VariableSet<T> vars; // ensures a consistent ordering
-    const auto &intersections = flags.GetIntersections();
-    const auto &unions = flags.GetUnions();
-    const auto &exclusions = flags.GetExclusions();
-    const bool check_excludes = exclusions.size() > 0;
+  auto vars = MetadataUtils::GetByFlag<VariableSet<T>>(flags, varMap_, flagsToVars_);
 
-    if (intersections.size() > 0) {
-      // Dirty trick to get literally any flag from the intersections set
-      MetadataFlag first_required = *(intersections.begin());
-
-      for (auto &v : flagsToVars_[first_required]) {
-        const auto &m = v->metadata();
-        // TODO(JMM): Note that AnyFlagsSet returns FALSE if the set of flags
-        // it's asked about is empty.  Not sure that's desired
-        // behaviour, but whatever, let's just guard against edge cases
-        // here.
-        if (m.AllFlagsSet(intersections) &&
-            !(check_excludes && m.AnyFlagsSet(exclusions)) &&
-            (unions.empty() || m.AnyFlagsSet(unions))) {
-          // TODO(JMM): When dense sparse packing is moved to Parthenon
-          // develop we need an extra check for IsAllocated here.
-          vars.insert(v);
-        }
-      }
-    } else { // unions.size() > 0.
-      for (const auto &f : unions) {
-        for (const auto &v : flagsToVars_[f]) {
-          // we know intersections.size == 0
-          if (!(check_excludes && (v->metadata()).AnyFlagsSet(exclusions))) {
-            // TODO(JMM): see above regarding IsAllocated()
-            vars.insert(v);
-          }
-        }
-      }
-    }
-    // Construct the var_list from the set.
-    for (auto &v : vars) {
-      var_list.Add(v, sparse_ids_set);
-    }
+  for (auto &v : vars) {
+    var_list.Add(v, sparse_ids_set);
   }
 
-  Kokkos::Profiling::popRegion();
+  Kokkos::Profiling::popRegion(); // GetVariablesByFlag
   return var_list;
 }
 
