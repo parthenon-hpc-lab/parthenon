@@ -204,15 +204,22 @@ void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, i
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v) {
+  // This does not do a careful job of calculating the buffer size, in many
+  // cases there will be some extra storage that is not required, but there
+  // will always be enough storage
   auto &cb = pmb->cellbounds;
+  int topo_comp = 1;
+  if (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) topo_comp = 3;
   const IndexDomain in = IndexDomain::interior;
-  const int isize = cb.ie(in) - cb.is(in) + 1;
-  const int jsize = cb.je(in) - cb.js(in) + 1;
-  const int ksize = cb.ke(in) - cb.ks(in) + 1;
+  // The plus 2 instead of 1 is to account for the possible size of face, edge, and nodal
+  // fields
+  const int isize = cb.ie(in) - cb.is(in) + 2;
+  const int jsize = cb.je(in) - cb.js(in) + 2;
+  const int ksize = cb.ke(in) - cb.ks(in) + 2;
   return (nb.ni.ox1 == 0 ? isize : Globals::nghost) *
          (nb.ni.ox2 == 0 ? jsize : Globals::nghost) *
          (nb.ni.ox3 == 0 ? ksize : Globals::nghost) * v->GetDim(6) * v->GetDim(5) *
-         v->GetDim(4);
+         v->GetDim(4) * topo_comp;
 }
 
 BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
