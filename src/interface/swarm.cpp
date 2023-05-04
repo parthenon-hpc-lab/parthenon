@@ -70,6 +70,8 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
+  uid_ = get_uid_(label_);
+
   Add("x", Metadata({Metadata::Real}));
   Add("y", Metadata({Metadata::Real}));
   Add("z", Metadata({Metadata::Real}));
@@ -259,9 +261,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
   blockIndex_.Resize(nmax_pool);
 
-  auto &intMap_ = std::get<getType<int>()>(Maps_);
   auto &intVector_ = std::get<getType<int>()>(Vectors_);
-  auto &realMap_ = std::get<getType<Real>()>(Maps_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
 
   for (auto &d : intVector_) {
@@ -372,6 +372,8 @@ void Swarm::Defrag() {
 
   std::list<int> new_free_indices;
 
+  free_indices_.sort();
+
   int index = max_active_index_;
   int num_to_move = std::min<int>(num_free, num_active_);
   for (int n = 0; n < num_to_move; n++) {
@@ -392,7 +394,6 @@ void Swarm::Defrag() {
   }
 
   // TODO(BRR) Not all these sorts may be necessary
-  free_indices_.sort();
   new_free_indices.sort();
   free_indices_.merge(new_free_indices);
 

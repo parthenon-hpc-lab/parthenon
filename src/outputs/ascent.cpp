@@ -30,6 +30,7 @@
 #include "defs.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
+#include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "utils/error_checking.hpp"
 
@@ -42,6 +43,8 @@
 #endif // ifdef PARTHENON_ENABLE_ASCENT
 
 namespace parthenon {
+
+using namespace OutputUtils;
 
 //----------------------------------------------------------------------------------------
 //! \fn void AscentOutput:::WriteOutputFile(Mesh *pm)
