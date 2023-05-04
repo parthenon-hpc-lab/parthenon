@@ -28,6 +28,7 @@
 #include "globals.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
@@ -48,15 +49,8 @@ Indexer6D CalcLoadIndices(const NeighborIndexes &ni, bool c2f, TopologicalElemen
   // some active zones on the loading block for face, edge, and nodal
   // fields, so the boundary of the neighbor block is one deeper into
   // the current block in some cases
-  std::array<int, 3> top_offset{0, 0, 0};
-  if (el == TopologicalElement::FX) top_offset = {1, 0, 0};
-  if (el == TopologicalElement::FY) top_offset = {0, 1, 0};
-  if (el == TopologicalElement::FZ) top_offset = {0, 0, 1};
-  if (el == TopologicalElement::EXY) top_offset = {1, 1, 0};
-  if (el == TopologicalElement::EXZ) top_offset = {1, 0, 1};
-  if (el == TopologicalElement::EYZ) top_offset = {0, 1, 1};
-  if (el == TopologicalElement::NXYZ) top_offset = {1, 1, 1};
-
+  std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
+                                TopologicalOffsetK(el)};
   std::array<int, 3> block_offset{ni.ox1, ni.ox2, ni.ox3};
   std::array<int, 2> face_offset{ni.fi1, ni.fi2};
 

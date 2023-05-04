@@ -91,6 +91,17 @@ TopologicalType GetTopologicalType(TopologicalElement el) {
   }
 }
 
+using TE = TopologicalElement;
+KOKKOS_INLINE_FUNCTION int TopologicalOffsetI(TE el) noexcept {
+  return (el == TE::FX || el == TE::EXY || el == TE::EYZ || el == TE::NXYZ);
+}
+KOKKOS_INLINE_FUNCTION int TopologicalOffsetJ(TE el) noexcept {
+  return (el == TE::FY || el == TE::EXY || el == TE::EYZ || el == TE::NXYZ);
+}
+KOKKOS_INLINE_FUNCTION int TopologicalOffsetK(TE el) noexcept {
+  return (el == TE::FZ || el == TE::EXZ || el == TE::EYZ || el == TE::NXYZ);
+}
+
 struct SimTime {
   SimTime() = default;
   SimTime(const Real tstart, const Real tstop, const int nmax, const int ncurr,
