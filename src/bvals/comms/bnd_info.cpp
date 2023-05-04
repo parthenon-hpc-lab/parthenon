@@ -244,6 +244,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   if (v->IsSet(Metadata::Edge)) elements = {TE::EXY, TE::EXZ, TE::EYZ};
   if (v->IsSet(Metadata::Node)) elements = {TE::NXYZ};
 
+  out.ntopological_elements = elements.size();
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     if (nb.snb.level == mylevel) {
@@ -301,6 +302,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 
   int mylevel = pmb->loc.level;
 
+  out.ntopological_elements = elements.size();
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     if (nb.snb.level == mylevel) {
