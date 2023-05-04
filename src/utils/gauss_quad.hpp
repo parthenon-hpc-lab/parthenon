@@ -57,7 +57,7 @@ enum class precision { Invalid, Float, Double, LongDouble };
 
 template <class T>
 struct gauss_constant_category {
-  static constexpr unsigned value =
+  static constexpr auto value =
       (std::numeric_limits<T>::is_specialized == 0) ? precision::Invalid
       : (std::numeric_limits<T>::radix == 2)
           ? ((std::numeric_limits<T>::digits <= std::numeric_limits<float>::digits) &&
