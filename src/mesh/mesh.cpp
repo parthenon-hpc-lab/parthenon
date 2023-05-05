@@ -175,6 +175,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->PostStepMeshUserWorkInLoop != nullptr) {
     PostStepUserWorkInLoop = app_in->PostStepMeshUserWorkInLoop;
   }
+  if (app_in->FillDerivedVars != nullptr) {
+    FillDerivedVars = app_in->FillDerivedVars;
+  }
   if (app_in->PreStepDiagnosticsInLoop != nullptr) {
     PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
   }
