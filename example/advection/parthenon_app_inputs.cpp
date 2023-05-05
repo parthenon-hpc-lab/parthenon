@@ -251,7 +251,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
 }
 
 void FillDerivedVars(Mesh *mb, ParameterInput *pin, SimTime const &) {
-  auto &data = mb->mesh_data.Get();
+  auto &data = mb->mesh_data.Get("base");
   const auto &cons_pack = data->PackVariables(std::vector<std::string>{"advected"});
   auto &deriv_pack = data->PackVariables(std::vector<std::string>{"my_derived_var"});
 
