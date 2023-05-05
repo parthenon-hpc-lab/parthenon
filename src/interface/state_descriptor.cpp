@@ -273,6 +273,9 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
     metadataMap_.insert({vid, m});
     refinementFuncMaps_.Register(m, vid.label());
     allocControllerReverseMap_.insert({vid, control_vid});
+    // Add this variable to the set of unique IDs at the
+    // earliest possible time
+    CellVariable<Real>::GetUniqueID(vid.label());
   }
 
   return true;

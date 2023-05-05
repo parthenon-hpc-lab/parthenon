@@ -1,6 +1,9 @@
-
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2023 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,15 +15,23 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "driver/multistage.hpp"
+#ifndef OUTPUTS_PARTHENON_XDMF_HPP_
+#define OUTPUTS_PARTHENON_XDMF_HPP_
+
+// C++ includes
+#include <string>
+#include <vector>
+
+#include "basic_types.hpp"
+#include "outputs/output_utils.hpp"
 
 namespace parthenon {
-
-template class MultiStageDriverGeneric<StagedIntegrator>;
-template class MultiStageBlockTaskDriverGeneric<StagedIntegrator>;
-template class MultiStageDriverGeneric<LowStorageIntegrator>;
-template class MultiStageBlockTaskDriverGeneric<LowStorageIntegrator>;
-template class MultiStageDriverGeneric<ButcherIntegrator>;
-template class MultiStageBlockTaskDriverGeneric<ButcherIntegrator>;
-
+// forward declarations
+namespace XDMF {
+void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
+             const std::vector<OutputUtils::VarInfo> &var_list,
+             const OutputUtils::AllSwarmInfo &all_swarm_info);
+} // namespace XDMF
 } // namespace parthenon
+
+#endif // OUTPUTS_PARTHENON_XDMF_HPP_

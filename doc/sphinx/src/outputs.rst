@@ -43,9 +43,18 @@ look like
 
    <parthenon/output1>
    file_type = hdf5
+   # nonexistent variables/swarms are ignored
    variables = density, velocity, & # comments are still ok
                energy               # notice the & continuation character
                                     # for multiline lists
+   swarms = tracers, photons  # Particle swarms
+   swarm_variables = x, y, z  # swarm variables output for every swarm
+
+   # Each swarm can sepcify in a separate list which additional
+   # variables it would like to output.
+   tracers_variables = x, y, z, rho, id
+   photons_variables = x, y, z, frequency
+
    dt = 1.0
    file_number_width = 6 # default: 5
    use_final_label = true # default: true
@@ -156,12 +165,22 @@ The mandatory ``actions_file`` parameter points to a separate file that defines
 Ascent actions in ``.yaml`` or ``.json`` format, see
 `Ascent documentation <https://ascent.readthedocs.io/en/latest/Actions/index.html>`__ for a complete list of options.
 
+Parthenon currently only publishes cell-centered variables to Ascent.
+Moreover, the published name of the field always starts with the base name (to avoid
+name clashes between multiple fields that may have the same [component] labels).
+If component label(s) are provided, they will be added as a suffix, e.g,.
+``basename_component-label`` for all variable types (even scalars).
+Otherwise, an integer index is added for vectors/tensors with more than one component, i.e.,
+vectors/tensors with a single component and without component labels will not contain a suffix.
+The definition of component labels for variables is typically done by downstream codes
+so that the downstream documention should be consulted for more specific information.
+
 A ``<parthenon/output*>`` block might look like::
 
   <parthenon/output9>
   file_type = ascent
   dt = 1.0
-  actions_files = my_actions.yaml
+  actions_file = my_actions.yaml
 
 see also the advection example
 `input file <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/parthinput.advection>`__ and

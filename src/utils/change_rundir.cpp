@@ -21,7 +21,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <filesystem>
+#include FS_HEADER
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -29,7 +29,7 @@
 #include "defs.hpp"
 #include "utils/error_checking.hpp"
 
-namespace fs = std::filesystem;
+namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
 
@@ -52,7 +52,7 @@ void ChangeRunDir(const char *pdir) {
     // in POSIX, this is 0755 permission, rwxr-xr-x
     auto perms = fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
                  fs::perms::others_read | fs::perms::others_exec;
-    fs::permissions(pdir, perms, fs::perm_options::replace);
+    fs::permissions(pdir, perms);
   }
 
   if (chdir(pdir)) {

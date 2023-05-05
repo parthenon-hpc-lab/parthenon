@@ -223,20 +223,20 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
     }
 
     WHEN("We add the same private swarm to two different packages") {
-      pkg1->AddSwarm("swarm", m_private);
-      pkg2->AddSwarm("swarm", m_private);
-      pkg1->AddSwarmValue("value1", "swarm", m_swarmval);
-      pkg2->AddSwarmValue("value2", "swarm", m_swarmval);
+      pkg1->AddSwarm("myswarm", m_private);
+      pkg2->AddSwarm("myswarm", m_private);
+      pkg1->AddSwarmValue("value1", "myswarm", m_swarmval);
+      pkg2->AddSwarmValue("value2", "myswarm", m_swarmval);
       THEN("We can safely resolve the conflicts") {
         auto pkg3 = ResolvePackages(packages);
         AND_THEN("The names are privately namespaced") {
-          REQUIRE(pkg3->SwarmPresent("package1::swarm"));
-          REQUIRE(pkg3->SwarmPresent("package2::swarm"));
-          REQUIRE(!(pkg3->SwarmPresent("swarm")));
+          REQUIRE(pkg3->SwarmPresent("package1::myswarm"));
+          REQUIRE(pkg3->SwarmPresent("package2::myswarm"));
+          REQUIRE(!(pkg3->SwarmPresent("myswarm")));
         }
         AND_THEN("The swarm values were added appropriately") {
-          REQUIRE(pkg3->SwarmValuePresent("value1", "package1::swarm"));
-          REQUIRE(pkg3->SwarmValuePresent("value2", "package2::swarm"));
+          REQUIRE(pkg3->SwarmValuePresent("value1", "package1::myswarm"));
+          REQUIRE(pkg3->SwarmValuePresent("value2", "package2::myswarm"));
         }
       }
     }
@@ -265,9 +265,9 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
     WHEN("We add an overridable variable and nothing else") {
       pkg1->AddField("dense", m_overridable);
       pkg2->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
-      pkg3->AddSwarm("swarm", m_overridable);
-      pkg3->AddSwarmValue("value1", "swarm", m_swarmval);
-      pkg3->AddSwarmValue("value2", "swarm", m_swarmval);
+      pkg3->AddSwarm("myswarm", m_overridable);
+      pkg3->AddSwarmValue("value1", "myswarm", m_swarmval);
+      pkg3->AddSwarmValue("value2", "myswarm", m_swarmval);
       THEN("We can safely resolve conflicts") {
         auto pkg4 = ResolvePackages(packages);
         AND_THEN("The overridable variables are retained") {
@@ -275,9 +275,9 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           for (const int sid : sparse_ids) {
             REQUIRE(pkg4->FieldPresent("sparse", sid));
           }
-          REQUIRE(pkg4->SwarmPresent("swarm"));
-          REQUIRE(pkg4->SwarmValuePresent("value1", "swarm"));
-          REQUIRE(pkg4->SwarmValuePresent("value2", "swarm"));
+          REQUIRE(pkg4->SwarmPresent("myswarm"));
+          REQUIRE(pkg4->SwarmValuePresent("value1", "myswarm"));
+          REQUIRE(pkg4->SwarmValuePresent("value2", "myswarm"));
         }
       }
     }
@@ -287,11 +287,11 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       pkg2->AddField("dense", m_overridable);
       pkg3->AddField("dense", m_overridable);
 
-      pkg1->AddSwarm("swarm", m_overridable);
-      pkg1->AddSwarmValue("overridable", "swarm", m_swarmval);
-      pkg2->AddSwarm("swarm", m_provides);
-      pkg2->AddSwarmValue("provides", "swarm", m_swarmval);
-      pkg3->AddSwarm("swarm", m_requires);
+      pkg1->AddSwarm("myswarm", m_overridable);
+      pkg1->AddSwarmValue("overridable", "myswarm", m_swarmval);
+      pkg2->AddSwarm("myswarm", m_provides);
+      pkg2->AddSwarmValue("provides", "myswarm", m_swarmval);
+      pkg3->AddSwarm("myswarm", m_requires);
 
       pkg1->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
       pkg2->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
@@ -315,10 +315,10 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         AND_THEN("The provides variables take precedence.") {
           REQUIRE(pkg4->FieldPresent("dense"));
           REQUIRE(pkg4->FieldMetadata("dense") == m_provides);
-          REQUIRE(pkg4->SwarmPresent("swarm"));
-          REQUIRE(pkg4->SwarmMetadata("swarm") == m_provides_swarm);
-          REQUIRE(pkg4->SwarmValuePresent("provides", "swarm"));
-          REQUIRE(!(pkg4->SwarmValuePresent("overridable", "swarm")));
+          REQUIRE(pkg4->SwarmPresent("myswarm"));
+          REQUIRE(pkg4->SwarmMetadata("myswarm") == m_provides_swarm);
+          REQUIRE(pkg4->SwarmValuePresent("provides", "myswarm"));
+          REQUIRE(!(pkg4->SwarmValuePresent("overridable", "myswarm")));
           REQUIRE(pkg4->SparseBaseNamePresent("sparse"));
           for (const int sid : sparse_ids) {
             REQUIRE(pkg4->FieldPresent("sparse", sid));

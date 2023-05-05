@@ -70,9 +70,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 15 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 16 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=33a2e58f9e8970652febcc3564bb8be02186e0eafbde58417bdf9ee89b0ee9a62ad4058acc6bb4ed9a755c092a0d16323884c8bd29336836c8a7040375fb37c6"
+  "SHA512=33f5df050dbca10a4e7ee1788007f3bd00fe549b8f9e0ae8e4175b76f1cdb28190d64c9eecd9daecdcd880aade8614e8b48d534a96a23b59d7356638ef6045f3"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -118,6 +118,11 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
     "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
+
+# Require C++17's std::filesystem
+# This is fully standard, but links a separate library when using old compilers
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+find_package(Filesystem REQUIRED COMPONENTS Experimental Final)
 
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
@@ -289,10 +294,10 @@ if (PARTHENON_ENABLE_HOST_COMM_BUFFERS)
 endif()
 
 # Build Tests and download Catch2
-if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
+if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHENON_ENABLE_REGRESSION_TESTS OR PARTHENON_ENABLE_PERFORMANCE_TESTS)
 
   # if running regression test automatically synch gold standard
-  if (${PARTHENON_ENABLE_REGRESSION_TESTS} AND ${REGRESSION_GOLD_STANDARD_SYNC})
+  if (PARTHENON_ENABLE_REGRESSION_TESTS AND REGRESSION_GOLD_STANDARD_SYNC)
     if (EXISTS ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version)
       file(READ ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version REGRESSION_GOLD_STANDARD_ON_DISK)
     else()
@@ -301,7 +306,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     if (NOT (${REGRESSION_GOLD_STANDARD_ON_DISK} EQUAL ${REGRESSION_GOLD_STANDARD_VER}))
       message(STATUS "Attempting to download latest gold standard files for regression tests. To disable set REGRESSION_GOLD_STANDARD_SYNC=OFF.")
       file(
-        DOWNLOAD https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        DOWNLOAD https://github.com/parthenon-hpc-lab/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
         EXPECTED_HASH ${REGRESSION_GOLD_STANDARD_HASH}
         )
       execute_process(

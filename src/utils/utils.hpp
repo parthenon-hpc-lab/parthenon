@@ -22,9 +22,12 @@
 #include <cctype>
 #include <csignal>
 #include <cstdint>
+#include <cstdio>
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include "constants.hpp"
 #include "error_checking.hpp"
@@ -34,6 +37,33 @@ namespace parthenon {
 
 void ChangeRunDir(const char *pdir);
 void ShowConfig();
+
+// Lets us "printf" into a `std::string` safely. Much more readable
+// than, and just as safe as, streams. std::format (C++20) makes this
+// obselete.
+// Note this isn't very efficient, as it runs through the format
+// string 3 times:
+// 1. To compute string size
+// 2. To actually format the string into the buffer
+// 3. To copy the char* into a std::string
+template <typename... Args>
+std::string StringPrintf(const char *fmt, Args... args) {
+  // Get size of format string, including null terminator by passing
+  // in nullptr as target buffer
+  int size = std::snprintf(nullptr, 0, fmt, std::forward<Args>(args)...) + 1;
+  PARTHENON_REQUIRE(size > 0, "Valid format string");
+  // Can't safely write directly the pointer in a std::string, as
+  // internals of std::string not guranteed by standard.
+  std::vector<char> buffer(size);
+  char *pbuffer = buffer.data();
+  std::snprintf(pbuffer, size, fmt, std::forward<Args>(args)...);
+  // Return cast to string
+  return std::string(pbuffer);
+}
+template <typename... Args>
+std::string StringPrintf(const std::string &fmt, Args... args) {
+  return StringPrintf(fmt.c_str(), std::forward<Args>(args)...);
+}
 
 //----------------------------------------------------------------------------------------
 //! SignalHandler

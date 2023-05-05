@@ -3,6 +3,8 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 830]](https://github.com/parthenon-hpc-lab/parthenon/pull/830) Add particle output
+- [[PR 840]](https://github.com/parthenon-hpc-lab/parthenon/pull/840) Generalized integrators infrastructure in a backwards compatible way
 - [[PR 810]](https://github.com/parthenon-hpc-lab/parthenon/pull/810) Add suport for Ascent in-situ visualization
 - [[PR 831]](https://github.com/parthenon-hpc-lab/parthenon/pull/831) Add set-based MetadataFlag logic
 - [[PR 803]](https://github.com/parthenon-hpc-lab/parthenon/pull/803) Add skeleton for sphinx docs
@@ -16,6 +18,8 @@
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 870]](https://github.com/parthenon-hpc-lab/parthenon/pull/870) Update component label logic in output to include basename
+- [[PR 853]](https://github.com/parthenon-hpc-lab/parthenon/pull/853) Add multiple features and improve the performance of the movie2d.py tool
 - [[PR 775]](https://github.com/parthenon-hpc-lab/parthenon/pull/775) Reorganize some of the bvals and prolongation/restriction machinery
 - [[PR 753]](https://github.com/parthenon-hpc-lab/parthenon/pull/753) Cleanup uniform Cartesian variable names
 - [[PR 769]](https://github.com/parthenon-hpc-lab/parthenon/pull/769) Thread custom prolongation-restriction functions through infrastructure and to userspace
@@ -27,6 +31,10 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 866]](https://github.com/parthenon-hpc-lab/parthenon/pull/866) Add missing guard for HDF5 on restart
+- [[PR 861]](https://github.com/parthenon-hpc-lab/parthenon/pull/861) Fix filesystem include for experimental namespace
+- [[PR 859]](https://github.com/parthenon-hpc-lab/parthenon/pull/859) fix off-by-one indexing error in Ascent ghost mask
+- [[PR 841]](https://github.com/parthenon-hpc-lab/parthenon/pull/841) De-allocate MPI communicators when freeing `Reduction` objects
 - [[PR 851]](https://github.com/parthenon-hpc-lab/parthenon/pull/851) Fix xdmf hyperslab definition for vectors
 - [[PR 843]](https://github.com/parthenon-hpc-lab/parthenon/pull/843) Add guard rails to prolongation/restriction infrastructure
 - [[PR 832]](https://github.com/parthenon-hpc-lab/parthenon/pull/833) Fix movie2d script after it broke due to change in HDF5 format
@@ -50,6 +58,7 @@
 - [[PR 716]](https://github.com/lanl/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 838]](https://github.com/parthenon-hpc-lab/parthenon/pull/838) Move packing logic to from strings to unique IDs
 - [[PR 848]](https://github.com/parthenon-hpc-lab/parthenon/pull/848) Implement recursive mkdir using [`std::filesystem`](https://en.cppreference.com/w/cpp/filesystem) in **src/utils/change_rundir.cpp**
 - [[PR 837]](https://github.com/parthenon-hpc-lab/parthenon/pull/837) Migrate docs to Sphinx
 - [[PR 791]](https://github.com/parthenon-hpc-lab/parthenon/pull/791) Set KOKKOS_DISABLE_WARNINGS=TRUE

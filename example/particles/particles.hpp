@@ -60,7 +60,7 @@ class ParticleDriver : public EvolutionDriver {
   TaskListStatus Step();
 
  private:
-  StagedIntegrator integrator;
+  LowStorageIntegrator integrator;
 };
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,42 +23,67 @@
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "tasks/task_list.hpp"
+#include "time_integration/staged_integrator.hpp"
 
 namespace parthenon {
 
-struct StagedIntegrator {
-  StagedIntegrator() = default;
-  explicit StagedIntegrator(ParameterInput *pin);
-  int nstages;
-  std::vector<Real> beta;
-  std::vector<Real> gam0;
-  std::vector<Real> gam1;
-  std::vector<std::string> stage_name;
-  Real dt;
-};
-
-class MultiStageDriver : public EvolutionDriver {
+template <typename Integrator = LowStorageIntegrator>
+class MultiStageDriverGeneric : public EvolutionDriver {
  public:
-  MultiStageDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : EvolutionDriver(pin, app_in, pm),
-        integrator(std::make_unique<StagedIntegrator>(pin)) {}
+  MultiStageDriverGeneric(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+      : EvolutionDriver(pin, app_in, pm), integrator(std::make_unique<Integrator>(pin)) {}
   // An application driver that derives from this class must define this
   // function, which defines the application specific list of tasks and
   // the dependencies that must be executed.
   virtual TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage) = 0;
-  virtual TaskListStatus Step();
+  virtual TaskListStatus Step() {
+    Kokkos::Profiling::pushRegion("MultiStage_Step");
+    using DriverUtils::ConstructAndExecuteTaskLists;
+    TaskListStatus status;
+    integrator->dt = tm.dt;
+    for (int stage = 1; stage <= integrator->nstages; stage++) {
+      // Clear any initialization info. We should be relying
+      // on only the immediately preceding stage to contain
+      // reasonable data
+      pmesh->SetAllVariablesToInitialized();
+      status = ConstructAndExecuteTaskLists<>(this, stage);
+      if (status != TaskListStatus::complete) break;
+    }
+    Kokkos::Profiling::popRegion(); // MultiStage_Step
+    return status;
+  }
 
  protected:
-  std::unique_ptr<StagedIntegrator> integrator;
+  std::unique_ptr<Integrator> integrator;
 };
+using MultiStageDriver = MultiStageDriverGeneric<LowStorageIntegrator>;
 
-class MultiStageBlockTaskDriver : public MultiStageDriver {
+template <typename Integrator = LowStorageIntegrator>
+class MultiStageBlockTaskDriverGeneric : public MultiStageDriverGeneric<Integrator> {
  public:
-  MultiStageBlockTaskDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : MultiStageDriver(pin, app_in, pm) {}
+  MultiStageBlockTaskDriverGeneric(ParameterInput *pin, ApplicationInput *app_in,
+                                   Mesh *pm)
+      : MultiStageDriverGeneric<Integrator>(pin, app_in, pm) {}
   virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
-  virtual TaskListStatus Step();
+  virtual TaskListStatus Step() {
+    Kokkos::Profiling::pushRegion("MultiStageBlockTask_Step");
+    using DriverUtils::ConstructAndExecuteBlockTasks;
+    TaskListStatus status;
+    Integrator *integrator = (this->integrator).get();
+    SimTime tm = this->tm;
+    integrator->dt = tm.dt;
+    for (int stage = 1; stage <= integrator->nstages; stage++) {
+      status = ConstructAndExecuteBlockTasks<>(this, stage);
+      if (status != TaskListStatus::complete) break;
+    }
+    Kokkos::Profiling::popRegion(); // MultiStageBlockTask_Step
+    return status;
+  }
+
+ protected:
+  std::unique_ptr<Integrator> integrator;
 };
+using MultiStageBlockTaskDriver = MultiStageBlockTaskDriverGeneric<LowStorageIntegrator>;
 
 } // namespace parthenon
 

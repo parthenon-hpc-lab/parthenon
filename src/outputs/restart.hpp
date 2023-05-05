@@ -22,6 +22,7 @@
 #include <cinttypes>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "config.hpp"
@@ -226,6 +227,45 @@ class RestartReader {
 #endif // ENABLE_HDF5
   }
 
+  // Gets the data from a swarm var on current rank. Assumes all
+  // blocks are contiguous. Fills dataVec based on shape from swarmvar
+  // metadata.
+  template <typename T>
+  void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
+                    const std::size_t count, const std::size_t offset, const Metadata &m,
+                    std::vector<T> &dataVec) {
+#ifndef ENABLE_HDF5
+    PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else
+    auto hdl = OpenDataset<T>(swarmname + "/SwarmVars/" + varname);
+
+    constexpr int CHUNK_MAX_DIM = 6;
+    hsize_t h5_offset[CHUNK_MAX_DIM];
+    hsize_t h5_count[CHUNK_MAX_DIM];
+    const auto &shape = m.Shape();
+    const int rank = shape.size();
+    const bool is_vector = m.IsSet(Metadata::Vector);
+    std::size_t total_count = count;
+    for (int i = 0; i < CHUNK_MAX_DIM; ++i) {
+      h5_offset[i] = h5_count[i] = 0;
+    }
+    for (int i = 0; i < rank; ++i) {
+      h5_count[i] = shape[rank - 1 - i];
+      total_count *= shape[rank - 1 - i];
+    }
+    h5_count[rank] = count;
+    h5_offset[rank] = offset;
+    if (dataVec.size() < total_count) { // greedy re-alloc
+      dataVec.resize(total_count);
+    }
+    PARTHENON_HDF5_CHECK(H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, h5_offset,
+                                             NULL, h5_count, NULL));
+    const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(rank + 1, h5_count, NULL));
+    PARTHENON_HDF5_CHECK(H5Dread(hdl.dataset, hdl.type, memspace, hdl.dataspace,
+                                 H5P_DEFAULT, dataVec.data()));
+#endif // ENABLE_HDF5
+  }
+
   // Reads an array dataset from file as a 1D vector.
   template <typename T>
   std::vector<T> ReadDataset(const std::string &name) const {
@@ -273,6 +313,12 @@ class RestartReader {
 
     return res[0];
   }
+
+  // Gets the counts and offsets for MPI ranks for the meshblocks set
+  // by the indexrange. Returns the total count on this rank.
+  std::size_t GetSwarmCounts(const std::string &swarm, const IndexRange &range,
+                             std::vector<std::size_t> &counts,
+                             std::vector<std::size_t> &offsets);
 
   // closes out the restart file
   // perhaps belongs in a destructor?
