@@ -1015,17 +1015,6 @@ void Mesh::EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg) {
   return;
 }
 
-
-//----------------------------------------------------------------------------------------
-// \!fn void Mesh::FillDerivedVars(ParameterInput *pin)
-// \brief Apply MeshBlock::FillDerivedVars
-
-void Mesh::FillDerivedVars(ParameterInput *pin) {
-  for (auto &pmb : block_list) {
-    pmb->FillDerivedVars(pmb.get(), pin);
-  }
-}
-
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin)
 // \brief Apply MeshBlock::UserWorkBeforeOutput

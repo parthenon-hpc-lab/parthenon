@@ -21,6 +21,7 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/variable_pack.hpp"
+#include "kokkos_abstraction.hpp"
 #include "parameter_input.hpp"
 #include "utils/error_checking.hpp"
 
@@ -249,23 +250,21 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   return;
 }
 
-void MeshBlockFillDerivedVars(MeshBlock *pmb, ParameterInput *pin) {
-  auto &data = pmb->meshblock_data.Get();
+void FillDerivedVars(Mesh *mb, ParameterInput *pin, SimTime const &) {
+  auto &data = mb->mesh_data.Get();
+  const auto &cons_pack = data->PackVariables(std::vector<std::string>{"advected"});
+  auto &deriv_pack = data->PackVariables(std::vector<std::string>{"my_derived_var"});
 
-  // get advected variable pack
-  const auto &cons = data->PackVariables(std::vector<std::string>{"advected"});
+  IndexRange ib = data->GetBlockData(0)->GetBoundsI(IndexDomain::entire);
+  IndexRange jb = data->GetBlockData(0)->GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = data->GetBlockData(0)->GetBoundsK(IndexDomain::entire);
 
-  // get derived variable pack
-  auto &deriv = data->PackVariables(std::vector<std::string>{"my_derived_var"});
-
-  // fill derived var (including ghost cells)
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-
-  pmb->par_for(
-      "FillDerived", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "FillDerived", DevExecSpace(), 0, cons_pack.GetDim(5) - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        auto deriv = deriv_pack(b);
+        auto cons = cons_pack(b);
         deriv(0, k, j, i) = std::log10(cons(0, k, j, i) + 1.0e-5);
       });
 }

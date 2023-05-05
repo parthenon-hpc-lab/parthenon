@@ -42,6 +42,9 @@ struct ApplicationInput {
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       PostStepMeshUserWorkInLoop = nullptr;
 
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> FillDerivedVars =
+      nullptr;
+
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       PreStepDiagnosticsInLoop = nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
@@ -56,8 +59,6 @@ struct ApplicationInput {
       InitApplicationMeshBlockData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> MeshBlockFillDerivedVars =
-      nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> MeshBlockUserWorkBeforeOutput =
       nullptr;
 };
