@@ -62,10 +62,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real cfl = pin->GetOrAddReal("Particles", "cfl", 0.3);
   pkg->AddParam<>("cfl", cfl);
 
-  auto write_particle_log_nth_cycle =
-      pin->GetOrAddInteger("Particles", "write_particle_log_nth_cycle", 0);
-  pkg->AddParam<>("write_particle_log_nth_cycle", write_particle_log_nth_cycle);
-
   std::string swarm_name = "my_particles";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None, Metadata::Independent});
   pkg->AddSwarm(swarm_name, swarm_metadata);
@@ -153,6 +149,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
 
   const auto &ic = particles_ic;
+
+  const bool no_particles = pin->GetOrAddBoolean("Particles", "disable", false);
+  if (no_particles) return;
 
   // determine which particles belong to this block
   size_t num_particles_this_block = 0;
