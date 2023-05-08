@@ -18,6 +18,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "globals.hpp"
@@ -104,6 +105,14 @@ std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
   std::size_t out = 0;
   tot_count = 0;
 #ifdef MPI_PARALLEL
+  // Need to use sizeof here because unsigned long long and unsigned
+  // long are identical under the hood but registered as different
+  // types
+  static_assert(std::is_integral<std::size_t>::value &&
+                    !std::is_signed<std::size_t>::value,
+                "size_t is unsigned and integral");
+  static_assert(sizeof(std::size_t) == sizeof(unsigned long long int),
+                "MPI_UNSIGNED_LONG_LONG same as size_t");
   std::vector<std::size_t> buffer(Globals::nranks);
   MPI_Allgather(&local, 1, MPI_UNSIGNED_LONG_LONG, buffer.data(), 1,
                 MPI_UNSIGNED_LONG_LONG, MPI_COMM_WORLD);
@@ -117,6 +126,20 @@ std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
   tot_count = local;
 #endif // MPI_PARALLEL
   return out;
+}
+std::size_t MPISum(std::size_t val) {
+#ifdef MPI_PARALLEL
+  // Need to use sizeof here because unsigned long long and unsigned
+  // long are identical under the hood but registered as different
+  // types
+  static_assert(std::is_integral<std::size_t>::value &&
+                    !std::is_signed<std::size_t>::value,
+                "size_t is unsigned and integral");
+  static_assert(sizeof(std::size_t) == sizeof(unsigned long long int),
+                "MPI_UNSIGNED_LONG_LONG same as size_t");
+  MPI_Allreduce(&val, &val, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+#endif
+  return val;
 }
 
 } // namespace OutputUtils

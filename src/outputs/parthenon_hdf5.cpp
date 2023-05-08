@@ -589,6 +589,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                 global_count, pl_xfer);
 
     const H5G g_var = MakeGroup(g_swm, "SwarmVars");
+    if (swinfo.global_count == 0) {
+      continue;
+    }
     auto SetCounts = [&](const SwarmInfo &swinfo, const SwarmVarInfo &vinfo) {
       const int rank = vinfo.tensor_rank;
       for (int i = 0; i < 6; ++i) {
