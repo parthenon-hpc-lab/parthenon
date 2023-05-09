@@ -263,12 +263,11 @@ class VariablePack {
 
   VariablePack() = default;
 
-  VariablePack(const ViewOfParArrays<T> &view0, const ViewOfParArrays<T> &view1,
-               const ViewOfParArrays<T> &view2, const ParArray1D<int> &sparse_ids,
+  VariablePack(const ViewOfParArrays<T> &view, const ParArray1D<int> &sparse_ids,
                const ParArray1D<int> &vector_component, const ParArray1D<bool> &allocated,
                const std::array<int, 4> &dims)
-      : v_{view0, view1, view2}, sparse_ids_(sparse_ids),
-        vector_component_(vector_component), allocated_(allocated), dims_(dims),
+      : v_(view), sparse_ids_(sparse_ids), vector_component_(vector_component),
+        allocated_(allocated), dims_(dims),
         ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {
     // don't check length of allocation_status_, because it can be different from
     // dims_[3]. There is one entry in allocation_status_ per VARIABLE, but dims_[3] is
@@ -311,31 +310,31 @@ class VariablePack {
   KOKKOS_FORCEINLINE_FUNCTION
   ParArray3D<T, VariableState> &operator()(TopologicalElement el, const int n) const {
     assert(IsAllocated(n));
-    assert(v_[static_cast<std::size_t>(el) % 3](n).topological_type ==
+    assert(v_((static_cast<std::size_t>(el) % 3) * dims_[3] + n).topological_type ==
            GetTopologicalType(el));
-    return v_[static_cast<std::size_t>(el) % 3](n);
+    return v_((static_cast<std::size_t>(el) % 3) * dims_[3] + n);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   ParArray3D<T, VariableState> &operator()(const int n) const {
     assert(IsAllocated(n));
-    assert(v_[0](n).topological_type == TopologicalType::Cell);
-    return v_[0](n);
+    assert(v_(n).topological_type == TopologicalType::Cell);
+    return v_(n);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(TopologicalElement el, const int n, const int k, const int j,
                 const int i) const {
     assert(IsAllocated(n));
-    assert(v_[static_cast<std::size_t>(el) % 3](n).topological_type ==
+    assert(v_((static_cast<std::size_t>(el) % 3) * dims_[3] + n).topological_type ==
            GetTopologicalType(el));
-    return v_[static_cast<std::size_t>(el) % 3](n)(k, j, i);
+    return v_((static_cast<std::size_t>(el) % 3) * dims_[3] + n)(k, j, i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(const int n, const int k, const int j, const int i) const {
     assert(IsAllocated(n));
-    assert(v_[0](n).topological_type == TopologicalType::Cell);
-    return v_[0](n)(k, j, i);
+    assert(v_(n).topological_type == TopologicalType::Cell);
+    return v_(n)(k, j, i);
   }
 
   // This is here so code templated on VariablePack and MeshBlockPack doesn't need to
@@ -394,7 +393,7 @@ class VariablePack {
   ParArray0D<Coordinates_t> coords;
 
  protected:
-  std::array<ViewOfParArrays<T>, 3> v_;
+  ViewOfParArrays<T> v_;
   ParArray1D<int> sparse_ids_;
   ParArray1D<int> vector_component_;
   ParArray1D<bool> allocated_;
@@ -435,16 +434,14 @@ class VariableFluxPack : public VariablePack<T> {
 
  public:
   VariableFluxPack() = default;
-  VariableFluxPack(const ViewOfParArrays<T> &view0, const ViewOfParArrays<T> &view1,
-                   const ViewOfParArrays<T> &view2, const ViewOfParArrays<T> &f0,
+  VariableFluxPack(const ViewOfParArrays<T> &view, const ViewOfParArrays<T> &f0,
                    const ViewOfParArrays<T> &f1, const ViewOfParArrays<T> &f2,
                    const ParArray1D<bool> &flux_allocated,
                    const ParArray1D<int> &sparse_ids,
                    const ParArray1D<int> &vector_component,
                    const ParArray1D<bool> &allocated, const std::array<int, 4> &dims,
                    int fsize)
-      : VariablePack<T>(view0, view1, view2, sparse_ids, vector_component, allocated,
-                        dims),
+      : VariablePack<T>(view, sparse_ids, vector_component, allocated, dims),
         f_({f0, f1, f2}), flux_allocated_(flux_allocated), fsize_(fsize) {
     // don't check flux_allocation_status (see note in constructor of VariablePack)
     assert(fsize == f0.extent(0));
@@ -557,20 +554,16 @@ void AppendSparseBaseMap(const VariableVector<T> &vars, PackIndexMap *pvmap) {
 }
 
 template <typename T>
-void FillVarView(const VariableVector<T> &vars, bool coarse, ViewOfParArrays<T> &cv0_out,
-                 ViewOfParArrays<T> &cv1_out, ViewOfParArrays<T> &cv2_out,
-                 ParArray1D<int> &sparse_id_out, ParArray1D<int> &vector_component_out,
-                 ParArray1D<bool> &allocated_out, PackIndexMap *pvmap) {
+void FillVarView(const VariableVector<T> &vars, int vsize, bool coarse,
+                 ViewOfParArrays<T> &cv_out, ParArray1D<int> &sparse_id_out,
+                 ParArray1D<int> &vector_component_out, ParArray1D<bool> &allocated_out,
+                 PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
-  assert(cv0_out.size() == sparse_id_out.size());
-  assert(cv1_out.size() == sparse_id_out.size());
-  assert(cv2_out.size() == sparse_id_out.size());
-  assert(cv0_out.size() == vector_component_out.size());
+  assert(cv_out.size() == sparse_id_out.size());
+  assert(cv_out.size() == vector_component_out.size());
 
-  auto host_cv0 = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv0_out);
-  auto host_cv1 = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv1_out);
-  auto host_cv2 = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv2_out);
+  auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
   auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_id_out);
   auto host_vc = Kokkos::create_mirror_view(Kokkos::HostSpace(), vector_component_out);
   auto host_al = Kokkos::create_mirror_view(Kokkos::HostSpace(), allocated_out);
@@ -592,17 +585,15 @@ void FillVarView(const VariableVector<T> &vars, bool coarse, ViewOfParArrays<T> 
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
             if (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) {
-              host_cv0(vindex) =
+              host_cv(vindex) =
                   coarse ? v->coarse_s.Get(0, k, j, i) : v->data.Get(0, k, j, i);
-              host_cv1(vindex) =
+              host_cv(vindex + vsize) =
                   coarse ? v->coarse_s.Get(1, k, j, i) : v->data.Get(1, k, j, i);
-              host_cv2(vindex) =
+              host_cv(vindex + 2 * vsize) =
                   coarse ? v->coarse_s.Get(2, k, j, i) : v->data.Get(2, k, j, i);
             } else {
-              host_cv0(vindex) =
+              host_cv(vindex) =
                   coarse ? v->coarse_s.Get(0, k, j, i) : v->data.Get(0, k, j, i);
-              host_cv1(vindex) = host_cv0(vindex);
-              host_cv2(vindex) = host_cv0(vindex);
             }
           }
           vindex++;
@@ -623,9 +614,7 @@ void FillVarView(const VariableVector<T> &vars, bool coarse, ViewOfParArrays<T> 
 
   AppendSparseBaseMap(vars, pvmap);
 
-  Kokkos::deep_copy(cv0_out, host_cv0);
-  Kokkos::deep_copy(cv1_out, host_cv1);
-  Kokkos::deep_copy(cv2_out, host_cv2);
+  Kokkos::deep_copy(cv_out, host_cv);
   Kokkos::deep_copy(sparse_id_out, host_sp);
   Kokkos::deep_copy(vector_component_out, host_vc);
 #ifdef ENABLE_SPARSE
@@ -737,10 +726,13 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
 
   // count up the size
   int vsize = 0;
+  bool extra_components = false;
   for (const auto &v : vars) {
     // we also count unallocated vars because the total size needs to be uniform across
     // meshblocks that meshblock packs will work
     vsize += v->NumComponents();
+    extra_components =
+        extra_components || v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge);
   }
   int fsize = 0;
   for (const auto &v : flux_vars) {
@@ -750,9 +742,7 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
   }
 
   // make the outer view
-  ViewOfParArrays<T> cv0("MakeFluxPack::cv0", vsize);
-  ViewOfParArrays<T> cv1("MakeFluxPack::cv1", vsize);
-  ViewOfParArrays<T> cv2("MakeFluxPack::cv2", vsize);
+  ViewOfParArrays<T> cv("MakeFluxPack::cv", vsize * (extra_components ? 3 : 1));
   ViewOfParArrays<T> f1("MakeFluxPack::f1", fsize);
   ViewOfParArrays<T> f2("MakeFluxPack::f2", fsize);
   ViewOfParArrays<T> f3("MakeFluxPack::f3", fsize);
@@ -771,8 +761,7 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
     }
     cv_size[3] = vsize;
 
-    FillVarView(vars, false, cv0, cv1, cv2, sparse_id, vector_component, allocated,
-                pvmap);
+    FillVarView(vars, vsize, false, cv, sparse_id, vector_component, allocated, pvmap);
 
     if (fsize > 0) {
       // add fluxes
@@ -781,8 +770,8 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
     }
   }
 
-  return VariableFluxPack<T>(cv0, cv1, cv2, f1, f2, f3, flux_allocated, sparse_id,
-                             vector_component, allocated, cv_size, fsize);
+  return VariableFluxPack<T>(cv, f1, f2, f3, flux_allocated, sparse_id, vector_component,
+                             allocated, cv_size, fsize);
 }
 
 template <typename T>
@@ -797,16 +786,17 @@ VariablePack<T> MakePack(const VarListWithKeys<T> &var_list, bool coarse,
 
   // count up the size
   int vsize = 0;
+  bool extra_components = false;
   for (const auto &v : vars) {
     // we also count unallocated vars because the total size needs to be uniform across
     // meshblocks that meshblock packs will work
     vsize += v->NumComponents();
+    extra_components =
+        extra_components || v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge);
   }
 
   // make the outer view
-  ViewOfParArrays<T> cv0("MakePack::cv0", vsize);
-  ViewOfParArrays<T> cv1("MakePack::cv1", vsize);
-  ViewOfParArrays<T> cv2("MakePack::cv2", vsize);
+  ViewOfParArrays<T> cv("MakePack::cv", vsize * (extra_components ? 3 : 1));
   ParArray1D<int> sparse_id("MakePack::sparse_id", vsize);
   ParArray1D<int> vector_component("MakePack::vector_component", vsize);
   ParArray1D<bool> allocated("MakePack::allocated", vsize);
@@ -821,11 +811,10 @@ VariablePack<T> MakePack(const VarListWithKeys<T> &var_list, bool coarse,
     }
     cv_size[3] = vsize;
 
-    FillVarView(vars, coarse, cv0, cv1, cv2, sparse_id, vector_component, allocated,
-                pvmap);
+    FillVarView(vars, vsize, coarse, cv, sparse_id, vector_component, allocated, pvmap);
   }
 
-  return VariablePack<T>(cv0, cv1, cv2, sparse_id, vector_component, allocated, cv_size);
+  return VariablePack<T>(cv, sparse_id, vector_component, allocated, cv_size);
 }
 
 template <typename T>
