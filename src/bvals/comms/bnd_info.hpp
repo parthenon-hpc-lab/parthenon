@@ -51,17 +51,6 @@ struct OffsetIndices {
 };
 
 struct BndInfo {
-  int si = 0;
-  int ei = 0;
-  int sj = 0;
-  int ej = 0;
-  int sk = 0;
-  int ek = 0;
-
-  int Nt = 0;
-  int Nu = 0;
-  int Nv = 0;
-
   int ntopological_elements = 1;
   Indexer6D idxer[3];
 

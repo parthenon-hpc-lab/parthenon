@@ -232,9 +232,9 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 
   out.buf = buf->buffer();
 
-  out.Nv = v->GetDim(4);
-  out.Nu = v->GetDim(5);
-  out.Nt = v->GetDim(6);
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
 
   int mylevel = pmb->loc.level;
   out.coords = pmb->coords;
@@ -254,29 +254,19 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     if (nb.snb.level == mylevel) {
-      out.idxer[idx] =
-          CalcLoadIndices(nb.ni, false, el, {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+      out.idxer[idx] = CalcLoadIndices(nb.ni, false, el, {Nt, Nu, Nv}, pmb->cellbounds);
       out.var = v->data.Get();
     } else if (nb.snb.level < mylevel) {
       // "Same" logic is the same for loading to a coarse buffer, just using
       // c_cellbounds
-      out.idxer[idx] =
-          CalcLoadIndices(nb.ni, false, el, {out.Nt, out.Nu, out.Nv}, pmb->c_cellbounds);
+      out.idxer[idx] = CalcLoadIndices(nb.ni, false, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       out.refinement_op = RefinementOp_t::Restriction;
       out.var = v->coarse_s.Get();
     } else {
-      out.idxer[idx] =
-          CalcLoadIndices(nb.ni, true, el, {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+      out.idxer[idx] = CalcLoadIndices(nb.ni, true, el, {Nt, Nu, Nv}, pmb->cellbounds);
       out.var = v->data.Get();
     }
   }
-  // Still don't understand why, but these have to be set
-  out.si = out.idxer[0].template StartIdx<5>();
-  out.ei = out.idxer[0].template EndIdx<5>();
-  out.sj = out.idxer[0].template StartIdx<4>();
-  out.ej = out.idxer[0].template EndIdx<4>();
-  out.sk = out.idxer[0].template StartIdx<3>();
-  out.ek = out.idxer[0].template EndIdx<3>();
   return out;
 }
 
@@ -296,9 +286,9 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
 
-  out.Nv = v->GetDim(4);
-  out.Nu = v->GetDim(5);
-  out.Nt = v->GetDim(6);
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
 
   using TE = TopologicalElement;
   std::vector<TopologicalElement> elements = {TE::C};
@@ -313,15 +303,15 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     int idx = static_cast<int>(el) % 3;
     if (nb.snb.level == mylevel) {
       out.var = v->data.Get();
-      out.idxer[idx] = CalcSetIndices(nb.ni, pmb->loc, false, false, el,
-                                      {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+      out.idxer[idx] = CalcSetIndices(nb.ni, pmb->loc, false, false, el, {Nt, Nu, Nv},
+                                      pmb->cellbounds);
     } else if (nb.snb.level < mylevel) {
-      out.idxer[idx] = CalcSetIndices(nb.ni, pmb->loc, true, false, el,
-                                      {out.Nt, out.Nu, out.Nv}, pmb->c_cellbounds);
+      out.idxer[idx] = CalcSetIndices(nb.ni, pmb->loc, true, false, el, {Nt, Nu, Nv},
+                                      pmb->c_cellbounds);
       out.var = v->coarse_s.Get();
     } else {
-      out.idxer[idx] = CalcSetIndices(nb.ni, pmb->loc, false, true, el,
-                                      {out.Nt, out.Nu, out.Nv}, pmb->cellbounds);
+      out.idxer[idx] =
+          CalcSetIndices(nb.ni, pmb->loc, false, true, el, {Nt, Nu, Nv}, pmb->cellbounds);
       out.var = v->data.Get();
     }
   }
@@ -336,15 +326,6 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   } else {
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
-
-  // Still don't understand why, but these have to be set
-  out.si = out.idxer[0].template StartIdx<5>();
-  out.ei = out.idxer[0].template EndIdx<5>();
-  out.sj = out.idxer[0].template StartIdx<4>();
-  out.ej = out.idxer[0].template EndIdx<4>();
-  out.sk = out.idxer[0].template StartIdx<3>();
-  out.ek = out.idxer[0].template EndIdx<3>();
-
   return out;
 }
 
@@ -365,46 +346,42 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   // This is the index range for the coarse field
-  out.sk = kb.s;
-  out.ek = out.sk + std::max((kb.e - kb.s + 1) / 2, 1) - 1;
-  out.sj = jb.s;
-  out.ej = out.sj + std::max((jb.e - jb.s + 1) / 2, 1) - 1;
-  out.si = ib.s;
-  out.ei = out.si + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
+  int sk = kb.s;
+  int ek = sk + std::max((kb.e - kb.s + 1) / 2, 1) - 1;
+  int sj = jb.s;
+  int ej = sj + std::max((jb.e - jb.s + 1) / 2, 1) - 1;
+  int si = ib.s;
+  int ei = si + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
 
   if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
     out.dir = X1DIR;
     if (nb.fid == BoundaryFace::inner_x1)
-      out.si = ib.s;
+      si = ib.s;
     else
-      out.si = ib.e + 1;
-    out.ei = out.si;
+      si = ib.e + 1;
+    ei = si;
   } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
     out.dir = X2DIR;
     if (nb.fid == BoundaryFace::inner_x2)
-      out.sj = jb.s;
+      sj = jb.s;
     else
-      out.sj = jb.e + 1;
-    out.ej = out.sj;
+      sj = jb.e + 1;
+    ej = sj;
   } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
     out.dir = X3DIR;
     if (nb.fid == BoundaryFace::inner_x3)
-      out.sk = kb.s;
+      sk = kb.s;
     else
-      out.sk = kb.e + 1;
-    out.ek = out.sk;
+      sk = kb.e + 1;
+    ek = sk;
   } else {
     PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
   }
 
   out.var = v->flux[out.dir];
-
-  out.Nv = out.var.GetDim(4);
-  out.Nu = out.var.GetDim(5);
-  out.Nt = out.var.GetDim(6);
   out.coords = pmb->coords;
-  out.idxer[0] = Indexer6D({0, out.Nt - 1}, {0, out.Nu - 1}, {0, out.Nv - 1},
-                           {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+  out.idxer[0] = Indexer6D({0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
+                           {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   return out;
 }
 
@@ -425,67 +402,63 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  out.sk = kb.s;
-  out.sj = jb.s;
-  out.si = ib.s;
-  out.ek = kb.e;
-  out.ej = jb.e;
-  out.ei = ib.e;
+  int sk = kb.s;
+  int sj = jb.s;
+  int si = ib.s;
+  int ek = kb.e;
+  int ej = jb.e;
+  int ei = ib.e;
   if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
     out.dir = X1DIR;
     if (nb.fid == BoundaryFace::inner_x1)
-      out.ei = out.si;
+      ei = si;
     else
-      out.si = ++out.ei;
+      si = ++ei;
     if (nb.ni.fi1 == 0)
-      out.ej -= pmb->block_size.nx2 / 2;
+      ej -= pmb->block_size.nx2 / 2;
     else
-      out.sj += pmb->block_size.nx2 / 2;
+      sj += pmb->block_size.nx2 / 2;
     if (nb.ni.fi2 == 0)
-      out.ek -= pmb->block_size.nx3 / 2;
+      ek -= pmb->block_size.nx3 / 2;
     else
-      out.sk += pmb->block_size.nx3 / 2;
+      sk += pmb->block_size.nx3 / 2;
   } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
     out.dir = X2DIR;
     if (nb.fid == BoundaryFace::inner_x2)
-      out.ej = out.sj;
+      ej = sj;
     else
-      out.sj = ++out.ej;
+      sj = ++ej;
     if (nb.ni.fi1 == 0)
-      out.ei -= pmb->block_size.nx1 / 2;
+      ei -= pmb->block_size.nx1 / 2;
     else
-      out.si += pmb->block_size.nx1 / 2;
+      si += pmb->block_size.nx1 / 2;
     if (nb.ni.fi2 == 0)
-      out.ek -= pmb->block_size.nx3 / 2;
+      ek -= pmb->block_size.nx3 / 2;
     else
-      out.sk += pmb->block_size.nx3 / 2;
+      sk += pmb->block_size.nx3 / 2;
   } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
     out.dir = X3DIR;
     if (nb.fid == BoundaryFace::inner_x3)
-      out.ek = out.sk;
+      ek = sk;
     else
-      out.sk = ++out.ek;
+      sk = ++ek;
     if (nb.ni.fi1 == 0)
-      out.ei -= pmb->block_size.nx1 / 2;
+      ei -= pmb->block_size.nx1 / 2;
     else
-      out.si += pmb->block_size.nx1 / 2;
+      si += pmb->block_size.nx1 / 2;
     if (nb.ni.fi2 == 0)
-      out.ej -= pmb->block_size.nx2 / 2;
+      ej -= pmb->block_size.nx2 / 2;
     else
-      out.sj += pmb->block_size.nx2 / 2;
+      sj += pmb->block_size.nx2 / 2;
   } else {
     PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
   }
 
   out.var = v->flux[out.dir];
 
-  out.Nv = out.var.GetDim(4);
-  out.Nu = out.var.GetDim(5);
-  out.Nt = out.var.GetDim(6);
-
   out.coords = pmb->coords;
-  out.idxer[0] = Indexer6D({0, out.Nt - 1}, {0, out.Nu - 1}, {0, out.Nv - 1},
-                           {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+  out.idxer[0] = Indexer6D({0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
+                           {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   return out;
 }
 
@@ -500,18 +473,18 @@ BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
     return out;
   }
   out.allocated = true;
-  CalcIndicesRestrict(no.nk, no.nj, no.ni, out.si, out.ei, out.sj, out.ej, out.sk, out.ek,
-                      nb, pmb);
+  int si, ei, sj, ej, sk, ek;
+  CalcIndicesRestrict(no.nk, no.nj, no.ni, si, ei, sj, ej, sk, ek, nb, pmb);
   out.coords = pmb->coords;
   out.coarse_coords = pmb->pmr->GetCoarseCoords();
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
   out.refinement_op = RefinementOp_t::Restriction;
-  out.Nt = v->GetDim(6);
-  out.Nu = v->GetDim(5);
-  out.Nv = v->GetDim(4);
-  out.idxer[0] = Indexer6D({0, out.Nt - 1}, {0, out.Nu - 1}, {0, out.Nv - 1},
-                           {out.sk, out.ek}, {out.sj, out.ej}, {out.si, out.ei});
+  int Nt = v->GetDim(6);
+  int Nu = v->GetDim(5);
+  int Nv = v->GetDim(4);
+  out.idxer[0] =
+      Indexer6D({0, Nt - 1}, {0, Nu - 1}, {0, Nv - 1}, {sk, ek}, {sj, ej}, {si, ei});
   return out;
 }
 } // namespace parthenon
