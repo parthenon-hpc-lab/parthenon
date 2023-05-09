@@ -276,7 +276,7 @@ class VariablePack {
     assert(dims_[0] > 1);
     assert(dims_[1] > 0);
     assert(dims_[2] > 0);
-    assert(dims_[3] == v_[0].extent(0));
+    assert((dims_[3] == v_.extent(0)) || (dims_[3] * 3 == v_.extent(0)));
     assert(dims_[3] == sparse_ids_.extent(0));
     assert(dims_[3] == vector_component_.extent(0));
   }
@@ -559,9 +559,9 @@ void FillVarView(const VariableVector<T> &vars, int vsize, bool coarse,
                  ParArray1D<int> &vector_component_out, ParArray1D<bool> &allocated_out,
                  PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
-
-  assert(cv_out.size() == sparse_id_out.size());
-  assert(cv_out.size() == vector_component_out.size());
+  assert(vsize == cv_out.size() || 3 * vsize == cv_out.size());
+  assert(vsize == sparse_id_out.size());
+  assert(vsize == vector_component_out.size());
 
   auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
   auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_id_out);
