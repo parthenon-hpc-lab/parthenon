@@ -13,6 +13,7 @@
 #ifndef UTILS_INDEXER_HPP_
 #define UTILS_INDEXER_HPP_
 
+#include <array>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -21,17 +22,23 @@ namespace parthenon {
 
 template <class... Ts>
 struct Indexer {
+  KOKKOS_INLINE_FUNCTION
   Indexer() : N{}, start{}, _size{} {};
 
+  KOKKOS_INLINE_FUNCTION
   explicit Indexer(std::pair<Ts, Ts>... Ns)
       : N{GetFactors(std::make_tuple((Ns.second - Ns.first + 1)...),
                      std::make_index_sequence<sizeof...(Ts)>())},
         start{Ns.first...}, end{Ns.second...}, _size(((Ns.second - Ns.first + 1) * ...)) {
   }
 
+  KOKKOS_INLINE_FUNCTION
   Indexer(Indexer &&) = default;
+  KOKKOS_INLINE_FUNCTION
   Indexer(const Indexer &) = default;
+  KOKKOS_INLINE_FUNCTION
   Indexer &operator=(const Indexer &) = default;
+  KOKKOS_INLINE_FUNCTION
   Indexer &operator=(Indexer &&) = default;
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -70,9 +77,9 @@ struct Indexer {
   }
 
   template <std::size_t... Is>
-  KOKKOS_FORCEINLINE_FUNCTION static std::tuple<Ts...>
+  KOKKOS_FORCEINLINE_FUNCTION static std::array<int, sizeof...(Ts)>
   GetFactors(std::tuple<Ts...> Nt, std::index_sequence<Is...>) {
-    std::tuple<Ts...> N;
+    std::array<int, sizeof...(Ts)> N;
     int cur = 1;
     (
         [&] {
@@ -84,9 +91,9 @@ struct Indexer {
     return N;
   }
 
-  std::tuple<Ts...> N;
-  std::tuple<Ts...> start;
-  std::tuple<Ts...> end;
+  std::array<int, sizeof...(Ts)> N;
+  std::array<int, sizeof...(Ts)> start;
+  std::array<int, sizeof...(Ts)> end;
   std::size_t _size;
 };
 
