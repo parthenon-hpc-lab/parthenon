@@ -44,7 +44,7 @@ class Packages_t {
   // Returns a sub-Dictionary containing just pointers to packages of type T.
   // Dictionary is a *new copy*, and members are bare pointers, not shared_ptr.
   template <typename T>
-  const std::vector<T*> AllPackagesOfType() const {
+  const Dictionary<T*> AllPackagesOfType() const {
     Dictionary<T*> sub_dict;
     for (auto package : packages_) {
       if (T *cast_package = dynamic_cast<T*>(package.second.get())) {
@@ -61,7 +61,7 @@ class Packages_t {
     std::vector<T*> sub_list;
     for (auto package : packages_) {
       if (T *cast_package = dynamic_cast<T*>(package.second.get())) {
-        sub_list.append(cast_package);
+        sub_list.push_back(cast_package);
       }
     }
     return sub_list;
