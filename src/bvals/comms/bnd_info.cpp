@@ -92,7 +92,7 @@ Indexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalElement el,
                    {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-template<InterfaceType INTERFACE> 
+template<InterfaceType INTERFACE, bool RESTRICT = false> 
 Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
                          TopologicalElement el, std::array<int, 3> tensor_shape,
                          const parthenon::IndexShape &shape) {
@@ -128,9 +128,9 @@ Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
       ++off_idx;
     } else if (block_offset[dir] > 0) {
       s[dir] = bounds[dir].e + 1;
-      e[dir] = bounds[dir].e + Globals::nghost;
+      e[dir] = bounds[dir].e + (RESTRICT ? Globals::nghost / 2 : Globals::nghost);
     } else {
-      s[dir] = bounds[dir].s - Globals::nghost;
+      s[dir] = bounds[dir].s - (RESTRICT ? Globals::nghost / 2 : Globals::nghost);
       e[dir] = bounds[dir].s - 1;
     }
   }
@@ -488,7 +488,7 @@ BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
   int Nt = v->GetDim(6);
   int Nu = v->GetDim(5);
   int Nv = v->GetDim(4);
-  out.idxer[0] =
+  out.prores_idxer[0] =
       Indexer6D({0, Nt - 1}, {0, Nu - 1}, {0, Nv - 1}, {sk, ek}, {sj, ej}, {si, ei});
   return out;
 }
