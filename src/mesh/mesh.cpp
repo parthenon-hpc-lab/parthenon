@@ -620,9 +620,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   loclist = std::vector<LogicalLocation>(nbtotal);
 
   const auto blockSize = rr.GetAttrVec<int>("Info", "MeshBlockSize");
-  block_size.nx1 = blockSize[0];
-  block_size.nx2 = blockSize[1];
-  block_size.nx3 = blockSize[2];
+  const auto includesGhost = rr.GetAttr<int>("Info", "IncludesGhost");
+  const auto nGhost = rr.GetAttr<int>("Info", "NGhost");
+  block_size.nx1 = blockSize[0] - (blockSize[0] > 1)*includesGhost*nGhost;
+  block_size.nx2 = blockSize[1] - (blockSize[1] > 1)*includesGhost*nGhost;
+  block_size.nx3 = blockSize[2] - (blockSize[2] > 1)*includesGhost*nGhost;
 
   // calculate the number of the blocks
   nrbx1 = mesh_size.nx1 / block_size.nx1;
