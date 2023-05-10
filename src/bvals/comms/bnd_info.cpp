@@ -35,9 +35,13 @@
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
+namespace {
+  enum class InterfaceType {SameToSame, CoarseToFine, FineToCoarse}; 
+}
 namespace parthenon {
 
-Indexer6D CalcLoadIndices(const NeighborIndexes &ni, bool c2f, TopologicalElement el,
+template<InterfaceType INTERFACE> 
+Indexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalElement el,
                           std::array<int, 3> tensor_shape,
                           const parthenon::IndexShape &shape) {
   IndexDomain interior = IndexDomain::interior;
@@ -60,7 +64,7 @@ Indexer6D CalcLoadIndices(const NeighborIndexes &ni, bool c2f, TopologicalElemen
     if (block_offset[dir] == 0) {
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
-      if (c2f &&
+      if ((INTERFACE == InterfaceType::CoarseToFine) &&
           bounds[dir].e > bounds[dir].s) { // Check that this dimension has ghost zones
         // We are sending from a coarser level to the coarse buffer of a finer level,
         // so we need to only send the approximately half of the indices that overlap
@@ -88,8 +92,9 @@ Indexer6D CalcLoadIndices(const NeighborIndexes &ni, bool c2f, TopologicalElemen
                    {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc, bool c2f,
-                         bool f2c, TopologicalElement el, std::array<int, 3> tensor_shape,
+template<InterfaceType INTERFACE> 
+Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
+                         TopologicalElement el, std::array<int, 3> tensor_shape,
                          const parthenon::IndexShape &shape) {
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
@@ -112,10 +117,10 @@ Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc, bool c2
     if (block_offset[dir] == 0) {
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
-      if (c2f && bounds[dir].e > bounds[dir].s) {
+      if ((INTERFACE == InterfaceType::CoarseToFine) && bounds[dir].e > bounds[dir].s) {
         s[dir] -= logic_loc[dir] % 2 == 1 ? Globals::nghost : 0;
         e[dir] += logic_loc[dir] % 2 == 0 ? Globals::nghost : 0;
-      } else if (f2c) {
+      } else if (INTERFACE == InterfaceType::FineToCoarse) {
         const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
         s[dir] += face_offset[off_idx] == 1 ? half_grid : 0;
         e[dir] -= face_offset[off_idx] == 0 ? half_grid : 0;
@@ -254,16 +259,16 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     if (nb.snb.level == mylevel) {
-      out.idxer[idx] = CalcLoadIndices(nb.ni, false, el, {Nt, Nu, Nv}, pmb->cellbounds);
+      out.idxer[idx] = CalcLoadIndices<InterfaceType::SameToSame>(nb.ni, el, {Nt, Nu, Nv}, pmb->cellbounds);
       out.var = v->data.Get();
     } else if (nb.snb.level < mylevel) {
       // "Same" logic is the same for loading to a coarse buffer, just using
       // c_cellbounds
-      out.idxer[idx] = CalcLoadIndices(nb.ni, false, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+      out.idxer[idx] = CalcLoadIndices<InterfaceType::FineToCoarse>(nb.ni, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       out.refinement_op = RefinementOp_t::Restriction;
       out.var = v->coarse_s.Get();
     } else {
-      out.idxer[idx] = CalcLoadIndices(nb.ni, true, el, {Nt, Nu, Nv}, pmb->cellbounds);
+      out.idxer[idx] = CalcLoadIndices<InterfaceType::CoarseToFine>(nb.ni, el, {Nt, Nu, Nv}, pmb->cellbounds);
       out.var = v->data.Get();
     }
   }
@@ -303,15 +308,15 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     int idx = static_cast<int>(el) % 3;
     if (nb.snb.level == mylevel) {
       out.var = v->data.Get();
-      out.idxer[idx] = CalcSetIndices(nb.ni, pmb->loc, false, false, el, {Nt, Nu, Nv},
+      out.idxer[idx] = CalcSetIndices<InterfaceType::SameToSame>(nb.ni, pmb->loc, el, {Nt, Nu, Nv},
                                       pmb->cellbounds);
     } else if (nb.snb.level < mylevel) {
-      out.idxer[idx] = CalcSetIndices(nb.ni, pmb->loc, true, false, el, {Nt, Nu, Nv},
+      out.idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine>(nb.ni, pmb->loc, el, {Nt, Nu, Nv},
                                       pmb->c_cellbounds);
       out.var = v->coarse_s.Get();
     } else {
       out.idxer[idx] =
-          CalcSetIndices(nb.ni, pmb->loc, false, true, el, {Nt, Nu, Nv}, pmb->cellbounds);
+          CalcSetIndices<InterfaceType::FineToCoarse>(nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
       out.var = v->data.Get();
     }
   }
