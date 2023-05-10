@@ -26,14 +26,14 @@ class Packages_t {
   Packages_t() = default;
   void Add(const std::shared_ptr<StateDescriptor> &package);
 
-  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
+  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) const {
     return packages_.at(name);
   }
 
   // Templated version for retrieving a package with a particular type
   // Allows subclassing 'StateDescriptor' to add user package types to list
   template<typename T>
-  T* const &Get(const std::string &name) {
+  T* Get(const std::string &name) const {
     return static_cast<T*>(packages_.at(name).get());
   }
 
