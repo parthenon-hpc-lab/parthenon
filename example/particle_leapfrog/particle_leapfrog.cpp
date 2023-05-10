@@ -62,15 +62,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real cfl = pin->GetOrAddReal("Particles", "cfl", 0.3);
   pkg->AddParam<>("cfl", cfl);
 
-  auto write_particle_log_nth_cycle =
-      pin->GetOrAddInteger("Particles", "write_particle_log_nth_cycle", 0);
-  pkg->AddParam<>("write_particle_log_nth_cycle", write_particle_log_nth_cycle);
-
-  std::string swarm_name = "my particles";
-  Metadata swarm_metadata({Metadata::Provides, Metadata::None});
+  std::string swarm_name = "my_particles";
+  Metadata swarm_metadata({Metadata::Provides, Metadata::None, Metadata::Independent});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
-  Metadata vreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{3});
+  Metadata vreal_swarmvalue_metadata({Metadata::Real, Metadata::Vector},
+                                     std::vector<int>{3});
   pkg->AddSwarmValue("v", swarm_name, vreal_swarmvalue_metadata);
   Metadata vvreal_swarmvalue_metadata({Metadata::Real}, std::vector<int>{3, 3});
   pkg->AddSwarmValue("vv", swarm_name, vvreal_swarmvalue_metadata);
@@ -82,7 +79,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
-  auto swarm = pmb->swarm_data.Get()->Get("my particles");
+  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
   auto pkg = pmb->packages.Get("particles_package");
   const auto &cfl = pkg->Param<Real>("cfl");
 
@@ -117,174 +114,6 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 
 } // namespace Particles
 
-// Simple log function to ease regression tests and debugging until there's a proper
-// particles output method. Do NOT use in practice.
-TaskStatus WriteParticleLog(BlockList_t &blocks, int ncycle) {
-  auto pkg = blocks[0]->packages.Get("particles_package");
-  const auto write_particle_log_nth_cycle =
-      pkg->Param<int>("write_particle_log_nth_cycle");
-  if ((write_particle_log_nth_cycle < 1) ||
-      (ncycle % write_particle_log_nth_cycle != 0)) {
-    return TaskStatus::complete;
-  }
-
-  // Step 1: Gather number of particles on this rank
-  int num_particles_this_rank = 0;
-
-  for (int i = 0; i < blocks.size(); i++) {
-    auto &pmb = blocks[i];
-
-    auto swarm = pmb->swarm_data.Get()->Get("my particles");
-    const auto &is_active =
-        Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
-    for (auto n = 0; n <= swarm->GetMaxActiveIndex(); n++) {
-      if (is_active(n)) {
-        num_particles_this_rank += 1;
-      }
-    }
-  }
-
-  // Step 2a: Gather actual data locally
-  constexpr int num_fields = 8; // block->gid, id, x, y, z, vx, vy, vz
-  Kokkos::View<Real *, LayoutWrapper, HostMemSpace> particle_output_this_rank(
-      "particle_output_this_rank", num_fields * num_particles_this_rank);
-
-  int offset = 0;
-  for (int i = 0; i < blocks.size(); i++) {
-    auto &pmb = blocks[i];
-    auto swarm = pmb->swarm_data.Get()->Get("my particles");
-
-    const auto &id = swarm->Get<int>("id").Get().GetHostMirrorAndCopy();
-    const auto &x = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
-    const auto &y = swarm->Get<Real>("y").Get().GetHostMirrorAndCopy();
-    const auto &z = swarm->Get<Real>("z").Get().GetHostMirrorAndCopy();
-    const auto &v = swarm->Get<Real>("v").Get().GetHostMirrorAndCopy();
-    const auto &vv = swarm->Get<Real>("vv").Get().GetHostMirrorAndCopy();
-
-    PackIndexMap imap;
-    std::vector<std::string> pack_names = {"v", "vv"};
-    auto vp = swarm->PackVariables<Real>(pack_names, imap);
-    auto iv = imap.GetFlatIdx("v");
-    auto ivv = imap.GetFlatIdx("vv");
-
-    const auto &is_active =
-        Kokkos::create_mirror_view_and_copy(HostMemSpace(), swarm->GetMask());
-    for (auto n = 0; n <= swarm->GetMaxActiveIndex(); n++) {
-      if (is_active(n)) {
-        particle_output_this_rank(offset++) = static_cast<Real>(pmb->gid);
-        particle_output_this_rank(offset++) = static_cast<Real>(id(n));
-        particle_output_this_rank(offset++) = x(n);
-        particle_output_this_rank(offset++) = y(n);
-        particle_output_this_rank(offset++) = z(n);
-        particle_output_this_rank(offset++) = v(0, n);
-        particle_output_this_rank(offset++) = v(1, n);
-        particle_output_this_rank(offset++) = v(2, n);
-
-        // Check that vv is still consistent with v
-        for (int i = 0; i < 3; i++) {
-          for (int j = 0; j < 3; j++) {
-            PARTHENON_REQUIRE(vv(i, j, n) == v(i, n) * v(j, n),
-                              "vv not consistent with v*v!");
-          }
-        }
-      }
-    }
-
-    const auto is_active_d = swarm->GetMask();
-    pmb->par_for(
-        "CheckParticlePacks", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
-          if (is_active_d(n)) {
-            for (int i = 0; i < 3; i++) {
-              for (int j = 0; j < 3; j++) {
-                PARTHENON_REQUIRE(vp(ivv(i, j), n) == vp(iv(i), n) * vp(iv(j), n),
-                                  "packed vv not consistent with packed v*v!");
-              }
-            }
-          }
-        });
-  }
-
-  // Step 2b. Gather data on root process
-  Kokkos::View<Real *, LayoutWrapper, HostMemSpace> particle_output_all_ranks;
-  std::vector<int> num_particles_all_ranks(Globals::nranks);
-#ifdef MPI_PARALLEL
-  if (Globals::my_rank == 0) {
-    PARTHENON_MPI_CHECK(MPI_Gather(&num_particles_this_rank, 1, MPI_INT,
-                                   &num_particles_all_ranks.front(), 1, MPI_INT, 0,
-                                   MPI_COMM_WORLD));
-
-    int num_particles_total = 0;
-    std::vector<int> displacements(Globals::nranks);
-    std::vector<int> recvsizes(Globals::nranks);
-    for (int i = 0; i < Globals::nranks; i++) {
-      num_particles_total += num_particles_all_ranks.at(i);
-      recvsizes.at(i) = num_particles_all_ranks.at(i) * num_fields;
-      if (i > 0) {
-        displacements.at(i) = displacements.at(i - 1) + recvsizes.at(i - 1);
-      }
-    }
-    particle_output_all_ranks = Kokkos::View<Real *, LayoutWrapper, HostMemSpace>(
-        "particle_output_all_ranks", num_fields * num_particles_total);
-
-    PARTHENON_MPI_CHECK(MPI_Gatherv(
-        particle_output_this_rank.data(), particle_output_this_rank.size(),
-        MPI_PARTHENON_REAL, particle_output_all_ranks.data(), &recvsizes.front(),
-        &displacements.front(), MPI_PARTHENON_REAL, 0, MPI_COMM_WORLD));
-
-  } else {
-    PARTHENON_MPI_CHECK(MPI_Gather(&num_particles_this_rank, 1, MPI_INT, nullptr, 1,
-                                   MPI_INT, 0, MPI_COMM_WORLD));
-    PARTHENON_MPI_CHECK(MPI_Gatherv(particle_output_this_rank.data(),
-                                    particle_output_this_rank.size(), MPI_PARTHENON_REAL,
-                                    nullptr, nullptr, nullptr, MPI_PARTHENON_REAL, 0,
-                                    MPI_COMM_WORLD));
-  }
-
-#else
-  particle_output_all_ranks = Kokkos::View<Real *, LayoutWrapper, HostMemSpace>(
-      "particle_output_all_ranks", num_fields * num_particles_this_rank);
-  Kokkos::deep_copy(particle_output_all_ranks, particle_output_this_rank);
-  num_particles_all_ranks.at(0) = num_particles_this_rank;
-#endif
-
-  // Step 3: Root process write data
-  if (Globals::my_rank == 0) {
-    std::stringstream buffer;
-    auto open_mode = std::ios_base::app; // default append
-    // write header
-    if (ncycle == 0) {
-      buffer << "ncycle , rank , block gid , particles id , x , y , z , vx , vy , vz"
-             << std::endl;
-      open_mode = std::ios_base::out; // start writing clean file
-    }
-    // set precision for float fields
-    buffer << std::fixed << std::setprecision(10);
-    int offset = 0;
-    for (auto rank = 0; rank < Globals::nranks; rank++) {
-      for (auto p = 0; p < num_particles_all_ranks.at(rank); p++) {
-        buffer << ncycle << " , " << rank << " , "
-               << static_cast<int>(particle_output_all_ranks(offset)) // block id
-               << " , "
-               << static_cast<int>(particle_output_all_ranks(offset + 1)); // particle id
-        offset += 2;
-        for (auto j = 2; j < num_fields; j++) {
-          buffer << " , " << particle_output_all_ranks(offset++);
-        }
-        buffer << std::endl;
-      }
-    }
-
-    std::ofstream outfile("particles.csv", open_mode);
-    if (outfile.is_open()) {
-      outfile << buffer.str();
-    } else {
-      PARTHENON_THROW("Unable to open particles output file");
-    }
-  }
-
-  return TaskStatus::complete;
-}
-
 // initial particle position: x,y,z,vx,vy,vz
 constexpr int num_test_particles = 14;
 const Kokkos::Array<Kokkos::Array<Real, 6>, num_test_particles> particles_ic = {{
@@ -306,7 +135,7 @@ const Kokkos::Array<Kokkos::Array<Real, 6>, num_test_particles> particles_ic = {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("particles_package");
-  auto swarm = pmb->swarm_data.Get()->Get("my particles");
+  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
 
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -320,6 +149,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
 
   const auto &ic = particles_ic;
+
+  const bool no_particles = pin->GetOrAddBoolean("Particles", "disable", false);
+  if (no_particles) return;
 
   // determine which particles belong to this block
   size_t num_particles_this_block = 0;
@@ -354,7 +186,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &v = swarm->Get<Real>("v").Get();
   auto &vv = swarm->Get<Real>("vv").Get();
 
-  auto swarm_d = swarm->GetDeviceContext();
   // This hardcoded implementation should only used in PGEN and not during runtime
   // addition of particles as indices need to be taken into account.
   pmb->par_for(
@@ -377,7 +208,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator) {
-  auto swarm = pmb->swarm_data.Get()->Get("my particles");
+  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
   auto pkg = pmb->packages.Get("particles_package");
 
   int max_active_index = swarm->GetMaxActiveIndex();
@@ -494,9 +325,6 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
         tl.AddTask(defrag, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>,
                    pmb->meshblock_data.Get().get());
   }
-
-  // Directly add single region with single task
-  tc.AddRegion(1)[0].AddTask(none, WriteParticleLog, blocks, tm.ncycle);
 
   return tc;
 }

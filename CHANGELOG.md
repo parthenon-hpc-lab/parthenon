@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 830]](https://github.com/parthenon-hpc-lab/parthenon/pull/830) Add particle output
 - [[PR 840]](https://github.com/parthenon-hpc-lab/parthenon/pull/840) Generalized integrators infrastructure in a backwards compatible way
 - [[PR 810]](https://github.com/parthenon-hpc-lab/parthenon/pull/810) Add suport for Ascent in-situ visualization
 - [[PR 831]](https://github.com/parthenon-hpc-lab/parthenon/pull/831) Add set-based MetadataFlag logic
@@ -17,6 +18,7 @@
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 870]](https://github.com/parthenon-hpc-lab/parthenon/pull/870) Update component label logic in output to include basename
 - [[PR 853]](https://github.com/parthenon-hpc-lab/parthenon/pull/853) Add multiple features and improve the performance of the movie2d.py tool
 - [[PR 775]](https://github.com/parthenon-hpc-lab/parthenon/pull/775) Reorganize some of the bvals and prolongation/restriction machinery
 - [[PR 753]](https://github.com/parthenon-hpc-lab/parthenon/pull/753) Cleanup uniform Cartesian variable names
@@ -29,6 +31,8 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 873]](https://github.com/parthenon-hpc-lab/parthenon/pull/873) Prevent HDF5 from throwing a fit when a swarm has no particles
+- [[PR 866]](https://github.com/parthenon-hpc-lab/parthenon/pull/866) Add missing guard for HDF5 on restart
 - [[PR 861]](https://github.com/parthenon-hpc-lab/parthenon/pull/861) Fix filesystem include for experimental namespace
 - [[PR 859]](https://github.com/parthenon-hpc-lab/parthenon/pull/859) fix off-by-one indexing error in Ascent ghost mask
 - [[PR 841]](https://github.com/parthenon-hpc-lab/parthenon/pull/841) De-allocate MPI communicators when freeing `Reduction` objects

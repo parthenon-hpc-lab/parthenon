@@ -172,6 +172,11 @@ class StateDescriptor {
   const std::string &label() const noexcept { return label_; }
 
   bool AddSwarm(const std::string &swarm_name, const Metadata &m) {
+    PARTHENON_REQUIRE(
+        swarm_name != "swarm",
+        "A swarm may not be named \"swarm\", as this may cause name collisions.");
+    PARTHENON_REQUIRE(swarm_name.find_first_of("\n\t ") == std::string::npos,
+                      "A swarm name may not contain whitespace");
     if (swarmMetadataMap_.count(swarm_name) > 0) {
       throw std::invalid_argument("Swarm " + swarm_name + " already exists!");
     }
@@ -238,8 +243,10 @@ class StateDescriptor {
   const auto &AllFields() const noexcept { return metadataMap_; }
   const auto &AllSparsePools() const noexcept { return sparsePoolMap_; }
   const auto &AllSwarms() const noexcept { return swarmMetadataMap_; }
-  const auto &AllSwarmValues(const std::string &swarm_name) const noexcept {
-    return swarmValueMetadataMap_.at(swarm_name);
+  const auto &AllSwarmValues(const std::string &swarm_name) noexcept {
+    // JMM: It's ok for this to be empty. Swarms with no values
+    // automatically have x, y, z.
+    return swarmValueMetadataMap_[swarm_name];
   }
   std::size_t
   RefinementFuncID(const refinement::RefinementFunctions_t &funcs) const noexcept {

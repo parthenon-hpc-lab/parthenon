@@ -29,7 +29,9 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
+#include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "utils/error_checking.hpp"
 
@@ -42,6 +44,8 @@
 #endif // ifdef PARTHENON_ENABLE_ASCENT
 
 namespace parthenon {
+
+using namespace OutputUtils;
 
 //----------------------------------------------------------------------------------------
 //! \fn void AscentOutput:::WriteOutputFile(Mesh *pm)
@@ -166,6 +170,11 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     auto &mbd = pmb->meshblock_data.Get();
 
     for (const auto &var : mbd->GetCellVariableVector()) {
+      // ensure that only cell vars are added (for now) as the topology above is only
+      // valid for cell centered vars
+      if (!var->IsSet(Metadata::Cell)) {
+        continue;
+      }
       const auto var_info = VarInfo(var);
 
       for (int icomp = 0; icomp < var_info.num_components; ++icomp) {
