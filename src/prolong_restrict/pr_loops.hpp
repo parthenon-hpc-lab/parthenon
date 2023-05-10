@@ -49,12 +49,12 @@ template <int DIM, typename Info_t>
 KOKKOS_FORCEINLINE_FUNCTION void
 GetLoopBoundsFromBndInfo(const Info_t &info, const int ckbs, const int cjbs, int &sk,
                          int &ek, int &sj, int &ej, int &si, int &ei) {
-  sk = info.idxer[0].template StartIdx<3>();
-  ek = info.idxer[0].template EndIdx<3>();
-  sj = info.idxer[0].template StartIdx<4>();
-  ej = info.idxer[0].template EndIdx<4>();
-  si = info.idxer[0].template StartIdx<5>();
-  ei = info.idxer[0].template EndIdx<5>();
+  sk = info.prores_idxer[0].template StartIdx<3>();
+  ek = info.prores_idxer[0].template EndIdx<3>();
+  sj = info.prores_idxer[0].template StartIdx<4>();
+  ej = info.prores_idxer[0].template EndIdx<4>();
+  si = info.prores_idxer[0].template StartIdx<5>();
+  ei = info.prores_idxer[0].template EndIdx<5>();
   if (DIM < 3) sk = ek = ckbs; // TODO(C++17) make constexpr
   if (DIM < 2) sj = ej = cjbs;
 }
@@ -93,9 +93,9 @@ ProlongationRestrictionLoop(const BufferCache_t &info, const Idx_t &buffer_idxs,
         const std::size_t buf = buffer_idxs(sub_idx);
         if (DoRefinementOp(info(buf), op)) {
           int sk, ek, sj, ej, si, ei;
-          int Nt = 1 + info(buf).idxer[0].template EndIdx<0>();
-          int Nu = 1 + info(buf).idxer[0].template EndIdx<1>();
-          int Nv = 1 + info(buf).idxer[0].template EndIdx<2>();
+          int Nt = 1 + info(buf).prores_idxer[0].template EndIdx<0>();
+          int Nu = 1 + info(buf).prores_idxer[0].template EndIdx<1>();
+          int Nv = 1 + info(buf).prores_idxer[0].template EndIdx<2>();
           GetLoopBoundsFromBndInfo<DIM>(info(buf), ckb.s, cjb.s, sk, ek, sj, ej, si, ei);
           par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, Nt - 1, 0, Nu - 1, 0,
                         Nv - 1, sk, ek, sj, ej, si, ei,
@@ -133,9 +133,9 @@ ProlongationRestrictionLoop(const BufferCacheHost_t &info_h,
       auto coarse_coords = info_h(buf).coarse_coords;
       auto coarse = info_h(buf).coarse;
       auto fine = info_h(buf).fine;
-      int Nt = 1 + info_h(buf).idxer[0].template EndIdx<0>();
-      int Nu = 1 + info_h(buf).idxer[0].template EndIdx<1>();
-      int Nv = 1 + info_h(buf).idxer[0].template EndIdx<2>();
+      int Nt = 1 + info_h(buf).prores_idxer[0].template EndIdx<0>();
+      int Nu = 1 + info_h(buf).prores_idxer[0].template EndIdx<1>();
+      int Nv = 1 + info_h(buf).prores_idxer[0].template EndIdx<2>();
       par_for(
           DEFAULT_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues", DevExecSpace(),
           0, Nt - 1, 0, Nu - 1, 0, Nv - 1, sk, ek, sj, ej, si, ei,

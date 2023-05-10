@@ -265,6 +265,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
       // "Same" logic is the same for loading to a coarse buffer, just using
       // c_cellbounds
       out.idxer[idx] = CalcLoadIndices<InterfaceType::FineToCoarse>(nb.ni, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+      out.prores_idxer[idx] = out.idxer[idx];
       out.refinement_op = RefinementOp_t::Restriction;
       out.var = v->coarse_s.Get();
     } else {

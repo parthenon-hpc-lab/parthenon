@@ -88,7 +88,7 @@ void MeshRefinement::RestrictCellCenteredValues(Variable<Real> *var, int csi, in
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused.
-  info_h(b).idxer[0] =
+  info_h(b).prores_idxer[0] =
       Indexer6D({0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1}, {0, var->GetDim(4) - 1},
                 {csk, cek}, {csj, cej}, {csi, cei});
   info_h(b).refinement_op = RefinementOp_t::Restriction;
@@ -119,7 +119,7 @@ void MeshRefinement::ProlongateCellCenteredValues(Variable<Real> *var, int si, i
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused
-  info_h(b).idxer[0] = Indexer6D({0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1},
+  info_h(b).prores_idxer[0] = Indexer6D({0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1},
                                  {0, var->GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   info_h(b).refinement_op = RefinementOp_t::Prolongation;
   info_h(b).coords = pmb->coords;

@@ -53,6 +53,7 @@ struct OffsetIndices {
 struct BndInfo {
   int ntopological_elements = 1;
   Indexer6D idxer[3];
+  Indexer6D prores_idxer[3];
 
   CoordinateDirection dir;
   bool allocated = true;
