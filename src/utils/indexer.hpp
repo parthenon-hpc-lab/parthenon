@@ -32,15 +32,6 @@ struct Indexer {
         start{Ns.first...}, end{Ns.second...}, _size(((Ns.second - Ns.first + 1) * ...)) {
   }
 
-  KOKKOS_INLINE_FUNCTION
-  Indexer(Indexer &&) = default;
-  KOKKOS_INLINE_FUNCTION
-  Indexer(const Indexer &) = default;
-  KOKKOS_INLINE_FUNCTION
-  Indexer &operator=(const Indexer &) = default;
-  KOKKOS_INLINE_FUNCTION
-  Indexer &operator=(Indexer &&) = default;
-
   KOKKOS_FORCEINLINE_FUNCTION
   std::size_t size() const { return _size; }
 
