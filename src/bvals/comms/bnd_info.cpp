@@ -112,7 +112,7 @@ Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
 
   // This is the inverse of CalcLoadIndices, but we don't require any topological element
   // information beyond what we have in the IndexRanges
-  const int ghosts = PROLONGATEORRESTRICT ? Globals::nghost / 2 : Globals::nghost; 
+  const int ghosts = PROLONGATEORRESTRICT ? Globals::nghost / 2 : Globals::nghost;
   int off_idx = 0;
   for (int dir = 0; dir < 3; ++dir) {
     if (block_offset[dir] == 0) {

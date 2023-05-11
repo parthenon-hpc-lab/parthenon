@@ -247,9 +247,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
     refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
-    
-    // Apply coarse boundary conditions 
-    for (int block = 0; block < md->NumBlocks(); ++block) { 
+
+    // Apply coarse boundary conditions
+    for (int block = 0; block < md->NumBlocks(); ++block) {
       ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), true);
     }
 

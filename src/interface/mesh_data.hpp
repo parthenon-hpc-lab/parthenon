@@ -251,7 +251,7 @@ class MeshData {
     assert(n >= 0 && n < block_data_.size());
     return block_data_[n];
   }
-  
+
   std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) {
     assert(n >= 0 && n < block_data_.size());
     return block_data_[n];
