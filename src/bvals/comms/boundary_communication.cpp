@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "bnd_info.hpp"
+#include "bvals/boundary_conditions.hpp"
 #include "bvals_in_one.hpp"
 #include "bvals_utils.hpp"
 #include "config.hpp"
@@ -241,11 +242,19 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 #endif
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->Stale(); });
-  if (nbound > 0) {
+  if (nbound > 0 && pmesh->multilevel) {
     // Restrict
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
     refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
+    
+    // Apply coarse boundary conditions 
+    for (int block = 0; block < md->NumBlocks(); ++block) { 
+      ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), true);
+    }
+
+    // Prolongate from coarse buffer
+    refinement::Prolongate(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
   }
   Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
   return TaskStatus::complete;

@@ -48,5 +48,19 @@ void Restrict(const StateDescriptor *resolved_packages, const BvarsSubCache_t &c
   }
 }
 
+void Prolongate(const StateDescriptor *resolved_packages, const BvarsSubCache_t &cache,
+                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+  const auto &ref_func_map = resolved_packages->RefinementFncsToIDs();
+  for (const auto &[func, idx] : ref_func_map) {
+    auto prolongator = func.prolongator;
+    PARTHENON_DEBUG_REQUIRE_THROWS(prolongator != nullptr, "Invalid prolongation op");
+    loops::Idx_t subset = Kokkos::subview(cache.buffer_subsets, idx, Kokkos::ALL());
+    loops::IdxHost_t subset_h =
+        Kokkos::subview(cache.buffer_subsets_h, idx, Kokkos::ALL());
+    prolongator(cache.bnd_info, cache.bnd_info_h, subset, subset_h, cellbnds, c_cellbnds,
+                cache.buffer_subset_sizes[idx]);
+  }
+}
+
 } // namespace refinement
 } // namespace parthenon

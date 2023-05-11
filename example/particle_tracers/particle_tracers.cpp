@@ -479,9 +479,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto &tl = async_region1[n];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
-
-    auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
+    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
 
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(

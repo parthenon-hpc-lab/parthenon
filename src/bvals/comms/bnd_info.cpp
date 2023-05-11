@@ -92,7 +92,7 @@ Indexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalElement el,
                    {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-template <InterfaceType INTERFACE, bool RESTRICT = false>
+template <InterfaceType INTERFACE, bool PROLONGATEORRESTRICT = false>
 Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
                          TopologicalElement el, std::array<int, 3> tensor_shape,
                          const parthenon::IndexShape &shape) {
@@ -112,14 +112,15 @@ Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
 
   // This is the inverse of CalcLoadIndices, but we don't require any topological element
   // information beyond what we have in the IndexRanges
+  const int ghosts = PROLONGATEORRESTRICT ? Globals::nghost / 2 : Globals::nghost; 
   int off_idx = 0;
   for (int dir = 0; dir < 3; ++dir) {
     if (block_offset[dir] == 0) {
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
       if ((INTERFACE == InterfaceType::CoarseToFine) && bounds[dir].e > bounds[dir].s) {
-        s[dir] -= logic_loc[dir] % 2 == 1 ? Globals::nghost : 0;
-        e[dir] += logic_loc[dir] % 2 == 0 ? Globals::nghost : 0;
+        s[dir] -= logic_loc[dir] % 2 == 1 ? ghosts : 0;
+        e[dir] += logic_loc[dir] % 2 == 0 ? ghosts : 0;
       } else if (INTERFACE == InterfaceType::FineToCoarse) {
         const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
         s[dir] += face_offset[off_idx] == 1 ? half_grid : 0;
@@ -128,9 +129,9 @@ Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
       ++off_idx;
     } else if (block_offset[dir] > 0) {
       s[dir] = bounds[dir].e + 1;
-      e[dir] = bounds[dir].e + (RESTRICT ? Globals::nghost / 2 : Globals::nghost);
+      e[dir] = bounds[dir].e + ghosts;
     } else {
-      s[dir] = bounds[dir].s - (RESTRICT ? Globals::nghost / 2 : Globals::nghost);
+      s[dir] = bounds[dir].s - ghosts;
       e[dir] = bounds[dir].s - 1;
     }
   }
@@ -270,8 +271,9 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
       out.idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine>(
           nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       out.var = v->coarse_s.Get();
-      // TODO(LFR): These are regions that need to be registered for prolongation (which
-      // can be done after physical boundaries are filled on coarse buffers)
+      out.refinement_op = RefinementOp_t::Prolongation;
+      out.prores_idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine, true>(
+          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
     } else {
       out.var = v->data.Get();
       out.idxer[idx] = CalcSetIndices<InterfaceType::FineToCoarse>(
