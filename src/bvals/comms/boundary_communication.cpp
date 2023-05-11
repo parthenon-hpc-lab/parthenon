@@ -251,37 +251,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-// Restricts all relevant meshblock boundaries, but doesn't
-// communicate at all.
-TaskStatus RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset_cache) {
-  constexpr BoundaryType bound_type = BoundaryType::restricted;
-  Kokkos::Profiling::pushRegion("Task_RestrictGhostHalos");
-  Mesh *pmesh = md->GetMeshPointer();
-  BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
-  // JMM: No buffers to communicate, but we still want the buffer info
-  // cache so we don't bother using the initialization routine, we
-  // just set the index to linear and go.
-  if (reset_cache || cache.idx_vec.size() == 0) {
-    cache.clear();
-    int buff_idx = 0;
-    ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
-                                        const sp_cv_t v, const OffsetIndices &no) {
-      cache.idx_vec.push_back(buff_idx++);
-      // must fill buf_vec even if we don't allocate new buffers
-      // because it's passed into the BoundaryCreator struct
-      cache.buf_vec.push_back(nullptr);
-    });
-  }
-  auto [rebuild, nbound] = CheckNoCommCacheForRebuild<bound_type, false>(md);
-  if (rebuild || reset_cache) {
-    RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetCCRestrictInfo);
-  }
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  StateDescriptor *resolved_packages = pmb->resolved_packages.get();
-  refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
-  Kokkos::Profiling::popRegion(); // Task_RestrictGhostHalos
-  return TaskStatus::complete;
-}
+template TaskStatus SetBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus SetBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus SetBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
 // Adds all relevant boundary communication to a single task list
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
@@ -301,9 +273,4 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
   auto out = (set | set_local);
   return out;
 }
-
-template TaskStatus SetBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus SetBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus SetBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
-
 } // namespace parthenon
