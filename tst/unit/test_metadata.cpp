@@ -24,7 +24,7 @@
 using parthenon::Coordinates_t;
 using parthenon::IndexRange;
 using parthenon::Metadata;
-using parthenon::ParArray6D;
+using parthenon::ParArrayND;
 using parthenon::Real;
 using parthenon::VariableState;
 
@@ -36,8 +36,8 @@ struct MyProlongOp {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real, VariableState> *pcoarse,
-     const ParArray6D<Real, VariableState> *pfine) {
+     const ParArrayND<Real, VariableState> *pcoarse,
+     const ParArrayND<Real, VariableState> *pfine) {
     return; // stub
   }
 };
@@ -48,8 +48,8 @@ struct MyRestrictOp {
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real, VariableState> *pcoarse,
-     const ParArray6D<Real, VariableState> *pfine) {
+     const ParArrayND<Real, VariableState> *pcoarse,
+     const ParArrayND<Real, VariableState> *pfine) {
     return; // stub
   }
 };

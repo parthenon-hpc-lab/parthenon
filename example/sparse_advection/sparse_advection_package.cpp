@@ -113,7 +113,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("sparse_advection_package");
   std::vector<std::string> vars{"sparse"};
-  // type is parthenon::VariablePack<CellVariable<Real>>
+  // type is parthenon::VariablePack<Variable<Real>>
   const auto &v = rc->PackVariables(vars);
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);

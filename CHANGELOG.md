@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 868]](https://github.com/parthenon-hpc-lab/parthenon/pull/868) Add block-local face, edge, and nodal fields and allow for packing
 - [[PR 830]](https://github.com/parthenon-hpc-lab/parthenon/pull/830) Add particle output
 - [[PR 840]](https://github.com/parthenon-hpc-lab/parthenon/pull/840) Generalized integrators infrastructure in a backwards compatible way
 - [[PR 810]](https://github.com/parthenon-hpc-lab/parthenon/pull/810) Add suport for Ascent in-situ visualization
@@ -18,6 +19,7 @@
 - [[PR 712]](https://github.com/lanl/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 867]](https://github.com/parthenon-hpc-lab/parthenon/pull/867) Rename CellVariable to Variable in anticipation of face fields
 - [[PR 870]](https://github.com/parthenon-hpc-lab/parthenon/pull/870) Update component label logic in output to include basename
 - [[PR 853]](https://github.com/parthenon-hpc-lab/parthenon/pull/853) Add multiple features and improve the performance of the movie2d.py tool
 - [[PR 775]](https://github.com/parthenon-hpc-lab/parthenon/pull/775) Reorganize some of the bvals and prolongation/restriction machinery

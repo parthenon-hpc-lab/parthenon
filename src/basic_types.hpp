@@ -17,6 +17,8 @@
 #include <string>
 #include <unordered_map>
 
+#include <Kokkos_Core.hpp>
+
 #include "config.hpp"
 
 namespace parthenon {
@@ -40,15 +42,58 @@ enum class RefinementOp_t { Prolongation, Restriction, None };
 
 // JMM: Not clear this is the best place for this but it minimizes
 // circular dependency nonsense.
-constexpr int NUM_BNDRY_TYPES = 6;
-enum class BoundaryType : int {
-  local,
-  nonlocal,
-  any,
-  flxcor_send,
-  flxcor_recv,
-  restricted
+constexpr int NUM_BNDRY_TYPES = 5;
+enum class BoundaryType : int { local, nonlocal, any, flxcor_send, flxcor_recv };
+
+// Enumeration for accessing a field on different locations of the grid:
+// C = cell center of (i, j, k)
+// FX = x-face at (i - 1/2, j, k)
+// FY = y-face at (i, j - 1/2, k)
+// FZ = z-face at (i, j, k - 1/2)
+// EXY = edge at (i - 1/2, j - 1/2, k)
+// EXZ = edge at (i - 1/2, j, k - 1/2)
+// EXY = edge at (i, j - 1/2, k - 1/2)
+// NXYZ = edge at (i - 1/2, j - 1/2, k - 1/2)
+//
+// The values of the enumeration are chosen so we can do te % 3 to get
+// the correct index for each type of element in Variable::data
+enum class TopologicalElement : std::size_t {
+  C = 0,
+  FX = 3,
+  FY = 4,
+  FZ = 5,
+  EYZ = 6,
+  EXZ = 7,
+  EXY = 8,
+  NXYZ = 9
 };
+enum class TopologicalType { Cell, Face, Edge, Node };
+
+KOKKOS_FORCEINLINE_FUNCTION
+TopologicalType GetTopologicalType(TopologicalElement el) {
+  using te = TopologicalElement;
+  using tt = TopologicalType;
+  if (el == te::C) {
+    return tt::Cell;
+  } else if (el == te::NXYZ) {
+    return tt::Node;
+  } else if (el == te::FX || el == te::FY || el == te::FZ) {
+    return tt::Face;
+  } else {
+    return tt::Edge;
+  }
+}
+
+using TE = TopologicalElement;
+KOKKOS_INLINE_FUNCTION int TopologicalOffsetI(TE el) noexcept {
+  return (el == TE::FX || el == TE::EXY || el == TE::EYZ || el == TE::NXYZ);
+}
+KOKKOS_INLINE_FUNCTION int TopologicalOffsetJ(TE el) noexcept {
+  return (el == TE::FY || el == TE::EXY || el == TE::EYZ || el == TE::NXYZ);
+}
+KOKKOS_INLINE_FUNCTION int TopologicalOffsetK(TE el) noexcept {
+  return (el == TE::FZ || el == TE::EXZ || el == TE::EYZ || el == TE::NXYZ);
+}
 
 struct SimTime {
   SimTime() = default;

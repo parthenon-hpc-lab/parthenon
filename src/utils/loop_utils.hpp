@@ -21,7 +21,7 @@
 #include <type_traits> // std::enable_if
 #include <utility>     // std::forward
 
-#include "bvals/cc/bnd_info.hpp" // TODO(JMM): Remove me when possible
+#include "bvals/comms/bnd_info.hpp" // TODO(JMM): Remove me when possible
 #include "interface/metadata.hpp"
 #include "mesh/domain.hpp" // TODO(JMM): Remove me when possible
 
@@ -34,14 +34,14 @@ class MeshBlockData;
 template <typename T>
 class MeshData;
 template <typename T>
-class CellVariable;
+class Variable;
 class NeighborBlock;
 
 namespace loops {
 namespace shorthands {
 using sp_mb_t = std::shared_ptr<MeshBlock>;
 using sp_mbd_t = std::shared_ptr<MeshBlockData<Real>>;
-using sp_cv_t = std::shared_ptr<CellVariable<Real>>;
+using sp_cv_t = std::shared_ptr<Variable<Real>>;
 using nb_t = NeighborBlock;
 } // namespace shorthands
 
@@ -79,7 +79,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
-    for (auto &v : rc->GetCellVariableVector()) {
+    for (auto &v : rc->GetVariableVector()) {
       if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
         for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
           auto &nb = pmb->pbval->neighbor[n];
@@ -107,35 +107,8 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
             // No flux correction required unless boundaries share a face
             if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
               continue;
-          } else if constexpr (bound == BoundaryType::restricted) {
-            // Check if restriction is required
-            if (!v->IsSet(Metadata::FillGhost)) continue;
-            if (nb.snb.level >= pmb->loc.level) continue;
           }
-
-          if constexpr (bound == BoundaryType::restricted) {
-            IndexRange bni, bnj, bnk;
-            cell_centered_bvars::ComputeRestrictionBounds(bni, bnj, bnk, nb, pmb);
-            // This loop is only over {-1, 0, 1}^3 at most
-            for (int nk = bnk.s; nk <= bnk.e; ++nk) {
-              for (int nj = bnj.s; nj <= bnj.e; ++nj) {
-                for (int ni = bni.s; ni <= bni.e; ++ni) {
-                  int ntype = std::abs(ni) + std::abs(nj) + std::abs(nk);
-                  // skip myself or coarse levels; only the same level must be restricted
-                  if (ntype == 0 ||
-                      pmb->pbval->nblevel[nk + 1][nj + 1][ni + 1] != pmb->loc.level)
-                    continue;
-                  cell_centered_bvars::OffsetIndices offsets(nk, nj, ni);
-                  if (func_caller(func, pmb, rc, nb, v, offsets) ==
-                      LoopControl::break_out)
-                    return;
-                }
-              }
-            }
-          } else {
-            cell_centered_bvars::OffsetIndices junk;
-            if (func_caller(func, pmb, rc, nb, v, junk) == LoopControl::break_out) return;
-          }
+          if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
         }
       }
     }

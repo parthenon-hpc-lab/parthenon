@@ -14,8 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef BVALS_CC_BVALS_UTILS_HPP_
-#define BVALS_CC_BVALS_UTILS_HPP_
+#ifndef BVALS_COMMS_BVALS_UTILS_HPP_
+#define BVALS_COMMS_BVALS_UTILS_HPP_
 
 #include <algorithm>
 #include <memory>
@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/cc/bnd_info.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bnd_info.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/variable.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
@@ -35,11 +35,9 @@
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
-namespace cell_centered_bvars {
-
 inline std::tuple<int, int, std::string, int>
 SendKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-        const std::shared_ptr<CellVariable<Real>> &pcv) {
+        const std::shared_ptr<Variable<Real>> &pcv) {
   const int sender_id = pmb->gid;
   const int receiver_id = nb.snb.gid;
   const int location_idx = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
@@ -48,7 +46,7 @@ SendKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
 
 inline std::tuple<int, int, std::string, int>
 ReceiveKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-           const std::shared_ptr<CellVariable<Real>> &pcv) {
+           const std::shared_ptr<Variable<Real>> &pcv) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.snb.gid;
   const int location_idx = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
@@ -80,17 +78,23 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   std::vector<std::tuple<int, int, key_t>> key_order;
 
   int boundary_idx = 0;
-  ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
-                                      const OffsetIndices &) {
-    auto key = KeyFunc(pmb, nb, v);
-    PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
-                            "Boundary communicator does not exist");
-    // Create a unique index by combining receiver gid (second element of the key
-    // tuple) and geometric element index (fourth element of the key tuple)
-    int recvr_idx = 27 * std::get<1>(key) + std::get<3>(key);
-    key_order.push_back({recvr_idx, boundary_idx, key});
-    ++boundary_idx;
-  });
+  ForEachBoundary<bound_type>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        // TODO(LFR): Remove temporary check that variables with FillGhost and/or
+        // WithFluxes are cell centered, since communication only is currently implemented
+        // for those types of variables
+        PARTHENON_REQUIRE(v->IsSet(Metadata::Cell),
+                          "Boundary communication only implemented for cell variables.");
+
+        auto key = KeyFunc(pmb, nb, v);
+        PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
+                                "Boundary communicator does not exist");
+        // Create a unique index by combining receiver gid (second element of the key
+        // tuple) and geometric element index (fourth element of the key tuple)
+        int recvr_idx = 27 * std::get<1>(key) + std::get<3>(key);
+        key_order.push_back({recvr_idx, boundary_idx, key});
+        ++boundary_idx;
+      });
 
   // If desired, sort the keys and boundary indices by receiver_idx
   // std::sort(key_order.begin(), key_order.end(),
@@ -129,8 +133,8 @@ inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
   bool rebuild = false;
   bool other_communication_unfinished = false;
   int nbound = 0;
-  ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
-                                      const OffsetIndices &) {
+  ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
+                                      const sp_cv_t v) {
     const std::size_t ibuf = cache.idx_vec[nbound];
     auto &buf = *(cache.buf_vec[ibuf]);
 
@@ -161,8 +165,8 @@ inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md
   bool rebuild = false;
   int nbound = 0;
 
-  ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
-                                      const OffsetIndices &) {
+  ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb,
+                                      const sp_cv_t v) {
     const std::size_t ibuf = cache.idx_vec[nbound];
     auto &buf = *cache.buf_vec[ibuf];
     if (ibuf < cache.bnd_info_h.size()) {
@@ -191,30 +195,29 @@ inline auto CheckNoCommCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
 
   bool rebuild = false;
   int nbound = 0;
-  ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
-                                      const OffsetIndices &) {
-    if (nbound < cache.idx_vec.size()) {
-      const std::size_t ibuf = cache.idx_vec[nbound];
-      if (ibuf < cache.bnd_info_h.size()) {
-        if (cache.bnd_info_h(ibuf).allocated != (v->IsAllocated())) {
+  ForEachBoundary<BOUND_TYPE>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        if (nbound < cache.idx_vec.size()) {
+          const std::size_t ibuf = cache.idx_vec[nbound];
+          if (ibuf < cache.bnd_info_h.size()) {
+            if (cache.bnd_info_h(ibuf).allocated != (v->IsAllocated())) {
+              rebuild = true;
+            }
+          } else {
+            rebuild = true;
+          }
+        } else {
           rebuild = true;
         }
-      } else {
-        rebuild = true;
-      }
-    } else {
-      rebuild = true;
-    }
-    ++nbound;
-  });
+        ++nbound;
+      });
   rebuild = rebuild || (nbound == 0) || (nbound != cache.idx_vec.size());
   return std::make_tuple(rebuild, nbound);
 }
 
 using F_BND_INFO = std::function<BndInfo(
     std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-    std::shared_ptr<CellVariable<Real>> v, CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-    const OffsetIndices &no)>;
+    std::shared_ptr<Variable<Real>> v, CommBuffer<buf_pool_t<Real>::owner_t> *buf)>;
 
 template <BoundaryType BOUND_TYPE, bool SENDER>
 inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
@@ -244,30 +247,36 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   }
 
   int ibound = 0;
-  ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
-                                      const OffsetIndices &no) {
-    // bnd_info
-    const std::size_t ibuf = cache.idx_vec[ibound];
-    cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf], no);
+  ForEachBoundary<BOUND_TYPE>(
+      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        // TODO(LFR): Remove temporary check that variables with FillGhost and/or
+        // WithFluxes are cell centered, since communication only is currently implemented
+        // for those types of variables
+        PARTHENON_REQUIRE(v->IsSet(Metadata::Cell),
+                          "Boundary communication only implemented for cell variables.");
 
-    // subsets ordering is same as in cache.bnd_info
-    // RefinementFunctions_t owns all relevant functionality, so
-    // only one ParArray2D needed.
-    if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
-                    (BOUND_TYPE == BoundaryType::flxcor_recv))) {
-      // var must be registered for refinement and this must be a coarse-fine boundary
-      // note this condition means that each subset contains
-      // both prolongation and restriction conditions. The
-      // `RefinementOp_t` in `BndInfo` is assumed to
-      // differentiate.
-      if (v->IsRefined() && (nb.snb.level != pmb->loc.level)) {
-        std::size_t rfid = pkg->RefinementFuncID((v->GetRefinementFunctions()));
-        cache.buffer_subsets_h(rfid, cache.buffer_subset_sizes[rfid]++) = ibuf;
-      }
-    }
+        // bnd_info
+        const std::size_t ibuf = cache.idx_vec[ibound];
+        cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
 
-    ++ibound;
-  });
+        // subsets ordering is same as in cache.bnd_info
+        // RefinementFunctions_t owns all relevant functionality, so
+        // only one ParArray2D needed.
+        if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
+                        (BOUND_TYPE == BoundaryType::flxcor_recv))) {
+          // var must be registered for refinement
+          // note this condition means that each subset contains
+          // both prolongation and restriction conditions. The
+          // `RefinementOp_t` in `BndInfo` is assumed to
+          // differentiate.
+          if (v->IsRefined()) {
+            std::size_t rfid = pkg->RefinementFuncID((v->GetRefinementFunctions()));
+            cache.buffer_subsets_h(rfid, cache.buffer_subset_sizes[rfid]++) = ibuf;
+          }
+        }
+
+        ++ibound;
+      });
   Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
   if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
                   (BOUND_TYPE == BoundaryType::flxcor_recv))) {
@@ -275,7 +284,6 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   }
 }
 
-} // namespace cell_centered_bvars
 } // namespace parthenon
 
-#endif // BVALS_CC_BVALS_UTILS_HPP_
+#endif // BVALS_COMMS_BVALS_UTILS_HPP_

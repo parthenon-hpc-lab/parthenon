@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,24 +10,33 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef UTILS_ARRAY_TO_TUPLE_HPP_
+#define UTILS_ARRAY_TO_TUPLE_HPP_
 
-#include "interface/variable_state.hpp"
-#include "interface/metadata.hpp"
+#include <type_traits>
 
 namespace parthenon {
 
-VariableState::VariableState(const Metadata &md, int sparse_id,
-                             const std::array<int, MAX_VARIABLE_DIMENSION> &dims) {
-  allocation_threshold = md.GetAllocationThreshold();
-  deallocation_threshold = md.GetDeallocationThreshold();
-  sparse_default_val = md.GetDefaultValue();
-  this->sparse_id = sparse_id;
+template <class T, std::size_t... I>
+auto ArrayToTuple(const T &arr_in, std::index_sequence<I...>) {
+  return std::make_tuple((arr_in[I])...);
+}
 
-  tensor_shape[0] = dims[3];
-  tensor_shape[1] = dims[4];
-  tensor_shape[2] = dims[5];
-  tensor_components = tensor_shape[0] * tensor_shape[1] * tensor_shape[2];
-  topological_type = GetTopologicalType(md);
+template <class T, std::size_t N>
+auto ArrayToTuple(const std::array<T, N> &arr_in) {
+  return ArrayToTuple(arr_in, std::make_index_sequence<N>());
+}
+
+template <class T, std::size_t... I>
+auto ArrayToReverseTuple(const T &arr_in, std::index_sequence<I...>) {
+  return std::make_tuple((arr_in[sizeof...(I) - I - 1])...);
+}
+
+template <class T, std::size_t N>
+auto ArrayToReverseTuple(const std::array<T, N> &arr_in) {
+  return ArrayToReverseTuple(arr_in, std::make_index_sequence<N>());
 }
 
 } // namespace parthenon
+
+#endif // UTILS_ARRAY_TO_TUPLE_HPP_

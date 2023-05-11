@@ -34,7 +34,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "bvals/boundary_conditions.hpp"
@@ -1090,8 +1090,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     boundary_comm_flxcor_map.clear();
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
-      cell_centered_bvars::BuildBoundaryBuffers(md);
-      cell_centered_bvars::SendBoundaryBuffers(md);
+      BuildBoundaryBuffers(md);
+      SendBoundaryBuffers(md);
     }
 
     // wait to receive FillGhost variables
@@ -1102,7 +1102,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       all_received = true;
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
-        if (cell_centered_bvars::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
+        if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
           all_received = false;
         }
       }
@@ -1111,11 +1111,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       // unpack FillGhost variables
-      cell_centered_bvars::SetBoundaries(md);
-      // restrict ghosts---needed for physical bounds
-      if (multilevel) {
-        cell_centered_bvars::RestrictGhostHalos(md, true);
-      }
+      SetBoundaries(md);
     }
 
     //  Now do prolongation, compute primitives, apply BCs

@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "bvals_cc_in_one.hpp"
+#include "bvals_in_one.hpp"
 #include "bvals_utils.hpp"
 #include "config.hpp"
 #include "globals.hpp"
@@ -36,7 +36,6 @@
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
-namespace cell_centered_bvars {
 
 using namespace loops;
 using namespace loops::shorthands;
@@ -46,8 +45,14 @@ template <BoundaryType BTYPE>
 void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
                                Mesh::comm_buf_map_t &buf_map) {
   Mesh *pmesh = md->GetMeshPointer();
-  ForEachBoundary<BTYPE>(md, [&](sp_mb_t pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v,
-                                 const OffsetIndices & /*no*/) {
+  ForEachBoundary<BTYPE>(md, [&](sp_mb_t pmb, sp_mbd_t /*rc*/, nb_t &nb,
+                                 const sp_cv_t v) {
+    // TODO(LFR): Remove temporary check that variables with FillGhost and/or WithFluxes
+    // are cell centered, since communication only is currently implemented for those
+    // types of variables
+    PARTHENON_REQUIRE(v->IsSet(Metadata::Cell),
+                      "Boundary communication only implemented for cell variables.");
+
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
 
@@ -132,5 +137,4 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
   return TaskStatus::complete;
 }
-} // namespace cell_centered_bvars
 } // namespace parthenon

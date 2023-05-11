@@ -58,39 +58,40 @@ inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
 }
 
 template <typename T>
-class CellVariable {
+class Variable {
   // so that MeshBlock and MeshBlockData can call Allocate* and Deallocate
   friend class MeshBlock;
   friend class MeshBlockData<T>;
 
  public:
-  CellVariable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
-                  std::weak_ptr<MeshBlock> wpmb);
+  Variable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
+              std::weak_ptr<MeshBlock> wpmb);
+  Variable() = default;
+  ~Variable() {}
+  // copy fluxes and boundary variable from src Variable (shallow copy)
+  void CopyFluxesAndBdryVar(const Variable<T> *src);
 
-  // copy fluxes and boundary variable from src CellVariable (shallow copy)
-  void CopyFluxesAndBdryVar(const CellVariable<T> *src);
-
-  // make a new CellVariable based on an existing one
-  std::shared_ptr<CellVariable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb);
+  // make a new Variable based on an existing one
+  std::shared_ptr<Variable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb);
 
   // accessors
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
-    assert(IsAllocated());
+  KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) const {
+    assert(data.size() > 0);
     return data(std::forward<Args>(args)...);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
     // we can't query data.GetDim() here because data may be unallocated
-    assert(0 < i && i <= 6 && "ParArrayNDs are max 6D");
+    assert(0 < i && i <= MAX_VARIABLE_DIMENSION && "ParArrayNDs are max 6D");
     return dims_[i - 1];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetCoarseDim(const int i) const {
     // we can't query coarse_s.GetDim() here because it may be unallocated
-    assert(0 < i && i <= 6 && "ParArrayNDs are max 6D");
+    assert(0 < i && i <= MAX_VARIABLE_DIMENSION && "ParArrayNDs are max 6D");
     return coarse_dims_[i - 1];
   }
 
@@ -159,12 +160,12 @@ class CellVariable {
   /// (Metadata::FillGhost is set)
   void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
 
-  VariableState MakeVariableState() const { return VariableState(m_, sparse_id_); }
+  VariableState MakeVariableState() const { return VariableState(m_, sparse_id_, dims_); }
 
   Metadata m_;
   const std::string base_name_;
   const int sparse_id_;
-  const std::array<int, 6> dims_, coarse_dims_;
+  const std::array<int, MAX_VARIABLE_DIMENSION> dims_, coarse_dims_;
 
   // Machinery for giving each variable a unique ID that is faster to
   // evaluate than a string. Safe so long as the number of MPI ranks
@@ -175,7 +176,7 @@ class CellVariable {
   inline static UniqueIDGenerator<std::string> get_uid_;
 
   bool is_allocated_ = false;
-  ParArray7D<T> flux_data_; // unified par array for the fluxes
+  ParArrayND<T> flux_data_; // unified par array for the fluxes
 };
 
 template <typename T>
@@ -224,19 +225,19 @@ class ParticleVariable {
  private:
   Metadata m_;
   std::string label_;
-  std::array<int, 6> dims_;
+  std::array<int, MAX_VARIABLE_DIMENSION> dims_;
 
  public:
   ParArrayND<T> data;
 };
 
 template <typename T>
-using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;
+using VariableVector = std::vector<std::shared_ptr<Variable<T>>>;
 
 template <typename T>
-inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
-                                             std::vector<MetadataFlag> mflags) {
-  CellVariableVector<T> out;
+inline VariableVector<T> GetAnyVariables(const VariableVector<T> &cv_in,
+                                         std::vector<MetadataFlag> mflags) {
+  VariableVector<T> out;
   for (auto &pvar : cv_in) {
     if (std::any_of(mflags.begin(), mflags.end(),
                     [&](const auto &in) { return pvar->IsSet(in); })) {
@@ -247,9 +248,9 @@ inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
 }
 
 template <typename T>
-inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
-                                             std::vector<std::string> base_names) {
-  CellVariableVector<T> out;
+inline VariableVector<T> GetAnyVariables(const VariableVector<T> &cv_in,
+                                         std::vector<std::string> base_names) {
+  VariableVector<T> out;
 
   std::vector<std::regex> base_regexs;
   for (auto &base_name : base_names)
@@ -274,10 +275,10 @@ struct VarComp {
 };
 
 template <typename T>
-using VarPtr = std::shared_ptr<CellVariable<T>>;
+using VarPtr = std::shared_ptr<Variable<T>>;
 
 template <typename T>
-using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
+using MapToVars = std::map<std::string, std::shared_ptr<Variable<T>>>;
 
 template <typename T>
 using ParticleVarPtr = std::shared_ptr<ParticleVariable<T>>;
@@ -286,7 +287,7 @@ using ParticleVariableVector = std::vector<ParticleVarPtr<T>>;
 template <typename T>
 using MapToParticle = std::map<std::string, ParticleVarPtr<T>>;
 template <typename T>
-using VariableSet = std::set<VarPtr<T>, VarComp<CellVariable<T>>>;
+using VariableSet = std::set<VarPtr<T>, VarComp<Variable<T>>>;
 template <typename T>
 using MetadataFlagToVariableMap = std::map<MetadataFlag, VariableSet<T>>;
 
