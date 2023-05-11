@@ -188,11 +188,11 @@ void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, i
     if (n == 0) { // need to fill "interior" of coarse buffer on this axis
       rs = b.s;
       re = b.e;
-      if (ox == 1) {
-        rs = b.e;
-      } else if (ox == -1) {
-        re = b.s;
-      }
+      //if (ox == 1) {
+      //  rs = b.e;
+      //} else if (ox == -1) {
+      //  re = b.s;
+      //}
     } else if (n == 1) { // need to fill "edges" or "corners" on this axis
       rs = b.e + 1;      // TODO(JMM): Is this always true?
       re = b.e + 1;      // should this end at b.e + NG - 1?
@@ -303,6 +303,24 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   if (v->IsSet(Metadata::Node)) elements = {TE::NXYZ};
 
   int mylevel = pmb->loc.level;
+  out.coords = pmb->coords;
+  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
+  out.fine = v->data.Get();
+  out.coarse = v->coarse_s.Get();
+
+  // This will select a superset of the boundaries that actually need to be restricted, more
+  // logic could be added to only restrict boundary regions that abut boundary regions that 
+  // were filled by coarser neighbors  
+  bool restricted = false;
+  if (mylevel > 0) {
+    for (int k = 0; k < 3; ++k) {
+      for (int j = 0; j < 3; ++j) {
+        for (int i = 0; i < 3; ++i) {
+          restricted = restricted || (pmb->pbval->nblevel[k][j][i] == (mylevel - 1));
+        }
+      }
+    }
+  }
 
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
@@ -311,14 +329,25 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
       out.var = v->data.Get();
       out.idxer[idx] = CalcSetIndices<InterfaceType::SameToSame>(nb.ni, pmb->loc, el, {Nt, Nu, Nv},
                                       pmb->cellbounds);
+      if (restricted) {
+        out.refinement_op = RefinementOp_t::Restriction;
+        out.prores_idxer[idx] = CalcSetIndices<InterfaceType::SameToSame, true>(nb.ni, pmb->loc, el, {Nt, Nu, Nv},
+                                        pmb->c_cellbounds);
+      }
     } else if (nb.snb.level < mylevel) {
       out.idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine>(nb.ni, pmb->loc, el, {Nt, Nu, Nv},
                                       pmb->c_cellbounds);
       out.var = v->coarse_s.Get();
+      // TODO (LFR): These are regions that need to be registered for prolongation (which can be done after physical boundaries are filled on coarse buffers)
     } else {
+      out.var = v->data.Get();
       out.idxer[idx] =
           CalcSetIndices<InterfaceType::FineToCoarse>(nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
-      out.var = v->data.Get();
+      if (restricted) {
+        out.refinement_op = RefinementOp_t::Restriction;
+        out.prores_idxer[idx] =
+            CalcSetIndices<InterfaceType::FineToCoarse, true>(nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+      }
     }
   }
   if (buf_state == BufferState::received) {

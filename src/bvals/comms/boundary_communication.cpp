@@ -241,7 +241,12 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 #endif
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->Stale(); });
-
+  if (nbound > 0) { 
+    // Restrict
+    auto pmb = md->GetBlockData(0)->GetBlockPointer();
+    StateDescriptor *resolved_packages = pmb->resolved_packages.get();
+    refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
+  }
   Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
   return TaskStatus::complete;
 }
@@ -294,9 +299,6 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
   auto set = tl.AddTask(recv, SetBounds<nonlocal>, md);
 
   auto out = (set | set_local);
-  if (multilevel) {
-    out = tl.AddTask(out, RestrictGhostHalos, md, false);
-  }
   return out;
 }
 

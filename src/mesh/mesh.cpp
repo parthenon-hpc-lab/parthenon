@@ -1110,10 +1110,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       auto &md = mesh_data.GetOrAdd("base", i);
       // unpack FillGhost variables
       SetBoundaries(md);
-      // restrict ghosts---needed for physical bounds
-      if (multilevel) {
-        RestrictGhostHalos(md, true);
-      }
     }
 
     //  Now do prolongation, compute primitives, apply BCs

@@ -265,12 +265,12 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
     // only one ParArray2D needed.
     if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
                     (BOUND_TYPE == BoundaryType::flxcor_recv))) {
-      // var must be registered for refinement and this must be a coarse-fine boundary
+      // var must be registered for refinement
       // note this condition means that each subset contains
       // both prolongation and restriction conditions. The
       // `RefinementOp_t` in `BndInfo` is assumed to
       // differentiate.
-      if (v->IsRefined() && (nb.snb.level != pmb->loc.level)) {
+      if (v->IsRefined()) {
         std::size_t rfid = pkg->RefinementFuncID((v->GetRefinementFunctions()));
         cache.buffer_subsets_h(rfid, cache.buffer_subset_sizes[rfid]++) = ibuf;
       }
