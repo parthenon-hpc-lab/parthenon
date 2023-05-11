@@ -40,16 +40,6 @@ class NeighborBlock;
 template <typename T>
 class Variable;
 
-void ComputeRestrictionBounds(IndexRange &ni, IndexRange &nj, IndexRange &nk,
-                              const NeighborBlock &nb,
-                              const std::shared_ptr<MeshBlock> &pmb);
-
-struct OffsetIndices {
-  OffsetIndices() = default;
-  OffsetIndices(int nk_, int nj_, int ni_) : nk(nk_), nj(nj_), ni(ni_) {}
-  int nk, nj, ni;
-};
-
 struct BndInfo {
   int ntopological_elements = 1;
   Indexer6D idxer[3];
@@ -73,25 +63,16 @@ struct BndInfo {
   // kinds of boundary types and operations.
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
-                                CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                const OffsetIndices &);
+                                CommBuffer<buf_pool_t<Real>::owner_t> *buf);
   static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                               const OffsetIndices &);
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf);
   static BndInfo GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                   std::shared_ptr<Variable<Real>> v,
-                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                  const OffsetIndices &);
+                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf);
   static BndInfo GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                  std::shared_ptr<Variable<Real>> v,
-                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                 const OffsetIndices &);
-  static BndInfo GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
-                                   const NeighborBlock &nb,
-                                   std::shared_ptr<Variable<Real>> v,
-                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                   const OffsetIndices &no);
+                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf);
 };
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,

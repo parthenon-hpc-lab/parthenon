@@ -174,7 +174,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   int ibound = 0;
   if (Globals::sparse_config.enabled) {
     ForEachBoundary<bound_type>(
-        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v, OffsetIndices &no) {
+        md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
           const std::size_t ibuf = cache.idx_vec[ibound];
           auto &buf = *cache.buf_vec[ibuf];
 
@@ -241,7 +241,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 #endif
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->Stale(); });
-  if (nbound > 0) { 
+  if (nbound > 0) {
     // Restrict
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();

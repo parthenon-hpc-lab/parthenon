@@ -36,11 +36,11 @@
 #include "utils/error_checking.hpp"
 
 namespace {
-  enum class InterfaceType {SameToSame, CoarseToFine, FineToCoarse}; 
+enum class InterfaceType { SameToSame, CoarseToFine, FineToCoarse };
 }
 namespace parthenon {
 
-template<InterfaceType INTERFACE> 
+template <InterfaceType INTERFACE>
 Indexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalElement el,
                           std::array<int, 3> tensor_shape,
                           const parthenon::IndexShape &shape) {
@@ -92,7 +92,7 @@ Indexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalElement el,
                    {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-template<InterfaceType INTERFACE, bool RESTRICT = false> 
+template <InterfaceType INTERFACE, bool RESTRICT = false>
 Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
                          TopologicalElement el, std::array<int, 3> tensor_shape,
                          const parthenon::IndexShape &shape) {
@@ -138,75 +138,6 @@ Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
                    {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-void ComputeRestrictionBounds(IndexRange &ni, IndexRange &nj, IndexRange &nk,
-                              const NeighborBlock &nb,
-                              const std::shared_ptr<MeshBlock> &pmb) {
-  auto getbounds = [](const int nbx, IndexRange &n) {
-    n.s = std::max(nbx - 1, -1); // can be -1 or 0
-    n.e = std::min(nbx + 1, 1);  // can be 0 or 1
-  };
-  getbounds(nb.ni.ox1, ni);
-  if (pmb->block_size.nx2 == 1) {
-    nj.s = nj.e = 0;
-  } else {
-    getbounds(nb.ni.ox2, nj);
-  }
-
-  if (pmb->block_size.nx3 == 1) {
-    nk.s = nk.e = 0;
-  } else {
-    getbounds(nb.ni.ox3, nk);
-  }
-}
-
-// JMM: Finds the pieces of the coarse buffer, both interior and in
-// ghost halo, needed to be restricted to enable prolongation. This is
-// both the boundary buffer itself, and the regions *around* it.
-//
-// Here nk, nj, ni are offset indices. They indicate offsets from this
-// piece of the ghost halo to other pieces that may be relevant for
-// getting physical boundary conditions right.
-// They point to other neighbor blocks.
-// ris, rie, rjs, rje, rks, rke are the start and end i,j,k, indices
-// of the region of the ghost halo to restrict.
-void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, int &rje,
-                         int &rks, int &rke, const NeighborBlock &nb,
-                         std::shared_ptr<MeshBlock> &pmb) {
-  const IndexDomain interior = IndexDomain::interior;
-  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-
-  // JMM: rs and re are the bounds of the region to restrict
-  // n is the offset index from this boundary/ghost halo to other
-  // regions of the coarse buffer
-  // ox is the offset index of the neighbor block this boundary/ghost
-  // halo communicates with.
-  // note this func is called *per axis* so interior here might still
-  // be an edge or corner.
-  auto CalcIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
-    if (n == 0) { // need to fill "interior" of coarse buffer on this axis
-      rs = b.s;
-      re = b.e;
-      //if (ox == 1) {
-      //  rs = b.e;
-      //} else if (ox == -1) {
-      //  re = b.s;
-      //}
-    } else if (n == 1) { // need to fill "edges" or "corners" on this axis
-      rs = b.e + 1;      // TODO(JMM): Is this always true?
-      re = b.e + 1;      // should this end at b.e + NG - 1?
-    } else {             //(n ==  - 1)
-      rs = b.s - 1;      // TODO(JMM): should this start at b.s - NG + 1?
-      re = b.s - 1;      // or something similar?
-    }
-  };
-
-  CalcIndices(ris, rie, ni, nb.ni.ox1, cib);
-  CalcIndices(rjs, rje, nj, nb.ni.ox2, cjb);
-  CalcIndices(rks, rke, nk, nb.ni.ox3, ckb);
-}
-
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v) {
   // This does not do a careful job of calculating the buffer size, in many
@@ -228,8 +159,7 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
 
 BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
-                                CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                const OffsetIndices &) {
+                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
 
   out.allocated = v->IsAllocated();
@@ -259,17 +189,20 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     if (nb.snb.level == mylevel) {
-      out.idxer[idx] = CalcLoadIndices<InterfaceType::SameToSame>(nb.ni, el, {Nt, Nu, Nv}, pmb->cellbounds);
+      out.idxer[idx] = CalcLoadIndices<InterfaceType::SameToSame>(nb.ni, el, {Nt, Nu, Nv},
+                                                                  pmb->cellbounds);
       out.var = v->data.Get();
     } else if (nb.snb.level < mylevel) {
       // "Same" logic is the same for loading to a coarse buffer, just using
       // c_cellbounds
-      out.idxer[idx] = CalcLoadIndices<InterfaceType::FineToCoarse>(nb.ni, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+      out.idxer[idx] = CalcLoadIndices<InterfaceType::FineToCoarse>(
+          nb.ni, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       out.prores_idxer[idx] = out.idxer[idx];
       out.refinement_op = RefinementOp_t::Restriction;
       out.var = v->coarse_s.Get();
     } else {
-      out.idxer[idx] = CalcLoadIndices<InterfaceType::CoarseToFine>(nb.ni, el, {Nt, Nu, Nv}, pmb->cellbounds);
+      out.idxer[idx] = CalcLoadIndices<InterfaceType::CoarseToFine>(
+          nb.ni, el, {Nt, Nu, Nv}, pmb->cellbounds);
       out.var = v->data.Get();
     }
   }
@@ -278,8 +211,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 
 BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                               const OffsetIndices &) {
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
   out.buf = buf->buffer();
   auto buf_state = buf->GetState();
@@ -308,9 +240,9 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
 
-  // This will select a superset of the boundaries that actually need to be restricted, more
-  // logic could be added to only restrict boundary regions that abut boundary regions that 
-  // were filled by coarser neighbors  
+  // This will select a superset of the boundaries that actually need to be restricted,
+  // more logic could be added to only restrict boundary regions that abut boundary
+  // regions that were filled by coarser neighbors
   bool restricted = false;
   if (mylevel > 0) {
     for (int k = 0; k < 3; ++k) {
@@ -327,26 +259,27 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     int idx = static_cast<int>(el) % 3;
     if (nb.snb.level == mylevel) {
       out.var = v->data.Get();
-      out.idxer[idx] = CalcSetIndices<InterfaceType::SameToSame>(nb.ni, pmb->loc, el, {Nt, Nu, Nv},
-                                      pmb->cellbounds);
+      out.idxer[idx] = CalcSetIndices<InterfaceType::SameToSame>(
+          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
-        out.prores_idxer[idx] = CalcSetIndices<InterfaceType::SameToSame, true>(nb.ni, pmb->loc, el, {Nt, Nu, Nv},
-                                        pmb->c_cellbounds);
+        out.prores_idxer[idx] = CalcSetIndices<InterfaceType::SameToSame, true>(
+            nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       }
     } else if (nb.snb.level < mylevel) {
-      out.idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine>(nb.ni, pmb->loc, el, {Nt, Nu, Nv},
-                                      pmb->c_cellbounds);
+      out.idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine>(
+          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       out.var = v->coarse_s.Get();
-      // TODO (LFR): These are regions that need to be registered for prolongation (which can be done after physical boundaries are filled on coarse buffers)
+      // TODO(LFR): These are regions that need to be registered for prolongation (which
+      // can be done after physical boundaries are filled on coarse buffers)
     } else {
       out.var = v->data.Get();
-      out.idxer[idx] =
-          CalcSetIndices<InterfaceType::FineToCoarse>(nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
+      out.idxer[idx] = CalcSetIndices<InterfaceType::FineToCoarse>(
+          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
-        out.prores_idxer[idx] =
-            CalcSetIndices<InterfaceType::FineToCoarse, true>(nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+        out.prores_idxer[idx] = CalcSetIndices<InterfaceType::FineToCoarse, true>(
+            nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       }
     }
   }
@@ -366,8 +299,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 
 BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                   std::shared_ptr<Variable<Real>> v,
-                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                  const OffsetIndices &) {
+                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
   out.allocated = v->IsAllocated();
   if (!v->IsAllocated()) {
@@ -422,8 +354,7 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
 
 BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                  std::shared_ptr<Variable<Real>> v,
-                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                 const OffsetIndices &) {
+                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
 
   if (!v->IsAllocated() || buf->GetState() != BufferState::received) {
@@ -497,29 +428,4 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
   return out;
 }
 
-BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
-                                   const NeighborBlock &nb,
-                                   std::shared_ptr<Variable<Real>> v,
-                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                   const OffsetIndices &no) {
-  BndInfo out;
-  if (!v->IsAllocated()) {
-    out.allocated = false;
-    return out;
-  }
-  out.allocated = true;
-  int si, ei, sj, ej, sk, ek;
-  CalcIndicesRestrict(no.nk, no.nj, no.ni, si, ei, sj, ej, sk, ek, nb, pmb);
-  out.coords = pmb->coords;
-  out.coarse_coords = pmb->pmr->GetCoarseCoords();
-  out.fine = v->data.Get();
-  out.coarse = v->coarse_s.Get();
-  out.refinement_op = RefinementOp_t::Restriction;
-  int Nt = v->GetDim(6);
-  int Nu = v->GetDim(5);
-  int Nv = v->GetDim(4);
-  out.prores_idxer[0] =
-      Indexer6D({0, Nt - 1}, {0, Nu - 1}, {0, Nv - 1}, {sk, ek}, {sj, ej}, {si, ei});
-  return out;
-}
 } // namespace parthenon
