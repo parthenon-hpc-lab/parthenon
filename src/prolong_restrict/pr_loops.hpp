@@ -122,7 +122,7 @@ ProlongationRestrictionLoop(const cell_centered_bvars::BufferCacheHost_t &info_h
   auto kb = cellbounds.GetBoundsK(interior); // into the stencil directly.
   auto jb = cellbounds.GetBoundsJ(interior);
   auto ib = cellbounds.GetBoundsI(interior);
-  for (int sub_idx = 0; sub_idx < nbuffers; ++sub_idx) {
+  for (size_t sub_idx = 0; sub_idx < nbuffers; ++sub_idx) {
     const std::size_t buf = buffer_idxs_h(sub_idx);
     if (DoRefinementOp(info_h(buf), op)) {
       int sk, ek, sj, ej, si, ei;

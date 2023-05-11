@@ -87,7 +87,6 @@ class Task {
   const int key_;
   TaskStatus status_ = TaskStatus::incomplete;
   bool regional_ = false;
-  bool lb_time_ = false;
   std::function<TaskStatus()> func_;
   int calls_ = 0;
   const int interval_;

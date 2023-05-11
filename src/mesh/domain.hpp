@@ -87,11 +87,7 @@ class IndexShape {
   std::array<IndexRange, NDIM> x_;
   std::array<int, NDIM> entire_ncells_;
 
-  bool DimensionProvided_(const std::vector<int> &interior_dims, int dim) {
-    return dim <= interior_dims.size();
-  }
-
-  void MakeZeroDimensional_(int const index) {
+  void MakeZeroDimensional_(unsigned int const index) {
     x_[index] = IndexRange{0, 0};
     entire_ncells_[index] = 1;
   }
@@ -123,8 +119,8 @@ class IndexShape {
            "dimensions exceeds the statically set dimensions, you will need to change "
            "the NDIM "
            "constant.");
-    for (int dim = 1, index = 0; dim <= NDIM; ++dim, ++index) {
-      if (DimensionProvided_(interior_dims, dim) == false) {
+    for (unsigned int dim = 1, index = 0; dim <= NDIM; ++dim, ++index) {
+      if (dim > interior_dims.size()) {
         MakeZeroDimensional_(index);
       } else {
         assert(interior_dims.at(index) > -1 &&

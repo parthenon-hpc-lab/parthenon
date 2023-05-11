@@ -91,7 +91,6 @@ void NeighborBlock::SetNeighbor(int irank, int ilevel, int igid, int ilid, int i
     else if (ni.ox1 == 0)
       eid = (8 + (((ni.ox2 + 1) >> 1) | ((ni.ox3 + 1) & 2)));
   }
-  return;
 }
 
 //----------------------------------------------------------------------------------------

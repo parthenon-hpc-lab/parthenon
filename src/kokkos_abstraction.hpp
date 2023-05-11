@@ -328,7 +328,7 @@ inline void par_dispatch(LoopPatternTPTTRTVR, const std::string &name,
 // 3D loop using SIMD FOR loops
 template <typename Tag, typename Function>
 inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
-                         DevExecSpace exec_space, const int &kl, const int &ku,
+                         DevExecSpace /*exec_space*/, const int &kl, const int &ku,
                          const int &jl, const int &ju, const int &il, const int &iu,
                          const Function &function) {
   Kokkos::Profiling::pushRegion(name);
@@ -462,7 +462,7 @@ inline void par_dispatch(LoopPatternTPTTRTVR, const std::string &name,
 // 4D loop using SIMD FOR loops
 template <typename Tag, typename Function>
 inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
-                         DevExecSpace exec_space, const int nl, const int nu,
+                         DevExecSpace /*exec_space*/, const int nl, const int nu,
                          const int kl, const int ku, const int jl, const int ju,
                          const int il, const int iu, const Function &function) {
   Kokkos::Profiling::pushRegion(name);
@@ -529,7 +529,7 @@ inline void par_dispatch(LoopPatternFlatRange, const std::string &name,
 // 5D loop using SIMD FOR loops
 template <typename Tag, typename Function>
 inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
-                         DevExecSpace exec_space, const int bl, const int bu,
+                         DevExecSpace /*exec_space*/, const int bl, const int bu,
                          const int nl, const int nu, const int kl, const int ku,
                          const int jl, const int ju, const int il, const int iu,
                          const Function &function) {
@@ -602,7 +602,7 @@ inline void par_dispatch(LoopPatternFlatRange, const std::string &name,
 // 6D loop using SIMD FOR loops
 template <typename Tag, typename Function>
 inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
-                         DevExecSpace exec_space, const int ll, const int lu,
+                         DevExecSpace /*exec_space*/, const int ll, const int lu,
                          const int ml, const int mu, const int nl, const int nu,
                          const int kl, const int ku, const int jl, const int ju,
                          const int il, const int iu, const Function &function) {
@@ -835,9 +835,9 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_m
 // Inner parallel loop using FOR SIMD
 template <typename Function>
 KOKKOS_INLINE_FUNCTION void
-par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int nl, const int nu,
-              const int kl, const int ku, const int jl, const int ju, const int il,
-              const int iu, const Function &function) {
+par_for_inner(InnerLoopPatternSimdFor, team_mbr_t /*team_member*/, const int nl,
+              const int nu, const int kl, const int ku, const int jl, const int ju,
+              const int il, const int iu, const Function &function) {
   for (int n = nl; n <= nu; ++n) {
     for (int k = kl; k <= ku; ++k) {
       for (int j = jl; j <= ju; ++j) {
@@ -850,10 +850,10 @@ par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int nl, con
   }
 }
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
-                                          const int kl, const int ku, const int jl,
-                                          const int ju, const int il, const int iu,
-                                          const Function &function) {
+KOKKOS_INLINE_FUNCTION void
+par_for_inner(InnerLoopPatternSimdFor, team_mbr_t /*team_member*/, const int kl,
+              const int ku, const int jl, const int ju, const int il, const int iu,
+              const Function &function) {
   for (int k = kl; k <= ku; ++k) {
     for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
@@ -864,9 +864,9 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t te
   }
 }
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
-                                          const int jl, const int ju, const int il,
-                                          const int iu, const Function &function) {
+KOKKOS_INLINE_FUNCTION void
+par_for_inner(InnerLoopPatternSimdFor, team_mbr_t /*team_member*/, const int jl,
+              const int ju, const int il, const int iu, const Function &function) {
   for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
     for (int i = il; i <= iu; i++) {
@@ -875,9 +875,9 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t te
   }
 }
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
-                                          const int il, const int iu,
-                                          const Function &function) {
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor,
+                                          team_mbr_t /*team_member*/, const int il,
+                                          const int iu, const Function &function) {
 #pragma omp simd
   for (int i = il; i <= iu; i++) {
     function(i);
@@ -933,7 +933,7 @@ std::unique_ptr<T, DeviceDeleter<MS>> DeviceAllocate() {
       static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T))));
   auto p = up.get();
   Kokkos::parallel_for(
-      Kokkos::RangePolicy<ES>(0, 1), KOKKOS_LAMBDA(const int i) { new (p) T(); });
+      Kokkos::RangePolicy<ES>(0, 1), KOKKOS_LAMBDA(const int /*i*/) { new (p) T(); });
   Kokkos::fence();
   return up;
 }
@@ -947,7 +947,7 @@ std::unique_ptr<T, DeviceDeleter<MS>> DeviceCopy(const T &host_object) {
   auto p = up.get();
   Kokkos::parallel_for(
       Kokkos::RangePolicy<ES>(0, 1),
-      KOKKOS_LAMBDA(const int i) { new (p) T(host_object); });
+      KOKKOS_LAMBDA(const int /*i*/) { new (p) T(host_object); });
   Kokkos::fence();
   return up;
 }

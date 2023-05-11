@@ -145,7 +145,7 @@ struct contiguous_container {
 
   template <class T,
             REQUIRES(!implements<container(T)>::value && std::is_fundamental<T>::value)>
-  static std::size_t size(const T &x) {
+  static std::size_t size(const T & /*x*/) {
     return 1;
   }
 

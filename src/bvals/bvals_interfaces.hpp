@@ -300,8 +300,8 @@ class BoundarySwarm : public BoundaryCommunication {
 
   // BoundaryCommunication
   void SetupPersistentMPI() final;
-  void StartReceiving(BoundaryCommSubset phase) final{};
-  void ClearBoundary(BoundaryCommSubset phase) final{};
+  void StartReceiving(BoundaryCommSubset /*phase*/) final{};
+  void ClearBoundary(BoundaryCommSubset /*phase*/) final{};
   void Receive(BoundaryCommSubset phase);
   void Send(BoundaryCommSubset phase);
 

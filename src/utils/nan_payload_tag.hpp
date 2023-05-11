@@ -71,7 +71,7 @@ KOKKOS_INLINE_FUNCTION bool BitwiseCompare(const T &a, const U &b) {
   auto &a_bits = reinterpret_cast<const impl::contiguous_bitset<sizeof(a)> &>(a);
   auto &b_bits = reinterpret_cast<const impl::contiguous_bitset<sizeof(b)> &>(b);
   bool val = true;
-  for (int i = 0; i < sizeof(U); ++i) {
+  for (size_t i = 0; i < sizeof(U); ++i) {
     val = val & (b_bits.bytes[i] == a_bits.bytes[i]);
   }
   return val;
@@ -88,7 +88,7 @@ KOKKOS_INLINE_FUNCTION int GetNaNTag(T val) {
 }
 
 template <class T, REQUIRES(!std::numeric_limits<T>::is_iec559)>
-KOKKOS_INLINE_FUNCTION int GetNaNTag(T val) {
+KOKKOS_INLINE_FUNCTION int GetNaNTag(T /*val*/) {
   return -1;
 }
 
@@ -113,7 +113,7 @@ T GetNaNWithPayloadTag(uint8_t tag = 1) {
 }
 
 template <class T, REQUIRES(!std::numeric_limits<T>::is_iec559)>
-T GetNaNWithPayloadTag(uint8_t tag = 1) {
+T GetNaNWithPayloadTag(uint8_t /*tag*/) {
   PARTHENON_DEBUG_WARN("Trying to use NaN payload tags without IEEE support.");
   return std::numeric_limits<T>::quiet_NaN();
 }

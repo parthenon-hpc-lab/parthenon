@@ -139,8 +139,10 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
       pinput->GetOrAddReal("parthenon/time", "recv_bdry_buf_timeout_sec", -1.0);
 
   // set boundary comms buffer switch trigger
-  Globals::refinement::min_num_bufs =
-      pinput->GetOrAddReal("parthenon/mesh", "refinement_in_one_min_nbufs", 64);
+  auto min_num_bufs_ =
+      pinput->GetOrAddInteger("parthenon/mesh", "refinement_in_one_min_nbufs", 64);
+  PARTHENON_REQUIRE_THROWS(min_num_bufs_ >= 0, "Invalid refinement_in_one_min_nbufs");
+  Globals::refinement::min_num_bufs = min_num_bufs_;
 
   return ParthenonStatus::ok;
 }

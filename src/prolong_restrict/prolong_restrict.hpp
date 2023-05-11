@@ -40,7 +40,7 @@ template <typename T>
 class MeshData; // forward declaration
 class StateDescriptor;
 namespace cell_centered_bvars {
-class BvarsSubCache_t;
+struct BvarsSubCache_t;
 } // namespace cell_centered_bvars
 namespace refinement {
 
