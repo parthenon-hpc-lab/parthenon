@@ -284,16 +284,19 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-template TaskStatus ProlongateBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus ProlongateBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus ProlongateBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
 TaskStatus ApplyCoarseBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
   if (!md->GetMeshPointer()->multilevel) return TaskStatus::complete;
   TaskStatus stat = TaskStatus::complete;
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto bstat = ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), true);
-    //if (bstat != TaskStatus::complete) stat = bstat;
+    // if (bstat != TaskStatus::complete) stat = bstat;
   }
   return stat;
 }
@@ -305,27 +308,27 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
   const auto local = BoundaryType::local;
   const auto nonlocal = BoundaryType::nonlocal;
 
-  //auto send = tl.AddTask(dependency, SendBoundBufs<nonlocal>, md);
-  //auto send_local = tl.AddTask(dependency, SendBoundBufs<local>, md);
+  // auto send = tl.AddTask(dependency, SendBoundBufs<nonlocal>, md);
+  // auto send_local = tl.AddTask(dependency, SendBoundBufs<local>, md);
 
-  //auto recv_local = tl.AddTask(dependency, ReceiveBoundBufs<local>, md);
-  //auto set_local = tl.AddTask(recv_local, SetBounds<local>, md);
+  // auto recv_local = tl.AddTask(dependency, ReceiveBoundBufs<local>, md);
+  // auto set_local = tl.AddTask(recv_local, SetBounds<local>, md);
 
-  //auto recv = tl.AddTask(dependency, ReceiveBoundBufs<nonlocal>, md);
-  //auto set = tl.AddTask(recv, SetBounds<nonlocal>, md);
-  
-  //auto cbound = tl.AddTask(set, ApplyCoarseBoundaryConditions, md); 
-  
-  //auto pro_local = tl.AddTask(cbound | set_local | set, ProlongateBounds<local>, md);
-  //auto pro = tl.AddTask(cbound | set_local | set, ProlongateBounds<nonlocal>, md);
+  // auto recv = tl.AddTask(dependency, ReceiveBoundBufs<nonlocal>, md);
+  // auto set = tl.AddTask(recv, SetBounds<nonlocal>, md);
 
-  //auto out = (pro_local | pro);
-   
-  // TODO(LFR): Splitting up the boundary tasks while doing prolongation in one 
-  //            breaks things, which I haven't completely figured out yet. To 
-  //            move to the commented out code above, this needs to be fixed and 
-  //            the prolongation and physical boundary conditions need to be removed 
-  //            from the end of SetBounds 
+  // auto cbound = tl.AddTask(set, ApplyCoarseBoundaryConditions, md);
+
+  // auto pro_local = tl.AddTask(cbound | set_local | set, ProlongateBounds<local>, md);
+  // auto pro = tl.AddTask(cbound | set_local | set, ProlongateBounds<nonlocal>, md);
+
+  // auto out = (pro_local | pro);
+
+  // TODO(LFR): Splitting up the boundary tasks while doing prolongation in one
+  //            breaks things, which I haven't completely figured out yet. To
+  //            move to the commented out code above, this needs to be fixed and
+  //            the prolongation and physical boundary conditions need to be removed
+  //            from the end of SetBounds
   auto send = tl.AddTask(dependency, SendBoundBufs<any>, md);
   auto recv = tl.AddTask(dependency, ReceiveBoundBufs<any>, md);
   auto set = tl.AddTask(recv, SetBounds<any>, md);
