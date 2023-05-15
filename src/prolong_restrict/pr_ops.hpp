@@ -93,17 +93,16 @@ KOKKOS_INLINE_FUNCTION Real GetXCC<3>(const Coordinates_t &coords, int i) {
 template <int DIM>
 KOKKOS_FORCEINLINE_FUNCTION void
 GetGridSpacings(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-                const IndexRange &cib, const IndexRange &ib, int i, int *fi, Real *dxm,
+                const IndexRange &cib, const IndexRange &ib, int i, int fi, Real *dxm,
                 Real *dxp, Real *dxfm, Real *dxfp) {
   // here "f" signifies the fine grid, not face locations.
-  *fi = (i - cib.s) * 2 + ib.s;
   const Real xm = GetXCC<DIM>(coarse_coords, i - 1);
   const Real xc = GetXCC<DIM>(coarse_coords, i);
   const Real xp = GetXCC<DIM>(coarse_coords, i + 1);
   *dxm = xc - xm;
   *dxp = xp - xc;
-  const Real fxm = GetXCC<DIM>(coords, *fi);
-  const Real fxp = GetXCC<DIM>(coords, *fi + 1);
+  const Real fxm = GetXCC<DIM>(coords, fi);
+  const Real fxp = GetXCC<DIM>(coords, fi + 1);
   *dxfm = xc - fxm;
   *dxfp = fxp - xc;
 }
@@ -188,36 +187,39 @@ struct ProlongateSharedGeneralMinMod {
     using namespace util;
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
+    
+    constexpr int element_idx = static_cast<int>(el) % 3; 
+    
+    const int fi = DIM > 0 ? (i - cib.s) * 2 + ib.s : ib.s;
+    const int fj = DIM > 1 ? (j - cjb.s) * 2 + jb.s : jb.s;
+    const int fk = DIM > 2 ? (k - ckb.s) * 2 + kb.s : kb.s;
 
-    const Real fc = coarse(l, m, n, k, j, i);
-
-    int fi;
+    const Real fc = coarse(element_idx, l, m, n, k, j, i);
+    
     Real dx1fm, dx1fp, dx1m, dx1p;
-    GetGridSpacings<1>(coords, coarse_coords, cib, ib, i, &fi, &dx1m, &dx1p, &dx1fm,
+    GetGridSpacings<1>(coords, coarse_coords, cib, ib, i, fi, &dx1m, &dx1p, &dx1fm,
                        &dx1fp);
-    const Real gx1c = GradMinMod(fc, coarse(l, m, n, k, j, i - 1),
-                                 coarse(l, m, n, k, j, i + 1), dx1m, dx1p);
+    const Real gx1c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j, i - 1),
+                                 coarse(element_idx, l, m, n, k, j, i + 1), dx1m, dx1p);
 
-    int fj = jb.s; // overwritten as needed
     Real dx2fm = 0;
     [[maybe_unused]] Real dx2fp = 0;
     Real gx2c = 0;
     if constexpr (DIM > 1) {
       Real dx2m, dx2p;
-      GetGridSpacings<2>(coords, coarse_coords, cjb, jb, j, &fj, &dx2m, &dx2p, &dx2fm,
+      GetGridSpacings<2>(coords, coarse_coords, cjb, jb, j, fj, &dx2m, &dx2p, &dx2fm,
                          &dx2fp);
-      gx2c = GradMinMod(fc, coarse(l, m, n, k, j - 1, i), coarse(l, m, n, k, j + 1, i),
+      gx2c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j - 1, i), coarse(element_idx, l, m, n, k, j + 1, i),
                         dx2m, dx2p);
     }
-    int fk = kb.s;
     Real dx3fm = 0;
     [[maybe_unused]] Real dx3fp = 0;
     Real gx3c = 0;
     if constexpr (DIM > 2) {
       Real dx3m, dx3p;
-      GetGridSpacings<3>(coords, coarse_coords, ckb, kb, k, &fk, &dx3m, &dx3p, &dx3fm,
+      GetGridSpacings<3>(coords, coarse_coords, ckb, kb, k, fk, &dx3m, &dx3p, &dx3fm,
                          &dx3fp);
-      gx3c = GradMinMod(fc, coarse(l, m, n, k - 1, j, i), coarse(l, m, n, k + 1, j, i),
+      gx3c = GradMinMod(fc, coarse(element_idx, l, m, n, k - 1, j, i), coarse(element_idx, l, m, n, k + 1, j, i),
                         dx3m, dx3p);
     }
 
