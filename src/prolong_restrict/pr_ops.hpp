@@ -73,36 +73,21 @@ namespace parthenon {
 namespace refinement_ops {
 
 namespace util {
-// TODO(JMM): this could be simplified if grid spacing was always uniform
-template <int DIM>
-KOKKOS_INLINE_FUNCTION Real GetXCC(const Coordinates_t &coords, int i);
-template <>
-KOKKOS_INLINE_FUNCTION Real GetXCC<1>(const Coordinates_t &coords, int i) {
-  return coords.Xc<1>(i);
-}
-template <>
-KOKKOS_INLINE_FUNCTION Real GetXCC<2>(const Coordinates_t &coords, int i) {
-  return coords.Xc<2>(i);
-}
-template <>
-KOKKOS_INLINE_FUNCTION Real GetXCC<3>(const Coordinates_t &coords, int i) {
-  return coords.Xc<3>(i);
-}
 // compute distances from cell center to the nearest center in the + or -
 // coordinate direction. Do so for both coarse and fine grids.
-template <int DIM>
+template <int DIM, TopologicalElement EL>
 KOKKOS_FORCEINLINE_FUNCTION void
 GetGridSpacings(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
                 const IndexRange &cib, const IndexRange &ib, int i, int fi, Real *dxm,
                 Real *dxp, Real *dxfm, Real *dxfp) {
   // here "f" signifies the fine grid, not face locations.
-  const Real xm = GetXCC<DIM>(coarse_coords, i - 1);
-  const Real xc = GetXCC<DIM>(coarse_coords, i);
-  const Real xp = GetXCC<DIM>(coarse_coords, i + 1);
+  const Real xm = coarse_coords.X<DIM, EL>(i - 1);
+  const Real xc = coarse_coords.X<DIM, EL>(i);
+  const Real xp = coarse_coords.X<DIM, EL>(i + 1);
   *dxm = xc - xm;
   *dxp = xp - xc;
-  const Real fxm = GetXCC<DIM>(coords, fi);
-  const Real fxp = GetXCC<DIM>(coords, fi + 1);
+  const Real fxm = coords.X<DIM, EL>(fi);
+  const Real fxp = coords.X<DIM, EL>(fi + 1);
   *dxfm = xc - fxm;
   *dxfp = fxp - xc;
 }
@@ -187,13 +172,13 @@ struct ProlongateSharedGeneralMinMod {
     using namespace util;
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
-    
-    constexpr int element_idx = static_cast<int>(el) % 3; 
-    
+
+    constexpr int element_idx = static_cast<int>(el) % 3;
+
     const int fi = DIM > 0 ? (i - cib.s) * 2 + ib.s : ib.s;
     const int fj = DIM > 1 ? (j - cjb.s) * 2 + jb.s : jb.s;
     const int fk = DIM > 2 ? (k - ckb.s) * 2 + kb.s : kb.s;
-    
+
     constexpr bool INCLUDE_X1 =
         (DIM > 0) && (el == TE::C || el == TE::FY || el == TE::FZ || el == TE::EYZ);
     constexpr bool INCLUDE_X2 =
@@ -202,27 +187,27 @@ struct ProlongateSharedGeneralMinMod {
         (DIM > 2) && (el == TE::C || el == TE::FX || el == TE::FY || el == TE::EXY);
 
     const Real fc = coarse(element_idx, l, m, n, k, j, i);
-    
+
     Real dx1fm = 0;
     [[maybe_unused]] Real dx1fp = 0;
     Real gx1c = 0;
-    if constexpr (INCLUDE_X1) { 
+    if constexpr (INCLUDE_X1) {
       Real dx1m, dx1p;
-      GetGridSpacings<1>(coords, coarse_coords, cib, ib, i, fi, &dx1m, &dx1p, &dx1fm,
-                         &dx1fp);
-      gx1c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j, i - 1),                         
+      GetGridSpacings<1, el>(coords, coarse_coords, cib, ib, i, fi, &dx1m, &dx1p, &dx1fm,
+                             &dx1fp);
+      gx1c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j, i - 1),
                         coarse(element_idx, l, m, n, k, j, i + 1), dx1m, dx1p);
     }
-    
+
     Real dx2fm = 0;
     [[maybe_unused]] Real dx2fp = 0;
     Real gx2c = 0;
     if constexpr (INCLUDE_X2) {
       Real dx2m, dx2p;
-      GetGridSpacings<2>(coords, coarse_coords, cjb, jb, j, fj, &dx2m, &dx2p, &dx2fm,
-                         &dx2fp);
-      gx2c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j - 1, i), coarse(element_idx, l, m, n, k, j + 1, i),
-                        dx2m, dx2p);
+      GetGridSpacings<2, el>(coords, coarse_coords, cjb, jb, j, fj, &dx2m, &dx2p, &dx2fm,
+                             &dx2fp);
+      gx2c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j - 1, i),
+                        coarse(element_idx, l, m, n, k, j + 1, i), dx2m, dx2p);
     }
 
     Real dx3fm = 0;
@@ -230,30 +215,33 @@ struct ProlongateSharedGeneralMinMod {
     Real gx3c = 0;
     if constexpr (INCLUDE_X3) {
       Real dx3m, dx3p;
-      GetGridSpacings<3>(coords, coarse_coords, ckb, kb, k, fk, &dx3m, &dx3p, &dx3fm,
-                         &dx3fp);
-      gx3c = GradMinMod(fc, coarse(element_idx, l, m, n, k - 1, j, i), coarse(element_idx, l, m, n, k + 1, j, i),
-                        dx3m, dx3p);
+      GetGridSpacings<3, el>(coords, coarse_coords, ckb, kb, k, fk, &dx3m, &dx3p, &dx3fm,
+                             &dx3fp);
+      gx3c = GradMinMod(fc, coarse(element_idx, l, m, n, k - 1, j, i),
+                        coarse(element_idx, l, m, n, k + 1, j, i), dx3m, dx3p);
     }
 
     // KGF: add the off-centered quantities first to preserve FP symmetry
     // JMM: Extraneous quantities are zero
     fine(l, m, n, fk, fj, fi) = fc - (gx1c * dx1fm + gx2c * dx2fm + gx3c * dx3fm);
-    fine(l, m, n, fk, fj, fi + 1) = fc + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
-    if constexpr (DIM > 1) {
+    if constexpr (INCLUDE_X1)
+      fine(l, m, n, fk, fj, fi + 1) = fc + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
+    if constexpr (INCLUDE_X2)
       fine(l, m, n, fk, fj + 1, fi) = fc - (gx1c * dx1fm - gx2c * dx2fp + gx3c * dx3fm);
+    if constexpr (INCLUDE_X2 && INCLUDE_X1)
       fine(l, m, n, fk, fj + 1, fi + 1) =
           fc + (gx1c * dx1fp + gx2c * dx2fp - gx3c * dx3fm);
-    }
-    if constexpr (DIM > 2) {
+    if constexpr (INCLUDE_X3)
       fine(l, m, n, fk + 1, fj, fi) = fc - (gx1c * dx1fm + gx2c * dx2fm - gx3c * dx3fp);
+    if constexpr (INCLUDE_X3 && INCLUDE_X1)
       fine(l, m, n, fk + 1, fj, fi + 1) =
           fc + (gx1c * dx1fp - gx2c * dx2fm + gx3c * dx3fp);
+    if constexpr (INCLUDE_X3 && INCLUDE_X2)
       fine(l, m, n, fk + 1, fj + 1, fi) =
           fc - (gx1c * dx1fm - gx2c * dx2fp - gx3c * dx3fp);
+    if constexpr (INCLUDE_X3 && INCLUDE_X2 && INCLUDE_X1)
       fine(l, m, n, fk + 1, fj + 1, fi + 1) =
           fc + (gx1c * dx1fp + gx2c * dx2fp + gx3c * dx3fp);
-    }
   }
 };
 
