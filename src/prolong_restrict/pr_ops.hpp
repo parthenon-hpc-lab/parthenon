@@ -193,29 +193,42 @@ struct ProlongateSharedGeneralMinMod {
     const int fi = DIM > 0 ? (i - cib.s) * 2 + ib.s : ib.s;
     const int fj = DIM > 1 ? (j - cjb.s) * 2 + jb.s : jb.s;
     const int fk = DIM > 2 ? (k - ckb.s) * 2 + kb.s : kb.s;
+    
+    constexpr bool INCLUDE_X1 =
+        (DIM > 0) && (el == TE::C || el == TE::FY || el == TE::FZ || el == TE::EYZ);
+    constexpr bool INCLUDE_X2 =
+        (DIM > 1) && (el == TE::C || el == TE::FX || el == TE::FZ || el == TE::EXZ);
+    constexpr bool INCLUDE_X3 =
+        (DIM > 2) && (el == TE::C || el == TE::FX || el == TE::FY || el == TE::EXY);
 
     const Real fc = coarse(element_idx, l, m, n, k, j, i);
     
-    Real dx1fm, dx1fp, dx1m, dx1p;
-    GetGridSpacings<1>(coords, coarse_coords, cib, ib, i, fi, &dx1m, &dx1p, &dx1fm,
-                       &dx1fp);
-    const Real gx1c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j, i - 1),
-                                 coarse(element_idx, l, m, n, k, j, i + 1), dx1m, dx1p);
-
+    Real dx1fm = 0;
+    [[maybe_unused]] Real dx1fp = 0;
+    Real gx1c = 0;
+    if constexpr (INCLUDE_X1) { 
+      Real dx1m, dx1p;
+      GetGridSpacings<1>(coords, coarse_coords, cib, ib, i, fi, &dx1m, &dx1p, &dx1fm,
+                         &dx1fp);
+      gx1c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j, i - 1),                         
+                        coarse(element_idx, l, m, n, k, j, i + 1), dx1m, dx1p);
+    }
+    
     Real dx2fm = 0;
     [[maybe_unused]] Real dx2fp = 0;
     Real gx2c = 0;
-    if constexpr (DIM > 1) {
+    if constexpr (INCLUDE_X2) {
       Real dx2m, dx2p;
       GetGridSpacings<2>(coords, coarse_coords, cjb, jb, j, fj, &dx2m, &dx2p, &dx2fm,
                          &dx2fp);
       gx2c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j - 1, i), coarse(element_idx, l, m, n, k, j + 1, i),
                         dx2m, dx2p);
     }
+
     Real dx3fm = 0;
     [[maybe_unused]] Real dx3fp = 0;
     Real gx3c = 0;
-    if constexpr (DIM > 2) {
+    if constexpr (INCLUDE_X3) {
       Real dx3m, dx3p;
       GetGridSpacings<3>(coords, coarse_coords, ckb, kb, k, fk, &dx3m, &dx3p, &dx3fm,
                          &dx3fp);
