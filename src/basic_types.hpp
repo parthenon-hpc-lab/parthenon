@@ -53,7 +53,7 @@ enum class BoundaryType : int { local, nonlocal, any, flxcor_send, flxcor_recv }
 // EXY = edge at (i - 1/2, j - 1/2, k)
 // EXZ = edge at (i - 1/2, j, k - 1/2)
 // EXY = edge at (i, j - 1/2, k - 1/2)
-// NXYZ = edge at (i - 1/2, j - 1/2, k - 1/2)
+// NXYZ = node at (i - 1/2, j - 1/2, k - 1/2)
 //
 // The values of the enumeration are chosen so we can do te % 3 to get
 // the correct index for each type of element in Variable::data
