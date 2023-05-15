@@ -117,7 +117,8 @@ Real GradMinMod(const Real fc, const Real fm, const Real fp, const Real dxm,
 
 } // namespace util
 
-struct RestrictCellAverage {
+template <TopologicalElement el>
+struct RestrictGeneral {
   template <int DIM>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
@@ -126,17 +127,22 @@ struct RestrictCellAverage {
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
      const ParArrayND<Real, VariableState> *pcoarse,
      const ParArrayND<Real, VariableState> *pfine) {
+    constexpr bool INCLUDE_X1 =
+        (DIM > 0) && (el == TE::C || el == TE::FY || el == TE::FZ || el == TE::EYZ);
+    constexpr bool INCLUDE_X2 =
+        (DIM > 1) && (el == TE::C || el == TE::FX || el == TE::FZ || el == TE::EXZ);
+    constexpr bool INCLUDE_X3 =
+        (DIM > 2) && (el == TE::C || el == TE::FX || el == TE::FY || el == TE::EXY);
+    constexpr int element_idx = static_cast<int>(el) % 3;
+
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
-    const int i = (ci - cib.s) * 2 + ib.s;
-    int j = jb.s;
-    if constexpr (DIM > 1) {
-      j = (cj - cjb.s) * 2 + jb.s;
-    }
-    int k = kb.s;
-    if constexpr (DIM > 2) {
-      k = (ck - ckb.s) * 2 + kb.s;
-    }
+
+    // LFR: This indexing is unchanged with topological type
+    const int i = DIM > 0 ? (ci - cib.s) * 2 + ib.s : ib.s;
+    const int j = DIM > 1 ? (cj - cjb.s) * 2 + jb.s : jb.s;
+    const int k = DIM > 2 ? (ck - ckb.s) * 2 + kb.s : kb.s;
+
     // JMM: If dimensionality is wrong, accesses are out of bounds. Only
     // access cells if dimensionality is correct.
     Real vol[2][2][2], terms[2][2][2]; // memset not available on all accelerators
@@ -147,11 +153,13 @@ struct RestrictCellAverage {
         }
       }
     }
-    for (int ok = 0; ok < 1 + (DIM > 2); ++ok) {
-      for (int oj = 0; oj < 1 + (DIM > 1); ++oj) {
-        for (int oi = 0; oi < 1 + 1; ++oi) {
-          vol[ok][oj][oi] = coords.CellVolume(k + ok, j + oj, i + oi);
-          terms[ok][oj][oi] = vol[ok][oj][oi] * fine(l, m, n, k + ok, j + oj, i + oi);
+
+    for (int ok = 0; ok < 1 + INCLUDE_X3; ++ok) {
+      for (int oj = 0; oj < 1 + INCLUDE_X2; ++oj) {
+        for (int oi = 0; oi < 1 + INCLUDE_X1; ++oi) {
+          vol[ok][oj][oi] = coords.Volume<el>(k + ok, j + oj, i + oi);
+          terms[ok][oj][oi] =
+              vol[ok][oj][oi] * fine(element_idx, l, m, n, k + ok, j + oj, i + oi);
         }
       }
     }
@@ -159,14 +167,16 @@ struct RestrictCellAverage {
     // symmetry
     const Real tvol = ((vol[0][0][0] + vol[0][1][0]) + (vol[0][0][1] + vol[0][1][1])) +
                       ((vol[1][0][0] + vol[1][1][0]) + (vol[1][0][1] + vol[1][1][1]));
-    coarse(l, m, n, ck, cj, ci) =
+    coarse(element_idx, l, m, n, ck, cj, ci) =
         (((terms[0][0][0] + terms[0][1][0]) + (terms[0][0][1] + terms[0][1][1])) +
          ((terms[1][0][0] + terms[1][1][0]) + (terms[1][0][1] + terms[1][1][1]))) /
         tvol;
   }
 };
+using RestrictCellAverage = RestrictGeneral<TopologicalElement::C>;
 
-struct ProlongateCellMinMod {
+template <TopologicalElement el>
+struct ProlongateSharedGeneralMinMod {
   template <int DIM>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
@@ -231,6 +241,9 @@ struct ProlongateCellMinMod {
     }
   }
 };
+
+using ProlongateCellMinMod = ProlongateSharedGeneralMinMod<TopologicalElement::C>;
+
 } // namespace refinement_ops
 } // namespace parthenon
 
