@@ -215,6 +215,31 @@ class UniformCartesian {
     return cell_volume_;
   }
 
+  //----------------------------------------
+  // Generalized volume
+  //----------------------------------------
+  template <TopologicalElement el, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Volume(Args... args) const {
+    using TE = TopologicalElement;
+    if constexpr (el == TE::C) {
+      return cell_volume_;
+    } else if constexpr (el == TE::FX) {
+      return area_[X1DIR - 1];
+    } else if constexpr (el == TE::FY) {
+      return area_[X2DIR - 1];
+    } else if constexpr (el == TE::FZ) {
+      return area_[X3DIR - 1];
+    } else if constexpr (el == TE::EXY) {
+      return dx_[X3DIR - 1];
+    } else if constexpr (el == TE::EXZ) {
+      return dx_[X2DIR - 1];
+    } else if constexpr (el == TE::EYZ) {
+      return dx_[X1DIR - 1];
+    } else if constexpr (el == TE::NXYZ) {
+      PARTHENON_FAIL("Probably don't want the generalized volume of a point");
+    }
+  }
+
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
   const std::array<int, 3> &GetStartIndex() const { return istart_; }
   const char *Name() const { return name_; }
