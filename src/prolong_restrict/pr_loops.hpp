@@ -125,13 +125,14 @@ ProlongationRestrictionLoop(const BufferCacheHost_t &info_h,
       // TODO(LFR): Figure out how the parthenon abstraction works so that we don't have
       // to use
       //            a 3D loop with two dimensions of size one
-      par_for(DEFAULT_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues",
-              DevExecSpace(), 0, 0, 0, 0, 0, idxer.size() - 1,
-              KOKKOS_LAMBDA(const int, const int, const int ii) {
-                const auto [t, u, v, k, j, i] = idxer(ii);
-                Stencil::template Do<DIM>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib,
-                                          coords, coarse_coords, &coarse, &fine);
-              });
+      par_for(
+          DEFAULT_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues", DevExecSpace(),
+          0, 0, 0, 0, 0, idxer.size() - 1,
+          KOKKOS_LAMBDA(const int, const int, const int ii) {
+            const auto [t, u, v, k, j, i] = idxer(ii);
+            Stencil::template Do<DIM>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib, coords,
+                                      coarse_coords, &coarse, &fine);
+          });
     }
   }
 }
