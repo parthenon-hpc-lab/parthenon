@@ -103,6 +103,11 @@ Real GradMinMod(const Real fc, const Real fm, const Real fp, const Real dxm,
 } // namespace util
 
 struct Restrict {
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+
   template <int DIM, TopologicalElement el = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
@@ -158,6 +163,11 @@ struct Restrict {
 };
 
 struct ProlongateSharedMinMod {
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+
   template <int DIM, TopologicalElement el = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
@@ -246,33 +256,12 @@ struct ProlongateSharedMinMod {
   }
 };
 
-inline constexpr bool IsSubmanifold(TopologicalElement container,
-                                    TopologicalElement containee) {
-  if (container == TE::C) {
-    return true;
-  } else if (container == TE::FX) {
-    return containee == TE::FX || containee == TE::EXY || containee == TE::EXZ ||
-           containee == TE::NXYZ;
-  } else if (container == TE::FY) {
-    return containee == TE::FY || containee == TE::EXY || containee == TE::EYZ ||
-           containee == TE::NXYZ;
-  } else if (container == TE::FZ) {
-    return containee == TE::FZ || containee == TE::EXZ || containee == TE::EYZ ||
-           containee == TE::NXYZ;
-  } else if (container == TE::EXY) {
-    return containee == TE::EXY || containee == TE::NXYZ;
-  } else if (container == TE::EXZ) {
-    return containee == TE::EXZ || containee == TE::NXYZ;
-  } else if (container == TE::EYZ) {
-    return containee == TE::EYZ || containee == TE::NXYZ;
-  } else if (container == TE::NXYZ) {
-    return containee == TE::NXYZ;
-  } else {
-    return false;
-  }
-}
-
 struct ProlongateInternalAverage {
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return IsSubmanifold(cel, fel);
+  }
+
   template <int DIM, TopologicalElement el = TopologicalElement::C,
             TopologicalElement el_avg = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
