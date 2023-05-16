@@ -91,6 +91,7 @@ GetGridSpacings(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
   *dxfm = xc - fxm;
   *dxfp = fxp - xc;
 }
+
 KOKKOS_FORCEINLINE_FUNCTION
 Real GradMinMod(const Real fc, const Real fm, const Real fp, const Real dxm,
                 const Real dxp) {
@@ -121,10 +122,9 @@ struct Restrict {
     auto &coarse = *pcoarse;
     auto &fine = *pfine;
 
-    // LFR: This indexing is unchanged with topological type
-    const int i = DIM > 0 ? (ci - cib.s) * 2 + ib.s : ib.s;
-    const int j = DIM > 1 ? (cj - cjb.s) * 2 + jb.s : jb.s;
-    const int k = DIM > 2 ? (ck - ckb.s) * 2 + kb.s : kb.s;
+    const int i = (DIM > 0) ? (ci - cib.s) * 2 + ib.s : ib.s;
+    const int j = (DIM > 1) ? (cj - cjb.s) * 2 + jb.s : jb.s;
+    const int k = (DIM > 2) ? (ck - ckb.s) * 2 + kb.s : kb.s;
 
     // JMM: If dimensionality is wrong, accesses are out of bounds. Only
     // access cells if dimensionality is correct.
@@ -172,9 +172,9 @@ struct ProlongateSharedMinMod {
 
     constexpr int element_idx = static_cast<int>(el) % 3;
 
-    const int fi = DIM > 0 ? (i - cib.s) * 2 + ib.s : ib.s;
-    const int fj = DIM > 1 ? (j - cjb.s) * 2 + jb.s : jb.s;
-    const int fk = DIM > 2 ? (k - ckb.s) * 2 + kb.s : kb.s;
+    const int fi = (DIM > 0) ? (i - cib.s) * 2 + ib.s : ib.s;
+    const int fj = (DIM > 1) ? (j - cjb.s) * 2 + jb.s : jb.s;
+    const int fk = (DIM > 2) ? (k - ckb.s) * 2 + kb.s : kb.s;
 
     constexpr bool INCLUDE_X1 =
         (DIM > 0) && (el == TE::C || el == TE::FY || el == TE::FZ || el == TE::EYZ);
@@ -243,6 +243,102 @@ struct ProlongateSharedMinMod {
     if constexpr (INCLUDE_X3 && INCLUDE_X2 && INCLUDE_X1)
       fine(element_idx, l, m, n, fk + 1, fj + 1, fi + 1) =
           fc + (gx1c * dx1fp + gx2c * dx2fp + gx3c * dx3fp);
+  }
+};
+
+inline constexpr bool IsSubmanifold(TopologicalElement container,
+                                    TopologicalElement containee) {
+  if (container == TE::C) {
+    return true;
+  } else if (container == TE::FX) {
+    return containee == TE::FX || containee == TE::EXY || containee == TE::EXZ ||
+           containee == TE::NXYZ;
+  } else if (container == TE::FY) {
+    return containee == TE::FY || containee == TE::EXY || containee == TE::EYZ ||
+           containee == TE::NXYZ;
+  } else if (container == TE::FZ) {
+    return containee == TE::FZ || containee == TE::EXZ || containee == TE::EYZ ||
+           containee == TE::NXYZ;
+  } else if (container == TE::EXY) {
+    return containee == TE::EXY || containee == TE::NXYZ;
+  } else if (container == TE::EXZ) {
+    return containee == TE::EXZ || containee == TE::NXYZ;
+  } else if (container == TE::EYZ) {
+    return containee == TE::EYZ || containee == TE::NXYZ;
+  } else if (container == TE::NXYZ) {
+    return containee == TE::NXYZ;
+  } else {
+    return false;
+  }
+}
+
+struct ProlongateInternalAverage {
+  template <int DIM, TopologicalElement el = TopologicalElement::C,
+            TopologicalElement el_avg = TopologicalElement::C>
+  KOKKOS_FORCEINLINE_FUNCTION static void
+  Do(const int l, const int m, const int n, const int k, const int j, const int i,
+     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+     const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+     const ParArrayND<Real, VariableState> *,
+     const ParArrayND<Real, VariableState> *pfine) {
+    using namespace util;
+
+    if constexpr (!IsSubmanifold(el_avg, el)) {
+      return;
+    } else {
+      auto &fine = *pfine;
+
+      constexpr int element_idx = static_cast<int>(el) % 3;
+
+      const int fi = (DIM > 0) ? (i - cib.s) * 2 + ib.s : ib.s;
+      const int fj = (DIM > 1) ? (j - cjb.s) * 2 + jb.s : jb.s;
+      const int fk = (DIM > 2) ? (k - ckb.s) * 2 + kb.s : kb.s;
+
+      // Determine wether or not the fields coordinates are on coordinate centers (i.e.
+      // same coordinate position as a zone center)
+      constexpr bool CENTER_X1 =
+          (DIM > 0) && (el == TE::C || el == TE::FY || el == TE::FZ || el == TE::EYZ);
+      constexpr bool CENTER_X2 =
+          (DIM > 1) && (el == TE::C || el == TE::FX || el == TE::FZ || el == TE::EXZ);
+      constexpr bool CENTER_X3 =
+          (DIM > 2) && (el == TE::C || el == TE::FX || el == TE::FY || el == TE::EXY);
+
+      // Determine the directions we want our averaging stencil to extend in
+      constexpr bool STENCIL_X1 =
+          (DIM > 0) && !CENTER_X1 &&
+          (el_avg == TE::C || el_avg == TE::FY || el_avg == TE::FZ || el_avg == TE::EYZ);
+      constexpr bool STENCIL_X2 =
+          (DIM > 1) && !CENTER_X2 &&
+          (el_avg == TE::C || el_avg == TE::FX || el_avg == TE::FZ || el_avg == TE::EXZ);
+      constexpr bool STENCIL_X3 =
+          (DIM > 2) && !CENTER_X3 &&
+          (el_avg == TE::C || el_avg == TE::FX || el_avg == TE::FY || el_avg == TE::EXY);
+
+      // Prolongate elements internal to topological element el_avg by averaging over
+      // coarse region defined by (k,j,i)
+      const Real w = 1.0 / ((1.0 + STENCIL_X3) * (1.0 + STENCIL_X2) * (1.0 + STENCIL_X1));
+      for (int ok = 0; ok < 1 + CENTER_X3; ++ok) {
+        for (int oj = 0; oj < 1 + CENTER_X2; ++oj) {
+          for (int oi = 0; oi < 1 + CENTER_X1; ++oi) {
+            const int tk = fk + ok + STENCIL_X3;
+            const int tj = fj + oj + STENCIL_X2;
+            const int ti = fi + oi + STENCIL_X1;
+            Real f = 0.0;
+            for (int stk = -STENCIL_X3; stk <= STENCIL_X3; stk += 2) {
+              for (int stj = -STENCIL_X2; stj <= STENCIL_X2; stj += 2) {
+                for (int sti = -STENCIL_X1; sti <= STENCIL_X1; sti += 2) {
+                  // LFR: Obviously, you could generalize this to more complicated
+                  // stencils with a weight array and a larger range.
+                  f += w * fine(element_idx, l, m, n, tk + stk, tj + stj, ti + sti);
+                }
+              }
+            }
+            fine(element_idx, l, m, n, tk, tj, ti) = f;
+          }
+        }
+      }
+    }
   }
 };
 
