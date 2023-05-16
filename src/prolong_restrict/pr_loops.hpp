@@ -64,7 +64,7 @@ KOKKOS_INLINE_FUNCTION void InnerProlongationRestrictionLoop(
     team_mbr_t &team_member, std::size_t buf, const BufferCache_t &info,
     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib) {
-  const auto &idxer = info(buf).prores_idxer[0];
+  const auto &idxer = info(buf).prores_idxer[static_cast<int>(EL) % 3];
   par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, 0, 0, 0, 0, idxer.size() - 1,
                 [&](const int, const int, const int ii) {
                   const auto [t, u, v, k, j, i] = idxer(ii);
@@ -123,7 +123,7 @@ InnerHostProlongationRestrictionLoop(std::size_t buf, const BufferCacheHost_t &i
                                      const IndexRange &ckb, const IndexRange &cjb,
                                      const IndexRange &cib, const IndexRange &kb,
                                      const IndexRange &jb, const IndexRange &ib) {
-  const auto &idxer = info(buf).prores_idxer[0];
+  const auto &idxer = info(buf).prores_idxer[static_cast<int>(EL) % 3];
   auto coords = info(buf).coords;
   auto coarse_coords = info(buf).coarse_coords;
   auto coarse = info(buf).coarse;
