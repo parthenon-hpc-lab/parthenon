@@ -59,16 +59,16 @@ KOKKOS_FORCEINLINE_FUNCTION bool DoRefinementOp(const Info_t &info,
 // and a version that automatically swaps between them depending on
 // the size of the buffer cache.
 
-template <int DIM, class Stencil, TopologicalElement EL>
+template <int DIM, class Stencil, TopologicalElement FEL, TopologicalElement CEL>
 KOKKOS_INLINE_FUNCTION void InnerProlongationRestrictionLoop(
     team_mbr_t &team_member, std::size_t buf, const BufferCache_t &info,
     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib) {
-  const auto &idxer = info(buf).prores_idxer[static_cast<int>(EL) % 3];
+  const auto &idxer = info(buf).prores_idxer[static_cast<int>(FEL) % 3];
   par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, 0, 0, 0, 0, idxer.size() - 1,
                 [&](const int, const int, const int ii) {
                   const auto [t, u, v, k, j, i] = idxer(ii);
-                  Stencil::template Do<DIM, EL>(
+                  Stencil::template Do<DIM, FEL>(
                       t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib, info(buf).coords,
                       info(buf).coarse_coords, &(info(buf).coarse), &(info(buf).fine));
                 });
@@ -77,6 +77,34 @@ KOKKOS_INLINE_FUNCTION void InnerProlongationRestrictionLoop(
 template <int DIM, class Stencil, TopologicalElement... ELs, class... Args>
 KOKKOS_INLINE_FUNCTION void IterateInnerProlongationRestrictionLoop(Args &&...args) {
   (InnerProlongationRestrictionLoop<DIM, Stencil, ELs>(std::forward<Args>(args)...), ...);
+  (
+      [&] {
+        if constexpr (Stencil::OperationRequired(ELs, TE::NXYZ))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::NXYZ>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::EXY))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EXY>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::EXZ))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EXZ>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::EYZ))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EYZ>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::FX))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FX>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::FY))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FY>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::FZ))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FZ>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::C))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::C>(
+              std::forward<Args>(args)...);
+      }(),
+      ...);
 }
 
 template <int DIM, class Stencil>
@@ -117,13 +145,13 @@ ProlongationRestrictionLoop(const BufferCache_t &info, const Idx_t &buffer_idxs,
       });
 }
 
-template <int DIM, class Stencil, TopologicalElement EL>
+template <int DIM, class Stencil, TopologicalElement FEL, TopologicalElement CEL>
 inline void
 InnerHostProlongationRestrictionLoop(std::size_t buf, const BufferCacheHost_t &info,
                                      const IndexRange &ckb, const IndexRange &cjb,
                                      const IndexRange &cib, const IndexRange &kb,
                                      const IndexRange &jb, const IndexRange &ib) {
-  const auto &idxer = info(buf).prores_idxer[static_cast<int>(EL) % 3];
+  const auto &idxer = info(buf).prores_idxer[static_cast<int>(FEL) % 3];
   auto coords = info(buf).coords;
   auto coarse_coords = info(buf).coarse_coords;
   auto coarse = info(buf).coarse;
@@ -132,15 +160,41 @@ InnerHostProlongationRestrictionLoop(std::size_t buf, const BufferCacheHost_t &i
       DEFAULT_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues", DevExecSpace(), 0,
       0, 0, 0, 0, idxer.size() - 1, KOKKOS_LAMBDA(const int, const int, const int ii) {
         const auto [t, u, v, k, j, i] = idxer(ii);
-        Stencil::template Do<DIM, EL>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib, coords,
-                                      coarse_coords, &coarse, &fine);
+        Stencil::template Do<DIM, FEL>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib,
+                                       coords, coarse_coords, &coarse, &fine);
       });
 }
 
 template <int DIM, class Stencil, TopologicalElement... ELs, class... Args>
 inline void IterateInnerHostProlongationRestrictionLoop(Args &&...args) {
-  (InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs>(std::forward<Args>(args)...),
-   ...);
+  (
+      [&] {
+        if constexpr (Stencil::OperationRequired(ELs, TE::NXYZ))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::NXYZ>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::EXY))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EXY>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::EXZ))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EXZ>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::EYZ))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EYZ>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::FX))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FX>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::FY))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FY>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::FZ))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FZ>(
+              std::forward<Args>(args)...);
+        if constexpr (Stencil::OperationRequired(ELs, TE::C))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::C>(
+              std::forward<Args>(args)...);
+      }(),
+      ...);
 }
 
 template <int DIM, class Stencil>
