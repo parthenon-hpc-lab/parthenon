@@ -42,11 +42,16 @@ using parthenon::ResolvePackages;
 using parthenon::SparsePool;
 using parthenon::StateDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
+using parthenon::TopologicalElement;
 using parthenon::VariableState;
 
 // Some fake ops classes
 struct MyProlongOp {
-  template <int DIM, parthenon::TopologicalElement EL = parthenon::TopologicalElement::C>
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+  template <int DIM, TopologicalElement EL = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -58,7 +63,11 @@ struct MyProlongOp {
   }
 };
 struct MyRestrictOp {
-  template <int DIM, parthenon::TopologicalElement EL = parthenon::TopologicalElement::C>
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+  template <int DIM, TopologicalElement EL = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
