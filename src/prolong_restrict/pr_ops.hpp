@@ -220,24 +220,28 @@ struct ProlongateSharedMinMod {
 
     // KGF: add the off-centered quantities first to preserve FP symmetry
     // JMM: Extraneous quantities are zero
-    fine(l, m, n, fk, fj, fi) = fc - (gx1c * dx1fm + gx2c * dx2fm + gx3c * dx3fm);
+    fine(element_idx, l, m, n, fk, fj, fi) =
+        fc - (gx1c * dx1fm + gx2c * dx2fm + gx3c * dx3fm);
     if constexpr (INCLUDE_X1)
-      fine(l, m, n, fk, fj, fi + 1) = fc + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
+      fine(element_idx, l, m, n, fk, fj, fi + 1) =
+          fc + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
     if constexpr (INCLUDE_X2)
-      fine(l, m, n, fk, fj + 1, fi) = fc - (gx1c * dx1fm - gx2c * dx2fp + gx3c * dx3fm);
+      fine(element_idx, l, m, n, fk, fj + 1, fi) =
+          fc - (gx1c * dx1fm - gx2c * dx2fp + gx3c * dx3fm);
     if constexpr (INCLUDE_X2 && INCLUDE_X1)
-      fine(l, m, n, fk, fj + 1, fi + 1) =
+      fine(element_idx, l, m, n, fk, fj + 1, fi + 1) =
           fc + (gx1c * dx1fp + gx2c * dx2fp - gx3c * dx3fm);
     if constexpr (INCLUDE_X3)
-      fine(l, m, n, fk + 1, fj, fi) = fc - (gx1c * dx1fm + gx2c * dx2fm - gx3c * dx3fp);
+      fine(element_idx, l, m, n, fk + 1, fj, fi) =
+          fc - (gx1c * dx1fm + gx2c * dx2fm - gx3c * dx3fp);
     if constexpr (INCLUDE_X3 && INCLUDE_X1)
-      fine(l, m, n, fk + 1, fj, fi + 1) =
+      fine(element_idx, l, m, n, fk + 1, fj, fi + 1) =
           fc + (gx1c * dx1fp - gx2c * dx2fm + gx3c * dx3fp);
     if constexpr (INCLUDE_X3 && INCLUDE_X2)
-      fine(l, m, n, fk + 1, fj + 1, fi) =
+      fine(element_idx, l, m, n, fk + 1, fj + 1, fi) =
           fc - (gx1c * dx1fm - gx2c * dx2fp - gx3c * dx3fp);
     if constexpr (INCLUDE_X3 && INCLUDE_X2 && INCLUDE_X1)
-      fine(l, m, n, fk + 1, fj + 1, fi + 1) =
+      fine(element_idx, l, m, n, fk + 1, fj + 1, fi + 1) =
           fc + (gx1c * dx1fp + gx2c * dx2fp + gx3c * dx3fp);
   }
 };
