@@ -76,7 +76,6 @@ KOKKOS_INLINE_FUNCTION void InnerProlongationRestrictionLoop(
 
 template <int DIM, class Stencil, TopologicalElement... ELs, class... Args>
 KOKKOS_INLINE_FUNCTION void IterateInnerProlongationRestrictionLoop(Args &&...args) {
-  (InnerProlongationRestrictionLoop<DIM, Stencil, ELs>(std::forward<Args>(args)...), ...);
   (
       [&] {
         if constexpr (Stencil::OperationRequired(ELs, TE::NXYZ))
