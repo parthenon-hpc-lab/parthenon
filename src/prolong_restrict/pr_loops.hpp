@@ -58,6 +58,27 @@ KOKKOS_FORCEINLINE_FUNCTION bool DoRefinementOp(const Info_t &info,
 // a device version, which requires the buffer cache device only,
 // and a version that automatically swaps between them depending on
 // the size of the buffer cache.
+
+template <int DIM, class Stencil, TopologicalElement EL>
+KOKKOS_INLINE_FUNCTION void InnerProlongationRestrictionLoop(
+    team_mbr_t &team_member, std::size_t buf, const BufferCache_t &info,
+    const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+    const IndexRange &kb, const IndexRange &jb, const IndexRange &ib) {
+  const auto &idxer = info(buf).prores_idxer[0];
+  par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, 0, 0, 0, 0, idxer.size() - 1,
+                [&](const int, const int, const int ii) {
+                  const auto [t, u, v, k, j, i] = idxer(ii);
+                  Stencil::template Do<DIM, EL>(
+                      t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib, info(buf).coords,
+                      info(buf).coarse_coords, &(info(buf).coarse), &(info(buf).fine));
+                });
+}
+
+template <int DIM, class Stencil, TopologicalElement... ELs, class... Args>
+KOKKOS_INLINE_FUNCTION void IterateInnerProlongationRestrictionLoop(Args &&...args) {
+  (InnerProlongationRestrictionLoop<DIM, Stencil, ELs>(std::forward<Args>(args)...), ...);
+}
+
 template <int DIM, class Stencil>
 inline void
 ProlongationRestrictionLoop(const BufferCache_t &info, const Idx_t &buffer_idxs,
@@ -78,23 +99,50 @@ ProlongationRestrictionLoop(const BufferCache_t &info, const Idx_t &buffer_idxs,
       KOKKOS_LAMBDA(team_mbr_t team_member, const int sub_idx) {
         const std::size_t buf = buffer_idxs(sub_idx);
         if (DoRefinementOp(info(buf), op)) {
-          const auto &idxer = info(buf).prores_idxer[0];
-          // TODO(LFR): Need some sort of outer loop here over topological elements of a
-          // field (i.e. restrict x-faces, then y-faces...)
-          // TODO(LFR): Figure out how the parthenon abstraction works so that we don't
-          // have to use
-          //            a 3D loop with two dimensions of size one
-          par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, 0, 0, 0, 0,
-                        idxer.size() - 1, [&](const int, const int, const int ii) {
-                          const auto [t, u, v, k, j, i] = idxer(ii);
-                          Stencil::template Do<DIM>(
-                              t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib,
-                              info(buf).coords, info(buf).coarse_coords,
-                              &(info(buf).coarse), &(info(buf).fine));
-                        });
+          using TE = TopologicalElement;
+          if (info(buf).fine.topological_type == TopologicalType::Cell)
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::C>(
+                team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
+          if (info(buf).fine.topological_type == TopologicalType::Face)
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::FX, TE::FY, TE::FZ>(
+                team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
+          if (info(buf).fine.topological_type == TopologicalType::Edge)
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::EXY, TE::EXZ,
+                                                    TE::EYZ>(team_member, buf, info, ckb,
+                                                             cjb, cib, kb, jb, ib);
+          if (info(buf).fine.topological_type == TopologicalType::Node)
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::NXYZ>(
+                team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
         }
       });
 }
+
+template <int DIM, class Stencil, TopologicalElement EL>
+inline void
+InnerHostProlongationRestrictionLoop(std::size_t buf, const BufferCacheHost_t &info,
+                                     const IndexRange &ckb, const IndexRange &cjb,
+                                     const IndexRange &cib, const IndexRange &kb,
+                                     const IndexRange &jb, const IndexRange &ib) {
+  const auto &idxer = info(buf).prores_idxer[0];
+  auto coords = info(buf).coords;
+  auto coarse_coords = info(buf).coarse_coords;
+  auto coarse = info(buf).coarse;
+  auto fine = info(buf).fine;
+  par_for(
+      DEFAULT_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues", DevExecSpace(), 0,
+      0, 0, 0, 0, idxer.size() - 1, KOKKOS_LAMBDA(const int, const int, const int ii) {
+        const auto [t, u, v, k, j, i] = idxer(ii);
+        Stencil::template Do<DIM, EL>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib, coords,
+                                      coarse_coords, &coarse, &fine);
+      });
+}
+
+template <int DIM, class Stencil, TopologicalElement... ELs, class... Args>
+inline void IterateInnerHostProlongationRestrictionLoop(Args &&...args) {
+  (InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs>(std::forward<Args>(args)...),
+   ...);
+}
+
 template <int DIM, class Stencil>
 inline void
 ProlongationRestrictionLoop(const BufferCacheHost_t &info_h,
@@ -113,26 +161,20 @@ ProlongationRestrictionLoop(const BufferCacheHost_t &info_h,
   for (int sub_idx = 0; sub_idx < nbuffers; ++sub_idx) {
     const std::size_t buf = buffer_idxs_h(sub_idx);
     if (DoRefinementOp(info_h(buf), op)) {
-      auto coords = info_h(buf).coords;
-      auto coarse_coords = info_h(buf).coarse_coords;
-      auto coarse = info_h(buf).coarse;
-      auto fine = info_h(buf).fine;
-      const auto &idxer = info_h(buf).prores_idxer[0];
-
-      // TODO(LFR): Need some sort of outer loop here over topological elements of a field
-      // (i.e. restrict x-faces, then y-faces...)
-
-      // TODO(LFR): Figure out how the parthenon abstraction works so that we don't have
-      // to use
-      //            a 3D loop with two dimensions of size one
-      par_for(
-          DEFAULT_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues", DevExecSpace(),
-          0, 0, 0, 0, 0, idxer.size() - 1,
-          KOKKOS_LAMBDA(const int, const int, const int ii) {
-            const auto [t, u, v, k, j, i] = idxer(ii);
-            Stencil::template Do<DIM>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib, coords,
-                                      coarse_coords, &coarse, &fine);
-          });
+      using TE = TopologicalElement;
+      if (info_h(buf).fine.topological_type == TopologicalType::Cell)
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::C>(
+            buf, info_h, ckb, cjb, cib, kb, jb, ib);
+      if (info_h(buf).fine.topological_type == TopologicalType::Face)
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::FX, TE::FY, TE::FZ>(
+            buf, info_h, ckb, cjb, cib, kb, jb, ib);
+      if (info_h(buf).fine.topological_type == TopologicalType::Edge)
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::EXY, TE::EXZ,
+                                                    TE::EYZ>(buf, info_h, ckb, cjb, cib,
+                                                             kb, jb, ib);
+      if (info_h(buf).fine.topological_type == TopologicalType::Node)
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::NXYZ>(
+            buf, info_h, ckb, cjb, cib, kb, jb, ib);
     }
   }
 }

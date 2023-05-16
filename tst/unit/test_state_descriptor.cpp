@@ -22,6 +22,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/sparse_pool.hpp"
@@ -45,7 +46,7 @@ using parthenon::VariableState;
 
 // Some fake ops classes
 struct MyProlongOp {
-  template <int DIM>
+  template <int DIM, parthenon::TopologicalElement EL = parthenon::TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -57,7 +58,7 @@ struct MyProlongOp {
   }
 };
 struct MyRestrictOp {
-  template <int DIM>
+  template <int DIM, parthenon::TopologicalElement EL = parthenon::TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -366,8 +367,8 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
                                                                           MyRestrictOp>();
             const auto cell_funcs =
                 parthenon::refinement::RefinementFunctions_t::RegisterOps<
-                    parthenon::refinement_ops::ProlongateCellMinMod,
-                    parthenon::refinement_ops::RestrictCellAverage>();
+                    parthenon::refinement_ops::ProlongateSharedMinMod,
+                    parthenon::refinement_ops::Restrict>();
             REQUIRE(pkg3->NumRefinementFuncs() == 2);
             REQUIRE((pkg3->RefinementFuncID(my_funcs)) !=
                     (pkg3->RefinementFuncID(cell_funcs)));

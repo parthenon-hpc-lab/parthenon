@@ -101,9 +101,8 @@ Real GradMinMod(const Real fc, const Real fm, const Real fp, const Real dxm,
 
 } // namespace util
 
-template <TopologicalElement el>
-struct RestrictGeneral {
-  template <int DIM>
+struct Restrict {
+  template <int DIM, TopologicalElement el = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -157,11 +156,9 @@ struct RestrictGeneral {
         tvol;
   }
 };
-using RestrictCellAverage = RestrictGeneral<TopologicalElement::C>;
 
-template <TopologicalElement el>
-struct ProlongateSharedGeneralMinMod {
-  template <int DIM>
+struct ProlongateSharedMinMod {
+  template <int DIM, TopologicalElement el = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -244,8 +241,6 @@ struct ProlongateSharedGeneralMinMod {
           fc + (gx1c * dx1fp + gx2c * dx2fp + gx3c * dx3fp);
   }
 };
-
-using ProlongateCellMinMod = ProlongateSharedGeneralMinMod<TopologicalElement::C>;
 
 } // namespace refinement_ops
 } // namespace parthenon

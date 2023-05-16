@@ -273,8 +273,9 @@ class UniformCartesian {
     } else if constexpr (el == TE::EYZ) {
       return dx_[X1DIR - 1];
     } else if constexpr (el == TE::NXYZ) {
-      PARTHENON_FAIL("Probably don't want the generalized volume of a point");
+      return 1.0;
     }
+    return 0.0;
   }
 
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
