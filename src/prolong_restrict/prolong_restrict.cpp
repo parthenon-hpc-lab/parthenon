@@ -68,7 +68,8 @@ void ProlongateInternal(const StateDescriptor *resolved_packages,
   const auto &ref_func_map = resolved_packages->RefinementFncsToIDs();
   for (const auto &[func, idx] : ref_func_map) {
     auto internal_prolongator = func.internal_prolongator;
-    PARTHENON_DEBUG_REQUIRE_THROWS(prolongator != nullptr, "Invalid prolongation op");
+    PARTHENON_DEBUG_REQUIRE_THROWS(internal_prolongator != nullptr,
+                                   "Invalid prolongation op");
     loops::Idx_t subset = Kokkos::subview(cache.buffer_subsets, idx, Kokkos::ALL());
     loops::IdxHost_t subset_h =
         Kokkos::subview(cache.buffer_subsets_h, idx, Kokkos::ALL());
