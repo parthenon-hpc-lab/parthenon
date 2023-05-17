@@ -255,7 +255,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 
     // Prolongate from coarse buffer
     refinement::Prolongate(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
-    refinement::ProlongateInternal(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
+    refinement::ProlongateInternal(resolved_packages, cache, pmb->cellbounds,
+                                   pmb->c_cellbounds);
   }
   Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
   return TaskStatus::complete;
@@ -280,7 +281,8 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
 
     // Prolongate from coarse buffer
     refinement::Prolongate(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
-    refinement::ProlongateInternal(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
+    refinement::ProlongateInternal(resolved_packages, cache, pmb->cellbounds,
+                                   pmb->c_cellbounds);
   }
   Kokkos::Profiling::popRegion(); // Task_ProlongateBoundaries
   return TaskStatus::complete;
