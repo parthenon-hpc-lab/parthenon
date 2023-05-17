@@ -264,27 +264,45 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
           nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
-        out.prores_idxer[idx] = CalcSetIndices<InterfaceType::SameToSame, true>(
-            nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+        out.prores_idxer[static_cast<int>(el)] =
+            CalcSetIndices<InterfaceType::SameToSame, true>(
+                nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       }
     } else if (nb.snb.level < mylevel) {
       out.idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine>(
           nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       out.var = v->coarse_s.Get();
       out.refinement_op = RefinementOp_t::Prolongation;
-      out.prores_idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine, true>(
-          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
     } else {
       out.var = v->data.Get();
       out.idxer[idx] = CalcSetIndices<InterfaceType::FineToCoarse>(
           nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
-        out.prores_idxer[idx] = CalcSetIndices<InterfaceType::FineToCoarse, true>(
-            nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+        out.prores_idxer[static_cast<int>(el)] =
+            CalcSetIndices<InterfaceType::FineToCoarse, true>(
+                nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       }
     }
   }
+
+  // LFR: All of these are not necessarily required, but some subset are for internal
+  // prolongation.
+  //      if the variable is NXYZ we require (C, FX, FY, FZ, EXY, EXZ, EYZ, NXYZ)
+  //      if the variable is EXY we require (C, FX, FY, EXY), etc.
+  //      if the variable is FX we require (C, FX), etc.
+  //      if the variable is C we require (C)
+  //      I doubt that the extra calculations matter, but the storage overhead could
+  //      matter since each 6D indexer contains 18 ints and we are always carrying around
+  //      10 indexers per bound info even if the field isn't allocated
+  if (nb.snb.level < mylevel) {
+    for (auto el : {TE::C, TE::FX, TE::FY, TE::FZ, TE::EXY, TE::EXZ, TE::EYZ, TE::NXYZ}) {
+      out.prores_idxer[static_cast<int>(el)] =
+          CalcSetIndices<InterfaceType::CoarseToFine, true>(
+              nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+    }
+  }
+
   if (buf_state == BufferState::received) {
     // With control variables, we can end up in a state where a
     // variable that is not receiving null data is unallocated.
