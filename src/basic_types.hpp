@@ -98,24 +98,21 @@ KOKKOS_INLINE_FUNCTION int TopologicalOffsetK(TE el) noexcept {
 inline constexpr bool IsSubmanifold(TopologicalElement container,
                                     TopologicalElement containee) {
   if (container == TE::C) {
-    return true;
+    return containee != TE::C;
   } else if (container == TE::FX) {
-    return containee == TE::FX || containee == TE::EXY || containee == TE::EXZ ||
-           containee == TE::NXYZ;
+    return containee == TE::EXY || containee == TE::EXZ || containee == TE::NXYZ;
   } else if (container == TE::FY) {
-    return containee == TE::FY || containee == TE::EXY || containee == TE::EYZ ||
-           containee == TE::NXYZ;
+    return containee == TE::EXY || containee == TE::EYZ || containee == TE::NXYZ;
   } else if (container == TE::FZ) {
-    return containee == TE::FZ || containee == TE::EXZ || containee == TE::EYZ ||
-           containee == TE::NXYZ;
+    return containee == TE::EXZ || containee == TE::EYZ || containee == TE::NXYZ;
   } else if (container == TE::EXY) {
-    return containee == TE::EXY || containee == TE::NXYZ;
-  } else if (container == TE::EXZ) {
-    return containee == TE::EXZ || containee == TE::NXYZ;
-  } else if (container == TE::EYZ) {
-    return containee == TE::EYZ || containee == TE::NXYZ;
-  } else if (container == TE::NXYZ) {
     return containee == TE::NXYZ;
+  } else if (container == TE::EXZ) {
+    return containee == TE::NXYZ;
+  } else if (container == TE::EYZ) {
+    return containee == TE::NXYZ;
+  } else if (container == TE::NXYZ) {
+    return false;
   } else {
     return false;
   }
