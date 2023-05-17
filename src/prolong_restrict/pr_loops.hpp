@@ -68,7 +68,7 @@ KOKKOS_INLINE_FUNCTION void InnerProlongationRestrictionLoop(
   par_for_inner(inner_loop_pattern_ttr_tag, team_member, 0, 0, 0, 0, 0, idxer.size() - 1,
                 [&](const int, const int, const int ii) {
                   const auto [t, u, v, k, j, i] = idxer(ii);
-                  Stencil::template Do<DIM, FEL>(
+                  Stencil::template Do<DIM, FEL, CEL>(
                       t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib, info(buf).coords,
                       info(buf).coarse_coords, &(info(buf).coarse), &(info(buf).fine));
                 });
@@ -159,8 +159,8 @@ InnerHostProlongationRestrictionLoop(std::size_t buf, const BufferCacheHost_t &i
       DEFAULT_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues", DevExecSpace(), 0,
       0, 0, 0, 0, idxer.size() - 1, KOKKOS_LAMBDA(const int, const int, const int ii) {
         const auto [t, u, v, k, j, i] = idxer(ii);
-        Stencil::template Do<DIM, FEL>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib,
-                                       coords, coarse_coords, &coarse, &fine);
+        Stencil::template Do<DIM, FEL, CEL>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib,
+                                            coords, coarse_coords, &coarse, &fine);
       });
 }
 

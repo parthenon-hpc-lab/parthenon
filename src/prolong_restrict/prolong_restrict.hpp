@@ -50,6 +50,10 @@ void Restrict(const StateDescriptor *resolved_packages, const BvarsSubCache_t &c
 void Prolongate(const StateDescriptor *resolved_packages, const BvarsSubCache_t &cache,
                 const IndexShape &cellbnds, const IndexShape &c_cellbnds);
 
+void ProlongateInternal(const StateDescriptor *resolved_packages,
+                        const BvarsSubCache_t &cache, const IndexShape &cellbnds,
+                        const IndexShape &c_cellbnds);
+
 // std::function closures for the top-level restriction functions The
 // existence of host/device overloads here allows us to avoid a
 // deep-copy in the per-meshblock

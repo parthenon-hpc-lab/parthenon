@@ -108,7 +108,8 @@ struct Restrict {
     return fel == cel;
   }
 
-  template <int DIM, TopologicalElement el = TopologicalElement::C>
+  template <int DIM, TopologicalElement el = TopologicalElement::C,
+            TopologicalElement /*cel*/ = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -168,7 +169,8 @@ struct ProlongateSharedMinMod {
     return fel == cel;
   }
 
-  template <int DIM, TopologicalElement el = TopologicalElement::C>
+  template <int DIM, TopologicalElement el = TopologicalElement::C,
+            TopologicalElement /*cel*/ = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -261,9 +263,14 @@ struct ProlongateInternalAverage {
                                           TopologicalElement cel) {
     return IsSubmanifold(cel, fel);
   }
-
-  template <int DIM, TopologicalElement el = TopologicalElement::C,
-            TopologicalElement el_avg = TopologicalElement::C>
+  // Here, fel is the topological element on which the field is defined and
+  // cel is the topological element on which we are filling the internal values
+  // of the field. So, for instance, we could fill the fine cell values of an
+  // x-face field within the volume of a coarse cell. This is assumes that the
+  // values of the fine cells on the elements corresponding with the coarse cell
+  // have been filled.
+  template <int DIM, TopologicalElement fel = TopologicalElement::C,
+            TopologicalElement cel = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -273,12 +280,12 @@ struct ProlongateInternalAverage {
      const ParArrayND<Real, VariableState> *pfine) {
     using namespace util;
 
-    if constexpr (!IsSubmanifold(el_avg, el)) {
+    if constexpr (!IsSubmanifold(cel, fel)) {
       return;
     } else {
       auto &fine = *pfine;
 
-      constexpr int element_idx = static_cast<int>(el) % 3;
+      constexpr int element_idx = static_cast<int>(fel) % 3;
 
       const int fi = (DIM > 0) ? (i - cib.s) * 2 + ib.s : ib.s;
       const int fj = (DIM > 1) ? (j - cjb.s) * 2 + jb.s : jb.s;
@@ -287,26 +294,27 @@ struct ProlongateInternalAverage {
       // Determine wether or not the fields coordinates are on coordinate centers (i.e.
       // same coordinate position as a zone center)
       constexpr bool CENTER_X1 =
-          (DIM > 0) && (el == TE::C || el == TE::FY || el == TE::FZ || el == TE::EYZ);
+          (DIM > 0) && (fel == TE::C || fel == TE::FY || fel == TE::FZ || fel == TE::EYZ);
       constexpr bool CENTER_X2 =
-          (DIM > 1) && (el == TE::C || el == TE::FX || el == TE::FZ || el == TE::EXZ);
+          (DIM > 1) && (fel == TE::C || fel == TE::FX || fel == TE::FZ || fel == TE::EXZ);
       constexpr bool CENTER_X3 =
-          (DIM > 2) && (el == TE::C || el == TE::FX || el == TE::FY || el == TE::EXY);
+          (DIM > 2) && (fel == TE::C || fel == TE::FX || fel == TE::FY || fel == TE::EXY);
 
       // Determine the directions we want our averaging stencil to extend in
       constexpr bool STENCIL_X1 =
           (DIM > 0) && !CENTER_X1 &&
-          (el_avg == TE::C || el_avg == TE::FY || el_avg == TE::FZ || el_avg == TE::EYZ);
+          (cel == TE::C || cel == TE::FY || cel == TE::FZ || cel == TE::EYZ);
       constexpr bool STENCIL_X2 =
           (DIM > 1) && !CENTER_X2 &&
-          (el_avg == TE::C || el_avg == TE::FX || el_avg == TE::FZ || el_avg == TE::EXZ);
+          (cel == TE::C || cel == TE::FX || cel == TE::FZ || cel == TE::EXZ);
       constexpr bool STENCIL_X3 =
           (DIM > 2) && !CENTER_X3 &&
-          (el_avg == TE::C || el_avg == TE::FX || el_avg == TE::FY || el_avg == TE::EXY);
+          (cel == TE::C || cel == TE::FX || cel == TE::FY || cel == TE::EXY);
 
       // Prolongate elements internal to topological element el_avg by averaging over
       // coarse region defined by (k,j,i)
-      const Real w = 1.0 / ((1.0 + STENCIL_X3) * (1.0 + STENCIL_X2) * (1.0 + STENCIL_X1));
+      constexpr Real w =
+          1.0 / ((1.0 + STENCIL_X3) * (1.0 + STENCIL_X2) * (1.0 + STENCIL_X1));
       for (int ok = 0; ok < 1 + CENTER_X3; ++ok) {
         for (int oj = 0; oj < 1 + CENTER_X2; ++oj) {
           for (int oi = 0; oi < 1 + CENTER_X1; ++oi) {
