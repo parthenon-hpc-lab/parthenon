@@ -81,15 +81,15 @@ struct RefinementFunctions_t {
   ~RefinementFunctions_t() {}
   explicit RefinementFunctions_t(const std::string &label) : label_(label) {}
 
-  template <class ProlongationOp, class RestrictionOp, class InternalProlongationOp = refinement_ops::ProlongateInternalAverage>
+  template <class ProlongationOp, class RestrictionOp,
+            class InternalProlongationOp = refinement_ops::ProlongateInternalAverage>
   static RefinementFunctions_t RegisterOps() {
     // We use the specialization to dim = 1 for this, but any int
     // specialization will do.
-    const std::string label = std::string(typeid(ProlongationOp).name()) +
-                              std::string(" and ") +
-                              std::string(typeid(RestrictionOp).name()) + 
-                              std::string(" and ") +
-                              std::string(typeid(InternalProlongationOp).name());
+    const std::string label =
+        std::string(typeid(ProlongationOp).name()) + std::string(" and ") +
+        std::string(typeid(RestrictionOp).name()) + std::string(" and ") +
+        std::string(typeid(InternalProlongationOp).name());
 
     RefinementFunctions_t funcs(label);
     funcs.restrictor = [](const BufferCache_t &info, const BufferCacheHost_t &info_h,
@@ -123,22 +123,23 @@ struct RefinementFunctions_t {
           cellbnds, info_h, idxs_h, cellbnds, c_cellbnds, RefinementOp_t::Prolongation,
           nbuffers);
     };
-    funcs.internal_prolongator = [](const BufferCache_t &info, const BufferCacheHost_t &info_h,
-                           const loops::Idx_t &idxs, const loops::IdxHost_t &idxs_h,
-                           const IndexShape &cellbnds, const IndexShape &c_cellbnds,
-                           const std::size_t nbuffers) {
-      loops::DoProlongationRestrictionOp<InternalProlongationOp>(
-          cellbnds, info, info_h, idxs, idxs_h, cellbnds, c_cellbnds,
-          RefinementOp_t::Prolongation, nbuffers);
-    };
-    funcs.internal_prolongator_host = [](const BufferCacheHost_t &info_h,
-                                const loops::IdxHost_t &idxs_h,
-                                const IndexShape &cellbnds, const IndexShape &c_cellbnds,
-                                const std::size_t nbuffers) {
-      loops::DoProlongationRestrictionOp<InternalProlongationOp>(
-          cellbnds, info_h, idxs_h, cellbnds, c_cellbnds, RefinementOp_t::Prolongation,
-          nbuffers);
-    };
+    funcs.internal_prolongator =
+        [](const BufferCache_t &info, const BufferCacheHost_t &info_h,
+           const loops::Idx_t &idxs, const loops::IdxHost_t &idxs_h,
+           const IndexShape &cellbnds, const IndexShape &c_cellbnds,
+           const std::size_t nbuffers) {
+          loops::DoProlongationRestrictionOp<InternalProlongationOp>(
+              cellbnds, info, info_h, idxs, idxs_h, cellbnds, c_cellbnds,
+              RefinementOp_t::Prolongation, nbuffers);
+        };
+    funcs.internal_prolongator_host =
+        [](const BufferCacheHost_t &info_h, const loops::IdxHost_t &idxs_h,
+           const IndexShape &cellbnds, const IndexShape &c_cellbnds,
+           const std::size_t nbuffers) {
+          loops::DoProlongationRestrictionOp<InternalProlongationOp>(
+              cellbnds, info_h, idxs_h, cellbnds, c_cellbnds,
+              RefinementOp_t::Prolongation, nbuffers);
+        };
     return funcs;
   }
   std::string label() const { return label_; }
