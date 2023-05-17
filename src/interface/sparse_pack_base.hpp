@@ -40,9 +40,9 @@ using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
 namespace impl {
 struct PackDescriptor {
   PackDescriptor(const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
-                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse)
+                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse, bool flat = false)
       : vars(vars), use_regex(use_regex), flags(flags), with_fluxes(with_fluxes),
-        coarse(coarse) {
+        coarse(coarse), flat(flat) {
     PARTHENON_REQUIRE(use_regex.size() == vars.size(),
                       "Must have a regex flag for each variable.");
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
@@ -52,8 +52,8 @@ struct PackDescriptor {
   }
 
   PackDescriptor(const std::vector<std::pair<std::string, bool>> &vars_in,
-                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse)
-      : flags(flags), with_fluxes(with_fluxes), coarse(coarse) {
+                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse, bool flat = false)
+    : flags(flags), with_fluxes(with_fluxes), coarse(coarse), flat(flat) {
     for (auto var : vars_in) {
       vars.push_back(var.first);
       use_regex.push_back(var.second);
@@ -65,9 +65,9 @@ struct PackDescriptor {
   }
 
   PackDescriptor(const std::vector<std::string> &vars_in,
-                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse)
+                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse, bool flat = false)
       : vars(vars_in), use_regex(vars_in.size(), false), flags(flags),
-        with_fluxes(with_fluxes), coarse(coarse) {
+        with_fluxes(with_fluxes), coarse(coarse), flat(flat) {
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
     for (const auto &var : vars)
@@ -98,6 +98,7 @@ struct PackDescriptor {
   std::vector<MetadataFlag> flags;
   bool with_fluxes;
   bool coarse;
+  bool flat;
 };
 } // namespace impl
 
@@ -152,6 +153,7 @@ class SparsePackBase {
 
   bool with_fluxes_;
   bool coarse_;
+  bool flat_;
   int nblocks_;
   int ndim_;
   int dims_[6];
