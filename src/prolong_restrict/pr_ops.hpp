@@ -287,6 +287,13 @@ struct ProlongateInternalAverage {
 
       constexpr int element_idx = static_cast<int>(fel) % 3;
 
+      // The incoming {k, j, i} coordinates should be thought of as the coordinates
+      // of the topological element cel on the coarse grid, while the fine grid
+      // coordinate range defined by {[fk, fk + CENTER_X2], [fj, fj + CENTER_X2],
+      // [fi, fi + CENTER_X1]} for the topological element fel is what gets filled.
+      // Therefore, this method should be interated over an Indexer defined on the
+      // coarse grid for the topological element cel. This will result in the
+      // correct set of internal points being set.
       const int fi = (DIM > 0) ? (i - cib.s) * 2 + ib.s : ib.s;
       const int fj = (DIM > 1) ? (j - cjb.s) * 2 + jb.s : jb.s;
       const int fk = (DIM > 2) ? (k - ckb.s) * 2 + kb.s : kb.s;
@@ -312,16 +319,21 @@ struct ProlongateInternalAverage {
           (cel == TE::C || cel == TE::FX || cel == TE::FY || cel == TE::EXY);
 
       // Prolongate elements internal to topological element el_avg by averaging over
-      // coarse region defined by (k,j,i)
+      // coarse region defined by {cel, k, j, i}
       constexpr Real w =
           1.0 / ((1.0 + STENCIL_X3) * (1.0 + STENCIL_X2) * (1.0 + STENCIL_X1));
+
+      // Iterate over all interior fine elements on {cel, k, j, i}
       for (int ok = 0; ok < 1 + CENTER_X3; ++ok) {
         for (int oj = 0; oj < 1 + CENTER_X2; ++oj) {
           for (int oi = 0; oi < 1 + CENTER_X1; ++oi) {
+            // Indices of the fine element that is currently getting filled
             const int tk = fk + ok + STENCIL_X3;
             const int tj = fj + oj + STENCIL_X2;
             const int ti = fi + oi + STENCIL_X1;
             Real f = 0.0;
+            // Iterate over the appropriate stencil of fine shared elements
+            // for the current interior fine element
             for (int stk = -STENCIL_X3; stk <= STENCIL_X3; stk += 2) {
               for (int stj = -STENCIL_X2; stj <= STENCIL_X2; stj += 2) {
                 for (int sti = -STENCIL_X1; sti <= STENCIL_X1; sti += 2) {
