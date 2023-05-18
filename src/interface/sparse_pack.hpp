@@ -125,7 +125,7 @@ class SparsePack : public SparsePackBase {
   // The pack will be created and accessible on the device
   template <class T>
   static SparsePack Get(T *pmd, const std::vector<MetadataFlag> &flags = {},
-                        bool fluxes = false, bool coarse = false, flatten = false) {
+                        bool fluxes = false, bool coarse = false, bool flatten = false) {
     const impl::PackDescriptor desc(std::vector<std::string>{Ts::name()...},
                                     std::vector<bool>{Ts::regex()...}, flags, fluxes,
                                     coarse, flatten);
@@ -143,7 +143,7 @@ class SparsePack : public SparsePackBase {
   template <class T, class VAR_VEC>
   static std::tuple<SparsePack, SparsePackIdxMap>
   Get(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
-      bool fluxes = false, bool coarse = false, flatten = false) {
+      bool fluxes = false, bool coarse = false, bool flatten = false) {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     impl::PackDescriptor desc(vars, flags, fluxes, coarse, flatten);
     return {SparsePack(SparsePackBase::GetPack(pmd, desc)),
