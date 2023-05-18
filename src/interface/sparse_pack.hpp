@@ -243,9 +243,6 @@ class SparsePack : public SparsePackBase {
   int GetNBlocks() const { return nblocks_; }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  int GetNDim() const { return ndim_; }
-
-  KOKKOS_FORCEINLINE_FUNCTION
   int GetMaxNumberOfVars() const { return pack_.extent_int(2); }
 
   KOKKOS_INLINE_FUNCTION

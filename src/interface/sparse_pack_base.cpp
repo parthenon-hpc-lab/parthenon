@@ -105,7 +105,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
         }
       }
     }
-    max_size = flat_std::max(size, max_size);
+    max_size = std::max(size, max_size);
   });
   pack.nblocks_ = nblocks;
 
@@ -185,7 +185,6 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   Kokkos::deep_copy(pack.pack_, pack_h);
   Kokkos::deep_copy(pack.bounds_, pack.bounds_h_);
   Kokkos::deep_copy(pack.coords_, coords_h);
-  pack.ndim_ = ndim;
   pack.dims_[1] = pack.nblocks_;
   pack.dims_[2] = -1; // Not allowed to ask for the ragged dimension anyway
   pack.dims_[3] = pack_h(0, 0, 0).extent_int(0);
