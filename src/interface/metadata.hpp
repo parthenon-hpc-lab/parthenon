@@ -334,7 +334,7 @@ class Metadata {
     // TODO(JMM): This is dangerous. See Issue #844.
     if (IsRefined()) {
       refinement_funcs_ = refinement::RefinementFunctions_t::RegisterOps<
-          refinement_ops::ProlongateCellMinMod, refinement_ops::RestrictCellAverage>();
+          refinement_ops::ProlongateSharedMinMod, refinement_ops::Restrict>();
     }
 
     // check if all flag constraints are satisfied, throw if not

@@ -53,8 +53,33 @@ enum class BoundaryType : int { local, nonlocal, any, flxcor_send, flxcor_recv }
 // EXY = edge at (i - 1/2, j - 1/2, k)
 // EXZ = edge at (i - 1/2, j, k - 1/2)
 // EXY = edge at (i, j - 1/2, k - 1/2)
-// NXYZ = edge at (i - 1/2, j - 1/2, k - 1/2)
+// NXYZ = node at (i - 1/2, j - 1/2, k - 1/2)
 //
+// Some select topological elements around cell (i,j,k) with o corresponding
+// to faces, x corresponding to edges, and + corresponding to nodes (the indices
+// denote the array index of each element):
+// clang-format off
+//
+//                     EYZ(i,j+1,k+1)
+//            NXYZ_+---------x---------+_NXY(i+1,j+1,k+1)
+//     (i,j+1,k+1)/|  FZ(i,j,k+1)     /|
+//               / |      |          / |
+//          EXZ_x  |      o         x__|_EXZ(i+1,j,k+1)
+//    (i,j,k+1)/   x         o     /   x___EXY(i+1,j+1,k)
+//            /    |         |___ /____|_FY(i,j+1,k)
+//      NXYZ_+---------x---------+_____|_NXY(i+1,j,k+1)
+// (i,j,k+1) |  o  |  EYZ        |  o__|____FX(i+1,j,k)
+//        FX_|__|  +-(i,j,k+1)---|-----+______NXYZ(i+1,j+1,k)
+//   (i,j,k) |    /     FZ(i,j,k)|    /
+//       EXY_x   /     o  |      x___/___EXY(i+1,j,k)
+//   (i,j,k) |  x      |  o      |  x______EXZ(i+1,j,k)
+//       EXZ_|_/|    FY(i,j,k)   | /
+//   (i,j,k) |/                  |/
+//           +---------x---------+
+//           NXYZ      EYZ       NXYZ
+//           (i,j,k)   (i,j,k)   (i+1,j,k)
+//
+// clang-format on
 // The values of the enumeration are chosen so we can do te % 3 to get
 // the correct index for each type of element in Variable::data
 enum class TopologicalElement : std::size_t {
@@ -85,6 +110,8 @@ TopologicalType GetTopologicalType(TopologicalElement el) {
 }
 
 using TE = TopologicalElement;
+// Returns one if the I coordinate of el is offset from the zone center coordinates,
+// and zero otherwise
 KOKKOS_INLINE_FUNCTION int TopologicalOffsetI(TE el) noexcept {
   return (el == TE::FX || el == TE::EXY || el == TE::EYZ || el == TE::NXYZ);
 }
@@ -93,6 +120,31 @@ KOKKOS_INLINE_FUNCTION int TopologicalOffsetJ(TE el) noexcept {
 }
 KOKKOS_INLINE_FUNCTION int TopologicalOffsetK(TE el) noexcept {
   return (el == TE::FZ || el == TE::EXZ || el == TE::EYZ || el == TE::NXYZ);
+}
+
+// Returns wether or not topological element containee is a boundary of
+// topological element container
+inline constexpr bool IsSubmanifold(TopologicalElement containee,
+                                    TopologicalElement container) {
+  if (container == TE::C) {
+    return containee != TE::C;
+  } else if (container == TE::FX) {
+    return containee == TE::EXY || containee == TE::EXZ || containee == TE::NXYZ;
+  } else if (container == TE::FY) {
+    return containee == TE::EXY || containee == TE::EYZ || containee == TE::NXYZ;
+  } else if (container == TE::FZ) {
+    return containee == TE::EXZ || containee == TE::EYZ || containee == TE::NXYZ;
+  } else if (container == TE::EXY) {
+    return containee == TE::NXYZ;
+  } else if (container == TE::EXZ) {
+    return containee == TE::NXYZ;
+  } else if (container == TE::EYZ) {
+    return containee == TE::NXYZ;
+  } else if (container == TE::NXYZ) {
+    return false;
+  } else {
+    return false;
+  }
 }
 
 struct SimTime {

@@ -28,56 +28,7 @@ namespace parthenon {
 namespace boundary_cond_impl {
 bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
                          const int ndim);
-void ComputeProlongationBounds_(const std::shared_ptr<MeshBlock> &pmb,
-                                const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
-                                IndexRange &bk);
-void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc,
-                           const NeighborBlock &nb, int si, int ei, int sj, int ej,
-                           int sk, int ek);
 } // namespace boundary_cond_impl
-
-TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  if (!(rc->GetBlockPointer()->pmy_mesh->multilevel)) return TaskStatus::complete;
-  Kokkos::Profiling::pushRegion("Task_ProlongateBoundaries");
-
-  // Impose physical boundaries on the coarse zones and prolongate to
-  // the fine as needed.
-
-  // In principle, the coarse zones must be filled by restriction first.
-  // This is true *even* for meshblocks adjacent to a neighbor at the same level.
-  // However, it is decoupled from the prolongation step because:
-  // (a) For meshblocks next to a coarser block, it
-  //     is automatically handled during ghost zone communication
-  // (b) Restriction may be handled via meshblock packs, independently from whether
-  //     or not boundaries and prolongation are.
-
-  // Step 0. Apply necessary variable restrictions when ghost-ghost zone is on same lvl
-  // Handled elsewhere now
-
-  // Step 1. Apply physical boundaries on the coarse boundary,
-  ApplyBoundaryConditionsOnCoarseOrFine(rc, true);
-
-  // Step 2. Finally, the ghost-ghost zones are ready for prolongation:
-  const auto &pmb = rc->GetBlockPointer();
-  int &mylevel = pmb->loc.level;
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-    if (nb.snb.level >= mylevel) continue;
-    // calculate the loop limits for the ghost zones
-    IndexRange bi, bj, bk;
-    boundary_cond_impl::ComputeProlongationBounds_(pmb, nb, bi, bj, bk);
-    boundary_cond_impl::ProlongateGhostCells_(rc, nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
-  } // end loop over nneighbor
-
-  Kokkos::Profiling::popRegion(); // Task_ProlongateBoundaries
-  return TaskStatus::complete;
-}
-
-TaskStatus ProlongateBoundariesMD(std::shared_ptr<MeshData<Real>> &pmd) {
-  for (int b = 0; b < pmd->NumBlocks(); ++b)
-    ProlongateBoundaries(pmd->GetBlockData(b));
-  return TaskStatus::complete;
-}
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse) {

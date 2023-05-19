@@ -13,6 +13,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable_state.hpp"
@@ -26,11 +27,17 @@ using parthenon::IndexRange;
 using parthenon::Metadata;
 using parthenon::ParArrayND;
 using parthenon::Real;
+using parthenon::TopologicalElement;
 using parthenon::VariableState;
 
 // Some fake ops classes
 struct MyProlongOp {
-  template <int DIM>
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+  template <int DIM, TopologicalElement EL = TopologicalElement::C,
+            TopologicalElement /*CEL*/ = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -42,7 +49,12 @@ struct MyProlongOp {
   }
 };
 struct MyRestrictOp {
-  template <int DIM>
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+  template <int DIM, TopologicalElement EL = TopologicalElement::C,
+            TopologicalElement /*CEL*/ = TopologicalElement::C>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -200,8 +212,8 @@ TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
     THEN("It knows it's registered for refinement") { REQUIRE(m.IsRefined()); }
     THEN("It has the default Prolongation/Restriction ops") {
       const auto cell_funcs = parthenon::refinement::RefinementFunctions_t::RegisterOps<
-          parthenon::refinement_ops::ProlongateCellMinMod,
-          parthenon::refinement_ops::RestrictCellAverage>();
+          parthenon::refinement_ops::ProlongateSharedMinMod,
+          parthenon::refinement_ops::Restrict>();
       REQUIRE(m.GetRefinementFunctions() == cell_funcs);
     }
     WHEN("We register new operations") {

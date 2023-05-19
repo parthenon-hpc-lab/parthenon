@@ -1117,9 +1117,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     //  Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
       auto &mbd = block_list[i]->meshblock_data.Get();
-      if (multilevel) { // TODO(JMM): Do with meshdata
-        ProlongateBoundaries(mbd);
-      }
       ApplyBoundaryConditions(mbd);
       // Call MeshBlockData based FillDerived functions
       Update::FillDerived(mbd.get());

@@ -166,6 +166,43 @@ class UniformCartesian {
     }
   }
 
+  template <int dir, TopologicalElement el>
+  KOKKOS_FORCEINLINE_FUNCTION Real X(const int idx) const {
+    using TE = TopologicalElement;
+    bool constexpr X1EDGE =
+        el == TE::FX || el == TE::EXY || el == TE::EXZ || el == TE::NXYZ;
+    bool constexpr X2EDGE =
+        el == TE::FY || el == TE::EXY || el == TE::EYZ || el == TE::NXYZ;
+    bool constexpr X3EDGE =
+        el == TE::FZ || el == TE::EYZ || el == TE::EYZ || el == TE::NXYZ;
+    if constexpr (dir == X1DIR && X1EDGE) {
+      return xmin_[dir - 1] + idx * dx_[dir - 1]; // idx - 1/2
+    } else if constexpr (dir == X2DIR && X2EDGE) {
+      return xmin_[dir - 1] + idx * dx_[dir - 1]; // idx - 1/2
+    } else if constexpr (dir == X3DIR && X3EDGE) {
+      return xmin_[dir - 1] + idx * dx_[dir - 1]; // idx - 1/2
+    } else {
+      return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1]; // idx
+    }
+    return 0;
+  }
+
+  template <int dir, TopologicalElement el>
+  KOKKOS_FORCEINLINE_FUNCTION Real X(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    switch (dir) {
+    case 1:
+      return X<dir, el>(i);
+    case 2:
+      return X<dir, el>(j);
+    case 3:
+      return X<dir, el>(k);
+    default:
+      PARTHENON_FAIL("Unknown dir");
+      return 0; // To appease compiler
+    }
+  }
+
   //----------------------------------------
   // CellWidth: Width of cells at cell centers
   //----------------------------------------
@@ -213,6 +250,32 @@ class UniformCartesian {
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(Args... args) const {
     return cell_volume_;
+  }
+
+  //----------------------------------------
+  // Generalized volume
+  //----------------------------------------
+  template <TopologicalElement el, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Volume(Args... args) const {
+    using TE = TopologicalElement;
+    if constexpr (el == TE::C) {
+      return cell_volume_;
+    } else if constexpr (el == TE::FX) {
+      return area_[X1DIR - 1];
+    } else if constexpr (el == TE::FY) {
+      return area_[X2DIR - 1];
+    } else if constexpr (el == TE::FZ) {
+      return area_[X3DIR - 1];
+    } else if constexpr (el == TE::EXY) {
+      return dx_[X3DIR - 1];
+    } else if constexpr (el == TE::EXZ) {
+      return dx_[X2DIR - 1];
+    } else if constexpr (el == TE::EYZ) {
+      return dx_[X1DIR - 1];
+    } else if constexpr (el == TE::NXYZ) {
+      return 1.0;
+    }
+    return 0.0;
   }
 
   const std::array<Real, 3> &GetXmin() const { return xmin_; }

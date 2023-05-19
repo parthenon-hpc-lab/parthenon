@@ -31,9 +31,6 @@ using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool
 using SBValFunc = std::function<
     std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>()>;
 
-TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc);
-TaskStatus ProlongateBoundariesMD(std::shared_ptr<MeshData<Real>> &pmd);
-
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse);
 
