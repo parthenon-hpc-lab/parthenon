@@ -5626,8 +5626,11 @@ def CheckLanguage(
         pass
 
     # Check if people are using the verboten C basic types.  The only exception
-    # we regularly allow is "unsigned short port" for port.
-    if Search(r"\bshort port\b", line):
+    # we regularly allow is "unsigned short port" for port
+    # or if it's used in a static assert
+    if Search(r"\bstatic_assert\b", line):
+        pass
+    elif Search(r"\bshort port\b", line):
         if not Search(r"\bunsigned short port\b", line):
             error(
                 filename,
