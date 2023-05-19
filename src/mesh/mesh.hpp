@@ -155,7 +155,7 @@ class Mesh {
       &UserWorkInLoopDefault;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
       &UserWorkInLoopDefault;
-      
+
   static void FillDerivedVarsDefault(Mesh *, ParameterInput *, SimTime const &);
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> FillDerivedVars =
       &FillDerivedVarsDefault;
