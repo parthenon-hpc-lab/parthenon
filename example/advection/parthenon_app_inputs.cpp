@@ -250,23 +250,23 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   return;
 }
 
-void FillDerivedVars(Mesh *mb, ParameterInput *pin, SimTime const &) {
-  auto &data = mb->mesh_data.Get("base");
-  const auto &cons_pack = data->PackVariables(std::vector<std::string>{"advected"});
-  auto &deriv_pack = data->PackVariables(std::vector<std::string>{"my_derived_var"});
+void FillDerivedVars(Mesh *mesh, ParameterInput *pin, SimTime const &) {
+  // loop over blocks
+  for (auto &pmb : mesh->block_list) {
+    auto rc = pmb->meshblock_data.Get(); // get base container
+    auto q = rc->Get("advected").data;
+    auto deriv = rc->Get("my_derived_var").data;
 
-  IndexRange ib = data->GetBlockData(0)->GetBoundsI(IndexDomain::entire);
-  IndexRange jb = data->GetBlockData(0)->GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = data->GetBlockData(0)->GetBoundsK(IndexDomain::entire);
+    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "FillDerived", DevExecSpace(), 0, cons_pack.GetDim(5) - 1,
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        auto deriv = deriv_pack(b);
-        auto cons = cons_pack(b);
-        deriv(0, k, j, i) = std::log10(cons(0, k, j, i) + 1.0e-5);
-      });
+    pmb->par_for(
+        "Advection::FillDerived", 0, 0, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          deriv(0, k, j, i) = std::log10(q(0, k, j, i) + 1.0e-5);
+        });
+  }
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
