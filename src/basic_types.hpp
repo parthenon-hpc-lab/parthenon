@@ -56,7 +56,8 @@ enum class BoundaryType : int { local, nonlocal, any, flxcor_send, flxcor_recv }
 // NXYZ = node at (i - 1/2, j - 1/2, k - 1/2)
 //
 // Some select topological elements around cell (i,j,k) with o corresponding
-// to faces, x corresponding to edges, and + corresponding to nodes:
+// to faces, x corresponding to edges, and + corresponding to nodes (the indices
+// denote the array index of each element):
 // clang-format off
 //
 //                     EYZ(i,j+1,k+1)
