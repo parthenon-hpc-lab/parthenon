@@ -202,9 +202,10 @@ struct AllSwarmInfo {
 
 // TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
 // however I think it's probably safe to assume we'll be on systems
-// where tis is the case?
+// where this is the case?
 // TODO(JMM): If we ever need non-int need to generalize
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
+std::size_t MPISum(std::size_t local);
 
 } // namespace OutputUtils
 } // namespace parthenon
