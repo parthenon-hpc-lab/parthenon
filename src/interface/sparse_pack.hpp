@@ -197,7 +197,7 @@ class SparsePack : public SparsePackBase {
     const bool coarse = false;
     const bool fluxes = false;
     const bool flatten = true;
-    Get(pmd, vars, flags, fluxes, coarse, flatten);
+    return Get(pmd, vars, flags, fluxes, coarse, flatten);
   }
 
   template <class T>
@@ -216,7 +216,7 @@ class SparsePack : public SparsePackBase {
     const bool coarse = false;
     const bool fluxes = true;
     const bool flatten = true;
-    Get(pmd, vars, flags, fluxes, coarse, flatten);
+    return Get(pmd, vars, flags, fluxes, coarse, flatten);
   }
 
   template <class T>
@@ -235,7 +235,7 @@ class SparsePack : public SparsePackBase {
     const bool coarse = true;
     const bool fluxes = false;
     const bool flatten = true;
-    Get(pmd, vars, flags, fluxes, coarse, flatten);
+    return Get(pmd, vars, flags, fluxes, coarse, flatten);
   }
 
   // Methods for getting parts of the shape of the pack
