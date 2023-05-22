@@ -139,6 +139,7 @@ class SparsePackBase {
   }
   KOKKOS_INLINE_FUNCTION
   Real &operator()(int idx, const int k, const int j, const int i) const {
+    PARTHENON_DEBUG_REQUIRE(flat_, "Accessor only valid for flat packs");
     return pack_(0, 0, idx)(k, j, i);
   }
 

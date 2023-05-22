@@ -323,12 +323,14 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION
   auto &operator()(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(0, b, n);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(0, b, vidx);
   }
@@ -336,10 +338,12 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION
   Real &operator()(const int b, const int idx, const int k, const int j,
                    const int i) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     return pack_(0, b, idx)(k, j, i);
   }
   KOKKOS_INLINE_FUNCTION
   Real &operator()(int idx, const int k, const int j, const int i) const {
+    PARTHENON_DEBUG_REQUIRE(flat_, "Accessor valid only for flat packs");
     return pack_(0, 0, idx)(k, j, i);
   }
 
@@ -347,6 +351,7 @@ class SparsePack : public SparsePackBase {
   Real &operator()(const int b, PackIdx idx, const int k, const int j,
                    const int i) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(0, b, n)(k, j, i);
   }
@@ -354,6 +359,7 @@ class SparsePack : public SparsePackBase {
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int k,
                                           const int j, const int i) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(0, b, vidx)(k, j, i);
   }
@@ -361,6 +367,7 @@ class SparsePack : public SparsePackBase {
   // flux() overloads
   KOKKOS_INLINE_FUNCTION
   auto &flux(const int b, const int dir, const int idx) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     return pack_(dir, b, idx);
   }
@@ -368,12 +375,14 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION
   Real &flux(const int b, const int dir, const int idx, const int k, const int j,
              const int i) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     return pack_(dir, b, idx)(k, j, i);
   }
 
   KOKKOS_INLINE_FUNCTION
   Real &flux(const int dir, const int idx, const int k, const int j, const int i) const {
+    PARTHENON_DEBUG_REQUIRE(flat_, "Accessor must only be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     return pack_(dir, 0, idx)(k, j, i);
   }
@@ -382,6 +391,7 @@ class SparsePack : public SparsePackBase {
   Real &flux(const int b, const int dir, PackIdx idx, const int k, const int j,
              const int i) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(dir, b, n)(k, j, i);
@@ -390,6 +400,7 @@ class SparsePack : public SparsePackBase {
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION Real &flux(const int b, const int dir, const TIn &t, const int k,
                                     const int j, const int i) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(dir, b, vidx)(k, j, i);
