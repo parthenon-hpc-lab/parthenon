@@ -121,7 +121,8 @@ void MeshBlock::ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin) {
 }
 
 //========================================================================================
-//! \fn void Mesh::UserMeshWorkBeforeOutputDefault(Mesh *pmb, ParameterInput *pin, SimTime &t)
+//! \fn void Mesh::UserMeshWorkBeforeOutputDefault(Mesh *pmb, ParameterInput *pin, SimTime
+//! &t)
 //  \brief Function called before generating output files
 //========================================================================================
 
