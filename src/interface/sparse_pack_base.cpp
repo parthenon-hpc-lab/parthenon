@@ -85,21 +85,22 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   pack.with_fluxes_ = desc.with_fluxes;
   pack.coarse_ = desc.coarse;
   pack.nvar_ = desc.vars.size();
+  pack.flat_ = desc.flat;
 
   // Count up the size of the array that is required
   int max_size = 0;
-  int nblocks = 0;
-  int ndim = 3;
+  int nblocks = desc.flat;
+  int size = 0;
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
-    int size = 0;
-    nblocks++;
+    if (!desc.flat) {
+      size = 0;
+      nblocks++;
+    }
     for (auto &pv : pmbd->GetCellVariableVector()) {
       for (int i = 0; i < nvar; ++i) {
         if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
             size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
-            ndim = (pv->GetDim(1) > 1 ? 1 : 0) + (pv->GetDim(2) > 1 ? 1 : 0) +
-                   (pv->GetDim(3) > 1 ? 1 : 0);
           }
         }
       }
@@ -122,12 +123,19 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   auto coords_h = Kokkos::create_mirror_view(pack.coords_);
 
   // Fill the views
-  ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
-    int idx = 0;
-    coords_h(b) = pmbd->GetBlockPointer()->coords_device;
+  int idx = 0;
+  ForEachBlock(pmd, [&](int block, mbd_t *pmbd) {
+    int b = 0;
+    if (!desc.flat) {
+      idx = 0;
+      b = block;
+      coords_h(b) = pmbd->GetBlockPointer()->coords_device;
+    }
 
     for (int i = 0; i < nvar; ++i) {
-      pack.bounds_h_(0, b, i) = idx;
+      if (!desc.flat) {
+        pack.bounds_h_(0, b, i) = idx;
+      }
 
       for (auto &pv : pmbd->GetCellVariableVector()) {
         if (desc.IncludeVariable(i, pv)) {
@@ -148,18 +156,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                     PARTHENON_REQUIRE(pack_h(1, b, idx).size() ==
                                           pack_h(0, b, idx).size(),
                                       "Different size fluxes.");
-                    if (ndim > 1) {
-                      pack_h(2, b, idx) = pv->flux[2].Get(t, u, v);
-                      PARTHENON_REQUIRE(pack_h(2, b, idx).size() ==
-                                            pack_h(0, b, idx).size(),
-                                        "Different size fluxes.");
-                    }
-                    if (ndim > 2) {
-                      pack_h(3, b, idx) = pv->flux[3].Get(t, u, v);
-                      PARTHENON_REQUIRE(pack_h(3, b, idx).size() ==
-                                            pack_h(0, b, idx).size(),
-                                        "Different size fluxes.");
-                    }
+                    pack_h(2, b, idx) = pv->flux[2].Get(t, u, v);
+                    pack_h(3, b, idx) = pv->flux[3].Get(t, u, v);
                   }
                   idx++;
                 }
@@ -169,23 +167,25 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
         }
       }
 
-      pack.bounds_h_(1, b, i) = idx - 1;
-
-      if (pack.bounds_h_(1, b, i) < pack.bounds_h_(0, b, i)) {
-        // Did not find any allocated variables meeting our criteria
-        pack.bounds_h_(0, b, i) = -1;
-        // Make the upper bound more negative so a for loop won't iterate once
-        pack.bounds_h_(1, b, i) = -2;
+      if (!desc.flat) {
+        pack.bounds_h_(1, b, i) = idx - 1;
+        if (pack.bounds_h_(1, b, i) < pack.bounds_h_(0, b, i)) {
+          // Did not find any allocated variables meeting our criteria
+          pack.bounds_h_(0, b, i) = -1;
+          // Make the upper bound more negative so a for loop won't iterate once
+          pack.bounds_h_(1, b, i) = -2;
+        }
       }
     }
     // Record the maximum for easy access
-    pack.bounds_h_(1, b, nvar) = idx - 1;
+    if (!desc.flat) {
+      pack.bounds_h_(1, b, nvar) = idx - 1;
+    }
   });
 
   Kokkos::deep_copy(pack.pack_, pack_h);
   Kokkos::deep_copy(pack.bounds_, pack.bounds_h_);
   Kokkos::deep_copy(pack.coords_, coords_h);
-  pack.ndim_ = ndim;
   pack.dims_[1] = pack.nblocks_;
   pack.dims_[2] = -1; // Not allowed to ask for the ragged dimension anyway
   pack.dims_[3] = pack_h(0, 0, 0).extent_int(0);
@@ -206,8 +206,6 @@ SparsePackBase &SparsePackCache::Get(T *pmd, const PackDescriptor &desc) {
   std::string ident = GetIdentifier(desc);
   if (pack_map.count(ident) > 0) {
     auto &pack = pack_map[ident].first;
-    if (desc.with_fluxes != pack.with_fluxes_) return BuildAndAdd(pmd, desc, ident);
-    if (desc.coarse != pack.coarse_) return BuildAndAdd(pmd, desc, ident);
     auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc);
     auto &alloc_status = pack_map[ident].second;
     if (alloc_status.size() != alloc_status_in.size())
@@ -246,6 +244,10 @@ std::string SparsePackCache::GetIdentifier(const PackDescriptor &desc) const {
   identifier += "____";
   for (int i = 0; i < desc.vars.size(); ++i)
     identifier += desc.vars[i] + std::to_string(desc.use_regex[i]);
+  identifier += "____";
+  identifier += std::to_string(desc.with_fluxes);
+  identifier += std::to_string(desc.coarse);
+  identifier += std::to_string(desc.flat);
   return identifier;
 }
 
