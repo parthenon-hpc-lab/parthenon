@@ -250,7 +250,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   return;
 }
 
-void FillDerivedVars(Mesh *mesh, ParameterInput *pin, SimTime const &) {
+void UserMeshWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &) {
   // loop over blocks
   for (auto &pmb : mesh->block_list) {
     auto rc = pmb->meshblock_data.Get(); // get base container
