@@ -339,8 +339,7 @@ class SparsePack : public SparsePackBase {
     return pack_(0, b, idx)(k, j, i);
   }
   KOKKOS_INLINE_FUNCTION
-  Real &operator()(int idx, const int k, const int j,
-                   const int i) const {
+  Real &operator()(int idx, const int k, const int j, const int i) const {
     return pack_(0, 0, idx)(k, j, i);
   }
 
@@ -374,8 +373,7 @@ class SparsePack : public SparsePackBase {
   }
 
   KOKKOS_INLINE_FUNCTION
-  Real &flux(const int dir, const int idx, const int k, const int j,
-             const int i) const {
+  Real &flux(const int dir, const int idx, const int k, const int j, const int i) const {
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     return pack_(dir, 0, idx)(k, j, i);
   }
