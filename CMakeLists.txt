@@ -329,21 +329,23 @@ if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHEN
     endif()
   endif()
 
-  # Try finding an installed Catch2 first
-  find_package(Catch2 2.13.8 QUIET)
+  if (NOT TARGET catch2_define)
+    # Try finding an installed Catch2 first
+    find_package(Catch2 2.13.8 QUIET)
 
-  if (NOT Catch2_FOUND)
-    # If Catch2 is not found, instead use the git submodule
-    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Catch2/single_include)
-      # Unable to find the header files for Catch2 or they don't exist
-      message(STATUS "Downloading Catch2 submodule.")
+    if (NOT Catch2_FOUND)
+      # If Catch2 is not found, instead use the git submodule
+      if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Catch2/single_include)
+        # Unable to find the header files for Catch2 or they don't exist
+        message(STATUS "Downloading Catch2 submodule.")
 
-      # Clone the submodule
-      execute_process(COMMAND git submodule update --init --force -- external/Catch2 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        # Clone the submodule
+        execute_process(COMMAND git submodule update --init --force -- external/Catch2 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+      endif()
+
+      add_subdirectory(external/Catch2)
+      list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/Catch2/contrib")
     endif()
-
-    add_subdirectory(external/Catch2)
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/Catch2/contrib")
   endif()
 
   include(Catch)
