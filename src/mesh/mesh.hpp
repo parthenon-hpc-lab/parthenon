@@ -258,19 +258,14 @@ class Mesh {
                                        int ntot);
 
   // Mesh::RedistributeAndRefineMeshBlocks() helper functions:
-  // step 6: send
-  void PrepareSendSameLevel(MeshBlock *pb, BufArray1D<Real> &sendbuf);
-  void PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
-                                  LogicalLocation &lloc);
-  void PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf);
-  // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
-  // moved public to be called from device
-  // step 8: receive
-  void FinishRecvSameLevel(MeshBlock *pb, BufArray1D<Real> &recvbuf);
-  void FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
-                                 LogicalLocation &lloc);
-  void FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf);
-
+  MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation &fine_loc, CellVariable<Real> *var);
+  bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fine_loc, 
+                           CellVariable<Real>* var, MeshBlock *pmb);
+  MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation &fine_loc, CellVariable<Real> *var);
+  bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fine_loc, CellVariable<Real> *var, MeshBlock *pmb);
+  MPI_Request SendSameToSame(int lid_recv, int dest_rank, CellVariable<Real> *var, MeshBlock *pmb);
+  bool TryRecvSameToSame(int lid_recv, int send_rank, CellVariable<Real> *var, MeshBlock *pmb);
+  
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
