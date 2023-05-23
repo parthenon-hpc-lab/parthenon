@@ -137,7 +137,7 @@ std::size_t MPISum(std::size_t val) {
                 "size_t is unsigned and integral");
   static_assert(sizeof(std::size_t) == sizeof(unsigned long long int),
                 "MPI_UNSIGNED_LONG_LONG same as size_t");
-  MPI_Allreduce(&val, &val, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &val, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
 #endif
   return val;
 }
