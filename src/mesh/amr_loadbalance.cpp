@@ -819,7 +819,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           for (int l = 0; l < nleaf; l++) {
             auto pob = pb;
             if (ranklist[on] == Globals::my_rank)
-              pob = old_block_list[on + l - old_block_list[0]->gid];
+              pob = old_block_list[on + l - onbs];
             LogicalLocation &oloc = loclist[on + l];
             for (auto &var : pb->vars_cc_) {
               if (!finished[idx]) {
@@ -836,7 +836,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             if (!finished[idx]) {
               auto pob = pb;
               if (ranklist[on] == Globals::my_rank)
-                pob = old_block_list[on - old_block_list[0]->gid];
+                pob = old_block_list[on - onbs];
               auto var_in = pob->meshblock_data.Get()->GetCellVarPtr(var->label());
               finished[idx] = TryRecvCoarseToFine(
                   n - nbs, ranklist[on], nloc, var_in.get(), var.get(), pb.get(), this);
