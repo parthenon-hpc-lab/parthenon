@@ -818,7 +818,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         } else if (oloc.level > nloc.level) { // f2c
           for (int l = 0; l < nleaf; l++) {
             auto pob = pb;
-            if (ranklist[on] == Globals::my_rank)
+            if (ranklist[on + l] == Globals::my_rank)
               pob = old_block_list[on + l - onbs];
             LogicalLocation &oloc = loclist[on + l];
             for (auto &var : pb->vars_cc_) {
