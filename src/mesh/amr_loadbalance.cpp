@@ -47,9 +47,9 @@ namespace parthenon {
 
 #ifdef MPI_PARALLEL
 MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation &fine_loc,
-                             CellVariable<Real> *var) {
+                             CellVariable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
-  MPI_Comm comm = mpi_comm_map_[var->label()];
+  MPI_Comm comm = pmesh->GetMPIComm(var->label());
   const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
   const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
   const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
@@ -67,7 +67,7 @@ MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation 
 
 bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
                          CellVariable<Real> *var_in, CellVariable<Real> *var,
-                         MeshBlock *pmb) {
+                         MeshBlock *pmb, Mesh *pmesh) {
   static const IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::entire);
   static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::entire);
   static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::entire);
@@ -82,7 +82,7 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
 
   int test = 1;
 #ifdef MPI_PARALLEL
-  MPI_Comm comm = mpi_comm_map_[var->label()];
+  MPI_Comm comm = pmesh->GetMPIComm(var->label());
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   MPI_Status status;
   PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
@@ -129,9 +129,9 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
 
 #ifdef MPI_PARALLEL
 MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation &fine_loc,
-                             CellVariable<Real> *var) {
+                             CellVariable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
-  MPI_Comm comm = mpi_comm_map_[var->label()];
+  MPI_Comm comm = pmesh->GetMPIComm(var->label());
   const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
   const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
   const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
@@ -149,7 +149,7 @@ MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation 
 
 bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
                          CellVariable<Real> *var_in, CellVariable<Real> *var,
-                         MeshBlock *pmb) {
+                         MeshBlock *pmb, Mesh *pmesh) {
   static const IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::interior);
   static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior);
   static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior);
@@ -164,7 +164,7 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
 
   int test = 1;
 #ifdef MPI_PARALLEL
-  MPI_Comm comm = mpi_comm_map_[var->label()];
+  MPI_Comm comm = pmesh->GetMPIComm(var->label());
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   MPI_Status status;
   PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
@@ -212,9 +212,9 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
 
 #ifdef MPI_PARALLEL
 MPI_Request SendSameToSame(int lid_recv, int dest_rank, CellVariable<Real> *var,
-                           MeshBlock *pmb) {
+                           MeshBlock *pmb, Mesh *pmesh) {
   MPI_Request req;
-  MPI_Comm comm = mpi_comm_map_[var->label()];
+  MPI_Comm comm = pmesh->GetMPIComm(var->label());
   int tag = CreateAMRMPITag(lid_recv, 0, 0, 0);
   if (var->IsAllocated()) {
     // This assumes we have two ghost zones
@@ -235,8 +235,8 @@ MPI_Request SendSameToSame(int lid_recv, int dest_rank, CellVariable<Real> *var,
 }
 
 bool TryRecvSameToSame(int lid_recv, int send_rank, CellVariable<Real> *var,
-                       MeshBlock *pmb) {
-  MPI_Comm comm = mpi_comm_map_[var->label()];
+                       MeshBlock *pmb, Mesh *pmesh) {
+  MPI_Comm comm = pmesh->GetMPIComm(var->label());
   int tag = CreateAMRMPITag(lid_recv, 0, 0, 0);
 
   int test;
@@ -715,7 +715,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         newrank[nn] != Globals::my_rank) { // same level, different rank
       for (auto &var : pb->vars_cc_)
         send_reqs.emplace_back(
-            SendSameToSame(nn - nslist[newrank[nn]], newrank[nn], var.get(), pb.get()));
+            SendSameToSame(nn - nslist[newrank[nn]], newrank[nn], var.get(), pb.get()),
+            this);
     } else if (nloc.level > oloc.level) { // c2f
       // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
       for (int l = 0; l < nleaf; l++) {
@@ -723,12 +724,14 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         LogicalLocation &nloc = newloc[nl];
         for (auto &var : pb->vars_cc_)
           send_reqs.emplace_back(
-              SendCoarseToFine(nl - nslist[newrank[nl]], newrank[nl], nloc, var.get()));
+              SendCoarseToFine(nl - nslist[newrank[nl]], newrank[nl], nloc, var.get()),
+              this);
       } // end loop over nleaf (unique to c2f branch in this step 6)
     } else if (nloc.level < oloc.level) { // f2c: restrict + pack + send
       for (auto &var : pb->vars_cc_)
         send_reqs.emplace_back(
-            SendFineToCoarse(nn - nslist[newrank[nn]], newrank[nn], oloc, var.get()));
+            SendFineToCoarse(nn - nslist[newrank[nn]], newrank[nn], oloc, var.get()),
+            this);
     }
   }
   Kokkos::Profiling::popRegion(); // Step 7
@@ -798,7 +801,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           for (auto &var : pb->vars_cc_) {
             if (!finished[idx])
               finished[idx] =
-                  TryRecvSameToSame(n - nbs, ranklist[on], var.get(), pb.get());
+                  TryRecvSameToSame(n - nbs, ranklist[on], var.get(), pb.get(), this);
             all_received = finished[idx++] && all_received;
           }
 #endif
@@ -811,8 +814,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             for (auto &var : pb->vars_cc_) {
               if (!finished[idx]) {
                 auto var_in = pob->meshblock_data.Get()->GetCellVarPtr(var->label());
-                finished[idx] = TryRecvFineToCoarse(n - nbs, ranklist[on + l], oloc,
-                                                    var_in.get(), var.get(), pb.get());
+                finished[idx] =
+                    TryRecvFineToCoarse(n - nbs, ranklist[on + l], oloc, var_in.get(),
+                                        var.get(), pb.get(), this);
               }
               all_received = finished[idx++] && all_received;
             }
@@ -824,8 +828,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
               if (ranklist[on] == Globals::my_rank)
                 pob = old_block_list[on - old_block_list[0]->gid];
               auto var_in = pob->meshblock_data.Get()->GetCellVarPtr(var->label());
-              finished[idx] = TryRecvCoarseToFine(n - nbs, ranklist[on], nloc,
-                                                  var_in.get(), var.get(), pb.get());
+              finished[idx] = TryRecvCoarseToFine(
+                  n - nbs, ranklist[on], nloc, var_in.get(), var.get(), pb.get(), this);
             }
             all_received = finished[idx++] && all_received;
           }
