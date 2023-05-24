@@ -864,8 +864,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // Need to restrict this block before doing sends
       for (auto &var : pmb->vars_cc_) {
         if (var->IsAllocated()) {
-          ParArrayND<Real> fb = var->data;
-          ParArrayND<Real> cb = var->coarse_s;
           pmb->pmr->ProlongateCellCenteredValues(var.get(), cib.s, cib.e, cjb.s, cjb.e,
                                                  ckb.s, ckb.e);
         }
