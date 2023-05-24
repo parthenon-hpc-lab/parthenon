@@ -120,12 +120,11 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
       const int nt = fb.GetDim(6) - 1;
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
-      const int t = 0;
-      const int u = 0;
       parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "FillSameRankCoarseToFineAMR", DevExecSpace(), 0, nv,
-          kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-          KOKKOS_LAMBDA(const int v, const int k, const int j, const int i) {
+          DEFAULT_LOOP_PATTERN, "FillSameRankCoarseToFineAMR", DevExecSpace(), 0, nt, 0,
+          nu, 0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
+                        const int i) {
             cb(t, u, v, k, j, i) = fb(t, u, v, k + ks, j + js, i + is);
           });
     } else {
@@ -201,12 +200,11 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
       const int nt = fb.GetDim(6) - 1;
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
-      const int t = 0;
-      const int u = 0;
       parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "FillSameRankCoarseToFineAMR", DevExecSpace(), 0, nv,
-          kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-          KOKKOS_LAMBDA(const int v, const int k, const int j, const int i) {
+          DEFAULT_LOOP_PATTERN, "FillSameRankCoarseToFineAMR", DevExecSpace(), 0, nt, 0,
+          nu, 0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
+                        const int i) {
             fb(t, u, v, k + ks, j + js, i + is) = cb(t, u, v, k, j, i);
           });
       // We have to block here w/o buffering so that the write is guaranteed to be
@@ -818,8 +816,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         } else if (oloc.level > nloc.level) { // f2c
           for (int l = 0; l < nleaf; l++) {
             auto pob = pb;
-            if (ranklist[on + l] == Globals::my_rank)
-              pob = old_block_list[on + l - onbs];
+            if (ranklist[on + l] == Globals::my_rank) pob = old_block_list[on + l - onbs];
             LogicalLocation &oloc = loclist[on + l];
             for (auto &var : pb->vars_cc_) {
               if (!finished[idx]) {
@@ -835,8 +832,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           for (auto &var : pb->vars_cc_) {
             if (!finished[idx]) {
               auto pob = pb;
-              if (ranklist[on] == Globals::my_rank)
-                pob = old_block_list[on - onbs];
+              if (ranklist[on] == Globals::my_rank) pob = old_block_list[on - onbs];
               auto var_in = pob->meshblock_data.Get()->GetCellVarPtr(var->label());
               finished[idx] = TryRecvCoarseToFine(
                   n - nbs, ranklist[on], nloc, var_in.get(), var.get(), pb.get(), this);
