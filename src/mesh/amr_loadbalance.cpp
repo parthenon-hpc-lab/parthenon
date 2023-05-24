@@ -46,6 +46,19 @@
 namespace parthenon {
 
 #ifdef MPI_PARALLEL
+//----------------------------------------------------------------------------------------
+//! \fn int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3)
+//  \brief calculate an MPI tag for AMR block transfer
+// tag = local id of destination (remaining bits) + ox1(1 bit) + ox2(1 bit) + ox3(1 bit)
+//       + physics(5 bits)
+
+// See comments on BoundaryBase::CreateBvalsMPITag()
+
+int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
+  // the trailing zero is used as "id" to indicate an AMR related tag
+  return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
+}
+
 MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation &fine_loc,
                              CellVariable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
@@ -221,7 +234,7 @@ MPI_Request SendSameToSame(int lid_recv, int dest_rank, CellVariable<Real> *var,
     auto counter_subview =
         Kokkos::subview(var->data.KokkosView(), 0, 0, 0, 0, 0, std::make_pair(0, 2));
     auto counter_subview_h = Kokkos::create_mirror_view(HostMemSpace(), counter_subview);
-    counter_subview_h(0) = static_cast<Real>(pmb->pmr->deref_count_);
+    counter_subview_h(0) = static_cast<Real>(pmb->pmr->DereferenceCount());
     counter_subview_h(1) = static_cast<Real>(var->dealloc_count);
     Kokkos::deep_copy(counter_subview, counter_subview_h);
 
@@ -253,7 +266,7 @@ bool TryRecvSameToSame(int lid_recv, int send_rank, CellVariable<Real> *var,
           Kokkos::subview(var->data.KokkosView(), 0, 0, 0, 0, 0, std::make_pair(0, 2));
       auto counter_subview_h =
           Kokkos::create_mirror_view_and_copy(HostMemSpace(), counter_subview);
-      pmb->pmr->deref_count_ = static_cast<int>(counter_subview_h(0));
+      pmb->pmr->DereferenceCount() = static_cast<int>(counter_subview_h(0));
       var->dealloc_count = static_cast<int>(counter_subview_h(1));
     } else {
       if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label());
@@ -714,24 +727,21 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     if (nloc.level == oloc.level &&
         newrank[nn] != Globals::my_rank) { // same level, different rank
       for (auto &var : pb->vars_cc_)
-        send_reqs.emplace_back(
-            SendSameToSame(nn - nslist[newrank[nn]], newrank[nn], var.get(), pb.get()),
-            this);
+        send_reqs.emplace_back(SendSameToSame(nn - nslist[newrank[nn]], newrank[nn],
+                                              var.get(), pb.get(), this));
     } else if (nloc.level > oloc.level) { // c2f
       // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
       for (int l = 0; l < nleaf; l++) {
         const int nl = nn + l; // Leaf block index in new global block list
         LogicalLocation &nloc = newloc[nl];
         for (auto &var : pb->vars_cc_)
-          send_reqs.emplace_back(
-              SendCoarseToFine(nl - nslist[newrank[nl]], newrank[nl], nloc, var.get()),
-              this);
+          send_reqs.emplace_back(SendCoarseToFine(nl - nslist[newrank[nl]], newrank[nl],
+                                                  nloc, var.get(), this));
       } // end loop over nleaf (unique to c2f branch in this step 6)
     } else if (nloc.level < oloc.level) { // f2c: restrict + pack + send
       for (auto &var : pb->vars_cc_)
-        send_reqs.emplace_back(
-            SendFineToCoarse(nn - nslist[newrank[nn]], newrank[nn], oloc, var.get()),
-            this);
+        send_reqs.emplace_back(SendFineToCoarse(nn - nslist[newrank[nn]], newrank[nn],
+                                                oloc, var.get(), this));
     }
   }
   Kokkos::Profiling::popRegion(); // Step 7
@@ -884,19 +894,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   ResetLoadBalanceVariables();
 
   Kokkos::Profiling::popRegion(); // RedistributeAndRefineMeshBlocks
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3)
-//  \brief calculate an MPI tag for AMR block transfer
-// tag = local id of destination (remaining bits) + ox1(1 bit) + ox2(1 bit) + ox3(1 bit)
-//       + physics(5 bits)
-
-// See comments on BoundaryBase::CreateBvalsMPITag()
-
-int Mesh::CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
-  // the trailing zero is used as "id" to indicate an AMR related tag
-  return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
 }
 
 } // namespace parthenon
