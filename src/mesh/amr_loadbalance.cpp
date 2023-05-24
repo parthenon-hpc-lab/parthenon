@@ -499,8 +499,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     } else if (nloc.level > oloc.level) { // c2f
       // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
       for (int l = 0; l < nleaf; l++) {
-        LogicalLocation &nloc = newloc[nn + l];
         const int nl = nn + l; // Leaf block index in new global block list
+        LogicalLocation &nloc = newloc[nl];
         for (auto &var : pb->vars_cc_)
           send_reqs.emplace_back(
               SendCoarseToFine(nl - nslist[newrank[nl]], newrank[nl], nloc, var.get()));
