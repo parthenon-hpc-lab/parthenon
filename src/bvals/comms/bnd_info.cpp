@@ -198,7 +198,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
       // c_cellbounds
       out.idxer[idx] = CalcLoadIndices<InterfaceType::FineToCoarse>(
           nb.ni, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
-      out.prores_idxer[idx] = out.idxer[idx];
+      out.prores_idxer[static_cast<int>(el)] = out.idxer[idx];
       out.refinement_op = RefinementOp_t::Restriction;
       out.var = v->coarse_s.Get();
     } else {

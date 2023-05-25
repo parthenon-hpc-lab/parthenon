@@ -261,7 +261,7 @@ struct ProlongateSharedMinMod {
 struct ProlongateInternalAverage {
   static constexpr bool OperationRequired(TopologicalElement fel,
                                           TopologicalElement cel) {
-    return IsSubmanifold(cel, fel);
+    return IsSubmanifold(fel, cel);
   }
   // Here, fel is the topological element on which the field is defined and
   // cel is the topological element on which we are filling the internal values
@@ -280,7 +280,7 @@ struct ProlongateInternalAverage {
      const ParArrayND<Real, VariableState> *pfine) {
     using namespace util;
 
-    if constexpr (!IsSubmanifold(cel, fel)) {
+    if constexpr (!IsSubmanifold(fel, cel)) {
       return;
     } else {
       auto &fine = *pfine;
