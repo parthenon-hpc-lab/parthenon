@@ -32,6 +32,7 @@
 - [[PR 663]](https://github.com/lanl/parthenon/pull/663) Change bvals_in_one to use sparse boundary buffers and add flux_correction in one.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 876]](https://github.com/parthenon-hpc-lab/parthenon/pull/876) Fix restarting from files which record ghost zones
 - [[PR 878]](https://github.com/parthenon-hpc-lab/parthenon/pull/878) Catch2 target guard in CMake
 - [[PR 873]](https://github.com/parthenon-hpc-lab/parthenon/pull/873) Prevent HDF5 from throwing a fit when a swarm has no particles
 - [[PR 866]](https://github.com/parthenon-hpc-lab/parthenon/pull/866) Add missing guard for HDF5 on restart
