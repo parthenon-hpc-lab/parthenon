@@ -170,11 +170,13 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       THEN("A flattened sparse pack can correctly load this data in a unified outer "
            "index space") {
         using parthenon::variable_names::any;
-        std::vector<parthenon::MetadataFlag> flags{Metadata::WithFluxes};
-        auto sparse_pack = parthenon::SparsePack<any>::GetFlat(&mesh_data, flags);
+        auto sparse_pack = parthenon::SparsePack<any>::GetFlatWithFluxes(&mesh_data);
         REQUIRE(sparse_pack.GetNBlocks() == 1);
         // v3 is deallocated on one block.
         REQUIRE(sparse_pack.GetMaxNumberOfVars() == 5 * NBLOCKS - 3);
+        REQUIRE(sparse_pack.GetLowerBound() == 0);
+        // upper bound is inclusive
+        REQUIRE(sparse_pack.GetUpperBound() == 5 * NBLOCKS - 3 - 1);
       }
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on a single "

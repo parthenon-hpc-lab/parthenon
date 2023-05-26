@@ -155,7 +155,7 @@ class SparsePack : public SparsePackBase {
   static SparsePack GetWithFluxes(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
     const bool coarse = false;
     const bool fluxes = true;
-    return Get(pmd, flags, fluxes, coarse);
+    return Get(pmd, AddFlag_(flags), fluxes, coarse);
   }
 
   template <class T, class VAR_VEC>
@@ -164,7 +164,7 @@ class SparsePack : public SparsePackBase {
                 const std::vector<MetadataFlag> &flags = {}) {
     const bool coarse = false;
     const bool fluxes = true;
-    Get(pmd, vars, flags, fluxes, coarse);
+    Get(pmd, vars, AddFlag_(flags), fluxes, coarse);
   }
 
   template <class T>
@@ -206,7 +206,7 @@ class SparsePack : public SparsePackBase {
     const bool coarse = false;
     const bool fluxes = true;
     const bool flatten = true;
-    return Get(pmd, flags, fluxes, coarse, flatten);
+    return Get(pmd, AddFlag_(flags), fluxes, coarse, flatten);
   }
 
   template <class T, class VAR_VEC>
@@ -216,7 +216,7 @@ class SparsePack : public SparsePackBase {
     const bool coarse = false;
     const bool fluxes = true;
     const bool flatten = true;
-    return Get(pmd, vars, flags, fluxes, coarse, flatten);
+    return Get(pmd, vars, AddFlag_(flags), fluxes, coarse, flatten);
   }
 
   template <class T>
@@ -246,72 +246,70 @@ class SparsePack : public SparsePackBase {
   int GetMaxNumberOfVars() const { return pack_.extent_int(2); }
 
   KOKKOS_INLINE_FUNCTION
-  const Coordinates_t &GetCoordinates(const int b) const { return coords_(b)(); }
+  const Coordinates_t &GetCoordinates(const int b = 0) const { return coords_(b)(); }
 
   // Bound overloads
-  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const { return 0; }
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b = 0) const { return 0; }
 
-  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b) const {
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Bounds not valid for flat packs");
-    return bounds_(1, b, nvar_);
+  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b = 0) const {
+    return bounds_(1, !flat_ * b, !flat_ * nvar_);
   }
 
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Bounds not valid for flat packs");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     return bounds_(0, b, idx.VariableIdx());
   }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Bounds not valid for flat packs");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     return bounds_(1, b, idx.VariableIdx());
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, const TIn &) const {
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Bounds not valid for flat packs");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(0, b, vidx);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, const TIn &) const {
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Bounds not valid for flat packs");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(1, b, vidx);
   }
 
   // Host Bound overloads
-  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const { return 0; }
+  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b = 0) const { return 0; }
 
-  KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b) const {
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Bounds not valid for flat packs");
-    return bounds_h_(1, b, nvar_);
+  KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b = 0) const {
+    return bounds_h_(1, !flat_ * b, !flat_ * nvar_);
   }
 
   KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Bounds not valid for flat packs");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     return bounds_h_(0, b, idx.VariableIdx());
   }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Bounds not valid for flat packs");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     return bounds_h_(1, b, idx.VariableIdx());
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b, const TIn &) const {
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Bounds not valid for flat packs");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_h_(0, b, vidx);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b, const TIn &) const {
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Bounds not valid for flat packs");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_h_(1, b, vidx);
   }
@@ -404,6 +402,22 @@ class SparsePack : public SparsePackBase {
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(dir, b, vidx)(k, j, i);
+  }
+
+ private:
+  // Must make a copy of the vector, since input vector is const,
+  // and it may not even be an lvalue.
+  static std::vector<MetadataFlag> AddFlag_(const std::vector<MetadataFlag> &flags,
+                                            MetadataFlag mf = Metadata::WithFluxes) {
+    if (std::find(flags.begin(), flags.end(), mf) == flags.end()) {
+      std::vector<MetadataFlag> out;
+      out.reserve(flags.size() + 1);
+      out.insert(out.begin(), flags.begin(), flags.end());
+      out.push_back(mf);
+      return out;
+    } else {
+      return flags;
+    }
   }
 };
 

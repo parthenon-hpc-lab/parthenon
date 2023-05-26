@@ -115,11 +115,17 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
   auto pack_h = Kokkos::create_mirror_view(pack.pack_);
 
+  // For non-flat packs, shape of pack is type x block x var x k x j x i
+  // where type here might be a flux.
+  // For flat packs, shape is type x (some var on some block)  x k x j x 1
+  // in the latter case, coords indexes into the some var on some
+  // block but bounds is reinterpreted as the lower and upper bounds
+  // of the (some var on some block) index range.
   // Size is nvar + 1 to store the maximum idx for easy access
-  pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar + 1);
+  pack.bounds_ = bounds_t("bounds", 2, desc.flat ? 1 : nblocks, !desc.flat * nvar + 1);
   pack.bounds_h_ = Kokkos::create_mirror_view(pack.bounds_);
 
-  pack.coords_ = coords_t("coords", nblocks);
+  pack.coords_ = coords_t("coords", desc.flat ? max_size : nblocks);
   auto coords_h = Kokkos::create_mirror_view(pack.coords_);
 
   // Fill the views
@@ -129,6 +135,9 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
     if (!desc.flat) {
       idx = 0;
       b = block;
+      // JMM: This line could be unified with the coords_h line below,
+      // but it would imply unnecessary copies in the case of non-flat
+      // packs.
       coords_h(b) = pmbd->GetBlockPointer()->coords_device;
     }
 
@@ -159,6 +168,9 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                     pack_h(2, b, idx) = pv->flux[2].Get(t, u, v);
                     pack_h(3, b, idx) = pv->flux[3].Get(t, u, v);
                   }
+                  if (desc.flat) {
+                    coords_h(idx) = pmbd->GetBlockPointer()->coords_device;
+                  }
                   idx++;
                 }
               }
@@ -178,9 +190,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
       }
     }
     // Record the maximum for easy access
-    if (!desc.flat) {
-      pack.bounds_h_(1, b, nvar) = idx - 1;
-    }
+    pack.bounds_h_(1, !desc.flat * b, !desc.flat * nvar) = idx - 1;
   });
 
   Kokkos::deep_copy(pack.pack_, pack_h);
