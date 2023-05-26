@@ -71,7 +71,7 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
 //----------------------------------------------------------------------------------------
 //  \brief restrict cell centered values
 
-void MeshRefinement::RestrictCellCenteredValues(CellVariable<Real> *var, int csi, int cei,
+void MeshRefinement::RestrictCellCenteredValues(Variable<Real> *var, int csi, int cei,
                                                 int csj, int cej, int csk, int cek) {
   const auto &metadata = var->metadata();
   PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
@@ -84,7 +84,7 @@ void MeshRefinement::RestrictCellCenteredValues(CellVariable<Real> *var, int csi
   // TODO(JMM): We're allocating on the heap here... we could move to
   // the stack by giving these functions pointers to underlying data?
   // Probably not worth it, as these functions will be completely removed soon.
-  cell_centered_bvars::BufferCacheHost_t info_h("refinement info", nbuffers);
+  BufferCacheHost_t info_h("refinement info", nbuffers);
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused.
@@ -108,7 +108,7 @@ void MeshRefinement::RestrictCellCenteredValues(CellVariable<Real> *var, int csi
 //----------------------------------------------------------------------------------------
 //  \brief Prolongate cell centered values
 
-void MeshRefinement::ProlongateCellCenteredValues(CellVariable<Real> *var, int si, int ei,
+void MeshRefinement::ProlongateCellCenteredValues(Variable<Real> *var, int si, int ei,
                                                   int sj, int ej, int sk, int ek) {
   const auto &metadata = var->metadata();
   PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
@@ -121,7 +121,7 @@ void MeshRefinement::ProlongateCellCenteredValues(CellVariable<Real> *var, int s
   // TODO(JMM): We're allocating on the heap here... we could move to
   // the stack by giving these functions pointers to underlying data?
   // Probably not worth it, as these functions will be completely removed soon.
-  cell_centered_bvars::BufferCacheHost_t info_h("refinement info", nbuffers);
+  BufferCacheHost_t info_h("refinement info", nbuffers);
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused
@@ -210,7 +210,7 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
 
 // TODO(felker): consider merging w/ MeshBlock::pvars_cc, etc. See meshblock.cpp
 
-int MeshRefinement::AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar) {
+int MeshRefinement::AddToRefinement(std::shared_ptr<Variable<Real>> pvar) {
   pvars_cc_.insert(pvar);
   return static_cast<int>(pvars_cc_.size() - 1);
 }

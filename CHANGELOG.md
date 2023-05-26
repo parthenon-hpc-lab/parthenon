@@ -30,6 +30,7 @@ Date: 2023-05-26
 - [[PR 712]](https://github.com/parthenon-hpc-lab/parthenon/pull/712) Allow to add params from cmdline
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 867]](https://github.com/parthenon-hpc-lab/parthenon/pull/867) Rename CellVariable to Variable in anticipation of face fields
 - [[PR 870]](https://github.com/parthenon-hpc-lab/parthenon/pull/870) Update component label logic in output to include basename
 - [[PR 853]](https://github.com/parthenon-hpc-lab/parthenon/pull/853) Add multiple features and improve the performance of the movie2d.py tool
 - [[PR 775]](https://github.com/parthenon-hpc-lab/parthenon/pull/775) Reorganize some of the bvals and prolongation/restriction machinery

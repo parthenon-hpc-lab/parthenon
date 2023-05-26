@@ -21,7 +21,7 @@
 #include <tuple> // std::tuple
 #include <utility>
 
-#include "bvals/cc/bnd_info.hpp"
+#include "bvals/comms/bnd_info.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
@@ -34,8 +34,7 @@ namespace refinement {
 
 // TODO(JMM): Add a prolongate when prolongation is called in-one
 // TODO(JMM): Is this actually the API we want?
-void Restrict(const StateDescriptor *resolved_packages,
-              const cell_centered_bvars::BvarsSubCache_t &cache,
+void Restrict(const StateDescriptor *resolved_packages, const BvarsSubCache_t &cache,
               const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
   const auto &ref_func_map = resolved_packages->RefinementFncsToIDs();
   for (const auto &[func, idx] : ref_func_map) {
