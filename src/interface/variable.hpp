@@ -58,20 +58,20 @@ inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
 }
 
 template <typename T>
-class CellVariable {
+class Variable {
   // so that MeshBlock and MeshBlockData can call Allocate* and Deallocate
   friend class MeshBlock;
   friend class MeshBlockData<T>;
 
  public:
-  CellVariable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
-                  std::weak_ptr<MeshBlock> wpmb);
+  Variable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
+              std::weak_ptr<MeshBlock> wpmb);
 
-  // copy fluxes and boundary variable from src CellVariable (shallow copy)
-  void CopyFluxesAndBdryVar(const CellVariable<T> *src);
+  // copy fluxes and boundary variable from src Variable (shallow copy)
+  void CopyFluxesAndBdryVar(const Variable<T> *src);
 
-  // make a new CellVariable based on an existing one
-  std::shared_ptr<CellVariable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb);
+  // make a new Variable based on an existing one
+  std::shared_ptr<Variable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb);
 
   // accessors
   template <class... Args>
@@ -231,12 +231,12 @@ class ParticleVariable {
 };
 
 template <typename T>
-using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;
+using VariableVector = std::vector<std::shared_ptr<Variable<T>>>;
 
 template <typename T>
-inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
-                                             std::vector<MetadataFlag> mflags) {
-  CellVariableVector<T> out;
+inline VariableVector<T> GetAnyVariables(const VariableVector<T> &cv_in,
+                                         std::vector<MetadataFlag> mflags) {
+  VariableVector<T> out;
   for (auto &pvar : cv_in) {
     if (std::any_of(mflags.begin(), mflags.end(),
                     [&](const auto &in) { return pvar->IsSet(in); })) {
@@ -247,9 +247,9 @@ inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
 }
 
 template <typename T>
-inline CellVariableVector<T> GetAnyVariables(const CellVariableVector<T> &cv_in,
-                                             std::vector<std::string> base_names) {
-  CellVariableVector<T> out;
+inline VariableVector<T> GetAnyVariables(const VariableVector<T> &cv_in,
+                                         std::vector<std::string> base_names) {
+  VariableVector<T> out;
 
   std::vector<std::regex> base_regexs;
   for (auto &base_name : base_names)
@@ -274,10 +274,10 @@ struct VarComp {
 };
 
 template <typename T>
-using VarPtr = std::shared_ptr<CellVariable<T>>;
+using VarPtr = std::shared_ptr<Variable<T>>;
 
 template <typename T>
-using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
+using MapToVars = std::map<std::string, std::shared_ptr<Variable<T>>>;
 
 template <typename T>
 using ParticleVarPtr = std::shared_ptr<ParticleVariable<T>>;
@@ -286,7 +286,7 @@ using ParticleVariableVector = std::vector<ParticleVarPtr<T>>;
 template <typename T>
 using MapToParticle = std::map<std::string, ParticleVarPtr<T>>;
 template <typename T>
-using VariableSet = std::set<VarPtr<T>, VarComp<CellVariable<T>>>;
+using VariableSet = std::set<VarPtr<T>, VarComp<Variable<T>>>;
 template <typename T>
 using MetadataFlagToVariableMap = std::map<MetadataFlag, VariableSet<T>>;
 

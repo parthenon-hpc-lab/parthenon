@@ -93,7 +93,7 @@ struct VarInfo {
     }
   }
 
-  explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
+  explicit VarInfo(const std::shared_ptr<Variable<Real>> &var)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
                 var->GetDim(6), var->GetDim(5), var->GetDim(4), var->GetDim(3),
                 var->GetDim(2), var->GetDim(1), var->metadata(), var->IsSparse(),

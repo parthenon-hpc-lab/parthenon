@@ -37,8 +37,6 @@
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 
-using parthenon::CellVariable;
-using parthenon::CellVariableVector;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::MeshBlock;
@@ -51,6 +49,8 @@ using parthenon::ParArray4D;
 using parthenon::ParArrayND;
 using parthenon::Real;
 using parthenon::StateDescriptor;
+using parthenon::Variable;
+using parthenon::VariableVector;
 using parthenon::X1DIR;
 using parthenon::X2DIR;
 using parthenon::X3DIR;
@@ -138,7 +138,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     WHEN("We extract a subcontainer") {
       auto subcontainer = MeshBlockData<Real>(mbd, {"v1", "v3", "v5"});
       THEN("The container has the names in the right order") {
-        auto vars = subcontainer.GetCellVariableVector();
+        auto vars = subcontainer.GetVariableVector();
         REQUIRE(vars[0]->label() == "v1");
         REQUIRE(vars[1]->label() == "v3");
         REQUIRE(vars[2]->label() == "v5");
@@ -155,7 +155,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we check them") {
       // set them all to zero
-      const CellVariableVector<Real> &cv = mbd.GetCellVariableVector();
+      const VariableVector<Real> &cv = mbd.GetVariableVector();
       for (int n = 0; n < cv.size(); n++) {
         ParArrayND<Real> v = cv[n]->data;
         par_for(
@@ -503,7 +503,7 @@ TEST_CASE("Get the correct access pattern when using FlatIdx", "[FlatIdx]") {
 
   auto pmb = std::make_shared<MeshBlock>(N, NDIM);
 
-  GIVEN("Tensor fields accessed using CellVariables") {
+  GIVEN("Tensor fields accessed using Variables") {
     Metadata m_tensor2({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},
                        tensor2_shape);
     Metadata m_tensor3({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},

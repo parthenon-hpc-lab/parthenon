@@ -26,12 +26,12 @@
 namespace parthenon {
 
 template <typename T>
-CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &metadata,
-                              int sparse_id, std::weak_ptr<MeshBlock> wpmb)
+Variable<T>::Variable(const std::string &base_name, const Metadata &metadata,
+                      int sparse_id, std::weak_ptr<MeshBlock> wpmb)
     : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
       dims_(m_.GetArrayDims(wpmb, false)), coarse_dims_(m_.GetArrayDims(wpmb, true)) {
   PARTHENON_REQUIRE_THROWS(m_.IsSet(Metadata::Real),
-                           "Only Real data type is currently supported for CellVariable");
+                           "Only Real data type is currently supported for Variable");
 
   PARTHENON_REQUIRE_THROWS(IsSparse() == (sparse_id_ != InvalidSparseID),
                            "Mismatch between sparse flag and sparse ID");
@@ -43,7 +43,7 @@ CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &meta
 }
 
 template <typename T>
-std::string CellVariable<T>::info() {
+std::string Variable<T>::info() {
   char tmp[100] = "";
   char *stmp = tmp;
 
@@ -68,7 +68,7 @@ std::string CellVariable<T>::info() {
 // Makes a shallow copy of the boundary buffer and fluxes of the source variable and
 // assign them to this variable
 template <typename T>
-void CellVariable<T>::CopyFluxesAndBdryVar(const CellVariable<T> *src) {
+void Variable<T>::CopyFluxesAndBdryVar(const Variable<T> *src) {
   if (IsSet(Metadata::WithFluxes)) {
     // fluxes, coarse buffers, etc., are always a copy
     // Rely on reference counting and shallow copy of kokkos views
@@ -87,13 +87,12 @@ void CellVariable<T>::CopyFluxesAndBdryVar(const CellVariable<T> *src) {
 }
 
 template <typename T>
-std::shared_ptr<CellVariable<T>>
-CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
+std::shared_ptr<Variable<T>> Variable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
   // copy the Metadata
   Metadata m = m_;
 
-  // make the new CellVariable
-  auto cv = std::make_shared<CellVariable<T>>(base_name_, m, sparse_id_, wpmb);
+  // make the new Variable
+  auto cv = std::make_shared<Variable<T>>(base_name_, m, sparse_id_, wpmb);
 
   if (is_allocated_) {
     cv->AllocateData();
@@ -105,7 +104,7 @@ CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
 }
 
 template <typename T>
-void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialized) {
+void Variable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialized) {
   if (is_allocated_) {
     return;
   }
@@ -115,7 +114,7 @@ void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitia
 }
 
 template <typename T>
-void CellVariable<T>::AllocateData(bool flag_uninitialized) {
+void Variable<T>::AllocateData(bool flag_uninitialized) {
   PARTHENON_REQUIRE_THROWS(
       !is_allocated_,
       "Tried to allocate data for variable that's already allocated: " + label());
@@ -131,7 +130,7 @@ void CellVariable<T>::AllocateData(bool flag_uninitialized) {
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
-void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
+void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
   PARTHENON_REQUIRE_THROWS(
       IsAllocated(), "Tried to allocate comms for un-allocated variable " + label());
   std::string base_name = label();
@@ -168,7 +167,7 @@ void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
 }
 
 template <typename T>
-void CellVariable<T>::Deallocate() {
+void Variable<T>::Deallocate() {
 #ifdef ENABLE_SPARSE
   if (!IsAllocated()) {
     return;
@@ -190,7 +189,7 @@ void CellVariable<T>::Deallocate() {
 
   is_allocated_ = false;
 #else
-  PARTHENON_THROW("CellVariable<T>::Deallocate(): Sparse is compile-time disabled");
+  PARTHENON_THROW("Variable<T>::Deallocate(): Sparse is compile-time disabled");
 #endif
 }
 
@@ -217,7 +216,7 @@ std::string ParticleVariable<T>::info() const {
   return ss.str();
 }
 
-template class CellVariable<Real>;
+template class Variable<Real>;
 template class ParticleVariable<Real>;
 template class ParticleVariable<int>;
 template class ParticleVariable<bool>;
