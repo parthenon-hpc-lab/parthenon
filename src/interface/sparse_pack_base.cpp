@@ -96,7 +96,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
       size = 0;
       nblocks++;
     }
-    for (auto &pv : pmbd->GetCellVariableVector()) {
+    for (auto &pv : pmbd->GetVariableVector()) {
       for (int i = 0; i < nvar; ++i) {
         if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
