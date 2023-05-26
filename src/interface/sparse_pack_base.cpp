@@ -162,9 +162,6 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                       "Seems like this variable might not actually be allocated.");
                   if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
                     pack_h(1, b, idx) = pv->flux[1].Get(t, u, v);
-                    PARTHENON_REQUIRE(pack_h(1, b, idx).size() ==
-                                          pack_h(0, b, idx).size(),
-                                      "Different size fluxes.");
                     pack_h(2, b, idx) = pv->flux[2].Get(t, u, v);
                     pack_h(3, b, idx) = pv->flux[3].Get(t, u, v);
                   }
@@ -181,12 +178,12 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
 
       if (!desc.flat) {
         pack.bounds_h_(1, b, i) = idx - 1;
-        if (pack.bounds_h_(1, b, i) < pack.bounds_h_(0, b, i)) {
-          // Did not find any allocated variables meeting our criteria
-          pack.bounds_h_(0, b, i) = -1;
-          // Make the upper bound more negative so a for loop won't iterate once
-          pack.bounds_h_(1, b, i) = -2;
-        }
+      }
+      if (pack.bounds_h_(1, b, i) < pack.bounds_h_(0, b, i)) {
+        // Did not find any allocated variables meeting our criteria
+        pack.bounds_h_(0, b, i) = -1;
+        // Make the upper bound more negative so a for loop won't iterate once
+        pack.bounds_h_(1, b, i) = -2;
       }
     }
     // Record the maximum for easy access
