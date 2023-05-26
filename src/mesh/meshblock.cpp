@@ -270,7 +270,7 @@ void MeshBlock::StopTimeMeasurement() {
   }
 }
 
-void MeshBlock::RegisterMeshBlockData(std::shared_ptr<CellVariable<Real>> pvar_cc) {
+void MeshBlock::RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc) {
   vars_cc_.push_back(pvar_cc);
   return;
 }
@@ -289,7 +289,7 @@ void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
         continue;
       }
 
-      auto v = stage.second->GetCellVarPtr(l);
+      auto v = stage.second->GetVarPtr(l);
 
       if (v->IsSet(Metadata::OneCopy)) {
         // nothing to do, we already allocated variable on base stage, and all other
@@ -312,7 +312,7 @@ void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
     cont_set = pmy_mesh->resolved_packages->ControlVariablesSet();
   }
 
-  if (cont_set && meshblock_data.Get()->GetCellVarPtr(label)->IsSparse()) {
+  if (cont_set && meshblock_data.Get()->GetVarPtr(label)->IsSparse()) {
     auto clabel = label;
     if (!only_control) clabel = pmy_mesh->resolved_packages->GetFieldController(label);
     const auto &var_labels = pmy_mesh->resolved_packages->GetControlledVariables(clabel);
@@ -336,7 +336,7 @@ void MeshBlock::DeallocateSparse(std::string const &label) {
     cont_set = pmy_mesh->resolved_packages->ControlVariablesSet();
   }
 
-  if (cont_set && meshblock_data.Get()->GetCellVarPtr(label)->IsSparse()) {
+  if (cont_set && meshblock_data.Get()->GetVarPtr(label)->IsSparse()) {
     const auto &var_labels = pmy_mesh->resolved_packages->GetControlledVariables(label);
     for (const auto &l : var_labels)
       DeallocateVar(l);
