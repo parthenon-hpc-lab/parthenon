@@ -89,40 +89,42 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
 
   // Count up the size of the array that is required
   int max_size = 0;
-  int nblocks = desc.flat;
-  int size = 0;
+  int nblocks = 0;
+  int size = 0;   // local var used to compute size/block
+  pack.size_ = 0; // total size of pack
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     if (!desc.flat) {
       size = 0;
-      nblocks++;
     }
+    nblocks++;
     for (auto &pv : pmbd->GetVariableVector()) {
       for (int i = 0; i < nvar; ++i) {
         if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
-            size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
+            int prod = pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
+            size += prod;       // max size/block (or total size for flat)
+            pack.size_ += prod; // total ragged size
           }
         }
       }
     }
     max_size = std::max(size, max_size);
   });
-  pack.nblocks_ = nblocks;
+  pack.nblocks_ = desc.flat ? 1 : nblocks;
 
   // Allocate the views
   int leading_dim = 1;
   if (desc.with_fluxes) leading_dim += 3;
-  pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
+  pack.pack_ = pack_t("data_ptr", leading_dim, pack.nblocks_, max_size);
   auto pack_h = Kokkos::create_mirror_view(pack.pack_);
 
   // For non-flat packs, shape of pack is type x block x var x k x j x i
   // where type here might be a flux.
   // For flat packs, shape is type x (some var on some block)  x k x j x 1
   // in the latter case, coords indexes into the some var on some
-  // block but bounds is reinterpreted as the lower and upper bounds
-  // of the (some var on some block) index range.
+  // block. Bounds provides the start and end index of a var in a block in the flat array.
   // Size is nvar + 1 to store the maximum idx for easy access
-  pack.bounds_ = bounds_t("bounds", 2, desc.flat ? 1 : nblocks, !desc.flat * nvar + 1);
+  pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar + 1);
   pack.bounds_h_ = Kokkos::create_mirror_view(pack.bounds_);
 
   pack.coords_ = coords_t("coords", desc.flat ? max_size : nblocks);
@@ -142,10 +144,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
     }
 
     for (int i = 0; i < nvar; ++i) {
-      if (!desc.flat) {
-        pack.bounds_h_(0, b, i) = idx;
-      }
-
+      pack.bounds_h_(0, block, i) = idx;
       for (auto &pv : pmbd->GetVariableVector()) {
         if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
@@ -175,19 +174,17 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
           }
         }
       }
+      pack.bounds_h_(1, block, i) = idx - 1;
 
-      if (!desc.flat) {
-        pack.bounds_h_(1, b, i) = idx - 1;
-      }
-      if (pack.bounds_h_(1, b, i) < pack.bounds_h_(0, b, i)) {
+      if (pack.bounds_h_(1, block, i) < pack.bounds_h_(0, block, i)) {
         // Did not find any allocated variables meeting our criteria
-        pack.bounds_h_(0, b, i) = -1;
+        pack.bounds_h_(0, block, i) = -1;
         // Make the upper bound more negative so a for loop won't iterate once
-        pack.bounds_h_(1, b, i) = -2;
+        pack.bounds_h_(1, block, i) = -2;
       }
     }
     // Record the maximum for easy access
-    pack.bounds_h_(1, !desc.flat * b, !desc.flat * nvar) = idx - 1;
+    pack.bounds_h_(1, block, nvar) = idx - 1;
   });
 
   Kokkos::deep_copy(pack.pack_, pack_h);

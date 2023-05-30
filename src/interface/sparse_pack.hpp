@@ -245,71 +245,72 @@ class SparsePack : public SparsePackBase {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetMaxNumberOfVars() const { return pack_.extent_int(2); }
 
+  // Returns the total number of vars/components in pack
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetSize() const { return size_; }
+
   KOKKOS_INLINE_FUNCTION
   const Coordinates_t &GetCoordinates(const int b = 0) const { return coords_(b)(); }
 
   // Bound overloads
-  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b = 0) const { return 0; }
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const {
+    return bounds_(0, b, 0); // 0 for non-flat packs. may be nonzero for flat
+  }
 
-  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b = 0) const {
-    return bounds_(1, !flat_ * b, !flat_ * nvar_);
+  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b) const {
+    return bounds_(1, b, nvar_);
   }
 
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     return bounds_(0, b, idx.VariableIdx());
   }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     return bounds_(1, b, idx.VariableIdx());
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, const TIn &) const {
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(0, b, vidx);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, const TIn &) const {
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(1, b, vidx);
   }
 
   // Host Bound overloads
-  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b = 0) const { return 0; }
+  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const {
+    // 0 for non-flat packs. may be nonzero for flat
+    return bounds_h_(0, b, 0);
+  }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b = 0) const {
-    return bounds_h_(1, !flat_ * b, !flat_ * nvar_);
+    return bounds_h_(1, b, nvar_);
   }
 
   KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     return bounds_h_(0, b, idx.VariableIdx());
   }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     return bounds_h_(1, b, idx.VariableIdx());
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b, const TIn &) const {
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_h_(0, b, vidx);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b, const TIn &) const {
-    PARTHENON_DEBUG_REQUIRE(!flat_, "Not valid for flat packs");
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_h_(1, b, vidx);
   }

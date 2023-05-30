@@ -165,6 +165,7 @@ class SparsePackBase {
   int nblocks_;
   int dims_[6];
   int nvar_;
+  int size_;
 };
 
 // Object for cacheing sparse packs in MeshData and MeshBlockData objects. This

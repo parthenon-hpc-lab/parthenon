@@ -174,9 +174,10 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         REQUIRE(sparse_pack.GetNBlocks() == 1);
         // v3 is deallocated on one block.
         REQUIRE(sparse_pack.GetMaxNumberOfVars() == 5 * NBLOCKS - 3);
-        REQUIRE(sparse_pack.GetLowerBoundHost() == 0);
+        REQUIRE(sparse_pack.GetLowerBoundHost(0) == 0);
         // upper bound is inclusive
-        REQUIRE(sparse_pack.GetUpperBoundHost() == 5 * NBLOCKS - 3 - 1);
+        REQUIRE(sparse_pack.GetUpperBoundHost(0) == 5 - 1);
+        REQUIRE(sparse_pack.GetSize() == 5 * NBLOCKS - 3);
       }
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on a single "
