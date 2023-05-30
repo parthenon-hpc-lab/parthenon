@@ -14,8 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef BVALS_CC_BVALS_UTILS_HPP_
-#define BVALS_CC_BVALS_UTILS_HPP_
+#ifndef BVALS_COMMS_BVALS_UTILS_HPP_
+#define BVALS_COMMS_BVALS_UTILS_HPP_
 
 #include <algorithm>
 #include <memory>
@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/cc/bnd_info.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bnd_info.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/variable.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
@@ -35,11 +35,9 @@
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
-namespace cell_centered_bvars {
-
 inline std::tuple<int, int, std::string, int>
 SendKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-        const std::shared_ptr<CellVariable<Real>> &pcv) {
+        const std::shared_ptr<Variable<Real>> &pcv) {
   const int sender_id = pmb->gid;
   const int receiver_id = nb.snb.gid;
   const int location_idx = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
@@ -48,7 +46,7 @@ SendKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
 
 inline std::tuple<int, int, std::string, int>
 ReceiveKey(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb,
-           const std::shared_ptr<CellVariable<Real>> &pcv) {
+           const std::shared_ptr<Variable<Real>> &pcv) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.snb.gid;
   const int location_idx = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
@@ -82,6 +80,12 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   int boundary_idx = 0;
   ForEachBoundary<bound_type>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
                                       const OffsetIndices &) {
+    // TODO(LFR): Remove temporary check that variables with FillGhost and/or WithFluxes
+    // are cell centered, since communication only is currently implemented for those
+    // types of variables
+    PARTHENON_REQUIRE(v->IsSet(Metadata::Cell),
+                      "Boundary communication only implemented for cell variables.");
+
     auto key = KeyFunc(pmb, nb, v);
     PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
                             "Boundary communicator does not exist");
@@ -213,7 +217,7 @@ inline auto CheckNoCommCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
 
 using F_BND_INFO = std::function<BndInfo(
     std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-    std::shared_ptr<CellVariable<Real>> v, CommBuffer<buf_pool_t<Real>::owner_t> *buf,
+    std::shared_ptr<Variable<Real>> v, CommBuffer<buf_pool_t<Real>::owner_t> *buf,
     const OffsetIndices &no)>;
 
 template <BoundaryType BOUND_TYPE, bool SENDER>
@@ -246,6 +250,12 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   int ibound = 0;
   ForEachBoundary<BOUND_TYPE>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
                                       const OffsetIndices &no) {
+    // TODO(LFR): Remove temporary check that variables with FillGhost and/or WithFluxes
+    // are cell centered, since communication only is currently implemented for those
+    // types of variables
+    PARTHENON_REQUIRE(v->IsSet(Metadata::Cell),
+                      "Boundary communication only implemented for cell variables.");
+
     // bnd_info
     const std::size_t ibuf = cache.idx_vec[ibound];
     cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf], no);
@@ -275,7 +285,6 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   }
 }
 
-} // namespace cell_centered_bvars
 } // namespace parthenon
 
-#endif // BVALS_CC_BVALS_UTILS_HPP_
+#endif // BVALS_COMMS_BVALS_UTILS_HPP_

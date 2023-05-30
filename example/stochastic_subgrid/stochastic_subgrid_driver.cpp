@@ -17,7 +17,7 @@
 
 // Local Includes
 #include "amr_criteria/refinement_package.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -134,15 +134,12 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
 
       const auto any = parthenon::BoundaryType::any;
 
-      tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
-      tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+      tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
+      tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
 
-      auto send_flx = tl.AddTask(
-          none, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
-      auto recv_flx =
-          tl.AddTask(none, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
-      auto set_flx =
-          tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+      auto send_flx = tl.AddTask(none, parthenon::LoadAndSendFluxCorrections, mc0);
+      auto recv_flx = tl.AddTask(none, parthenon::ReceiveFluxCorrections, mc0);
+      auto set_flx = tl.AddTask(recv_flx, parthenon::SetFluxCorrections, mc0);
 
       // compute the divergence of fluxes of conserved variables
       auto flux_div =
@@ -155,8 +152,7 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
                                mdudt.get(), beta * dt, mc1.get());
 
       // do boundary exchange
-      parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(update, tl, mc1,
-                                                               pmesh->multilevel);
+      parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
     }
   }
 

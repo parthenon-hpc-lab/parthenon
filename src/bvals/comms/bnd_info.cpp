@@ -23,7 +23,7 @@
 
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
-#include "bvals/cc/bnd_info.hpp"
+#include "bvals/comms/bnd_info.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -36,10 +36,8 @@
 
 namespace parthenon {
 
-namespace cell_centered_bvars {
-
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesSetSame(int ox, int &s, int &e,
+//! \fn void CalcIndicesSetSame(int ox, int &s, int &e,
 //                                                   const IndexRange &bounds)
 //  \brief Calculate indices for SetBoundary routines for buffers on the same level
 
@@ -57,7 +55,7 @@ void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesSetFomCoarser(const int &ox, int &s, int &e,
+//! \fn void CalcIndicesSetFomCoarser(const int &ox, int &s, int &e,
 //                                                         const IndexRange &bounds,
 //                                                         const std::int64_t &lx,
 //                                                         const int &cng,
@@ -87,7 +85,7 @@ void CalcIndicesSetFromCoarser(const int &ox, int &s, int &e, const IndexRange &
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesSetFromFiner(int &si, int &ei, int &sj,
+//! \fn void CalcIndicesSetFromFiner(int &si, int &ei, int &sj,
 //                                                        int &ej, int &sk, int &ek,
 //                                                        const NeighborBlock &nb,
 //                                                        MeshBlock *pmb)
@@ -162,7 +160,7 @@ void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &e
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesLoadSame(int ox, int &s, int &e,
+//! \fn void CalcIndicesLoadSame(int ox, int &s, int &e,
 //                                                    const IndexRange &bounds)
 //  \brief Calculate indices for LoadBoundary routines for buffers on the same level
 //         and to coarser.
@@ -181,7 +179,7 @@ void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesLoadToFiner(int &si, int &ei, int &sj,
+//! \fn void CalcIndicesLoadToFiner(int &si, int &ei, int &sj,
 //                                                       int &ej, int &sk, int &ek,
 //                                                       const NeighborBlock &nb,
 //                                                       MeshBlock *pmb)
@@ -306,7 +304,7 @@ void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, i
 }
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                  std::shared_ptr<CellVariable<Real>> v) {
+                  std::shared_ptr<Variable<Real>> v) {
   auto &cb = pmb->cellbounds;
   const IndexDomain in = IndexDomain::interior;
   const int isize = cb.ie(in) - cb.is(in) + 1;
@@ -319,7 +317,7 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
 }
 
 BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                std::shared_ptr<CellVariable<Real>> v,
+                                std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                 const OffsetIndices &) {
   BndInfo out;
@@ -365,7 +363,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 }
 
 BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v,
+                               std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                const OffsetIndices &) {
   BndInfo out;
@@ -426,7 +424,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 }
 
 BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                  std::shared_ptr<CellVariable<Real>> v,
+                                  std::shared_ptr<Variable<Real>> v,
                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                   const OffsetIndices &) {
   BndInfo out;
@@ -485,7 +483,7 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
 }
 
 BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                 std::shared_ptr<CellVariable<Real>> v,
+                                 std::shared_ptr<Variable<Real>> v,
                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                  const OffsetIndices &) {
   BndInfo out;
@@ -566,7 +564,7 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
 
 BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
                                    const NeighborBlock &nb,
-                                   std::shared_ptr<CellVariable<Real>> v,
+                                   std::shared_ptr<Variable<Real>> v,
                                    CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                    const OffsetIndices &no) {
   BndInfo out;
@@ -587,5 +585,4 @@ BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
   out.Nv = v->GetDim(4);
   return out;
 }
-} // namespace cell_centered_bvars
 } // namespace parthenon

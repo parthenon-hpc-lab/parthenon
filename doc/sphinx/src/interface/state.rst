@@ -169,11 +169,11 @@ convenience features. It is described fully
 
 .. _cell var:
 
-CellVariable
+Variable
 ------------
 
-The ``CellVariable`` class collects several associated objects that are
-needed to store, describe, and update simulation data. ``CellVariable``
+The ``Variable`` class collects several associated objects that are
+needed to store, describe, and update simulation data. ``Variable``
 is templated on type ``T`` and includes the following member data (names
 preceded by ``_`` have private scope):
 
@@ -197,7 +197,7 @@ that array.
 
 Finally, the ``bool IsSet(const MetadataFlag bit)`` member function
 provides a convenient mechanism to query whether a particular
-``Metadata`` flag is set for the ``CellVariable``.
+``Metadata`` flag is set for the ``Variable``.
 
 FaceVariable (Work in progress...)
 ----------------------------------
@@ -211,9 +211,9 @@ Sparse fields
 Sparse fields can be added via the ``StateDescriptor::AddSparsePool``
 function. A ``SparsePool`` is a collection of sparse fields that share a
 common base name and metadata (see details below), but each sparse ID
-produces a distinct ``CellVariable``. For example, a ``SparsePool`` with
+produces a distinct ``Variable``. For example, a ``SparsePool`` with
 base name ``sparse`` and sparse IDs ``{3, 10, 11, 2097}`` will produce
-four ``CellVariable``\ s: ``sparse_3``, ``sparse_10``, ``sparse_11``,
+four ``Variable``\ s: ``sparse_3``, ``sparse_10``, ``sparse_11``,
 and ``sparse_2097``. These variables can be accessed either via their
 full name or the combination of base name and sparse ID. Furthermore, in
 a future upgrade, the sparse fields will not be allocated on all blocks
