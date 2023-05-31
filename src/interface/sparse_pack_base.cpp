@@ -177,7 +177,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                   PARTHENON_REQUIRE(
                       pack_h(0, b, idx).size() > 0,
                       "Seems like this variable might not actually be allocated.");
-                  
+
                   if (desc.flat) {
                     coords_h(idx) = pmbd->GetBlockPointer()->coords_device;
                   }
