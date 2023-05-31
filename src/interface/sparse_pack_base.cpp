@@ -98,7 +98,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
       for (int i = 0; i < nvar; ++i) {
         if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
-            if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge)) contains_face_or_edge = true;
+            if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge))
+              contains_face_or_edge = true;
             size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
             ndim = (pv->GetDim(1) > 1 ? 1 : 0) + (pv->GetDim(2) > 1 ? 1 : 0) +
                    (pv->GetDim(3) > 1 ? 1 : 0);
@@ -113,7 +114,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   // Allocate the views
   int leading_dim = 1;
   if (desc.with_fluxes) {
-     leading_dim += 3;
+    leading_dim += 3;
   } else if (contains_face_or_edge) {
     leading_dim += 2;
   }
