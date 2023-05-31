@@ -134,9 +134,8 @@ ProlongationRestrictionLoop(const BufferCache_t &info, const Idx_t &buffer_idxs,
             IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::F1, TE::F2, TE::F3>(
                 team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
           if (info(buf).fine.topological_type == TopologicalType::Edge)
-            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::E3, TE::E2,
-                                                    TE::E1>(team_member, buf, info, ckb,
-                                                             cjb, cib, kb, jb, ib);
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::E3, TE::E2, TE::E1>(
+                team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
           if (info(buf).fine.topological_type == TopologicalType::Node)
             IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::NN>(
                 team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
@@ -222,9 +221,8 @@ ProlongationRestrictionLoop(const BufferCacheHost_t &info_h,
         IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::F1, TE::F2, TE::F3>(
             buf, info_h, ckb, cjb, cib, kb, jb, ib);
       if (info_h(buf).fine.topological_type == TopologicalType::Edge)
-        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::E3, TE::E2,
-                                                    TE::E1>(buf, info_h, ckb, cjb, cib,
-                                                             kb, jb, ib);
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::E3, TE::E2, TE::E1>(
+            buf, info_h, ckb, cjb, cib, kb, jb, ib);
       if (info_h(buf).fine.topological_type == TopologicalType::Node)
         IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::NN>(
             buf, info_h, ckb, cjb, cib, kb, jb, ib);
