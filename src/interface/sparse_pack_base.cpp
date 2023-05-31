@@ -168,15 +168,16 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                     } else {
                       pack_h(0, b, idx) = pv->data.Get(0, t, u, v);
                     }
-                    PARTHENON_REQUIRE(
-                        pack_h(0, b, idx).size() > 0,
-                        "Seems like this variable might not actually be allocated.");
                     if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
                       pack_h(1, b, idx) = pv->flux[X1DIR].Get(0, t, u, v);
                       pack_h(2, b, idx) = pv->flux[X2DIR].Get(0, t, u, v);
                       pack_h(3, b, idx) = pv->flux[X3DIR].Get(0, t, u, v);
                     }
                   }
+                  PARTHENON_REQUIRE(
+                      pack_h(0, b, idx).size() > 0,
+                      "Seems like this variable might not actually be allocated.");
+                  
                   if (desc.flat) {
                     coords_h(idx) = pmbd->GetBlockPointer()->coords_device;
                   }
