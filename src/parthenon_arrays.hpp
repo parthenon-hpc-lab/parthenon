@@ -29,15 +29,19 @@
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_array_generic.hpp"
+#include "utils/multi_pointer.hpp"
 
 // Macro for automatically creating a useful name
 #define PARARRAY_TEMP                                                                    \
   "ParArrayND:" + std::string(__FILE__) + ":" + std::to_string(__LINE__)
 
+inline constexpr std::size_t MAX_VARIABLE_DIMENSION = 7;
+
 namespace parthenon {
 
 template <typename T, typename Layout = LayoutWrapper>
-using device_view_t = Kokkos::View<T ******, Layout, DevMemSpace>;
+using device_view_t =
+    Kokkos::View<multi_pointer_t<T, MAX_VARIABLE_DIMENSION>, Layout, DevMemSpace>;
 
 template <typename T, typename Layout = LayoutWrapper>
 using host_view_t = typename device_view_t<T, Layout>::HostMirror;

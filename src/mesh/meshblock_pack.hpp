@@ -49,9 +49,18 @@ class MeshBlockPack {
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator()(const int block, const int n) const { return v_(block)(n); }
   KOKKOS_FORCEINLINE_FUNCTION
+  auto &operator()(const int block, TopologicalElement el, const int n) const {
+    return v_(block)(el, n);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
   auto &operator()(const int block, const int n, const int k, const int j,
                    const int i) const {
     return v_(block)(n)(k, j, i);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto &operator()(const int block, TopologicalElement el, const int n, const int k,
+                   const int j, const int i) const {
+    return v_(block)(el, n, k, j, i);
   }
 
 #ifdef ENABLE_SPARSE

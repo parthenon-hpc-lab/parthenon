@@ -315,15 +315,31 @@ class SparsePack : public SparsePackBase {
   }
 
   // operator() overloads
-  KOKKOS_INLINE_FUNCTION
-  auto &operator()(const int b, const int idx) const { return pack_(0, b, idx); }
+  using TE = TopologicalElement;
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, const int idx) const {
+    return pack_(static_cast<int>(el) % 3, b, idx);
+  }
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const int idx) const {
+    PARTHENON_DEBUG_REQUIRE(pack_(0, b, idx).topological_type == TopologicalType::Cell,
+                            "Suppressed topological element index assumes that this is a "
+                            "cell variable, but it isn't");
+    return pack_(0, b, idx);
+  }
 
-  KOKKOS_INLINE_FUNCTION
-  auto &operator()(const int b, PackIdx idx) const {
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
-    return pack_(0, b, n);
+    return pack_(static_cast<int>(el) % 3, b, n);
+  }
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, PackIdx idx) const {
+    return (*this)(b, TE::CC, idx);
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, const TIn &t) const {
+    const int vidx = GetLowerBound(b, t) + t.idx;
+    return pack_(static_cast<int>(el) % 3, b, vidx);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
@@ -345,13 +361,24 @@ class SparsePack : public SparsePackBase {
     return pack_(0, 0, idx)(k, j, i);
   }
 
-  KOKKOS_INLINE_FUNCTION
-  Real &operator()(const int b, PackIdx idx, const int k, const int j,
-                   const int i) const {
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TE el, const int idx,
+                                          const int k, const int j, const int i) const {
+    return pack_(static_cast<int>(el) % 3, b, idx)(k, j, i);
+  }
+
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, PackIdx idx, const int k,
+                                          const int j, const int i) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(0, b, n)(k, j, i);
+  }
+
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TE el, PackIdx idx,
+                                          const int k, const int j, const int i) const {
+    static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
+    const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
+    return pack_(static_cast<int>(el) % 3, b, n)(k, j, i);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
@@ -360,6 +387,13 @@ class SparsePack : public SparsePackBase {
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(0, b, vidx)(k, j, i);
+  }
+
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TE el, const TIn &t,
+                                          const int k, const int j, const int i) const {
+    const int vidx = GetLowerBound(b, t) + t.idx;
+    return pack_(static_cast<int>(el) % 3, b, vidx)(k, j, i);
   }
 
   // flux() overloads
