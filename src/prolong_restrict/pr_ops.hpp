@@ -108,8 +108,8 @@ struct Restrict {
     return fel == cel;
   }
 
-  template <int DIM, TopologicalElement el = TopologicalElement::C,
-            TopologicalElement /*cel*/ = TopologicalElement::C>
+  template <int DIM, TopologicalElement el = TopologicalElement::CC,
+            TopologicalElement /*cel*/ = TopologicalElement::CC>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -118,11 +118,11 @@ struct Restrict {
      const ParArrayND<Real, VariableState> *pcoarse,
      const ParArrayND<Real, VariableState> *pfine) {
     constexpr bool INCLUDE_X1 =
-        (DIM > 0) && (el == TE::C || el == TE::FY || el == TE::FZ || el == TE::EYZ);
+        (DIM > 0) && (el == TE::CC || el == TE::F2 || el == TE::F3 || el == TE::E1);
     constexpr bool INCLUDE_X2 =
-        (DIM > 1) && (el == TE::C || el == TE::FX || el == TE::FZ || el == TE::EXZ);
+        (DIM > 1) && (el == TE::CC || el == TE::F3 || el == TE::F1 || el == TE::E2);
     constexpr bool INCLUDE_X3 =
-        (DIM > 2) && (el == TE::C || el == TE::FX || el == TE::FY || el == TE::EXY);
+        (DIM > 2) && (el == TE::CC || el == TE::F1 || el == TE::F2 || el == TE::E3);
     constexpr int element_idx = static_cast<int>(el) % 3;
 
     auto &coarse = *pcoarse;
@@ -169,8 +169,8 @@ struct ProlongateSharedMinMod {
     return fel == cel;
   }
 
-  template <int DIM, TopologicalElement el = TopologicalElement::C,
-            TopologicalElement /*cel*/ = TopologicalElement::C>
+  template <int DIM, TopologicalElement el = TopologicalElement::CC,
+            TopologicalElement /*cel*/ = TopologicalElement::CC>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -189,11 +189,11 @@ struct ProlongateSharedMinMod {
     const int fk = (DIM > 2) ? (k - ckb.s) * 2 + kb.s : kb.s;
 
     constexpr bool INCLUDE_X1 =
-        (DIM > 0) && (el == TE::C || el == TE::FY || el == TE::FZ || el == TE::EYZ);
+        (DIM > 0) && (el == TE::CC || el == TE::F2 || el == TE::F3 || el == TE::E1);
     constexpr bool INCLUDE_X2 =
-        (DIM > 1) && (el == TE::C || el == TE::FX || el == TE::FZ || el == TE::EXZ);
+        (DIM > 1) && (el == TE::CC || el == TE::F3 || el == TE::F1 || el == TE::E2);
     constexpr bool INCLUDE_X3 =
-        (DIM > 2) && (el == TE::C || el == TE::FX || el == TE::FY || el == TE::EXY);
+        (DIM > 2) && (el == TE::CC || el == TE::F1 || el == TE::F2 || el == TE::E3);
 
     const Real fc = coarse(element_idx, l, m, n, k, j, i);
 
@@ -269,8 +269,8 @@ struct ProlongateInternalAverage {
   // x-face field within the volume of a coarse cell. This is assumes that the
   // values of the fine cells on the elements corresponding with the coarse cell
   // have been filled.
-  template <int DIM, TopologicalElement fel = TopologicalElement::C,
-            TopologicalElement cel = TopologicalElement::C>
+  template <int DIM, TopologicalElement fel = TopologicalElement::CC,
+            TopologicalElement cel = TopologicalElement::CC>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -301,22 +301,22 @@ struct ProlongateInternalAverage {
       // Determine wether or not the fields coordinates are on coordinate centers (i.e.
       // same coordinate position as a zone center)
       constexpr bool CENTER_X1 =
-          (DIM > 0) && (fel == TE::C || fel == TE::FY || fel == TE::FZ || fel == TE::EYZ);
+          (DIM > 0) && (fel == TE::CC || fel == TE::F2 || fel == TE::F3 || fel == TE::E1);
       constexpr bool CENTER_X2 =
-          (DIM > 1) && (fel == TE::C || fel == TE::FX || fel == TE::FZ || fel == TE::EXZ);
+          (DIM > 1) && (fel == TE::CC || fel == TE::F3 || fel == TE::F1 || fel == TE::E2);
       constexpr bool CENTER_X3 =
-          (DIM > 2) && (fel == TE::C || fel == TE::FX || fel == TE::FY || fel == TE::EXY);
+          (DIM > 2) && (fel == TE::CC || fel == TE::F1 || fel == TE::F2 || fel == TE::E3);
 
       // Determine the directions we want our averaging stencil to extend in
       constexpr bool STENCIL_X1 =
           (DIM > 0) && !CENTER_X1 &&
-          (cel == TE::C || cel == TE::FY || cel == TE::FZ || cel == TE::EYZ);
+          (cel == TE::CC || cel == TE::F2 || cel == TE::F3 || cel == TE::E1);
       constexpr bool STENCIL_X2 =
           (DIM > 1) && !CENTER_X2 &&
-          (cel == TE::C || cel == TE::FX || cel == TE::FZ || cel == TE::EXZ);
+          (cel == TE::CC || cel == TE::F3 || cel == TE::F1 || cel == TE::E2);
       constexpr bool STENCIL_X3 =
           (DIM > 2) && !CENTER_X3 &&
-          (cel == TE::C || cel == TE::FX || cel == TE::FY || cel == TE::EXY);
+          (cel == TE::CC || cel == TE::F1 || cel == TE::F2 || cel == TE::E3);
 
       // Prolongate elements internal to topological element el_avg by averaging over
       // coarse region defined by {cel, k, j, i}

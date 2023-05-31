@@ -141,27 +141,27 @@ class IndexShape {
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsI(const IndexDomain &domain,
-                                                     TE el = TE::C) const noexcept {
-    return (domain == IndexDomain::interior && el == TE::C)
+                                                     TE el = TE::CC) const noexcept {
+    return (domain == IndexDomain::interior && el == TE::CC)
                ? x_[0]
                : IndexRange{is(domain, el), ie(domain)};
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsJ(const IndexDomain &domain,
-                                                     TE el = TE::C) const noexcept {
-    return (domain == IndexDomain::interior && el == TE::C)
+                                                     TE el = TE::CC) const noexcept {
+    return (domain == IndexDomain::interior && el == TE::CC)
                ? x_[1]
                : IndexRange{js(domain), je(domain)};
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsK(const IndexDomain &domain,
-                                                     TE el = TE::C) const noexcept {
-    return (domain == IndexDomain::interior && el == TE::C)
+                                                     TE el = TE::CC) const noexcept {
+    return (domain == IndexDomain::interior && el == TE::CC)
                ? x_[2]
                : IndexRange{ks(domain), ke(domain)};
   }
 
-  KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain, TE el = TE::C) const noexcept {
+  KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain, TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[0].s;
@@ -172,7 +172,7 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int js(const IndexDomain &domain, TE el = TE::C) const noexcept {
+  KOKKOS_INLINE_FUNCTION int js(const IndexDomain &domain, TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[1].s;
@@ -183,7 +183,7 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int ks(const IndexDomain &domain, TE el = TE::C) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ks(const IndexDomain &domain, TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[2].s;
@@ -194,7 +194,7 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int ie(const IndexDomain &domain, TE el = TE::C) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ie(const IndexDomain &domain, TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[0].e + TopologicalOffsetI(el);
@@ -205,7 +205,7 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int je(const IndexDomain &domain, TE el = TE::C) const noexcept {
+  KOKKOS_INLINE_FUNCTION int je(const IndexDomain &domain, TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[1].e + TopologicalOffsetJ(el);
@@ -216,7 +216,7 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int ke(const IndexDomain &domain, TE el = TE::C) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ke(const IndexDomain &domain, TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[2].e + TopologicalOffsetK(el);
@@ -228,7 +228,7 @@ class IndexShape {
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsi(const IndexDomain &domain,
-                                     TE el = TE::C) const noexcept {
+                                     TE el = TE::CC) const noexcept {
     if (entire_ncells_[0] == 1 &&
         (domain == IndexDomain::inner_x1 || domain == IndexDomain::outer_x1)) {
       return 0; // if x1 is zero-dimensional, there are no ghost zones
@@ -237,7 +237,7 @@ class IndexShape {
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsj(const IndexDomain &domain,
-                                     TE el = TE::C) const noexcept {
+                                     TE el = TE::CC) const noexcept {
     if (entire_ncells_[1] == 1 &&
         (domain == IndexDomain::inner_x2 || domain == IndexDomain::outer_x2)) {
       return 0; // if x2 is zero-dimensional, there are no ghost zones
@@ -246,7 +246,7 @@ class IndexShape {
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsk(const IndexDomain &domain,
-                                     TE el = TE::C) const noexcept {
+                                     TE el = TE::CC) const noexcept {
     if (entire_ncells_[2] == 1 &&
         (domain == IndexDomain::inner_x3 || domain == IndexDomain::outer_x3)) {
       return 0; // if x3 is zero-dimensional, there are no ghost zones
@@ -256,7 +256,7 @@ class IndexShape {
 
   // Kept basic for kokkos
   KOKKOS_INLINE_FUNCTION
-  int GetTotal(const IndexDomain &domain, TE el = TE::C) const noexcept {
+  int GetTotal(const IndexDomain &domain, TE el = TE::CC) const noexcept {
     if (NDIM == 0) return 0;
     return ncellsi(domain, el) * ncellsj(domain, el) * ncellsk(domain, el);
   }

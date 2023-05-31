@@ -51,8 +51,8 @@ struct MyProlongOp {
                                           TopologicalElement cel) {
     return fel == cel;
   }
-  template <int DIM, TopologicalElement EL = TopologicalElement::C,
-            TopologicalElement /*CEL*/ = TopologicalElement::C>
+  template <int DIM, TopologicalElement EL = TopologicalElement::CC,
+            TopologicalElement /*CEL*/ = TopologicalElement::CC>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
@@ -68,8 +68,8 @@ struct MyRestrictOp {
                                           TopologicalElement cel) {
     return fel == cel;
   }
-  template <int DIM, TopologicalElement EL = TopologicalElement::C,
-            TopologicalElement /*CEL*/ = TopologicalElement::C>
+  template <int DIM, TopologicalElement EL = TopologicalElement::CC,
+            TopologicalElement /*CEL*/ = TopologicalElement::CC>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,

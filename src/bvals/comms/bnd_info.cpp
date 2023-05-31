@@ -181,10 +181,10 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   out.coarse = v->coarse_s.Get();
 
   using TE = TopologicalElement;
-  std::vector<TopologicalElement> elements = {TE::C};
-  if (v->IsSet(Metadata::Face)) elements = {TE::FX, TE::FY, TE::FZ};
-  if (v->IsSet(Metadata::Edge)) elements = {TE::EXY, TE::EXZ, TE::EYZ};
-  if (v->IsSet(Metadata::Node)) elements = {TE::NXYZ};
+  std::vector<TopologicalElement> elements = {TE::CC};
+  if (v->IsSet(Metadata::Face)) elements = {TE::F1, TE::F2, TE::F3};
+  if (v->IsSet(Metadata::Edge)) elements = {TE::E1, TE::E2, TE::E3};
+  if (v->IsSet(Metadata::Node)) elements = {TE::NN};
 
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
@@ -230,10 +230,10 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   int Nt = v->GetDim(6);
 
   using TE = TopologicalElement;
-  std::vector<TopologicalElement> elements = {TE::C};
-  if (v->IsSet(Metadata::Face)) elements = {TE::FX, TE::FY, TE::FZ};
-  if (v->IsSet(Metadata::Edge)) elements = {TE::EXY, TE::EXZ, TE::EYZ};
-  if (v->IsSet(Metadata::Node)) elements = {TE::NXYZ};
+  std::vector<TopologicalElement> elements = {TE::CC};
+  if (v->IsSet(Metadata::Face)) elements = {TE::F1, TE::F2, TE::F3};
+  if (v->IsSet(Metadata::Edge)) elements = {TE::E1, TE::E2, TE::E3};
+  if (v->IsSet(Metadata::Node)) elements = {TE::NN};
 
   int mylevel = pmb->loc.level;
   out.coords = pmb->coords;
@@ -296,7 +296,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   //      matter since each 6D indexer contains 18 ints and we are always carrying around
   //      10 indexers per bound info even if the field isn't allocated
   if (nb.snb.level < mylevel) {
-    for (auto el : {TE::C, TE::FX, TE::FY, TE::FZ, TE::EXY, TE::EXZ, TE::EYZ, TE::NXYZ}) {
+    for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN}) {
       out.prores_idxer[static_cast<int>(el)] =
           CalcSetIndices<InterfaceType::CoarseToFine, true>(
               nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);

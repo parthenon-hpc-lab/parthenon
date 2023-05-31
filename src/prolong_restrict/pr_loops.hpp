@@ -78,29 +78,29 @@ template <int DIM, class Stencil, TopologicalElement... ELs, class... Args>
 KOKKOS_INLINE_FUNCTION void IterateInnerProlongationRestrictionLoop(Args &&...args) {
   (
       [&] {
-        if constexpr (Stencil::OperationRequired(ELs, TE::NXYZ))
-          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::NXYZ>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::NN))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::NN>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::EXY))
-          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EXY>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::E3))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::E3>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::EXZ))
-          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EXZ>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::E2))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::E2>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::EYZ))
-          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EYZ>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::E1))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::E1>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::FX))
-          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FX>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::F1))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::F1>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::FY))
-          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FY>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::F2))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::F2>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::FZ))
-          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FZ>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::F3))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::F3>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::C))
-          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::C>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::CC))
+          InnerProlongationRestrictionLoop<DIM, Stencil, ELs, TE::CC>(
               std::forward<Args>(args)...);
       }(),
       ...);
@@ -128,17 +128,17 @@ ProlongationRestrictionLoop(const BufferCache_t &info, const Idx_t &buffer_idxs,
         if (DoRefinementOp(info(buf), op)) {
           using TE = TopologicalElement;
           if (info(buf).fine.topological_type == TopologicalType::Cell)
-            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::C>(
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::CC>(
                 team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
           if (info(buf).fine.topological_type == TopologicalType::Face)
-            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::FX, TE::FY, TE::FZ>(
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::F1, TE::F2, TE::F3>(
                 team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
           if (info(buf).fine.topological_type == TopologicalType::Edge)
-            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::EXY, TE::EXZ,
-                                                    TE::EYZ>(team_member, buf, info, ckb,
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::E3, TE::E2,
+                                                    TE::E1>(team_member, buf, info, ckb,
                                                              cjb, cib, kb, jb, ib);
           if (info(buf).fine.topological_type == TopologicalType::Node)
-            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::NXYZ>(
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::NN>(
                 team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
         }
       });
@@ -168,29 +168,29 @@ template <int DIM, class Stencil, TopologicalElement... ELs, class... Args>
 inline void IterateInnerHostProlongationRestrictionLoop(Args &&...args) {
   (
       [&] {
-        if constexpr (Stencil::OperationRequired(ELs, TE::NXYZ))
-          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::NXYZ>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::NN))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::NN>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::EXY))
-          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EXY>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::E3))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::E3>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::EXZ))
-          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EXZ>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::E2))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::E2>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::EYZ))
-          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::EYZ>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::E1))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::E1>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::FX))
-          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FX>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::F1))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::F1>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::FY))
-          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FY>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::F2))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::F2>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::FZ))
-          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::FZ>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::F3))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::F3>(
               std::forward<Args>(args)...);
-        if constexpr (Stencil::OperationRequired(ELs, TE::C))
-          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::C>(
+        if constexpr (Stencil::OperationRequired(ELs, TE::CC))
+          InnerHostProlongationRestrictionLoop<DIM, Stencil, ELs, TE::CC>(
               std::forward<Args>(args)...);
       }(),
       ...);
@@ -216,17 +216,17 @@ ProlongationRestrictionLoop(const BufferCacheHost_t &info_h,
     if (DoRefinementOp(info_h(buf), op)) {
       using TE = TopologicalElement;
       if (info_h(buf).fine.topological_type == TopologicalType::Cell)
-        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::C>(
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::CC>(
             buf, info_h, ckb, cjb, cib, kb, jb, ib);
       if (info_h(buf).fine.topological_type == TopologicalType::Face)
-        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::FX, TE::FY, TE::FZ>(
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::F1, TE::F2, TE::F3>(
             buf, info_h, ckb, cjb, cib, kb, jb, ib);
       if (info_h(buf).fine.topological_type == TopologicalType::Edge)
-        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::EXY, TE::EXZ,
-                                                    TE::EYZ>(buf, info_h, ckb, cjb, cib,
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::E3, TE::E2,
+                                                    TE::E1>(buf, info_h, ckb, cjb, cib,
                                                              kb, jb, ib);
       if (info_h(buf).fine.topological_type == TopologicalType::Node)
-        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::NXYZ>(
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::NN>(
             buf, info_h, ckb, cjb, cib, kb, jb, ib);
     }
   }

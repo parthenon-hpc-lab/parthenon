@@ -113,34 +113,34 @@ using TE = TopologicalElement;
 // Returns one if the I coordinate of el is offset from the zone center coordinates,
 // and zero otherwise
 KOKKOS_INLINE_FUNCTION int TopologicalOffsetI(TE el) noexcept {
-  return (el == TE::FX || el == TE::EXY || el == TE::EYZ || el == TE::NXYZ);
+  return (el == TE::F1 || el == TE::E2 || el == TE::E3 || el == TE::NN);
 }
 KOKKOS_INLINE_FUNCTION int TopologicalOffsetJ(TE el) noexcept {
-  return (el == TE::FY || el == TE::EXY || el == TE::EYZ || el == TE::NXYZ);
+  return (el == TE::F2 || el == TE::E3 || el == TE::E1 || el == TE::NN);
 }
 KOKKOS_INLINE_FUNCTION int TopologicalOffsetK(TE el) noexcept {
-  return (el == TE::FZ || el == TE::EXZ || el == TE::EYZ || el == TE::NXYZ);
+  return (el == TE::F3 || el == TE::E2 || el == TE::E1 || el == TE::NN);
 }
 
 // Returns wether or not topological element containee is a boundary of
 // topological element container
 inline constexpr bool IsSubmanifold(TopologicalElement containee,
                                     TopologicalElement container) {
-  if (container == TE::C) {
-    return containee != TE::C;
-  } else if (container == TE::FX) {
-    return containee == TE::EXY || containee == TE::EXZ || containee == TE::NXYZ;
-  } else if (container == TE::FY) {
-    return containee == TE::EXY || containee == TE::EYZ || containee == TE::NXYZ;
-  } else if (container == TE::FZ) {
-    return containee == TE::EXZ || containee == TE::EYZ || containee == TE::NXYZ;
-  } else if (container == TE::EXY) {
-    return containee == TE::NXYZ;
-  } else if (container == TE::EXZ) {
-    return containee == TE::NXYZ;
-  } else if (container == TE::EYZ) {
-    return containee == TE::NXYZ;
-  } else if (container == TE::NXYZ) {
+  if (container == TE::CC) {
+    return containee != TE::CC;
+  } else if (container == TE::F1) {
+    return containee == TE::E2 || containee == TE::E3 || containee == TE::NN;
+  } else if (container == TE::F2) {
+    return containee == TE::E3 || containee == TE::E1 || containee == TE::NN;
+  } else if (container == TE::F3) {
+    return containee == TE::E1 || containee == TE::E2 || containee == TE::NN;
+  } else if (container == TE::E3) {
+    return containee == TE::NN;
+  } else if (container == TE::E2) {
+    return containee == TE::NN;
+  } else if (container == TE::E1) {
+    return containee == TE::NN;
+  } else if (container == TE::NN) {
     return false;
   } else {
     return false;
