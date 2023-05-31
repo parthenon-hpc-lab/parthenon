@@ -66,6 +66,7 @@ class Variable {
  public:
   Variable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
               std::weak_ptr<MeshBlock> wpmb);
+  
   Variable() = default;
   ~Variable() {}
   // copy fluxes and boundary variable from src Variable (shallow copy)
