@@ -90,6 +90,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   int max_size = 0;
   int nblocks = 0;
   int ndim = 3;
+  bool contains_face_or_edge = false;
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     int size = 0;
     nblocks++;
@@ -97,6 +98,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
       for (int i = 0; i < nvar; ++i) {
         if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
+            if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge)) contains_face_or_edge = true;
             size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
             ndim = (pv->GetDim(1) > 1 ? 1 : 0) + (pv->GetDim(2) > 1 ? 1 : 0) +
                    (pv->GetDim(3) > 1 ? 1 : 0);
@@ -110,7 +112,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
 
   // Allocate the views
   int leading_dim = 1;
-  if (desc.with_fluxes) leading_dim += 3;
+  if (desc.with_fluxes) {
+     leading_dim += 3;
+  } else if (contains_face_or_edge) {
+    leading_dim += 2;
+  }
   pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
   auto pack_h = Kokkos::create_mirror_view(pack.pack_);
 
