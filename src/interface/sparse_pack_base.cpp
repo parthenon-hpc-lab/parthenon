@@ -135,30 +135,43 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
                 for (int v = 0; v < pv->GetDim(4); ++v) {
-                  if (pack.coarse_) {
-                    pack_h(0, b, idx) = pv->coarse_s.Get(t, u, v);
-                  } else {
-                    pack_h(0, b, idx) = pv->data.Get(t, u, v);
-                  }
-                  PARTHENON_REQUIRE(
-                      pack_h(0, b, idx).size() > 0,
-                      "Seems like this variable might not actually be allocated.");
-                  if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
-                    pack_h(1, b, idx) = pv->flux[1].Get(t, u, v);
-                    PARTHENON_REQUIRE(pack_h(1, b, idx).size() ==
-                                          pack_h(0, b, idx).size(),
-                                      "Different size fluxes.");
-                    if (ndim > 1) {
-                      pack_h(2, b, idx) = pv->flux[2].Get(t, u, v);
-                      PARTHENON_REQUIRE(pack_h(2, b, idx).size() ==
-                                            pack_h(0, b, idx).size(),
-                                        "Different size fluxes.");
+                  if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge)) {
+                    if (pack.coarse_) {
+                      pack_h(0, b, idx) = pv->coarse_s.Get(0, t, u, v);
+                      pack_h(1, b, idx) = pv->coarse_s.Get(1, t, u, v);
+                      pack_h(2, b, idx) = pv->coarse_s.Get(2, t, u, v);
+                    } else {
+                      pack_h(0, b, idx) = pv->data.Get(0, t, u, v);
+                      pack_h(1, b, idx) = pv->data.Get(1, t, u, v);
+                      pack_h(2, b, idx) = pv->data.Get(2, t, u, v);
                     }
-                    if (ndim > 2) {
-                      pack_h(3, b, idx) = pv->flux[3].Get(t, u, v);
-                      PARTHENON_REQUIRE(pack_h(3, b, idx).size() ==
+                  } else { // This is a cell, node, or a variable that doesn't have
+                           // topology information
+                    if (pack.coarse_) {
+                      pack_h(0, b, idx) = pv->coarse_s.Get(0, t, u, v);
+                    } else {
+                      pack_h(0, b, idx) = pv->data.Get(0, t, u, v);
+                    }
+                    PARTHENON_REQUIRE(
+                        pack_h(0, b, idx).size() > 0,
+                        "Seems like this variable might not actually be allocated.");
+                    if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
+                      pack_h(1, b, idx) = pv->flux[X1DIR].Get(0, t, u, v);
+                      PARTHENON_REQUIRE(pack_h(1, b, idx).size() ==
                                             pack_h(0, b, idx).size(),
                                         "Different size fluxes.");
+                      if (ndim > 1) {
+                        pack_h(2, b, idx) = pv->flux[X2DIR].Get(0, t, u, v);
+                        PARTHENON_REQUIRE(pack_h(2, b, idx).size() ==
+                                              pack_h(0, b, idx).size(),
+                                          "Different size fluxes.");
+                      }
+                      if (ndim > 2) {
+                        pack_h(3, b, idx) = pv->flux[X3DIR].Get(0, t, u, v);
+                        PARTHENON_REQUIRE(pack_h(3, b, idx).size() ==
+                                              pack_h(0, b, idx).size(),
+                                          "Different size fluxes.");
+                      }
                     }
                   }
                   idx++;
