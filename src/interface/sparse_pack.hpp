@@ -260,6 +260,9 @@ class SparsePack : public SparsePackBase {
     return pack_(static_cast<int>(el) % 3, b, idx);
   }
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const int idx) const {
+    PARTHENON_DEBUG_REQUIRE(pack_(0, b, idx).topological_type == TopologicalType::Cell,
+                            "Suppressed topological element index assumes that this is a "
+                            "cell variable, but it isn't");
     return pack_(0, b, idx);
   }
 
@@ -269,7 +272,7 @@ class SparsePack : public SparsePackBase {
     return pack_(static_cast<int>(el) % 3, b, n);
   }
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, PackIdx idx) const {
-    return (*this)(b, TE::C, idx);
+    return (*this)(b, TE::CC, idx);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>

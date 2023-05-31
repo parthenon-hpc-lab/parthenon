@@ -609,11 +609,11 @@ class Metadata {
 };
 
 inline TopologicalType GetTopologicalType(const Metadata &md) {
-  using tt = TopologicalType;
-  if (md.IsSet(Metadata::Face)) return tt::Face;
-  if (md.IsSet(Metadata::Edge)) return tt::Edge;
-  if (md.IsSet(Metadata::Node)) return tt::Node;
-  return tt::Cell; // Default case
+  using TT = TopologicalType;
+  if (md.IsSet(Metadata::Face)) return TT::Face;
+  if (md.IsSet(Metadata::Edge)) return TT::Edge;
+  if (md.IsSet(Metadata::Node)) return TT::Node;
+  return TT::Cell; // Default case
 }
 
 namespace MetadataUtils {

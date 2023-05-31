@@ -149,7 +149,7 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
         const int c = 0;
         const int v = 2;
         int nwrong = 0;
-        using te = parthenon::TopologicalElement;
+        using TE = parthenon::TopologicalElement;
         par_reduce(
             loop_pattern_mdrange_tag, "check imap, scalar", DevExecSpace(), 0,
             pack.GetDim(5) - 1, kb.s, kb.e + 1, jb.s, jb.e + 1, ib.s, ib.e + 1,
@@ -158,11 +158,11 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
               if (k <= kb.e && j <= jb.e && i <= ib.e && n != pack(b, v5lo, k, j, i))
                 ltot += 1;
               n = i + 1e1 * j + 1e2 * k + 1e3 * c + 1e4 * 4 + 1e5 * b;
-              if (3 * n + 0 != pack(b, te::FX, v6lo, k, j, i) && k <= kb.e && j <= jb.e)
+              if (3 * n + 0 != pack(b, TE::F1, v6lo, k, j, i) && k <= kb.e && j <= jb.e)
                 ltot += 1;
-              if (3 * n + 1 != pack(b, te::FY, v6lo, k, j, i) && k <= kb.e && i <= ib.e)
+              if (3 * n + 1 != pack(b, TE::F2, v6lo, k, j, i) && k <= kb.e && i <= ib.e)
                 ltot += 1;
-              if (3 * n + 2 != pack(b, te::FZ, v6lo, k, j, i) && j <= jb.e && i <= ib.e)
+              if (3 * n + 2 != pack(b, TE::F3, v6lo, k, j, i) && j <= jb.e && i <= ib.e)
                 ltot += 1;
             },
             nwrong);
