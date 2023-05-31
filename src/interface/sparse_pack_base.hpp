@@ -137,11 +137,6 @@ class SparsePackBase {
     }
     return map;
   }
-  KOKKOS_INLINE_FUNCTION
-  Real &operator()(int idx, const int k, const int j, const int i) const {
-    PARTHENON_DEBUG_REQUIRE(flat_, "Accessor only valid for flat packs");
-    return pack_(0, 0, idx)(k, j, i);
-  }
 
   // Get a list of booleans of the allocation status of every variable in pmd matching the
   // PackDescriptor desc
