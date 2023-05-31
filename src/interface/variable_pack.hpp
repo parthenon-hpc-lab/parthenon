@@ -558,7 +558,6 @@ void FillVarView(const VariableVector<T> &vars, int vsize, bool coarse,
                  ViewOfParArrays<T> &cv_out, ParArray1D<int> &sparse_id_out,
                  ParArray1D<int> &vector_component_out, ParArray1D<bool> &allocated_out,
                  PackIndexMap *pvmap) {
-
   using vpack_types::IndexPair;
   assert(vsize == cv_out.size() || 3 * vsize == cv_out.size());
   assert(vsize == sparse_id_out.size());
