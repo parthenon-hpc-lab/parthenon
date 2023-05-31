@@ -161,7 +161,8 @@ class IndexShape {
                : IndexRange{ks(domain), ke(domain)};
   }
 
-  KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain, TE el = TE::CC) const noexcept {
+  KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain,
+                                TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[0].s;
@@ -172,7 +173,8 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int js(const IndexDomain &domain, TE el = TE::CC) const noexcept {
+  KOKKOS_INLINE_FUNCTION int js(const IndexDomain &domain,
+                                TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[1].s;
@@ -183,7 +185,8 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int ks(const IndexDomain &domain, TE el = TE::CC) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ks(const IndexDomain &domain,
+                                TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[2].s;
@@ -194,7 +197,8 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int ie(const IndexDomain &domain, TE el = TE::CC) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ie(const IndexDomain &domain,
+                                TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[0].e + TopologicalOffsetI(el);
@@ -205,7 +209,8 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int je(const IndexDomain &domain, TE el = TE::CC) const noexcept {
+  KOKKOS_INLINE_FUNCTION int je(const IndexDomain &domain,
+                                TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[1].e + TopologicalOffsetJ(el);
@@ -216,7 +221,8 @@ class IndexShape {
     }
   }
 
-  KOKKOS_INLINE_FUNCTION int ke(const IndexDomain &domain, TE el = TE::CC) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ke(const IndexDomain &domain,
+                                TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
       return x_[2].e + TopologicalOffsetK(el);
