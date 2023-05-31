@@ -272,7 +272,7 @@ class SparsePack : public SparsePackBase {
     return pack_(static_cast<int>(el) % 3, b, n);
   }
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, PackIdx idx) const {
-    return (*this)(b, TE::C, idx);
+    return (*this)(b, TE::CC, idx);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>

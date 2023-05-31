@@ -54,40 +54,40 @@ enum class BoundaryType : int {
 
 // Enumeration for accessing a field on different locations of the grid:
 // C = cell center of (i, j, k)
-// FX = x-face at (i - 1/2, j, k)
-// FY = y-face at (i, j - 1/2, k)
-// FZ = z-face at (i, j, k - 1/2)
-// EXY = edge at (i - 1/2, j - 1/2, k)
-// EXZ = edge at (i - 1/2, j, k - 1/2)
-// EXY = edge at (i, j - 1/2, k - 1/2)
-// NXYZ = edge at (i - 1/2, j - 1/2, k - 1/2)
+// F1 = x-normal face at (i - 1/2, j, k)
+// F2 = y-normal face at (i, j - 1/2, k)
+// F3 = z-normal face at (i, j, k - 1/2)
+// E1 = x-aligned edge at (i, j - 1/2, k - 1/2)
+// E2 = y-aligned edge at (i - 1/2, j, k - 1/2)
+// E3 = z-aligned edge at (i - 1/2, j - 1/2, k)
+// NN = node at (i - 1/2, j - 1/2, k - 1/2)
 //
 // The values of the enumeration are chosen so we can do te % 3 to get
 // the correct index for each type of element in Variable::data
 enum class TopologicalElement : std::size_t {
-  C = 0,
-  FX = 3,
-  FY = 4,
-  FZ = 5,
-  EYZ = 6,
-  EXZ = 7,
-  EXY = 8,
-  NXYZ = 9
+  CC = 0,
+  F1 = 3,
+  F2 = 4,
+  F3 = 5,
+  E1 = 6,
+  E2 = 7,
+  E3 = 8,
+  NN = 9
 };
 enum class TopologicalType { Cell, Face, Edge, Node };
 
 KOKKOS_FORCEINLINE_FUNCTION
 TopologicalType GetTopologicalType(TopologicalElement el) {
-  using te = TopologicalElement;
-  using tt = TopologicalType;
-  if (el == te::C) {
-    return tt::Cell;
-  } else if (el == te::NXYZ) {
-    return tt::Node;
-  } else if (el == te::FX || el == te::FY || el == te::FZ) {
-    return tt::Face;
+  using TE = TopologicalElement;
+  using TT = TopologicalType;
+  if (el == TE::CC) {
+    return TT::Cell;
+  } else if (el == TE::NN) {
+    return TT::Node;
+  } else if (el == TE::F1 || el == TE::F2 || el == TE::F3) {
+    return TT::Face;
   } else {
-    return tt::Edge;
+    return TT::Edge;
   }
 }
 
