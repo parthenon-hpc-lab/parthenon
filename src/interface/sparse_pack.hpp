@@ -443,10 +443,10 @@ class SparsePack : public SparsePackBase {
   // and it may not even be an lvalue.
   static std::vector<MetadataFlag> AddFlag_(const std::vector<MetadataFlag> &flags,
                                             MetadataFlag mf = Metadata::WithFluxes) {
-    // TODO(LFR): We need to decide if variables w/o fluxes should end up a pack that asks 
-    //            for WithFluxes. I actually use this reasonably often in practice, even 
-    //            though I was the one who suggested enforcing that WithFluxes PackDescriptors
-    //            include the Metadata::WithFluxes flag.
+    // TODO(LFR): We need to decide if variables w/o fluxes should end up a pack that asks
+    //            for WithFluxes. I actually use this reasonably often in practice, even
+    //            though I was the one who suggested enforcing that WithFluxes
+    //            PackDescriptors include the Metadata::WithFluxes flag.
     return flags;
     /*
     if (std::find(flags.begin(), flags.end(), mf) == flags.end()) {

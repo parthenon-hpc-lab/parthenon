@@ -56,7 +56,8 @@ enum class BCSide { Inner, Outer };
 enum class BCType { Outflow, Reflect };
 
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE>
-void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse, TopologicalElement el = TopologicalElement::CC) {
+void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
+               TopologicalElement el = TopologicalElement::CC) {
   // make sure DIR is X[123]DIR so we don't have to check again
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
 
@@ -73,8 +74,8 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse, Topologica
                          : (X2 ? bounds.GetBoundsJ(IndexDomain::interior, el)
                                : bounds.GetBoundsK(IndexDomain::interior, el));
   const int ref = INNER ? range.s : range.e;
-  
-  std::vector<MetadataFlag> flags{Metadata::FillGhost}; 
+
+  std::vector<MetadataFlag> flags{Metadata::FillGhost};
   if (GetTopologicalType(el) == TopologicalType::Cell) flags.push_back(Metadata::Cell);
   if (GetTopologicalType(el) == TopologicalType::Face) flags.push_back(Metadata::Face);
   if (GetTopologicalType(el) == TopologicalType::Edge) flags.push_back(Metadata::Edge);
