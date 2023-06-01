@@ -137,6 +137,16 @@ simulation. The set of possible operations for a sparse field are:
    ``lroberts36/merge-sparse-with-jdolence-sparse`` that is being used
    in ``Riot``. This should probably be brought into ``develop``, since
    the “sparse sparse pack” access pattern is probably not desirable.
+- *Flatten outer indices:* Most common packs over ``MeshData`` produce
+  a 5-dimensional data structure, where the slowest two moving indices
+  are over ``MeshBlock``\ s then tensor/vector components of
+  ``Variable``\ s. However, it is sometimes desirable to construct a
+  4-dimensional data structure where the slowest moving index ranges
+  over all variables and all blocks. So for example if we had a system
+  with 9 blocks and 5 variables per block, the slowest moving index
+  would be of size 45. This can be enabled ``SparsePack``s with the
+  ``GetFlat`` series of factory functions or by passing the optional
+  ``flat`` boolean into the constructor.
 
 In comparison to a sparse field, a dense field only requires the
 operation *Access*.
