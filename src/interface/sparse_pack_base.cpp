@@ -86,6 +86,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   pack.coarse_ = desc.coarse;
   pack.nvar_ = desc.vars.size();
   pack.flat_ = desc.flat;
+  pack.size_ = 0;
 
   // Count up the size of the array that is required
   int max_size = 0;
