@@ -223,12 +223,13 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   template <typename Function>
   inline void par_for_bndry(const std::string &name, const IndexRange &nb,
-                            const IndexDomain &domain, const bool coarse,
+                            const IndexDomain &domain, TopologicalElement el,
+                            const bool coarse,
                             const Function &function) {
     auto bounds = coarse ? c_cellbounds : cellbounds;
-    auto ib = bounds.GetBoundsI(domain);
-    auto jb = bounds.GetBoundsJ(domain);
-    auto kb = bounds.GetBoundsK(domain);
+    auto ib = bounds.GetBoundsI(domain, el);
+    auto jb = bounds.GetBoundsJ(domain, el);
+    auto kb = bounds.GetBoundsK(domain, el);
     par_for(name, nb, kb, jb, ib, function);
   }
 
