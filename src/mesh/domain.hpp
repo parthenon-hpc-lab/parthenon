@@ -144,21 +144,21 @@ class IndexShape {
                                                      TE el = TE::CC) const noexcept {
     return (domain == IndexDomain::interior && el == TE::CC)
                ? x_[0]
-               : IndexRange{is(domain, el), ie(domain)};
+               : IndexRange{is(domain, el), ie(domain, el)};
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsJ(const IndexDomain &domain,
                                                      TE el = TE::CC) const noexcept {
     return (domain == IndexDomain::interior && el == TE::CC)
                ? x_[1]
-               : IndexRange{js(domain), je(domain)};
+               : IndexRange{js(domain, el), je(domain, el)};
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsK(const IndexDomain &domain,
                                                      TE el = TE::CC) const noexcept {
     return (domain == IndexDomain::interior && el == TE::CC)
                ? x_[2]
-               : IndexRange{ks(domain), ke(domain)};
+               : IndexRange{ks(domain, el), ke(domain, el)};
   }
 
   KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain,
@@ -201,11 +201,11 @@ class IndexShape {
                                 TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
-      return x_[0].e + TopologicalOffsetI(el);
+      return entire_ncells_[0] == 1 ? 0 : x_[0].e + TopologicalOffsetI(el);
     case IndexDomain::inner_x1:
       return x_[0].s == 0 ? 0 : x_[0].s - 1;
     default:
-      return entire_ncells_[0] - 1 + TopologicalOffsetI(el);
+      return entire_ncells_[0] == 1 ? 0 : entire_ncells_[0] - 1 + TopologicalOffsetI(el);
     }
   }
 
@@ -213,11 +213,11 @@ class IndexShape {
                                 TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
-      return x_[1].e + TopologicalOffsetJ(el);
+      return entire_ncells_[1] == 1 ? 0 : x_[1].e + TopologicalOffsetJ(el);
     case IndexDomain::inner_x2:
       return x_[1].s == 0 ? 0 : x_[1].s - 1;
     default:
-      return entire_ncells_[1] - 1 + TopologicalOffsetJ(el);
+      return entire_ncells_[1] == 1 ? 0 : entire_ncells_[1] - 1 + TopologicalOffsetJ(el);
     }
   }
 
@@ -225,11 +225,11 @@ class IndexShape {
                                 TE el = TE::CC) const noexcept {
     switch (domain) {
     case IndexDomain::interior:
-      return x_[2].e + TopologicalOffsetK(el);
+      return entire_ncells_[2] == 1 ? 0 : x_[2].e + TopologicalOffsetK(el);
     case IndexDomain::inner_x3:
       return x_[2].s == 0 ? 0 : x_[2].s - 1;
     default:
-      return entire_ncells_[2] - 1 + TopologicalOffsetK(el);
+      return entire_ncells_[2] == 1 ? 0 : entire_ncells_[2] - 1 + TopologicalOffsetK(el);
     }
   }
 
