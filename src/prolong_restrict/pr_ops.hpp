@@ -102,7 +102,7 @@ Real GradMinMod(const Real fc, const Real fm, const Real fp, const Real dxm,
 
 } // namespace util
 
-struct Restrict {
+struct RestrictAverage {
   static constexpr bool OperationRequired(TopologicalElement fel,
                                           TopologicalElement cel) {
     return fel == cel;

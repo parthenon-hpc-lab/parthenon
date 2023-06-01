@@ -379,7 +379,7 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
             const auto cell_funcs =
                 parthenon::refinement::RefinementFunctions_t::RegisterOps<
                     parthenon::refinement_ops::ProlongateSharedMinMod,
-                    parthenon::refinement_ops::Restrict>();
+                    parthenon::refinement_ops::RestrictAverage>();
             REQUIRE(pkg3->NumRefinementFuncs() == 2);
             REQUIRE((pkg3->RefinementFuncID(my_funcs)) !=
                     (pkg3->RefinementFuncID(cell_funcs)));

@@ -213,7 +213,7 @@ TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
     THEN("It has the default Prolongation/Restriction ops") {
       const auto cell_funcs = parthenon::refinement::RefinementFunctions_t::RegisterOps<
           parthenon::refinement_ops::ProlongateSharedMinMod,
-          parthenon::refinement_ops::Restrict>();
+          parthenon::refinement_ops::RestrictAverage>();
       REQUIRE(m.GetRefinementFunctions() == cell_funcs);
     }
     WHEN("We register new operations") {
