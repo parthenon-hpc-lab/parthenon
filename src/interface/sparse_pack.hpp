@@ -125,10 +125,10 @@ class SparsePack : public SparsePackBase {
   // The pack will be created and accessible on the device
   template <class T>
   static SparsePack Get(T *pmd, const std::vector<MetadataFlag> &flags = {},
-                        bool fluxes = false, bool coarse = false) {
+                        bool fluxes = false, bool coarse = false, bool flatten = false) {
     const impl::PackDescriptor desc(std::vector<std::string>{Ts::name()...},
                                     std::vector<bool>{Ts::regex()...}, flags, fluxes,
-                                    coarse);
+                                    coarse, flatten);
     return SparsePack(SparsePackBase::GetPack(pmd, desc));
   }
 
@@ -143,9 +143,9 @@ class SparsePack : public SparsePackBase {
   template <class T, class VAR_VEC>
   static std::tuple<SparsePack, SparsePackIdxMap>
   Get(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
-      bool fluxes = false, bool coarse = false) {
+      bool fluxes = false, bool coarse = false, bool flatten = false) {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
-    impl::PackDescriptor desc(vars, flags, fluxes, coarse);
+    impl::PackDescriptor desc(vars, flags, fluxes, coarse, flatten);
     return {SparsePack(SparsePackBase::GetPack(pmd, desc)),
             SparsePackBase::GetIdxMap(desc)};
   }
@@ -155,7 +155,7 @@ class SparsePack : public SparsePackBase {
   static SparsePack GetWithFluxes(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
     const bool coarse = false;
     const bool fluxes = true;
-    return Get(pmd, flags, fluxes, coarse);
+    return Get(pmd, AddFlag_(flags), fluxes, coarse);
   }
 
   template <class T, class VAR_VEC>
@@ -164,7 +164,7 @@ class SparsePack : public SparsePackBase {
                 const std::vector<MetadataFlag> &flags = {}) {
     const bool coarse = false;
     const bool fluxes = true;
-    Get(pmd, vars, flags, fluxes, coarse);
+    Get(pmd, vars, AddFlag_(flags), fluxes, coarse);
   }
 
   template <class T>
@@ -183,21 +183,79 @@ class SparsePack : public SparsePackBase {
     Get(pmd, vars, flags, fluxes, coarse);
   }
 
+  template <class T>
+  static SparsePack GetFlat(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
+    const bool coarse = false;
+    const bool fluxes = false;
+    const bool flatten = true;
+    return Get(pmd, flags, fluxes, coarse, flatten);
+  }
+
+  template <class T, class VAR_VEC>
+  static std::tuple<SparsePack, SparsePackIdxMap>
+  GetFlat(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {}) {
+    const bool coarse = false;
+    const bool fluxes = false;
+    const bool flatten = true;
+    return Get(pmd, vars, flags, fluxes, coarse, flatten);
+  }
+
+  template <class T>
+  static SparsePack GetFlatWithFluxes(T *pmd,
+                                      const std::vector<MetadataFlag> &flags = {}) {
+    const bool coarse = false;
+    const bool fluxes = true;
+    const bool flatten = true;
+    return Get(pmd, AddFlag_(flags), fluxes, coarse, flatten);
+  }
+
+  template <class T, class VAR_VEC>
+  static std::tuple<SparsePack, SparsePackIdxMap>
+  GetFlatWithFluxes(T *pmd, const VAR_VEC &vars,
+                    const std::vector<MetadataFlag> &flags = {}) {
+    const bool coarse = false;
+    const bool fluxes = true;
+    const bool flatten = true;
+    return Get(pmd, vars, AddFlag_(flags), fluxes, coarse, flatten);
+  }
+
+  template <class T>
+  static SparsePack GetFlatWithCoarse(T *pmd,
+                                      const std::vector<MetadataFlag> &flags = {}) {
+    const bool coarse = true;
+    const bool fluxes = false;
+    const bool flatten = true;
+    return Get(pmd, flags, fluxes, coarse, flatten);
+  }
+
+  template <class T, class VAR_VEC>
+  static std::tuple<SparsePack, SparsePackIdxMap>
+  GetFlatWithCoarse(T *pmd, const VAR_VEC &vars,
+                    const std::vector<MetadataFlag> &flags = {}) {
+    const bool coarse = true;
+    const bool fluxes = false;
+    const bool flatten = true;
+    return Get(pmd, vars, flags, fluxes, coarse, flatten);
+  }
+
   // Methods for getting parts of the shape of the pack
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNBlocks() const { return nblocks_; }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  int GetNDim() const { return ndim_; }
-
-  KOKKOS_FORCEINLINE_FUNCTION
   int GetMaxNumberOfVars() const { return pack_.extent_int(2); }
 
+  // Returns the total number of vars/components in pack
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetSize() const { return size_; }
+
   KOKKOS_INLINE_FUNCTION
-  const Coordinates_t &GetCoordinates(const int b) const { return coords_(b)(); }
+  const Coordinates_t &GetCoordinates(const int b = 0) const { return coords_(b)(); }
 
   // Bound overloads
-  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const { return 0; }
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const {
+    return (flat_ && (b > 0)) ? (bounds_(1, b - 1, nvar_) + 1) : 0;
+  }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b) const {
     return bounds_(1, b, nvar_);
@@ -226,7 +284,9 @@ class SparsePack : public SparsePackBase {
   }
 
   // Host Bound overloads
-  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const { return 0; }
+  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const {
+    return (flat_ && (b > 0)) ? (bounds_h_(1, b - 1, nvar_) + 1) : 0;
+  }
 
   KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b) const {
     return bounds_h_(1, b, nvar_);
@@ -268,6 +328,7 @@ class SparsePack : public SparsePackBase {
 
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(static_cast<int>(el) % 3, b, n);
   }
@@ -283,13 +344,21 @@ class SparsePack : public SparsePackBase {
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(0, b, vidx);
   }
 
-  KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const int idx, const int k,
-                                          const int j, const int i) const {
+  KOKKOS_INLINE_FUNCTION
+  Real &operator()(const int b, const int idx, const int k, const int j,
+                   const int i) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     return pack_(0, b, idx)(k, j, i);
+  }
+  KOKKOS_INLINE_FUNCTION
+  Real &operator()(int idx, const int k, const int j, const int i) const {
+    PARTHENON_DEBUG_REQUIRE(flat_, "Accessor valid only for flat packs");
+    return pack_(0, 0, idx)(k, j, i);
   }
 
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TE el, const int idx,
@@ -300,6 +369,7 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, PackIdx idx, const int k,
                                           const int j, const int i) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(0, b, n)(k, j, i);
   }
@@ -314,6 +384,7 @@ class SparsePack : public SparsePackBase {
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int k,
                                           const int j, const int i) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(0, b, vidx)(k, j, i);
   }
@@ -328,6 +399,7 @@ class SparsePack : public SparsePackBase {
   // flux() overloads
   KOKKOS_INLINE_FUNCTION
   auto &flux(const int b, const int dir, const int idx) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     return pack_(dir, b, idx);
   }
@@ -335,14 +407,23 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION
   Real &flux(const int b, const int dir, const int idx, const int k, const int j,
              const int i) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     return pack_(dir, b, idx)(k, j, i);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real &flux(const int dir, const int idx, const int k, const int j, const int i) const {
+    PARTHENON_DEBUG_REQUIRE(flat_, "Accessor must only be used for flat packs");
+    PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
+    return pack_(dir, 0, idx)(k, j, i);
   }
 
   KOKKOS_INLINE_FUNCTION
   Real &flux(const int b, const int dir, PackIdx idx, const int k, const int j,
              const int i) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
     return pack_(dir, b, n)(k, j, i);
@@ -351,9 +432,26 @@ class SparsePack : public SparsePackBase {
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION Real &flux(const int b, const int dir, const TIn &t, const int k,
                                     const int j, const int i) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(dir, b, vidx)(k, j, i);
+  }
+
+ private:
+  // Must make a copy of the vector, since input vector is const,
+  // and it may not even be an lvalue.
+  static std::vector<MetadataFlag> AddFlag_(const std::vector<MetadataFlag> &flags,
+                                            MetadataFlag mf = Metadata::WithFluxes) {
+    if (std::find(flags.begin(), flags.end(), mf) == flags.end()) {
+      std::vector<MetadataFlag> out;
+      out.reserve(flags.size() + 1);
+      out.insert(out.begin(), flags.begin(), flags.end());
+      out.push_back(mf);
+      return out;
+    } else {
+      return flags;
+    }
   }
 };
 
