@@ -146,46 +146,6 @@ inline constexpr bool IsSubmanifold(TopologicalElement containee,
     return false;
   }
 }
-
-// Enumeration for accessing a field on different locations of the grid:
-// C = cell center of (i, j, k)
-// F1 = x-normal face at (i - 1/2, j, k)
-// F2 = y-normal face at (i, j - 1/2, k)
-// F3 = z-normal face at (i, j, k - 1/2)
-// E1 = x-aligned edge at (i, j - 1/2, k - 1/2)
-// E2 = y-aligned edge at (i - 1/2, j, k - 1/2)
-// E3 = z-aligned edge at (i - 1/2, j - 1/2, k)
-// NN = node at (i - 1/2, j - 1/2, k - 1/2)
-//
-// The values of the enumeration are chosen so we can do te % 3 to get
-// the correct index for each type of element in Variable::data
-enum class TopologicalElement : std::size_t {
-  CC = 0,
-  F1 = 3,
-  F2 = 4,
-  F3 = 5,
-  E1 = 6,
-  E2 = 7,
-  E3 = 8,
-  NN = 9
-};
-enum class TopologicalType { Cell, Face, Edge, Node };
-
-KOKKOS_FORCEINLINE_FUNCTION
-TopologicalType GetTopologicalType(TopologicalElement el) {
-  using TE = TopologicalElement;
-  using TT = TopologicalType;
-  if (el == TE::CC) {
-    return TT::Cell;
-  } else if (el == TE::NN) {
-    return TT::Node;
-  } else if (el == TE::F1 || el == TE::F2 || el == TE::F3) {
-    return TT::Face;
-  } else {
-    return TT::Edge;
-  }
-}
-
 struct SimTime {
   SimTime() = default;
   SimTime(const Real tstart, const Real tstop, const int nmax, const int ncurr,
