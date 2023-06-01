@@ -91,7 +91,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   int max_size = 0;
   int nblocks = 0;
   bool contains_face_or_edge = false;
-  int size = 0;   // local var used to compute size/block
+  int size = 0; // local var used to compute size/block
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     if (!desc.flat) {
       size = 0;
