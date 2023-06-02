@@ -65,8 +65,7 @@ void MeshBlockData<T>::Initialize(
 template <typename T>
 void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &metadata,
                                 int sparse_id) {
-  auto pvar =
-      std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
+  auto pvar = std::make_shared<Variable<T>>(base_name, metadata, sparse_id, pmy_block);
   Add(pvar);
 
   if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
@@ -102,11 +101,11 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
   };
 
   if (names.empty()) {
-    for (auto v : src.GetCellVariableVector()) {
+    for (auto v : src.GetVariableVector()) {
       add_var(v);
     }
   } else {
-    auto var_map = src.GetCellVariableMap();
+    auto var_map = src.GetVariableMap();
 
     for (const auto &name : names) {
       bool found = false;
@@ -392,7 +391,7 @@ typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids) {
   typename MeshBlockData<T>::VarList var_list;
   for (auto i : uids) {
-    auto v = GetCellVarPtr(i);
+    auto v = GetVarPtr(i);
     var_list.Add(v);
   }
   return var_list;

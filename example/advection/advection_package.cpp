@@ -228,7 +228,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   for (int var = 1; var < num_vars; ++var) {
     vars.push_back("advected_" + std::to_string(var));
   }
-  // type is parthenon::VariablePack<CellVariable<Real>>
+  // type is parthenon::VariablePack<Variable<Real>>
   auto v = rc->PackVariables(vars);
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);

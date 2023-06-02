@@ -22,7 +22,6 @@
 
 namespace parthenon {
 
-using namespace cell_centered_bvars;
 using namespace loops;
 using namespace loops::shorthands;
 

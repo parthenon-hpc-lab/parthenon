@@ -15,8 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BVALS_CC_BND_INFO_HPP_
-#define BVALS_CC_BND_INFO_HPP_
+#ifndef BVALS_COMMS_BND_INFO_HPP_
+#define BVALS_COMMS_BND_INFO_HPP_
 
 #include <memory>
 #include <string>
@@ -37,9 +37,7 @@ class MeshData;
 class IndexRange;
 class NeighborBlock;
 template <typename T>
-class CellVariable;
-
-namespace cell_centered_bvars {
+class Variable;
 
 void ComputeRestrictionBounds(IndexRange &ni, IndexRange &nj, IndexRange &nk,
                               const NeighborBlock &nb,
@@ -69,38 +67,38 @@ struct BndInfo {
   Coordinates_t coords, coarse_coords; // coords
 
   buf_pool_t<Real>::weak_t buf;         // comm buffer from pool
-  ParArray6D<Real, VariableState> var;  // data variable used for comms
-  ParArray6D<Real, VariableState> fine; // fine data variable for prolongation/restriction
-  ParArray6D<Real, VariableState>
+  ParArrayND<Real, VariableState> var;  // data variable used for comms
+  ParArrayND<Real, VariableState> fine; // fine data variable for prolongation/restriction
+  ParArrayND<Real, VariableState>
       coarse; // coarse data variable for prolongation/restriction
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
   static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                std::shared_ptr<CellVariable<Real>> v,
+                                std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                 const OffsetIndices &);
   static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<CellVariable<Real>> v,
+                               std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                const OffsetIndices &);
   static BndInfo GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                  std::shared_ptr<CellVariable<Real>> v,
+                                  std::shared_ptr<Variable<Real>> v,
                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                   const OffsetIndices &);
   static BndInfo GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                 std::shared_ptr<CellVariable<Real>> v,
+                                 std::shared_ptr<Variable<Real>> v,
                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                  const OffsetIndices &);
   static BndInfo GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
                                    const NeighborBlock &nb,
-                                   std::shared_ptr<CellVariable<Real>> v,
+                                   std::shared_ptr<Variable<Real>> v,
                                    CommBuffer<buf_pool_t<Real>::owner_t> *buf,
                                    const OffsetIndices &no);
 };
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                  std::shared_ptr<CellVariable<Real>> v);
+                  std::shared_ptr<Variable<Real>> v);
 
 using BufferCache_t = ParArray1D<BndInfo>;
 using BufferCacheHost_t = typename BufferCache_t::HostMirror;
@@ -152,7 +150,6 @@ struct BvarsCache_t {
   }
 };
 
-} // namespace cell_centered_bvars
 } // namespace parthenon
 
-#endif // BVALS_CC_BND_INFO_HPP_
+#endif // BVALS_COMMS_BND_INFO_HPP_

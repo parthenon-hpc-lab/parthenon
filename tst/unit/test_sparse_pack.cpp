@@ -124,6 +124,16 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       // Deallocate a variable on an arbitrary block
       block_list[2]->DeallocateSparse("v3");
 
+      THEN("A sparse pack can be loaded on this data and report sthe bounds for block 2 "
+           "appropriately.") {
+        auto pack =
+            parthenon::SparsePack<v3, v5>::Get(&mesh_data, {Metadata::WithFluxes});
+        int lo = pack.GetLowerBoundHost(2);
+        int hi = pack.GetUpperBoundHost(2);
+        REQUIRE(lo == 0); // lo = 0 because always start at 0 on a block
+        REQUIRE(hi == 0); // hi is scalar. Only one value.
+      }
+
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "
            "blocks") {
         // Create a pack use type variables
@@ -165,6 +175,29 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             },
             nwrong);
         REQUIRE(nwrong == 0);
+      }
+
+      THEN("A flattened sparse pack can correctly load this data in a unified outer "
+           "index space") {
+        using parthenon::variable_names::any;
+        auto sparse_pack = parthenon::SparsePack<any>::GetFlatWithFluxes(&mesh_data);
+        REQUIRE(sparse_pack.GetNBlocks() == 1);
+        // v3 is deallocated on one block.
+        REQUIRE(sparse_pack.GetMaxNumberOfVars() == 5 * NBLOCKS - 3);
+        REQUIRE(sparse_pack.GetLowerBoundHost(0) == 0);
+        // upper bound is inclusive
+        REQUIRE(sparse_pack.GetUpperBoundHost(0) == 5 - 1);
+        REQUIRE(sparse_pack.GetSize() == 5 * NBLOCKS - 3);
+        AND_THEN("A flattened sparse pack starting with v3 has sensible lower/upper "
+                 "bounds on the block where we deallocate") {
+          auto pack = parthenon::SparsePack<v3, v5>::GetFlatWithFluxes(&mesh_data);
+          int lo = pack.GetLowerBoundHost(2);
+          int hi = pack.GetUpperBoundHost(2);
+          REQUIRE(lo == 4 - 1 + 4 + 1); // lo = index in flat pack where block 2 starts.
+                                        // v3 and v5 = 4 total var components
+          REQUIRE(hi == lo); // hi = index in flat pack where block 2 ends. Only v3
+                             // present, so only 1 var
+        }
       }
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on a single "

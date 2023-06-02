@@ -1,9 +1,9 @@
 #=========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2022 The Parthenon collaboration
+# Copyright(C) 2020-2023 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #=========================================================================================
-# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.7.0 LANGUAGES C CXX)
+project(parthenon VERSION 0.8.0 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -329,21 +329,23 @@ if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHEN
     endif()
   endif()
 
-  # Try finding an installed Catch2 first
-  find_package(Catch2 2.13.8 QUIET)
+  if (NOT TARGET catch2_define)
+    # Try finding an installed Catch2 first
+    find_package(Catch2 2.13.8 QUIET)
 
-  if (NOT Catch2_FOUND)
-    # If Catch2 is not found, instead use the git submodule
-    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Catch2/single_include)
-      # Unable to find the header files for Catch2 or they don't exist
-      message(STATUS "Downloading Catch2 submodule.")
+    if (NOT Catch2_FOUND)
+      # If Catch2 is not found, instead use the git submodule
+      if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Catch2/single_include)
+        # Unable to find the header files for Catch2 or they don't exist
+        message(STATUS "Downloading Catch2 submodule.")
 
-      # Clone the submodule
-      execute_process(COMMAND git submodule update --init --force -- external/Catch2 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        # Clone the submodule
+        execute_process(COMMAND git submodule update --init --force -- external/Catch2 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+      endif()
+
+      add_subdirectory(external/Catch2)
+      list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/Catch2/contrib")
     endif()
-
-    add_subdirectory(external/Catch2)
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/Catch2/contrib")
   endif()
 
   include(Catch)
