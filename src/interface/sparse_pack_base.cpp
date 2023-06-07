@@ -180,8 +180,9 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                     } else {
                       pack_h(0, b, idx) = pv->data.Get(0, t, u, v);
                     }
-                    if (pv->IsSet(Metadata::Vector)) pack_h(0, b, idx).vector_component = v + 1; 
-                    
+                    if (pv->IsSet(Metadata::Vector))
+                      pack_h(0, b, idx).vector_component = v + 1;
+
                     if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
                       pack_h(1, b, idx) = pv->flux[X1DIR].Get(0, t, u, v);
                       pack_h(2, b, idx) = pv->flux[X2DIR].Get(0, t, u, v);
@@ -216,7 +217,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   Kokkos::deep_copy(pack.pack_, pack_h);
   Kokkos::deep_copy(pack.bounds_, pack.bounds_h_);
   Kokkos::deep_copy(pack.coords_, coords_h);
-  
+
   return pack;
 }
 

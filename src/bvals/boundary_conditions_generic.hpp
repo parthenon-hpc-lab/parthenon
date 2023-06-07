@@ -17,6 +17,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "basic_types.hpp"
 #include "interface/meshblock_data.hpp"
@@ -47,15 +48,15 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   if (GetTopologicalType(el) == TopologicalType::Face) flags.push_back(Metadata::Face);
   if (GetTopologicalType(el) == TopologicalType::Edge) flags.push_back(Metadata::Edge);
   if (GetTopologicalType(el) == TopologicalType::Node) flags.push_back(Metadata::Node);
-  
+
   constexpr bool fluxes = false;
   auto q = SparsePack<var_ts...>::Get(rc.get(), flags, fluxes, coarse);
-  const int b = 0; 
+  const int b = 0;
   const int lstart = q.GetLowerBoundHost(b);
-  const int lend = q.GetUpperBoundHost(b); 
+  const int lend = q.GetUpperBoundHost(b);
   if (lend < lstart) return;
-  auto nb = IndexRange{lstart, lend}; 
-  
+  auto nb = IndexRange{lstart, lend};
+
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
 
@@ -76,9 +77,9 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
 
   // used for reflections
   const int offset = 2 * ref + (INNER ? -1 : 1);
-  
+
   // used for derivatives
-  const int offsetin = INNER; 
+  const int offsetin = INNER;
   const int offsetout = !INNER;
   pmb->par_for_bndry(
       label, nb, domain, el, coarse,
@@ -89,17 +90,20 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
               (reflect ? -1.0 : 1.0) *
               q(b, el, l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
         } else if (TYPE == BCType::ConstantDeriv) {
-          Real dq = q(b, el, l, X3 ? ref + offsetin : k, X2 ? ref + offsetin : j, X1 ? ref + offsetin : i) - 
-                  q(b, el, l, X3 ? ref - offsetout : k, X2 ? ref - offsetout : j, X1 ? ref - offsetout : i);
+          Real dq = q(b, el, l, X3 ? ref + offsetin : k, X2 ? ref + offsetin : j,
+                      X1 ? ref + offsetin : i) -
+                    q(b, el, l, X3 ? ref - offsetout : k, X2 ? ref - offsetout : j,
+                      X1 ? ref - offsetout : i);
           Real delta = 0.0;
-          if (X1) { 
+          if (X1) {
             delta = i - ref;
           } else if (X2) {
             delta = j - ref;
-          } else { 
+          } else {
             delta = k - ref;
           }
-          q(b, el, l, k, j, i) = q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i) + delta * dq;
+          q(b, el, l, k, j, i) =
+              q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i) + delta * dq;
         } else {
           q(b, el, l, k, j, i) = q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);
         }
@@ -110,7 +114,7 @@ template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   using TE = TopologicalElement;
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<DIR, SIDE, TYPE, var_ts...>(rc, coarse, el); 
+    GenericBC<DIR, SIDE, TYPE, var_ts...>(rc, coarse, el);
 }
 
 } // namespace BoundaryFunction
