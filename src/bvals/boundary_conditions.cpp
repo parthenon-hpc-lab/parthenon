@@ -18,6 +18,7 @@
 #include "bvals/bvals_interfaces.hpp"
 #include "defs.hpp"
 #include "interface/meshblock_data.hpp"
+#include "interface/sparse_pack.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
@@ -55,9 +56,9 @@ namespace BoundaryFunction {
 enum class BCSide { Inner, Outer };
 enum class BCType { Outflow, Reflect };
 
-template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE>
+template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
-               TopologicalElement el = TopologicalElement::CC) {
+               TopologicalElement el) {
   // make sure DIR is X[123]DIR so we don't have to check again
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
 
@@ -67,6 +68,20 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   constexpr bool X3 = (DIR == X3DIR);
   constexpr bool INNER = (SIDE == BCSide::Inner);
 
+  std::vector<MetadataFlag> flags{Metadata::FillGhost};
+  if (GetTopologicalType(el) == TopologicalType::Cell) flags.push_back(Metadata::Cell);
+  if (GetTopologicalType(el) == TopologicalType::Face) flags.push_back(Metadata::Face);
+  if (GetTopologicalType(el) == TopologicalType::Edge) flags.push_back(Metadata::Edge);
+  if (GetTopologicalType(el) == TopologicalType::Node) flags.push_back(Metadata::Node);
+  
+  constexpr bool fluxes = false;
+  auto q = SparsePack<var_ts...>::Get(rc.get(), flags, fluxes, coarse);
+  const int b = 0; 
+  const int lstart = q.GetLowerBoundHost(b);
+  const int lend = q.GetUpperBoundHost(b); 
+  if (lend < lstart) return;
+  auto nb = IndexRange{lstart, lend}; 
+  
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
 
@@ -74,15 +89,6 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
                          : (X2 ? bounds.GetBoundsJ(IndexDomain::interior, el)
                                : bounds.GetBoundsK(IndexDomain::interior, el));
   const int ref = INNER ? range.s : range.e;
-
-  std::vector<MetadataFlag> flags{Metadata::FillGhost};
-  if (GetTopologicalType(el) == TopologicalType::Cell) flags.push_back(Metadata::Cell);
-  if (GetTopologicalType(el) == TopologicalType::Face) flags.push_back(Metadata::Face);
-  if (GetTopologicalType(el) == TopologicalType::Edge) flags.push_back(Metadata::Edge);
-  if (GetTopologicalType(el) == TopologicalType::Node) flags.push_back(Metadata::Node);
-
-  auto q = rc->PackVariables(flags, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
 
   std::string label = (TYPE == BCType::Reflect ? "Reflect" : "Outflow");
   label += (INNER ? "Inner" : "Outer");
@@ -100,88 +106,71 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   pmb->par_for_bndry(
       label, nb, domain, el, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        if (!q.IsAllocated(l)) return;
+        //printf("(%i, %i, %i) l=%i el=%i ref=%i X=(%i, %i, %i)\n", k, j, i, l, (int) el, ref, X1, X2, X3);
         if (TYPE == BCType::Reflect) {
-          const bool reflect = (q.VectorComponent(l) == DIR);
-          q(el, l, k, j, i) =
+          const bool reflect = (q(0, el, l).vector_component == DIR);
+          q(0, el, l, k, j, i) =
               (reflect ? -1.0 : 1.0) *
-              q(el, l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
+              q(0, el, l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
         } else {
-          q(el, l, k, j, i) = q(el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);
+          q(0, el, l, k, j, i) = q(0, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);
         }
       });
 }
 
-void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
+void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   using TE = TopologicalElement;
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X1DIR, BCSide::Inner, BCType::Outflow>(rc, coarse, el);
+    GenericBC<DIR, SIDE, TYPE, var_ts...>(rc, coarse, el); 
+}
+
+void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  GenericBC<X1DIR, BCSide::Inner, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  using TE = TopologicalElement;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X1DIR, BCSide::Outer, BCType::Outflow>(rc, coarse, el);
+  GenericBC<X1DIR, BCSide::Outer, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  using TE = TopologicalElement;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X2DIR, BCSide::Inner, BCType::Outflow>(rc, coarse, el);
+  GenericBC<X2DIR, BCSide::Inner, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  using TE = TopologicalElement;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X2DIR, BCSide::Outer, BCType::Outflow>(rc, coarse, el);
+  GenericBC<X2DIR, BCSide::Outer, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  using TE = TopologicalElement;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X3DIR, BCSide::Inner, BCType::Outflow>(rc, coarse, el);
+  GenericBC<X3DIR, BCSide::Inner, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  using TE = TopologicalElement;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X3DIR, BCSide::Outer, BCType::Outflow>(rc, coarse, el);
+  GenericBC<X3DIR, BCSide::Outer, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  using TE = TopologicalElement;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X1DIR, BCSide::Inner, BCType::Reflect>(rc, coarse, el);
+  GenericBC<X1DIR, BCSide::Inner, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  using TE = TopologicalElement;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X1DIR, BCSide::Outer, BCType::Reflect>(rc, coarse, el);
+  GenericBC<X1DIR, BCSide::Outer, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  using TE = TopologicalElement;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X2DIR, BCSide::Inner, BCType::Reflect>(rc, coarse, el);
+  GenericBC<X2DIR, BCSide::Inner, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  using TE = TopologicalElement;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X2DIR, BCSide::Outer, BCType::Reflect>(rc, coarse, el);
+  GenericBC<X2DIR, BCSide::Outer, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  using TE = TopologicalElement;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X3DIR, BCSide::Inner, BCType::Reflect>(rc, coarse, el);
+  GenericBC<X3DIR, BCSide::Inner, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  using TE = TopologicalElement;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<X3DIR, BCSide::Outer, BCType::Reflect>(rc, coarse, el);
+  GenericBC<X3DIR, BCSide::Outer, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 } // namespace BoundaryFunction
