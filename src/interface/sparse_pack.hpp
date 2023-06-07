@@ -155,7 +155,7 @@ class SparsePack : public SparsePackBase {
   static SparsePack GetWithFluxes(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
     const bool coarse = false;
     const bool fluxes = true;
-    return Get(pmd, AddFlag_(flags), fluxes, coarse);
+    return Get(pmd, flags, fluxes, coarse);
   }
 
   template <class T, class VAR_VEC>
@@ -164,7 +164,7 @@ class SparsePack : public SparsePackBase {
                 const std::vector<MetadataFlag> &flags = {}) {
     const bool coarse = false;
     const bool fluxes = true;
-    Get(pmd, vars, AddFlag_(flags), fluxes, coarse);
+    Get(pmd, vars, flags, fluxes, coarse);
   }
 
   template <class T>
@@ -206,7 +206,7 @@ class SparsePack : public SparsePackBase {
     const bool coarse = false;
     const bool fluxes = true;
     const bool flatten = true;
-    return Get(pmd, AddFlag_(flags), fluxes, coarse, flatten);
+    return Get(pmd, flags, fluxes, coarse, flatten);
   }
 
   template <class T, class VAR_VEC>
@@ -216,7 +216,7 @@ class SparsePack : public SparsePackBase {
     const bool coarse = false;
     const bool fluxes = true;
     const bool flatten = true;
-    return Get(pmd, vars, AddFlag_(flags), fluxes, coarse, flatten);
+    return Get(pmd, vars, flags, fluxes, coarse, flatten);
   }
 
   template <class T>
@@ -436,29 +436,6 @@ class SparsePack : public SparsePackBase {
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(dir, b, vidx)(k, j, i);
-  }
-
- private:
-  // Must make a copy of the vector, since input vector is const,
-  // and it may not even be an lvalue.
-  static std::vector<MetadataFlag> AddFlag_(const std::vector<MetadataFlag> &flags,
-                                            MetadataFlag mf = Metadata::WithFluxes) {
-    // TODO(LFR): We need to decide if variables w/o fluxes should end up a pack that asks
-    //            for WithFluxes. I actually use this reasonably often in practice, even
-    //            though I was the one who suggested enforcing that WithFluxes
-    //            PackDescriptors include the Metadata::WithFluxes flag.
-    return flags;
-    /*
-    if (std::find(flags.begin(), flags.end(), mf) == flags.end()) {
-      std::vector<MetadataFlag> out;
-      out.reserve(flags.size() + 1);
-      out.insert(out.begin(), flags.begin(), flags.end());
-      out.push_back(mf);
-      return out;
-    } else {
-      return flags;
-    }
-    */
   }
 };
 

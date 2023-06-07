@@ -181,7 +181,7 @@ class UniformCartesian {
     } else {
       return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1]; // idx
     }
-    return 0;
+    return 0; // This should never be reached, but w/o it some compilers generate warnings
   }
 
   template <int dir, TopologicalElement el>
@@ -272,6 +272,8 @@ class UniformCartesian {
     } else if constexpr (el == TE::NN) {
       return 1.0;
     }
+    PARTHENON_FAIL("If you reach this point, someone has added a new value to the the "
+                   "TopologicalElement enum.");
     return 0.0;
   }
 
