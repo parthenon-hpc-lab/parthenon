@@ -105,6 +105,7 @@ add_library(parthenon
   bvals/comms/tag_map.cpp 
   bvals/comms/tag_map.hpp 
   
+  bvals/boundary_conditions_generic.hpp
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
 
