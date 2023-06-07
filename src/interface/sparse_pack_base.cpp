@@ -168,6 +168,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                       pack_h(1, b, idx) = pv->data.Get(1, t, u, v);
                       pack_h(2, b, idx) = pv->data.Get(2, t, u, v);
                     }
+                    if (pv->IsSet(Metadata::Vector)) {
+                      pack_h(0, b, idx).vector_component = X1DIR;
+                      pack_h(1, b, idx).vector_component = X2DIR;
+                      pack_h(2, b, idx).vector_component = X3DIR;
+                    }
                   } else { // This is a cell, node, or a variable that doesn't have
                            // topology information
                     if (pack.coarse_) {
@@ -175,6 +180,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                     } else {
                       pack_h(0, b, idx) = pv->data.Get(0, t, u, v);
                     }
+                    if (pv->IsSet(Metadata::Vector)) pack_h(0, b, idx).vector_component = v + 1; 
+                    
                     if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
                       pack_h(1, b, idx) = pv->flux[X1DIR].Get(0, t, u, v);
                       pack_h(2, b, idx) = pv->flux[X2DIR].Get(0, t, u, v);
@@ -206,16 +213,10 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
     // Record the maximum for easy access
     pack.bounds_h_(1, block, nvar) = idx - 1;
   });
-
   Kokkos::deep_copy(pack.pack_, pack_h);
   Kokkos::deep_copy(pack.bounds_, pack.bounds_h_);
   Kokkos::deep_copy(pack.coords_, coords_h);
-  pack.dims_[1] = pack.nblocks_;
-  pack.dims_[2] = -1; // Not allowed to ask for the ragged dimension anyway
-  pack.dims_[3] = pack_h(0, 0, 0).extent_int(0);
-  pack.dims_[4] = pack_h(0, 0, 0).extent_int(2);
-  pack.dims_[5] = pack_h(0, 0, 0).extent_int(3);
-
+  
   return pack;
 }
 
