@@ -53,6 +53,20 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
 
 namespace BoundaryFunction {
 
+TaskStatus ApplyBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd) {
+  for (int b = 0; b < pmd->NumBlocks(); ++b)
+    ApplyBoundaryConditions(pmd->GetBlockData(b));
+  return TaskStatus::complete;
+}
+
+inline TaskStatus
+ApplyBoundaryConditionsOnCoarseOrFineMD(std::shared_ptr<MeshData<Real>> &pmd,
+                                        bool coarse) {
+  for (int b = 0; b < pmd->NumBlocks(); ++b)
+    ApplyBoundaryConditionsOnCoarseOrFine(pmd->GetBlockData(b), coarse);
+  return TaskStatus::complete;
+}
+
 void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   GenericBC<X1DIR, BCSide::Inner, BCType::Outflow, variable_names::any>(rc, coarse);
 }
