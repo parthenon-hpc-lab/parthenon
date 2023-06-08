@@ -245,8 +245,7 @@ MPI_Request SendSameToSame(int lid_recv, int dest_rank, Variable<Real> *var,
     PARTHENON_REQUIRE(
         Globals::nghost > 1,
         "AMR SameToSame communication requires blocks to have at least two ghost zones");
-    auto counter_subview =
-        Kokkos::subview(var->data.KokkosView(), 0, 0, 0, 0, 0, std::make_pair(0, 2));
+    auto counter_subview = Kokkos::subview(var->data, std::make_pair(0, 2));
     auto counter_subview_h = Kokkos::create_mirror_view(HostMemSpace(), counter_subview);
     counter_subview_h(0) = static_cast<Real>(pmb->pmr->DereferenceCount());
     counter_subview_h(1) = static_cast<Real>(var->dealloc_count);
