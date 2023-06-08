@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 884]](https://github.com/parthenon-hpc-lab/parthenon/pull/884) Add constant derivative BC and expose GenericBC
 - [[PR 872]](https://github.com/parthenon-hpc-lab/parthenon/pull/872) Boundary communication for non-cell centered fields
 - [[PR 877]](https://github.com/parthenon-hpc-lab/parthenon/pull/877) Add flat sparse packs
 - [[PR 868]](https://github.com/parthenon-hpc-lab/parthenon/pull/868) Add block-local face, edge, and nodal fields and allow for packing
