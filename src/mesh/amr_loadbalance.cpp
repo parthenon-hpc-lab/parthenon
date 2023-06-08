@@ -275,8 +275,7 @@ bool TryRecvSameToSame(int lid_recv, int send_rank, Variable<Real> *var, MeshBlo
       if (!pmb->IsAllocated(var->label())) pmb->AllocateSparse(var->label());
       PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
                                    send_rank, tag, comm, MPI_STATUS_IGNORE));
-      auto counter_subview =
-          Kokkos::subview(var->data.KokkosView(), 0, 0, 0, 0, 0, std::make_pair(0, 2));
+      auto counter_subview = Kokkos::subview(var->data, std::make_pair(0, 2));
       auto counter_subview_h =
           Kokkos::create_mirror_view_and_copy(HostMemSpace(), counter_subview);
       pmb->pmr->DereferenceCount() = static_cast<int>(counter_subview_h(0));
