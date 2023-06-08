@@ -148,7 +148,8 @@ class ParArrayGeneric : public State {
                   label);
   }
 
-  template <class... Args, REQUIRES(all_implement<integral_or_enum(Args...)>::value),
+  template <class... Args,
+            REQUIRES(all_implement<integral_or_enum_or_pair(Args...)>::value),
             REQUIRES(Data::rank - sizeof...(Args) >= 0)>
   KOKKOS_FORCEINLINE_FUNCTION auto Get(Args... args) const {
     return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
@@ -314,9 +315,19 @@ namespace Kokkos {
 
 // JMM: for some reason this works better than Slice. And it seems
 // like we're doing evil Kokkos namespace overloads anyway so...
-template <class U, class SU, typename... Args>
+template <class U, class SU, typename... Args, REQUIRES(U::rank - sizeof...(Args) >= 0)>
 inline auto subview(const parthenon::ParArrayGeneric<U, SU> &arr, Args... args) {
-  auto v = Kokkos::subview(static_cast<U>(arr), std::forward<Args>(args)...);
+  return subview(std::make_index_sequence<U::rank - sizeof...(args)>(), arr,
+                 std::forward<Args>(args)...);
+  // auto v = Kokkos::subview(static_cast<U>(arr), std::forward<Args>(args)...);
+  // return parthenon::ParArrayGeneric<decltype(v), SU>(v, arr);
+}
+
+template <class U, class SU, typename... Args, std::size_t... I>
+inline auto subview(std::index_sequence<I...>,
+                    const parthenon::ParArrayGeneric<U, SU> &arr, Args... args) {
+  auto v =
+      Kokkos::subview(static_cast<U>(arr), ((void)I, 0)..., std::forward<Args>(args)...);
   return parthenon::ParArrayGeneric<decltype(v), SU>(v, arr);
 }
 

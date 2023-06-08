@@ -67,6 +67,8 @@ class Variable {
   Variable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
               std::weak_ptr<MeshBlock> wpmb);
 
+  Variable() = default;
+  ~Variable() {}
   // copy fluxes and boundary variable from src Variable (shallow copy)
   void CopyFluxesAndBdryVar(const Variable<T> *src);
 
@@ -75,22 +77,22 @@ class Variable {
 
   // accessors
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
-    assert(IsAllocated());
+  KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) const {
+    assert(data.size() > 0);
     return data(std::forward<Args>(args)...);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
     // we can't query data.GetDim() here because data may be unallocated
-    assert(0 < i && i <= 6 && "ParArrayNDs are max 6D");
+    assert(0 < i && i <= MAX_VARIABLE_DIMENSION && "ParArrayNDs are max 6D");
     return dims_[i - 1];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetCoarseDim(const int i) const {
     // we can't query coarse_s.GetDim() here because it may be unallocated
-    assert(0 < i && i <= 6 && "ParArrayNDs are max 6D");
+    assert(0 < i && i <= MAX_VARIABLE_DIMENSION && "ParArrayNDs are max 6D");
     return coarse_dims_[i - 1];
   }
 
@@ -159,12 +161,12 @@ class Variable {
   /// (Metadata::FillGhost is set)
   void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
 
-  VariableState MakeVariableState() const { return VariableState(m_, sparse_id_); }
+  VariableState MakeVariableState() const { return VariableState(m_, sparse_id_, dims_); }
 
   Metadata m_;
   const std::string base_name_;
   const int sparse_id_;
-  const std::array<int, 6> dims_, coarse_dims_;
+  const std::array<int, MAX_VARIABLE_DIMENSION> dims_, coarse_dims_;
 
   // Machinery for giving each variable a unique ID that is faster to
   // evaluate than a string. Safe so long as the number of MPI ranks
@@ -175,7 +177,7 @@ class Variable {
   inline static UniqueIDGenerator<std::string> get_uid_;
 
   bool is_allocated_ = false;
-  ParArray7D<T> flux_data_; // unified par array for the fluxes
+  ParArrayND<T> flux_data_; // unified par array for the fluxes
 };
 
 template <typename T>
@@ -224,7 +226,7 @@ class ParticleVariable {
  private:
   Metadata m_;
   std::string label_;
-  std::array<int, 6> dims_;
+  std::array<int, MAX_VARIABLE_DIMENSION> dims_;
 
  public:
   ParArrayND<T> data;

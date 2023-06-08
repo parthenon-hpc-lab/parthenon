@@ -535,7 +535,8 @@ class Metadata {
   /*--------------------------------------------------------*/
 
   // get the dims of the 6D array
-  std::array<int, 6> GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const;
+  std::array<int, MAX_VARIABLE_DIMENSION> GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
+                                                       bool coarse) const;
 
   /// Returns the attribute flags as a string of 1/0
   std::string MaskAsString() const {
@@ -667,6 +668,14 @@ class Metadata {
     return num;
   }
 };
+
+inline TopologicalType GetTopologicalType(const Metadata &md) {
+  using TT = TopologicalType;
+  if (md.IsSet(Metadata::Face)) return TT::Face;
+  if (md.IsSet(Metadata::Edge)) return TT::Edge;
+  if (md.IsSet(Metadata::Node)) return TT::Node;
+  return TT::Cell; // Default case
+}
 
 namespace MetadataUtils {
 // From a given container, extract all variables whose Metadata matchs the all of the

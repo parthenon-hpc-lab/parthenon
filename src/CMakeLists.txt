@@ -214,6 +214,7 @@ add_library(parthenon
 
   utils/alias_method.cpp
   utils/alias_method.hpp
+  utils/array_to_tuple.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
@@ -225,6 +226,7 @@ add_library(parthenon
   utils/hash.hpp
   utils/loop_utils.hpp
   utils/mpi_types.hpp
+  utils/multi_pointer.hpp
   utils/nan_payload_tag.hpp
   utils/object_pool.hpp
   utils/partition_stl_containers.hpp
