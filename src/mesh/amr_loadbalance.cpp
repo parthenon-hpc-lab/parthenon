@@ -123,8 +123,8 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
       parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "FillSameRankCoarseToFineAMR", DevExecSpace(), 0, nt, 0,
-          nu, 0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          DEFAULT_LOOP_PATTERN, "ReceiveCoarseToFineAMR", DevExecSpace(), 0, nt, 0, nu, 0,
+          nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
                         const int i) {
             cb(t, u, v, k, j, i) = fb(t, u, v, k + ks, j + js, i + is);
@@ -205,14 +205,15 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
       parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "FillSameRankCoarseToFineAMR", DevExecSpace(), 0, nt, 0,
-          nu, 0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          DEFAULT_LOOP_PATTERN, "ReceiveFineToCoarseAMR", DevExecSpace(), 0, nt, 0, nu, 0,
+          nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
                         const int i) {
             fb(t, u, v, k + ks, j + js, i + is) = cb(t, u, v, k, j, i);
           });
       // We have to block here w/o buffering so that the write is guaranteed to be
-      // finished before we get here again
+      // finished before another fine block that is restricted to a sub-region of
+      // this coarse block makes an MPI call and overwrites the coarse buffer.
       Kokkos::fence();
     } else {
 #ifdef MPI_PARALLEL
@@ -232,7 +233,18 @@ MPI_Request SendSameToSame(int lid_recv, int dest_rank, Variable<Real> *var,
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
   int tag = CreateAMRMPITag(lid_recv, 0, 0, 0);
   if (var->IsAllocated()) {
-    // This assumes we have two ghost zones
+    // Metadata about this field also needs to be copied from this rank to the
+    // receiving rank (namely the dereference count and the dealloc_count). Not
+    // doing this can cause some subtle differences between runs of the same
+    // problem on different numbers of ranks. Rather than send individual messages,
+    // we just package these in the first two ghost zones of the block. This is ok
+    // because the AMR communication is only required to communicate the interior
+    // zones. The ghosts are communicated to prevent the need to allocate buffers,
+    // but the data in them is not required to be valid. This requires that we have
+    // at least two ghost zones.
+    PARTHENON_REQUIRE(
+        Globals::nghost > 1,
+        "AMR SameToSame communication requires blocks to have at least two ghost zones");
     auto counter_subview =
         Kokkos::subview(var->data.KokkosView(), 0, 0, 0, 0, 0, std::make_pair(0, 2));
     auto counter_subview_h = Kokkos::create_mirror_view(HostMemSpace(), counter_subview);
@@ -642,8 +654,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   if (mesh_size.nx2 > 1) nleaf = 4;
   if (mesh_size.nx3 > 1) nleaf = 8;
 
-  // Step 1. construct new lists
-  Kokkos::Profiling::pushRegion("Step1: Construct new list");
+  // construct new lists
+  Kokkos::Profiling::pushRegion("Construct new list");
   std::vector<LogicalLocation> newloc(ntot);
   std::vector<int> newrank(ntot);
   std::vector<double> newcost(ntot);
@@ -685,19 +697,19 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
   }
 
-  // store old nbstart and nbend before load balancing in Step 2.
+  // store old nbstart and nbend before load balancing.
   int onbs = nslist[Globals::my_rank];
   int onbe = onbs + nblist[Globals::my_rank] - 1;
 
-  Kokkos::Profiling::popRegion(); // Step 1
+  Kokkos::Profiling::popRegion(); // Construct new list
 
-  // Step 2. Calculate new load balance
+  // Calculate new load balance
   CalculateLoadBalance(newcost, newrank, nslist, nblist);
 
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
-  // Step 7 - eps: Restrict fine to coarse buffers
+  // Restrict fine to coarse buffers
   for (int on = onbs; on <= onbe; on++) {
     int nn = oldtonew[on];
     if (newloc[nn].level < loclist[on].level) {
@@ -718,8 +730,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   Kokkos::fence();
 
 #ifdef MPI_PARALLEL
-  // Step 7. Send data from old to new blocks
-  Kokkos::Profiling::pushRegion("Step 7: Send");
+  // Send data from old to new blocks
+  Kokkos::Profiling::pushRegion("AMR: Send");
   std::vector<MPI_Request> send_reqs;
   for (int n = onbs; n <= onbe; n++) {
     int nn = oldtonew[n];
@@ -746,11 +758,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                                                 oloc, var.get(), this));
     }
   }
-  Kokkos::Profiling::popRegion(); // Step 7
+  Kokkos::Profiling::popRegion(); // AMR: Send
 #endif                            // MPI_PARALLEL
 
-  // Step 8. construct a new MeshBlock list (moving the data within the MPI rank)
-  Kokkos::Profiling::pushRegion("Step 8: Construct new MeshBlockList");
+  // Construct a new MeshBlock list (moving the data within the MPI rank)
+  Kokkos::Profiling::pushRegion("AMR: Construct new MeshBlockList");
   RegionSize block_size = GetBlockSize();
 
   BlockList_t new_block_list(nbe - nbs + 1);
@@ -787,13 +799,17 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     block_list[n - nbs]->lid = n - nbs;
   }
 
-  Kokkos::Profiling::popRegion(); // Step 8: Construct new MeshBlockList
+  Kokkos::Profiling::popRegion(); // AMR: Construct new MeshBlockList
 
-  // Step 9. Receive the data and load into MeshBlocks
-  Kokkos::Profiling::pushRegion("Step 9: Recv data and unpack");
+  // Receive the data and load into MeshBlocks
+  Kokkos::Profiling::pushRegion("AMR: Recv data and unpack");
   bool all_received;
   int niter = 0;
   if (block_list.size() > 0) {
+    // Create a vector for holding the status of all communications, it is sized to fit
+    // the maximal number of calculations that this rank could receive: the number of
+    // blocks on the rank x the number of variables x times the number of fine blocks
+    // that would communicate if every block had been coarsened (8 in 3D)
     std::vector<bool> finished(
         std::max((nbe - nbs + 1), 1) * FindMeshBlock(nbs)->vars_cc_.size() * 8, false);
     do {
@@ -875,7 +891,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     PARTHENON_MPI_CHECK(
         MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
 #endif
-  Kokkos::Profiling::popRegion(); // Step 9
+  Kokkos::Profiling::popRegion(); // AMR: Recv data and unpack
 
   // update the lists
   loclist = std::move(newloc);
