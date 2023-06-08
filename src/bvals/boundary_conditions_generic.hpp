@@ -29,11 +29,11 @@ namespace parthenon {
 namespace BoundaryFunction {
 
 enum class BCSide { Inner, Outer };
-enum class BCType { Outflow, Reflect, ConstantDeriv };
+enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed };
 
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
-               TopologicalElement el) {
+               TopologicalElement el, Real val) {
   // make sure DIR is X[123]DIR so we don't have to check again
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
 
@@ -104,6 +104,8 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
           }
           q(b, el, l, k, j, i) =
               q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i) + delta * dq;
+        } else if (TYPE == BCType::Fixed) {
+          q(b, el, l, k, j, i) = val;
         } else {
           q(b, el, l, k, j, i) = q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);
         }
@@ -111,10 +113,10 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
 }
 
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
-void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse, Real val = 0.0) {
   using TE = TopologicalElement;
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    GenericBC<DIR, SIDE, TYPE, var_ts...>(rc, coarse, el);
+    GenericBC<DIR, SIDE, TYPE, var_ts...>(rc, coarse, el, val);
 }
 
 } // namespace BoundaryFunction
