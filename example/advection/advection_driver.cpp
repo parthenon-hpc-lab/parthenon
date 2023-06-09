@@ -149,13 +149,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto prolongBound = none;
-    if (pmesh->multilevel) {
-      prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
-    }
-
     // set physical boundaries
-    auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
+    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
 
     // fill in derived fields
     auto fill_derived = tl.AddTask(

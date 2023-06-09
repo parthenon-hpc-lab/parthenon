@@ -252,6 +252,11 @@ class MeshData {
     return block_data_[n];
   }
 
+  std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) {
+    assert(n >= 0 && n < block_data_.size());
+    return block_data_[n];
+  }
+
   void SetAllVariablesToInitialized() {
     std::for_each(block_data_.begin(), block_data_.end(),
                   [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });

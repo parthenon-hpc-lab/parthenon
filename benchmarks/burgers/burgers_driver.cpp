@@ -120,9 +120,6 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
 
-    if (pmesh->multilevel) {
-      tl.AddTask(set | set_local, parthenon::RestrictGhostHalos, mc1, false);
-    }
     // estimate next time step
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(update, EstimateTimestep<MeshData<Real>>, mc1.get());
@@ -136,13 +133,8 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto prolongBound = none;
-    if (pmesh->multilevel) {
-      prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
-    }
-
     // set physical boundaries
-    auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
+    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
 
     if (stage == integrator->nstages) {
       // Update refinement
