@@ -19,6 +19,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "config.hpp"
 #include "interface/params.hpp"
 
 using parthenon::Params;

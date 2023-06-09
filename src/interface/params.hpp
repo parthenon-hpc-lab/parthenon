@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -127,38 +127,26 @@ class Params {
 #ifdef ENABLE_HDF5
 
  private:
-  // will write all params with type T to the given HDF5 group as an attribute
+  // these can go in implementation file, since the only relevant
+  // instantiations are in that same implementation file.
   template <typename T>
   void WriteToHDF5AllParamsOfType(const std::string &prefix,
-                                  const HDF5::H5G &group) const {
-    for (const auto &p : myParams_) {
-      const auto &key = p.first;
-      const auto type = myTypes_.at(key);
-      if (type == std::type_index(typeid(T))) {
-        auto typed_ptr = dynamic_cast<Params::object_t<T> *>((p.second).get());
-        HDF5::HDF5WriteAttribute(prefix + "/" + key, *typed_ptr->pValue, group);
-      }
-    }
-  }
+                                  const HDF5::H5G &group) const;
+
+  template <typename... Ts>
+  void WriteToHDF5AllParamsOfMultipleTypes(const std::string &prefix,
+                                           const HDF5::H5G &group) const;
 
   template <typename T>
   void WriteToHDF5AllParamsOfTypeOrVec(const std::string &prefix,
-                                       const HDF5::H5G &group) const {
-    WriteToHDF5AllParamsOfType<T>(prefix, group);
-    WriteToHDF5AllParamsOfType<std::vector<T>>(prefix, group);
-  }
+                                       const HDF5::H5G &group) const;
+
+  template <typename... Ts>
+  void WriteToHDF5AllParamsOfMultipleTypesOrVec(const std::string &prefix,
+                                                const HDF5::H5G &group) const;
 
  public:
-  void WriteAllToHDF5(const std::string &prefix, const HDF5::H5G &group) const {
-    WriteToHDF5AllParamsOfTypeOrVec<bool>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<int32_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<int64_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<uint32_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<uint64_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<float>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<double>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<std::string>(prefix, group);
-  }
+  void WriteAllToHDF5(const std::string &prefix, const HDF5::H5G &group) const;
 
 #endif // ifdef ENABLE_HDF5
 

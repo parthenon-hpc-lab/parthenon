@@ -33,6 +33,8 @@
 #include <string>
 #include <vector>
 
+#include "kokkos_abstraction.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -111,6 +113,7 @@ static hid_t getHDF5Type(const uint32_t *) { return H5T_NATIVE_UINT32; }
 static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
+static hid_t getHDF5Type(const char *) { return H5T_NATIVE_CHAR; }
 
 // On MacOS size_t is "unsigned long" and uint64_t is != "unsigned long".
 // Thus, size_t is not captured by the overload above and needs to selectively enabled.
@@ -186,6 +189,10 @@ void HDF5WriteAttribute(const std::string &name, size_t num_values, const T *dat
   PARTHENON_HDF5_CHECK(H5Awrite(attribute, type, data));
 }
 
+// In CPP file
+void HDF5WriteAttribute(const std::string &name, const std::string &value,
+                        hid_t location);
+
 template <typename T>
 void HDF5WriteAttribute(const std::string &name, const std::vector<T> &values,
                         hid_t location) {
@@ -202,11 +209,38 @@ template <>
 void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values,
                         hid_t location);
 
-template <typename T>
-void HDF5WriteAttribute(const std::string &name, T value, hid_t location) {
+template <typename T, REQUIRES(implements<kokkos_view(T)>::value)>
+void HDF5WriteAttribute(const std::string &name, const T &view, hid_t location) {
+  // cpplint demands compile constants be all caps
+  constexpr size_t RANK = static_cast<size_t>(T::rank);
+  hsize_t dim[RANK];
+  for (size_t d = 0; d < RANK; ++d) {
+    dim[d] = view.extent_int(d);
+  }
+  const H5S data_space = H5S::FromHIDCheck(H5Screate_simple(RANK, dim, dim));
+  // works regardless of memory space of the view
+  auto pdata = view.data();
+  if constexpr (!std::is_same<typename T::memory_space, Kokkos::HostSpace>::value) {
+    auto view_h = Kokkos::create_mirror_view_and_copy(view);
+    pdata = view_h.data();
+  }
+  auto type = getHDF5Type(pdata);
+  H5A const attribute = H5A::FromHIDCheck(
+      H5Acreate(location, name.c_str(), type, data_space, H5P_DEFAULT, H5P_DEFAULT));
+  PARTHENON_HDF5_CHECK(H5Awrite(attribute, type, pdata));
+}
+
+template <typename T, REQUIRES(implements<scalar(T)>::value)>
+void HDF5WriteAttribute(const std::string &name, const T &value, hid_t location) {
   std::vector<T> vec(1);
   vec[0] = value;
   HDF5WriteAttribute(name, vec, location);
+}
+
+template <typename D, typename S>
+void HDF5WriteAttribute(const std::string &name, const ParArrayGeneric<D, S> &view,
+                        hid_t location) {
+  return HDF5WriteAttribute(name, view.KokkosView(), location);
 }
 
 template <typename T>

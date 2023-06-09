@@ -737,6 +737,11 @@ template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, S
 // Utility functions implemented
 namespace HDF5 {
 // template specializations for std::string
+void HDF5WriteAttribute(const std::string &name, const std::string &value,
+                        hid_t location) {
+  HDF5WriteAttribute(name, value.size(), value.c_str(), location);
+}
+
 template <>
 void HDF5WriteAttribute(const std::string &name, const std::vector<std::string> &values,
                         hid_t location) {
