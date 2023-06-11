@@ -51,6 +51,14 @@ void PackDescriptor::BuildUids(const StateDescriptor *const psd,
       }
     }
   }
+  // Ensure ordering in terms of value of sparse indices
+  for (auto &vg : var_groups) {
+    std::sort(vg.begin(), vg.end(), [](const auto &a, const auto &b) {
+      if (a.first.base_name == b.first.base_name)
+        return a.first.sparse_id < b.first.sparse_id;
+      return a.first.base_name < b.first.base_name;
+    });
+  }
 }
 
 void PackDescriptor::Print() const {
