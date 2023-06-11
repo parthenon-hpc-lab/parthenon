@@ -41,25 +41,27 @@ class StateDescriptor;
 
 namespace impl {
 struct PackDescriptor {
-  PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
+  PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
+                 const std::vector<bool> &use_regex,
                  const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
                  bool flat = false);
 
-  PackDescriptor(StateDescriptor *psd, const std::vector<std::pair<std::string, bool>> &vars_in,
+  PackDescriptor(StateDescriptor *psd,
+                 const std::vector<std::pair<std::string, bool>> &vars_in,
                  const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
                  bool flat = false);
 
   PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars_in,
                  const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
                  bool flat = false);
-  
-  void BuildUids(const StateDescriptor * const psd);
+
+  void BuildUids(const StateDescriptor *const psd);
 
   // Method for determining if variable pv should be included in pack for this
   // PackDescriptor
   bool IncludeVariable(int vidx, const std::shared_ptr<Variable<Real>> &pv) const;
 
-  bool IncludeVariable(int vidx, const VarID& id, const Metadata& md) const;
+  bool IncludeVariable(int vidx, const VarID &id, const Metadata &md) const;
 
   std::vector<std::string> vars;
   std::vector<std::regex> regexes;

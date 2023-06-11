@@ -126,7 +126,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack can be loaded on this data and report the bounds for block 2 "
            "appropriately.") {
-        auto desc = parthenon::MakePackDescriptor<v3, v5>(pkg.get(), {Metadata::WithFluxes}); 
+        auto desc =
+            parthenon::MakePackDescriptor<v3, v5>(pkg.get(), {Metadata::WithFluxes});
         auto pack = desc.MakePack(&mesh_data);
         int lo = pack.GetLowerBoundHost(2);
         int hi = pack.GetUpperBoundHost(2);
@@ -137,10 +138,12 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "
            "blocks") {
         // Create a pack use type variables
-        auto desc = parthenon::MakePackDescriptor<v5, v3>(pkg.get(), {Metadata::WithFluxes}); 
+        auto desc =
+            parthenon::MakePackDescriptor<v5, v3>(pkg.get(), {Metadata::WithFluxes});
         auto sparse_pack = desc.MakePack(&mesh_data);
 
-        auto desc_notype = parthenon::MakePackDescriptor(pkg.get(), std::vector<std::string>{"v5", "v3"}, {Metadata::WithFluxes});  
+        auto desc_notype = parthenon::MakePackDescriptor(
+            pkg.get(), std::vector<std::string>{"v5", "v3"}, {Metadata::WithFluxes});
         auto sparse_pack_notype = desc_notype.MakePack(&mesh_data);
         auto pack_map = desc_notype.GetMap();
         parthenon::PackIdx iv3(pack_map["v3"]);
@@ -176,9 +179,10 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A flattened sparse pack can correctly load this data in a unified outer "
            "index space") {
-        using parthenon::variable_names::any;
         using parthenon::PDOpt;
-        auto desc = parthenon::MakePackDescriptor<any>(pkg.get(), {}, {PDOpt::WithFluxes, PDOpt::Flatten}); 
+        using parthenon::variable_names::any;
+        auto desc = parthenon::MakePackDescriptor<any>(
+            pkg.get(), {}, {PDOpt::WithFluxes, PDOpt::Flatten});
         auto sparse_pack = desc.MakePack(&mesh_data);
         REQUIRE(sparse_pack.GetNBlocks() == 1);
         // v3 is deallocated on one block.
@@ -189,7 +193,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         REQUIRE(sparse_pack.GetSize() == 5 * NBLOCKS - 3);
         AND_THEN("A flattened sparse pack starting with v3 has sensible lower/upper "
                  "bounds on the block where we deallocate") {
-          auto desc = parthenon::MakePackDescriptor<v3, v5>(pkg.get(), {}, {PDOpt::WithFluxes, PDOpt::Flatten}); 
+          auto desc = parthenon::MakePackDescriptor<v3, v5>(
+              pkg.get(), {}, {PDOpt::WithFluxes, PDOpt::Flatten});
           auto pack = desc.MakePack(&mesh_data);
           int lo = pack.GetLowerBoundHost(2);
           int hi = pack.GetUpperBoundHost(2);
@@ -202,7 +207,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on a single "
            "block") {
-        auto desc = parthenon::MakePackDescriptor<v5, v3>(pkg.get()); 
+        auto desc = parthenon::MakePackDescriptor<v5, v3>(pkg.get());
         auto sparse_pack = desc.MakePack(block_list[0]->meshblock_data.Get().get());
         const int v = 1; // v3 is the second variable in the loop above so v = 1 there
         int nwrong = 0;
@@ -223,12 +228,14 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       }
 
       THEN("A sparse pack correctly reads based on a regex variable") {
-        auto desc = parthenon::MakePackDescriptor<parthenon::variable_names::any>(pkg.get()); 
+        auto desc =
+            parthenon::MakePackDescriptor<parthenon::variable_names::any>(pkg.get());
         auto sparse_pack = desc.MakePack(&mesh_data);
 
-        auto desc_notype = MakePackDescriptor(pkg.get(), std::vector<std::pair<std::string, bool>>{{".*", true}});
-        auto sparse_pack_notype = desc_notype.MakePack(&mesh_data); 
-        auto pack_map = desc_notype.GetMap(); 
+        auto desc_notype = MakePackDescriptor(
+            pkg.get(), std::vector<std::pair<std::string, bool>>{{".*", true}});
+        auto sparse_pack_notype = desc_notype.MakePack(&mesh_data);
+        auto pack_map = desc_notype.GetMap();
         parthenon::PackIdx iall(pack_map[".*"]);
 
         int nwrong = 0;

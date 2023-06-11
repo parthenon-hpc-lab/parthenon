@@ -19,6 +19,7 @@
 #include <map>
 #include <memory>
 #include <regex>
+#include <set>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -118,22 +119,24 @@ class SparsePack : public SparsePackBase {
   SparsePack() = default;
 
   explicit SparsePack(const SparsePackBase &spb) : SparsePackBase(spb) {}
-  
+
   class Descriptor : public impl::PackDescriptor {
-   public: 
-    Descriptor(const impl::PackDescriptor& desc_in) : impl::PackDescriptor(desc_in) {}
-    
+   public:
+    explicit Descriptor(const impl::PackDescriptor &desc_in)
+        : impl::PackDescriptor(desc_in) {}
+
     // Make a `SparsePack` from variable_name types in the type list Ts..., creating the
     // pack in `pmd->SparsePackCache` if it doesn't already exist. Variables can be
     // accessed on device via instance of types in the type list Ts...
     // The pack will be created and accessible on the device
     template <class T>
-    SparsePack MakePack(T* pmd) const {
+    SparsePack MakePack(T *pmd) const {
       return SparsePack(SparsePackBase::GetPack(pmd, *this));
     }
 
     SparsePackIdxMap GetMap() const {
-      PARTHENON_REQUIRE(sizeof...(Ts) == 0, "Should not be getting an IdxMap for a type based pack"); 
+      PARTHENON_REQUIRE(sizeof...(Ts) == 0,
+                        "Should not be getting an IdxMap for a type based pack");
       return SparsePackBase::GetIdxMap(*this);
     }
   };
@@ -339,31 +342,26 @@ class SparsePack : public SparsePackBase {
   }
 };
 
-enum class PDOpt {WithFluxes, Coarse, Flatten};
+enum class PDOpt { WithFluxes, Coarse, Flatten };
 
-template <class... Ts> 
-inline auto MakePackDescriptor(StateDescriptor *psd, 
+template <class... Ts>
+inline auto MakePackDescriptor(StateDescriptor *psd,
                                const std::vector<MetadataFlag> &flags = {},
-                               const std::set<PDOpt>& options = {}) {
-   
+                               const std::set<PDOpt> &options = {}) {
   static_assert(sizeof...(Ts) > 0, "Must have at least one variable type for type pack");
-  impl::PackDescriptor base_desc(psd, std::vector<std::string>{Ts::name()...},
-                                 std::vector<bool>{Ts::regex()...}, 
-                                 flags, 
-                                 options.count(PDOpt::WithFluxes),
-                                 options.count(PDOpt::Coarse), 
-                                 options.count(PDOpt::Flatten)); 
+  impl::PackDescriptor base_desc(
+      psd, std::vector<std::string>{Ts::name()...}, std::vector<bool>{Ts::regex()...},
+      flags, options.count(PDOpt::WithFluxes), options.count(PDOpt::Coarse),
+      options.count(PDOpt::Flatten));
   return typename SparsePack<Ts...>::Descriptor(base_desc);
 }
 
 template <class VAR_VEC>
-inline auto MakePackDescriptor(StateDescriptor *psd, 
-                               const VAR_VEC &vars, 
+inline auto MakePackDescriptor(StateDescriptor *psd, const VAR_VEC &vars,
                                const std::vector<MetadataFlag> &flags = {},
-                               const std::set<PDOpt>& options = {}) {
-  impl::PackDescriptor base_desc(psd, vars, flags,
-                                 options.count(PDOpt::WithFluxes),
-                                 options.count(PDOpt::Coarse), 
+                               const std::set<PDOpt> &options = {}) {
+  impl::PackDescriptor base_desc(psd, vars, flags, options.count(PDOpt::WithFluxes),
+                                 options.count(PDOpt::Coarse),
                                  options.count(PDOpt::Flatten));
   return typename SparsePack<>::Descriptor(base_desc);
 }

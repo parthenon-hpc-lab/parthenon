@@ -31,9 +31,10 @@
 #include "utils/utils.hpp"
 namespace parthenon {
 namespace impl {
-PackDescriptor::PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
-               const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-               bool flat)
+PackDescriptor::PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
+                               const std::vector<bool> &use_regex,
+                               const std::vector<MetadataFlag> &flags, bool with_fluxes,
+                               bool coarse, bool flat)
     : vars(vars), use_regex(use_regex), flags(flags), with_fluxes(with_fluxes),
       coarse(coarse), flat(flat) {
   PARTHENON_REQUIRE(use_regex.size() == vars.size(),
@@ -45,9 +46,10 @@ PackDescriptor::PackDescriptor(StateDescriptor *psd, const std::vector<std::stri
   BuildUids(psd);
 }
 
-PackDescriptor::PackDescriptor(StateDescriptor *psd, const std::vector<std::pair<std::string, bool>> &vars_in,
-               const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-               bool flat)
+PackDescriptor::PackDescriptor(StateDescriptor *psd,
+                               const std::vector<std::pair<std::string, bool>> &vars_in,
+                               const std::vector<MetadataFlag> &flags, bool with_fluxes,
+                               bool coarse, bool flat)
     : flags(flags), with_fluxes(with_fluxes), coarse(coarse), flat(flat) {
   for (auto var : vars_in) {
     vars.push_back(var.first);
@@ -60,9 +62,10 @@ PackDescriptor::PackDescriptor(StateDescriptor *psd, const std::vector<std::pair
   BuildUids(psd);
 }
 
-PackDescriptor::PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars_in,
-               const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-               bool flat)
+PackDescriptor::PackDescriptor(StateDescriptor *psd,
+                               const std::vector<std::string> &vars_in,
+                               const std::vector<MetadataFlag> &flags, bool with_fluxes,
+                               bool coarse, bool flat)
     : vars(vars_in), use_regex(vars_in.size(), false), flags(flags),
       with_fluxes(with_fluxes), coarse(coarse), flat(flat) {
   PARTHENON_REQUIRE(!(with_fluxes && coarse),
@@ -72,9 +75,9 @@ PackDescriptor::PackDescriptor(StateDescriptor *psd, const std::vector<std::stri
   BuildUids(psd);
 }
 
-void PackDescriptor::BuildUids(const StateDescriptor * const psd) {
+void PackDescriptor::BuildUids(const StateDescriptor *const psd) {
   auto fields = psd->AllFields();
-  uids = std::vector<std::vector<Uid_t>>(vars.size()); 
+  uids = std::vector<std::vector<Uid_t>>(vars.size());
   for (auto [id, md] : fields) {
     for (int i = 0; i < vars.size(); ++i) {
       if (IncludeVariable(i, id, md)) {
@@ -86,11 +89,13 @@ void PackDescriptor::BuildUids(const StateDescriptor * const psd) {
 
 // Method for determining if variable pv should be included in pack for this
 // PackDescriptor
-bool PackDescriptor::IncludeVariable(int vidx, const std::shared_ptr<Variable<Real>> &pv) const {
+bool PackDescriptor::IncludeVariable(int vidx,
+                                     const std::shared_ptr<Variable<Real>> &pv) const {
   return IncludeVariable(vidx, pv->GetVarID(), pv->metadata());
 }
 
-bool PackDescriptor::IncludeVariable(int vidx, const VarID& id, const Metadata& md) const {
+bool PackDescriptor::IncludeVariable(int vidx, const VarID &id,
+                                     const Metadata &md) const {
   // TODO(LFR): Check that the shapes agree
   if (flags.size() > 0) {
     for (const auto &flag : flags) {
@@ -138,9 +143,11 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
 
   std::vector<int> astat;
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
+    auto &uid_map = pmbd->GetUidMap();
     for (int i = 0; i < nvar; ++i) {
-      for (auto &pv : pmbd->GetVariableVector()) {
-        if (desc.IncludeVariable(i, pv)) {
+      for (auto id : desc.uids[i]) {
+        if (uid_map.count(id) > 0) {
+          auto pv = uid_map[id];
           astat.push_back(pv->GetAllocationStatus());
         }
       }
@@ -178,9 +185,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
       size = 0;
     }
     nblocks++;
-    for (auto &pv : pmbd->GetVariableVector()) {
-      for (int i = 0; i < nvar; ++i) {
-        if (desc.IncludeVariable(i, pv)) {
+    auto &uid_map = pmbd->GetUidMap();
+    for (int i = 0; i < nvar; ++i) {
+      for (auto id : desc.uids[i]) {
+        if (uid_map.count(id) > 0) {
+          auto pv = uid_map[id];
           if (pv->IsAllocated()) {
             if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge))
               contains_face_or_edge = true;
@@ -191,6 +200,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
         }
       }
     }
+
     max_size = std::max(size, max_size);
   });
   pack.nblocks_ = desc.flat ? 1 : nblocks;
@@ -221,6 +231,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   int idx = 0;
   ForEachBlock(pmd, [&](int block, mbd_t *pmbd) {
     int b = 0;
+    auto &uid_map = pmbd->GetUidMap();
     if (!desc.flat) {
       idx = 0;
       b = block;
@@ -232,8 +243,9 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
 
     for (int i = 0; i < nvar; ++i) {
       pack.bounds_h_(0, block, i) = idx;
-      for (auto &pv : pmbd->GetVariableVector()) {
-        if (desc.IncludeVariable(i, pv)) {
+      for (auto id : desc.uids[i]) {
+        if (uid_map.count(id) > 0) {
+          auto pv = uid_map[id];
           if (pv->IsAllocated()) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
