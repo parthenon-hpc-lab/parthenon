@@ -321,7 +321,9 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
     // This pack will always be freshly built, since we only get here if sparse data
     // was allocated and hasn't been initialized, which in turn implies the cached
     // pack must be stale.
-    auto v = parthenon::SparsePack<variable_names::any>::Get(rc, {Metadata::Sparse});
+    auto desc = parthenon::MakePackDescriptor<variable_names::any>(rc->GetMeshPointer()->resolved_packages.get(), {Metadata::Sparse});
+    auto v = desc.GetPack(rc); 
+    //auto v = parthenon::SparsePack<variable_names::any>::Get(rc, {Metadata::Sparse});
 
     Kokkos::parallel_for(
         "Set newly allocated interior to default",

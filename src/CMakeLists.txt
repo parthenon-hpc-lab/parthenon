@@ -147,6 +147,7 @@ add_library(parthenon
   interface/state_descriptor.cpp
   interface/update.cpp
   interface/update.hpp
+  interface/var_id.hpp
   interface/variable_pack.hpp
   interface/variable_state.hpp
   interface/variable_state.cpp

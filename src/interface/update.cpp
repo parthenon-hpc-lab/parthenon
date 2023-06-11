@@ -147,11 +147,14 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   const IndexRange ib = md->GetBoundsI(IndexDomain::entire);
   const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
   const IndexRange kb = md->GetBoundsK(IndexDomain::entire);
-
+  
   auto control_vars = md->GetMeshPointer()->resolved_packages->GetControlVariables();
-  const auto tup = SparsePack<>::Get(md, control_vars, {Metadata::Sparse});
-  auto pack = std::get<0>(tup);
-  auto packIdx = std::get<1>(tup);
+  //const auto tup = SparsePack<>::Get(md, control_vars, {Metadata::Sparse});
+  //auto pack = std::get<0>(tup);
+  //auto packIdx = std::get<1>(tup);
+  auto desc = MakePackDescriptor(md->GetMeshPointer()->resolved_packages.get(), control_vars, {Metadata::Sparse}); 
+  auto pack = desc.MakePack(md); 
+  auto packIdx = desc.GetMap(); 
 
   ParArray2D<bool> is_zero("IsZero", pack.GetNBlocks(), pack.GetMaxNumberOfVars());
   const int Ni = ib.e + 1 - ib.s;

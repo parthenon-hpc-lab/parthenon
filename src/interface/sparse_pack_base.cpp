@@ -26,8 +26,88 @@
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/sparse_pack_base.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "utils/utils.hpp"
+namespace parthenon {
+namespace impl {
+PackDescriptor::PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
+               const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
+               bool flat)
+    : vars(vars), use_regex(use_regex), flags(flags), with_fluxes(with_fluxes),
+      coarse(coarse), flat(flat) {
+  PARTHENON_REQUIRE(use_regex.size() == vars.size(),
+                    "Must have a regex flag for each variable.");
+  PARTHENON_REQUIRE(!(with_fluxes && coarse),
+                    "Probably shouldn't be making a coarse pack with fine fluxes.");
+  for (const auto &var : vars)
+    regexes.push_back(std::regex(var));
+  BuildUids(psd);
+}
+
+PackDescriptor::PackDescriptor(StateDescriptor *psd, const std::vector<std::pair<std::string, bool>> &vars_in,
+               const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
+               bool flat)
+    : flags(flags), with_fluxes(with_fluxes), coarse(coarse), flat(flat) {
+  for (auto var : vars_in) {
+    vars.push_back(var.first);
+    use_regex.push_back(var.second);
+  }
+  PARTHENON_REQUIRE(!(with_fluxes && coarse),
+                    "Probably shouldn't be making a coarse pack with fine fluxes.");
+  for (const auto &var : vars)
+    regexes.push_back(std::regex(var));
+  BuildUids(psd);
+}
+
+PackDescriptor::PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars_in,
+               const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
+               bool flat)
+    : vars(vars_in), use_regex(vars_in.size(), false), flags(flags),
+      with_fluxes(with_fluxes), coarse(coarse), flat(flat) {
+  PARTHENON_REQUIRE(!(with_fluxes && coarse),
+                    "Probably shouldn't be making a coarse pack with fine fluxes.");
+  for (const auto &var : vars)
+    regexes.push_back(std::regex(var));
+  BuildUids(psd);
+}
+
+void PackDescriptor::BuildUids(const StateDescriptor * const psd) {
+  auto fields = psd->AllFields();
+  uids = std::vector<std::vector<Uid_t>>(vars.size()); 
+  for (auto [id, md] : fields) {
+    for (int i = 0; i < vars.size(); ++i) {
+      if (IncludeVariable(i, id, md)) {
+        uids[i].push_back(Variable<Real>::GetUniqueID(id.label()));
+      }
+    }
+  }
+}
+
+// Method for determining if variable pv should be included in pack for this
+// PackDescriptor
+bool PackDescriptor::IncludeVariable(int vidx, const std::shared_ptr<Variable<Real>> &pv) const {
+  return IncludeVariable(vidx, pv->GetVarID(), pv->metadata());
+}
+
+bool PackDescriptor::IncludeVariable(int vidx, const VarID& id, const Metadata& md) const {
+  // TODO(LFR): Check that the shapes agree
+  if (flags.size() > 0) {
+    for (const auto &flag : flags) {
+      if (!md.IsSet(flag)) return false;
+    }
+  }
+
+  if (use_regex[vidx]) {
+    if (std::regex_match(std::string(id.label()), regexes[vidx])) return true;
+  } else {
+    if (vars[vidx] == id.label()) return true;
+    if (vars[vidx] == id.base_name && id.sparse_id != InvalidSparseID) return true;
+  }
+  return false;
+}
+} // namespace impl
+} // namespace parthenon
 
 namespace {
 // SFINAE for block iteration so that sparse packs can work for MeshBlockData and MeshData

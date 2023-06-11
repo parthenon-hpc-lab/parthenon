@@ -118,7 +118,20 @@ class SparsePack : public SparsePackBase {
   SparsePack() = default;
 
   explicit SparsePack(const SparsePackBase &spb) : SparsePackBase(spb) {}
-
+  
+  class Descriptor : public impl::PackDescriptor {
+   public: 
+    Descriptor(const impl::PackDescriptor& desc_in) : impl::PackDescriptor(desc_in) {}
+    template <class T>
+    SparsePack MakePack(T* pmd) const {
+      return SparsePack(SparsePackBase::GetPack(pmd, *this));
+    }
+    SparsePackIdxMap GetMap() const {
+      PARTHENON_REQUIRE(sizeof...(Ts) == 0, "Should not be getting an IdxMap for a type based pack"); 
+      return SparsePackBase::GetIdxMap(*this);
+    }
+  };
+  /*
   // Make a `SparsePack` from variable_name types in the type list Ts..., creating the
   // pack in `pmd->SparsePackCache` if it doesn't already exist. Variables can be
   // accessed on device via instance of types in the type list Ts...
@@ -126,7 +139,8 @@ class SparsePack : public SparsePackBase {
   template <class T>
   static SparsePack Get(T *pmd, const std::vector<MetadataFlag> &flags = {},
                         bool fluxes = false, bool coarse = false, bool flatten = false) {
-    const impl::PackDescriptor desc(std::vector<std::string>{Ts::name()...},
+    const impl::PackDescriptor desc(pmd->GetMeshPointer()->resolved_packages.get(), 
+                                    std::vector<std::string>{Ts::name()...},
                                     std::vector<bool>{Ts::regex()...}, flags, fluxes,
                                     coarse, flatten);
     return SparsePack(SparsePackBase::GetPack(pmd, desc));
@@ -145,7 +159,8 @@ class SparsePack : public SparsePackBase {
   Get(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
       bool fluxes = false, bool coarse = false, bool flatten = false) {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
-    impl::PackDescriptor desc(vars, flags, fluxes, coarse, flatten);
+    impl::PackDescriptor desc(pmd->GetMeshPointer()->resolved_packages.get(),
+      vars, flags, fluxes, coarse, flatten);
     return {SparsePack(SparsePackBase::GetPack(pmd, desc)),
             SparsePackBase::GetIdxMap(desc)};
   }
@@ -237,7 +252,7 @@ class SparsePack : public SparsePackBase {
     const bool flatten = true;
     return Get(pmd, vars, flags, fluxes, coarse, flatten);
   }
-
+  */
   // Methods for getting parts of the shape of the pack
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNBlocks() const { return nblocks_; }
@@ -438,6 +453,29 @@ class SparsePack : public SparsePackBase {
     return pack_(dir, b, vidx)(k, j, i);
   }
 };
+
+enum class PDOpt {WithFluxes, Coarse, Flatten};
+template <class... Ts> 
+inline auto MakePackDescriptor(StateDescriptor *psd, 
+                               const std::vector<MetadataFlag> &flags = {},
+                               bool fluxes = false, 
+                               bool coarse = false, 
+                               bool flatten = false) { 
+  static_assert(sizeof...(Ts) > 0, "Must have at least one variable type for type pack");
+  impl::PackDescriptor base_desc(psd, std::vector<std::string>{Ts::name()...},
+                                 std::vector<bool>{Ts::regex()...}, flags, fluxes,
+                                 coarse, flatten); 
+  return typename SparsePack<Ts...>::Descriptor(base_desc);
+}
+
+template <class VAR_VEC>
+inline auto MakePackDescriptor(StateDescriptor *psd, 
+                               const VAR_VEC &vars, 
+                               const std::vector<MetadataFlag> &flags = {},
+                               bool fluxes = false, bool coarse = false, bool flatten = false) {
+  impl::PackDescriptor base_desc(psd, vars, flags, fluxes, coarse, flatten);
+  return typename SparsePack<>::Descriptor(base_desc);
+}
 
 } // namespace parthenon
 

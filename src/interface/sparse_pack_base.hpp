@@ -37,68 +37,35 @@ class SparsePackCache;
 // Map for going from variable names to sparse pack variable indices
 using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
 
+class StateDescriptor;
+
 namespace impl {
 struct PackDescriptor {
-  PackDescriptor(const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
+  PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
                  const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-                 bool flat = false)
-      : vars(vars), use_regex(use_regex), flags(flags), with_fluxes(with_fluxes),
-        coarse(coarse), flat(flat) {
-    PARTHENON_REQUIRE(use_regex.size() == vars.size(),
-                      "Must have a regex flag for each variable.");
-    PARTHENON_REQUIRE(!(with_fluxes && coarse),
-                      "Probably shouldn't be making a coarse pack with fine fluxes.");
-    for (const auto &var : vars)
-      regexes.push_back(std::regex(var));
-  }
+                 bool flat = false);
 
-  PackDescriptor(const std::vector<std::pair<std::string, bool>> &vars_in,
+  PackDescriptor(StateDescriptor *psd, const std::vector<std::pair<std::string, bool>> &vars_in,
                  const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-                 bool flat = false)
-      : flags(flags), with_fluxes(with_fluxes), coarse(coarse), flat(flat) {
-    for (auto var : vars_in) {
-      vars.push_back(var.first);
-      use_regex.push_back(var.second);
-    }
-    PARTHENON_REQUIRE(!(with_fluxes && coarse),
-                      "Probably shouldn't be making a coarse pack with fine fluxes.");
-    for (const auto &var : vars)
-      regexes.push_back(std::regex(var));
-  }
+                 bool flat = false);
 
-  PackDescriptor(const std::vector<std::string> &vars_in,
+  PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars_in,
                  const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-                 bool flat = false)
-      : vars(vars_in), use_regex(vars_in.size(), false), flags(flags),
-        with_fluxes(with_fluxes), coarse(coarse), flat(flat) {
-    PARTHENON_REQUIRE(!(with_fluxes && coarse),
-                      "Probably shouldn't be making a coarse pack with fine fluxes.");
-    for (const auto &var : vars)
-      regexes.push_back(std::regex(var));
-  }
+                 bool flat = false);
+  
+  void BuildUids(const StateDescriptor * const psd);
 
   // Method for determining if variable pv should be included in pack for this
   // PackDescriptor
-  bool IncludeVariable(int vidx, const std::shared_ptr<Variable<Real>> &pv) const {
-    // TODO(LFR): Check that the shapes agree
-    if (flags.size() > 0) {
-      for (const auto &flag : flags) {
-        if (!pv->IsSet(flag)) return false;
-      }
-    }
+  bool IncludeVariable(int vidx, const std::shared_ptr<Variable<Real>> &pv) const;
 
-    if (use_regex[vidx]) {
-      if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
-    } else {
-      if (vars[vidx] == pv->label()) return true;
-    }
-    return false;
-  }
+  bool IncludeVariable(int vidx, const VarID& id, const Metadata& md) const;
 
   std::vector<std::string> vars;
   std::vector<std::regex> regexes;
   std::vector<bool> use_regex;
   std::vector<MetadataFlag> flags;
+  std::vector<std::vector<Uid_t>> uids;
   bool with_fluxes;
   bool coarse;
   bool flat;
