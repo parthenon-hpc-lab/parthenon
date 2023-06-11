@@ -49,6 +49,8 @@ struct PackDescriptor {
 
   void BuildUids(const StateDescriptor *const psd, const SelectorFunction_t &selector);
 
+  void Print() const;
+
   using VariableGroup_t = std::vector<std::pair<VarID, Uid_t>>;
   std::vector<std::string> vars;
   std::vector<VariableGroup_t> var_groups;
@@ -135,7 +137,6 @@ class SparsePackCache {
                               const std::string &ident);
 
   std::string GetIdentifier(const impl::PackDescriptor &desc) const;
-
   std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
       pack_map;
 

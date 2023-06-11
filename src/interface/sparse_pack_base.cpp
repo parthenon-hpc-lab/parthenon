@@ -52,6 +52,18 @@ void PackDescriptor::BuildUids(const StateDescriptor *const psd,
     }
   }
 }
+
+void PackDescriptor::Print() const {
+  printf("--------------------\n");
+  for (int i = 0; i < vars.size(); ++i) {
+    printf("group name: %s\n", vars[i].c_str());
+    printf("--------------------\n");
+    for (const auto &[var_name, uid] : var_groups[i]) {
+      printf("%s\n", var_name.label().c_str());
+    }
+  }
+  printf("--------------------\n");
+}
 } // namespace impl
 } // namespace parthenon
 
