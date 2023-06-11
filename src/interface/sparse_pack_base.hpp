@@ -41,33 +41,17 @@ class StateDescriptor;
 
 namespace impl {
 struct PackDescriptor {
+  using SelectorFunction_t = std::function<bool(int, const VarID &, const Metadata &)>;
+
   PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
-                 const std::vector<bool> &use_regex,
-                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-                 bool flat = false);
+                 const SelectorFunction_t &selector, bool with_fluxes, bool coarse,
+                 bool flat);
 
-  PackDescriptor(StateDescriptor *psd,
-                 const std::vector<std::pair<std::string, bool>> &vars_in,
-                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-                 bool flat = false);
+  void BuildUids(const StateDescriptor *const psd, const SelectorFunction_t &selector);
 
-  PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars_in,
-                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-                 bool flat = false);
-
-  void BuildUids(const StateDescriptor *const psd);
-
-  // Method for determining if variable pv should be included in pack for this
-  // PackDescriptor
-  bool IncludeVariable(int vidx, const std::shared_ptr<Variable<Real>> &pv) const;
-
-  bool IncludeVariable(int vidx, const VarID &id, const Metadata &md) const;
-
+  using VariableGroup_t = std::vector<std::pair<VarID, Uid_t>>;
   std::vector<std::string> vars;
-  std::vector<std::regex> regexes;
-  std::vector<bool> use_regex;
-  std::vector<MetadataFlag> flags;
-  std::vector<std::vector<Uid_t>> uids;
+  std::vector<VariableGroup_t> var_groups;
   bool with_fluxes;
   bool coarse;
   bool flat;

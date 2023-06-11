@@ -344,27 +344,75 @@ class SparsePack : public SparsePackBase {
 
 enum class PDOpt { WithFluxes, Coarse, Flatten };
 
+inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
+                               const std::vector<bool> &use_regex,
+                               const std::vector<MetadataFlag> &flags = {},
+                               const std::set<PDOpt> &options = {}) {
+  PARTHENON_REQUIRE(vars.size() == use_regex.size(),
+                    "Vargroup names and use_regex need to be the same size.");
+  auto selector = [&](int vidx, const VarID &id, const Metadata &md) {
+    if (flags.size() > 0) {
+      for (const auto &flag : flags) {
+        if (!md.IsSet(flag)) return false;
+      }
+    }
+
+    if (use_regex[vidx]) {
+      if (std::regex_match(std::string(id.label()), std::regex(vars[vidx]))) return true;
+    } else {
+      if (vars[vidx] == id.label()) return true;
+      if (vars[vidx] == id.base_name && id.sparse_id != InvalidSparseID) return true;
+    }
+    return false;
+  };
+
+  impl::PackDescriptor base_desc(psd, vars, selector, options.count(PDOpt::WithFluxes),
+                                 options.count(PDOpt::Coarse),
+                                 options.count(PDOpt::Flatten));
+  return typename SparsePack<>::Descriptor(base_desc);
+}
+
 template <class... Ts>
 inline auto MakePackDescriptor(StateDescriptor *psd,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
   static_assert(sizeof...(Ts) > 0, "Must have at least one variable type for type pack");
-  impl::PackDescriptor base_desc(
-      psd, std::vector<std::string>{Ts::name()...}, std::vector<bool>{Ts::regex()...},
-      flags, options.count(PDOpt::WithFluxes), options.count(PDOpt::Coarse),
-      options.count(PDOpt::Flatten));
-  return typename SparsePack<Ts...>::Descriptor(base_desc);
+
+  std::vector<std::string> vars{Ts::name()...};
+  std::vector<bool> use_regex{Ts::regex()...};
+
+  return typename SparsePack<Ts...>::Descriptor(static_cast<impl::PackDescriptor>(
+      MakePackDescriptor(psd, vars, use_regex, flags, options)));
 }
 
-template <class VAR_VEC>
-inline auto MakePackDescriptor(StateDescriptor *psd, const VAR_VEC &vars,
+inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  impl::PackDescriptor base_desc(psd, vars, flags, options.count(PDOpt::WithFluxes),
-                                 options.count(PDOpt::Coarse),
-                                 options.count(PDOpt::Flatten));
-  return typename SparsePack<>::Descriptor(base_desc);
+  return MakePackDescriptor(psd, vars, std::vector<bool>(vars.size(), false), flags,
+                            options);
 }
+
+inline auto MakePackDescriptor(
+    StateDescriptor *psd, const std::vector<std::pair<std::string, bool>> &var_regexes,
+    const std::vector<MetadataFlag> &flags = {}, const std::set<PDOpt> &options = {}) {
+  std::vector<std::string> vars;
+  std::vector<bool> use_regex;
+  for (const auto &[v, r] : var_regexes) {
+    vars.push_back(v);
+    use_regex.push_back(r);
+  }
+  return MakePackDescriptor(psd, vars, use_regex, flags, options);
+}
+
+// template <class VAR_VEC>
+// inline auto MakePackDescriptor(StateDescriptor *psd, const VAR_VEC &vars,
+//                                const std::vector<MetadataFlag> &flags = {},
+//                                const std::set<PDOpt> &options = {}) {
+//   impl::PackDescriptor base_desc(psd, vars, flags, options.count(PDOpt::WithFluxes),
+//                                  options.count(PDOpt::Coarse),
+//                                  options.count(PDOpt::Flatten));
+//   return typename SparsePack<>::Descriptor(base_desc);
+// }
 
 } // namespace parthenon
 
