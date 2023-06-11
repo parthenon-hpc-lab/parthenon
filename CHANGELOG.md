@@ -8,6 +8,7 @@
 - [[PR 868]](https://github.com/parthenon-hpc-lab/parthenon/pull/868) Add block-local face, edge, and nodal fields and allow for packing
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 885]](https://github.com/parthenon-hpc-lab/parthenon/pull/885) Expose PackDescriptor and use uids in SparsePacks
 
 ### Fixed (not changing behavior/API/variables/...)
 
