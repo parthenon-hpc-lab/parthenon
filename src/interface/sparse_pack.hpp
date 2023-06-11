@@ -409,16 +409,6 @@ inline auto MakePackDescriptor(
   return MakePackDescriptor(psd, vars, use_regex, flags, options);
 }
 
-// template <class VAR_VEC>
-// inline auto MakePackDescriptor(StateDescriptor *psd, const VAR_VEC &vars,
-//                                const std::vector<MetadataFlag> &flags = {},
-//                                const std::set<PDOpt> &options = {}) {
-//   impl::PackDescriptor base_desc(psd, vars, flags, options.count(PDOpt::WithFluxes),
-//                                  options.count(PDOpt::Coarse),
-//                                  options.count(PDOpt::Flatten));
-//   return typename SparsePack<>::Descriptor(base_desc);
-// }
-
 } // namespace parthenon
 
 #endif // INTERFACE_SPARSE_PACK_HPP_
