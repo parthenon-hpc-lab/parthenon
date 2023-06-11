@@ -340,6 +340,11 @@ class SparsePack : public SparsePackBase {
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(dir, b, vidx)(k, j, i);
   }
+
+  template <class... VTs>
+  auto GetPtrs(const int b, const TE el, int k, int j, int i, VTs... vts) {
+    return std::make_tuple({&(*this)(b, el, vts, k, j, i)...});
+  }
 };
 
 enum class PDOpt { WithFluxes, Coarse, Flatten };
