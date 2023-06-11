@@ -102,8 +102,8 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
         if (uid_map.count(uid) > 0) {
           auto pv = uid_map[uid];
           astat.push_back(pv->GetAllocationStatus());
-        } else { 
-          astat.push_back(-1); 
+        } else {
+          astat.push_back(-1);
         }
       }
     }
