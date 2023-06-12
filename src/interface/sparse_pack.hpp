@@ -130,7 +130,7 @@ class SparsePack : public SparsePackBase {
     // accessed on device via instance of types in the type list Ts...
     // The pack will be created and accessible on the device
     template <class T>
-    SparsePack MakePack(T *pmd) const {
+    SparsePack GetPack(T *pmd) const {
       return SparsePack(SparsePackBase::GetPack(pmd, *this));
     }
 

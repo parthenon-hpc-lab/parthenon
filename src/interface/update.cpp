@@ -154,7 +154,7 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   // auto packIdx = std::get<1>(tup);
   auto desc = MakePackDescriptor(md->GetMeshPointer()->resolved_packages.get(),
                                  control_vars, {Metadata::Sparse});
-  auto pack = desc.MakePack(md);
+  auto pack = desc.GetPack(md);
   auto packIdx = desc.GetMap();
 
   ParArray2D<bool> is_zero("IsZero", pack.GetNBlocks(), pack.GetMaxNumberOfVars());
