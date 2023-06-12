@@ -148,17 +148,9 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
     std::vector<int> vector = {0, 1, 2};
     params.Add("vector", vector);
 
-    Kokkos::View<std::size_t *> view("myview", 3);
-    auto view_h = Kokkos::create_mirror_view(view);
-    for (int i = 0; i < view.extent_int(0); ++i) {
-      view_h(i) = i;
-    }
-    Kokkos::deep_copy(view, view_h);
-    params.Add("view", view);
-
-    parthenon::ParArray2D<Real> arr2d("myarr", 2, 2);
+    parthenon::ParArray2D<Real> arr2d("myarr", 3, 2);
     auto arr2d_h = Kokkos::create_mirror_view(arr2d);
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 3; ++i) {
       for (int j = 0; j < 2; ++j) {
         arr2d_h(i, j) = 2 * i + j;
       }
@@ -166,20 +158,43 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
     Kokkos::deep_copy(arr2d, arr2d_h);
     params.Add("arr2d", arr2d);
 
-    parthenon::HostArray2D<Real> hostarr("hostarr2d", 2, 2);
+    parthenon::HostArray2D<Real> hostarr("hostarr2d", 2, 3);
     for (int i = 0; i < 2; ++i) {
-      for (int j = 0; j < 2; ++j) {
+      for (int j = 0; j < 3; ++j) {
         hostarr(i, j) = 2 * i + j + 1;
       }
     }
     params.Add("hostarr2d", hostarr);
 
     THEN("We can output to hdf5") {
+      const std::string filename = "params_test.h5";
+      const std::string groupname = "params";
+      const std::string prefix = "test_pkg";
       using namespace parthenon::HDF5;
-      H5F file = H5F::FromHIDCheck(
-          H5Fcreate("params_test.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
-      auto group = MakeGroup(file, "params");
-      params.WriteAllToHDF5("test_pkg", group);
+      {
+        H5F file = H5F::FromHIDCheck(
+            H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
+        auto group = MakeGroup(file, groupname);
+        params.WriteAllToHDF5(prefix, group);
+      }
+      AND_THEN("We can directly read the relevant data from the hdf5 file") {
+	H5F file = H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
+	const H5O obj = H5O::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
+
+	Real in_scalar;
+	HDF5ReadAttribute(obj, prefix + "/scalar", in_scalar);
+	REQUIRE(std::abs(scalar - in_scalar) <= 1e-10);
+
+	std::vector<int> in_vector;
+	HDF5ReadAttribute(obj, prefix + "/vector", in_vector);
+	for (int i = 0; i < vector.size(); ++i) {
+	  REQUIRE(in_vector[i] == vector[i]);
+	}
+	
+	// deliberately the wrong size
+	parthenon::ParArray2D<Real> in_arr2d("myarr", 1, 1);
+	
+      }
     }
   }
 }
