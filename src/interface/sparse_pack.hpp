@@ -347,8 +347,6 @@ class SparsePack : public SparsePackBase {
   }
 };
 
-enum class PDOpt { WithFluxes, Coarse, Flatten };
-
 inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
                                const std::vector<bool> &use_regex,
                                const std::vector<MetadataFlag> &flags = {},
@@ -371,9 +369,7 @@ inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::stri
     return false;
   };
 
-  impl::PackDescriptor base_desc(psd, vars, selector, options.count(PDOpt::WithFluxes),
-                                 options.count(PDOpt::Coarse),
-                                 options.count(PDOpt::Flatten));
+  impl::PackDescriptor base_desc(psd, vars, selector, options);
   return typename SparsePack<>::Descriptor(base_desc);
 }
 

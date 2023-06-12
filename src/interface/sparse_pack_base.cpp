@@ -31,40 +31,45 @@
 #include "utils/utils.hpp"
 namespace parthenon {
 namespace impl {
-PackDescriptor::PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
-                               const SelectorFunction_t &selector, bool with_fluxes,
-                               bool coarse, bool flat)
-    : vars(vars), with_fluxes(with_fluxes), coarse(coarse), flat(flat) {
+PackDescriptor::PackDescriptor(StateDescriptor *psd,
+                               const std::vector<std::string> &var_group_names,
+                               const SelectorFunction_t &selector,
+                               const std::set<PDOpt> &options)
+    : nvar_groups(var_group_names.size()), var_group_names(var_group_names),
+      var_groups(BuildUids(var_group_names.size(), psd, selector)),
+      with_fluxes(options.count(PDOpt::WithFluxes)), coarse(options.count(PDOpt::Coarse)),
+      flat(options.count(PDOpt::Flatten)) {
   PARTHENON_REQUIRE(!(with_fluxes && coarse),
                     "Probably shouldn't be making a coarse pack with fine fluxes.");
-  BuildUids(psd, selector);
 }
 
-void PackDescriptor::BuildUids(const StateDescriptor *const psd,
-                               const SelectorFunction_t &selector) {
+std::vector<PackDescriptor::VariableGroup_t>
+PackDescriptor::BuildUids(int nvgs, const StateDescriptor *const psd,
+                          const SelectorFunction_t &selector) {
   auto fields = psd->AllFields();
-  var_groups = std::vector<VariableGroup_t>(vars.size());
+  std::vector<VariableGroup_t> vgs(nvgs);
   for (auto [id, md] : fields) {
-    for (int i = 0; i < vars.size(); ++i) {
+    for (int i = 0; i < nvgs; ++i) {
       if (selector(i, id, md)) {
-        var_groups[i].push_back({id, Variable<Real>::GetUniqueID(id.label())});
+        vgs[i].push_back({id, Variable<Real>::GetUniqueID(id.label())});
       }
     }
   }
   // Ensure ordering in terms of value of sparse indices
-  for (auto &vg : var_groups) {
+  for (auto &vg : vgs) {
     std::sort(vg.begin(), vg.end(), [](const auto &a, const auto &b) {
       if (a.first.base_name == b.first.base_name)
         return a.first.sparse_id < b.first.sparse_id;
       return a.first.base_name < b.first.base_name;
     });
   }
+  return vgs;
 }
 
 void PackDescriptor::Print() const {
   printf("--------------------\n");
-  for (int i = 0; i < vars.size(); ++i) {
-    printf("group name: %s\n", vars[i].c_str());
+  for (int i = 0; i < var_group_names.size(); ++i) {
+    printf("group name: %s\n", var_group_names[i].c_str());
     printf("--------------------\n");
     for (const auto &[var_name, uid] : var_groups[i]) {
       printf("%s\n", var_name.label().c_str());
@@ -100,7 +105,7 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
                                                        const PackDescriptor &desc) {
   using mbd_t = MeshBlockData<Real>;
 
-  int nvar = desc.vars.size();
+  int nvar = desc.nvar_groups;
 
   std::vector<int> astat;
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
@@ -129,12 +134,12 @@ SparsePackBase::GetAllocStatus<MeshData<Real>>(MeshData<Real> *, const PackDescr
 template <class T>
 SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   using mbd_t = MeshBlockData<Real>;
-  int nvar = desc.vars.size();
+  int nvar = desc.nvar_groups;
 
   SparsePackBase pack;
   pack.with_fluxes_ = desc.with_fluxes;
   pack.coarse_ = desc.coarse;
-  pack.nvar_ = desc.vars.size();
+  pack.nvar_ = desc.nvar_groups;
   pack.flat_ = desc.flat;
   pack.size_ = 0;
 

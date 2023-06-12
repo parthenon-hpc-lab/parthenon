@@ -18,7 +18,7 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <regex>
+#include <set>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -39,24 +39,28 @@ using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
 
 class StateDescriptor;
 
+enum class PDOpt { WithFluxes, Coarse, Flatten };
+
 namespace impl {
 struct PackDescriptor {
+  using VariableGroup_t = std::vector<std::pair<VarID, Uid_t>>;
   using SelectorFunction_t = std::function<bool(int, const VarID &, const Metadata &)>;
 
-  PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
-                 const SelectorFunction_t &selector, bool with_fluxes, bool coarse,
-                 bool flat);
-
-  void BuildUids(const StateDescriptor *const psd, const SelectorFunction_t &selector);
+  PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &var_group_names,
+                 const SelectorFunction_t &selector, const std::set<PDOpt> &options);
 
   void Print() const;
 
-  using VariableGroup_t = std::vector<std::pair<VarID, Uid_t>>;
-  std::vector<std::string> vars;
-  std::vector<VariableGroup_t> var_groups;
-  bool with_fluxes;
-  bool coarse;
-  bool flat;
+  const int nvar_groups;
+  const std::vector<std::string> var_group_names;
+  const std::vector<VariableGroup_t> var_groups;
+  const bool with_fluxes;
+  const bool coarse;
+  const bool flat;
+
+ private:
+  std::vector<VariableGroup_t> BuildUids(int nvgs, const StateDescriptor *const psd,
+                                         const SelectorFunction_t &selector);
 };
 } // namespace impl
 
@@ -86,7 +90,7 @@ class SparsePackBase {
   static SparsePackIdxMap GetIdxMap(const impl::PackDescriptor &desc) {
     SparsePackIdxMap map;
     std::size_t idx = 0;
-    for (const auto &var : desc.vars) {
+    for (const auto &var : desc.var_group_names) {
       map[var] = idx;
       ++idx;
     }
