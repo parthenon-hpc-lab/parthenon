@@ -86,12 +86,13 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   pack.coarse_ = desc.coarse;
   pack.nvar_ = desc.vars.size();
   pack.flat_ = desc.flat;
+  pack.size_ = 0;
 
   // Count up the size of the array that is required
   int max_size = 0;
   int nblocks = 0;
-  int size = 0;   // local var used to compute size/block
-  pack.size_ = 0; // total size of pack
+  bool contains_face_or_edge = false;
+  int size = 0; // local var used to compute size/block
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
     if (!desc.flat) {
       size = 0;
@@ -101,6 +102,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
       for (int i = 0; i < nvar; ++i) {
         if (desc.IncludeVariable(i, pv)) {
           if (pv->IsAllocated()) {
+            if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge))
+              contains_face_or_edge = true;
             int prod = pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
             size += prod;       // max size/block (or total size for flat)
             pack.size_ += prod; // total ragged size
@@ -114,7 +117,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
 
   // Allocate the views
   int leading_dim = 1;
-  if (desc.with_fluxes) leading_dim += 3;
+  if (desc.with_fluxes) {
+    leading_dim += 3;
+  } else if (contains_face_or_edge) {
+    leading_dim += 2;
+  }
   pack.pack_ = pack_t("data_ptr", leading_dim, pack.nblocks_, max_size);
   auto pack_h = Kokkos::create_mirror_view(pack.pack_);
 
