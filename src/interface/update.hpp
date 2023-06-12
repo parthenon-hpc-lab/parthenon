@@ -324,7 +324,6 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
     auto desc = parthenon::MakePackDescriptor<variable_names::any>(
         rc->GetMeshPointer()->resolved_packages.get(), {Metadata::Sparse});
     auto v = desc.GetPack(rc);
-    // auto v = parthenon::SparsePack<variable_names::any>::Get(rc, {Metadata::Sparse});
 
     Kokkos::parallel_for(
         "Set newly allocated interior to default",
