@@ -51,9 +51,9 @@ several useful features and functions.
   params not marked ``Restart`` are updated only by user code, not
   automatically. Note that not all parameter types can be output to
   HDF5 file. However, most common scalar, vector, and ``Kokkos`` view
-  types are supported. Note also that by default the ``Mesh`` object
-  and each ``MeshBlock`` object all own their own copies of all
-  packages.
+  types are supported. Note also that if the value of a ``Param`` is
+  different on different MPI ranks, this will result in undefined
+  behaviour.
 - ``void UpdateParam<T>(const std::string& key, T& value)``\ updates a
   parameter (e.g., a timestep control coefficient, refinement tolerance,
   etc.) with name ``key`` and value ``value``. A parameter of the same
