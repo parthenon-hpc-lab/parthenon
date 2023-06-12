@@ -36,7 +36,7 @@ namespace parthenon {
       ParArray4D<T>, ParArray5D<T>, ParArray6D<T>, ParArray7D<T>, ParArray8D<T>,         \
       HostArray0D<T>, HostArray1D<T>, HostArray2D<T>, HostArray3D<T>, HostArray4D<T>,    \
       HostArray5D<T>, HostArray6D<T>, HostArray7D<T>, Kokkos::View<T *>,                 \
-      Kokkos::View<T **>
+      Kokkos::View<T **>, ParArrayND<T>, ParArrayHost<T>
 
 #ifdef ENABLE_HDF5
 
