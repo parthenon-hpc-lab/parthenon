@@ -396,6 +396,18 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
     ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
   }
+
+  // Params
+  // ============================================================
+  // JMM: Note that only the Params stored on the mesh are read and
+  // written. The downstream user must update mutable params per
+  // meshblock by hand if this is desired.  I don't know how to
+  // meaningfully do this on a per-meshblock basis without a
+  // significantly more complicated infrastructure.
+  for (auto &[name, pkg] : rm.packages.AllPackages()) {
+    auto &params = pkg->AllParams();
+    resfile.ReadParams(name, params);
+  }
 #endif // ifdef ENABLE_HDF5
 }
 
