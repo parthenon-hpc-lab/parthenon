@@ -773,7 +773,7 @@ HDF5GetAttributeInfo(hid_t location, const std::string &name, H5A &attr) {
   return std::make_tuple(rank, dim, size);
 }
 
-// template specializations for std::string
+// template specializations for std::string and bool
 void HDF5WriteAttribute(const std::string &name, const std::string &value,
                         hid_t location) {
   HDF5WriteAttribute(name, value.size(), value.c_str(), location);
@@ -804,7 +804,18 @@ std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string 
   return res;
 }
 
-// template specialization for bool
+// JMM: A little circular but it works.
+template <>
+std::vector<bool> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
+  HostArray1D<bool> temp;
+  HDF5ReadAttribute(location, name, temp);
+  std::vector<bool> out(temp.size());
+  for (int i = 0; i < temp.size(); ++i) {
+    out[i] = temp[i];
+  }
+  return out;
+}
+
 template <>
 void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values,
                         hid_t location) {
@@ -814,6 +825,11 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values
     data[i] = values[i];
   }
   HDF5WriteAttribute(name, values.size(), data.get(), location);
+}
+
+void HDF5ReadAttribute(hid_t location, const std::string &name, std::string &val) {
+  std::vector<std::string> vec = HDF5ReadAttributeVec<std::string>(location, name);
+  val = vec[0];
 }
 
 hid_t GenerateFileAccessProps() {

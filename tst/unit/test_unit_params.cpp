@@ -141,12 +141,14 @@ TEST_CASE("when hasKey is called", "[hasKey]") {
 TEST_CASE("A set of params can be dumped to file", "[params][output]") {
   GIVEN("A params object with a few kinds of objects") {
     Params params;
+    const auto restart = Params::Mutability::Restart;
+    const auto only_mutable = Params::Mutability::Mutable;
 
     Real scalar = 3.0;
-    params.Add("scalar", scalar);
+    params.Add("scalar", scalar, restart);
 
     std::vector<int> vector = {0, 1, 2};
-    params.Add("vector", vector);
+    params.Add("vector", vector, only_mutable);
 
     parthenon::ParArray2D<Real> arr2d("myarr", 3, 2);
     auto arr2d_h = Kokkos::create_mirror_view(arr2d);
@@ -164,7 +166,7 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
         hostarr(i, j) = 2 * i + j + 1;
       }
     }
-    params.Add("hostarr2d", hostarr);
+    params.Add("hostarr2d", hostarr, restart);
 
     THEN("We can output to hdf5") {
       const std::string filename = "params_test.h5";
@@ -206,6 +208,48 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
             },
             nwrong);
         REQUIRE(nwrong == 0);
+      }
+
+      AND_THEN("We can restart a params object from the HDF5 file") {
+        Params rparams;
+
+        // init the params object to restart into
+        Real test_scalar = 0.0;
+        rparams.Add("scalar", test_scalar, restart);
+
+        std::vector<int> test_vector;
+        rparams.Add("vector", test_vector, only_mutable);
+
+        parthenon::ParArray2D<Real> test_arr2d("myarr", 1, 1);
+        rparams.Add("arr2d", test_arr2d);
+
+        parthenon::HostArray2D<Real> test_hostarr("hostarr2d", 1, 1);
+        rparams.Add("hostarr2d", test_hostarr, restart);
+
+        H5F file =
+            H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
+        const H5G obj = H5G::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
+        rparams.ReadFromRestart(prefix, obj);
+
+        AND_THEN("The values for the restartable params are updated to match the file") {
+          auto test_scalar = rparams.Get<Real>("scalar");
+          REQUIRE(std::abs(test_scalar - scalar) <= 1e-10);
+          auto test_hostarr = params.Get<parthenon::HostArray2D<Real>>("hostarr2d");
+          REQUIRE(test_hostarr.extent_int(0) == hostarr.extent_int(0));
+          REQUIRE(test_hostarr.extent_int(1) == hostarr.extent_int(1));
+          for (int i = 0; i < hostarr.extent_int(0); ++i) {
+            for (int j = 0; j < hostarr.extent_int(1); ++j) {
+              REQUIRE(test_hostarr(i, j) == hostarr(i, j));
+            }
+          }
+        }
+        AND_THEN("The values for non-restartable params have not been updated") {
+          auto test_vector = rparams.Get<std::vector<int>>("vector");
+          REQUIRE(test_vector.size() == 0);
+          auto test_arr2d = rparams.Get<parthenon::ParArray2D<Real>>("arr2d");
+          REQUIRE(test_arr2d.extent_int(0) == 1);
+          REQUIRE(test_arr2d.extent_int(1) == 1);
+        }
       }
     }
   }

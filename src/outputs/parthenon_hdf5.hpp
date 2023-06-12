@@ -272,6 +272,11 @@ std::vector<T> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
 template <>
 std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string &name);
 
+template <>
+std::vector<bool> HDF5ReadAttributeVec(hid_t location, const std::string &name);
+
+void HDF5ReadAttribute(hid_t location, const std::string &name, std::string &val);
+
 template <typename T, REQUIRES(implements<scalar(T)>::value)>
 void HDF5ReadAttribute(hid_t location, const std::string &name, T &val) {
   auto vec = HDF5ReadAttributeVec<T>(location, name);
