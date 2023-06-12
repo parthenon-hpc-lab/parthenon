@@ -15,23 +15,25 @@
 
 #include <iostream>
 #include <memory>
+#include <tuple>
 #include <utility>
 
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/array_to_tuple.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
 
 template <typename T>
-CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &metadata,
-                              int sparse_id, std::weak_ptr<MeshBlock> wpmb)
+Variable<T>::Variable(const std::string &base_name, const Metadata &metadata,
+                      int sparse_id, std::weak_ptr<MeshBlock> wpmb)
     : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
       dims_(m_.GetArrayDims(wpmb, false)), coarse_dims_(m_.GetArrayDims(wpmb, true)) {
   PARTHENON_REQUIRE_THROWS(m_.IsSet(Metadata::Real),
-                           "Only Real data type is currently supported for CellVariable");
+                           "Only Real data type is currently supported for Variable");
 
   PARTHENON_REQUIRE_THROWS(IsSparse() == (sparse_id_ != InvalidSparseID),
                            "Mismatch between sparse flag and sparse ID");
@@ -43,7 +45,7 @@ CellVariable<T>::CellVariable(const std::string &base_name, const Metadata &meta
 }
 
 template <typename T>
-std::string CellVariable<T>::info() {
+std::string Variable<T>::info() {
   char tmp[100] = "";
   char *stmp = tmp;
 
@@ -68,7 +70,7 @@ std::string CellVariable<T>::info() {
 // Makes a shallow copy of the boundary buffer and fluxes of the source variable and
 // assign them to this variable
 template <typename T>
-void CellVariable<T>::CopyFluxesAndBdryVar(const CellVariable<T> *src) {
+void Variable<T>::CopyFluxesAndBdryVar(const Variable<T> *src) {
   if (IsSet(Metadata::WithFluxes)) {
     // fluxes, coarse buffers, etc., are always a copy
     // Rely on reference counting and shallow copy of kokkos views
@@ -87,13 +89,12 @@ void CellVariable<T>::CopyFluxesAndBdryVar(const CellVariable<T> *src) {
 }
 
 template <typename T>
-std::shared_ptr<CellVariable<T>>
-CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
+std::shared_ptr<Variable<T>> Variable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
   // copy the Metadata
   Metadata m = m_;
 
-  // make the new CellVariable
-  auto cv = std::make_shared<CellVariable<T>>(base_name_, m, sparse_id_, wpmb);
+  // make the new Variable
+  auto cv = std::make_shared<Variable<T>>(base_name_, m, sparse_id_, wpmb);
 
   if (is_allocated_) {
     cv->AllocateData();
@@ -105,7 +106,7 @@ CellVariable<T>::AllocateCopy(std::weak_ptr<MeshBlock> wpmb) {
 }
 
 template <typename T>
-void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialized) {
+void Variable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialized) {
   if (is_allocated_) {
     return;
   }
@@ -115,13 +116,13 @@ void CellVariable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitia
 }
 
 template <typename T>
-void CellVariable<T>::AllocateData(bool flag_uninitialized) {
+void Variable<T>::AllocateData(bool flag_uninitialized) {
   PARTHENON_REQUIRE_THROWS(
       !is_allocated_,
       "Tried to allocate data for variable that's already allocated: " + label());
+  data = std::make_from_tuple<ParArrayND<T, VariableState>>(std::tuple_cat(
+      std::make_tuple(label(), MakeVariableState()), ArrayToReverseTuple(dims_)));
 
-  data = ParArrayND<T, VariableState>(label(), MakeVariableState(), dims_[5], dims_[4],
-                                      dims_[3], dims_[2], dims_[1], dims_[0]);
   ++num_alloc_;
 
   data.initialized = !flag_uninitialized;
@@ -131,7 +132,7 @@ void CellVariable<T>::AllocateData(bool flag_uninitialized) {
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
-void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
+void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
   PARTHENON_REQUIRE_THROWS(
       IsAllocated(), "Tried to allocate comms for un-allocated variable " + label());
   std::string base_name = label();
@@ -144,13 +145,17 @@ void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
     // flux_data_ object reduces the number of memory allocations per
     // variable per meshblock from 5 to 3.
     int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
+    if (IsSet(Metadata::Edge)) n_outer = 1;
     // allocate fluxes
-    flux_data_ = ParArray7D<T, VariableState>(
-        base_name + ".flux_data", MakeVariableState(), n_outer, GetDim(6), GetDim(5),
-        GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+    auto dims_flux = dims_;
+    // A nodal field is the appropriate flux field for an edge variable
+    dims_flux[MAX_VARIABLE_DIMENSION - 1] = n_outer;
+    flux_data_ = std::make_from_tuple<ParArrayND<T, VariableState>>(
+        std::tuple_cat(std::make_tuple(label() + ".flux_data", MakeVariableState()),
+                       ArrayToReverseTuple(dims_flux)));
     // set up fluxes
     for (int d = X1DIR; d <= n_outer; ++d) {
-      flux[d] = flux_data_.Get(d - 1);
+      flux[d] = flux_data_.Get(std::make_pair(d - 1, d));
     }
   }
 
@@ -160,15 +165,15 @@ void CellVariable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
     if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
-      coarse_s = ParArrayND<T, VariableState>(
-          base_name + ".coarse", MakeVariableState(), coarse_dims_[5], coarse_dims_[4],
-          coarse_dims_[3], coarse_dims_[2], coarse_dims_[1], coarse_dims_[0]);
+      coarse_s = std::make_from_tuple<ParArrayND<T, VariableState>>(
+          std::tuple_cat(std::make_tuple(label() + ".coarse", MakeVariableState()),
+                         ArrayToReverseTuple(coarse_dims_)));
     }
   }
 }
 
 template <typename T>
-void CellVariable<T>::Deallocate() {
+void Variable<T>::Deallocate() {
 #ifdef ENABLE_SPARSE
   if (!IsAllocated()) {
     return;
@@ -190,7 +195,7 @@ void CellVariable<T>::Deallocate() {
 
   is_allocated_ = false;
 #else
-  PARTHENON_THROW("CellVariable<T>::Deallocate(): Sparse is compile-time disabled");
+  PARTHENON_THROW("Variable<T>::Deallocate(): Sparse is compile-time disabled");
 #endif
 }
 
@@ -217,7 +222,7 @@ std::string ParticleVariable<T>::info() const {
   return ss.str();
 }
 
-template class CellVariable<Real>;
+template class Variable<Real>;
 template class ParticleVariable<Real>;
 template class ParticleVariable<int>;
 template class ParticleVariable<bool>;

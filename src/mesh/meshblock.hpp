@@ -223,12 +223,12 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   template <typename Function>
   inline void par_for_bndry(const std::string &name, const IndexRange &nb,
-                            const IndexDomain &domain, const bool coarse,
-                            const Function &function) {
+                            const IndexDomain &domain, TopologicalElement el,
+                            const bool coarse, const Function &function) {
     auto bounds = coarse ? c_cellbounds : cellbounds;
-    auto ib = bounds.GetBoundsI(domain);
-    auto jb = bounds.GetBoundsJ(domain);
-    auto kb = bounds.GetBoundsK(domain);
+    auto ib = bounds.GetBoundsI(domain, el);
+    auto jb = bounds.GetBoundsJ(domain, el);
+    auto kb = bounds.GetBoundsK(domain, el);
     par_for(name, nb, kb, jb, ib, function);
   }
 
@@ -271,7 +271,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // inform MeshBlock which arrays contained in member Field, Particles,
   // ... etc. classes are the "primary" representations of a quantity. when registered,
   // that data are used for (1) load balancing (2) (future) dumping to restart file
-  void RegisterMeshBlockData(std::shared_ptr<CellVariable<Real>> pvar_cc);
+  void RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void
@@ -405,7 +405,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // data
   Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
       new_block_dt_user_;
-  std::vector<std::shared_ptr<CellVariable<Real>>> vars_cc_;
+  std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
 
   // Initializer to set up a meshblock called with the default constructor
   // This is necessary because the back pointers can't be set up until

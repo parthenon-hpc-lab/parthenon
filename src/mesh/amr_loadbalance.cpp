@@ -718,7 +718,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             auto pob = FindMeshBlock(on + ll);
 
             // allocate sparse variables that were allocated on old block
-            for (auto var : pob->meshblock_data.Get()->GetCellVariableVector()) {
+            for (auto var : pob->meshblock_data.Get()->GetVariableVector()) {
               if (var->IsSparse() && var->IsAllocated()) {
                 new_block_list[n - nbs]->AllocateSparse(var->label());
               }
@@ -732,7 +732,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           auto pob = FindMeshBlock(on);
 
           // allocate sparse variables that were allocated on old block
-          for (auto var : pob->meshblock_data.Get()->GetCellVariableVector()) {
+          for (auto var : pob->meshblock_data.Get()->GetVariableVector()) {
             if (var->IsSparse() && var->IsAllocated()) {
               new_block_list[n - nbs]->AllocateSparse(var->label());
             }

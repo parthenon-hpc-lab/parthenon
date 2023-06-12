@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "bvals_cc_in_one.hpp"
+#include "bvals_in_one.hpp"
 #include "bvals_utils.hpp"
 #include "config.hpp"
 #include "globals.hpp"
@@ -31,12 +31,10 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
-namespace cell_centered_bvars {
 
 using namespace loops;
 using namespace loops::shorthands;
@@ -46,8 +44,8 @@ template <BoundaryType BTYPE>
 void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
                                Mesh::comm_buf_map_t &buf_map) {
   Mesh *pmesh = md->GetMeshPointer();
-  ForEachBoundary<BTYPE>(md, [&](sp_mb_t pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v,
-                                 const OffsetIndices & /*no*/) {
+  ForEachBoundary<BTYPE>(md, [&](sp_mb_t pmb, sp_mbd_t /*rc*/, nb_t &nb,
+                                 const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
 
@@ -132,5 +130,4 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
   return TaskStatus::complete;
 }
-} // namespace cell_centered_bvars
 } // namespace parthenon

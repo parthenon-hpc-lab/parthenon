@@ -27,8 +27,8 @@
 #include "parthenon_mpi.hpp"
 
 #include "bvals/bvals_interfaces.hpp"
-#include "bvals/cc/bnd_info.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bnd_info.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "defs.hpp"
 #include "mesh/domain.hpp"
 #include "parthenon_arrays.hpp"
@@ -40,7 +40,7 @@ namespace parthenon {
 // TODO(felker): how many of these foward declarations are actually needed now?
 // Can #include "./bvals_interfaces.hpp" suffice?
 template <typename T>
-class CellVariable;
+class Variable;
 class Mesh;
 class MeshBlock;
 class MeshBlockTree;

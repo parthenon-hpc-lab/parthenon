@@ -84,7 +84,7 @@ AMRBounds AMRCriteria::GetBounds(const MeshBlockData<Real> *rc) const {
 }
 
 AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
-  if (!rc->HasCellVariable(field) || !rc->IsAllocated(field)) {
+  if (!rc->HasVariable(field) || !rc->IsAllocated(field)) {
     return AmrTag::same;
   }
   auto bnds = GetBounds(rc);
@@ -94,7 +94,7 @@ AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
 }
 
 AmrTag AMRSecondDerivative::operator()(const MeshBlockData<Real> *rc) const {
-  if (!rc->HasCellVariable(field) || !rc->IsAllocated(field)) {
+  if (!rc->HasVariable(field) || !rc->IsAllocated(field)) {
     return AmrTag::same;
   }
   auto bnds = GetBounds(rc);

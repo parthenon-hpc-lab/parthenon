@@ -17,6 +17,8 @@
 #include <string>
 #include <unordered_map>
 
+#include <Kokkos_Core.hpp>
+
 #include "config.hpp"
 
 namespace parthenon {
@@ -40,16 +42,110 @@ enum class RefinementOp_t { Prolongation, Restriction, None };
 
 // JMM: Not clear this is the best place for this but it minimizes
 // circular dependency nonsense.
-constexpr int NUM_BNDRY_TYPES = 6;
-enum class BoundaryType : int {
-  local,
-  nonlocal,
-  any,
-  flxcor_send,
-  flxcor_recv,
-  restricted
-};
+constexpr int NUM_BNDRY_TYPES = 5;
+enum class BoundaryType : int { local, nonlocal, any, flxcor_send, flxcor_recv };
 
+// Enumeration for accessing a field on different locations of the grid:
+// CC = cell center of (i, j, k)
+// F1 = x-normal face at (i - 1/2, j, k)
+// F2 = y-normal face at (i, j - 1/2, k)
+// F3 = z-normal face at (i, j, k - 1/2)
+// E1 = x-aligned edge at (i, j - 1/2, k - 1/2)
+// E2 = y-aligned edge at (i - 1/2, j, k - 1/2)
+// E3 = z-aligned edge at (i - 1/2, j - 1/2, k)
+// NN = node at (i - 1/2, j - 1/2, k - 1/2)
+//
+// Some select topological elements around cell (i,j,k) with o corresponding
+// to faces, x corresponding to edges, and + corresponding to nodes (the indices
+// denote the array index of each element):
+// clang-format off
+//
+//                      E1(i,j+1,k+1)
+//              NN_+---------x---------+_NN(i+1,j+1,k+1)
+//     (i,j+1,k+1)/|  F3(i,j,k+1)     /|
+//               / |      |          / |
+//           E2_x  |      o         x__|_E2(i+1,j,k+1)
+//    (i,j,k+1)/   x         o     /   x___E3(i+1,j+1,k)
+//            /    |         |___ /____|_F2(i,j+1,k)
+//        NN_+---------x---------+_____|_NN(i+1,j,k+1)
+// (i,j,k+1) |  o  |  E1         |  o__|____F1(i+1,j,k)
+//        F1_|__|  +-(i,j,k+1)---|-----+______NN(i+1,j+1,k)
+//   (i,j,k) |    /     F3(i,j,k)|    /
+//        E3_x   /     o  |      x___/___E3(i+1,j,k)
+//   (i,j,k) |  x      |  o      |  x______E2(i+1,j,k)
+//        E2_|_/|    F2(i,j,k)   | /
+//   (i,j,k) |/                  |/
+//           +---------x---------+
+//           NN        E1        NN
+//           (i,j,k)   (i,j,k)   (i+1,j,k)
+//
+// clang-format on
+// The values of the enumeration are chosen so we can do te % 3 to get
+// the correct index for each type of element in Variable::data
+enum class TopologicalElement : std::size_t {
+  CC = 0,
+  F1 = 3,
+  F2 = 4,
+  F3 = 5,
+  E1 = 6,
+  E2 = 7,
+  E3 = 8,
+  NN = 9
+};
+enum class TopologicalType { Cell, Face, Edge, Node };
+
+KOKKOS_FORCEINLINE_FUNCTION
+TopologicalType GetTopologicalType(TopologicalElement el) {
+  using TE = TopologicalElement;
+  using TT = TopologicalType;
+  if (el == TE::CC) {
+    return TT::Cell;
+  } else if (el == TE::NN) {
+    return TT::Node;
+  } else if (el == TE::F1 || el == TE::F2 || el == TE::F3) {
+    return TT::Face;
+  } else {
+    return TT::Edge;
+  }
+}
+
+using TE = TopologicalElement;
+// Returns one if the I coordinate of el is offset from the zone center coordinates,
+// and zero otherwise
+KOKKOS_INLINE_FUNCTION int TopologicalOffsetI(TE el) noexcept {
+  return (el == TE::F1 || el == TE::E2 || el == TE::E3 || el == TE::NN);
+}
+KOKKOS_INLINE_FUNCTION int TopologicalOffsetJ(TE el) noexcept {
+  return (el == TE::F2 || el == TE::E3 || el == TE::E1 || el == TE::NN);
+}
+KOKKOS_INLINE_FUNCTION int TopologicalOffsetK(TE el) noexcept {
+  return (el == TE::F3 || el == TE::E2 || el == TE::E1 || el == TE::NN);
+}
+
+// Returns wether or not topological element containee is a boundary of
+// topological element container
+inline constexpr bool IsSubmanifold(TopologicalElement containee,
+                                    TopologicalElement container) {
+  if (container == TE::CC) {
+    return containee != TE::CC;
+  } else if (container == TE::F1) {
+    return containee == TE::E2 || containee == TE::E3 || containee == TE::NN;
+  } else if (container == TE::F2) {
+    return containee == TE::E3 || containee == TE::E1 || containee == TE::NN;
+  } else if (container == TE::F3) {
+    return containee == TE::E1 || containee == TE::E2 || containee == TE::NN;
+  } else if (container == TE::E3) {
+    return containee == TE::NN;
+  } else if (container == TE::E2) {
+    return containee == TE::NN;
+  } else if (container == TE::E1) {
+    return containee == TE::NN;
+  } else if (container == TE::NN) {
+    return false;
+  } else {
+    return false;
+  }
+}
 struct SimTime {
   SimTime() = default;
   SimTime(const Real tstart, const Real tstop, const int nmax, const int ncurr,
