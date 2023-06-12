@@ -38,8 +38,8 @@ several useful features and functions.
   all blocks just like dense variables, however, in a future upgrade, they
   will only be allocated on those blocks where the user explicitly
   allocates them or non-zero values are advected into.
-- ``void AddParam<T>(const std::string& key, T& value, Mutability
-  mutability)`` adds a parameter (e.g., a timestep control
+- ``void AddParam<T>(const std::string& key, T& value, Mutability mutability)``
+  adds a parameter (e.g., a timestep control
   coefficient, refinement tolerance, etc.) with name ``key`` and value
   ``value``. The enum ``mutability`` can take on three values:
   ``Mutability::Immutable``, ``Mutability::Mutable``, and
@@ -54,6 +54,9 @@ several useful features and functions.
   types are supported. Note also that if the value of a ``Param`` is
   different on different MPI ranks, this will result in undefined
   behaviour.
+- ``void AddParam<T>(const std::string& key, T& value, bool is_mutable=false)``
+  is the same as above, but adds only ``Immutable`` or ``Mutable`` params,
+  not ``Restart`` params.
 - ``void UpdateParam<T>(const std::string& key, T& value)``\ updates a
   parameter (e.g., a timestep control coefficient, refinement tolerance,
   etc.) with name ``key`` and value ``value``. A parameter of the same
