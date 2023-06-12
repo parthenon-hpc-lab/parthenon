@@ -26,7 +26,7 @@
 namespace parthenon {
 
 // JMM: This could probably be done with template magic but I think
-// using a macro is honestly the simplest and cleanest solution here/
+// using a macro is honestly the simplest and cleanest solution here.
 // Template solution would be to define a variatic class to conain the
 // list of types and then a hierarchy of structs/functions to turn
 // that into function calls. Preprocessor seems easier, given we're
