@@ -537,7 +537,7 @@ def compare(
                     f"    bkji: ({bad_idx[0]:4d},{bad_idx[1]:4d},{bad_idx[2]:4d},{bad_idx[3]:4d})"
                 )
                 print(f"    zyx: ({bad_loc[0]:4f},{bad_loc[1]:4f},{bad_loc[2]:4f})")
-                print(f"    err_mag: {err_mag[bad_idx]:4f}")
+                print(f"    err_mag: {err_mag[bad_idx]:4e}")
                 if is_vec:
                     print(f"    f0: " + " ".join(f"{u:.4e}" for u in val0[bad_idx]))
                     print(f"    f1: " + " ".join(f"{u:.4e}" for u in val1[bad_idx]))

@@ -28,298 +28,139 @@
 #include "globals.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
+namespace {
+enum class InterfaceType { SameToSame, CoarseToFine, FineToCoarse };
+}
 namespace parthenon {
 
-//----------------------------------------------------------------------------------------
-//! \fn void CalcIndicesSetSame(int ox, int &s, int &e,
-//                                                   const IndexRange &bounds)
-//  \brief Calculate indices for SetBoundary routines for buffers on the same level
-
-void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds) {
-  if (ox == 0) {
-    s = bounds.s;
-    e = bounds.e;
-  } else if (ox > 0) {
-    s = bounds.e + 1;
-    e = bounds.e + Globals::nghost;
-  } else {
-    s = bounds.s - Globals::nghost;
-    e = bounds.s - 1;
-  }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void CalcIndicesSetFomCoarser(const int &ox, int &s, int &e,
-//                                                         const IndexRange &bounds,
-//                                                         const std::int64_t &lx,
-//                                                         const int &cng,
-//                                                         const bool include_dim)
-//  \brief Calculate indices for SetBoundary routines for buffers from coarser levels
-
-void CalcIndicesSetFromCoarser(const int &ox, int &s, int &e, const IndexRange &bounds,
-                               const std::int64_t &lx, const int &cng,
-                               const bool include_dim) {
-  if (ox == 0) {
-    s = bounds.s;
-    e = bounds.e;
-    if (include_dim) {
-      if ((lx & 1LL) == 0LL) {
-        e += cng;
-      } else {
-        s -= cng;
-      }
-    }
-  } else if (ox > 0) {
-    s = bounds.e + 1;
-    e = bounds.e + cng;
-  } else {
-    s = bounds.s - cng;
-    e = bounds.s - 1;
-  }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void CalcIndicesSetFromFiner(int &si, int &ei, int &sj,
-//                                                        int &ej, int &sk, int &ek,
-//                                                        const NeighborBlock &nb,
-//                                                        MeshBlock *pmb)
-//  \brief Calculate indices for SetBoundary routines for buffers from finer levels
-
-void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
-                             const NeighborBlock &nb, MeshBlock *pmb) {
+template <InterfaceType INTERFACE>
+Indexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalElement el,
+                          std::array<int, 3> tensor_shape,
+                          const parthenon::IndexShape &shape) {
   IndexDomain interior = IndexDomain::interior;
-  const IndexShape &cellbounds = pmb->cellbounds;
-  if (nb.ni.ox1 == 0) {
-    si = cellbounds.is(interior);
-    ei = cellbounds.ie(interior);
-    if (nb.ni.fi1 == 1)
-      si += pmb->block_size.nx1 / 2;
-    else
-      ei -= pmb->block_size.nx1 / 2;
-  } else if (nb.ni.ox1 > 0) {
-    si = cellbounds.ie(interior) + 1;
-    ei = cellbounds.ie(interior) + Globals::nghost;
-  } else {
-    si = cellbounds.is(interior) - Globals::nghost;
-    ei = cellbounds.is(interior) - 1;
-  }
+  std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
+                                   shape.GetBoundsJ(interior, el),
+                                   shape.GetBoundsK(interior, el)};
 
-  if (nb.ni.ox2 == 0) {
-    sj = cellbounds.js(interior);
-    ej = cellbounds.je(interior);
-    if (pmb->block_size.nx2 > 1) {
-      if (nb.ni.ox1 != 0) {
-        if (nb.ni.fi1 == 1)
-          sj += pmb->block_size.nx2 / 2;
-        else
-          ej -= pmb->block_size.nx2 / 2;
-      } else {
-        if (nb.ni.fi2 == 1)
-          sj += pmb->block_size.nx2 / 2;
-        else
-          ej -= pmb->block_size.nx2 / 2;
-      }
-    }
-  } else if (nb.ni.ox2 > 0) {
-    sj = cellbounds.je(interior) + 1;
-    ej = cellbounds.je(interior) + Globals::nghost;
-  } else {
-    sj = cellbounds.js(interior) - Globals::nghost;
-    ej = cellbounds.js(interior) - 1;
-  }
+  // Account for the fact that the neighbor block may duplicate
+  // some active zones on the loading block for face, edge, and nodal
+  // fields, so the boundary of the neighbor block is one deeper into
+  // the current block in some cases
+  std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
+                                TopologicalOffsetK(el)};
+  std::array<int, 3> block_offset{ni.ox1, ni.ox2, ni.ox3};
+  std::array<int, 2> face_offset{ni.fi1, ni.fi2};
 
-  if (nb.ni.ox3 == 0) {
-    sk = cellbounds.ks(interior);
-    ek = cellbounds.ke(interior);
-    if (pmb->block_size.nx3 > 1) {
-      if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
-        if (nb.ni.fi1 == 1)
-          sk += pmb->block_size.nx3 / 2;
-        else
-          ek -= pmb->block_size.nx3 / 2;
-      } else {
-        if (nb.ni.fi2 == 1)
-          sk += pmb->block_size.nx3 / 2;
-        else
-          ek -= pmb->block_size.nx3 / 2;
+  int off_idx = 0;
+  std::array<int, 3> s, e;
+  for (int dir = 0; dir < 3; ++dir) {
+    if (block_offset[dir] == 0) {
+      s[dir] = bounds[dir].s;
+      e[dir] = bounds[dir].e;
+      if ((INTERFACE == InterfaceType::CoarseToFine) &&
+          bounds[dir].e > bounds[dir].s) { // Check that this dimension has ghost zones
+        // We are sending from a coarser level to the coarse buffer of a finer level,
+        // so we need to only send the approximately half of the indices that overlap
+        // with the other block. We also send nghost "extra" zones in the interior
+        // to ensure there is enough information for prolongation. Also note for
+        // non-cell centered values the number of grid points may be odd, so we
+        // pick up an extra zone that is communicated. I think this is ok, but
+        // something to keep in mind if there are issues.
+        const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
+        s[dir] += face_offset[off_idx] == 1 ? half_grid - Globals::nghost : 0;
+        e[dir] -= face_offset[off_idx] == 0 ? half_grid - Globals::nghost : 0;
       }
+      ++off_idx; // Offsets are listed in X1,X2,X3 order, should never try to access
+                 // with off_idx > 1 since all neighbors must have a non-zero block
+                 // offset in some direction
+    } else if (block_offset[dir] > 0) {
+      s[dir] = bounds[dir].e - Globals::nghost + 1 - top_offset[dir];
+      e[dir] = bounds[dir].e - top_offset[dir];
+    } else {
+      s[dir] = bounds[dir].s + top_offset[dir];
+      e[dir] = bounds[dir].s + Globals::nghost - 1 + top_offset[dir];
     }
-  } else if (nb.ni.ox3 > 0) {
-    sk = cellbounds.ke(interior) + 1;
-    ek = cellbounds.ke(interior) + Globals::nghost;
-  } else {
-    sk = cellbounds.ks(interior) - Globals::nghost;
-    ek = cellbounds.ks(interior) - 1;
   }
+  return Indexer6D({0, tensor_shape[0] - 1}, {0, tensor_shape[1] - 1},
+                   {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn void CalcIndicesLoadSame(int ox, int &s, int &e,
-//                                                    const IndexRange &bounds)
-//  \brief Calculate indices for LoadBoundary routines for buffers on the same level
-//         and to coarser.
-
-void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds) {
-  if (ox == 0) {
-    s = bounds.s;
-    e = bounds.e;
-  } else if (ox > 0) {
-    s = bounds.e - Globals::nghost + 1;
-    e = bounds.e;
-  } else {
-    s = bounds.s;
-    e = bounds.s + Globals::nghost - 1;
-  }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void CalcIndicesLoadToFiner(int &si, int &ei, int &sj,
-//                                                       int &ej, int &sk, int &ek,
-//                                                       const NeighborBlock &nb,
-//                                                       MeshBlock *pmb)
-//  \brief Calculate indices for LoadBoundary routines for buffers to finer levels
-
-void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
-                            const NeighborBlock &nb, MeshBlock *pmb) {
-  int cn = pmb->cnghost - 1;
-
+template <InterfaceType INTERFACE, bool PROLONGATEORRESTRICT = false>
+Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
+                         TopologicalElement el, std::array<int, 3> tensor_shape,
+                         const parthenon::IndexShape &shape) {
   IndexDomain interior = IndexDomain::interior;
-  const IndexShape &cellbounds = pmb->cellbounds;
-  si = (nb.ni.ox1 > 0) ? (cellbounds.ie(interior) - cn) : cellbounds.is(interior);
-  ei = (nb.ni.ox1 < 0) ? (cellbounds.is(interior) + cn) : cellbounds.ie(interior);
-  sj = (nb.ni.ox2 > 0) ? (cellbounds.je(interior) - cn) : cellbounds.js(interior);
-  ej = (nb.ni.ox2 < 0) ? (cellbounds.js(interior) + cn) : cellbounds.je(interior);
-  sk = (nb.ni.ox3 > 0) ? (cellbounds.ke(interior) - cn) : cellbounds.ks(interior);
-  ek = (nb.ni.ox3 < 0) ? (cellbounds.ks(interior) + cn) : cellbounds.ke(interior);
+  std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
+                                   shape.GetBoundsJ(interior, el),
+                                   shape.GetBoundsK(interior, el)};
 
-  // send the data first and later prolongate on the target block
-  // need to add edges for faces, add corners for edges
-  if (nb.ni.ox1 == 0) {
-    if (nb.ni.fi1 == 1)
-      si += pmb->block_size.nx1 / 2 - pmb->cnghost;
-    else
-      ei -= pmb->block_size.nx1 / 2 - pmb->cnghost;
-  }
-  if (nb.ni.ox2 == 0 && pmb->block_size.nx2 > 1) {
-    if (nb.ni.ox1 != 0) {
-      if (nb.ni.fi1 == 1)
-        sj += pmb->block_size.nx2 / 2 - pmb->cnghost;
-      else
-        ej -= pmb->block_size.nx2 / 2 - pmb->cnghost;
-    } else {
-      if (nb.ni.fi2 == 1)
-        sj += pmb->block_size.nx2 / 2 - pmb->cnghost;
-      else
-        ej -= pmb->block_size.nx2 / 2 - pmb->cnghost;
-    }
-  }
-  if (nb.ni.ox3 == 0 && pmb->block_size.nx3 > 1) {
-    if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
-      if (nb.ni.fi1 == 1)
-        sk += pmb->block_size.nx3 / 2 - pmb->cnghost;
-      else
-        ek -= pmb->block_size.nx3 / 2 - pmb->cnghost;
-    } else {
-      if (nb.ni.fi2 == 1)
-        sk += pmb->block_size.nx3 / 2 - pmb->cnghost;
-      else
-        ek -= pmb->block_size.nx3 / 2 - pmb->cnghost;
-    }
-  }
-}
+  std::array<int, 3> block_offset{ni.ox1, ni.ox2, ni.ox3};
+  // This is gross, but the face offsets do not contain the correct
+  // information for going from coarse to fine and the neighbor block
+  // structure does not contain the logical location of the neighbor
+  // block
+  std::array<std::int64_t, 3> logic_loc{loc.lx1, loc.lx2, loc.lx3};
+  std::array<int, 2> face_offset{ni.fi1, ni.fi2};
+  std::array<int, 3> s, e;
 
-void ComputeRestrictionBounds(IndexRange &ni, IndexRange &nj, IndexRange &nk,
-                              const NeighborBlock &nb,
-                              const std::shared_ptr<MeshBlock> &pmb) {
-  auto getbounds = [](const int nbx, IndexRange &n) {
-    n.s = std::max(nbx - 1, -1); // can be -1 or 0
-    n.e = std::min(nbx + 1, 1);  // can be 0 or 1
-  };
-  getbounds(nb.ni.ox1, ni);
-  if (pmb->block_size.nx2 == 1) {
-    nj.s = nj.e = 0;
-  } else {
-    getbounds(nb.ni.ox2, nj);
-  }
-
-  if (pmb->block_size.nx3 == 1) {
-    nk.s = nk.e = 0;
-  } else {
-    getbounds(nb.ni.ox3, nk);
-  }
-}
-
-// JMM: Finds the pieces of the coarse buffer, both interior and in
-// ghost halo, needed to be restricted to enable prolongation. This is
-// both the boundary buffer itself, and the regions *around* it.
-//
-// Here nk, nj, ni are offset indices. They indicate offsets from this
-// piece of the ghost halo to other pieces that may be relevant for
-// getting physical boundary conditions right.
-// They point to other neighbor blocks.
-// ris, rie, rjs, rje, rks, rke are the start and end i,j,k, indices
-// of the region of the ghost halo to restrict.
-void CalcIndicesRestrict(int nk, int nj, int ni, int &ris, int &rie, int &rjs, int &rje,
-                         int &rks, int &rke, const NeighborBlock &nb,
-                         std::shared_ptr<MeshBlock> &pmb) {
-  const IndexDomain interior = IndexDomain::interior;
-  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-
-  // JMM: rs and re are the bounds of the region to restrict
-  // n is the offset index from this boundary/ghost halo to other
-  // regions of the coarse buffer
-  // ox is the offset index of the neighbor block this boundary/ghost
-  // halo communicates with.
-  // note this func is called *per axis* so interior here might still
-  // be an edge or corner.
-  auto CalcIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
-    if (n == 0) { // need to fill "interior" of coarse buffer on this axis
-      rs = b.s;
-      re = b.e;
-      if (ox == 1) {
-        rs = b.e;
-      } else if (ox == -1) {
-        re = b.s;
+  // This is the inverse of CalcLoadIndices, but we don't require any topological element
+  // information beyond what we have in the IndexRanges
+  const int ghosts = PROLONGATEORRESTRICT ? Globals::nghost / 2 : Globals::nghost;
+  int off_idx = 0;
+  for (int dir = 0; dir < 3; ++dir) {
+    if (block_offset[dir] == 0) {
+      s[dir] = bounds[dir].s;
+      e[dir] = bounds[dir].e;
+      if ((INTERFACE == InterfaceType::CoarseToFine) && bounds[dir].e > bounds[dir].s) {
+        s[dir] -= logic_loc[dir] % 2 == 1 ? ghosts : 0;
+        e[dir] += logic_loc[dir] % 2 == 0 ? ghosts : 0;
+      } else if (INTERFACE == InterfaceType::FineToCoarse) {
+        const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
+        s[dir] += face_offset[off_idx] == 1 ? half_grid : 0;
+        e[dir] -= face_offset[off_idx] == 0 ? half_grid : 0;
       }
-    } else if (n == 1) { // need to fill "edges" or "corners" on this axis
-      rs = b.e + 1;      // TODO(JMM): Is this always true?
-      re = b.e + 1;      // should this end at b.e + NG - 1?
-    } else {             //(n ==  - 1)
-      rs = b.s - 1;      // TODO(JMM): should this start at b.s - NG + 1?
-      re = b.s - 1;      // or something similar?
+      ++off_idx;
+    } else if (block_offset[dir] > 0) {
+      s[dir] = bounds[dir].e + 1;
+      e[dir] = bounds[dir].e + ghosts;
+    } else {
+      s[dir] = bounds[dir].s - ghosts;
+      e[dir] = bounds[dir].s - 1;
     }
-  };
-
-  CalcIndices(ris, rie, ni, nb.ni.ox1, cib);
-  CalcIndices(rjs, rje, nj, nb.ni.ox2, cjb);
-  CalcIndices(rks, rke, nk, nb.ni.ox3, ckb);
+  }
+  return Indexer6D({0, tensor_shape[0] - 1}, {0, tensor_shape[1] - 1},
+                   {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v) {
+  // This does not do a careful job of calculating the buffer size, in many
+  // cases there will be some extra storage that is not required, but there
+  // will always be enough storage
   auto &cb = pmb->cellbounds;
+  int topo_comp = (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) ? 3 : 1;
   const IndexDomain in = IndexDomain::interior;
-  const int isize = cb.ie(in) - cb.is(in) + 1;
-  const int jsize = cb.je(in) - cb.js(in) + 1;
-  const int ksize = cb.ke(in) - cb.ks(in) + 1;
+  // The plus 2 instead of 1 is to account for the possible size of face, edge, and nodal
+  // fields
+  const int isize = cb.ie(in) - cb.is(in) + 2;
+  const int jsize = cb.je(in) - cb.js(in) + 2;
+  const int ksize = cb.ke(in) - cb.ks(in) + 2;
   return (nb.ni.ox1 == 0 ? isize : Globals::nghost) *
          (nb.ni.ox2 == 0 ? jsize : Globals::nghost) *
          (nb.ni.ox3 == 0 ? ksize : Globals::nghost) * v->GetDim(6) * v->GetDim(5) *
-         v->GetDim(4);
+         v->GetDim(4) * topo_comp;
 }
 
 BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
-                                CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                const OffsetIndices &) {
+                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
 
   out.allocated = v->IsAllocated();
@@ -327,9 +168,9 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 
   out.buf = buf->buffer();
 
-  out.Nv = v->GetDim(4);
-  out.Nu = v->GetDim(5);
-  out.Nt = v->GetDim(6);
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
 
   int mylevel = pmb->loc.level;
   out.coords = pmb->coords;
@@ -339,33 +180,39 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
 
-  IndexDomain interior = IndexDomain::interior;
-  if (nb.snb.level == mylevel) {
-    const parthenon::IndexShape &cellbounds = pmb->cellbounds;
-    CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, cellbounds.GetBoundsI(interior));
-    CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, cellbounds.GetBoundsJ(interior));
-    CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, cellbounds.GetBoundsK(interior));
-    out.var = v->data.Get();
-  } else if (nb.snb.level < mylevel) {
-    // "Same" logic is the same for loading to a coarse buffer, just using
-    // c_cellbounds
-    const IndexShape &c_cellbounds = pmb->c_cellbounds;
-    CalcIndicesLoadSame(nb.ni.ox1, out.si, out.ei, c_cellbounds.GetBoundsI(interior));
-    CalcIndicesLoadSame(nb.ni.ox2, out.sj, out.ej, c_cellbounds.GetBoundsJ(interior));
-    CalcIndicesLoadSame(nb.ni.ox3, out.sk, out.ek, c_cellbounds.GetBoundsK(interior));
-    out.refinement_op = RefinementOp_t::Restriction;
-    out.var = v->coarse_s.Get();
-  } else {
-    CalcIndicesLoadToFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb, pmb.get());
-    out.var = v->data.Get();
+  using TE = TopologicalElement;
+  std::vector<TopologicalElement> elements = {TE::CC};
+  if (v->IsSet(Metadata::Face)) elements = {TE::F1, TE::F2, TE::F3};
+  if (v->IsSet(Metadata::Edge)) elements = {TE::E1, TE::E2, TE::E3};
+  if (v->IsSet(Metadata::Node)) elements = {TE::NN};
+
+  out.ntopological_elements = elements.size();
+  for (auto el : elements) {
+    int idx = static_cast<int>(el) % 3;
+    if (nb.snb.level == mylevel) {
+      out.idxer[idx] = CalcLoadIndices<InterfaceType::SameToSame>(nb.ni, el, {Nt, Nu, Nv},
+                                                                  pmb->cellbounds);
+      out.var = v->data.Get();
+    } else if (nb.snb.level < mylevel) {
+      // "Same" logic is the same for loading to a coarse buffer, just using
+      // c_cellbounds
+      out.idxer[idx] = CalcLoadIndices<InterfaceType::FineToCoarse>(
+          nb.ni, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+      out.prores_idxer[static_cast<int>(el)] = out.idxer[idx];
+      out.refinement_op = RefinementOp_t::Restriction;
+      out.var = v->coarse_s.Get();
+    } else {
+      out.idxer[idx] = CalcLoadIndices<InterfaceType::CoarseToFine>(
+          nb.ni, el, {Nt, Nu, Nv}, pmb->cellbounds);
+      out.var = v->data.Get();
+    }
   }
   return out;
 }
 
 BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                               const OffsetIndices &) {
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
   out.buf = buf->buffer();
   auto buf_state = buf->GetState();
@@ -378,35 +225,82 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
 
-  out.Nv = v->GetDim(4);
-  out.Nu = v->GetDim(5);
-  out.Nt = v->GetDim(6);
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
+
+  using TE = TopologicalElement;
+  std::vector<TopologicalElement> elements = {TE::CC};
+  if (v->IsSet(Metadata::Face)) elements = {TE::F1, TE::F2, TE::F3};
+  if (v->IsSet(Metadata::Edge)) elements = {TE::E1, TE::E2, TE::E3};
+  if (v->IsSet(Metadata::Node)) elements = {TE::NN};
 
   int mylevel = pmb->loc.level;
-  IndexDomain interior = IndexDomain::interior;
-  if (nb.snb.level == mylevel) {
-    const parthenon::IndexShape &cellbounds = pmb->cellbounds;
-    CalcIndicesSetSame(nb.ni.ox1, out.si, out.ei, cellbounds.GetBoundsI(interior));
-    CalcIndicesSetSame(nb.ni.ox2, out.sj, out.ej, cellbounds.GetBoundsJ(interior));
-    CalcIndicesSetSame(nb.ni.ox3, out.sk, out.ek, cellbounds.GetBoundsK(interior));
-    out.var = v->data.Get();
-  } else if (nb.snb.level < mylevel) {
-    const IndexShape &c_cellbounds = pmb->c_cellbounds;
-    const auto &cng = pmb->cnghost;
-    CalcIndicesSetFromCoarser(nb.ni.ox1, out.si, out.ei,
-                              c_cellbounds.GetBoundsI(interior), pmb->loc.lx1, cng, true);
-    CalcIndicesSetFromCoarser(nb.ni.ox2, out.sj, out.ej,
-                              c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2, cng,
-                              pmb->block_size.nx2 > 1);
-    CalcIndicesSetFromCoarser(nb.ni.ox3, out.sk, out.ek,
-                              c_cellbounds.GetBoundsK(interior), pmb->loc.lx3, cng,
-                              pmb->block_size.nx3 > 1);
+  out.coords = pmb->coords;
+  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
+  out.fine = v->data.Get();
+  out.coarse = v->coarse_s.Get();
 
-    out.var = v->coarse_s.Get();
-  } else {
-    CalcIndicesSetFromFiner(out.si, out.ei, out.sj, out.ej, out.sk, out.ek, nb,
-                            pmb.get());
-    out.var = v->data.Get();
+  // This will select a superset of the boundaries that actually need to be restricted,
+  // more logic could be added to only restrict boundary regions that abut boundary
+  // regions that were filled by coarser neighbors
+  bool restricted = false;
+  if (mylevel > 0) {
+    for (int k = 0; k < 3; ++k) {
+      for (int j = 0; j < 3; ++j) {
+        for (int i = 0; i < 3; ++i) {
+          restricted = restricted || (pmb->pbval->nblevel[k][j][i] == (mylevel - 1));
+        }
+      }
+    }
+  }
+
+  out.ntopological_elements = elements.size();
+  for (auto el : elements) {
+    int idx = static_cast<int>(el) % 3;
+    if (nb.snb.level == mylevel) {
+      out.var = v->data.Get();
+      out.idxer[idx] = CalcSetIndices<InterfaceType::SameToSame>(
+          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
+      if (restricted) {
+        out.refinement_op = RefinementOp_t::Restriction;
+        out.prores_idxer[static_cast<int>(el)] =
+            CalcSetIndices<InterfaceType::SameToSame, true>(
+                nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+      }
+    } else if (nb.snb.level < mylevel) {
+      out.idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine>(
+          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+      out.var = v->coarse_s.Get();
+      out.refinement_op = RefinementOp_t::Prolongation;
+    } else {
+      out.var = v->data.Get();
+      out.idxer[idx] = CalcSetIndices<InterfaceType::FineToCoarse>(
+          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
+      if (restricted) {
+        out.refinement_op = RefinementOp_t::Restriction;
+        out.prores_idxer[static_cast<int>(el)] =
+            CalcSetIndices<InterfaceType::FineToCoarse, true>(
+                nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+      }
+    }
+  }
+
+  // LFR: All of these are not necessarily required, but some subset are for internal
+  // prolongation.
+  //      if the variable is NXYZ we require (C, FX, FY, FZ, EXY, EXZ, EYZ, NXYZ)
+  //      if the variable is EXY we require (C, FX, FY, EXY), etc.
+  //      if the variable is FX we require (C, FX), etc.
+  //      if the variable is C we require (C)
+  //      I doubt that the extra calculations matter, but the storage overhead could
+  //      matter since each 6D indexer contains 18 ints and we are always carrying around
+  //      10 indexers per bound info even if the field isn't allocated
+  if (nb.snb.level < mylevel) {
+    for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN}) {
+      out.prores_idxer[static_cast<int>(el)] =
+          CalcSetIndices<InterfaceType::CoarseToFine, true>(
+              nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+    }
   }
 
   if (buf_state == BufferState::received) {
@@ -425,8 +319,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 
 BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                   std::shared_ptr<Variable<Real>> v,
-                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                  const OffsetIndices &) {
+                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
   out.allocated = v->IsAllocated();
   if (!v->IsAllocated()) {
@@ -440,52 +333,48 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   // This is the index range for the coarse field
-  out.sk = kb.s;
-  out.ek = out.sk + std::max((kb.e - kb.s + 1) / 2, 1) - 1;
-  out.sj = jb.s;
-  out.ej = out.sj + std::max((jb.e - jb.s + 1) / 2, 1) - 1;
-  out.si = ib.s;
-  out.ei = out.si + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
+  int sk = kb.s;
+  int ek = sk + std::max((kb.e - kb.s + 1) / 2, 1) - 1;
+  int sj = jb.s;
+  int ej = sj + std::max((jb.e - jb.s + 1) / 2, 1) - 1;
+  int si = ib.s;
+  int ei = si + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
 
   if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
     out.dir = X1DIR;
     if (nb.fid == BoundaryFace::inner_x1)
-      out.si = ib.s;
+      si = ib.s;
     else
-      out.si = ib.e + 1;
-    out.ei = out.si;
+      si = ib.e + 1;
+    ei = si;
   } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
     out.dir = X2DIR;
     if (nb.fid == BoundaryFace::inner_x2)
-      out.sj = jb.s;
+      sj = jb.s;
     else
-      out.sj = jb.e + 1;
-    out.ej = out.sj;
+      sj = jb.e + 1;
+    ej = sj;
   } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
     out.dir = X3DIR;
     if (nb.fid == BoundaryFace::inner_x3)
-      out.sk = kb.s;
+      sk = kb.s;
     else
-      out.sk = kb.e + 1;
-    out.ek = out.sk;
+      sk = kb.e + 1;
+    ek = sk;
   } else {
     PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
   }
 
   out.var = v->flux[out.dir];
-
-  out.Nv = out.var.GetDim(4);
-  out.Nu = out.var.GetDim(5);
-  out.Nt = out.var.GetDim(6);
   out.coords = pmb->coords;
-
+  out.idxer[0] = Indexer6D({0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
+                           {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   return out;
 }
 
 BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                  std::shared_ptr<Variable<Real>> v,
-                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                 const OffsetIndices &) {
+                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
 
   if (!v->IsAllocated() || buf->GetState() != BufferState::received) {
@@ -499,90 +388,64 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  out.sk = kb.s;
-  out.sj = jb.s;
-  out.si = ib.s;
-  out.ek = kb.e;
-  out.ej = jb.e;
-  out.ei = ib.e;
+  int sk = kb.s;
+  int sj = jb.s;
+  int si = ib.s;
+  int ek = kb.e;
+  int ej = jb.e;
+  int ei = ib.e;
   if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
     out.dir = X1DIR;
     if (nb.fid == BoundaryFace::inner_x1)
-      out.ei = out.si;
+      ei = si;
     else
-      out.si = ++out.ei;
+      si = ++ei;
     if (nb.ni.fi1 == 0)
-      out.ej -= pmb->block_size.nx2 / 2;
+      ej -= pmb->block_size.nx2 / 2;
     else
-      out.sj += pmb->block_size.nx2 / 2;
+      sj += pmb->block_size.nx2 / 2;
     if (nb.ni.fi2 == 0)
-      out.ek -= pmb->block_size.nx3 / 2;
+      ek -= pmb->block_size.nx3 / 2;
     else
-      out.sk += pmb->block_size.nx3 / 2;
+      sk += pmb->block_size.nx3 / 2;
   } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
     out.dir = X2DIR;
     if (nb.fid == BoundaryFace::inner_x2)
-      out.ej = out.sj;
+      ej = sj;
     else
-      out.sj = ++out.ej;
+      sj = ++ej;
     if (nb.ni.fi1 == 0)
-      out.ei -= pmb->block_size.nx1 / 2;
+      ei -= pmb->block_size.nx1 / 2;
     else
-      out.si += pmb->block_size.nx1 / 2;
+      si += pmb->block_size.nx1 / 2;
     if (nb.ni.fi2 == 0)
-      out.ek -= pmb->block_size.nx3 / 2;
+      ek -= pmb->block_size.nx3 / 2;
     else
-      out.sk += pmb->block_size.nx3 / 2;
+      sk += pmb->block_size.nx3 / 2;
   } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
     out.dir = X3DIR;
     if (nb.fid == BoundaryFace::inner_x3)
-      out.ek = out.sk;
+      ek = sk;
     else
-      out.sk = ++out.ek;
+      sk = ++ek;
     if (nb.ni.fi1 == 0)
-      out.ei -= pmb->block_size.nx1 / 2;
+      ei -= pmb->block_size.nx1 / 2;
     else
-      out.si += pmb->block_size.nx1 / 2;
+      si += pmb->block_size.nx1 / 2;
     if (nb.ni.fi2 == 0)
-      out.ej -= pmb->block_size.nx2 / 2;
+      ej -= pmb->block_size.nx2 / 2;
     else
-      out.sj += pmb->block_size.nx2 / 2;
+      sj += pmb->block_size.nx2 / 2;
   } else {
     PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
   }
 
   out.var = v->flux[out.dir];
 
-  out.Nv = out.var.GetDim(4);
-  out.Nu = out.var.GetDim(5);
-  out.Nt = out.var.GetDim(6);
-
   out.coords = pmb->coords;
-
+  out.idxer[0] = Indexer6D({0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
+                           {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   return out;
 }
 
-BndInfo BndInfo::GetCCRestrictInfo(std::shared_ptr<MeshBlock> pmb,
-                                   const NeighborBlock &nb,
-                                   std::shared_ptr<Variable<Real>> v,
-                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf,
-                                   const OffsetIndices &no) {
-  BndInfo out;
-  if (!v->IsAllocated()) {
-    out.allocated = false;
-    return out;
-  }
-  out.allocated = true;
-  CalcIndicesRestrict(no.nk, no.nj, no.ni, out.si, out.ei, out.sj, out.ej, out.sk, out.ek,
-                      nb, pmb);
-  out.coords = pmb->coords;
-  out.coarse_coords = pmb->pmr->GetCoarseCoords();
-  out.fine = v->data.Get();
-  out.coarse = v->coarse_s.Get();
-  out.refinement_op = RefinementOp_t::Restriction;
-  out.Nt = v->GetDim(6);
-  out.Nu = v->GetDim(5);
-  out.Nv = v->GetDim(4);
-  return out;
-}
 } // namespace parthenon

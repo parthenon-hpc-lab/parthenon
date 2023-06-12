@@ -31,7 +31,6 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
 
@@ -45,14 +44,8 @@ template <BoundaryType BTYPE>
 void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
                                Mesh::comm_buf_map_t &buf_map) {
   Mesh *pmesh = md->GetMeshPointer();
-  ForEachBoundary<BTYPE>(md, [&](sp_mb_t pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v,
-                                 const OffsetIndices & /*no*/) {
-    // TODO(LFR): Remove temporary check that variables with FillGhost and/or WithFluxes
-    // are cell centered, since communication only is currently implemented for those
-    // types of variables
-    PARTHENON_REQUIRE(v->IsSet(Metadata::Cell),
-                      "Boundary communication only implemented for cell variables.");
-
+  ForEachBoundary<BTYPE>(md, [&](sp_mb_t pmb, sp_mbd_t /*rc*/, nb_t &nb,
+                                 const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
 

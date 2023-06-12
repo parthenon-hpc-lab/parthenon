@@ -76,36 +76,22 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
         if (!binfo.allocated) return;
         auto &coords = binfo.coords;
 
-        const int Ni = binfo.ei + 1 - binfo.si;
-        const int Nj = binfo.ej + 1 - binfo.sj;
-        const int Nk = binfo.ek + 1 - binfo.sk;
-
-        const int &Nt = binfo.Nt;
-        const int &Nu = binfo.Nu;
-        const int &Nv = binfo.Nv;
-
-        const int NjNi = Nj * Ni;
-        const int NkNjNi = Nk * NjNi;
-        const int NvNkNjNi = Nv * NkNjNi;
-        const int NuNvNkNjNi = Nu * NvNkNjNi;
-        const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
-
         int ioff = binfo.dir == X1DIR ? 0 : 1;
         int joff = (binfo.dir == X2DIR) || (ndim < 2) ? 0 : 1;
         int koff = (binfo.dir == X3DIR) || (ndim < 3) ? 0 : 1;
-
+        auto &idxer = binfo.idxer[0];
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi), [&](const int idx) {
-              const int t = idx / NuNvNkNjNi;
-              const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-              const int v = (idx % NvNkNjNi) / NkNjNi;
-              const int ck = (idx % NkNjNi) / NjNi;
-              const int cj = (idx % NjNi) / Ni;
-              const int ci = idx % Ni;
-
-              const int k = binfo.sk + 2 * ck;
-              const int j = binfo.sj + 2 * cj;
-              const int i = binfo.si + 2 * ci;
+            Kokkos::TeamThreadRange<>(team_member, idxer.size()), [&](const int idx) {
+              const auto [t, u, v, ck, cj, ci] = idxer(idx);
+              // Move from a coarse grid index to the corresponding lower left fine grid
+              // index, StartIdx<I>() should return the index of the first non-ghost zone
+              // in direction I
+              const int k =
+                  idxer.template StartIdx<3>() + 2 * (ck - idxer.template StartIdx<3>());
+              const int j =
+                  idxer.template StartIdx<4>() + 2 * (cj - idxer.template StartIdx<4>());
+              const int i =
+                  idxer.template StartIdx<5>() + 2 * (ci - idxer.template StartIdx<5>());
 
               // For the given set of offsets, etc. this should work for any
               // dimensionality since the same flux will be included multiple times
@@ -189,28 +175,10 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
         const int b = team_member.league_rank();
         if (!bnd_info(b).allocated) return;
 
-        const int Ni = bnd_info(b).ei + 1 - bnd_info(b).si;
-        const int Nj = bnd_info(b).ej + 1 - bnd_info(b).sj;
-        const int Nk = bnd_info(b).ek + 1 - bnd_info(b).sk;
-        const int &Nt = bnd_info(b).Nt;
-        const int &Nu = bnd_info(b).Nu;
-        const int &Nv = bnd_info(b).Nv;
-
-        const int NjNi = Nj * Ni;
-        const int NkNjNi = Nk * NjNi;
-        const int NvNkNjNi = Nv * NkNjNi;
-        const int NuNvNkNjNi = Nu * NvNkNjNi;
-        const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
-
-        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
+        auto &idxer = bnd_info(b).idxer[0];
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
                              [&](const int idx) {
-                               const int t = idx / NuNvNkNjNi;
-                               const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-                               const int v = (idx % NvNkNjNi) / NkNjNi;
-                               const int k = (idx % NkNjNi) / NjNi + bnd_info(b).sk;
-                               const int j = (idx % NjNi) / Ni + bnd_info(b).sj;
-                               const int i = idx % Ni + bnd_info(b).si;
-
+                               const auto [t, u, v, k, j, i] = idxer(idx);
                                bnd_info(b).var(t, u, v, k, j, i) = bnd_info(b).buf(idx);
                              });
       });

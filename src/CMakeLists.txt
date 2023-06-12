@@ -225,6 +225,7 @@ add_library(parthenon
   utils/error_checking.hpp
   utils/error_checking.cpp
   utils/hash.hpp
+  utils/indexer.hpp
   utils/loop_utils.hpp
   utils/mpi_types.hpp
   utils/multi_pointer.hpp

@@ -405,6 +405,7 @@ Boundary Communication Tasks
   * Launch kernels to copy from buffers into fields or copy default data
     into fields if sending null.
   * Stale the communication buffers.
+  * Restrict ghost regions where necessary to fill prolongation stencils.
 
 Flux Correction Tasks
 ~~~~~~~~~~~~~~~~~~~~~
@@ -425,15 +426,3 @@ cacheing if desired.
 - ``LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
 - ``ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
 - ``SetFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
-
-Non-communication tasks
-~~~~~~~~~~~~~~~~~~~~~~~
-
-These tasks use the same infrastructure as the boundary communication
-machinery but do not communicate.
-
-.. topic:: ``RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset_cache)``
-
-  Loops over parts of the mesh with a coarse-fine boundary and restricts
-  from the fine buffer to the coarse buffer of a variable when relevant.
-  This is needed for physical boundary conditions to be applied correctly.
