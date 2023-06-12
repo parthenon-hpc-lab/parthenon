@@ -862,6 +862,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     } while (!all_received && niter < 1e7);
     if (!all_received) PARTHENON_FAIL("AMR Receive failed");
   }
+  // Fence here to be careful that all communication is finished before moving
+  // on to prolongation
+  Kokkos::fence();
 
   // Prolongate blocks that had a coarse buffer filled (i.e. c2f blocks)
   for (int nn = nbs; nn <= nbe; nn++) {
