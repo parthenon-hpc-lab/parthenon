@@ -38,10 +38,22 @@ several useful features and functions.
   all blocks just like dense variables, however, in a future upgrade, they
   will only be allocated on those blocks where the user explicitly
   allocates them or non-zero values are advected into.
-- ``void AddParam<T>(const std::string& key, T& value, bool is_mutable)``
-  adds a parameter (e.g., a timestep control coefficient, refinement
-  tolerance, etc.) with name ``key`` and value ``value``. If
-  ``is_mutable`` is true, parameters can be more easily modified.
+- ``void AddParam<T>(const std::string& key, T& value, Mutability
+  mutability)`` adds a parameter (e.g., a timestep control
+  coefficient, refinement tolerance, etc.) with name ``key`` and value
+  ``value``. The enum ``mutability`` can take on three values:
+  ``Mutability::Immutable``, ``Mutability::Mutable``, and
+  ``Mutability::Restart``. Paramters that are ``Immutable`` cannot be
+  modified. Parameters that are ``Mutable`` or ``Restart`` can be
+  modified via the ``MutableParam`` and ``UpdateParam``
+  options. Parameters that are ``Restart`` will be re-read from the
+  restart file and updated upon restart. In contrast, ``Mutable``
+  params not marked ``Restart`` are updated only by user code, not
+  automatically. Note that not all parameter types can be output to
+  HDF5 file. However, most common scalar, vector, and ``Kokkos`` view
+  types are supported. Note also that by default the ``Mesh`` object
+  and each ``MeshBlock`` object all own their own copies of all
+  packages.
 - ``void UpdateParam<T>(const std::string& key, T& value)``\ updates a
   parameter (e.g., a timestep control coefficient, refinement tolerance,
   etc.) with name ``key`` and value ``value``. A parameter of the same
