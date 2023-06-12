@@ -222,9 +222,10 @@ void HDF5WriteAttribute(const std::string &name, const T &view, hid_t location) 
   }
   const H5S data_space = H5S::FromHIDCheck(H5Screate_simple(RANK, dim, dim));
   // works regardless of memory space of the view
-  auto pdata = view.data();
+  auto *pdata = view.data();
+  auto view_h = Kokkos::create_mirror_view(view);
   if constexpr (!std::is_same<typename T::memory_space, Kokkos::HostSpace>::value) {
-    auto view_h = Kokkos::create_mirror_view_and_copy(view);
+    Kokkos::deep_copy(view_h, view);
     pdata = view_h.data();
   }
   auto type = getHDF5Type(pdata);
@@ -300,8 +301,9 @@ void HDF5ReadAttribute(hid_t location, const std::string &name, T &view) {
 
   // pull out data pointer
   auto *pdata = view.data();
+  auto view_h = Kokkos::create_mirror_view(view);
   if constexpr (!std::is_same<typename T::memory_space, Kokkos::HostSpace>::value) {
-    auto view_h = Kokkos::create_mirror_view_and_copy(view);
+    Kokkos::deep_copy(view_h, view);
     pdata = view_h.data();
   }
 
@@ -313,6 +315,15 @@ void HDF5ReadAttribute(hid_t location, const std::string &name, T &view) {
 
   // Read attribute from file
   PARTHENON_HDF5_CHECK(H5Aread(attr, type, pdata));
+
+  if constexpr (!std::is_same<typename T::memory_space, Kokkos::HostSpace>::value) {
+    Kokkos::deep_copy(view, view_h);
+  }
+}
+
+template <typename D, typename S>
+void HDF5ReadAttribute(hid_t location, const std::string &name, const ParArrayGeneric<D, S> &view) {
+  return HDF5ReadAttribute(location, name, view.KokkosView());
 }
 
 template <typename T>
