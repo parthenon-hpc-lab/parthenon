@@ -283,7 +283,6 @@ void HDF5ReadAttribute(hid_t location, const std::string &name, T &view) {
   static_assert(std::is_same<typename T::array_layout, Kokkos::LayoutLeft>::value ||
                     std::is_same<typename T::array_layout, Kokkos::LayoutRight>::value,
                 "Currently can only read from contiguous views");
-  
   // attribute info
   H5A attr;
   auto [rank, dim, size] = HDF5GetAttributeInfo(location, name, attr);
@@ -292,12 +291,12 @@ void HDF5ReadAttribute(hid_t location, const std::string &name, T &view) {
   int view_rank = static_cast<size_t>(T::rank);
   PARTHENON_REQUIRE(rank == view_rank, "input and output view are same rank");
 
-  // resize view
+  // Resize view.
   typename T::array_layout layout;
   for (int d = 0; d < rank; ++d) {
     layout.dimension[d] = dim[d];
   }
-  Kokkos::resize(view, layout);
+  view = T(view.label(), layout);
 
   // pull out data pointer
   auto *pdata = view.data();
@@ -322,8 +321,10 @@ void HDF5ReadAttribute(hid_t location, const std::string &name, T &view) {
 }
 
 template <typename D, typename S>
-void HDF5ReadAttribute(hid_t location, const std::string &name, const ParArrayGeneric<D, S> &view) {
-  return HDF5ReadAttribute(location, name, view.KokkosView());
+void HDF5ReadAttribute(hid_t location, const std::string &name,
+                       ParArrayGeneric<D, S> &pararray) {
+  D view = pararray.KokkosView();
+  return HDF5ReadAttribute(location, name, view);
 }
 
 template <typename T>

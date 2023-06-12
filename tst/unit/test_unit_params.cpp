@@ -1,4 +1,4 @@
- //========================================================================================
+//========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
@@ -22,8 +22,8 @@
 
 #include "basic_types.hpp"
 #include "config.hpp"
-#include "kokkos_abstraction.hpp"
 #include "interface/params.hpp"
+#include "kokkos_abstraction.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 
 using parthenon::Params;
@@ -178,22 +178,34 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
         params.WriteAllToHDF5(prefix, group);
       }
       AND_THEN("We can directly read the relevant data from the hdf5 file") {
-	H5F file = H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
-	const H5O obj = H5O::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
+        H5F file =
+            H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
+        const H5O obj = H5O::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
 
-	Real in_scalar;
-	HDF5ReadAttribute(obj, prefix + "/scalar", in_scalar);
-	REQUIRE(std::abs(scalar - in_scalar) <= 1e-10);
+        Real in_scalar;
+        HDF5ReadAttribute(obj, prefix + "/scalar", in_scalar);
+        REQUIRE(std::abs(scalar - in_scalar) <= 1e-10);
 
-	std::vector<int> in_vector;
-	HDF5ReadAttribute(obj, prefix + "/vector", in_vector);
-	for (int i = 0; i < vector.size(); ++i) {
-	  REQUIRE(in_vector[i] == vector[i]);
-	}
-	
-	// deliberately the wrong size
-	parthenon::ParArray2D<Real> in_arr2d("myarr", 1, 1);
-	
+        std::vector<int> in_vector;
+        HDF5ReadAttribute(obj, prefix + "/vector", in_vector);
+        for (int i = 0; i < vector.size(); ++i) {
+          REQUIRE(in_vector[i] == vector[i]);
+        }
+
+        // deliberately the wrong size
+        parthenon::ParArray2D<Real> in_arr2d("myarr", 1, 1);
+        HDF5ReadAttribute(obj, prefix + "/arr2d", in_arr2d);
+        REQUIRE(in_arr2d.extent_int(0) == arr2d.extent_int(0));
+        REQUIRE(in_arr2d.extent_int(1) == arr2d.extent_int(1));
+        int nwrong = 1;
+        parthenon::par_reduce(
+            parthenon::loop_pattern_mdrange_tag, "test arr2d", parthenon::DevExecSpace(),
+            0, arr2d.extent_int(0) - 1, 0, arr2d.extent_int(1) - 1,
+            KOKKOS_LAMBDA(const int i, const int j, int &nw) {
+              nw += (in_arr2d(i, j) != arr2d(i, j));
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
       }
     }
   }
