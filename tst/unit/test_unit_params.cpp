@@ -1,4 +1,4 @@
-//========================================================================================
+ //========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
@@ -16,13 +16,18 @@
 //========================================================================================
 
 #include <string>
+#include <vector>
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "config.hpp"
+#include "kokkos_abstraction.hpp"
 #include "interface/params.hpp"
+#include "outputs/parthenon_hdf5.hpp"
 
 using parthenon::Params;
+using parthenon::Real;
 
 TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
   GIVEN("A key with some value") {
@@ -130,3 +135,53 @@ TEST_CASE("when hasKey is called", "[hasKey]") {
     }
   }
 }
+
+#ifdef ENABLE_HDF5
+
+TEST_CASE("A set of params can be dumped to file", "[params][output]") {
+  GIVEN("A params object with a few kinds of objects") {
+    Params params;
+
+    Real scalar = 3.0;
+    params.Add("scalar", scalar);
+
+    std::vector<int> vector = {0, 1, 2};
+    params.Add("vector", vector);
+
+    Kokkos::View<std::size_t *> view("myview", 3);
+    auto view_h = Kokkos::create_mirror_view(view);
+    for (int i = 0; i < view.extent_int(0); ++i) {
+      view_h(i) = i;
+    }
+    Kokkos::deep_copy(view, view_h);
+    params.Add("view", view);
+
+    parthenon::ParArray2D<Real> arr2d("myarr", 2, 2);
+    auto arr2d_h = Kokkos::create_mirror_view(arr2d);
+    for (int i = 0; i < 2; ++i) {
+      for (int j = 0; j < 2; ++j) {
+        arr2d_h(i, j) = 2 * i + j;
+      }
+    }
+    Kokkos::deep_copy(arr2d, arr2d_h);
+    params.Add("arr2d", arr2d);
+
+    parthenon::HostArray2D<Real> hostarr("hostarr2d", 2, 2);
+    for (int i = 0; i < 2; ++i) {
+      for (int j = 0; j < 2; ++j) {
+        hostarr(i, j) = 2 * i + j + 1;
+      }
+    }
+    params.Add("hostarr2d", hostarr);
+
+    THEN("We can output to hdf5") {
+      using namespace parthenon::HDF5;
+      H5F file = H5F::FromHIDCheck(
+          H5Fcreate("params_test.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
+      auto group = MakeGroup(file, "params");
+      params.WriteAllToHDF5("test_pkg", group);
+    }
+  }
+}
+
+#endif // ENABLE_HDF5

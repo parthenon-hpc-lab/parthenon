@@ -28,6 +28,7 @@
 #include <memory>
 #include <numeric>
 #include <set>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 
@@ -736,6 +737,42 @@ template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, S
 
 // Utility functions implemented
 namespace HDF5 {
+std::tuple<int, std::vector<hsize_t>, std::size_t>
+HDF5GetAttributeInfo(hid_t location, const std::string &name, H5A &attr) {
+  // check if attribute exists
+  auto status = PARTHENON_HDF5_CHECK(H5Aexists(location, name.c_str()));
+  PARTHENON_REQUIRE_THROWS(status > 0, "Attribute '" + name + "' does not exist");
+
+  // Open attribute
+  attr = H5A::FromHIDCheck(H5Aopen(location, name.c_str(), H5P_DEFAULT));
+
+  // Get attribute shape
+  const H5S dataspace = H5S::FromHIDCheck(H5Aget_space(attr));
+  int rank = PARTHENON_HDF5_CHECK(H5Sget_simple_extent_ndims(dataspace));
+  std::size_t size = 1;
+  std::vector<hsize_t> dim;
+  if (rank > 0) {
+    dim.resize(rank);
+    PARTHENON_HDF5_CHECK(H5Sget_simple_extent_dims(dataspace, dim.data(), NULL));
+    for (int d = 0; d < rank; ++d) {
+      size *= dim[d];
+    }
+    if (size == 0) {
+      PARTHENON_THROW("Attribute " + name + " has no value");
+    }
+  } else { // scalar quantity
+    dim.resize(1);
+    dim[0] = 1;
+  }
+  // JMM: H5Handle doesn't play nice with returning a tuple/structured
+  // binding, which is why it's not in the tuple. I think the issue is
+  // that H5Handle doesn't have a copy assignment operator, only a
+  // move operator. That probably implies not great things about the
+  // performance of returning the dim array by value here, but
+  // whatever. This isn't performance critical code.
+  return std::make_tuple(rank, dim, size);
+}
+
 // template specializations for std::string
 void HDF5WriteAttribute(const std::string &name, const std::string &value,
                         hid_t location) {
