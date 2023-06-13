@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/cc/bnd_info.hpp"
+#include "bvals/comms/bnd_info.hpp"
 #include "interface/sparse_pack_base.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
@@ -252,6 +252,11 @@ class MeshData {
     return block_data_[n];
   }
 
+  std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) {
+    assert(n >= 0 && n < block_data_.size());
+    return block_data_[n];
+  }
+
   void SetAllVariablesToInitialized() {
     std::for_each(block_data_.begin(), block_data_.end(),
                   [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
@@ -427,7 +432,7 @@ class MeshData {
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
   // caches for boundary information
-  cell_centered_bvars::BvarsCache_t bvars_cache_;
+  BvarsCache_t bvars_cache_;
 };
 
 } // namespace parthenon

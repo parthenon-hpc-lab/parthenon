@@ -71,7 +71,7 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
 //----------------------------------------------------------------------------------------
 //  \brief restrict cell centered values
 
-void MeshRefinement::RestrictCellCenteredValues(CellVariable<Real> *var, int csi, int cei,
+void MeshRefinement::RestrictCellCenteredValues(Variable<Real> *var, int csi, int cei,
                                                 int csj, int cej, int csk, int cek) {
   const auto &metadata = var->metadata();
   PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
@@ -84,19 +84,13 @@ void MeshRefinement::RestrictCellCenteredValues(CellVariable<Real> *var, int csi
   // TODO(JMM): We're allocating on the heap here... we could move to
   // the stack by giving these functions pointers to underlying data?
   // Probably not worth it, as these functions will be completely removed soon.
-  cell_centered_bvars::BufferCacheHost_t info_h("refinement info", nbuffers);
+  BufferCacheHost_t info_h("refinement info", nbuffers);
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused.
-  info_h(b).si = csi;
-  info_h(b).ei = cei;
-  info_h(b).sj = csj;
-  info_h(b).ej = cej;
-  info_h(b).sk = csk;
-  info_h(b).ek = cek;
-  info_h(b).Nt = var->GetDim(6);
-  info_h(b).Nu = var->GetDim(5);
-  info_h(b).Nv = var->GetDim(4);
+  info_h(b).prores_idxer[0] =
+      Indexer6D({0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1}, {0, var->GetDim(4) - 1},
+                {csk, cek}, {csj, cej}, {csi, cei});
   info_h(b).refinement_op = RefinementOp_t::Restriction;
   info_h(b).coords = pmb->coords;
   info_h(b).coarse_coords = this->coarse_coords;
@@ -108,7 +102,7 @@ void MeshRefinement::RestrictCellCenteredValues(CellVariable<Real> *var, int csi
 //----------------------------------------------------------------------------------------
 //  \brief Prolongate cell centered values
 
-void MeshRefinement::ProlongateCellCenteredValues(CellVariable<Real> *var, int si, int ei,
+void MeshRefinement::ProlongateCellCenteredValues(Variable<Real> *var, int si, int ei,
                                                   int sj, int ej, int sk, int ek) {
   const auto &metadata = var->metadata();
   PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
@@ -121,19 +115,13 @@ void MeshRefinement::ProlongateCellCenteredValues(CellVariable<Real> *var, int s
   // TODO(JMM): We're allocating on the heap here... we could move to
   // the stack by giving these functions pointers to underlying data?
   // Probably not worth it, as these functions will be completely removed soon.
-  cell_centered_bvars::BufferCacheHost_t info_h("refinement info", nbuffers);
+  BufferCacheHost_t info_h("refinement info", nbuffers);
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused
-  info_h(b).si = si;
-  info_h(b).ei = ei;
-  info_h(b).sj = sj;
-  info_h(b).ej = ej;
-  info_h(b).sk = sk;
-  info_h(b).ek = ek;
-  info_h(b).Nt = var->GetDim(6);
-  info_h(b).Nu = var->GetDim(5);
-  info_h(b).Nv = var->GetDim(4);
+  info_h(b).prores_idxer[0] =
+      Indexer6D({0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1}, {0, var->GetDim(4) - 1},
+                {sk, ek}, {sj, ej}, {si, ei});
   info_h(b).refinement_op = RefinementOp_t::Prolongation;
   info_h(b).coords = pmb->coords;
   info_h(b).coarse_coords = this->coarse_coords;
@@ -210,7 +198,7 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
 
 // TODO(felker): consider merging w/ MeshBlock::pvars_cc, etc. See meshblock.cpp
 
-int MeshRefinement::AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar) {
+int MeshRefinement::AddToRefinement(std::shared_ptr<Variable<Real>> pvar) {
   pvars_cc_.insert(pvar);
   return static_cast<int>(pvars_cc_.size() - 1);
 }

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,24 +10,25 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef UTILS_MULTI_POINTER_HPP_
+#define UTILS_MULTI_POINTER_HPP_
 
-#include "interface/variable_state.hpp"
-#include "interface/metadata.hpp"
+#include <type_traits>
 
 namespace parthenon {
+// The main (only?) use case of multi_pointer is to create arbitrary
+// rank views via Kokkos::View<multi_pointer_t<Real, NDIM>, ...>.
+template <class T, int N>
+struct multi_pointer : multi_pointer<std::add_pointer_t<T>, N - 1> {};
 
-VariableState::VariableState(const Metadata &md, int sparse_id,
-                             const std::array<int, MAX_VARIABLE_DIMENSION> &dims) {
-  allocation_threshold = md.GetAllocationThreshold();
-  deallocation_threshold = md.GetDeallocationThreshold();
-  sparse_default_val = md.GetDefaultValue();
-  this->sparse_id = sparse_id;
+template <class T>
+struct multi_pointer<T, 0> {
+  using type = T;
+};
 
-  tensor_shape[0] = dims[3];
-  tensor_shape[1] = dims[4];
-  tensor_shape[2] = dims[5];
-  tensor_components = tensor_shape[0] * tensor_shape[1] * tensor_shape[2];
-  topological_type = GetTopologicalType(md);
-}
+template <class T, int N>
+using multi_pointer_t = typename multi_pointer<T, N>::type;
 
 } // namespace parthenon
+
+#endif // UTILS_MULTI_POINTER_HPP_

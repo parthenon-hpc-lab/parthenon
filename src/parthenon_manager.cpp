@@ -33,6 +33,7 @@
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_utils.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
@@ -259,7 +260,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
   const auto indep_restart_vars =
-      GetAnyVariables(mb.meshblock_data.Get()->GetCellVariableVector(),
+      GetAnyVariables(mb.meshblock_data.Get()->GetVariableVector(),
                       {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
 
   const auto sparse_info = resfile.GetSparseInfo();
@@ -329,7 +330,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
         }
       }
 
-      auto v = pmb->meshblock_data.Get()->GetCellVarPtr(label);
+      auto v = pmb->meshblock_data.Get()->GetVarPtr(label);
       auto v_h = v->data.GetHostMirror();
 
       // Double note that this also needs to be update in case
@@ -379,6 +380,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     std::vector<std::size_t> counts, offsets;
     std::size_t count_on_rank =
         resfile.GetSwarmCounts(swarmname, myBlocks, counts, offsets);
+    // Compute total count and skip this swarm if total count is zero.
+    std::size_t total_count = OutputUtils::MPISum(count_on_rank);
+    if (total_count == 0) {
+      continue;
+    }
     std::size_t block_index = 0;
     // only want to do this once per block
     for (auto &pmb : rm.block_list) {

@@ -310,68 +310,7 @@ class Metadata {
   // we do some sanity checks here
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
            const std::vector<std::string> &component_labels = {},
-           const std::string &associated = "")
-      : shape_(shape), component_labels_(component_labels), associated_(associated) {
-    // set flags
-    for (const auto f : bits) {
-      DoBit(f, true);
-    }
-
-    // set defaults
-    if (CountSet({None, Node, Edge, Face, Cell}) == 0) {
-      DoBit(None, true);
-    }
-    if (CountSet({Private, Provides, Requires, Overridable}) == 0) {
-      DoBit(Provides, true);
-    }
-    if (CountSet({Boolean, Integer, Real}) == 0) {
-      DoBit(Real, true);
-    }
-    if (CountSet({Independent, Derived}) == 0) {
-      DoBit(Derived, true);
-    }
-    // If variable is refined, set a default prolongation/restriction op
-    // TODO(JMM): This is dangerous. See Issue #844.
-    if (IsRefined()) {
-      refinement_funcs_ = refinement::RefinementFunctions_t::RegisterOps<
-          refinement_ops::ProlongateCellMinMod, refinement_ops::RestrictCellAverage>();
-    }
-
-    // check if all flag constraints are satisfied, throw if not
-    IsValid(true);
-
-    // check shape is valid
-    // TODO(JL) Should we be extra pedantic and check that shape matches Vector/Tensor
-    // flags?
-    if (IsMeshTied()) {
-      PARTHENON_REQUIRE_THROWS(
-          shape_.size() <= 3,
-          "Variables tied to mesh entities can only have a shape of rank <= 3");
-
-      int num_comp = 1;
-      for (auto s : shape) {
-        num_comp *= s;
-      }
-
-      PARTHENON_REQUIRE_THROWS(component_labels.size() == 0 ||
-                                   (component_labels.size() == num_comp),
-                               "Must provide either 0 component labels or the same "
-                               "number as the number of components");
-    }
-
-    // Set the allocation and deallocation thresholds
-    // TODO(JMM): This is dangerous. See Issue #844.
-    if (IsSet(Sparse)) {
-      allocation_threshold_ = Globals::sparse_config.allocation_threshold;
-      deallocation_threshold_ = Globals::sparse_config.deallocation_threshold;
-      default_value_ = 0.0;
-    } else {
-      // Not sparse, so set to zero so we are guaranteed never to deallocate
-      allocation_threshold_ = 0.0;
-      deallocation_threshold_ = 0.0;
-      default_value_ = 0.0;
-    }
-  }
+           const std::string &associated = "");
 
   // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
@@ -535,7 +474,8 @@ class Metadata {
   /*--------------------------------------------------------*/
 
   // get the dims of the 6D array
-  std::array<int, 6> GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const;
+  std::array<int, MAX_VARIABLE_DIMENSION> GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
+                                                       bool coarse) const;
 
   /// Returns the attribute flags as a string of 1/0
   std::string MaskAsString() const {
@@ -667,6 +607,14 @@ class Metadata {
     return num;
   }
 };
+
+inline TopologicalType GetTopologicalType(const Metadata &md) {
+  using TT = TopologicalType;
+  if (md.IsSet(Metadata::Face)) return TT::Face;
+  if (md.IsSet(Metadata::Edge)) return TT::Edge;
+  if (md.IsSet(Metadata::Node)) return TT::Node;
+  return TT::Cell; // Default case
+}
 
 namespace MetadataUtils {
 // From a given container, extract all variables whose Metadata matchs the all of the

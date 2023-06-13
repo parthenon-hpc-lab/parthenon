@@ -319,7 +319,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // simulation, but not all variables may be allocated on all blocks
 
   auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
-    auto &var_vec = pmb->meshblock_data.Get()->GetCellVariableVector();
+    auto &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
     if (restart_) {
       // get all vars with flag Independent OR restart
       return GetAnyVariables(
@@ -589,6 +589,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                 global_count, pl_xfer);
 
     const H5G g_var = MakeGroup(g_swm, "SwarmVars");
+    if (swinfo.global_count == 0) {
+      continue;
+    }
     auto SetCounts = [&](const SwarmInfo &swinfo, const SwarmVarInfo &vinfo) {
       const int rank = vinfo.tensor_rank;
       for (int i = 0; i < 6; ++i) {

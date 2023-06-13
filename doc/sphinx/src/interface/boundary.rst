@@ -58,7 +58,7 @@ CellCenteredBoundaryVariable
 **Derived from**: ``BoundaryVariable``
 
 **Contains**: Shallow copies of variable data, coarse buffer, and fluxes
-(owned by ``CellVariable``)
+(owned by ``Variable``)
 
-Owned by ``CellVariable``, implements loading and setting boundary data,
+Owned by ``Variable``, implements loading and setting boundary data,
 sending and receiving flux corrections, and more.

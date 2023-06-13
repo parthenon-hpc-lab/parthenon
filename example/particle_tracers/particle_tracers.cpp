@@ -27,7 +27,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
@@ -452,15 +452,12 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
 
     const auto any = parthenon::BoundaryType::any;
 
-    tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
-    tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+    tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
+    tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
 
-    auto send_flx =
-        tl.AddTask(none, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
-    auto recv_flx =
-        tl.AddTask(none, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
-    auto set_flx =
-        tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+    auto send_flx = tl.AddTask(none, parthenon::LoadAndSendFluxCorrections, mc0);
+    auto recv_flx = tl.AddTask(none, parthenon::ReceiveFluxCorrections, mc0);
+    auto set_flx = tl.AddTask(recv_flx, parthenon::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
@@ -473,8 +470,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(update, tl, mc1,
-                                                             pmesh->multilevel);
+    parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
   }
 
   TaskRegion &async_region1 = tc.AddRegion(nblocks);
@@ -483,9 +479,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto &tl = async_region1[n];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
-
-    auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
+    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
 
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(

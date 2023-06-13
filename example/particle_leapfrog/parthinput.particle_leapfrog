@@ -51,6 +51,7 @@ integrator = rk1
 
 <Particles>
 cfl = 0.3
+disable = false
 
 <parthenon/output0>
 file_type = hdf5

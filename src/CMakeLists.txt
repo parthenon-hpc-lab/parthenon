@@ -95,15 +95,15 @@ set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
 add_library(parthenon
-  bvals/cc/bvals_cc_in_one.hpp
-  bvals/cc/bvals_utils.hpp
-  bvals/cc/build_boundary_buffers.cpp
-  bvals/cc/bnd_info.cpp
-  bvals/cc/bnd_info.hpp
-  bvals/cc/boundary_communication.cpp
-  bvals/cc/flux_correction.cpp 
-  bvals/cc/tag_map.cpp 
-  bvals/cc/tag_map.hpp 
+  bvals/comms/bvals_in_one.hpp
+  bvals/comms/bvals_utils.hpp
+  bvals/comms/build_boundary_buffers.cpp
+  bvals/comms/bnd_info.cpp
+  bvals/comms/bnd_info.hpp
+  bvals/comms/boundary_communication.cpp
+  bvals/comms/flux_correction.cpp 
+  bvals/comms/tag_map.cpp 
+  bvals/comms/tag_map.hpp 
   
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
@@ -214,6 +214,7 @@ add_library(parthenon
 
   utils/alias_method.cpp
   utils/alias_method.hpp
+  utils/array_to_tuple.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
@@ -223,8 +224,10 @@ add_library(parthenon
   utils/error_checking.hpp
   utils/error_checking.cpp
   utils/hash.hpp
+  utils/indexer.hpp
   utils/loop_utils.hpp
   utils/mpi_types.hpp
+  utils/multi_pointer.hpp
   utils/nan_payload_tag.hpp
   utils/object_pool.hpp
   utils/partition_stl_containers.hpp

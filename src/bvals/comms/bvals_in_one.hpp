@@ -15,8 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BVALS_CC_BVALS_CC_IN_ONE_HPP_
-#define BVALS_CC_BVALS_CC_IN_ONE_HPP_
+#ifndef BVALS_COMMS_BVALS_IN_ONE_HPP_
+#define BVALS_COMMS_BVALS_IN_ONE_HPP_
 
 #include <memory>
 #include <string>
@@ -36,9 +36,7 @@ class MeshData;
 class IndexRange;
 class NeighborBlock;
 template <typename T>
-class CellVariable;
-
-namespace cell_centered_bvars {
+class Variable;
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md);
@@ -67,10 +65,6 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 
-// Restricts all relevant meshblock boundaries, but doesn't
-// communicate at all.
-TaskStatus RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset);
-
 // Adds all relevant boundary communication to a single task list
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel);
@@ -78,7 +72,6 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
 // This task should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
-} // namespace cell_centered_bvars
 } // namespace parthenon
 
-#endif // BVALS_CC_BVALS_CC_IN_ONE_HPP_
+#endif // BVALS_COMMS_BVALS_IN_ONE_HPP_

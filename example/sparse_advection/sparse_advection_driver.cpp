@@ -17,7 +17,7 @@
 
 // Local Includes
 #include "amr_criteria/refinement_package.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -103,17 +103,13 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
     const auto any = parthenon::BoundaryType::any;
-    auto start_flxcor = tl.AddTask(
-        none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
-    auto start_bound =
-        tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
+    auto start_flxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
+    auto start_bound = tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
 
-    auto send_flxcor = tl.AddTask(
-        start_flxcor, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
-    auto recv_flxcor = tl.AddTask(
-        start_flxcor, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
-    auto set_flxcor =
-        tl.AddTask(recv_flxcor, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+    auto send_flxcor =
+        tl.AddTask(start_flxcor, parthenon::LoadAndSendFluxCorrections, mc0);
+    auto recv_flxcor = tl.AddTask(start_flxcor, parthenon::ReceiveFluxCorrections, mc0);
+    auto set_flxcor = tl.AddTask(recv_flxcor, parthenon::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
@@ -126,8 +122,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    auto restrict = parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(
-        update, tl, mc1, pmesh->multilevel);
+    auto restrict =
+        parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
 
     // if this is the last stage, check if we can deallocate any sparse variables
     if (stage == integrator->nstages) {
@@ -143,13 +139,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto prolongBound = none;
-    if (pmesh->multilevel) {
-      prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
-    }
-
     // set physical boundaries
-    auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
+    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
 
     // estimate next time step
     if (stage == integrator->nstages) {

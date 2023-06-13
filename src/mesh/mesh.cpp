@@ -34,7 +34,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "bvals/boundary_conditions.hpp"
@@ -620,9 +620,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   loclist = std::vector<LogicalLocation>(nbtotal);
 
   const auto blockSize = rr.GetAttrVec<int>("Info", "MeshBlockSize");
-  block_size.nx1 = blockSize[0];
-  block_size.nx2 = blockSize[1];
-  block_size.nx3 = blockSize[2];
+  const auto includesGhost = rr.GetAttr<int>("Info", "IncludesGhost");
+  const auto nGhost = rr.GetAttr<int>("Info", "NGhost");
+  block_size.nx1 = blockSize[0] - (blockSize[0] > 1) * includesGhost * 2 * nGhost;
+  block_size.nx2 = blockSize[1] - (blockSize[1] > 1) * includesGhost * 2 * nGhost;
+  block_size.nx3 = blockSize[2] - (blockSize[2] > 1) * includesGhost * 2 * nGhost;
 
   // calculate the number of the blocks
   nrbx1 = mesh_size.nx1 / block_size.nx1;
@@ -1088,8 +1090,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     boundary_comm_flxcor_map.clear();
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
-      cell_centered_bvars::BuildBoundaryBuffers(md);
-      cell_centered_bvars::SendBoundaryBuffers(md);
+      BuildBoundaryBuffers(md);
+      SendBoundaryBuffers(md);
     }
 
     // wait to receive FillGhost variables
@@ -1100,7 +1102,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       all_received = true;
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
-        if (cell_centered_bvars::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
+        if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
           all_received = false;
         }
       }
@@ -1109,19 +1111,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       // unpack FillGhost variables
-      cell_centered_bvars::SetBoundaries(md);
-      // restrict ghosts---needed for physical bounds
-      if (multilevel) {
-        cell_centered_bvars::RestrictGhostHalos(md, true);
-      }
+      SetBoundaries(md);
     }
 
     //  Now do prolongation, compute primitives, apply BCs
     for (int i = 0; i < nmb; ++i) {
       auto &mbd = block_list[i]->meshblock_data.Get();
-      if (multilevel) { // TODO(JMM): Do with meshdata
-        ProlongateBoundaries(mbd);
-      }
       ApplyBoundaryConditions(mbd);
       // Call MeshBlockData based FillDerived functions
       Update::FillDerived(mbd.get());

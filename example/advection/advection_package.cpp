@@ -153,8 +153,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     std::vector<std::string> advected_labels;
     advected_labels.reserve(vec_size);
     for (int j = 0; j < vec_size; ++j) {
-      advected_labels.push_back("Advected_" + std::to_string(var) + "_" +
-                                std::to_string(j));
+      advected_labels.push_back(std::to_string(var) + "_" + std::to_string(j));
     }
     if (var == 0) { // first var is always called just "advected"
       field_name = field_name_base;
@@ -229,7 +228,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   for (int var = 1; var < num_vars; ++var) {
     vars.push_back("advected_" + std::to_string(var));
   }
-  // type is parthenon::VariablePack<CellVariable<Real>>
+  // type is parthenon::VariablePack<Variable<Real>>
   auto v = rc->PackVariables(vars);
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);

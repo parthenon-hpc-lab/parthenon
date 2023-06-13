@@ -137,6 +137,16 @@ simulation. The set of possible operations for a sparse field are:
    ``lroberts36/merge-sparse-with-jdolence-sparse`` that is being used
    in ``Riot``. This should probably be brought into ``develop``, since
    the “sparse sparse pack” access pattern is probably not desirable.
+- *Flatten outer indices:* Most common packs over ``MeshData`` produce
+  a 5-dimensional data structure, where the slowest two moving indices
+  are over ``MeshBlock``\ s then tensor/vector components of
+  ``Variable``\ s. However, it is sometimes desirable to construct a
+  4-dimensional data structure where the slowest moving index ranges
+  over all variables and all blocks. So for example if we had a system
+  with 9 blocks and 5 variables per block, the slowest moving index
+  would be of size 45. This can be enabled ``SparsePack``s with the
+  ``GetFlat`` series of factory functions or by passing the optional
+  ``flat`` boolean into the constructor.
 
 In comparison to a sparse field, a dense field only requires the
 operation *Access*.
@@ -218,7 +228,7 @@ its added to the state descriptor, that list cannot be changed. This
 limitation drastically simplifies the sparse naming implementation,
 because it means that we know the complete list of variables at the
 beginning and that list is always the same on all mesh blocks. The
-individual ``CellVariable`` instances that are created for each sparse
+individual ``Variable`` instances that are created for each sparse
 ID have a label of the form ``<base name>_<sparse index>`` and the have
 the same metadata as the shared metadata of the pool, with two
 exceptions: (i) the shape of the variable can be set per sparse ID
@@ -272,31 +282,31 @@ Before describing the bigger infrastructure changes to handle the
 boundary communication for sparse variables, here are some smaller
 changes that are necessary for sparse variables to work.
 
--  ``CellVariable`` tracks its allocation status and has member
+-  ``Variable`` tracks its allocation status and has member
    functions to allocate and deallocate its data (``data``, ``flux``,
    and ``coarse_s``).
--  A ``CellVariable`` now knows its dimensions and coarse dimensions.
+-  A ``Variable`` now knows its dimensions and coarse dimensions.
    Because the ``ParArrayND<T> data`` member holding the actual variable
    data is not necessarily allocated (i.e., it has a size of 0), we can
-   no longer use its size to get the dimension of the ``CellVariable``,
+   no longer use its size to get the dimension of the ``Variable``,
    but we still need to know its dimensions when it's unallocated, for
    example when adding it to a pack. Similarly, the ``coarse_s`` member
    used to be queried to get the coarse dimensions, but that is also not
-   always allocated, thus ``CellVariable`` also directly knows its
+   always allocated, thus ``Variable`` also directly knows its
    coarse dimensions.
--  ``CellVariable``, ``MeshBlock``, ``MeshBlockData``, variable packs,
+-  ``Variable``, ``MeshBlock``, ``MeshBlockData``, variable packs,
    and mesh block packs, all have new member functions ``IsAllocated``
    to query whether a particular variable is allocated or not. Generally
    speaking, whenever the data or fluxes of a variable are accessed,
    such accesses need to be guarded with ``IsAllocated`` checks.
 -  The ``pvars_cc_`` field of the ``MeshRefinement`` class is now a
-   ``std::vector<std::shared_ptr<CellVariable<Real>>>`` instead of a
+   ``std::vector<std::shared_ptr<Variable<Real>>>`` instead of a
    ``std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>>``. The
    problem with storing (shallow) copies of the ``ParArrayND``\ s
    ``data`` and ``coarse_s`` is that they don't point to the newly
    allocated views if a variable is initially unallocated and then gets
    allocated during the evolution. Storing a pointer to the
-   ``CellVariable`` instance works because that one remains the same
+   ``Variable`` instance works because that one remains the same
    when it gets allocated.
 -  The caching mechanisms for variable packs, mesh block packs, send
    buffers, receive (i.e., set) buffers, and restrict buffers now all
@@ -316,8 +326,8 @@ implementation.
 Allocation status
 ~~~~~~~~~~~~~~~~~
 
-Every ``CellVariable`` is either allocated or deallocated at all times.
-Furthermore, the ``CellVariable``\ s with the same label but
+Every ``Variable`` is either allocated or deallocated at all times.
+Furthermore, the ``Variable``\ s with the same label but
 corresponding to different stages (i.e., ``MeshBlockData`` instances) of
 the same ``MeshBlock`` are always either allocated or deallocated on all
 stages of the mesh block. This is enforced by the fact that the only
@@ -331,7 +341,7 @@ data for that block, see `Boundary exchange`_ for
 details. The infrastructure can also automatically deallocate sparse
 variables on a block, see `Deallocation`_.
 
-When a ``CellVariable`` is allocated, its ``data``, ``flux``, and
+When a ``Variable`` is allocated, its ``data``, ``flux``, and
 ``coarse_s`` fields are allocated. When the variable is deallocated,
 those fields are reset to ``ParArrayND``\ s of size 0.
 

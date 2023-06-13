@@ -89,6 +89,9 @@ using ParArray6D =
 template <typename T, typename State = empty_state_t>
 using ParArray7D =
     ParArrayGeneric<Kokkos::View<T *******, LayoutWrapper, DevMemSpace>, State>;
+template <typename T, typename State = empty_state_t>
+using ParArray8D =
+    ParArrayGeneric<Kokkos::View<T ********, LayoutWrapper, DevMemSpace>, State>;
 
 // Host mirrors
 template <typename T>
@@ -823,6 +826,12 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_m
     int i = idx % Ni + il;
     function(j, i);
   });
+}
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member,
+                                          const int il, const int iu,
+                                          const Function &function) {
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, il, iu + 1), function);
 }
 // Inner parallel loop using TeamVectorRange
 template <typename Function>
