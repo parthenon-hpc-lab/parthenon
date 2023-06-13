@@ -33,11 +33,11 @@ namespace parthenon {
 // that into function calls. Preprocessor seems easier, given we're
 // not manipulating this list in any way.
 #define VALID_VEC_TYPES(T)                                                               \
-  T, std::vector<T>, ParArray1D<T>, ParArray2D<T>, ParArray3D<T>,                        \
-      ParArray4D<T>, ParArray5D<T>, ParArray6D<T>, ParArray7D<T>, ParArray8D<T>,         \
-      HostArray1D<T>, HostArray2D<T>, HostArray3D<T>, HostArray4D<T>,                    \
-      HostArray5D<T>, HostArray6D<T>, HostArray7D<T>, Kokkos::View<T *>,                 \
-      Kokkos::View<T **>, ParArrayND<T>, ParArrayHost<T>
+  T, std::vector<T>, ParArray1D<T>, ParArray2D<T>, ParArray3D<T>, ParArray4D<T>,         \
+      ParArray5D<T>, ParArray6D<T>, ParArray7D<T>, ParArray8D<T>, HostArray1D<T>,        \
+      HostArray2D<T>, HostArray3D<T>, HostArray4D<T>, HostArray5D<T>, HostArray6D<T>,    \
+      HostArray7D<T>, Kokkos::View<T *>, Kokkos::View<T **>, ParArrayND<T>,              \
+      ParArrayHost<T>
 
 #ifdef ENABLE_HDF5
 
