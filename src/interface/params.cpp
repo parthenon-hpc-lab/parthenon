@@ -16,6 +16,7 @@
 #include "utils/error_checking.hpp"
 
 #include "kokkos_abstraction.hpp"
+#include "parthenon_arrays.hpp"
 
 #ifdef ENABLE_HDF5
 #include "outputs/parthenon_hdf5.hpp"
@@ -32,9 +33,9 @@ namespace parthenon {
 // that into function calls. Preprocessor seems easier, given we're
 // not manipulating this list in any way.
 #define VALID_VEC_TYPES(T)                                                               \
-  T, std::vector<T>, ParArray0D<T>, ParArray1D<T>, ParArray2D<T>, ParArray3D<T>,         \
+  T, std::vector<T>, ParArray1D<T>, ParArray2D<T>, ParArray3D<T>,                        \
       ParArray4D<T>, ParArray5D<T>, ParArray6D<T>, ParArray7D<T>, ParArray8D<T>,         \
-      HostArray0D<T>, HostArray1D<T>, HostArray2D<T>, HostArray3D<T>, HostArray4D<T>,    \
+      HostArray1D<T>, HostArray2D<T>, HostArray3D<T>, HostArray4D<T>,                    \
       HostArray5D<T>, HostArray6D<T>, HostArray7D<T>, Kokkos::View<T *>,                 \
       Kokkos::View<T **>, ParArrayND<T>, ParArrayHost<T>
 
