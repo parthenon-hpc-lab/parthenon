@@ -151,7 +151,7 @@ class MeshBlockData {
     return varUidMap_.at(uid);
   }
 
-  auto &GetUidMap() { return varUidMap_; }
+  const auto &GetUidMap() const { return varUidMap_; }
 
   Variable<T> &Get(const std::string &base_name, int sparse_id = InvalidSparseID) const {
     return *GetVarPtr(MakeVarLabel(base_name, sparse_id));

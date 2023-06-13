@@ -109,11 +109,11 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
 
   std::vector<int> astat;
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
-    auto &uid_map = pmbd->GetUidMap();
+    const auto &uid_map = pmbd->GetUidMap();
     for (int i = 0; i < nvar; ++i) {
       for (const auto &[var_name, uid] : desc.var_groups[i]) {
         if (uid_map.count(uid) > 0) {
-          auto pv = uid_map[uid];
+          const auto pv = uid_map.at(uid);
           astat.push_back(pv->GetAllocationStatus());
         } else {
           astat.push_back(-1);
@@ -153,11 +153,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
       size = 0;
     }
     nblocks++;
-    auto &uid_map = pmbd->GetUidMap();
+    const auto &uid_map = pmbd->GetUidMap();
     for (int i = 0; i < nvar; ++i) {
       for (const auto &[var_name, uid] : desc.var_groups[i]) {
         if (uid_map.count(uid) > 0) {
-          auto pv = uid_map[uid];
+          const auto pv = uid_map.at(uid);
           if (pv->IsAllocated()) {
             if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge))
               contains_face_or_edge = true;
@@ -199,7 +199,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   int idx = 0;
   ForEachBlock(pmd, [&](int block, mbd_t *pmbd) {
     int b = 0;
-    auto &uid_map = pmbd->GetUidMap();
+    const auto &uid_map = pmbd->GetUidMap();
     if (!desc.flat) {
       idx = 0;
       b = block;
@@ -213,7 +213,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
       pack.bounds_h_(0, block, i) = idx;
       for (const auto &[var_name, uid] : desc.var_groups[i]) {
         if (uid_map.count(uid) > 0) {
-          auto pv = uid_map[uid];
+          const auto pv = uid_map.at(uid);
           if (pv->IsAllocated()) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
