@@ -909,5 +909,4 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   Kokkos::Profiling::popRegion(); // RedistributeAndRefineMeshBlocks
 }
-
 } // namespace parthenon
