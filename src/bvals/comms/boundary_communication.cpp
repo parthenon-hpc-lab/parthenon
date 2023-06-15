@@ -252,16 +252,6 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
     refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
-
-    // Apply coarse boundary conditions
-    for (int block = 0; block < md->NumBlocks(); ++block) {
-      ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), true);
-    }
-
-    // Prolongate from coarse buffer
-    refinement::Prolongate(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
-    refinement::ProlongateInternal(resolved_packages, cache, pmb->cellbounds,
-                                   pmb->c_cellbounds);
   }
   Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
   return TaskStatus::complete;
@@ -310,6 +300,16 @@ TaskStatus ApplyCoarseBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
   return stat;
 }
 
+TaskStatus ApplyFineBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
+  if (!md->GetMeshPointer()->multilevel) return TaskStatus::complete;
+  TaskStatus stat = TaskStatus::complete;
+  for (int block = 0; block < md->NumBlocks(); ++block) {
+    auto bstat = ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), false);
+    // if (bstat != TaskStatus::complete) stat = bstat;
+  }
+  return stat;
+}
+
 // Adds all relevant boundary communication to a single task list
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
@@ -317,31 +317,21 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
   const auto local = BoundaryType::local;
   const auto nonlocal = BoundaryType::nonlocal;
 
-  // auto send = tl.AddTask(dependency, SendBoundBufs<nonlocal>, md);
-  // auto send_local = tl.AddTask(dependency, SendBoundBufs<local>, md);
+  auto send = tl.AddTask(dependency, SendBoundBufs<nonlocal>, md);
+  auto send_local = tl.AddTask(dependency, SendBoundBufs<local>, md);
 
-  // auto recv_local = tl.AddTask(dependency, ReceiveBoundBufs<local>, md);
-  // auto set_local = tl.AddTask(recv_local, SetBounds<local>, md);
+  auto recv_local = tl.AddTask(dependency, ReceiveBoundBufs<local>, md);
+  auto set_local = tl.AddTask(recv_local, SetBounds<local>, md);
 
-  // auto recv = tl.AddTask(dependency, ReceiveBoundBufs<nonlocal>, md);
-  // auto set = tl.AddTask(recv, SetBounds<nonlocal>, md);
+  auto recv = tl.AddTask(dependency, ReceiveBoundBufs<nonlocal>, md);
+  auto set = tl.AddTask(recv, SetBounds<nonlocal>, md);
+  
+  auto cbound = tl.AddTask(set | set_local, ApplyCoarseBoundaryConditions, md);
 
-  // auto cbound = tl.AddTask(set, ApplyCoarseBoundaryConditions, md);
+  auto pro_local = tl.AddTask(cbound, ProlongateBounds<local>, md);
+  auto pro = tl.AddTask(cbound, ProlongateBounds<nonlocal>, md);
 
-  // auto pro_local = tl.AddTask(cbound | set_local | set, ProlongateBounds<local>, md);
-  // auto pro = tl.AddTask(cbound | set_local | set, ProlongateBounds<nonlocal>, md);
-
-  // auto out = (pro_local | pro);
-
-  // TODO(LFR): Splitting up the boundary tasks while doing prolongation in one
-  //            breaks things, which I haven't completely figured out yet. To
-  //            move to the commented out code above, this needs to be fixed and
-  //            the prolongation and physical boundary conditions need to be removed
-  //            from the end of SetBounds
-  auto send = tl.AddTask(dependency, SendBoundBufs<any>, md);
-  auto recv = tl.AddTask(dependency, ReceiveBoundBufs<any>, md);
-  auto set = tl.AddTask(recv, SetBounds<any>, md);
-
-  return set;
+  auto out = (pro_local | pro);
+  return out;  
 }
 } // namespace parthenon
