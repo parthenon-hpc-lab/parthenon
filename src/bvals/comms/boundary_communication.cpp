@@ -224,14 +224,14 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
         int idx_offset = 0;
         for (int iel = 0; iel < bnd_info(b).ntopological_elements; ++iel) {
           auto &idxer = bnd_info(b).idxer[iel];
-          if (bnd_info(b).allocated) {
+          if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
             Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
                                  [&](const int idx) {
                                    const auto [t, u, v, k, j, i] = idxer(idx);
                                    bnd_info(b).var(iel, t, u, v, k, j, i) =
                                        bnd_info(b).buf(idx + idx_offset);
                                  });
-          } else if (bnd_info(b).var.size() > 0) {
+          } else if (bnd_info(b).allocated) {
             const Real default_val = bnd_info(b).var.sparse_default_val;
             Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
                                  [&](const int idx) {
@@ -314,24 +314,14 @@ TaskStatus ApplyFineBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
   const auto any = BoundaryType::any;
-  const auto local = BoundaryType::local;
-  const auto nonlocal = BoundaryType::nonlocal;
 
-  auto send = tl.AddTask(dependency, SendBoundBufs<nonlocal>, md);
-  auto send_local = tl.AddTask(dependency, SendBoundBufs<local>, md);
+  auto send = tl.AddTask(dependency, SendBoundBufs<any>, md);
+  auto recv = tl.AddTask(dependency, ReceiveBoundBufs<any>, md);
+  auto set = tl.AddTask(recv, SetBounds<any>, md);
+  auto cbound = tl.AddTask(set, ApplyCoarseBoundaryConditions, md);
+  auto pro = tl.AddTask(cbound, ProlongateBounds<any>, md);
+  auto fbound = tl.AddTask(pro, ApplyFineBoundaryConditions, md);
 
-  auto recv_local = tl.AddTask(dependency, ReceiveBoundBufs<local>, md);
-  auto set_local = tl.AddTask(recv_local, SetBounds<local>, md);
-
-  auto recv = tl.AddTask(dependency, ReceiveBoundBufs<nonlocal>, md);
-  auto set = tl.AddTask(recv, SetBounds<nonlocal>, md);
-  
-  auto cbound = tl.AddTask(set | set_local, ApplyCoarseBoundaryConditions, md);
-
-  auto pro_local = tl.AddTask(cbound, ProlongateBounds<local>, md);
-  auto pro = tl.AddTask(cbound, ProlongateBounds<nonlocal>, md);
-
-  auto out = (pro_local | pro);
-  return out;  
+  return fbound;  
 }
 } // namespace parthenon
