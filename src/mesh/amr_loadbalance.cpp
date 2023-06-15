@@ -1144,7 +1144,7 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
       ParArray4D<Real> var_cc_ = pvar_cc->data.Get<4>();
       BufferUtility::UnpackData(recvbuf, var_cc_, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s,
                                 kb.e, p, pmb);
-      pvar_cc->dealloc_count = (int)(alloc_subview_h(i) - 1.0);
+      pvar_cc->dealloc_count = static_cast<int>(alloc_subview_h(i) - 1.0);
     } else {
       // increment offset
       p += (nu + 1) * (ib.e + 1 - ib.s) * (jb.e + 1 - jb.s) * (kb.e + 1 - kb.s);
