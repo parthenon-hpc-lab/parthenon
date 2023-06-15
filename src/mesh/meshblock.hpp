@@ -163,6 +163,20 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   BoundaryFlag boundary_flag[6];
 
   // functions
+  // Load balancing
+  void SetCostForLoadBalancing(double cost);
+  void ResetTimeMeasurement();
+  void StartTimeMeasurement();
+  void StopTimeMeasurement();
+
+  // Memory usage
+  void LogMemUsage(std::int64_t delta) {
+    mem_usage += delta;
+  }
+
+  std::uint64_t ReportMemUsage() {
+    return mem_usage_;
+  }
 
   //----------------------------------------------------------------------------------------
   //! \fn void MeshBlock::DeepCopy(const DstType& dst, const SrcType& src)
@@ -419,8 +433,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
                                  bool init_coarse, bool multilevel);
   void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
-  // functions
-  void SetCostForLoadBalancing(double cost);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin);
@@ -436,9 +448,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // functions and variables for automatic load balancing based on timing
   Kokkos::Timer lb_timer;
   double cost_;
-  void ResetTimeMeasurement();
-  void StartTimeMeasurement();
-  void StopTimeMeasurement();
+
+  // memory usage on a block
+  std::uint64_t mem_usage_;
 };
 
 using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;

@@ -157,6 +157,8 @@ void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
     for (int d = X1DIR; d <= n_outer; ++d) {
       flux[d] = flux_data_.Get(std::make_pair(d - 1, d));
     }
+    std::shared_ptr<MeshBlock> pmb = wpmb.lock();
+    pmb->LogMemUsage(flux_data.size()*sizeof(T));
   }
 
   // Create the boundary object
@@ -168,17 +170,20 @@ void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
       coarse_s = std::make_from_tuple<ParArrayND<T, VariableState>>(
           std::tuple_cat(std::make_tuple(label() + ".coarse", MakeVariableState()),
                          ArrayToReverseTuple(coarse_dims_)));
+      pmb->LogMemUsage(coarse_s.size()*sizeof(T));
     }
   }
 }
 
 template <typename T>
-void Variable<T>::Deallocate() {
+std::int64_t Variable<T>::Deallocate() {
 #ifdef ENABLE_SPARSE
   if (!IsAllocated()) {
-    return;
+    return 0;
   }
 
+  std::int64_t mem_size = 0;
+  mem_size += data.size()*sizeof(T);
   data.Reset();
 
   if (IsSet(Metadata::WithFluxes)) {
@@ -197,6 +202,7 @@ void Variable<T>::Deallocate() {
 #else
   PARTHENON_THROW("Variable<T>::Deallocate(): Sparse is compile-time disabled");
 #endif
+  return mem_size;
 }
 
 template <typename T>

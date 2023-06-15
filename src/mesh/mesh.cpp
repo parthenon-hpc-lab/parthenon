@@ -648,12 +648,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   // Load balancing flag and parameters
 #ifdef MPI_PARALLEL
-  if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "automatic")
+  if (pin->GetOrAddString("parthenon/loadbalancing", "balancer", "default") == "automatic")
     lb_automatic_ = true;
-  else if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "manual")
+  else if (pin->GetOrAddString("parthenon/loadbalancing", "balancer", "default") == "manual")
     lb_manual_ = true;
-  lb_tolerance_ = pin->GetOrAddReal("loadbalancing", "tolerance", 0.5);
-  lb_interval_ = pin->GetOrAddInteger("loadbalancing", "interval", 10);
+  lb_tolerance_ = pin->GetOrAddReal("parthenon/loadbalancing", "tolerance", 0.5);
+  lb_interval_ = pin->GetOrAddInteger("parthenon/loadbalancing", "interval", 10);
 #endif
 
   // SMR / AMR

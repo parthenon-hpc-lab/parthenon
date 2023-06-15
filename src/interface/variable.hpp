@@ -155,7 +155,7 @@ class Variable {
   void AllocateData(bool flag_uninitialized = false);
 
   // deallocate data, fluxes, and boundary variable
-  void Deallocate();
+  std::int64_t Deallocate();
 
   /// allocate fluxes (if Metadata::WithFluxes is set) and coarse data if
   /// (Metadata::FillGhost is set)
