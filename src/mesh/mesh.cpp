@@ -1087,30 +1087,30 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     bool can_delete;
     do {
       can_delete = true;
-      for (auto &[k, comm] : boundary_comm_map) { 
+      for (auto &[k, comm] : boundary_comm_map) {
         can_delete = comm.IsSafeToDelete() && can_delete;
       }
-    } while (!can_delete); 
-    
+    } while (!can_delete);
+
     boundary_comm_map.clear();
     boundary_comm_flxcor_map.clear();
 
-    MPI_Barrier(MPI_COMM_WORLD); 
+    MPI_Barrier(MPI_COMM_WORLD);
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       BuildBoundaryBuffers(md);
-    } 
+    }
 
-    std::vector<bool> sent(num_partitions, false); 
+    std::vector<bool> sent(num_partitions, false);
     bool all_sent;
     do {
       all_sent = true;
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
-        if (!sent[i]) { 
+        if (!sent[i]) {
           if (SendBoundaryBuffers(md) != TaskStatus::complete) {
             all_sent = false;
-          } else { 
+          } else {
             sent[i] = true;
           }
         }
@@ -1120,16 +1120,16 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // wait to receive FillGhost variables
     // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
     // https://github.com/lanl/parthenon/issues/418
-    std::vector<bool> received(num_partitions, false); 
+    std::vector<bool> received(num_partitions, false);
     bool all_received;
     do {
       all_received = true;
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
-        if (!received[i]) { 
+        if (!received[i]) {
           if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
             all_received = false;
-          } else { 
+          } else {
             received[i] = true;
           }
         }

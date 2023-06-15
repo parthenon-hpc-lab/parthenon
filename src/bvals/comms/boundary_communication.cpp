@@ -322,6 +322,6 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
   auto pro = tl.AddTask(cbound, ProlongateBounds<any>, md);
   auto fbound = tl.AddTask(pro, ApplyFineBoundaryConditions, md);
 
-  return fbound;  
+  return fbound;
 }
 } // namespace parthenon
