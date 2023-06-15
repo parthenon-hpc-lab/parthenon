@@ -1095,7 +1095,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     boundary_comm_map.clear();
     boundary_comm_flxcor_map.clear();
 
-    MPI_Barrier(MPI_COMM_WORLD);
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       BuildBoundaryBuffers(md);
