@@ -1,0 +1,63 @@
+# ========================================================================================
+#  Athena++ astrophysical MHD code
+#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+#  Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#
+#  This program was produced under U.S. Government contract 89233218CNA000001 for Los
+#  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+#  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+#  in the program are reserved by Triad National Security, LLC, and the U.S. Department
+#  of Energy/National Nuclear Security Administration. The Government is granted for
+#  itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+#  license in this material to reproduce, prepare derivative works, distribute copies to
+#  the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+
+<parthenon/job>
+problem_id = pi_calculator
+
+<parthenon/mesh>
+refinement = adaptive
+numlevel = 5
+
+nx1 = 64
+x1min = -2.0
+x1max = 2.0
+ix1_bc = outflow
+ox1_bc = outflow
+
+nx2 = 64
+x2min = -2.0
+x2max = 2.0
+ix2_bc = outflow
+ox2_bc = outflow
+
+nx3 = 1
+x3min = -0.5
+x3max = 0.5
+
+# How many meshblocks to use in a premade default kernel.
+# A value of <1 means use the whole mesh.
+pack_size = 4
+
+<parthenon/meshblock>
+nx1 = 8
+nx2 = 8
+nx3 = 1
+
+<parthenon/refinement0>
+field = in_or_out               # the name of the variable we want to refine on
+method = derivative_order_1     # selects the first derivative method
+refine_tol = 0.5                # tag for refinement if |(dfield/dx)/field| > refine_tol
+derefine_tol = 0.05             # tag for derefinement if |(dfield/dx)/field| < derefine_tol
+max_level = 2                   # if set, limits refinement level from this criteria to no greater than max_level
+
+<Pi>
+radius = 1.5
+use_sparse = 0 # Set to 1 to use sparse variables
+
+<parthenon/output0>
+file_type = hdf5
+variables = in_or_out
