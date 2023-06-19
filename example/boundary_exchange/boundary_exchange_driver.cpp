@@ -100,7 +100,6 @@ TaskCollection BoundaryExchangeDriver::MakeTaskCollection(T &blocks) {
     for (int i = 0; i < num_partitions; i++) {
       auto &tl = async_region[i];
       auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-      printf("%p =? %p\n", pmesh, md->GetMeshPointer());
       TaskID none(0);
       auto fill = tl.AddTask(none, SetBlockValues, md.get());
       auto bound = AddBoundaryExchangeTasks(fill, tl, md, true);
