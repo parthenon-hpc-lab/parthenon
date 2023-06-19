@@ -196,6 +196,14 @@ class Mesh {
     }
   }
 
+  uint64_t GetBufferPoolSizeInBytes() const {
+    std::uint64_t buffer_memory = 0;
+    for (auto &p : pool_map) {
+      buffer_memory += p.second.SizeInBytes();
+    }
+    return buffer_memory;
+  }
+
  private:
   // data
   int root_level, max_level, current_level;

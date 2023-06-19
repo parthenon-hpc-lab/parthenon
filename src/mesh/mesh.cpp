@@ -1265,10 +1265,15 @@ void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
       pin->GetOrAddString("parthenon/loadbalancing", "balancer", "default",
                           std::vector<std::string>{"default", "automatic", "manual"});
   if (balancer == "automatic") {
+    // JMM: I am disabling timing based load balancing, as it's not
+    // threaded through the infrastructure. I think some thought needs
+    // to go into doing this right with loops over meshdata rather
+    // than loops over data on a single meshblock.
     PARTHENON_FAIL("Timing based load balancing is currently unavailable.");
     lb_automatic_ = true;
-  } else if (balancer == "manual")
+  } else if (balancer == "manual") {
     lb_manual_ = true;
+  }
   lb_tolerance_ = pin->GetOrAddReal("parthenon/loadbalancing", "tolerance", 0.5);
   lb_interval_ = pin->GetOrAddInteger("parthenon/loadbalancing", "interval", 10);
 #endif // MPI_PARALLEL

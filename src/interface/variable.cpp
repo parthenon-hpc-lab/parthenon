@@ -97,7 +97,7 @@ std::shared_ptr<Variable<T>> Variable<T>::AllocateCopy(std::weak_ptr<MeshBlock> 
   auto cv = std::make_shared<Variable<T>>(base_name_, m, sparse_id_, wpmb);
 
   if (is_allocated_) {
-    cv->AllocateData();
+    cv->AllocateData(wpmb);
   }
 
   cv->CopyFluxesAndBdryVar(this);
@@ -111,12 +111,12 @@ void Variable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialize
     return;
   }
 
-  AllocateData(flag_uninitialized);
+  AllocateData(wpmb, flag_uninitialized);
   AllocateFluxesAndCoarse(wpmb);
 }
 
 template <typename T>
-void Variable<T>::AllocateData(bool flag_uninitialized) {
+void Variable<T>::AllocateData(MeshBlock *pmb, bool flag_uninitialized) {
   PARTHENON_REQUIRE_THROWS(
       !is_allocated_,
       "Tried to allocate data for variable that's already allocated: " + label());
@@ -127,6 +127,15 @@ void Variable<T>::AllocateData(bool flag_uninitialized) {
 
   data.initialized = !flag_uninitialized;
   is_allocated_ = true;
+
+  if (pmb != nullptr) {
+    pmb->LogMemUsage(data.size() * sizeof(T));
+  }
+}
+template <typename T>
+void Variable<T>::AllocateData(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialized) {
+  // if wpmb is expired, then wpmb.lock().get() == nullptr
+  AllocateData(wpmb.lock().get(), flag_uninitialized);
 }
 
 /// allocate communication space based on info in MeshBlock
@@ -157,8 +166,9 @@ void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
     for (int d = X1DIR; d <= n_outer; ++d) {
       flux[d] = flux_data_.Get(std::make_pair(d - 1, d));
     }
+    if (wpmb.expired()) return;
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
-    pmb->LogMemUsage(flux_data.size()*sizeof(T));
+    pmb->LogMemUsage(flux_data_.size() * sizeof(T));
   }
 
   // Create the boundary object
@@ -170,7 +180,7 @@ void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
       coarse_s = std::make_from_tuple<ParArrayND<T, VariableState>>(
           std::tuple_cat(std::make_tuple(label() + ".coarse", MakeVariableState()),
                          ArrayToReverseTuple(coarse_dims_)));
-      pmb->LogMemUsage(coarse_s.size()*sizeof(T));
+      pmb->LogMemUsage(coarse_s.size() * sizeof(T));
     }
   }
 }
@@ -183,7 +193,7 @@ std::int64_t Variable<T>::Deallocate() {
   }
 
   std::int64_t mem_size = 0;
-  mem_size += data.size()*sizeof(T);
+  mem_size += data.size() * sizeof(T);
   data.Reset();
 
   if (IsSet(Metadata::WithFluxes)) {

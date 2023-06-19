@@ -167,13 +167,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void SetCostForLoadBalancing(double cost);
 
   // Memory usage
-  void LogMemUsage(std::int64_t delta) {
-    mem_usage += delta;
-  }
+  // TODO(JMM): Currently swarm send/receive boundaries are not counted.
+  void LogMemUsage(std::int64_t delta) { mem_usage_ += delta; }
 
-  std::uint64_t ReportMemUsage() {
-    return mem_usage_;
-  }
+  std::uint64_t ReportMemUsage() { return mem_usage_; }
 
   //----------------------------------------------------------------------------------------
   //! \fn void MeshBlock::DeepCopy(const DstType& dst, const SrcType& src)
