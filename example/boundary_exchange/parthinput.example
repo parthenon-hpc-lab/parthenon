@@ -1,8 +1,4 @@
 # ========================================================================================
-#  Athena++ astrophysical MHD code
-#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
-#  Licensed under the 3-clause BSD License, see LICENSE file for details
-# ========================================================================================
 #  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -16,21 +12,21 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = pi_calculator
+problem_id = boundary_exchange
 
 <parthenon/mesh>
-refinement = adaptive
-numlevel = 5
+refinement = static
+numlevel = 1
 
-nx1 = 64
-x1min = -2.0
-x1max = 2.0
+nx1 = 8
+x1min = 0.0
+x1max = 1.0
 ix1_bc = outflow
 ox1_bc = outflow
 
-nx2 = 64
-x2min = -2.0
-x2max = 2.0
+nx2 = 8
+x2min = 0.0
+x2max = 1.0
 ix2_bc = outflow
 ox2_bc = outflow
 
@@ -43,21 +39,20 @@ x3max = 0.5
 pack_size = 4
 
 <parthenon/meshblock>
-nx1 = 8
-nx2 = 8
+nx1 = 4
+nx2 = 4
 nx3 = 1
 
-<parthenon/refinement0>
-field = in_or_out               # the name of the variable we want to refine on
-method = derivative_order_1     # selects the first derivative method
-refine_tol = 0.5                # tag for refinement if |(dfield/dx)/field| > refine_tol
-derefine_tol = 0.05             # tag for derefinement if |(dfield/dx)/field| < derefine_tol
-max_level = 2                   # if set, limits refinement level from this criteria to no greater than max_level
-
-<Pi>
-radius = 1.5
-use_sparse = 0 # Set to 1 to use sparse variables
+<parthenon/static_refinement0>
+level = 1     # refinement level
+x1min = 0.0   # refinement region inner boundary, X1-dir
+x1max = 0.5   # refinement region outer boundary, X1-dir
+x2min = 0.0   # refinement region inner boundary, X2-dir
+x2max = 0.5   # refinement region outer boundary, X2-dir
+x3min = -1.0  # refinement region inner boundary, X3-dir
+x3max = 1.0   # refinement region outer boundary, X3-dir
 
 <parthenon/output0>
 file_type = hdf5
-variables = in_or_out
+ghost_zones = true
+variables = morton_num
