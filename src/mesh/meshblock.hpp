@@ -165,9 +165,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // functions
   // Load balancing
   void SetCostForLoadBalancing(double cost);
-  void ResetTimeMeasurement();
-  void StartTimeMeasurement();
-  void StopTimeMeasurement();
 
   // Memory usage
   void LogMemUsage(std::int64_t delta) {
@@ -448,6 +445,11 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // functions and variables for automatic load balancing based on timing
   Kokkos::Timer lb_timer;
   double cost_;
+  // JMM: these are private since the timing machinery only works
+  // per-meshblock nopt per-meshdata.
+  void ResetTimeMeasurement();
+  void StartTimeMeasurement();
+  void StopTimeMeasurement();
 
   // memory usage on a block
   std::uint64_t mem_usage_;

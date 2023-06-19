@@ -279,6 +279,9 @@ class Mesh {
   void EnrollBndryFncts_(ApplicationInput *app_in);
   void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
 
+  // Re-used functionality in constructor
+  void RegisterLoadBalancing_(ParameterInput *pin);
+
   void SetupMPIComms();
 };
 
