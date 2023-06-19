@@ -34,13 +34,13 @@ namespace boundary_exchange {
 
 TaskStatus SetBlockValues(MeshData<Real> *md) {
   auto desc = parthenon::MakePackDescriptor<morton_num>(md->GetMeshPointer()->resolved_packages.get()); 
-  auto pack = desc.MakePack(md); 
+  auto pack = desc.GetPack(md); 
   {
     IndexRange ib = md->GetBoundsI(IndexDomain::entire);
     IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
     IndexRange kb = md->GetBoundsK(IndexDomain::entire);
-    parthenon::par_for(
-        "SetInOrOut", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "SetNaN", DevExecSpace(), 
+        0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           pack(b, morton_num(0), k, j, i) = std::numeric_limits<Real>::quiet_NaN(); 
           pack(b, morton_num(1), k, j, i) = std::numeric_limits<Real>::quiet_NaN(); 
@@ -69,8 +69,8 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
     IndexRange ib = md->GetBoundsI(IndexDomain::interior);
     IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
     IndexRange kb = md->GetBoundsK(IndexDomain::interior);
-    parthenon::par_for(
-        "SetInOrOut", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "SetMorton", DevExecSpace(), 
+        0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           pack(b, morton_num(0), k, j, i) = x_morton(b); 
           pack(b, morton_num(1), k, j, i) = y_morton(b); 
