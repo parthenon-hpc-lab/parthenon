@@ -302,12 +302,11 @@ TaskStatus ApplyCoarseBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
 
 TaskStatus ApplyFineBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
   if (!md->GetMeshPointer()->multilevel) return TaskStatus::complete;
-  TaskStatus stat = TaskStatus::complete;
   for (int block = 0; block < md->NumBlocks(); ++block) {
-    auto bstat = ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), false);
-    // if (bstat != TaskStatus::complete) stat = bstat;
+    ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), false);
   }
-  return stat;
+  // ApplyBoundaryConditions is guaranteed to return complete, so this is safe
+  return TaskStatus::complete;
 }
 
 // Adds all relevant boundary communication to a single task list
