@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -41,6 +41,7 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
+#include "interface/var_id.hpp"
 #include "parthenon_arrays.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
@@ -51,11 +52,6 @@ namespace parthenon {
 class MeshBlock;
 template <typename T>
 class MeshBlockData;
-
-inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
-  return base_name +
-         (sparse_id == InvalidSparseID ? "" : "_" + std::to_string(sparse_id));
-}
 
 template <typename T>
 class Variable {
@@ -102,9 +98,11 @@ class Variable {
   ///< retrieve label for variable
   inline const auto label() const { return MakeVarLabel(base_name_, sparse_id_); }
   inline const auto base_name() const { return base_name_; }
+  VarID GetVarID() const { return VarID(base_name_, sparse_id_); }
 
   ///< retrieve metadata for variable
-  inline Metadata metadata() const { return m_; }
+  inline const Metadata &metadata() const { return m_; }
+  inline Metadata metadata() { return m_; }
 
   /// Refinement functions owned in metadata
   inline bool IsRefined() const { return m_.IsRefined(); }

@@ -85,6 +85,7 @@ class MeshBlockData {
   }
   auto GetParentPointer() const { return GetBlockPointer(); }
   void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
+  Mesh *GetMeshPointer() const { return GetBlockPointer()->pmy_mesh; }
 
   IndexRange GetBoundsI(const IndexDomain &domain) const {
     return GetBlockPointer()->cellbounds.GetBoundsI(domain);
@@ -149,6 +150,8 @@ class MeshBlockData {
                              "Variable ID " + std::to_string(uid) + "not found!");
     return varUidMap_.at(uid);
   }
+
+  const auto &GetUidMap() const { return varUidMap_; }
 
   Variable<T> &Get(const std::string &base_name, int sparse_id = InvalidSparseID) const {
     return *GetVarPtr(MakeVarLabel(base_name, sparse_id));
