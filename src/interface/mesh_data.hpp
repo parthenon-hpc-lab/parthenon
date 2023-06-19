@@ -160,9 +160,9 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
         start_host(i, j) = this_map[ordered_list[j]].first;
         stop_host(i, j) = this_map[ordered_list[j]].second;
       }
-      for (int j = 0; j < ordered_list.size(); j++) {
-        start_host(i, j) = this_map["flux::" + ordered_list[j]].first;
-        stop_host(i, j) = this_map["flux::" + ordered_list[j]].second;
+      for (int j = vsize; j < ordered_list.size(); j++) {
+        start_host(i, j) = this_map[ordered_list[j] + ".flux_data"].first;
+        stop_host(i, j) = this_map[ordered_list[j] + ".flux_data"].second;
       }
       packs_host(i) = pack;
     }
