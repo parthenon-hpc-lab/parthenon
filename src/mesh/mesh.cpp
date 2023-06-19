@@ -1085,12 +1085,17 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     // send FillGhost variables
     bool can_delete;
+    int test_iters = 0;
     do {
       can_delete = true;
       for (auto &[k, comm] : boundary_comm_map) {
         can_delete = comm.IsSafeToDelete() && can_delete;
       }
-    } while (!can_delete);
+      test_iters++;
+    } while (!can_delete && test_iters < 1e10);
+    if (test_iters >= 1e10)
+      PARTHENON_FAIL(
+          "Too many iterations waiting to delete boundary communication buffers.");
 
     boundary_comm_map.clear();
     boundary_comm_flxcor_map.clear();
