@@ -298,6 +298,12 @@ class StateDescriptor {
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 
+  void PreCommFillDerived(MeshBlockData<Real> *rc) const {
+    if (PreCommFillDerivedBlock != nullptr) PreCommFillDerivedBlock(rc);
+  }
+  void PreCommFillDerived(MeshData<Real> *rc) const {
+    if (PreCommFillDerivedMesh != nullptr) PreCommFillDerivedMesh(rc);
+  }
   void PreFillDerived(MeshBlockData<Real> *rc) const {
     if (PreFillDerivedBlock != nullptr) PreFillDerivedBlock(rc);
   }
@@ -348,6 +354,8 @@ class StateDescriptor {
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
+  std::function<void(MeshBlockData<Real> *rc)> PreCommFillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> PreCommFillDerivedMesh = nullptr;
   std::function<void(MeshBlockData<Real> *rc)> PreFillDerivedBlock = nullptr;
   std::function<void(MeshData<Real> *rc)> PreFillDerivedMesh = nullptr;
   std::function<void(MeshBlockData<Real> *rc)> PostFillDerivedBlock = nullptr;

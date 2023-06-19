@@ -283,6 +283,17 @@ TaskStatus EstimateTimestep(T *rc) {
 }
 
 template <typename T>
+TaskStatus PreCommFillDerived(T *rc) {
+  Kokkos::Profiling::pushRegion("Task_PreCommFillDerived");
+  auto pm = rc->GetParentPointer();
+  for (const auto &pkg : pm->packages.AllPackages()) {
+    pkg.second->PreCommFillDerived(rc);
+  }
+  Kokkos::Profiling::popRegion();
+  return TaskStatus::complete;
+}
+
+template <typename T>
 TaskStatus FillDerived(T *rc) {
   Kokkos::Profiling::pushRegion("Task_FillDerived");
   auto pm = rc->GetParentPointer();
