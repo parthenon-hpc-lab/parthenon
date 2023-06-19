@@ -455,7 +455,9 @@ class MeshBlockData {
     //                         "Tried to deallocate non-sparse variable " + label);
 
     if (var->IsAllocated()) {
-      var->Deallocate();
+      std::int64_t bytes = var->Deallocate();
+      auto pmb = GetBlockPointer();
+      pmb->LogMemUsage(-bytes);
     }
   }
 
