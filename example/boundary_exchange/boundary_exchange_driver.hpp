@@ -27,7 +27,8 @@ using namespace parthenon::driver::prelude;
  */
 class BoundaryExchangeDriver : public Driver {
  public:
-  BoundaryExchangeDriver(ParameterInput *pin, ApplicationInput *fin, Mesh *pm) : Driver(pin, fin, pm) {
+  BoundaryExchangeDriver(ParameterInput *pin, ApplicationInput *fin, Mesh *pm)
+      : Driver(pin, fin, pm) {
     InitializeOutputs();
   }
 
@@ -43,6 +44,6 @@ class BoundaryExchangeDriver : public Driver {
  protected:
 };
 
-} // namespace pi
+} // namespace boundary_exchange
 
 #endif //  EXAMPLE_BOUNDARY_EXCHANGE_BOUNDARY_EXCHANGE_DRIVER_HPP_

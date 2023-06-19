@@ -10,11 +10,13 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_BOUNDARY_EXCHANGE_HPP_
-#define EXAMPLE_BOUNDARY_EXCHANGE_HPP_
+#ifndef EXAMPLE_BOUNDARY_EXCHANGE_BOUNDARY_EXCHANGE_HPP_
+#define EXAMPLE_BOUNDARY_EXCHANGE_BOUNDARY_EXCHANGE_HPP_
 
 // Standard Includes
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 // Parthenon Includes
@@ -35,6 +37,6 @@ struct morton_num : public parthenon::variable_names::base_t<false, 4> {
 TaskStatus SetBlockValues(MeshData<Real> *rc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
-} // namespace calculate_pi
+} // namespace boundary_exchange
 
 #endif // EXAMPLE_BOUNDARY_EXCHANGE_BOUNDARY_EXCHANGE_HPP_

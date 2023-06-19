@@ -21,8 +21,8 @@
 #include <parthenon/driver.hpp>
 
 // Local Includes
-#include "boundary_exchange_driver.hpp"
 #include "boundary_exchange.hpp"
+#include "boundary_exchange_driver.hpp"
 
 // Preludes
 using namespace parthenon::driver::prelude;
@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
   pman.app_input->ProcessPackages = ProcessPackages;
 
   // This is called on each mesh block whenever the mesh changes.
-  //pman.app_input->InitMeshBlockUserData = &calculate_pi::SetInOrOutBlock;
+  // pman.app_input->InitMeshBlockUserData = &calculate_pi::SetInOrOutBlock;
 
   auto manager_status = pman.ParthenonInit(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
@@ -51,7 +51,8 @@ int main(int argc, char *argv[]) {
 
   // This needs to be scoped so that the driver object is destructed before Finalize
   {
-    BoundaryExchangeDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
+    BoundaryExchangeDriver driver(pman.pinput.get(), pman.app_input.get(),
+                                  pman.pmesh.get());
 
     auto driver_status = driver.Execute();
   }
@@ -79,7 +80,7 @@ parthenon::DriverStatus BoundaryExchangeDriver::Execute() {
   // this is where the main work is orchestrated
   // No evolution in this driver.  Just calculates something once.
   // For evolution, look at the EvolutionDriver
-  //PreExecute();
+  // PreExecute();
 
   // The tasks compute pi and store it in the param "pi_val"
   ConstructAndExecuteTaskLists<>(this);
@@ -90,7 +91,6 @@ parthenon::DriverStatus BoundaryExchangeDriver::Execute() {
 
 template <typename T>
 TaskCollection BoundaryExchangeDriver::MakeTaskCollection(T &blocks) {
-
   const int num_partitions = pmesh->DefaultNumPartitions();
 
   TaskCollection tc;
@@ -106,7 +106,7 @@ TaskCollection BoundaryExchangeDriver::MakeTaskCollection(T &blocks) {
     }
   }
 
-  // Synchronize 
+  // Synchronize
 
   // Check that boundaries have correct values
 

@@ -100,7 +100,7 @@ struct base_t {
   static int ndim() { return sizeof...(NCOMP); }
   KOKKOS_INLINE_FUNCTION
   static int size() { return multiply<NCOMP...>::value; }
-  
+
   static std::vector<int> shape() { return {NCOMP...}; }
   const int idx;
 };
