@@ -1071,12 +1071,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
 
-    // Pre comm fill derrived
+    // Pre comm fill derived
     for (int i = 0; i < nmb; ++i) {
       auto &mbd = block_list[i]->meshblock_data.Get();
       Update::PreCommFillDerived(mbd.get());
     }
-    for (int i = 0; num_partitions; ++i) {
+    for (int i = 0; i < num_partitions; ++i) {
       auto &md = mesh_data.GetOrAdd("base", i);
       Update::PreCommFillDerived(md.get());
     }
