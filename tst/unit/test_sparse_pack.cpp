@@ -218,6 +218,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             KOKKOS_LAMBDA(int k, int j, int i, int &ltot) {
               int lo = sparse_pack.GetLowerBound(b, v3());
               int hi = sparse_pack.GetUpperBound(b, v3());
+              // Make sure we can pull out pointers to the variables
+              auto [pv3, pv5] = sparse_pack.GetPtrs(b, parthenon::TopologicalElement::CC,
+                                                    k, j, i, v3(), v5());
               for (int c = 0; c <= hi - lo; ++c) {
                 Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
                 if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;

@@ -23,7 +23,7 @@ inline std::string MakeVarLabel(const std::string &base_name, int sparse_id) {
          (sparse_id == InvalidSparseID ? "" : "_" + std::to_string(sparse_id));
 }
 
-/// We uniquely identify a variable by it's full label, i.e. base name plus sparse ID.
+/// We uniquely identify a variable by its full label, i.e. base name plus sparse ID.
 /// However, sometimes we also need to be able to separate the base name from the sparse
 /// ID. Instead of relying on the fact that they are separated by a "_", we store them
 /// separately in VarID struct. This way we know that a dense variable "foo_3" does not

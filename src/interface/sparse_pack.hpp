@@ -342,8 +342,9 @@ class SparsePack : public SparsePackBase {
   }
 
   template <class... VTs>
-  auto GetPtrs(const int b, const TE el, int k, int j, int i, VTs... vts) {
-    return std::make_tuple({&(*this)(b, el, vts, k, j, i)...});
+  KOKKOS_INLINE_FUNCTION auto GetPtrs(const int b, const TE el, int k, int j, int i,
+                                      VTs... vts) const {
+    return std::make_tuple(&(*this)(b, el, vts, k, j, i)...);
   }
 };
 
