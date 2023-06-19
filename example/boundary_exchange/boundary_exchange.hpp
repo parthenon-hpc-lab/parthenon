@@ -28,7 +28,7 @@ using parthenon::Packages_t;
 struct morton_num : public parthenon::variable_names::base_t<false, 3> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION morton_num(Ts &&...args)
-      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+      : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "morton_num"; }
 };
 

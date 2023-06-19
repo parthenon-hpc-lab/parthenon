@@ -33,7 +33,8 @@ using parthenon::IndexShape;
 namespace boundary_exchange {
 
 TaskStatus SetBlockValues(MeshData<Real> *md) {
-  auto desc = parthenon::MakePackDescriptor<morton_num>(md->GetMeshPointer()->resolved_packages.get()); 
+  auto pmesh = md->GetMeshPointer(); 
+  auto desc = parthenon::MakePackDescriptor<morton_num>(pmesh->resolved_packages.get()); 
   auto pack = desc.GetPack(md); 
   {
     IndexRange ib = md->GetBoundsI(IndexDomain::entire);

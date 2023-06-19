@@ -79,12 +79,11 @@ parthenon::DriverStatus BoundaryExchangeDriver::Execute() {
   // this is where the main work is orchestrated
   // No evolution in this driver.  Just calculates something once.
   // For evolution, look at the EvolutionDriver
-  PreExecute();
-
-  pouts->MakeOutputs(pmesh, pinput);
+  //PreExecute();
 
   // The tasks compute pi and store it in the param "pi_val"
   ConstructAndExecuteTaskLists<>(this);
+  pouts->MakeOutputs(pmesh, pinput);
 
   return DriverStatus::complete;
 }
@@ -92,21 +91,19 @@ parthenon::DriverStatus BoundaryExchangeDriver::Execute() {
 template <typename T>
 TaskCollection BoundaryExchangeDriver::MakeTaskCollection(T &blocks) {
 
-  const int pack_size = pmesh->DefaultPackSize();
-  
+  const int num_partitions = pmesh->DefaultNumPartitions();
+
   TaskCollection tc;
-  TaskRegion &async_region = tc.AddRegion(pack_size);
+  TaskRegion &async_region = tc.AddRegion(num_partitions);
   {
     // asynchronous region where area is computed per partition
-    for (int i = 0; i < pack_size; i++) {
+    for (int i = 0; i < num_partitions; i++) {
       auto &tl = async_region[i];
       auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-
+      printf("%p =? %p\n", pmesh, md->GetMeshPointer());
       TaskID none(0);
       auto fill = tl.AddTask(none, SetBlockValues, md.get());
-      // 1. Set entire block to NaN
-      // 2. Set interior of block to Morton number
-      // 3. Communicate boundaries
+      auto bound = AddBoundaryExchangeTasks(fill, tl, md, true);
     }
   }
 
