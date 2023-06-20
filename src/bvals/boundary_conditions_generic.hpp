@@ -16,6 +16,7 @@
 
 #include <functional>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/sparse_pack.hpp"
 #include "mesh/domain.hpp"
+#include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 
 namespace parthenon {
@@ -49,8 +51,11 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   if (GetTopologicalType(el) == TopologicalType::Edge) flags.push_back(Metadata::Edge);
   if (GetTopologicalType(el) == TopologicalType::Node) flags.push_back(Metadata::Node);
 
-  constexpr bool fluxes = false;
-  auto q = SparsePack<var_ts...>::Get(rc.get(), flags, fluxes, coarse);
+  std::set<PDOpt> opts;
+  if (coarse) opts = {PDOpt::Coarse};
+  auto desc = MakePackDescriptor<var_ts...>(
+      rc->GetBlockPointer()->pmy_mesh->resolved_packages.get(), flags, opts);
+  auto q = desc.GetPack(rc.get());
   const int b = 0;
   const int lstart = q.GetLowerBoundHost(b);
   const int lend = q.GetUpperBoundHost(b);
