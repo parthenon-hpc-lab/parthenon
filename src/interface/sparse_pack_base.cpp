@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -26,8 +26,59 @@
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/sparse_pack_base.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "utils/utils.hpp"
+namespace parthenon {
+namespace impl {
+PackDescriptor::PackDescriptor(StateDescriptor *psd,
+                               const std::vector<std::string> &var_group_names,
+                               const SelectorFunction_t &selector,
+                               const std::set<PDOpt> &options)
+    : nvar_groups(var_group_names.size()), var_group_names(var_group_names),
+      var_groups(BuildUids(var_group_names.size(), psd, selector)),
+      with_fluxes(options.count(PDOpt::WithFluxes)), coarse(options.count(PDOpt::Coarse)),
+      flat(options.count(PDOpt::Flatten)) {
+  PARTHENON_REQUIRE(!(with_fluxes && coarse),
+                    "Probably shouldn't be making a coarse pack with fine fluxes.");
+}
+
+std::vector<PackDescriptor::VariableGroup_t>
+PackDescriptor::BuildUids(int nvgs, const StateDescriptor *const psd,
+                          const SelectorFunction_t &selector) {
+  auto fields = psd->AllFields();
+  std::vector<VariableGroup_t> vgs(nvgs);
+  for (auto [id, md] : fields) {
+    for (int i = 0; i < nvgs; ++i) {
+      if (selector(i, id, md)) {
+        vgs[i].push_back({id, Variable<Real>::GetUniqueID(id.label())});
+      }
+    }
+  }
+  // Ensure ordering in terms of value of sparse indices
+  for (auto &vg : vgs) {
+    std::sort(vg.begin(), vg.end(), [](const auto &a, const auto &b) {
+      if (a.first.base_name == b.first.base_name)
+        return a.first.sparse_id < b.first.sparse_id;
+      return a.first.base_name < b.first.base_name;
+    });
+  }
+  return vgs;
+}
+
+void PackDescriptor::Print() const {
+  printf("--------------------\n");
+  for (int i = 0; i < var_group_names.size(); ++i) {
+    printf("group name: %s\n", var_group_names[i].c_str());
+    printf("--------------------\n");
+    for (const auto &[var_name, uid] : var_groups[i]) {
+      printf("%s\n", var_name.label().c_str());
+    }
+  }
+  printf("--------------------\n");
+}
+} // namespace impl
+} // namespace parthenon
 
 namespace {
 // SFINAE for block iteration so that sparse packs can work for MeshBlockData and MeshData
@@ -54,14 +105,18 @@ SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,
                                                        const PackDescriptor &desc) {
   using mbd_t = MeshBlockData<Real>;
 
-  int nvar = desc.vars.size();
+  int nvar = desc.nvar_groups;
 
   std::vector<int> astat;
   ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
+    const auto &uid_map = pmbd->GetUidMap();
     for (int i = 0; i < nvar; ++i) {
-      for (auto &pv : pmbd->GetVariableVector()) {
-        if (desc.IncludeVariable(i, pv)) {
+      for (const auto &[var_name, uid] : desc.var_groups[i]) {
+        if (uid_map.count(uid) > 0) {
+          const auto pv = uid_map.at(uid);
           astat.push_back(pv->GetAllocationStatus());
+        } else {
+          astat.push_back(-1);
         }
       }
     }
@@ -79,12 +134,12 @@ SparsePackBase::GetAllocStatus<MeshData<Real>>(MeshData<Real> *, const PackDescr
 template <class T>
 SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   using mbd_t = MeshBlockData<Real>;
-  int nvar = desc.vars.size();
+  int nvar = desc.nvar_groups;
 
   SparsePackBase pack;
   pack.with_fluxes_ = desc.with_fluxes;
   pack.coarse_ = desc.coarse;
-  pack.nvar_ = desc.vars.size();
+  pack.nvar_ = desc.nvar_groups;
   pack.flat_ = desc.flat;
   pack.size_ = 0;
 
@@ -98,9 +153,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
       size = 0;
     }
     nblocks++;
-    for (auto &pv : pmbd->GetVariableVector()) {
-      for (int i = 0; i < nvar; ++i) {
-        if (desc.IncludeVariable(i, pv)) {
+    const auto &uid_map = pmbd->GetUidMap();
+    for (int i = 0; i < nvar; ++i) {
+      for (const auto &[var_name, uid] : desc.var_groups[i]) {
+        if (uid_map.count(uid) > 0) {
+          const auto pv = uid_map.at(uid);
           if (pv->IsAllocated()) {
             if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge))
               contains_face_or_edge = true;
@@ -111,6 +168,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
         }
       }
     }
+
     max_size = std::max(size, max_size);
   });
   pack.nblocks_ = desc.flat ? 1 : nblocks;
@@ -141,6 +199,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
   int idx = 0;
   ForEachBlock(pmd, [&](int block, mbd_t *pmbd) {
     int b = 0;
+    const auto &uid_map = pmbd->GetUidMap();
     if (!desc.flat) {
       idx = 0;
       b = block;
@@ -152,8 +211,9 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
 
     for (int i = 0; i < nvar; ++i) {
       pack.bounds_h_(0, block, i) = idx;
-      for (auto &pv : pmbd->GetVariableVector()) {
-        if (desc.IncludeVariable(i, pv)) {
+      for (const auto &[var_name, uid] : desc.var_groups[i]) {
+        if (uid_map.count(uid) > 0) {
+          const auto pv = uid_map.at(uid);
           if (pv->IsAllocated()) {
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
@@ -265,12 +325,12 @@ template SparsePackBase &SparsePackCache::BuildAndAdd<MeshBlockData<Real>>(
 
 std::string SparsePackCache::GetIdentifier(const PackDescriptor &desc) const {
   std::string identifier("");
-  for (const auto &flag : desc.flags)
-    identifier += flag.Name();
-  identifier += "____";
-  for (int i = 0; i < desc.vars.size(); ++i)
-    identifier += desc.vars[i] + std::to_string(desc.use_regex[i]);
-  identifier += "____";
+  for (const auto &vgroup : desc.var_groups) {
+    for (const auto &[vid, uid] : vgroup) {
+      identifier += std::to_string(uid) + "_";
+    }
+    identifier += "|";
+  }
   identifier += std::to_string(desc.with_fluxes);
   identifier += std::to_string(desc.coarse);
   identifier += std::to_string(desc.flat);

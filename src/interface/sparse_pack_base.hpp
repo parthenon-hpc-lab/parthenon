@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,7 +18,7 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <regex>
+#include <set>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -37,71 +37,30 @@ class SparsePackCache;
 // Map for going from variable names to sparse pack variable indices
 using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
 
+class StateDescriptor;
+
+enum class PDOpt { WithFluxes, Coarse, Flatten };
+
 namespace impl {
 struct PackDescriptor {
-  PackDescriptor(const std::vector<std::string> &vars, const std::vector<bool> &use_regex,
-                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-                 bool flat = false)
-      : vars(vars), use_regex(use_regex), flags(flags), with_fluxes(with_fluxes),
-        coarse(coarse), flat(flat) {
-    PARTHENON_REQUIRE(use_regex.size() == vars.size(),
-                      "Must have a regex flag for each variable.");
-    PARTHENON_REQUIRE(!(with_fluxes && coarse),
-                      "Probably shouldn't be making a coarse pack with fine fluxes.");
-    for (const auto &var : vars)
-      regexes.push_back(std::regex(var));
-  }
+  using VariableGroup_t = std::vector<std::pair<VarID, Uid_t>>;
+  using SelectorFunction_t = std::function<bool(int, const VarID &, const Metadata &)>;
 
-  PackDescriptor(const std::vector<std::pair<std::string, bool>> &vars_in,
-                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-                 bool flat = false)
-      : flags(flags), with_fluxes(with_fluxes), coarse(coarse), flat(flat) {
-    for (auto var : vars_in) {
-      vars.push_back(var.first);
-      use_regex.push_back(var.second);
-    }
-    PARTHENON_REQUIRE(!(with_fluxes && coarse),
-                      "Probably shouldn't be making a coarse pack with fine fluxes.");
-    for (const auto &var : vars)
-      regexes.push_back(std::regex(var));
-  }
+  PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &var_group_names,
+                 const SelectorFunction_t &selector, const std::set<PDOpt> &options);
 
-  PackDescriptor(const std::vector<std::string> &vars_in,
-                 const std::vector<MetadataFlag> &flags, bool with_fluxes, bool coarse,
-                 bool flat = false)
-      : vars(vars_in), use_regex(vars_in.size(), false), flags(flags),
-        with_fluxes(with_fluxes), coarse(coarse), flat(flat) {
-    PARTHENON_REQUIRE(!(with_fluxes && coarse),
-                      "Probably shouldn't be making a coarse pack with fine fluxes.");
-    for (const auto &var : vars)
-      regexes.push_back(std::regex(var));
-  }
+  void Print() const;
 
-  // Method for determining if variable pv should be included in pack for this
-  // PackDescriptor
-  bool IncludeVariable(int vidx, const std::shared_ptr<Variable<Real>> &pv) const {
-    // TODO(LFR): Check that the shapes agree
-    if (flags.size() > 0) {
-      for (const auto &flag : flags) {
-        if (!pv->IsSet(flag)) return false;
-      }
-    }
+  const int nvar_groups;
+  const std::vector<std::string> var_group_names;
+  const std::vector<VariableGroup_t> var_groups;
+  const bool with_fluxes;
+  const bool coarse;
+  const bool flat;
 
-    if (use_regex[vidx]) {
-      if (std::regex_match(std::string(pv->label()), regexes[vidx])) return true;
-    } else {
-      if (vars[vidx] == pv->label()) return true;
-    }
-    return false;
-  }
-
-  std::vector<std::string> vars;
-  std::vector<std::regex> regexes;
-  std::vector<bool> use_regex;
-  std::vector<MetadataFlag> flags;
-  bool with_fluxes;
-  bool coarse;
-  bool flat;
+ private:
+  std::vector<VariableGroup_t> BuildUids(int nvgs, const StateDescriptor *const psd,
+                                         const SelectorFunction_t &selector);
 };
 } // namespace impl
 
@@ -131,7 +90,7 @@ class SparsePackBase {
   static SparsePackIdxMap GetIdxMap(const impl::PackDescriptor &desc) {
     SparsePackIdxMap map;
     std::size_t idx = 0;
-    for (const auto &var : desc.vars) {
+    for (const auto &var : desc.var_group_names) {
       map[var] = idx;
       ++idx;
     }
@@ -181,7 +140,6 @@ class SparsePackCache {
                               const std::string &ident);
 
   std::string GetIdentifier(const impl::PackDescriptor &desc) const;
-
   std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
       pack_map;
 
