@@ -242,24 +242,27 @@ void Swarm::Remove(const std::string &label) {
   }
 }
 
-void Swarm::setPoolMax(const int nmax_pool) {
+void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
-  int n_new_begin = nmax_pool_;
-  int n_new = nmax_pool - nmax_pool_;
+  std::int64_t n_new_begin = nmax_pool_;
+  std::int64_t n_new = nmax_pool - nmax_pool_;
 
   auto pmb = GetBlockPointer();
 
-  for (int n = 0; n < n_new; n++) {
+  for (std::int64_t n = 0; n < n_new; n++) {
     free_indices_.push_back(n + n_new_begin);
   }
 
   // Rely on Kokkos setting the newly added values to false for these arrays
   Kokkos::resize(mask_, nmax_pool);
   Kokkos::resize(marked_for_removal_, nmax_pool);
+  pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
   Kokkos::resize(cellSorted_, nmax_pool);
+  pmb->LogMemUsage(n_new * sizeof(SwarmKey));
 
   blockIndex_.Resize(nmax_pool);
+  pmb->LogMemUsage(n_new * sizeof(int));
 
   auto &intVector_ = std::get<getType<int>()>(Vectors_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
@@ -267,11 +270,13 @@ void Swarm::setPoolMax(const int nmax_pool) {
   for (auto &d : intVector_) {
     d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
                    d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
+    pmb->LogMemUsage(n_new * sizeof(int));
   }
 
   for (auto &d : realVector_) {
     d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
                    d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
+    pmb->LogMemUsage(n_new * sizeof(Real));
   }
 
   nmax_pool_ = nmax_pool;
@@ -358,7 +363,7 @@ void Swarm::Defrag() {
   }
   // TODO(BRR) Could this algorithm be more efficient? Does it matter?
   // Add 1 to convert max index to max number
-  int num_free = (max_active_index_ + 1) - num_active_;
+  std::int64_t num_free = (max_active_index_ + 1) - num_active_;
   auto pmb = GetBlockPointer();
 
   ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
