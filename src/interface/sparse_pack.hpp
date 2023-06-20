@@ -394,6 +394,20 @@ inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::stri
                             options);
 }
 
+template <class... Ts>
+inline auto MakePackDescriptor(MeshBlockData<Real> *pmbd,
+                               const std::vector<MetadataFlag> &flags = {},
+                               const std::set<PDOpt> &options = {}) {
+  return MakePackDescriptor<Ts...>(pmbd->GetBlockPointer()->pmy_mesh->resolved_packages.get(), flags, options);
+}
+
+template <class... Ts>
+inline auto MakePackDescriptor(MeshData<Real> *pmd,
+                               const std::vector<MetadataFlag> &flags = {},
+                               const std::set<PDOpt> &options = {}) {
+  return MakePackDescriptor<Ts...>(pmd->GetMeshPointer()->resolved_packages.get(), flags, options);
+}
+
 inline auto MakePackDescriptor(
     StateDescriptor *psd, const std::vector<std::pair<std::string, bool>> &var_regexes,
     const std::vector<MetadataFlag> &flags = {}, const std::set<PDOpt> &options = {}) {
