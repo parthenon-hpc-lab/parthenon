@@ -247,15 +247,17 @@ MPI_Request SendSameToSame(int lid_recv, int dest_rank, Variable<Real> *var,
         "AMR SameToSame communication requires blocks to have at least two ghost zones");
     auto counter_subview = Kokkos::subview(var->data, std::make_pair(0, 2));
     auto counter_subview_h = Kokkos::create_mirror_view(HostMemSpace(), counter_subview);
-    counter_subview_h(0) = static_cast<Real>(pmb->pmr->DereferenceCount());
-    counter_subview_h(1) = static_cast<Real>(var->dealloc_count);
+    counter_subview_h(0) = pmb->pmr->DereferenceCount();
+    counter_subview_h(1) = var->dealloc_count;
     Kokkos::deep_copy(counter_subview, counter_subview_h);
 
     PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
                                   dest_rank, tag, comm, &req));
   } else {
+    var->com_state[0] = pmb->pmr->DereferenceCount();
+    var->com_state[1] = var->dealloc_count;
     PARTHENON_MPI_CHECK(
-        MPI_Isend(var->data.data(), 0, MPI_PARTHENON_REAL, dest_rank, tag, comm, &req));
+        MPI_Isend(var->com_state, 2, MPI_INT, dest_rank, tag, comm, &req));
   }
   return req;
 }
@@ -271,19 +273,21 @@ bool TryRecvSameToSame(int lid_recv, int send_rank, Variable<Real> *var, MeshBlo
   if (test) {
     int size;
     PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPI_PARTHENON_REAL, &size));
-    if (size > 0) {
+    if (size > 2) {
       if (!pmb->IsAllocated(var->label())) pmb->AllocateSparse(var->label());
       PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
                                    send_rank, tag, comm, MPI_STATUS_IGNORE));
       auto counter_subview = Kokkos::subview(var->data, std::make_pair(0, 2));
       auto counter_subview_h =
           Kokkos::create_mirror_view_and_copy(HostMemSpace(), counter_subview);
-      pmb->pmr->DereferenceCount() = static_cast<int>(counter_subview_h(0));
-      var->dealloc_count = static_cast<int>(counter_subview_h(1));
+      pmb->pmr->DereferenceCount() = counter_subview_h(0);
+      var->dealloc_count = counter_subview_h(1);
     } else {
       if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label());
-      PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), 0, MPI_PARTHENON_REAL, send_rank,
+      PARTHENON_MPI_CHECK(MPI_Recv(var->com_state, 2, MPI_INT, send_rank,
                                    tag, comm, MPI_STATUS_IGNORE));
+      pmb->pmr->DereferenceCount() = var->com_state[0];
+      var->dealloc_count = var->com_state[1];
     }
   }
   return test;
