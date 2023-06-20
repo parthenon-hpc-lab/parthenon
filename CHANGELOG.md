@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 884]](https://github.com/parthenon-hpc-lab/parthenon/pull/884) Add constant derivative BC and expose GenericBC
 - [[PR 892]](https://github.com/parthenon-hpc-lab/parthenon/pull/892) Cost-based load balancing and memory diagnostics
 - [[PR 889]](https://github.com/parthenon-hpc-lab/parthenon/pull/889) Add PreCommFillDerived
 - [[PR 872]](https://github.com/parthenon-hpc-lab/parthenon/pull/872) Boundary communication for non-cell centered fields
