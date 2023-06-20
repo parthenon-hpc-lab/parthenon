@@ -48,6 +48,7 @@ struct BndInfo {
 
   CoordinateDirection dir;
   bool allocated = true;
+  bool buf_allocated = true;
   RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
 
