@@ -117,7 +117,6 @@ class SparsePackBase {
   bool coarse_;
   bool flat_;
   int nblocks_;
-  int dims_[6];
   int nvar_;
   int size_;
 };
