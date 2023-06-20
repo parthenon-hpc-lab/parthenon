@@ -138,8 +138,8 @@ class Variable {
   ParArrayND<T, VariableState> coarse_s; // used for sending coarse boundary calculation
 
   int dealloc_count = 0;
-  
-  int com_state[2]; 
+
+  int com_state[2];
 
   int GetAllocationStatus() {
     if (!is_allocated_) return 0;

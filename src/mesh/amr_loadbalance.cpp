@@ -284,8 +284,8 @@ bool TryRecvSameToSame(int lid_recv, int send_rank, Variable<Real> *var, MeshBlo
       var->dealloc_count = counter_subview_h(1);
     } else {
       if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label());
-      PARTHENON_MPI_CHECK(MPI_Recv(var->com_state, 2, MPI_INT, send_rank,
-                                   tag, comm, MPI_STATUS_IGNORE));
+      PARTHENON_MPI_CHECK(
+          MPI_Recv(var->com_state, 2, MPI_INT, send_rank, tag, comm, MPI_STATUS_IGNORE));
       pmb->pmr->DereferenceCount() = var->com_state[0];
       var->dealloc_count = var->com_state[1];
     }
