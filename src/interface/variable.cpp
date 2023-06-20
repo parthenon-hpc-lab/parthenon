@@ -197,6 +197,7 @@ std::int64_t Variable<T>::Deallocate() {
   data.Reset();
 
   if (IsSet(Metadata::WithFluxes)) {
+    mem_size += flux_data_.size() * sizeof(T);
     flux_data_.Reset();
     int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
     for (int d = X1DIR; d <= n_outer; ++d) {
@@ -205,6 +206,7 @@ std::int64_t Variable<T>::Deallocate() {
   }
 
   if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+    mem_size += coarse_s.size() * sizeof(T);
     coarse_s.Reset();
   }
 
