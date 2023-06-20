@@ -150,10 +150,11 @@ class Variable {
   int num_alloc_ = 0;
 
   // allocate data only
-  void AllocateData(bool flag_uninitialized = false);
+  void AllocateData(MeshBlock *pmb, bool flag_uninitialized = false);
+  void AllocateData(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialized = false);
 
   // deallocate data, fluxes, and boundary variable
-  void Deallocate();
+  std::int64_t Deallocate();
 
   /// allocate fluxes (if Metadata::WithFluxes is set) and coarse data if
   /// (Metadata::FillGhost is set)
