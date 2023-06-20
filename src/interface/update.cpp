@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -149,9 +149,10 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   const IndexRange kb = md->GetBoundsK(IndexDomain::entire);
 
   auto control_vars = md->GetMeshPointer()->resolved_packages->GetControlVariables();
-  const auto tup = SparsePack<>::Get(md, control_vars, {Metadata::Sparse});
-  auto pack = std::get<0>(tup);
-  auto packIdx = std::get<1>(tup);
+  auto desc = MakePackDescriptor(md->GetMeshPointer()->resolved_packages.get(),
+                                 control_vars, {Metadata::Sparse});
+  auto pack = desc.GetPack(md);
+  auto packIdx = desc.GetMap();
 
   ParArray2D<bool> is_zero("IsZero", pack.GetNBlocks(), pack.GetMaxNumberOfVars());
   const int Ni = ib.e + 1 - ib.s;
