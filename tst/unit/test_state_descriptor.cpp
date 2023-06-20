@@ -219,6 +219,14 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
             REQUIRE(pkg4->FieldMetadata("sparse", sparse_ids[i]) == (m_sparse_provides));
           }
         }
+        AND_THEN("The sparse ids in the sparse pool are sorted") {
+          auto &pool = (pkg4->GetSparsePool("sparse")).pool();
+          std::vector<int> local_ids;
+          for (auto &[id, m] : pool) {
+            local_ids.push_back(id);
+          }
+          REQUIRE(std::is_sorted(local_ids.begin(), local_ids.end()));
+        }
       }
     }
 
