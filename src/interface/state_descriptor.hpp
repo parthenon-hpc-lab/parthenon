@@ -106,6 +106,11 @@ class StateDescriptor {
   CreateResolvedStateDescriptor(Packages_t &packages);
 
   template <typename T>
+  void AddParam(const std::string &key, T value, Params::Mutability mutability) {
+    params_.Add<T>(key, value, mutability);
+  }
+
+  template <typename T>
   void AddParam(const std::string &key, T value, bool is_mutable = false) {
     params_.Add<T>(key, value, is_mutable);
   }
