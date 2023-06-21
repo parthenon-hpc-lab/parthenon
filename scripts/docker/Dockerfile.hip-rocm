@@ -1,4 +1,4 @@
-FROM rocm/dev-ubuntu-20.04:4.5
+FROM rocm/dev-ubuntu-20.04:5.4.3
 
 RUN apt-get clean && apt-get update -y && \
     DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib lcov curl cmake ninja-build openmpi-bin libopenmpi-dev && \
