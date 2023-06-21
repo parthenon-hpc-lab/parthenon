@@ -187,12 +187,12 @@ void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
 
 template <typename T>
 std::int64_t Variable<T>::Deallocate() {
+  std::int64_t mem_size = 0;
 #ifdef ENABLE_SPARSE
   if (!IsAllocated()) {
     return 0;
   }
 
-  std::int64_t mem_size = 0;
   mem_size += data.size() * sizeof(T);
   data.Reset();
 

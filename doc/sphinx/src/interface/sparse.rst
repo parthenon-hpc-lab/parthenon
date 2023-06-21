@@ -421,14 +421,14 @@ meshblock may vary with meshblock. Each ``MeshBlock`` object keeps a
 running total of its memory footprint. You can get the footprint of an
 individual meshblock by calling:
 
-.. cpp:function::
+.. code:: cpp
 
    std::uint64_t MeshBlock::ReportMemUsage();
 
 If desired, you may also manually change the recorded memory footprint
 of a given meshblock with the function:
 
-.. cpp:function::
+.. code:: cpp
 
    void MeshBlock::LogMemUsage(std::int64_t delta);
 
