@@ -58,7 +58,7 @@ To build Parthenon on CPU, including this benchmark, with minimal external depen
 
 ```bash
 parthenon$ mkdir build && cd build
-parthenon$ cmake -DPARTHENON_DISABLE_HDF5=ON -DPARTHENON_DISABLE_OPENMP=ON -DPARTHENON_ENABLE_PYTHON_MODULE_CHECK=OFF ../
+parthenon$ cmake -DPARTHENON_DISABLE_HDF5=ON -DPARTHENON_ENABLE_PYTHON_MODULE_CHECK=OFF ../
 parthenon$ make -j
 ```
 The executable `burgers-benchmark` should be built in `parthenon/build/benchmarks/burgers/` and can be run as, e.g.

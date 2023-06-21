@@ -34,7 +34,6 @@ include(CTest)
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
-option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
@@ -58,13 +57,6 @@ option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kern
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
-
-# Default to an external Kokkos package if the submodule is not populated
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt" AND NOT EXISTS "${Kokkos_ROOT}/CMakeLists.txt")
-    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" ON)
-else()
-    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
-endif()
 
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
@@ -135,22 +127,12 @@ if (NOT PARTHENON_DISABLE_MPI)
   set(ENABLE_MPI ON)
 endif()
 
-set(ENABLE_OPENMP OFF)
-if (NOT PARTHENON_DISABLE_OPENMP)
-  # Using Host OpenMP and Cuda with nvcc currently does not compile with C++17 standard.
-  # Also there is no proper support for two separate execution spaces in Parthenon right now.
-  # We may need to revisit this logic when OpenMP target for devices will be used in the future.
-  if (Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
-    message(STATUS "Parthenon is not using Host OpenMP because Cuda or HIP is enabled")
-  else()
-    find_package(OpenMP COMPONENTS CXX)
-    if (NOT OpenMP_FOUND)
-      message(FATAL_ERROR "OpenMP is required but couldn't be found. "
-      "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
-    endif()
-    set(ENABLE_OPENMP ON)
-    set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP as execution space.")
-  endif()
+
+# Default to an external Kokkos package if the submodule is not populated or an external source directory provided
+if(PARTHENON_IMPORT_KOKKOS OR (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt" AND NOT EXISTS "${Kokkos_ROOT}/CMakeLists.txt"))
+    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" ON)
+else()
+    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
 endif()
 
 set(ENABLE_SPARSE ON)

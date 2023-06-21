@@ -30,7 +30,6 @@ message(STATUS "Loading machine configuration for OLCF's Frontier and Crusher.\n
 
 # common options
 set(Kokkos_ARCH_ZEN3 ON CACHE BOOL "CPU architecture")
-set(PARTHENON_DISABLE_OPENMP ON CACHE BOOL "OpenMP support not yet tested in Parthenon.")
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Default release build")
 set(MACHINE_VARIANT "hip-mpi" CACHE STRING "Default build for CUDA and MPI")
 
