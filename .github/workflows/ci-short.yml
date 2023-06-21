@@ -18,7 +18,7 @@ jobs:
   style:
     runs-on: [self-hosted, A100]
     container:
-      image: registry.gitlab.com/pgrete/parthenon/cuda11.6-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
       options: --user 1001
     steps:
@@ -43,7 +43,7 @@ jobs:
         device: ['cuda', 'host']
     runs-on: [self-hosted, A100]
     container:
-      image: registry.gitlab.com/pgrete/parthenon/cuda11.6-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
       options: --user 1001
     steps:
@@ -73,7 +73,7 @@ jobs:
         device: ['cuda', 'host']
     runs-on: [self-hosted, A100]
     container:
-      image: registry.gitlab.com/pgrete/parthenon/cuda11.6-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
       options: --user 1001
     steps:
