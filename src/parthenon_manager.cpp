@@ -396,6 +396,15 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
     ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
   }
+
+  // Params
+  // ============================================================
+  // packages and params are owned by shared pointer, so reading from
+  // the mesh updates on all meshblocks.
+  for (auto &[name, pkg] : rm.packages.AllPackages()) {
+    auto &params = pkg->AllParams();
+    resfile.ReadParams(name, params);
+  }
 #endif // ifdef ENABLE_HDF5
 }
 
