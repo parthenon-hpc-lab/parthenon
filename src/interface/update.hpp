@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -283,6 +283,17 @@ TaskStatus EstimateTimestep(T *rc) {
 }
 
 template <typename T>
+TaskStatus PreCommFillDerived(T *rc) {
+  Kokkos::Profiling::pushRegion("Task_PreCommFillDerived");
+  auto pm = rc->GetParentPointer();
+  for (const auto &pkg : pm->packages.AllPackages()) {
+    pkg.second->PreCommFillDerived(rc);
+  }
+  Kokkos::Profiling::popRegion();
+  return TaskStatus::complete;
+}
+
+template <typename T>
 TaskStatus FillDerived(T *rc) {
   Kokkos::Profiling::pushRegion("Task_FillDerived");
   auto pm = rc->GetParentPointer();
@@ -321,7 +332,9 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
     // This pack will always be freshly built, since we only get here if sparse data
     // was allocated and hasn't been initialized, which in turn implies the cached
     // pack must be stale.
-    auto v = parthenon::SparsePack<variable_names::any>::Get(rc, {Metadata::Sparse});
+    auto desc = parthenon::MakePackDescriptor<variable_names::any>(
+        rc->GetMeshPointer()->resolved_packages.get(), {Metadata::Sparse});
+    auto v = desc.GetPack(rc);
 
     Kokkos::parallel_for(
         "Set newly allocated interior to default",

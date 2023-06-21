@@ -261,7 +261,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
-    find_package(Kokkos 3)
+    find_package(Kokkos 4)
     if (NOT Kokkos_FOUND)
       unset(PARTHENON_IMPORT_KOKKOS CACHE)
       message(FATAL_ERROR "Could not find external Kokkos. Consider importing a Kokkos installation into your environment or disabling external Kokkos with e.g. -DPARTHENON_IMPORT_KOKKOS=OFF")
