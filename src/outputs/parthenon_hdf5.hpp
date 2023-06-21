@@ -329,6 +329,7 @@ template <typename D, typename S>
 void HDF5ReadAttribute(hid_t location, const std::string &name,
                        ParArrayGeneric<D, S> &pararray) {
   // forces compiler to pass by non-const reference into the next function
+  // Note this loses information stored in the `State` of the pararray.
   D &view = pararray.KokkosView();
   HDF5ReadAttribute(location, name, view);
 }
