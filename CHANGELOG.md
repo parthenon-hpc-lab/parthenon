@@ -12,6 +12,7 @@
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 894]](https://github.com/parthenon-hpc-lab/parthenon/pull/894) Demand that sparse pool order sparse ids
+- [[PR 888]](https://github.com/parthenon-hpc-lab/parthenon/pull/888) Bump Kokkos submodule to 4.0.1
 - [[PR 885]](https://github.com/parthenon-hpc-lab/parthenon/pull/885) Expose PackDescriptor and use uids in SparsePacks
 
 ### Fixed (not changing behavior/API/variables/...)
