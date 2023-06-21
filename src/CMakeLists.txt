@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -105,6 +105,7 @@ add_library(parthenon
   bvals/comms/tag_map.cpp 
   bvals/comms/tag_map.hpp 
   
+  bvals/boundary_conditions_generic.hpp
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
 
@@ -147,6 +148,7 @@ add_library(parthenon
   interface/state_descriptor.cpp
   interface/update.cpp
   interface/update.hpp
+  interface/var_id.hpp
   interface/variable_pack.hpp
   interface/variable_state.hpp
   interface/variable_state.cpp
