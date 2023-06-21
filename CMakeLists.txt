@@ -127,24 +127,9 @@ if (NOT PARTHENON_DISABLE_MPI)
   set(ENABLE_MPI ON)
 endif()
 
-
-# Default to an external Kokkos package if the submodule is not populated or an external source directory provided
-if(PARTHENON_IMPORT_KOKKOS OR (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt" AND NOT EXISTS "${Kokkos_ROOT}/CMakeLists.txt"))
-    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" ON)
-else()
-    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
-endif()
-
 set(ENABLE_SPARSE ON)
 if (PARTHENON_DISABLE_SPARSE)
   set(ENABLE_SPARSE OFF)
-endif()
-
-if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
-  message(WARNING
-    "Intel optimizer flags may not be passed through NVCC wrapper correctly. "
-    "If you encounter problems, please delete your CMake cache "
-    "and rerun CMake with -DTEST_INTEL_OPTIMIZATION=OFF.")
 endif()
 
 set(ENABLE_HDF5 OFF)
@@ -202,53 +187,55 @@ endif()
 # Kokkos recommendatation resulting in not using default GNU extensions
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Tell Kokkos to vectorize aggressively
-# Kokkos prefers this capitalization for debugging reasons
-SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
-     "Kokkos aggressive vectorization")
-
 # Check that gpu devices are actually detected
 set(NUM_GPU_DEVICES_PER_NODE "1" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
 set(NUM_OMP_THREADS_PER_RANK "1" CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
-if (Kokkos_ENABLE_CUDA)
-  # Tell Kokkos we need lambdas in Cuda.
-  SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
-       "Enable lambda expressions in CUDA")
-  if ( "${PARTHENON_ENABLE_GPU_MPI_CHECKS}" )
-     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CTestCustom.cmake.in ${CMAKE_BINARY_DIR}/CTestCustom.cmake @ONLY)
-  endif()
-endif()
-
-# If this is a debug build, set kokkos debug on
-if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-  message(STATUS "Enabling Kokkos debug mode")
-  set(Kokkos_ENABLE_DEBUG ON CACHE BOOL "Most general debug settings")
-  set(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK ON CACHE BOOL
-     "Bounds checking on Kokkos views")
-  set(Kokkos_ENABLE_DEBUG_DUALVIEW_MODIFY_CHECK ON CACHE BOOL
-      "Sanity checks on Kokkos DualView")
-endif()
 
 if (ENABLE_COMPILER_WARNINGS)
-  message(STATUS "Enabling -Wall and setting Kokkos_ENABLE_COMPILER_WARNINGS=True")
-  set(Kokkos_ENABLE_COMPILER_WARNINGS True CACHE BOOL
-      "Make the compiler warn us about things")
+  message(STATUS "Enabling -Wall.")
   add_compile_options(-Wall)
 endif()
-
-set(Kokkos_ENABLE_DEPRECATED_CODE_3 OFF CACHE BOOL "No need for old/unused code.")
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
+option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
     find_package(Kokkos 4)
     if (NOT Kokkos_FOUND)
-      unset(PARTHENON_IMPORT_KOKKOS CACHE)
       message(FATAL_ERROR "Could not find external Kokkos. Consider importing a Kokkos installation into your environment or disabling external Kokkos with e.g. -DPARTHENON_IMPORT_KOKKOS=OFF")
+    else()
+      message(STATUS "Using imported Kokkos from ${Kokkos_CONFIG}. "
+      "All manually defined Kokkos variables will be ignored as they have no affect on the imported "
+      "(installed) version. If you want to use a custom Kokkos version, please use the one shipped "
+      "as Parthenon submodule.")
     endif()
   else()
+    # First, set some Kokkos options
+    # Tell Kokkos to vectorize aggressively
+    # Kokkos prefers this capitalization for debugging reasons
+    SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
+         "Kokkos aggressive vectorization")
+
+    # If this is a debug build, set kokkos debug on
+    if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+      message(STATUS "Enabling Kokkos debug mode")
+      set(Kokkos_ENABLE_DEBUG ON CACHE BOOL "Most general debug settings")
+      set(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK ON CACHE BOOL
+         "Bounds checking on Kokkos views")
+      set(Kokkos_ENABLE_DEBUG_DUALVIEW_MODIFY_CHECK ON CACHE BOOL
+          "Sanity checks on Kokkos DualView")
+    endif()
+
+    # Also enable Compiler warnings for Kokkos
+    if (ENABLE_COMPILER_WARNINGS)
+      message(STATUS "Setting Kokkos_ENABLE_COMPILER_WARNINGS=True")
+      set(Kokkos_ENABLE_COMPILER_WARNINGS True CACHE BOOL
+          "Make the compiler warn us about things")
+    endif()
+
+    # Second, add Kokkos
     if (EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
       add_subdirectory(${Kokkos_ROOT} Kokkos)
       message(STATUS "Using Kokkos source from Kokkos_ROOT=${Kokkos_ROOT}")
@@ -260,7 +247,16 @@ if (NOT TARGET Kokkos::kokkos)
     endif()
   endif()
 endif()
+get_cmake_property(_variableNames VARIABLES)
+list (SORT _variableNames)
+foreach (_variableName ${_variableNames})
+    message(STATUS "${_variableName}=${${_variableName}}")
+endforeach()
 
+message(STATUS "CUDA: ${Kokkos_ENABLE_CUDA}")
+
+# After we have imported Kokkos we can now report/check our config as Kokkos_ENABLE_XXX
+# is also availalbe when imported.
 if (Kokkos_ENABLE_SYCL)
   message(WARNING
     "SYCL backend is currently NOT tested in Parthenon due to lack of access to hardware. "
@@ -274,6 +270,32 @@ if (PARTHENON_ENABLE_HOST_COMM_BUFFERS)
     message(FATAL_ERROR "Host pinned buffers for MPI communication are supported only for CUDA and HIP backends.")
   endif()
 endif()
+
+if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
+  message(WARNING
+    "Intel optimizer flags may not be passed through NVCC wrapper correctly. "
+    "If you encounter problems, please delete your CMake cache "
+    "and rerun CMake with -DTEST_INTEL_OPTIMIZATION=OFF.")
+endif()
+
+# Globally turn on useful intel and/or nvcc compiler output
+if (Kokkos_ENABLE_CUDA)
+  if(CHECK_REGISTRY_PRESSURE)
+    add_compile_options(-Xptxas=-v)
+  endif()
+endif()
+# Note that these options may not play nice with nvcc wrapper
+if (TEST_INTEL_OPTIMIZATION)
+  add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
+endif()
+
+# GPU check on the build node are currently only supported for Nvidia GPUs
+if (Kokkos_ENABLE_CUDA AND "${PARTHENON_ENABLE_GPU_MPI_CHECKS}" )
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CTestCustom.cmake.in ${CMAKE_BINARY_DIR}/CTestCustom.cmake @ONLY)
+endif()
+
+
+
 
 # Build Tests and download Catch2
 if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHENON_ENABLE_REGRESSION_TESTS OR PARTHENON_ENABLE_PERFORMANCE_TESTS)
@@ -332,17 +354,6 @@ if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHEN
 
   include(Catch)
   add_subdirectory(tst)
-endif()
-
-# Globally turn on useful intel and/or nvcc compiler output
-if (Kokkos_ENABLE_CUDA)
-  if(CHECK_REGISTRY_PRESSURE)
-    add_compile_options(-Xptxas=-v)
-  endif()
-endif()
-# Note that these options may not play nice with nvcc wrapper
-if (TEST_INTEL_OPTIMIZATION)
-  add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
 endif()
 
 if (PARTHENON_ENABLE_ASCENT)

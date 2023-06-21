@@ -172,7 +172,7 @@ The below example ``CMakeLists.txt`` can be used to compile the
    cmake_minimum_required(VERSION 3.11)
 
    project(parthenon_linking_example)
-   set(Kokkos_CXX_STANDARD "c++14")
+   set(CMAKE_CXX_STANDARD "17")
    set(CMAKE_CXX_EXTENSIONS OFF)
    find_package(parthenon REQUIRED PATHS "/path/to/parthenon/install")
    add_executable(

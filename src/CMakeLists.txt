@@ -287,17 +287,6 @@ if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
 endif()
 
-# For Cuda with NVCC (<11.2) and C++17 Kokkos currently does not work/compile with
-# relaxed-constexpr, see https://github.com/kokkos/kokkos/issues/3496
-# However, Parthenon heavily relies on it and there is no harm in compiling Kokkos
-# without and Parthenon with (via Max Katz on the Kokkos Slack channel).
-# Therefore, we don't use the Kokkos_ENABLE_CUDA_CONSTEXPR option add the flag manually.
-# Also, not checking for NVIDIA as nvcc_wrapper is identified as GNU so we just make sure
-# the flag is not added when compiling with Clang for Cuda.
-if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-   target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
-endif()
-
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
 if (PARTHENON_ENABLE_ASCENT)
