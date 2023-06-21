@@ -301,7 +301,6 @@ TaskStatus ApplyCoarseBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 TaskStatus ApplyFineBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
-  if (!md->GetMeshPointer()->multilevel) return TaskStatus::complete;
   for (int block = 0; block < md->NumBlocks(); ++block) {
     ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), false);
   }
