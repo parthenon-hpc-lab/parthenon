@@ -27,6 +27,8 @@
 #include <vector>
 
 #include "interface/metadata.hpp"
+#include "interface/mesh_data.hpp"
+#include "interface/meshblock_data.hpp"
 #include "interface/sparse_pack.hpp"
 #include "interface/state_descriptor.hpp"
 
