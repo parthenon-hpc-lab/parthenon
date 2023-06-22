@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "interface/make_pack_descriptor.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/sparse_pack.hpp"
 #include "mesh/domain.hpp"
