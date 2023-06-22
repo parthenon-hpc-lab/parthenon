@@ -31,6 +31,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/sparse_pack.hpp"
 #include "interface/state_descriptor.hpp"
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
 
