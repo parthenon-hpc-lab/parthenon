@@ -64,6 +64,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   using namespace HDF5;
   using namespace OutputUtils;
 
+  if constexpr (WRITE_SINGLE_PRECISION) {
+    Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileSinglePrec");
+  } else {
+    Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileRealPrec");
+  }
+
   // writes all graphics variables to hdf file
   // HDF5 structures
   // Also writes companion xdmf file
@@ -111,7 +117,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // -------------------------------------------------------------------------------- //
   //   WRITING ATTRIBUTES                                                             //
   // -------------------------------------------------------------------------------- //
+  Kokkos::Profiling::pushRegion("write Attributes");
   {
+    Kokkos::Profiling::pushRegion("write input");
     // write input key-value pairs
     std::ostringstream oss;
     pin->ParameterDump(oss);
@@ -120,11 +128,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const H5G input_group = MakeGroup(file, "/Input");
 
     HDF5WriteAttribute("File", oss.str().c_str(), input_group);
-  } // Input section
+    Kokkos::Profiling::popRegion(); // write input
+  }                                 // Input section
 
   // we'll need this again at the end
   const H5G info_group = MakeGroup(file, "/Info");
   {
+    Kokkos::Profiling::pushRegion("write Info");
     HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info_group);
 
     if (tm != nullptr) {
@@ -178,10 +188,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
 
     HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
-  } // Info section
+    Kokkos::Profiling::popRegion(); // write Info
+  }                                 // Info section
 
   // write Params
   {
+    Kokkos::Profiling::pushRegion("behold: write Params");
     const H5G params_group = MakeGroup(file, "/Params");
 
     for (const auto &package : pm->packages.AllPackages()) {
@@ -189,7 +201,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       // Write all params that can be written as HDF5 attributes
       state->AllParams().WriteAllToHDF5(state->label(), params_group);
     }
-  } // Params section
+    Kokkos::Profiling::popRegion(); // behold: write Params
+  }                                 // Params section
+  Kokkos::Profiling::popRegion();   // write Attributes
 
   // -------------------------------------------------------------------------------- //
   //   WRITING MESHBLOCK METADATA                                                     //
@@ -226,6 +240,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // write Blocks metadata
   {
+    Kokkos::Profiling::pushRegion("write block metadata");
     const H5G gBlocks = MakeGroup(file, "/Blocks");
 
     // write Xmin[ndim] for blocks
@@ -255,9 +270,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), p_loc_offset,
                   p_loc_cnt, p_glob_cnt, pl_xfer);
     }
-  } // Block section
+    Kokkos::Profiling::popRegion(); // write block metadata
+  }                                 // Block section
 
   // Write mesh coordinates to file
+  Kokkos::Profiling::pushRegion("write mesh coords");
   for (const bool face : {true, false}) {
     const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
 
@@ -280,10 +297,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     HDF5Write2D(gLocations, "z", loc_z.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
   }
+  Kokkos::Profiling::popRegion(); // write mesh coords
 
   // Write Levels and Logical Locations with the level for each Meshblock loclist contains
   // levels and logical locations for all meshblocks on all ranks
   {
+    Kokkos::Profiling::pushRegion("write levels and locations");
     const auto &loclist = pm->GetLocList();
 
     std::vector<std::int64_t> levels;
@@ -310,11 +329,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     // reset for collective output
     local_count[0] = num_blocks_local;
+    Kokkos::Profiling::popRegion(); // write levels and locations
   }
 
   // -------------------------------------------------------------------------------- //
   //   WRITING VARIABLES DATA                                                         //
   // -------------------------------------------------------------------------------- //
+  Kokkos::Profiling::pushRegion("write all variable data");
 
   // All blocks have the same list of variable metadata that exist in the entire
   // simulation, but not all variables may be allocated on all blocks
@@ -391,6 +412,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // for each variable we write
   for (auto &vinfo : all_vars_info) {
+    Kokkos::Profiling::pushRegion("write variable loop");
     // not really necessary, but doesn't hurt
     memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
 
@@ -459,6 +481,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // load up data
     hsize_t index = 0;
 
+    Kokkos::Profiling::pushRegion("fill host output buffer");
     // for each local mesh block
     for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
       const auto &pmb = pm->block_list[b_idx];
@@ -524,11 +547,16 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         }
       }
     }
+    Kokkos::Profiling::popRegion(); // fill host output buffer
 
+    Kokkos::Profiling::pushRegion("write variable data");
     // write data to file
     HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer, pl_dcreate);
+    Kokkos::Profiling::popRegion(); // write variable data
+    Kokkos::Profiling::popRegion(); // write variable loop
   }
+  Kokkos::Profiling::popRegion(); // write all variable data
 
   // names of variables
   std::vector<std::string> var_names;
@@ -561,6 +589,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
   // this if we have sparse fields)
   if (num_sparse > 0) {
+    Kokkos::Profiling::pushRegion("write sparse info");
     local_count[1] = global_count[1] = num_sparse;
 
     HDF5Write2D(file, "SparseInfo", sparse_allocated.get(), p_loc_offset, p_loc_cnt,
@@ -573,12 +602,14 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     const H5D dset = H5D::FromHIDCheck(H5Dopen2(file, "SparseInfo", H5P_DEFAULT));
     HDF5WriteAttribute("SparseFields", names, dset);
-  } // SparseInfo and SparseFields sections
+    Kokkos::Profiling::popRegion(); // write sparse info
+  }                                 // SparseInfo and SparseFields sections
 
   // -------------------------------------------------------------------------------- //
   //   WRITING PARTICLE DATA                                                          //
   // -------------------------------------------------------------------------------- //
 
+  Kokkos::Profiling::pushRegion("write particle data");
   AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_);
   for (auto &[swname, swinfo] : swarm_info.all_info) {
     const H5G g_swm = MakeGroup(file, swname);
@@ -639,9 +670,14 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                   pl_xfer);
     }
   }
+  Kokkos::Profiling::popRegion(); // write particle data
 
+  Kokkos::Profiling::pushRegion("genXDMF");
   // generate XDMF companion file
   XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info, swarm_info);
+  Kokkos::Profiling::popRegion(); // genXDMF
+
+  Kokkos::Profiling::popRegion(); // WriteOutputFile???Prec
 }
 
 std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
