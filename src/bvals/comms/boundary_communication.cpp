@@ -314,8 +314,8 @@ TaskStatus ApplyCoarseBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
   const auto any = BoundaryType::any;
-  const auto local = BoundaryType::local;
-  const auto nonlocal = BoundaryType::nonlocal;
+  // const auto local = BoundaryType::local;
+  // const auto nonlocal = BoundaryType::nonlocal;
 
   // auto send = tl.AddTask(dependency, SendBoundBufs<nonlocal>, md);
   // auto send_local = tl.AddTask(dependency, SendBoundBufs<local>, md);

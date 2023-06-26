@@ -22,7 +22,6 @@ General list of cmake options:
 || PARTHENON\_DISABLE\_MPI                  || OFF                           || Option || MPI is enabled by default if found, set this to True to disable MPI                                                                                         |
 || PARTHENON\_ENABLE\_HOST\_COMM\_BUFFERS   || OFF                           || Option || MPI communication buffers are by default allocated on the execution device. This options forces allocation in memory accessible directly by the host.       |
 || PARTHENON\_DISABLE\_SPARSE               || OFF                           || Option || Disable sparse allocation of sparse variables, i.e., sparse variable still work but are always allocated. See also :ref:`sparse doc <sparse compile-time>`. |
-|| PARTHENON\_DISABLE\_OPENMP               || OFF                           || Option || OpenMP is enabled by default if found, set this to True to disable OpenMP                                                                                   |
 || ENABLE\_COMPILER\_WARNINGS               || OFF                           || Option || Enable compiler warnings                                                                                                                                    |
 || TEST\_ERROR\_CHECKING                    || OFF                           || Option || Enables the error checking unit test. This test will FAIL                                                                                                   |
 || TEST\_INTEL\_OPTIMIZATION                || OFF                           || Option || Test intel optimization and vectorization                                                                                                                   |
@@ -173,7 +172,7 @@ The below example ``CMakeLists.txt`` can be used to compile the
    cmake_minimum_required(VERSION 3.11)
 
    project(parthenon_linking_example)
-   set(Kokkos_CXX_STANDARD "c++14")
+   set(CMAKE_CXX_STANDARD 17)
    set(CMAKE_CXX_EXTENSIONS OFF)
    find_package(parthenon REQUIRED PATHS "/path/to/parthenon/install")
    add_executable(
@@ -579,7 +578,7 @@ Cuda with MPI
    # configure and build. Make sure to build in an directory on the GPFS filesystem if you want to run the regression tests because the home directory is not writeable from the compute nodes (which will result in the regression tests failing)
    $ mkdir build-cuda-mpi && cd build-cuda-mpi
    # note that we do not specify the mpicxx wrapper in the following as cmake automatically extracts the required include and linker options
-   $ cmake -DPARTHENON_DISABLE_HDF5=On -DCMAKE_BUILD_TYPE=Release -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_POWER9=True -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_VOLTA70=True -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper ..
+   $ cmake -DPARTHENON_DISABLE_HDF5=On -DCMAKE_BUILD_TYPE=Release -DKokkos_ENABLE_OPENMP=ON -DKokkos_ARCH_POWER9=True -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_VOLTA70=True -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper ..
    $ make -j
 
    # The following commands are exepected to be run within job (interactive or scheduled)
