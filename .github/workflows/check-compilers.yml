@@ -26,7 +26,7 @@ jobs:
             cmake_build_type: Debug
     runs-on: ubuntu-latest
     container:
-      image: registry.gitlab.com/pgrete/parthenon/cuda11.4.2-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
     env:
       CMAKE_GENERATOR: Ninja
     steps:
@@ -53,7 +53,7 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: ubuntu-latest
     container:
-      image: registry.gitlab.com/pgrete/parthenon/rocm4.5-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/rocm5.4.3-mpi-hdf5
     env:
       CMAKE_GENERATOR: Ninja
     steps:
