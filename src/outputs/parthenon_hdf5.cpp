@@ -448,8 +448,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
     PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, ndim, chunk_size.data()));
-    PARTHENON_HDF5_CHECK(
-        H5Pset_deflate(pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
+    // Do not run the pipeline if compression is soft disabled.
+    // By default data would still be passed, which may result in slower output.
+    if (output_params.hdf5_compression_level > 0) {
+      PARTHENON_HDF5_CHECK(
+          H5Pset_deflate(pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
+    }
 #endif
 
     // load up data
