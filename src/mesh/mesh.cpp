@@ -1093,9 +1093,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
       test_iters++;
     } while (!can_delete && test_iters < 1e10);
-    if (test_iters >= 1e10)
-      PARTHENON_FAIL(
-          "Too many iterations waiting to delete boundary communication buffers.");
+    PARTHENON_REQUIRE(
+        test_iters < 1.e10,
+        "Too many iterations waiting to delete boundary communication buffers.");
 
     boundary_comm_map.clear();
     boundary_comm_flxcor_map.clear();
@@ -1107,6 +1107,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     std::vector<bool> sent(num_partitions, false);
     bool all_sent;
+    int send_iters = 0;
     do {
       all_sent = true;
       for (int i = 0; i < num_partitions; i++) {
@@ -1119,13 +1120,18 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
           }
         }
       }
-    } while (!all_sent);
+      send_iters++;
+    } while (!all_sent && send_iters < 1e10);
+    PARTHENON_REQUIRE(
+        send_iters < 1.e10,
+        "Too many iterations waiting to send boundary communication buffers.");
 
     // wait to receive FillGhost variables
     // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
     // https://github.com/lanl/parthenon/issues/418
     std::vector<bool> received(num_partitions, false);
     bool all_received;
+    int receive_iters;
     do {
       all_received = true;
       for (int i = 0; i < num_partitions; i++) {
@@ -1138,7 +1144,11 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
           }
         }
       }
-    } while (!all_received);
+      receive_iters++;
+    } while (!all_received && receive_iters < 1.e10);
+    PARTHENON_REQUIRE(
+        receive_iters < 1.e10,
+        "Too many iterations waiting to receive boundary communication buffers.");
 
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
