@@ -1150,10 +1150,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       if (multilevel) {
-        ApplyCoarseBoundaryConditions(md);
+        ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
         ProlongateBoundaries(md);
       }
-      ApplyFineBoundaryConditions(md);
+      ApplyBoundaryConditionsOnCoarseOrFineMD(md, false);
       // Call MeshData based FillDerived functions
       Update::FillDerived(md.get());
     }
