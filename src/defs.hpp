@@ -48,6 +48,91 @@ namespace parthenon {
 class MeshBlock;
 class ParameterInput;
 
+
+template <int NDIM = 3>
+constexpr uint64_t GetInterleaveConstant(int power) {
+  // For power = 2, NDIM = 3, this should return
+  // ...000011000011
+  // For power = 1, NDIM = 3, this should return
+  // ...001001001001
+  // For power = 2, NDIM = 2, this should return
+  // ...001100110011
+  // etc.
+  uint64_t i_const = ~((~static_cast<uint64_t>(0)) << power); // std::pow(2, power) - 1;
+  int cur_shift =
+      sizeof(uint64_t) * 8 * NDIM; // Works for anything that will fit in uint64_t
+  while (cur_shift >= NDIM * power) {
+    i_const = (i_const << cur_shift) | i_const;
+    cur_shift /= 2;
+  }
+  return i_const;
+}
+
+template <int NDIM = 3, int N_VALID_BITS = 21>
+uint64_t InterleaveZeros(uint64_t x) {
+  // This is a standard bithack for interleaving zeros in binary numbers to make a Morton
+  // number
+  if constexpr (N_VALID_BITS >= 64)
+    x = (x | x << 64 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(64);
+  if constexpr (N_VALID_BITS >= 32)
+    x = (x | x << 32 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(32);
+  if constexpr (N_VALID_BITS >= 16)
+    x = (x | x << 16 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(16);
+  if constexpr (N_VALID_BITS >= 8)
+    x = (x | x << 8 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(8);
+  if constexpr (N_VALID_BITS >= 4)
+    x = (x | x << 4 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(4);
+  if constexpr (N_VALID_BITS >= 2)
+    x = (x | x << 2 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(2);
+  if constexpr (N_VALID_BITS >= 1)
+    x = (x | x << 1 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(1);
+  return x;
+}
+
+struct MortonNumber {
+  uint64_t most, mid, least;
+  
+  MortonNumber(int level, uint64_t x, uint64_t y, uint64_t z) :
+      most(GetMortonBits(level, x, y, z, 2)), mid(GetMortonBits(level, x, y, z, 1)), least(GetMortonBits(level, x, y, z, 0)) {}
+ 
+ private: 
+  uint64_t GetMortonBits(int level, uint64_t x, uint64_t y, uint64_t z, int chunk) {
+    uint64_t morton[3];
+    constexpr int NBITS = 21;
+    constexpr uint64_t lowest_nbits_mask = ~((~static_cast<uint64_t>(0)) << NBITS); 
+
+    // Shift the by level location to the global location 
+    x = x << (NBITS - level);  
+    y = y << (NBITS - level);  
+    z = z << (NBITS - level);  
+  
+    // Get the chunk signifigance NBITS bits of each direction
+    x = x >> (chunk * NBITS) & lowest_nbits_mask; 
+    y = y >> (chunk * NBITS) & lowest_nbits_mask; 
+    z = z >> (chunk * NBITS) & lowest_nbits_mask;
+
+    // Return the interleaved section of the morton number 
+    return InterleaveZeros<3, NBITS>(z) << 2 | InterleaveZeros<3, NBITS>(y) << 1 | InterleaveZeros<3, NBITS>(x); 
+  }
+};
+
+bool operator<(const MortonNumber& lhs, const MortonNumber& rhs) { 
+  if (lhs.most == rhs.most && lhs.mid == rhs.mid) return lhs.least < rhs.least; 
+  if (lhs.most == rhs.most) return lhs.mid < rhs.mid; 
+  return lhs.most < rhs.most;
+}
+
+bool operator>(const MortonNumber& lhs, const MortonNumber& rhs) { 
+  if (lhs.most == rhs.most && lhs.mid == rhs.mid) return lhs.least > rhs.least; 
+  if (lhs.most == rhs.most) return lhs.mid > rhs.mid; 
+  return lhs.most > rhs.most;
+}
+
+bool operator==(const MortonNumber& lhs, const MortonNumber& rhs) { 
+  return (lhs.most == rhs.most) && (lhs.mid == rhs.mid) && (lhs.least == rhs.least);
+}
+
+
 //--------------------------------------------------------------------------------------
 //! \struct LogicalLocation
 //  \brief stores logical location and level of MeshBlock
@@ -57,7 +142,11 @@ struct LogicalLocation { // aggregate and POD type
   // single MeshBlock if >30 levels of AMR are used, since the corresponding max index =
   // 1*2^31 > INT_MAX = 2^31 -1 for most 32-bit signed integer type impelementations
   std::int64_t lx1, lx2, lx3;
+  MortonNumber morton; // Morton number needs to have the same number of bits as lx1 through lx3  
   int level;
+
+  LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3) : lx1(l1), lx2(l2), lx3(l3), level(level), morton(lev, l1, l2, l3) {} 
+  LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}  
 
   // operators useful for sorting
   bool operator==(LogicalLocation &ll) {
@@ -68,6 +157,47 @@ struct LogicalLocation { // aggregate and POD type
   }
   static bool Greater(const LogicalLocation &left, const LogicalLocation &right) {
     return left.level > right.level;
+  }
+
+  bool IsContainedIn(const LogicalLocation &container) const { 
+    if (container.level > level) return false; 
+    const int shifted_lx1 = lx1 >> (level - container.level); 
+    const int shifted_lx2 = lx2 >> (level - container.level); 
+    const int shifted_lx3 = lx3 >> (level - container.level); 
+    return (shifted_lx1 == container.lx1) 
+        && (shifted_lx2 == container.lx2) 
+        && (shifted_lx3 == container.lx3);
+  }
+  
+  bool Contains(const LogicalLocation &containee) const { 
+    if (containee.level < level) return false; 
+    const int shifted_lx1 = containee.lx1 >> (containee.level - level); 
+    const int shifted_lx2 = containee.lx2 >> (containee.level - level); 
+    const int shifted_lx3 = containee.lx3 >> (containee.level - level); 
+    return (shifted_lx1 == lx1) 
+        && (shifted_lx2 == lx2) 
+        && (shifted_lx3 == lx3);
+  }
+
+  LogicalLocation GetSameLevelNeighbor(int ox1, int ox2, int ox3) const { 
+    return LogicalLocation(level, lx1 + ox1, lx2 + ox2, lx3 + ox3); 
+  }
+
+  LogicalLocation GetParent() const { 
+    if (level == 0) return *this; 
+    return LogicalLocation(level - 1, lx1 >> 1, lx2 >> 1, lx3 >> 1); 
+  }
+
+  std::vector<LogicalLocation> GetDaughters() const { 
+    std::vector<LogicalLocation> daughters; 
+    for (int i : {0, 1}) {
+      for (int j : {0, 1}) {
+        for (int k : {0, 1}) {
+          daughters.emplace_back(level + 1, (lx1 << 1) + i, (lx2 << 1) + j, (lx3 << 1) + k); 
+        }
+      }
+    }
+    return daughters;
   }
 };
 
