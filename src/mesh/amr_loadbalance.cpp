@@ -308,17 +308,17 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     if (mesh_size.nx2 > 1) lj = 1;
     if (mesh_size.nx3 > 1) lk = 1;
     for (int n = 0; n < tnderef; n++) {
-      if ((lderef[n].lx1 & 1LL) == 0LL && (lderef[n].lx2 & 1LL) == 0LL &&
-          (lderef[n].lx3 & 1LL) == 0LL) {
+      if ((lderef[n].lx1() & 1LL) == 0LL && (lderef[n].lx2() & 1LL) == 0LL &&
+          (lderef[n].lx3() & 1LL) == 0LL) {
         int r = n, rr = 0;
         for (std::int64_t k = 0; k <= lk; k++) {
           for (std::int64_t j = 0; j <= lj; j++) {
             for (std::int64_t i = 0; i <= 1; i++) {
               if (r < tnderef) {
-                if ((lderef[n].lx1 + i) == lderef[r].lx1 &&
-                    (lderef[n].lx2 + j) == lderef[r].lx2 &&
-                    (lderef[n].lx3 + k) == lderef[r].lx3 &&
-                    lderef[n].level == lderef[r].level)
+                if ((lderef[n].lx1() + i) == lderef[r].lx1() &&
+                    (lderef[n].lx2() + j) == lderef[r].lx2() &&
+                    (lderef[n].lx3() + k) == lderef[r].lx3() &&
+                    lderef[n].level() == lderef[r].level())
                   rr++;
                 r++;
               }
@@ -326,10 +326,11 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
           }
         }
         if (rr == nleaf) {
-          clderef[ctnd].lx1 = lderef[n].lx1 >> 1;
-          clderef[ctnd].lx2 = lderef[n].lx2 >> 1;
-          clderef[ctnd].lx3 = lderef[n].lx3 >> 1;
-          clderef[ctnd].level = lderef[n].level - 1;
+          //clderef[ctnd].lx1() = lderef[n].lx1() >> 1;
+          //clderef[ctnd].lx2() = lderef[n].lx2() >> 1;
+          //clderef[ctnd].lx3() = lderef[n].lx3() >> 1;
+          //clderef[ctnd].level() = lderef[n].level() - 1;
+          clderef[ctnd] = lderef[n].GetParent();
           ctnd++;
         }
       }
@@ -438,9 +439,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   for (int n = 0; n < ntot; n++) {
     // "on" = "old n" = "old gid" = "old global MeshBlock ID"
     int on = newtoold[n];
-    if (newloc[n].level > current_level) // set the current max level
-      current_level = newloc[n].level;
-    if (newloc[n].level >= loclist[on].level) { // same or refined
+    if (newloc[n].level() > current_level) // set the current max level
+      current_level = newloc[n].level();
+    if (newloc[n].level() >= loclist[on].level()) { // same or refined
       newcost[n] = costlist[on];
     } else {
       double acost = 0.0;
@@ -471,7 +472,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int nsend = 0, nrecv = 0;
   for (int n = nbs; n <= nbe; n++) {
     int on = newtoold[n];
-    if (loclist[on].level > newloc[n].level) { // f2c
+    if (loclist[on].level() > newloc[n].level()) { // f2c
       for (int k = 0; k < nleaf; k++) {
         if (ranklist[on + k] != Globals::my_rank) nrecv++;
       }
@@ -481,7 +482,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   }
   for (int n = onbs; n <= onbe; n++) {
     int nn = oldtonew[n];
-    if (loclist[n].level < newloc[nn].level) { // c2f
+    if (loclist[n].level() < newloc[nn].level()) { // c2f
       for (int k = 0; k < nleaf; k++) {
         if (newrank[nn + k] != Globals::my_rank) nsend++;
       }
@@ -542,7 +543,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       int on = newtoold[n];
       LogicalLocation &oloc = loclist[on];
       LogicalLocation &nloc = newloc[n];
-      if (oloc.level > nloc.level) { // f2c
+      if (oloc.level() > nloc.level()) { // f2c
         for (int l = 0; l < nleaf; l++) {
           if (ranklist[on + l] == Globals::my_rank) continue;
           buf_size += bsf2c;
@@ -550,7 +551,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       } else { // same level or c2f
         if (ranklist[on] == Globals::my_rank) continue;
         int size;
-        if (oloc.level == nloc.level) {
+        if (oloc.level() == nloc.level()) {
           size = bssame;
         } else {
           size = bsc2f;
@@ -566,10 +567,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       LogicalLocation &oloc = loclist[n];
       LogicalLocation &nloc = newloc[nn];
       auto pb = FindMeshBlock(n);
-      if (nloc.level == oloc.level) { // same level
+      if (nloc.level() == oloc.level()) { // same level
         if (newrank[nn] == Globals::my_rank) continue;
         buf_size += bssame;
-      } else if (nloc.level > oloc.level) { // c2f
+      } else if (nloc.level() > oloc.level()) { // c2f
         // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
         for (int l = 0; l < nleaf; l++) {
           if (newrank[nn + l] == Globals::my_rank) continue;
@@ -594,12 +595,12 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       int on = newtoold[n];
       LogicalLocation &oloc = loclist[on];
       LogicalLocation &nloc = newloc[n];
-      if (oloc.level > nloc.level) { // f2c
+      if (oloc.level() > nloc.level()) { // f2c
         for (int l = 0; l < nleaf; l++) {
           if (ranklist[on + l] == Globals::my_rank) continue;
           LogicalLocation &lloc = loclist[on + l];
-          int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
-              ox3 = ((lloc.lx3 & 1LL) == 1LL);
+          int ox1 = ((lloc.lx1() & 1LL) == 1LL), ox2 = ((lloc.lx2() & 1LL) == 1LL),
+              ox3 = ((lloc.lx3() & 1LL) == 1LL);
           recvbuf[rb_idx] =
               BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
           buf_offset += bsf2c;
@@ -612,7 +613,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       } else { // same level or c2f
         if (ranklist[on] == Globals::my_rank) continue;
         int size;
-        if (oloc.level == nloc.level) {
+        if (oloc.level() == nloc.level()) {
           size = bssame;
         } else {
           size = bsc2f;
@@ -643,7 +644,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       LogicalLocation &oloc = loclist[n];
       LogicalLocation &nloc = newloc[nn];
       auto pb = FindMeshBlock(n);
-      if (nloc.level == oloc.level) { // same level
+      if (nloc.level() == oloc.level()) { // same level
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] =
             BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bssame));
@@ -653,7 +654,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         dest[sb_idx] = newrank[nn];
         count[sb_idx] = bssame;
         sb_idx++;
-      } else if (nloc.level > oloc.level) { // c2f
+      } else if (nloc.level() > oloc.level()) { // c2f
         // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
         for (int l = 0; l < nleaf; l++) {
           if (newrank[nn + l] == Globals::my_rank) continue;
@@ -672,8 +673,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
         buf_offset += bsf2c;
         PrepareSendFineToCoarseAMR(pb.get(), sendbuf[sb_idx]);
-        int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
-            ox3 = ((oloc.lx3 & 1LL) == 1LL);
+        int ox1 = ((oloc.lx1() & 1LL) == 1LL), ox2 = ((oloc.lx2() & 1LL) == 1LL),
+            ox3 = ((oloc.lx3() & 1LL) == 1LL);
         tags[sb_idx] = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
         dest[sb_idx] = newrank[nn];
         count[sb_idx] = bsf2c;
@@ -699,7 +700,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     BlockList_t new_block_list(nbe - nbs + 1);
     for (int n = nbs; n <= nbe; n++) {
       int on = newtoold[n];
-      if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
+      if ((ranklist[on] == Globals::my_rank) && (loclist[on].level() == newloc[n].level())) {
         // on the same MPI rank and same level -> just move it
         new_block_list[n - nbs] = FindMeshBlock(on);
       } else {
@@ -711,7 +712,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
                             app_in, packages, resolved_packages, gflag);
         // fill the conservative variables
-        if ((loclist[on].level > newloc[n].level)) { // fine to coarse (f2c)
+        if ((loclist[on].level() > newloc[n].level())) { // fine to coarse (f2c)
           for (int ll = 0; ll < nleaf; ll++) {
             if (ranklist[on + ll] != Globals::my_rank) continue;
             // fine to coarse on the same MPI rank (different AMR level) - restriction
@@ -726,7 +727,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             FillSameRankFineToCoarseAMR(pob.get(), new_block_list[n - nbs].get(),
                                         loclist[on + ll]);
           }
-        } else if ((loclist[on].level < newloc[n].level) && // coarse to fine (c2f)
+        } else if ((loclist[on].level() < newloc[n].level()) && // coarse to fine (c2f)
                    (ranklist[on] == Globals::my_rank)) {
           // coarse to fine on the same MPI rank (different AMR level) - prolongation
           auto pob = FindMeshBlock(on);
@@ -769,7 +770,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         LogicalLocation &oloc = loclist[on];
         LogicalLocation &nloc = newloc[n];
         auto pb = FindMeshBlock(n);
-        if (oloc.level == nloc.level) { // same
+        if (oloc.level() == nloc.level()) { // same
           if (ranklist[on] == Globals::my_rank) continue;
           if (!received[rb_idx]) {
             PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
@@ -779,7 +780,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             }
           }
           rb_idx++;
-        } else if (oloc.level > nloc.level) { // f2c
+        } else if (oloc.level() > nloc.level()) { // f2c
           for (int l = 0; l < nleaf; l++) {
             if (ranklist[on + l] == Globals::my_rank) continue;
             if (!received[rb_idx]) {
@@ -899,9 +900,9 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
                                       LogicalLocation &lloc) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
-  int ox1 = static_cast<int>((lloc.lx1 & 1LL) == 1LL);
-  int ox2 = static_cast<int>((lloc.lx2 & 1LL) == 1LL);
-  int ox3 = static_cast<int>((lloc.lx3 & 1LL) == 1LL);
+  int ox1 = static_cast<int>((lloc.lx1() & 1LL) == 1LL);
+  int ox2 = static_cast<int>((lloc.lx2() & 1LL) == 1LL);
+  int ox3 = static_cast<int>((lloc.lx3() & 1LL) == 1LL);
   const IndexDomain interior = IndexDomain::interior;
   // pack
   int il, iu, jl, ju, kl, ku;
@@ -1001,11 +1002,11 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
   auto &pmr = pob->pmr;
   const IndexDomain interior = IndexDomain::interior;
   int il =
-      pmb->cellbounds.is(interior) + ((loc.lx1 & 1LL) == 1LL) * pmb->block_size.nx1 / 2;
+      pmb->cellbounds.is(interior) + ((loc.lx1() & 1LL) == 1LL) * pmb->block_size.nx1 / 2;
   int jl =
-      pmb->cellbounds.js(interior) + ((loc.lx2 & 1LL) == 1LL) * pmb->block_size.nx2 / 2;
+      pmb->cellbounds.js(interior) + ((loc.lx2() & 1LL) == 1LL) * pmb->block_size.nx2 / 2;
   int kl =
-      pmb->cellbounds.ks(interior) + ((loc.lx3 & 1LL) == 1LL) * pmb->block_size.nx3 / 2;
+      pmb->cellbounds.ks(interior) + ((loc.lx3() & 1LL) == 1LL) * pmb->block_size.nx3 / 2;
 
   IndexRange cib = pob->c_cellbounds.GetBoundsI(interior);
   IndexRange cjb = pob->c_cellbounds.GetBoundsJ(interior);
@@ -1066,11 +1067,11 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
   int kl = pob->c_cellbounds.ks(interior) - f3;
   int ku = pob->c_cellbounds.ke(interior) + f3;
 
-  int cis = ((newloc.lx1 & 1LL) == 1LL) * pob->block_size.nx1 / 2 +
+  int cis = ((newloc.lx1() & 1LL) == 1LL) * pob->block_size.nx1 / 2 +
             pob->cellbounds.is(interior) - 1;
-  int cjs = ((newloc.lx2 & 1LL) == 1LL) * pob->block_size.nx2 / 2 +
+  int cjs = ((newloc.lx2() & 1LL) == 1LL) * pob->block_size.nx2 / 2 +
             pob->cellbounds.js(interior) - f2;
-  int cks = ((newloc.lx3 & 1LL) == 1LL) * pob->block_size.nx3 / 2 +
+  int cks = ((newloc.lx3() & 1LL) == 1LL) * pob->block_size.nx3 / 2 +
             pob->cellbounds.ks(interior) - f3;
 
   auto pob_cc_it = pob->pmr->pvars_cc_.begin();
@@ -1175,9 +1176,9 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
   IndexRange jb = pb->cellbounds.GetBoundsJ(interior);
   IndexRange kb = pb->cellbounds.GetBoundsK(interior);
 
-  int ox1 = static_cast<int>((lloc.lx1 & 1LL) == 1LL);
-  int ox2 = static_cast<int>((lloc.lx2 & 1LL) == 1LL);
-  int ox3 = static_cast<int>((lloc.lx3 & 1LL) == 1LL);
+  int ox1 = static_cast<int>((lloc.lx1() & 1LL) == 1LL);
+  int ox2 = static_cast<int>((lloc.lx2() & 1LL) == 1LL);
+  int ox3 = static_cast<int>((lloc.lx3() & 1LL) == 1LL);
   int il, iu, jl, ju, kl, ku;
 
   if (ox1 == 0)

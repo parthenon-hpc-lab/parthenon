@@ -116,19 +116,19 @@ struct MortonNumber {
   }
 };
 
-bool operator<(const MortonNumber& lhs, const MortonNumber& rhs) { 
+inline bool operator<(const MortonNumber& lhs, const MortonNumber& rhs) { 
   if (lhs.most == rhs.most && lhs.mid == rhs.mid) return lhs.least < rhs.least; 
   if (lhs.most == rhs.most) return lhs.mid < rhs.mid; 
   return lhs.most < rhs.most;
 }
 
-bool operator>(const MortonNumber& lhs, const MortonNumber& rhs) { 
+inline bool operator>(const MortonNumber& lhs, const MortonNumber& rhs) { 
   if (lhs.most == rhs.most && lhs.mid == rhs.mid) return lhs.least > rhs.least; 
   if (lhs.most == rhs.most) return lhs.mid > rhs.mid; 
   return lhs.most > rhs.most;
 }
 
-bool operator==(const MortonNumber& lhs, const MortonNumber& rhs) { 
+inline bool operator==(const MortonNumber& lhs, const MortonNumber& rhs) { 
   return (lhs.most == rhs.most) && (lhs.mid == rhs.mid) && (lhs.least == rhs.least);
 }
 
@@ -141,51 +141,60 @@ struct LogicalLocation { // aggregate and POD type
   // These values can exceed the range of std::int32_t even if the root grid has only a
   // single MeshBlock if >30 levels of AMR are used, since the corresponding max index =
   // 1*2^31 > INT_MAX = 2^31 -1 for most 32-bit signed integer type impelementations
-  std::int64_t lx1, lx2, lx3;
-  MortonNumber morton; // Morton number needs to have the same number of bits as lx1 through lx3  
-  int level;
-
-  LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3) : lx1(l1), lx2(l2), lx3(l3), level(level), morton(lev, l1, l2, l3) {} 
+  
+ private: 
+  std::int64_t lx1_, lx2_, lx3_;
+  MortonNumber morton_; // Morton number needs to have the same number of bits as lx1 through lx3  
+  int level_;
+ 
+ public: 
+  LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3) : lx1_(l1), lx2_(l2), lx3_(l3), level_(lev), morton_(lev, l1, l2, l3) {} 
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}  
+  
+  const auto &lx1() const { return lx1_; }
+  const auto &lx2() const { return lx2_; }
+  const auto &lx3() const { return lx3_; }
+  const auto &level() const { return level_; }
+  const auto &morton() const { return morton_; }
 
   // operators useful for sorting
   bool operator==(LogicalLocation &ll) {
-    return ((ll.level == level) && (ll.lx1 == lx1) && (ll.lx2 == lx2) && (ll.lx3 == lx3));
+    return ((ll.level() == level_) && (ll.lx1() == lx1_) && (ll.lx2() == lx2_) && (ll.lx3() == lx3_));
   }
   static bool Lesser(const LogicalLocation &left, const LogicalLocation &right) {
-    return left.level < right.level;
+    return left.level() < right.level();
   }
   static bool Greater(const LogicalLocation &left, const LogicalLocation &right) {
-    return left.level > right.level;
+    return left.level() > right.level();
   }
 
   bool IsContainedIn(const LogicalLocation &container) const { 
-    if (container.level > level) return false; 
-    const int shifted_lx1 = lx1 >> (level - container.level); 
-    const int shifted_lx2 = lx2 >> (level - container.level); 
-    const int shifted_lx3 = lx3 >> (level - container.level); 
-    return (shifted_lx1 == container.lx1) 
-        && (shifted_lx2 == container.lx2) 
-        && (shifted_lx3 == container.lx3);
+    if (container.level() > level_) return false; 
+    const int shifted_lx1 = lx1_ >> (level_ - container.level()); 
+    const int shifted_lx2 = lx2_ >> (level_ - container.level()); 
+    const int shifted_lx3 = lx3_ >> (level_ - container.level()); 
+    return (shifted_lx1 == container.lx1()) 
+        && (shifted_lx2 == container.lx2()) 
+        && (shifted_lx3 == container.lx3());
   }
   
   bool Contains(const LogicalLocation &containee) const { 
-    if (containee.level < level) return false; 
-    const int shifted_lx1 = containee.lx1 >> (containee.level - level); 
-    const int shifted_lx2 = containee.lx2 >> (containee.level - level); 
-    const int shifted_lx3 = containee.lx3 >> (containee.level - level); 
-    return (shifted_lx1 == lx1) 
-        && (shifted_lx2 == lx2) 
-        && (shifted_lx3 == lx3);
+    if (containee.level() < level_) return false; 
+    const int shifted_lx1 = containee.lx1() >> (containee.level() - level_); 
+    const int shifted_lx2 = containee.lx2() >> (containee.level() - level_); 
+    const int shifted_lx3 = containee.lx3() >> (containee.level() - level_); 
+    return (shifted_lx1 == lx1_) 
+        && (shifted_lx2 == lx2_) 
+        && (shifted_lx3 == lx3_);
   }
 
   LogicalLocation GetSameLevelNeighbor(int ox1, int ox2, int ox3) const { 
-    return LogicalLocation(level, lx1 + ox1, lx2 + ox2, lx3 + ox3); 
+    return LogicalLocation(level_, lx1_ + ox1, lx2_ + ox2, lx3_ + ox3); 
   }
 
   LogicalLocation GetParent() const { 
-    if (level == 0) return *this; 
-    return LogicalLocation(level - 1, lx1 >> 1, lx2 >> 1, lx3 >> 1); 
+    if (level_ == 0) return *this; 
+    return LogicalLocation(level_ - 1, lx1_ >> 1, lx2_ >> 1, lx3_ >> 1); 
   }
 
   std::vector<LogicalLocation> GetDaughters() const { 
@@ -193,11 +202,15 @@ struct LogicalLocation { // aggregate and POD type
     for (int i : {0, 1}) {
       for (int j : {0, 1}) {
         for (int k : {0, 1}) {
-          daughters.emplace_back(level + 1, (lx1 << 1) + i, (lx2 << 1) + j, (lx3 << 1) + k); 
+          daughters.push_back(GetDaughter(i, j, k)); 
         }
       }
     }
     return daughters;
+  }
+
+  LogicalLocation GetDaughter(int ox1, int ox2, int ox3) const { 
+    return LogicalLocation(level_ + 1, (lx1_ << 1) + ox1, (lx2_ << 1) + ox2, (lx3_ << 1) + ox3); 
   }
 };
 

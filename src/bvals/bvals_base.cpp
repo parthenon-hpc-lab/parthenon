@@ -304,12 +304,12 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
   Kokkos::Profiling::pushRegion("SearchAndSetNeighbors");
   MeshBlockTree *neibt;
   int myox1, myox2 = 0, myox3 = 0, myfx1, myfx2, myfx3;
-  myfx1 = ((loc.lx1 & 1LL) == 1LL);
-  myfx2 = ((loc.lx2 & 1LL) == 1LL);
-  myfx3 = ((loc.lx3 & 1LL) == 1LL);
-  myox1 = ((loc.lx1 & 1LL) == 1LL) * 2 - 1;
-  if (block_size_.nx2 > 1) myox2 = ((loc.lx2 & 1LL) == 1LL) * 2 - 1;
-  if (block_size_.nx3 > 1) myox3 = ((loc.lx3 & 1LL) == 1LL) * 2 - 1;
+  myfx1 = ((loc.lx1() & 1LL) == 1LL);
+  myfx2 = ((loc.lx2() & 1LL) == 1LL);
+  myfx3 = ((loc.lx3() & 1LL) == 1LL);
+  myox1 = ((loc.lx1() & 1LL) == 1LL) * 2 - 1;
+  if (block_size_.nx2 > 1) myox2 = ((loc.lx2() & 1LL) == 1LL) * 2 - 1;
+  if (block_size_.nx3 > 1) myox3 = ((loc.lx3() & 1LL) == 1LL) * 2 - 1;
 
   int nf1 = 1, nf2 = 1;
   if (pmy_mesh_->multilevel) {
@@ -324,7 +324,7 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
         nblevel[k][j][i] = -1;
     }
   }
-  nblevel[1][1][1] = loc.level;
+  nblevel[1][1][1] = loc.level();
 
   // x1 face
   for (int n = -1; n <= 1; n += 2) {
@@ -335,12 +335,12 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
     }
     if (neibt->pleaf_ != nullptr) { // neighbor at finer level
       int fface = 1 - (n + 1) / 2;  // 0 for BoundaryFace::outer_x1, 1 for inner_x1
-      nblevel[1][1][n + 1] = neibt->loc_.level + 1;
+      nblevel[1][1][n + 1] = neibt->loc_.level() + 1;
       for (int f2 = 0; f2 < nf2; f2++) {
         for (int f1 = 0; f1 < nf1; f1++) {
           MeshBlockTree *nf = neibt->GetLeaf(fface, f1, f2);
           int fid = nf->gid_;
-          int nlevel = nf->loc_.level;
+          int nlevel = nf->loc_.level();
           int tbid = FindBufferID(-n, 0, 0, 0, 0);
           neighbor[nneighbor].SetNeighbor(ranklist[fid], nlevel, fid,
                                           fid - nslist[ranklist[fid]], n, 0, 0,
@@ -350,11 +350,11 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
         }
       }
     } else { // neighbor at same or coarser level
-      int nlevel = neibt->loc_.level;
+      int nlevel = neibt->loc_.level();
       int nid = neibt->gid_;
       nblevel[1][1][n + 1] = nlevel;
       int tbid;
-      if (nlevel == loc.level) { // neighbor at same level
+      if (nlevel == loc.level()) { // neighbor at same level
         tbid = FindBufferID(-n, 0, 0, 0, 0);
       } else { // neighbor at coarser level
         tbid = FindBufferID(-n, 0, 0, myfx2, myfx3);
@@ -380,12 +380,12 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
     }
     if (neibt->pleaf_ != nullptr) { // neighbor at finer level
       int fface = 1 - (n + 1) / 2;  // 0 for BoundaryFace::outer_x2, 1 for inner_x2
-      nblevel[1][n + 1][1] = neibt->loc_.level + 1;
+      nblevel[1][n + 1][1] = neibt->loc_.level() + 1;
       for (int f2 = 0; f2 < nf2; f2++) {
         for (int f1 = 0; f1 < nf1; f1++) {
           MeshBlockTree *nf = neibt->GetLeaf(f1, fface, f2);
           int fid = nf->gid_;
-          int nlevel = nf->loc_.level;
+          int nlevel = nf->loc_.level();
           int tbid = FindBufferID(0, -n, 0, 0, 0);
           neighbor[nneighbor].SetNeighbor(ranklist[fid], nlevel, fid,
                                           fid - nslist[ranklist[fid]], 0, n, 0,
@@ -395,11 +395,11 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
         }
       }
     } else { // neighbor at same or coarser level
-      int nlevel = neibt->loc_.level;
+      int nlevel = neibt->loc_.level();
       int nid = neibt->gid_;
       nblevel[1][n + 1][1] = nlevel;
       int tbid;
-      if (nlevel == loc.level) { // neighbor at same level
+      if (nlevel == loc.level()) { // neighbor at same level
         tbid = FindBufferID(0, -n, 0, 0, 0);
       } else { // neighbor at coarser level
         tbid = FindBufferID(0, -n, 0, myfx1, myfx3);
@@ -422,12 +422,12 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
       }
       if (neibt->pleaf_ != nullptr) { // neighbor at finer level
         int fface = 1 - (n + 1) / 2;  // 0 for BoundaryFace::outer_x3, 1 for inner_x3
-        nblevel[n + 1][1][1] = neibt->loc_.level + 1;
+        nblevel[n + 1][1][1] = neibt->loc_.level() + 1;
         for (int f2 = 0; f2 < nf2; f2++) {
           for (int f1 = 0; f1 < nf1; f1++) {
             MeshBlockTree *nf = neibt->GetLeaf(f1, f2, fface);
             int fid = nf->gid_;
-            int nlevel = nf->loc_.level;
+            int nlevel = nf->loc_.level();
             int tbid = FindBufferID(0, 0, -n, 0, 0);
             neighbor[nneighbor].SetNeighbor(ranklist[fid], nlevel, fid,
                                             fid - nslist[ranklist[fid]], 0, 0, n,
@@ -437,11 +437,11 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           }
         }
       } else { // neighbor at same or coarser level
-        int nlevel = neibt->loc_.level;
+        int nlevel = neibt->loc_.level();
         int nid = neibt->gid_;
         nblevel[n + 1][1][1] = nlevel;
         int tbid;
-        if (nlevel == loc.level) { // neighbor at same level
+        if (nlevel == loc.level()) { // neighbor at same level
           tbid = FindBufferID(0, 0, -n, 0, 0);
         } else { // neighbor at coarser level
           tbid = FindBufferID(0, 0, -n, myfx1, myfx2);
@@ -467,11 +467,11 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
         int ff1 = 1 - (n + 1) / 2;    // 0 for BoundaryFace::outer_x1, 1 for inner_x1
         int ff2 = 1 - (m + 1) / 2;    // 0 for BoundaryFace::outer_x2, 1 for inner_x2
 
-        nblevel[1][m + 1][n + 1] = neibt->loc_.level + 1;
+        nblevel[1][m + 1][n + 1] = neibt->loc_.level() + 1;
         for (int f1 = 0; f1 < nf2; f1++) {
           MeshBlockTree *nf = neibt->GetLeaf(ff1, ff2, f1);
           int fid = nf->gid_;
-          int nlevel = nf->loc_.level;
+          int nlevel = nf->loc_.level();
           int tbid = FindBufferID(-n, -m, 0, 0, 0);
           neighbor[nneighbor].SetNeighbor(ranklist[fid], nlevel, fid,
                                           fid - nslist[ranklist[fid]], n, m, 0,
@@ -480,16 +480,16 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           nneighbor++;
         }
       } else { // neighbor at same or coarser level
-        int nlevel = neibt->loc_.level;
+        int nlevel = neibt->loc_.level();
         int nid = neibt->gid_;
         nblevel[1][m + 1][n + 1] = nlevel;
         int tbid;
-        if (nlevel == loc.level) { // neighbor at same level
+        if (nlevel == loc.level()) { // neighbor at same level
           tbid = FindBufferID(-n, -m, 0, 0, 0);
         } else { // neighbor at coarser level
           tbid = FindBufferID(-n, -m, 0, myfx3, 0);
         }
-        if (nlevel >= loc.level || (myox1 == n && myox2 == m)) {
+        if (nlevel >= loc.level() || (myox1 == n && myox2 == m)) {
           neighbor[nneighbor].SetNeighbor(ranklist[nid], nlevel, nid,
                                           nid - nslist[ranklist[nid]], n, m, 0,
                                           NeighborConnect::edge, bufid, tbid);
@@ -516,11 +516,11 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
       if (neibt->pleaf_ != nullptr) { // neighbor at finer level
         int ff1 = 1 - (n + 1) / 2;    // 0 for BoundaryFace::outer_x1, 1 for inner_x1
         int ff2 = 1 - (m + 1) / 2;    // 0 for BoundaryFace::outer_x3, 1 for inner_x3
-        nblevel[m + 1][1][n + 1] = neibt->loc_.level + 1;
+        nblevel[m + 1][1][n + 1] = neibt->loc_.level() + 1;
         for (int f1 = 0; f1 < nf1; f1++) {
           MeshBlockTree *nf = neibt->GetLeaf(ff1, f1, ff2);
           int fid = nf->gid_;
-          int nlevel = nf->loc_.level;
+          int nlevel = nf->loc_.level();
           int tbid = FindBufferID(-n, 0, -m, 0, 0);
           neighbor[nneighbor].SetNeighbor(ranklist[fid], nlevel, fid,
                                           fid - nslist[ranklist[fid]], n, 0, m,
@@ -529,16 +529,16 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           nneighbor++;
         }
       } else { // neighbor at same or coarser level
-        int nlevel = neibt->loc_.level;
+        int nlevel = neibt->loc_.level();
         int nid = neibt->gid_;
         nblevel[m + 1][1][n + 1] = nlevel;
         int tbid;
-        if (nlevel == loc.level) { // neighbor at same level
+        if (nlevel == loc.level()) { // neighbor at same level
           tbid = FindBufferID(-n, 0, -m, 0, 0);
         } else { // neighbor at coarser level
           tbid = FindBufferID(-n, 0, -m, myfx2, 0);
         }
-        if (nlevel >= loc.level || (myox1 == n && myox3 == m)) {
+        if (nlevel >= loc.level() || (myox1 == n && myox3 == m)) {
           neighbor[nneighbor].SetNeighbor(ranklist[nid], nlevel, nid,
                                           nid - nslist[ranklist[nid]], n, 0, m,
                                           NeighborConnect::edge, bufid, tbid);
@@ -560,11 +560,11 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
       if (neibt->pleaf_ != nullptr) { // neighbor at finer level
         int ff1 = 1 - (n + 1) / 2;    // 0 for BoundaryFace::outer_x2, 1 for inner_x2
         int ff2 = 1 - (m + 1) / 2;    // 0 for BoundaryFace::outer_x3, 1 for inner_x3
-        nblevel[m + 1][n + 1][1] = neibt->loc_.level + 1;
+        nblevel[m + 1][n + 1][1] = neibt->loc_.level() + 1;
         for (int f1 = 0; f1 < nf1; f1++) {
           MeshBlockTree *nf = neibt->GetLeaf(f1, ff1, ff2);
           int fid = nf->gid_;
-          int nlevel = nf->loc_.level;
+          int nlevel = nf->loc_.level();
           int tbid = FindBufferID(0, -n, -m, 0, 0);
           neighbor[nneighbor].SetNeighbor(ranklist[fid], nlevel, fid,
                                           fid - nslist[ranklist[fid]], 0, n, m,
@@ -573,16 +573,16 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           nneighbor++;
         }
       } else { // neighbor at same or coarser level
-        int nlevel = neibt->loc_.level;
+        int nlevel = neibt->loc_.level();
         int nid = neibt->gid_;
         nblevel[m + 1][n + 1][1] = nlevel;
         int tbid;
-        if (nlevel == loc.level) { // neighbor at same level
+        if (nlevel == loc.level()) { // neighbor at same level
           tbid = FindBufferID(0, -n, -m, 0, 0);
         } else { // neighbor at coarser level
           tbid = FindBufferID(0, -n, -m, myfx1, 0);
         }
-        if (nlevel >= loc.level || (myox2 == n && myox3 == m)) {
+        if (nlevel >= loc.level() || (myox2 == n && myox3 == m)) {
           neighbor[nneighbor].SetNeighbor(ranklist[nid], nlevel, nid,
                                           nid - nslist[ranklist[nid]], 0, n, m,
                                           NeighborConnect::edge, bufid, tbid);
@@ -608,9 +608,9 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           int ff3 = 1 - (l + 1) / 2;    // 0 for BoundaryFace::outer_x3, 1 for inner_x3
           neibt = neibt->GetLeaf(ff1, ff2, ff3);
         }
-        int nlevel = neibt->loc_.level;
+        int nlevel = neibt->loc_.level();
         nblevel[l + 1][m + 1][n + 1] = nlevel;
-        if (nlevel >= loc.level || (myox1 == n && myox2 == m && myox3 == l)) {
+        if (nlevel >= loc.level() || (myox1 == n && myox2 == m && myox3 == l)) {
           int nid = neibt->gid_;
           int tbid = FindBufferID(-n, -m, -l, 0, 0);
           neighbor[nneighbor].SetNeighbor(ranklist[nid], nlevel, nid,

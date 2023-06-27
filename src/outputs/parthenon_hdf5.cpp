@@ -293,10 +293,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     logicalLocations.reserve(pm->nbtotal * 3);
 
     for (const auto &loc : loclist) {
-      levels.push_back(loc.level - pm->GetRootLevel());
-      logicalLocations.push_back(loc.lx1);
-      logicalLocations.push_back(loc.lx2);
-      logicalLocations.push_back(loc.lx3);
+      levels.push_back(loc.level() - pm->GetRootLevel());
+      logicalLocations.push_back(loc.lx1());
+      logicalLocations.push_back(loc.lx2());
+      logicalLocations.push_back(loc.lx3());
     }
 
     // Only write levels on rank 0 since it has data for all ranks
@@ -692,16 +692,16 @@ void PHDF5Output::ComputeXminBlocks_(Mesh *pm, std::vector<Real> &data) {
 void PHDF5Output::ComputeLocs_(Mesh *pm, std::vector<int64_t> &locs) {
   int i = 0;
   for (auto &pmb : pm->block_list) {
-    locs[i++] = pmb->loc.lx1;
-    locs[i++] = pmb->loc.lx2;
-    locs[i++] = pmb->loc.lx3;
+    locs[i++] = pmb->loc.lx1();
+    locs[i++] = pmb->loc.lx2();
+    locs[i++] = pmb->loc.lx3();
   }
 }
 // TODO(JMM): Should this live in the base class or output_utils?
 void PHDF5Output::ComputeIDsAndFlags_(Mesh *pm, std::vector<int> &data) {
   int i = 0;
   for (auto &pmb : pm->block_list) {
-    data[i++] = pmb->loc.level;
+    data[i++] = pmb->loc.level();
     data[i++] = pmb->gid;
     data[i++] = pmb->lid;
     data[i++] = pmb->cnghost;

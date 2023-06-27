@@ -179,9 +179,9 @@ void ComputeProlongationBounds_(const std::shared_ptr<MeshBlock> &pmb,
     }
   };
 
-  getbounds(nb.ni.ox1, pmb->loc.lx1, pmb->c_cellbounds.GetBoundsI(interior), bi);
-  getbounds(nb.ni.ox2, pmb->loc.lx2, pmb->c_cellbounds.GetBoundsJ(interior), bj);
-  getbounds(nb.ni.ox3, pmb->loc.lx3, pmb->c_cellbounds.GetBoundsK(interior), bk);
+  getbounds(nb.ni.ox1, pmb->loc.lx1(), pmb->c_cellbounds.GetBoundsI(interior), bi);
+  getbounds(nb.ni.ox2, pmb->loc.lx2(), pmb->c_cellbounds.GetBoundsJ(interior), bj);
+  getbounds(nb.ni.ox3, pmb->loc.lx3(), pmb->c_cellbounds.GetBoundsK(interior), bk);
 }
 
 } // namespace boundary_cond_impl

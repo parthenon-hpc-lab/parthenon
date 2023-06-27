@@ -73,7 +73,7 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
     for (auto &amr : desc->amr_criteria) {
       // get the recommended change in refinement level from this criteria
       AmrTag temp_delta = (*amr)(rc);
-      if ((temp_delta == AmrTag::refine) && pmb->loc.level >= amr->max_level) {
+      if ((temp_delta == AmrTag::refine) && pmb->loc.level() >= amr->max_level) {
         // don't refine if we're at the max level
         temp_delta = AmrTag::same;
       }

@@ -392,8 +392,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         // create the finest level
         if (ndim == 1) {
           for (std::int64_t i = lx1min; i < lx1max; i += 2) {
-            LogicalLocation nloc;
-            nloc.level = lrlev, nloc.lx1 = i, nloc.lx2 = 0, nloc.lx3 = 0;
+            LogicalLocation nloc(lrlev, i, 0, 0);
+            //nloc.level() = lrlev, nloc.lx1() = i, nloc.lx2() = 0, nloc.lx3() = 0;
             int nnew;
             tree.AddMeshBlock(nloc, nnew);
           }
@@ -401,8 +401,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         if (ndim == 2) {
           for (std::int64_t j = lx2min; j < lx2max; j += 2) {
             for (std::int64_t i = lx1min; i < lx1max; i += 2) {
-              LogicalLocation nloc;
-              nloc.level = lrlev, nloc.lx1 = i, nloc.lx2 = j, nloc.lx3 = 0;
+              LogicalLocation nloc(lrlev, i, j, 0);
+              //nloc.level() = lrlev, nloc.lx1() = i, nloc.lx2() = j, nloc.lx3() = 0;
               int nnew;
               tree.AddMeshBlock(nloc, nnew);
             }
@@ -412,8 +412,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           for (std::int64_t k = lx3min; k < lx3max; k += 2) {
             for (std::int64_t j = lx2min; j < lx2max; j += 2) {
               for (std::int64_t i = lx1min; i < lx1max; i += 2) {
-                LogicalLocation nloc;
-                nloc.level = lrlev, nloc.lx1 = i, nloc.lx2 = j, nloc.lx3 = k;
+                LogicalLocation nloc(lrlev, i, j, k);
+                //nloc.level() = lrlev, nloc.lx1() = i, nloc.lx2() = j, nloc.lx3() = k;
                 int nnew;
                 tree.AddMeshBlock(nloc, nnew);
               }
@@ -667,13 +667,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       rr.ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
-    loclist[i].lx1 = lx123[3 * i];
-    loclist[i].lx2 = lx123[3 * i + 1];
-    loclist[i].lx3 = lx123[3 * i + 2];
+    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i], lx123[3 * i + 1], lx123[3 * i + 2]);
+    //loclist[i].lx1() = lx123[3 * i];
+    //loclist[i].lx2() = lx123[3 * i + 1];
+    //loclist[i].lx3() = lx123[3 * i + 2];
 
-    loclist[i].level = locLevelGidLidCnghostGflag[5 * i];
-    if (loclist[i].level > current_level) {
-      current_level = loclist[i].level;
+    //loclist[i].level = locLevelGidLidCnghostGflag[5 * i];
+    if (loclist[i].level() > current_level) {
+      current_level = loclist[i].level();
     }
   }
   // rebuild the Block Tree
@@ -804,8 +805,8 @@ void Mesh::OutputMeshStructure(const int ndim,
   std::vector<int> cost_per_plevel(max_level + 1, 0);
 
   for (int i = 0; i < nbtotal; i++) {
-    nb_per_plevel[(loclist[i].level - root_level)]++;
-    cost_per_plevel[(loclist[i].level - root_level)] += costlist[i];
+    nb_per_plevel[(loclist[i].level() - root_level)]++;
+    cost_per_plevel[(loclist[i].level() - root_level)] += costlist[i];
   }
   for (int i = root_level; i <= max_level; i++) {
     if (nb_per_plevel[i - root_level] != 0) {
@@ -847,12 +848,12 @@ void Mesh::OutputMeshStructure(const int ndim,
   double mincost = real_max, maxcost = 0.0, totalcost = 0.0;
   for (int i = root_level; i <= max_level; i++) {
     for (int j = 0; j < nbtotal; j++) {
-      if (loclist[j].level == i) {
+      if (loclist[j].level() == i) {
         SetBlockSizeAndBoundaries(loclist[j], block_size, block_bcs);
-        std::int64_t &lx1 = loclist[j].lx1;
-        std::int64_t &lx2 = loclist[j].lx2;
-        std::int64_t &lx3 = loclist[j].lx3;
-        int &ll = loclist[j].level;
+        const std::int64_t &lx1 = loclist[j].lx1();
+        const std::int64_t &lx2 = loclist[j].lx2();
+        const std::int64_t &lx3 = loclist[j].lx3();
+        const int &ll = loclist[j].level();
         mincost = std::min(mincost, costlist[i]);
         maxcost = std::max(maxcost, costlist[i]);
         totalcost += costlist[i];
@@ -1176,8 +1177,8 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
 
 void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                      BoundaryFlag *block_bcs) {
-  std::int64_t &lx1 = loc.lx1;
-  int &ll = loc.level;
+  const std::int64_t &lx1 = loc.lx1();
+  const int &ll = loc.level();
   std::int64_t nrbx_ll = nrbx1 << (ll - root_level);
 
   // calculate physical block size, x1
@@ -1205,7 +1206,7 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
     block_bcs[BoundaryFace::inner_x2] = mesh_bcs[BoundaryFace::inner_x2];
     block_bcs[BoundaryFace::outer_x2] = mesh_bcs[BoundaryFace::outer_x2];
   } else {
-    std::int64_t &lx2 = loc.lx2;
+    const std::int64_t &lx2 = loc.lx2();
     nrbx_ll = nrbx2 << (ll - root_level);
     if (lx2 == 0) {
       block_size.x2min = mesh_size.x2min;
@@ -1232,7 +1233,7 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
     block_bcs[BoundaryFace::inner_x3] = mesh_bcs[BoundaryFace::inner_x3];
     block_bcs[BoundaryFace::outer_x3] = mesh_bcs[BoundaryFace::outer_x3];
   } else {
-    std::int64_t &lx3 = loc.lx3;
+    const std::int64_t &lx3 = loc.lx3();
     nrbx_ll = nrbx3 << (ll - root_level);
     if (lx3 == 0) {
       block_size.x3min = mesh_size.x3min;
