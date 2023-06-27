@@ -26,6 +26,7 @@ list(APPEND unit_tests_SOURCES
     test_unit_domain.cpp
     test_unit_sort.cpp
     kokkos_abstraction.cpp
+    test_logical_location.cpp
     test_metadata.cpp
     test_pararrays.cpp
     test_meshblock_data_iterator.cpp
