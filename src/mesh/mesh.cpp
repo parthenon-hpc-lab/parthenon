@@ -393,7 +393,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         if (ndim == 1) {
           for (std::int64_t i = lx1min; i < lx1max; i += 2) {
             LogicalLocation nloc(lrlev, i, 0, 0);
-            //nloc.level() = lrlev, nloc.lx1() = i, nloc.lx2() = 0, nloc.lx3() = 0;
+            // nloc.level() = lrlev, nloc.lx1() = i, nloc.lx2() = 0, nloc.lx3() = 0;
             int nnew;
             tree.AddMeshBlock(nloc, nnew);
           }
@@ -402,7 +402,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           for (std::int64_t j = lx2min; j < lx2max; j += 2) {
             for (std::int64_t i = lx1min; i < lx1max; i += 2) {
               LogicalLocation nloc(lrlev, i, j, 0);
-              //nloc.level() = lrlev, nloc.lx1() = i, nloc.lx2() = j, nloc.lx3() = 0;
+              // nloc.level() = lrlev, nloc.lx1() = i, nloc.lx2() = j, nloc.lx3() = 0;
               int nnew;
               tree.AddMeshBlock(nloc, nnew);
             }
@@ -413,7 +413,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
             for (std::int64_t j = lx2min; j < lx2max; j += 2) {
               for (std::int64_t i = lx1min; i < lx1max; i += 2) {
                 LogicalLocation nloc(lrlev, i, j, k);
-                //nloc.level() = lrlev, nloc.lx1() = i, nloc.lx2() = j, nloc.lx3() = k;
+                // nloc.level() = lrlev, nloc.lx1() = i, nloc.lx2() = j, nloc.lx3() = k;
                 int nnew;
                 tree.AddMeshBlock(nloc, nnew);
               }
@@ -667,12 +667,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       rr.ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
-    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i], lx123[3 * i + 1], lx123[3 * i + 2]);
-    //loclist[i].lx1() = lx123[3 * i];
-    //loclist[i].lx2() = lx123[3 * i + 1];
-    //loclist[i].lx3() = lx123[3 * i + 2];
+    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i],
+                                 lx123[3 * i + 1], lx123[3 * i + 2]);
+    // loclist[i].lx1() = lx123[3 * i];
+    // loclist[i].lx2() = lx123[3 * i + 1];
+    // loclist[i].lx3() = lx123[3 * i + 2];
 
-    //loclist[i].level = locLevelGidLidCnghostGflag[5 * i];
+    // loclist[i].level = locLevelGidLidCnghostGflag[5 * i];
     if (loclist[i].level() > current_level) {
       current_level = loclist[i].level();
     }

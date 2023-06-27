@@ -47,11 +47,11 @@ int MeshBlockTree::nleaf_;
 MeshBlockTree::MeshBlockTree(Mesh *pmesh) : pleaf_(nullptr), gid_(-1) {
   pmesh_ = pmesh;
   proot_ = this;
-  loc_ = LogicalLocation(0, 0, 0, 0); 
-  //loc_.lx1() = 0;
-  //loc_.lx2() = 0;
-  //loc_.lx3() = 0;
-  //loc_.level() = 0;
+  loc_ = LogicalLocation(0, 0, 0, 0);
+  // loc_.lx1() = 0;
+  // loc_.lx2() = 0;
+  // loc_.lx3() = 0;
+  // loc_.level() = 0;
 }
 
 //----------------------------------------------------------------------------------------
@@ -61,10 +61,10 @@ MeshBlockTree::MeshBlockTree(Mesh *pmesh) : pleaf_(nullptr), gid_(-1) {
 MeshBlockTree::MeshBlockTree(MeshBlockTree *parent, int ox1, int ox2, int ox3)
     : pleaf_(nullptr), gid_(parent->gid_) {
   loc_ = parent->loc_.GetDaughter(ox1, ox2, ox3);
-  //loc_.lx1() = (parent->loc_.lx1() << 1) + ox1;
-  //loc_.lx2() = (parent->loc_.lx2() << 1) + ox2;
-  //loc_.lx3() = (parent->loc_.lx3() << 1) + ox3;
-  //loc_.level() = parent->loc_.level() + 1;
+  // loc_.lx1() = (parent->loc_.lx1() << 1) + ox1;
+  // loc_.lx2() = (parent->loc_.lx2() << 1) + ox2;
+  // loc_.lx3() = (parent->loc_.lx3() << 1) + ox3;
+  // loc_.level() = parent->loc_.level() + 1;
 }
 
 //----------------------------------------------------------------------------------------
@@ -185,9 +185,9 @@ void MeshBlockTree::Refine(int &nnew) {
     ozmin = -1, ozmax = 1, nzmax = (pmesh_->nrbx3 << (loc_.level() - pmesh_->root_level));
   else
     ozmin = 0, ozmax = 0, nzmax = 1;
-  
-  int level = loc_.level(); 
-  std::int64_t lx1, lx2, lx3; 
+
+  int level = loc_.level();
+  std::int64_t lx1, lx2, lx3;
   for (oz = ozmin; oz <= ozmax; oz++) {
     lx3 = loc_.lx3() + oz;
     if (lx3 < 0) {

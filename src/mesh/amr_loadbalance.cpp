@@ -326,10 +326,10 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
           }
         }
         if (rr == nleaf) {
-          //clderef[ctnd].lx1() = lderef[n].lx1() >> 1;
-          //clderef[ctnd].lx2() = lderef[n].lx2() >> 1;
-          //clderef[ctnd].lx3() = lderef[n].lx3() >> 1;
-          //clderef[ctnd].level() = lderef[n].level() - 1;
+          // clderef[ctnd].lx1() = lderef[n].lx1() >> 1;
+          // clderef[ctnd].lx2() = lderef[n].lx2() >> 1;
+          // clderef[ctnd].lx3() = lderef[n].lx3() >> 1;
+          // clderef[ctnd].level() = lderef[n].level() - 1;
           clderef[ctnd] = lderef[n].GetParent();
           ctnd++;
         }
@@ -700,7 +700,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     BlockList_t new_block_list(nbe - nbs + 1);
     for (int n = nbs; n <= nbe; n++) {
       int on = newtoold[n];
-      if ((ranklist[on] == Globals::my_rank) && (loclist[on].level() == newloc[n].level())) {
+      if ((ranklist[on] == Globals::my_rank) &&
+          (loclist[on].level() == newloc[n].level())) {
         // on the same MPI rank and same level -> just move it
         new_block_list[n - nbs] = FindMeshBlock(on);
       } else {
