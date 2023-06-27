@@ -21,7 +21,9 @@
 
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -130,6 +132,22 @@ struct LogicalLocation { // aggregate and POD type
     return LogicalLocation(level_ + 1, (lx1_ << 1) + ox1, (lx2_ << 1) + ox2,
                            (lx3_ << 1) + ox3);
   }
+  
+  std::set<LogicalLocation> GetPossibleBlocksSurroundingTopologicalElement(int ox1, int ox2, int ox3) { 
+    std::vector<LogicalLocation> locs; 
+    for (int i : (std::abs(ox1) == 1) ? std::vector<int>{0, ox1} : std::vector<int>{0}) { 
+      for (int j : (std::abs(ox2) == 1) ? std::vector<int>{0, ox2} : std::vector<int>{0}) { 
+        for (int k : (std::abs(ox3) == 1) ? std::vector<int>{0, ox3} : std::vector<int>{0}) { 
+          locs.emplace_back(level_, lx1_ + i, lx2_ + j, lx3_ + k);
+          auto daughters = locs.back().GetDaughters(); 
+          auto parent = locs.back().GetParent(); 
+          locs.push_back(parent);
+          locs.insert(std::end(locs), std::begin(daughters), std::end(daughters));
+        }
+      }
+    }
+    return std::set<LogicalLocation>(std::begin(locs), std::end(locs));
+  }
 };
 
 inline bool operator<(const LogicalLocation &lhs, const LogicalLocation &rhs) {
@@ -140,6 +158,11 @@ inline bool operator<(const LogicalLocation &lhs, const LogicalLocation &rhs) {
 inline bool operator>(const LogicalLocation &lhs, const LogicalLocation &rhs) {
   if (lhs.morton() == rhs.morton()) return lhs.level() > rhs.level();
   return lhs.morton() > rhs.morton();
+}
+
+inline bool operator==(const LogicalLocation &lhs, const LogicalLocation &rhs) {
+  return ((lhs.level() == rhs.level()) && (lhs.lx1() == rhs.lx1()) && (lhs.lx2() == rhs.lx2()) &&
+          (lhs.lx3() == rhs.lx3()));
 }
 
 /// Defines the maximum size of the static array used in the IndexShape objects
@@ -229,5 +252,15 @@ constexpr uint64_t MiB = 1024 * 1024;
 constexpr uint64_t KiB = 1024;
 
 } // namespace parthenon
+
+template<> 
+struct std::hash<parthenon::LogicalLocation> {
+  std::size_t operator()(const parthenon::LogicalLocation &key) const noexcept {
+    // TODO(LFR): Think more carefully about what the best choice for this key is,
+    // probably the least significant sizeof(size_t) * 8 bits of the morton number 
+    // with 3 * (level - 21) trailing bits removed. 
+    return key.morton().most;
+  }
+};
 
 #endif // DEFS_HPP_
