@@ -98,7 +98,6 @@ struct MortonNumber {
 
  private:
   uint64_t GetMortonBits(int level, uint64_t x, uint64_t y, uint64_t z, int chunk) {
-    uint64_t morton[3];
     constexpr int NBITS = 21;
     constexpr uint64_t lowest_nbits_mask = ~((~static_cast<uint64_t>(0)) << NBITS);
 
@@ -215,6 +214,16 @@ struct LogicalLocation { // aggregate and POD type
                            (lx3_ << 1) + ox3);
   }
 };
+
+inline bool operator<(const LogicalLocation &lhs, const LogicalLocation &rhs) {
+  if (lhs.morton() == rhs.morton()) return lhs.level() < rhs.level();
+  return lhs.morton() < rhs.morton();
+}
+
+inline bool operator>(const LogicalLocation &lhs, const LogicalLocation &rhs) {
+  if (lhs.morton() == rhs.morton()) return lhs.level() > rhs.level();
+  return lhs.morton() > rhs.morton();
+}
 
 /// Defines the maximum size of the static array used in the IndexShape objects
 constexpr int NDIM = 3;
