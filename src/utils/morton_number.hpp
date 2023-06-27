@@ -31,7 +31,8 @@ constexpr uint64_t GetInterleaveConstant(int power) {
   int cur_shift =
       sizeof(uint64_t) * 8 * NDIM; // Works for anything that will fit in uint64_t
   while (cur_shift >= NDIM * power) {
-    i_const = (i_const << cur_shift) | i_const;
+    if (cur_shift < sizeof(uint64_t) * 8)
+      i_const = (i_const << cur_shift) | i_const;
     cur_shift /= 2;
   }
   return i_const;
@@ -63,15 +64,15 @@ inline uint64_t GetMortonBits(int level, uint64_t x, uint64_t y, uint64_t z, int
   constexpr uint64_t lowest_nbits_mask = ~((~static_cast<uint64_t>(0)) << NBITS);
 
   // Shift the by level location to the global location
-  x = x << (NBITS - level);
-  y = y << (NBITS - level);
-  z = z << (NBITS - level);
-
+  x = x << (3 * NBITS - level);
+  y = y << (3 * NBITS - level);
+  z = z << (3 * NBITS - level);
+  
   // Get the chunk signifigance NBITS bits of each direction
-  x = x >> (chunk * NBITS) & lowest_nbits_mask;
-  y = y >> (chunk * NBITS) & lowest_nbits_mask;
-  z = z >> (chunk * NBITS) & lowest_nbits_mask;
-
+  x = (x >> (chunk * NBITS)) & lowest_nbits_mask;
+  y = (y >> (chunk * NBITS)) & lowest_nbits_mask;
+  z = (z >> (chunk * NBITS)) & lowest_nbits_mask;
+  
   // Return the interleaved section of the morton number
   return InterleaveZeros<3, NBITS>(z) << 2 | InterleaveZeros<3, NBITS>(y) << 1 |
          InterleaveZeros<3, NBITS>(x);
