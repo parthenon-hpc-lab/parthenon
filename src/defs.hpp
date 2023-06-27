@@ -63,8 +63,7 @@ struct LogicalLocation { // aggregate and POD type
 
  private:
   std::int64_t lx1_, lx2_, lx3_;
-  MortonNumber
-      morton_; // Morton number needs to have the same number of bits as lx1 through lx3
+  MortonNumber morton_;
   int level_;
 
  public:
@@ -92,19 +91,34 @@ struct LogicalLocation { // aggregate and POD type
 
   bool IsContainedIn(const LogicalLocation &container) const {
     if (container.level() > level_) return false;
-    const int shifted_lx1 = lx1_ >> (level_ - container.level());
-    const int shifted_lx2 = lx2_ >> (level_ - container.level());
-    const int shifted_lx3 = lx3_ >> (level_ - container.level());
+    const std::int64_t shifted_lx1 = lx1_ >> (level_ - container.level());
+    const std::int64_t shifted_lx2 = lx2_ >> (level_ - container.level());
+    const std::int64_t shifted_lx3 = lx3_ >> (level_ - container.level());
     return (shifted_lx1 == container.lx1()) && (shifted_lx2 == container.lx2()) &&
            (shifted_lx3 == container.lx3());
   }
 
   bool Contains(const LogicalLocation &containee) const {
     if (containee.level() < level_) return false;
-    const int shifted_lx1 = containee.lx1() >> (containee.level() - level_);
-    const int shifted_lx2 = containee.lx2() >> (containee.level() - level_);
-    const int shifted_lx3 = containee.lx3() >> (containee.level() - level_);
+    const std::int64_t shifted_lx1 = containee.lx1() >> (containee.level() - level_);
+    const std::int64_t shifted_lx2 = containee.lx2() >> (containee.level() - level_);
+    const std::int64_t shifted_lx3 = containee.lx3() >> (containee.level() - level_);
     return (shifted_lx1 == lx1_) && (shifted_lx2 == lx2_) && (shifted_lx3 == lx3_);
+  }
+  
+  // Being a neighbor implies that you share a face, edge, or node and don't share a volume
+  bool IsNeighbor(const LogicalLocation &in) const { 
+    if (in.level() < level()) return in.IsNeighbor(*this);
+    if (Contains(in)) return false; // You share a volume
+    // Only need to consider case where other block is equally or more refined than you
+    auto offset = 1 << (in.level() - level());
+    const auto shifted_lx1 = lx1_ << (in.level() - level()); 
+    const auto shifted_lx2 = lx2_ << (in.level() - level()); 
+    const auto shifted_lx3 = lx3_ << (in.level() - level()); 
+    const bool bx1 = (in.lx1() >= (shifted_lx1 - 1)) && (in.lx1() <= (shifted_lx1 + offset));
+    const bool bx2 = (in.lx2() >= (shifted_lx2 - 1)) && (in.lx2() <= (shifted_lx2 + offset));
+    const bool bx3 = (in.lx3() >= (shifted_lx3 - 1)) && (in.lx3() <= (shifted_lx3 + offset));
+    return bx1 && bx2 && bx3;  
   }
 
   LogicalLocation GetSameLevelNeighbor(int ox1, int ox2, int ox3) const {
@@ -142,7 +156,8 @@ struct LogicalLocation { // aggregate and POD type
           auto daughters = locs.back().GetDaughters(); 
           auto parent = locs.back().GetParent(); 
           locs.push_back(parent);
-          locs.insert(std::end(locs), std::begin(daughters), std::end(daughters));
+          for (auto &daughter : daughters)
+            if (IsNeighbor(daughter)) locs.push_back(daughter); 
         }
       }
     }
