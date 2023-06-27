@@ -42,15 +42,48 @@ TEST_CASE("Logical Location", "[Logical Location]") {
     RefineLocation(LogicalLocation(), leaves); 
     RefineLocation(LogicalLocation(1, 0, 0, 0), leaves);
     RefineLocation(LogicalLocation(1, 1, 1, 1), leaves);
+    RefineLocation(LogicalLocation(2, 3, 3, 3), leaves);
 
-    int gid = 0; 
-    for (auto & [leaf, id] : leaves) { 
-      id = gid; 
-      printf("(level = %i, lx3 = %li, lx2 = %li lx1 = %li) gid = %2i morton = ", 
-             leaf.level(), leaf.lx3(), leaf.lx2(), leaf.lx1(), 
-             gid);
-      std::cout << std::bitset<64>(leaf.morton().most << 1) << " (" << leaf.morton().most << ")" << std::endl;
-      gid++;
+    THEN("LogicalLocations store the correct Morton numbers") {
+      int gid = 0;
+      uint64_t last_morton = 0; 
+      for (auto & [leaf, id] : leaves) { 
+        id = gid; 
+        // Build the Morton number of this logical location by hand
+        std::bitset<64> hand_morton;
+        auto lx3 = leaf.lx3();
+        auto lx2 = leaf.lx2();
+        auto lx1 = leaf.lx1();
+        for (int i = 0; i < leaf.level(); ++i) {
+          // This is just 2^(leaf.level() - 1 - i) and we use this place by place to 
+          // extract the digits of the binary representation of lx*  
+          uint64_t cur_place = 1 << (leaf.level() - 1 - i);
+
+          if (lx3 / cur_place == 1) {
+            // We start at 62 because only the last 63 bits of the Morton number held 
+            // in LogicalLocation store information (the leftmost bit should always be zero)
+            hand_morton[62 - (3 * i + 0)] = 1; 
+          }
+          lx3 = lx3 % cur_place;
+          
+          if (lx2 / cur_place == 1) {
+            hand_morton[62 - (3 * i + 1)] = 1; 
+          }
+          lx2 = lx2 % cur_place;      
+          
+          if (lx1 / cur_place == 1) {
+            hand_morton[62 - (3 * i + 2)] = 1; 
+          }
+          lx1 = lx1 % cur_place;      
+        }
+        // Check that we have the correct Morton number 
+        REQUIRE(hand_morton.to_ullong() == leaf.morton().most);
+
+        // Check that the map is in Morton order
+        REQUIRE(((leaf.morton().most > last_morton) || (leaf.morton().most == 0)));
+        last_morton = leaf.morton().most;
+        gid++;
+      }
     }
   }
 }
