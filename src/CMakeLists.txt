@@ -229,6 +229,7 @@ add_library(parthenon
   utils/hash.hpp
   utils/indexer.hpp
   utils/loop_utils.hpp
+  utils/morton_number.hpp
   utils/mpi_types.hpp
   utils/multi_pointer.hpp
   utils/nan_payload_tag.hpp
