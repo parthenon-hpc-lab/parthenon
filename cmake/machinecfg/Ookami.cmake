@@ -23,7 +23,6 @@ message(STATUS "Loading machine configuration for Stony Brook's A64FX Ookami.\n"
 
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Default release build")
 set(Kokkos_ARCH_A64FX ON CACHE BOOL "CPU architecture")
-set(PARTHENON_DISABLE_OPENMP ON CACHE BOOL "OpenMP support not yet tested in Parthenon.")
 
 set(CMAKE_CXX_COMPILER "mpiFCC" CACHE STRING "Default compiler")
 set(CMAKE_CXX_FLAGS "-Nclang -ffj-fast-matmul -ffast-math -ffp-contract=fast -ffj-fp-relaxed -ffj-ilfunc -fbuiltin -fomit-frame-pointer -finline-functions -ffj-preex -ffj-zfill -ffj-swp -fopenmp-simd" CACHE STRING "Default opt flags")

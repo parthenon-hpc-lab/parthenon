@@ -13,7 +13,7 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        cxx: ['g++', 'clang++-13']
+        cxx: ['g++', 'clang++-15']
         cmake_build_type: ['Release', 'Debug']
         device: ['cuda', 'host']
         parallel: ['serial', 'mpi']
@@ -21,7 +21,7 @@ jobs:
           # Debug cuda clang build fail for the unit test.
           # Exclude for now until we figure out what's going on.
           # https://github.com/lanl/parthenon/issues/630
-          - cxx: clang++-13
+          - cxx: clang++-15
             device: cuda
             cmake_build_type: Debug
     runs-on: ubuntu-latest
