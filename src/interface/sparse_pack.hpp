@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,6 +19,7 @@
 #include <map>
 #include <memory>
 #include <regex>
+#include <set>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -119,124 +120,26 @@ class SparsePack : public SparsePackBase {
 
   explicit SparsePack(const SparsePackBase &spb) : SparsePackBase(spb) {}
 
-  // Make a `SparsePack` from variable_name types in the type list Ts..., creating the
-  // pack in `pmd->SparsePackCache` if it doesn't already exist. Variables can be
-  // accessed on device via instance of types in the type list Ts...
-  // The pack will be created and accessible on the device
-  template <class T>
-  static SparsePack Get(T *pmd, const std::vector<MetadataFlag> &flags = {},
-                        bool fluxes = false, bool coarse = false, bool flatten = false) {
-    const impl::PackDescriptor desc(std::vector<std::string>{Ts::name()...},
-                                    std::vector<bool>{Ts::regex()...}, flags, fluxes,
-                                    coarse, flatten);
-    return SparsePack(SparsePackBase::GetPack(pmd, desc));
-  }
+  class Descriptor : public impl::PackDescriptor {
+   public:
+    explicit Descriptor(const impl::PackDescriptor &desc_in)
+        : impl::PackDescriptor(desc_in) {}
 
-  // Make a `SparsePack` with a corresponding `SparsePackIdxMap` from the provided `vars`
-  // and `flags`, creating the pack in `pmd->SparsePackCache` if it doesn't already exist.
-  // The pack will be created and accessible on the device
-  // VAR_VEC can be:
-  //   1) std::vector<std::string> of variable names (in which case they are all assumed
-  //   not to be regexs)
-  //   2) std::vector<std::pair<std::string, bool>> of (variable name, treat name as
-  //   regex) pairs
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePack, SparsePackIdxMap>
-  Get(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {},
-      bool fluxes = false, bool coarse = false, bool flatten = false) {
-    static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
-    impl::PackDescriptor desc(vars, flags, fluxes, coarse, flatten);
-    return {SparsePack(SparsePackBase::GetPack(pmd, desc)),
-            SparsePackBase::GetIdxMap(desc)};
-  }
+    // Make a `SparsePack` from variable_name types in the type list Ts..., creating the
+    // pack in `pmd->SparsePackCache` if it doesn't already exist. Variables can be
+    // accessed on device via instance of types in the type list Ts...
+    // The pack will be created and accessible on the device
+    template <class T>
+    SparsePack GetPack(T *pmd) const {
+      return SparsePack(SparsePackBase::GetPack(pmd, *this));
+    }
 
-  // Some Get helper for functions for more readable code
-  template <class T>
-  static SparsePack GetWithFluxes(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
-    const bool coarse = false;
-    const bool fluxes = true;
-    return Get(pmd, flags, fluxes, coarse);
-  }
-
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePack, SparsePackIdxMap>
-  GetWithFluxes(T *pmd, const VAR_VEC &vars,
-                const std::vector<MetadataFlag> &flags = {}) {
-    const bool coarse = false;
-    const bool fluxes = true;
-    Get(pmd, vars, flags, fluxes, coarse);
-  }
-
-  template <class T>
-  static SparsePack GetWithCoarse(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
-    const bool coarse = true;
-    const bool fluxes = false;
-    return Get(pmd, flags, fluxes, coarse);
-  }
-
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePack, SparsePackIdxMap>
-  GetWithCoarse(T *pmd, const VAR_VEC &vars,
-                const std::vector<MetadataFlag> &flags = {}) {
-    const bool coarse = true;
-    const bool fluxes = false;
-    Get(pmd, vars, flags, fluxes, coarse);
-  }
-
-  template <class T>
-  static SparsePack GetFlat(T *pmd, const std::vector<MetadataFlag> &flags = {}) {
-    const bool coarse = false;
-    const bool fluxes = false;
-    const bool flatten = true;
-    return Get(pmd, flags, fluxes, coarse, flatten);
-  }
-
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePack, SparsePackIdxMap>
-  GetFlat(T *pmd, const VAR_VEC &vars, const std::vector<MetadataFlag> &flags = {}) {
-    const bool coarse = false;
-    const bool fluxes = false;
-    const bool flatten = true;
-    return Get(pmd, vars, flags, fluxes, coarse, flatten);
-  }
-
-  template <class T>
-  static SparsePack GetFlatWithFluxes(T *pmd,
-                                      const std::vector<MetadataFlag> &flags = {}) {
-    const bool coarse = false;
-    const bool fluxes = true;
-    const bool flatten = true;
-    return Get(pmd, flags, fluxes, coarse, flatten);
-  }
-
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePack, SparsePackIdxMap>
-  GetFlatWithFluxes(T *pmd, const VAR_VEC &vars,
-                    const std::vector<MetadataFlag> &flags = {}) {
-    const bool coarse = false;
-    const bool fluxes = true;
-    const bool flatten = true;
-    return Get(pmd, vars, flags, fluxes, coarse, flatten);
-  }
-
-  template <class T>
-  static SparsePack GetFlatWithCoarse(T *pmd,
-                                      const std::vector<MetadataFlag> &flags = {}) {
-    const bool coarse = true;
-    const bool fluxes = false;
-    const bool flatten = true;
-    return Get(pmd, flags, fluxes, coarse, flatten);
-  }
-
-  template <class T, class VAR_VEC>
-  static std::tuple<SparsePack, SparsePackIdxMap>
-  GetFlatWithCoarse(T *pmd, const VAR_VEC &vars,
-                    const std::vector<MetadataFlag> &flags = {}) {
-    const bool coarse = true;
-    const bool fluxes = false;
-    const bool flatten = true;
-    return Get(pmd, vars, flags, fluxes, coarse, flatten);
-  }
+    SparsePackIdxMap GetMap() const {
+      PARTHENON_REQUIRE(sizeof...(Ts) == 0,
+                        "Should not be getting an IdxMap for a type based pack");
+      return SparsePackBase::GetIdxMap(*this);
+    }
+  };
 
   // Methods for getting parts of the shape of the pack
   KOKKOS_FORCEINLINE_FUNCTION
@@ -437,7 +340,71 @@ class SparsePack : public SparsePackBase {
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(dir, b, vidx)(k, j, i);
   }
+
+  template <class... VTs>
+  KOKKOS_INLINE_FUNCTION auto GetPtrs(const int b, const TE el, int k, int j, int i,
+                                      VTs... vts) const {
+    return std::make_tuple(&(*this)(b, el, vts, k, j, i)...);
+  }
 };
+
+inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
+                               const std::vector<bool> &use_regex,
+                               const std::vector<MetadataFlag> &flags = {},
+                               const std::set<PDOpt> &options = {}) {
+  PARTHENON_REQUIRE(vars.size() == use_regex.size(),
+                    "Vargroup names and use_regex need to be the same size.");
+  auto selector = [&](int vidx, const VarID &id, const Metadata &md) {
+    if (flags.size() > 0) {
+      for (const auto &flag : flags) {
+        if (!md.IsSet(flag)) return false;
+      }
+    }
+
+    if (use_regex[vidx]) {
+      if (std::regex_match(std::string(id.label()), std::regex(vars[vidx]))) return true;
+    } else {
+      if (vars[vidx] == id.label()) return true;
+      if (vars[vidx] == id.base_name && id.sparse_id != InvalidSparseID) return true;
+    }
+    return false;
+  };
+
+  impl::PackDescriptor base_desc(psd, vars, selector, options);
+  return typename SparsePack<>::Descriptor(base_desc);
+}
+
+template <class... Ts>
+inline auto MakePackDescriptor(StateDescriptor *psd,
+                               const std::vector<MetadataFlag> &flags = {},
+                               const std::set<PDOpt> &options = {}) {
+  static_assert(sizeof...(Ts) > 0, "Must have at least one variable type for type pack");
+
+  std::vector<std::string> vars{Ts::name()...};
+  std::vector<bool> use_regex{Ts::regex()...};
+
+  return typename SparsePack<Ts...>::Descriptor(static_cast<impl::PackDescriptor>(
+      MakePackDescriptor(psd, vars, use_regex, flags, options)));
+}
+
+inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
+                               const std::vector<MetadataFlag> &flags = {},
+                               const std::set<PDOpt> &options = {}) {
+  return MakePackDescriptor(psd, vars, std::vector<bool>(vars.size(), false), flags,
+                            options);
+}
+
+inline auto MakePackDescriptor(
+    StateDescriptor *psd, const std::vector<std::pair<std::string, bool>> &var_regexes,
+    const std::vector<MetadataFlag> &flags = {}, const std::set<PDOpt> &options = {}) {
+  std::vector<std::string> vars;
+  std::vector<bool> use_regex;
+  for (const auto &[v, r] : var_regexes) {
+    vars.push_back(v);
+    use_regex.push_back(r);
+  }
+  return MakePackDescriptor(psd, vars, use_regex, flags, options);
+}
 
 } // namespace parthenon
 

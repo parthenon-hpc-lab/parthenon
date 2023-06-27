@@ -412,3 +412,29 @@ block. The remaining changes are as follows:
    it's not yet allocated on the receiving block. We then proceed to
    read the buffer only if the variable is allocated on the receiving
    block.
+
+Memory Footprint Reporting
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+With sparse variables (or particles), the memory footprint per
+meshblock may vary with meshblock. Each ``MeshBlock`` object keeps a
+running total of its memory footprint. You can get the footprint of an
+individual meshblock by calling:
+
+.. code:: cpp
+
+   std::uint64_t MeshBlock::ReportMemUsage();
+
+If desired, you may also manually change the recorded memory footprint
+of a given meshblock with the function:
+
+.. code:: cpp
+
+   void MeshBlock::LogMemUsage(std::int64_t delta);
+
+where ``delta`` is the change in memory.
+
+.. warning::
+
+   Call ``LogMemUsage`` with caution! Variable and swarm allocation
+   and de-allocation are automatically tracked.

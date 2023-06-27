@@ -269,12 +269,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   tree.CreateRootGrid();
 
   // Load balancing flag and parameters
-  if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "automatic")
-    lb_automatic_ = true;
-  else if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "manual")
-    lb_manual_ = true;
-  lb_tolerance_ = pin->GetOrAddReal("loadbalancing", "tolerance", 0.5);
-  lb_interval_ = pin->GetOrAddInteger("loadbalancing", "interval", 10);
+  RegisterLoadBalancing_(pin);
 
   // SMR / AMR:
   if (adaptive) {
@@ -650,14 +645,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
   // Load balancing flag and parameters
-#ifdef MPI_PARALLEL
-  if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "automatic")
-    lb_automatic_ = true;
-  else if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "manual")
-    lb_manual_ = true;
-  lb_tolerance_ = pin->GetOrAddReal("loadbalancing", "tolerance", 0.5);
-  lb_interval_ = pin->GetOrAddInteger("loadbalancing", "interval", 10);
-#endif
+  RegisterLoadBalancing_(pin);
 
   // SMR / AMR
   if (adaptive) {
@@ -1079,6 +1067,16 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
 
+    // Pre comm fill derived
+    for (int i = 0; i < nmb; ++i) {
+      auto &mbd = block_list[i]->meshblock_data.Get();
+      Update::PreCommFillDerived(mbd.get());
+    }
+    for (int i = 0; i < num_partitions; ++i) {
+      auto &md = mesh_data.GetOrAdd("base", i);
+      Update::PreCommFillDerived(md.get());
+    }
+
     // Build densely populated communication tags
     tag_map.clear();
     for (int i = 0; i < num_partitions; i++) {
@@ -1277,6 +1275,27 @@ int Mesh::GetNumberOfMeshBlockCells() const {
   return block_list.front()->GetNumberOfMeshBlockCells();
 }
 const RegionSize &Mesh::GetBlockSize() const { return block_list.front()->block_size; }
+
+// Functionality re-used in mesh constructor
+void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
+#ifdef MPI_PARALLEL // JMM: Not sure this ifdef is needed
+  const std::string balancer =
+      pin->GetOrAddString("parthenon/loadbalancing", "balancer", "default",
+                          std::vector<std::string>{"default", "automatic", "manual"});
+  if (balancer == "automatic") {
+    // JMM: I am disabling timing based load balancing, as it's not
+    // threaded through the infrastructure. I think some thought needs
+    // to go into doing this right with loops over meshdata rather
+    // than loops over data on a single meshblock.
+    PARTHENON_FAIL("Timing based load balancing is currently unavailable.");
+    lb_automatic_ = true;
+  } else if (balancer == "manual") {
+    lb_manual_ = true;
+  }
+  lb_tolerance_ = pin->GetOrAddReal("parthenon/loadbalancing", "tolerance", 0.5);
+  lb_interval_ = pin->GetOrAddInteger("parthenon/loadbalancing", "interval", 10);
+#endif // MPI_PARALLEL
+}
 
 // Create separate communicators for all variables. Needs to be done at the mesh
 // level so that the communicators for each variable across all blocks is consistent.

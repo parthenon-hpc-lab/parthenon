@@ -33,6 +33,7 @@ class Packages_t {
   const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
     return packages_;
   }
+  Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() { return packages_; }
 
  private:
   Dictionary<std::shared_ptr<StateDescriptor>> packages_;

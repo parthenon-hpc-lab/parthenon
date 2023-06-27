@@ -38,6 +38,11 @@ inline TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &
   return ApplyBoundaryConditionsOnCoarseOrFine(rc, false);
 }
 
+TaskStatus ApplyBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd);
+
+TaskStatus ApplyBoundaryConditionsOnCoarseOrFineMD(std::shared_ptr<MeshData<Real>> &pmd,
+                                                   bool coarse);
+
 namespace BoundaryFunction {
 
 void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
