@@ -71,8 +71,10 @@ allocated only in a few blocks, because all other blocks would write
 zeros of these variables, which can drastically increase output file
 size (and decrease I/O performance) without compression. The optional
 parameter ``hdf5_compression_level`` can be used to set the compression
-level (between 1 and 9, default is 5). Compression can be disabled
-altogether with the CMake build option
+level (between 1 and 9, default is 5). If ``parthenon`` is compiled with
+support for compression, this also enables (logical) chunking of the
+data in blocks of ``nx1*nx2*nx3``. Compression (and thus chunking) can
+be disabled altogether with the CMake build option
 ``PARTHENON_DISABLE_HDF5_COMPRESSION``.
 See the :ref:`building` for more details.
 
