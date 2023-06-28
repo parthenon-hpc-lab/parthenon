@@ -36,15 +36,15 @@ void RefineLocation(LogicalLocation loc, std::map<LogicalLocation, int> &leaves)
 }
 
 TEST_CASE("Morton Numbers", "[Morton Numbers]") {
+  constexpr int type_size = 8 * sizeof(uint64_t);
   GIVEN("some interleave constants") {
     std::map<int, uint64_t> ics_2d, ics_3d;
-
-    constexpr int type_size = 8 * sizeof(uint64_t);
 
     for (int pow = 1; pow <= type_size; pow *= 2) {
       ics_2d[pow] = impl::GetInterleaveConstant<2>(pow);
       ics_3d[pow] = impl::GetInterleaveConstant<3>(pow);
     }
+
     THEN("the interleave constants have the correct bits") {
       for (const auto &[pow, ic] : ics_2d) {
         std::bitset<type_size> by_hand_constant;
@@ -77,6 +77,37 @@ TEST_CASE("Morton Numbers", "[Morton Numbers]") {
         } while (idx < type_size);
         REQUIRE(ic == by_hand_constant.to_ullong());
       }
+    }
+  }
+
+  GIVEN("A number with all bits set") {
+    uint64_t ones = ~0ULL;
+    THEN("interleaving one zero produces the correct bit pattern") {
+      constexpr int NVALID_BITS = 32;
+      auto interleaved = InterleaveZeros<2, NVALID_BITS>(ones);
+      std::bitset<type_size> bs_interleaved(interleaved);
+      int idx;
+      do {
+        if (idx < 2 * NVALID_BITS) REQUIRE(bs_interleaved[idx] == 1);
+        idx++;
+        if (idx < 2 * NVALID_BITS) REQUIRE(bs_interleaved[idx] == 0);
+        idx++;
+      } while (idx < 2 * NVALID_BITS);
+    }
+
+    THEN("interleaving two zeros produces the correct bit pattern") {
+      constexpr int NVALID_BITS = 21;
+      auto interleaved = InterleaveZeros<3, NVALID_BITS>(ones);
+      std::bitset<type_size> bs_interleaved(interleaved);
+      int idx;
+      do {
+        if (idx < 3 * NVALID_BITS) REQUIRE(bs_interleaved[idx] == 1);
+        idx++;
+        if (idx < 3 * NVALID_BITS) REQUIRE(bs_interleaved[idx] == 0);
+        idx++;
+        if (idx < 3 * NVALID_BITS) REQUIRE(bs_interleaved[idx] == 0);
+        idx++;
+      } while (idx < 3 * NVALID_BITS);
     }
   }
 }
