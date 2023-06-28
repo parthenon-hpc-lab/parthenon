@@ -86,7 +86,8 @@ TEST_CASE("Morton Numbers", "[Morton Numbers]") {
       constexpr int NVALID_BITS = 32;
       auto interleaved = InterleaveZeros<2, NVALID_BITS>(ones);
       std::bitset<type_size> bs_interleaved(interleaved);
-      int idx;
+      std::cout << "Single zero interleave : " << bs_interleaved << std::endl;
+      int idx = 0;
       do {
         if (idx < 2 * NVALID_BITS) REQUIRE(bs_interleaved[idx] == 1);
         idx++;
@@ -99,7 +100,8 @@ TEST_CASE("Morton Numbers", "[Morton Numbers]") {
       constexpr int NVALID_BITS = 21;
       auto interleaved = InterleaveZeros<3, NVALID_BITS>(ones);
       std::bitset<type_size> bs_interleaved(interleaved);
-      int idx;
+      std::cout << "Double zero interleave : " << bs_interleaved << std::endl;
+      int idx = 0;
       do {
         if (idx < 3 * NVALID_BITS) REQUIRE(bs_interleaved[idx] == 1);
         idx++;
