@@ -116,7 +116,14 @@ class CommBuffer {
 
   void TryStartReceive() noexcept;
   bool TryReceive() noexcept;
-
+  bool IsSafeToDelete() {
+    if (*comm_type_ == BuffCommType::sparse_receiver ||
+        *comm_type_ == BuffCommType::receiver) {
+      return *state_ == BufferState::stale;
+    } else {
+      return IsAvailableForWrite();
+    }
+  }
   void Stale();
 };
 
