@@ -217,13 +217,14 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   out.buf = buf->buffer();
   auto buf_state = buf->GetState();
   if (buf_state == BufferState::received) {
-    out.allocated = true;
+    out.buf_allocated = true;
     PARTHENON_DEBUG_REQUIRE(v->IsAllocated(), "Variable must be allocated to receive");
   } else if (buf_state == BufferState::received_null) {
-    out.allocated = false;
+    out.buf_allocated = false;
   } else {
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
+  out.allocated = v->IsAllocated();
 
   int Nv = v->GetDim(4);
   int Nu = v->GetDim(5);
@@ -273,6 +274,8 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
           nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       out.var = v->coarse_s.Get();
       out.refinement_op = RefinementOp_t::Prolongation;
+      out.prores_idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine, true>(
+          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
     } else {
       out.var = v->data.Get();
       out.idxer[idx] = CalcSetIndices<InterfaceType::FineToCoarse>(
@@ -303,17 +306,6 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     }
   }
 
-  if (buf_state == BufferState::received) {
-    // With control variables, we can end up in a state where a
-    // variable that is not receiving null data is unallocated.
-    // for allocated to be set, the buffer must be sending non-null
-    // data and the receiving variable must be allocated
-    out.allocated = v->IsAllocated();
-  } else if (buf_state == BufferState::received_null) {
-    out.allocated = false;
-  } else {
-    PARTHENON_FAIL("Buffer should be in a received state.");
-  }
   return out;
 }
 

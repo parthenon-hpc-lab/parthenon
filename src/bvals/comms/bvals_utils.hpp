@@ -141,6 +141,7 @@ inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
     }
 
     if (ibuf < cache.bnd_info_h.size()) {
+      if (cache.bnd_info_h(ibuf).allocated != v->IsAllocated()) rebuild = true;
       rebuild = rebuild || !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
     } else {
       rebuild = true;
@@ -164,13 +165,16 @@ inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md
     const std::size_t ibuf = cache.idx_vec[nbound];
     auto &buf = *cache.buf_vec[ibuf];
     if (ibuf < cache.bnd_info_h.size()) {
+      if (cache.bnd_info_h(ibuf).allocated != v->IsAllocated()) rebuild = true;
       rebuild = rebuild || !UsingSameResource(cache.bnd_info_h(ibuf).buf, buf.buffer());
+
       if ((buf.GetState() == BufferState::received) &&
-          !cache.bnd_info_h(ibuf).allocated) {
+          !cache.bnd_info_h(ibuf).buf_allocated) {
         rebuild = true;
       }
+
       if ((buf.GetState() == BufferState::received_null) &&
-          cache.bnd_info_h(ibuf).allocated) {
+          cache.bnd_info_h(ibuf).buf_allocated) {
         rebuild = true;
       }
     } else {
