@@ -193,6 +193,11 @@ struct integral_or_enum {
       -> void_t<ENABLEIF(std::is_integral<T>::value || std::is_enum<T>::value)>;
 };
 
+struct scalar {
+  template <class T>
+  auto requires_(T) -> void_t<ENABLEIF(std::is_scalar<T>::value)>;
+};
+
 template <typename>
 struct is_pair : std::false_type {};
 

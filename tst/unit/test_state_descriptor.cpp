@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -218,6 +218,14 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           for (int i = 0; i < sparse_ids.size(); i++) {
             REQUIRE(pkg4->FieldMetadata("sparse", sparse_ids[i]) == (m_sparse_provides));
           }
+        }
+        AND_THEN("The sparse ids in the sparse pool are sorted") {
+          auto &pool = (pkg4->GetSparsePool("sparse")).pool();
+          std::vector<int> local_ids;
+          for (auto &[id, m] : pool) {
+            local_ids.push_back(id);
+          }
+          REQUIRE(std::is_sorted(local_ids.begin(), local_ids.end()));
         }
       }
     }

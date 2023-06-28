@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 887]](https://github.com/parthenon-hpc-lab/parthenon/pull/887) Add ability to dump more types of params and read them from restarts
 - [[PR 884]](https://github.com/parthenon-hpc-lab/parthenon/pull/884) Add constant derivative BC and expose GenericBC
 - [[PR 892]](https://github.com/parthenon-hpc-lab/parthenon/pull/892) Cost-based load balancing and memory diagnostics
 - [[PR 889]](https://github.com/parthenon-hpc-lab/parthenon/pull/889) Add PreCommFillDerived
@@ -11,6 +12,10 @@
 - [[PR 868]](https://github.com/parthenon-hpc-lab/parthenon/pull/868) Add block-local face, edge, and nodal fields and allow for packing
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 897]](https://github.com/parthenon-hpc-lab/parthenon/pull/897) Deflate compression filter is not called any more if compression is soft disabled
+- [[PR 896]](https://github.com/parthenon-hpc-lab/parthenon/pull/896) Update Kokkos integration to support installed version. Use `serial` (flat MPI) host parallelization by default (instead of OpenMP)
+- [[PR 894]](https://github.com/parthenon-hpc-lab/parthenon/pull/894) Demand that sparse pool order sparse ids
+- [[PR 888]](https://github.com/parthenon-hpc-lab/parthenon/pull/888) Bump Kokkos submodule to 4.0.1
 - [[PR 885]](https://github.com/parthenon-hpc-lab/parthenon/pull/885) Expose PackDescriptor and use uids in SparsePacks
 
 ### Fixed (not changing behavior/API/variables/...)

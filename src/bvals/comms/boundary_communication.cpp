@@ -290,35 +290,43 @@ ProlongateBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
-TaskStatus ApplyCoarseBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
-  if (!md->GetMeshPointer()->multilevel) return TaskStatus::complete;
-  TaskStatus stat = TaskStatus::complete;
-  for (int block = 0; block < md->NumBlocks(); ++block) {
-    auto bstat = ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), true);
-    // if (bstat != TaskStatus::complete) stat = bstat;
-  }
-  return stat;
-}
-
-TaskStatus ApplyFineBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
-  for (int block = 0; block < md->NumBlocks(); ++block) {
-    ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), false);
-  }
-  // ApplyBoundaryConditions is guaranteed to return complete, so this is safe
-  return TaskStatus::complete;
-}
-
 // Adds all relevant boundary communication to a single task list
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
+  // TODO(LFR): Splitting up the boundary tasks while doing prolongation can cause some
+  //            possible issues for sparse fields. In particular, the order in which
+  //            fields are allocated and then set could potentially result in different
+  //            results if the default sparse value is non-zero.
   const auto any = BoundaryType::any;
+  // const auto local = BoundaryType::local;
+  // const auto nonlocal = BoundaryType::nonlocal;
+
+  // auto send = tl.AddTask(dependency, SendBoundBufs<nonlocal>, md);
+  // auto send_local = tl.AddTask(dependency, SendBoundBufs<local>, md);
+
+  // auto recv_local = tl.AddTask(dependency, ReceiveBoundBufs<local>, md);
+  // auto set_local = tl.AddTask(recv_local, SetBounds<local>, md);
+
+  // auto recv = tl.AddTask(dependency, ReceiveBoundBufs<nonlocal>, md);
+  // auto set = tl.AddTask(recv, SetBounds<nonlocal>, md);
+
+  // auto cbound = tl.AddTask(set, ApplyCoarseBoundaryConditions, md);
+
+  // auto pro_local = tl.AddTask(cbound | set_local | set, ProlongateBounds<local>, md);
+  // auto pro = tl.AddTask(cbound | set_local | set, ProlongateBounds<nonlocal>, md);
+
+  // auto out = (pro_local | pro);
 
   auto send = tl.AddTask(dependency, SendBoundBufs<any>, md);
   auto recv = tl.AddTask(dependency, ReceiveBoundBufs<any>, md);
   auto set = tl.AddTask(recv, SetBounds<any>, md);
-  auto cbound = tl.AddTask(set, ApplyCoarseBoundaryConditions, md);
-  auto pro = tl.AddTask(cbound, ProlongateBounds<any>, md);
-  auto fbound = tl.AddTask(pro, ApplyFineBoundaryConditions, md);
+
+  auto pro = set;
+  if (md->GetMeshPointer()->multilevel) {
+    auto cbound = tl.AddTask(set, ApplyBoundaryConditionsOnCoarseOrFineMD, md, true);
+    pro = tl.AddTask(cbound, ProlongateBounds<any>, md);
+  }
+  auto fbound = tl.AddTask(pro, ApplyBoundaryConditionsOnCoarseOrFineMD, md, false);
 
   return fbound;
 }
