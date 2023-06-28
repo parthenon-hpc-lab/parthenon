@@ -1085,16 +1085,17 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     // send FillGhost variables
     bool can_delete;
-    int test_iters = 0;
+    std::int64_t test_iters = 0;
+    constexpr std::int64_t max_it = 1e10;
     do {
       can_delete = true;
       for (auto &[k, comm] : boundary_comm_map) {
         can_delete = comm.IsSafeToDelete() && can_delete;
       }
       test_iters++;
-    } while (!can_delete && test_iters < 1e10);
+    } while (!can_delete && test_iters < max_it);
     PARTHENON_REQUIRE(
-        test_iters < 1.e10,
+        test_iters < max_it,
         "Too many iterations waiting to delete boundary communication buffers.");
 
     boundary_comm_map.clear();
@@ -1107,7 +1108,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     std::vector<bool> sent(num_partitions, false);
     bool all_sent;
-    int send_iters = 0;
+    std::int64_t send_iters = 0;
     do {
       all_sent = true;
       for (int i = 0; i < num_partitions; i++) {
@@ -1121,9 +1122,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         }
       }
       send_iters++;
-    } while (!all_sent && send_iters < 1e10);
+    } while (!all_sent && send_iters < max_it);
     PARTHENON_REQUIRE(
-        send_iters < 1.e10,
+        send_iters < max_it,
         "Too many iterations waiting to send boundary communication buffers.");
 
     // wait to receive FillGhost variables
@@ -1131,7 +1132,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // https://github.com/lanl/parthenon/issues/418
     std::vector<bool> received(num_partitions, false);
     bool all_received;
-    int receive_iters;
+    std::int64_t receive_iters = 0;
     do {
       all_received = true;
       for (int i = 0; i < num_partitions; i++) {
@@ -1145,9 +1146,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         }
       }
       receive_iters++;
-    } while (!all_received && receive_iters < 1.e10);
+    } while (!all_received && receive_iters < max_it);
     PARTHENON_REQUIRE(
-        receive_iters < 1.e10,
+        receive_iters < max_it,
         "Too many iterations waiting to receive boundary communication buffers.");
 
     for (int i = 0; i < num_partitions; i++) {

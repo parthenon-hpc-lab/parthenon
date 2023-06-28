@@ -248,8 +248,6 @@ if (NOT TARGET Kokkos::kokkos)
   endif()
 endif()
 
-message(STATUS "CUDA: ${Kokkos_ENABLE_CUDA}")
-
 # After we have imported Kokkos we can now report/check our config as Kokkos_ENABLE_XXX
 # is also availalbe when imported.
 if (Kokkos_ENABLE_SYCL)
