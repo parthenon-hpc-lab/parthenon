@@ -27,11 +27,12 @@ constexpr uint64_t GetInterleaveConstant(int power) {
   // For power = 2, NDIM = 2, this should return
   // ...001100110011
   // etc.
-  uint64_t i_const = ~((~static_cast<uint64_t>(0)) << power); // std::pow(2, power) - 1;
-  int cur_shift =
-      sizeof(uint64_t) * 8 * NDIM; // Works for anything that will fit in uint64_t
+  constexpr int type_bit_size = sizeof(uint64_t) * 8;
+  if (power >= type_bit_size) return ~0ULL; // Return with all bits set
+  uint64_t i_const = ~((~0ULL) << power);   // std::pow(2, power) - 1;
+  int cur_shift = type_bit_size * NDIM; // Works for anything that will fit in uint64_t
   while (cur_shift >= NDIM * power) {
-    if (cur_shift < sizeof(uint64_t) * 8) i_const = (i_const << cur_shift) | i_const;
+    if (cur_shift < type_bit_size) i_const = (i_const << cur_shift) | i_const;
     cur_shift /= 2;
   }
   return i_const;

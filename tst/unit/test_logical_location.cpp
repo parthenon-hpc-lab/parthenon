@@ -35,6 +35,52 @@ void RefineLocation(LogicalLocation loc, std::map<LogicalLocation, int> &leaves)
   }
 }
 
+TEST_CASE("Morton Numbers", "[Morton Numbers]") {
+  GIVEN("some interleave constants") {
+    std::map<int, uint64_t> ics_2d, ics_3d;
+
+    constexpr int type_size = 8 * sizeof(uint64_t);
+
+    for (int pow = 1; pow <= type_size; pow *= 2) {
+      ics_2d[pow] = impl::GetInterleaveConstant<2>(pow);
+      ics_3d[pow] = impl::GetInterleaveConstant<3>(pow);
+    }
+    THEN("the interleave constants have the correct bits") {
+      for (const auto &[pow, ic] : ics_2d) {
+        std::bitset<type_size> by_hand_constant;
+        int idx = 0;
+        do {
+          for (int i = 0; i < pow; ++i) {
+            if (idx < type_size) by_hand_constant[idx] = 1;
+            idx++;
+          }
+          for (int i = 0; i < pow; ++i) {
+            if (idx < type_size) by_hand_constant[idx] = 0;
+            idx++;
+          }
+        } while (idx < type_size);
+        REQUIRE(ic == by_hand_constant.to_ullong());
+      }
+
+      for (const auto &[pow, ic] : ics_3d) {
+        std::bitset<type_size> by_hand_constant;
+        int idx = 0;
+        do {
+          for (int i = 0; i < pow; ++i) {
+            if (idx < type_size) by_hand_constant[idx] = 1;
+            idx++;
+          }
+          for (int i = 0; i < pow * 2; ++i) {
+            if (idx < type_size) by_hand_constant[idx] = 0;
+            idx++;
+          }
+        } while (idx < type_size);
+        REQUIRE(ic == by_hand_constant.to_ullong());
+      }
+    }
+  }
+}
+
 TEST_CASE("Logical Location", "[Logical Location]") {
   GIVEN("A refinement structure") {
     std::map<LogicalLocation, int> leaves;
