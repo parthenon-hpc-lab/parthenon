@@ -105,20 +105,24 @@ struct LogicalLocation { // aggregate and POD type
     const std::int64_t shifted_lx3 = containee.lx3() >> (containee.level() - level_);
     return (shifted_lx1 == lx1_) && (shifted_lx2 == lx2_) && (shifted_lx3 == lx3_);
   }
-  
-  // Being a neighbor implies that you share a face, edge, or node and don't share a volume
-  bool IsNeighbor(const LogicalLocation &in) const { 
+
+  // Being a neighbor implies that you share a face, edge, or node and don't share a
+  // volume
+  bool IsNeighbor(const LogicalLocation &in) const {
     if (in.level() < level()) return in.IsNeighbor(*this);
     if (Contains(in)) return false; // You share a volume
     // Only need to consider case where other block is equally or more refined than you
     auto offset = 1 << (in.level() - level());
-    const auto shifted_lx1 = lx1_ << (in.level() - level()); 
-    const auto shifted_lx2 = lx2_ << (in.level() - level()); 
-    const auto shifted_lx3 = lx3_ << (in.level() - level()); 
-    const bool bx1 = (in.lx1() >= (shifted_lx1 - 1)) && (in.lx1() <= (shifted_lx1 + offset));
-    const bool bx2 = (in.lx2() >= (shifted_lx2 - 1)) && (in.lx2() <= (shifted_lx2 + offset));
-    const bool bx3 = (in.lx3() >= (shifted_lx3 - 1)) && (in.lx3() <= (shifted_lx3 + offset));
-    return bx1 && bx2 && bx3;  
+    const auto shifted_lx1 = lx1_ << (in.level() - level());
+    const auto shifted_lx2 = lx2_ << (in.level() - level());
+    const auto shifted_lx3 = lx3_ << (in.level() - level());
+    const bool bx1 =
+        (in.lx1() >= (shifted_lx1 - 1)) && (in.lx1() <= (shifted_lx1 + offset));
+    const bool bx2 =
+        (in.lx2() >= (shifted_lx2 - 1)) && (in.lx2() <= (shifted_lx2 + offset));
+    const bool bx3 =
+        (in.lx3() >= (shifted_lx3 - 1)) && (in.lx3() <= (shifted_lx3 + offset));
+    return bx1 && bx2 && bx3;
   }
 
   LogicalLocation GetSameLevelNeighbor(int ox1, int ox2, int ox3) const {
@@ -146,21 +150,43 @@ struct LogicalLocation { // aggregate and POD type
     return LogicalLocation(level_ + 1, (lx1_ << 1) + ox1, (lx2_ << 1) + ox2,
                            (lx3_ << 1) + ox3);
   }
-  
-  std::set<LogicalLocation> GetPossibleBlocksSurroundingTopologicalElement(int ox1, int ox2, int ox3) { 
-    std::vector<LogicalLocation> locs; 
-    for (int i : (std::abs(ox1) == 1) ? std::vector<int>{0, ox1} : std::vector<int>{0}) { 
-      for (int j : (std::abs(ox2) == 1) ? std::vector<int>{0, ox2} : std::vector<int>{0}) { 
-        for (int k : (std::abs(ox3) == 1) ? std::vector<int>{0, ox3} : std::vector<int>{0}) { 
-          locs.emplace_back(level_, lx1_ + i, lx2_ + j, lx3_ + k);
-          auto daughters = locs.back().GetDaughters(); 
-          auto parent = locs.back().GetParent(); 
-          locs.push_back(parent);
-          for (auto &daughter : daughters)
-            if (IsNeighbor(daughter)) locs.push_back(daughter); 
+
+  std::set<LogicalLocation>
+  GetPossibleBlocksSurroundingTopologicalElement(int ox1, int ox2, int ox3) {
+    std::vector<LogicalLocation> locs;
+
+    const auto irange =
+        (std::abs(ox1) == 1) ? std::vector<int>{0, ox1} : std::vector<int>{0};
+    const auto jrange =
+        (std::abs(ox2) == 1) ? std::vector<int>{0, ox2} : std::vector<int>{0};
+    const auto krange =
+        (std::abs(ox3) == 1) ? std::vector<int>{0, ox3} : std::vector<int>{0};
+    auto AddNeighbors = [&](const LogicalLocation &loc) {
+      for (int i : irange) {
+        for (int j : jrange) {
+          for (int k : krange) {
+            locs.emplace_back(loc.level(), loc.lx1() + i, loc.lx2() + j, loc.lx3() + k);
+            auto parent = locs.back().GetParent();
+            if (IsNeighbor(parent)) locs.push_back(parent);
+          }
+        }
+      }
+    };
+
+    AddNeighbors(*this);
+
+    // Iterate over daughters of this block that share the same topological element
+    for (int l :
+         (std::abs(ox1) == 1) ? std::vector<int>{ox1 > 0} : std::vector<int>{0, 1}) {
+      for (int m :
+           (std::abs(ox2) == 1) ? std::vector<int>{ox2 > 0} : std::vector<int>{0, 1}) {
+        for (int n :
+             (std::abs(ox3) == 1) ? std::vector<int>{ox3 > 0} : std::vector<int>{0, 1}) {
+          AddNeighbors(GetDaughter(l, m, n));
         }
       }
     }
+    // The above procedure likely duplicated some blocks, so put them in a set
     return std::set<LogicalLocation>(std::begin(locs), std::end(locs));
   }
 };
@@ -176,8 +202,8 @@ inline bool operator>(const LogicalLocation &lhs, const LogicalLocation &rhs) {
 }
 
 inline bool operator==(const LogicalLocation &lhs, const LogicalLocation &rhs) {
-  return ((lhs.level() == rhs.level()) && (lhs.lx1() == rhs.lx1()) && (lhs.lx2() == rhs.lx2()) &&
-          (lhs.lx3() == rhs.lx3()));
+  return ((lhs.level() == rhs.level()) && (lhs.lx1() == rhs.lx1()) &&
+          (lhs.lx2() == rhs.lx2()) && (lhs.lx3() == rhs.lx3()));
 }
 
 /// Defines the maximum size of the static array used in the IndexShape objects
@@ -268,12 +294,12 @@ constexpr uint64_t KiB = 1024;
 
 } // namespace parthenon
 
-template<> 
+template <>
 struct std::hash<parthenon::LogicalLocation> {
   std::size_t operator()(const parthenon::LogicalLocation &key) const noexcept {
     // TODO(LFR): Think more carefully about what the best choice for this key is,
-    // probably the least significant sizeof(size_t) * 8 bits of the morton number 
-    // with 3 * (level - 21) trailing bits removed. 
+    // probably the least significant sizeof(size_t) * 8 bits of the morton number
+    // with 3 * (level - 21) trailing bits removed.
     return key.morton().most;
   }
 };
