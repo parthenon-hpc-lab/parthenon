@@ -152,7 +152,7 @@ struct LogicalLocation { // aggregate and POD type
   }
 
   std::set<LogicalLocation>
-  GetPossibleBlocksSurroundingTopologicalElement(int ox1, int ox2, int ox3) {
+  GetPossibleBlocksSurroundingTopologicalElement(int ox1, int ox2, int ox3) const {
     std::vector<LogicalLocation> locs;
 
     const auto irange =
@@ -161,13 +161,23 @@ struct LogicalLocation { // aggregate and POD type
         (std::abs(ox2) == 1) ? std::vector<int>{0, ox2} : std::vector<int>{0};
     const auto krange =
         (std::abs(ox3) == 1) ? std::vector<int>{0, ox3} : std::vector<int>{0};
+
     auto AddNeighbors = [&](const LogicalLocation &loc) {
+      int n_cells_level = std::pow(2, loc.level());
       for (int i : irange) {
         for (int j : jrange) {
           for (int k : krange) {
-            locs.emplace_back(loc.level(), loc.lx1() + i, loc.lx2() + j, loc.lx3() + k);
-            auto parent = locs.back().GetParent();
-            if (IsNeighbor(parent)) locs.push_back(parent);
+            const auto lx1 = loc.lx1() + i;
+            const auto lx2 = loc.lx2() + j;
+            const auto lx3 = loc.lx3() + k;
+            // TODO(LFR): Deal with periodic boundaries, maybe a little complicated
+            // because of root grid stuff
+            if (0 <= lx1 && lx1 < n_cells_level && 0 <= lx2 && lx2 < n_cells_level &&
+                0 <= lx3 && lx3 < n_cells_level) {
+              locs.emplace_back(loc.level(), lx1, lx2, lx3);
+              auto parent = locs.back().GetParent();
+              if (IsNeighbor(parent)) locs.push_back(parent);
+            }
           }
         }
       }
@@ -204,6 +214,55 @@ inline bool operator>(const LogicalLocation &lhs, const LogicalLocation &rhs) {
 inline bool operator==(const LogicalLocation &lhs, const LogicalLocation &rhs) {
   return ((lhs.level() == rhs.level()) && (lhs.lx1() == rhs.lx1()) &&
           (lhs.lx2() == rhs.lx2()) && (lhs.lx3() == rhs.lx3()));
+}
+
+struct block_ownership_t {
+ public:
+  const bool &operator()(int ox1, int ox2, int ox3) const {
+    return ownership[ox1 + 1][ox2 + 1][ox3 + 1];
+  }
+  bool &operator()(int ox1, int ox2, int ox3) {
+    return ownership[ox1 + 1][ox2 + 1][ox3 + 1];
+  }
+
+ private:
+  bool ownership[3][3][3];
+};
+
+inline block_ownership_t
+DetermineOwnership(const LogicalLocation &main_block,
+                   const std::set<LogicalLocation> &allowed_neighbors) {
+  block_ownership_t main_owns;
+
+  auto ownership_less_than = [](const LogicalLocation &a, const LogicalLocation &b) {
+    // Ownership is first determined by block with the highest level, then by maximum
+    // Morton number this is reversed in precedence from the normal comparators where
+    // Morton number takes precedence
+    if (a.level() == b.level()) return a.morton() < b.morton();
+    return a.level() < b.level();
+  };
+
+  for (int ox1 : {-1, 0, 1}) {
+    for (int ox2 : {-1, 0, 1}) {
+      for (int ox3 : {-1, 0, 1}) {
+        auto possible_neighbors =
+            main_block.GetPossibleBlocksSurroundingTopologicalElement(ox1, ox2, ox3);
+
+        std::vector<LogicalLocation> actual_neighbors;
+        std::set_intersection(std::begin(allowed_neighbors), std::end(allowed_neighbors),
+                              std::begin(possible_neighbors),
+                              std::end(possible_neighbors),
+                              std::back_inserter(actual_neighbors));
+
+        auto max = std::max_element(std::begin(actual_neighbors),
+                                    std::end(actual_neighbors), ownership_less_than);
+        main_owns(ox1, ox2, ox3) =
+            (*max == main_block || ownership_less_than(*max, main_block) ||
+             actual_neighbors.size() == 0);
+      }
+    }
+  }
+  return main_owns;
 }
 
 /// Defines the maximum size of the static array used in the IndexShape objects

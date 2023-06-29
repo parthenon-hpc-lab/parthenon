@@ -130,6 +130,11 @@ TEST_CASE("Logical Location", "[Logical Location]") {
     std::unordered_map<LogicalLocation, int> hash_leaves;
     hash_leaves.insert(std::begin(leaves), std::end(leaves));
 
+    // Create a set of the leaves
+    std::set<LogicalLocation> set_leaves;
+    for (const auto &[k, v] : leaves)
+      set_leaves.insert(k);
+
     THEN("LogicalLocations store the correct Morton numbers and the map is in Morton "
          "order") {
       uint64_t last_morton = 0;
@@ -237,6 +242,88 @@ TEST_CASE("Logical Location", "[Logical Location]") {
         }
       }
       REQUIRE(by_hand_elements == automatic_elements);
+    }
+
+    THEN("We can find the ownership array of a block") {
+      LogicalLocation base_loc(2, 2, 3, 3);
+      auto owns = DetermineOwnership(base_loc, set_leaves);
+
+      // Determined by drawing and inspecting diagram
+      block_ownership_t by_hand;
+      for (int ox1 : {-1, 0, 1})
+        for (int ox2 : {-1, 0, 1})
+          for (int ox3 : {-1, 0, 1}) {
+            by_hand(ox1, ox2, ox3) = true;
+          }
+      by_hand(1, 0, 0) = false;
+      by_hand(1, 0, -1) = false;
+      by_hand(1, 0, 1) = false;
+      by_hand(1, -1, 0) = false;
+      by_hand(1, 1, 0) = false;
+      by_hand(1, -1, -1) = false;
+      by_hand(1, 1, -1) = false;
+      by_hand(1, -1, 1) = false;
+      by_hand(1, 1, 1) = false;
+
+      for (int ox3 : {-1, 0, 1}) {
+        for (int ox2 : {-1, 0, 1}) {
+          for (int ox1 : {-1, 0, 1}) {
+            REQUIRE(by_hand(ox1, ox2, ox3) == owns(ox1, ox2, ox3));
+          }
+        }
+      }
+    }
+
+    THEN("We can find the ownership array of another block") {
+      LogicalLocation base_loc(2, 1, 1, 1);
+      auto owns = DetermineOwnership(base_loc, set_leaves);
+
+      // Determined by drawing and inspecting diagram
+      block_ownership_t by_hand;
+      for (int ox1 : {-1, 0, 1})
+        for (int ox2 : {-1, 0, 1})
+          for (int ox3 : {-1, 0, 1}) {
+            by_hand(ox1, ox2, ox3) = true;
+          }
+      by_hand(1, 1, 1) = false;
+
+      for (int ox3 : {-1, 0, 1}) {
+        for (int ox2 : {-1, 0, 1}) {
+          for (int ox1 : {-1, 0, 1}) {
+            REQUIRE(by_hand(ox1, ox2, ox3) == owns(ox1, ox2, ox3));
+          }
+        }
+      }
+    }
+
+    THEN("We can find the ownership array of yet another block") {
+      LogicalLocation base_loc(2, 0, 0, 0);
+      auto owns = DetermineOwnership(base_loc, set_leaves);
+
+      // Determined by drawing and inspecting diagram, this should be the
+      // ownership structure for every block in a uniform grid
+      block_ownership_t by_hand;
+      for (int ox1 : {-1, 0, 1})
+        for (int ox2 : {-1, 0, 1})
+          for (int ox3 : {-1, 0, 1}) {
+            by_hand(ox1, ox2, ox3) = false;
+          }
+      by_hand(-1, -1, -1) = true;
+      by_hand(0, -1, -1) = true;
+      by_hand(-1, 0, -1) = true;
+      by_hand(-1, -1, 0) = true;
+      by_hand(-1, 0, 0) = true;
+      by_hand(0, -1, 0) = true;
+      by_hand(0, 0, -1) = true;
+      by_hand(0, 0, 0) = true;
+      printf("\n");
+      for (int ox3 : {-1, 0, 1}) {
+        for (int ox2 : {-1, 0, 1}) {
+          for (int ox1 : {-1, 0, 1}) {
+            REQUIRE(by_hand(ox1, ox2, ox3) == owns(ox1, ox2, ox3));
+          }
+        }
+      }
     }
   }
 }
