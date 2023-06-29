@@ -48,10 +48,6 @@ MeshBlockTree::MeshBlockTree(Mesh *pmesh) : pleaf_(nullptr), gid_(-1) {
   pmesh_ = pmesh;
   proot_ = this;
   loc_ = LogicalLocation(0, 0, 0, 0);
-  // loc_.lx1() = 0;
-  // loc_.lx2() = 0;
-  // loc_.lx3() = 0;
-  // loc_.level() = 0;
 }
 
 //----------------------------------------------------------------------------------------
@@ -61,10 +57,6 @@ MeshBlockTree::MeshBlockTree(Mesh *pmesh) : pleaf_(nullptr), gid_(-1) {
 MeshBlockTree::MeshBlockTree(MeshBlockTree *parent, int ox1, int ox2, int ox3)
     : pleaf_(nullptr), gid_(parent->gid_) {
   loc_ = parent->loc_.GetDaughter(ox1, ox2, ox3);
-  // loc_.lx1() = (parent->loc_.lx1() << 1) + ox1;
-  // loc_.lx2() = (parent->loc_.lx2() << 1) + ox2;
-  // loc_.lx3() = (parent->loc_.lx3() << 1) + ox3;
-  // loc_.level() = parent->loc_.level() + 1;
 }
 
 //----------------------------------------------------------------------------------------

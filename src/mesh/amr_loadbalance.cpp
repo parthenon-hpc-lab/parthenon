@@ -326,10 +326,6 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
           }
         }
         if (rr == nleaf) {
-          // clderef[ctnd].lx1() = lderef[n].lx1() >> 1;
-          // clderef[ctnd].lx2() = lderef[n].lx2() >> 1;
-          // clderef[ctnd].lx3() = lderef[n].lx3() >> 1;
-          // clderef[ctnd].level() = lderef[n].level() - 1;
           clderef[ctnd] = lderef[n].GetParent();
           ctnd++;
         }
