@@ -316,7 +316,6 @@ TEST_CASE("Logical Location", "[Logical Location]") {
       by_hand(0, -1, 0) = true;
       by_hand(0, 0, -1) = true;
       by_hand(0, 0, 0) = true;
-      printf("\n");
       for (int ox3 : {-1, 0, 1}) {
         for (int ox2 : {-1, 0, 1}) {
           for (int ox1 : {-1, 0, 1}) {
@@ -325,5 +324,28 @@ TEST_CASE("Logical Location", "[Logical Location]") {
         }
       }
     }
+
+    THEN("We can find the ownership array of yet another block") {
+      LogicalLocation base_loc(3, 7, 7, 7);
+      auto owns = DetermineOwnership(base_loc, set_leaves);
+
+      // Determined by drawing and inspecting diagram, this is 
+      // the upper rightmost block in the grid on the finest refinement 
+      // level so it should own everything
+      block_ownership_t by_hand;
+      for (int ox1 : {-1, 0, 1})
+        for (int ox2 : {-1, 0, 1})
+          for (int ox3 : {-1, 0, 1}) {
+            by_hand(ox1, ox2, ox3) = true;
+          }
+      for (int ox3 : {-1, 0, 1}) {
+        for (int ox2 : {-1, 0, 1}) {
+          for (int ox1 : {-1, 0, 1}) {
+            REQUIRE(by_hand(ox1, ox2, ox3) == owns(ox1, ox2, ox3));
+          }
+        }
+      }
+    }
+
   }
 }
