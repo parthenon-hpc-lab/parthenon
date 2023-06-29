@@ -329,8 +329,8 @@ TEST_CASE("Logical Location", "[Logical Location]") {
       LogicalLocation base_loc(3, 7, 7, 7);
       auto owns = DetermineOwnership(base_loc, set_leaves);
 
-      // Determined by drawing and inspecting diagram, this is 
-      // the upper rightmost block in the grid on the finest refinement 
+      // Determined by drawing and inspecting diagram, this is
+      // the upper rightmost block in the grid on the finest refinement
       // level so it should own everything
       block_ownership_t by_hand;
       for (int ox1 : {-1, 0, 1})
@@ -346,6 +346,5 @@ TEST_CASE("Logical Location", "[Logical Location]") {
         }
       }
     }
-
   }
 }

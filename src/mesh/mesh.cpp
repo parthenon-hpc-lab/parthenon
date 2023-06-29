@@ -666,7 +666,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   for (int i = 0; i < nbtotal; i++) {
     loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i],
                                  lx123[3 * i + 1], lx123[3 * i + 2]);
-    
+
     if (loclist[i].level() > current_level) {
       current_level = loclist[i].level();
     }
