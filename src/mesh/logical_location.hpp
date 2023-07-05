@@ -33,12 +33,10 @@ namespace parthenon {
 //! \struct LogicalLocation
 //  \brief stores logical location and level of MeshBlock
 
-struct LogicalLocation { // aggregate and POD type
+class LogicalLocation { // aggregate and POD type
   // These values can exceed the range of std::int32_t even if the root grid has only a
   // single MeshBlock if >30 levels of AMR are used, since the corresponding max index =
   // 1*2^31 > INT_MAX = 2^31 -1 for most 32-bit signed integer type impelementations
-
- private:
   std::int64_t lx1_, lx2_, lx3_;
   MortonNumber morton_;
   int level_;
@@ -59,6 +57,9 @@ struct LogicalLocation { // aggregate and POD type
     return ((ll.level() == level_) && (ll.lx1() == lx1_) && (ll.lx2() == lx2_) &&
             (ll.lx3() == lx3_));
   }
+  // LFR: These are old comparison operators. Greater gets used for sorting
+  //      the derefinenment list, but we may want to remove them at some
+  //      point to avoid confusion with the comparators below.
   static bool Lesser(const LogicalLocation &left, const LogicalLocation &right) {
     return left.level() < right.level();
   }
