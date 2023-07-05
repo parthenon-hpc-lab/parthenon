@@ -169,11 +169,11 @@ TEST_CASE("Logical Location", "[Logical Location]") {
           lx1 = lx1 % cur_place;
         }
         // Check that we have the correct Morton number
-        REQUIRE(hand_morton.to_ullong() == leaf.morton().most);
+        REQUIRE(hand_morton.to_ullong() == leaf.morton().bits[0]);
 
         // Check that the map is in Morton order
-        REQUIRE(((leaf.morton().most > last_morton) || (leaf.morton().most == 0)));
-        last_morton = leaf.morton().most;
+        REQUIRE(((leaf.morton().bits[0] > last_morton) || (leaf.morton().bits[0] == 0)));
+        last_morton = leaf.morton().bits[0];
       }
     }
 

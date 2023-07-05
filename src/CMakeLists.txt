@@ -158,6 +158,7 @@ add_library(parthenon
 
   mesh/amr_loadbalance.cpp
   mesh/domain.hpp
+  mesh/logical_location.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
   mesh/mesh.cpp
