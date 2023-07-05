@@ -23,6 +23,7 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <utility>
 #include <vector>
 
 #include "utils/morton_number.hpp"
@@ -242,6 +243,64 @@ DetermineOwnership(const LogicalLocation &main_block,
     }
   }
   return main_owns;
+}
+
+// Given a topological element, ownership array of the sending block, and offset indices
+// defining the location of an index region within the block (i.e. the ghost zones passed
+// across the x-face or the ghost zones passed across the z-edge), return the index range
+// masking array required for masking out unowned regions of the index space. ox? defines
+// buffer location on the owner block
+inline auto GetIndexRangeMaskFromOwnership(TopologicalElement el,
+                                           const block_ownership_t &sender_ownership,
+                                           int ox1, int ox2, int ox3) {
+  using vp_t = std::vector<std::pair<int, int>>;
+
+  // Transform general block ownership to element ownership over entire block. For
+  // instance, x-faces only care about block ownership in the x-direction First index of
+  // the pair is the element index and the second index is the block index that is copied
+  // to that element index
+  block_ownership_t element_ownership = sender_ownership;
+  auto x1_idxs = TopologicalOffsetI(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}}
+                                        : vp_t{{-1, 0}, {0, 0}, {1, 0}};
+  auto x2_idxs = TopologicalOffsetJ(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}}
+                                        : vp_t{{-1, 0}, {0, 0}, {1, 0}};
+  auto x3_idxs = TopologicalOffsetK(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}}
+                                        : vp_t{{-1, 0}, {0, 0}, {1, 0}};
+  for (auto [iel, ibl] : x1_idxs) {
+    for (auto [jel, jbl] : x2_idxs) {
+      for (auto [kel, kbl] : x3_idxs) {
+        element_ownership(iel, jel, kel) = sender_ownership(ibl, jbl, kbl);
+      }
+    }
+  }
+
+  // Now, the ownership status is correct for the entire interior index range of the
+  // block, but the offsets ox? define a subset of these indices (e.g. one edge of the
+  // interior). Therefore, we need to set the index ownership to true for edges of the
+  // index range that are contained in the interior of the sending block
+  if (ox1 != 0) {
+    for (auto j : {-1, 0, 1}) {
+      for (auto k : {-1, 0, 1}) {
+        element_ownership(-ox1, j, k) = element_ownership(0, j, k);
+      }
+    }
+  }
+  if (ox2 != 0) {
+    for (auto i : {-1, 0, 1}) {
+      for (auto k : {-1, 0, 1}) {
+        element_ownership(i, -ox2, k) = element_ownership(i, 0, k);
+      }
+    }
+  }
+  if (ox3 != 0) {
+    for (auto i : {-1, 0, 1}) {
+      for (auto j : {-1, 0, 1}) {
+        element_ownership(i, j, -ox3) = element_ownership(i, j, 0);
+      }
+    }
+  }
+
+  return element_ownership;
 }
 
 } // namespace parthenon

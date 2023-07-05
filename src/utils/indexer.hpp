@@ -91,23 +91,24 @@ struct Indexer {
 };
 
 template <class... Ts>
-class SpatiallyMaskedIndexer : public Indexer<Ts...> { 
+class SpatiallyMaskedIndexer : public Indexer<Ts...> {
  public:
-  template <class... Args> 
-  KOKKOS_INLINE_FUNCTION 
-  SpatiallyMaskedIndexer(const block_ownership_t &active, Args&&... args) : active_(active), Indexer<Ts...>(std::forward<Args>(args)...) {}
+  template <class... Args>
+  KOKKOS_INLINE_FUNCTION SpatiallyMaskedIndexer(const block_ownership_t &active,
+                                                Args &&...args)
+      : active_(active), Indexer<Ts...>(std::forward<Args>(args)...) {}
 
-  KOKKOS_INLINE_FUNCTION 
-  bool IsActive(int k, int j, int i) { 
-    const int istart = Indexer<Ts...>::start[sizeof...(Ts) - 1]; 
-    const int iend = Indexer<Ts...>::end[sizeof...(Ts) - 1]; 
-    const int jstart = Indexer<Ts...>::start[sizeof...(Ts) - 2]; 
-    const int jend = Indexer<Ts...>::end[sizeof...(Ts) - 2]; 
-    const int kstart = Indexer<Ts...>::start[sizeof...(Ts) - 3]; 
-    const int kend = Indexer<Ts...>::end[sizeof...(Ts) - 3]; 
-    const int iidx = (i == iend) - (i == istart); 
-    const int jidx = (j == jend) - (j == jstart); 
-    const int kidx = (k == kend) - (k == kstart); 
+  KOKKOS_INLINE_FUNCTION
+  bool IsActive(int k, int j, int i) {
+    const int istart = Indexer<Ts...>::start[sizeof...(Ts) - 1];
+    const int iend = Indexer<Ts...>::end[sizeof...(Ts) - 1];
+    const int jstart = Indexer<Ts...>::start[sizeof...(Ts) - 2];
+    const int jend = Indexer<Ts...>::end[sizeof...(Ts) - 2];
+    const int kstart = Indexer<Ts...>::start[sizeof...(Ts) - 3];
+    const int kend = Indexer<Ts...>::end[sizeof...(Ts) - 3];
+    const int iidx = (i == iend) - (i == istart);
+    const int jidx = (j == jend) - (j == jstart);
+    const int kidx = (k == kend) - (k == kstart);
     return active_(iidx, jidx, kidx);
   }
 

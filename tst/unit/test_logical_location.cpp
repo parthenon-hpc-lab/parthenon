@@ -348,73 +348,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
       }
     }
 
-    THEN("We can build the correct index range for setting the buffer") {
-      const int nghost = 2; 
-      const int N = 4;
-      
-      // ox? defines buffer location on the sending block
-      auto GetMask = [](TopologicalElement el, const block_ownership_t& sender_ownership, int ox1, int ox2, int ox3) {
-        using vi_t = std::vector<int>;
-        using vp_t = std::vector<std::pair<int, int>>;
-        
-        // Transform general block ownership to element ownership over entire block. For instance, x-faces 
-        // only care about block ownership in the x-direction
-        // First index of the pair is the element index and the second index is the block index that is copied to 
-        // that element index
-        block_ownership_t element_ownership = sender_ownership; 
-        auto x1_idxs = TopologicalOffsetI(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}} : vp_t{{-1, 0}, {0, 0}, {1, 0}};
-        auto x2_idxs = TopologicalOffsetJ(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}} : vp_t{{-1, 0}, {0, 0}, {1, 0}};
-        auto x3_idxs = TopologicalOffsetK(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}} : vp_t{{-1, 0}, {0, 0}, {1, 0}};
-        for (auto [iel, ibl] : x1_idxs) { 
-          for (auto [jel, jbl] : x2_idxs) { 
-            for (auto [kel, kbl] : x3_idxs) { 
-              element_ownership(iel, jel, kel) = sender_ownership(ibl, jbl, kbl);
-            }
-          }
-        } 
-
-        // Now, the ownership status is correct for the entire interior index range of the block, but the offsets 
-        // ox? define a subset of these indices (e.g. one edge of the interior). Therefore, we need to set the 
-        // index ownership to true for edges of the index range that are contained in the interior of the sending 
-        // block
-        if (ox1 != 0) { 
-          for (auto j : {-1, 0, 1}) {
-            for (auto k : {-1, 0, 1}) {
-              element_ownership(-ox1, j, k) = element_ownership(0, j, k);
-            }
-          }
-        } 
-        if (ox2 != 0) { 
-          for (auto i : {-1, 0, 1}) {
-            for (auto k : {-1, 0, 1}) {
-              element_ownership(i, -ox2, k) = element_ownership(i, 0, k);
-            }
-          }
-        }
-        if (ox3 != 0) { 
-          for (auto i : {-1, 0, 1}) {
-            for (auto j : {-1, 0, 1}) {
-              element_ownership(i, j, -ox3) = element_ownership(i, j, 0);
-            }
-          }
-        }
-        
-        for (int i : {-1, 0, 1}) {
-          for (int j : {-1, 0, 1}) {
-            for (int k : {-1, 0, 1}) {
-              printf("off = (%i, %i, %i) sender_owns = %i buffer_owns = %i\n", i, j, k, 
-                     sender_ownership(i, j, k), element_ownership(i, j, k));
-            }
-          }
-        }
-
-        return element_ownership; 
-        
-      };
-      // Imagine that we have a z-edge field that is being communicated across the left x-face of the sender in a uniform grid
-      // so that the sender owns the left edge of the face, the interior of the face, but another block owns the right edge of the face
-      // For a z-edge, ownership should be independent of the z-direction since the z-coordinate is centered. This is generic I think 
-      // for centered coordinates of elements
+    GIVEN("An ownership array of a block") {
       block_ownership_t by_hand;
       for (int ox1 : {-1, 0, 1})
         for (int ox2 : {-1, 0, 1})
@@ -430,24 +364,113 @@ TEST_CASE("Logical Location", "[Logical Location]") {
       by_hand(0, 0, -1) = true;
       by_hand(0, 0, 0) = true;
 
-      auto owns = GetMask(TopologicalElement::E3, by_hand, -1, 0, 0);
-      using p_t = std::pair<int, int>;
-      SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{nghost, N + nghost - 1}, p_t{nghost, N + nghost}, p_t{nghost, nghost + nghost});
-      printf("Active:\n");
-      for (int idx = 0; idx < idxer.size(); ++idx) { 
-        const auto [t, u, v, k, j, i] = idxer(idx); 
-        if (idxer.IsActive(k, j, i)) {
-          printf("(%i, %i, %i) \n", k, j, i);
-        }
-      }
-      printf("Inactive:\n");
-      for (int idx = 0; idx < idxer.size(); ++idx) { 
-        const auto [t, u, v, k, j, i] = idxer(idx); 
-        if (!idxer.IsActive(k, j, i)) {
-          printf("(%i, %i, %i) \n", k, j, i);
+      // Make a corner that would not be owned by an interior block in a uniform grid
+      // owned
+      by_hand(-1, 1, 1) = true;
+
+      const int N = 3;
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::F1, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          REQUIRE(idxer.IsActive(k, j, i));
         }
       }
 
-    } 
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::F2, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i)) REQUIRE(j != N);
+          if (!idxer.IsActive(k, j, i)) REQUIRE(j == N);
+        }
+      }
+
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::F3, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i)) REQUIRE(k != N);
+          if (!idxer.IsActive(k, j, i)) REQUIRE(k == N);
+        }
+      }
+
+      THEN("We can build the correct index range for setting the buffer") {
+        // Imagine that we have a z-edge field that is being communicated across the left
+        // x-face of the sender in a uniform grid so that the sender owns the left edge of
+        // the face, the interior of the face, but another block owns the right edge of
+        // the face For a z-edge, ownership should be independent of the z-direction since
+        // the z-coordinate is centered. This is generic I think for centered coordinates
+        // of elements
+
+        // For passing an edge oriented in the z-direction along the x-face of a block,
+        // given the ownership status of the block given above, all indices at the upper
+        // end of the y-index range should be masked out but everything else should be
+        // unmasked
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::E3, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i)) REQUIRE(j != N);
+          if (!idxer.IsActive(k, j, i)) REQUIRE(j == N);
+        }
+      }
+
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::E2, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i)) REQUIRE(k != N);
+          if (!idxer.IsActive(k, j, i)) REQUIRE(k == N);
+        }
+      }
+
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::E1, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i)) REQUIRE((k != N && j != N));
+          if (!idxer.IsActive(k, j, i)) REQUIRE((k == N || j == N));
+        }
+      }
+
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::NN, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i))
+            REQUIRE(((k != N && j != N) || (i == 0 && j == N && k == N)));
+          if (!idxer.IsActive(k, j, i))
+            REQUIRE(((k == N || j == N) && !(i == 0 && j == N && k == N)));
+        }
+      }
+    }
   }
 }
