@@ -114,6 +114,7 @@ class LogicalLocation { // aggregate and POD type
 
   std::vector<LogicalLocation> GetDaughters() const {
     std::vector<LogicalLocation> daughters;
+    daughters.reserve(8);
     for (int i : {0, 1}) {
       for (int j : {0, 1}) {
         for (int k : {0, 1}) {
