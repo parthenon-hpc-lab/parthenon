@@ -84,8 +84,9 @@ struct MortonNumber {
   uint64_t bits[3];
 
   MortonNumber(int level, uint64_t x, uint64_t y, uint64_t z)
-      : bits{GetMortonBits(level, x, y, z, 2), GetMortonBits(level, x, y, z, 1),
-             GetMortonBits(level, x, y, z, 0)} {}
+      : bits{impl::GetMortonBits(level, x, y, z, 2),
+             impl::GetMortonBits(level, x, y, z, 1),
+             impl::GetMortonBits(level, x, y, z, 0)} {}
 };
 
 inline bool operator<(const MortonNumber &lhs, const MortonNumber &rhs) {
