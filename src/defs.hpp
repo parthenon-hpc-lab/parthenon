@@ -359,7 +359,7 @@ struct std::hash<parthenon::LogicalLocation> {
     // TODO(LFR): Think more carefully about what the best choice for this key is,
     // probably the least significant sizeof(size_t) * 8 bits of the morton number
     // with 3 * (level - 21) trailing bits removed.
-    return key.morton().most;
+    return key.morton().bits[0];
   }
 };
 

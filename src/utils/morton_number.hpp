@@ -80,27 +80,31 @@ inline uint64_t GetMortonBits(int level, uint64_t x, uint64_t y, uint64_t z, int
 } // namespace impl
 
 struct MortonNumber {
-  uint64_t most, mid, least;
+  // Bits of the Morton number going from most to least significant
+  uint64_t bits[3];
 
   MortonNumber(int level, uint64_t x, uint64_t y, uint64_t z)
-      : most(GetMortonBits(level, x, y, z, 2)), mid(GetMortonBits(level, x, y, z, 1)),
-        least(GetMortonBits(level, x, y, z, 0)) {}
+      : bits{GetMortonBits(level, x, y, z, 2), GetMortonBits(level, x, y, z, 1),
+             GetMortonBits(level, x, y, z, 0)} {}
 };
 
 inline bool operator<(const MortonNumber &lhs, const MortonNumber &rhs) {
-  if (lhs.most == rhs.most && lhs.mid == rhs.mid) return lhs.least < rhs.least;
-  if (lhs.most == rhs.most) return lhs.mid < rhs.mid;
-  return lhs.most < rhs.most;
+  if (lhs.bits[0] == rhs.bits[0] && lhs.bits[1] == rhs.bits[1])
+    return lhs.bits[2] < rhs.bits[2];
+  if (lhs.bits[0] == rhs.bits[0]) return lhs.bits[1] < rhs.bits[1];
+  return lhs.bits[0] < rhs.bits[0];
 }
 
 inline bool operator>(const MortonNumber &lhs, const MortonNumber &rhs) {
-  if (lhs.most == rhs.most && lhs.mid == rhs.mid) return lhs.least > rhs.least;
-  if (lhs.most == rhs.most) return lhs.mid > rhs.mid;
-  return lhs.most > rhs.most;
+  if (lhs.bits[0] == rhs.bits[0] && lhs.bits[1] == rhs.bits[1])
+    return lhs.bits[2] > rhs.bits[2];
+  if (lhs.bits[0] == rhs.bits[0]) return lhs.bits[1] > rhs.bits[1];
+  return lhs.bits[0] > rhs.bits[0];
 }
 
 inline bool operator==(const MortonNumber &lhs, const MortonNumber &rhs) {
-  return (lhs.most == rhs.most) && (lhs.mid == rhs.mid) && (lhs.least == rhs.least);
+  return (lhs.bits[2] == rhs.bits[2]) && (lhs.bits[1] == rhs.bits[1]) &&
+         (lhs.bits[0] == rhs.bits[0]);
 }
 
 } // namespace parthenon
