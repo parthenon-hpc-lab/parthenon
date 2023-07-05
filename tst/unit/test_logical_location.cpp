@@ -352,50 +352,64 @@ TEST_CASE("Logical Location", "[Logical Location]") {
       const int nghost = 2; 
       const int N = 4;
       
-      block_ownership_t owns;
-      for (int ox1 : {-1, 0, 1})
-        for (int ox2 : {-1, 0, 1})
-          for (int ox3 : {-1, 0, 1}) {
-            owns(ox1, ox2, ox3) = true;
-          }
-
       // ox? defines buffer location on the sending block
-      auto GetMask = [](TopologicalElement el, const block_ownership_t& sender_ownership, int ox1, int ox2, int ox3){
+      auto GetMask = [](TopologicalElement el, const block_ownership_t& sender_ownership, int ox1, int ox2, int ox3) {
         using vi_t = std::vector<int>;
-
-        // Warning to future Luke: I am not completely convinced of this logic
-        vi_t irange_cent = TopologicalOffsetI(el) ? vi_t{0} : vi_t{-1, 0, 1};
-        vi_t jrange_cent = TopologicalOffsetJ(el) ? vi_t{0} : vi_t{-1, 0, 1};
-        vi_t krange_cent = TopologicalOffsetK(el) ? vi_t{0} : vi_t{-1, 0, 1};
+        using vp_t = std::vector<std::pair<int, int>>;
         
-        vi_t irange_off  = (ox1 == 0 && TopologicalOffsetI(el)) ? vi_t{-1, 0, 1} : vi_t{ox1};
-        vi_t jrange_off  = (ox2 == 0 && TopologicalOffsetJ(el)) ? vi_t{-1, 0, 1} : vi_t{ox2};
-        vi_t krange_off  = (ox3 == 0 && TopologicalOffsetK(el)) ? vi_t{-1, 0, 1} : vi_t{ox3};
-
-        block_ownership_t mask; 
-        for (int i : {-1, 0, 1}) {
-          for (int j : {-1, 0, 1}) {
-            for (int k : {-1, 0, 1}) {
-              mask(i, j, k) = true;
+        // Transform general block ownership to element ownership over entire block. For instance, x-faces 
+        // only care about block ownership in the x-direction
+        // First index of the pair is the element index and the second index is the block index that is copied to 
+        // that element index
+        block_ownership_t element_ownership = sender_ownership; 
+        auto x1_idxs = TopologicalOffsetI(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}} : vp_t{{-1, 0}, {0, 0}, {1, 0}};
+        auto x2_idxs = TopologicalOffsetJ(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}} : vp_t{{-1, 0}, {0, 0}, {1, 0}};
+        auto x3_idxs = TopologicalOffsetK(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}} : vp_t{{-1, 0}, {0, 0}, {1, 0}};
+        for (auto [iel, ibl] : x1_idxs) { 
+          for (auto [jel, jbl] : x2_idxs) { 
+            for (auto [kel, kbl] : x3_idxs) { 
+              element_ownership(iel, jel, kel) = sender_ownership(ibl, jbl, kbl);
             }
           }
         } 
 
-          for (int ioff : irange_off) { 
-            for (int joff : jrange_off) { 
-              for (int koff : krange_off) { 
-                printf("off = (%i, %i, %i) ownnership = %i\n", ioff, joff, koff, sender_ownership(ioff, joff, koff));
-                for (int jcent : jrange_cent) { 
-                  for (int icent : irange_cent) { 
-                    for (int kcent : krange_cent) { 
-                    mask(icent + ioff, jcent + joff, kcent + koff) = sender_ownership(ioff, joff, koff);
-                  }
-                }
-              }
+        // Now, the ownership status is correct for the entire interior index range of the block, but the offsets 
+        // ox? define a subset of these indices (e.g. one edge of the interior). Therefore, we need to set the 
+        // index ownership to true for edges of the index range that are contained in the interior of the sending 
+        // block
+        if (ox1 != 0) { 
+          for (auto j : {-1, 0, 1}) {
+            for (auto k : {-1, 0, 1}) {
+              element_ownership(-ox1, j, k) = element_ownership(0, j, k);
+            }
+          }
+        } 
+        if (ox2 != 0) { 
+          for (auto i : {-1, 0, 1}) {
+            for (auto k : {-1, 0, 1}) {
+              element_ownership(i, -ox2, k) = element_ownership(i, 0, k);
             }
           }
         }
-        return mask;
+        if (ox3 != 0) { 
+          for (auto i : {-1, 0, 1}) {
+            for (auto j : {-1, 0, 1}) {
+              element_ownership(i, j, -ox3) = element_ownership(i, j, 0);
+            }
+          }
+        }
+        
+        for (int i : {-1, 0, 1}) {
+          for (int j : {-1, 0, 1}) {
+            for (int k : {-1, 0, 1}) {
+              printf("off = (%i, %i, %i) sender_owns = %i buffer_owns = %i\n", i, j, k, 
+                     sender_ownership(i, j, k), element_ownership(i, j, k));
+            }
+          }
+        }
+
+        return element_ownership; 
+        
       };
       // Imagine that we have a z-edge field that is being communicated across the left x-face of the sender in a uniform grid
       // so that the sender owns the left edge of the face, the interior of the face, but another block owns the right edge of the face
@@ -416,10 +430,9 @@ TEST_CASE("Logical Location", "[Logical Location]") {
       by_hand(0, 0, -1) = true;
       by_hand(0, 0, 0) = true;
 
-      for (int ox3 : {-1, 0, 1}) owns(-1, 1, ox3) = false; // This block does not own the right edge of the face 
-      owns = GetMask(TopologicalElement::E3, by_hand, -1, 0, 0);
+      auto owns = GetMask(TopologicalElement::E3, by_hand, -1, 0, 0);
       using p_t = std::pair<int, int>;
-      SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{nghost, N + nghost - 1}, p_t{nghost, N + nghost}, p_t{0, nghost});
+      SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{nghost, N + nghost - 1}, p_t{nghost, N + nghost}, p_t{nghost, nghost + nghost});
       printf("Active:\n");
       for (int idx = 0; idx < idxer.size(); ++idx) { 
         const auto [t, u, v, k, j, i] = idxer(idx); 
