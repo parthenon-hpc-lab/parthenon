@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -131,7 +131,6 @@ class Mesh {
   void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
                                    LogicalLocation &newloc);
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
-  int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
 
   std::shared_ptr<MeshBlock> FindMeshBlock(int tgid) const;
 
@@ -264,20 +263,6 @@ class Mesh {
   bool GatherCostListAndCheckBalance();
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
-
-  // Mesh::RedistributeAndRefineMeshBlocks() helper functions:
-  // step 6: send
-  void PrepareSendSameLevel(MeshBlock *pb, BufArray1D<Real> &sendbuf);
-  void PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
-                                  LogicalLocation &lloc);
-  void PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf);
-  // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
-  // moved public to be called from device
-  // step 8: receive
-  void FinishRecvSameLevel(MeshBlock *pb, BufArray1D<Real> &recvbuf);
-  void FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
-                                 LogicalLocation &lloc);
-  void FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
