@@ -142,7 +142,7 @@ void Integrate(const Integrator &integrator, const Stepper &step, const Real tf,
 
 TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
   GIVEN("A state with an initial condition") {
-    Real t0 = 0, tf = 1.15; // delibarately not a nice fraction of a period
+    Real tf = 1.15; // delibarately not a nice fraction of a period
     State_t ufinal;
     GetTrueSolution(tf, ufinal);
     WHEN("We integrate with LowStorage rk1") {

@@ -31,8 +31,11 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <vector>
 
+#include "kokkos_abstraction.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -111,6 +114,7 @@ static hid_t getHDF5Type(const uint32_t *) { return H5T_NATIVE_UINT32; }
 static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
+static hid_t getHDF5Type(const char *) { return H5T_NATIVE_CHAR; }
 
 // On MacOS size_t is "unsigned long" and uint64_t is != "unsigned long".
 // Thus, size_t is not captured by the overload above and needs to selectively enabled.
@@ -186,6 +190,10 @@ void HDF5WriteAttribute(const std::string &name, size_t num_values, const T *dat
   PARTHENON_HDF5_CHECK(H5Awrite(attribute, type, data));
 }
 
+// In CPP file
+void HDF5WriteAttribute(const std::string &name, const std::string &value,
+                        hid_t location);
+
 template <typename T>
 void HDF5WriteAttribute(const std::string &name, const std::vector<T> &values,
                         hid_t location) {
@@ -202,48 +210,57 @@ template <>
 void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values,
                         hid_t location);
 
-template <typename T>
-void HDF5WriteAttribute(const std::string &name, T value, hid_t location) {
+template <typename T, REQUIRES(implements<kokkos_view(T)>::value)>
+void HDF5WriteAttribute(const std::string &name, const T &view, hid_t location) {
+  PARTHENON_REQUIRE(view.span_is_contiguous(), "Only works for contiguous views");
+
+  // cpplint demands compile constants be all caps
+  constexpr size_t RANK = static_cast<size_t>(T::rank);
+  hsize_t dim[RANK];
+  for (size_t d = 0; d < RANK; ++d) {
+    dim[d] = view.extent_int(d);
+  }
+  const H5S data_space = H5S::FromHIDCheck(H5Screate_simple(RANK, dim, dim));
+  // works regardless of memory space of the view
+  auto *pdata = view.data();
+  auto view_h = Kokkos::create_mirror_view(view);
+  if constexpr (!std::is_same<typename T::memory_space, Kokkos::HostSpace>::value) {
+    Kokkos::deep_copy(view_h, view);
+    pdata = view_h.data();
+  }
+  auto type = getHDF5Type(pdata);
+  H5A const attribute = H5A::FromHIDCheck(
+      H5Acreate(location, name.c_str(), type, data_space, H5P_DEFAULT, H5P_DEFAULT));
+  PARTHENON_HDF5_CHECK(H5Awrite(attribute, type, pdata));
+}
+
+template <typename T, REQUIRES(implements<scalar(T)>::value)>
+void HDF5WriteAttribute(const std::string &name, const T &value, hid_t location) {
   std::vector<T> vec(1);
   vec[0] = value;
   HDF5WriteAttribute(name, vec, location);
 }
 
+template <typename D, typename S>
+void HDF5WriteAttribute(const std::string &name, const ParArrayGeneric<D, S> &view,
+                        hid_t location) {
+  return HDF5WriteAttribute(name, view.KokkosView(), location);
+}
+
+std::tuple<int, std::vector<hsize_t>, std::size_t>
+HDF5GetAttributeInfo(hid_t location, const std::string &name, H5A &attr);
+
 template <typename T>
 std::vector<T> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
-  std::vector<T> res;
+  H5A attr;
+  auto [rank, dim, size] = HDF5GetAttributeInfo(location, name, attr);
+  std::vector<T> res(size);
+
+  // Check type
   auto type = getHDF5Type(res.data());
-
-  // check if attribute exists
-  auto status = PARTHENON_HDF5_CHECK(H5Aexists(location, name.c_str()));
-  PARTHENON_REQUIRE_THROWS(status > 0, "Attribute '" + name + "' does not exist");
-
-  const H5A attr = H5A::FromHIDCheck(H5Aopen(location, name.c_str(), H5P_DEFAULT));
-
-  // check data type
   const H5T hdf5_type = H5T::FromHIDCheck(H5Aget_type(attr));
-  status = PARTHENON_HDF5_CHECK(H5Tequal(type, hdf5_type));
+  auto status = PARTHENON_HDF5_CHECK(H5Tequal(type, hdf5_type));
   PARTHENON_REQUIRE_THROWS(status > 0, "Type mismatch for attribute " + name);
-
-  // Allocate array of correct size
-  const H5S dataspace = H5S::FromHIDCheck(H5Aget_space(attr));
-  int rank = PARTHENON_HDF5_CHECK(H5Sget_simple_extent_ndims(dataspace));
-  if (rank > 1) {
-    PARTHENON_THROW("Attribute " + name + " has rank " + std::to_string(rank) +
-                    ", but only rank 0 and 1 attributes are supported");
-  }
-
-  if (rank == 1) {
-    hsize_t dim = 0;
-    PARTHENON_HDF5_CHECK(H5Sget_simple_extent_dims(dataspace, &dim, NULL));
-    res.resize(dim);
-
-    if (dim == 0) {
-      PARTHENON_THROW("Attribute " + name + " has no value");
-    }
-  } else {
-    res.resize(1);
-  }
 
   // Read data from file
   PARTHENON_HDF5_CHECK(H5Aread(attr, type, res.data()));
@@ -254,6 +271,73 @@ std::vector<T> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
 // template specialization for std::string (must go into cpp file)
 template <>
 std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string &name);
+
+template <>
+std::vector<bool> HDF5ReadAttributeVec(hid_t location, const std::string &name);
+
+void HDF5ReadAttribute(hid_t location, const std::string &name, std::string &val);
+
+template <typename T, REQUIRES(implements<scalar(T)>::value)>
+void HDF5ReadAttribute(hid_t location, const std::string &name, T &val) {
+  auto vec = HDF5ReadAttributeVec<T>(location, name);
+  val = vec[0];
+}
+
+template <typename T, REQUIRES(implements<kokkos_view(T)>::value)>
+void HDF5ReadAttribute(hid_t location, const std::string &name, T &view) {
+  static_assert(std::is_same<typename T::array_layout, Kokkos::LayoutLeft>::value ||
+                    std::is_same<typename T::array_layout, Kokkos::LayoutRight>::value,
+                "Currently can only read from contiguous views");
+  // attribute info
+  H5A attr;
+  auto [rank, dim, size] = HDF5GetAttributeInfo(location, name, attr);
+
+  // check rank
+  int view_rank = static_cast<size_t>(T::rank);
+  PARTHENON_REQUIRE(rank == view_rank, "input and output view are same rank");
+
+  // Resize view.
+  typename T::array_layout layout;
+  for (int d = 0; d < rank; ++d) {
+    layout.dimension[d] = dim[d];
+  }
+  view = T(view.label(), layout);
+
+  // pull out data pointer
+  auto *pdata = view.data();
+  auto view_h = Kokkos::create_mirror_view(view);
+  if constexpr (!std::is_same<typename T::memory_space, Kokkos::HostSpace>::value) {
+    Kokkos::deep_copy(view_h, view);
+    pdata = view_h.data();
+  }
+
+  // check type
+  auto type = getHDF5Type(pdata);
+  const H5T hdf5_type = H5T::FromHIDCheck(H5Aget_type(attr));
+  auto status = PARTHENON_HDF5_CHECK(H5Tequal(type, hdf5_type));
+  PARTHENON_REQUIRE_THROWS(status > 0, "Type mismatch for attribute " + name);
+
+  // Read attribute from file
+  PARTHENON_HDF5_CHECK(H5Aread(attr, type, pdata));
+
+  if constexpr (!std::is_same<typename T::memory_space, Kokkos::HostSpace>::value) {
+    Kokkos::deep_copy(view, view_h);
+  }
+}
+
+template <typename D, typename S>
+void HDF5ReadAttribute(hid_t location, const std::string &name,
+                       ParArrayGeneric<D, S> &pararray) {
+  // forces compiler to pass by non-const reference into the next function
+  // Note this loses information stored in the `State` of the pararray.
+  D &view = pararray.KokkosView();
+  HDF5ReadAttribute(location, name, view);
+}
+
+template <typename T>
+void HDF5ReadAttribute(hid_t location, const std::string &name, std::vector<T> &vec) {
+  vec = HDF5ReadAttributeVec<T>(location, name);
+}
 
 } // namespace HDF5
 } // namespace parthenon

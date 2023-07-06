@@ -60,6 +60,12 @@ inline TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   return SetBounds<BoundaryType::any>(md);
 }
 
+template <BoundaryType bound_type>
+TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md);
+inline TaskStatus ProlongateBoundaries(std::shared_ptr<MeshData<Real>> &md) {
+  return ProlongateBounds<BoundaryType::any>(md);
+}
+
 TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);

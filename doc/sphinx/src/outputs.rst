@@ -59,6 +59,13 @@ look like
    file_number_width = 6 # default: 5
    use_final_label = true # default: true
 
+   # Sparse variables may not be allocated on every block. By default
+   # parthenon outputs de-allocated variables as 0 in the output
+   # file. However, it is often convenient to output them as NaN
+   # instead, marking deallocated and allocated but zero as
+   # separate. This flag turns this functionality on.
+   sparse_seed_nans = false # default false
+
 This will produce an hdf5 (``.phdf``) output file every 1 units of
 simulation time containing the density, velocity, and energy of each
 cell. The files will be identified by a 6-digit ID, and the output file
@@ -71,8 +78,10 @@ allocated only in a few blocks, because all other blocks would write
 zeros of these variables, which can drastically increase output file
 size (and decrease I/O performance) without compression. The optional
 parameter ``hdf5_compression_level`` can be used to set the compression
-level (between 1 and 9, default is 5). Compression can be disabled
-altogether with the CMake build option
+level (between 1 and 9, default is 5). If ``parthenon`` is compiled with
+support for compression, this also enables (logical) chunking of the
+data in blocks of ``nx1*nx2*nx3``. Compression (and thus chunking) can
+be disabled altogether with the CMake build option
 ``PARTHENON_DISABLE_HDF5_COMPRESSION``.
 See the :ref:`building` for more details.
 

@@ -210,6 +210,8 @@ class ParArrayGeneric : public State {
 
   KOKKOS_INLINE_FUNCTION auto &KokkosView() { return data_; }
 
+  KOKKOS_INLINE_FUNCTION const auto &KokkosView() const { return data_; }
+
   KOKKOS_INLINE_FUNCTION auto size() const { return data_.size(); }
 
   // a function to get the total size of the array

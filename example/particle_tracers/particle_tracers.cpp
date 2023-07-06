@@ -374,7 +374,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
   int gid = pmb->gid;
-  int nbtotal = pmb->pmy_mesh->nbtotal;
 
   ParArrayND<int> new_indices;
   swarm->AddEmptyParticles(num_tracers_meshblock, new_indices);

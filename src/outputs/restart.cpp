@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "globals.hpp"
+#include "interface/params.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
@@ -47,6 +48,7 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
 #else  // HDF5 enabled
   // Open the HDF file in read only mode
   fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
+  params_group_ = H5G::FromHIDCheck(H5Oopen(fh_, "Params", H5P_DEFAULT));
 
   hasGhost = GetAttr<int>("Info", "IncludesGhost");
 #endif // ENABLE_HDF5
@@ -136,6 +138,12 @@ std::size_t RestartReader::GetSwarmCounts(const std::string &swarm,
   // Compute total count rank
   std::size_t total_count_on_rank = std::accumulate(counts.begin(), counts.end(), 0);
   return total_count_on_rank;
+#endif // ENABLE_HDF5
+}
+
+void RestartReader::ReadParams(const std::string &name, Params &p) {
+#ifdef ENABLE_HDF5
+  p.ReadFromRestart(name, params_group_);
 #endif // ENABLE_HDF5
 }
 

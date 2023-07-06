@@ -868,7 +868,7 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pmb, BufArray1D<Real> &sendbuf) {
   // container with std::reference_wrapper; could use auto var_cc_r = var_cc.get())
   for (int i = 0; i < pmb->vars_cc_.size(); ++i) {
     auto &pvar_cc = pmb->vars_cc_[i];
-    alloc_subview_h(i) = pvar_cc->IsAllocated() ? 1.0 : 0.0;
+    alloc_subview_h(i) = pvar_cc->IsAllocated() ? 1.0 + pvar_cc->dealloc_count : 0.0;
     int nu = pvar_cc->GetDim(4) - 1;
     if (pvar_cc->IsAllocated()) {
       ParArray4D<Real> var_cc = pvar_cc->data.Get<4>();
@@ -1131,7 +1131,7 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
     auto &pvar_cc = pmb->vars_cc_[i];
     int nu = pvar_cc->GetDim(4) - 1;
 
-    if (alloc_subview_h(i) == 1.0) {
+    if (alloc_subview_h(i) > 0.0) {
       // allocated on sending block
       if (!pvar_cc->IsAllocated()) {
         // need to allocate locally
@@ -1144,6 +1144,7 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
       ParArray4D<Real> var_cc_ = pvar_cc->data.Get<4>();
       BufferUtility::UnpackData(recvbuf, var_cc_, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s,
                                 kb.e, p, pmb);
+      pvar_cc->dealloc_count = static_cast<int>(alloc_subview_h(i) - 1.0);
     } else {
       // increment offset
       p += (nu + 1) * (ib.e + 1 - ib.s) * (jb.e + 1 - jb.s) * (kb.e + 1 - kb.s);

@@ -224,14 +224,14 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
         int idx_offset = 0;
         for (int iel = 0; iel < bnd_info(b).ntopological_elements; ++iel) {
           auto &idxer = bnd_info(b).idxer[iel];
-          if (bnd_info(b).allocated) {
+          if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
             Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
                                  [&](const int idx) {
                                    const auto [t, u, v, k, j, i] = idxer(idx);
                                    bnd_info(b).var(iel, t, u, v, k, j, i) =
                                        bnd_info(b).buf(idx + idx_offset);
                                  });
-          } else if (bnd_info(b).var.size() > 0) {
+          } else if (bnd_info(b).allocated) {
             const Real default_val = bnd_info(b).var.sparse_default_val;
             Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
                                  [&](const int idx) {
@@ -252,16 +252,6 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
     refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
-
-    // Apply coarse boundary conditions
-    for (int block = 0; block < md->NumBlocks(); ++block) {
-      ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), true);
-    }
-
-    // Prolongate from coarse buffer
-    refinement::Prolongate(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
-    refinement::ProlongateInternal(resolved_packages, cache, pmb->cellbounds,
-                                   pmb->c_cellbounds);
   }
   Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
   return TaskStatus::complete;
@@ -300,22 +290,16 @@ ProlongateBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
-TaskStatus ApplyCoarseBoundaryConditions(std::shared_ptr<MeshData<Real>> &md) {
-  if (!md->GetMeshPointer()->multilevel) return TaskStatus::complete;
-  TaskStatus stat = TaskStatus::complete;
-  for (int block = 0; block < md->NumBlocks(); ++block) {
-    auto bstat = ApplyBoundaryConditionsOnCoarseOrFine(md->GetBlockData(block), true);
-    // if (bstat != TaskStatus::complete) stat = bstat;
-  }
-  return stat;
-}
-
 // Adds all relevant boundary communication to a single task list
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
+  // TODO(LFR): Splitting up the boundary tasks while doing prolongation can cause some
+  //            possible issues for sparse fields. In particular, the order in which
+  //            fields are allocated and then set could potentially result in different
+  //            results if the default sparse value is non-zero.
   const auto any = BoundaryType::any;
-  const auto local = BoundaryType::local;
-  const auto nonlocal = BoundaryType::nonlocal;
+  // const auto local = BoundaryType::local;
+  // const auto nonlocal = BoundaryType::nonlocal;
 
   // auto send = tl.AddTask(dependency, SendBoundBufs<nonlocal>, md);
   // auto send_local = tl.AddTask(dependency, SendBoundBufs<local>, md);
@@ -333,15 +317,16 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
 
   // auto out = (pro_local | pro);
 
-  // TODO(LFR): Splitting up the boundary tasks while doing prolongation in one
-  //            breaks things, which I haven't completely figured out yet. To
-  //            move to the commented out code above, this needs to be fixed and
-  //            the prolongation and physical boundary conditions need to be removed
-  //            from the end of SetBounds
   auto send = tl.AddTask(dependency, SendBoundBufs<any>, md);
   auto recv = tl.AddTask(dependency, ReceiveBoundBufs<any>, md);
   auto set = tl.AddTask(recv, SetBounds<any>, md);
+  auto pro = set;
+  if (md->GetMeshPointer()->multilevel) {
+    auto cbound = tl.AddTask(set, ApplyBoundaryConditionsOnCoarseOrFineMD, md, true);
+    pro = tl.AddTask(cbound, ProlongateBounds<any>, md);
+  }
+  auto fbound = tl.AddTask(pro, ApplyBoundaryConditionsOnCoarseOrFineMD, md, false);
 
-  return set;
+  return fbound;
 }
 } // namespace parthenon
