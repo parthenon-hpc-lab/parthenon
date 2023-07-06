@@ -623,6 +623,18 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
       }
     }
   }
+
+  // Set neighbor block ownership 
+  std::set<LogicalLocation> allowed_neighbors; 
+  allowed_neighbors.insert(loc); // Insert the location of this block
+  for (int n = 0; n < nneighbor; ++n) 
+    allowed_neighbors.insert(neighbor[n].loc);
+  // Although the neighbor blocks abut more blocks than are contained in this 
+  // list, the unaccounted for blocks cannot impact the ownership of elements 
+  // that are shared with *this
+  for (int n = 0; n < nneighbor; ++n) 
+    neighbor[n].ownership = DetermineOwnership(neighbor[n].loc, allowed_neighbors); 
+  
   Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
 }
 
