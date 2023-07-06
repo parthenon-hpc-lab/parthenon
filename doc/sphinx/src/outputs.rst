@@ -59,6 +59,13 @@ look like
    file_number_width = 6 # default: 5
    use_final_label = true # default: true
 
+   # Sparse variables may not be allocated on every block. By default
+   # parthenon outputs de-allocated variables as 0 in the output
+   # file. However, it is often convenient to output them as NaN
+   # instead, marking deallocated and allocated but zero as
+   # separate. This flag turns this functionality on.
+   sparse_seed_nans = false # default false
+
 This will produce an hdf5 (``.phdf``) output file every 1 units of
 simulation time containing the density, velocity, and energy of each
 cell. The files will be identified by a 6-digit ID, and the output file
