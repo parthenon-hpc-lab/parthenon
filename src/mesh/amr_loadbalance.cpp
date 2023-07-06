@@ -63,9 +63,9 @@ MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation 
                              Variable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
+  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   if (var->IsAllocated()) {
     PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
@@ -146,9 +146,9 @@ MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation 
                              Variable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
+  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   if (var->IsAllocated()) {
     PARTHENON_MPI_CHECK(MPI_Isend(var->coarse_s.data(), var->coarse_s.size(),
@@ -737,12 +737,12 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     LogicalLocation &oloc = loclist[n];
     LogicalLocation &nloc = newloc[nn];
     auto pb = FindMeshBlock(n);
-    if (nloc.level == oloc.level &&
+    if (nloc.level() == oloc.level() &&
         newrank[nn] != Globals::my_rank) { // same level, different rank
       for (auto &var : pb->vars_cc_)
         send_reqs.emplace_back(SendSameToSame(nn - nslist[newrank[nn]], newrank[nn],
                                               var.get(), pb.get(), this));
-    } else if (nloc.level > oloc.level) { // c2f
+    } else if (nloc.level() > oloc.level()) { // c2f
       // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
       for (int l = 0; l < nleaf; l++) {
         const int nl = nn + l; // Leaf block index in new global block list
@@ -751,7 +751,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           send_reqs.emplace_back(SendCoarseToFine(nl - nslist[newrank[nl]], newrank[nl],
                                                   nloc, var.get(), this));
       } // end loop over nleaf (unique to c2f branch in this step 6)
-    } else if (nloc.level < oloc.level) { // f2c: restrict + pack + send
+    } else if (nloc.level() < oloc.level()) { // f2c: restrict + pack + send
       for (auto &var : pb->vars_cc_)
         send_reqs.emplace_back(SendFineToCoarse(nn - nslist[newrank[nn]], newrank[nn],
                                                 oloc, var.get(), this));
