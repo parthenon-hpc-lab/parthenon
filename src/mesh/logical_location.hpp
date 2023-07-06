@@ -289,9 +289,6 @@ inline auto GetIndexRangeMaskFromOwnership(TopologicalElement el,
     for (auto [jel, jbl] : x2_idxs) {
       for (auto [kel, kbl] : x3_idxs) {
         element_ownership(iel, jel, kel) = sender_ownership(ibl, jbl, kbl);
-        if (!sender_ownership(ibl, jbl, kbl)) {
-          printf("(%i, %i, %i) is not owned by sender?!\n", ibl, jbl, kbl);
-        }
       }
     }
   }
