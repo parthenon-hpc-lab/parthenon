@@ -140,8 +140,18 @@ CalcSetIndices(const NeighborBlock &nb, LogicalLocation loc, TopologicalElement 
       e[dir] = bounds[dir].s - 1 + top_offset[dir];
     }
   }
+  int sox1 = -ni.ox1;
+  int sox2 = -ni.ox2;
+  int sox3 = -ni.ox3;
+  if (INTERFACE == InterfaceType::CoarseToFine) {
+    // For coarse to fine interfaces, we are passing zones from only an
+    // interior corner of the cell, never an entire face or edge
+    if (sox1 == 0) sox1 = logic_loc[0] % 2 == 1 ? 1 : -1;
+    if (sox2 == 0) sox2 = logic_loc[1] % 2 == 1 ? 1 : -1;
+    if (sox3 == 0) sox3 = logic_loc[2] % 2 == 1 ? 1 : -1;
+  }
   block_ownership_t owns =
-      GetIndexRangeMaskFromOwnership(el, nb.ownership, -ni.ox1, -ni.ox2, -ni.ox3);
+      GetIndexRangeMaskFromOwnership(el, nb.ownership, sox1, sox2, sox3);
   return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
                                   {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},
                                   {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
