@@ -11,7 +11,7 @@ modified.
 On a per ``MeshBlock`` basis, you call the
 function
 
-.. cpp:function::
+.. code:: cpp
 
    void MeshBlock::SetCostForLoadBalancing(double cost);
 

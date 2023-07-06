@@ -1085,17 +1085,18 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     // send FillGhost variables
     bool can_delete;
-    int test_iters = 0;
+    std::int64_t test_iters = 0;
+    constexpr std::int64_t max_it = 1e10;
     do {
       can_delete = true;
       for (auto &[k, comm] : boundary_comm_map) {
         can_delete = comm.IsSafeToDelete() && can_delete;
       }
       test_iters++;
-    } while (!can_delete && test_iters < 1e10);
-    if (test_iters >= 1e10)
-      PARTHENON_FAIL(
-          "Too many iterations waiting to delete boundary communication buffers.");
+    } while (!can_delete && test_iters < max_it);
+    PARTHENON_REQUIRE(
+        test_iters < max_it,
+        "Too many iterations waiting to delete boundary communication buffers.");
 
     boundary_comm_map.clear();
     boundary_comm_flxcor_map.clear();
@@ -1107,6 +1108,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     std::vector<bool> sent(num_partitions, false);
     bool all_sent;
+    std::int64_t send_iters = 0;
     do {
       all_sent = true;
       for (int i = 0; i < num_partitions; i++) {
@@ -1119,13 +1121,18 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
           }
         }
       }
-    } while (!all_sent);
+      send_iters++;
+    } while (!all_sent && send_iters < max_it);
+    PARTHENON_REQUIRE(
+        send_iters < max_it,
+        "Too many iterations waiting to send boundary communication buffers.");
 
     // wait to receive FillGhost variables
     // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
     // https://github.com/lanl/parthenon/issues/418
     std::vector<bool> received(num_partitions, false);
     bool all_received;
+    std::int64_t receive_iters = 0;
     do {
       all_received = true;
       for (int i = 0; i < num_partitions; i++) {
@@ -1138,7 +1145,11 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
           }
         }
       }
-    } while (!all_received);
+      receive_iters++;
+    } while (!all_received && receive_iters < max_it);
+    PARTHENON_REQUIRE(
+        receive_iters < max_it,
+        "Too many iterations waiting to receive boundary communication buffers.");
 
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
@@ -1150,10 +1161,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       if (multilevel) {
-        ApplyCoarseBoundaryConditions(md);
+        ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
         ProlongateBoundaries(md);
       }
-      ApplyFineBoundaryConditions(md);
+      ApplyBoundaryConditionsOnCoarseOrFineMD(md, false);
       // Call MeshData based FillDerived functions
       Update::FillDerived(md.get());
     }
