@@ -26,9 +26,9 @@
 #include <utility>
 #include <vector>
 
-#include "interface/metadata.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
+#include "interface/metadata.hpp"
 #include "interface/sparse_pack.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
@@ -85,14 +85,16 @@ template <class... Ts>
 inline auto MakePackDescriptor(MeshBlockData<Real> *pmbd,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  return MakePackDescriptor<Ts...>(pmbd->GetBlockPointer()->pmy_mesh->resolved_packages.get(), flags, options);
+  return MakePackDescriptor<Ts...>(
+      pmbd->GetBlockPointer()->pmy_mesh->resolved_packages.get(), flags, options);
 }
 
 template <class... Ts>
 inline auto MakePackDescriptor(MeshData<Real> *pmd,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  return MakePackDescriptor<Ts...>(pmd->GetMeshPointer()->resolved_packages.get(), flags, options);
+  return MakePackDescriptor<Ts...>(pmd->GetMeshPointer()->resolved_packages.get(), flags,
+                                   options);
 }
 
 inline auto MakePackDescriptor(
