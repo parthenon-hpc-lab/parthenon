@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "utils/error_checking.hpp"
 #include "utils/morton_number.hpp"
 
 namespace parthenon {
@@ -198,11 +199,27 @@ inline bool operator==(const LogicalLocation &lhs, const LogicalLocation &rhs) {
 
 struct block_ownership_t {
  public:
+  KOKKOS_FORCEINLINE_FUNCTION
   const bool &operator()(int ox1, int ox2, int ox3) const {
     return ownership[ox1 + 1][ox2 + 1][ox3 + 1];
   }
+  KOKKOS_FORCEINLINE_FUNCTION
   bool &operator()(int ox1, int ox2, int ox3) {
     return ownership[ox1 + 1][ox2 + 1][ox3 + 1];
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  block_ownership_t() : block_ownership_t(true) {}
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  explicit block_ownership_t(bool value) { 
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        for (int k = 0; k < 3; ++k) {
+          ownership[i][j][k] = value;
+        }
+      }
+    }
   }
 
  private:
@@ -239,6 +256,11 @@ DetermineOwnership(const LogicalLocation &main_block,
         main_owns(ox1, ox2, ox3) =
             (*max == main_block || ownership_less_than(*max, main_block) ||
              actual_neighbors.size() == 0);
+
+        if (ox1 == 0 && ox2 == 0 && ox3 == 0 && !main_owns(ox1, ox2, ox3)) { 
+          printf("actual_neighbor.size() = %ui (*max == main_block) = %i ownership_less_than(*max, main_block) = %i\n", actual_neighbors.size(), *max == main_block, ownership_less_than(*max, main_block));
+          PARTHENON_REQUIRE(false, "Block should own its own central element");
+        }
       }
     }
   }
@@ -270,6 +292,9 @@ inline auto GetIndexRangeMaskFromOwnership(TopologicalElement el,
     for (auto [jel, jbl] : x2_idxs) {
       for (auto [kel, kbl] : x3_idxs) {
         element_ownership(iel, jel, kel) = sender_ownership(ibl, jbl, kbl);
+        if (!sender_ownership(ibl, jbl, kbl)) { 
+          printf("(%i, %i, %i) is not owned by sender?!\n", ibl, jbl, kbl);
+        }
       }
     }
   }

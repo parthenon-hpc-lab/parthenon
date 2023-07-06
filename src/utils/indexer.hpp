@@ -93,10 +93,13 @@ struct Indexer {
 template <class... Ts>
 class SpatiallyMaskedIndexer : public Indexer<Ts...> {
  public:
+  KOKKOS_INLINE_FUNCTION
+  SpatiallyMaskedIndexer() : Indexer<Ts...>(), active_() {};
+
   template <class... Args>
   KOKKOS_INLINE_FUNCTION SpatiallyMaskedIndexer(const block_ownership_t &active,
-                                                Args &&...args)
-      : active_(active), Indexer<Ts...>(std::forward<Args>(args)...) {}
+                                                std::pair<Ts, Ts>... Ns)
+      : active_(active), Indexer<Ts...>(Ns...) {}
 
   KOKKOS_INLINE_FUNCTION
   bool IsActive(int k, int j, int i) {
