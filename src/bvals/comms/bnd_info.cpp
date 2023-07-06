@@ -42,8 +42,8 @@ namespace parthenon {
 
 template <InterfaceType INTERFACE>
 SpatiallyMaskedIndexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalElement el,
-                          std::array<int, 3> tensor_shape,
-                          const parthenon::IndexShape &shape) {
+                                         std::array<int, 3> tensor_shape,
+                                         const parthenon::IndexShape &shape) {
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
                                    shape.GetBoundsJ(interior, el),
@@ -53,8 +53,7 @@ SpatiallyMaskedIndexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalE
   // some active zones on the loading block for face, edge, and nodal
   // fields, so the boundary of the neighbor block is one deeper into
   // the current block in some cases
-  std::array<int, 3> top_offset{TopologicalOffsetI(el), 
-                                TopologicalOffsetJ(el),
+  std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset{ni.ox1, ni.ox2, ni.ox3};
   std::array<int, 2> face_offset{ni.fi1, ni.fi2};
@@ -89,23 +88,23 @@ SpatiallyMaskedIndexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalE
       e[dir] = bounds[dir].s + Globals::nghost - 1 + top_offset[dir];
     }
   }
-  block_ownership_t owns(true); 
-  return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1}, {0, tensor_shape[1] - 1},
-                                  {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
+  block_ownership_t owns(true);
+  return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
+                                  {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},
+                                  {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
 template <InterfaceType INTERFACE, bool PROLONGATEORRESTRICT = false>
-SpatiallyMaskedIndexer6D CalcSetIndices(const NeighborBlock &nb, LogicalLocation loc,
-                         TopologicalElement el, std::array<int, 3> tensor_shape,
-                         const parthenon::IndexShape &shape) {
-  const auto &ni = nb.ni; 
+SpatiallyMaskedIndexer6D
+CalcSetIndices(const NeighborBlock &nb, LogicalLocation loc, TopologicalElement el,
+               std::array<int, 3> tensor_shape, const parthenon::IndexShape &shape) {
+  const auto &ni = nb.ni;
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
                                    shape.GetBoundsJ(interior, el),
                                    shape.GetBoundsK(interior, el)};
 
-  std::array<int, 3> top_offset{TopologicalOffsetI(el), 
-                                TopologicalOffsetJ(el),
+  std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset{ni.ox1, ni.ox2, ni.ox3};
   // This is gross, but the face offsets do not contain the correct
@@ -141,10 +140,11 @@ SpatiallyMaskedIndexer6D CalcSetIndices(const NeighborBlock &nb, LogicalLocation
       e[dir] = bounds[dir].s - 1 + top_offset[dir];
     }
   }
-  PARTHENON_REQUIRE(nb.ownership(0, 0, 0) == true, "Neighbor block doesn't own it's interior");
-  block_ownership_t owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, -ni.ox1, -ni.ox2, -ni.ox3); 
-  return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1}, {0, tensor_shape[1] - 1},
-                   {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
+  block_ownership_t owns =
+      GetIndexRangeMaskFromOwnership(el, nb.ownership, -ni.ox1, -ni.ox2, -ni.ox3);
+  return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
+                                  {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},
+                                  {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
@@ -368,8 +368,9 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
   out.var = v->flux[out.dir];
   out.coords = pmb->coords;
   block_ownership_t owns(true);
-  out.idxer[0] = SpatiallyMaskedIndexer6D(owns, {0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
-                           {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
+  out.idxer[0] = SpatiallyMaskedIndexer6D(
+      owns, {0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
+      {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   return out;
 }
 
@@ -445,8 +446,9 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
 
   out.coords = pmb->coords;
   block_ownership_t owns(true);
-  out.idxer[0] = SpatiallyMaskedIndexer6D(owns, {0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
-                           {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
+  out.idxer[0] = SpatiallyMaskedIndexer6D(
+      owns, {0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
+      {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   return out;
 }
 
