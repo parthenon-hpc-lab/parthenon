@@ -211,10 +211,11 @@ std::int64_t Variable<T>::Deallocate() {
   }
 
   is_allocated_ = false;
+  return mem_size;
 #else
   PARTHENON_THROW("Variable<T>::Deallocate(): Sparse is compile-time disabled");
+  return 0;
 #endif
-  return mem_size;
 }
 
 template <typename T>

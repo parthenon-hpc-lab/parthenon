@@ -18,6 +18,7 @@
 #include <application_input.hpp>
 #include <basic_types.hpp>
 #include <coordinates/coordinates.hpp>
+#include <interface/make_pack_descriptor.hpp> 
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
 #include <interface/sparse_pack.hpp>
@@ -55,6 +56,7 @@ using ::parthenon::PackIndexMap;
 using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::Params;
+using ::parthenon::SparsePack;
 using ::parthenon::SparsePool;
 using ::parthenon::StateDescriptor;
 using ::parthenon::TaskStatus;
