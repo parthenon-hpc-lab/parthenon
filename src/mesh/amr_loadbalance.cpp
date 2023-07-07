@@ -67,7 +67,7 @@ MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation 
   const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
   const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
   const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
-  
+
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   if (var->IsAllocated()) {
     PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
@@ -173,7 +173,6 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
   static const IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::interior);
   static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior);
   static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior);
-
 
   const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
   const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
