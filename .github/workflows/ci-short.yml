@@ -60,6 +60,8 @@ jobs:
       - name: Test
         run: |
           cd build
+          # Pick GPU with most available memory
+          export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
           ctest -LE 'performance|regression'
       - uses: actions/upload-artifact@v3
         with:
@@ -90,12 +92,16 @@ jobs:
         run: |
           cmake --build build -t advection-example
           cd build
+          # Pick GPU with most available memory
+          export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
           ctest -R regression_mpi_test:output_hdf5
       # Test example with swarms
       - name: particle-leapfrog
         run: |
           cmake --build build -t particle-leapfrog
           cd build
+          # Pick GPU with most available memory
+          export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
           ctest -R regression_mpi_test:particle_leapfrog
 
       # Now testing if there are no hidden memcopies between host and device.

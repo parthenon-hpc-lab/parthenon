@@ -58,12 +58,16 @@ jobs:
         if: ${{ matrix.parallel == 'serial' }}
         run: |
           cd build
+          # Pick GPU with most available memory
+          export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
           ctest -L performance -LE perf-reg
 
       # run regression tests
       - name: Regression tests
         run: |
           cd build
+          # Pick GPU with most available memory
+          export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
           ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
 
       # Test Ascent integration (only most complex setup with MPI and on device)
@@ -77,6 +81,8 @@ jobs:
             -DAscent_DIR=/usr/local/ascent-develop/lib/cmake/ascent
           cmake --build build-ascent
           cd example/advection/
+          # Pick GPU with most available memory
+          export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
           mpirun -np 2 ../../build-ascent/example/advection/advection-example \
             -i parthinput.advection \
             parthenon/output4/dt=0.05 \
