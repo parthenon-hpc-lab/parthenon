@@ -152,8 +152,11 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       if (is_hdf5_output) {
         op.single_precision_output =
             pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
+        op.sparse_seed_nans =
+            pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false);
       } else {
         op.single_precision_output = false;
+        op.sparse_seed_nans = false;
 
         if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
           std::stringstream warn;
