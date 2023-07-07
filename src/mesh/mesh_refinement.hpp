@@ -69,6 +69,8 @@ class MeshRefinement {
   // be made public
   Coordinates_t GetCoarseCoords() const { return coarse_coords; }
 
+  int &DereferenceCount() { return deref_count_; }
+
  private:
   // data
   std::weak_ptr<MeshBlock> pmy_block_;

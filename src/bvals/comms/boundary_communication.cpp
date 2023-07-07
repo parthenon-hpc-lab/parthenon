@@ -320,6 +320,7 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
   auto send = tl.AddTask(dependency, SendBoundBufs<any>, md);
   auto recv = tl.AddTask(dependency, ReceiveBoundBufs<any>, md);
   auto set = tl.AddTask(recv, SetBounds<any>, md);
+
   auto pro = set;
   if (md->GetMeshPointer()->multilevel) {
     auto cbound = tl.AddTask(set, ApplyBoundaryConditionsOnCoarseOrFineMD, md, true);
