@@ -83,16 +83,6 @@ MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation 
 bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
                          Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
                          Mesh *pmesh) {
-  // TODO(LFR): Set the index ranges appropriately for general topological element
-  // variables
-  static const IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::entire);
-  static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::entire);
-  static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::entire);
-
-  static const IndexRange ib_int = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  static const IndexRange jb_int = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  static const IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
   const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
   const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
   const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
@@ -117,20 +107,35 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
                                    send_rank, tag, comm, MPI_STATUS_IGNORE));
       fb = var->data;
 #endif
-      const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
-      const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
-      const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
       auto cb = var->coarse_s;
       const int nt = fb.GetDim(6) - 1;
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
-      parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "ReceiveCoarseToFineAMR", DevExecSpace(), 0, nt, 0, nu, 0,
-          nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-          KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
-                        const int i) {
-            cb(t, u, v, k, j, i) = fb(t, u, v, k + ks, j + js, i + is);
-          });
+      
+      // TODO(LFR): Set the index ranges appropriately for general topological element
+      // variables
+      // Need to loop over topological elements here
+      for (auto te : {TopologicalElement::CC}) {
+        static const IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::entire, te);
+        static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::entire, te);
+        static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::entire, te);
+
+        static const IndexRange ib_int = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
+        static const IndexRange jb_int = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
+        static const IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
+        
+        const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
+        const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
+        const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
+        const int idx_te = static_cast<int>(te) % 3;
+        parthenon::par_for(
+            DEFAULT_LOOP_PATTERN, "ReceiveCoarseToFineAMR", DevExecSpace(), 0, nt, 0, nu, 0,
+            nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
+                          const int i) {
+              cb(idx_te, t, u, v, k, j, i) = fb(idx_te, t, u, v, k + ks, j + js, i + is);
+            });
+      }
     } else {
       if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label());
 #ifdef MPI_PARALLEL
@@ -168,19 +173,9 @@ MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation 
 bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
                          Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
                          Mesh *pmesh) {
-  // TODO(LFR): Set the index ranges appropriately for general topological element
-  // variables
-  static const IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::interior);
-  static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior);
-  static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior);
-
   const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
   const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
   const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
-
-  const int ks = (ox3 == 0) ? 0 : (kb.e - kb.s + 1);
-  const int js = (ox2 == 0) ? 0 : (jb.e - jb.s + 1);
-  const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1);
 
   int test = 1;
 #ifdef MPI_PARALLEL
@@ -208,13 +203,28 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
       const int nt = fb.GetDim(6) - 1;
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
-      parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "ReceiveFineToCoarseAMR", DevExecSpace(), 0, nt, 0, nu, 0,
-          nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-          KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
-                        const int i) {
-            fb(t, u, v, k + ks, j + js, i + is) = cb(t, u, v, k, j, i);
-          });
+
+      // Need to loop over topological elements here 
+      // TODO(LFR): Set the index ranges appropriately for general topological element
+      // variables
+
+      for (auto te : {TopologicalElement::CC}) {
+        static const IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::interior, te);
+        static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior, te);
+        static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior, te);
+
+        const int ks = (ox3 == 0) ? 0 : (kb.e - kb.s + 1 - TopologicalOffsetK(te));
+        const int js = (ox2 == 0) ? 0 : (jb.e - jb.s + 1 - TopologicalOffsetJ(te));
+        const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1 - TopologicalOffsetI(te));
+        const int idx_te = static_cast<int>(te) % 3;
+        parthenon::par_for(
+            DEFAULT_LOOP_PATTERN, "ReceiveFineToCoarseAMR", DevExecSpace(), 0, nt, 0, nu, 0,
+            nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
+                          const int i) {
+              fb(idx_te, t, u, v, k + ks, j + js, i + is) = cb(idx_te, t, u, v, k, j, i);
+            });
+      }
       // We have to block here w/o buffering so that the write is guaranteed to be
       // finished before another fine block that is restricted to a sub-region of
       // this coarse block makes an MPI call and overwrites the coarse buffer.
