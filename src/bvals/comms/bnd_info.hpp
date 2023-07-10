@@ -43,8 +43,9 @@ class Variable;
 struct BndInfo {
   int ntopological_elements = 1;
   SpatiallyMaskedIndexer6D idxer[3];
-  Indexer6D prores_idxer[10]; // Has to be large enough to allow for maximum integer
-                              // conversion of TopologicalElements
+  SpatiallyMaskedIndexer6D
+      prores_idxer[10]; // Has to be large enough to allow for maximum integer
+                        // conversion of TopologicalElements
 
   CoordinateDirection dir;
   bool allocated = true;
