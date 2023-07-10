@@ -102,7 +102,7 @@ class SpatiallyMaskedIndexer : public Indexer<Ts...> {
       : active_(active), Indexer<Ts...>(Ns...) {}
 
   KOKKOS_INLINE_FUNCTION
-  bool IsActive(int k, int j, int i) {
+  bool IsActive(int k, int j, int i) const {
     const int istart = Indexer<Ts...>::start[sizeof...(Ts) - 1];
     const int iend = Indexer<Ts...>::end[sizeof...(Ts) - 1];
     const int jstart = Indexer<Ts...>::start[sizeof...(Ts) - 2];

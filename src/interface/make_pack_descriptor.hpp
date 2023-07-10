@@ -97,6 +97,13 @@ inline auto MakePackDescriptor(MeshData<Real> *pmd,
                                    options);
 }
 
+template <class... Ts>
+inline auto MakePackDescriptor(SparsePack<Ts...> pack, StateDescriptor *psd,
+                               const std::vector<MetadataFlag> &flags = {},
+                               const std::set<PDOpt> &options = {}) {
+  return parthenon::MakePackDescriptor<Ts...>(psd, flags, options);
+}
+
 inline auto MakePackDescriptor(
     StateDescriptor *psd, const std::vector<std::pair<std::string, bool>> &var_regexes,
     const std::vector<MetadataFlag> &flags = {}, const std::set<PDOpt> &options = {}) {
