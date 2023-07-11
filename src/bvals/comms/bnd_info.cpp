@@ -41,14 +41,7 @@ enum class InterfaceType { SameToSame, CoarseToFine, FineToCoarse };
 enum class IndexRangeType { Interior, Exterior, Shared };
 
 using namespace parthenon;
-std::vector<TopologicalElement>
-GetTopologicalElements(const std::shared_ptr<Variable<Real>> &v) {
-  using TE = TopologicalElement;
-  if (v->IsSet(Metadata::Face)) return {TE::F1, TE::F2, TE::F3};
-  if (v->IsSet(Metadata::Edge)) return {TE::E1, TE::E2, TE::E3};
-  if (v->IsSet(Metadata::Node)) return {TE::NN};
-  return {TE::CC};
-}
+
 } // namespace
 namespace parthenon {
 
@@ -208,7 +201,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 
   int mylevel = pmb->loc.level();
 
-  auto elements = GetTopologicalElements(v);
+  auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
@@ -247,7 +240,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
                  NeighborConnect::none, 0, 0);
   nb.ownership = block_ownership_t(true);
 
-  auto elements = GetTopologicalElements(v);
+  auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
     out.idxer[static_cast<int>(el)] =
@@ -281,7 +274,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
                  NeighborConnect::none, 0, 0);
   nb.ownership = block_ownership_t(true);
 
-  auto elements = GetTopologicalElements(v);
+  auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
     out.idxer[static_cast<int>(el)] =
@@ -309,7 +302,7 @@ ProResInfo ProResInfo::GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
 
-  auto elements = GetTopologicalElements(v);
+  auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   if (nb.snb.level < mylevel) {
     for (auto el : elements) {
@@ -350,7 +343,7 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
     }
   }
 
-  auto elements = GetTopologicalElements(v);
+  auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
@@ -404,7 +397,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 
   int mylevel = pmb->loc.level();
 
-  auto elements = GetTopologicalElements(v);
+  auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;

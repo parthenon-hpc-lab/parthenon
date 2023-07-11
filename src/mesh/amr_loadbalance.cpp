@@ -112,23 +112,14 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
 
-      // TODO(LFR): Set the index ranges appropriately for general topological element
-      // variables
-      // Need to loop over topological elements here
-      for (auto te : {TopologicalElement::CC}) {
-        static const IndexRange ib =
-            pmb->c_cellbounds.GetBoundsI(IndexDomain::entire, te);
-        static const IndexRange jb =
-            pmb->c_cellbounds.GetBoundsJ(IndexDomain::entire, te);
-        static const IndexRange kb =
-            pmb->c_cellbounds.GetBoundsK(IndexDomain::entire, te);
+      for (auto te : var->GetTopologicalElements()) {
+        IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::entire, te);
+        IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::entire, te);
+        IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::entire, te);
 
-        static const IndexRange ib_int =
-            pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
-        static const IndexRange jb_int =
-            pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
-        static const IndexRange kb_int =
-            pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
+        IndexRange ib_int = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
+        IndexRange jb_int = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
+        IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
 
         const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
         const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
@@ -210,18 +201,15 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
 
-      // Need to loop over topological elements here
-      // TODO(LFR): Set the index ranges appropriately for general topological element
-      // variables
-
-      for (auto te : {TopologicalElement::CC}) {
-        static const IndexRange ib =
-            pmb->c_cellbounds.GetBoundsI(IndexDomain::interior, te);
-        static const IndexRange jb =
-            pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior, te);
-        static const IndexRange kb =
-            pmb->c_cellbounds.GetBoundsK(IndexDomain::interior, te);
-
+      for (auto te : var->GetTopologicalElements()) {
+        IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::interior, te);
+        IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior, te);
+        IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior, te);
+        // Deal with ownership of shared elements by removing right side of index
+        // space if fine block is on the left side of a direction
+        if (ox3 == 0) kb.e -= TopologicalOffsetK(te);
+        if (ox2 == 0) jb.e -= TopologicalOffsetJ(te);
+        if (ox1 == 0) ib.e -= TopologicalOffsetI(te);
         const int ks = (ox3 == 0) ? 0 : (kb.e - kb.s + 1 - TopologicalOffsetK(te));
         const int js = (ox2 == 0) ? 0 : (jb.e - jb.s + 1 - TopologicalOffsetJ(te));
         const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1 - TopologicalOffsetI(te));
