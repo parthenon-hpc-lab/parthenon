@@ -103,7 +103,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
   // the current block in some cases
   std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
                                 TopologicalOffsetK(el)};
-  std::array<int, 3> block_offset{ni.ox1, ni.ox2, ni.ox3};
+  std::array<int, 3> block_offset = {ni.ox1, ni.ox2, ni.ox3};
   std::array<std::int64_t, 3> logic_loc{loc.lx1(), loc.lx2(), loc.lx3()};
   std::array<std::int64_t, 3> nb_logic_loc{nb.loc.lx1(), nb.loc.lx2(), nb.loc.lx3()};
 
@@ -220,6 +220,73 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   } else {
     out.var = v->data.Get();
   }
+  return out;
+}
+
+ProResInfo ProResInfo::GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
+                                           std::shared_ptr<Variable<Real>> v) {
+  ProResInfo out;
+
+  out.allocated = v->IsAllocated();
+  if (!out.allocated) return out;
+
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
+
+  int mylevel = pmb->loc.level();
+  out.coords = pmb->coords;
+
+  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
+
+  out.fine = v->data.Get();
+  out.coarse = v->coarse_s.Get();
+  NeighborBlock nb;
+  // Make the neighbor block coincide with this block
+  nb.SetNeighbor(pmb->loc, Globals::my_rank, mylevel, 0, 0, 0, 0, 0,
+                 NeighborConnect::none, 0, 0);
+  nb.ownership = block_ownership_t(true);
+
+  auto elements = GetTopologicalElements(v);
+  out.ntopological_elements = elements.size();
+  for (auto el : elements) {
+    out.idxer[static_cast<int>(el)] =
+        CalcIndices(nb, pmb, el, IndexRangeType::Interior, true, {Nt, Nu, Nv});
+  }
+  out.refinement_op = RefinementOp_t::Restriction;
+  return out;
+}
+
+ProResInfo ProResInfo::GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
+                                             std::shared_ptr<Variable<Real>> v) {
+  ProResInfo out;
+
+  out.allocated = v->IsAllocated();
+  if (!out.allocated) return out;
+
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
+
+  int mylevel = pmb->loc.level();
+  out.coords = pmb->coords;
+
+  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
+
+  out.fine = v->data.Get();
+  out.coarse = v->coarse_s.Get();
+  NeighborBlock nb;
+  // Make the neighbor block coincide with this block
+  nb.SetNeighbor(pmb->loc, Globals::my_rank, mylevel, 0, 0, 0, 0, 0,
+                 NeighborConnect::none, 0, 0);
+  nb.ownership = block_ownership_t(true);
+
+  auto elements = GetTopologicalElements(v);
+  out.ntopological_elements = elements.size();
+  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
+    out.idxer[static_cast<int>(el)] =
+        CalcIndices(nb, pmb, el, IndexRangeType::Exterior, true, {Nt, Nu, Nv});
+  out.refinement_op = RefinementOp_t::Prolongation;
   return out;
 }
 

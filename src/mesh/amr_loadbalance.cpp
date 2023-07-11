@@ -732,23 +732,33 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
   // Restrict fine to coarse buffers
+  ProResCache_t restriction_cache;
+  int nrestrict = 0;
   for (int on = onbs; on <= onbe; on++) {
     int nn = oldtonew[on];
     if (newloc[nn].level() < loclist[on].level()) {
-      const IndexDomain interior = IndexDomain::interior;
       auto pmb = FindMeshBlock(on);
-      IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-      IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-      IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-      // Need to restrict this block before doing sends
+      for (auto &var : pmb->vars_cc_)
+        nrestrict++;
+    }
+  }
+  restriction_cache.Initialize(nrestrict, resolved_packages.get());
+  int irestrict = 0;
+  for (int on = onbs; on <= onbe; on++) {
+    int nn = oldtonew[on];
+    if (newloc[nn].level() < loclist[on].level()) {
+      auto pmb = FindMeshBlock(on);
       for (auto &var : pmb->vars_cc_) {
-        if (var->IsAllocated()) {
-          pmb->pmr->RestrictCellCenteredValues(var.get(), cib.s, cib.e, cjb.s, cjb.e,
-                                               ckb.s, ckb.e);
-        }
+        restriction_cache.RegisterRegionHost(irestrict++,
+                                             ProResInfo::GetInteriorRestrict(pmb, var),
+                                             var.get(), resolved_packages.get());
       }
     }
   }
+  restriction_cache.CopyToDevice();
+  refinement::Restrict(resolved_packages.get(), restriction_cache,
+                       block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+
   Kokkos::fence();
 
 #ifdef MPI_PARALLEL
