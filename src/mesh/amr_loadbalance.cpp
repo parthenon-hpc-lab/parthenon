@@ -206,7 +206,9 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
         IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior, te);
         IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior, te);
         // Deal with ownership of shared elements by removing right side of index
-        // space if fine block is on the left side of a direction
+        // space if fine block is on the left side of a direction. I think this
+        // should work fine even if the ownership model is changed elsewhere, since
+        // the fine blocks should be consistent in their shared elements at this point
         if (ox3 == 0) kb.e -= TopologicalOffsetK(te);
         if (ox2 == 0) jb.e -= TopologicalOffsetJ(te);
         if (ox1 == 0) ib.e -= TopologicalOffsetI(te);
