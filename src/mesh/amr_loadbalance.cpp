@@ -912,7 +912,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
                                block_list[0]->cellbounds, block_list[0]->c_cellbounds);
   refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                         block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+                                 block_list[0]->cellbounds, block_list[0]->c_cellbounds);
 
 #ifdef MPI_PARALLEL
   if (send_reqs.size() != 0)

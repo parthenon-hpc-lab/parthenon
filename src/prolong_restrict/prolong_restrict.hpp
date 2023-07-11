@@ -47,8 +47,9 @@ namespace refinement {
 void Restrict(const StateDescriptor *resolved_packages, const ProResCache_t &cache,
               const IndexShape &cellbnds, const IndexShape &c_cellbnds);
 
-void ProlongateShared(const StateDescriptor *resolved_packages, const ProResCache_t &cache,
-                      const IndexShape &cellbnds, const IndexShape &c_cellbnds);
+void ProlongateShared(const StateDescriptor *resolved_packages,
+                      const ProResCache_t &cache, const IndexShape &cellbnds,
+                      const IndexShape &c_cellbnds);
 
 void ProlongateInternal(const StateDescriptor *resolved_packages,
                         const ProResCache_t &cache, const IndexShape &cellbnds,
