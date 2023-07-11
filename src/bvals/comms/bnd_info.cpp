@@ -37,13 +37,33 @@
 
 namespace {
 enum class InterfaceType { SameToSame, CoarseToFine, FineToCoarse };
+enum class IndexRangeType { Interior, Exterior, Shared };
+
+using namespace parthenon;
+std::vector<TopologicalElement>
+GetTopologicalElements(const std::shared_ptr<Variable<Real>> &v) {
+  using TE = TopologicalElement;
+  if (v->IsSet(Metadata::Face)) return {TE::F1, TE::F2, TE::F3};
+  if (v->IsSet(Metadata::Edge)) return {TE::E1, TE::E2, TE::E3};
+  if (v->IsSet(Metadata::Node)) return {TE::NN};
+  return {TE::CC};
 }
+} // namespace
 namespace parthenon {
 
-template <InterfaceType INTERFACE>
-SpatiallyMaskedIndexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalElement el,
-                                         std::array<int, 3> tensor_shape,
-                                         const parthenon::IndexShape &shape) {
+SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
+                                     std::shared_ptr<MeshBlock> pmb,
+                                     TopologicalElement el, IndexRangeType ir_type,
+                                     bool prores, std::array<int, 3> tensor_shape) {
+  const auto &ni = nb.ni;
+  auto loc = pmb->loc;
+  auto shape = pmb->cellbounds;
+  // Both prolongation and restriction always operate in the coarse
+  // index space. Also need to use the coarse index space if the
+  // neighbor is coarser than you, wether or not you are setting
+  // interior or exterior cells
+  if (prores || nb.loc.level() < loc.level()) shape = pmb->c_cellbounds;
+
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
                                    shape.GetBoundsJ(interior, el),
@@ -56,102 +76,70 @@ SpatiallyMaskedIndexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalE
   std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset{ni.ox1, ni.ox2, ni.ox3};
-  std::array<int, 2> face_offset{ni.fi1, ni.fi2};
-
-  int off_idx = 0;
-  std::array<int, 3> s, e;
-  for (int dir = 0; dir < 3; ++dir) {
-    if (block_offset[dir] == 0) {
-      s[dir] = bounds[dir].s;
-      e[dir] = bounds[dir].e;
-      if ((INTERFACE == InterfaceType::CoarseToFine) &&
-          bounds[dir].e > bounds[dir].s) { // Check that this dimension has ghost zones
-        // We are sending from a coarser level to the coarse buffer of a finer level,
-        // so we need to only send the approximately half of the indices that overlap
-        // with the other block. We also send nghost "extra" zones in the interior
-        // to ensure there is enough information for prolongation. Also note for
-        // non-cell centered values the number of grid points may be odd, so we
-        // pick up an extra zone that is communicated. I think this is ok, but
-        // something to keep in mind if there are issues.
-        const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
-        s[dir] += face_offset[off_idx] == 1 ? half_grid - Globals::nghost : 0;
-        e[dir] -= face_offset[off_idx] == 0 ? half_grid - Globals::nghost : 0;
-      }
-      ++off_idx; // Offsets are listed in X1,X2,X3 order, should never try to access
-                 // with off_idx > 1 since all neighbors must have a non-zero block
-                 // offset in some direction
-    } else if (block_offset[dir] > 0) {
-      s[dir] = bounds[dir].e - Globals::nghost + 1 - top_offset[dir];
-      e[dir] = bounds[dir].e;
-    } else {
-      s[dir] = bounds[dir].s;
-      e[dir] = bounds[dir].s + Globals::nghost - 1 + top_offset[dir];
-    }
-  }
-  block_ownership_t owns(true);
-  return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
-                                  {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},
-                                  {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
-}
-
-template <InterfaceType INTERFACE, bool PROLONGATEORRESTRICT = false>
-SpatiallyMaskedIndexer6D
-CalcSetIndices(const NeighborBlock &nb, LogicalLocation loc, TopologicalElement el,
-               std::array<int, 3> tensor_shape, const parthenon::IndexShape &shape) {
-  const auto &ni = nb.ni;
-  IndexDomain interior = IndexDomain::interior;
-  std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
-                                   shape.GetBoundsJ(interior, el),
-                                   shape.GetBoundsK(interior, el)};
-
-  std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
-                                TopologicalOffsetK(el)};
-  std::array<int, 3> block_offset{ni.ox1, ni.ox2, ni.ox3};
-  // This is gross, but the face offsets do not contain the correct
-  // information for going from coarse to fine and the neighbor block
-  // structure does not contain the logical location of the neighbor
-  // block
   std::array<std::int64_t, 3> logic_loc{loc.lx1(), loc.lx2(), loc.lx3()};
-  std::array<int, 2> face_offset{ni.fi1, ni.fi2};
-  std::array<int, 3> s, e;
+  std::array<std::int64_t, 3> nb_logic_loc{nb.loc.lx1(), nb.loc.lx2(), nb.loc.lx3()};
 
-  // This is the inverse of CalcLoadIndices, but we don't require any topological element
-  // information beyond what we have in the IndexRanges
-  const int ghosts = PROLONGATEORRESTRICT ? Globals::nghost / 2 : Globals::nghost;
-  int off_idx = 0;
+  int interior_offset = ir_type == IndexRangeType::Interior ? Globals::nghost : 0;
+  int exterior_offset = ir_type == IndexRangeType::Exterior ? Globals::nghost : 0;
+  if (prores) {
+    // The coarse ghosts cover twice as much volume as the fine ghosts, so when working in
+    // the exterior we must only go over the coarse ghosts that have corresponding fine
+    // ghosts
+    exterior_offset /= 2;
+  }
+
+  std::array<int, 3> s, e;
   for (int dir = 0; dir < 3; ++dir) {
     if (block_offset[dir] == 0) {
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
-      if ((INTERFACE == InterfaceType::CoarseToFine) && bounds[dir].e > bounds[dir].s) {
-        s[dir] -= logic_loc[dir] % 2 == 1 ? ghosts : 0;
-        e[dir] += logic_loc[dir] % 2 == 0 ? ghosts : 0;
-      } else if (INTERFACE == InterfaceType::FineToCoarse) {
+      if ((loc.level() < nb.loc.level()) &&
+          bounds[dir].e > bounds[dir].s) { // Check that this dimension has ghost zones
+        // The requested neighbor block is at a finer level, so it only abuts
+        // approximately half of the zones in any given direction with offset zero. If we
+        // are asking for an interior index range, we also send nghost "extra" zones in
+        // the interior to ensure there is enough information for prolongation. Also note
+        // for non-cell centered values the number of grid points may be odd, so we pick
+        // up an extra zone that is communicated. I think this is ok, but something to
+        // keep in mind if there are issues.
         const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
-        s[dir] += face_offset[off_idx] == 1 ? half_grid : 0;
-        e[dir] -= face_offset[off_idx] == 0 ? half_grid : 0;
+        s[dir] += nb_logic_loc[dir] % 2 == 1 ? half_grid - interior_offset : 0;
+        e[dir] -= nb_logic_loc[dir] % 2 == 0 ? half_grid - interior_offset : 0;
       }
-      ++off_idx;
+      if (loc.level() > nb.loc.level() && bounds[dir].e > bounds[dir].s) {
+        // If we are setting (i.e. have non-zero exterior_offset) from a neighbor block
+        // that is coarser, we got extra ghost zones from the neighbor (see inclusion of
+        // interior_offset in the above if block)
+        s[dir] -= logic_loc[dir] % 2 == 1 ? exterior_offset : 0;
+        e[dir] += logic_loc[dir] % 2 == 0 ? exterior_offset : 0;
+      }
     } else if (block_offset[dir] > 0) {
-      s[dir] = bounds[dir].e + 1 - top_offset[dir];
-      e[dir] = bounds[dir].e + ghosts;
+      s[dir] = bounds[dir].e - interior_offset + 1 - top_offset[dir];
+      e[dir] = bounds[dir].e + exterior_offset;
     } else {
-      s[dir] = bounds[dir].s - ghosts;
-      e[dir] = bounds[dir].s - 1 + top_offset[dir];
+      s[dir] = bounds[dir].s - exterior_offset;
+      e[dir] = bounds[dir].s + interior_offset - 1 + top_offset[dir];
     }
   }
-  int sox1 = -ni.ox1;
-  int sox2 = -ni.ox2;
-  int sox3 = -ni.ox3;
-  if (INTERFACE == InterfaceType::CoarseToFine) {
-    // For coarse to fine interfaces, we are passing zones from only an
-    // interior corner of the cell, never an entire face or edge
-    if (sox1 == 0) sox1 = logic_loc[0] % 2 == 1 ? 1 : -1;
-    if (sox2 == 0) sox2 = logic_loc[1] % 2 == 1 ? 1 : -1;
-    if (sox3 == 0) sox3 = logic_loc[2] % 2 == 1 ? 1 : -1;
+
+  block_ownership_t owns(true);
+  // Although it wouldn't hurt to include ownership when producing an interior
+  // index range, it is unecessary. This is probably not immediately obvious,
+  // but it is possible to convince oneself that dealing with ownership in
+  // only exterior index ranges works correctly
+  if (ir_type == IndexRangeType::Exterior) {
+    int sox1 = -ni.ox1;
+    int sox2 = -ni.ox2;
+    int sox3 = -ni.ox3;
+    if (nb.loc.level() < loc.level()) {
+      // For coarse to fine interfaces, we are passing zones from only an
+      // interior corner of the cell, never an entire face or edge
+      if (sox1 == 0) sox1 = logic_loc[0] % 2 == 1 ? 1 : -1;
+      if (sox2 == 0) sox2 = logic_loc[1] % 2 == 1 ? 1 : -1;
+      if (sox3 == 0) sox3 = logic_loc[2] % 2 == 1 ? 1 : -1;
+    }
+    owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, sox1, sox2, sox3);
   }
-  block_ownership_t owns =
-      GetIndexRangeMaskFromOwnership(el, nb.ownership, sox1, sox2, sox3);
   return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
                                   {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},
                                   {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
@@ -198,30 +186,20 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
 
-  using TE = TopologicalElement;
-  std::vector<TopologicalElement> elements = {TE::CC};
-  if (v->IsSet(Metadata::Face)) elements = {TE::F1, TE::F2, TE::F3};
-  if (v->IsSet(Metadata::Edge)) elements = {TE::E1, TE::E2, TE::E3};
-  if (v->IsSet(Metadata::Node)) elements = {TE::NN};
-
+  auto elements = GetTopologicalElements(v);
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
+    out.idxer[idx] =
+        CalcIndices(nb, pmb, el, IndexRangeType::Interior, false, {Nt, Nu, Nv});
     if (nb.snb.level == mylevel) {
-      out.idxer[idx] = CalcLoadIndices<InterfaceType::SameToSame>(nb.ni, el, {Nt, Nu, Nv},
-                                                                  pmb->cellbounds);
       out.var = v->data.Get();
     } else if (nb.snb.level < mylevel) {
-      // "Same" logic is the same for loading to a coarse buffer, just using
-      // c_cellbounds
-      out.idxer[idx] = CalcLoadIndices<InterfaceType::FineToCoarse>(
-          nb.ni, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
-      out.prores_idxer[static_cast<int>(el)] = out.idxer[idx];
+      out.prores_idxer[static_cast<int>(el)] =
+          CalcIndices(nb, pmb, el, IndexRangeType::Interior, true, {Nt, Nu, Nv});
       out.refinement_op = RefinementOp_t::Restriction;
       out.var = v->coarse_s.Get();
     } else {
-      out.idxer[idx] = CalcLoadIndices<InterfaceType::CoarseToFine>(
-          nb.ni, el, {Nt, Nu, Nv}, pmb->cellbounds);
       out.var = v->data.Get();
     }
   }
@@ -248,12 +226,6 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   int Nu = v->GetDim(5);
   int Nt = v->GetDim(6);
 
-  using TE = TopologicalElement;
-  std::vector<TopologicalElement> elements = {TE::CC};
-  if (v->IsSet(Metadata::Face)) elements = {TE::F1, TE::F2, TE::F3};
-  if (v->IsSet(Metadata::Edge)) elements = {TE::E1, TE::E2, TE::E3};
-  if (v->IsSet(Metadata::Node)) elements = {TE::NN};
-
   int mylevel = pmb->loc.level();
   out.coords = pmb->coords;
   if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
@@ -274,35 +246,21 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     }
   }
 
+  auto elements = GetTopologicalElements(v);
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
-    if (nb.snb.level == mylevel) {
-      out.var = v->data.Get();
-      out.idxer[idx] = CalcSetIndices<InterfaceType::SameToSame>(
-          nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
-      if (restricted) {
-        out.refinement_op = RefinementOp_t::Restriction;
-        out.prores_idxer[static_cast<int>(el)] =
-            CalcSetIndices<InterfaceType::SameToSame, true>(
-                nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
-      }
-    } else if (nb.snb.level < mylevel) {
-      out.idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine>(
-          nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+    out.idxer[idx] =
+        CalcIndices(nb, pmb, el, IndexRangeType::Exterior, false, {Nt, Nu, Nv});
+    if (nb.snb.level < mylevel) {
       out.var = v->coarse_s.Get();
       out.refinement_op = RefinementOp_t::Prolongation;
-      out.prores_idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine, true>(
-          nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
     } else {
       out.var = v->data.Get();
-      out.idxer[idx] = CalcSetIndices<InterfaceType::FineToCoarse>(
-          nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
         out.prores_idxer[static_cast<int>(el)] =
-            CalcSetIndices<InterfaceType::FineToCoarse, true>(
-                nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+            CalcIndices(nb, pmb, el, IndexRangeType::Exterior, true, {Nt, Nu, Nv});
       }
     }
   }
@@ -317,13 +275,10 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   //      matter since each 6D indexer contains 18 ints and we are always carrying around
   //      10 indexers per bound info even if the field isn't allocated
   if (nb.snb.level < mylevel) {
-    for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN}) {
+    for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
       out.prores_idxer[static_cast<int>(el)] =
-          CalcSetIndices<InterfaceType::CoarseToFine, true>(
-              nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
-    }
+          CalcIndices(nb, pmb, el, IndexRangeType::Exterior, true, {Nt, Nu, Nv});
   }
-
   return out;
 }
 
@@ -461,5 +416,73 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
       {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   return out;
 }
+/*
+ProResInfo GetRestriction(std::shared_ptr<MeshBlock> pmb, std::shared_ptr<Variable<Real>>
+var, const NeighborBlock &nb, bool interior) { LogicalLocation target_loc = pmb->loc;
+  // This assumes that we are prolongating from the region of the coarse buffer of var
+that comes from origin_loc
+  // to the fine buffer of var (which is located at target_loc)
+
+  ProResInfo out;
+
+  if (target_loc.level() > origin_loc.level()) {
+    out.refinement_op = RefinementOp_t::None;
+    return out;
+  }
+
+  out.allocated = v->IsAllocated();
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
+  out.fine = v->data.Get();
+  out.coarse = v->coarse_s.Get();
+  out.coords = pmb->coords;
+  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
+  out.refinement_op = RefinementOp_t::Restriction;
+
+  using TE = TopologicalElement;
+  std::vector<TopologicalElement> elements = {TE::CC};
+  if (v->IsSet(Metadata::Face)) elements = {TE::F1, TE::F2, TE::F3};
+  if (v->IsSet(Metadata::Edge)) elements = {TE::E1, TE::E2, TE::E3};
+  if (v->IsSet(Metadata::Node)) elements = {TE::NN};
+
+  for (auto el : elements) {
+    out.prores_idxer[static_cast<int>(el)] =
+  }
+  return out;
+}
+
+ProResInfo GetProlongation(std::shared_ptr<MeshBlock> pmb, std::shared_ptr<Variable<Real>>
+var, const NeighborBlock &nb) { LogicalLocation target_loc = pmb->loc;
+  // This assumes that we are prolongating from the region of the coarse buffer of var
+that comes from origin_loc
+  // to the fine buffer of var (which is located at target_loc)
+
+  ProResInfo out;
+
+  if (target_loc.level() <= origin_loc.level()) {
+    out.refinement_op = RefinementOp_t::None;
+    return out;
+  }
+
+  out.allocated = v->IsAllocated();
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
+  out.fine = v->data.Get();
+  out.coarse = v->coarse_s.Get();
+  out.coords = pmb->coords;
+  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
+  out.refinement_op = RefinementOp_t::Prolongation;
+
+  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN}) {
+      out.prores_idxer[static_cast<int>(el)] =
+          CalcSetIndices<InterfaceType::CoarseToFine, true>(
+              nb, target_loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+  }
+
+  return out;
+}
+*/
 
 } // namespace parthenon
