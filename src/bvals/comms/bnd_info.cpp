@@ -26,6 +26,7 @@
 #include "bvals/comms/bnd_info.hpp"
 #include "config.hpp"
 #include "globals.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
@@ -50,6 +51,27 @@ GetTopologicalElements(const std::shared_ptr<Variable<Real>> &v) {
 }
 } // namespace
 namespace parthenon {
+
+void ProResCache_t::Initialize(int n_regions, StateDescriptor *pkg) {
+  prores_info = ParArray1D<ProResInfo>("prores_info", n_regions);
+  prores_info_h = Kokkos::create_mirror_view(prores_info); 
+  int nref_funcs = pkg->NumRefinementFuncs();
+  // Note that assignment of Kokkos views resets them, but
+  // buffer_subset_sizes is a std::vector. It must be cleared, then
+  // re-filled.
+  buffer_subset_sizes.clear();
+  buffer_subset_sizes.resize(nref_funcs, 0);
+  buffer_subsets = ParArray2D<std::size_t>("buffer_subsets", nref_funcs, n_regions);
+  buffer_subsets_h = Kokkos::create_mirror_view(buffer_subsets); 
+}
+
+void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real> *v, StateDescriptor *pkg) {
+  prores_info_h(region) = pri; 
+  if (v->IsRefined()) {
+    std::size_t rfid = pkg->RefinementFuncID((v->GetRefinementFunctions()));
+    buffer_subsets_h(rfid, buffer_subset_sizes[rfid]++) = region;
+  }
+}
 
 SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
                                      std::shared_ptr<MeshBlock> pmb,
@@ -202,6 +224,98 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
     } else {
       out.var = v->data.Get();
     }
+  }
+  return out;
+}
+
+ProResInfo ProResInfo::GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                               std::shared_ptr<Variable<Real>> v) {
+  ProResInfo out;
+
+  out.allocated = v->IsAllocated();
+  if (!out.allocated) return out;
+
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
+
+  int mylevel = pmb->loc.level();
+  out.coords = pmb->coords;
+
+  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
+
+  out.fine = v->data.Get();
+  out.coarse = v->coarse_s.Get();
+
+  auto elements = GetTopologicalElements(v);
+  out.ntopological_elements = elements.size();
+  if (nb.snb.level < mylevel) {
+    for (auto el : elements) {
+      int idx = static_cast<int>(el) % 3;
+      out.prores_idxer[static_cast<int>(el)] =
+          CalcIndices(nb, pmb, el, IndexRangeType::Interior, true, {Nt, Nu, Nv});
+      out.refinement_op = RefinementOp_t::Restriction;
+    }
+  }
+  return out;
+}
+
+ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                              std::shared_ptr<Variable<Real>> v) {
+  ProResInfo out;
+  out.allocated = v->IsAllocated();
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
+
+  int mylevel = pmb->loc.level();
+  out.coords = pmb->coords;
+  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
+  out.fine = v->data.Get();
+  out.coarse = v->coarse_s.Get();
+
+  // This will select a superset of the boundaries that actually need to be restricted,
+  // more logic could be added to only restrict boundary regions that abut boundary
+  // regions that were filled by coarser neighbors
+  bool restricted = false;
+  if (mylevel > 0) {
+    for (int k = 0; k < 3; ++k) {
+      for (int j = 0; j < 3; ++j) {
+        for (int i = 0; i < 3; ++i) {
+          restricted = restricted || (pmb->pbval->nblevel[k][j][i] == (mylevel - 1));
+        }
+      }
+    }
+  }
+
+  auto elements = GetTopologicalElements(v);
+  out.ntopological_elements = elements.size();
+  for (auto el : elements) {
+    int idx = static_cast<int>(el) % 3;
+    if (nb.snb.level < mylevel) {
+      out.refinement_op = RefinementOp_t::Prolongation;
+    } else {
+      if (restricted) {
+        out.refinement_op = RefinementOp_t::Restriction;
+        out.prores_idxer[static_cast<int>(el)] =
+            CalcIndices(nb, pmb, el, IndexRangeType::Exterior, true, {Nt, Nu, Nv});
+      }
+    }
+  }
+
+  // LFR: All of these are not necessarily required, but some subset are for internal
+  // prolongation.
+  //      if the variable is NXYZ we require (C, FX, FY, FZ, EXY, EXZ, EYZ, NXYZ)
+  //      if the variable is EXY we require (C, FX, FY, EXY), etc.
+  //      if the variable is FX we require (C, FX), etc.
+  //      if the variable is C we require (C)
+  //      I doubt that the extra calculations matter, but the storage overhead could
+  //      matter since each 6D indexer contains 18 ints and we are always carrying around
+  //      10 indexers per bound info even if the field isn't allocated
+  if (nb.snb.level < mylevel) {
+    for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
+      out.prores_idxer[static_cast<int>(el)] =
+          CalcIndices(nb, pmb, el, IndexRangeType::Exterior, true, {Nt, Nu, Nv});
   }
   return out;
 }

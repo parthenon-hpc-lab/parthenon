@@ -84,7 +84,7 @@ void MeshRefinement::RestrictCellCenteredValues(Variable<Real> *var, int csi, in
   // TODO(JMM): We're allocating on the heap here... we could move to
   // the stack by giving these functions pointers to underlying data?
   // Probably not worth it, as these functions will be completely removed soon.
-  BufferCacheHost_t info_h("refinement info", nbuffers);
+  ProResInfoArrHost_t info_h("refinement info", nbuffers);
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused.
@@ -116,7 +116,7 @@ void MeshRefinement::ProlongateCellCenteredValues(Variable<Real> *var, int si, i
   // TODO(JMM): We're allocating on the heap here... we could move to
   // the stack by giving these functions pointers to underlying data?
   // Probably not worth it, as these functions will be completely removed soon.
-  BufferCacheHost_t info_h("refinement info", nbuffers);
+  ProResInfoArrHost_t info_h("refinement info", nbuffers);
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused

@@ -216,10 +216,13 @@ inline auto CheckNoCommCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
 using F_BND_INFO = std::function<BndInfo(
     std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
     std::shared_ptr<Variable<Real>> v, CommBuffer<buf_pool_t<Real>::owner_t> *buf)>;
+using F_PRORES_INFO = std::function<ProResInfo(
+    std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+    std::shared_ptr<Variable<Real>> v)>;
 
 template <BoundaryType BOUND_TYPE, bool SENDER>
 inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
-                               F_BND_INFO BndInfoCreator) {
+                               F_BND_INFO BndInfoCreator, F_PRORES_INFO ProResInfoCreator) {
   using namespace loops;
   using namespace loops::shorthands;
   BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
@@ -234,6 +237,8 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   StateDescriptor *pkg = (pmesh->resolved_packages).get();
   if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
                   (BOUND_TYPE == BoundaryType::flxcor_recv))) {
+
+    cache.prores_cache.Initialize(nbound, pkg); 
     int nref_funcs = pkg->NumRefinementFuncs();
     // Note that assignment of Kokkos views resets them, but
     // buffer_subset_sizes is a std::vector. It must be cleared, then
@@ -265,6 +270,7 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
             std::size_t rfid = pkg->RefinementFuncID((v->GetRefinementFunctions()));
             cache.buffer_subsets_h(rfid, cache.buffer_subset_sizes[rfid]++) = ibuf;
           }
+          cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v), v.get(), pkg);
         }
 
         ++ibound;

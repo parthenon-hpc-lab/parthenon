@@ -44,14 +44,14 @@ namespace refinement {
 
 // TODO(JMM): Add a prolongate when prolongation is called in-one
 // TODO(JMM): Is this actually the API we want?
-void Restrict(const StateDescriptor *resolved_packages, const BvarsSubCache_t &cache,
+void Restrict(const StateDescriptor *resolved_packages, const ProResCache_t &cache,
               const IndexShape &cellbnds, const IndexShape &c_cellbnds);
 
-void Prolongate(const StateDescriptor *resolved_packages, const BvarsSubCache_t &cache,
+void Prolongate(const StateDescriptor *resolved_packages, const ProResCache_t &cache,
                 const IndexShape &cellbnds, const IndexShape &c_cellbnds);
 
 void ProlongateInternal(const StateDescriptor *resolved_packages,
-                        const BvarsSubCache_t &cache, const IndexShape &cellbnds,
+                        const ProResCache_t &cache, const IndexShape &cellbnds,
                         const IndexShape &c_cellbnds);
 
 // std::function closures for the top-level restriction functions The
@@ -61,17 +61,18 @@ void ProlongateInternal(const StateDescriptor *resolved_packages,
 // TODO(JMM): I don't love having
 // two overloads here.  However when we shift entirely to in-one
 // machinery, the info_h only overload will go away.
+
 using Restrictor_t = std::function<void(
-    const BufferCache_t &, const BufferCacheHost_t &, const loops::Idx_t &,
+    const ProResInfoArr_t &, const ProResInfoArrHost_t &, const loops::Idx_t &,
     const loops::IdxHost_t &, const IndexShape &, const IndexShape &, const std::size_t)>;
 using RestrictorHost_t =
-    std::function<void(const BufferCacheHost_t &, const loops::IdxHost_t &,
+    std::function<void(const ProResInfoArrHost_t &, const loops::IdxHost_t &,
                        const IndexShape &, const IndexShape &, const std::size_t)>;
 using Prolongator_t = std::function<void(
-    const BufferCache_t &, const BufferCacheHost_t &, const loops::Idx_t &,
+    const ProResInfoArr_t &, const ProResInfoArrHost_t &, const loops::Idx_t &,
     const loops::IdxHost_t &, const IndexShape &, const IndexShape &, const std::size_t)>;
 using ProlongatorHost_t =
-    std::function<void(const BufferCacheHost_t &, const loops::IdxHost_t &,
+    std::function<void(const ProResInfoArrHost_t &, const loops::IdxHost_t &,
                        const IndexShape &, const IndexShape &, const std::size_t)>;
 
 // Container struct owning refinement functions/closures.
@@ -96,7 +97,7 @@ struct RefinementFunctions_t {
         std::string(typeid(InternalProlongationOp).name());
 
     RefinementFunctions_t funcs(label);
-    funcs.restrictor = [](const BufferCache_t &info, const BufferCacheHost_t &info_h,
+    funcs.restrictor = [](const ProResInfoArr_t &info, const ProResInfoArrHost_t &info_h,
                           const loops::Idx_t &idxs, const loops::IdxHost_t &idxs_h,
                           const IndexShape &cellbnds, const IndexShape &c_cellbnds,
                           const std::size_t nbuffers) {
@@ -104,14 +105,14 @@ struct RefinementFunctions_t {
           cellbnds, info, info_h, idxs, idxs_h, cellbnds, c_cellbnds,
           RefinementOp_t::Restriction, nbuffers);
     };
-    funcs.restrictor_host = [](const BufferCacheHost_t &info_h,
+    funcs.restrictor_host = [](const ProResInfoArrHost_t &info_h,
                                const loops::IdxHost_t &idxs_h, const IndexShape &cellbnds,
                                const IndexShape &c_cellbnds, const std::size_t nbuffers) {
       loops::DoProlongationRestrictionOp<RestrictionOp>(
           cellbnds, info_h, idxs_h, cellbnds, c_cellbnds, RefinementOp_t::Restriction,
           nbuffers);
     };
-    funcs.prolongator = [](const BufferCache_t &info, const BufferCacheHost_t &info_h,
+    funcs.prolongator = [](const ProResInfoArr_t &info, const ProResInfoArrHost_t &info_h,
                            const loops::Idx_t &idxs, const loops::IdxHost_t &idxs_h,
                            const IndexShape &cellbnds, const IndexShape &c_cellbnds,
                            const std::size_t nbuffers) {
@@ -119,7 +120,7 @@ struct RefinementFunctions_t {
           cellbnds, info, info_h, idxs, idxs_h, cellbnds, c_cellbnds,
           RefinementOp_t::Prolongation, nbuffers);
     };
-    funcs.prolongator_host = [](const BufferCacheHost_t &info_h,
+    funcs.prolongator_host = [](const ProResInfoArrHost_t &info_h,
                                 const loops::IdxHost_t &idxs_h,
                                 const IndexShape &cellbnds, const IndexShape &c_cellbnds,
                                 const std::size_t nbuffers) {
@@ -128,7 +129,7 @@ struct RefinementFunctions_t {
           nbuffers);
     };
     funcs.internal_prolongator =
-        [](const BufferCache_t &info, const BufferCacheHost_t &info_h,
+        [](const ProResInfoArr_t &info, const ProResInfoArrHost_t &info_h,
            const loops::Idx_t &idxs, const loops::IdxHost_t &idxs_h,
            const IndexShape &cellbnds, const IndexShape &c_cellbnds,
            const std::size_t nbuffers) {
@@ -137,7 +138,7 @@ struct RefinementFunctions_t {
               RefinementOp_t::Prolongation, nbuffers);
         };
     funcs.internal_prolongator_host =
-        [](const BufferCacheHost_t &info_h, const loops::IdxHost_t &idxs_h,
+        [](const ProResInfoArrHost_t &info_h, const loops::IdxHost_t &idxs_h,
            const IndexShape &cellbnds, const IndexShape &c_cellbnds,
            const std::size_t nbuffers) {
           loops::DoProlongationRestrictionOp<InternalProlongationOp>(
