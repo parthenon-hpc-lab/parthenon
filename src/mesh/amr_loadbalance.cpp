@@ -736,11 +736,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int nrestrict = 0;
   for (int on = onbs; on <= onbe; on++) {
     int nn = oldtonew[on];
-    if (newloc[nn].level() < loclist[on].level()) {
-      auto pmb = FindMeshBlock(on);
-      for (auto &var : pmb->vars_cc_)
-        nrestrict++;
-    }
+    auto pmb = FindMeshBlock(on);
+    if (newloc[nn].level() < loclist[on].level()) nrestrict += pmb->vars_cc_.size();
   }
   restriction_cache.Initialize(nrestrict, resolved_packages.get());
   int irestrict = 0;
@@ -901,25 +898,29 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   Kokkos::fence();
 
   // Prolongate blocks that had a coarse buffer filled (i.e. c2f blocks)
+  ProResCache_t prolongation_cache;
+  int nprolong = 0;
   for (int nn = nbs; nn <= nbe; nn++) {
     int on = newtoold[nn];
-    LogicalLocation &oloc = loclist[on];
-    LogicalLocation &nloc = newloc[nn];
     auto pmb = FindMeshBlock(nn);
-    if (nloc.level() > oloc.level()) {
-      const IndexDomain interior = IndexDomain::interior;
-      IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-      IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-      IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-      // Need to restrict this block before doing sends
+    if (newloc[nn].level() > loclist[on].level()) nprolong += pmb->vars_cc_.size();
+  }
+  prolongation_cache.Initialize(nprolong, resolved_packages.get());
+  int iprolong = 0;
+  for (int nn = nbs; nn <= nbe; nn++) {
+    int on = newtoold[nn];
+    if (newloc[nn].level() > loclist[on].level()) {
+      auto pmb = FindMeshBlock(nn);
       for (auto &var : pmb->vars_cc_) {
-        if (var->IsAllocated()) {
-          pmb->pmr->ProlongateCellCenteredValues(var.get(), cib.s, cib.e, cjb.s, cjb.e,
-                                                 ckb.s, ckb.e);
-        }
+        prolongation_cache.RegisterRegionHost(iprolong++,
+                                              ProResInfo::GetInteriorProlongate(pmb, var),
+                                              var.get(), resolved_packages.get());
       }
     }
   }
+  prolongation_cache.CopyToDevice();
+  refinement::Prolongate(resolved_packages.get(), prolongation_cache,
+                         block_list[0]->cellbounds, block_list[0]->c_cellbounds);
 
 #ifdef MPI_PARALLEL
   if (send_reqs.size() != 0)
