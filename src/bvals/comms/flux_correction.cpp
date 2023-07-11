@@ -63,8 +63,8 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   }
 
   if (rebuild)
-    RebuildBufferCache<BoundaryType::flxcor_send, true>(md, nbound,
-                                                        BndInfo::GetSendCCFluxCor, ProResInfo::GetSend);
+    RebuildBufferCache<BoundaryType::flxcor_send, true>(
+        md, nbound, BndInfo::GetSendCCFluxCor, ProResInfo::GetSend);
 
   auto &bnd_info = cache.bnd_info;
   PARTHENON_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
@@ -164,8 +164,8 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   auto [rebuild, nbound] =
       CheckReceiveBufferCacheForRebuild<BoundaryType::flxcor_recv, false>(md);
   if (rebuild)
-    RebuildBufferCache<BoundaryType::flxcor_recv, false>(md, nbound,
-                                                         BndInfo::GetSetCCFluxCor, ProResInfo::GetSend);
+    RebuildBufferCache<BoundaryType::flxcor_recv, false>(
+        md, nbound, BndInfo::GetSetCCFluxCor, ProResInfo::GetSend);
 
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
