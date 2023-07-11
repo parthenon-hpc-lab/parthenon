@@ -909,7 +909,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
   }
   prolongation_cache.CopyToDevice();
-  refinement::Prolongate(resolved_packages.get(), prolongation_cache,
+  refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
+                               block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+  refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
                          block_list[0]->cellbounds, block_list[0]->c_cellbounds);
 
 #ifdef MPI_PARALLEL

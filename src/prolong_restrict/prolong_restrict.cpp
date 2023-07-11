@@ -48,8 +48,8 @@ void Restrict(const StateDescriptor *resolved_packages, const ProResCache_t &cac
   }
 }
 
-void Prolongate(const StateDescriptor *resolved_packages, const ProResCache_t &cache,
-                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+void ProlongateShared(const StateDescriptor *resolved_packages, const ProResCache_t &cache,
+                      const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
   const auto &ref_func_map = resolved_packages->RefinementFncsToIDs();
   for (const auto &[func, idx] : ref_func_map) {
     auto prolongator = func.prolongator;

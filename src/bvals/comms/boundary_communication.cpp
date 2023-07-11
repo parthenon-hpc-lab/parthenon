@@ -284,8 +284,8 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
 
     // Prolongate from coarse buffer
-    refinement::Prolongate(resolved_packages, cache.prores_cache, pmb->cellbounds,
-                           pmb->c_cellbounds);
+    refinement::ProlongateShared(resolved_packages, cache.prores_cache, pmb->cellbounds,
+                                 pmb->c_cellbounds);
     refinement::ProlongateInternal(resolved_packages, cache.prores_cache, pmb->cellbounds,
                                    pmb->c_cellbounds);
   }
