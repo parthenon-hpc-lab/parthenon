@@ -13,13 +13,14 @@
 - [[PR 868]](https://github.com/parthenon-hpc-lab/parthenon/pull/868) Add block-local face, edge, and nodal fields and allow for packing
 
 ### Changed (changing behavior/API/variables/...)
-- [[PR 897]](https://github.com/parthenon-hpc-lab/parthenon/pull/897) Deflate compression filter is not called any more if compression is soft disabled
+- [[PR 899]](https://github.com/parthenon-hpc-lab/parthenon/pull/899) Deflate compression filter is not called any more if compression is soft disabled
 - [[PR 896]](https://github.com/parthenon-hpc-lab/parthenon/pull/896) Update Kokkos integration to support installed version. Use `serial` (flat MPI) host parallelization by default (instead of OpenMP)
 - [[PR 894]](https://github.com/parthenon-hpc-lab/parthenon/pull/894) Demand that sparse pool order sparse ids
 - [[PR 888]](https://github.com/parthenon-hpc-lab/parthenon/pull/888) Bump Kokkos submodule to 4.0.1
 - [[PR 885]](https://github.com/parthenon-hpc-lab/parthenon/pull/885) Expose PackDescriptor and use uids in SparsePacks
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 905]](https://github.com/parthenon-hpc-lab/parthenon/pull/905) Fix chunk size when compression is soft-disabled
 - [[PR 890]](https://github.com/parthenon-hpc-lab/parthenon/pull/890) Fix bugs in sparse communication and prolongation
 
 ### Infrastructure (changes irrelevant to downstream codes)
