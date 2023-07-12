@@ -31,6 +31,16 @@
 
 namespace parthenon {
 
+struct RootGridInfo {
+  int level;
+  int nx1, nx2, nx3;
+  // Defaults to root grid of single block at the
+  // coarsest level
+  RootGridInfo() : level(0), nx1(1), nx2(1), nx3(1) {}
+  RootGridInfo(int level, int nx1, int nx2, int nx3)
+      : level(level), nx1(nx1), nx2(nx2), nx3(nx3) {}
+};
+
 //--------------------------------------------------------------------------------------
 //! \struct LogicalLocation
 //  \brief stores logical location and level of MeshBlock
@@ -143,8 +153,8 @@ class LogicalLocation { // aggregate and POD type
                            (lx3_ << 1) + ox3);
   }
 
-  std::set<LogicalLocation>
-  GetPossibleBlocksSurroundingTopologicalElement(int ox1, int ox2, int ox3) const {
+  std::set<LogicalLocation> GetPossibleBlocksSurroundingTopologicalElement(
+      int ox1, int ox2, int ox3, RootGridInfo rg_info = RootGridInfo()) const {
     std::vector<LogicalLocation> locs;
 
     const auto irange =
@@ -155,21 +165,19 @@ class LogicalLocation { // aggregate and POD type
         (std::abs(ox3) == 1) ? std::vector<int>{0, ox3} : std::vector<int>{0};
 
     auto AddNeighbors = [&](const LogicalLocation &loc) {
-      int n_cells_level = std::pow(2, loc.level());
+      int n1_cells_level = std::pow(2, loc.level() - rg_info.level) * rg_info.nx1;
+      int n2_cells_level = std::pow(2, loc.level() - rg_info.level) * rg_info.nx2;
+      int n3_cells_level = std::pow(2, loc.level() - rg_info.level) * rg_info.nx3;
       for (int i : irange) {
         for (int j : jrange) {
           for (int k : krange) {
-            const auto lx1 = loc.lx1() + i;
-            const auto lx2 = loc.lx2() + j;
-            const auto lx3 = loc.lx3() + k;
-            // TODO(LFR): Deal with periodic boundaries, maybe a little complicated
-            // because of root grid stuff
-            if (0 <= lx1 && lx1 < n_cells_level && 0 <= lx2 && lx2 < n_cells_level &&
-                0 <= lx3 && lx3 < n_cells_level) {
-              locs.emplace_back(loc.level(), lx1, lx2, lx3);
-              auto parent = locs.back().GetParent();
-              if (IsNeighbor(parent)) locs.push_back(parent);
-            }
+            // This should include blocks that are connected by periodic boundaries
+            const auto lx1 = (loc.lx1() + i + n1_cells_level) % n1_cells_level;
+            const auto lx2 = (loc.lx2() + j + n2_cells_level) % n2_cells_level;
+            const auto lx3 = (loc.lx3() + k + n3_cells_level) % n3_cells_level;
+            locs.emplace_back(loc.level(), lx1, lx2, lx3);
+            auto parent = locs.back().GetParent();
+            if (IsNeighbor(parent)) locs.push_back(parent);
           }
         }
       }
@@ -241,7 +249,8 @@ struct block_ownership_t {
 
 inline block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
-                   const std::set<LogicalLocation> &allowed_neighbors) {
+                   const std::set<LogicalLocation> &allowed_neighbors,
+                   RootGridInfo rg_info = RootGridInfo()) {
   block_ownership_t main_owns;
 
   auto ownership_less_than = [](const LogicalLocation &a, const LogicalLocation &b) {
@@ -256,7 +265,8 @@ DetermineOwnership(const LogicalLocation &main_block,
     for (int ox2 : {-1, 0, 1}) {
       for (int ox3 : {-1, 0, 1}) {
         auto possible_neighbors =
-            main_block.GetPossibleBlocksSurroundingTopologicalElement(ox1, ox2, ox3);
+            main_block.GetPossibleBlocksSurroundingTopologicalElement(ox1, ox2, ox3,
+                                                                      rg_info);
 
         std::vector<LogicalLocation> actual_neighbors;
         std::set_intersection(std::begin(allowed_neighbors), std::end(allowed_neighbors),
