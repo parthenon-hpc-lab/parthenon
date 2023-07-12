@@ -165,6 +165,9 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
+  RootGridInfo GetRootGridInfo() const noexcept {
+    return RootGridInfo(root_level, nrbx1, nrbx2, nrbx3);
+  }
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }

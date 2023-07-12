@@ -37,6 +37,8 @@ struct RootGridInfo {
   // Defaults to root grid of single block at the
   // coarsest level
   RootGridInfo() : level(0), nx1(1), nx2(1), nx3(1) {}
+  RootGridInfo(int level, int nx1, int nx2, int nx3)
+      : level(level), nx1(nx1), nx2(nx2), nx3(nx3) {}
 };
 
 //--------------------------------------------------------------------------------------

@@ -639,6 +639,7 @@ void BoundaryBase::SetNeighborOwnership() {
   // Although the neighbor blocks abut more blocks than are contained in this
   // list, the unaccounted for blocks cannot impact the ownership of elements
   // that are shared with *this
+  RootGridInfo rg_info = pmy_mesh_->GetRootGridInfo();
   for (int n = 0; n < nneighbor; ++n) {
     neighbor[n].ownership = DetermineOwnership(neighbor[n].loc, allowed_neighbors);
     neighbor[n].ownership.initialized = true;
