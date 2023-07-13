@@ -641,7 +641,8 @@ void BoundaryBase::SetNeighborOwnership() {
   // that are shared with *this
   RootGridInfo rg_info = pmy_mesh_->GetRootGridInfo();
   for (int n = 0; n < nneighbor; ++n) {
-    neighbor[n].ownership = DetermineOwnership(neighbor[n].loc, allowed_neighbors);
+    neighbor[n].ownership =
+        DetermineOwnership(neighbor[n].loc, allowed_neighbors, rg_info);
     neighbor[n].ownership.initialized = true;
   }
 }

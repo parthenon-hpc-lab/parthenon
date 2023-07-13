@@ -260,7 +260,7 @@ struct block_ownership_t {
 inline block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::set<LogicalLocation> &allowed_neighbors,
-                   RootGridInfo rg_info = RootGridInfo()) {
+                   const RootGridInfo &rg_info = RootGridInfo()) {
   block_ownership_t main_owns;
 
   auto ownership_less_than = [](const LogicalLocation &a, const LogicalLocation &b) {
