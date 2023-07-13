@@ -33,9 +33,9 @@ class Packages_t {
 
   // Templated version for retrieving a package with a particular type
   // Allows subclassing 'StateDescriptor' to add user package types to list
-  template<typename T>
-  T* const &Get(const std::string &name) const {
-    return static_cast<T*>(packages_.at(name).get());
+  template <typename T>
+  T *const &Get(const std::string &name) const {
+    return static_cast<T *>(packages_.at(name).get());
   }
 
   const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
@@ -46,10 +46,10 @@ class Packages_t {
   // Returns a sub-Dictionary containing just pointers to packages of type T.
   // Dictionary is a *new copy*, and members are bare pointers, not shared_ptr.
   template <typename T>
-  const std::vector<T*> AllPackagesOfType() const {
-    Dictionary<T*> sub_dict;
+  const std::vector<T *> AllPackagesOfType() const {
+    Dictionary<T *> sub_dict;
     for (auto package : packages_) {
-      if (T *cast_package = dynamic_cast<T*>(package.second.get())) {
+      if (T *cast_package = dynamic_cast<T *>(package.second.get())) {
         sub_dict[package.first] = cast_package;
       }
     }
@@ -59,10 +59,10 @@ class Packages_t {
   // Returns a list of pointers to packages of type T.
   // List contains bare pointers, not shared_ptr objects
   template <typename T>
-  const std::vector<T*> ListPackagesOfType() const {
-    std::vector<T*> sub_list;
+  const std::vector<T *> ListPackagesOfType() const {
+    std::vector<T *> sub_list;
     for (auto package : packages_) {
-      if (T *cast_package = dynamic_cast<T*>(package.second.get())) {
+      if (T *cast_package = dynamic_cast<T *>(package.second.get())) {
         sub_list.append(cast_package);
       }
     }
@@ -72,10 +72,10 @@ class Packages_t {
   // Returns a sub-Dictionary containing just pointers to packages of type T.
   // Dictionary is a *new copy*, and members are bare pointers, not shared_ptr.
   template <typename T>
-  const Dictionary<T*> AllPackagesOfType() const {
-    Dictionary<T*> sub_dict;
+  const Dictionary<T *> AllPackagesOfType() const {
+    Dictionary<T *> sub_dict;
     for (auto package : packages_) {
-      if (T *cast_package = dynamic_cast<T*>(package.second.get())) {
+      if (T *cast_package = dynamic_cast<T *>(package.second.get())) {
         sub_dict[package.first] = cast_package;
       }
     }
