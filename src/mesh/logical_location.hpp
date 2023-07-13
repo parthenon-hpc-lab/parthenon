@@ -38,11 +38,11 @@ struct RootGridInfo {
   // Defaults to root grid of single block at the
   // coarsest level
   RootGridInfo()
-      : level(0), nx1(1), nx2(1), nx3(1), 
-        periodic1(false), periodic2(false), periodic3(false) {}
+      : level(0), nx1(1), nx2(1), nx3(1), periodic1(false), periodic2(false),
+        periodic3(false) {}
   RootGridInfo(int level, int nx1, int nx2, int nx3, bool p1, bool p2, bool p3)
-      : level(level), nx1(nx1), nx2(nx2), nx3(nx3), 
-        periodic1(p1), periodic2(p2), periodic3(p3) {}
+      : level(level), nx1(nx1), nx2(nx2), nx3(nx3), periodic1(p1), periodic2(p2),
+        periodic3(p3) {}
 };
 
 //--------------------------------------------------------------------------------------
