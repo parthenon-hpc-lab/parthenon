@@ -34,11 +34,15 @@ namespace parthenon {
 struct RootGridInfo {
   int level;
   int nx1, nx2, nx3;
+  bool periodic1, periodic2, periodic3;
   // Defaults to root grid of single block at the
   // coarsest level
-  RootGridInfo() : level(0), nx1(1), nx2(1), nx3(1) {}
-  RootGridInfo(int level, int nx1, int nx2, int nx3)
-      : level(level), nx1(nx1), nx2(nx2), nx3(nx3) {}
+  RootGridInfo()
+      : level(0), nx1(1), nx2(1), nx3(1), 
+        periodic1(false), periodic2(false), periodic3(false) {}
+  RootGridInfo(int level, int nx1, int nx2, int nx3, bool p1, bool p2, bool p3)
+      : level(level), nx1(nx1), nx2(nx2), nx3(nx3), 
+        periodic1(p1), periodic2(p2), periodic3(p3) {}
 };
 
 //--------------------------------------------------------------------------------------
@@ -143,7 +147,7 @@ class LogicalLocation { // aggregate and POD type
   }
 
   std::set<LogicalLocation> GetPossibleBlocksSurroundingTopologicalElement(
-      int ox1, int ox2, int ox3, RootGridInfo rg_info = RootGridInfo()) const {
+      int ox1, int ox2, int ox3, const RootGridInfo &rg_info = RootGridInfo()) const {
     std::vector<LogicalLocation> locs;
 
     const auto irange =
@@ -160,13 +164,19 @@ class LogicalLocation { // aggregate and POD type
       for (int i : irange) {
         for (int j : jrange) {
           for (int k : krange) {
+            auto lx1 = loc.lx1() + i;
+            auto lx2 = loc.lx2() + j;
+            auto lx3 = loc.lx3() + k;
             // This should include blocks that are connected by periodic boundaries
-            const auto lx1 = (loc.lx1() + i + n1_cells_level) % n1_cells_level;
-            const auto lx2 = (loc.lx2() + j + n2_cells_level) % n2_cells_level;
-            const auto lx3 = (loc.lx3() + k + n3_cells_level) % n3_cells_level;
-            locs.emplace_back(loc.level(), lx1, lx2, lx3);
-            auto parent = locs.back().GetParent();
-            if (IsNeighbor(parent)) locs.push_back(parent);
+            if (rg_info.periodic1) lx1 = (lx1 + n1_cells_level) % n1_cells_level;
+            if (rg_info.periodic2) lx2 = (lx2 + n2_cells_level) % n2_cells_level;
+            if (rg_info.periodic3) lx3 = (lx3 + n3_cells_level) % n3_cells_level;
+            if (0 <= lx1 && lx1 < n1_cells_level && 0 <= lx2 && lx2 < n2_cells_level &&
+                0 <= lx3 && lx3 < n3_cells_level) {
+              locs.emplace_back(loc.level(), lx1, lx2, lx3);
+              auto parent = locs.back().GetParent();
+              if (IsNeighbor(parent)) locs.push_back(parent);
+            }
           }
         }
       }
