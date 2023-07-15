@@ -293,9 +293,11 @@ endif()
 # However, Parthenon heavily relies on it and there is no harm in compiling Kokkos
 # without and Parthenon with (via Max Katz on the Kokkos Slack channel).
 # Therefore, we don't use the Kokkos_ENABLE_CUDA_CONSTEXPR option add the flag manually.
-# Also, not checking for NVIDIA as nvcc_wrapper is identified as GNU so we just make sure
-# the flag is not added when compiling with Clang for Cuda.
-if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+# Also, not checking for NVIDIA as nvcc_wrapper is identified as GNU so we just
+# make sure the flag is not added when compiling with Clang for Cuda. The flag
+# is also not necessary (and not recognized) when using nvc++ to compile Cuda
+# code
+if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "NVHPC")
    target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
 endif()
 
