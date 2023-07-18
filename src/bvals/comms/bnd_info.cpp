@@ -106,7 +106,7 @@ Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
   // information for going from coarse to fine and the neighbor block
   // structure does not contain the logical location of the neighbor
   // block
-  std::array<std::int64_t, 3> logic_loc{loc.lx1, loc.lx2, loc.lx3};
+  std::array<std::int64_t, 3> logic_loc{loc.lx1(), loc.lx2(), loc.lx3()};
   std::array<int, 2> face_offset{ni.fi1, ni.fi2};
   std::array<int, 3> s, e;
 
@@ -172,7 +172,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   int Nu = v->GetDim(5);
   int Nt = v->GetDim(6);
 
-  int mylevel = pmb->loc.level;
+  int mylevel = pmb->loc.level();
   out.coords = pmb->coords;
 
   if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
@@ -236,7 +236,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   if (v->IsSet(Metadata::Edge)) elements = {TE::E1, TE::E2, TE::E3};
   if (v->IsSet(Metadata::Node)) elements = {TE::NN};
 
-  int mylevel = pmb->loc.level;
+  int mylevel = pmb->loc.level();
   out.coords = pmb->coords;
   if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
   out.fine = v->data.Get();

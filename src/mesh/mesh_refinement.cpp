@@ -149,13 +149,13 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
 
   if (aret >= 0) deref_count_ = 0;
   if (aret > 0) {
-    if (pmb->loc.level == pmb->pmy_mesh->max_level) {
+    if (pmb->loc.level() == pmb->pmy_mesh->max_level) {
       refine_flag_ = 0;
     } else {
       refine_flag_ = 1;
     }
   } else if (aret < 0) {
-    if (pmb->loc.level == pmb->pmy_mesh->root_level) {
+    if (pmb->loc.level() == pmb->pmy_mesh->root_level) {
       refine_flag_ = 0;
       deref_count_ = 0;
     } else {
@@ -178,7 +178,7 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
           for (int i = -1; i <= 1; i++)
-            if (pmb->pbval->nblevel[k + 1][j + 1][i + 1] > pmb->loc.level) ec++;
+            if (pmb->pbval->nblevel[k + 1][j + 1][i + 1] > pmb->loc.level()) ec++;
         }
       }
       if (ec > 0) {
