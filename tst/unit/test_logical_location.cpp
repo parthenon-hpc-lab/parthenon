@@ -41,21 +41,21 @@ TEST_CASE("Morton Numbers", "[Morton Numbers]") {
   GIVEN("some interleave constants") {
     std::map<int, uint64_t> ics_2d, ics_3d;
 
-    for (int pow = 1; pow <= type_size; pow *= 2) {
-      ics_2d[pow] = impl::GetInterleaveConstant<2>(pow);
-      ics_3d[pow] = impl::GetInterleaveConstant<3>(pow);
+    for (int power = 1; power <= type_size; power *= 2) {
+      ics_2d[power] = impl::GetInterleaveConstant<2>(power);
+      ics_3d[power] = impl::GetInterleaveConstant<3>(power);
     }
 
     THEN("the interleave constants have the correct bits") {
-      for (const auto &[pow, ic] : ics_2d) {
+      for (const auto &[power, ic] : ics_2d) {
         std::bitset<type_size> by_hand_constant;
         int idx = 0;
         do {
-          for (int i = 0; i < pow; ++i) {
+          for (int i = 0; i < power; ++i) {
             if (idx < type_size) by_hand_constant[idx] = 1;
             idx++;
           }
-          for (int i = 0; i < pow; ++i) {
+          for (int i = 0; i < power; ++i) {
             if (idx < type_size) by_hand_constant[idx] = 0;
             idx++;
           }
@@ -63,15 +63,15 @@ TEST_CASE("Morton Numbers", "[Morton Numbers]") {
         REQUIRE(ic == by_hand_constant.to_ullong());
       }
 
-      for (const auto &[pow, ic] : ics_3d) {
+      for (const auto &[power, ic] : ics_3d) {
         std::bitset<type_size> by_hand_constant;
         int idx = 0;
         do {
-          for (int i = 0; i < pow; ++i) {
+          for (int i = 0; i < power; ++i) {
             if (idx < type_size) by_hand_constant[idx] = 1;
             idx++;
           }
-          for (int i = 0; i < pow * 2; ++i) {
+          for (int i = 0; i < power * 2; ++i) {
             if (idx < type_size) by_hand_constant[idx] = 0;
             idx++;
           }
@@ -168,8 +168,11 @@ TEST_CASE("Logical Location", "[Logical Location]") {
           }
           lx1 = lx1 % cur_place;
         }
-        // Check that we have the correct Morton number
+        // Check that we have the correct Morton number, least significant bits
+        // should be zero
         REQUIRE(hand_morton.to_ullong() == leaf.morton().bits[0]);
+        REQUIRE(0ULL == leaf.morton().bits[1]);
+        REQUIRE(0ULL == leaf.morton().bits[2]);
 
         // Check that the map is in Morton order
         REQUIRE(((leaf.morton().bits[0] > last_morton) || (leaf.morton().bits[0] == 0)));
