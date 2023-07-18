@@ -23,8 +23,10 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <utility>
 #include <vector>
 
+#include "utils/error_checking.hpp"
 #include "utils/morton_number.hpp"
 
 namespace parthenon {
@@ -38,6 +40,9 @@ struct RootGridInfo {
   RootGridInfo()
       : level(0), nx1(1), nx2(1), nx3(1), periodic1(false), periodic2(false),
         periodic3(false) {}
+  RootGridInfo(int level, int nx1, int nx2, int nx3, bool p1, bool p2, bool p3)
+      : level(level), nx1(nx1), nx2(nx2), nx3(nx3), periodic1(p1), periodic2(p2),
+        periodic3(p3) {}
 };
 
 //--------------------------------------------------------------------------------------
@@ -203,12 +208,30 @@ inline bool operator==(const LogicalLocation &lhs, const LogicalLocation &rhs) {
 
 struct block_ownership_t {
  public:
+  KOKKOS_FORCEINLINE_FUNCTION
   const bool &operator()(int ox1, int ox2, int ox3) const {
     return ownership[ox1 + 1][ox2 + 1][ox3 + 1];
   }
+  KOKKOS_FORCEINLINE_FUNCTION
   bool &operator()(int ox1, int ox2, int ox3) {
     return ownership[ox1 + 1][ox2 + 1][ox3 + 1];
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  block_ownership_t() : block_ownership_t(false) {}
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  explicit block_ownership_t(bool value) : initialized(false) {
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        for (int k = 0; k < 3; ++k) {
+          ownership[i][j][k] = value;
+        }
+      }
+    }
+  }
+
+  bool initialized;
 
  private:
   bool ownership[3][3][3];
@@ -217,7 +240,7 @@ struct block_ownership_t {
 inline block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::set<LogicalLocation> &allowed_neighbors,
-                   RootGridInfo rg_info = RootGridInfo()) {
+                   const RootGridInfo &rg_info = RootGridInfo()) {
   block_ownership_t main_owns;
 
   auto ownership_less_than = [](const LogicalLocation &a, const LogicalLocation &b) {
@@ -250,6 +273,64 @@ DetermineOwnership(const LogicalLocation &main_block,
     }
   }
   return main_owns;
+}
+
+// Given a topological element, ownership array of the sending block, and offset indices
+// defining the location of an index region within the block (i.e. the ghost zones passed
+// across the x-face or the ghost zones passed across the z-edge), return the index range
+// masking array required for masking out unowned regions of the index space. ox? defines
+// buffer location on the owner block
+inline auto GetIndexRangeMaskFromOwnership(TopologicalElement el,
+                                           const block_ownership_t &sender_ownership,
+                                           int ox1, int ox2, int ox3) {
+  using vp_t = std::vector<std::pair<int, int>>;
+
+  // Transform general block ownership to element ownership over entire block. For
+  // instance, x-faces only care about block ownership in the x-direction First index of
+  // the pair is the element index and the second index is the block index that is copied
+  // to that element index
+  block_ownership_t element_ownership = sender_ownership;
+  auto x1_idxs = TopologicalOffsetI(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}}
+                                        : vp_t{{-1, 0}, {0, 0}, {1, 0}};
+  auto x2_idxs = TopologicalOffsetJ(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}}
+                                        : vp_t{{-1, 0}, {0, 0}, {1, 0}};
+  auto x3_idxs = TopologicalOffsetK(el) ? vp_t{{-1, -1}, {0, 0}, {1, 1}}
+                                        : vp_t{{-1, 0}, {0, 0}, {1, 0}};
+  for (auto [iel, ibl] : x1_idxs) {
+    for (auto [jel, jbl] : x2_idxs) {
+      for (auto [kel, kbl] : x3_idxs) {
+        element_ownership(iel, jel, kel) = sender_ownership(ibl, jbl, kbl);
+      }
+    }
+  }
+
+  // Now, the ownership status is correct for the entire interior index range of the
+  // block, but the offsets ox? define a subset of these indices (e.g. one edge of the
+  // interior). Therefore, we need to set the index ownership to true for edges of the
+  // index range that are contained in the interior of the sending block
+  if (ox1 != 0) {
+    for (auto j : {-1, 0, 1}) {
+      for (auto k : {-1, 0, 1}) {
+        element_ownership(-ox1, j, k) = element_ownership(0, j, k);
+      }
+    }
+  }
+  if (ox2 != 0) {
+    for (auto i : {-1, 0, 1}) {
+      for (auto k : {-1, 0, 1}) {
+        element_ownership(i, -ox2, k) = element_ownership(i, 0, k);
+      }
+    }
+  }
+  if (ox3 != 0) {
+    for (auto i : {-1, 0, 1}) {
+      for (auto j : {-1, 0, 1}) {
+        element_ownership(i, j, -ox3) = element_ownership(i, j, 0);
+      }
+    }
+  }
+
+  return element_ownership;
 }
 
 } // namespace parthenon

@@ -58,6 +58,10 @@ class MeshBlockTree {
   MeshBlockTree *FindNeighbor(LogicalLocation myloc, int ox1, int ox2, int ox3,
                               bool amrflag = false);
 
+  LogicalLocation GetLocation() const { return loc_; }
+  bool IsLeaf() const { return pleaf_ == nullptr; }
+  int GetGid() const { return gid_; }
+
  private:
   // data
   MeshBlockTree **pleaf_;

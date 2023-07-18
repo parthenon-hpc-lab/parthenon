@@ -368,6 +368,7 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
     }
   }
   if (block_size_.nx2 == 1) {
+    SetNeighborOwnership();
     Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
     return;
   }
@@ -502,6 +503,7 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
   }
 
   if (block_size_.nx3 == 1) {
+    SetNeighborOwnership();
     Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
     return;
   }
@@ -623,7 +625,25 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
       }
     }
   }
+
+  SetNeighborOwnership();
   Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
 }
 
+void BoundaryBase::SetNeighborOwnership() {
+  // Set neighbor block ownership
+  std::set<LogicalLocation> allowed_neighbors;
+  allowed_neighbors.insert(loc); // Insert the location of this block
+  for (int n = 0; n < nneighbor; ++n)
+    allowed_neighbors.insert(neighbor[n].loc);
+  // Although the neighbor blocks abut more blocks than are contained in this
+  // list, the unaccounted for blocks cannot impact the ownership of elements
+  // that are shared with *this
+  RootGridInfo rg_info = pmy_mesh_->GetRootGridInfo();
+  for (int n = 0; n < nneighbor; ++n) {
+    neighbor[n].ownership =
+        DetermineOwnership(neighbor[n].loc, allowed_neighbors, rg_info);
+    neighbor[n].ownership.initialized = true;
+  }
+}
 } // namespace parthenon

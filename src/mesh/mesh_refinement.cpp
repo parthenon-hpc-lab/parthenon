@@ -88,9 +88,10 @@ void MeshRefinement::RestrictCellCenteredValues(Variable<Real> *var, int csi, in
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused.
-  info_h(b).prores_idxer[0] =
-      Indexer6D({0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1}, {0, var->GetDim(4) - 1},
-                {csk, cek}, {csj, cej}, {csi, cei});
+  block_ownership_t owns(true);
+  info_h(b).prores_idxer[0] = SpatiallyMaskedIndexer6D(
+      owns, {0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1}, {0, var->GetDim(4) - 1},
+      {csk, cek}, {csj, cej}, {csi, cei});
   info_h(b).refinement_op = RefinementOp_t::Restriction;
   info_h(b).coords = pmb->coords;
   info_h(b).coarse_coords = this->coarse_coords;
@@ -119,9 +120,10 @@ void MeshRefinement::ProlongateCellCenteredValues(Variable<Real> *var, int si, i
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused
+  block_ownership_t owns(true);
   info_h(b).prores_idxer[0] =
-      Indexer6D({0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1}, {0, var->GetDim(4) - 1},
-                {sk, ek}, {sj, ej}, {si, ei});
+      SpatiallyMaskedIndexer6D(owns, {0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1},
+                               {0, var->GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   info_h(b).refinement_op = RefinementOp_t::Prolongation;
   info_h(b).coords = pmb->coords;
   info_h(b).coarse_coords = this->coarse_coords;

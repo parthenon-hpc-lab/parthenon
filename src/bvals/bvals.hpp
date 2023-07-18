@@ -90,6 +90,8 @@ class BoundaryBase {
   RegionSize block_size_;
   ParArrayND<Real> sarea_[2];
 
+  void SetNeighborOwnership();
+
  private:
   // calculate 3x shared static data members when constructing only the 1st class instance
   // int maxneighbor_=BufferID() computes ni[] and then calls bufid[]=CreateBufferID()

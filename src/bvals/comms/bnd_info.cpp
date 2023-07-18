@@ -41,9 +41,9 @@ enum class InterfaceType { SameToSame, CoarseToFine, FineToCoarse };
 namespace parthenon {
 
 template <InterfaceType INTERFACE>
-Indexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalElement el,
-                          std::array<int, 3> tensor_shape,
-                          const parthenon::IndexShape &shape) {
+SpatiallyMaskedIndexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalElement el,
+                                         std::array<int, 3> tensor_shape,
+                                         const parthenon::IndexShape &shape) {
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
                                    shape.GetBoundsJ(interior, el),
@@ -82,25 +82,30 @@ Indexer6D CalcLoadIndices(const NeighborIndexes &ni, TopologicalElement el,
                  // offset in some direction
     } else if (block_offset[dir] > 0) {
       s[dir] = bounds[dir].e - Globals::nghost + 1 - top_offset[dir];
-      e[dir] = bounds[dir].e - top_offset[dir];
+      e[dir] = bounds[dir].e;
     } else {
-      s[dir] = bounds[dir].s + top_offset[dir];
+      s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].s + Globals::nghost - 1 + top_offset[dir];
     }
   }
-  return Indexer6D({0, tensor_shape[0] - 1}, {0, tensor_shape[1] - 1},
-                   {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
+  block_ownership_t owns(true);
+  return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
+                                  {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},
+                                  {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
 template <InterfaceType INTERFACE, bool PROLONGATEORRESTRICT = false>
-Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
-                         TopologicalElement el, std::array<int, 3> tensor_shape,
-                         const parthenon::IndexShape &shape) {
+SpatiallyMaskedIndexer6D
+CalcSetIndices(const NeighborBlock &nb, LogicalLocation loc, TopologicalElement el,
+               std::array<int, 3> tensor_shape, const parthenon::IndexShape &shape) {
+  const auto &ni = nb.ni;
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
                                    shape.GetBoundsJ(interior, el),
                                    shape.GetBoundsK(interior, el)};
 
+  std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
+                                TopologicalOffsetK(el)};
   std::array<int, 3> block_offset{ni.ox1, ni.ox2, ni.ox3};
   // This is gross, but the face offsets do not contain the correct
   // information for going from coarse to fine and the neighbor block
@@ -128,15 +133,28 @@ Indexer6D CalcSetIndices(const NeighborIndexes &ni, LogicalLocation loc,
       }
       ++off_idx;
     } else if (block_offset[dir] > 0) {
-      s[dir] = bounds[dir].e + 1;
+      s[dir] = bounds[dir].e + 1 - top_offset[dir];
       e[dir] = bounds[dir].e + ghosts;
     } else {
       s[dir] = bounds[dir].s - ghosts;
-      e[dir] = bounds[dir].s - 1;
+      e[dir] = bounds[dir].s - 1 + top_offset[dir];
     }
   }
-  return Indexer6D({0, tensor_shape[0] - 1}, {0, tensor_shape[1] - 1},
-                   {0, tensor_shape[2] - 1}, {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
+  int sox1 = -ni.ox1;
+  int sox2 = -ni.ox2;
+  int sox3 = -ni.ox3;
+  if (INTERFACE == InterfaceType::CoarseToFine) {
+    // For coarse to fine interfaces, we are passing zones from only an
+    // interior corner of the cell, never an entire face or edge
+    if (sox1 == 0) sox1 = logic_loc[0] % 2 == 1 ? 1 : -1;
+    if (sox2 == 0) sox2 = logic_loc[1] % 2 == 1 ? 1 : -1;
+    if (sox3 == 0) sox3 = logic_loc[2] % 2 == 1 ? 1 : -1;
+  }
+  block_ownership_t owns =
+      GetIndexRangeMaskFromOwnership(el, nb.ownership, sox1, sox2, sox3);
+  return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
+                                  {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},
+                                  {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
@@ -152,9 +170,9 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
   const int isize = cb.ie(in) - cb.is(in) + 2;
   const int jsize = cb.je(in) - cb.js(in) + 2;
   const int ksize = cb.ke(in) - cb.ks(in) + 2;
-  return (nb.ni.ox1 == 0 ? isize : Globals::nghost) *
-         (nb.ni.ox2 == 0 ? jsize : Globals::nghost) *
-         (nb.ni.ox3 == 0 ? ksize : Globals::nghost) * v->GetDim(6) * v->GetDim(5) *
+  return (nb.ni.ox1 == 0 ? isize : Globals::nghost + 1) *
+         (nb.ni.ox2 == 0 ? jsize : Globals::nghost + 1) *
+         (nb.ni.ox3 == 0 ? ksize : Globals::nghost + 1) * v->GetDim(6) * v->GetDim(5) *
          v->GetDim(4) * topo_comp;
 }
 
@@ -262,29 +280,29 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     if (nb.snb.level == mylevel) {
       out.var = v->data.Get();
       out.idxer[idx] = CalcSetIndices<InterfaceType::SameToSame>(
-          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
+          nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
         out.prores_idxer[static_cast<int>(el)] =
             CalcSetIndices<InterfaceType::SameToSame, true>(
-                nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+                nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       }
     } else if (nb.snb.level < mylevel) {
       out.idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine>(
-          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+          nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       out.var = v->coarse_s.Get();
       out.refinement_op = RefinementOp_t::Prolongation;
       out.prores_idxer[idx] = CalcSetIndices<InterfaceType::CoarseToFine, true>(
-          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+          nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
     } else {
       out.var = v->data.Get();
       out.idxer[idx] = CalcSetIndices<InterfaceType::FineToCoarse>(
-          nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
+          nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->cellbounds);
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
         out.prores_idxer[static_cast<int>(el)] =
             CalcSetIndices<InterfaceType::FineToCoarse, true>(
-                nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+                nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
       }
     }
   }
@@ -302,7 +320,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN}) {
       out.prores_idxer[static_cast<int>(el)] =
           CalcSetIndices<InterfaceType::CoarseToFine, true>(
-              nb.ni, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
+              nb, pmb->loc, el, {Nt, Nu, Nv}, pmb->c_cellbounds);
     }
   }
 
@@ -359,8 +377,10 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
 
   out.var = v->flux[out.dir];
   out.coords = pmb->coords;
-  out.idxer[0] = Indexer6D({0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
-                           {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
+  block_ownership_t owns(true);
+  out.idxer[0] = SpatiallyMaskedIndexer6D(
+      owns, {0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
+      {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   return out;
 }
 
@@ -435,8 +455,10 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
   out.var = v->flux[out.dir];
 
   out.coords = pmb->coords;
-  out.idxer[0] = Indexer6D({0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
-                           {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
+  block_ownership_t owns(true);
+  out.idxer[0] = SpatiallyMaskedIndexer6D(
+      owns, {0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
+      {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   return out;
 }
 

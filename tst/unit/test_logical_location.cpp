@@ -22,6 +22,7 @@
 #include <catch2/catch.hpp>
 
 #include "defs.hpp"
+#include "utils/indexer.hpp"
 
 using namespace parthenon;
 
@@ -346,6 +347,131 @@ TEST_CASE("Logical Location", "[Logical Location]") {
           for (int ox1 : {-1, 0, 1}) {
             REQUIRE(by_hand(ox1, ox2, ox3) == owns(ox1, ox2, ox3));
           }
+        }
+      }
+    }
+
+    GIVEN("An ownership array of a block") {
+      block_ownership_t by_hand;
+      for (int ox1 : {-1, 0, 1})
+        for (int ox2 : {-1, 0, 1})
+          for (int ox3 : {-1, 0, 1}) {
+            by_hand(ox1, ox2, ox3) = false;
+          }
+      by_hand(-1, -1, -1) = true;
+      by_hand(0, -1, -1) = true;
+      by_hand(-1, 0, -1) = true;
+      by_hand(-1, -1, 0) = true;
+      by_hand(-1, 0, 0) = true;
+      by_hand(0, -1, 0) = true;
+      by_hand(0, 0, -1) = true;
+      by_hand(0, 0, 0) = true;
+
+      // Make a corner that would not be owned by an interior block in a uniform grid
+      // owned
+      by_hand(-1, 1, 1) = true;
+
+      const int N = 3;
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::F1, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          REQUIRE(idxer.IsActive(k, j, i));
+        }
+      }
+
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::F2, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i)) REQUIRE(j != N);
+          if (!idxer.IsActive(k, j, i)) REQUIRE(j == N);
+        }
+      }
+
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::F3, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i)) REQUIRE(k != N);
+          if (!idxer.IsActive(k, j, i)) REQUIRE(k == N);
+        }
+      }
+
+      THEN("We can build the correct index range for setting the buffer") {
+        // Imagine that we have a z-edge field that is being communicated across the left
+        // x-face of the sender in a uniform grid so that the sender owns the left edge of
+        // the face, the interior of the face, but another block owns the right edge of
+        // the face For a z-edge, ownership should be independent of the z-direction since
+        // the z-coordinate is centered. This is generic I think for centered coordinates
+        // of elements
+
+        // For passing an edge oriented in the z-direction along the x-face of a block,
+        // given the ownership status of the block given above, all indices at the upper
+        // end of the y-index range should be masked out but everything else should be
+        // unmasked
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::E3, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i)) REQUIRE(j != N);
+          if (!idxer.IsActive(k, j, i)) REQUIRE(j == N);
+        }
+      }
+
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::E2, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i)) REQUIRE(k != N);
+          if (!idxer.IsActive(k, j, i)) REQUIRE(k == N);
+        }
+      }
+
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::E1, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i)) REQUIRE((k != N && j != N));
+          if (!idxer.IsActive(k, j, i)) REQUIRE((k == N || j == N));
+        }
+      }
+
+      THEN("We can build the correct index range for setting the buffer") {
+        auto owns =
+            GetIndexRangeMaskFromOwnership(TopologicalElement::NN, by_hand, -1, 0, 0);
+        using p_t = std::pair<int, int>;
+        SpatiallyMaskedIndexer6D idxer(owns, p_t{0, 0}, p_t{0, 0}, p_t{0, 0}, p_t{0, N},
+                                       p_t{0, N}, p_t{0, N});
+        for (int idx = 0; idx < idxer.size(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          if (idxer.IsActive(k, j, i))
+            REQUIRE(((k != N && j != N) || (i == 0 && j == N && k == N)));
+          if (!idxer.IsActive(k, j, i))
+            REQUIRE(((k == N || j == N) && !(i == 0 && j == N && k == N)));
         }
       }
     }

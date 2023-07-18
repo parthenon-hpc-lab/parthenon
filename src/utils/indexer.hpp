@@ -18,6 +18,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "utils/concepts_lite.hpp"
+
 namespace parthenon {
 
 template <class... Ts>
@@ -52,7 +54,7 @@ struct Indexer {
 
   static const constexpr std::size_t rank = sizeof...(Ts);
 
- private:
+ protected:
   template <std::size_t... Is>
   KOKKOS_FORCEINLINE_FUNCTION std::tuple<Ts...>
   GetIndicesImpl(int idx, std::index_sequence<Is...>) const {
@@ -88,6 +90,35 @@ struct Indexer {
   std::size_t _size;
 };
 
+template <class... Ts>
+class SpatiallyMaskedIndexer : public Indexer<Ts...> {
+ public:
+  KOKKOS_INLINE_FUNCTION
+  SpatiallyMaskedIndexer() : Indexer<Ts...>(), active_() {}
+
+  template <class... Args>
+  KOKKOS_INLINE_FUNCTION SpatiallyMaskedIndexer(const block_ownership_t &active,
+                                                std::pair<Ts, Ts>... Ns)
+      : active_(active), Indexer<Ts...>(Ns...) {}
+
+  KOKKOS_INLINE_FUNCTION
+  bool IsActive(int k, int j, int i) const {
+    const int istart = Indexer<Ts...>::start[sizeof...(Ts) - 1];
+    const int iend = Indexer<Ts...>::end[sizeof...(Ts) - 1];
+    const int jstart = Indexer<Ts...>::start[sizeof...(Ts) - 2];
+    const int jend = Indexer<Ts...>::end[sizeof...(Ts) - 2];
+    const int kstart = Indexer<Ts...>::start[sizeof...(Ts) - 3];
+    const int kend = Indexer<Ts...>::end[sizeof...(Ts) - 3];
+    const int iidx = (i == iend) - (i == istart);
+    const int jidx = (j == jend) - (j == jstart);
+    const int kidx = (k == kend) - (k == kstart);
+    return active_(iidx, jidx, kidx);
+  }
+
+ private:
+  block_ownership_t active_;
+};
+
 using Indexer1D = Indexer<int>;
 using Indexer2D = Indexer<int, int>;
 using Indexer3D = Indexer<int, int, int>;
@@ -96,5 +127,8 @@ using Indexer5D = Indexer<int, int, int, int, int>;
 using Indexer6D = Indexer<int, int, int, int, int, int>;
 using Indexer7D = Indexer<int, int, int, int, int, int, int>;
 using Indexer8D = Indexer<int, int, int, int, int, int, int, int>;
+
+using SpatiallyMaskedIndexer6D = SpatiallyMaskedIndexer<int, int, int, int, int, int>;
+
 } // namespace parthenon
 #endif // UTILS_INDEXER_HPP_
