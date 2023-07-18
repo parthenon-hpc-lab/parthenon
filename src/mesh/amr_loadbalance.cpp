@@ -586,12 +586,12 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     }
   }
   // sort the lists by level
-  if (ctnd > 1)
+  if (ctnd > 1) {
     std::sort(clderef, &(clderef[ctnd - 1]),
               [](const LogicalLocation &left, const LogicalLocation &right) {
                 return left.level() > right.level();
               });
-
+  }
   if (tnderef >= nleaf) delete[] lderef;
 
   // Now the lists of the blocks to be refined and derefined are completed
