@@ -68,15 +68,6 @@ class LogicalLocation { // aggregate and POD type
     return ((ll.level() == level_) && (ll.lx1() == lx1_) && (ll.lx2() == lx2_) &&
             (ll.lx3() == lx3_));
   }
-  // LFR: These are old comparison operators. Greater gets used for sorting
-  //      the derefinenment list, but we may want to remove them at some
-  //      point to avoid confusion with the comparators below.
-  static bool Lesser(const LogicalLocation &left, const LogicalLocation &right) {
-    return left.level() < right.level();
-  }
-  static bool Greater(const LogicalLocation &left, const LogicalLocation &right) {
-    return left.level() > right.level();
-  }
 
   bool IsContainedIn(const LogicalLocation &container) const {
     if (container.level() > level_) return false;

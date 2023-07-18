@@ -586,7 +586,11 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     }
   }
   // sort the lists by level
-  if (ctnd > 1) std::sort(clderef, &(clderef[ctnd - 1]), LogicalLocation::Greater);
+  if (ctnd > 1)
+    std::sort(clderef, &(clderef[ctnd - 1]),
+              [](const LogicalLocation &left, const LogicalLocation &right) {
+                return left.level() > right.level();
+              });
 
   if (tnderef >= nleaf) delete[] lderef;
 
