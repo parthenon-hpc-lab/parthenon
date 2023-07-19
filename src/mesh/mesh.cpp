@@ -1069,10 +1069,14 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       tag_map.AddMeshDataToMap<BoundaryType::any>(md);
-      for (int i = 0; i < gmg_mesh_data.size() - 1; ++i)
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate>(md); 
-      for (int i = 1; i < gmg_mesh_data.size(); ++i)
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict>(md); 
+      for (int gmg_level = 0; gmg_level < static_cast<int>(gmg_mesh_data.size()) - 1; ++gmg_level) {
+        auto &mdg = mesh_data.GetOrAdd(gmg_level, "base", i);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate>(mdg); 
+      }
+      for (int gmg_level = 1; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
+        auto &mdg = mesh_data.GetOrAdd(gmg_level, "base", i);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict>(mdg); 
+      }
     }
     tag_map.ResolveMap();
 
