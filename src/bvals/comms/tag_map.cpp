@@ -43,9 +43,12 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
     pair_map[MakeChannelPair(pmb, nb)] = -1;
   });
 }
-template void TagMap::AddMeshDataToMap<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &md);
-template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate>(std::shared_ptr<MeshData<Real>> &md);
-template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict>(std::shared_ptr<MeshData<Real>> &md);
+template void
+TagMap::AddMeshDataToMap<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &md);
+template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate>(
+    std::shared_ptr<MeshData<Real>> &md);
+template void
+TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict>(std::shared_ptr<MeshData<Real>> &md);
 
 void TagMap::ResolveMap() {
   for (auto it = map_.begin(); it != map_.end(); ++it) {

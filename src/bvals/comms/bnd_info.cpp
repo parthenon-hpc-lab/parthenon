@@ -203,8 +203,9 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
-  auto idx_range_type = IndexRangeType::Interior; 
-  if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0) idx_range_type = IndexRangeType::Shared;
+  auto idx_range_type = IndexRangeType::Interior;
+  if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
+    idx_range_type = IndexRangeType::Shared;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
@@ -400,8 +401,9 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
-  auto idx_range_type = IndexRangeType::Exterior; 
-  if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0) idx_range_type = IndexRangeType::Shared;
+  auto idx_range_type = IndexRangeType::Exterior;
+  if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
+    idx_range_type = IndexRangeType::Shared;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});

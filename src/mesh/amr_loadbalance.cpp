@@ -944,7 +944,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   gmg_block_lists = std::vector<BlockList_t>(current_level + 1);
 
   gmg_mesh_data = std::vector<DataCollection<MeshData<Real>>>(current_level + 1);
-  for (auto &mdc : gmg_mesh_data) mdc.SetMeshPointer(this);
+  for (auto &mdc : gmg_mesh_data)
+    mdc.SetMeshPointer(this);
 
   int gmg_gid = 0;
   printf("\n");
@@ -998,7 +999,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       auto parent_loc = pmb->loc.GetParent();
       auto loc = pmb->loc;
       auto gid = pmb->gid;
-      auto rank = Globals::my_rank; 
+      auto rank = Globals::my_rank;
       if (gmg_grid_locs[gmg_level - 1].count(parent_loc) > 0) {
         loc = parent_loc;
         gid = gmg_grid_locs[gmg_level - 1][parent_loc].first;

@@ -60,13 +60,9 @@ std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
   return containers_[name];
 }
 
-
-std::shared_ptr<MeshData<Real>> &
-GetOrAdd_impl(Mesh *pmy_mesh_, 
-         std::map<std::string, std::shared_ptr<MeshData<Real>>> &containers_, 
-         BlockList_t &block_list,
-         const std::string &mbd_label,
-         const int &partition_id) {
+std::shared_ptr<MeshData<Real>> &GetOrAdd_impl(
+    Mesh *pmy_mesh_, std::map<std::string, std::shared_ptr<MeshData<Real>>> &containers_,
+    BlockList_t &block_list, const std::string &mbd_label, const int &partition_id) {
   const std::string label = mbd_label + "_part-" + std::to_string(partition_id);
   auto it = containers_.find(label);
   if (it == containers_.end()) {
@@ -86,15 +82,16 @@ template <>
 std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
                                          const int &partition_id) {
-  return GetOrAdd_impl(pmy_mesh_, containers_, pmy_mesh_->block_list, mbd_label, partition_id);                                 
+  return GetOrAdd_impl(pmy_mesh_, containers_, pmy_mesh_->block_list, mbd_label,
+                       partition_id);
 }
 
 template <>
 std::shared_ptr<MeshData<Real>> &
-DataCollection<MeshData<Real>>::GetOrAdd(int gmg_level, 
-                                         const std::string &mbd_label,
+DataCollection<MeshData<Real>>::GetOrAdd(int gmg_level, const std::string &mbd_label,
                                          const int &partition_id) {
-  return GetOrAdd_impl(pmy_mesh_, containers_, pmy_mesh_->gmg_block_lists[gmg_level], mbd_label, partition_id);                                 
+  return GetOrAdd_impl(pmy_mesh_, containers_, pmy_mesh_->gmg_block_lists[gmg_level],
+                       mbd_label, partition_id);
 }
 
 template class DataCollection<MeshData<Real>>;
