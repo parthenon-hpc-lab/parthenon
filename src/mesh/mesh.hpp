@@ -113,7 +113,8 @@ class Mesh {
 
   std::vector<std::map<LogicalLocation, std::pair<int, int>>> gmg_grid_locs;
   std::vector<BlockList_t> gmg_block_lists;
-
+  std::vector<DataCollection<MeshData<Real>>> gmg_mesh_data;
+  
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,

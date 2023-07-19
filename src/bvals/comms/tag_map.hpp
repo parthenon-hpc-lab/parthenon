@@ -97,6 +97,7 @@ class TagMap {
   void clear() { map_.clear(); }
 
   // Inserts all of the communication channels known about by MeshData md into the map
+  template <BoundaryType BOUND>
   void AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md);
 
   // Once all MeshData objects have inserted their known channels into the map, we can

@@ -1068,7 +1068,11 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     tag_map.clear();
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
-      tag_map.AddMeshDataToMap(md);
+      tag_map.AddMeshDataToMap<BoundaryType::any>(md);
+      for (int i = 0; i < gmg_mesh_data.size() - 1; ++i)
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate>(md); 
+      for (int i = 1; i < gmg_mesh_data.size(); ++i)
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict>(md); 
     }
     tag_map.ResolveMap();
 
@@ -1099,6 +1103,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       BuildBoundaryBuffers(md);
+      // TODO(LFR): Add gmg boundary buffer building
     }
 
     std::vector<bool> sent(num_partitions, false);

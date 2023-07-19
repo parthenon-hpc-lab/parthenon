@@ -942,6 +942,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   gmg_grid_locs =
       std::vector<std::map<LogicalLocation, std::pair<int, int>>>(current_level + 1);
   gmg_block_lists = std::vector<BlockList_t>(current_level + 1);
+
+  gmg_mesh_data = std::vector<DataCollection<MeshData<Real>>>(current_level + 1);
+  for (auto &mdc : gmg_mesh_data) mdc.SetMeshPointer(this);
+
   int gmg_gid = 0;
   printf("\n");
   for (auto loc : loclist) {
@@ -999,11 +1003,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         loc = parent_loc;
         gid = gmg_grid_locs[gmg_level - 1][parent_loc].first;
         rank = gmg_grid_locs[gmg_level - 1][parent_loc].second;
-      } else if (gmg_grid_loc[gmg_level - 1].count(loc) > 0) {
-        gid = gmg_grid_loc[gmg_level - 1][loc].first;
-        rank = gmg_grid_loc[gmg_level - 1][loc].second;
+      } else if (gmg_grid_locs[gmg_level - 1].count(loc) > 0) {
+        gid = gmg_grid_locs[gmg_level - 1][loc].first;
+        rank = gmg_grid_locs[gmg_level - 1][loc].second;
       } else {
-        PARTHENON_ERROR("There is something wrong with GMG block list.");
+        PARTHENON_FAIL("There is something wrong with GMG block list.");
       }
       pmb->gmg_coarser_neighbor.SetNeighbor(loc, rank, loc.level(), gid, -1, 0, 0, 0,
                                             NeighborConnect::none, 0, 0);

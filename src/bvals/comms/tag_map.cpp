@@ -33,9 +33,9 @@ TagMap::rank_pair_t TagMap::MakeChannelPair(const std::shared_ptr<MeshBlock> &pm
   BlockGeometricElementId bgei_nb{nb.snb.gid, location_idx_nb};
   return UnorderedPair<BlockGeometricElementId>(bgei_me, bgei_nb);
 }
-
+template <BoundaryType BOUND>
 void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
-  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BOUND>(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     const int other_rank = nb.snb.rank;
     if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
     auto &pair_map = map_[other_rank];
@@ -43,6 +43,9 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
     pair_map[MakeChannelPair(pmb, nb)] = -1;
   });
 }
+template void TagMap::AddMeshDataToMap<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &md);
+template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate>(std::shared_ptr<MeshData<Real>> &md);
+template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict>(std::shared_ptr<MeshData<Real>> &md);
 
 void TagMap::ResolveMap() {
   for (auto it = map_.begin(); it != map_.end(); ++it) {
