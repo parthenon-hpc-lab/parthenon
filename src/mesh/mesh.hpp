@@ -23,6 +23,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -109,6 +110,9 @@ class Mesh {
   std::shared_ptr<StateDescriptor> resolved_packages;
 
   DataCollection<MeshData<Real>> mesh_data;
+
+  std::vector<std::map<LogicalLocation, std::pair<int, int>>> gmg_grid_locs; 
+  std::vector<BlockList_t> gmg_block_lists;
 
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);

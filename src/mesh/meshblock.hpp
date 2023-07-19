@@ -159,6 +159,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<BoundarySwarms> pbswarm;
   std::unique_ptr<MeshRefinement> pmr;
+  
+  NeighborBlock gmg_coarser_neighbor; 
+  std::vector<NeighborBlock> gmg_finer_neighbors; 
 
   BoundaryFlag boundary_flag[6];
 
