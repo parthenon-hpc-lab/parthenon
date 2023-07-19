@@ -82,12 +82,14 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
     for (auto &v : rc->GetVariableVector()) {
       if constexpr (bound == BoundaryType::gmg_restrict) {
         if (v->IsSet(Metadata::GMG)) {
-          if (func_caller(func, pmb, rc, pmb->gmg_coarser_neighbor, v) == LoopControl::break_out) return; 
+          if (func_caller(func, pmb, rc, pmb->gmg_coarser_neighbor, v) ==
+              LoopControl::break_out)
+            return;
         }
-      } else if constexpr (bound == BoundaryType::gmg_prolongate) { 
+      } else if constexpr (bound == BoundaryType::gmg_prolongate) {
         if (v->IsSet(Metadata::GMG)) {
           for (auto &nb : pmb->gmg_finer_neighbors) {
-            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return; 
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }
       } else {

@@ -111,7 +111,7 @@ class Mesh {
 
   DataCollection<MeshData<Real>> mesh_data;
 
-  std::vector<std::map<LogicalLocation, std::pair<int, int>>> gmg_grid_locs; 
+  std::vector<std::map<LogicalLocation, std::pair<int, int>>> gmg_grid_locs;
   std::vector<BlockList_t> gmg_block_lists;
 
   // functions

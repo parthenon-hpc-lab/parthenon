@@ -937,86 +937,94 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   Initialize(false, pin, app_in);
 
   ResetLoadBalanceVariables();
-  
+
   // Create GMG logical location lists, first just copy coarsest grid
-  gmg_grid_locs = std::vector<std::map<LogicalLocation, std::pair<int, int>>>(current_level + 1); 
+  gmg_grid_locs =
+      std::vector<std::map<LogicalLocation, std::pair<int, int>>>(current_level + 1);
   gmg_block_lists = std::vector<BlockList_t>(current_level + 1);
   int gmg_gid = 0;
-  printf("\n");  
+  printf("\n");
   for (auto loc : loclist) {
-    //printf("Adding grid location level = %i (%i: %i %i %i) rank = %i\n", current_level, loc.level(), loc.lx1(), loc.lx2(), loc.lx3(), ranklist[gmg_gid]);
-    gmg_grid_locs[current_level].insert({loc, std::pair<int, int>(gmg_gid, ranklist[gmg_gid++])});
+    // printf("Adding grid location level = %i (%i: %i %i %i) rank = %i\n", current_level,
+    // loc.level(), loc.lx1(), loc.lx2(), loc.lx3(), ranklist[gmg_gid]);
+    gmg_grid_locs[current_level].insert(
+        {loc, std::pair<int, int>(gmg_gid, ranklist[gmg_gid++])});
   }
-  // This should just work since they already sorted in Morton order 
+  // This should just work since they already sorted in Morton order
   gmg_block_lists[current_level] = block_list;
-  printf("gmg_level = %i nloc = %i\n", current_level, gmg_grid_locs[current_level].size());
+  printf("gmg_level = %i nloc = %i\n", current_level,
+         gmg_grid_locs[current_level].size());
 
   // Iterate over increasingly coarsened grids
   for (int gmg_level = current_level - 1; gmg_level >= 0; --gmg_level) {
-    //printf("\n"); 
-    for (auto &[loc, gid_rank] : gmg_grid_locs[gmg_level + 1]) { 
+    // printf("\n");
+    for (auto &[loc, gid_rank] : gmg_grid_locs[gmg_level + 1]) {
       auto &rank = gid_rank.second;
-      if (loc.level() == gmg_level + 1) { 
-        auto parent = loc.GetParent(); 
+      if (loc.level() == gmg_level + 1) {
+        auto parent = loc.GetParent();
         if (parent.morton() == loc.morton()) {
-          //printf("Adding grid location level = %i (%i: %i %i %i) rank = %i\n", gmg_level, parent.level(), parent.lx1(), parent.lx2(), parent.lx3(), gid_rank.second);
+          // printf("Adding grid location level = %i (%i: %i %i %i) rank = %i\n",
+          // gmg_level, parent.level(), parent.lx1(), parent.lx2(), parent.lx3(),
+          // gid_rank.second);
           gmg_grid_locs[gmg_level].insert({parent, std::make_pair(gmg_gid++, rank)});
         }
-      } else { 
-        //printf("Adding grid location level = %i (%i: %i %i %i) rank = %i\n", gmg_level, loc.level(), loc.lx1(), loc.lx2(), loc.lx3(), gid_rank.second);
+      } else {
+        // printf("Adding grid location level = %i (%i: %i %i %i) rank = %i\n", gmg_level,
+        // loc.level(), loc.lx1(), loc.lx2(), loc.lx3(), gid_rank.second);
         gmg_grid_locs[gmg_level].insert({loc, std::make_pair(gmg_gid++, rank)});
       }
     }
 
     printf("gmg_level = %i nloc = %i\n", gmg_level, gmg_grid_locs[gmg_level].size());
 
-    for (auto &[loc, gid_rank] : gmg_grid_locs[gmg_level]) { 
+    for (auto &[loc, gid_rank] : gmg_grid_locs[gmg_level]) {
       if (gid_rank.second == Globals::my_rank) {
         BoundaryFlag block_bcs[6];
         SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
-        gmg_block_lists[gmg_level].push_back(MeshBlock::Make(gid_rank.first, -1, loc, 
-                                                             block_size, block_bcs, this, 
-                                                             pin, app_in, packages, 
-                                                             resolved_packages, gflag));
+        gmg_block_lists[gmg_level].push_back(
+            MeshBlock::Make(gid_rank.first, -1, loc, block_size, block_bcs, this, pin,
+                            app_in, packages, resolved_packages, gflag));
       }
     }
   }
- 
-  // Now find GMG coarser neighbors 
-  for (int gmg_level = 1; gmg_level <= current_level; ++gmg_level) { 
+
+  // Now find GMG coarser neighbors
+  for (int gmg_level = 1; gmg_level <= current_level; ++gmg_level) {
     for (auto &pmb : gmg_block_lists[gmg_level]) {
       auto parent_loc = pmb->loc.GetParent();
       auto loc = pmb->loc;
-      auto gid = pmb->gid; 
+      auto gid = pmb->gid;
       if (gmg_grid_locs[gmg_level - 1].count(parent_loc) > 0) {
         loc = parent_loc;
         gid = gmg_grid_locs[gmg_level - 1][parent_loc].first;
-      }    
-      pmb->gmg_coarser_neighbor.SetNeighbor(loc, gid, loc.level(), gid, -1, 0, 0, 0, NeighborConnect::none, 0, 0);
+      }
+      pmb->gmg_coarser_neighbor.SetNeighbor(loc, gid, loc.level(), gid, -1, 0, 0, 0,
+                                            NeighborConnect::none, 0, 0);
     }
-  } 
-  
-  // Now find finer GMG neighbors 
-  for (int gmg_level = 0; gmg_level < current_level; ++gmg_level) { 
+  }
+
+  // Now find finer GMG neighbors
+  for (int gmg_level = 0; gmg_level < current_level; ++gmg_level) {
     for (auto &pmb : gmg_block_lists[gmg_level]) {
       auto daughter_locs = pmb->loc.GetDaughters();
-      daughter_locs.push_back(pmb->loc); // It is also possible that this block itself is present on the finer mesh
+      daughter_locs.push_back(pmb->loc); // It is also possible that this block itself is
+                                         // present on the finer mesh
       for (auto &daughter_loc : daughter_locs) {
-        if (gmg_grid_locs[gmg_level + 1].count(daughter_loc) > 0) { 
-          auto &gid_rank = gmg_grid_locs[gmg_level + 1][daughter_loc];    
-          pmb->gmg_finer_neighbors.emplace_back(); 
-          pmb->gmg_finer_neighbors.back().SetNeighbor(daughter_loc, gid_rank.first, daughter_loc.level(), 
-                                                      gid_rank.first, -1, 0, 0, 0, 
-                                                      NeighborConnect::none, 0, 0);
+        if (gmg_grid_locs[gmg_level + 1].count(daughter_loc) > 0) {
+          auto &gid_rank = gmg_grid_locs[gmg_level + 1][daughter_loc];
+          pmb->gmg_finer_neighbors.emplace_back();
+          pmb->gmg_finer_neighbors.back().SetNeighbor(
+              daughter_loc, gid_rank.first, daughter_loc.level(), gid_rank.first, -1, 0,
+              0, 0, NeighborConnect::none, 0, 0);
         }
       }
-      //printf("gmg_level = %i block = (%i: %i %i) ", gmg_level, pmb->loc.level(), pmb->loc.lx1(), pmb->loc.lx2());
-      //for (auto &n : pmb->gmg_finer_neighbors) {
-      //  auto &loc = n.loc;
-      //  printf("d = (%i: %i %i) ", loc.level(), loc.lx1(), loc.lx2());
-      //}
-      //printf("\n");
-    } 
+      // printf("gmg_level = %i block = (%i: %i %i) ", gmg_level, pmb->loc.level(),
+      // pmb->loc.lx1(), pmb->loc.lx2()); for (auto &n : pmb->gmg_finer_neighbors) {
+      //   auto &loc = n.loc;
+      //   printf("d = (%i: %i %i) ", loc.level(), loc.lx1(), loc.lx2());
+      // }
+      // printf("\n");
+    }
   }
 
   Kokkos::Profiling::popRegion(); // RedistributeAndRefineMeshBlocks
