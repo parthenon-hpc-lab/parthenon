@@ -1108,6 +1108,14 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       auto &md = mesh_data.GetOrAdd("base", i);
       BuildBoundaryBuffers(md);
       // TODO(LFR): Add gmg boundary buffer building
+      for (int gmg_level = 0; gmg_level < static_cast<int>(gmg_mesh_data.size()) - 1; ++gmg_level) {
+        auto &mdg = mesh_data.GetOrAdd(gmg_level, "base", i);
+        BuildGMGBoundaryBuffers(mdg); 
+      }
+      for (int gmg_level = 1; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
+        auto &mdg = mesh_data.GetOrAdd(gmg_level, "base", i);
+        BuildGMGBoundaryBuffers(mdg); 
+      }
     }
 
     std::vector<bool> sent(num_partitions, false);

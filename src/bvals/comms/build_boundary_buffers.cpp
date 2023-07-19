@@ -130,4 +130,21 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
   return TaskStatus::complete;
 }
+
+TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
+  Mesh *pmesh = md->GetMeshPointer();
+  auto &all_caches = md->GetBvarsCache();
+
+  // Clear the fast access vectors for this block since they are no longer valid
+  // after all MeshData call BuildBoundaryBuffers
+  all_caches.clear();
+
+  BuildBoundaryBufferSubset<BoundaryType::gmg_prolongate>(md, pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::gmg_restrict>(md, pmesh->boundary_comm_map);
+
+  Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
+  return TaskStatus::complete;
+}
+
 } // namespace parthenon

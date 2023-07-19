@@ -75,8 +75,9 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel);
 
-// This task should not be called in down stream code
+// These tasks should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
 } // namespace parthenon
 
