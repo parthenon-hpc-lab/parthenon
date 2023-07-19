@@ -994,11 +994,18 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       auto parent_loc = pmb->loc.GetParent();
       auto loc = pmb->loc;
       auto gid = pmb->gid;
+      auto rank = Globals::my_rank; 
       if (gmg_grid_locs[gmg_level - 1].count(parent_loc) > 0) {
         loc = parent_loc;
         gid = gmg_grid_locs[gmg_level - 1][parent_loc].first;
+        rank = gmg_grid_locs[gmg_level - 1][parent_loc].second;
+      } else if (gmg_grid_loc[gmg_level - 1].count(loc) > 0) {
+        gid = gmg_grid_loc[gmg_level - 1][loc].first;
+        rank = gmg_grid_loc[gmg_level - 1][loc].second;
+      } else {
+        PARTHENON_ERROR("There is something wrong with GMG block list.");
       }
-      pmb->gmg_coarser_neighbor.SetNeighbor(loc, gid, loc.level(), gid, -1, 0, 0, 0,
+      pmb->gmg_coarser_neighbor.SetNeighbor(loc, rank, loc.level(), gid, -1, 0, 0, 0,
                                             NeighborConnect::none, 0, 0);
     }
   }
@@ -1014,7 +1021,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           auto &gid_rank = gmg_grid_locs[gmg_level + 1][daughter_loc];
           pmb->gmg_finer_neighbors.emplace_back();
           pmb->gmg_finer_neighbors.back().SetNeighbor(
-              daughter_loc, gid_rank.first, daughter_loc.level(), gid_rank.first, -1, 0,
+              daughter_loc, gid_rank.second, daughter_loc.level(), gid_rank.first, -1, 0,
               0, 0, NeighborConnect::none, 0, 0);
         }
       }
