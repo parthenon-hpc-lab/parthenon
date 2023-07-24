@@ -993,7 +993,31 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
   }
 
-  // Now find GMG coarser neighbors
+  // Find same level neighbors on all GMG levels
+  auto root_grid = this->GetRootGridInfo();
+  for (int gmg_level = 0; gmg_level <= current_level; ++gmg_level) {
+    for (auto &pmb : gmg_block_lists[gmg_level]) {
+      auto loc = pmb->loc;
+      auto gid = pmb->gid;
+      auto rank = Globals::my_rank;
+      pmb->gmg_same_neighbors = {};
+      auto possible_neighbors = loc.GetPossibleNeighbors(root_grid);
+      for (auto &pos_neighbor_location : possible_neighbors) {
+        if (pos_neighbor_location == loc) continue;
+        if (gmg_grid_locs[gmg_level].count(pos_neighbor_location) > 0) {
+          auto &gid_rank = gmg_grid_locs[gmg_level][pos_neighbor_location];
+          auto [offsets, f] = loc.GetAthenaXXOffsets(pos_neighbor_location, root_grid);
+          pmb->gmg_same_neighbors.emplace_back();
+          pmb->gmg_same_neighbors.back().SetNeighbor(
+              pos_neighbor_location, gid_rank.second, pos_neighbor_location.level(),
+              gid_rank.first, -1, offsets[0], offsets[1], offsets[2],
+              NeighborConnect::none, f[0], f[1]);
+        }
+      }
+    }
+  }
+
+  // Now find GMG coarser neighbor
   for (int gmg_level = 1; gmg_level <= current_level; ++gmg_level) {
     for (auto &pmb : gmg_block_lists[gmg_level]) {
       auto parent_loc = pmb->loc.GetParent();

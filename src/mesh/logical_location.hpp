@@ -68,12 +68,6 @@ class LogicalLocation { // aggregate and POD type
   const auto &level() const { return level_; }
   const auto &morton() const { return morton_; }
 
-  // operators useful for sorting
-  bool operator==(LogicalLocation &ll) {
-    return ((ll.level() == level_) && (ll.lx1() == lx1_) && (ll.lx2() == lx2_) &&
-            (ll.lx3() == lx3_));
-  }
-
   bool IsContainedIn(const LogicalLocation &container) const {
     if (container.level() > level_) return false;
     const std::int64_t shifted_lx1 = lx1_ >> (level_ - container.level());
@@ -91,7 +85,8 @@ class LogicalLocation { // aggregate and POD type
     return (shifted_lx1 == lx1_) && (shifted_lx2 == lx2_) && (shifted_lx3 == lx3_);
   }
 
-  std::array<int, 3> GetOffset(const LogicalLocation &neighbor) const {
+  std::array<int, 3> GetOffset(const LogicalLocation &neighbor,
+                               const RootGridInfo &rg_info = RootGridInfo()) const {
     std::array<int, 3> offset;
     offset[0] = (neighbor.lx1() >> std::max(neighbor.level() - level_, 0)) -
                 (lx1() >> std::max(level_ - neighbor.level(), 0));
@@ -99,12 +94,37 @@ class LogicalLocation { // aggregate and POD type
                 (lx2() >> std::max(level_ - neighbor.level(), 0));
     offset[2] = (neighbor.lx3() >> std::max(neighbor.level() - level_, 0)) -
                 (lx3() >> std::max(level_ - neighbor.level(), 0));
+
+    const int n_per_root_block = 1
+                                 << (std::min(level(), neighbor.level()) - rg_info.level);
+    int n1_cells_level = std::max(n_per_root_block * rg_info.nx1, 1);
+    int n2_cells_level = std::max(n_per_root_block * rg_info.nx2, 1);
+    int n3_cells_level = std::max(n_per_root_block * rg_info.nx3, 1);
+    if (rg_info.periodic1) {
+      if (std::abs(offset[0]) > n1_cells_level / 2) {
+        if (offset[0] > 0) offset[0] = offset[0] % n1_cells_level - n1_cells_level;
+        if (offset[0] < 0) offset[0] = offset[0] % n1_cells_level + n1_cells_level;
+      }
+    }
+    if (rg_info.periodic2) {
+      if (std::abs(offset[0]) > n2_cells_level / 2) {
+        if (offset[1] > 0) offset[1] = offset[1] % n2_cells_level - n2_cells_level;
+        if (offset[1] < 0) offset[1] = offset[1] % n2_cells_level + n2_cells_level;
+      }
+    }
+    if (rg_info.periodic3) {
+      if (std::abs(offset[0]) > n3_cells_level / 2) {
+        if (offset[2] > 0) offset[2] = offset[2] % n3_cells_level - n3_cells_level;
+        if (offset[2] < 0) offset[2] = offset[2] % n3_cells_level + n3_cells_level;
+      }
+    }
     return offset;
   }
 
   // Being a neighbor implies that you share a face, edge, or node and don't share a
   // volume
-  bool IsNeighbor(const LogicalLocation &in) const {
+  bool IsNeighbor(const LogicalLocation &in,
+                  const RootGridInfo &rg_info = RootGridInfo()) const {
     if (in.level() < level()) return in.IsNeighbor(*this);
     if (Contains(in)) return false; // You share a volume
     // Only need to consider case where other block is equally or more refined than you
@@ -121,7 +141,9 @@ class LogicalLocation { // aggregate and POD type
     return bx1 && bx2 && bx3;
   }
 
-  LogicalLocation GetSameLevelNeighbor(int ox1, int ox2, int ox3) const {
+  LogicalLocation
+  GetSameLevelNeighbor(int ox1, int ox2, int ox3,
+                       const RootGridInfo &rg_info = RootGridInfo()) const {
     return LogicalLocation(level_, lx1_ + ox1, lx2_ + ox2, lx3_ + ox3);
   }
 
@@ -148,21 +170,65 @@ class LogicalLocation { // aggregate and POD type
                            (lx3_ << 1) + ox3);
   }
 
+  auto GetAthenaXXOffsets(const LogicalLocation &neighbor,
+                          const RootGridInfo &rg_info = RootGridInfo()) {
+    auto offsets = GetOffset(neighbor, rg_info);
+    // The neighbor block struct should only use the first two, but we have three to allow
+    // for this being a parent of neighbor, this should be checked for elsewhere
+    int f[3]{0, 0, 0};
+    if (neighbor.level() == level() + 1) {
+      int idx = 0;
+      if (offsets[0] == 0) f[idx++] = neighbor.lx1() % 2;
+      if (offsets[1] == 0) f[idx++] = neighbor.lx2() % 2;
+      if (offsets[2] == 0) f[idx++] = neighbor.lx3() % 2;
+    }
+    return std::make_tuple(offsets, f);
+  }
+
+  std::set<LogicalLocation>
+  GetPossibleNeighbors(const RootGridInfo &rg_info = RootGridInfo()) {
+    const std::vector<int> irange{-1, 0, 1};
+    const std::vector<int> jrange{-1, 0, 1};
+    const std::vector<int> krange{-1, 0, 1};
+    const std::vector<int> daughter_irange{0, 1};
+    const std::vector<int> daughter_jrange{0, 1};
+    const std::vector<int> daughter_krange{0, 1};
+
+    return GetPossibleNeighborsImpl(irange, jrange, krange, daughter_irange,
+                                    daughter_jrange, daughter_krange, rg_info);
+  }
+
   std::set<LogicalLocation> GetPossibleBlocksSurroundingTopologicalElement(
       int ox1, int ox2, int ox3, const RootGridInfo &rg_info = RootGridInfo()) const {
-    std::vector<LogicalLocation> locs;
-
     const auto irange =
         (std::abs(ox1) == 1) ? std::vector<int>{0, ox1} : std::vector<int>{0};
     const auto jrange =
         (std::abs(ox2) == 1) ? std::vector<int>{0, ox2} : std::vector<int>{0};
     const auto krange =
         (std::abs(ox3) == 1) ? std::vector<int>{0, ox3} : std::vector<int>{0};
+    const auto daughter_irange =
+        (std::abs(ox1) == 1) ? std::vector<int>{ox1 > 0} : std::vector<int>{0, 1};
+    const auto daughter_jrange =
+        (std::abs(ox2) == 1) ? std::vector<int>{ox2 > 0} : std::vector<int>{0, 1};
+    const auto daughter_krange =
+        (std::abs(ox3) == 1) ? std::vector<int>{ox3 > 0} : std::vector<int>{0, 1};
+
+    return GetPossibleNeighborsImpl(irange, jrange, krange, daughter_irange,
+                                    daughter_jrange, daughter_krange, rg_info);
+  }
+
+  std::set<LogicalLocation> GetPossibleNeighborsImpl(
+      const std::vector<int> &irange, const std::vector<int> &jrange,
+      const std::vector<int> &krange, const std::vector<int> &daughter_irange,
+      const std::vector<int> &daughter_jrange, const std::vector<int> &daughter_krange,
+      const RootGridInfo &rg_info = RootGridInfo()) const {
+    std::vector<LogicalLocation> locs;
 
     auto AddNeighbors = [&](const LogicalLocation &loc) {
-      int n1_cells_level = std::pow(2, loc.level() - rg_info.level) * rg_info.nx1;
-      int n2_cells_level = std::pow(2, loc.level() - rg_info.level) * rg_info.nx2;
-      int n3_cells_level = std::pow(2, loc.level() - rg_info.level) * rg_info.nx3;
+      const int n_per_root_block = 1 << (loc.level() - rg_info.level);
+      int n1_cells_level = std::max(n_per_root_block * rg_info.nx1, 1);
+      int n2_cells_level = std::max(n_per_root_block * rg_info.nx2, 1);
+      int n3_cells_level = std::max(n_per_root_block * rg_info.nx3, 1);
       for (int i : irange) {
         for (int j : jrange) {
           for (int k : krange) {
@@ -184,15 +250,13 @@ class LogicalLocation { // aggregate and POD type
       }
     };
 
+    // Find the same level and lower level blocks of this block
     AddNeighbors(*this);
 
     // Iterate over daughters of this block that share the same topological element
-    for (int l :
-         (std::abs(ox1) == 1) ? std::vector<int>{ox1 > 0} : std::vector<int>{0, 1}) {
-      for (int m :
-           (std::abs(ox2) == 1) ? std::vector<int>{ox2 > 0} : std::vector<int>{0, 1}) {
-        for (int n :
-             (std::abs(ox3) == 1) ? std::vector<int>{ox3 > 0} : std::vector<int>{0, 1}) {
+    for (int l : daughter_irange) {
+      for (int m : daughter_jrange) {
+        for (int n : daughter_krange) {
           AddNeighbors(GetDaughter(l, m, n));
         }
       }
