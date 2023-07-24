@@ -80,6 +80,100 @@ MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation 
 }
 #endif
 
+void SetSameLevelNeighbors(BlockList_t &block_list, 
+                           const LogicalLocMap_t& loc_map,
+                           RootGridInfo root_grid,
+                           int nbs) { 
+  for (auto &pmb : block_list) {
+    auto loc = pmb->loc;
+    auto gid = pmb->gid;
+    auto rank = Globals::my_rank;
+    pmb->gmg_same_neighbors = {};
+    auto possible_neighbors = loc.GetPossibleNeighbors(root_grid);
+    for (auto &pos_neighbor_location : possible_neighbors) {
+      if (pos_neighbor_location == loc) continue;
+      if (loc_map.count(pos_neighbor_location) > 0) {
+        const auto &gid_rank = loc_map.at(pos_neighbor_location);
+        auto [offsets, f] = loc.GetAthenaXXOffsets(pos_neighbor_location, root_grid);
+
+        NeighborConnect nc; 
+        int connect_indicator = std::abs(offsets[0]) + std::abs(offsets[1]) + std::abs(offsets[2]);
+        if (connect_indicator == 1) {
+          nc = NeighborConnect::face;
+        } else if (connect_indicator == 2) {
+          nc = NeighborConnect::edge;
+        } else if (connect_indicator == 3) {
+          nc = NeighborConnect::corner;
+        }
+        pmb->gmg_same_neighbors.emplace_back();
+        pmb->gmg_same_neighbors.back().SetNeighbor(
+            pos_neighbor_location, gid_rank.second, pos_neighbor_location.level(),
+            gid_rank.first, gid_rank.first - nbs, offsets[0], offsets[1], offsets[2],
+            nc, 0, 0, f[0], f[1]);
+      }
+    }
+    // Set neighbor block ownership 
+    std::set<LogicalLocation> allowed_neighbors; 
+    allowed_neighbors.insert(pmb->loc); 
+    for (auto &nb : pmb->gmg_same_neighbors) allowed_neighbors.insert(nb.loc); 
+    for (auto &nb : pmb->gmg_same_neighbors) {
+      nb.ownership = DetermineOwnership(nb.loc, allowed_neighbors, root_grid); 
+      nb.ownership.initialized = true;
+    }
+  }  
+}
+
+void CheckNeighborFinding(BlockList_t &block_list) {
+  for (auto &pmb : block_list) {
+    CheckNeighborFinding(pmb);
+  }
+}
+
+void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb) {
+  // Check each block one by one
+  std::unordered_map<LogicalLocation, NeighborBlock> neighbs; 
+  for (auto &nb : pmb->gmg_same_neighbors) neighbs[nb.loc] = nb; 
+  if (pmb->pbval->nneighbor != pmb->gmg_same_neighbors.size()) { 
+    printf("New algorithm found different number of neighbor blocks on %i (%i vs %i).\n", pmb->gid, pmb->pbval->nneighbor, pmb->gmg_same_neighbors.size());
+  }
+  for (int nn = 0; nn < pmb->pbval->nneighbor; ++nn) { 
+    auto &nb = pmb->pbval->neighbor[nn]; 
+    if (neighbs.count(nb.loc) > 0) { 
+      auto &nb2 = neighbs[nb.loc]; 
+      if (nb.ni.ox1 == nb2.ni.ox1 && nb.ni.ox2 == nb2.ni.ox2 && nb.ni.ox3 == nb2.ni.ox3) { 
+      } else {
+        printf("Bad offsets for block %i %s: %s ox1=%i ox2=%i %s ox1=%i ox2=%i\n", pmb->gid, pmb->loc.label().c_str(), 
+          nb.loc.label().c_str(), nb.ni.ox1, nb.ni.ox2, 
+          nb2.loc.label().c_str(), nb2.ni.ox1, nb2.ni.ox2);
+      }
+      if (nb.ni.fi1 == nb2.ni.fi1 && nb.ni.fi2 == nb2.ni.fi2) { 
+      } else {
+        printf("Bad face offsets for block %i %s: %s f1=%i f2=%i %s f1=%i f2=%i\n", pmb->gid, pmb->loc.label().c_str(), 
+          nb.loc.label().c_str(), nb.ni.fi1, nb.ni.fi2, 
+          nb2.loc.label().c_str(), nb2.ni.fi1, nb2.ni.fi2);
+      }
+
+      if (nb.snb.gid == nb2.snb.gid && nb.snb.lid == nb2.snb.lid && nb.snb.level == nb2.snb.level) {  
+      } else { 
+        printf("Bad compressed indexing for block %i %s: %s gid=%i lid=%i level=%i %s gid=%i lid=%i level=%i\n", pmb->gid, pmb->loc.label().c_str(), 
+          nb.loc.label().c_str(), nb.snb.gid, nb.snb.lid, nb.snb.level, 
+          nb2.loc.label().c_str(), nb2.snb.gid, nb2.snb.lid, nb.snb.level);
+      }
+
+      if (nb.ni.type == nb2.ni.type) {  
+      } else { 
+        printf("Bad face id for block %i %s: %s fid=%i ox=(%i, %i, %i) %s fid=%i\n", pmb->gid, pmb->loc.label().c_str(), 
+          nb.loc.label().c_str(), nb.ni.type, nb.ni.ox1, nb.ni.ox2, nb.ni.ox3, 
+          nb2.loc.label().c_str(), nb2.ni.type);
+      }
+
+    } else { 
+      printf("Block %i %s new neighbor list missing %s.\n", pmb->gid, pmb->loc.label().c_str(), nb.loc.label().c_str());
+    }
+  }
+  //printf("Finished checking neighbors for %i.\n", pmb->gid);
+}
+
 bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
                          Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
                          Mesh *pmesh) {
@@ -934,13 +1028,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   for (auto &pmb : block_list) {
     pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-  Initialize(false, pin, app_in);
-
-  ResetLoadBalanceVariables();
 
   // Create GMG logical location lists, first just copy coarsest grid
-  gmg_grid_locs =
-      std::vector<std::map<LogicalLocation, std::pair<int, int>>>(current_level + 1);
+  gmg_grid_locs = std::vector<LogicalLocMap_t>(current_level + 1);
   gmg_block_lists = std::vector<BlockList_t>(current_level + 1);
 
   gmg_mesh_data = std::vector<DataCollection<MeshData<Real>>>(current_level + 1);
@@ -953,7 +1043,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // printf("Adding grid location level = %i (%i: %i %i %i) rank = %i\n", current_level,
     // loc.level(), loc.lx1(), loc.lx2(), loc.lx3(), ranklist[gmg_gid]);
     gmg_grid_locs[current_level].insert(
-        {loc, std::pair<int, int>(gmg_gid, ranklist[gmg_gid++])});
+        {loc, std::pair<int, int>(gmg_gid, ranklist[gmg_gid])});
+    gmg_gid++;
   }
   // This should just work since they already sorted in Morton order
   gmg_block_lists[current_level] = block_list;
@@ -996,25 +1087,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // Find same level neighbors on all GMG levels
   auto root_grid = this->GetRootGridInfo();
   for (int gmg_level = 0; gmg_level <= current_level; ++gmg_level) {
-    for (auto &pmb : gmg_block_lists[gmg_level]) {
-      auto loc = pmb->loc;
-      auto gid = pmb->gid;
-      auto rank = Globals::my_rank;
-      pmb->gmg_same_neighbors = {};
-      auto possible_neighbors = loc.GetPossibleNeighbors(root_grid);
-      for (auto &pos_neighbor_location : possible_neighbors) {
-        if (pos_neighbor_location == loc) continue;
-        if (gmg_grid_locs[gmg_level].count(pos_neighbor_location) > 0) {
-          auto &gid_rank = gmg_grid_locs[gmg_level][pos_neighbor_location];
-          auto [offsets, f] = loc.GetAthenaXXOffsets(pos_neighbor_location, root_grid);
-          pmb->gmg_same_neighbors.emplace_back();
-          pmb->gmg_same_neighbors.back().SetNeighbor(
-              pos_neighbor_location, gid_rank.second, pos_neighbor_location.level(),
-              gid_rank.first, -1, offsets[0], offsets[1], offsets[2],
-              NeighborConnect::none, f[0], f[1]);
-        }
-      }
-    }
+    SetSameLevelNeighbors(gmg_block_lists[gmg_level], gmg_grid_locs[gmg_level], root_grid, nbs);
   }
 
   // Now find GMG coarser neighbor
@@ -1034,7 +1107,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       } else {
         PARTHENON_FAIL("There is something wrong with GMG block list.");
       }
-      pmb->gmg_coarser_neighbor.SetNeighbor(loc, rank, loc.level(), gid, -1, 0, 0, 0,
+      pmb->gmg_coarser_neighbor.SetNeighbor(loc, rank, loc.level(), gid, gid - nbs, 0, 0, 0,
                                             NeighborConnect::none, 0, 0);
     }
   }
@@ -1050,7 +1123,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           auto &gid_rank = gmg_grid_locs[gmg_level + 1][daughter_loc];
           pmb->gmg_finer_neighbors.emplace_back();
           pmb->gmg_finer_neighbors.back().SetNeighbor(
-              daughter_loc, gid_rank.second, daughter_loc.level(), gid_rank.first, -1, 0,
+              daughter_loc, gid_rank.second, daughter_loc.level(), gid_rank.first, gid_rank.first - nbs, 0,
               0, 0, NeighborConnect::none, 0, 0);
         }
       }
@@ -1062,7 +1135,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // printf("\n");
     }
   }
+  CheckNeighborFinding(block_list); 
+  Initialize(false, pin, app_in);
 
+  ResetLoadBalanceVariables();
   Kokkos::Profiling::popRegion(); // RedistributeAndRefineMeshBlocks
 }
 } // namespace parthenon

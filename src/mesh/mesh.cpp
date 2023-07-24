@@ -427,6 +427,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   loclist.resize(nbtotal);
   tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
 
+
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
   if (nbtotal < Globals::nranks) {
@@ -462,6 +463,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   costlist = std::vector<double>(nbtotal, 1.0);
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
+  
+  gmg_grid_locs = std::vector<LogicalLocMap_t>(current_level + 1);
+  gmg_block_lists = std::vector<BlockList_t>(current_level + 1);
+  for (int gid = 0; gid < loclist.size(); ++gid) {
+    gmg_grid_locs[current_level][loclist[gid]] = std::make_pair(gid, ranklist[gid]);
+  }
 
   // Output some diagnostic information to terminal
 
@@ -492,7 +499,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                         packages, resolved_packages, gflag);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-
+  SetSameLevelNeighbors(block_list, gmg_grid_locs[current_level], GetRootGridInfo(), nbs); 
+  CheckNeighborFinding(block_list); 
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run

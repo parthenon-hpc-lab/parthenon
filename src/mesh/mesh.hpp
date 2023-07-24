@@ -62,6 +62,16 @@ class MeshRefinement;
 class ParameterInput;
 class RestartReader;
 
+// Map from LogicalLocation to (gid, rank) pair of location
+using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
+
+void SetSameLevelNeighbors(BlockList_t &block_list, 
+                           const LogicalLocMap_t& loc_map,
+                           RootGridInfo root_grid,
+                           int nbs);
+void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb);
+void CheckNeighborFinding(BlockList_t &block_list);
+
 //----------------------------------------------------------------------------------------
 //! \class Mesh
 //  \brief data/functions associated with the overall mesh
@@ -111,7 +121,7 @@ class Mesh {
 
   DataCollection<MeshData<Real>> mesh_data;
 
-  std::vector<std::map<LogicalLocation, std::pair<int, int>>> gmg_grid_locs;
+  std::vector<LogicalLocMap_t> gmg_grid_locs;
   std::vector<BlockList_t> gmg_block_lists;
   std::vector<DataCollection<MeshData<Real>>> gmg_mesh_data;
 
