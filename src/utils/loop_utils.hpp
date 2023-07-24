@@ -24,6 +24,7 @@
 #include "bvals/comms/bnd_info.hpp" // TODO(JMM): Remove me when possible
 #include "interface/metadata.hpp"
 #include "mesh/domain.hpp" // TODO(JMM): Remove me when possible
+#include "mesh/mesh.hpp" 
 
 namespace parthenon {
 
@@ -94,8 +95,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
         }
       } else {
         if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
-          for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
-            auto &nb = pmb->pbval->neighbor[n];
+          for (auto &nb : pmb->gmg_same_neighbors) {
             if constexpr (bound == BoundaryType::local) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
               if (nb.snb.rank != Globals::my_rank) continue;
