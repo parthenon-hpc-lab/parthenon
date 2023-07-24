@@ -61,7 +61,10 @@ class LogicalLocation { // aggregate and POD type
   LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
       : lx1_(l1), lx2_(l2), lx3_(l3), level_(lev), morton_(lev, l1, l2, l3) {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
-
+  
+  std::string label() const { 
+    return "(" + std::to_string(level_) + ": " + std::to_string(lx1_) + ", " + std::to_string(lx2_) + ", " + std::to_string(lx3_) + ")";
+  }
   const auto &lx1() const { return lx1_; }
   const auto &lx2() const { return lx2_; }
   const auto &lx3() const { return lx3_; }
@@ -100,22 +103,34 @@ class LogicalLocation { // aggregate and POD type
     int n1_cells_level = std::max(n_per_root_block * rg_info.nx1, 1);
     int n2_cells_level = std::max(n_per_root_block * rg_info.nx2, 1);
     int n3_cells_level = std::max(n_per_root_block * rg_info.nx3, 1);
+
+    int offset_orig = offset[0];
     if (rg_info.periodic1) {
-      if (std::abs(offset[0]) > n1_cells_level / 2) {
-        if (offset[0] > 0) offset[0] = offset[0] % n1_cells_level - n1_cells_level;
-        if (offset[0] < 0) offset[0] = offset[0] % n1_cells_level + n1_cells_level;
+      if (std::abs(offset[0]) > (n1_cells_level / 2)) {
+        offset[0] %= n1_cells_level; 
+        offset[0] += offset[0] > 0 ? -n1_cells_level : n1_cells_level;
       }
     }
+    if (std::abs(offset[0]) > 1) 
+      printf("periodic1 = %i offset[0] = %i (%i) n1_cells_level = %i n1_cells / 2 = %i mod = %i mod_minus = %i level = %i\n", 
+             rg_info.periodic1, 
+             offset_orig,
+             offset[0], 
+             n1_cells_level, 
+             n1_cells_level / 2, 
+             offset_orig % n1_cells_level,
+             offset_orig % n1_cells_level - n1_cells_level,
+             std::min(level(), neighbor.level()));
     if (rg_info.periodic2) {
-      if (std::abs(offset[0]) > n2_cells_level / 2) {
-        if (offset[1] > 0) offset[1] = offset[1] % n2_cells_level - n2_cells_level;
-        if (offset[1] < 0) offset[1] = offset[1] % n2_cells_level + n2_cells_level;
+      if (std::abs(offset[1]) > n2_cells_level / 2) {
+        offset[1] %= n2_cells_level; 
+        offset[1] += offset[1] > 0 ? -n2_cells_level : n2_cells_level;
       }
     }
     if (rg_info.periodic3) {
-      if (std::abs(offset[0]) > n3_cells_level / 2) {
-        if (offset[2] > 0) offset[2] = offset[2] % n3_cells_level - n3_cells_level;
-        if (offset[2] < 0) offset[2] = offset[2] % n3_cells_level + n3_cells_level;
+      if (std::abs(offset[2]) > n3_cells_level / 2) {
+        offset[2] %= n3_cells_level; 
+        offset[2] += offset[2] > 0 ? -n3_cells_level : n3_cells_level;
       }
     }
     return offset;
@@ -125,19 +140,35 @@ class LogicalLocation { // aggregate and POD type
   // volume
   bool IsNeighbor(const LogicalLocation &in,
                   const RootGridInfo &rg_info = RootGridInfo()) const {
-    if (in.level() < level()) return in.IsNeighbor(*this);
+    if (in.level() < level()) return in.IsNeighbor(*this, rg_info);
     if (Contains(in)) return false; // You share a volume
     // Only need to consider case where other block is equally or more refined than you
     auto offset = 1 << (in.level() - level());
     const auto shifted_lx1 = lx1_ << (in.level() - level());
     const auto shifted_lx2 = lx2_ << (in.level() - level());
     const auto shifted_lx3 = lx3_ << (in.level() - level());
-    const bool bx1 =
+    bool bx1 =
         (in.lx1() >= (shifted_lx1 - 1)) && (in.lx1() <= (shifted_lx1 + offset));
-    const bool bx2 =
+    bool bx2 =
         (in.lx2() >= (shifted_lx2 - 1)) && (in.lx2() <= (shifted_lx2 + offset));
-    const bool bx3 =
+    bool bx3 =
         (in.lx3() >= (shifted_lx3 - 1)) && (in.lx3() <= (shifted_lx3 + offset));
+    const int n_per_root_block = 1 << (in.level() - rg_info.level);
+    if (rg_info.periodic1) { 
+      int n1_cells_level = std::max(n_per_root_block * rg_info.nx1, 1);
+      bx1 = bx1 || (in.lx1() + n1_cells_level >= (shifted_lx1 - 1)) && (in.lx1() + n1_cells_level <= (shifted_lx1 + offset)); 
+      bx1 = bx1 || (in.lx1() - n1_cells_level >= (shifted_lx1 - 1)) && (in.lx1() - n1_cells_level <= (shifted_lx1 + offset));
+    }
+    if (rg_info.periodic2) { 
+      int n2_cells_level = std::max(n_per_root_block * rg_info.nx2, 1);
+      bx2 = bx2 || (in.lx2() + n2_cells_level >= (shifted_lx2 - 1)) && (in.lx2() + n2_cells_level <= (shifted_lx2 + offset)); 
+      bx2 = bx2 || (in.lx2() - n2_cells_level >= (shifted_lx2 - 1)) && (in.lx2() - n2_cells_level <= (shifted_lx2 + offset));
+    }
+    if (rg_info.periodic3) { 
+      int n3_cells_level = std::max(n_per_root_block * rg_info.nx3, 1);
+      bx3 = bx3 || (in.lx3() + n3_cells_level >= (shifted_lx3 - 1)) && (in.lx3() + n3_cells_level <= (shifted_lx3 + offset)); 
+      bx3 = bx3 || (in.lx3() - n3_cells_level >= (shifted_lx3 - 1)) && (in.lx3() - n3_cells_level <= (shifted_lx3 + offset));
+    }
     return bx1 && bx2 && bx3;
   }
 
@@ -175,7 +206,7 @@ class LogicalLocation { // aggregate and POD type
     auto offsets = GetOffset(neighbor, rg_info);
     // The neighbor block struct should only use the first two, but we have three to allow
     // for this being a parent of neighbor, this should be checked for elsewhere
-    int f[3]{0, 0, 0};
+    std::array<int, 3> f{0, 0, 0};
     if (neighbor.level() == level() + 1) {
       int idx = 0;
       if (offsets[0] == 0) f[idx++] = neighbor.lx1() % 2;
@@ -243,7 +274,7 @@ class LogicalLocation { // aggregate and POD type
                 0 <= lx3 && lx3 < n3_cells_level) {
               locs.emplace_back(loc.level(), lx1, lx2, lx3);
               auto parent = locs.back().GetParent();
-              if (IsNeighbor(parent)) locs.push_back(parent);
+              if (IsNeighbor(parent, rg_info)) locs.push_back(parent);
             }
           }
         }
@@ -339,11 +370,13 @@ DetermineOwnership(const LogicalLocation &main_block,
                               std::end(possible_neighbors),
                               std::back_inserter(actual_neighbors));
 
-        auto max = std::max_element(std::begin(actual_neighbors),
-                                    std::end(actual_neighbors), ownership_less_than);
-        main_owns(ox1, ox2, ox3) =
-            (*max == main_block || ownership_less_than(*max, main_block) ||
-             actual_neighbors.size() == 0);
+        if (actual_neighbors.size() == 0) { 
+          main_owns(ox1, ox2, ox3) = true;
+        } else {
+          auto max = std::max_element(std::begin(actual_neighbors),
+                                      std::end(actual_neighbors), ownership_less_than);
+          main_owns(ox1, ox2, ox3) = *max == main_block || ownership_less_than(*max, main_block);
+        }
       }
     }
   }
