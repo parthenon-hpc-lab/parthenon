@@ -80,6 +80,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
+    // CheckNeighborFinding(pmb, "Boundary Loop");
     for (auto &v : rc->GetVariableVector()) {
       if constexpr (bound == BoundaryType::gmg_restrict) {
         if (v->IsSet(Metadata::GMG)) {

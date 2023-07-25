@@ -67,8 +67,8 @@ using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
 
 void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
                            RootGridInfo root_grid, int nbs);
-void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb);
-void CheckNeighborFinding(BlockList_t &block_list);
+void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb, std::string call_site);
+void CheckNeighborFinding(BlockList_t &block_list, std::string call_site);
 
 //----------------------------------------------------------------------------------------
 //! \class Mesh
@@ -179,10 +179,11 @@ class Mesh {
 
   int GetRootLevel() const noexcept { return root_level; }
   RootGridInfo GetRootGridInfo() const noexcept {
-    return RootGridInfo(root_level, nrbx1, nrbx2, nrbx3,
-                        mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
-                        mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic,
-                        mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic);
+    return RootGridInfo(
+        root_level, nrbx1, nrbx2, nrbx3,
+        mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic && ndim > 0,
+        mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic && ndim > 1,
+        mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic && ndim > 2);
   }
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }

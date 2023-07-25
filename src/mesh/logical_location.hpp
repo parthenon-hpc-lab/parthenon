@@ -80,6 +80,8 @@ class LogicalLocation { // aggregate and POD type
   std::array<int, 3> GetOffset(const LogicalLocation &neighbor,
                                const RootGridInfo &rg_info = RootGridInfo()) const;
 
+  std::array<std::vector<int>, 3> GetSameLevelOffsets(const LogicalLocation &neighbor,
+                                                      const RootGridInfo &rg_info) const;
   // Being a neighbor implies that you share a face, edge, or node and don't share a
   // volume
   bool IsNeighbor(const LogicalLocation &in,
@@ -110,19 +112,18 @@ class LogicalLocation { // aggregate and POD type
                            (lx3() << 1) + ox3);
   }
 
-  auto GetAthenaXXOffsets(const LogicalLocation &neighbor,
-                          const RootGridInfo &rg_info = RootGridInfo()) const {
-    auto offsets = GetOffset(neighbor, rg_info);
+  auto GetAthenaXXFaceOffsets(const LogicalLocation &neighbor, int ox1, int ox2, int ox3,
+                              const RootGridInfo &rg_info = RootGridInfo()) const {
     // The neighbor block struct should only use the first two, but we have three to allow
     // for this being a parent of neighbor, this should be checked for elsewhere
     std::array<int, 3> f{0, 0, 0};
     if (neighbor.level() == level() + 1) {
       int idx = 0;
-      if (offsets[0] == 0) f[idx++] = neighbor.lx1() % 2;
-      if (offsets[1] == 0) f[idx++] = neighbor.lx2() % 2;
-      if (offsets[2] == 0) f[idx++] = neighbor.lx3() % 2;
+      if (ox1 == 0) f[idx++] = neighbor.lx1() % 2;
+      if (ox2 == 0) f[idx++] = neighbor.lx2() % 2;
+      if (ox3 == 0) f[idx++] = neighbor.lx3() % 2;
     }
-    return std::make_tuple(offsets, f);
+    return f;
   }
 
   std::unordered_set<LogicalLocation>

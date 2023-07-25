@@ -90,26 +90,34 @@ void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_m
     pmb->gmg_same_neighbors = {};
     auto possible_neighbors = loc.GetPossibleNeighbors(root_grid);
     for (auto &pos_neighbor_location : possible_neighbors) {
-      if (pos_neighbor_location == loc) continue;
       if (loc_map.count(pos_neighbor_location) > 0) {
         const auto &gid_rank = loc_map.at(pos_neighbor_location);
-        auto [offsets, f] = loc.GetAthenaXXOffsets(pos_neighbor_location, root_grid);
-
-        NeighborConnect nc;
-        int connect_indicator =
-            std::abs(offsets[0]) + std::abs(offsets[1]) + std::abs(offsets[2]);
-        if (connect_indicator == 1) {
-          nc = NeighborConnect::face;
-        } else if (connect_indicator == 2) {
-          nc = NeighborConnect::edge;
-        } else if (connect_indicator == 3) {
-          nc = NeighborConnect::corner;
+        auto offsets = loc.GetSameLevelOffsets(pos_neighbor_location, root_grid);
+        // This inner loop is necessary in case a block pair has multiple neighbor
+        // connections due to periodic boundaries
+        for (auto ox1 : offsets[0]) {
+          for (auto ox2 : offsets[1]) {
+            for (auto ox3 : offsets[2]) {
+              NeighborConnect nc;
+              int connect_indicator = std::abs(ox1) + std::abs(ox2) + std::abs(ox3);
+              if (connect_indicator == 0) continue;
+              if (connect_indicator == 1) {
+                nc = NeighborConnect::face;
+              } else if (connect_indicator == 2) {
+                nc = NeighborConnect::edge;
+              } else if (connect_indicator == 3) {
+                nc = NeighborConnect::corner;
+              }
+              auto f = loc.GetAthenaXXFaceOffsets(pos_neighbor_location, ox1, ox2, ox3,
+                                                  root_grid);
+              pmb->gmg_same_neighbors.emplace_back();
+              pmb->gmg_same_neighbors.back().SetNeighbor(
+                  pos_neighbor_location, gid_rank.second, pos_neighbor_location.level(),
+                  gid_rank.first, gid_rank.first - nbs, ox1, ox2, ox3, nc, 0, 0, f[0],
+                  f[1]);
+            }
+          }
         }
-        pmb->gmg_same_neighbors.emplace_back();
-        pmb->gmg_same_neighbors.back().SetNeighbor(
-            pos_neighbor_location, gid_rank.second, pos_neighbor_location.level(),
-            gid_rank.first, gid_rank.first - nbs, offsets[0], offsets[1], offsets[2], nc,
-            0, 0, f[0], f[1]);
       }
     }
     // Set neighbor block ownership
@@ -124,20 +132,23 @@ void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_m
   }
 }
 
-void CheckNeighborFinding(BlockList_t &block_list) {
+void CheckNeighborFinding(BlockList_t &block_list, std::string call_site) {
   for (auto &pmb : block_list) {
-    CheckNeighborFinding(pmb);
+    CheckNeighborFinding(pmb, call_site);
   }
 }
 
-void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb) {
+void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb, std::string call_site) {
   // Check each block one by one
   std::unordered_map<LogicalLocation, NeighborBlock> neighbs;
+  printf("Checking neighbors at callsite %s.\n", call_site.c_str());
+  bool fail = false;
   for (auto &nb : pmb->gmg_same_neighbors)
     neighbs[nb.loc] = nb;
   if (pmb->pbval->nneighbor != pmb->gmg_same_neighbors.size()) {
     printf("New algorithm found different number of neighbor blocks on %i (%i vs %i).\n",
            pmb->gid, pmb->pbval->nneighbor, pmb->gmg_same_neighbors.size());
+    fail = true;
   }
   for (int nn = 0; nn < pmb->pbval->nneighbor; ++nn) {
     auto &nb = pmb->pbval->neighbor[nn];
@@ -148,12 +159,14 @@ void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb) {
         printf("Bad offsets for block %i %s: %s ox1=%i ox2=%i %s ox1=%i ox2=%i\n",
                pmb->gid, pmb->loc.label().c_str(), nb.loc.label().c_str(), nb.ni.ox1,
                nb.ni.ox2, nb2.loc.label().c_str(), nb2.ni.ox1, nb2.ni.ox2);
+        fail = true;
       }
       if (nb.ni.fi1 == nb2.ni.fi1 && nb.ni.fi2 == nb2.ni.fi2) {
       } else {
         printf("Bad face offsets for block %i %s: %s f1=%i f2=%i %s f1=%i f2=%i\n",
                pmb->gid, pmb->loc.label().c_str(), nb.loc.label().c_str(), nb.ni.fi1,
                nb.ni.fi2, nb2.loc.label().c_str(), nb2.ni.fi1, nb2.ni.fi2);
+        fail = true;
       }
 
       if (nb.snb.gid == nb2.snb.gid && nb.snb.lid == nb2.snb.lid &&
@@ -164,6 +177,7 @@ void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb) {
                pmb->gid, pmb->loc.label().c_str(), nb.loc.label().c_str(), nb.snb.gid,
                nb.snb.lid, nb.snb.level, nb2.loc.label().c_str(), nb2.snb.gid,
                nb2.snb.lid, nb.snb.level);
+        fail = true;
       }
 
       if (nb.ni.type == nb2.ni.type) {
@@ -171,14 +185,17 @@ void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb) {
         printf("Bad face id for block %i %s: %s fid=%i ox=(%i, %i, %i) %s fid=%i\n",
                pmb->gid, pmb->loc.label().c_str(), nb.loc.label().c_str(), nb.ni.type,
                nb.ni.ox1, nb.ni.ox2, nb.ni.ox3, nb2.loc.label().c_str(), nb2.ni.type);
+        fail = true;
       }
 
     } else {
       printf("Block %i %s new neighbor list missing %s.\n", pmb->gid,
              pmb->loc.label().c_str(), nb.loc.label().c_str());
+      fail = true;
     }
   }
-  // printf("Finished checking neighbors for %i.\n", pmb->gid);
+  // if (fail) PARTHENON_FAIL("Bad neighbor list");
+  //  printf("Finished checking neighbors for %i.\n", pmb->gid);
 }
 
 bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
@@ -1143,7 +1160,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // printf("\n");
     }
   }
-  CheckNeighborFinding(block_list);
+  // CheckNeighborFinding(block_list, "AMR LoadBalance");
   Initialize(false, pin, app_in);
 
   ResetLoadBalanceVariables();

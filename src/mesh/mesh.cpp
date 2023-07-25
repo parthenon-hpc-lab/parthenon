@@ -499,7 +499,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
   SetSameLevelNeighbors(block_list, gmg_grid_locs[current_level], GetRootGridInfo(), nbs);
-  CheckNeighborFinding(block_list);
+  // CheckNeighborFinding(block_list, "Mesh initialization");
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run
@@ -728,6 +728,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
 
+  gmg_grid_locs = std::vector<LogicalLocMap_t>(current_level + 1);
+  gmg_block_lists = std::vector<BlockList_t>(current_level + 1);
+  for (int gid = 0; gid < loclist.size(); ++gid) {
+    gmg_grid_locs[current_level][loclist[gid]] = std::make_pair(gid, ranklist[gid]);
+  }
+
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
     if (Globals::my_rank == 0) OutputMeshStructure(ndim);
@@ -761,7 +767,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                         packages, resolved_packages, gflag, costlist[i]);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-
+  SetSameLevelNeighbors(block_list, gmg_grid_locs[current_level], GetRootGridInfo(), nbs);
+  // CheckNeighborFinding(block_list, "Restart");
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run

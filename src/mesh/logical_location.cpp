@@ -69,6 +69,33 @@ std::array<int, 3> LogicalLocation::GetOffset(const LogicalLocation &neighbor,
   return offset;
 }
 
+std::array<std::vector<int>, 3>
+LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor,
+                                     const RootGridInfo &rg_info) const {
+  std::array<std::vector<int>, 3> offsets;
+  const int level_diff_1 = std::max(neighbor.level() - level(), 0);
+  const int level_diff_2 = std::max(level() - neighbor.level(), 0);
+  const int n_per_root_block = 1 << (std::min(level(), neighbor.level()) - rg_info.level);
+  for (int i = 0; i < 3; ++i) {
+    const auto idxt = l(i) >> level_diff_2;
+    const auto idxn = neighbor.l(i) >> level_diff_1;
+    if (std::abs(idxn - idxt) <= 1) offsets[i].push_back(idxn - idxt);
+
+    const int n_blocks_level = std::max(n_per_root_block * rg_info.n[i], 1);
+    printf(
+        "Doing symmetry = %i in direction %i idxn = %i idxt = %i n_blocks_level = %i\n",
+        rg_info.periodic[i], i, idxn, idxt, n_blocks_level);
+    if (rg_info.periodic[i]) {
+      if (std::abs(idxn - n_blocks_level - idxt) <= 1)
+        offsets[i].push_back(idxn - n_blocks_level - idxt);
+      if (std::abs(idxn + n_blocks_level - idxt) <= 1)
+        offsets[i].push_back(idxn + n_blocks_level - idxt);
+    }
+  }
+
+  return offsets;
+}
+
 template <bool TENeighbor>
 bool LogicalLocation::NeighborFindingImpl(const LogicalLocation &in,
                                           const std::array<int, 3> &te_offset,
