@@ -36,12 +36,11 @@ namespace parthenon {
 
 struct RootGridInfo {
   int level;
-  std::array<int, 3> n; 
+  std::array<int, 3> n;
   std::array<bool, 3> periodic;
   // Defaults to root grid of single block at the
   // coarsest level
-  RootGridInfo()
-      : level(0), n{1, 1, 1}, periodic{false, false, false} {}
+  RootGridInfo() : level(0), n{1, 1, 1}, periodic{false, false, false} {}
   RootGridInfo(int level, int nx1, int nx2, int nx3, bool p1, bool p2, bool p3)
       : level(level), n{nx1, nx2, nx3}, periodic{p1, p2, p3} {}
 };
@@ -67,7 +66,7 @@ class LogicalLocation { // aggregate and POD type
     return "(" + std::to_string(level_) + ": " + std::to_string(l_[0]) + ", " +
            std::to_string(l_[1]) + ", " + std::to_string(l_[2]) + ")";
   }
-  const auto &l(int i) const {return l_[i];}
+  const auto &l(int i) const { return l_[i]; }
   const auto &lx1() const { return l_[0]; }
   const auto &lx2() const { return l_[1]; }
   const auto &lx3() const { return l_[2]; }
@@ -83,15 +82,15 @@ class LogicalLocation { // aggregate and POD type
 
   // Being a neighbor implies that you share a face, edge, or node and don't share a
   // volume
-  bool IsNeighbor(const LogicalLocation &in, const RootGridInfo &rg_info = RootGridInfo()) const { 
-    return NeighborFindingImpl<false>(in, std::array<int, 3>(), rg_info); 
-  }
-  
-  bool IsNeighborOfTE(const LogicalLocation &in, int ox1, int ox2, int ox3, const RootGridInfo &rg_info = RootGridInfo()) const { 
-    return NeighborFindingImpl<true>(in, std::array<int, 3>{ox1, ox2, ox3}, rg_info); 
+  bool IsNeighbor(const LogicalLocation &in,
+                  const RootGridInfo &rg_info = RootGridInfo()) const {
+    return NeighborFindingImpl<false>(in, std::array<int, 3>(), rg_info);
   }
 
-
+  bool IsNeighborOfTE(const LogicalLocation &in, int ox1, int ox2, int ox3,
+                      const RootGridInfo &rg_info = RootGridInfo()) const {
+    return NeighborFindingImpl<true>(in, std::array<int, 3>{ox1, ox2, ox3}, rg_info);
+  }
 
   LogicalLocation
   GetSameLevelNeighbor(int ox1, int ox2, int ox3,
@@ -134,9 +133,8 @@ class LogicalLocation { // aggregate and POD type
 
  private:
   template <bool TENeighbor>
-  bool NeighborFindingImpl(const LogicalLocation &in,
-                  const std::array<int, 3> &te_offset,
-                  const RootGridInfo &rg_info = RootGridInfo()) const;
+  bool NeighborFindingImpl(const LogicalLocation &in, const std::array<int, 3> &te_offset,
+                           const RootGridInfo &rg_info = RootGridInfo()) const;
 
   std::unordered_set<LogicalLocation> GetPossibleNeighborsImpl(
       const std::vector<int> &irange, const std::vector<int> &jrange,
@@ -201,9 +199,10 @@ DetermineOwnership(const LogicalLocation &main_block,
 // across the x-face or the ghost zones passed across the z-edge), return the index range
 // masking array required for masking out unowned regions of the index space. ox? defines
 // buffer location on the owner block
-block_ownership_t GetIndexRangeMaskFromOwnership(TopologicalElement el,
-                                    const block_ownership_t &sender_ownership,
-                                    int ox1, int ox2, int ox3);
+block_ownership_t
+GetIndexRangeMaskFromOwnership(TopologicalElement el,
+                               const block_ownership_t &sender_ownership, int ox1,
+                               int ox2, int ox3);
 
 } // namespace parthenon
 

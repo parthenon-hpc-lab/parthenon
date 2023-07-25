@@ -34,10 +34,10 @@ namespace parthenon {
 
 bool LogicalLocation::IsContainedIn(const LogicalLocation &container) const {
   if (container.level() > level()) return false;
-  bool is_contained = true; 
+  bool is_contained = true;
   const int level_shift = level() - container.level();
-  for (int i = 0; i < 3; ++i) 
-      is_contained = is_contained && (l(i) >> level_shift == container.l(i));
+  for (int i = 0; i < 3; ++i)
+    is_contained = is_contained && (l(i) >> level_shift == container.l(i));
   return is_contained;
 }
 
@@ -50,15 +50,14 @@ bool LogicalLocation::Contains(const LogicalLocation &containee) const {
 }
 
 std::array<int, 3> LogicalLocation::GetOffset(const LogicalLocation &neighbor,
-                             const RootGridInfo &rg_info) const {
+                                              const RootGridInfo &rg_info) const {
   std::array<int, 3> offset;
   const int level_diff_1 = std::max(neighbor.level() - level(), 0);
   const int level_diff_2 = std::max(level() - neighbor.level(), 0);
-  const int n_per_root_block = 1
-                               << (std::min(level(), neighbor.level()) - rg_info.level); 
-  for (int i = 0; i < 3; ++i) { 
-    offset[i] = (neighbor.l(i) >> level_diff_1) - (l(i) >> level_diff_2); 
-    if (rg_info.periodic[i]) { 
+  const int n_per_root_block = 1 << (std::min(level(), neighbor.level()) - rg_info.level);
+  for (int i = 0; i < 3; ++i) {
+    offset[i] = (neighbor.l(i) >> level_diff_1) - (l(i) >> level_diff_2);
+    if (rg_info.periodic[i]) {
       const int n_cells_level = std::max(n_per_root_block * rg_info.n[i], 1);
       if (std::abs(offset[i]) > (n_cells_level / 2)) {
         offset[i] %= n_cells_level;
@@ -72,11 +71,11 @@ std::array<int, 3> LogicalLocation::GetOffset(const LogicalLocation &neighbor,
 
 template <bool TENeighbor>
 bool LogicalLocation::NeighborFindingImpl(const LogicalLocation &in,
-                const std::array<int, 3> &te_offset,
-                const RootGridInfo &rg_info) const {
-  if (in.level() >= level() && Contains(in)) return false; // You share a volume
+                                          const std::array<int, 3> &te_offset,
+                                          const RootGridInfo &rg_info) const {
+  if (in.level() >= level() && Contains(in)) return false;      // You share a volume
   if (in.level() < level() && in.Contains(*this)) return false; // You share a volume
-  
+
   // We work on the finer level of in.level() and this->level()
   const int max_level = std::max(in.level(), level());
   const int level_shift_1 = max_level - level();
@@ -87,41 +86,50 @@ bool LogicalLocation::NeighborFindingImpl(const LogicalLocation &in,
   // TODO(LFR): Think about what this should do when we are above the root level
   const int n_per_root_block = 1 << (max_level - rg_info.level);
   std::array<bool, 3> b;
-  
+
   for (int i = 0; i < 3; ++i) {
-    // Index range of daughters of this block on current level plus a one block halo on either side
-    auto low = (l(i) << level_shift_1) - 1; 
-    auto hi = low + block_size_1 + 1; 
+    // Index range of daughters of this block on current level plus a one block halo on
+    // either side
+    auto low = (l(i) << level_shift_1) - 1;
+    auto hi = low + block_size_1 + 1;
     // Indexing for topological offset calculation
-    if constexpr (TENeighbor) { 
-      if (te_offset[i] == -1) { 
-        // Left side offset, so only two possible block indices are allowed in this direction
+    if constexpr (TENeighbor) {
+      if (te_offset[i] == -1) {
+        // Left side offset, so only two possible block indices are allowed in this
+        // direction
         hi -= block_size_1;
       } else if (te_offset[i] == 0) {
-        // No offset in this direction, so only interior 
-        low += 1; 
-        hi -= 1;  
+        // No offset in this direction, so only interior
+        low += 1;
+        hi -= 1;
       } else {
-        // Right side offset, so only two possible block indices are allowed in this direction
+        // Right side offset, so only two possible block indices are allowed in this
+        // direction
         low += block_size_1;
       }
     }
     // Index range of daughters of possible neighbor block on current level
-    const auto in_low = in.l(i) << level_shift_2; 
-    const auto in_hi = in_low + block_size_2 - 1; 
+    const auto in_low = in.l(i) << level_shift_2;
+    const auto in_hi = in_low + block_size_2 - 1;
     // Check if these two ranges overlap at all
     b[i] = in_hi >= low && in_low <= hi;
     if (rg_info.periodic[i]) {
-      const int n_cells_level = std::max(n_per_root_block * rg_info.n[i], 1); 
-      b[i] = b[i] || (in_hi + n_cells_level >= low && in_low + n_cells_level <= hi); 
-      b[i] = b[i] || (in_hi - n_cells_level >= low && in_low - n_cells_level <= hi); 
+      const int n_cells_level = std::max(n_per_root_block * rg_info.n[i], 1);
+      b[i] = b[i] || (in_hi + n_cells_level >= low && in_low + n_cells_level <= hi);
+      b[i] = b[i] || (in_hi - n_cells_level >= low && in_low - n_cells_level <= hi);
     }
   }
-  
+
   return b[0] && b[1] && b[2];
 }
-template bool LogicalLocation::NeighborFindingImpl<true>(const LogicalLocation &in, const std::array<int, 3> &te_offset, const RootGridInfo &rg_info) const;
-template bool LogicalLocation::NeighborFindingImpl<false>(const LogicalLocation &in, const std::array<int, 3> &te_offset, const RootGridInfo &rg_info) const;
+template bool
+LogicalLocation::NeighborFindingImpl<true>(const LogicalLocation &in,
+                                           const std::array<int, 3> &te_offset,
+                                           const RootGridInfo &rg_info) const;
+template bool
+LogicalLocation::NeighborFindingImpl<false>(const LogicalLocation &in,
+                                            const std::array<int, 3> &te_offset,
+                                            const RootGridInfo &rg_info) const;
 
 std::vector<LogicalLocation> LogicalLocation::GetDaughters() const {
   std::vector<LogicalLocation> daughters;
@@ -149,7 +157,8 @@ LogicalLocation::GetPossibleNeighbors(const RootGridInfo &rg_info) {
                                   daughter_jrange, daughter_krange, rg_info);
 }
 
-std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleBlocksSurroundingTopologicalElement(
+std::unordered_set<LogicalLocation>
+LogicalLocation::GetPossibleBlocksSurroundingTopologicalElement(
     int ox1, int ox2, int ox3, const RootGridInfo &rg_info) const {
   const auto irange =
       (std::abs(ox1) == 1) ? std::vector<int>{0, ox1} : std::vector<int>{0};
@@ -215,8 +224,9 @@ std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleNeighborsImpl(
     }
   }
   // The above procedure likely duplicated some blocks, so put them in a set
-  std::unordered_set<LogicalLocation> unique_locs; 
-  for (auto &loc : locs) unique_locs.emplace(std::move(loc));
+  std::unordered_set<LogicalLocation> unique_locs;
+  for (auto &loc : locs)
+    unique_locs.emplace(std::move(loc));
   return unique_locs;
 }
 
@@ -238,30 +248,32 @@ DetermineOwnership(const LogicalLocation &main_block,
     for (int ox2 : {-1, 0, 1}) {
       for (int ox3 : {-1, 0, 1}) {
         main_owns(ox1, ox2, ox3) = true;
-        for (auto &n : allowed_neighbors) { 
-          if (ownership_less_than(main_block, n) && main_block.IsNeighborOfTE(n, ox1, ox2, ox3, rg_info)) {
+        for (auto &n : allowed_neighbors) {
+          if (ownership_less_than(main_block, n) &&
+              main_block.IsNeighborOfTE(n, ox1, ox2, ox3, rg_info)) {
             main_owns(ox1, ox2, ox3) = false;
             break;
           }
         }
-        //auto possible_neighbors =
-        //    main_block.GetPossibleBlocksSurroundingTopologicalElement(ox1, ox2, ox3,
-        //                                                              rg_info);
+        // auto possible_neighbors =
+        //     main_block.GetPossibleBlocksSurroundingTopologicalElement(ox1, ox2, ox3,
+        //                                                               rg_info);
 
-        //std::vector<LogicalLocation> actual_neighbors;
-        //std::set_intersection(std::begin(allowed_neighbors), std::end(allowed_neighbors),
-        //                      std::begin(possible_neighbors),
-        //                      std::end(possible_neighbors),
-        //                      std::back_inserter(actual_neighbors));
+        // std::vector<LogicalLocation> actual_neighbors;
+        // std::set_intersection(std::begin(allowed_neighbors),
+        // std::end(allowed_neighbors),
+        //                       std::begin(possible_neighbors),
+        //                       std::end(possible_neighbors),
+        //                       std::back_inserter(actual_neighbors));
 
-        //if (actual_neighbors.size() == 0) {
-        //  main_owns(ox1, ox2, ox3) = true;
-        //} else {
-        //  auto max = std::max_element(std::begin(actual_neighbors),
-        //                              std::end(actual_neighbors), ownership_less_than);
-        //  main_owns(ox1, ox2, ox3) =
-        //      *max == main_block || ownership_less_than(*max, main_block);
-        //}
+        // if (actual_neighbors.size() == 0) {
+        //   main_owns(ox1, ox2, ox3) = true;
+        // } else {
+        //   auto max = std::max_element(std::begin(actual_neighbors),
+        //                               std::end(actual_neighbors), ownership_less_than);
+        //   main_owns(ox1, ox2, ox3) =
+        //       *max == main_block || ownership_less_than(*max, main_block);
+        // }
       }
     }
   }
@@ -273,9 +285,10 @@ DetermineOwnership(const LogicalLocation &main_block,
 // across the x-face or the ghost zones passed across the z-edge), return the index range
 // masking array required for masking out unowned regions of the index space. ox? defines
 // buffer location on the owner block
-block_ownership_t GetIndexRangeMaskFromOwnership(TopologicalElement el,
-                                           const block_ownership_t &sender_ownership,
-                                           int ox1, int ox2, int ox3) {
+block_ownership_t
+GetIndexRangeMaskFromOwnership(TopologicalElement el,
+                               const block_ownership_t &sender_ownership, int ox1,
+                               int ox2, int ox3) {
   using vp_t = std::vector<std::pair<int, int>>;
 
   // Transform general block ownership to element ownership over entire block. For

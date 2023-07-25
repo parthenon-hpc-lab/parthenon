@@ -27,7 +27,7 @@
 #include <sstream>   // stringstream
 #include <stdexcept> // runtime_error
 #include <string>    // c_str()
-#include <unordered_set> 
+#include <unordered_set>
 
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
