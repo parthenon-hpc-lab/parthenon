@@ -113,13 +113,6 @@ class LogicalLocation { // aggregate and POD type
         offset[0] += offset[0] > 0 ? -n1_cells_level : n1_cells_level;
       }
     }
-    if (std::abs(offset[0]) > 1)
-      printf("periodic1 = %i offset[0] = %i (%i) n1_cells_level = %i n1_cells / 2 = %i "
-             "mod = %i mod_minus = %i level = %i\n",
-             rg_info.periodic1, offset_orig, offset[0], n1_cells_level,
-             n1_cells_level / 2, offset_orig % n1_cells_level,
-             offset_orig % n1_cells_level - n1_cells_level,
-             std::min(level(), neighbor.level()));
     if (rg_info.periodic2) {
       if (std::abs(offset[1]) > n2_cells_level / 2) {
         offset[1] %= n2_cells_level;
