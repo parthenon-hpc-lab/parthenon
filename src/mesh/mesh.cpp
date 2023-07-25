@@ -1090,6 +1090,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
       for (int gmg_level = 1; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
         auto &mdg = mesh_data.GetOrAdd(gmg_level, "base", i);
+        tag_map.AddMeshDataToMap<BoundaryType::any>(mdg);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict>(mdg);
       }
     }
@@ -1130,6 +1131,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
       for (int gmg_level = 1; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
         auto &mdg = mesh_data.GetOrAdd(gmg_level, "base", i);
+        BuildBoundaryBuffers(mdg);
         BuildGMGBoundaryBuffers(mdg);
       }
     }
