@@ -23,6 +23,7 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -61,9 +62,10 @@ class LogicalLocation { // aggregate and POD type
   LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
       : lx1_(l1), lx2_(l2), lx3_(l3), level_(lev), morton_(lev, l1, l2, l3) {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
-  
-  std::string label() const { 
-    return "(" + std::to_string(level_) + ": " + std::to_string(lx1_) + ", " + std::to_string(lx2_) + ", " + std::to_string(lx3_) + ")";
+
+  std::string label() const {
+    return "(" + std::to_string(level_) + ": " + std::to_string(lx1_) + ", " +
+           std::to_string(lx2_) + ", " + std::to_string(lx3_) + ")";
   }
   const auto &lx1() const { return lx1_; }
   const auto &lx2() const { return lx2_; }
@@ -107,29 +109,26 @@ class LogicalLocation { // aggregate and POD type
     int offset_orig = offset[0];
     if (rg_info.periodic1) {
       if (std::abs(offset[0]) > (n1_cells_level / 2)) {
-        offset[0] %= n1_cells_level; 
+        offset[0] %= n1_cells_level;
         offset[0] += offset[0] > 0 ? -n1_cells_level : n1_cells_level;
       }
     }
-    if (std::abs(offset[0]) > 1) 
-      printf("periodic1 = %i offset[0] = %i (%i) n1_cells_level = %i n1_cells / 2 = %i mod = %i mod_minus = %i level = %i\n", 
-             rg_info.periodic1, 
-             offset_orig,
-             offset[0], 
-             n1_cells_level, 
-             n1_cells_level / 2, 
-             offset_orig % n1_cells_level,
+    if (std::abs(offset[0]) > 1)
+      printf("periodic1 = %i offset[0] = %i (%i) n1_cells_level = %i n1_cells / 2 = %i "
+             "mod = %i mod_minus = %i level = %i\n",
+             rg_info.periodic1, offset_orig, offset[0], n1_cells_level,
+             n1_cells_level / 2, offset_orig % n1_cells_level,
              offset_orig % n1_cells_level - n1_cells_level,
              std::min(level(), neighbor.level()));
     if (rg_info.periodic2) {
       if (std::abs(offset[1]) > n2_cells_level / 2) {
-        offset[1] %= n2_cells_level; 
+        offset[1] %= n2_cells_level;
         offset[1] += offset[1] > 0 ? -n2_cells_level : n2_cells_level;
       }
     }
     if (rg_info.periodic3) {
       if (std::abs(offset[2]) > n3_cells_level / 2) {
-        offset[2] %= n3_cells_level; 
+        offset[2] %= n3_cells_level;
         offset[2] += offset[2] > 0 ? -n3_cells_level : n3_cells_level;
       }
     }
@@ -147,27 +146,30 @@ class LogicalLocation { // aggregate and POD type
     const auto shifted_lx1 = lx1_ << (in.level() - level());
     const auto shifted_lx2 = lx2_ << (in.level() - level());
     const auto shifted_lx3 = lx3_ << (in.level() - level());
-    bool bx1 =
-        (in.lx1() >= (shifted_lx1 - 1)) && (in.lx1() <= (shifted_lx1 + offset));
-    bool bx2 =
-        (in.lx2() >= (shifted_lx2 - 1)) && (in.lx2() <= (shifted_lx2 + offset));
-    bool bx3 =
-        (in.lx3() >= (shifted_lx3 - 1)) && (in.lx3() <= (shifted_lx3 + offset));
+    bool bx1 = (in.lx1() >= (shifted_lx1 - 1)) && (in.lx1() <= (shifted_lx1 + offset));
+    bool bx2 = (in.lx2() >= (shifted_lx2 - 1)) && (in.lx2() <= (shifted_lx2 + offset));
+    bool bx3 = (in.lx3() >= (shifted_lx3 - 1)) && (in.lx3() <= (shifted_lx3 + offset));
     const int n_per_root_block = 1 << (in.level() - rg_info.level);
-    if (rg_info.periodic1) { 
+    if (rg_info.periodic1) {
       int n1_cells_level = std::max(n_per_root_block * rg_info.nx1, 1);
-      bx1 = bx1 || (in.lx1() + n1_cells_level >= (shifted_lx1 - 1)) && (in.lx1() + n1_cells_level <= (shifted_lx1 + offset)); 
-      bx1 = bx1 || (in.lx1() - n1_cells_level >= (shifted_lx1 - 1)) && (in.lx1() - n1_cells_level <= (shifted_lx1 + offset));
+      bx1 = bx1 || (in.lx1() + n1_cells_level >= (shifted_lx1 - 1)) &&
+                       (in.lx1() + n1_cells_level <= (shifted_lx1 + offset));
+      bx1 = bx1 || (in.lx1() - n1_cells_level >= (shifted_lx1 - 1)) &&
+                       (in.lx1() - n1_cells_level <= (shifted_lx1 + offset));
     }
-    if (rg_info.periodic2) { 
+    if (rg_info.periodic2) {
       int n2_cells_level = std::max(n_per_root_block * rg_info.nx2, 1);
-      bx2 = bx2 || (in.lx2() + n2_cells_level >= (shifted_lx2 - 1)) && (in.lx2() + n2_cells_level <= (shifted_lx2 + offset)); 
-      bx2 = bx2 || (in.lx2() - n2_cells_level >= (shifted_lx2 - 1)) && (in.lx2() - n2_cells_level <= (shifted_lx2 + offset));
+      bx2 = bx2 || (in.lx2() + n2_cells_level >= (shifted_lx2 - 1)) &&
+                       (in.lx2() + n2_cells_level <= (shifted_lx2 + offset));
+      bx2 = bx2 || (in.lx2() - n2_cells_level >= (shifted_lx2 - 1)) &&
+                       (in.lx2() - n2_cells_level <= (shifted_lx2 + offset));
     }
-    if (rg_info.periodic3) { 
+    if (rg_info.periodic3) {
       int n3_cells_level = std::max(n_per_root_block * rg_info.nx3, 1);
-      bx3 = bx3 || (in.lx3() + n3_cells_level >= (shifted_lx3 - 1)) && (in.lx3() + n3_cells_level <= (shifted_lx3 + offset)); 
-      bx3 = bx3 || (in.lx3() - n3_cells_level >= (shifted_lx3 - 1)) && (in.lx3() - n3_cells_level <= (shifted_lx3 + offset));
+      bx3 = bx3 || (in.lx3() + n3_cells_level >= (shifted_lx3 - 1)) &&
+                       (in.lx3() + n3_cells_level <= (shifted_lx3 + offset));
+      bx3 = bx3 || (in.lx3() - n3_cells_level >= (shifted_lx3 - 1)) &&
+                       (in.lx3() - n3_cells_level <= (shifted_lx3 + offset));
     }
     return bx1 && bx2 && bx3;
   }
@@ -370,12 +372,13 @@ DetermineOwnership(const LogicalLocation &main_block,
                               std::end(possible_neighbors),
                               std::back_inserter(actual_neighbors));
 
-        if (actual_neighbors.size() == 0) { 
+        if (actual_neighbors.size() == 0) {
           main_owns(ox1, ox2, ox3) = true;
         } else {
           auto max = std::max_element(std::begin(actual_neighbors),
                                       std::end(actual_neighbors), ownership_less_than);
-          main_owns(ox1, ox2, ox3) = *max == main_block || ownership_less_than(*max, main_block);
+          main_owns(ox1, ox2, ox3) =
+              *max == main_block || ownership_less_than(*max, main_block);
         }
       }
     }

@@ -65,10 +65,8 @@ class RestartReader;
 // Map from LogicalLocation to (gid, rank) pair of location
 using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
 
-void SetSameLevelNeighbors(BlockList_t &block_list, 
-                           const LogicalLocMap_t& loc_map,
-                           RootGridInfo root_grid,
-                           int nbs);
+void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
+                           RootGridInfo root_grid, int nbs);
 void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb);
 void CheckNeighborFinding(BlockList_t &block_list);
 

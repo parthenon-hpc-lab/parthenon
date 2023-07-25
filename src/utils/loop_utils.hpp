@@ -24,7 +24,7 @@
 #include "bvals/comms/bnd_info.hpp" // TODO(JMM): Remove me when possible
 #include "interface/metadata.hpp"
 #include "mesh/domain.hpp" // TODO(JMM): Remove me when possible
-#include "mesh/mesh.hpp" 
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
 
