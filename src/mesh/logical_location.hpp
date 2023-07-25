@@ -34,16 +34,14 @@ namespace parthenon {
 
 struct RootGridInfo {
   int level;
-  int nx1, nx2, nx3;
-  bool periodic1, periodic2, periodic3;
+  std::array<int, 3> n; 
+  std::array<bool, 3> periodic;
   // Defaults to root grid of single block at the
   // coarsest level
   RootGridInfo()
-      : level(0), nx1(1), nx2(1), nx3(1), periodic1(false), periodic2(false),
-        periodic3(false) {}
+      : level(0), n{1, 1, 1}, periodic{false, false, false} {}
   RootGridInfo(int level, int nx1, int nx2, int nx3, bool p1, bool p2, bool p3)
-      : level(level), nx1(nx1), nx2(nx2), nx3(nx3), periodic1(p1), periodic2(p2),
-        periodic3(p3) {}
+      : level(level), n{nx1, nx2, nx3}, periodic{p1, p2, p3} {}
 };
 
 //--------------------------------------------------------------------------------------
@@ -54,77 +52,61 @@ class LogicalLocation { // aggregate and POD type
   // These values can exceed the range of std::int32_t even if the root grid has only a
   // single MeshBlock if >30 levels of AMR are used, since the corresponding max index =
   // 1*2^31 > INT_MAX = 2^31 -1 for most 32-bit signed integer type impelementations
-  std::int64_t lx1_, lx2_, lx3_;
+  std::array<std::int64_t, 3> l_;
   MortonNumber morton_;
   int level_;
 
  public:
   LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
-      : lx1_(l1), lx2_(l2), lx3_(l3), level_(lev), morton_(lev, l1, l2, l3) {}
+      : l_{l1, l2, l3}, level_(lev), morton_(lev, l1, l2, l3) {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
 
   std::string label() const {
-    return "(" + std::to_string(level_) + ": " + std::to_string(lx1_) + ", " +
-           std::to_string(lx2_) + ", " + std::to_string(lx3_) + ")";
+    return "(" + std::to_string(level_) + ": " + std::to_string(l_[0]) + ", " +
+           std::to_string(l_[1]) + ", " + std::to_string(l_[2]) + ")";
   }
-  const auto &lx1() const { return lx1_; }
-  const auto &lx2() const { return lx2_; }
-  const auto &lx3() const { return lx3_; }
+  const auto &l(int i) const {return l_[i];}
+  const auto &lx1() const { return l_[0]; }
+  const auto &lx2() const { return l_[1]; }
+  const auto &lx3() const { return l_[2]; }
   const auto &level() const { return level_; }
   const auto &morton() const { return morton_; }
 
   bool IsContainedIn(const LogicalLocation &container) const {
-    if (container.level() > level_) return false;
-    const std::int64_t shifted_lx1 = lx1_ >> (level_ - container.level());
-    const std::int64_t shifted_lx2 = lx2_ >> (level_ - container.level());
-    const std::int64_t shifted_lx3 = lx3_ >> (level_ - container.level());
-    return (shifted_lx1 == container.lx1()) && (shifted_lx2 == container.lx2()) &&
-           (shifted_lx3 == container.lx3());
+    if (container.level() > level()) return false;
+    bool is_contained = true; 
+    const int level_shift = level() - container.level();
+    for (int i = 0; i < 3; ++i) 
+        is_contained = is_contained && (l(i) >> level_shift == container.l(i));
+    return is_contained;
   }
 
   bool Contains(const LogicalLocation &containee) const {
     if (containee.level() < level_) return false;
-    const std::int64_t shifted_lx1 = containee.lx1() >> (containee.level() - level_);
-    const std::int64_t shifted_lx2 = containee.lx2() >> (containee.level() - level_);
-    const std::int64_t shifted_lx3 = containee.lx3() >> (containee.level() - level_);
-    return (shifted_lx1 == lx1_) && (shifted_lx2 == lx2_) && (shifted_lx3 == lx3_);
+    const std::int64_t shifted_lx1 = containee.lx1() >> (containee.level() - level());
+    const std::int64_t shifted_lx2 = containee.lx2() >> (containee.level() - level());
+    const std::int64_t shifted_lx3 = containee.lx3() >> (containee.level() - level());
+    return (shifted_lx1 == lx1()) && (shifted_lx2 == lx2()) && (shifted_lx3 == lx3());
   }
 
   std::array<int, 3> GetOffset(const LogicalLocation &neighbor,
                                const RootGridInfo &rg_info = RootGridInfo()) const {
     std::array<int, 3> offset;
-    offset[0] = (neighbor.lx1() >> std::max(neighbor.level() - level_, 0)) -
-                (lx1() >> std::max(level_ - neighbor.level(), 0));
-    offset[1] = (neighbor.lx2() >> std::max(neighbor.level() - level_, 0)) -
-                (lx2() >> std::max(level_ - neighbor.level(), 0));
-    offset[2] = (neighbor.lx3() >> std::max(neighbor.level() - level_, 0)) -
-                (lx3() >> std::max(level_ - neighbor.level(), 0));
-
+    const int level_diff_1 = std::max(neighbor.level() - level(), 0);
+    const int level_diff_2 = std::max(level() - neighbor.level(), 0);
     const int n_per_root_block = 1
-                                 << (std::min(level(), neighbor.level()) - rg_info.level);
-    int n1_cells_level = std::max(n_per_root_block * rg_info.nx1, 1);
-    int n2_cells_level = std::max(n_per_root_block * rg_info.nx2, 1);
-    int n3_cells_level = std::max(n_per_root_block * rg_info.nx3, 1);
+                                 << (std::min(level(), neighbor.level()) - rg_info.level); 
+    for (int i = 0; i < 3; ++i) { 
+      offset[i] = (neighbor.l(i) >> level_diff_1) - (l(i) >> level_diff_2); 
+      if (rg_info.periodic[i]) { 
+        const int n_cells_level = std::max(n_per_root_block * rg_info.n[i], 1);
+        if (std::abs(offset[i]) > (n_cells_level / 2)) {
+          offset[i] %= n_cells_level;
+          offset[i] += offset[i] > 0 ? -n_cells_level : n_cells_level;
+        }
+      }
+    }
 
-    int offset_orig = offset[0];
-    if (rg_info.periodic1) {
-      if (std::abs(offset[0]) > (n1_cells_level / 2)) {
-        offset[0] %= n1_cells_level;
-        offset[0] += offset[0] > 0 ? -n1_cells_level : n1_cells_level;
-      }
-    }
-    if (rg_info.periodic2) {
-      if (std::abs(offset[1]) > n2_cells_level / 2) {
-        offset[1] %= n2_cells_level;
-        offset[1] += offset[1] > 0 ? -n2_cells_level : n2_cells_level;
-      }
-    }
-    if (rg_info.periodic3) {
-      if (std::abs(offset[2]) > n3_cells_level / 2) {
-        offset[2] %= n3_cells_level;
-        offset[2] += offset[2] > 0 ? -n3_cells_level : n3_cells_level;
-      }
-    }
     return offset;
   }
 
@@ -132,50 +114,48 @@ class LogicalLocation { // aggregate and POD type
   // volume
   bool IsNeighbor(const LogicalLocation &in,
                   const RootGridInfo &rg_info = RootGridInfo()) const {
-    if (in.level() < level()) return in.IsNeighbor(*this, rg_info);
-    if (Contains(in)) return false; // You share a volume
-    // Only need to consider case where other block is equally or more refined than you
-    auto offset = 1 << (in.level() - level());
-    const auto shifted_lx1 = lx1_ << (in.level() - level());
-    const auto shifted_lx2 = lx2_ << (in.level() - level());
-    const auto shifted_lx3 = lx3_ << (in.level() - level());
-    bool bx1 = (in.lx1() >= (shifted_lx1 - 1)) && (in.lx1() <= (shifted_lx1 + offset));
-    bool bx2 = (in.lx2() >= (shifted_lx2 - 1)) && (in.lx2() <= (shifted_lx2 + offset));
-    bool bx3 = (in.lx3() >= (shifted_lx3 - 1)) && (in.lx3() <= (shifted_lx3 + offset));
-    const int n_per_root_block = 1 << (in.level() - rg_info.level);
-    if (rg_info.periodic1) {
-      int n1_cells_level = std::max(n_per_root_block * rg_info.nx1, 1);
-      bx1 = bx1 || (in.lx1() + n1_cells_level >= (shifted_lx1 - 1)) &&
-                       (in.lx1() + n1_cells_level <= (shifted_lx1 + offset));
-      bx1 = bx1 || (in.lx1() - n1_cells_level >= (shifted_lx1 - 1)) &&
-                       (in.lx1() - n1_cells_level <= (shifted_lx1 + offset));
+    if (in.level() >= level() && Contains(in)) return false; // You share a volume
+    if (in.level() < level() && in.Contains(*this)) return false; // You share a volume
+    
+    // We work on the finer level of in.level() and this->level()
+    const int max_level = std::max(in.level(), level());
+    const int level_shift_1 = max_level - level();
+    const int level_shift_2 = max_level - in.level();
+    const auto block_size_1 = 1 << level_shift_1;
+    const auto block_size_2 = 1 << level_shift_2;
+
+    // TODO(LFR): Think about what this should do when we are above the root level
+    const int n_per_root_block = 1 << (max_level - rg_info.level);
+    std::array<bool, 3> b;
+    
+    for (int i=0; i<3; ++i) {
+      // Index range of daughters of this block on current level plus a one block halo on either side
+      const auto low = (l(i) << level_shift_1) - 1; 
+      const auto hi = (l(i) << level_shift_1) + block_size_1; 
+      // Index range of daughters of possible neighbor block on current level
+      const auto in_low = in.l(i) << level_shift_2; 
+      const auto in_hi = (in.l(i) << level_shift_2) + block_size_2 - 1; 
+      // Check if these two ranges overlap at all
+      b[i] = in_hi >= low && in_low <= hi;
+      if (rg_info.periodic[i]) {
+        const int n_cells_level = std::max(n_per_root_block * rg_info.n[i], 1); 
+        b[i] = b[i] || (in_hi + n_cells_level >= low && in_low + n_cells_level <= hi); 
+        b[i] = b[i] || (in_hi - n_cells_level >= low && in_low - n_cells_level <= hi); 
+      }
     }
-    if (rg_info.periodic2) {
-      int n2_cells_level = std::max(n_per_root_block * rg_info.nx2, 1);
-      bx2 = bx2 || (in.lx2() + n2_cells_level >= (shifted_lx2 - 1)) &&
-                       (in.lx2() + n2_cells_level <= (shifted_lx2 + offset));
-      bx2 = bx2 || (in.lx2() - n2_cells_level >= (shifted_lx2 - 1)) &&
-                       (in.lx2() - n2_cells_level <= (shifted_lx2 + offset));
-    }
-    if (rg_info.periodic3) {
-      int n3_cells_level = std::max(n_per_root_block * rg_info.nx3, 1);
-      bx3 = bx3 || (in.lx3() + n3_cells_level >= (shifted_lx3 - 1)) &&
-                       (in.lx3() + n3_cells_level <= (shifted_lx3 + offset));
-      bx3 = bx3 || (in.lx3() - n3_cells_level >= (shifted_lx3 - 1)) &&
-                       (in.lx3() - n3_cells_level <= (shifted_lx3 + offset));
-    }
-    return bx1 && bx2 && bx3;
+    
+    return b[0] && b[1] && b[2];
   }
 
   LogicalLocation
   GetSameLevelNeighbor(int ox1, int ox2, int ox3,
                        const RootGridInfo &rg_info = RootGridInfo()) const {
-    return LogicalLocation(level_, lx1_ + ox1, lx2_ + ox2, lx3_ + ox3);
+    return LogicalLocation(level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);
   }
 
   LogicalLocation GetParent() const {
     if (level_ == 0) return *this;
-    return LogicalLocation(level_ - 1, lx1_ >> 1, lx2_ >> 1, lx3_ >> 1);
+    return LogicalLocation(level() - 1, lx1() >> 1, lx2() >> 1, lx3() >> 1);
   }
 
   std::vector<LogicalLocation> GetDaughters() const {
@@ -192,8 +172,8 @@ class LogicalLocation { // aggregate and POD type
   }
 
   LogicalLocation GetDaughter(int ox1, int ox2, int ox3) const {
-    return LogicalLocation(level_ + 1, (lx1_ << 1) + ox1, (lx2_ << 1) + ox2,
-                           (lx3_ << 1) + ox3);
+    return LogicalLocation(level_ + 1, (lx1() << 1) + ox1, (lx2() << 1) + ox2,
+                           (lx3() << 1) + ox3);
   }
 
   auto GetAthenaXXOffsets(const LogicalLocation &neighbor,
@@ -252,9 +232,9 @@ class LogicalLocation { // aggregate and POD type
 
     auto AddNeighbors = [&](const LogicalLocation &loc) {
       const int n_per_root_block = 1 << (loc.level() - rg_info.level);
-      int n1_cells_level = std::max(n_per_root_block * rg_info.nx1, 1);
-      int n2_cells_level = std::max(n_per_root_block * rg_info.nx2, 1);
-      int n3_cells_level = std::max(n_per_root_block * rg_info.nx3, 1);
+      int n1_cells_level = std::max(n_per_root_block * rg_info.n[0], 1);
+      int n2_cells_level = std::max(n_per_root_block * rg_info.n[1], 1);
+      int n3_cells_level = std::max(n_per_root_block * rg_info.n[2], 1);
       for (int i : irange) {
         for (int j : jrange) {
           for (int k : krange) {
@@ -262,9 +242,9 @@ class LogicalLocation { // aggregate and POD type
             auto lx2 = loc.lx2() + j;
             auto lx3 = loc.lx3() + k;
             // This should include blocks that are connected by periodic boundaries
-            if (rg_info.periodic1) lx1 = (lx1 + n1_cells_level) % n1_cells_level;
-            if (rg_info.periodic2) lx2 = (lx2 + n2_cells_level) % n2_cells_level;
-            if (rg_info.periodic3) lx3 = (lx3 + n3_cells_level) % n3_cells_level;
+            if (rg_info.periodic[0]) lx1 = (lx1 + n1_cells_level) % n1_cells_level;
+            if (rg_info.periodic[1]) lx2 = (lx2 + n2_cells_level) % n2_cells_level;
+            if (rg_info.periodic[2]) lx3 = (lx3 + n3_cells_level) % n3_cells_level;
             if (0 <= lx1 && lx1 < n1_cells_level && 0 <= lx2 && lx2 < n2_cells_level &&
                 0 <= lx3 && lx3 < n3_cells_level) {
               locs.emplace_back(loc.level(), lx1, lx2, lx3);
