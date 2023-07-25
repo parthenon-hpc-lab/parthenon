@@ -279,25 +279,6 @@ DetermineOwnership(const LogicalLocation &main_block,
             break;
           }
         }
-        // auto possible_neighbors =
-        //     main_block.GetPossibleBlocksSurroundingTopologicalElement(ox1, ox2, ox3,
-        //                                                               rg_info);
-
-        // std::vector<LogicalLocation> actual_neighbors;
-        // std::set_intersection(std::begin(allowed_neighbors),
-        // std::end(allowed_neighbors),
-        //                       std::begin(possible_neighbors),
-        //                       std::end(possible_neighbors),
-        //                       std::back_inserter(actual_neighbors));
-
-        // if (actual_neighbors.size() == 0) {
-        //   main_owns(ox1, ox2, ox3) = true;
-        // } else {
-        //   auto max = std::max_element(std::begin(actual_neighbors),
-        //                               std::end(actual_neighbors), ownership_less_than);
-        //   main_owns(ox1, ox2, ox3) =
-        //       *max == main_block || ownership_less_than(*max, main_block);
-        // }
       }
     }
   }
