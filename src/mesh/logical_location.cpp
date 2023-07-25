@@ -82,9 +82,6 @@ LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor,
     if (std::abs(idxn - idxt) <= 1) offsets[i].push_back(idxn - idxt);
 
     const int n_blocks_level = std::max(n_per_root_block * rg_info.n[i], 1);
-    printf(
-        "Doing symmetry = %i in direction %i idxn = %i idxt = %i n_blocks_level = %i\n",
-        rg_info.periodic[i], i, idxn, idxt, n_blocks_level);
     if (rg_info.periodic[i]) {
       if (std::abs(idxn - n_blocks_level - idxt) <= 1)
         offsets[i].push_back(idxn - n_blocks_level - idxt);
