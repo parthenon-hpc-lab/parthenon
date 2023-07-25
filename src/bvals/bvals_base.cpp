@@ -27,6 +27,7 @@
 #include <sstream>   // stringstream
 #include <stdexcept> // runtime_error
 #include <string>    // c_str()
+#include <unordered_set> 
 
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
@@ -632,7 +633,7 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
 
 void BoundaryBase::SetNeighborOwnership() {
   // Set neighbor block ownership
-  std::set<LogicalLocation> allowed_neighbors;
+  std::unordered_set<LogicalLocation> allowed_neighbors;
   allowed_neighbors.insert(loc); // Insert the location of this block
   for (int n = 0; n < nneighbor; ++n)
     allowed_neighbors.insert(neighbor[n].loc);

@@ -28,6 +28,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <unordered_set>
 
 #include "parthenon_mpi.hpp"
 
@@ -112,7 +113,7 @@ void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_m
       }
     }
     // Set neighbor block ownership
-    std::set<LogicalLocation> allowed_neighbors;
+    std::unordered_set<LogicalLocation> allowed_neighbors;
     allowed_neighbors.insert(pmb->loc);
     for (auto &nb : pmb->gmg_same_neighbors)
       allowed_neighbors.insert(nb.loc);
