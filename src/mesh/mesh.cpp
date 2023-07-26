@@ -91,7 +91,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       multilevel((adaptive ||
                   pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
                      ? true
-                     : false),
+                     // TODO(LFR): Flop this back to false and check for multigrid
+                     : true),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -537,7 +538,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       multilevel((adaptive ||
                   pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
                      ? true
-                     : false),
+                     // TODO(LFR): Flop this back to false and check for multigrid
+                     : true),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -1073,12 +1075,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       tag_map.AddMeshDataToMap<BoundaryType::any>(md);
       for (int gmg_level = 0; gmg_level < static_cast<int>(gmg_mesh_data.size()) - 1;
            ++gmg_level) {
-        auto &mdg = mesh_data.GetOrAdd(gmg_level, "base", i);
+        auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
         // Only need to build send tags, since the recv tags are symmetric
         tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
       }
       for (int gmg_level = 1; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
-        auto &mdg = mesh_data.GetOrAdd(gmg_level, "base", i);
+        auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
         tag_map.AddMeshDataToMap<BoundaryType::any>(mdg);
         // Only need to build send tags, since the recv tags are symmetric
         tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(mdg);
@@ -1115,11 +1117,11 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       BuildBoundaryBuffers(md);
       for (int gmg_level = 0; gmg_level < static_cast<int>(gmg_mesh_data.size()) - 1;
            ++gmg_level) {
-        auto &mdg = mesh_data.GetOrAdd(gmg_level, "base", i);
+        auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
         BuildGMGBoundaryBuffers(mdg);
       }
       for (int gmg_level = 1; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
-        auto &mdg = mesh_data.GetOrAdd(gmg_level, "base", i);
+        auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
         BuildBoundaryBuffers(mdg);
         BuildGMGBoundaryBuffers(mdg);
       }
