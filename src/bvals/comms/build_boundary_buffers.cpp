@@ -89,7 +89,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     };
 
     // Build send buffer (unless this is a receiving flux boundary)
-    if constexpr (!(BTYPE == BoundaryType::flxcor_recv)) {
+    if constexpr (IsSender(BTYPE)) {
       auto s_key = SendKey(pmb, nb, v);
       PARTHENON_DEBUG_REQUIRE(buf_map.count(s_key) == 0,
                               "Two communication buffers have the same key.");
@@ -98,7 +98,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     }
 
     // Also build the non-local receive buffers here
-    if constexpr (!(BTYPE == BoundaryType::flxcor_send)) {
+    if constexpr (IsReceiver(BTYPE)) {
       if (sender_rank != receiver_rank) {
         auto r_key = ReceiveKey(pmb, nb, v);
         buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
@@ -140,8 +140,14 @@ TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   // after all MeshData call BuildBoundaryBuffers
   all_caches.clear();
 
-  BuildBoundaryBufferSubset<BoundaryType::gmg_prolongate>(md, pmesh->boundary_comm_map);
-  BuildBoundaryBufferSubset<BoundaryType::gmg_restrict>(md, pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::gmg_prolongate_send>(md,
+                                                               pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::gmg_prolongate_recv>(md,
+                                                               pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::gmg_restrict_send>(md,
+                                                             pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::gmg_restrict_recv>(md,
+                                                             pmesh->boundary_comm_map);
 
   Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
   return TaskStatus::complete;

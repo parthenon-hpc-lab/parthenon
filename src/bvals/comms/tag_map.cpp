@@ -45,10 +45,10 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
 }
 template void
 TagMap::AddMeshDataToMap<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &md);
-template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate>(
+template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(
     std::shared_ptr<MeshData<Real>> &md);
-template void
-TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict>(std::shared_ptr<MeshData<Real>> &md);
+template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict_send>(
+    std::shared_ptr<MeshData<Real>> &md);
 
 void TagMap::ResolveMap() {
   for (auto it = map_.begin(); it != map_.end(); ++it) {

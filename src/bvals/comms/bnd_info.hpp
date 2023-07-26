@@ -89,6 +89,10 @@ struct ProResInfo {
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
+  static ProResInfo GetNull(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                            std::shared_ptr<Variable<Real>> v) {
+    return ProResInfo();
+  }
   static ProResInfo GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                             std::shared_ptr<Variable<Real>> v);
   static ProResInfo GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,

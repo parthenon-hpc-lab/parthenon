@@ -67,10 +67,18 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     return TaskStatus::incomplete;
   }
 
-  if (rebuild)
-    RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
-                                         ProResInfo::GetSend);
-
+  if (rebuild) {
+    if constexpr (bound_type == BoundaryType::gmg_restrict_send) {
+      RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
+                                           ProResInfo::GetInteriorRestrict);
+    } else if constexpr (bound_type == BoundaryType::gmg_prolongate_send) {
+      RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
+                                           ProResInfo::GetNull);
+    } else {
+      RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
+                                           ProResInfo::GetSend);
+    }
+  }
   // Restrict
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   StateDescriptor *resolved_packages = pmb->resolved_packages.get();
@@ -215,10 +223,19 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
-  if (rebuild)
-    RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                          ProResInfo::GetSet);
 
+  if (rebuild) {
+    if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetInteriorProlongate);
+    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetNull);
+    } else {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetSet);
+    }
+  }
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
@@ -276,9 +293,20 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
-  if (rebuild)
-    RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                          ProResInfo::GetSet);
+
+  if (rebuild) {
+    if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetInteriorProlongate);
+    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetNull);
+    } else {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetSet);
+    }
+  }
+
   if (nbound > 0 && pmesh->multilevel) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();

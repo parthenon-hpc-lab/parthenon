@@ -42,16 +42,32 @@ enum class RefinementOp_t { Prolongation, Restriction, None };
 
 // JMM: Not clear this is the best place for this but it minimizes
 // circular dependency nonsense.
-constexpr int NUM_BNDRY_TYPES = 7;
+constexpr int NUM_BNDRY_TYPES = 9;
 enum class BoundaryType : int {
   local,
   nonlocal,
   any,
   flxcor_send,
   flxcor_recv,
-  gmg_restrict,
-  gmg_prolongate
+  gmg_restrict_send,
+  gmg_restrict_recv,
+  gmg_prolongate_send,
+  gmg_prolongate_recv
 };
+
+constexpr bool IsSender(BoundaryType btype) {
+  if (btype == BoundaryType::flxcor_recv) return false;
+  if (btype == BoundaryType::gmg_restrict_recv) return false;
+  if (btype == BoundaryType::gmg_prolongate_recv) return false;
+  return true;
+}
+
+constexpr bool IsReceiver(BoundaryType btype) {
+  if (btype == BoundaryType::flxcor_send) return false;
+  if (btype == BoundaryType::gmg_restrict_send) return false;
+  if (btype == BoundaryType::gmg_prolongate_send) return false;
+  return true;
+}
 
 // Enumeration for accessing a field on different locations of the grid:
 // CC = cell center of (i, j, k)
