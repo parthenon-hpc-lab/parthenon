@@ -43,68 +43,70 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
   TaskID none(0);
   const int num_partitions = pmesh->DefaultNumPartitions();
 
-  printf("Building level %i restriction.\n", level); 
+  printf("Building level %i restriction.\n", level);
   TaskRegion &pre_region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = pre_region[i];
-    auto &md = pmesh->mesh_data.GetOrAdd(level, "base", i); 
-    
+    auto &md = pmesh->mesh_data.GetOrAdd(level, "base", i);
+
     auto set_from_finer = none;
     if (level < max_level) {
-      // Fill fields with restricted values 
-      auto recv_from_finer = tl.AddTask(none, ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>, md); 
-      set_from_finer = tl.AddTask(recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md); 
+      // Fill fields with restricted values
+      auto recv_from_finer =
+          tl.AddTask(none, ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>, md);
+      set_from_finer =
+          tl.AddTask(recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md);
     }
 
-    // Communicate boundaries 
+    // Communicate boundaries
     auto communicate_bounds = AddBoundaryExchangeTasks(set_from_finer, tl, md, true);
-    
-    // Apply pre-smoother 
-    auto smooth = communicate_bounds; 
-    
-    // Restrict fields to next coarser grid 
-    if (level > 0)
-      tl.AddTask(smooth, SendBoundBufs<BoundaryType::gmg_restrict_send>, md); 
+
+    // Apply pre-smoother
+    auto smooth = communicate_bounds;
+
+    // Restrict fields to next coarser grid
+    if (level > 0) tl.AddTask(smooth, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
   }
 
-  // Call recursive multi grid  
+  // Call recursive multi grid
   if (level > 0) AddMultiGridTasks(tc, level - 1, max_level);
-  
-  printf("Building level %i prolongation.\n", level); 
+
+  printf("Building level %i prolongation.\n", level);
   TaskRegion &post_region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = post_region[i];
     auto &md = pmesh->mesh_data.GetOrAdd(level, "base", i);
-    auto smooth = none; 
-    if (level > 0) { 
+    auto smooth = none;
+    if (level > 0) {
       // Fill fields with prolongated values
-      auto recv_from_coarser = tl.AddTask(none, ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>, md); 
-      auto set_from_coarser = tl.AddTask(recv_from_coarser, SetBounds<BoundaryType::gmg_prolongate_recv>, md);  
-      auto prolongate = tl.AddTask(set_from_coarser, ProlongateBounds<BoundaryType::gmg_prolongate_recv>, md); 
-      
-      // Communicate boundaries 
+      auto recv_from_coarser =
+          tl.AddTask(none, ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>, md);
+      auto set_from_coarser =
+          tl.AddTask(recv_from_coarser, SetBounds<BoundaryType::gmg_prolongate_recv>, md);
+      auto prolongate = tl.AddTask(
+          set_from_coarser, ProlongateBounds<BoundaryType::gmg_prolongate_recv>, md);
+
+      // Communicate boundaries
       auto communicate_bounds = AddBoundaryExchangeTasks(prolongate, tl, md, true);
 
-      // Apply post-smoother 
-      smooth = communicate_bounds; 
-    } 
+      // Apply post-smoother
+      smooth = communicate_bounds;
+    }
     // Send values to the next coarser grid to be prolongated
-    if (level < max_level) 
+    if (level < max_level)
       tl.AddTask(smooth, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
   }
-
 }
 
 TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   using namespace parthenon;
   TaskCollection tc;
   TaskID none(0);
-  
-  int max_level = pmesh->GetGMGMaxLevel(); 
-  AddMultiGridTasks(tc, max_level, max_level); 
+
+  int max_level = pmesh->GetGMGMaxLevel();
+  AddMultiGridTasks(tc, max_level, max_level);
 
   return tc;
-
 }
 
 } // namespace poisson_example

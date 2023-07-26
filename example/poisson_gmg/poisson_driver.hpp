@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_POISSON_POISSON_DRIVER_HPP_
-#define EXAMPLE_POISSON_POISSON_DRIVER_HPP_
+#ifndef EXAMPLE_POISSON_GMG_POISSON_DRIVER_HPP_
+#define EXAMPLE_POISSON_GMG_POISSON_DRIVER_HPP_
 
 #include <memory>
 #include <vector>
@@ -34,8 +34,8 @@ class PoissonDriver : public Driver {
   TaskCollection MakeTaskCollection(BlockList_t &blocks);
 
   DriverStatus Execute() override;
-  
-  void AddMultiGridTasks(TaskCollection &tc, int level, int max_level); 
+
+  void AddMultiGridTasks(TaskCollection &tc, int level, int max_level);
 
  private:
   // we'll demonstrate doing a global all reduce of a scalar There
@@ -59,4 +59,4 @@ parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput>
 
 } // namespace poisson_example
 
-#endif // EXAMPLE_POISSON_POISSON_DRIVER_HPP_
+#endif // EXAMPLE_POISSON_GMG_POISSON_DRIVER_HPP_

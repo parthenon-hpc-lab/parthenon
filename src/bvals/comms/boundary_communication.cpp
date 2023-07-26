@@ -175,8 +175,8 @@ template TaskStatus
 StartReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 StartReceiveBoundBufs<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus
-StartReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus StartReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(
+    std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -296,8 +296,10 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 template TaskStatus SetBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus SetBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus SetBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus SetBounds<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus SetBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SetBounds<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SetBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
