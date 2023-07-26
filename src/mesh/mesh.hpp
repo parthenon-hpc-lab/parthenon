@@ -283,6 +283,7 @@ class Mesh {
   bool GatherCostListAndCheckBalance();
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
+  void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);

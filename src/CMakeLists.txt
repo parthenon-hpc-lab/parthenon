@@ -163,6 +163,7 @@ add_library(parthenon
   mesh/logical_location.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
+  mesh/mesh-gmg.cpp
   mesh/mesh.cpp
   mesh/mesh.hpp
   mesh/meshblock.hpp
