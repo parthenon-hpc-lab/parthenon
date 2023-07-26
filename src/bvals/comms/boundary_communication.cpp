@@ -70,7 +70,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (rebuild) {
     if constexpr (bound_type == BoundaryType::gmg_restrict_send) {
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
-                                           ProResInfo::GetInteriorRestrict);
+                                           ProResInfo::GetInteriorRestrict2);
     } else if constexpr (bound_type == BoundaryType::gmg_prolongate_send) {
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                            ProResInfo::GetNull);
@@ -146,6 +146,10 @@ template TaskStatus SendBoundBufs<BoundaryType::any>(std::shared_ptr<MeshData<Re
 template TaskStatus SendBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SendBoundBufs<BoundaryType::gmg_restrict_send>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SendBoundBufs<BoundaryType::gmg_prolongate_send>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -169,6 +173,10 @@ template TaskStatus
 StartReceiveBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 StartReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -214,6 +222,10 @@ template TaskStatus
 ReceiveBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -227,7 +239,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   if (rebuild) {
     if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                            ProResInfo::GetInteriorProlongate);
+                                            ProResInfo::GetInteriorProlongate2);
     } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetNull);
@@ -284,6 +296,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 template TaskStatus SetBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus SetBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus SetBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus SetBounds<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus SetBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -297,7 +311,7 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
   if (rebuild) {
     if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                            ProResInfo::GetInteriorProlongate);
+                                            ProResInfo::GetInteriorProlongate2);
     } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetNull);
@@ -327,6 +341,8 @@ template TaskStatus
 ProlongateBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
 // Adds all relevant boundary communication to a single task list
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,

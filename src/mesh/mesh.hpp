@@ -122,6 +122,7 @@ class Mesh {
   std::vector<LogicalLocMap_t> gmg_grid_locs;
   std::vector<BlockList_t> gmg_block_lists;
   std::vector<DataCollection<MeshData<Real>>> gmg_mesh_data;
+  int GetGMGMaxLevel() { return gmg_grid_locs.size() - 1;}
 
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
