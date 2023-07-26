@@ -47,8 +47,8 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
   TaskRegion &pre_region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = pre_region[i];
-    auto &md = pmesh->mesh_data.GetOrAdd(level, "base", i);
-
+    auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", i);
+    printf("level = %i meshdata size = %i\n", level, md->NumBlocks());
     auto set_from_finer = none;
     if (level < max_level) {
       // Fill fields with restricted values
@@ -63,9 +63,15 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
 
     // Apply pre-smoother
     auto smooth = communicate_bounds;
+   
+    // Communicate boundaries 
+    auto communicate_bounds_2 = AddBoundaryExchangeTasks(smooth, tl, md, true);
 
-    // Restrict fields to next coarser grid
-    if (level > 0) tl.AddTask(smooth, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
+    // Calculate residual (do this in ghosts as well)
+    auto residual = communicate_bounds_2; 
+
+    // Restrict residual (and others) to next coarser grid
+    if (level > 0) tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
   }
 
   // Call recursive multi grid
@@ -75,7 +81,7 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
   TaskRegion &post_region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = post_region[i];
-    auto &md = pmesh->mesh_data.GetOrAdd(level, "base", i);
+    auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", i);
     auto smooth = none;
     if (level > 0) {
       // Fill fields with prolongated values
@@ -86,8 +92,11 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
       auto prolongate = tl.AddTask(
           set_from_coarser, ProlongateBounds<BoundaryType::gmg_prolongate_recv>, md);
 
+      // Apply error to residual 
+      auto apply_error = prolongate; 
+      
       // Communicate boundaries
-      auto communicate_bounds = AddBoundaryExchangeTasks(prolongate, tl, md, true);
+      auto communicate_bounds = AddBoundaryExchangeTasks(apply_error, tl, md, true);
 
       // Apply post-smoother
       smooth = communicate_bounds;
