@@ -62,15 +62,17 @@ std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
 
 std::shared_ptr<MeshData<Real>> &GetOrAdd_impl(
     Mesh *pmy_mesh_, std::map<std::string, std::shared_ptr<MeshData<Real>>> &containers_,
-    BlockList_t &block_list, const std::string &mbd_label, const int &partition_id) {
-  const std::string label = mbd_label + "_part-" + std::to_string(partition_id);
+    BlockList_t &block_list, const std::string &mbd_label, const int &partition_id, const int gmg_level) {
+  std::string label = mbd_label + "_part-" + std::to_string(partition_id);
+  if (gmg_level >= 0) label = label + "_gmg-" + std::to_string(gmg_level);
   auto it = containers_.find(label);
   if (it == containers_.end()) {
     // TODO(someone) add caching of partitions to Mesh at some point
     const int pack_size = pmy_mesh_->DefaultPackSize();
-    auto partitions = partition::ToSizeN(pmy_mesh_->block_list, pack_size);
+    auto partitions = partition::ToSizeN(block_list, pack_size);
     for (auto i = 0; i < partitions.size(); i++) {
-      const std::string md_label = mbd_label + "_part-" + std::to_string(i);
+      std::string md_label = mbd_label + "_part-" + std::to_string(i);
+      if (gmg_level >= 0) md_label = md_label + "_gmg-" + std::to_string(gmg_level);
       containers_[md_label] = std::make_shared<MeshData<Real>>();
       containers_[md_label]->Set(partitions[i], mbd_label);
     }
@@ -83,7 +85,7 @@ std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
                                          const int &partition_id) {
   return GetOrAdd_impl(pmy_mesh_, containers_, pmy_mesh_->block_list, mbd_label,
-                       partition_id);
+                       partition_id, -1);
 }
 
 template <>
@@ -91,7 +93,7 @@ std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(int gmg_level, const std::string &mbd_label,
                                          const int &partition_id) {
   return GetOrAdd_impl(pmy_mesh_, containers_, pmy_mesh_->gmg_block_lists[gmg_level],
-                       mbd_label, partition_id);
+                       mbd_label, partition_id, gmg_level);
 }
 
 template class DataCollection<MeshData<Real>>;
