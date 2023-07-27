@@ -89,10 +89,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                    ? true
                    : false),
       multilevel((adaptive ||
-                  pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
+                  pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static" ||
+                  pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
                      ? true
-                     // TODO(LFR): Flop this back to false and check for multigrid
-                     : true),
+                     : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -536,10 +536,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                    ? true
                    : false),
       multilevel((adaptive ||
-                  pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
+                  pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static" ||
+                  pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
                      ? true
-                     // TODO(LFR): Flop this back to false and check for multigrid
-                     : true),
+                     : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -1109,8 +1109,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     boundary_comm_flxcor_map.clear();
 
     for (int i = 0; i < num_partitions; i++) {
-      // auto &md = mesh_data.GetOrAdd("base", i);
-      // BuildBoundaryBuffers(md);
+      auto &md = mesh_data.GetOrAdd("base", i);
+      BuildBoundaryBuffers(md);
       for (int gmg_level = 0; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
         auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
         BuildBoundaryBuffers(mdg);
