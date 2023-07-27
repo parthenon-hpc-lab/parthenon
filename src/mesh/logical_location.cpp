@@ -75,7 +75,7 @@ LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor,
   std::array<std::vector<int>, 3> offsets;
   const int level_diff_1 = std::max(neighbor.level() - level(), 0);
   const int level_diff_2 = std::max(level() - neighbor.level(), 0);
-  const int n_per_root_block = 1 << (std::min(level(), neighbor.level()) - rg_info.level);
+  const int n_per_root_block = 1 << std::max((std::min(level(), neighbor.level()) - rg_info.level), 0);
   for (int i = 0; i < 3; ++i) {
     const auto idxt = l(i) >> level_diff_2;
     const auto idxn = neighbor.l(i) >> level_diff_1;
@@ -209,10 +209,11 @@ std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleNeighborsImpl(
   std::vector<LogicalLocation> locs;
 
   auto AddNeighbors = [&](const LogicalLocation &loc, bool include_parents) {
-    const int n_per_root_block = 1 << (loc.level() - rg_info.level);
-    int n1_cells_level = std::max(n_per_root_block * rg_info.n[0], 1);
-    int n2_cells_level = std::max(n_per_root_block * rg_info.n[1], 1);
-    int n3_cells_level = std::max(n_per_root_block * rg_info.n[2], 1);
+    const int n_per_root_block = 1 << std::max(loc.level() - rg_info.level, 0);
+    const int down_shift = std::max(rg_info.level - loc.level(), 0); 
+    int n1_cells_level = std::max(n_per_root_block * (rg_info.n[0] >> down_shift), 1);
+    int n2_cells_level = std::max(n_per_root_block * (rg_info.n[1] >> down_shift), 1);
+    int n3_cells_level = std::max(n_per_root_block * (rg_info.n[2] >> down_shift), 1);
     for (int i : irange) {
       for (int j : jrange) {
         for (int k : krange) {
@@ -225,7 +226,14 @@ std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleNeighborsImpl(
           if (rg_info.periodic[2]) lx3 = (lx3 + n3_cells_level) % n3_cells_level;
           if (0 <= lx1 && lx1 < n1_cells_level && 0 <= lx2 && lx2 < n2_cells_level &&
               0 <= lx3 && lx3 < n3_cells_level) {
-            locs.emplace_back(loc.level(), lx1, lx2, lx3);
+            if (loc.level() > level()) {
+              const int s = loc.level() - level();
+              if ((lx1 >> s) != this->lx1() || (lx2 >> s) != this->lx2() || (lx3 >> s) != this->lx3()) {
+                locs.emplace_back(loc.level(), lx1, lx2, lx3);
+              }
+            } else { 
+              locs.emplace_back(loc.level(), lx1, lx2, lx3);
+            }
             if (include_parents) {
               auto parent = locs.back().GetParent();
               if (IsNeighbor(parent, rg_info)) locs.push_back(parent);
