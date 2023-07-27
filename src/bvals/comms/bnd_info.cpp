@@ -38,7 +38,7 @@
 
 namespace {
 enum class InterfaceType { SameToSame, CoarseToFine, FineToCoarse };
-enum class IndexRangeType { Interior, Exterior, Shared };
+enum class IndexRangeType { Interior, Exterior, SharedSend, SharedReceive };
 
 using namespace parthenon;
 
@@ -126,6 +126,11 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
         const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
         s[dir] += nb_logic_loc[dir] % 2 == 1 ? half_grid - interior_offset : 0;
         e[dir] -= nb_logic_loc[dir] % 2 == 0 ? half_grid - interior_offset : 0;
+        if (ir_type == IndexRangeType::SharedSend) { 
+          // Include ghosts of finer block coarse array in message
+          s[dir] -= Globals::nghost;
+          e[dir] += Globals::nghost;
+        }
       }
       if (loc.level() > nb.loc.level() && bounds[dir].e > bounds[dir].s) {
         // If we are setting (i.e. have non-zero exterior_offset) from a neighbor block
@@ -133,6 +138,11 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
         // interior_offset in the above if block)
         s[dir] -= logic_loc[dir] % 2 == 1 ? exterior_offset : 0;
         e[dir] += logic_loc[dir] % 2 == 0 ? exterior_offset : 0;
+        if (ir_type == IndexRangeType::SharedReceive) { 
+          // Include ghosts of finer block coarse array in message
+          s[dir] -= Globals::nghost;
+          e[dir] += Globals::nghost;
+        }
       }
     } else if (block_offset[dir] > 0) {
       s[dir] = bounds[dir].e - interior_offset + 1 - top_offset[dir];
@@ -205,7 +215,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::Interior;
   if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
-    idx_range_type = IndexRangeType::Shared;
+    idx_range_type = IndexRangeType::SharedSend;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
@@ -403,7 +413,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::Exterior;
   if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
-    idx_range_type = IndexRangeType::Shared;
+    idx_range_type = IndexRangeType::SharedReceive;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
