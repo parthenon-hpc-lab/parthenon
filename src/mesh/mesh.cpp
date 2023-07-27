@@ -1109,8 +1109,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     boundary_comm_flxcor_map.clear();
 
     for (int i = 0; i < num_partitions; i++) {
-      //auto &md = mesh_data.GetOrAdd("base", i);
-      //BuildBoundaryBuffers(md);
+      // auto &md = mesh_data.GetOrAdd("base", i);
+      // BuildBoundaryBuffers(md);
       for (int gmg_level = 0; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
         auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
         BuildBoundaryBuffers(mdg);

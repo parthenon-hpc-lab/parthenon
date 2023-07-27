@@ -93,9 +93,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
       if constexpr (IsGMGFineToCoarse(bound)) {
         if (v->IsSet(Metadata::GMG)) {
           for (auto &nb : pmb->gmg_coarser_neighbors) {
-            if (func_caller(func, pmb, rc, nb, v) ==
-                LoopControl::break_out)
-              return;
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }
       } else if constexpr (IsGMGCoarseToFine(bound)) {

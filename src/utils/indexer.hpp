@@ -14,6 +14,7 @@
 #define UTILS_INDEXER_HPP_
 
 #include <array>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -26,11 +27,11 @@ template <class... Ts>
 struct Indexer {
   KOKKOS_INLINE_FUNCTION
   Indexer() : N{}, start{}, _size{} {};
-  
-  std::string GetRangesString() const { 
-    std::string out; 
-    for (int i = 0; i < sizeof...(Ts); ++i) { 
-      out += "[ " + std::to_string(start[i]) + ", " + std::to_string(end[i]) + "]"; 
+
+  std::string GetRangesString() const {
+    std::string out;
+    for (int i = 0; i < sizeof...(Ts); ++i) {
+      out += "[ " + std::to_string(start[i]) + ", " + std::to_string(end[i]) + "]";
     }
     return out;
   }

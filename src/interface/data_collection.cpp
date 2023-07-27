@@ -60,9 +60,11 @@ std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
   return containers_[name];
 }
 
-std::shared_ptr<MeshData<Real>> &GetOrAdd_impl(
-    Mesh *pmy_mesh_, std::map<std::string, std::shared_ptr<MeshData<Real>>> &containers_,
-    BlockList_t &block_list, const std::string &mbd_label, const int &partition_id, const int gmg_level) {
+std::shared_ptr<MeshData<Real>> &
+GetOrAdd_impl(Mesh *pmy_mesh_,
+              std::map<std::string, std::shared_ptr<MeshData<Real>>> &containers_,
+              BlockList_t &block_list, const std::string &mbd_label,
+              const int &partition_id, const int gmg_level) {
   std::string label = mbd_label + "_part-" + std::to_string(partition_id);
   if (gmg_level >= 0) label = label + "_gmg-" + std::to_string(gmg_level);
   auto it = containers_.find(label);

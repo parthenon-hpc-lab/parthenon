@@ -75,7 +75,8 @@ LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor,
   std::array<std::vector<int>, 3> offsets;
   const int level_diff_1 = std::max(neighbor.level() - level(), 0);
   const int level_diff_2 = std::max(level() - neighbor.level(), 0);
-  const int n_per_root_block = 1 << std::max((std::min(level(), neighbor.level()) - rg_info.level), 0);
+  const int n_per_root_block =
+      1 << std::max((std::min(level(), neighbor.level()) - rg_info.level), 0);
   for (int i = 0; i < 3; ++i) {
     const auto idxt = l(i) >> level_diff_2;
     const auto idxn = neighbor.l(i) >> level_diff_1;
@@ -210,7 +211,7 @@ std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleNeighborsImpl(
 
   auto AddNeighbors = [&](const LogicalLocation &loc, bool include_parents) {
     const int n_per_root_block = 1 << std::max(loc.level() - rg_info.level, 0);
-    const int down_shift = std::max(rg_info.level - loc.level(), 0); 
+    const int down_shift = std::max(rg_info.level - loc.level(), 0);
     int n1_cells_level = std::max(n_per_root_block * (rg_info.n[0] >> down_shift), 1);
     int n2_cells_level = std::max(n_per_root_block * (rg_info.n[1] >> down_shift), 1);
     int n3_cells_level = std::max(n_per_root_block * (rg_info.n[2] >> down_shift), 1);
@@ -228,10 +229,11 @@ std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleNeighborsImpl(
               0 <= lx3 && lx3 < n3_cells_level) {
             if (loc.level() > level()) {
               const int s = loc.level() - level();
-              if ((lx1 >> s) != this->lx1() || (lx2 >> s) != this->lx2() || (lx3 >> s) != this->lx3()) {
+              if ((lx1 >> s) != this->lx1() || (lx2 >> s) != this->lx2() ||
+                  (lx3 >> s) != this->lx3()) {
                 locs.emplace_back(loc.level(), lx1, lx2, lx3);
               }
-            } else { 
+            } else {
               locs.emplace_back(loc.level(), lx1, lx2, lx3);
             }
             if (include_parents) {

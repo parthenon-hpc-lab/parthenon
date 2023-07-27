@@ -167,8 +167,8 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
         PARTHENON_FAIL("There is something wrong with GMG block list.");
       }
       pmb->gmg_coarser_neighbors.emplace_back();
-      pmb->gmg_coarser_neighbors.back().SetNeighbor(loc, rank, loc.level(), gid, gid - nbs, 0, 0,
-                                            0, NeighborConnect::none, 0, 0);
+      pmb->gmg_coarser_neighbors.back().SetNeighbor(
+          loc, rank, loc.level(), gid, gid - nbs, 0, 0, 0, NeighborConnect::none, 0, 0);
     }
   }
 

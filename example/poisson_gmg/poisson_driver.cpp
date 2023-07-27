@@ -63,15 +63,16 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
 
     // Apply pre-smoother
     auto smooth = communicate_bounds;
-   
-    // Communicate boundaries 
+
+    // Communicate boundaries
     auto communicate_bounds_2 = AddBoundaryExchangeTasks(smooth, tl, md, true);
 
     // Calculate residual (do this in ghosts as well)
-    auto residual = communicate_bounds_2; 
+    auto residual = communicate_bounds_2;
 
     // Restrict residual (and others) to next coarser grid
-    if (level > 0) tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
+    if (level > 0)
+      tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
   }
 
   // Call recursive multi grid
@@ -92,9 +93,9 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
       auto prolongate = tl.AddTask(
           set_from_coarser, ProlongateBounds<BoundaryType::gmg_prolongate_recv>, md);
 
-      // Apply error to residual 
-      auto apply_error = prolongate; 
-      
+      // Apply error to residual
+      auto apply_error = prolongate;
+
       // Communicate boundaries
       auto communicate_bounds = AddBoundaryExchangeTasks(apply_error, tl, md, true);
 
