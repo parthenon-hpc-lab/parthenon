@@ -126,7 +126,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
         const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
         s[dir] += nb_logic_loc[dir] % 2 == 1 ? half_grid - interior_offset : 0;
         e[dir] -= nb_logic_loc[dir] % 2 == 0 ? half_grid - interior_offset : 0;
-        if (ir_type == IndexRangeType::SharedSend) { 
+        if (ir_type == IndexRangeType::SharedSend) {
           // Include ghosts of finer block coarse array in message
           s[dir] -= Globals::nghost;
           e[dir] += Globals::nghost;
@@ -138,7 +138,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
         // interior_offset in the above if block)
         s[dir] -= logic_loc[dir] % 2 == 1 ? exterior_offset : 0;
         e[dir] += logic_loc[dir] % 2 == 0 ? exterior_offset : 0;
-        if (ir_type == IndexRangeType::SharedReceive) { 
+        if (ir_type == IndexRangeType::SharedReceive) {
           // Include ghosts of finer block coarse array in message
           s[dir] -= Globals::nghost;
           e[dir] += Globals::nghost;

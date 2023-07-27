@@ -88,11 +88,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true
                    : false),
-      multilevel((adaptive ||
-                  pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static" ||
-                  pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
-                     ? true
-                     : false),
+      multilevel(
+          (adaptive ||
+           pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static" ||
+           pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
+              ? true
+              : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -535,11 +536,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true
                    : false),
-      multilevel((adaptive ||
-                  pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static" ||
-                  pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
-                     ? true
-                     : false),
+      multilevel(
+          (adaptive ||
+           pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static" ||
+           pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
+              ? true
+              : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
