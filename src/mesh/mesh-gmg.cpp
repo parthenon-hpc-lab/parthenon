@@ -134,7 +134,20 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
     for (auto &[loc, gid_rank] : gmg_grid_locs[gmg_level]) {
       if (gid_rank.second == Globals::my_rank) {
         BoundaryFlag block_bcs[6];
-        SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
+        SetBlockSizeAndBoundaries(loc, block_size, block_bcs); 
+        if (loc.level() < root_level) { 
+          // The results of SetBlockSize and Boundaries are wrong
+          int root_fac = 1 << (root_level - loc.level());
+          Real deltax1 = (mesh_size.x1max - mesh_size.x1min) / nrbx1 * root_fac;
+          Real deltax2 = (mesh_size.x2max - mesh_size.x2min) / nrbx2 * root_fac;
+          Real deltax3 = (mesh_size.x3max - mesh_size.x3min) / nrbx3 * root_fac;
+          block_size.x1min = mesh_size.x1min + deltax1 * loc.lx1(); 
+          block_size.x2min = mesh_size.x2min + deltax2 * loc.lx1(); 
+          block_size.x3min = mesh_size.x3min + deltax3 * loc.lx1(); 
+          block_size.x1max = block_size.x1min + deltax1;
+          block_size.x2max = block_size.x2min + deltax2;
+          block_size.x3max = block_size.x3min + deltax3;
+        }
         gmg_block_lists[gmg_level].push_back(
             MeshBlock::Make(gid_rank.first, -1, loc, block_size, block_bcs, this, pin,
                             app_in, packages, resolved_packages, gflag));
