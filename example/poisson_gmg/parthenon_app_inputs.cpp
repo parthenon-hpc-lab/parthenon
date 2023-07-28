@@ -62,7 +62,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         } else {
           q(irho, k, j, i) = 0.0;
         }
-        q(iphi, k, j, i) = 0.0;
+        q(iphi, k, j, i) = coords.Xc<1>(i);
       });
 }
 

@@ -62,7 +62,7 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
     auto communicate_bounds = AddBoundaryExchangeTasks(set_from_finer, tl, md, true);
 
     // Apply pre-smoother
-    auto smooth = communicate_bounds;
+    auto smooth = tl.AddTask(communicate_bounds, poisson_package::PrintValues, md);
 
     // Communicate boundaries
     auto communicate_bounds_2 = AddBoundaryExchangeTasks(smooth, tl, md, true);
@@ -77,7 +77,7 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
 
   // Call recursive multi grid
   if (level > 0) AddMultiGridTasks(tc, level - 1, max_level);
-
+  
   printf("Building level %i prolongation.\n", level);
   TaskRegion &post_region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; ++i) {
@@ -100,7 +100,8 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
       auto communicate_bounds = AddBoundaryExchangeTasks(apply_error, tl, md, true);
 
       // Apply post-smoother
-      smooth = communicate_bounds;
+      auto smooth = tl.AddTask(communicate_bounds, poisson_package::PrintValues, md);
+ 
     }
     // Send values to the next coarser grid to be prolongated
     if (level < max_level)

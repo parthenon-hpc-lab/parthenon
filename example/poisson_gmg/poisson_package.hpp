@@ -33,6 +33,7 @@ TaskStatus UpdatePhi(T *u, T *du);
 template <typename T>
 TaskStatus CheckConvergence(T *u, T *du);
 TaskStatus PrintComplete();
+TaskStatus PrintValues(std::shared_ptr<MeshData<Real>> &md);
 } // namespace poisson_package
 
 #endif // EXAMPLE_POISSON_GMG_POISSON_PACKAGE_HPP_

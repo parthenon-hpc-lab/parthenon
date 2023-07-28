@@ -55,10 +55,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto mphi = Metadata(
       {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::GMG});
   pkg->AddField("potential", mphi);
-  pkg->AddField("residual", mphi);
-  pkg->AddField("error", mphi);
-  pkg->AddField("residual2", mphi);
-  pkg->AddField("error2", mphi);
+  //pkg->AddField("residual", mphi);
+  //pkg->AddField("error", mphi);
+  //pkg->AddField("residual2", mphi);
+  //pkg->AddField("error2", mphi);
 
   int ndim = 1 + (pin->GetInteger("parthenon/mesh", "nx2") > 1) +
              (pin->GetInteger("parthenon/mesh", "nx3") > 1);
@@ -145,6 +145,32 @@ TaskStatus SetMatrixElements(T *u) {
 
   return TaskStatus::complete;
 }
+
+TaskStatus PrintValues(std::shared_ptr<MeshData<Real>> &md) {
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  PackIndexMap imap;
+  const std::vector<std::string> vars({"potential"});
+  const auto &v = md->PackVariables(vars, imap);
+  const int isp_lo = imap["potential"].first;
+  const int isp_hi = imap["potential"].second;
+
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "SetMatElem", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
+      jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto &coords = v.GetCoords(b);
+        double x = coords.Xc<1>(i);
+        printf("block = %i %i: %e (%e)\n", b, i, v(b, isp_lo, k, j, i), x);
+      });
+  printf("Done with MeshData\n\n");
+  return TaskStatus::complete;
+}
+
+
 
 auto &GetCoords(std::shared_ptr<MeshBlock> &pmb) { return pmb->coords; }
 auto &GetCoords(Mesh *pm) { return pm->block_list[0]->coords; }
