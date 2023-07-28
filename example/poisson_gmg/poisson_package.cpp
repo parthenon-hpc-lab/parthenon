@@ -55,10 +55,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto mphi = Metadata(
       {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::GMG});
   pkg->AddField("potential", mphi);
-  //pkg->AddField("residual", mphi);
-  //pkg->AddField("error", mphi);
-  //pkg->AddField("residual2", mphi);
-  //pkg->AddField("error2", mphi);
+  // pkg->AddField("residual", mphi);
+  // pkg->AddField("error", mphi);
+  // pkg->AddField("residual2", mphi);
+  // pkg->AddField("error2", mphi);
 
   int ndim = 1 + (pin->GetInteger("parthenon/mesh", "nx2") > 1) +
              (pin->GetInteger("parthenon/mesh", "nx3") > 1);
@@ -169,8 +169,6 @@ TaskStatus PrintValues(std::shared_ptr<MeshData<Real>> &md) {
   printf("Done with MeshData\n\n");
   return TaskStatus::complete;
 }
-
-
 
 auto &GetCoords(std::shared_ptr<MeshBlock> &pmb) { return pmb->coords; }
 auto &GetCoords(Mesh *pm) { return pm->block_list[0]->coords; }
