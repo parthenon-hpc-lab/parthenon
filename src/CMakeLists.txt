@@ -90,7 +90,7 @@ set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
 
-set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
+set(COORDINATE_TYPE "UniformCartesian" CACHE STRING "UniformCartesian/UniformSpherical/UniformCylindrical")
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
