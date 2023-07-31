@@ -85,23 +85,54 @@ class UniformCylindrical {
   // Dxc<1> returns distance between cell centroids in r
   //----------------------------------------
   template <int dir>
-  KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int idx) const {
     assert(dir > 0 && dir < 4);
     if( dir == X1DIR ){
-      return r_c_(i+1) - r_c_(i);
+      return r_c_(idx+1) - r_c_(idx);
     } else {
       return dx_[dir-1];
     }
   }
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    switch (dir) {
+    case X1DIR:
+      return Dxc<X1DIR>(i);
+    case X2DIR:
+      return Dxc<X2DIR>(j);
+    case X3DIR:
+      return Dxc<X3DIR>(k);
+    default:
+      PARTHENON_FAIL("Unknown dir");
+      return 0; // To appease compiler
+    }
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION Real DxcFA(const int dir, const int idx) const {
+    assert(dir > 0 && dir < 4);
+    switch (dir) {
+    case X1DIR:
+      return Dxc<X1DIR>(idx);
+    case X2DIR:
+      return Dxc<X2DIR>(idx);
+    case X3DIR:
+      return Dxc<X3DIR>(idx);
+    default:
+      PARTHENON_FAIL("Unknown dir");
+      return 0; // To appease compiler
+    }
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION Real DxcFA(const int dir, const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
     switch (dir) {
-    case 1:
-      return Dxc<1>(k,j,i);
-    case 2:
-      return Dxc<2>(k,j,j);
-    case 3:
-      return Dxc<3>(k,j,k);
+    case X1DIR:
+      return Dxc<X1DIR>(i);
+    case X2DIR:
+      return Dxc<X2DIR>(j);
+    case X3DIR:
+      return Dxc<X3DIR>(k);
     default:
       PARTHENON_FAIL("Unknown dir");
       return 0; // To appease compiler
@@ -139,17 +170,18 @@ class UniformCylindrical {
   KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
     switch (dir) {
-    case 1:
+    case X1DIR:
       return Xc<dir>(i);
-    case 2:
+    case X2DIR:
       return Xc<dir>(j);
-    case 3:
+    case X3DIR:
       return Xc<dir>(k);
     default:
       PARTHENON_FAIL("Unknown dir");
       return 0; // To appease compiler
     }
   }
+
 
   //----------------------------------------
   // Xf: Positions on Faces
@@ -168,11 +200,11 @@ class UniformCylindrical {
   KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
     switch (dir) {
-    case 1:
+    case X1DIR:
       return Xf<dir, face>(i);
-    case 2:
+    case X2DIR:
       return Xf<dir, face>(j);
-    case 3:
+    case X3DIR:
       return Xf<dir, face>(k);
     default:
       PARTHENON_FAIL("Unknown dir");
@@ -190,16 +222,30 @@ class UniformCylindrical {
   KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
     switch (dir) {
-    case 1:
+    case X1DIR:
       return Xf<dir>(i);
-    case 2:
+    case X2DIR:
       return Xf<dir>(j);
-    case 3:
+    case X3DIR:
       return Xf<dir>(k);
     default:
       PARTHENON_FAIL("Unknown dir");
       return 0; // To appease compiler
     }
+  }
+
+  //----------------------------------------
+  // Xs: Area averaged positions
+  //----------------------------------------
+  template <int dir, int side>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xs(const int idx) const {
+    assert(dir > 0 && dir < 4 && side > 0 && side < 4);
+    return Xc<dir>(idx);
+  }
+  template <int dir, int side>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xs(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4 && side > 0 && side < 4);
+    return Xc<dir>(k,j,i);
   }
 
   template <int dir, TopologicalElement el>

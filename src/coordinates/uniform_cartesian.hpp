@@ -120,11 +120,11 @@ class UniformCartesian {
   KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
     switch (dir) {
-    case 1:
+    case X1DIR:
       return Xc<dir>(i);
-    case 2:
+    case X2DIR:
       return Xc<dir>(j);
-    case 3:
+    case X3DIR:
       return Xc<dir>(k);
     default:
       PARTHENON_FAIL("Unknown dir");
@@ -149,11 +149,11 @@ class UniformCartesian {
   KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
     switch (dir) {
-    case 1:
+    case X1DIR:
       return Xf<dir, face>(i);
-    case 2:
+    case X2DIR:
       return Xf<dir, face>(j);
-    case 3:
+    case X3DIR:
       return Xf<dir, face>(k);
     default:
       PARTHENON_FAIL("Unknown dir");
@@ -171,17 +171,32 @@ class UniformCartesian {
   KOKKOS_FORCEINLINE_FUNCTION Real Xf(const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
     switch (dir) {
-    case 1:
+    case X1DIR:
       return Xf<dir>(i);
-    case 2:
+    case X2DIR:
       return Xf<dir>(j);
-    case 3:
+    case X3DIR:
       return Xf<dir>(k);
     default:
       PARTHENON_FAIL("Unknown dir");
       return 0; // To appease compiler
     }
   }
+  
+  //----------------------------------------
+  // Xs: Area averaged positions
+  //----------------------------------------
+  template <int dir, int side>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xs(const int idx) const {
+    assert(dir > 0 && dir < 4 && side > 0 && side < 4);
+    return Xc<dir>(idx);
+  }
+  template <int dir, int side>
+  KOKKOS_FORCEINLINE_FUNCTION Real Xs(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4 && side > 0 && side < 4);
+    return Xc<dir>(k,j,i);
+  }
+
 
   template <int dir, TopologicalElement el>
   KOKKOS_FORCEINLINE_FUNCTION Real X(const int idx) const {
