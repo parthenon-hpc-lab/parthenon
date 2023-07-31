@@ -14,26 +14,29 @@
 #define EXAMPLE_POISSON_GMG_POISSON_PACKAGE_HPP_
 
 #include <memory>
+#include <string>
+#include <utility>
 
 #include <kokkos_abstraction.hpp>
 #include <parthenon/package.hpp>
 
+#define VARIABLE(ns, varname)                                                            \
+  struct varname : public parthenon::variable_names::base_t<false> {                     \
+    template <class... Ts>                                                               \
+    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
+        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
+    static std::string name() { return #ns "." #varname; }                               \
+  }
+
 namespace poisson_package {
 using namespace parthenon::package::prelude;
+VARIABLE(poisson, res_err);
+VARIABLE(poisson, rhs);
+VARIABLE(poisson, u);
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-template <typename T>
-TaskStatus SetMatrixElements(T *u);
-template <typename T>
-TaskStatus SumMass(T *u, Real *sum);
-template <typename T>
-TaskStatus SumDeltaPhi(T *u, Real *sum);
-template <typename T>
-TaskStatus UpdatePhi(T *u, T *du);
-template <typename T>
-TaskStatus CheckConvergence(T *u, T *du);
-TaskStatus PrintComplete();
 TaskStatus PrintValues(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md);
 } // namespace poisson_package
 
 #endif // EXAMPLE_POISSON_GMG_POISSON_PACKAGE_HPP_

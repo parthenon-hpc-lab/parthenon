@@ -38,31 +38,19 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   Real z0 = pin->GetOrAddReal("poisson", "z0", 0.0);
   Real radius = pin->GetOrAddReal("poisson", "radius", 0.1);
 
-  auto cellbounds = pmb->cellbounds;
-  IndexRange ib = cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = cellbounds.GetBoundsK(IndexDomain::entire);
+  auto desc = parthenon::MakePackDescriptor<poisson_package::res_err>(md);
+  auto pack = desc.GetPack(md);
 
-  PackIndexMap imap;
-  const std::vector<std::string> vars({"density", "potential"});
-  const auto &q_bpack = md->PackVariables(vars, imap);
-  const int irho = imap["density"].first;
-  const int iphi = imap["potential"].first;
-
+  auto &cellbounds = pmb->cellbounds;
+  auto ib = cellbounds.GetBoundsI(IndexDomain::entire, TopologicalElement::NN);
+  auto jb = cellbounds.GetBoundsJ(IndexDomain::entire, TopologicalElement::NN);
+  auto kb = cellbounds.GetBoundsK(IndexDomain::entire, TopologicalElement::NN);
   pmb->par_for(
-      "Poisson::ProblemGenerator", 0, q_bpack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
+      "Poisson::ProblemGenerator", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
       ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const auto &coords = q_bpack.GetCoords(b);
-        auto &q = q_bpack(b);
-        Real dist2 = std::pow(coords.Xc<1>(i) - x0, 2) +
-                     std::pow(coords.Xc<2>(j) - y0, 2) +
-                     std::pow(coords.Xc<3>(k) - z0, 2);
-        if (dist2 < radius * radius) {
-          q(irho, k, j, i) = 1.0 / (4.0 / 3.0 * M_PI * std::pow(radius, 3));
-        } else {
-          q(irho, k, j, i) = 0.0;
-        }
-        q(iphi, k, j, i) = coords.Xc<1>(i);
+        const auto &coords = pack.GetCoordinates(b);
+        pack(b, TopologicalElement::NN, poisson_package::res_err(), k, j, i) =
+            coords.X<1, TopologicalElement::NN>(i);
       });
 }
 

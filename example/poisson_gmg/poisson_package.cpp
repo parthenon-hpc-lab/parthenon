@@ -49,319 +49,107 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bool warn_flag = pin->GetOrAddBoolean("poisson", "warn_without_convergence", true);
   pkg->AddParam<>("warn_without_convergence", warn_flag);
 
-  auto mrho = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
-  pkg->AddField("density", mrho);
-
   auto mphi = Metadata(
-      {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::GMG});
-  pkg->AddField("potential", mphi);
-  // pkg->AddField("residual", mphi);
-  // pkg->AddField("error", mphi);
-  // pkg->AddField("residual2", mphi);
-  // pkg->AddField("error2", mphi);
+      {Metadata::Node, Metadata::Independent, Metadata::FillGhost, Metadata::GMG});
+  pkg->AddField(res_err::name(), mphi);
 
-  int ndim = 1 + (pin->GetInteger("parthenon/mesh", "nx2") > 1) +
-             (pin->GetInteger("parthenon/mesh", "nx3") > 1);
-  // set up the stencil object corresponding to the finite difference
-  // discretization we adopt in this pacakge
-  const int nstencil = 1 + 2 * ndim;
-  std::vector<std::vector<int>> offsets(
-      {{-1, 0, 1, 0, 0, 0, 0}, {0, 0, 0, -1, 1, 0, 0}, {0, 0, 0, 0, 0, -1, 1}});
-
-  bool use_jacobi = pin->GetOrAddBoolean("poisson", "use_jacobi", true);
-  pkg->AddParam<>("use_jacobi", use_jacobi);
-  bool use_stencil = pin->GetOrAddBoolean("poisson", "use_stencil", true);
-  pkg->AddParam<>("use_stencil", use_stencil);
-  if (use_stencil) {
-    std::vector<Real> wgts;
-    if (use_jacobi) {
-      wgts = std::vector<Real>({1.0, -2.0 * ndim, 1.0, 1.0, 1.0, 1.0, 1.0});
-    } else {
-      const Real w0 = 1.0 / (2.0 * ndim);
-      wgts = std::vector<Real>({w0, -1.0, w0, w0, w0, w0, w0});
-    }
-    auto stencil = parthenon::solvers::Stencil<Real>("stencil", nstencil, wgts, offsets);
-    pkg->AddParam<>("stencil", stencil);
-  } else {
-    // setup the sparse matrix
-    Metadata msp = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
-                            std::vector<int>({nstencil}));
-    pkg->AddField("poisson_sparse_matrix", msp);
-    auto sp_accessor =
-        parthenon::solvers::SparseMatrixAccessor("accessor", nstencil, offsets);
-    pkg->AddParam("sparse_accessor", sp_accessor);
-  }
-
-  // ParArrays for reductions We stash the array, and AllReduce
-  // object, which is per MPI rank, in the pkg object.
-  // We must use a mutable Param here so that
-  // the object can be modified by the driver.
-  parthenon::AllReduce<HostArray1D<Real>> view_reduce;
-  view_reduce.val = HostArray1D<Real>("Reduce me", 10);
-  // First initialize to some values.
-  // This first loop is actually unnecessary,
-  // as Kokkos initializes to zero automatically.
-  // We show it here just for illustration.
-  for (int i = 0; i < view_reduce.val.size(); i++) {
-    view_reduce.val(i) = 0;
-  }
-  for (int i = 0; i < view_reduce.val.size(); i++) {
-    view_reduce.val(i) += i;
-  }
-  pkg->AddParam("view_reduce", view_reduce, true);
+  auto mrhs = Metadata({Metadata::Node, Metadata::Independent, Metadata::FillGhost});
+  pkg->AddField(rhs::name(), mrhs);
+  pkg->AddField(u::name(), mrhs);
 
   return pkg;
 }
 
-template <typename T>
-TaskStatus SetMatrixElements(T *u) {
-  auto pm = u->GetParentPointer();
+TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
+  using TE = parthenon::TopologicalElement;
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, TE::NN);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, TE::NN);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior, TE::NN);
 
-  IndexRange ib = u->GetBoundsI(IndexDomain::interior);
-  IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = u->GetBoundsK(IndexDomain::interior);
-
-  PackIndexMap imap;
-  const std::vector<std::string> vars({"poisson_sparse_matrix"});
-  const auto &v = u->PackVariables(vars, imap);
-  const int isp_lo = imap["poisson_sparse_matrix"].first;
-  const int isp_hi = imap["poisson_sparse_matrix"].second;
-
-  if (isp_hi < 0) { // must be using the stencil so return
-    return TaskStatus::complete;
-  }
-
-  const int ndim = v.GetNdim();
-  const Real w0 = -2.0 * ndim;
+  auto desc = parthenon::MakePackDescriptor<res_err>(md.get());
+  auto pack = desc.GetPack(md.get());
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "SetMatElem", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
-      jb.s, jb.e, ib.s, ib.e,
+      DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        for (int n = isp_lo; n <= isp_hi; n++) {
-          v(b, n, k, j, i) = 1;
-        }
-        v(b, isp_lo + 1, k, j, i) = w0;
+        pack(b, TE::NN, res_err(), k, j, i) = 0.0;
       });
+  return TaskStatus::complete;
+}
 
+template <class Am, class Ac, class Ap, class x_t, class y_t>
+TaskStatus BlockLocalTriDiagX(std::shared_ptr<MeshData<Real>> &md) {
+  using TE = parthenon::TopologicalElement;
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, TE::NN);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, TE::NN);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, TE::NN);
+
+  auto desc = parthenon::MakePackDescriptor<Am, Ac, Ap, x_t, y_t>(md);
+  auto pack = desc.GetPack(md);
+
+  int nx1 = ib.e - ib.s + 1;
+  int nx2 = jb.e - jb.s + 1;
+  size_t scratch_size = parthenon::ScratchPad2D<Real>::shmem_size(nx2, nx1);
+  constexpr int scratch_level = 1;
+  parthenon::par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, "tridiagonal solve x", DevExecSpace(), scratch_size,
+      scratch_level, 0, pack.GetNBlocks() - 1, kb.s, kb.e,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+        // Solve T_x x = y for x
+        const auto &A_im = pack(b, Am());
+        const auto &A_diag = pack(b, Ac());
+        const auto &A_ip = pack(b, Ap());
+        const auto &x = pack(b, x_t());
+        const auto &y = v(b, y_t());
+
+        parthenon::ScratchPad2D<Real> c(member.team_scratch(scratch_level), nx2, nx1);
+
+        parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, jb.s, jb.e,
+                                 [&](const int j) {
+                                   const Real b = A_diag(k, j, ib.s);
+                                   c(j, ib.s) = A_ip(k, j, ib.s) / b;
+                                   x(k, j, ib.s) = y(k, j, ib.s) / b;
+                                 });
+
+        for (int i = ib.s + 1; i <= ib.e; ++i) {
+          parthenon::par_for_inner(
+              DEFAULT_INNER_LOOP_PATTERN, member, jb.s, jb.e, [&](const int j) {
+                const Real idenom = 1.0 / (A_diag(k, j, i) - A_im(k, j, i) * c(j, i - 1));
+                c(j, i) = A_ip(k, j, i) * idenom;
+                x(k, j, i) = (y(k, j, i) - A_im(k, j, i) * x(k, j, i - 1)) * idenom;
+              });
+        }
+
+        member.team_barrier();
+        for (int i = ib.e - 1; i >= ib.s; --i) {
+          parthenon::par_for_inner(
+              DEFAULT_INNER_LOOP_PATTERN, member, jb.s, jb.e,
+              [&](const int j) { x(k, j, i) = x(k, j, i) - c(j, i) * x(k, j, i + 1); });
+        }
+      });
   return TaskStatus::complete;
 }
 
 TaskStatus PrintValues(std::shared_ptr<MeshData<Real>> &md) {
+  using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, TE::NN);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, TE::NN);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior, TE::NN);
 
-  PackIndexMap imap;
-  const std::vector<std::string> vars({"potential"});
-  const auto &v = md->PackVariables(vars, imap);
-  const int isp_lo = imap["potential"].first;
-  const int isp_hi = imap["potential"].second;
-
+  auto desc = parthenon::MakePackDescriptor<res_err>(md.get());
+  auto pack = desc.GetPack(md.get());
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "SetMatElem", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
-      jb.s, jb.e, ib.s, ib.e,
+      DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const auto &coords = v.GetCoords(b);
-        double x = coords.Xc<1>(i);
-        printf("block = %i %i: %e (%e)\n", b, i, v(b, isp_lo, k, j, i), x);
+        const auto &coords = pack.GetCoordinates(b);
+        double x = coords.X<1, TE::NN>(i);
+        printf("block = %i %i: %e (%e)\n", b, i, pack(b, TE::NN, res_err(), k, j, i), x);
       });
   printf("Done with MeshData\n\n");
   return TaskStatus::complete;
 }
-
-auto &GetCoords(std::shared_ptr<MeshBlock> &pmb) { return pmb->coords; }
-auto &GetCoords(Mesh *pm) { return pm->block_list[0]->coords; }
-
-template <typename T>
-TaskStatus SumMass(T *u, Real *reduce_sum) {
-  auto pm = u->GetParentPointer();
-
-  IndexRange ib = u->GetBoundsI(IndexDomain::interior);
-  IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = u->GetBoundsK(IndexDomain::interior);
-
-  PackIndexMap imap;
-  const std::vector<std::string> vars({"density"});
-  const auto &v = u->PackVariables(vars, imap);
-  const int irho = imap["density"].first;
-
-  const parthenon::Coordinates_t &coords = GetCoords(pm);
-  const int ndim = v.GetNdim();
-  const Real dx = coords.Dxc<X1DIR>();
-  for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.DxcFA(i);
-    PARTHENON_REQUIRE_THROWS(dx == dy,
-                             "SumMass requires that DX be equal in all directions.");
-  }
-
-  Real total;
-  parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, "SumMass", DevExecSpace(), 0, v.GetDim(5) - 1,
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &sum) {
-        sum += v(b, irho, k, j, i) * std::pow(dx, ndim);
-      },
-      Kokkos::Sum<Real>(total));
-
-  *reduce_sum += total;
-  return TaskStatus::complete;
-}
-
-template <typename T>
-TaskStatus SumDeltaPhi(T *du, Real *reduce_sum) {
-  auto pm = du->GetParentPointer();
-
-  IndexRange ib = du->GetBoundsI(IndexDomain::interior);
-  IndexRange jb = du->GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = du->GetBoundsK(IndexDomain::interior);
-
-  PackIndexMap imap;
-  const std::vector<std::string> vars({"potential"});
-  const auto &dv = du->PackVariables(vars, imap);
-  const int iphi = imap["potential"].first;
-
-  Real total;
-  parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, "SumMass", DevExecSpace(), 0, dv.GetDim(5) - 1,
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &sum) {
-        sum += std::pow(dv(b, iphi, k, j, i), 2);
-      },
-      Kokkos::Sum<Real>(total));
-
-  *reduce_sum += total;
-  return TaskStatus::complete;
-}
-template <typename T>
-TaskStatus UpdatePhi(T *u, T *du) {
-  using Stencil_t = parthenon::solvers::Stencil<Real>;
-  Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
-  auto pm = u->GetParentPointer();
-
-  IndexRange ib = u->GetBoundsI(IndexDomain::interior);
-  IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = u->GetBoundsK(IndexDomain::interior);
-
-  PackIndexMap imap;
-  const std::vector<std::string> vars({"poisson_sparse_matrix", "density", "potential"});
-  const auto &v = u->PackVariables(vars, imap);
-  const int isp_lo = imap["poisson_sparse_matrix"].first;
-  const int isp_hi = imap["poisson_sparse_matrix"].second;
-  const int irho = imap["density"].first;
-  const int iphi = imap["potential"].first;
-  const std::vector<std::string> phi_var({"potential"});
-  PackIndexMap imap2;
-  const auto &dv = du->PackVariables(phi_var, imap2);
-  const int idphi = imap2["potential"].first;
-
-  using PackType = decltype(v);
-
-  const parthenon::Coordinates_t &coords = GetCoords(pm);
-  const int ndim = v.GetNdim();
-  const Real dx = coords.Dxc<X1DIR>();
-  for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.DxcFA(i);
-    PARTHENON_REQUIRE_THROWS(dx == dy,
-                             "UpdatePhi requires that DX be equal in all directions.");
-  }
-  const Real dV = std::pow(dx, ndim);
-
-  // Demonstrate the usage of the Stencil and SparseMatrixAccessor classes
-  // which here represent the sparse matrix corresponding to a simple
-  // second order finite difference discretization of the Poisson eq.
-  StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
-  if (isp_hi < 0) { // there is no sparse matrix, so we must be using the stencil
-    const auto &stencil = pkg->Param<Stencil_t>("stencil");
-    parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "StencilJacobi", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s,
-        kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          const Real rhs = dV * v(b, irho, k, j, i);
-          const Real phi_new = stencil.Jacobi(v, iphi, b, k, j, i, rhs);
-          dv(b, idphi, k, j, i) = phi_new - v(b, iphi, k, j, i);
-        });
-
-  } else {
-    const auto &sp_accessor =
-        pkg->Param<parthenon::solvers::SparseMatrixAccessor>("sparse_accessor");
-    parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "SparseUpdate", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s,
-        kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          const Real rhs = dV * v(b, irho, k, j, i);
-          const Real phi_new =
-              sp_accessor.Jacobi(v, isp_lo, isp_hi, v, iphi, b, k, j, i, rhs);
-          dv(b, idphi, k, j, i) = phi_new - v(b, iphi, k, j, i);
-        });
-  }
-
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, dv.GetDim(5) - 1, kb.s, kb.e,
-      jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        v(b, iphi, k, j, i) += dv(b, idphi, k, j, i);
-      });
-
-  Kokkos::Profiling::popRegion(); // Task_Poisson_UpdatePhi
-  return TaskStatus::complete;
-}
-
-template <typename T>
-TaskStatus CheckConvergence(T *u, T *du) {
-  Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
-  auto pm = u->GetParentPointer();
-
-  IndexRange ib = u->GetBoundsI(IndexDomain::interior);
-  IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = u->GetBoundsK(IndexDomain::interior);
-
-  const std::vector<std::string> vars({"potential"});
-  PackIndexMap imap;
-  const auto &v = u->PackVariables(vars, imap);
-  const int iphi = imap["potential"].first;
-  PackIndexMap imap2;
-  const auto &dv = du->PackVariables(vars, imap2);
-  const int idphi = imap2["potential"].first;
-
-  Real max_err;
-  parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, "CheckConvergence", DevExecSpace(), 0,
-      v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &eps) {
-        Real reps = std::abs(dv(b, idphi, k, j, i) / v(b, iphi, k, j, i));
-        Real aeps = std::abs(dv(b, idphi, k, j, i));
-        eps = std::max(eps, std::min(reps, aeps));
-      },
-      Kokkos::Max<Real>(max_err));
-
-  StateDescriptor *pkg = pm->packages.Get("poisson_package").get();
-  Real err_tol = pkg->Param<Real>("error_tolerance");
-
-  auto status = (max_err < err_tol ? TaskStatus::complete : TaskStatus::iterate);
-
-  Kokkos::Profiling::popRegion(); // Task_Poisson_CheckConvergence
-  return status;
-}
-
-TaskStatus PrintComplete() {
-  if (parthenon::Globals::my_rank == 0) {
-    std::cout << "Poisson solver complete!" << std::endl;
-  }
-  return TaskStatus::complete;
-}
-
-template TaskStatus CheckConvergence<MeshData<Real>>(MeshData<Real> *, MeshData<Real> *);
-template TaskStatus CheckConvergence<MeshBlockData<Real>>(MeshBlockData<Real> *,
-                                                          MeshBlockData<Real> *);
-template TaskStatus UpdatePhi<MeshData<Real>>(MeshData<Real> *, MeshData<Real> *);
-template TaskStatus UpdatePhi<MeshBlockData<Real>>(MeshBlockData<Real> *,
-                                                   MeshBlockData<Real> *);
-template TaskStatus SumDeltaPhi<MeshData<Real>>(MeshData<Real> *, Real *);
-template TaskStatus SumDeltaPhi<MeshBlockData<Real>>(MeshBlockData<Real> *, Real *);
-template TaskStatus SumMass<MeshData<Real>>(MeshData<Real> *, Real *);
-template TaskStatus SumMass<MeshBlockData<Real>>(MeshBlockData<Real> *, Real *);
-template TaskStatus SetMatrixElements<MeshData<Real>>(MeshData<Real> *);
-template TaskStatus SetMatrixElements<MeshBlockData<Real>>(MeshBlockData<Real> *);
 
 } // namespace poisson_package

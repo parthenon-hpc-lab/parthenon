@@ -57,6 +57,18 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
       set_from_finer =
           tl.AddTask(recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md);
     }
+    // 1. Copy residual from dual purpose communication field, copy actual RHS for finest
+    // level
+    // 2. Do pre-smooth and fill solution on this level
+    // 3. Communicate same level boundaries
+    // 4. Caclulate residual and store in communication field
+    // 5. Restrict communication field and send to next level
+    // 6. Receive error field into communication field and prolongate
+    // 7. Correct solution on this level with communication field and store in
+    // communication field
+    // 8. Post smooth using communication field and stored RHS
+    // 9. Send communication field to next finer level (should be error field for that
+    // level)
 
     // Communicate boundaries
     auto communicate_bounds = AddBoundaryExchangeTasks(set_from_finer, tl, md, true);
@@ -71,8 +83,11 @@ void PoissonDriver::AddMultiGridTasks(TaskCollection &tc, int level, int max_lev
     auto residual = communicate_bounds_2;
 
     // Restrict residual (and others) to next coarser grid
-    if (level > 0)
-      tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
+    if (level > 0) {
+      auto communicate_to_coarse =
+          tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
+      tl.AddTask(communicate_to_coarse, poisson_package::SetToZero, md);
+    }
   }
 
   // Call recursive multi grid
