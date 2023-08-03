@@ -142,8 +142,8 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
           Real deltax2 = (mesh_size.x2max - mesh_size.x2min) / nrbx2 * root_fac;
           Real deltax3 = (mesh_size.x3max - mesh_size.x3min) / nrbx3 * root_fac;
           block_size.x1min = mesh_size.x1min + deltax1 * loc.lx1();
-          block_size.x2min = mesh_size.x2min + deltax2 * loc.lx1();
-          block_size.x3min = mesh_size.x3min + deltax3 * loc.lx1();
+          block_size.x2min = mesh_size.x2min + deltax2 * loc.lx2();
+          block_size.x3min = mesh_size.x3min + deltax3 * loc.lx3();
           block_size.x1max = block_size.x1min + deltax1;
           block_size.x2max = block_size.x2min + deltax2;
           block_size.x3max = block_size.x3min + deltax3;
