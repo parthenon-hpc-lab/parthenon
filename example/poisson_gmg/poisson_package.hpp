@@ -91,20 +91,24 @@ TaskStatus AddFieldsAndStore(std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
   return TaskStatus::complete;
 }
 
-template <class... vars>
+template <class var>
 TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
 
-  auto desc = parthenon::MakePackDescriptor<vars...>(md.get());
+  auto desc = parthenon::MakePackDescriptor<var>(md.get());
   auto pack = desc.GetPack(md.get());
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        (pack(b, te, vars(), k, j, i) = 0.0, ...);
+        pack(b, te, var(), k, j, i) = 0.0;
+        // If fold expressions worked correctly in CUDA, we could make this
+        // a variadic template <class... vars>, build the pack with all vars
+        // at set everything requested to zero in the same kernel.
+        // (pack(b, te, vars(), k, j, i) = 0.0, ...);
       });
   return TaskStatus::complete;
 }
@@ -152,6 +156,11 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
   auto pack = desc.GetPack(md.get());
   std::array<std::string, sizeof...(vars)> names{vars::name()...};
   printf("%s\n", label.c_str());
+  int col_num = 0;
+  for (auto &name : names) {
+    printf("var %i: %s\n", col_num, name.c_str());
+    col_num++;
+  }
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -161,7 +170,7 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
         std::array<Real, sizeof...(vars)> vals{pack(b, te, vars(), k, j, i)...};
         printf("b = %i i = %2i x = %e", b, i, x);
         for (int v = 0; v < sizeof...(vars); ++v) {
-          printf(" %s = %e", names[v].c_str(), vals[v]);
+          printf("%e ", vals[v]);
         }
         printf("\n");
       });
