@@ -94,6 +94,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
               ? true
               : false),
+      multigrid(pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true"
+                    ? true
+                    : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -495,7 +498,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
   // CheckNeighborFinding(block_list, "Mesh initialization");
-  BuildGMGHierarchy(nbs, pin, app_in);
+  if (multigrid) BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run
@@ -542,6 +545,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
               ? true
               : false),
+      multigrid(pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true"
+                    ? true
+                    : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -759,7 +765,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                         packages, resolved_packages, gflag, costlist[i]);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-  BuildGMGHierarchy(nbs, pin, app_in);
+  if (multigrid) BuildGMGHierarchy(nbs, pin, app_in);
   // CheckNeighborFinding(block_list, "Restart");
   ResetLoadBalanceVariables();
 
