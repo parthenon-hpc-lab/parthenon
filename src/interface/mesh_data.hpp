@@ -209,15 +209,15 @@ class MeshData {
   auto &GetBvarsCache() { return bvars_cache_; }
 
   template <class... Ts>
-  IndexRange GetBoundsI(Ts&&... args) const {
+  IndexRange GetBoundsI(Ts &&...args) const {
     return block_data_[0]->GetBoundsI(std::forward<Ts>(args)...);
   }
   template <class... Ts>
-  IndexRange GetBoundsJ(Ts&&... args) const {
+  IndexRange GetBoundsJ(Ts &&...args) const {
     return block_data_[0]->GetBoundsJ(std::forward<Ts>(args)...);
   }
   template <class... Ts>
-  IndexRange GetBoundsK(Ts&&... args) const {
+  IndexRange GetBoundsK(Ts &&...args) const {
     return block_data_[0]->GetBoundsK(std::forward<Ts>(args)...);
   }
 

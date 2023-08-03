@@ -38,10 +38,12 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   Real z0 = pin->GetOrAddReal("poisson", "z0", 0.0);
   Real radius = pin->GetOrAddReal("poisson", "radius", 0.1);
 
-  auto desc = parthenon::MakePackDescriptor<poisson_package::res_err, poisson_package::rhs_base>(md);
+  auto desc =
+      parthenon::MakePackDescriptor<poisson_package::res_err, poisson_package::rhs_base>(
+          md);
   auto pack = desc.GetPack(md);
-  
-  constexpr auto te = poisson_package::te; 
+
+  constexpr auto te = poisson_package::te;
 
   auto &cellbounds = pmb->cellbounds;
   auto ib = cellbounds.GetBoundsI(IndexDomain::entire, te);

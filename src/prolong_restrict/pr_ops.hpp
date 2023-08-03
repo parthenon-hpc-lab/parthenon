@@ -205,10 +205,11 @@ struct ProlongateSharedGeneral {
       Real dx1m, dx1p;
       GetGridSpacings<1, el>(coords, coarse_coords, cib, ib, i, fi, &dx1m, &dx1p, &dx1fm,
                              &dx1fp);
-      
-      Real gx1c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j, i - 1),
-                        coarse(element_idx, l, m, n, k, j, i + 1), dx1m, dx1p, gx1m, gx1p);
-      if constexpr (use_minmod_slope) { 
+
+      Real gx1c =
+          GradMinMod(fc, coarse(element_idx, l, m, n, k, j, i - 1),
+                     coarse(element_idx, l, m, n, k, j, i + 1), dx1m, dx1p, gx1m, gx1p);
+      if constexpr (use_minmod_slope) {
         gx1m = gx1c;
         gx1p = gx1c;
       }
@@ -221,9 +222,10 @@ struct ProlongateSharedGeneral {
       Real dx2m, dx2p;
       GetGridSpacings<2, el>(coords, coarse_coords, cjb, jb, j, fj, &dx2m, &dx2p, &dx2fm,
                              &dx2fp);
-      Real gx2c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j - 1, i),
-                        coarse(element_idx, l, m, n, k, j + 1, i), dx2m, dx2p, gx2m, gx2p);
-      if constexpr (use_minmod_slope) { 
+      Real gx2c =
+          GradMinMod(fc, coarse(element_idx, l, m, n, k, j - 1, i),
+                     coarse(element_idx, l, m, n, k, j + 1, i), dx2m, dx2p, gx2m, gx2p);
+      if constexpr (use_minmod_slope) {
         gx2m = gx2c;
         gx2p = gx2c;
       }
@@ -237,9 +239,10 @@ struct ProlongateSharedGeneral {
       Real dx3m, dx3p;
       GetGridSpacings<3, el>(coords, coarse_coords, ckb, kb, k, fk, &dx3m, &dx3p, &dx3fm,
                              &dx3fp);
-      Real gx3c = GradMinMod(fc, coarse(element_idx, l, m, n, k - 1, j, i),
-                        coarse(element_idx, l, m, n, k + 1, j, i), dx3m, dx3p, gx3m, gx3p);
-      if constexpr (use_minmod_slope) { 
+      Real gx3c =
+          GradMinMod(fc, coarse(element_idx, l, m, n, k - 1, j, i),
+                     coarse(element_idx, l, m, n, k + 1, j, i), dx3m, dx3p, gx3m, gx3p);
+      if constexpr (use_minmod_slope) {
         gx3m = gx3c;
         gx3p = gx3c;
       }
@@ -273,8 +276,8 @@ struct ProlongateSharedGeneral {
   }
 };
 
-using ProlongateSharedMinMod = ProlongateSharedGeneral<true>; 
-using ProlongateSharedLinear = ProlongateSharedGeneral<false>; 
+using ProlongateSharedMinMod = ProlongateSharedGeneral<true>;
+using ProlongateSharedLinear = ProlongateSharedGeneral<false>;
 
 struct ProlongateInternalAverage {
   static constexpr bool OperationRequired(TopologicalElement fel,

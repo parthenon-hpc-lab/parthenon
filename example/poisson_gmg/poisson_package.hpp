@@ -51,7 +51,7 @@ TaskStatus BlockLocalTriDiagX(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus CorrectRHS(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus BuildMatrix(std::shared_ptr<MeshData<Real>> &md);
 
-template <class in, class out> 
+template <class in, class out>
 TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
@@ -70,8 +70,9 @@ TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-template <class a_t, class b_t, class out> 
-TaskStatus AddFieldsAndStore(std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0, Real wb = 1.0) {
+template <class a_t, class b_t, class out>
+TaskStatus AddFieldsAndStore(std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
+                             Real wb = 1.0) {
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire, te);
@@ -84,12 +85,13 @@ TaskStatus AddFieldsAndStore(std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        pack(b, te, out(), k, j, i) = wa * pack(b, te, a_t(), k, j, i) + wb * pack(b, te, b_t(), k, j, i);
+        pack(b, te, out(), k, j, i) =
+            wa * pack(b, te, a_t(), k, j, i) + wb * pack(b, te, b_t(), k, j, i);
       });
   return TaskStatus::complete;
 }
 
-template<class... vars>
+template <class... vars>
 TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
@@ -107,8 +109,9 @@ TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-template<class in_t, class out_t> 
-TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight, int level) { 
+template <class in_t, class out_t>
+TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight,
+                           int level) {
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
@@ -118,16 +121,20 @@ TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight, i
   auto desc = parthenon::MakePackDescriptor<Am, Ac, Ap, rhs, in_t, out_t>(md.get());
   auto pack = desc.GetPack(md.get());
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "JacobiIteration", DevExecSpace(), 0,
-      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      DEFAULT_LOOP_PATTERN, "JacobiIteration", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        pack(b, te, out_t(), k, j, i) = weight * 
-            (pack(b, te, rhs(), k, j, i) 
-            - pack(b, te, Am(), k, j, i) * pack(b, te, in_t(), k, j, i - 1) 
-            - pack(b, te, Ap(), k, j, i) * pack(b, te, in_t(), k, j, i + 1) )
-            / pack(b, te, Ac(), k, j, i) 
-            + (1.0 - weight) * pack(b, te, in_t(), k, j, i);
-        printf("Jacobi: b = %i i = %2i in[i+-1] = (%e, %e, %e) out[i] = %e rhs[i] = %e\n", b, i, pack(b, te, in_t(), k, j, i - 1), pack(b, te, in_t(), k, j, i), pack(b, te, in_t(), k, j, i + 1), pack(b, te, out_t(), k, j, i), pack(b, te, rhs(), k, j, i));
+        pack(b, te, out_t(), k, j, i) =
+            weight *
+                (pack(b, te, rhs(), k, j, i) -
+                 pack(b, te, Am(), k, j, i) * pack(b, te, in_t(), k, j, i - 1) -
+                 pack(b, te, Ap(), k, j, i) * pack(b, te, in_t(), k, j, i + 1)) /
+                pack(b, te, Ac(), k, j, i) +
+            (1.0 - weight) * pack(b, te, in_t(), k, j, i);
+        printf("Jacobi: b = %i i = %2i in[i+-1] = (%e, %e, %e) out[i] = %e rhs[i] = %e\n",
+               b, i, pack(b, te, in_t(), k, j, i - 1), pack(b, te, in_t(), k, j, i),
+               pack(b, te, in_t(), k, j, i + 1), pack(b, te, out_t(), k, j, i),
+               pack(b, te, rhs(), k, j, i));
       });
   printf("\n");
   return TaskStatus::complete;
@@ -143,7 +150,7 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
 
   auto desc = parthenon::MakePackDescriptor<vars...>(md.get());
   auto pack = desc.GetPack(md.get());
-  std::array<std::string, sizeof...(vars)> names{vars::name()...}; 
+  std::array<std::string, sizeof...(vars)> names{vars::name()...};
   printf("%s\n", label.c_str());
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,

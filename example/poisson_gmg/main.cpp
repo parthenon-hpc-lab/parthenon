@@ -11,15 +11,15 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "parthenon_manager.hpp"
 #include "bvals/boundary_conditions_generic.hpp"
+#include "parthenon_manager.hpp"
 
 #include "poisson_driver.hpp"
 
 using namespace parthenon;
 using namespace parthenon::BoundaryFunction;
 template <CoordinateDirection DIR, BCSide SIDE>
-auto GetBoundaryCondition(){
+auto GetBoundaryCondition() {
   return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
     using namespace parthenon;
     using namespace parthenon::BoundaryFunction;
@@ -48,20 +48,20 @@ int main(int argc, char *argv[]) {
   }
   // Now that ParthenonInit has been called and setup succeeded, the code can now
   // make use of MPI and Kokkos
-   
-  // Set boundary conditions 
+
+  // Set boundary conditions
   pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] =
-    GetBoundaryCondition<X1DIR, BCSide::Inner>();
+      GetBoundaryCondition<X1DIR, BCSide::Inner>();
   pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x2] =
-    GetBoundaryCondition<X2DIR, BCSide::Inner>();
+      GetBoundaryCondition<X2DIR, BCSide::Inner>();
   pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x3] =
-    GetBoundaryCondition<X3DIR, BCSide::Inner>();
+      GetBoundaryCondition<X3DIR, BCSide::Inner>();
   pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x1] =
-    GetBoundaryCondition<X1DIR, BCSide::Outer>();
+      GetBoundaryCondition<X1DIR, BCSide::Outer>();
   pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x2] =
-    GetBoundaryCondition<X2DIR, BCSide::Outer>();
+      GetBoundaryCondition<X2DIR, BCSide::Outer>();
   pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x3] =
-    GetBoundaryCondition<X3DIR, BCSide::Outer>();
+      GetBoundaryCondition<X3DIR, BCSide::Outer>();
   pman.ParthenonInitPackagesAndMesh();
 
   // This needs to be scoped so that the driver object is destructed before Finalize
