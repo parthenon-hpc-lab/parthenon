@@ -200,7 +200,7 @@ struct ProlongateSharedGeneral {
 
     Real dx1fm = 0;
     [[maybe_unused]] Real dx1fp = 0;
-    Real gx1m = 0, gx1p = 0;
+    [[maybe_unused]] Real gx1m = 0, gx1p = 0;
     if constexpr (INCLUDE_X1) {
       Real dx1m, dx1p;
       GetGridSpacings<1, el>(coords, coarse_coords, cib, ib, i, fi, &dx1m, &dx1p, &dx1fm,
@@ -217,7 +217,7 @@ struct ProlongateSharedGeneral {
 
     Real dx2fm = 0;
     [[maybe_unused]] Real dx2fp = 0;
-    Real gx2m = 0, gx2p = 0;
+    [[maybe_unused]] Real gx2m = 0, gx2p = 0;
     if constexpr (INCLUDE_X2) {
       Real dx2m, dx2p;
       GetGridSpacings<2, el>(coords, coarse_coords, cjb, jb, j, fj, &dx2m, &dx2p, &dx2fm,
@@ -233,8 +233,7 @@ struct ProlongateSharedGeneral {
 
     Real dx3fm = 0;
     [[maybe_unused]] Real dx3fp = 0;
-    Real gx3c = 0;
-    Real gx3m = 0, gx3p = 0;
+    [[maybe_unused]] Real gx3m = 0, gx3p = 0;
     if constexpr (INCLUDE_X3) {
       Real dx3m, dx3p;
       GetGridSpacings<3, el>(coords, coarse_coords, ckb, kb, k, fk, &dx3m, &dx3p, &dx3fm,
