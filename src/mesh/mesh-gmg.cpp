@@ -47,7 +47,6 @@ void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_m
   for (auto &pmb : block_list) {
     auto loc = pmb->loc;
     auto gid = pmb->gid;
-    auto rank = Globals::my_rank;
     pmb->gmg_same_neighbors = {};
     auto possible_neighbors = loc.GetPossibleNeighbors(root_grid);
     for (auto &pos_neighbor_location : possible_neighbors) {
@@ -95,28 +94,29 @@ void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_m
 
 void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in) {
   // Create GMG logical location lists, first just copy coarsest grid
-  gmg_grid_locs = std::vector<LogicalLocMap_t>(current_level + 1);
-  gmg_block_lists = std::vector<BlockList_t>(current_level + 1);
+  const int gmg_levels = multigrid ? current_level : 0;
+  gmg_grid_locs = std::vector<LogicalLocMap_t>(gmg_levels + 1);
+  gmg_block_lists = std::vector<BlockList_t>(gmg_levels + 1);
 
   // Create MeshData objects for GMG
-  gmg_mesh_data = std::vector<DataCollection<MeshData<Real>>>(current_level + 1);
+  gmg_mesh_data = std::vector<DataCollection<MeshData<Real>>>(gmg_levels + 1);
   for (auto &mdc : gmg_mesh_data)
     mdc.SetMeshPointer(this);
 
   // Build most refined GMG grid from already known grid
   int gmg_gid = 0;
   for (auto loc : loclist) {
-    gmg_grid_locs[current_level].insert(
+    gmg_grid_locs[gmg_levels].insert(
         {loc, std::pair<int, int>(gmg_gid, ranklist[gmg_gid])});
     gmg_gid++;
   }
 
   // Most refined GMG grid block list is just the main block list for the Mesh
-  gmg_block_lists[current_level] = block_list;
+  gmg_block_lists[gmg_levels] = block_list;
 
   // Build meshes and blocklists for increasingly coarsened grids
   auto block_size = GetBlockSize();
-  for (int gmg_level = current_level - 1; gmg_level >= 0; --gmg_level) {
+  for (int gmg_level = gmg_levels - 1; gmg_level >= 0; --gmg_level) {
     // Determine mesh structure for this level on all ranks
     for (auto &[loc, gid_rank] : gmg_grid_locs[gmg_level + 1]) {
       auto &rank = gid_rank.second;
@@ -157,13 +157,13 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
 
   // Find same level neighbors on all GMG levels
   auto root_grid = this->GetRootGridInfo();
-  for (int gmg_level = 0; gmg_level <= current_level; ++gmg_level) {
+  for (int gmg_level = 0; gmg_level <= gmg_levels; ++gmg_level) {
     SetSameLevelNeighbors(gmg_block_lists[gmg_level], gmg_grid_locs[gmg_level], root_grid,
                           nbs);
   }
 
   // Now find GMG coarser neighbor
-  for (int gmg_level = 1; gmg_level <= current_level; ++gmg_level) {
+  for (int gmg_level = 1; gmg_level <= gmg_levels; ++gmg_level) {
     for (auto &pmb : gmg_block_lists[gmg_level]) {
       auto parent_loc = pmb->loc.GetParent();
       auto loc = pmb->loc;
@@ -186,7 +186,7 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   }
 
   // Now find finer GMG neighbors
-  for (int gmg_level = 0; gmg_level < current_level; ++gmg_level) {
+  for (int gmg_level = 0; gmg_level < gmg_levels; ++gmg_level) {
     for (auto &pmb : gmg_block_lists[gmg_level]) {
       auto daughter_locs = pmb->loc.GetDaughters();
       daughter_locs.push_back(pmb->loc); // It is also possible that this block itself is
