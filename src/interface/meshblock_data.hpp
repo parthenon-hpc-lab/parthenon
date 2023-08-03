@@ -86,15 +86,18 @@ class MeshBlockData {
   auto GetParentPointer() const { return GetBlockPointer(); }
   void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
   Mesh *GetMeshPointer() const { return GetBlockPointer()->pmy_mesh; }
-
-  IndexRange GetBoundsI(const IndexDomain &domain) const {
-    return GetBlockPointer()->cellbounds.GetBoundsI(domain);
+  
+  template <class... Ts>
+  IndexRange GetBoundsI(Ts&&... args) const {
+    return GetBlockPointer()->cellbounds.GetBoundsI(std::forward<Ts>(args)...);
   }
-  IndexRange GetBoundsJ(const IndexDomain &domain) const {
-    return GetBlockPointer()->cellbounds.GetBoundsJ(domain);
+  template <class... Ts>
+  IndexRange GetBoundsJ(Ts&&... args) const {
+    return GetBlockPointer()->cellbounds.GetBoundsJ(std::forward<Ts>(args)...);
   }
-  IndexRange GetBoundsK(const IndexDomain &domain) const {
-    return GetBlockPointer()->cellbounds.GetBoundsK(domain);
+  template <class... Ts>
+  IndexRange GetBoundsK(Ts&&... args) const {
+    return GetBlockPointer()->cellbounds.GetBoundsK(std::forward<Ts>(args)...);
   }
 
   /// Create non-shallow copy of MeshBlockData, but only include named variables
