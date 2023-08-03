@@ -219,7 +219,7 @@ void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb, std::string call_site
   for (auto &nb : pmb->gmg_same_neighbors)
     neighbs[nb.loc] = nb;
   if (pmb->pbval->nneighbor != pmb->gmg_same_neighbors.size()) {
-    printf("New algorithm found different number of neighbor blocks on %i (%i vs %i).\n",
+    printf("New algorithm found different number of neighbor blocks on %i (%i vs %li).\n",
            pmb->gid, pmb->pbval->nneighbor, pmb->gmg_same_neighbors.size());
     fail = true;
   }
@@ -256,8 +256,9 @@ void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb, std::string call_site
       if (nb.ni.type == nb2.ni.type) {
       } else {
         printf("Bad face id for block %i %s: %s fid=%i ox=(%i, %i, %i) %s fid=%i\n",
-               pmb->gid, pmb->loc.label().c_str(), nb.loc.label().c_str(), nb.ni.type,
-               nb.ni.ox1, nb.ni.ox2, nb.ni.ox3, nb2.loc.label().c_str(), nb2.ni.type);
+               pmb->gid, pmb->loc.label().c_str(), nb.loc.label().c_str(),
+               static_cast<int>(nb.ni.type), nb.ni.ox1, nb.ni.ox2, nb.ni.ox3,
+               nb2.loc.label().c_str(), static_cast<int>(nb2.ni.type));
         fail = true;
       }
 
