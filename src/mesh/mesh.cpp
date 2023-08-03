@@ -498,7 +498,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
   // CheckNeighborFinding(block_list, "Mesh initialization");
-  if (multigrid) BuildGMGHierarchy(nbs, pin, app_in);
+  BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run
@@ -765,7 +765,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                         packages, resolved_packages, gflag, costlist[i]);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-  if (multigrid) BuildGMGHierarchy(nbs, pin, app_in);
+  BuildGMGHierarchy(nbs, pin, app_in);
   // CheckNeighborFinding(block_list, "Restart");
   ResetLoadBalanceVariables();
 
