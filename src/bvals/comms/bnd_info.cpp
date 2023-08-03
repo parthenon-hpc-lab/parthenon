@@ -318,7 +318,6 @@ ProResInfo ProResInfo::GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   out.ntopological_elements = elements.size();
   if (nb.snb.level < mylevel) {
     for (auto el : elements) {
-      int idx = static_cast<int>(el) % 3;
       out.idxer[static_cast<int>(el)] =
           CalcIndices(nb, pmb, el, IndexRangeType::Interior, true, {Nt, Nu, Nv});
       out.refinement_op = RefinementOp_t::Restriction;
@@ -358,7 +357,6 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
-    int idx = static_cast<int>(el) % 3;
     if (nb.snb.level < mylevel) {
       out.refinement_op = RefinementOp_t::Prolongation;
     } else {
