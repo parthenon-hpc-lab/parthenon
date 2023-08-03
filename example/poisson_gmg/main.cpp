@@ -12,8 +12,20 @@
 //========================================================================================
 
 #include "parthenon_manager.hpp"
+#include "bvals/boundary_conditions_generic.hpp"
 
 #include "poisson_driver.hpp"
+
+using namespace parthenon;
+using namespace parthenon::BoundaryFunction;
+template <CoordinateDirection DIR, BCSide SIDE>
+auto GetBoundaryCondition(){
+  return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+    using namespace parthenon;
+    using namespace parthenon::BoundaryFunction;
+    GenericBC<DIR, SIDE, BCType::Fixed, variable_names::any>(rc, coarse, 0.0);
+  };
+}
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
@@ -36,6 +48,21 @@ int main(int argc, char *argv[]) {
   }
   // Now that ParthenonInit has been called and setup succeeded, the code can now
   // make use of MPI and Kokkos
+   
+  // Set boundary conditions 
+  pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] =
+    GetBoundaryCondition<X1DIR, BCSide::Inner>();
+  pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x2] =
+    GetBoundaryCondition<X2DIR, BCSide::Inner>();
+  pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x3] =
+    GetBoundaryCondition<X3DIR, BCSide::Inner>();
+  pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x1] =
+    GetBoundaryCondition<X1DIR, BCSide::Outer>();
+  pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x2] =
+    GetBoundaryCondition<X2DIR, BCSide::Outer>();
+  pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x3] =
+    GetBoundaryCondition<X3DIR, BCSide::Outer>();
+  pman.ParthenonInitPackagesAndMesh();
 
   // This needs to be scoped so that the driver object is destructed before Finalize
   {
