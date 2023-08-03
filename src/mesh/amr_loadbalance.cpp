@@ -936,7 +936,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
-  if (multigrid) BuildGMGHierarchy(nbs, pin, app_in);
+  BuildGMGHierarchy(nbs, pin, app_in);
 
   Initialize(false, pin, app_in);
 
