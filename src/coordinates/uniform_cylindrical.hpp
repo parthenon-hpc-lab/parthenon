@@ -55,9 +55,6 @@ class UniformCylindrical {
         PARTHENON_THROW("Invalid coord input in <parthenon/mesh>.");
       }
     }
-
-    //Initialized cached coordinates
-    InitCachedArrays();
   }
   UniformCylindrical(const UniformCylindrical &src, int coarsen)
       : istart_(src.GetStartIndex()) {
@@ -75,9 +72,6 @@ class UniformCylindrical {
     nx_[0] = src.nx_[0] / ( coarsen ? 2 : 1 );
     nx_[1] = src.nx_[1] / ( coarsen ? 2 : 1 );
     nx_[2] = src.nx_[2] / ( coarsen ? 2 : 1 );
-
-    //Initialized cached coordinates
-    InitCachedArrays();
   }
 
   //----------------------------------------
@@ -88,7 +82,7 @@ class UniformCylindrical {
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int idx) const {
     assert(dir > 0 && dir < 4);
     if( dir == X1DIR ){
-      return r_c_(idx+1) - r_c_(idx);
+      return R_c_(idx+1) - R_c_(idx);
     } else {
       return dx_[dir-1];
     }
@@ -161,7 +155,7 @@ class UniformCylindrical {
   KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int idx) const {
     assert(dir > 0 && dir < 4);
     if( dir == X1DIR ){
-      return r_c_(idx);
+      return R_c_(idx);
     } else {
       return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1];
     }
@@ -336,7 +330,7 @@ class UniformCylindrical {
       case X2DIR:
         return area_[1]; //dr*dz
       case X3DIR:
-        return coord_vol_i_(i)*dx_[1]; //d(r^2/2)*dphi
+        return Coord_vol_i_(i)*dx_[1]; //d(r^2/2)*dphi
     }
 
   }
@@ -349,7 +343,7 @@ class UniformCylindrical {
       case X2DIR:
         return area_[1]; //dr*dz
       case X3DIR:
-        return coord_vol_i_(i)*dx_[1]; //d(r^2/2)*dphi
+        return Coord_vol_i_(i)*dx_[1]; //d(r^2/2)*dphi
     }
   }
 
@@ -358,7 +352,7 @@ class UniformCylindrical {
   //----------------------------------------
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(const int k, const int j, const int i) const {
-    return coord_vol_i_(i)*area_[0];
+    return Coord_vol_i_(i)*area_[0];
   }
 
   //----------------------------------------
@@ -398,7 +392,7 @@ class UniformCylindrical {
   // Geometric Terms (Find better names for these!)
   //----------------------------------------
   KOKKOS_FORCEINLINE_FUNCTION
-  Real h2v(const int i) const { return r_c_(i); };
+  Real h2v(const int i) const { return R_c_(i); };
 
   KOKKOS_FORCEINLINE_FUNCTION
   Real h2f(const int i) const { return Xf<1>(i); };
@@ -439,10 +433,10 @@ class UniformCylindrical {
 	      const Real &cosphip, const Real &sinphip, const Real &zp,
 	      Real &acc1, Real &acc2, Real &acc3) const
   {
-    const Real cosdphi = cosphi_c_(j)*cosphip - sinphi_c_(j)*sinphip; //cos(x3v(k)-phip)
-    const Real sindphi = sinphi_c_(j)*cosphip - cosphi_c_(j)*sinphip; //sin(x3v(k)-phip)
+    const Real cosdphi = Cos_phi_c_(j)*cosphip - Sin_phi_c_(j)*sinphip; //cos(x3v(k)-phip)
+    const Real sindphi = Sin_phi_c_(j)*cosphip - Cos_phi_c_(j)*sinphip; //sin(x3v(k)-phip)
     //Psi = - 1.0/sqrt(r0^2 + rp^2 - 2r0*rp*cos(phi-phip) + (z-zp)^2)
-    acc1 = (r_c_(i) - rp*cosdphi); //acc1 = dPsi/dr, Psi=-1/dist2
+    acc1 = (R_c_(i) - rp*cosdphi); //acc1 = dPsi/dr, Psi=-1/dist2
     acc2 = rp*sindphi;        //acc2 = dPsi/(r*dphi) 
     acc3 = Xc<3>(k)-zp;   
   }
@@ -469,44 +463,32 @@ class UniformCylindrical {
   const std::array<int, 3> &GetStartIndex() const { return istart_; }
   const char *Name() const { return name_; }
 
- //private:
+ private:
   std::array<int, 3> istart_;
   std::array<Real, 3> xmin_, dx_, area_, nx_;
   constexpr static const char *name_ = "UniformCylindrical";
 
   const std::array<Real, 3> &Dx_() const { return dx_; }
 
-  ParArrayND<Real> r_c_, coord_vol_i_, cosphi_c_, sinphi_c_;
+  //ParArrayND<Real> r_c_, coord_vol_i_, cos_phi_c_, sin_phi_c_;
 
-  void InitCachedArrays() {
-    int nx1_tot = nx_[0]+2*Globals::nghost+1;
-    r_c_ = ParArrayND<Real>("r_c_", nx1_tot-1);
-    coord_vol_i_ = ParArrayND<Real>("", nx1_tot-1);
-    parthenon::par_for(
-      parthenon::loop_pattern_flatrange_tag, "UniformCylindrical::InitCachedArrays(r)", 
-      parthenon::DevExecSpace(), 0, nx1_tot-2,
-      KOKKOS_LAMBDA(const int &i) {
-      Real rm = xmin_[0] + i * dx_[0];
-      Real rp = xmin_[0] + (i+1) * dx_[0];
-      r_c_(i) = TWO_3RD*(rp*rp*rp - rm*rm*rm)/(SQR(rp) - SQR(rm));
-      coord_vol_i_(i) = 0.5*(rp*rp - rm*rm);
-      });
-    int nx2_tot = nx_[1]+1;
-
-    if (istart_[1] > 0) {
-      nx2_tot += 2*Globals::nghost;
-    }
-    sinphi_c_ = ParArrayND<Real>("sin(phi_c)", nx2_tot-1);
-    cosphi_c_ = ParArrayND<Real>("cos(phi_c)", nx2_tot-1);
-
-    parthenon::par_for(
-      parthenon::loop_pattern_flatrange_tag, "UniformCylindrical::InitCachedArrays(phi)", 
-      parthenon::DevExecSpace(), 0, nx2_tot-2,
-      KOKKOS_LAMBDA(const int &j) {
-      Real Phi = xmin_[1] + (j + 0.5) * dx_[1];
-      cosphi_c_(j) = std::cos(Phi);
-      sinphi_c_(j) = std::sin(Phi);
-      });
+  KOKKOS_INLINE_FUNCTION Real R_c_(const int i) const {
+      const Real rm = xmin_[0] + i * dx_[0];
+      const Real rp = xmin_[0] + (i+1) * dx_[0];
+      return TWO_3RD*(rp*rp*rp - rm*rm*rm)/(SQR(rp) - SQR(rm));
+  }
+  KOKKOS_INLINE_FUNCTION Real Coord_vol_i_(const int i) const {
+      const Real rm = xmin_[0] + i * dx_[0];
+      const Real rp = xmin_[0] + (i+1) * dx_[0];
+      return 0.5*(rp*rp - rm*rm);
+  }
+  KOKKOS_INLINE_FUNCTION Real Cos_phi_c_(const int j) const {
+      const Real Phi = xmin_[1] + (j + 0.5) * dx_[1];
+      return std::cos(Phi);
+  }
+  KOKKOS_INLINE_FUNCTION Real Sin_phi_c_(const int j) const {
+      const Real Phi = xmin_[1] + (j + 0.5) * dx_[1];
+      return std::sin(Phi);
   }
 
 };

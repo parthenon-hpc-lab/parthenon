@@ -56,9 +56,6 @@ class UniformSpherical {
         PARTHENON_THROW("Invalid coord input in <parthenon/mesh>.");
       }
     }
-
-    //Initialized cached coordinates
-    InitCachedArrays();
   }
   UniformSpherical(const UniformSpherical &src, int coarsen)
       : istart_(src.GetStartIndex()) {
@@ -73,9 +70,6 @@ class UniformSpherical {
     area_[0] = dx_[1] * dx_[2];
     area_[1] = dx_[0] * dx_[2];
     area_[2] = dx_[0] * dx_[1];
-
-    //Initialized cached coordinates
-    InitCachedArrays();
   }
 
   //----------------------------------------
@@ -87,9 +81,9 @@ class UniformSpherical {
     assert(dir > 0 && dir < 4);
     switch(dir){
       case X1DIR:
-        return r_c_(idx+1) - r_c_(idx);
+        return R_c_(idx+1) - R_c_(idx);
       case X2DIR:
-        return theta_c_(idx+1) - theta_c_(idx);
+        return Theta_c_(idx+1) - Theta_c_(idx);
       default:
         return dx_[2];
     }
@@ -162,9 +156,9 @@ class UniformSpherical {
     assert(dir > 0 && dir < 4);
     switch (dir) {
     case X1DIR:
-      return r_c_(idx);
+      return R_c_(idx);
     case X2DIR:
-      return theta_c_(idx);
+      return Theta_c_(idx);
     case X3DIR:
       return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1];
     default:
@@ -246,8 +240,9 @@ class UniformSpherical {
   KOKKOS_FORCEINLINE_FUNCTION Real Xs(const int idx) const {
     assert(dir > 0 && dir < 4 && side > 0 && side < 4);
     if( dir == X1DIR){
-      (2.0/3.0)*(std::pow(Xf<1>(idx+1),3) - std::pow(Xf<1>(idx),3))
+      return (2.0/3.0)*(std::pow(Xf<1>(idx+1),3) - std::pow(Xf<1>(idx),3))
           /(SQR(Xf<1>(idx+1)) - SQR(Xf<1>(idx)));
+      //FIXME: Shouldn't we use X1s2_?
     } else {
       return Xc<dir>(idx);
     }
@@ -457,13 +452,13 @@ class UniformSpherical {
   // Geometric Terms (Find better names for these!)
   //----------------------------------------
   KOKKOS_FORCEINLINE_FUNCTION
-  Real h2v(const int i) const { return r_c_(i); };
+  Real h2v(const int i) const { return R_c_(i); };
 
   KOKKOS_FORCEINLINE_FUNCTION
   Real h2f(const int i) const { return Xf<1>(i); };
 
   KOKKOS_FORCEINLINE_FUNCTION
-  Real h31v(const int i) const { return r_c_(i); };
+  Real h31v(const int i) const { return R_c_(i); };
 
   KOKKOS_FORCEINLINE_FUNCTION
   Real h31f(const int i) const { return Xf<1>(i); };
@@ -501,7 +496,7 @@ class UniformSpherical {
     const Real cosdphi = cosphi_c_(j)*cosphip - sinphi_c_(j)*sinphip; //cos(x3v(k)-phip)
     const Real sindphi = sinphi_c_(j)*cosphip - cosphi_c_(j)*sinphip; //sin(x3v(k)-phip)
     //Psi = - 1.0/sqrt(r0^2 + rp^2 - 2r0*rp*sin(tht)cos(phi-phip) + zp^2- 2*r0*cos(tht)*zp
-    acc1 = (r_c_(i) - rp*sintht_c_(j)*cosdphi - costht_c_(j)*zp); //dPsi/dr0
+    acc1 = (R_c_(i) - rp*sintht_c_(j)*cosdphi - costht_c_(j)*zp); //dPsi/dr0
     acc2 = (-rp*costht_c_(j)*cosdphi + sintht_c_(j)*zp); //dPsi/(r0*dtht)
     acc3 = (rp*sindphi);  //dPsi/(r0*sintht*dphi)
   }
@@ -536,82 +531,82 @@ class UniformSpherical {
   const std::array<Real, 3> &Dx_() const { return dx_; }
 
   ParArrayND<Real> r_c_, theta_c_, x1s2_, coord_vol_i_, coord_area2_i_, costht_f_, sintht_f_, sintht_c_, costht_c_, coord_area1_j_, cosphi_c_, sinphi_c_;
-  void InitCachedArrays() {
-    int nx1_tot = nx_[0]+2*Globals::nghost+1;
-    r_c_ = ParArrayND<Real>("centroid(r)", nx1_tot-1);
-    x1s2_ = ParArrayND<Real>("area1(r)", nx1_tot-1);
-    coord_vol_i_ = ParArrayND<Real>("volume(r)", nx1_tot-1);
-    coord_area2_i_ = ParArrayND<Real>("area2(r)", nx1_tot-1);
-    parthenon::par_for(
-      parthenon::loop_pattern_flatrange_tag, "initializeArraySph_r", 
-      parthenon::DevExecSpace(), 0, nx1_tot-2,
-      KOKKOS_LAMBDA(const int &i) {
-  //for (int i = 0; i < nx1_tot-1; i++) {
-      Real rm = xmin_[0] + i * dx_[0];
-      Real rp = rm + dx_[0];
-      r_c_(i) = 0.75*(std::pow(rp, 4) - std::pow(rm, 4)) /
+
+  KOKKOS_INLINE_FUNCTION
+  Real R_c_(const int i) const {
+      const Real rm = xmin_[0] + i * dx_[0];
+      const Real rp = rm + dx_[0];
+      return 0.75*(std::pow(rp, 4) - std::pow(rm, 4)) /
   (std::pow(rp, 3) - std::pow(rm, 3));
-      x1s2_(i) = TWO_3RD*(std::pow(rp,3) - std::pow(rm,3))/(SQR(rp) - SQR(rm));
-      coord_vol_i_(i) = (ONE_3RD)*(rp*rp*rp - rm*rm*rm);
-      coord_area2_i_(i) = 0.5*(rp*rp - rm*rm);
-      });
+  }
 
-    int nx2_tot = nx_[1]+1;
-    if (istart_[1] > 0) {
-      nx2_tot += 2*Globals::nghost;
-    }
-    costht_f_ = ParArrayND<Real>("cos(theta_f)", nx2_tot);
-    sintht_f_ = ParArrayND<Real>("sin(theta_f)", nx2_tot);
-    sintht_c_ = ParArrayND<Real>("sin(theta_c)", nx2_tot-1);
-    costht_c_ = ParArrayND<Real>("cos(theta_c)", nx2_tot-1);
-    coord_area1_j_ = ParArrayND<Real>("dcos(theta)", nx2_tot-1);
-    theta_c_     = ParArrayND<Real>("centroid-theta", std::max(2,nx2_tot-1));
+  KOKKOS_INLINE_FUNCTION
+  Real X1s2_(const int i) const {
+      const Real rm = xmin_[0] + i * dx_[0];
+      const Real rp = rm + dx_[0];
+      return TWO_3RD*(std::pow(rp,3) - std::pow(rm,3))/(SQR(rp) - SQR(rm));
+  }
 
-    parthenon::par_for(
-      parthenon::loop_pattern_flatrange_tag, "initializeArraySph_th1", 
-      parthenon::DevExecSpace(), 0, nx2_tot-1,
-      KOKKOS_LAMBDA(const int &j) {
-  //for (int j = 0; j < nx2_tot; j++) {
-      Real theta = xmin_[1] + j * dx_[1];
-      costht_f_(j) = std::cos(theta);
-      sintht_f_(j) = std::sin(theta);
-      });
+  KOKKOS_INLINE_FUNCTION
+  Real Coord_vol_i_(const int i) const {
+      const Real rm = xmin_[0] + i * dx_[0];
+      const Real rp = rm + dx_[0];
+      return  (ONE_3RD)*(rp*rp*rp - rm*rm*rm);
+  }
 
-    parthenon::par_for(
-      parthenon::loop_pattern_flatrange_tag, "initializeArraySph_th2", 
-      parthenon::DevExecSpace(), 0, nx2_tot-2,
-      KOKKOS_LAMBDA(const int &j) {
-  //for (int j = 0; j < nx2_tot-1; j++) {
-      coord_area1_j_(j) = std::abs(costht_f_(j  ) - costht_f_(j+1));
+  KOKKOS_INLINE_FUNCTION
+  Real Coord_area2_i_(const int i) const {
+      const Real rm = xmin_[0] + i * dx_[0];
+      const Real rp = rm + dx_[0];
+      return  (ONE_3RD)*(rp*rp*rp - rm*rm*rm);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real Coord_area1_j_(const int j) const {
+       return std::abs( Cos_theta_f_(j) - Cos_theta_f_(j+1));
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real Cos_theta_f_(const int j) const {
+      const Real theta = xmin_[1] + j * dx_[1];
+      return std::cos(theta);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real Sin_theta_f_(const int j) const {
+      const Real theta = xmin_[1] + j * dx_[1];
+      return std::sin(theta);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real Theta_c_(const int j) const {
       Real tm = xmin_[1] + j * dx_[1];
       Real tp = tm + dx_[1];
-      theta_c_(j) = (((sintht_f_(j+1) - tp*costht_f_(j+1)) -
-      (sintht_f_(j  ) - tm*costht_f_(j  )))/
-      (costht_f_(j  ) - costht_f_(j+1)));
-      sintht_c_(j) = std::sin(theta_c_(j));
-      costht_c_(j) = std::cos(theta_c_(j));
-      });
+      return (((Sin_theta_f_(j+1) - tp*Cos_theta_f_(j+1)) -
+        (Sin_theta_f_(j  ) - tm*Cos_theta_f_(j  )))/
+        (Cos_theta_f_(j  ) - Cos_theta_f_(j+1)));
+  }
 
-    if (nx2_tot==2) {
-      theta_c_(1) = theta_c_(0) + dx_[1];
-    }
+  KOKKOS_INLINE_FUNCTION
+  Real Cos_theta_c_(const int j) const {
+      return std::cos(Theta_c_(j));
+  }
 
-    //phi-direction
-    int nx3_tot = nx_[2]+1;
-    if (istart_[2] > 0) {
-      nx3_tot += 2*Globals::nghost;
-    }
-    sinphi_c_ = ParArrayND<Real>("sin(phi_c)", nx3_tot-1);
-    cosphi_c_ = ParArrayND<Real>("cos(phi_c)", nx3_tot-1);
-    parthenon::par_for(
-      parthenon::loop_pattern_flatrange_tag, "initializeArraySph_ph", 
-      parthenon::DevExecSpace(), 0, nx3_tot-2,
-      KOKKOS_LAMBDA(const int &k) {
-  //for (int k = 0; k < nx3_tot-1; k++) {
+  KOKKOS_INLINE_FUNCTION
+  Real Sin_theta_c_(const int j) const {
+      return std::sin(Theta_c_(j));
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real Cos_phi_c_(const int k) const {
       Real Phi = xmin_[2] + (k + 0.5) * dx_[2];
-      cosphi_c_(k) = std::cos(Phi);
-      sinphi_c_(k) = std::sin(Phi);
-      });
+      return std::cos(Phi);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real Sin_phi_c_(const int k) const {
+      Real Phi = xmin_[2] + (k + 0.5) * dx_[2];
+      return std::sin(Phi);
   }
 
 };
