@@ -54,12 +54,13 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
       ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto &coords = pack.GetCoordinates(b);
         Real x = coords.X<1, te>(i);
+        Real y = coords.X<2, te>(j);
 
         Real val = 0.0;
         if (x > 0.25 && x < 0.75) {
           val = 100.0;
         }
-        pack(b, te, poisson_package::res_err(), k, j, i) = val;
+        pack(b, te, poisson_package::res_err(), k, j, i) = x + y;
         pack(b, te, poisson_package::rhs_base(), k, j, i) = val;
       });
 }
