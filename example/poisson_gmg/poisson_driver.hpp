@@ -36,7 +36,7 @@ class PoissonDriver : public Driver {
   DriverStatus Execute() override;
 
   void AddMultiGridTasksLevel(TaskRegion &region, int level, int max_level);
-
+  void AddRestrictionProlongationLevel(TaskRegion &region, int level, int max_level);
  private:
   // we'll demonstrate doing a global all reduce of a scalar There
   // must be one (All)Reduce object per var per rank, and they must be

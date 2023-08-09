@@ -38,6 +38,65 @@ parthenon::DriverStatus PoissonDriver::Execute() {
   return DriverStatus::complete;
 }
 
+void PoissonDriver::AddRestrictionProlongationLevel(TaskRegion &region, int level, int max_level) {
+  using namespace parthenon;
+  using namespace poisson_package;
+  TaskID none(0);
+  const int num_partitions = pmesh->DefaultNumPartitions();
+
+  auto pkg = pmesh->packages.Get("poisson_package");
+  auto jacobi_iterations = pkg->Param<int>("jacobi_iterations");
+  auto damping = pkg->Param<Real>("jacobi_damping");
+
+  for (int i = 0; i < num_partitions; ++i) {
+    TaskList &tl = region[i + (max_level - level) * num_partitions];
+
+    auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", i);
+
+    // 0. Receive residual from coarser level if there is one
+    auto set_from_finer = none;
+    if (level < max_level) {
+      // Fill fields with restricted values
+      auto recv_from_finer =
+          tl.AddTask(none, ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>, md);
+      set_from_finer =
+          tl.AddTask(recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md);
+    }
+
+    auto print_post_prolongate = none;
+    if (level > 0) {
+      std::string label = "Pre-restrict field on level " + std::to_string(level);
+      auto pre_print = tl.AddTask(set_from_finer, PrintChosenValues<res_err>, md, label);
+      // Restrict and send data to next coarser level
+      auto communicate_to_coarse =
+          tl.AddTask(pre_print, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
+
+      // Try to receive data from next finer level and prolongate
+      auto zero_res = tl.AddTask(communicate_to_coarse, SetToZero<res_err>, md);
+      auto recv_from_coarser = tl.AddTask(
+          communicate_to_coarse | zero_res, ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>, md);
+      auto set_from_coarser =
+          tl.AddTask(recv_from_coarser, SetBounds<BoundaryType::gmg_prolongate_recv>, md);
+      auto prolongate =
+          tl.AddTask(set_from_coarser, ProlongateBounds<BoundaryType::gmg_prolongate_recv>, md);
+
+      // Print out the post-prolongation solution 
+      std::string label2 = "Post-prolongate field on level " + std::to_string(level);
+      print_post_prolongate = tl.AddTask(prolongate, PrintChosenValues<res_err>, md, label2);
+    } else { 
+      std::string label2 = "Field on last level " + std::to_string(level);
+      print_post_prolongate = tl.AddTask(set_from_finer, PrintChosenValues<res_err>, md, label2); 
+    }
+
+    if (level < max_level) {
+      // If we aren't the finest level, communicate boundaries and then send data to 
+      // next finer level
+      auto same_gmg_level_boundary_comm = AddBoundaryExchangeTasks(print_post_prolongate, tl, md, true);
+      tl.AddTask(same_gmg_level_boundary_comm, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
+    }   
+  }
+}
+
 void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int max_level) {
   using namespace parthenon;
   using namespace poisson_package;
@@ -186,7 +245,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   for (int ivcycle = 0; ivcycle < max_iterations; ++ivcycle) {
     TaskRegion &region = tc.AddRegion(num_partitions * (max_level + 1));
     for (int level = max_level; level >= 0; --level) {
-      AddMultiGridTasksLevel(region, level, max_level);
+      //AddMultiGridTasksLevel(region, level, max_level);
+      AddRestrictionProlongationLevel(region, level, max_level);
     }
   }
 
