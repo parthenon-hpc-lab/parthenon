@@ -56,7 +56,7 @@ class LogicalLocation { // aggregate and POD type
   std::array<std::int64_t, 3> l_;
   MortonNumber morton_;
   int level_;
-
+  
  public:
   LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
       : l_{l1, l2, l3}, level_(lev), morton_(lev, l1, l2, l3) {}
@@ -101,14 +101,15 @@ class LogicalLocation { // aggregate and POD type
   }
 
   LogicalLocation GetParent() const {
-    if (level_ == 0) return *this;
+    if (level() <= 0) return LogicalLocation(level() - 1, 0, 0, 0);
     return LogicalLocation(level() - 1, lx1() >> 1, lx2() >> 1, lx3() >> 1);
   }
 
   std::vector<LogicalLocation> GetDaughters() const;
 
   LogicalLocation GetDaughter(int ox1, int ox2, int ox3) const {
-    return LogicalLocation(level_ + 1, (lx1() << 1) + ox1, (lx2() << 1) + ox2,
+    if (level() < 0) return LogicalLocation(level() + 1, 0, 0, 0); 
+    return LogicalLocation(level() + 1, (lx1() << 1) + ox1, (lx2() << 1) + ox2,
                            (lx3() << 1) + ox3);
   }
 

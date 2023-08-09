@@ -158,6 +158,10 @@ LogicalLocation::NeighborFindingImpl<false>(const LogicalLocation &in,
 
 std::vector<LogicalLocation> LogicalLocation::GetDaughters() const {
   std::vector<LogicalLocation> daughters;
+  if (level() < 0) { 
+    daughters.push_back(GetDaughter(0, 0, 0));
+    return daughters;
+  }
   daughters.reserve(8);
   for (int i : {0, 1}) {
     for (int j : {0, 1}) {
