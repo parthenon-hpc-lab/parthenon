@@ -69,19 +69,6 @@ class Packages_t {
     return sub_list;
   }
 
-  // Returns a sub-Dictionary containing just pointers to packages of type T.
-  // Dictionary is a *new copy*, and members are bare pointers, not shared_ptr.
-  template <typename T>
-  const Dictionary<T *> AllPackagesOfType() const {
-    Dictionary<T *> sub_dict;
-    for (auto package : packages_) {
-      if (T *cast_package = dynamic_cast<T *>(package.second.get())) {
-        sub_dict[package.first] = cast_package;
-      }
-    }
-    return sub_dict;
-  }
-
  private:
   Dictionary<std::shared_ptr<StateDescriptor>> packages_;
 };
