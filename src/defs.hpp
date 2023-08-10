@@ -69,7 +69,7 @@ static_assert(NDIM >= 3,
 // X3DIR z, phi, etc...
 enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
 
-struct RegionSize { // aggregate and POD type; do NOT reorder member declarations:
+struct RegionSize {
   RegionSize() = default;
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat, std::array<int, 3> nx) :
     xmin(xmin), xmax(xmax), xrat(xrat), nx(nx) {}
