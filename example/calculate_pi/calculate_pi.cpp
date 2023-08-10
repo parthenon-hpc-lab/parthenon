@@ -49,10 +49,10 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
   if (use_sparse) {
     auto &bs = pmb->block_size;
     // check if block falls on radius.
-    Real coords[4][2] = {{bs.x1min(), bs.x2min()},
-                         {bs.x1min(), bs.x2max()},
-                         {bs.x1max(), bs.x2min()},
-                         {bs.x1max(), bs.x2max()}};
+    Real coords[4][2] = {{bs.xmin(X1DIR), bs.xmin(X2DIR)},
+                         {bs.xmin(X1DIR), bs.xmax(X2DIR)},
+                         {bs.xmax(X1DIR), bs.xmin(X2DIR)},
+                         {bs.xmax(X1DIR), bs.xmax(X2DIR)}};
 
     bool fully_outside = true;
 

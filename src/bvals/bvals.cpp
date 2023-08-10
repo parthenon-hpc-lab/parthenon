@@ -71,14 +71,14 @@ BoundaryValues::BoundaryValues(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
   CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x1], CoordinateDirection::X1DIR);
 
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  if (pmb->block_size.nx2() > 1) {
+  if (pmb->block_size.nx(X2DIR) > 1) {
     nface_ = 4;
     nedge_ = 4;
     CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x2], CoordinateDirection::X2DIR);
     CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x2], CoordinateDirection::X2DIR);
   }
 
-  if (pmb->block_size.nx3() > 1) {
+  if (pmb->block_size.nx(X3DIR) > 1) {
     nface_ = 6;
     nedge_ = 12;
     CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x3], CoordinateDirection::X3DIR);
@@ -151,14 +151,14 @@ BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
   CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x1], CoordinateDirection::X1DIR);
 
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  if (pmb->block_size.nx2() > 1) {
+  if (pmb->block_size.nx(X2DIR) > 1) {
     nface_ = 4;
     nedge_ = 4;
     CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x2], CoordinateDirection::X2DIR);
     CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x2], CoordinateDirection::X2DIR);
   }
 
-  if (pmb->block_size.nx3() > 1) {
+  if (pmb->block_size.nx(X3DIR) > 1) {
     nface_ = 6;
     nedge_ = 12;
     CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x3], CoordinateDirection::X3DIR);

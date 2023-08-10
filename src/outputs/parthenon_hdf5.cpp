@@ -170,15 +170,15 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // RootGridDomain - float[9] array with xyz mins, maxs, rats (dx(i)/dx(i-1))
     HDF5WriteAttribute(
         "RootGridDomain",
-        std::vector<Real>{pm->mesh_size.x1min(), pm->mesh_size.x1max(), pm->mesh_size.x1rat(),
-                          pm->mesh_size.x2min(), pm->mesh_size.x2max(), pm->mesh_size.x2rat(),
-                          pm->mesh_size.x3min(), pm->mesh_size.x3max(), pm->mesh_size.x3rat()},
+        std::vector<Real>{pm->mesh_size.xmin(X1DIR), pm->mesh_size.xmax(X1DIR), pm->mesh_size.xrat(X1DIR),
+                          pm->mesh_size.xmin(X2DIR), pm->mesh_size.xmax(X2DIR), pm->mesh_size.xrat(X2DIR),
+                          pm->mesh_size.xmin(X3DIR), pm->mesh_size.xmax(X3DIR), pm->mesh_size.xrat(X3DIR)},
         info_group);
 
     // Root grid size (number of cells at root level)
     HDF5WriteAttribute(
         "RootGridSize",
-        std::vector<int>{pm->mesh_size.nx1(), pm->mesh_size.nx2(), pm->mesh_size.nx3()},
+        std::vector<int>{pm->mesh_size.nx(X1DIR), pm->mesh_size.nx(X2DIR), pm->mesh_size.nx(X3DIR)},
         info_group);
 
     // Boundary conditions

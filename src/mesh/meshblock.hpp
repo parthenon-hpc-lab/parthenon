@@ -92,7 +92,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
   // sized MeshBlock arrays, depending on ndim i.e.
   //
-  // cellbounds.nx2() =    nx2      + 2*Globals::nghost if   nx2 > 1
+  // cellbounds.nx(X2DIR) =    nx2      + 2*Globals::nghost if   nx2 > 1
   // (entire)         (interior)               (interior)
   //
   // Assuming we have a block cells, and nx2 = 6, and Globals::nghost = 1
@@ -118,7 +118,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   IndexShape cellbounds;
   // on 1x coarser level MeshBlock i.e.
   //
-  // c_cellbounds.nx2() = cellbounds.nx2() * 1/2 + 2*Globals::nghost, if  cellbounds.nx2() >1
+  // c_cellbounds.nx(X2DIR) = cellbounds.nx(X2DIR) * 1/2 + 2*Globals::nghost, if  cellbounds.nx(X2DIR) >1
   //   (entire)             (interior)                          (interior)
   //
   // Assuming we have a block cells, and nx2 = 6, and Globals::nghost = 1
@@ -270,7 +270,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
 
   int GetNumberOfMeshBlockCells() const {
-    return block_size.nx1() * block_size.nx2() * block_size.nx3();
+    return block_size.nx(X1DIR) * block_size.nx(X2DIR) * block_size.nx(X3DIR);
   }
   void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist) {
     pbval->SearchAndSetNeighbors(tree, ranklist, nslist);

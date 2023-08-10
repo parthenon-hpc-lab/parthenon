@@ -94,11 +94,11 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
-    InitializeIndexShapes(block_size.nx1(), block_size.nx2(), block_size.nx3());
+    InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR), block_size.nx(X3DIR));
   } else if (pmy_mesh->ndim >= 2) {
-    InitializeIndexShapes(block_size.nx1(), block_size.nx2(), 0);
+    InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR), 0);
   } else {
-    InitializeIndexShapes(block_size.nx1(), 0, 0);
+    InitializeIndexShapes(block_size.nx(X1DIR), 0, 0);
   }
 
   // Allow for user overrides to default Parthenon functions

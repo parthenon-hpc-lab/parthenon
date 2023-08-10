@@ -72,42 +72,22 @@ enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 
 struct RegionSize {
   RegionSize() = default;
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat, std::array<int, 3> nx) :
-    xmin(xmin), xmax(xmax), xrat(xrat), nx(nx) {}
+    xmin_(xmin), xmax_(xmax), xrat_(xrat), nx_(nx) {}
 
-  std::array<Real, 3> xmin, xmax, xrat; // xrat is ratio of dxf(i)/dxf(i-1) 
-  std::array<int, 3> nx;
-
-  Real &x1min() {return xmin[0];}
-  Real &x2min() {return xmin[1];}
-  Real &x3min() {return xmin[2];}
+  std::array<Real, 3> xmin_, xmax_, xrat_; // xrat is ratio of dxf(i)/dxf(i-1) 
+  std::array<int, 3> nx_;
   
-  const Real &x1min() const {return xmin[0];}
-  const Real &x2min() const {return xmin[1];}
-  const Real &x3min() const {return xmin[2];}
+  Real &xmin(CoordinateDirection dir) { return xmin_[dir - 1];}
+  const Real &xmin(CoordinateDirection dir) const { return xmin_[dir - 1];}
+
+  Real &xmax(CoordinateDirection dir) { return xmax_[dir - 1];}
+  const Real &xmax(CoordinateDirection dir) const { return xmax_[dir - 1];}
   
-  Real &x1max() {return xmax[0];}
-  Real &x2max() {return xmax[1];}
-  Real &x3max() {return xmax[2];}
+  Real &xrat(CoordinateDirection dir) { return xrat_[dir - 1];}
+  const Real &xrat(CoordinateDirection dir) const { return xrat_[dir - 1];}
   
-  const Real &x1max() const {return xmax[0];}
-  const Real &x2max() const {return xmax[1];}
-  const Real &x3max() const {return xmax[2];}
-
-  Real &x1rat() {return xrat[0];}
-  Real &x2rat() {return xrat[1];}
-  Real &x3rat() {return xrat[2];}
-
-  const Real &x1rat() const {return xrat[0];}
-  const Real &x2rat() const {return xrat[1];}
-  const Real &x3rat() const {return xrat[2];}
-
-  int &nx1() {return nx[0];}  
-  int &nx2() {return nx[1];}  
-  int &nx3() {return nx[2];}  
-
-  const int &nx1() const {return nx[0];}  
-  const int &nx2() const {return nx[1];}  
-  const int &nx3() const {return nx[2];}  
+  int &nx(CoordinateDirection dir) { return nx_[dir - 1];}
+  const int &nx(CoordinateDirection dir) const { return nx_[dir - 1];}
 };
 
 //----------------------------------------------------------------------------------------
