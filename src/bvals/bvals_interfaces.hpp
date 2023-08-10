@@ -142,10 +142,12 @@ struct NeighborBlock { // aggregate and POD type. Inheritance breaks standard-la
 
   int bufid, eid, targetid;
   BoundaryFace fid;
+  LogicalLocation loc;
+  block_ownership_t ownership;
 
-  void SetNeighbor(int irank, int ilevel, int igid, int ilid, int iox1, int iox2,
-                   int iox3, NeighborConnect itype, int ibid, int itargetid, int ifi1 = 0,
-                   int ifi2 = 0);
+  void SetNeighbor(LogicalLocation inloc, int irank, int ilevel, int igid, int ilid,
+                   int iox1, int iox2, int iox3, NeighborConnect itype, int ibid,
+                   int itargetid, int ifi1 = 0, int ifi2 = 0);
 };
 
 //----------------------------------------------------------------------------------------

@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 900]](https://github.com/parthenon-hpc-lab/parthenon/pull/900) Add Morton numbers and expand functionality of LogicalLocation
 - [[PR 902]](https://github.com/parthenon-hpc-lab/parthenon/pull/902) Add ability to output NaNs for de-allocated sparse fields
 - [[PR 887]](https://github.com/parthenon-hpc-lab/parthenon/pull/887) Add ability to dump more types of params and read them from restarts
 - [[PR 884]](https://github.com/parthenon-hpc-lab/parthenon/pull/884) Add constant derivative BC and expose GenericBC
@@ -23,6 +24,7 @@
 - [[PR 890]](https://github.com/parthenon-hpc-lab/parthenon/pull/890) Fix bugs in sparse communication and prolongation
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 901]](https://github.com/parthenon-hpc-lab/parthenon/pull/901) Implement shared element ownership model
 
 ### Removed (removing behavior/API/varaibles/...)
 

@@ -18,6 +18,7 @@
 
 #include "basic_types.hpp"
 #include "interface/data_collection.hpp"
+#include "interface/make_pack_descriptor.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"

@@ -88,9 +88,10 @@ void MeshRefinement::RestrictCellCenteredValues(Variable<Real> *var, int csi, in
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused.
-  info_h(b).prores_idxer[0] =
-      Indexer6D({0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1}, {0, var->GetDim(4) - 1},
-                {csk, cek}, {csj, cej}, {csi, cei});
+  block_ownership_t owns(true);
+  info_h(b).prores_idxer[0] = SpatiallyMaskedIndexer6D(
+      owns, {0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1}, {0, var->GetDim(4) - 1},
+      {csk, cek}, {csj, cej}, {csi, cei});
   info_h(b).refinement_op = RefinementOp_t::Restriction;
   info_h(b).coords = pmb->coords;
   info_h(b).coarse_coords = this->coarse_coords;
@@ -119,9 +120,10 @@ void MeshRefinement::ProlongateCellCenteredValues(Variable<Real> *var, int si, i
   refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
   idxs_h(b) = b;
   // buff and var unused
+  block_ownership_t owns(true);
   info_h(b).prores_idxer[0] =
-      Indexer6D({0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1}, {0, var->GetDim(4) - 1},
-                {sk, ek}, {sj, ej}, {si, ei});
+      SpatiallyMaskedIndexer6D(owns, {0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1},
+                               {0, var->GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
   info_h(b).refinement_op = RefinementOp_t::Prolongation;
   info_h(b).coords = pmb->coords;
   info_h(b).coarse_coords = this->coarse_coords;
@@ -149,13 +151,13 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
 
   if (aret >= 0) deref_count_ = 0;
   if (aret > 0) {
-    if (pmb->loc.level == pmb->pmy_mesh->max_level) {
+    if (pmb->loc.level() == pmb->pmy_mesh->max_level) {
       refine_flag_ = 0;
     } else {
       refine_flag_ = 1;
     }
   } else if (aret < 0) {
-    if (pmb->loc.level == pmb->pmy_mesh->root_level) {
+    if (pmb->loc.level() == pmb->pmy_mesh->root_level) {
       refine_flag_ = 0;
       deref_count_ = 0;
     } else {
@@ -178,7 +180,7 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
           for (int i = -1; i <= 1; i++)
-            if (pmb->pbval->nblevel[k + 1][j + 1][i + 1] > pmb->loc.level) ec++;
+            if (pmb->pbval->nblevel[k + 1][j + 1][i + 1] > pmb->loc.level()) ec++;
         }
       }
       if (ec > 0) {

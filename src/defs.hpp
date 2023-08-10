@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,6 +25,7 @@
 
 #include "basic_types.hpp"
 #include "config.hpp"
+#include "mesh/logical_location.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -47,29 +48,6 @@ namespace parthenon {
 // forward declarations needed for function pointer type aliases
 class MeshBlock;
 class ParameterInput;
-
-//--------------------------------------------------------------------------------------
-//! \struct LogicalLocation
-//  \brief stores logical location and level of MeshBlock
-
-struct LogicalLocation { // aggregate and POD type
-  // These values can exceed the range of std::int32_t even if the root grid has only a
-  // single MeshBlock if >30 levels of AMR are used, since the corresponding max index =
-  // 1*2^31 > INT_MAX = 2^31 -1 for most 32-bit signed integer type impelementations
-  std::int64_t lx1, lx2, lx3;
-  int level;
-
-  // operators useful for sorting
-  bool operator==(LogicalLocation &ll) {
-    return ((ll.level == level) && (ll.lx1 == lx1) && (ll.lx2 == lx2) && (ll.lx3 == lx3));
-  }
-  static bool Lesser(const LogicalLocation &left, const LogicalLocation &right) {
-    return left.level < right.level;
-  }
-  static bool Greater(const LogicalLocation &left, const LogicalLocation &right) {
-    return left.level > right.level;
-  }
-};
 
 /// Defines the maximum size of the static array used in the IndexShape objects
 constexpr int NDIM = 3;

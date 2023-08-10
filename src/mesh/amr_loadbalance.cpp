@@ -63,9 +63,11 @@ MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation 
                              Variable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
+
+  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
+
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   if (var->IsAllocated()) {
     PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
@@ -91,9 +93,9 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
   static const IndexRange jb_int = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   static const IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
+  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
 
   int test = 1;
 #ifdef MPI_PARALLEL
@@ -146,9 +148,11 @@ MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation 
                              Variable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
+
+  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
+
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   if (var->IsAllocated()) {
     PARTHENON_MPI_CHECK(MPI_Isend(var->coarse_s.data(), var->coarse_s.size(),
@@ -170,9 +174,9 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
   static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior);
   static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior);
 
-  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
+  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
 
   const int ks = (ox3 == 0) ? 0 : (kb.e - kb.s + 1);
   const int js = (ox2 == 0) ? 0 : (jb.e - jb.s + 1);
@@ -557,17 +561,17 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     if (mesh_size.nx2 > 1) lj = 1;
     if (mesh_size.nx3 > 1) lk = 1;
     for (int n = 0; n < tnderef; n++) {
-      if ((lderef[n].lx1 & 1LL) == 0LL && (lderef[n].lx2 & 1LL) == 0LL &&
-          (lderef[n].lx3 & 1LL) == 0LL) {
+      if ((lderef[n].lx1() & 1LL) == 0LL && (lderef[n].lx2() & 1LL) == 0LL &&
+          (lderef[n].lx3() & 1LL) == 0LL) {
         int r = n, rr = 0;
         for (std::int64_t k = 0; k <= lk; k++) {
           for (std::int64_t j = 0; j <= lj; j++) {
             for (std::int64_t i = 0; i <= 1; i++) {
               if (r < tnderef) {
-                if ((lderef[n].lx1 + i) == lderef[r].lx1 &&
-                    (lderef[n].lx2 + j) == lderef[r].lx2 &&
-                    (lderef[n].lx3 + k) == lderef[r].lx3 &&
-                    lderef[n].level == lderef[r].level)
+                if ((lderef[n].lx1() + i) == lderef[r].lx1() &&
+                    (lderef[n].lx2() + j) == lderef[r].lx2() &&
+                    (lderef[n].lx3() + k) == lderef[r].lx3() &&
+                    lderef[n].level() == lderef[r].level())
                   rr++;
                 r++;
               }
@@ -575,18 +579,19 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
           }
         }
         if (rr == nleaf) {
-          clderef[ctnd].lx1 = lderef[n].lx1 >> 1;
-          clderef[ctnd].lx2 = lderef[n].lx2 >> 1;
-          clderef[ctnd].lx3 = lderef[n].lx3 >> 1;
-          clderef[ctnd].level = lderef[n].level - 1;
+          clderef[ctnd] = lderef[n].GetParent();
           ctnd++;
         }
       }
     }
   }
   // sort the lists by level
-  if (ctnd > 1) std::sort(clderef, &(clderef[ctnd - 1]), LogicalLocation::Greater);
-
+  if (ctnd > 1) {
+    std::sort(clderef, &(clderef[ctnd - 1]),
+              [](const LogicalLocation &left, const LogicalLocation &right) {
+                return left.level() > right.level();
+              });
+  }
   if (tnderef >= nleaf) delete[] lderef;
 
   // Now the lists of the blocks to be refined and derefined are completed
@@ -687,9 +692,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   for (int n = 0; n < ntot; n++) {
     // "on" = "old n" = "old gid" = "old global MeshBlock ID"
     int on = newtoold[n];
-    if (newloc[n].level > current_level) // set the current max level
-      current_level = newloc[n].level;
-    if (newloc[n].level >= loclist[on].level) { // same or refined
+    if (newloc[n].level() > current_level) // set the current max level
+      current_level = newloc[n].level();
+    if (newloc[n].level() >= loclist[on].level()) { // same or refined
       newcost[n] = costlist[on];
     } else {
       double acost = 0.0;
@@ -714,7 +719,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // Restrict fine to coarse buffers
   for (int on = onbs; on <= onbe; on++) {
     int nn = oldtonew[on];
-    if (newloc[nn].level < loclist[on].level) {
+    if (newloc[nn].level() < loclist[on].level()) {
       const IndexDomain interior = IndexDomain::interior;
       auto pmb = FindMeshBlock(on);
       IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
@@ -740,12 +745,12 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     LogicalLocation &oloc = loclist[n];
     LogicalLocation &nloc = newloc[nn];
     auto pb = FindMeshBlock(n);
-    if (nloc.level == oloc.level &&
+    if (nloc.level() == oloc.level() &&
         newrank[nn] != Globals::my_rank) { // same level, different rank
       for (auto &var : pb->vars_cc_)
         send_reqs.emplace_back(SendSameToSame(nn - nslist[newrank[nn]], newrank[nn],
                                               var.get(), pb.get(), this));
-    } else if (nloc.level > oloc.level) { // c2f
+    } else if (nloc.level() > oloc.level()) { // c2f
       // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
       for (int l = 0; l < nleaf; l++) {
         const int nl = nn + l; // Leaf block index in new global block list
@@ -754,7 +759,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           send_reqs.emplace_back(SendCoarseToFine(nl - nslist[newrank[nl]], newrank[nl],
                                                   nloc, var.get(), this));
       } // end loop over nleaf (unique to c2f branch in this step 6)
-    } else if (nloc.level < oloc.level) { // f2c: restrict + pack + send
+    } else if (nloc.level() < oloc.level()) { // f2c: restrict + pack + send
       for (auto &var : pb->vars_cc_)
         send_reqs.emplace_back(SendFineToCoarse(nn - nslist[newrank[nn]], newrank[nn],
                                                 oloc, var.get(), this));
@@ -770,7 +775,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   BlockList_t new_block_list(nbe - nbs + 1);
   for (int n = nbs; n <= nbe; n++) {
     int on = newtoold[n];
-    if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
+    if ((ranklist[on] == Globals::my_rank) &&
+        (loclist[on].level() == newloc[n].level())) {
       // on the same MPI rank and same level -> just move it
       new_block_list[n - nbs] = FindMeshBlock(on);
       if (!new_block_list[n - nbs]) {
@@ -823,8 +829,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         LogicalLocation &oloc = loclist[on];
         LogicalLocation &nloc = newloc[n];
         auto pb = FindMeshBlock(n);
-
-        if (oloc.level == nloc.level &&
+        if (oloc.level() == nloc.level() &&
             ranklist[on] != Globals::my_rank) { // same level, different rank
 #ifdef MPI_PARALLEL
           for (auto &var : pb->vars_cc_) {
@@ -834,7 +839,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             all_received = finished[idx++] && all_received;
           }
 #endif
-        } else if (oloc.level > nloc.level) { // f2c
+        } else if (oloc.level() > nloc.level()) { // f2c
           for (int l = 0; l < nleaf; l++) {
             auto pob = pb;
             if (ranklist[on + l] == Globals::my_rank) pob = old_block_list[on + l - onbs];
@@ -849,7 +854,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
               all_received = finished[idx++] && all_received;
             }
           }
-        } else if (oloc.level < nloc.level) { // c2f
+        } else if (oloc.level() < nloc.level()) { // c2f
           for (auto &var : pb->vars_cc_) {
             if (!finished[idx]) {
               auto pob = pb;
@@ -876,7 +881,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     LogicalLocation &oloc = loclist[on];
     LogicalLocation &nloc = newloc[nn];
     auto pmb = FindMeshBlock(nn);
-    if (nloc.level > oloc.level) {
+    if (nloc.level() > oloc.level()) {
       const IndexDomain interior = IndexDomain::interior;
       IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
       IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);

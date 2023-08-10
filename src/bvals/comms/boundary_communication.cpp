@@ -228,8 +228,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
             Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
                                  [&](const int idx) {
                                    const auto [t, u, v, k, j, i] = idxer(idx);
-                                   bnd_info(b).var(iel, t, u, v, k, j, i) =
-                                       bnd_info(b).buf(idx + idx_offset);
+                                   if (idxer.IsActive(k, j, i))
+                                     bnd_info(b).var(iel, t, u, v, k, j, i) =
+                                         bnd_info(b).buf(idx + idx_offset);
                                  });
           } else if (bnd_info(b).allocated) {
             const Real default_val = bnd_info(b).var.sparse_default_val;
