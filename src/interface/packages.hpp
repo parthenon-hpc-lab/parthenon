@@ -34,7 +34,7 @@ class Packages_t {
   // Templated version for retrieving a package with a particular type
   // Allows subclassing 'StateDescriptor' to add user package types to list
   template <typename T>
-  T *const &Get(const std::string &name) const {
+  T *const Get(const std::string &name) const {
     return static_cast<T *>(packages_.at(name).get());
   }
 
@@ -46,7 +46,7 @@ class Packages_t {
   // Returns a sub-Dictionary containing just pointers to packages of type T.
   // Dictionary is a *new copy*, and members are bare pointers, not shared_ptr.
   template <typename T>
-  const std::vector<T *> AllPackagesOfType() const {
+  const Dictionary<T *> AllPackagesOfType() const {
     Dictionary<T *> sub_dict;
     for (auto package : packages_) {
       if (T *cast_package = dynamic_cast<T *>(package.second.get())) {
