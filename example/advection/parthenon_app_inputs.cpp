@@ -204,8 +204,8 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   if (Globals::my_rank == 0) {
     // normalize errors by number of cells
     auto mesh_size = mesh->mesh_size;
-    Real vol = (mesh_size.x1max - mesh_size.x1min) * (mesh_size.x2max - mesh_size.x2min) *
-               (mesh_size.x3max - mesh_size.x3min);
+    Real vol = (mesh_size.x1max() - mesh_size.x1min()) * (mesh_size.x2max() - mesh_size.x2min()) *
+               (mesh_size.x3max() - mesh_size.x3min());
     l1_err /= vol;
     // compute rms error
     max_max_over_l1 = std::max(max_max_over_l1, (max_err / l1_err));

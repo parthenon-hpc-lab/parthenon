@@ -60,13 +60,34 @@ static_assert(NDIM >= 3,
 struct RegionSize { // aggregate and POD type; do NOT reorder member declarations:
   RegionSize() = default;
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat, std::array<int, 3> nx) :
-    x1min(xmin[0]), x2min(xmin[1]), x3min(xmin[2]), 
-    x1max(xmax[0]), x2max(xmax[1]), x3max(xmax[2]), 
-    x1rat(xrat[0]), x2rat(xrat[1]), x3rat(xrat[2]), 
+    xmin(xmin), xmax(xmax), xrat(xrat),
     nx1(nx[0]), nx2(nx[1]), nx3(nx[2]) {}
-  Real x1min, x2min, x3min;
-  Real x1max, x2max, x3max;
-  Real x1rat, x2rat, x3rat; // ratio of dxf(i)/dxf(i-1)
+
+  std::array<Real, 3> xmin, xmax, xrat; // xrat is ratio of dxf(i)/dxf(i-1) 
+  Real &x1min() {return xmin[0];}
+  Real &x2min() {return xmin[1];}
+  Real &x3min() {return xmin[2];}
+  
+  const Real &x1min() const {return xmin[0];}
+  const Real &x2min() const {return xmin[1];}
+  const Real &x3min() const {return xmin[2];}
+  
+  Real &x1max() {return xmax[0];}
+  Real &x2max() {return xmax[1];}
+  Real &x3max() {return xmax[2];}
+  
+  const Real &x1max() const {return xmax[0];}
+  const Real &x2max() const {return xmax[1];}
+  const Real &x3max() const {return xmax[2];}
+
+  Real &x1rat() {return xrat[0];}
+  Real &x2rat() {return xrat[1];}
+  Real &x3rat() {return xrat[2];}
+
+  const Real &x1rat() const {return xrat[0];}
+  const Real &x2rat() const {return xrat[1];}
+  const Real &x3rat() const {return xrat[2];}
+  
   // the size of the root grid or a MeshBlock should not exceed std::int32_t limits
   int nx1, nx2, nx3; // number of active cells (not including ghost zones)
 };

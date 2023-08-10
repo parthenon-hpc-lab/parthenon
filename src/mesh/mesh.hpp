@@ -314,16 +314,16 @@ inline Real ComputeMeshGeneratorX(std::int64_t index, std::int64_t nrange,
 
 inline Real DefaultMeshGeneratorX1(Real x, RegionSize rs) {
   Real lw, rw;
-  if (rs.x1rat == 1.0) {
+  if (rs.x1rat() == 1.0) {
     rw = x, lw = 1.0 - x;
   } else {
-    Real ratn = std::pow(rs.x1rat, rs.nx1);
-    Real rnx = std::pow(rs.x1rat, x * rs.nx1);
+    Real ratn = std::pow(rs.x1rat(), rs.nx1);
+    Real rnx = std::pow(rs.x1rat(), x * rs.nx1);
     lw = (rnx - ratn) / (1.0 - ratn);
     rw = 1.0 - lw;
   }
   // linear interp, equally weighted from left (x(xmin)=0.0) and right (x(xmax)=1.0)
-  return rs.x1min * lw + rs.x1max * rw;
+  return rs.x1min() * lw + rs.x1max() * rw;
 }
 
 //----------------------------------------------------------------------------------------
@@ -332,15 +332,15 @@ inline Real DefaultMeshGeneratorX1(Real x, RegionSize rs) {
 
 inline Real DefaultMeshGeneratorX2(Real x, RegionSize rs) {
   Real lw, rw;
-  if (rs.x2rat == 1.0) {
+  if (rs.x2rat() == 1.0) {
     rw = x, lw = 1.0 - x;
   } else {
-    Real ratn = std::pow(rs.x2rat, rs.nx2);
-    Real rnx = std::pow(rs.x2rat, x * rs.nx2);
+    Real ratn = std::pow(rs.x2rat(), rs.nx2);
+    Real rnx = std::pow(rs.x2rat(), x * rs.nx2);
     lw = (rnx - ratn) / (1.0 - ratn);
     rw = 1.0 - lw;
   }
-  return rs.x2min * lw + rs.x2max * rw;
+  return rs.x2min() * lw + rs.x2max() * rw;
 }
 
 //----------------------------------------------------------------------------------------
@@ -349,15 +349,15 @@ inline Real DefaultMeshGeneratorX2(Real x, RegionSize rs) {
 
 inline Real DefaultMeshGeneratorX3(Real x, RegionSize rs) {
   Real lw, rw;
-  if (rs.x3rat == 1.0) {
+  if (rs.x3rat() == 1.0) {
     rw = x, lw = 1.0 - x;
   } else {
-    Real ratn = std::pow(rs.x3rat, rs.nx3);
-    Real rnx = std::pow(rs.x3rat, x * rs.nx3);
+    Real ratn = std::pow(rs.x3rat(), rs.nx3);
+    Real rnx = std::pow(rs.x3rat(), x * rs.nx3);
     lw = (rnx - ratn) / (1.0 - ratn);
     rw = 1.0 - lw;
   }
-  return rs.x3min * lw + rs.x3max * rw;
+  return rs.x3min() * lw + rs.x3max() * rw;
 }
 
 //----------------------------------------------------------------------------------------
@@ -366,7 +366,7 @@ inline Real DefaultMeshGeneratorX3(Real x, RegionSize rs) {
 
 inline Real UniformMeshGeneratorX1(Real x, RegionSize rs) {
   // linear interp, equally weighted from left (x(xmin)=-0.5) and right (x(xmax)=0.5)
-  return static_cast<Real>(0.5) * (rs.x1min + rs.x1max) + (x * rs.x1max - x * rs.x1min);
+  return static_cast<Real>(0.5) * (rs.x1min() + rs.x1max()) + (x * rs.x1max() - x * rs.x1min());
 }
 
 //----------------------------------------------------------------------------------------
@@ -374,7 +374,7 @@ inline Real UniformMeshGeneratorX1(Real x, RegionSize rs) {
 // \brief x2 mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
 
 inline Real UniformMeshGeneratorX2(Real x, RegionSize rs) {
-  return static_cast<Real>(0.5) * (rs.x2min + rs.x2max) + (x * rs.x2max - x * rs.x2min);
+  return static_cast<Real>(0.5) * (rs.x2min() + rs.x2max()) + (x * rs.x2max() - x * rs.x2min());
 }
 
 //----------------------------------------------------------------------------------------
@@ -382,7 +382,7 @@ inline Real UniformMeshGeneratorX2(Real x, RegionSize rs) {
 // \brief x3 mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
 
 inline Real UniformMeshGeneratorX3(Real x, RegionSize rs) {
-  return static_cast<Real>(0.5) * (rs.x3min + rs.x3max) + (x * rs.x3max - x * rs.x3min);
+  return static_cast<Real>(0.5) * (rs.x3min() + rs.x3max()) + (x * rs.x3max() - x * rs.x3min());
 }
 
 } // namespace parthenon

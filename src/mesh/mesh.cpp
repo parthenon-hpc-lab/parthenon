@@ -143,22 +143,22 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // check physical size of mesh (root level) from input file.
-  if (mesh_size.x1max <= mesh_size.x1min) {
+  if (mesh_size.x1max() <= mesh_size.x1min()) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Input x1max must be larger than x1min: x1min=" << mesh_size.x1min
-        << " x1max=" << mesh_size.x1max << std::endl;
+        << "Input x1max must be larger than x1min: x1min=" << mesh_size.x1min()
+        << " x1max=" << mesh_size.x1max() << std::endl;
     PARTHENON_FAIL(msg);
   }
-  if (mesh_size.x2max <= mesh_size.x2min) {
+  if (mesh_size.x2max() <= mesh_size.x2min()) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Input x2max must be larger than x2min: x2min=" << mesh_size.x2min
-        << " x2max=" << mesh_size.x2max << std::endl;
+        << "Input x2max must be larger than x2min: x2min=" << mesh_size.x2min()
+        << " x2max=" << mesh_size.x2max() << std::endl;
     PARTHENON_FAIL(msg);
   }
-  if (mesh_size.x3max <= mesh_size.x3min) {
+  if (mesh_size.x3max() <= mesh_size.x3min()) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Input x3max must be larger than x3min: x3min=" << mesh_size.x3min
-        << " x3max=" << mesh_size.x3max << std::endl;
+        << "Input x3max must be larger than x3min: x3min=" << mesh_size.x3min()
+        << " x3max=" << mesh_size.x3max() << std::endl;
     PARTHENON_FAIL(msg);
   }
 
@@ -209,9 +209,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   EnrollBndryFncts_(app_in);
 
   // read and set MeshBlock parameters
-  block_size.x1rat = mesh_size.x1rat;
-  block_size.x2rat = mesh_size.x2rat;
-  block_size.x3rat = mesh_size.x3rat;
+  block_size.x1rat() = mesh_size.x1rat();
+  block_size.x2rat() = mesh_size.x2rat();
+  block_size.x3rat() = mesh_size.x3rat();
   block_size.nx1 = pin->GetOrAddInteger("parthenon/meshblock", "nx1", mesh_size.nx1);
   if (ndim >= 2)
     block_size.nx2 = pin->GetOrAddInteger("parthenon/meshblock", "nx2", mesh_size.nx2);
@@ -244,15 +244,15 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   nbmax = (nbmax > nrbx3) ? nbmax : nrbx3;
 
   // initialize user-enrollable functions
-  if (mesh_size.x1rat != 1.0) {
+  if (mesh_size.x1rat() != 1.0) {
     use_uniform_meshgen_fn_[X1DIR] = false;
     MeshGenerator_[X1DIR] = DefaultMeshGeneratorX1;
   }
-  if (mesh_size.x2rat != 1.0) {
+  if (mesh_size.x2rat() != 1.0) {
     use_uniform_meshgen_fn_[X2DIR] = false;
     MeshGenerator_[X2DIR] = DefaultMeshGeneratorX2;
   }
-  if (mesh_size.x3rat != 1.0) {
+  if (mesh_size.x3rat() != 1.0) {
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
@@ -296,21 +296,21 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     while (pib != nullptr) {
       if (pib->block_name.compare(0, 27, "parthenon/static_refinement") == 0) {
         RegionSize ref_size;
-        ref_size.x1min = pin->GetReal(pib->block_name, "x1min");
-        ref_size.x1max = pin->GetReal(pib->block_name, "x1max");
+        ref_size.x1min() = pin->GetReal(pib->block_name, "x1min");
+        ref_size.x1max() = pin->GetReal(pib->block_name, "x1max");
         if (ndim >= 2) {
-          ref_size.x2min = pin->GetReal(pib->block_name, "x2min");
-          ref_size.x2max = pin->GetReal(pib->block_name, "x2max");
+          ref_size.x2min() = pin->GetReal(pib->block_name, "x2min");
+          ref_size.x2max() = pin->GetReal(pib->block_name, "x2max");
         } else {
-          ref_size.x2min = mesh_size.x2min;
-          ref_size.x2max = mesh_size.x2max;
+          ref_size.x2min() = mesh_size.x2min();
+          ref_size.x2max() = mesh_size.x2max();
         }
         if (ndim == 3) {
-          ref_size.x3min = pin->GetReal(pib->block_name, "x3min");
-          ref_size.x3max = pin->GetReal(pib->block_name, "x3max");
+          ref_size.x3min() = pin->GetReal(pib->block_name, "x3min");
+          ref_size.x3max() = pin->GetReal(pib->block_name, "x3max");
         } else {
-          ref_size.x3min = mesh_size.x3min;
-          ref_size.x3max = mesh_size.x3max;
+          ref_size.x3min() = mesh_size.x3min();
+          ref_size.x3max() = mesh_size.x3max();
         }
         int ref_lev = pin->GetInteger(pib->block_name, "level");
         int lrlev = ref_lev + root_level;
@@ -329,15 +329,15 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
           PARTHENON_FAIL(msg);
         }
-        if (ref_size.x1min > ref_size.x1max || ref_size.x2min > ref_size.x2max ||
-            ref_size.x3min > ref_size.x3max) {
+        if (ref_size.x1min() > ref_size.x1max() || ref_size.x2min() > ref_size.x2max() ||
+            ref_size.x3min() > ref_size.x3max()) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
               << "Invalid refinement region is specified." << std::endl;
           PARTHENON_FAIL(msg);
         }
-        if (ref_size.x1min < mesh_size.x1min || ref_size.x1max > mesh_size.x1max ||
-            ref_size.x2min < mesh_size.x2min || ref_size.x2max > mesh_size.x2max ||
-            ref_size.x3min < mesh_size.x3min || ref_size.x3max > mesh_size.x3max) {
+        if (ref_size.x1min() < mesh_size.x1min() || ref_size.x1max() > mesh_size.x1max() ||
+            ref_size.x2min() < mesh_size.x2min() || ref_size.x2max() > mesh_size.x2max() ||
+            ref_size.x3min() < mesh_size.x3min() || ref_size.x3max() > mesh_size.x3max()) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
               << "Refinement region must be smaller than the whole mesh." << std::endl;
           PARTHENON_FAIL(msg);
@@ -350,12 +350,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         for (lx1min = 0; lx1min < lxmax; lx1min++) {
           Real rx =
               ComputeMeshGeneratorX(lx1min + 1, lxmax, use_uniform_meshgen_fn_[X1DIR]);
-          if (MeshGenerator_[X1DIR](rx, mesh_size) > ref_size.x1min) break;
+          if (MeshGenerator_[X1DIR](rx, mesh_size) > ref_size.x1min()) break;
         }
         for (lx1max = lx1min; lx1max < lxmax; lx1max++) {
           Real rx =
               ComputeMeshGeneratorX(lx1max + 1, lxmax, use_uniform_meshgen_fn_[X1DIR]);
-          if (MeshGenerator_[X1DIR](rx, mesh_size) >= ref_size.x1max) break;
+          if (MeshGenerator_[X1DIR](rx, mesh_size) >= ref_size.x1max()) break;
         }
         if (lx1min % 2 == 1) lx1min--;
         if (lx1max % 2 == 0) lx1max++;
@@ -364,12 +364,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           for (lx2min = 0; lx2min < lxmax; lx2min++) {
             Real rx =
                 ComputeMeshGeneratorX(lx2min + 1, lxmax, use_uniform_meshgen_fn_[X2DIR]);
-            if (MeshGenerator_[X2DIR](rx, mesh_size) > ref_size.x2min) break;
+            if (MeshGenerator_[X2DIR](rx, mesh_size) > ref_size.x2min()) break;
           }
           for (lx2max = lx2min; lx2max < lxmax; lx2max++) {
             Real rx =
                 ComputeMeshGeneratorX(lx2max + 1, lxmax, use_uniform_meshgen_fn_[X2DIR]);
-            if (MeshGenerator_[X2DIR](rx, mesh_size) >= ref_size.x2max) break;
+            if (MeshGenerator_[X2DIR](rx, mesh_size) >= ref_size.x2max()) break;
           }
           if (lx2min % 2 == 1) lx2min--;
           if (lx2max % 2 == 0) lx2max++;
@@ -379,12 +379,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           for (lx3min = 0; lx3min < lxmax; lx3min++) {
             Real rx =
                 ComputeMeshGeneratorX(lx3min + 1, lxmax, use_uniform_meshgen_fn_[X3DIR]);
-            if (MeshGenerator_[X3DIR](rx, mesh_size) > ref_size.x3min) break;
+            if (MeshGenerator_[X3DIR](rx, mesh_size) > ref_size.x3min()) break;
           }
           for (lx3max = lx3min; lx3max < lxmax; lx3max++) {
             Real rx =
                 ComputeMeshGeneratorX(lx3max + 1, lxmax, use_uniform_meshgen_fn_[X3DIR]);
-            if (MeshGenerator_[X3DIR](rx, mesh_size) >= ref_size.x3max) break;
+            if (MeshGenerator_[X3DIR](rx, mesh_size) >= ref_size.x3max()) break;
           }
           if (lx3min % 2 == 1) lx3min--;
           if (lx3max % 2 == 0) lx3max++;
@@ -596,17 +596,17 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   EnrollBndryFncts_(app_in);
 
   const auto grid_dim = rr.GetAttrVec<Real>("Info", "RootGridDomain");
-  mesh_size.x1min = grid_dim[0];
-  mesh_size.x1max = grid_dim[1];
-  mesh_size.x1rat = grid_dim[2];
+  mesh_size.x1min() = grid_dim[0];
+  mesh_size.x1max() = grid_dim[1];
+  mesh_size.x1rat() = grid_dim[2];
 
-  mesh_size.x2min = grid_dim[3];
-  mesh_size.x2max = grid_dim[4];
-  mesh_size.x2rat = grid_dim[5];
+  mesh_size.x2min() = grid_dim[3];
+  mesh_size.x2max() = grid_dim[4];
+  mesh_size.x2rat() = grid_dim[5];
 
-  mesh_size.x3min = grid_dim[6];
-  mesh_size.x3max = grid_dim[7];
-  mesh_size.x3rat = grid_dim[8];
+  mesh_size.x3min() = grid_dim[6];
+  mesh_size.x3max() = grid_dim[7];
+  mesh_size.x3rat() = grid_dim[8];
 
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
@@ -624,15 +624,15 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   nrbx3 = mesh_size.nx3 / block_size.nx3;
 
   // initialize user-enrollable functions
-  if (mesh_size.x1rat != 1.0) {
+  if (mesh_size.x1rat() != 1.0) {
     use_uniform_meshgen_fn_[X1DIR] = false;
     MeshGenerator_[X1DIR] = DefaultMeshGeneratorX1;
   }
-  if (mesh_size.x2rat != 1.0) {
+  if (mesh_size.x2rat() != 1.0) {
     use_uniform_meshgen_fn_[X2DIR] = false;
     MeshGenerator_[X2DIR] = DefaultMeshGeneratorX2;
   }
-  if (mesh_size.x3rat != 1.0) {
+  if (mesh_size.x3rat() != 1.0) {
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
@@ -857,48 +857,48 @@ void Mesh::OutputMeshStructure(const int ndim,
             fp, "#  Logical level %d, location = (%" PRId64 " %" PRId64 " %" PRId64 ")\n",
             ll, lx1, lx2, lx3);
         if (ndim == 2) {
-          std::fprintf(fp, "%g %g\n", block_size.x1min, block_size.x2min);
-          std::fprintf(fp, "%g %g\n", block_size.x1max, block_size.x2min);
-          std::fprintf(fp, "%g %g\n", block_size.x1max, block_size.x2max);
-          std::fprintf(fp, "%g %g\n", block_size.x1min, block_size.x2max);
-          std::fprintf(fp, "%g %g\n", block_size.x1min, block_size.x2min);
+          std::fprintf(fp, "%g %g\n", block_size.x1min(), block_size.x2min());
+          std::fprintf(fp, "%g %g\n", block_size.x1max(), block_size.x2min());
+          std::fprintf(fp, "%g %g\n", block_size.x1max(), block_size.x2max());
+          std::fprintf(fp, "%g %g\n", block_size.x1min(), block_size.x2max());
+          std::fprintf(fp, "%g %g\n", block_size.x1min(), block_size.x2min());
           std::fprintf(fp, "\n\n");
         }
         if (ndim == 3) {
-          std::fprintf(fp, "%g %g %g\n", block_size.x1min, block_size.x2min,
-                       block_size.x3min);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1max, block_size.x2min,
-                       block_size.x3min);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1max, block_size.x2max,
-                       block_size.x3min);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1min, block_size.x2max,
-                       block_size.x3min);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1min, block_size.x2min,
-                       block_size.x3min);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1min, block_size.x2min,
-                       block_size.x3max);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1max, block_size.x2min,
-                       block_size.x3max);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1max, block_size.x2min,
-                       block_size.x3min);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1max, block_size.x2min,
-                       block_size.x3max);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1max, block_size.x2max,
-                       block_size.x3max);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1max, block_size.x2max,
-                       block_size.x3min);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1max, block_size.x2max,
-                       block_size.x3max);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1min, block_size.x2max,
-                       block_size.x3max);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1min, block_size.x2max,
-                       block_size.x3min);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1min, block_size.x2max,
-                       block_size.x3max);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1min, block_size.x2min,
-                       block_size.x3max);
-          std::fprintf(fp, "%g %g %g\n", block_size.x1min, block_size.x2min,
-                       block_size.x3min);
+          std::fprintf(fp, "%g %g %g\n", block_size.x1min(), block_size.x2min(),
+                       block_size.x3min());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1max(), block_size.x2min(),
+                       block_size.x3min());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1max(), block_size.x2max(),
+                       block_size.x3min());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1min(), block_size.x2max(),
+                       block_size.x3min());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1min(), block_size.x2min(),
+                       block_size.x3min());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1min(), block_size.x2min(),
+                       block_size.x3max());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1max(), block_size.x2min(),
+                       block_size.x3max());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1max(), block_size.x2min(),
+                       block_size.x3min());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1max(), block_size.x2min(),
+                       block_size.x3max());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1max(), block_size.x2max(),
+                       block_size.x3max());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1max(), block_size.x2max(),
+                       block_size.x3min());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1max(), block_size.x2max(),
+                       block_size.x3max());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1min(), block_size.x2max(),
+                       block_size.x3max());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1min(), block_size.x2max(),
+                       block_size.x3min());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1min(), block_size.x2max(),
+                       block_size.x3max());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1min(), block_size.x2min(),
+                       block_size.x3max());
+          std::fprintf(fp, "%g %g %g\n", block_size.x1min(), block_size.x2min(),
+                       block_size.x3min());
           std::fprintf(fp, "\n\n");
         }
       }
@@ -977,21 +977,21 @@ void Mesh::EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg) {
         << "dirName = " << dir << " not valid" << std::endl;
     PARTHENON_FAIL(msg);
   }
-  if (dir == X1DIR && mesh_size.x1rat > 0.0) {
+  if (dir == X1DIR && mesh_size.x1rat() > 0.0) {
     msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
-        << "x1rat = " << mesh_size.x1rat
+        << "x1rat = " << mesh_size.x1rat()
         << " must be negative for user-defined mesh generator in X1DIR " << std::endl;
     PARTHENON_FAIL(msg);
   }
-  if (dir == X2DIR && mesh_size.x2rat > 0.0) {
+  if (dir == X2DIR && mesh_size.x2rat() > 0.0) {
     msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
-        << "x2rat = " << mesh_size.x2rat
+        << "x2rat = " << mesh_size.x2rat()
         << " must be negative for user-defined mesh generator in X2DIR " << std::endl;
     PARTHENON_FAIL(msg);
   }
-  if (dir == X3DIR && mesh_size.x3rat > 0.0) {
+  if (dir == X3DIR && mesh_size.x3rat() > 0.0) {
     msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
-        << "x3rat = " << mesh_size.x3rat
+        << "x3rat = " << mesh_size.x3rat()
         << " must be negative for user-defined mesh generator in X3DIR " << std::endl;
     PARTHENON_FAIL(msg);
   }
@@ -1227,79 +1227,79 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 
   // calculate physical block size, x1
   if (lx1 == 0) {
-    block_size.x1min = mesh_size.x1min;
+    block_size.x1min() = mesh_size.x1min();
     block_bcs[BoundaryFace::inner_x1] = mesh_bcs[BoundaryFace::inner_x1];
   } else {
     Real rx = ComputeMeshGeneratorX(lx1, nrbx_ll, use_uniform_meshgen_fn_[X1DIR]);
-    block_size.x1min = MeshGenerator_[X1DIR](rx, mesh_size);
+    block_size.x1min() = MeshGenerator_[X1DIR](rx, mesh_size);
     block_bcs[BoundaryFace::inner_x1] = BoundaryFlag::block;
   }
   if (lx1 == nrbx_ll - 1) {
-    block_size.x1max = mesh_size.x1max;
+    block_size.x1max() = mesh_size.x1max();
     block_bcs[BoundaryFace::outer_x1] = mesh_bcs[BoundaryFace::outer_x1];
   } else {
     Real rx = ComputeMeshGeneratorX(lx1 + 1, nrbx_ll, use_uniform_meshgen_fn_[X1DIR]);
-    block_size.x1max = MeshGenerator_[X1DIR](rx, mesh_size);
+    block_size.x1max() = MeshGenerator_[X1DIR](rx, mesh_size);
     block_bcs[BoundaryFace::outer_x1] = BoundaryFlag::block;
   }
 
   // calculate physical block size, x2
   if (mesh_size.nx2 == 1) {
-    block_size.x2min = mesh_size.x2min;
-    block_size.x2max = mesh_size.x2max;
+    block_size.x2min() = mesh_size.x2min();
+    block_size.x2max() = mesh_size.x2max();
     block_bcs[BoundaryFace::inner_x2] = mesh_bcs[BoundaryFace::inner_x2];
     block_bcs[BoundaryFace::outer_x2] = mesh_bcs[BoundaryFace::outer_x2];
   } else {
     const std::int64_t &lx2 = loc.lx2();
     nrbx_ll = nrbx2 << (ll - root_level);
     if (lx2 == 0) {
-      block_size.x2min = mesh_size.x2min;
+      block_size.x2min() = mesh_size.x2min();
       block_bcs[BoundaryFace::inner_x2] = mesh_bcs[BoundaryFace::inner_x2];
     } else {
       Real rx = ComputeMeshGeneratorX(lx2, nrbx_ll, use_uniform_meshgen_fn_[X2DIR]);
-      block_size.x2min = MeshGenerator_[X2DIR](rx, mesh_size);
+      block_size.x2min() = MeshGenerator_[X2DIR](rx, mesh_size);
       block_bcs[BoundaryFace::inner_x2] = BoundaryFlag::block;
     }
     if (lx2 == (nrbx_ll)-1) {
-      block_size.x2max = mesh_size.x2max;
+      block_size.x2max() = mesh_size.x2max();
       block_bcs[BoundaryFace::outer_x2] = mesh_bcs[BoundaryFace::outer_x2];
     } else {
       Real rx = ComputeMeshGeneratorX(lx2 + 1, nrbx_ll, use_uniform_meshgen_fn_[X2DIR]);
-      block_size.x2max = MeshGenerator_[X2DIR](rx, mesh_size);
+      block_size.x2max() = MeshGenerator_[X2DIR](rx, mesh_size);
       block_bcs[BoundaryFace::outer_x2] = BoundaryFlag::block;
     }
   }
 
   // calculate physical block size, x3
   if (mesh_size.nx3 == 1) {
-    block_size.x3min = mesh_size.x3min;
-    block_size.x3max = mesh_size.x3max;
+    block_size.x3min() = mesh_size.x3min();
+    block_size.x3max() = mesh_size.x3max();
     block_bcs[BoundaryFace::inner_x3] = mesh_bcs[BoundaryFace::inner_x3];
     block_bcs[BoundaryFace::outer_x3] = mesh_bcs[BoundaryFace::outer_x3];
   } else {
     const std::int64_t &lx3 = loc.lx3();
     nrbx_ll = nrbx3 << (ll - root_level);
     if (lx3 == 0) {
-      block_size.x3min = mesh_size.x3min;
+      block_size.x3min() = mesh_size.x3min();
       block_bcs[BoundaryFace::inner_x3] = mesh_bcs[BoundaryFace::inner_x3];
     } else {
       Real rx = ComputeMeshGeneratorX(lx3, nrbx_ll, use_uniform_meshgen_fn_[X3DIR]);
-      block_size.x3min = MeshGenerator_[X3DIR](rx, mesh_size);
+      block_size.x3min() = MeshGenerator_[X3DIR](rx, mesh_size);
       block_bcs[BoundaryFace::inner_x3] = BoundaryFlag::block;
     }
     if (lx3 == (nrbx_ll)-1) {
-      block_size.x3max = mesh_size.x3max;
+      block_size.x3max() = mesh_size.x3max();
       block_bcs[BoundaryFace::outer_x3] = mesh_bcs[BoundaryFace::outer_x3];
     } else {
       Real rx = ComputeMeshGeneratorX(lx3 + 1, nrbx_ll, use_uniform_meshgen_fn_[X3DIR]);
-      block_size.x3max = MeshGenerator_[X3DIR](rx, mesh_size);
+      block_size.x3max() = MeshGenerator_[X3DIR](rx, mesh_size);
       block_bcs[BoundaryFace::outer_x3] = BoundaryFlag::block;
     }
   }
 
-  block_size.x1rat = mesh_size.x1rat;
-  block_size.x2rat = mesh_size.x2rat;
-  block_size.x3rat = mesh_size.x3rat;
+  block_size.x1rat() = mesh_size.x1rat();
+  block_size.x2rat() = mesh_size.x2rat();
+  block_size.x3rat() = mesh_size.x3rat();
 }
 
 std::int64_t Mesh::GetTotalCells() {

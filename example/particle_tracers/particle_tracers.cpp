@@ -345,12 +345,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
 
   const auto mesh_size = pmb->pmy_mesh->mesh_size;
-  const Real x_min_mesh = mesh_size.x1min;
-  const Real y_min_mesh = mesh_size.x2min;
-  const Real z_min_mesh = mesh_size.x3min;
-  const Real x_max_mesh = mesh_size.x1max;
-  const Real y_max_mesh = mesh_size.x2max;
-  const Real z_max_mesh = mesh_size.x3max;
+  const Real x_min_mesh = mesh_size.x1min();
+  const Real y_min_mesh = mesh_size.x2min();
+  const Real z_min_mesh = mesh_size.x3min();
+  const Real x_max_mesh = mesh_size.x1max();
+  const Real y_max_mesh = mesh_size.x2max();
+  const Real z_max_mesh = mesh_size.x3max();
 
   const Real kwave = 2. * M_PI / (x_max_mesh - x_min_mesh);
 
