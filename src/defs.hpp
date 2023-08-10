@@ -57,13 +57,26 @@ static_assert(NDIM >= 3,
 //! \struct RegionSize
 //  \brief physical size and number of cells in a Mesh or a MeshBlock
 
+//------------------
+// named, weakly typed / unscoped enums:
+//------------------
+
+// needed for arrays dimensioned over grid directions
+// enumerator type only used in Mesh::EnrollUserMeshGenerator()
+// X0DIR time-like direction
+// X1DIR x, r, etc...
+// X2DIR y, theta, etc...
+// X3DIR z, phi, etc...
+enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
+
 struct RegionSize { // aggregate and POD type; do NOT reorder member declarations:
   RegionSize() = default;
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat, std::array<int, 3> nx) :
-    xmin(xmin), xmax(xmax), xrat(xrat),
-    nx1(nx[0]), nx2(nx[1]), nx3(nx[2]) {}
+    xmin(xmin), xmax(xmax), xrat(xrat), nx(nx) {}
 
   std::array<Real, 3> xmin, xmax, xrat; // xrat is ratio of dxf(i)/dxf(i-1) 
+  std::array<int, 3> nx;
+
   Real &x1min() {return xmin[0];}
   Real &x2min() {return xmin[1];}
   Real &x3min() {return xmin[2];}
@@ -87,9 +100,14 @@ struct RegionSize { // aggregate and POD type; do NOT reorder member declaration
   const Real &x1rat() const {return xrat[0];}
   const Real &x2rat() const {return xrat[1];}
   const Real &x3rat() const {return xrat[2];}
-  
-  // the size of the root grid or a MeshBlock should not exceed std::int32_t limits
-  int nx1, nx2, nx3; // number of active cells (not including ghost zones)
+
+  int &nx1() {return nx[0];}  
+  int &nx2() {return nx[1];}  
+  int &nx3() {return nx[2];}  
+
+  const int &nx1() const {return nx[0];}  
+  const int &nx2() const {return nx[1];}  
+  const int &nx3() const {return nx[2];}  
 };
 
 //----------------------------------------------------------------------------------------
@@ -101,17 +119,7 @@ struct RegionSize { // aggregate and POD type; do NOT reorder member declaration
 // io_wrapper.hpp, bvals.hpp, field_diffusion.hpp,
 // task_list.hpp, ???
 
-//------------------
-// named, weakly typed / unscoped enums:
-//------------------
 
-// needed for arrays dimensioned over grid directions
-// enumerator type only used in Mesh::EnrollUserMeshGenerator()
-// X0DIR time-like direction
-// X1DIR x, r, etc...
-// X2DIR y, theta, etc...
-// X3DIR z, phi, etc...
-enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
 
 // identifiers for all 6 faces of a MeshBlock
 constexpr int BOUNDARY_NFACES = 6;

@@ -114,7 +114,7 @@ BoundaryBase::BoundaryBase(Mesh *pm, LogicalLocation iloc, RegionSize isize,
 
   if (pmy_mesh_->multilevel) { // SMR or AMR
     // allocate surface area array
-    int nc1 = block_size_.nx1 + 2 * Globals::nghost;
+    int nc1 = block_size_.nx1() + 2 * Globals::nghost;
     sarea_[0] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
     sarea_[1] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
   }
@@ -309,13 +309,13 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
   myfx2 = ((loc.lx2() & 1LL) == 1LL);
   myfx3 = ((loc.lx3() & 1LL) == 1LL);
   myox1 = ((loc.lx1() & 1LL) == 1LL) * 2 - 1;
-  if (block_size_.nx2 > 1) myox2 = ((loc.lx2() & 1LL) == 1LL) * 2 - 1;
-  if (block_size_.nx3 > 1) myox3 = ((loc.lx3() & 1LL) == 1LL) * 2 - 1;
+  if (block_size_.nx2() > 1) myox2 = ((loc.lx2() & 1LL) == 1LL) * 2 - 1;
+  if (block_size_.nx3() > 1) myox3 = ((loc.lx3() & 1LL) == 1LL) * 2 - 1;
 
   int nf1 = 1, nf2 = 1;
   if (pmy_mesh_->multilevel) {
-    if (block_size_.nx2 > 1) nf1 = 2;
-    if (block_size_.nx3 > 1) nf2 = 2;
+    if (block_size_.nx2() > 1) nf1 = 2;
+    if (block_size_.nx3() > 1) nf2 = 2;
   }
   int bufid = 0;
   nneighbor = 0;
@@ -367,7 +367,7 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
       nneighbor++;
     }
   }
-  if (block_size_.nx2 == 1) {
+  if (block_size_.nx2() == 1) {
     SetNeighborOwnership();
     Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
     return;
@@ -415,7 +415,7 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
   }
 
   // x3 face
-  if (block_size_.nx3 > 1) {
+  if (block_size_.nx3() > 1) {
     for (int n = -1; n <= 1; n += 2) {
       neibt = tree.FindNeighbor(loc, 0, 0, n);
       if (neibt == nullptr) {
@@ -502,7 +502,7 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
     }
   }
 
-  if (block_size_.nx3 == 1) {
+  if (block_size_.nx3() == 1) {
     SetNeighborOwnership();
     Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
     return;

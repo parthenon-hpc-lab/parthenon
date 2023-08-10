@@ -84,7 +84,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
-      ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
+      ndim((mesh_size.nx3() > 1) ? 3 : ((mesh_size.nx2() > 1) ? 2 : 1)),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true
                    : false),
@@ -117,27 +117,27 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // check number of grid cells in root level of mesh from input file.
-  if (mesh_size.nx1 < 1) {
+  if (mesh_size.nx1() < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "In mesh block in input file nx1 must be >= 1, but nx1=" << mesh_size.nx1
+        << "In mesh block in input file nx1 must be >= 1, but nx1=" << mesh_size.nx1()
         << std::endl;
     PARTHENON_FAIL(msg);
   }
-  if (mesh_size.nx2 < 1) {
+  if (mesh_size.nx2() < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "In mesh block in input file nx2 must be >= 1, but nx2=" << mesh_size.nx2
+        << "In mesh block in input file nx2 must be >= 1, but nx2=" << mesh_size.nx2()
         << std::endl;
     PARTHENON_FAIL(msg);
   }
-  if (mesh_size.nx3 < 1) {
+  if (mesh_size.nx3() < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "In mesh block in input file nx3 must be >= 1, but nx3=" << mesh_size.nx3
+        << "In mesh block in input file nx3 must be >= 1, but nx3=" << mesh_size.nx3()
         << std::endl;
     PARTHENON_FAIL(msg);
   }
-  if (mesh_size.nx2 == 1 && mesh_size.nx3 > 1) {
+  if (mesh_size.nx2() == 1 && mesh_size.nx3() > 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "In mesh block in input file: nx2=1, nx3=" << mesh_size.nx3
+        << "In mesh block in input file: nx2=1, nx3=" << mesh_size.nx3()
         << ", 2D problems in x1-x3 plane not supported" << std::endl;
     PARTHENON_FAIL(msg);
   }
@@ -190,12 +190,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         mesh_bcs[BoundaryFace::outer_x1] != BoundaryFlag::periodic) ||
        (mesh_bcs[BoundaryFace::inner_x1] != BoundaryFlag::periodic &&
         mesh_bcs[BoundaryFace::outer_x1] == BoundaryFlag::periodic)) ||
-      (mesh_size.nx2 > 1 &&
+      (mesh_size.nx2() > 1 &&
        ((mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic &&
          mesh_bcs[BoundaryFace::outer_x2] != BoundaryFlag::periodic) ||
         (mesh_bcs[BoundaryFace::inner_x2] != BoundaryFlag::periodic &&
          mesh_bcs[BoundaryFace::outer_x2] == BoundaryFlag::periodic))) ||
-      (mesh_size.nx3 > 1 &&
+      (mesh_size.nx3() > 1 &&
        ((mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic &&
          mesh_bcs[BoundaryFace::outer_x3] != BoundaryFlag::periodic) ||
         (mesh_bcs[BoundaryFace::inner_x3] != BoundaryFlag::periodic &&
@@ -212,34 +212,34 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   block_size.x1rat() = mesh_size.x1rat();
   block_size.x2rat() = mesh_size.x2rat();
   block_size.x3rat() = mesh_size.x3rat();
-  block_size.nx1 = pin->GetOrAddInteger("parthenon/meshblock", "nx1", mesh_size.nx1);
+  block_size.nx1() = pin->GetOrAddInteger("parthenon/meshblock", "nx1", mesh_size.nx1());
   if (ndim >= 2)
-    block_size.nx2 = pin->GetOrAddInteger("parthenon/meshblock", "nx2", mesh_size.nx2);
+    block_size.nx2() = pin->GetOrAddInteger("parthenon/meshblock", "nx2", mesh_size.nx2());
   else
-    block_size.nx2 = mesh_size.nx2;
+    block_size.nx2() = mesh_size.nx2();
   if (ndim >= 3)
-    block_size.nx3 = pin->GetOrAddInteger("parthenon/meshblock", "nx3", mesh_size.nx3);
+    block_size.nx3() = pin->GetOrAddInteger("parthenon/meshblock", "nx3", mesh_size.nx3());
   else
-    block_size.nx3 = mesh_size.nx3;
+    block_size.nx3() = mesh_size.nx3();
 
   // check consistency of the block and mesh
-  if (mesh_size.nx1 % block_size.nx1 != 0 || mesh_size.nx2 % block_size.nx2 != 0 ||
-      mesh_size.nx3 % block_size.nx3 != 0) {
+  if (mesh_size.nx1() % block_size.nx1() != 0 || mesh_size.nx2() % block_size.nx2() != 0 ||
+      mesh_size.nx3() % block_size.nx3() != 0) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "the Mesh must be evenly divisible by the MeshBlock" << std::endl;
     PARTHENON_FAIL(msg);
   }
-  if (block_size.nx1 < 4 || (block_size.nx2 < 4 && (ndim >= 2)) ||
-      (block_size.nx3 < 4 && (ndim >= 3))) {
+  if (block_size.nx1() < 4 || (block_size.nx2() < 4 && (ndim >= 2)) ||
+      (block_size.nx3() < 4 && (ndim >= 3))) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "block_size must be larger than or equal to 4 cells." << std::endl;
     PARTHENON_FAIL(msg);
   }
 
   // calculate the number of the blocks
-  nrbx1 = mesh_size.nx1 / block_size.nx1;
-  nrbx2 = mesh_size.nx2 / block_size.nx2;
-  nrbx3 = mesh_size.nx3 / block_size.nx3;
+  nrbx1 = mesh_size.nx1() / block_size.nx1();
+  nrbx2 = mesh_size.nx2() / block_size.nx2();
+  nrbx3 = mesh_size.nx3() / block_size.nx3();
   nbmax = (nrbx1 > nrbx2) ? nrbx1 : nrbx2;
   nbmax = (nbmax > nrbx3) ? nbmax : nrbx3;
 
@@ -284,8 +284,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   InitUserMeshData(this, pin);
 
   if (multilevel) {
-    if (block_size.nx1 % 2 == 1 || (block_size.nx2 % 2 == 1 && (ndim >= 2)) ||
-        (block_size.nx3 % 2 == 1 && (ndim >= 3))) {
+    if (block_size.nx1() % 2 == 1 || (block_size.nx2() % 2 == 1 && (ndim >= 2)) ||
+        (block_size.nx3() % 2 == 1 && (ndim >= 3))) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The size of MeshBlock must be divisible by 2 in order to use SMR or AMR."
           << std::endl;
@@ -529,7 +529,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
-      ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
+      ndim((mesh_size.nx3() > 1) ? 3 : ((mesh_size.nx2() > 1) ? 2 : 1)),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true
                    : false),
@@ -614,14 +614,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   const auto blockSize = rr.GetAttrVec<int>("Info", "MeshBlockSize");
   const auto includesGhost = rr.GetAttr<int>("Info", "IncludesGhost");
   const auto nGhost = rr.GetAttr<int>("Info", "NGhost");
-  block_size.nx1 = blockSize[0] - (blockSize[0] > 1) * includesGhost * 2 * nGhost;
-  block_size.nx2 = blockSize[1] - (blockSize[1] > 1) * includesGhost * 2 * nGhost;
-  block_size.nx3 = blockSize[2] - (blockSize[2] > 1) * includesGhost * 2 * nGhost;
+  block_size.nx1() = blockSize[0] - (blockSize[0] > 1) * includesGhost * 2 * nGhost;
+  block_size.nx2() = blockSize[1] - (blockSize[1] > 1) * includesGhost * 2 * nGhost;
+  block_size.nx3() = blockSize[2] - (blockSize[2] > 1) * includesGhost * 2 * nGhost;
 
   // calculate the number of the blocks
-  nrbx1 = mesh_size.nx1 / block_size.nx1;
-  nrbx2 = mesh_size.nx2 / block_size.nx2;
-  nrbx3 = mesh_size.nx3 / block_size.nx3;
+  nrbx1 = mesh_size.nx1() / block_size.nx1();
+  nrbx2 = mesh_size.nx2() / block_size.nx2();
+  nrbx3 = mesh_size.nx3() / block_size.nx3();
 
   // initialize user-enrollable functions
   if (mesh_size.x1rat() != 1.0) {
@@ -1244,7 +1244,7 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
   }
 
   // calculate physical block size, x2
-  if (mesh_size.nx2 == 1) {
+  if (mesh_size.nx2() == 1) {
     block_size.x2min() = mesh_size.x2min();
     block_size.x2max() = mesh_size.x2max();
     block_bcs[BoundaryFace::inner_x2] = mesh_bcs[BoundaryFace::inner_x2];
@@ -1271,7 +1271,7 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
   }
 
   // calculate physical block size, x3
-  if (mesh_size.nx3 == 1) {
+  if (mesh_size.nx3() == 1) {
     block_size.x3min() = mesh_size.x3min();
     block_size.x3max() = mesh_size.x3max();
     block_bcs[BoundaryFace::inner_x3] = mesh_bcs[BoundaryFace::inner_x3];
@@ -1304,8 +1304,8 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 
 std::int64_t Mesh::GetTotalCells() {
   auto &pmb = block_list.front();
-  return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx1 * pmb->block_size.nx2 *
-         pmb->block_size.nx3;
+  return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx1() * pmb->block_size.nx2() *
+         pmb->block_size.nx3();
 }
 // TODO(JMM): Move block_size into mesh.
 int Mesh::GetNumberOfMeshBlockCells() const {

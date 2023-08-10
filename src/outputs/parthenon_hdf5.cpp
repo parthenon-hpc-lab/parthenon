@@ -178,7 +178,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // Root grid size (number of cells at root level)
     HDF5WriteAttribute(
         "RootGridSize",
-        std::vector<int>{pm->mesh_size.nx1, pm->mesh_size.nx2, pm->mesh_size.nx3},
+        std::vector<int>{pm->mesh_size.nx1(), pm->mesh_size.nx2(), pm->mesh_size.nx3()},
         info_group);
 
     // Boundary conditions

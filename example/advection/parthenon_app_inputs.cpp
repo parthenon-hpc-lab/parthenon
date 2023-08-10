@@ -237,8 +237,8 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
     }
 
     // write errors
-    std::fprintf(pfile, "%d  %d", mesh_size.nx1, mesh_size.nx2);
-    std::fprintf(pfile, "  %d  %d", mesh_size.nx3, tm.ncycle);
+    std::fprintf(pfile, "%d  %d", mesh_size.nx1(), mesh_size.nx2());
+    std::fprintf(pfile, "  %d  %d", mesh_size.nx3(), tm.ncycle);
     std::fprintf(pfile, "  %e ", l1_err);
     std::fprintf(pfile, "  %e  %e  ", max_max_over_l1, max_err);
     std::fprintf(pfile, "\n");
