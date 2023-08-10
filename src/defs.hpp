@@ -58,6 +58,12 @@ static_assert(NDIM >= 3,
 //  \brief physical size and number of cells in a Mesh or a MeshBlock
 
 struct RegionSize { // aggregate and POD type; do NOT reorder member declarations:
+  RegionSize() = default;
+  RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat, std::array<int, 3> nx) :
+    x1min(xmin[0]), x2min(xmin[1]), x3min(xmin[2]), 
+    x1max(xmax[0]), x2max(xmax[1]), x3max(xmax[2]), 
+    x1rat(xrat[0]), x2rat(xrat[1]), x3rat(xrat[2]), 
+    nx1(nx[0]), nx2(nx[1]), nx3(nx[2]) {}
   Real x1min, x2min, x3min;
   Real x1max, x2max, x3max;
   Real x1rat, x2rat, x3rat; // ratio of dxf(i)/dxf(i-1)
