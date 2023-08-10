@@ -77,7 +77,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                 {pin->GetInteger("parthenon/mesh", "nx1"),
                 pin->GetInteger("parthenon/mesh", "nx2"),
                 pin->GetInteger("parthenon/mesh", "nx3")},
-                {pin->GetInteger("parthenon/mesh", "nx1") == 1,
+                {false,
                 pin->GetInteger("parthenon/mesh", "nx2") == 1,
                 pin->GetInteger("parthenon/mesh", "nx3") == 1}),
       mesh_bcs{
@@ -118,50 +118,28 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         << std::endl;
     PARTHENON_FAIL(msg);
   }
+  
+  for (auto &[dir, label] : std::vector<std::pair<CoordinateDirection, std::string>>{{X1DIR, "1"}, {X2DIR, "2"}, {X3DIR, "3"}}) {
+    // check number of grid cells in root level of mesh from input file.
+    if (mesh_size.nx(dir) < 1) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+          << "In mesh block in input file nx" + label + " must be >= 1, but nx" + label + "=" << mesh_size.nx(dir)
+          << std::endl;
+      PARTHENON_FAIL(msg);
+    }    
+    // check physical size of mesh (root level) from input file.
+    if (mesh_size.xmax(dir) <= mesh_size.xmin(dir)) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+          << "Input x" + label + "max must be larger than x" + label + "min: x" + label + "min=" << mesh_size.xmin(dir)
+          << " x" + label + "max=" << mesh_size.xmax(dir) << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+  }
 
-  // check number of grid cells in root level of mesh from input file.
-  if (mesh_size.nx(X1DIR) < 1) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "In mesh block in input file nx1 must be >= 1, but nx1=" << mesh_size.nx(X1DIR)
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  if (mesh_size.nx(X2DIR) < 1) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "In mesh block in input file nx2 must be >= 1, but nx2=" << mesh_size.nx(X2DIR)
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  if (mesh_size.nx(X3DIR) < 1) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "In mesh block in input file nx3 must be >= 1, but nx3=" << mesh_size.nx(X3DIR)
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
   if (mesh_size.nx(X2DIR) == 1 && mesh_size.nx(X3DIR) > 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "In mesh block in input file: nx2=1, nx3=" << mesh_size.nx(X3DIR)
         << ", 2D problems in x1-x3 plane not supported" << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
-  // check physical size of mesh (root level) from input file.
-  if (mesh_size.xmax(X1DIR) <= mesh_size.xmin(X1DIR)) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Input x1max must be larger than x1min: x1min=" << mesh_size.xmin(X1DIR)
-        << " x1max=" << mesh_size.xmax(X1DIR) << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  if (mesh_size.xmax(X2DIR) <= mesh_size.xmin(X2DIR)) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Input x2max must be larger than x2min: x2min=" << mesh_size.xmin(X2DIR)
-        << " x2max=" << mesh_size.xmax(X2DIR) << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  if (mesh_size.xmax(X3DIR) <= mesh_size.xmin(X3DIR)) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Input x3max must be larger than x3min: x3min=" << mesh_size.xmin(X3DIR)
-        << " x3max=" << mesh_size.xmax(X3DIR) << std::endl;
     PARTHENON_FAIL(msg);
   }
 
@@ -210,21 +188,18 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   EnrollBndryFncts_(app_in);
-
-  // read and set MeshBlock parameters
-  block_size.xrat(X1DIR) = mesh_size.xrat(X1DIR);
-  block_size.xrat(X2DIR) = mesh_size.xrat(X2DIR);
-  block_size.xrat(X3DIR) = mesh_size.xrat(X3DIR);
-  block_size.nx(X1DIR) = pin->GetOrAddInteger("parthenon/meshblock", "nx1", mesh_size.nx(X1DIR));
-  if (ndim >= 2)
-    block_size.nx(X2DIR) = pin->GetOrAddInteger("parthenon/meshblock", "nx2", mesh_size.nx(X2DIR));
-  else
-    block_size.nx(X2DIR) = mesh_size.nx(X2DIR);
-  if (ndim >= 3)
-    block_size.nx(X3DIR) = pin->GetOrAddInteger("parthenon/meshblock", "nx3", mesh_size.nx(X3DIR));
-  else
-    block_size.nx(X3DIR) = mesh_size.nx(X3DIR);
-
+  for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{{X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
+    block_size.xrat(dir) = mesh_size.xrat(dir);
+    block_size.symmetry(dir) = mesh_size.symmetry(dir);
+    if (!block_size.symmetry(dir)) { 
+      block_size.nx(dir) = pin->GetOrAddInteger("parthenon/meshblock", label, mesh_size.nx(dir));
+    } else { 
+      block_size.nx(dir) = mesh_size.nx(dir);
+    }
+    nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir); 
+  } 
+  nbmax = *std::max_element(std::begin(nrbx), std::end(nrbx));
+  
   // check consistency of the block and mesh
   if (mesh_size.nx(X1DIR) % block_size.nx(X1DIR) != 0 || mesh_size.nx(X2DIR) % block_size.nx(X2DIR) != 0 ||
       mesh_size.nx(X3DIR) % block_size.nx(X3DIR) != 0) {
@@ -238,13 +213,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         << "block_size must be larger than or equal to 4 cells." << std::endl;
     PARTHENON_FAIL(msg);
   }
-
-  // calculate the number of the blocks
-  nrbx1 = mesh_size.nx(X1DIR) / block_size.nx(X1DIR);
-  nrbx2 = mesh_size.nx(X2DIR) / block_size.nx(X2DIR);
-  nrbx3 = mesh_size.nx(X3DIR) / block_size.nx(X3DIR);
-  nbmax = (nrbx1 > nrbx2) ? nrbx1 : nrbx2;
-  nbmax = (nbmax > nrbx3) ? nbmax : nrbx3;
 
   // initialize user-enrollable functions
   if (mesh_size.xrat(X1DIR) != 1.0) {
@@ -349,7 +317,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         // note: if this is too slow, this should be replaced with bi-section search.
         std::int64_t lx1min = 0, lx1max = 0, lx2min = 0, lx2max = 0, lx3min = 0,
                      lx3max = 0;
-        std::int64_t lxmax = nrbx1 * (1LL << ref_lev);
+        std::int64_t lxmax = nrbx[X1DIR - 1] * (1LL << ref_lev);
         for (lx1min = 0; lx1min < lxmax; lx1min++) {
           Real rx =
               ComputeMeshGeneratorX(lx1min + 1, lxmax, use_uniform_meshgen_fn_[X1DIR]);
@@ -363,7 +331,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         if (lx1min % 2 == 1) lx1min--;
         if (lx1max % 2 == 0) lx1max++;
         if (ndim >= 2) { // 2D or 3D
-          lxmax = nrbx2 * (1LL << ref_lev);
+          lxmax = nrbx[X2DIR - 1] * (1LL << ref_lev);
           for (lx2min = 0; lx2min < lxmax; lx2min++) {
             Real rx =
                 ComputeMeshGeneratorX(lx2min + 1, lxmax, use_uniform_meshgen_fn_[X2DIR]);
@@ -378,7 +346,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           if (lx2max % 2 == 0) lx2max++;
         }
         if (ndim == 3) { // 3D
-          lxmax = nrbx3 * (1LL << ref_lev);
+          lxmax = nrbx[X3DIR - 1] * (1LL << ref_lev);
           for (lx3min = 0; lx3min < lxmax; lx3min++) {
             Real rx =
                 ComputeMeshGeneratorX(lx3min + 1, lxmax, use_uniform_meshgen_fn_[X3DIR]);
@@ -525,7 +493,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                 {pin->GetInteger("parthenon/mesh", "nx1"),
                 pin->GetInteger("parthenon/mesh", "nx2"),
                 pin->GetInteger("parthenon/mesh", "nx3")},
-                {pin->GetInteger("parthenon/mesh", "nx1") == 1,
+                {false,
                 pin->GetInteger("parthenon/mesh", "nx2") == 1,
                 pin->GetInteger("parthenon/mesh", "nx3") == 1}),
       mesh_bcs{
@@ -620,14 +588,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   const auto blockSize = rr.GetAttrVec<int>("Info", "MeshBlockSize");
   const auto includesGhost = rr.GetAttr<int>("Info", "IncludesGhost");
   const auto nGhost = rr.GetAttr<int>("Info", "NGhost");
-  block_size.nx(X1DIR) = blockSize[0] - (blockSize[0] > 1) * includesGhost * 2 * nGhost;
-  block_size.nx(X2DIR) = blockSize[1] - (blockSize[1] > 1) * includesGhost * 2 * nGhost;
-  block_size.nx(X3DIR) = blockSize[2] - (blockSize[2] > 1) * includesGhost * 2 * nGhost;
 
-  // calculate the number of the blocks
-  nrbx1 = mesh_size.nx(X1DIR) / block_size.nx(X1DIR);
-  nrbx2 = mesh_size.nx(X2DIR) / block_size.nx(X2DIR);
-  nrbx3 = mesh_size.nx(X3DIR) / block_size.nx(X3DIR);
+  for (auto &dir : {X1DIR, X2DIR, X3DIR}) { 
+    block_size.nx(dir) = blockSize[dir - 1] - (blockSize[dir - 1] > 1) * includesGhost * 2 * nGhost;
+    // calculate the number of the blocks
+    nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
+  }
 
   // initialize user-enrollable functions
   if (mesh_size.xrat(X1DIR) != 1.0) {
@@ -793,7 +759,7 @@ void Mesh::OutputMeshStructure(const int ndim,
 
   // Write overall Mesh structure to stdout and file
   std::cout << std::endl;
-  std::cout << "Root grid = " << nrbx1 << " x " << nrbx2 << " x " << nrbx3
+  std::cout << "Root grid = " << nrbx[0] << " x " << nrbx[1] << " x " << nrbx[2]
             << " MeshBlocks" << std::endl;
   std::cout << "Total number of MeshBlocks = " << nbtotal << std::endl;
   std::cout << "Number of physical refinement levels = " << (current_level - root_level)
@@ -1230,7 +1196,6 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
   
   const int &ll = loc.level();
   const std::array<std::int64_t, 4> lx{-1, loc.lx1(), loc.lx2(), loc.lx3()};
-  const std::array<int, 4> nrbx{-1, nrbx1, nrbx2, nrbx3}; 
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     block_size.xrat(dir) = mesh_size.xrat(dir);
     block_size.symmetry(dir) = mesh_size.symmetry(dir);
@@ -1240,7 +1205,7 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
       block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
       block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
     } else {
-      std::int64_t nrbx_ll = nrbx[dir] << (ll - root_level);
+      std::int64_t nrbx_ll = nrbx[dir - 1] << (ll - root_level);
       if (lx[dir] == 0) {
         block_size.xmin(dir) = mesh_size.xmin(dir);
         block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];

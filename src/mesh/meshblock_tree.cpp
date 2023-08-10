@@ -90,9 +90,9 @@ void MeshBlockTree::CreateRootGrid() {
   std::int64_t levfac = 1LL << (pmesh_->root_level - loc_.level() - 1);
   for (int n = 0; n < nleaf_; n++) {
     int i = n & 1, j = (n >> 1) & 1, k = (n >> 2) & 1;
-    if ((loc_.lx3() * 2 + k) * levfac < pmesh_->nrbx3 &&
-        (loc_.lx2() * 2 + j) * levfac < pmesh_->nrbx2 &&
-        (loc_.lx1() * 2 + i) * levfac < pmesh_->nrbx1) {
+    if ((loc_.lx3() * 2 + k) * levfac < pmesh_->nrbx[X3DIR - 1] &&
+        (loc_.lx2() * 2 + j) * levfac < pmesh_->nrbx[X2DIR - 1] &&
+        (loc_.lx1() * 2 + i) * levfac < pmesh_->nrbx[X1DIR - 1]) {
       pleaf_[n] = new MeshBlockTree(this, i, j, k);
       pleaf_[n]->CreateRootGrid();
     }
@@ -168,13 +168,13 @@ void MeshBlockTree::Refine(int &nnew) {
   std::int64_t nxmax, nymax, nzmax;
   std::int64_t ox, oy, oz, oxmin, oxmax, oymin, oymax, ozmin, ozmax;
 
-  oxmin = -1, oxmax = 1, nxmax = (pmesh_->nrbx1 << (loc_.level() - pmesh_->root_level));
+  oxmin = -1, oxmax = 1, nxmax = (pmesh_->nrbx[X1DIR - 1] << (loc_.level() - pmesh_->root_level));
   if (pmesh_->ndim >= 2)
-    oymin = -1, oymax = 1, nymax = (pmesh_->nrbx2 << (loc_.level() - pmesh_->root_level));
+    oymin = -1, oymax = 1, nymax = (pmesh_->nrbx[X2DIR - 1] << (loc_.level() - pmesh_->root_level));
   else
     oymin = 0, oymax = 0, nymax = 1;
   if (pmesh_->ndim >= 3) // 3D
-    ozmin = -1, ozmax = 1, nzmax = (pmesh_->nrbx3 << (loc_.level() - pmesh_->root_level));
+    ozmin = -1, ozmax = 1, nzmax = (pmesh_->nrbx[X3DIR - 1] << (loc_.level() - pmesh_->root_level));
   else
     ozmin = 0, ozmax = 0, nzmax = 1;
 
@@ -361,11 +361,11 @@ MeshBlockTree *MeshBlockTree::FindNeighbor(LogicalLocation myloc, int ox1, int o
   // periodic and polar boundaries
   if (lx < 0) {
     if (pmesh_->mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic)
-      lx = (pmesh_->nrbx1 << (ll - pmesh_->root_level)) - 1;
+      lx = (pmesh_->nrbx[X1DIR - 1] << (ll - pmesh_->root_level)) - 1;
     else
       return nullptr;
   }
-  if (lx >= pmesh_->nrbx1 << (ll - pmesh_->root_level)) {
+  if (lx >= pmesh_->nrbx[X1DIR - 1] << (ll - pmesh_->root_level)) {
     if (pmesh_->mesh_bcs[BoundaryFace::outer_x1] == BoundaryFlag::periodic)
       lx = 0;
     else
@@ -373,19 +373,19 @@ MeshBlockTree *MeshBlockTree::FindNeighbor(LogicalLocation myloc, int ox1, int o
   }
   if (ly < 0) {
     if (pmesh_->mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic) {
-      ly = (pmesh_->nrbx2 << (ll - pmesh_->root_level)) - 1;
+      ly = (pmesh_->nrbx[X2DIR - 1] << (ll - pmesh_->root_level)) - 1;
     } else {
       return nullptr;
     }
   }
-  if (ly >= pmesh_->nrbx2 << (ll - pmesh_->root_level)) {
+  if (ly >= pmesh_->nrbx[X2DIR - 1] << (ll - pmesh_->root_level)) {
     if (pmesh_->mesh_bcs[BoundaryFace::outer_x2] == BoundaryFlag::periodic) {
       ly = 0;
     } else {
       return nullptr;
     }
   }
-  std::int64_t num_x3 = pmesh_->nrbx3 << (ll - pmesh_->root_level);
+  std::int64_t num_x3 = pmesh_->nrbx[X3DIR - 1] << (ll - pmesh_->root_level);
   if (lz < 0) {
     if (pmesh_->mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic)
       lz = num_x3 - 1;

@@ -166,7 +166,7 @@ class Mesh {
 
   int GetRootLevel() const noexcept { return root_level; }
   RootGridInfo GetRootGridInfo() const noexcept {
-    return RootGridInfo(root_level, nrbx1, nrbx2, nrbx3,
+    return RootGridInfo(root_level, nrbx[0], nrbx[1], nrbx[2],
                         mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
                         mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic,
                         mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic);
@@ -235,9 +235,7 @@ class Mesh {
   MeshBlockTree tree;
   // number of MeshBlocks in the x1, x2, x3 directions of the root grid:
   // (unlike LogicalLocation.lxi, nrbxi don't grow w/ AMR # of levels, so keep 32-bit int)
-  int nrbx1, nrbx2, nrbx3;
-  // TODO(felker) find unnecessary static_cast<> ops. from old std::int64_t type in 2018:
-  // std::int64_t nrbx1, nrbx2, nrbx3;
+  std::array<int, 3> nrbx;
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
