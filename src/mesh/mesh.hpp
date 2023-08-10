@@ -180,7 +180,8 @@ class Mesh {
 
   int GetRootLevel() const noexcept { return root_level; }
   RootGridInfo GetRootGridInfo() const noexcept {
-    return RootGridInfo(root_level, nrbx[0], nrbx[1], nrbx[2], 
+    return RootGridInfo(
+        root_level, nrbx[0], nrbx[1], nrbx[2],
         mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic && ndim > 0,
         mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic && ndim > 1,
         mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic && ndim > 2);

@@ -138,8 +138,9 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
         if (loc.level() < root_level) {
           // The results of SetBlockSize and Boundaries are wrong
           int root_fac = 1 << (root_level - loc.level());
-          for (auto &dir : {X1DIR, X2DIR, X3DIR}) { 
-            Real deltax = (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / nrbx[dir - 1] * root_fac;
+          for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
+            Real deltax =
+                (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / nrbx[dir - 1] * root_fac;
             block_size.xmin(dir) = mesh_size.xmin(dir) + deltax * loc.l(dir - 1);
             block_size.xmax(dir) = block_size.xmin(dir) + deltax;
           }
