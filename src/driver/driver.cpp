@@ -38,10 +38,6 @@ Kokkos::Timer Driver::timer_cycle;
 Kokkos::Timer Driver::timer_LBandAMR;
 
 void Driver::PreExecute() {
-  if (Globals::my_rank == 0) {
-    std::cout << std::endl << "Setup complete, executing driver...\n" << std::endl;
-  }
-
   timer_main.reset();
 }
 
