@@ -37,9 +37,7 @@ Kokkos::Timer Driver::timer_main;
 Kokkos::Timer Driver::timer_cycle;
 Kokkos::Timer Driver::timer_LBandAMR;
 
-void Driver::PreExecute() {
-  timer_main.reset();
-}
+void Driver::PreExecute() { timer_main.reset(); }
 
 void Driver::PostExecute(DriverStatus status) {
   if (Globals::my_rank == 0) {
