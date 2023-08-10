@@ -309,13 +309,13 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
   myfx2 = ((loc.lx2() & 1LL) == 1LL);
   myfx3 = ((loc.lx3() & 1LL) == 1LL);
   myox1 = ((loc.lx1() & 1LL) == 1LL) * 2 - 1;
-  if (block_size_.nx(X2DIR) > 1) myox2 = ((loc.lx2() & 1LL) == 1LL) * 2 - 1;
-  if (block_size_.nx(X3DIR) > 1) myox3 = ((loc.lx3() & 1LL) == 1LL) * 2 - 1;
+  if (!block_size_.symmetry(X2DIR)) myox2 = ((loc.lx2() & 1LL) == 1LL) * 2 - 1;
+  if (!block_size_.symmetry(X3DIR)) myox3 = ((loc.lx3() & 1LL) == 1LL) * 2 - 1;
 
   int nf1 = 1, nf2 = 1;
   if (pmy_mesh_->multilevel) {
-    if (block_size_.nx(X2DIR) > 1) nf1 = 2;
-    if (block_size_.nx(X3DIR) > 1) nf2 = 2;
+    if (!block_size_.symmetry(X2DIR)) nf1 = 2;
+    if (!block_size_.symmetry(X3DIR)) nf2 = 2;
   }
   int bufid = 0;
   nneighbor = 0;
@@ -415,7 +415,7 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
   }
 
   // x3 face
-  if (block_size_.nx(X3DIR) > 1) {
+  if (!block_size_.symmetry(X3DIR)) {
     for (int n = -1; n <= 1; n += 2) {
       neibt = tree.FindNeighbor(loc, 0, 0, n);
       if (neibt == nullptr) {

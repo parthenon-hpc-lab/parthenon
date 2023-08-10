@@ -482,8 +482,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   Kokkos::Profiling::pushRegion("UpdateMeshBlockTree");
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
-  if (mesh_size.nx(X2DIR) > 1) nleaf = 4;
-  if (mesh_size.nx(X3DIR) > 1) nleaf = 8;
+  if (!mesh_size.symmetry(X2DIR)) nleaf = 4;
+  if (!mesh_size.symmetry(X3DIR)) nleaf = 8;
 
   // collect refinement flags from all the meshblocks
   // count the number of the blocks to be (de)refined
@@ -558,8 +558,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   int ctnd = 0;
   if (tnderef >= nleaf) {
     int lk = 0, lj = 0;
-    if (mesh_size.nx(X2DIR) > 1) lj = 1;
-    if (mesh_size.nx(X3DIR) > 1) lk = 1;
+    if (!mesh_size.symmetry(X2DIR)) lj = 1;
+    if (!mesh_size.symmetry(X3DIR)) lk = 1;
     for (int n = 0; n < tnderef; n++) {
       if ((lderef[n].lx1() & 1LL) == 0LL && (lderef[n].lx2() & 1LL) == 0LL &&
           (lderef[n].lx3() & 1LL) == 0LL) {
@@ -658,8 +658,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
-  if (mesh_size.nx(X2DIR) > 1) nleaf = 4;
-  if (mesh_size.nx(X3DIR) > 1) nleaf = 8;
+  if (!mesh_size.symmetry(X2DIR)) nleaf = 4;
+  if (!mesh_size.symmetry(X3DIR)) nleaf = 8;
 
   // construct new lists
   Kokkos::Profiling::pushRegion("Construct new list");

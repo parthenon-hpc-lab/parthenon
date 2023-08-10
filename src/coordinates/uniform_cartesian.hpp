@@ -28,19 +28,25 @@ class UniformCartesian {
  public:
   UniformCartesian() = default;
   UniformCartesian(const RegionSize &rs, ParameterInput *pin) {
+    for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
+      dx_[dir - 1] = (rs.xmax(dir) - rs.xmin(dir)) / rs.nx(dir);
+      istart_[dir - 1] = (!rs.symmetry(dir) ? Globals::nghost : 0);
+
+    }
     dx_[0] = (rs.xmax(X1DIR) - rs.xmin(X1DIR)) / rs.nx(X1DIR);
     dx_[1] = (rs.xmax(X2DIR) - rs.xmin(X2DIR)) / rs.nx(X2DIR);
     dx_[2] = (rs.xmax(X3DIR) - rs.xmin(X3DIR)) / rs.nx(X3DIR);
+    istart_[0] = Globals::nghost;
+    istart_[1] = (!rs.symmetry(X2DIR) ? Globals::nghost : 0);
+    istart_[2] = (!rs.symmetry(X3DIR) ? Globals::nghost : 0);
+    xmin_[0] = rs.xmin(X1DIR) - istart_[0] * dx_[0];
+    xmin_[1] = rs.xmin(X2DIR) - istart_[1] * dx_[1];
+    xmin_[2] = rs.xmin(X3DIR) - istart_[2] * dx_[2];
+    
     area_[0] = dx_[1] * dx_[2];
     area_[1] = dx_[0] * dx_[2];
     area_[2] = dx_[0] * dx_[1];
     cell_volume_ = dx_[0] * dx_[1] * dx_[2];
-    istart_[0] = Globals::nghost;
-    istart_[1] = (rs.nx(X2DIR) > 1 ? Globals::nghost : 0);
-    istart_[2] = (rs.nx(X3DIR) > 1 ? Globals::nghost : 0);
-    xmin_[0] = rs.xmin(X1DIR) - istart_[0] * dx_[0];
-    xmin_[1] = rs.xmin(X2DIR) - istart_[1] * dx_[1];
-    xmin_[2] = rs.xmin(X3DIR) - istart_[2] * dx_[2];
   }
   UniformCartesian(const UniformCartesian &src, int coarsen)
       : istart_(src.GetStartIndex()) {

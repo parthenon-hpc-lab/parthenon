@@ -309,80 +309,30 @@ inline Real ComputeMeshGeneratorX(std::int64_t index, std::int64_t nrange,
 }
 
 //----------------------------------------------------------------------------------------
-// \!fn Real DefaultMeshGeneratorX1(Real x, RegionSize rs)
-// \brief x1 mesh generator function, x is the logical location; x=i/nx1, real in [0., 1.]
-
-inline Real DefaultMeshGeneratorX1(Real x, RegionSize rs) {
+// \!fn Real DefaultMeshGenerator(Real x, RegionSize rs)
+// \brief generic default mesh generator function, x is the logical location; x=i/nx, real in [0., 1.]
+template <CoordinateDirection dir>
+inline Real DefaultMeshGenerator(Real x, RegionSize rs) {
   Real lw, rw;
-  if (rs.xrat(X1DIR) == 1.0) {
+  if (rs.xrat(dir) == 1.0) {
     rw = x, lw = 1.0 - x;
   } else {
-    Real ratn = std::pow(rs.xrat(X1DIR), rs.nx(X1DIR));
-    Real rnx = std::pow(rs.xrat(X1DIR), x * rs.nx(X1DIR));
+    Real ratn = std::pow(rs.xrat(dir), rs.nx(dir));
+    Real rnx = std::pow(rs.xrat(dir), x * rs.nx(dir));
     lw = (rnx - ratn) / (1.0 - ratn);
     rw = 1.0 - lw;
   }
   // linear interp, equally weighted from left (x(xmin)=0.0) and right (x(xmax)=1.0)
-  return rs.xmin(X1DIR) * lw + rs.xmax(X1DIR) * rw;
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real DefaultMeshGeneratorX2(Real x, RegionSize rs)
-// \brief x2 mesh generator function, x is the logical location; x=j/nx2, real in [0., 1.]
-
-inline Real DefaultMeshGeneratorX2(Real x, RegionSize rs) {
-  Real lw, rw;
-  if (rs.xrat(X2DIR) == 1.0) {
-    rw = x, lw = 1.0 - x;
-  } else {
-    Real ratn = std::pow(rs.xrat(X2DIR), rs.nx(X2DIR));
-    Real rnx = std::pow(rs.xrat(X2DIR), x * rs.nx(X2DIR));
-    lw = (rnx - ratn) / (1.0 - ratn);
-    rw = 1.0 - lw;
-  }
-  return rs.xmin(X2DIR) * lw + rs.xmax(X2DIR) * rw;
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real DefaultMeshGeneratorX3(Real x, RegionSize rs)
-// \brief x3 mesh generator function, x is the logical location; x=k/nx3, real in [0., 1.]
-
-inline Real DefaultMeshGeneratorX3(Real x, RegionSize rs) {
-  Real lw, rw;
-  if (rs.xrat(X3DIR) == 1.0) {
-    rw = x, lw = 1.0 - x;
-  } else {
-    Real ratn = std::pow(rs.xrat(X3DIR), rs.nx(X3DIR));
-    Real rnx = std::pow(rs.xrat(X3DIR), x * rs.nx(X3DIR));
-    lw = (rnx - ratn) / (1.0 - ratn);
-    rw = 1.0 - lw;
-  }
-  return rs.xmin(X3DIR) * lw + rs.xmax(X3DIR) * rw;
+  return rs.xmin(dir) * lw + rs.xmax(dir) * rw;
 }
 
 //----------------------------------------------------------------------------------------
 // \!fn Real UniformMeshGeneratorX1(Real x, RegionSize rs)
-// \brief x1 mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
-
-inline Real UniformMeshGeneratorX1(Real x, RegionSize rs) {
+// \brief generic mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
+template <CoordinateDirection dir>
+inline Real UniformMeshGenerator(Real x, RegionSize rs) {
   // linear interp, equally weighted from left (x(xmin)=-0.5) and right (x(xmax)=0.5)
-  return static_cast<Real>(0.5) * (rs.xmin(X1DIR) + rs.xmax(X1DIR)) + (x * rs.xmax(X1DIR) - x * rs.xmin(X1DIR));
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real UniformMeshGeneratorX2(Real x, RegionSize rs)
-// \brief x2 mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
-
-inline Real UniformMeshGeneratorX2(Real x, RegionSize rs) {
-  return static_cast<Real>(0.5) * (rs.xmin(X2DIR) + rs.xmax(X2DIR)) + (x * rs.xmax(X2DIR) - x * rs.xmin(X2DIR));
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real UniformMeshGeneratorX3(Real x, RegionSize rs)
-// \brief x3 mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
-
-inline Real UniformMeshGeneratorX3(Real x, RegionSize rs) {
-  return static_cast<Real>(0.5) * (rs.xmin(X3DIR) + rs.xmax(X3DIR)) + (x * rs.xmax(X3DIR) - x * rs.xmin(X3DIR));
+  return static_cast<Real>(0.5) * (rs.xmin(dir) + rs.xmax(dir)) + (x * rs.xmax(dir) - x * rs.xmin(dir));
 }
 
 } // namespace parthenon

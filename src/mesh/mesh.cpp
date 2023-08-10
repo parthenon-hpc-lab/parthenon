@@ -76,7 +76,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                 pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0)},
                 {pin->GetInteger("parthenon/mesh", "nx1"),
                 pin->GetInteger("parthenon/mesh", "nx2"),
-                pin->GetInteger("parthenon/mesh", "nx3")}),
+                pin->GetInteger("parthenon/mesh", "nx3")},
+                {pin->GetInteger("parthenon/mesh", "nx1") == 1,
+                pin->GetInteger("parthenon/mesh", "nx2") == 1,
+                pin->GetInteger("parthenon/mesh", "nx3") == 1}),
       mesh_bcs{
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
@@ -97,8 +100,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),
-      lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
-                                   UniformMeshGeneratorX2, UniformMeshGeneratorX3},
+      lb_manual_(), MeshGenerator_{nullptr, UniformMeshGenerator<X1DIR>,
+                                   UniformMeshGenerator<X2DIR>, UniformMeshGenerator<X3DIR>},
       MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
@@ -246,15 +249,15 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // initialize user-enrollable functions
   if (mesh_size.xrat(X1DIR) != 1.0) {
     use_uniform_meshgen_fn_[X1DIR] = false;
-    MeshGenerator_[X1DIR] = DefaultMeshGeneratorX1;
+    MeshGenerator_[X1DIR] = DefaultMeshGenerator<X1DIR>;
   }
   if (mesh_size.xrat(X2DIR) != 1.0) {
     use_uniform_meshgen_fn_[X2DIR] = false;
-    MeshGenerator_[X2DIR] = DefaultMeshGeneratorX2;
+    MeshGenerator_[X2DIR] = DefaultMeshGenerator<X2DIR>;
   }
   if (mesh_size.xrat(X3DIR) != 1.0) {
     use_uniform_meshgen_fn_[X3DIR] = false;
-    MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
+    MeshGenerator_[X3DIR] = DefaultMeshGenerator<X3DIR>;
   }
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
@@ -521,7 +524,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                 pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0)},
                 {pin->GetInteger("parthenon/mesh", "nx1"),
                 pin->GetInteger("parthenon/mesh", "nx2"),
-                pin->GetInteger("parthenon/mesh", "nx3")}),
+                pin->GetInteger("parthenon/mesh", "nx3")},
+                {pin->GetInteger("parthenon/mesh", "nx1") == 1,
+                pin->GetInteger("parthenon/mesh", "nx2") == 1,
+                pin->GetInteger("parthenon/mesh", "nx3") == 1}),
       mesh_bcs{
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
@@ -542,8 +548,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),
-      lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
-                                   UniformMeshGeneratorX2, UniformMeshGeneratorX3},
+      lb_manual_(), MeshGenerator_{nullptr, UniformMeshGenerator<X1DIR>,
+                                   UniformMeshGenerator<X2DIR>, UniformMeshGenerator<X3DIR>},
       MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
@@ -626,15 +632,15 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // initialize user-enrollable functions
   if (mesh_size.xrat(X1DIR) != 1.0) {
     use_uniform_meshgen_fn_[X1DIR] = false;
-    MeshGenerator_[X1DIR] = DefaultMeshGeneratorX1;
+    MeshGenerator_[X1DIR] = DefaultMeshGenerator<X1DIR>;
   }
   if (mesh_size.xrat(X2DIR) != 1.0) {
     use_uniform_meshgen_fn_[X2DIR] = false;
-    MeshGenerator_[X2DIR] = DefaultMeshGeneratorX2;
+    MeshGenerator_[X2DIR] = DefaultMeshGenerator<X2DIR>;
   }
   if (mesh_size.xrat(X3DIR) != 1.0) {
     use_uniform_meshgen_fn_[X3DIR] = false;
-    MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
+    MeshGenerator_[X3DIR] = DefaultMeshGenerator<X3DIR>;
   }
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
@@ -1221,85 +1227,39 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
 
 void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                      BoundaryFlag *block_bcs) {
-  const std::int64_t &lx1 = loc.lx1();
+  
   const int &ll = loc.level();
-  std::int64_t nrbx_ll = nrbx1 << (ll - root_level);
-
-  // calculate physical block size, x1
-  if (lx1 == 0) {
-    block_size.xmin(X1DIR) = mesh_size.xmin(X1DIR);
-    block_bcs[BoundaryFace::inner_x1] = mesh_bcs[BoundaryFace::inner_x1];
-  } else {
-    Real rx = ComputeMeshGeneratorX(lx1, nrbx_ll, use_uniform_meshgen_fn_[X1DIR]);
-    block_size.xmin(X1DIR) = MeshGenerator_[X1DIR](rx, mesh_size);
-    block_bcs[BoundaryFace::inner_x1] = BoundaryFlag::block;
-  }
-  if (lx1 == nrbx_ll - 1) {
-    block_size.xmax(X1DIR) = mesh_size.xmax(X1DIR);
-    block_bcs[BoundaryFace::outer_x1] = mesh_bcs[BoundaryFace::outer_x1];
-  } else {
-    Real rx = ComputeMeshGeneratorX(lx1 + 1, nrbx_ll, use_uniform_meshgen_fn_[X1DIR]);
-    block_size.xmax(X1DIR) = MeshGenerator_[X1DIR](rx, mesh_size);
-    block_bcs[BoundaryFace::outer_x1] = BoundaryFlag::block;
-  }
-
-  // calculate physical block size, x2
-  if (mesh_size.nx(X2DIR) == 1) {
-    block_size.xmin(X2DIR) = mesh_size.xmin(X2DIR);
-    block_size.xmax(X2DIR) = mesh_size.xmax(X2DIR);
-    block_bcs[BoundaryFace::inner_x2] = mesh_bcs[BoundaryFace::inner_x2];
-    block_bcs[BoundaryFace::outer_x2] = mesh_bcs[BoundaryFace::outer_x2];
-  } else {
-    const std::int64_t &lx2 = loc.lx2();
-    nrbx_ll = nrbx2 << (ll - root_level);
-    if (lx2 == 0) {
-      block_size.xmin(X2DIR) = mesh_size.xmin(X2DIR);
-      block_bcs[BoundaryFace::inner_x2] = mesh_bcs[BoundaryFace::inner_x2];
+  const std::array<std::int64_t, 4> lx{-1, loc.lx1(), loc.lx2(), loc.lx3()};
+  const std::array<int, 4> nrbx{-1, nrbx1, nrbx2, nrbx3}; 
+  for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
+    block_size.xrat(dir) = mesh_size.xrat(dir);
+    block_size.symmetry(dir) = mesh_size.symmetry(dir);
+    if (mesh_size.nx(dir) == 1) {
+      block_size.xmin(dir) = mesh_size.xmin(dir);
+      block_size.xmax(dir) = mesh_size.xmax(dir);
+      block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
+      block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
     } else {
-      Real rx = ComputeMeshGeneratorX(lx2, nrbx_ll, use_uniform_meshgen_fn_[X2DIR]);
-      block_size.xmin(X2DIR) = MeshGenerator_[X2DIR](rx, mesh_size);
-      block_bcs[BoundaryFace::inner_x2] = BoundaryFlag::block;
-    }
-    if (lx2 == (nrbx_ll)-1) {
-      block_size.xmax(X2DIR) = mesh_size.xmax(X2DIR);
-      block_bcs[BoundaryFace::outer_x2] = mesh_bcs[BoundaryFace::outer_x2];
-    } else {
-      Real rx = ComputeMeshGeneratorX(lx2 + 1, nrbx_ll, use_uniform_meshgen_fn_[X2DIR]);
-      block_size.xmax(X2DIR) = MeshGenerator_[X2DIR](rx, mesh_size);
-      block_bcs[BoundaryFace::outer_x2] = BoundaryFlag::block;
+      std::int64_t nrbx_ll = nrbx[dir] << (ll - root_level);
+      if (lx[dir] == 0) {
+        block_size.xmin(dir) = mesh_size.xmin(dir);
+        block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
+      } else {
+        Real rx = ComputeMeshGeneratorX(lx[dir], nrbx_ll, use_uniform_meshgen_fn_[dir]);
+        block_size.xmin(dir) = MeshGenerator_[dir](rx, mesh_size);
+        block_bcs[GetInnerBoundaryFace(dir)] = BoundaryFlag::block;
+      }
+    
+      if (lx[dir] == nrbx_ll - 1) {
+        block_size.xmax(dir) = mesh_size.xmax(dir);
+        block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
+      } else {
+        Real rx = ComputeMeshGeneratorX(lx[dir] + 1, nrbx_ll, use_uniform_meshgen_fn_[dir]);
+        block_size.xmax(dir) = MeshGenerator_[dir](rx, mesh_size);
+        block_bcs[GetOuterBoundaryFace(dir)] = BoundaryFlag::block;
+      }
     }
   }
-
-  // calculate physical block size, x3
-  if (mesh_size.nx(X3DIR) == 1) {
-    block_size.xmin(X3DIR) = mesh_size.xmin(X3DIR);
-    block_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
-    block_bcs[BoundaryFace::inner_x3] = mesh_bcs[BoundaryFace::inner_x3];
-    block_bcs[BoundaryFace::outer_x3] = mesh_bcs[BoundaryFace::outer_x3];
-  } else {
-    const std::int64_t &lx3 = loc.lx3();
-    nrbx_ll = nrbx3 << (ll - root_level);
-    if (lx3 == 0) {
-      block_size.xmin(X3DIR) = mesh_size.xmin(X3DIR);
-      block_bcs[BoundaryFace::inner_x3] = mesh_bcs[BoundaryFace::inner_x3];
-    } else {
-      Real rx = ComputeMeshGeneratorX(lx3, nrbx_ll, use_uniform_meshgen_fn_[X3DIR]);
-      block_size.xmin(X3DIR) = MeshGenerator_[X3DIR](rx, mesh_size);
-      block_bcs[BoundaryFace::inner_x3] = BoundaryFlag::block;
-    }
-    if (lx3 == (nrbx_ll)-1) {
-      block_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
-      block_bcs[BoundaryFace::outer_x3] = mesh_bcs[BoundaryFace::outer_x3];
-    } else {
-      Real rx = ComputeMeshGeneratorX(lx3 + 1, nrbx_ll, use_uniform_meshgen_fn_[X3DIR]);
-      block_size.xmax(X3DIR) = MeshGenerator_[X3DIR](rx, mesh_size);
-      block_bcs[BoundaryFace::outer_x3] = BoundaryFlag::block;
-    }
-  }
-
-  block_size.xrat(X1DIR) = mesh_size.xrat(X1DIR);
-  block_size.xrat(X2DIR) = mesh_size.xrat(X2DIR);
-  block_size.xrat(X3DIR) = mesh_size.xrat(X3DIR);
 }
 
 std::int64_t Mesh::GetTotalCells() {
