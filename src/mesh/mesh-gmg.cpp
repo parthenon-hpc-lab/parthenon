@@ -138,15 +138,11 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
         if (loc.level() < root_level) {
           // The results of SetBlockSize and Boundaries are wrong
           int root_fac = 1 << (root_level - loc.level());
-          Real deltax1 = (mesh_size.xmax(X1DIR) - mesh_size.xmin(X1DIR)) / nrbx[X1DIR - 1] * root_fac;
-          Real deltax2 = (mesh_size.xmax(X2DIR) - mesh_size.xmin(X2DIR)) / nrbx[X2DIR - 1] * root_fac;
-          Real deltax3 = (mesh_size.xmax(X3DIR) - mesh_size.xmin(X3DIR)) / nrbx[X3DIR - 1] * root_fac;
-          block_size.xmin(X1DIR) = mesh_size.xmin(X1DIR) + deltax1 * loc.lx1();
-          block_size.xmin(X2DIR) = mesh_size.xmin(X2DIR) + deltax2 * loc.lx2();
-          block_size.xmin(X3DIR) = mesh_size.xmin(X3DIR) + deltax3 * loc.lx3();
-          block_size.xmax(X1DIR) = block_size.xmin(X1DIR) + deltax1;
-          block_size.xmax(X2DIR) = block_size.xmin(X2DIR) + deltax2;
-          block_size.xmax(X3DIR) = block_size.xmin(X3DIR) + deltax3;
+          for (auto &dir : {X1DIR, X2DIR, X3DIR}) { 
+            Real deltax = (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / nrbx[dir - 1] * root_fac;
+            block_size.xmin(dir) = mesh_size.xmin(dir) + deltax * loc.l(dir - 1);
+            block_size.xmax(dir) = block_size.xmin(dir) + deltax;
+          }
         }
         gmg_block_lists[gmg_level].push_back(
             MeshBlock::Make(gid_rank.first, -1, loc, block_size, block_bcs, this, pin,
