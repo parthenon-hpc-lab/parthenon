@@ -381,7 +381,7 @@ class TaskRegion {
   }
   void AddRegionalDependencies(const std::string &reg_dep_id, const int list_index,
                                const TaskID &id) {
-    AddDepdencies(reg_dep_id, list_index, id);
+    AddDependencies(reg_dep_id, list_index, id);
     global[reg_dep_id] = false;
   }
   void AddGlobalDependencies(const int reg_dep_id, const int list_index,
@@ -390,7 +390,7 @@ class TaskRegion {
   }
   void AddGlobalDependencies(const std::string &reg_dep_id, const int list_index,
                              const TaskID &id) {
-    AddDepdencies(reg_dep_id, list_index, id);
+    AddDependencies(reg_dep_id, list_index, id);
     global[reg_dep_id] = true;
   }
 
@@ -466,7 +466,7 @@ class TaskRegion {
   }
 
  private:
-  void AddDepdencies(const std::string &label, const int list_id, const TaskID &tid) {
+  void AddDependencies(const std::string &label, const int list_id, const TaskID &tid) {
     id_for_reg[label][list_id] = tid;
     lists[list_id].MarkRegional(tid);
     all_done[label].val = 0;
