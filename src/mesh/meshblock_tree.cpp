@@ -168,13 +168,16 @@ void MeshBlockTree::Refine(int &nnew) {
   std::int64_t nxmax, nymax, nzmax;
   std::int64_t ox, oy, oz, oxmin, oxmax, oymin, oymax, ozmin, ozmax;
 
-  oxmin = -1, oxmax = 1, nxmax = (pmesh_->nrbx[X1DIR - 1] << (loc_.level() - pmesh_->root_level));
+  oxmin = -1, oxmax = 1,
+  nxmax = (pmesh_->nrbx[X1DIR - 1] << (loc_.level() - pmesh_->root_level));
   if (pmesh_->ndim >= 2)
-    oymin = -1, oymax = 1, nymax = (pmesh_->nrbx[X2DIR - 1] << (loc_.level() - pmesh_->root_level));
+    oymin = -1, oymax = 1,
+    nymax = (pmesh_->nrbx[X2DIR - 1] << (loc_.level() - pmesh_->root_level));
   else
     oymin = 0, oymax = 0, nymax = 1;
   if (pmesh_->ndim >= 3) // 3D
-    ozmin = -1, ozmax = 1, nzmax = (pmesh_->nrbx[X3DIR - 1] << (loc_.level() - pmesh_->root_level));
+    ozmin = -1, ozmax = 1,
+    nzmax = (pmesh_->nrbx[X3DIR - 1] << (loc_.level() - pmesh_->root_level));
   else
     ozmin = 0, ozmax = 0, nzmax = 1;
 

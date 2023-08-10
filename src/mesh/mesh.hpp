@@ -308,7 +308,8 @@ inline Real ComputeMeshGeneratorX(std::int64_t index, std::int64_t nrange,
 
 //----------------------------------------------------------------------------------------
 // \!fn Real DefaultMeshGenerator(Real x, RegionSize rs)
-// \brief generic default mesh generator function, x is the logical location; x=i/nx, real in [0., 1.]
+// \brief generic default mesh generator function, x is the logical location; x=i/nx, real
+// in [0., 1.]
 template <CoordinateDirection dir>
 inline Real DefaultMeshGenerator(Real x, RegionSize rs) {
   Real lw, rw;
@@ -326,11 +327,13 @@ inline Real DefaultMeshGenerator(Real x, RegionSize rs) {
 
 //----------------------------------------------------------------------------------------
 // \!fn Real UniformMeshGeneratorX1(Real x, RegionSize rs)
-// \brief generic mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
+// \brief generic mesh generator function, x is the logical location; real cells in [-0.5,
+// 0.5]
 template <CoordinateDirection dir>
 inline Real UniformMeshGenerator(Real x, RegionSize rs) {
   // linear interp, equally weighted from left (x(xmin)=-0.5) and right (x(xmax)=0.5)
-  return static_cast<Real>(0.5) * (rs.xmin(dir) + rs.xmax(dir)) + (x * rs.xmax(dir) - x * rs.xmin(dir));
+  return static_cast<Real>(0.5) * (rs.xmin(dir) + rs.xmax(dir)) +
+         (x * rs.xmax(dir) - x * rs.xmin(dir));
 }
 
 } // namespace parthenon

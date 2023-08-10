@@ -94,7 +94,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
-    InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR), block_size.nx(X3DIR));
+    InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR),
+                          block_size.nx(X3DIR));
   } else if (pmy_mesh->ndim >= 2) {
     InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR), 0);
   } else {

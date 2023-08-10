@@ -71,29 +71,32 @@ enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 
 
 struct RegionSize {
   RegionSize() = default;
-  RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat, std::array<int, 3> nx) :
-    xmin_(xmin), xmax_(xmax), xrat_(xrat), nx_(nx), symmetry_{nx[0] == 1, nx[1] == 1, nx[2] ==1} {}
-  RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat, std::array<int, 3> nx, std::array<bool, 3> symmetry) :
-    xmin_(xmin), xmax_(xmax), xrat_(xrat), nx_(nx), symmetry_(symmetry) {}
+  RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,
+             std::array<int, 3> nx)
+      : xmin_(xmin), xmax_(xmax), xrat_(xrat),
+        nx_(nx), symmetry_{nx[0] == 1, nx[1] == 1, nx[2] == 1} {}
+  RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,
+             std::array<int, 3> nx, std::array<bool, 3> symmetry)
+      : xmin_(xmin), xmax_(xmax), xrat_(xrat), nx_(nx), symmetry_(symmetry) {}
 
-  std::array<Real, 3> xmin_, xmax_, xrat_; // xrat is ratio of dxf(i)/dxf(i-1) 
+  std::array<Real, 3> xmin_, xmax_, xrat_; // xrat is ratio of dxf(i)/dxf(i-1)
   std::array<int, 3> nx_;
   std::array<bool, 3> symmetry_;
-  
-  Real &xmin(CoordinateDirection dir) { return xmin_[dir - 1];}
-  const Real &xmin(CoordinateDirection dir) const { return xmin_[dir - 1];}
 
-  Real &xmax(CoordinateDirection dir) { return xmax_[dir - 1];}
-  const Real &xmax(CoordinateDirection dir) const { return xmax_[dir - 1];}
-  
-  Real &xrat(CoordinateDirection dir) { return xrat_[dir - 1];}
-  const Real &xrat(CoordinateDirection dir) const { return xrat_[dir - 1];}
-  
-  int &nx(CoordinateDirection dir) { return nx_[dir - 1];}
-  const int &nx(CoordinateDirection dir) const { return nx_[dir - 1];}
-  
-  bool &symmetry(CoordinateDirection dir) { return symmetry_[dir - 1];}
-  const bool &symmetry(CoordinateDirection dir) const { return symmetry_[dir - 1];}
+  Real &xmin(CoordinateDirection dir) { return xmin_[dir - 1]; }
+  const Real &xmin(CoordinateDirection dir) const { return xmin_[dir - 1]; }
+
+  Real &xmax(CoordinateDirection dir) { return xmax_[dir - 1]; }
+  const Real &xmax(CoordinateDirection dir) const { return xmax_[dir - 1]; }
+
+  Real &xrat(CoordinateDirection dir) { return xrat_[dir - 1]; }
+  const Real &xrat(CoordinateDirection dir) const { return xrat_[dir - 1]; }
+
+  int &nx(CoordinateDirection dir) { return nx_[dir - 1]; }
+  const int &nx(CoordinateDirection dir) const { return nx_[dir - 1]; }
+
+  bool &symmetry(CoordinateDirection dir) { return symmetry_[dir - 1]; }
+  const bool &symmetry(CoordinateDirection dir) const { return symmetry_[dir - 1]; }
 };
 
 //----------------------------------------------------------------------------------------
@@ -104,8 +107,6 @@ struct RegionSize {
 // (avoid clashes with preprocessor macros). Enumerated type definitions in this file and:
 // io_wrapper.hpp, bvals.hpp, field_diffusion.hpp,
 // task_list.hpp, ???
-
-
 
 // identifiers for all 6 faces of a MeshBlock
 constexpr int BOUNDARY_NFACES = 6;
@@ -119,23 +120,23 @@ enum BoundaryFace {
   outer_x3 = 5
 };
 
-inline BoundaryFace GetInnerBoundaryFace(CoordinateDirection dir) { 
+inline BoundaryFace GetInnerBoundaryFace(CoordinateDirection dir) {
   if (dir == X1DIR) {
     return BoundaryFace::inner_x1;
-  } else if (dir == X2DIR) { 
+  } else if (dir == X2DIR) {
     return BoundaryFace::inner_x2;
-  } else if (dir == X3DIR) { 
+  } else if (dir == X3DIR) {
     return BoundaryFace::inner_x3;
   }
   return BoundaryFace::undef;
 }
 
-inline BoundaryFace GetOuterBoundaryFace(CoordinateDirection dir) { 
+inline BoundaryFace GetOuterBoundaryFace(CoordinateDirection dir) {
   if (dir == X1DIR) {
     return BoundaryFace::outer_x1;
-  } else if (dir == X2DIR) { 
+  } else if (dir == X2DIR) {
     return BoundaryFace::outer_x2;
-  } else if (dir == X3DIR) { 
+  } else if (dir == X3DIR) {
     return BoundaryFace::outer_x3;
   }
   return BoundaryFace::undef;

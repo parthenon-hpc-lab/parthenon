@@ -118,7 +118,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   IndexShape cellbounds;
   // on 1x coarser level MeshBlock i.e.
   //
-  // c_cellbounds.nx(X2DIR) = cellbounds.nx(X2DIR) * 1/2 + 2*Globals::nghost, if  cellbounds.nx(X2DIR) >1
+  // c_cellbounds.nx(X2DIR) = cellbounds.nx(X2DIR) * 1/2 + 2*Globals::nghost, if
+  // cellbounds.nx(X2DIR) >1
   //   (entire)             (interior)                          (interior)
   //
   // Assuming we have a block cells, and nx2 = 6, and Globals::nghost = 1
