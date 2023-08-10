@@ -511,13 +511,13 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
     else
       si = ++ei;
     if (nb.ni.fi1 == 0)
-      ej -= pmb->block_size.nx2 / 2;
+      ej -= pmb->block_size.nx(X2DIR) / 2;
     else
-      sj += pmb->block_size.nx2 / 2;
+      sj += pmb->block_size.nx(X2DIR) / 2;
     if (nb.ni.fi2 == 0)
-      ek -= pmb->block_size.nx3 / 2;
+      ek -= pmb->block_size.nx(X3DIR) / 2;
     else
-      sk += pmb->block_size.nx3 / 2;
+      sk += pmb->block_size.nx(X3DIR) / 2;
   } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
     out.dir = X2DIR;
     if (nb.fid == BoundaryFace::inner_x2)
@@ -525,13 +525,13 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
     else
       sj = ++ej;
     if (nb.ni.fi1 == 0)
-      ei -= pmb->block_size.nx1 / 2;
+      ei -= pmb->block_size.nx(X1DIR) / 2;
     else
-      si += pmb->block_size.nx1 / 2;
+      si += pmb->block_size.nx(X1DIR) / 2;
     if (nb.ni.fi2 == 0)
-      ek -= pmb->block_size.nx3 / 2;
+      ek -= pmb->block_size.nx(X3DIR) / 2;
     else
-      sk += pmb->block_size.nx3 / 2;
+      sk += pmb->block_size.nx(X3DIR) / 2;
   } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
     out.dir = X3DIR;
     if (nb.fid == BoundaryFace::inner_x3)
@@ -539,13 +539,13 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
     else
       sk = ++ek;
     if (nb.ni.fi1 == 0)
-      ei -= pmb->block_size.nx1 / 2;
+      ei -= pmb->block_size.nx(X1DIR) / 2;
     else
-      si += pmb->block_size.nx1 / 2;
+      si += pmb->block_size.nx(X1DIR) / 2;
     if (nb.ni.fi2 == 0)
-      ej -= pmb->block_size.nx2 / 2;
+      ej -= pmb->block_size.nx(X2DIR) / 2;
     else
-      sj += pmb->block_size.nx2 / 2;
+      sj += pmb->block_size.nx(X2DIR) / 2;
   } else {
     PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
   }

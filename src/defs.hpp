@@ -57,23 +57,6 @@ static_assert(NDIM >= 3,
 //! \struct RegionSize
 //  \brief physical size and number of cells in a Mesh or a MeshBlock
 
-struct RegionSize { // aggregate and POD type; do NOT reorder member declarations:
-  Real x1min, x2min, x3min;
-  Real x1max, x2max, x3max;
-  Real x1rat, x2rat, x3rat; // ratio of dxf(i)/dxf(i-1)
-  // the size of the root grid or a MeshBlock should not exceed std::int32_t limits
-  int nx1, nx2, nx3; // number of active cells (not including ghost zones)
-};
-
-//----------------------------------------------------------------------------------------
-// enums used everywhere
-// (not specifying underlying integral type (C++11) for portability & performance)
-
-// TODO(felker): C++ Core Guidelines Enum.5: Don’t use ALL_CAPS for enumerators
-// (avoid clashes with preprocessor macros). Enumerated type definitions in this file and:
-// io_wrapper.hpp, bvals.hpp, field_diffusion.hpp,
-// task_list.hpp, ???
-
 //------------------
 // named, weakly typed / unscoped enums:
 //------------------
@@ -86,6 +69,45 @@ struct RegionSize { // aggregate and POD type; do NOT reorder member declaration
 // X3DIR z, phi, etc...
 enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
 
+struct RegionSize {
+  RegionSize() = default;
+  RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,
+             std::array<int, 3> nx)
+      : xmin_(xmin), xmax_(xmax), xrat_(xrat),
+        nx_(nx), symmetry_{nx[0] == 1, nx[1] == 1, nx[2] == 1} {}
+  RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,
+             std::array<int, 3> nx, std::array<bool, 3> symmetry)
+      : xmin_(xmin), xmax_(xmax), xrat_(xrat), nx_(nx), symmetry_(symmetry) {}
+
+  std::array<Real, 3> xmin_, xmax_, xrat_; // xrat is ratio of dxf(i)/dxf(i-1)
+  std::array<int, 3> nx_;
+  std::array<bool, 3> symmetry_;
+
+  Real &xmin(CoordinateDirection dir) { return xmin_[dir - 1]; }
+  const Real &xmin(CoordinateDirection dir) const { return xmin_[dir - 1]; }
+
+  Real &xmax(CoordinateDirection dir) { return xmax_[dir - 1]; }
+  const Real &xmax(CoordinateDirection dir) const { return xmax_[dir - 1]; }
+
+  Real &xrat(CoordinateDirection dir) { return xrat_[dir - 1]; }
+  const Real &xrat(CoordinateDirection dir) const { return xrat_[dir - 1]; }
+
+  int &nx(CoordinateDirection dir) { return nx_[dir - 1]; }
+  const int &nx(CoordinateDirection dir) const { return nx_[dir - 1]; }
+
+  bool &symmetry(CoordinateDirection dir) { return symmetry_[dir - 1]; }
+  const bool &symmetry(CoordinateDirection dir) const { return symmetry_[dir - 1]; }
+};
+
+//----------------------------------------------------------------------------------------
+// enums used everywhere
+// (not specifying underlying integral type (C++11) for portability & performance)
+
+// TODO(felker): C++ Core Guidelines Enum.5: Don’t use ALL_CAPS for enumerators
+// (avoid clashes with preprocessor macros). Enumerated type definitions in this file and:
+// io_wrapper.hpp, bvals.hpp, field_diffusion.hpp,
+// task_list.hpp, ???
+
 // identifiers for all 6 faces of a MeshBlock
 constexpr int BOUNDARY_NFACES = 6;
 enum BoundaryFace {
@@ -97,6 +119,28 @@ enum BoundaryFace {
   inner_x3 = 4,
   outer_x3 = 5
 };
+
+inline BoundaryFace GetInnerBoundaryFace(CoordinateDirection dir) {
+  if (dir == X1DIR) {
+    return BoundaryFace::inner_x1;
+  } else if (dir == X2DIR) {
+    return BoundaryFace::inner_x2;
+  } else if (dir == X3DIR) {
+    return BoundaryFace::inner_x3;
+  }
+  return BoundaryFace::undef;
+}
+
+inline BoundaryFace GetOuterBoundaryFace(CoordinateDirection dir) {
+  if (dir == X1DIR) {
+    return BoundaryFace::outer_x1;
+  } else if (dir == X2DIR) {
+    return BoundaryFace::outer_x2;
+  } else if (dir == X3DIR) {
+    return BoundaryFace::outer_x3;
+  }
+  return BoundaryFace::undef;
+}
 
 //------------------
 // strongly typed / scoped enums (C++11):

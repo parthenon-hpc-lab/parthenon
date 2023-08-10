@@ -219,34 +219,16 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
         if (loc.level() < root_level) {
           // The results of SetBlockSize and Boundaries are wrong
           int root_fac = 1 << (root_level - loc.level());
-          Real deltax1 = (mesh_size.x1max - mesh_size.x1min) / nrbx1 * root_fac;
-          Real deltax2 = (mesh_size.x2max - mesh_size.x2min) / nrbx2 * root_fac;
-          Real deltax3 = (mesh_size.x3max - mesh_size.x3min) / nrbx3 * root_fac;
-          block_size.x1min = mesh_size.x1min + deltax1 * loc.lx1();
-          block_size.x2min = mesh_size.x2min + deltax2 * loc.lx2();
-          block_size.x3min = mesh_size.x3min + deltax3 * loc.lx3();
-          block_size.x1max = block_size.x1min + deltax1;
-          block_size.x2max = block_size.x2min + deltax2;
-          block_size.x3max = block_size.x3min + deltax3;
-          
-          // This chosen block size goes outside the grid, so 
-          // reduce the number of zones in the block 
-          if (block_size.x1max > mesh_size.x1max) { 
-            block_size.nx1 /= root_fac / nrbx1; 
-            block_size.x1max = mesh_size.x1max; 
+          for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
+            Real deltax =
+                (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / nrbx[dir - 1] * root_fac;
+            block_size.xmin(dir) = mesh_size.xmin(dir) + deltax * loc.l(dir - 1);
+            block_size.xmax(dir) = block_size.xmin(dir) + deltax;
+            if (block_size.xmax(dir) > mesh_size.xmax(dir)) { 
+              block_size.nx(dir) /= root_fac / nrbx[dir - 1]; 
+              block_size.xmax(dir) = mesh_size.xmax(dir);
+            }
           }
-          if (block_size.x2max > mesh_size.x2max) { 
-            block_size.nx2 /= root_fac / nrbx2; 
-            block_size.x2max = mesh_size.x2max; 
-          }
-          if (block_size.x3max > mesh_size.x3max) { 
-            block_size.nx3 /= root_fac / nrbx3; 
-            block_size.x3max = mesh_size.x3max; 
-          }
-
-          // TODO(LFR): Add possibility of changing RegionSize nx1, nx2, nx3 to go 
-          // up in the GMG hierarchy after we have reached the top block
-          // block_size.nx1 = parent_block_size.nx1 / 2; 
         }
         printf("level = %i root_level = %i nx = (%i, %i) l=(%i, %i) x1=(%e, %e) x2=(%e, %e)\n", loc.level(), root_level, block_size.nx1, block_size.nx2, loc.lx1(), loc.lx2(), block_size.x1min, block_size.x1max, block_size.x2min, block_size.x2max); 
         gmg_block_lists[gmg_level].push_back(
