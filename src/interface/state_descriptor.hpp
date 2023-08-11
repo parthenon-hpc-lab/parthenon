@@ -169,9 +169,17 @@ class StateDescriptor {
 
     return true;
   }
+  template <typename T>
+  bool AddSwarm(const Metadata &m) {
+    return AddSwarm(T::name(), m);
+  }
 
   bool AddSwarmValue(const std::string &value_name, const std::string &swarm_name,
                      const Metadata &m);
+  template <typename T, typename V>
+  bool AddSwarmValue(const Metadata &m) {
+    return AddSwarmValue(T::name(), V::name(), m);
+  }
 
   // field addition / retrieval routines
  private:
@@ -195,6 +203,10 @@ class StateDescriptor {
     if (controlling_field == "") controller = VarID(field_name);
     return AddFieldImpl(VarID(field_name), m, controller);
   }
+  template <typename T>
+  bool AddField(const Metadata &m, const std::string &controlling_field = "") {
+    return AddField(T::name(), m, controlling_field);
+  }
 
   // add sparse pool, all arguments will be forwarded to the SparsePool constructor, so
   // one can pass in a reference to a SparsePool or arguments that match one of the
@@ -208,6 +220,10 @@ class StateDescriptor {
     Metadata m = m_in; // so we can modify it
     if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
     return AddSparsePoolImpl(SparsePool(base_name, m, std::forward<Args>(args)...));
+  }
+  template <typename T, typename... Args>
+  bool AddSparsePool(const Metadata &m_in, Args &&...args) {
+    return AddSparsePool(T::name(), m_in, std::forward<Args>(args)...);
   }
 
   // retrieve number of fields
