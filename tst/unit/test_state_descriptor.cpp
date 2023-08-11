@@ -278,7 +278,11 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         auto pkg3 = ResolvePackages(packages);
         AND_THEN("The provides package is available") {
           REQUIRE(pkg3->FieldPresent("dense"));
-          REQUIRE(pkg3->FieldMetadata("dense") == m_provides);
+          // add in package Metadata before checking equality
+          Metadata m_provides_local = m_provides;
+          m_provides_local.Set(Metadata::GetUserFlag("package2"));
+          m_provides_local.Set(Metadata::GetUserFlag("parthenon::resolved_state"));
+          REQUIRE(pkg3->FieldMetadata("dense") == m_provides_local);
         }
       }
     }
@@ -335,9 +339,16 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         auto pkg4 = ResolvePackages(packages);
         AND_THEN("The provides variables take precedence.") {
           REQUIRE(pkg4->FieldPresent("dense"));
-          REQUIRE(pkg4->FieldMetadata("dense") == m_provides);
+          // add in package metadata before equality check
+          Metadata m_provides_local = m_provides;
+          m_provides_local.Set(Metadata::GetUserFlag("package1"));
+          m_provides_local.Set(Metadata::GetUserFlag("parthenon::resolved_state"));
+          REQUIRE(pkg4->FieldMetadata("dense") == m_provides_local);
           REQUIRE(pkg4->SwarmPresent("myswarm"));
-          REQUIRE(pkg4->SwarmMetadata("myswarm") == m_provides_swarm);
+          Metadata m_provides_swarm_local = m_provides_swarm;
+          m_provides_swarm_local.Set(Metadata::GetUserFlag("package2"));
+          m_provides_swarm_local.Set(Metadata::GetUserFlag("parthenon::resolved_state"));
+          REQUIRE(pkg4->SwarmMetadata("myswarm") == m_provides_swarm_local);
           REQUIRE(pkg4->SwarmValuePresent("provides", "myswarm"));
           REQUIRE(!(pkg4->SwarmValuePresent("overridable", "myswarm")));
           REQUIRE(pkg4->SparseBaseNamePresent("sparse"));

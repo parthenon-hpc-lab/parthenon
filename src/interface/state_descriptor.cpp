@@ -247,6 +247,8 @@ bool StateDescriptor::AddSwarmValue(const std::string &value_name,
   // Swarm variables are always Metadata::Particle
   Metadata newm(m);
   newm.Set(Metadata::Particle);
+  if (!newm.IsSet(GetMetadataFlag()))
+    newm.Set(GetMetadataFlag());
 
   if (swarmMetadataMap_.count(swarm_name) == 0) {
     throw std::invalid_argument("Swarm " + swarm_name + " does not exist!");
