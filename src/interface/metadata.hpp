@@ -331,6 +331,7 @@ class Metadata {
   static MetadataFlag AddUserFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
   static MetadataFlag GetUserFlag(const std::string &flagname);
+  static int num_flags;
 
   // Sparse threshold routines
   void SetSparseThresholds(parthenon::Real alloc, parthenon::Real dealloc,
@@ -511,6 +512,16 @@ class Metadata {
   }
 
   template <template <class...> class Container_t, class... extra>
+  bool NoFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
+    return std::none_of(flags.begin(), flags.end(),
+                       [this](MetadataFlag const &f) { return IsSet(f); });
+  }
+  template <typename... Args>
+  bool NoFlagsSet(const MetadataFlag &flag, Args... args) const {
+    return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
+  }
+
+  template <template <class...> class Container_t, class... extra>
   bool FlagsSet(const Container_t<MetadataFlag, extra...> &flags,
                 bool matchAny = false) const {
     return ((matchAny && AnyFlagsSet(flags)) || ((!matchAny) && AllFlagsSet(flags)));
@@ -617,6 +628,7 @@ inline TopologicalType GetTopologicalType(const Metadata &md) {
 }
 
 namespace MetadataUtils {
+bool MatchFlags(const Metadata::FlagCollection &flags, Metadata m);
 // From a given container, extract all variables whose Metadata matchs the all of the
 // given flags (if the list of flags is empty, extract all variables), optionally only
 // extracting sparse fields with an index from the given list of sparse indices

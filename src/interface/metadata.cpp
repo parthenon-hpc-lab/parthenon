@@ -37,6 +37,8 @@ namespace parthenon {
 PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
 
+int Metadata::num_flags = static_cast<int>(internal::MetadataInternal::Max);
+
 namespace internal {
 
 class UserMetadataState {
@@ -85,6 +87,7 @@ class UserMetadataState {
 parthenon::internal::UserMetadataState metadata_state;
 
 MetadataFlag Metadata::AddUserFlag(const std::string &name) {
+  num_flags++;
   return metadata_state.AllocateNewFlag(name);
 }
 
@@ -255,5 +258,17 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
 
   return arrDims;
 }
+
+namespace MetadataUtils {
+bool MatchFlags(const Metadata::FlagCollection &flags, Metadata m) {
+  const auto &intersections = flags.GetIntersections();
+  const auto &unions = flags.GetUnions();
+  const auto &exclusions = flags.GetExclusions();
+
+  return m.AllFlagsSet(intersections) &&
+         (unions.empty() || m.AnyFlagsSet(unions)) &&
+         m.NoFlagsSet(exclusions);
+}
+} // namespace MetadataUtils
 
 } // namespace parthenon

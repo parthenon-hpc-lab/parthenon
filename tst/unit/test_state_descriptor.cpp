@@ -35,6 +35,7 @@ using parthenon::Coordinates_t;
 using parthenon::IndexRange;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
+using FC_t = parthenon::Metadata::FlagCollection;
 using parthenon::Packages_t;
 using parthenon::ParArrayND;
 using parthenon::Real;
@@ -515,6 +516,79 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
       REQUIRE(pkg->AddField("fake2_sparse_27", Metadata()));
       REQUIRE_THROWS(
           pkg->AddSparsePool("fake2_sparse", meta_sparse, std::vector<int>{13, 27, 9}));
+    }
+  }
+}
+
+TEST_CASE("Test getting a vector of variable names given criteria", "[StateDescriptor]") {
+  FlagVec m_indc = {Metadata::Independent, Metadata::FillGhost, Metadata::Cell};
+  FlagVec m_indf = {Metadata::Independent, Metadata::FillGhost, Metadata::Face};
+  FlagVec m_derc = {Metadata::Derived, Metadata::OneCopy, Metadata::Cell};
+  FlagVec m_sparse = {Metadata::Sparse, Metadata::OneCopy};
+
+  StateDescriptor state("state");
+  state.AddField("indc", m_indc);
+  state.AddField("indf", m_indf);
+  state.AddField("derc", m_derc);
+  state.AddSparsePool("sp", m_sparse, std::vector<int>{3,7,12});
+  GIVEN("A state descriptor with some fields with differenet metadata") {
+    WHEN("We ask for fields by name") {
+      std::vector<std::string> req_names({"indc", "derc"});
+      auto names = state.GetVariableNames(req_names);
+      THEN("The vector contains the requested fields") {
+        REQUIRE(names == req_names);
+      }
+    }
+    WHEN("We ask for fields by metadata") {
+      FC_t fc = FC_t({Metadata::Independent, Metadata::FillGhost}) - FC_t({Metadata::Face});
+      auto names = state.GetVariableNames(fc);
+      THEN("The vector contains the request fields") {
+        REQUIRE(names == std::vector<std::string>({"indc"}));
+      }
+    }
+    WHEN("We try to pull out sparse fields by base name") {
+      std::vector<std::string> bname({"sp"});
+      auto names = state.GetVariableNames(bname);
+      THEN("We should get all the sparse variables tied to that base name") {
+        REQUIRE(names == std::vector<std::string>({"sp_3", "sp_7", "sp_12"}));
+      }
+    }
+    WHEN("We try to filter based on sparse ids") {
+      std::vector<std::string> bname({"sp"});
+      std::vector<int> sids({3,12});
+      auto names = state.GetVariableNames(bname, sids);
+      THEN("We should get only the ids we asked for") {
+        REQUIRE(names == std::vector<std::string>({"sp_3", "sp_12"}));
+      }
+    }
+    WHEN("We use metadata and filter on sparse ids") {
+      FC_t fc({Metadata::OneCopy});
+      std::vector<int> sids({3,12});
+      auto names = state.GetVariableNames(fc, sids);
+      THEN("We should get fields that satisfy the metadata criteria including only "
+           "specific sparse ids") {
+        REQUIRE(names == std::vector<std::string>({"derc", "sp_3", "sp_12"}));
+      }
+    }
+    WHEN("We use all possible filters") {
+      std::vector<std::string> req_names({"indc", "indf"});
+      FC_t fc = FC_t({Metadata::OneCopy}) - FC_t({Metadata::Cell});
+      std::vector<int> sids({3,7});
+      auto names = state.GetVariableNames(req_names, fc, sids);
+      THEN("We should get just what we asked for") {
+        REQUIRE(names == std::vector<std::string>({"indc", "indf", "sp_3", "sp_7"}));
+      }
+    }
+    WHEN("We ask for a specific sparse id by name") {
+      std::vector<std::string> req_names({"indc", "sp_7"});
+      REQUIRE_THROWS(state.GetVariableNames(req_names));
+    }
+    WHEN("We ask for metadata that are not satisfied for any variable") {
+      FC_t fc = FC_t({Metadata::Independent,Metadata::Sparse});
+      auto names = state.GetVariableNames(fc);
+      THEN("We should get nothing back") {
+        REQUIRE(names == std::vector<std::string>());
+      }
     }
   }
 }

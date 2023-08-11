@@ -100,10 +100,20 @@ class StateDescriptor {
   StateDescriptor(const StateDescriptor &s) = delete;
 
   // Preferred constructor
-  explicit StateDescriptor(std::string const &label) : label_(label) {}
+  explicit StateDescriptor(std::string const &label) : label_(label) {
+    if (Metadata::FlagNameExists(label)) {
+      AddParam("MetadataFlag", Metadata::GetUserFlag(label));
+    } else {
+      AddParam("MetadataFlag", Metadata::AddUserFlag(label));
+    }
+  }
 
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptor(Packages_t &packages);
+
+  MetadataFlag GetMetadataFlag() {
+    return params_.Get<MetadataFlag>("MetadataFlag");
+  }
 
   template <typename T>
   void AddParam(const std::string &key, T value, Params::Mutability mutability) {
@@ -223,6 +233,21 @@ class StateDescriptor {
     // automatically have x, y, z.
     return swarmValueMetadataMap_[swarm_name];
   }
+  std::vector<std::string>
+  GetVariableNames(const std::vector<std::string> &req_names,
+                   const Metadata::FlagCollection &flags,
+                   const std::vector<int> &sparse_ids);
+  std::vector<std::string>
+  GetVariableNames(const std::vector<std::string> &req_names,
+                   const std::vector<int> &sparse_ids);
+  std::vector<std::string>
+  GetVariableNames(const Metadata::FlagCollection &flags,
+                   const std::vector<int> &sparse_ids);
+  std::vector<std::string>
+  GetVariableNames(const std::vector<std::string> &req_names);
+  std::vector<std::string>
+  GetVariableNames(const Metadata::FlagCollection &flags);
+
   std::size_t
   RefinementFuncID(const refinement::RefinementFunctions_t &funcs) const noexcept {
     return refinementFuncMaps_.funcs_to_ids.at(funcs);

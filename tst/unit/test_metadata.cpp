@@ -81,10 +81,9 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
     // Note: `parthenon::internal` is subject to change, and so this test may
     // rightfully break later - this test needn't be maintained if so.
     //
-    // Checks that the first allocated flag is equal to `Max` - the final built-in
-    // flag + 1.
+    // Checks that an allocated flag was ended to the end of existing flags
     REQUIRE(f.InternalFlagValue() ==
-            static_cast<int>(parthenon::internal::MetadataInternal::Max));
+            static_cast<int>(Metadata::num_flags)-1);
     REQUIRE(name == f.Name());
 
     // Metadata should be able to report that this flag exists and

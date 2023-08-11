@@ -24,17 +24,17 @@ namespace parthenon {
 template <typename T>
 std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
                                           const std::shared_ptr<T> &src,
-                                          const std::vector<std::string> &flags) {
+                                          const std::vector<std::string> &field_names) {
   auto it = containers_.find(name);
   if (it != containers_.end()) {
-    if (!(it->second)->Contains(flags)) {
-      PARTHENON_THROW(name + "already exists in collection but does not contain flags");
+    if (!(it->second)->Contains(field_names)) {
+      PARTHENON_THROW(name + "already exists in collection but does not contain field names");
     }
     return it->second;
   }
 
   auto c = std::make_shared<T>();
-  c->Copy(src, flags);
+  c->Copy(src, field_names);
 
   containers_[name] = c;
   return containers_[name];
