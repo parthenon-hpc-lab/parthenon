@@ -24,7 +24,8 @@ namespace parthenon {
 template <typename T>
 std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
                                           const std::shared_ptr<T> &src,
-                                          const std::vector<std::string> &field_names) {
+                                          const std::vector<std::string> &field_names,
+                                          const bool shallow) {
   auto it = containers_.find(name);
   if (it != containers_.end()) {
     if (!(it->second)->Contains(field_names)) {
@@ -34,30 +35,33 @@ std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
   }
 
   auto c = std::make_shared<T>();
-  c->Copy(src, field_names);
+  c->Copy(src.get(), field_names, shallow);
 
   containers_[name] = c;
   return containers_[name];
 }
-
+template <typename T>
+std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
+                                          const std::shared_ptr<T> &src,
+                                          const std::vector<std::string> &field_names) {
+  return Add(name, src, field_names, false);
+}
+template <typename T>
+std::shared_ptr<T>
+DataCollection<T>::AddShallow(const std::string &name,
+                              const std::shared_ptr<T> &src,
+                              const std::vector<std::string> &field_names) {
+  return Add(name, src, field_names, true);
+}
 template <typename T>
 std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
                                           const std::shared_ptr<T> &src) {
-  // error check for duplicate names
-  auto it = containers_.find(name);
-  if (it != containers_.end()) {
-    // check to make sure they are the same
-    if (!(*src == *(it->second))) {
-      PARTHENON_THROW("Error attempting to add a Container to a Collection");
-    }
-    return it->second;
-  }
-
-  auto c = std::make_shared<T>();
-  c->Copy(src);
-
-  containers_[name] = c;
-  return containers_[name];
+  return Add(name, src, {}, false);
+}
+template <typename T>
+std::shared_ptr<T> DataCollection<T>::AddShallow(const std::string &name,
+                                                 const std::shared_ptr<T> &src) {
+  return Add(name, src, {}, true);
 }
 
 template <>

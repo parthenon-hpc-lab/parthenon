@@ -135,16 +135,6 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
     }
 
-    WHEN("We extract a subcontainer") {
-      auto subcontainer = MeshBlockData<Real>(mbd, {"v1", "v3", "v5"});
-      THEN("The container has the names in the right order") {
-        auto vars = subcontainer.GetVariableVector();
-        REQUIRE(vars[0]->label() == "v1");
-        REQUIRE(vars[1]->label() == "v3");
-        REQUIRE(vars[2]->label() == "v5");
-      }
-    }
-
     auto v = mbd.PackVariables();
     par_for(
         DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1,

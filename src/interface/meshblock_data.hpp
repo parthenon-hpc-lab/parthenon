@@ -58,17 +58,6 @@ class MeshBlockData {
   /// Constructor
   MeshBlockData<T>() = default;
 
-  /// Copies variables from src, optionally only copying names given and/or variables
-  /// matching any of the flags given. If sparse_ids is not empty, only sparse fields with
-  /// listed sparse ids will be copied, dense fields will always be copied. If both names
-  /// and flags are provided, only variables that show up in names AND have metadata in
-  /// FLAGS are copied. If shallow_copy is true, no copies of variables will be allocated
-  /// regardless whether they are flagged as OneCopy or not
-  void CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
-                const std::vector<std::string> &names = {},
-                const std::vector<MetadataFlag> &flags = {},
-                const std::vector<int> &sparse_ids = {});
-
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names,
@@ -97,33 +86,20 @@ class MeshBlockData {
     return GetBlockPointer()->cellbounds.GetBoundsK(domain);
   }
 
-  /// Create non-shallow copy of MeshBlockData, but only include named variables
-  void Copy(const std::shared_ptr<MeshBlockData<T>> &src,
-            const std::vector<std::string> &names) {
-    CopyFrom(*src, false, names);
-  }
-  /// Create non-shallow copy of MeshBlockData
-  void Copy(const std::shared_ptr<MeshBlockData<T>> &src) { CopyFrom(*src, false); }
+  /// Create copy of MeshBlockData, possibly with a subset of named fields,
+  /// and possibly shallow.  Note when shallow=false, new storage is allocated
+  /// for non-OneCopy vars, but the data from src is not actually deep copied
+  void Copy(const MeshBlockData<T> *src,
+            const std::vector<std::string> &names,
+            const bool shallow);
 
-  /// Get a container containing only dense fields and the sparse fields with a sparse id
-  /// from the given list of sparse ids.
-  ///
-  /// @param sparse_ids The list of sparse ids to include
-  /// @return New container with slices from all variables
-  std::shared_ptr<MeshBlockData<T>> SparseSlice(const std::vector<int> &sparse_ids) const;
-
-  /// As above but for just one sparse id
-  std::shared_ptr<MeshBlockData<T>> SparseSlice(int sparse_id) const {
-    return SparseSlice({sparse_id});
-  }
-
-  ///
   /// Set the pointer to the mesh block for this container
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
   void SetBlockPointer(const std::shared_ptr<MeshBlockData<T>> &other) {
     SetBlockPointer(*other);
   }
   void SetBlockPointer(const MeshBlockData<T> &other) { pmy_block = other.pmy_block; }
+  void SetBlockPointer(const MeshBlockData<T> *other) { pmy_block = other->pmy_block; }
 
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
                   const std::shared_ptr<MeshBlock> pmb);
