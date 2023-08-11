@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -255,7 +255,6 @@ class TaskList {
   }
   void DoAvailable() {
     auto task = task_list_.begin();
-    // for (auto &task : task_list_) {
     while (task != task_list_.end()) {
       // first skip task if it's complete.  Possible for iterative tasks
       if (task->GetStatus() != TaskStatus::incomplete) {
@@ -332,7 +331,7 @@ class TaskList {
   IterativeTasks &AddIteration(const std::string &label) {
     int key = iter_tasks.size();
     iter_tasks[key] = IterativeTasks(this, key);
-    iter_labels[key] = label; //.push_back(label);
+    iter_labels[key] = label;
     return iter_tasks[key];
   }
 
@@ -385,7 +384,7 @@ class TaskRegion {
   }
   void AddRegionalDependencies(const std::string &reg_dep_id, const int list_index,
                                const TaskID &id) {
-    AddDepdencies(reg_dep_id, list_index, id);
+    AddDependencies(reg_dep_id, list_index, id);
     global[reg_dep_id] = false;
   }
   void AddGlobalDependencies(const int reg_dep_id, const int list_index,
@@ -394,7 +393,7 @@ class TaskRegion {
   }
   void AddGlobalDependencies(const std::string &reg_dep_id, const int list_index,
                              const TaskID &id) {
-    AddDepdencies(reg_dep_id, list_index, id);
+    AddDependencies(reg_dep_id, list_index, id);
     global[reg_dep_id] = true;
   }
 
@@ -470,7 +469,7 @@ class TaskRegion {
   }
 
  private:
-  void AddDepdencies(const std::string &label, const int list_id, const TaskID &tid) {
+  void AddDependencies(const std::string &label, const int list_id, const TaskID &tid) {
     id_for_reg[label][list_id] = tid;
     lists[list_id].MarkRegional(tid);
     all_done[label].val = 0;
@@ -502,7 +501,6 @@ class TaskRegion {
     return n_finished == n_to_finish;
   }
 
-  // id_for_reg[region_id] = std::pair<>(task_list_index, task_id_of_regional_task)
   std::unordered_map<std::string, std::map<int, TaskID>> id_for_reg;
   std::vector<TaskList> lists;
   std::unordered_map<std::string, AllReduce<int>> all_done;
