@@ -209,6 +209,12 @@ class Mesh {
     return buffer_memory;
   }
 
+  // expose a mesh-level call to get lists of variables from resolved_packages
+  template <typename... Args>
+  std::vector<std::string> GetVariablesNames(Args &&... args) {
+    return resolved_packages->GetVariableNames(std::forward<Args>(args)...);
+  }
+
  private:
   // data
   int root_level, max_level, current_level;
