@@ -265,8 +265,7 @@ bool MatchFlags(const Metadata::FlagCollection &flags, Metadata m) {
   const auto &unions = flags.GetUnions();
   const auto &exclusions = flags.GetExclusions();
 
-  return m.AllFlagsSet(intersections) &&
-         (unions.empty() || m.AnyFlagsSet(unions)) &&
+  return m.AllFlagsSet(intersections) && (unions.empty() || m.AnyFlagsSet(unions)) &&
          m.NoFlagsSet(exclusions);
 }
 } // namespace MetadataUtils

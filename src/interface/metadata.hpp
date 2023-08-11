@@ -514,7 +514,7 @@ class Metadata {
   template <template <class...> class Container_t, class... extra>
   bool NoFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
     return std::none_of(flags.begin(), flags.end(),
-                       [this](MetadataFlag const &f) { return IsSet(f); });
+                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
   template <typename... Args>
   bool NoFlagsSet(const MetadataFlag &flag, Args... args) const {

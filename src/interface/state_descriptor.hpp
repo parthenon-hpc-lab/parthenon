@@ -111,9 +111,7 @@ class StateDescriptor {
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptor(Packages_t &packages);
 
-  MetadataFlag GetMetadataFlag() {
-    return params_.Get<MetadataFlag>("MetadataFlag");
-  }
+  MetadataFlag GetMetadataFlag() { return params_.Get<MetadataFlag>("MetadataFlag"); }
 
   template <typename T>
   void AddParam(const std::string &key, T value, Params::Mutability mutability) {
@@ -166,8 +164,7 @@ class StateDescriptor {
       throw std::invalid_argument("Swarm " + swarm_name + " already exists!");
     }
     Metadata m = m_in; // so we can modify it
-    if (!m.IsSet(GetMetadataFlag()))
-      m.Set(GetMetadataFlag());
+    if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
     swarmMetadataMap_[swarm_name] = m;
 
     return true;
@@ -193,8 +190,7 @@ class StateDescriptor {
       PARTHENON_THROW(
           "Tried to add a sparse field with AddField, use AddSparsePool instead");
     }
-    if (!m.IsSet(GetMetadataFlag()))
-      m.Set(GetMetadataFlag());
+    if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
     VarID controller = VarID(controlling_field);
     if (controlling_field == "") controller = VarID(field_name);
     return AddFieldImpl(VarID(field_name), m, controller);
@@ -208,10 +204,9 @@ class StateDescriptor {
     return AddSparsePoolImpl(SparsePool(std::forward<Args>(args)...));
   }
   template <typename... Args>
-  bool AddSparsePool(const std::string &base_name, const Metadata &m_in, Args &&... args) {
+  bool AddSparsePool(const std::string &base_name, const Metadata &m_in, Args &&...args) {
     Metadata m = m_in; // so we can modify it
-    if (!m.IsSet(GetMetadataFlag()))
-      m.Set(GetMetadataFlag());
+    if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
     return AddSparsePoolImpl(SparsePool(base_name, m, std::forward<Args>(args)...));
   }
 
@@ -246,20 +241,15 @@ class StateDescriptor {
     // automatically have x, y, z.
     return swarmValueMetadataMap_[swarm_name];
   }
-  std::vector<std::string>
-  GetVariableNames(const std::vector<std::string> &req_names,
-                   const Metadata::FlagCollection &flags,
-                   const std::vector<int> &sparse_ids);
-  std::vector<std::string>
-  GetVariableNames(const std::vector<std::string> &req_names,
-                   const std::vector<int> &sparse_ids);
-  std::vector<std::string>
-  GetVariableNames(const Metadata::FlagCollection &flags,
-                   const std::vector<int> &sparse_ids);
-  std::vector<std::string>
-  GetVariableNames(const std::vector<std::string> &req_names);
-  std::vector<std::string>
-  GetVariableNames(const Metadata::FlagCollection &flags);
+  std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names,
+                                            const Metadata::FlagCollection &flags,
+                                            const std::vector<int> &sparse_ids);
+  std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names,
+                                            const std::vector<int> &sparse_ids);
+  std::vector<std::string> GetVariableNames(const Metadata::FlagCollection &flags,
+                                            const std::vector<int> &sparse_ids);
+  std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names);
+  std::vector<std::string> GetVariableNames(const Metadata::FlagCollection &flags);
 
   std::size_t
   RefinementFuncID(const refinement::RefinementFunctions_t &funcs) const noexcept {

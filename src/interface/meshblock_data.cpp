@@ -113,28 +113,28 @@ void MeshBlockData<T>::Copy(const MeshBlockData<T> *src,
 // Constructor for getting sub-containers
 // the variables returned are all shallow copies of the src container.
 // Optionally extract only some of the sparse ids of src variable.
-//template <typename T>
-//MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
-                                //const std::vector<std::string> &names,
-                                //const std::vector<int> &sparse_ids) {
-  //CopyFrom(src, true, names, {}, sparse_ids);
+// template <typename T>
+// MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
+// const std::vector<std::string> &names,
+// const std::vector<int> &sparse_ids) {
+// CopyFrom(src, true, names, {}, sparse_ids);
 //}
 
 // TODO(JMM): Add constructor that takes unique IDs
-//template <typename T>
-//MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
-                                //const std::vector<MetadataFlag> &flags,
-                                //const std::vector<int> &sparse_ids) {
-  //CopyFrom(src, true, {}, flags, sparse_ids);
+// template <typename T>
+// MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
+// const std::vector<MetadataFlag> &flags,
+// const std::vector<int> &sparse_ids) {
+// CopyFrom(src, true, {}, flags, sparse_ids);
 //}
 
 // provides a container that has a single sparse slice
-//template <typename T>
-//std::shared_ptr<MeshBlockData<T>>
-//MeshBlockData<T>::SparseSlice(const std::vector<int> &sparse_ids) const {
-  //auto c = std::make_shared<MeshBlockData<T>>();
-  //c->CopyFrom(*this, true, {}, {}, sparse_ids);
-  //return c;
+// template <typename T>
+// std::shared_ptr<MeshBlockData<T>>
+// MeshBlockData<T>::SparseSlice(const std::vector<int> &sparse_ids) const {
+// auto c = std::make_shared<MeshBlockData<T>>();
+// c->CopyFrom(*this, true, {}, {}, sparse_ids);
+// return c;
 //}
 
 /// Queries related to variable packs

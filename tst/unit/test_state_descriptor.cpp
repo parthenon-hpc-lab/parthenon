@@ -541,17 +541,16 @@ TEST_CASE("Test getting a vector of variable names given criteria", "[StateDescr
   state.AddField("indc", m_indc);
   state.AddField("indf", m_indf);
   state.AddField("derc", m_derc);
-  state.AddSparsePool("sp", m_sparse, std::vector<int>{3,7,12});
+  state.AddSparsePool("sp", m_sparse, std::vector<int>{3, 7, 12});
   GIVEN("A state descriptor with some fields with differenet metadata") {
     WHEN("We ask for fields by name") {
       std::vector<std::string> req_names({"indc", "derc"});
       auto names = state.GetVariableNames(req_names);
-      THEN("The vector contains the requested fields") {
-        REQUIRE(names == req_names);
-      }
+      THEN("The vector contains the requested fields") { REQUIRE(names == req_names); }
     }
     WHEN("We ask for fields by metadata") {
-      FC_t fc = FC_t({Metadata::Independent, Metadata::FillGhost}) - FC_t({Metadata::Face});
+      FC_t fc =
+          FC_t({Metadata::Independent, Metadata::FillGhost}) - FC_t({Metadata::Face});
       auto names = state.GetVariableNames(fc);
       THEN("The vector contains the request fields") {
         REQUIRE(names == std::vector<std::string>({"indc"}));
@@ -566,7 +565,7 @@ TEST_CASE("Test getting a vector of variable names given criteria", "[StateDescr
     }
     WHEN("We try to filter based on sparse ids") {
       std::vector<std::string> bname({"sp"});
-      std::vector<int> sids({3,12});
+      std::vector<int> sids({3, 12});
       auto names = state.GetVariableNames(bname, sids);
       THEN("We should get only the ids we asked for") {
         REQUIRE(names == std::vector<std::string>({"sp_3", "sp_12"}));
@@ -574,7 +573,7 @@ TEST_CASE("Test getting a vector of variable names given criteria", "[StateDescr
     }
     WHEN("We use metadata and filter on sparse ids") {
       FC_t fc({Metadata::OneCopy});
-      std::vector<int> sids({3,12});
+      std::vector<int> sids({3, 12});
       auto names = state.GetVariableNames(fc, sids);
       THEN("We should get fields that satisfy the metadata criteria including only "
            "specific sparse ids") {
@@ -584,7 +583,7 @@ TEST_CASE("Test getting a vector of variable names given criteria", "[StateDescr
     WHEN("We use all possible filters") {
       std::vector<std::string> req_names({"indc", "indf"});
       FC_t fc = FC_t({Metadata::OneCopy}) - FC_t({Metadata::Cell});
-      std::vector<int> sids({3,7});
+      std::vector<int> sids({3, 7});
       auto names = state.GetVariableNames(req_names, fc, sids);
       THEN("We should get just what we asked for") {
         REQUIRE(names == std::vector<std::string>({"indc", "indf", "sp_3", "sp_7"}));
@@ -595,11 +594,9 @@ TEST_CASE("Test getting a vector of variable names given criteria", "[StateDescr
       REQUIRE_THROWS(state.GetVariableNames(req_names));
     }
     WHEN("We ask for metadata that are not satisfied for any variable") {
-      FC_t fc = FC_t({Metadata::Independent,Metadata::Sparse});
+      FC_t fc = FC_t({Metadata::Independent, Metadata::Sparse});
       auto names = state.GetVariableNames(fc);
-      THEN("We should get nothing back") {
-        REQUIRE(names == std::vector<std::string>());
-      }
+      THEN("We should get nothing back") { REQUIRE(names == std::vector<std::string>()); }
     }
   }
 }

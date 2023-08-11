@@ -89,8 +89,7 @@ class MeshBlockData {
   /// Create copy of MeshBlockData, possibly with a subset of named fields,
   /// and possibly shallow.  Note when shallow=false, new storage is allocated
   /// for non-OneCopy vars, but the data from src is not actually deep copied
-  void Copy(const MeshBlockData<T> *src,
-            const std::vector<std::string> &names,
+  void Copy(const MeshBlockData<T> *src, const std::vector<std::string> &names,
             const bool shallow);
 
   /// Set the pointer to the mesh block for this container

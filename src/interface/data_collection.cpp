@@ -22,14 +22,14 @@
 namespace parthenon {
 
 template <typename T>
-std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
-                                          const std::shared_ptr<T> &src,
-                                          const std::vector<std::string> &field_names,
-                                          const bool shallow) {
+std::shared_ptr<T>
+DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
+                       const std::vector<std::string> &field_names, const bool shallow) {
   auto it = containers_.find(name);
   if (it != containers_.end()) {
     if (!(it->second)->Contains(field_names)) {
-      PARTHENON_THROW(name + "already exists in collection but does not contain field names");
+      PARTHENON_THROW(name +
+                      "already exists in collection but does not contain field names");
     }
     return it->second;
   }
@@ -48,8 +48,7 @@ std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
 }
 template <typename T>
 std::shared_ptr<T>
-DataCollection<T>::AddShallow(const std::string &name,
-                              const std::shared_ptr<T> &src,
+DataCollection<T>::AddShallow(const std::string &name, const std::shared_ptr<T> &src,
                               const std::vector<std::string> &field_names) {
   return Add(name, src, field_names, true);
 }

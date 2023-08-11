@@ -82,8 +82,7 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
     // rightfully break later - this test needn't be maintained if so.
     //
     // Checks that an allocated flag was ended to the end of existing flags
-    REQUIRE(f.InternalFlagValue() ==
-            static_cast<int>(Metadata::num_flags)-1);
+    REQUIRE(f.InternalFlagValue() == static_cast<int>(Metadata::num_flags) - 1);
     REQUIRE(name == f.Name());
 
     // Metadata should be able to report that this flag exists and
