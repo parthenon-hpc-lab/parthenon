@@ -31,10 +31,9 @@ class Packages_t {
     return packages_.at(name);
   }
 
-  // Templated version for retrieving a package with a particular type
-  // Allows subclassing 'StateDescriptor' to add user package types to list
+  // Retrieve a package pointer, cast to a given type T
   template <typename T>
-  T *const Get(const std::string &name) const {
+  T* Get(const std::string &name) const {
     return static_cast<T *>(packages_.at(name).get());
   }
 
