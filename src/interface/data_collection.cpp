@@ -22,7 +22,7 @@
 namespace parthenon {
 
 template <typename T>
-std::shared_ptr<T>
+std::shared_ptr<T>&
 DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
                        const std::vector<std::string> &field_names, const bool shallow) {
   auto it = containers_.find(name);
@@ -41,24 +41,24 @@ DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
   return containers_[name];
 }
 template <typename T>
-std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
+std::shared_ptr<T>& DataCollection<T>::Add(const std::string &name,
                                           const std::shared_ptr<T> &src,
                                           const std::vector<std::string> &field_names) {
   return Add(name, src, field_names, false);
 }
 template <typename T>
-std::shared_ptr<T>
+std::shared_ptr<T>&
 DataCollection<T>::AddShallow(const std::string &name, const std::shared_ptr<T> &src,
                               const std::vector<std::string> &field_names) {
   return Add(name, src, field_names, true);
 }
 template <typename T>
-std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
+std::shared_ptr<T>& DataCollection<T>::Add(const std::string &name,
                                           const std::shared_ptr<T> &src) {
   return Add(name, src, {}, false);
 }
 template <typename T>
-std::shared_ptr<T> DataCollection<T>::AddShallow(const std::string &name,
+std::shared_ptr<T>& DataCollection<T>::AddShallow(const std::string &name,
                                                  const std::shared_ptr<T> &src) {
   return Add(name, src, {}, true);
 }
