@@ -73,7 +73,7 @@ class SparsePool {
 
   // template on variable type
   template <typename T, typename... Args>
-  static SparsePool Make(Args &&... args) {
+  static SparsePool Make(Args &&...args) {
     return SparsePool(T::name(), std::forward<Args>(args)...);
   }
 
