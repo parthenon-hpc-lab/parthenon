@@ -38,6 +38,9 @@ class UniqueIDGenerator {
  private:
   std::unordered_map<T, Uid_t> uids_;
 };
+
+std::vector<Uid_t> UidIntersection(std::vector<Uid_t> v1, std::vector<Uid_t> v2);
+
 } // namespace parthenon
 
 #endif // UTILS_UNIQUE_ID_HPP_
