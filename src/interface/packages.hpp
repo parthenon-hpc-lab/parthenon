@@ -33,7 +33,7 @@ class Packages_t {
 
   // Retrieve a package pointer, cast to a given type T
   template <typename T>
-  T* Get(const std::string &name) const {
+  T *Get(const std::string &name) const {
     return static_cast<T *>(packages_.at(name).get());
   }
 
