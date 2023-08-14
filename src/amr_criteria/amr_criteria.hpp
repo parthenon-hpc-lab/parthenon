@@ -17,12 +17,13 @@
 #include <string>
 
 #include "defs.hpp"
-#include "interface/meshblock_data.hpp"
+//#include "interface/meshblock_data.hpp"
 #include "mesh/domain.hpp"
 
 namespace parthenon {
 
 class ParameterInput;
+template <class> class MeshBlockData;
 
 struct AMRBounds {
   AMRBounds(const IndexRange &ib, const IndexRange &jb, const IndexRange &kb)
