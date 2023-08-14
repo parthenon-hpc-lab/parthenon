@@ -37,7 +37,15 @@ DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
   auto c = std::make_shared<T>();
   c->Copy(src.get(), field_names, shallow);
 
-  containers_[name] = c;
+  Set(name, c);
+
+  if constexpr (std::is_same<T, MeshData<Real>>::value) {
+    for (int b = 0; b < pmy_mesh_->block_list.size(); b++) {
+      auto &mbd = pmy_mesh_->block_list[b]->meshblock_data;
+      mbd.Set(name, c->GetBlockData(b));
+    }
+  }
+
   return containers_[name];
 }
 template <typename T>

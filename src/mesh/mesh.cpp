@@ -492,6 +492,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                         packages, resolved_packages, gflag);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
+  mesh_data.Get()->Set(block_list, "base");
 
   ResetLoadBalanceVariables();
 

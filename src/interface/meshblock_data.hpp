@@ -93,12 +93,16 @@ class MeshBlockData {
             const bool shallow);
 
   /// Set the pointer to the mesh block for this container
-  void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
+  void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb.lock(); }
   void SetBlockPointer(const std::shared_ptr<MeshBlockData<T>> &other) {
-    SetBlockPointer(*other);
+    SetBlockPointer(other.get());
   }
-  void SetBlockPointer(const MeshBlockData<T> &other) { pmy_block = other.pmy_block; }
-  void SetBlockPointer(const MeshBlockData<T> *other) { pmy_block = other->pmy_block; }
+  void SetBlockPointer(const MeshBlockData<T> &other) {
+    pmy_block = other.GetBlockPointer();
+  }
+  void SetBlockPointer(const MeshBlockData<T> *other) {
+    pmy_block = other->GetBlockPointer();
+  }
 
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
                   const std::shared_ptr<MeshBlock> pmb);

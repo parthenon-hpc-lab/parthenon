@@ -243,6 +243,7 @@ class MeshData {
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
     for (int i = 0; i < nblocks; i++) {
+      block_data_[i] = std::make_shared<MeshBlockData<T>>();
       block_data_[i]->Copy(src->GetBlockData(i).get(), std::forward<Args>(args)...);
     }
   }

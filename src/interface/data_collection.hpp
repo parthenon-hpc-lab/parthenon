@@ -69,6 +69,8 @@ class DataCollection {
     return it->second;
   }
 
+  void Set(const std::string &name, std::shared_ptr<T> &d) { containers_[name] = d; }
+
   std::shared_ptr<T> &GetOrAdd(const std::string &mbd_label, const int &partition_id);
 
   void PurgeNonBase() {
