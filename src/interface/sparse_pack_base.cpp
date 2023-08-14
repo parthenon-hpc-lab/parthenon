@@ -313,4 +313,10 @@ std::string SparsePackCache::GetIdentifier(const PackDescriptor &desc) const {
   return identifier;
 }
 
+namespace impl {
+const SD_MetadataMap_t &PackDescriptor::GetAllFields(const StateDescriptor *const psd) const {
+  return psd->AllFields();
+}
+}
+
 } // namespace parthenon

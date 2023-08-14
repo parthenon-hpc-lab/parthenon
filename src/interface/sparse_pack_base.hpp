@@ -39,6 +39,7 @@ class PackDescriptor;
 
 // Map for going from variable names to sparse pack variable indices
 using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
+using SD_MetadataMap_t = std::unordered_map<VarID, Metadata, VarIDHasher>;
 
 class StateDescriptor;
 
@@ -154,7 +155,7 @@ struct PackDescriptor {
   std::vector<PackDescriptor::VariableGroup_t>
   BuildUids(int nvgs, const StateDescriptor *const psd,
                             const FUNC_t &selector) {
-    auto fields = psd->AllFields();
+    const auto fields = GetAllFields(psd);
     std::vector<VariableGroup_t> vgs(nvgs);
     for (auto [id, md] : fields) {
       for (int i = 0; i < nvgs; ++i) {
@@ -182,6 +183,8 @@ struct PackDescriptor {
     }
     return vgs;
   }
+
+  const SD_MetadataMap_t &GetAllFields(const StateDescriptor *const psd) const;
 
   template <class base_t> 
   std::vector<std::string> MakeGroupNames(const std::vector<base_t> &var_groups) {
