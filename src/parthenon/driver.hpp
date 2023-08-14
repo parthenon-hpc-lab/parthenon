@@ -31,6 +31,7 @@
 #include <tasks/task_types.hpp>
 #include <utils/partition_stl_containers.hpp>
 #include <utils/reductions.hpp>
+#include <utils/unique_id.hpp>
 
 // Local Includes
 #include "prelude.hpp"
@@ -70,6 +71,7 @@ using ::parthenon::TaskStatus;
 using ::parthenon::TaskType;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
 using ::parthenon::DriverUtils::ConstructAndExecuteTaskLists;
+using ::parthenon::Uid_t;
 
 namespace partition {
 using ::parthenon::partition::Partition_t;
