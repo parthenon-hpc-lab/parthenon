@@ -31,6 +31,7 @@
 #include "utils/communication_buffer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
+#include "utils/unique_id.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -435,6 +436,13 @@ class MeshData {
   // caches for boundary information
   BvarsCache_t bvars_cache_;
 };
+
+template <typename T, typename... Args>
+std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&... args) {
+  auto u1 = md1->GetBlockData(0)->GetVariableUIDs(std::forward<Args>(args)...);
+  auto u2 = md2->GetBlockData(0)->GetVariableUIDs(std::forward<Args>(args)...);
+  return UidIntersection(u1, u2);
+}
 
 } // namespace parthenon
 
