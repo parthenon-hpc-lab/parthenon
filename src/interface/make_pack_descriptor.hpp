@@ -31,6 +31,7 @@
 #include "interface/metadata.hpp"
 #include "interface/sparse_pack.hpp"
 #include "interface/state_descriptor.hpp"
+#include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
@@ -114,6 +115,23 @@ inline auto MakePackDescriptor(
     use_regex.push_back(r);
   }
   return MakePackDescriptor(psd, vars, use_regex, flags, options);
+}
+
+inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<Uid_t> &var_ids,
+                               const std::vector<MetadataFlag> &flags = {},
+                               const std::set<PDOpt> &options = {}) {
+  auto selector = [&](int vidx, const VarID &id, const Metadata &md) {
+    if (flags.size() > 0) {
+      for (const auto &flag : flags) {
+        if (!md.IsSet(flag)) return false;
+      }
+    }
+    if (Variable<Real>::GetUniqueID(id.label()) == var_ids[vidx]) return true;
+    return false;
+  };
+
+  impl::PackDescriptor base_desc(psd, var_ids, selector, options);
+  return typename SparsePack<>::Descriptor(base_desc);
 }
 
 } // namespace parthenon
