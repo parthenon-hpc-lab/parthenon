@@ -36,6 +36,8 @@
 
 namespace parthenon {
 
+inline auto MakeDefaultPackDescriptor() { return typename SparsePack<>::Descriptor(); }
+
 inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
                                const std::vector<bool> &use_regex,
                                const std::vector<MetadataFlag> &flags = {},

@@ -17,7 +17,6 @@
 #include <string>
 
 #include "defs.hpp"
-//#include "interface/meshblock_data.hpp"
 #include "mesh/domain.hpp"
 
 namespace parthenon {

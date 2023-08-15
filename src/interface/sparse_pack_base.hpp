@@ -127,6 +127,11 @@ struct PackDescriptor {
 
   void Print() const;
 
+  // default constructor needed for certain use cases
+  PackDescriptor()
+      : nvar_groups(0), var_group_names({}), var_groups({}), with_fluxes(false),
+        coarse(false), flat(false) {}
+
   template <class GROUP_t, class SELECTOR_t>
   PackDescriptor(StateDescriptor *psd, const std::vector<GROUP_t> &var_groups_in,
                  const SELECTOR_t &selector, const std::set<PDOpt> &options)
