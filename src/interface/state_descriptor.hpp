@@ -108,6 +108,9 @@ class StateDescriptor {
     }
   }
 
+  // Virtual destructor for subclassing
+  virtual ~StateDescriptor() = default;
+
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptor(Packages_t &packages);
 
