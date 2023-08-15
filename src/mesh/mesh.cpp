@@ -1226,40 +1226,40 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
 //                 RegionSize &block_size, BundaryFlag *block_bcs)
 // \brief Set the physical part of a block_size structure and block boundary conditions
 
-void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
+bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                      BoundaryFlag *block_bcs) {
-  const int &ll = loc.level();
-  const std::array<std::int64_t, 4> lx{-1, loc.lx1(), loc.lx2(), loc.lx3()};
+  bool valid_region = true;
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     block_size.xrat(dir) = mesh_size.xrat(dir);
     block_size.symmetry(dir) = mesh_size.symmetry(dir);
-    if (mesh_size.nx(dir) == 1) {
+    if (!block_size.symmetry(dir)) {
+      std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
+      if (loc.level() < root_level) {
+        std::int64_t fac = 1 << (root_level - loc.level());
+        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0); 
+      }
+      block_size.xmin(dir) = GetMeshCoordinate(dir, BlockLocation::Left, loc);
+      block_size.xmax(dir) = GetMeshCoordinate(dir, BlockLocation::Right, loc);
+      block_bcs[GetInnerBoundaryFace(dir)] = loc.l(dir - 1) == 0 ? mesh_bcs[GetInnerBoundaryFace(dir)] : BoundaryFlag::block;  
+      block_bcs[GetOuterBoundaryFace(dir)] = loc.l(dir - 1) == nrbx_ll - 1 ? mesh_bcs[GetOuterBoundaryFace(dir)] : BoundaryFlag::block;  
+      // Correct for possible overshooting 
+      if (block_size.xmax(dir) > mesh_size.xmax(dir) || loc.level() < 0) { 
+        // Need integer reduction factor, so transform location back to root level 
+        PARTHENON_REQUIRE(loc.level() < root_level, "Something is fucked up.");
+        std::int64_t loc_low = loc.l(dir - 1) << (root_level - loc.level()); 
+        std::int64_t loc_hi = (loc.l(dir - 1) + 1) << (root_level - loc.level()); 
+        if (block_size.nx(dir) % (loc_hi - loc_low) != 0) valid_region = false;
+        block_size.nx(dir) = block_size.nx(dir) / (loc_hi - loc_low) * nrbx[dir - 1]; 
+        block_size.xmax(dir) = mesh_size.xmax(dir);
+      }
+    } else { 
       block_size.xmin(dir) = mesh_size.xmin(dir);
       block_size.xmax(dir) = mesh_size.xmax(dir);
       block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
       block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
-    } else {
-      std::int64_t nrbx_ll = nrbx[dir - 1] << (ll - root_level);
-      if (lx[dir] == 0) {
-        block_size.xmin(dir) = mesh_size.xmin(dir);
-        block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
-      } else {
-        Real rx = ComputeMeshGeneratorX(lx[dir], nrbx_ll, use_uniform_meshgen_fn_[dir]);
-        block_size.xmin(dir) = MeshGenerator_[dir](rx, mesh_size);
-        block_bcs[GetInnerBoundaryFace(dir)] = BoundaryFlag::block;
-      }
-
-      if (lx[dir] == nrbx_ll - 1) {
-        block_size.xmax(dir) = mesh_size.xmax(dir);
-        block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
-      } else {
-        Real rx =
-            ComputeMeshGeneratorX(lx[dir] + 1, nrbx_ll, use_uniform_meshgen_fn_[dir]);
-        block_size.xmax(dir) = MeshGenerator_[dir](rx, mesh_size);
-        block_bcs[GetOuterBoundaryFace(dir)] = BoundaryFlag::block;
-      }
     }
   }
+  return valid_region;
 }
 
 std::int64_t Mesh::GetTotalCells() {

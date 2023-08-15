@@ -126,7 +126,7 @@ class Mesh {
 
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
-  void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
+  bool SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
@@ -296,6 +296,15 @@ class Mesh {
   void RegisterLoadBalancing_(ParameterInput *pin);
 
   void SetupMPIComms();
+  
+  // Transform from logical location coordinates to uniform mesh coordinates accounting 
+  // for root grid 
+  Real GetMeshCoordinate(CoordinateDirection dir, BlockLocation bloc, const LogicalLocation &loc) {
+    auto xll = loc.LLCoord(dir, bloc);
+    auto root_fac = static_cast<Real>(1 << root_level) / static_cast<Real>(nrbx[dir - 1]); 
+    xll *= root_fac;
+    return mesh_size.xmin(dir) * (1.0 - xll) + mesh_size.xmax(dir) * xll; 
+  }
 };
 
 //----------------------------------------------------------------------------------------
