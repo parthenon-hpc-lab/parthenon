@@ -342,7 +342,7 @@ inline Real DefaultMeshGenerator(Real x, RegionSize rs) {
 }
 
 //----------------------------------------------------------------------------------------
-// \!fn Real UniformMeshGeneratorX1(Real x, RegionSize rs)
+// \!fn Real UniformMeshGenerator(Real x, RegionSize rs)
 // \brief generic mesh generator function, x is the logical location; real cells in [-0.5,
 // 0.5]
 template <CoordinateDirection dir>
