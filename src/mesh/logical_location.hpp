@@ -58,6 +58,8 @@ class LogicalLocation { // aggregate and POD type
   int level_;
   
  public:
+  // No check is provided that the requested LogicalLocation is in the allowed 
+  // range of logical location in the requested level.
   LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
       : l_{l1, l2, l3}, level_(lev), morton_(lev, l1, l2, l3) {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
@@ -72,6 +74,13 @@ class LogicalLocation { // aggregate and POD type
   const auto &lx3() const { return l_[2]; }
   const auto &level() const { return level_; }
   const auto &morton() const { return morton_; }
+  
+  // Returns the coordinate in the range [0, 1] of the left side of
+  // a logical location in a given direction on refinement level level
+  Real LLCoord(CoordinateDirection dir, BlockLocation bloc = BlockLocation::Left) const {
+    auto nblocks_tot = 1 << std::max(level(), 0); 
+    return (static_cast<Real>(l(dir - 1)) + 0.5 * static_cast<Real>(bloc)) / static_cast<Real>(nblocks_tot); 
+  }
 
   bool IsContainedIn(const LogicalLocation &container) const;
 
