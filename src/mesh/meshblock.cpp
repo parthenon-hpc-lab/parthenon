@@ -289,6 +289,8 @@ void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
         continue;
       }
 
+      if (!stage.second->HasVariable(l)) continue;
+
       auto v = stage.second->GetVarPtr(l);
 
       if (v->IsSet(Metadata::OneCopy) || stage.second->IsShallow()) {
@@ -327,7 +329,9 @@ void MeshBlock::DeallocateSparse(std::string const &label) {
   auto &mbd = meshblock_data;
   auto DeallocateVar = [&mbd](const std::string &l) {
     for (auto stage : mbd.Stages()) {
-      stage.second->DeallocateSparse(l);
+      if (!stage.second->IsShallow() && stage.second->HasVariable(l)) {
+        stage.second->DeallocateSparse(l);
+      }
     }
   };
 
