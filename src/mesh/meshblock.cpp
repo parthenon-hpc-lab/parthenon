@@ -291,7 +291,7 @@ void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
 
       auto v = stage.second->GetVarPtr(l);
 
-      if (v->IsSet(Metadata::OneCopy)) {
+      if (v->IsSet(Metadata::OneCopy) || stage.second->IsShallow()) {
         // nothing to do, we already allocated variable on base stage, and all other
         // stages share that variable
         continue;

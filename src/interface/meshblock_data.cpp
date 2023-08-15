@@ -81,6 +81,7 @@ void MeshBlockData<T>::Copy(const MeshBlockData<T> *src,
   assert(src != nullptr);
   SetBlockPointer(src);
   resolved_packages_ = src->resolved_packages_;
+  is_shallow_ = shallow_copy;
 
   auto add_var = [=](auto var) {
     if (shallow_copy || var->IsSet(Metadata::OneCopy)) {

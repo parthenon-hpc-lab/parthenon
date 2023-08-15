@@ -403,6 +403,8 @@ class MeshBlockData {
     return all_initialized;
   }
 
+  bool IsShallow() const { return is_shallow_; }
+
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,
                 int sparse_id = InvalidSparseID);
@@ -455,6 +457,7 @@ class MeshBlockData {
 
   std::weak_ptr<MeshBlock> pmy_block;
   std::shared_ptr<StateDescriptor> resolved_packages_;
+  bool is_shallow_ = false;
 
   VariableVector<T> varVector_; ///< the saved variable array
   std::map<Uid_t, std::shared_ptr<Variable<T>>> varUidMap_;
