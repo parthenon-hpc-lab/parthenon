@@ -69,9 +69,9 @@ using ::parthenon::TaskListStatus;
 using ::parthenon::TaskRegion;
 using ::parthenon::TaskStatus;
 using ::parthenon::TaskType;
+using ::parthenon::Uid_t;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
 using ::parthenon::DriverUtils::ConstructAndExecuteTaskLists;
-using ::parthenon::Uid_t;
 
 namespace partition {
 using ::parthenon::partition::Partition_t;

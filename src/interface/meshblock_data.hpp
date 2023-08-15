@@ -189,11 +189,11 @@ class MeshBlockData {
   }
 
   std::vector<Uid_t> GetVariableUIDs(const std::vector<std::string> &names,
-                                    const std::vector<int> &sparse_ids = {}) {
+                                     const std::vector<int> &sparse_ids = {}) {
     return GetVariablesByName(names, sparse_ids).unique_ids();
   }
   std::vector<Uid_t> GetVariableUIDs(const Metadata::FlagCollection &flags,
-                                    const std::vector<int> &sparse_ids = {}) {
+                                     const std::vector<int> &sparse_ids = {}) {
     return GetVariablesByFlag(flags, sparse_ids).unique_ids();
   }
   std::vector<Uid_t> GetVariableUIDs(const std::vector<int> &sparse_ids = {}) {
@@ -661,7 +661,7 @@ class MeshBlockData {
 
 template <typename T, typename... Args>
 std::vector<Uid_t> UidIntersection(MeshBlockData<T> *mbd1, MeshBlockData<T> *mbd2,
-                                   Args &&... args) {
+                                   Args &&...args) {
   auto u1 = mbd1->GetVariableUIDs(std::forward<Args>(args)...);
   auto u2 = mbd2->GetVariableUIDs(std::forward<Args>(args)...);
   return UidIntersection(u1, u2);

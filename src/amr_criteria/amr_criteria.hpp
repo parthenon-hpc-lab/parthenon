@@ -23,7 +23,8 @@
 namespace parthenon {
 
 class ParameterInput;
-template <class> class MeshBlockData;
+template <class>
+class MeshBlockData;
 
 struct AMRBounds {
   AMRBounds(const IndexRange &ib, const IndexRange &jb, const IndexRange &kb)

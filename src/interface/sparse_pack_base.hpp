@@ -35,7 +35,7 @@
 namespace parthenon {
 class SparsePackCache;
 namespace impl {
-class PackDescriptor; 
+class PackDescriptor;
 }
 
 // Map for going from variable names to sparse pack variable indices
@@ -44,8 +44,6 @@ using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
 class StateDescriptor;
 
 enum class PDOpt { WithFluxes, Coarse, Flatten };
-
-
 
 class SparsePackBase {
  public:
@@ -126,18 +124,16 @@ struct PackDescriptor {
   using VariableGroup_t = std::vector<std::pair<VarID, Uid_t>>;
   using SelectorFunction_t = std::function<bool(int, const VarID &, const Metadata &)>;
   using SelectorFunctionUid_t = std::function<bool(int, const Uid_t &, const Metadata &)>;
-  
+
   void Print() const;
-   
-  template <class GROUP_t, class SELECTOR_t> 
-  PackDescriptor(StateDescriptor *psd,
-                                 const std::vector<GROUP_t> &var_groups_in,
-                                 const SELECTOR_t &selector,
-                                 const std::set<PDOpt> &options)
+
+  template <class GROUP_t, class SELECTOR_t>
+  PackDescriptor(StateDescriptor *psd, const std::vector<GROUP_t> &var_groups_in,
+                 const SELECTOR_t &selector, const std::set<PDOpt> &options)
       : nvar_groups(var_groups_in.size()), var_group_names(MakeGroupNames(var_groups_in)),
         var_groups(BuildUids(var_groups_in.size(), psd, selector)),
-        with_fluxes(options.count(PDOpt::WithFluxes)), coarse(options.count(PDOpt::Coarse)),
-        flat(options.count(PDOpt::Flatten)) {
+        with_fluxes(options.count(PDOpt::WithFluxes)),
+        coarse(options.count(PDOpt::Coarse)), flat(options.count(PDOpt::Flatten)) {
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
   }
@@ -150,25 +146,23 @@ struct PackDescriptor {
   const bool flat;
 
  private:
-  
   template <class FUNC_t>
   std::vector<PackDescriptor::VariableGroup_t>
-  BuildUids(int nvgs, const StateDescriptor *const psd,
-                            const FUNC_t &selector) {
+  BuildUids(int nvgs, const StateDescriptor *const psd, const FUNC_t &selector) {
     auto fields = psd->AllFields();
     std::vector<VariableGroup_t> vgs(nvgs);
     for (auto [id, md] : fields) {
       for (int i = 0; i < nvgs; ++i) {
         auto uid = Variable<Real>::GetUniqueID(id.label());
-        if constexpr (std::is_invocable<FUNC_t, int, VarID, Metadata>::value) {  
+        if constexpr (std::is_invocable<FUNC_t, int, VarID, Metadata>::value) {
           if (selector(i, id, md)) {
             vgs[i].push_back({id, uid});
           }
-        } else if constexpr (std::is_invocable<FUNC_t, int, Uid_t, Metadata>::value) {  
+        } else if constexpr (std::is_invocable<FUNC_t, int, Uid_t, Metadata>::value) {
           if (selector(i, uid, md)) {
             vgs[i].push_back({id, uid});
           }
-        } else { 
+        } else {
           PARTHENON_FAIL("Passing the wrong sort of selector.");
         }
       }
@@ -184,13 +178,14 @@ struct PackDescriptor {
     return vgs;
   }
 
-  template <class base_t> 
+  template <class base_t>
   std::vector<std::string> MakeGroupNames(const std::vector<base_t> &var_groups) {
-    if constexpr (std::is_same<base_t, std::string>::value) { 
-      return var_groups; 
-    } else if constexpr (std::is_same<base_t, Uid_t>::value) { 
-      std::vector<std::string> var_group_names; 
-      for (auto &vg : var_groups) var_group_names.push_back(std::to_string(vg)); 
+    if constexpr (std::is_same<base_t, std::string>::value) {
+      return var_groups;
+    } else if constexpr (std::is_same<base_t, Uid_t>::value) {
+      std::vector<std::string> var_group_names;
+      for (auto &vg : var_groups)
+        var_group_names.push_back(std::to_string(vg));
       return var_group_names;
     }
   }

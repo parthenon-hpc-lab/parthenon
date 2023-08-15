@@ -15,6 +15,7 @@
 #define UTILS_UNIQUE_ID_HPP_
 
 #include <cstddef>
+#include <vector>
 
 #include <unordered_map>
 

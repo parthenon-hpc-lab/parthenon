@@ -438,7 +438,7 @@ class MeshData {
 };
 
 template <typename T, typename... Args>
-std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&... args) {
+std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&...args) {
   auto u1 = md1->GetBlockData(0)->GetVariableUIDs(std::forward<Args>(args)...);
   auto u2 = md2->GetBlockData(0)->GetVariableUIDs(std::forward<Args>(args)...);
   return UidIntersection(u1, u2);
