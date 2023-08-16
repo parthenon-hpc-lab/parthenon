@@ -102,16 +102,16 @@ class StateDescriptor {
   // Preferred constructor
   explicit StateDescriptor(std::string const &label) : label_(label) {
     if (Metadata::FlagNameExists(label)) {
-      AddParam("MetadataFlag", Metadata::GetUserFlag(label));
+      AddParam("PackageMetadataFlag_", Metadata::GetUserFlag(label));
     } else {
-      AddParam("MetadataFlag", Metadata::AddUserFlag(label));
+      AddParam("PackageMetadataFlag_", Metadata::AddUserFlag(label));
     }
   }
 
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptor(Packages_t &packages);
 
-  MetadataFlag GetMetadataFlag() { return params_.Get<MetadataFlag>("MetadataFlag"); }
+  MetadataFlag GetMetadataFlag() { return params_.Get<MetadataFlag>("PackageMetadataFlag_"); }
 
   template <typename T>
   void AddParam(const std::string &key, T value, Params::Mutability mutability) {
