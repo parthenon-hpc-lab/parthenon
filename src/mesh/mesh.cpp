@@ -103,8 +103,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
-      lb_automatic_(), lb_manual_(), 
-      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
+      lb_automatic_(),
+      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -314,17 +314,25 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
               << "Refinement region must be smaller than the whole mesh." << std::endl;
           PARTHENON_FAIL(msg);
         }
-        std::int64_t l_region_min[3]{0, 0, 0};   
-        std::int64_t l_region_max[3]{1, 1, 1}; // Need to replace with ones after testing and turning on aspirational
+        std::int64_t l_region_min[3]{0, 0, 0};
+        std::int64_t l_region_max[3]{1, 1, 1};
         for (auto dir : {X1DIR, X2DIR, X3DIR}) {
-          if (!mesh_size.symmetry(dir)) { 
-            l_region_min[dir - 1] = GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir)); 
-            l_region_max[dir - 1] = GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
-            l_region_min[dir - 1] = std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
-            l_region_max[dir - 1] = std::min(l_region_max[dir - 1], static_cast<std::int64_t>(nrbx[dir - 1] * (1LL << ref_lev) - 1));
-            auto current_loc = LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
+          if (!mesh_size.symmetry(dir)) {
+            l_region_min[dir - 1] =
+                GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
+            l_region_max[dir - 1] =
+                GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
+            l_region_min[dir - 1] =
+                std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
+            l_region_max[dir - 1] =
+                std::min(l_region_max[dir - 1],
+                         static_cast<std::int64_t>(nrbx[dir - 1] * (1LL << ref_lev) - 1));
+            auto current_loc =
+                LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
             // Remove last block if it just it's boundary overlaps with the region
-            if (GetMeshCoordinate(dir, BlockLocation::Left, current_loc) == ref_size.xmax(dir)) l_region_max[dir - 1]--;
+            if (GetMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
+                ref_size.xmax(dir))
+              l_region_max[dir - 1]--;
             if (l_region_min[dir - 1] % 2 == 1) l_region_min[dir - 1]--;
             if (l_region_max[dir - 1] % 2 == 0) l_region_max[dir - 1]++;
           }
@@ -470,8 +478,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
-      lb_automatic_(), lb_manual_(),
-      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
+      lb_automatic_(),
+      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -1122,23 +1130,26 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
       std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
       if (loc.level() < root_level) {
         std::int64_t fac = 1 << (root_level - loc.level());
-        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0); 
+        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0);
       }
       block_size.xmin(dir) = GetMeshCoordinate(dir, BlockLocation::Left, loc);
       block_size.xmax(dir) = GetMeshCoordinate(dir, BlockLocation::Right, loc);
-      block_bcs[GetInnerBoundaryFace(dir)] = loc.l(dir - 1) == 0 ? mesh_bcs[GetInnerBoundaryFace(dir)] : BoundaryFlag::block;  
-      block_bcs[GetOuterBoundaryFace(dir)] = loc.l(dir - 1) == nrbx_ll - 1 ? mesh_bcs[GetOuterBoundaryFace(dir)] : BoundaryFlag::block;  
-      // Correct for possible overshooting 
-      if (block_size.xmax(dir) > mesh_size.xmax(dir) || loc.level() < 0) { 
-        // Need integer reduction factor, so transform location back to root level 
+      block_bcs[GetInnerBoundaryFace(dir)] =
+          loc.l(dir - 1) == 0 ? mesh_bcs[GetInnerBoundaryFace(dir)] : BoundaryFlag::block;
+      block_bcs[GetOuterBoundaryFace(dir)] = loc.l(dir - 1) == nrbx_ll - 1
+                                                 ? mesh_bcs[GetOuterBoundaryFace(dir)]
+                                                 : BoundaryFlag::block;
+      // Correct for possible overshooting
+      if (block_size.xmax(dir) > mesh_size.xmax(dir) || loc.level() < 0) {
+        // Need integer reduction factor, so transform location back to root level
         PARTHENON_REQUIRE(loc.level() < root_level, "Something is fucked up.");
-        std::int64_t loc_low = loc.l(dir - 1) << (root_level - loc.level()); 
-        std::int64_t loc_hi = (loc.l(dir - 1) + 1) << (root_level - loc.level()); 
+        std::int64_t loc_low = loc.l(dir - 1) << (root_level - loc.level());
+        std::int64_t loc_hi = (loc.l(dir - 1) + 1) << (root_level - loc.level());
         if (block_size.nx(dir) % (loc_hi - loc_low) != 0) valid_region = false;
-        block_size.nx(dir) = block_size.nx(dir) / (loc_hi - loc_low) * nrbx[dir - 1]; 
+        block_size.nx(dir) = block_size.nx(dir) / (loc_hi - loc_low) * nrbx[dir - 1];
         block_size.xmax(dir) = mesh_size.xmax(dir);
       }
-    } else { 
+    } else {
       block_size.xmin(dir) = mesh_size.xmin(dir);
       block_size.xmax(dir) = mesh_size.xmax(dir);
       block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];

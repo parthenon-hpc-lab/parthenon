@@ -158,7 +158,7 @@ LogicalLocation::NeighborFindingImpl<false>(const LogicalLocation &in,
 
 std::vector<LogicalLocation> LogicalLocation::GetDaughters() const {
   std::vector<LogicalLocation> daughters;
-  if (level() < 0) { 
+  if (level() < 0) {
     daughters.push_back(GetDaughter(0, 0, 0));
     return daughters;
   }

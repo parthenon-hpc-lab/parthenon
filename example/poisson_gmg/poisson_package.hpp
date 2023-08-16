@@ -169,7 +169,7 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
         Real x = coords.template X<1, te>(i);
         Real y = coords.template X<2, te>(j);
         std::array<Real, sizeof...(vars)> vals{pack(b, te, vars(), k, j, i)...};
-        printf("b = %i i = %2i j = %2i x = %e y = %e x+y = %e ", b, i, j, x, y, x+y);
+        printf("b = %i i = %2i j = %2i x = %e y = %e x+y = %e ", b, i, j, x, y, x + y);
         for (int v = 0; v < sizeof...(vars); ++v) {
           printf("%e ", vals[v]);
         }
