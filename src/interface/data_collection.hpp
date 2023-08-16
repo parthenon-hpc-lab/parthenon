@@ -28,6 +28,11 @@ class Mesh;
 /// Current usage includes (but is not limited to) storing MeshBlockData for different
 /// stages in multi-stage drivers or the corresponding MeshBlockPacks in a
 /// DataCollection of MeshData.
+///
+/// T must implement:
+///   bool Contains(std::vector<std::string>)
+///   Initialize(T*, std::vector<std::string>, bool)
+/// TODO: implement a concept
 template <typename T>
 class DataCollection {
  public:
