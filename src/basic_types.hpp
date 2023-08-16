@@ -37,7 +37,6 @@ using Real = double;
 #endif
 
 // needed for arrays dimensioned over grid directions
-// enumerator type only used in Mesh::EnrollUserMeshGenerator()
 // X0DIR time-like direction
 // X1DIR x, r, etc...
 // X2DIR y, theta, etc...

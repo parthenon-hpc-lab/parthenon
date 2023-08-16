@@ -103,9 +103,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
-      lb_automatic_(), lb_manual_(), MeshGenerator_{nullptr, UniformMeshGenerator<X1DIR>,
-                                                    UniformMeshGenerator<X2DIR>,
-                                                    UniformMeshGenerator<X3DIR>},
+      lb_automatic_(), lb_manual_(), 
       MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
@@ -226,18 +224,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // initialize user-enrollable functions
-  if (mesh_size.xrat(X1DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X1DIR] = false;
-    MeshGenerator_[X1DIR] = DefaultMeshGenerator<X1DIR>;
-  }
-  if (mesh_size.xrat(X2DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X2DIR] = false;
-    MeshGenerator_[X2DIR] = DefaultMeshGenerator<X2DIR>;
-  }
-  if (mesh_size.xrat(X3DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X3DIR] = false;
-    MeshGenerator_[X3DIR] = DefaultMeshGenerator<X3DIR>;
-  }
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
   // calculate the logical root level and maximum level
@@ -484,9 +470,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
-      lb_automatic_(), lb_manual_(), MeshGenerator_{nullptr, UniformMeshGenerator<X1DIR>,
-                                                    UniformMeshGenerator<X2DIR>,
-                                                    UniformMeshGenerator<X3DIR>},
+      lb_automatic_(), lb_manual_(),
       MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
@@ -565,19 +549,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
   }
 
-  // initialize user-enrollable functions
-  if (mesh_size.xrat(X1DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X1DIR] = false;
-    MeshGenerator_[X1DIR] = DefaultMeshGenerator<X1DIR>;
-  }
-  if (mesh_size.xrat(X2DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X2DIR] = false;
-    MeshGenerator_[X2DIR] = DefaultMeshGenerator<X2DIR>;
-  }
-  if (mesh_size.xrat(X3DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X3DIR] = false;
-    MeshGenerator_[X3DIR] = DefaultMeshGenerator<X3DIR>;
-  }
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
   // Load balancing flag and parameters
@@ -907,40 +878,6 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
       break;
     }
   }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserMeshGenerator(CoordinateDirection,MeshGenFunc my_mg)
-//  \brief Enroll a user-defined function for Mesh generation
-
-void Mesh::EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg) {
-  std::stringstream msg;
-  if (dir < 0 || dir >= 3) {
-    msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
-        << "dirName = " << dir << " not valid" << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  if (dir == X1DIR && mesh_size.xrat(X1DIR) > 0.0) {
-    msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
-        << "x1rat = " << mesh_size.xrat(X1DIR)
-        << " must be negative for user-defined mesh generator in X1DIR " << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  if (dir == X2DIR && mesh_size.xrat(X2DIR) > 0.0) {
-    msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
-        << "x2rat = " << mesh_size.xrat(X2DIR)
-        << " must be negative for user-defined mesh generator in X2DIR " << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  if (dir == X3DIR && mesh_size.xrat(X3DIR) > 0.0) {
-    msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
-        << "x3rat = " << mesh_size.xrat(X3DIR)
-        << " must be negative for user-defined mesh generator in X3DIR " << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  use_uniform_meshgen_fn_[dir] = false;
-  MeshGenerator_[dir] = my_mg;
-  return;
 }
 
 //----------------------------------------------------------------------------------------

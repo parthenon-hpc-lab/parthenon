@@ -269,8 +269,6 @@ class Mesh {
 #endif
 
   // functions
-  MeshGenFunc MeshGenerator_[4];
-
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
                             std::vector<int> &nblist);
@@ -290,7 +288,6 @@ class Mesh {
       InitUserMeshDataDefault;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
-  void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
 
   // Re-used functionality in constructor
   void RegisterLoadBalancing_(ParameterInput *pin);
@@ -312,60 +309,6 @@ class Mesh {
     return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
   }
 };
-
-//----------------------------------------------------------------------------------------
-// \!fn Real ComputeMeshGeneratorX(std::int64_t index, std::int64_t nrange,
-//                                 bool sym_interval)
-// \brief wrapper fn to compute Real x logical location for either [0., 1.] or [-0.5, 0.5]
-//        real cell ranges for MeshGenerator_[] functions (default/user vs. uniform)
-
-inline Real ComputeMeshGeneratorX(std::int64_t index, std::int64_t nrange,
-                                  bool sym_interval) {
-  // index is typically 0, ... nrange for non-ghost boundaries
-  if (!sym_interval) {
-    // to map to fractional logical position [0.0, 1.0], simply divide by # of faces
-    return static_cast<Real>(index) / static_cast<Real>(nrange);
-  } else {
-    // to map to a [-0.5, 0.5] range, rescale int indices around 0 before FP conversion
-    // if nrange is even, there is an index at center x=0.0; map it to (int) 0
-    // if nrange is odd, the center x=0.0 is between two indices; map them to -1, 1
-    std::int64_t noffset = index - (nrange) / 2;
-    std::int64_t noffset_ceil = index - (nrange + 1) / 2; // = noffset if nrange is even
-    // std::cout << "noffset, noffset_ceil = " << noffset << ", " << noffset_ceil << "\n";
-    // average the (possibly) biased integer indexing
-    return static_cast<Real>(noffset + noffset_ceil) / (2.0 * nrange);
-  }
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real DefaultMeshGenerator(Real x, RegionSize rs)
-// \brief generic default mesh generator function, x is the logical location; x=i/nx, real
-// in [0., 1.]
-template <CoordinateDirection dir>
-inline Real DefaultMeshGenerator(Real x, RegionSize rs) {
-  Real lw, rw;
-  if (rs.xrat(dir) == 1.0) {
-    rw = x, lw = 1.0 - x;
-  } else {
-    Real ratn = std::pow(rs.xrat(dir), rs.nx(dir));
-    Real rnx = std::pow(rs.xrat(dir), x * rs.nx(dir));
-    lw = (rnx - ratn) / (1.0 - ratn);
-    rw = 1.0 - lw;
-  }
-  // linear interp, equally weighted from left (x(xmin)=0.0) and right (x(xmax)=1.0)
-  return rs.xmin(dir) * lw + rs.xmax(dir) * rw;
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real UniformMeshGenerator(Real x, RegionSize rs)
-// \brief generic mesh generator function, x is the logical location; real cells in [-0.5,
-// 0.5]
-template <CoordinateDirection dir>
-inline Real UniformMeshGenerator(Real x, RegionSize rs) {
-  // linear interp, equally weighted from left (x(xmin)=-0.5) and right (x(xmax)=0.5)
-  return static_cast<Real>(0.5) * (rs.xmin(dir) + rs.xmax(dir)) +
-         (x * rs.xmax(dir) - x * rs.xmin(dir));
-}
 
 } // namespace parthenon
 
