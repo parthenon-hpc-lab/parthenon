@@ -111,7 +111,9 @@ class StateDescriptor {
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptor(Packages_t &packages);
 
-  MetadataFlag GetMetadataFlag() { return params_.Get<MetadataFlag>("PackageMetadataFlag_"); }
+  MetadataFlag GetMetadataFlag() {
+    return params_.Get<MetadataFlag>("PackageMetadataFlag_");
+  }
 
   template <typename T>
   void AddParam(const std::string &key, T value, Params::Mutability mutability) {
