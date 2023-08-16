@@ -207,6 +207,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
   }
   nbmax = *std::max_element(std::begin(nrbx), std::end(nrbx));
+  base_block_size = block_size;
 
   // check consistency of the block and mesh
   if (mesh_size.nx(X1DIR) % block_size.nx(X1DIR) != 0 ||
@@ -542,7 +543,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   mesh_size.xmin(X3DIR) = grid_dim[6];
   mesh_size.xmax(X3DIR) = grid_dim[7];
   mesh_size.xrat(X3DIR) = grid_dim[8];
-
+  
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
 
@@ -551,13 +552,20 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   const auto nGhost = rr.GetAttr<int>("Info", "NGhost");
 
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
+    block_size.xrat(dir) = mesh_size.xrat(dir);
     block_size.nx(dir) =
         blockSize[dir - 1] - (blockSize[dir - 1] > 1) * includesGhost * 2 * nGhost;
+    if (block_size.nx(dir) == 1) { 
+      block_size.symmetry(dir) = true;
+      mesh_size.symmetry(dir) = true;
+    } else {
+      block_size.symmetry(dir) = false;
+      mesh_size.symmetry(dir) = false;
+    }
     // calculate the number of the blocks
     nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
   }
-
-  default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
+  base_block_size = block_size;
 
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
@@ -1123,6 +1131,30 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
 bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                      BoundaryFlag *block_bcs) {
   bool valid_region = true;
+  block_size = GetBlockSize(loc);
+  for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
+    if (!block_size.symmetry(dir)) {
+      std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
+      if (loc.level() < root_level) {
+        std::int64_t fac = 1 << (root_level - loc.level());
+        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0);
+      }
+      block_bcs[GetInnerBoundaryFace(dir)] =
+          loc.l(dir - 1) == 0 ? mesh_bcs[GetInnerBoundaryFace(dir)] : BoundaryFlag::block;
+      block_bcs[GetOuterBoundaryFace(dir)] = loc.l(dir - 1) == nrbx_ll - 1
+                                                 ? mesh_bcs[GetOuterBoundaryFace(dir)]
+                                                 : BoundaryFlag::block;
+    } else {
+      block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
+      block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
+    }
+  }
+  return valid_region;
+}
+
+RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
+  RegionSize block_size = GetBlockSize();
+  bool valid_region = true;
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     block_size.xrat(dir) = mesh_size.xrat(dir);
     block_size.symmetry(dir) = mesh_size.symmetry(dir);
@@ -1134,11 +1166,6 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
       }
       block_size.xmin(dir) = GetMeshCoordinate(dir, BlockLocation::Left, loc);
       block_size.xmax(dir) = GetMeshCoordinate(dir, BlockLocation::Right, loc);
-      block_bcs[GetInnerBoundaryFace(dir)] =
-          loc.l(dir - 1) == 0 ? mesh_bcs[GetInnerBoundaryFace(dir)] : BoundaryFlag::block;
-      block_bcs[GetOuterBoundaryFace(dir)] = loc.l(dir - 1) == nrbx_ll - 1
-                                                 ? mesh_bcs[GetOuterBoundaryFace(dir)]
-                                                 : BoundaryFlag::block;
       // Correct for possible overshooting
       if (block_size.xmax(dir) > mesh_size.xmax(dir) || loc.level() < 0) {
         // Need integer reduction factor, so transform location back to root level
@@ -1153,11 +1180,9 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
     } else {
       block_size.xmin(dir) = mesh_size.xmin(dir);
       block_size.xmax(dir) = mesh_size.xmax(dir);
-      block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
-      block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
     }
   }
-  return valid_region;
+  return block_size;
 }
 
 std::int64_t Mesh::GetTotalCells() {
@@ -1169,7 +1194,7 @@ std::int64_t Mesh::GetTotalCells() {
 int Mesh::GetNumberOfMeshBlockCells() const {
   return block_list.front()->GetNumberOfMeshBlockCells();
 }
-const RegionSize &Mesh::GetBlockSize() const { return block_list.front()->block_size; }
+const RegionSize &Mesh::GetBlockSize() const { return base_block_size; }
 
 // Functionality re-used in mesh constructor
 void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {

@@ -66,8 +66,7 @@ class RestartReader;
 // Map from LogicalLocation to (gid, rank) pair of location
 using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
 
-void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
-                           RootGridInfo root_grid, int nbs);
+
 void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb, std::string call_site);
 void CheckNeighborFinding(BlockList_t &block_list, std::string call_site);
 
@@ -101,10 +100,12 @@ class Mesh {
   // TODO(JMM): Move block_size into mesh.
   int GetNumberOfMeshBlockCells() const;
   const RegionSize &GetBlockSize() const;
+  RegionSize GetBlockSize(const LogicalLocation &loc) const;
 
   // data
   bool modified;
   RegionSize mesh_size;
+  RegionSize base_block_size;
   BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
   const int ndim; // number of dimensions
   const bool adaptive, multilevel, multigrid;
@@ -282,7 +283,8 @@ class Mesh {
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
   void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
-
+  void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
+                           RootGridInfo root_grid, int nbs);
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
@@ -298,14 +300,14 @@ class Mesh {
   // Transform from logical location coordinates to uniform mesh coordinates accounting
   // for root grid
   Real GetMeshCoordinate(CoordinateDirection dir, BlockLocation bloc,
-                         const LogicalLocation &loc) {
+                         const LogicalLocation &loc) const {
     auto xll = loc.LLCoord(dir, bloc);
     auto root_fac = static_cast<Real>(1 << root_level) / static_cast<Real>(nrbx[dir - 1]);
     xll *= root_fac;
     return mesh_size.xmin(dir) * (1.0 - xll) + mesh_size.xmax(dir) * xll;
   }
 
-  std::int64_t GetLLFromMeshCoordinate(CoordinateDirection dir, int level, Real xmesh) {
+  std::int64_t GetLLFromMeshCoordinate(CoordinateDirection dir, int level, Real xmesh) const {
     auto root_fac = static_cast<Real>(1 << root_level) / static_cast<Real>(nrbx[dir - 1]);
     auto xLL = (xmesh - mesh_size.xmin(dir)) /
                (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / root_fac;

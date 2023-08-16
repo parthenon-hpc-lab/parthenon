@@ -42,7 +42,7 @@
 
 namespace parthenon {
 
-void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
+void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
                            RootGridInfo root_grid, int nbs) {
   for (auto &pmb : block_list) {
     auto loc = pmb->loc;
@@ -75,6 +75,7 @@ void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_m
                   pos_neighbor_location, gid_rank.second, pos_neighbor_location.level(),
                   gid_rank.first, gid_rank.first - nbs, ox1, ox2, ox3, nc, 0, 0, f[0],
                   f[1]);
+              pmb->gmg_same_neighbors.back().block_size = GetBlockSize(pos_neighbor_location);
             }
           }
         }
@@ -122,47 +123,18 @@ int number_of_trailing_zeros(std::uint64_t val) {
   return n;
 }
 
-RegionSize GetGMGBlockSize(const RegionSize &mesh_size,
-                           const RegionSize &block_size_default, std::array<int, 3> nrb,
-                           int root_level, const LogicalLocation &loc) {
-  if (loc.level() >= root_level) return block_size_default;
-  RegionSize block_size;
-  int root_fac = 1 << (root_level - loc.level());
-  for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
-    Real deltax = (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / nrb[dir - 1] * root_fac;
-    block_size.xmin(dir) = mesh_size.xmin(dir) + deltax * loc.l(dir - 1);
-    block_size.xmax(dir) = block_size.xmin(dir) + deltax;
-    if (block_size.xmax(dir) > mesh_size.xmax(dir)) {
-      block_size.nx(dir) /= root_fac / nrb[dir - 1];
-      block_size.xmax(dir) = mesh_size.xmax(dir);
-    }
-  }
-
-  return block_size;
-}
-
 void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in) {
   // Create GMG logical location lists, first just copy coarsest grid
   auto block_size_default = GetBlockSize();
-  std::cout << std::bitset<16>(block_size_default.nx(X1DIR) * nrbx[0]) << std::endl;
-  std::cout << std::bitset<16>(block_size_default.nx(X2DIR) * nrbx[1]) << std::endl;
-  int allowed_nx1_levels_above_rootgrid =
-      number_of_trailing_zeros(block_size_default.nx(X1DIR) * nrbx[0]);
-  int allowed_nx2_levels_above_rootgrid =
-      number_of_trailing_zeros(block_size_default.nx(X2DIR) * nrbx[1]);
-  int allowed_nx3_levels_above_rootgrid =
-      number_of_trailing_zeros(block_size_default.nx(X3DIR) * nrbx[2]);
-
-  int gmg_level_offset = allowed_nx1_levels_above_rootgrid;
-  if (block_size_default.nx(X2DIR) > 1) {
-    if (allowed_nx2_levels_above_rootgrid < gmg_level_offset)
-      gmg_level_offset = allowed_nx2_levels_above_rootgrid;
+  
+  int gmg_level_offset = std::numeric_limits<int>::max(); 
+  for (auto dir : {X1DIR, X2DIR, X3DIR}) { 
+    int dir_allowed_levels = number_of_trailing_zeros(block_size_default.nx(dir) * nrbx[dir - 1]); 
+    gmg_level_offset = std::min(dir_allowed_levels, gmg_level_offset);
   }
 
   printf("Root grid nrb=(%i, %i) block_size=(%i, %i) level=%i\n", nrbx[0], nrbx[0],
          block_size_default.nx(X1DIR), block_size_default.nx(X2DIR), root_level);
-  printf("allowed levels (%i, %i)\n", allowed_nx1_levels_above_rootgrid,
-         allowed_nx2_levels_above_rootgrid);
   const int gmg_min_level = root_level - gmg_level_offset;
 
   const int gmg_levels = multigrid ? current_level - gmg_min_level + 1 : 1;
@@ -248,9 +220,11 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
       } else {
         PARTHENON_FAIL("There is something wrong with GMG block list.");
       }
+      
       pmb->gmg_coarser_neighbors.emplace_back();
       pmb->gmg_coarser_neighbors.back().SetNeighbor(
           loc, rank, loc.level(), gid, gid - nbs, 0, 0, 0, NeighborConnect::none, 0, 0);
+      pmb->gmg_coarser_neighbors.back().block_size = GetBlockSize(loc);
     }
   }
 
@@ -267,6 +241,7 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
           pmb->gmg_finer_neighbors.back().SetNeighbor(
               daughter_loc, gid_rank.second, daughter_loc.level(), gid_rank.first,
               gid_rank.first - nbs, 0, 0, 0, NeighborConnect::none, 0, 0);
+          pmb->gmg_finer_neighbors.back().block_size = GetBlockSize(daughter_loc);
         }
       }
     }

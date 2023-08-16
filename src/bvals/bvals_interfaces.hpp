@@ -144,6 +144,7 @@ struct NeighborBlock { // aggregate and POD type. Inheritance breaks standard-la
   BoundaryFace fid;
   LogicalLocation loc;
   block_ownership_t ownership;
+  RegionSize block_size;
 
   void SetNeighbor(LogicalLocation inloc, int irank, int ilevel, int igid, int ilid,
                    int iox1, int iox2, int iox3, NeighborConnect itype, int ibid,
