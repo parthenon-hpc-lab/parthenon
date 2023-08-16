@@ -328,78 +328,27 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
               << "Refinement region must be smaller than the whole mesh." << std::endl;
           PARTHENON_FAIL(msg);
         }
-        // find the logical range in the ref_level
-        // note: if this is too slow, this should be replaced with bi-section search.
-        std::int64_t lx1min = 0, lx1max = 0, lx2min = 0, lx2max = 0, lx3min = 0,
-                     lx3max = 0;
-        std::int64_t lxmax = nrbx[X1DIR - 1] * (1LL << ref_lev);
-        for (lx1min = 0; lx1min < lxmax; lx1min++) {
-          Real rx =
-              ComputeMeshGeneratorX(lx1min + 1, lxmax, use_uniform_meshgen_fn_[X1DIR]);
-          if (MeshGenerator_[X1DIR](rx, mesh_size) > ref_size.xmin(X1DIR)) break;
-        }
-        for (lx1max = lx1min; lx1max < lxmax; lx1max++) {
-          Real rx =
-              ComputeMeshGeneratorX(lx1max + 1, lxmax, use_uniform_meshgen_fn_[X1DIR]);
-          if (MeshGenerator_[X1DIR](rx, mesh_size) >= ref_size.xmax(X1DIR)) break;
-        }
-        if (lx1min % 2 == 1) lx1min--;
-        if (lx1max % 2 == 0) lx1max++;
-        if (ndim >= 2) { // 2D or 3D
-          lxmax = nrbx[X2DIR - 1] * (1LL << ref_lev);
-          for (lx2min = 0; lx2min < lxmax; lx2min++) {
-            Real rx =
-                ComputeMeshGeneratorX(lx2min + 1, lxmax, use_uniform_meshgen_fn_[X2DIR]);
-            if (MeshGenerator_[X2DIR](rx, mesh_size) > ref_size.xmin(X2DIR)) break;
-          }
-          for (lx2max = lx2min; lx2max < lxmax; lx2max++) {
-            Real rx =
-                ComputeMeshGeneratorX(lx2max + 1, lxmax, use_uniform_meshgen_fn_[X2DIR]);
-            if (MeshGenerator_[X2DIR](rx, mesh_size) >= ref_size.xmax(X2DIR)) break;
-          }
-          if (lx2min % 2 == 1) lx2min--;
-          if (lx2max % 2 == 0) lx2max++;
-        }
-        if (ndim == 3) { // 3D
-          lxmax = nrbx[X3DIR - 1] * (1LL << ref_lev);
-          for (lx3min = 0; lx3min < lxmax; lx3min++) {
-            Real rx =
-                ComputeMeshGeneratorX(lx3min + 1, lxmax, use_uniform_meshgen_fn_[X3DIR]);
-            if (MeshGenerator_[X3DIR](rx, mesh_size) > ref_size.xmin(X3DIR)) break;
-          }
-          for (lx3max = lx3min; lx3max < lxmax; lx3max++) {
-            Real rx =
-                ComputeMeshGeneratorX(lx3max + 1, lxmax, use_uniform_meshgen_fn_[X3DIR]);
-            if (MeshGenerator_[X3DIR](rx, mesh_size) >= ref_size.xmax(X3DIR)) break;
-          }
-          if (lx3min % 2 == 1) lx3min--;
-          if (lx3max % 2 == 0) lx3max++;
-        }
-        // create the finest level
-        if (ndim == 1) {
-          for (std::int64_t i = lx1min; i < lx1max; i += 2) {
-            LogicalLocation nloc(lrlev, i, 0, 0);
-            int nnew;
-            tree.AddMeshBlock(nloc, nnew);
+        std::int64_t l_region_min[3]{0, 0, 0};   
+        std::int64_t l_region_max[3]{1, 1, 1}; // Need to replace with ones after testing and turning on aspirational
+        for (auto dir : {X1DIR, X2DIR, X3DIR}) {
+          if (!mesh_size.symmetry(dir)) { 
+            l_region_min[dir - 1] = GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir)); 
+            l_region_max[dir - 1] = GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
+            l_region_min[dir - 1] = std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
+            l_region_max[dir - 1] = std::min(l_region_max[dir - 1], static_cast<std::int64_t>(nrbx[dir - 1] * (1LL << ref_lev) - 1));
+            auto current_loc = LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
+            // Remove last block if it just it's boundary overlaps with the region
+            if (GetMeshCoordinate(dir, BlockLocation::Left, current_loc) == ref_size.xmax(dir)) l_region_max[dir - 1]--;
+            if (l_region_min[dir - 1] % 2 == 1) l_region_min[dir - 1]--;
+            if (l_region_max[dir - 1] % 2 == 0) l_region_max[dir - 1]++;
           }
         }
-        if (ndim == 2) {
-          for (std::int64_t j = lx2min; j < lx2max; j += 2) {
-            for (std::int64_t i = lx1min; i < lx1max; i += 2) {
-              LogicalLocation nloc(lrlev, i, j, 0);
+        for (std::int64_t k = l_region_min[2]; k < l_region_max[2]; k += 2) {
+          for (std::int64_t j = l_region_min[1]; j < l_region_max[1]; j += 2) {
+            for (std::int64_t i = l_region_min[0]; i < l_region_max[0]; i += 2) {
+              LogicalLocation nloc(lrlev, i, j, k);
               int nnew;
               tree.AddMeshBlock(nloc, nnew);
-            }
-          }
-        }
-        if (ndim == 3) {
-          for (std::int64_t k = lx3min; k < lx3max; k += 2) {
-            for (std::int64_t j = lx2min; j < lx2max; j += 2) {
-              for (std::int64_t i = lx1min; i < lx1max; i += 2) {
-                LogicalLocation nloc(lrlev, i, j, k);
-                int nnew;
-                tree.AddMeshBlock(nloc, nnew);
-              }
             }
           }
         }

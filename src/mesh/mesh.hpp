@@ -305,6 +305,12 @@ class Mesh {
     xll *= root_fac;
     return mesh_size.xmin(dir) * (1.0 - xll) + mesh_size.xmax(dir) * xll; 
   }
+
+  std::int64_t GetLLFromMeshCoordinate(CoordinateDirection dir, int level, Real xmesh) { 
+    auto root_fac = static_cast<Real>(1 << root_level) / static_cast<Real>(nrbx[dir - 1]); 
+    auto xLL = (xmesh - mesh_size.xmin(dir)) / (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / root_fac;
+    return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
+  }
 };
 
 //----------------------------------------------------------------------------------------
