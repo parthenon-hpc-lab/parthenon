@@ -237,15 +237,16 @@ class MeshData {
   }
 
   template <typename... Args>
-  void Copy(const MeshData<T> *src, Args &&...args) {
+  void Initialize(const MeshData<T> *src, Args &&...args) {
     if (src == nullptr) {
       PARTHENON_THROW("src points at null");
     }
+    pmy_mesh_ = src->GetParentPointer();
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
     for (int i = 0; i < nblocks; i++) {
       block_data_[i] = std::make_shared<MeshBlockData<T>>();
-      block_data_[i]->Copy(src->GetBlockData(i).get(), std::forward<Args>(args)...);
+      block_data_[i]->Initialize(src->GetBlockData(i).get(), std::forward<Args>(args)...);
     }
   }
 

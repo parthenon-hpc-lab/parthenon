@@ -35,7 +35,7 @@ DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
   }
 
   auto c = std::make_shared<T>();
-  c->Copy(src.get(), field_names, shallow);
+  c->Initialize(src.get(), field_names, shallow);
 
   Set(name, c);
 
