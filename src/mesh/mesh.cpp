@@ -1145,8 +1145,9 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
         PARTHENON_REQUIRE(loc.level() < root_level, "Something is fucked up.");
         std::int64_t loc_low = loc.l(dir - 1) << (root_level - loc.level());
         std::int64_t loc_hi = (loc.l(dir - 1) + 1) << (root_level - loc.level());
-        if (block_size.nx(dir) % (loc_hi - loc_low) != 0) valid_region = false;
-        block_size.nx(dir) = block_size.nx(dir) / (loc_hi - loc_low) * nrbx[dir - 1];
+        if (block_size.nx(dir) * (nrbx[dir - 1] - loc_low) % (loc_hi - loc_low) != 0) valid_region = false;
+        printf("dir = %i nx = %i fac = %i loc_low = %i loc_hi = %i nrbx = %i valid_region = %i\n", dir, block_size.nx(dir), nrbx[dir - 1] /(loc_hi - loc_low), loc_low, loc_hi, nrbx[dir - 1], valid_region);
+        block_size.nx(dir) = block_size.nx(dir) * (nrbx[dir - 1] - loc_low) / (loc_hi - loc_low) ;
         block_size.xmax(dir) = mesh_size.xmax(dir);
       }
     } else {

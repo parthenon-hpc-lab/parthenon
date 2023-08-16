@@ -163,7 +163,7 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
          block_size_default.nx(X1DIR), block_size_default.nx(X2DIR), root_level);
   printf("allowed levels (%i, %i)\n", allowed_nx1_levels_above_rootgrid,
          allowed_nx2_levels_above_rootgrid);
-  const int gmg_min_level = root_level - gmg_level_offset + 1;
+  const int gmg_min_level = root_level - gmg_level_offset;
 
   const int gmg_levels = multigrid ? current_level - gmg_min_level + 1 : 1;
   gmg_grid_locs = std::vector<LogicalLocMap_t>(gmg_levels);
@@ -210,22 +210,8 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
     for (auto &[loc, gid_rank] : gmg_grid_locs[gmg_level]) {
       if (gid_rank.second == Globals::my_rank) {
         BoundaryFlag block_bcs[6];
-        SetBlockSizeAndBoundaries(loc, block_size_default, block_bcs);
         auto block_size = block_size_default;
-        if (loc.level() < root_level) {
-          // The results of SetBlockSize and Boundaries are wrong
-          int root_fac = 1 << (root_level - loc.level());
-          for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
-            Real deltax =
-                (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / nrbx[dir - 1] * root_fac;
-            block_size.xmin(dir) = mesh_size.xmin(dir) + deltax * loc.l(dir - 1);
-            block_size.xmax(dir) = block_size.xmin(dir) + deltax;
-            if (block_size.xmax(dir) > mesh_size.xmax(dir)) {
-              block_size.nx(dir) /= root_fac / nrbx[dir - 1];
-              block_size.xmax(dir) = mesh_size.xmax(dir);
-            }
-          }
-        }
+        SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
         printf("level = %i root_level = %i nx = (%i, %i) l=(%i, %i) x1=(%e, %e) x2=(%e, "
                "%e)\n",
                loc.level(), root_level, block_size.nx(X1DIR), block_size.nx(X2DIR),
