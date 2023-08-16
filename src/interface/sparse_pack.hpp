@@ -122,6 +122,7 @@ class SparsePack : public SparsePackBase {
 
   class Descriptor : public impl::PackDescriptor {
    public:
+    Descriptor() = default;
     explicit Descriptor(const impl::PackDescriptor &desc_in)
         : impl::PackDescriptor(desc_in) {}
 
