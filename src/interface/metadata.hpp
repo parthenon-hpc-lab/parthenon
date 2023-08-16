@@ -491,8 +491,9 @@ class Metadata {
   /**
    * @brief Returns true if any flag is set
    */
-  template <template <class...> class Container_t, class... extra>
-  bool AnyFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
+  template <class Container_t,
+            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  bool AnyFlagsSet(const Container_t &flags) const {
     return std::any_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
@@ -501,8 +502,9 @@ class Metadata {
     return AnyFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
 
-  template <template <class...> class Container_t, class... extra>
-  bool AllFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
+  template <class Container_t,
+            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  bool AllFlagsSet(const Container_t &flags) const {
     return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
@@ -510,15 +512,15 @@ class Metadata {
   bool AllFlagsSet(const MetadataFlag &flag, Args... args) const {
     return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
-
-  template <template <class...> class Container_t, class... extra>
-  bool NoFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
+  template <class Container_t,
+            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  bool NoFlagsSet(const Container_t &flags) const {
     return std::none_of(flags.begin(), flags.end(),
                         [this](MetadataFlag const &f) { return IsSet(f); });
   }
   template <typename... Args>
   bool NoFlagsSet(const MetadataFlag &flag, Args... args) const {
-    return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
+    return NoFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
 
   template <template <class...> class Container_t, class... extra>
