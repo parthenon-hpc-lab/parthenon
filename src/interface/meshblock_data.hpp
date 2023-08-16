@@ -87,12 +87,6 @@ class MeshBlockData {
     return GetBlockPointer()->cellbounds.GetBoundsK(domain);
   }
 
-  /// Create copy of MeshBlockData, possibly with a subset of named fields,
-  /// and possibly shallow.  Note when shallow=false, new storage is allocated
-  /// for non-OneCopy vars, but the data from src is not actually deep copied
-  void Copy(const MeshBlockData<T> *src, const std::vector<std::string> &names,
-            const bool shallow);
-
   /// Set the pointer to the mesh block for this container
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb.lock(); }
   void SetBlockPointer(const std::shared_ptr<MeshBlockData<T>> &other) {
@@ -107,6 +101,12 @@ class MeshBlockData {
 
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
                   const std::shared_ptr<MeshBlock> pmb);
+
+  /// Create copy of MeshBlockData, possibly with a subset of named fields,
+  /// and possibly shallow.  Note when shallow=false, new storage is allocated
+  /// for non-OneCopy vars, but the data from src is not actually deep copied
+  void Initialize(const MeshBlockData<T> *src, const std::vector<std::string> &names,
+                  const bool shallow);
 
   //
   // Queries related to Variable objects

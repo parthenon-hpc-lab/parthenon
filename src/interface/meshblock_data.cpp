@@ -75,9 +75,9 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
 
 // TODO(JMM): Move to unique IDs at some point
 template <typename T>
-void MeshBlockData<T>::Copy(const MeshBlockData<T> *src,
-                            const std::vector<std::string> &names,
-                            const bool shallow_copy) {
+void MeshBlockData<T>::Initialize(const MeshBlockData<T> *src,
+                                  const std::vector<std::string> &names,
+                                  const bool shallow_copy) {
   assert(src != nullptr);
   SetBlockPointer(src);
   resolved_packages_ = src->resolved_packages_;

@@ -444,15 +444,23 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   return state;
 }
 
+// Build a list of variables in the following order
+// 1. fields requested by name (if present), in the order they're requested
+// 2. non-sparse fields picked up by the provided Metadata::FlagCollection
+// 3. sparse fields picked up by metadata
+// For sparse fields, only those ids in sparse_ids are included, unless
+// sparse_ids is empty, in which case all ids are included.
+// Variable names are only added to the list once the first time they
+// are encountered.
 std::vector<std::string>
-StateDescriptor::GetVariableNames(const std::vector<std::string> &req_names,
+StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_names,
                                   const Metadata::FlagCollection &flags,
                                   const std::vector<int> &sparse_ids) {
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
   std::unordered_set<std::string> names;
   std::vector<std::string> names_vec;
   // first add names that are present
-  for (const auto &name : req_names) {
+  for (const auto &name : requested_names) {
     if (FieldPresent(name)) {
       if (metadataMap_[VarID(name)].IsSet(Metadata::Sparse)) {
         PARTHENON_THROW("Cannot ask for variables by name with specific sparse ids");
@@ -504,9 +512,9 @@ StateDescriptor::GetVariableNames(const std::vector<std::string> &req_names,
   return names_vec;
 }
 std::vector<std::string>
-StateDescriptor::GetVariableNames(const std::vector<std::string> &req_names,
+StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_names,
                                   const std::vector<int> &sparse_ids) {
-  return GetVariableNames(req_names, Metadata::FlagCollection(), sparse_ids);
+  return GetVariableNames(requested_names, Metadata::FlagCollection(), sparse_ids);
 }
 std::vector<std::string>
 StateDescriptor::GetVariableNames(const Metadata::FlagCollection &flags,
@@ -514,8 +522,8 @@ StateDescriptor::GetVariableNames(const Metadata::FlagCollection &flags,
   return GetVariableNames({}, flags, sparse_ids);
 }
 std::vector<std::string>
-StateDescriptor::GetVariableNames(const std::vector<std::string> &req_names) {
-  return GetVariableNames(req_names, Metadata::FlagCollection(), {});
+StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_names) {
+  return GetVariableNames(requested_names, Metadata::FlagCollection(), {});
 }
 std::vector<std::string>
 StateDescriptor::GetVariableNames(const Metadata::FlagCollection &flags) {

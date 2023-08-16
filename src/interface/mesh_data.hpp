@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -237,15 +237,16 @@ class MeshData {
   }
 
   template <typename... Args>
-  void Copy(const MeshData<T> *src, Args &&...args) {
+  void Initialize(const MeshData<T> *src, Args &&...args) {
     if (src == nullptr) {
       PARTHENON_THROW("src points at null");
     }
+    pmy_mesh_ = src->GetParentPointer();
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
     for (int i = 0; i < nblocks; i++) {
       block_data_[i] = std::make_shared<MeshBlockData<T>>();
-      block_data_[i]->Copy(src->GetBlockData(i).get(), std::forward<Args>(args)...);
+      block_data_[i]->Initialize(src->GetBlockData(i).get(), std::forward<Args>(args)...);
     }
   }
 
@@ -439,9 +440,8 @@ class MeshData {
 
 template <typename T, typename... Args>
 std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&...args) {
-  auto u1 = md1->GetBlockData(0)->GetVariableUIDs(std::forward<Args>(args)...);
-  auto u2 = md2->GetBlockData(0)->GetVariableUIDs(std::forward<Args>(args)...);
-  return UidIntersection(u1, u2);
+  return UidIntersection(md1->GetBlockData(0).get(), md2->GetBlockData(0).get(),
+                         std::forward<Args>(args)...);
 }
 
 } // namespace parthenon

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -35,7 +35,7 @@ DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
   }
 
   auto c = std::make_shared<T>();
-  c->Copy(src.get(), field_names, shallow);
+  c->Initialize(src.get(), field_names, shallow);
 
   Set(name, c);
 
@@ -49,26 +49,16 @@ DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
   return containers_[name];
 }
 template <typename T>
-std::shared_ptr<T> &DataCollection<T>::Add(const std::string &name,
+std::shared_ptr<T> &DataCollection<T>::Add(const std::string &label,
                                            const std::shared_ptr<T> &src,
-                                           const std::vector<std::string> &field_names) {
-  return Add(name, src, field_names, false);
+                                           const std::vector<std::string> &flags) {
+  return Add(label, src, flags, false);
 }
 template <typename T>
-std::shared_ptr<T> &
-DataCollection<T>::AddShallow(const std::string &name, const std::shared_ptr<T> &src,
-                              const std::vector<std::string> &field_names) {
-  return Add(name, src, field_names, true);
-}
-template <typename T>
-std::shared_ptr<T> &DataCollection<T>::Add(const std::string &name,
-                                           const std::shared_ptr<T> &src) {
-  return Add(name, src, {}, false);
-}
-template <typename T>
-std::shared_ptr<T> &DataCollection<T>::AddShallow(const std::string &name,
-                                                  const std::shared_ptr<T> &src) {
-  return Add(name, src, {}, true);
+std::shared_ptr<T> &DataCollection<T>::AddShallow(const std::string &label,
+                                                  const std::shared_ptr<T> &src,
+                                                  const std::vector<std::string> &flags) {
+  return Add(label, src, flags, true);
 }
 
 template <>

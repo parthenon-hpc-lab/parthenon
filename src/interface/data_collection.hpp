@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -41,11 +41,9 @@ class DataCollection {
   std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<T> &src,
                           const std::vector<std::string> &flags, const bool shallow);
   std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<T> &src,
-                          const std::vector<std::string> &flags);
+                          const std::vector<std::string> &flags = {});
   std::shared_ptr<T> &AddShallow(const std::string &label, const std::shared_ptr<T> &src,
-                                 const std::vector<std::string> &flags);
-  std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<T> &src);
-  std::shared_ptr<T> &AddShallow(const std::string &label, const std::shared_ptr<T> &src);
+                                 const std::vector<std::string> &flags = {});
   std::shared_ptr<T> &Add(const std::string &label) {
     // error check for duplicate names
     auto it = containers_.find(label);
