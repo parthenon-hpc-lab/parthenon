@@ -530,4 +530,37 @@ StateDescriptor::GetVariableNames(const Metadata::FlagCollection &flags) {
   return GetVariableNames({}, flags, {});
 }
 
+// Get the total length of this StateDescriptor's variables when packed
+int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names,
+                                      const Metadata::FlagCollection &flags,
+                                      const std::vector<int> &sparse_ids) {
+  std::vector<std::string> names = GetVariableNames(req_names, flags, sparse_ids);
+  int nvar = 0;
+  for (auto name : names) {
+    const auto &meta = metadataMap_[VarID(name)];
+    int var_len = 0;
+    if (meta.Shape().size() < 1) {
+      var_len = 1;
+    } else {
+      var_len = meta.Shape()[0];
+    }
+    nvar += var_len;
+  }
+  return nvar;
+}
+int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names,
+                                      const std::vector<int> &sparse_ids) {
+  return GetPackDimension(req_names, Metadata::FlagCollection(), sparse_ids);
+}
+int StateDescriptor::GetPackDimension(const Metadata::FlagCollection &flags,
+                                      const std::vector<int> &sparse_ids) {
+  return GetPackDimension({}, flags, sparse_ids);
+}
+int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names) {
+  return GetPackDimension(req_names, Metadata::FlagCollection(), {});
+}
+int StateDescriptor::GetPackDimension(const Metadata::FlagCollection &flags) {
+  return GetPackDimension({}, flags, {});
+}
+
 } // namespace parthenon

@@ -272,6 +272,16 @@ class StateDescriptor {
   std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names);
   std::vector<std::string> GetVariableNames(const Metadata::FlagCollection &flags);
 
+  int GetPackDimension(const std::vector<std::string> &req_names,
+                       const Metadata::FlagCollection &flags,
+                       const std::vector<int> &sparse_ids);
+  int GetPackDimension(const std::vector<std::string> &req_names,
+                       const std::vector<int> &sparse_ids);
+  int GetPackDimension(const Metadata::FlagCollection &flags,
+                       const std::vector<int> &sparse_ids);
+  int GetPackDimension(const std::vector<std::string> &req_names);
+  int GetPackDimension(const Metadata::FlagCollection &flags);
+
   std::size_t
   RefinementFuncID(const refinement::RefinementFunctions_t &funcs) const noexcept {
     return refinementFuncMaps_.funcs_to_ids.at(funcs);
