@@ -26,6 +26,7 @@
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/unique_id.hpp"
 
 namespace parthenon {
 
@@ -58,17 +59,6 @@ class MeshBlockData {
   /// Constructor
   MeshBlockData<T>() = default;
 
-  /// Copies variables from src, optionally only copying names given and/or variables
-  /// matching any of the flags given. If sparse_ids is not empty, only sparse fields with
-  /// listed sparse ids will be copied, dense fields will always be copied. If both names
-  /// and flags are provided, only variables that show up in names AND have metadata in
-  /// FLAGS are copied. If shallow_copy is true, no copies of variables will be allocated
-  /// regardless whether they are flagged as OneCopy or not
-  void CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
-                const std::vector<std::string> &names = {},
-                const std::vector<MetadataFlag> &flags = {},
-                const std::vector<int> &sparse_ids = {});
-
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names,
@@ -97,36 +87,26 @@ class MeshBlockData {
     return GetBlockPointer()->cellbounds.GetBoundsK(domain);
   }
 
-  /// Create non-shallow copy of MeshBlockData, but only include named variables
-  void Copy(const std::shared_ptr<MeshBlockData<T>> &src,
-            const std::vector<std::string> &names) {
-    CopyFrom(*src, false, names);
-  }
-  /// Create non-shallow copy of MeshBlockData
-  void Copy(const std::shared_ptr<MeshBlockData<T>> &src) { CopyFrom(*src, false); }
-
-  /// Get a container containing only dense fields and the sparse fields with a sparse id
-  /// from the given list of sparse ids.
-  ///
-  /// @param sparse_ids The list of sparse ids to include
-  /// @return New container with slices from all variables
-  std::shared_ptr<MeshBlockData<T>> SparseSlice(const std::vector<int> &sparse_ids) const;
-
-  /// As above but for just one sparse id
-  std::shared_ptr<MeshBlockData<T>> SparseSlice(int sparse_id) const {
-    return SparseSlice({sparse_id});
-  }
-
-  ///
   /// Set the pointer to the mesh block for this container
-  void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
+  void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb.lock(); }
   void SetBlockPointer(const std::shared_ptr<MeshBlockData<T>> &other) {
-    SetBlockPointer(*other);
+    SetBlockPointer(other.get());
   }
-  void SetBlockPointer(const MeshBlockData<T> &other) { pmy_block = other.pmy_block; }
+  void SetBlockPointer(const MeshBlockData<T> &other) {
+    pmy_block = other.GetBlockPointer();
+  }
+  void SetBlockPointer(const MeshBlockData<T> *other) {
+    pmy_block = other->GetBlockPointer();
+  }
 
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
                   const std::shared_ptr<MeshBlock> pmb);
+
+  /// Create copy of MeshBlockData, possibly with a subset of named fields,
+  /// and possibly shallow.  Note when shallow=false, new storage is allocated
+  /// for non-OneCopy vars, but the data from src is not actually deep copied
+  void Initialize(const MeshBlockData<T> *src, const std::vector<std::string> &names,
+                  const bool shallow);
 
   //
   // Queries related to Variable objects
@@ -206,6 +186,18 @@ class MeshBlockData {
   /// Get list of all variables and labels, optionally selecting only given sparse ids
   VarList GetAllVariables(const std::vector<int> &sparse_ids = {}) {
     return GetVariablesByFlag(Metadata::FlagCollection(), sparse_ids);
+  }
+
+  std::vector<Uid_t> GetVariableUIDs(const std::vector<std::string> &names,
+                                     const std::vector<int> &sparse_ids = {}) {
+    return GetVariablesByName(names, sparse_ids).unique_ids();
+  }
+  std::vector<Uid_t> GetVariableUIDs(const Metadata::FlagCollection &flags,
+                                     const std::vector<int> &sparse_ids = {}) {
+    return GetVariablesByFlag(flags, sparse_ids).unique_ids();
+  }
+  std::vector<Uid_t> GetVariableUIDs(const std::vector<int> &sparse_ids = {}) {
+    return GetAllVariables(sparse_ids).unique_ids();
   }
 
   /// Queries related to variable packs
@@ -411,6 +403,8 @@ class MeshBlockData {
     return all_initialized;
   }
 
+  bool IsShallow() const { return is_shallow_; }
+
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,
                 int sparse_id = InvalidSparseID);
@@ -463,6 +457,7 @@ class MeshBlockData {
 
   std::weak_ptr<MeshBlock> pmy_block;
   std::shared_ptr<StateDescriptor> resolved_packages_;
+  bool is_shallow_ = false;
 
   VariableVector<T> varVector_; ///< the saved variable array
   std::map<Uid_t, std::shared_ptr<Variable<T>>> varUidMap_;
@@ -663,6 +658,14 @@ class MeshBlockData {
                                            bool coarse, PackIndexMap *map,
                                            vpack_types::VPackKey_t *key);
 };
+
+template <typename T, typename... Args>
+std::vector<Uid_t> UidIntersection(MeshBlockData<T> *mbd1, MeshBlockData<T> *mbd2,
+                                   Args &&...args) {
+  auto u1 = mbd1->GetVariableUIDs(std::forward<Args>(args)...);
+  auto u2 = mbd2->GetVariableUIDs(std::forward<Args>(args)...);
+  return UidIntersection(u1, u2);
+}
 
 } // namespace parthenon
 

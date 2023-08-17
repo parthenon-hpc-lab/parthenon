@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -36,7 +36,7 @@ using Real = double;
 #endif
 #endif
 
-enum class TaskStatus { fail, complete, incomplete, iterate, skip };
+enum class TaskStatus { fail, complete, incomplete, iterate, skip, waiting };
 enum class AmrTag : int { derefine = -1, same = 0, refine = 1 };
 enum class RefinementOp_t { Prolongation, Restriction, None };
 

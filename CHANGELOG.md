@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 921]](https://github.com/parthenon-hpc-lab/parthenon/pull/921) Add more flexible ways of adding and using MeshData/MeshBlockData objects to DataCollections
 - [[PR 900]](https://github.com/parthenon-hpc-lab/parthenon/pull/900) Add Morton numbers and expand functionality of LogicalLocation
 - [[PR 902]](https://github.com/parthenon-hpc-lab/parthenon/pull/902) Add ability to output NaNs for de-allocated sparse fields
 - [[PR 887]](https://github.com/parthenon-hpc-lab/parthenon/pull/887) Add ability to dump more types of params and read them from restarts
@@ -21,6 +22,7 @@
 - [[PR 885]](https://github.com/parthenon-hpc-lab/parthenon/pull/885) Expose PackDescriptor and use uids in SparsePacks
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 917]](https://github.com/parthenon-hpc-lab/parthenon/pull/917) Update Iterative Tasking Infrastructure
 - [[PR 890]](https://github.com/parthenon-hpc-lab/parthenon/pull/890) Fix bugs in sparse communication and prolongation
 
 ### Infrastructure (changes irrelevant to downstream codes)
