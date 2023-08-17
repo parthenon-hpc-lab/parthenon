@@ -199,7 +199,6 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
   const int isize = cb.ie(in) - cb.is(in) + 2;
   const int jsize = cb.je(in) - cb.js(in) + 2;
   const int ksize = cb.ke(in) - cb.ks(in) + 2;
-  return 8 * 8 * 16;
   return (nb.ni.ox1 == 0 ? isize : Globals::nghost + 1) *
          (nb.ni.ox2 == 0 ? jsize : Globals::nghost + 1) *
          (nb.ni.ox3 == 0 ? ksize : Globals::nghost + 1) * v->GetDim(6) * v->GetDim(5) *
