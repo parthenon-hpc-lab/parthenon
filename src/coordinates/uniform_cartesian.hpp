@@ -28,19 +28,15 @@ class UniformCartesian {
  public:
   UniformCartesian() = default;
   UniformCartesian(const RegionSize &rs, ParameterInput *pin) {
-    dx_[0] = (rs.x1max - rs.x1min) / rs.nx1;
-    dx_[1] = (rs.x2max - rs.x2min) / rs.nx2;
-    dx_[2] = (rs.x3max - rs.x3min) / rs.nx3;
+    for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
+      dx_[dir - 1] = (rs.xmax(dir) - rs.xmin(dir)) / rs.nx(dir);
+      istart_[dir - 1] = (!rs.symmetry(dir) ? Globals::nghost : 0);
+      xmin_[dir - 1] = rs.xmin(dir) - istart_[dir - 1] * dx_[dir - 1];
+    }
     area_[0] = dx_[1] * dx_[2];
     area_[1] = dx_[0] * dx_[2];
     area_[2] = dx_[0] * dx_[1];
     cell_volume_ = dx_[0] * dx_[1] * dx_[2];
-    istart_[0] = Globals::nghost;
-    istart_[1] = (rs.nx2 > 1 ? Globals::nghost : 0);
-    istart_[2] = (rs.nx3 > 1 ? Globals::nghost : 0);
-    xmin_[0] = rs.x1min - istart_[0] * dx_[0];
-    xmin_[1] = rs.x2min - istart_[1] * dx_[1];
-    xmin_[2] = rs.x3min - istart_[2] * dx_[2];
   }
   UniformCartesian(const UniformCartesian &src, int coarsen)
       : istart_(src.GetStartIndex()) {
