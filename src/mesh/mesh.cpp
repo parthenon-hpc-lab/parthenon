@@ -543,7 +543,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   mesh_size.xmin(X3DIR) = grid_dim[6];
   mesh_size.xmax(X3DIR) = grid_dim[7];
   mesh_size.xrat(X3DIR) = grid_dim[8];
-  
+
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
 
@@ -555,7 +555,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_size.xrat(dir) = mesh_size.xrat(dir);
     block_size.nx(dir) =
         blockSize[dir - 1] - (blockSize[dir - 1] > 1) * includesGhost * 2 * nGhost;
-    if (block_size.nx(dir) == 1) { 
+    if (block_size.nx(dir) == 1) {
       block_size.symmetry(dir) = true;
       mesh_size.symmetry(dir) = true;
     } else {
@@ -1172,9 +1172,14 @@ RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
         PARTHENON_REQUIRE(loc.level() < root_level, "Something is fucked up.");
         std::int64_t loc_low = loc.l(dir - 1) << (root_level - loc.level());
         std::int64_t loc_hi = (loc.l(dir - 1) + 1) << (root_level - loc.level());
-        if (block_size.nx(dir) * (nrbx[dir - 1] - loc_low) % (loc_hi - loc_low) != 0) valid_region = false;
-        printf("dir = %i nx = %i fac = %i loc_low = %i loc_hi = %i nrbx = %i valid_region = %i\n", dir, block_size.nx(dir), nrbx[dir - 1] /(loc_hi - loc_low), loc_low, loc_hi, nrbx[dir - 1], valid_region);
-        block_size.nx(dir) = block_size.nx(dir) * (nrbx[dir - 1] - loc_low) / (loc_hi - loc_low) ;
+        if (block_size.nx(dir) * (nrbx[dir - 1] - loc_low) % (loc_hi - loc_low) != 0)
+          valid_region = false;
+        printf("dir = %i nx = %i fac = %i loc_low = %i loc_hi = %i nrbx = %i "
+               "valid_region = %i\n",
+               dir, block_size.nx(dir), nrbx[dir - 1] / (loc_hi - loc_low), loc_low,
+               loc_hi, nrbx[dir - 1], valid_region);
+        block_size.nx(dir) =
+            block_size.nx(dir) * (nrbx[dir - 1] - loc_low) / (loc_hi - loc_low);
         block_size.xmax(dir) = mesh_size.xmax(dir);
       }
     } else {

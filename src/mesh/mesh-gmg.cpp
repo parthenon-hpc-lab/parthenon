@@ -43,7 +43,7 @@
 namespace parthenon {
 
 void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
-                           RootGridInfo root_grid, int nbs) {
+                                 RootGridInfo root_grid, int nbs) {
   for (auto &pmb : block_list) {
     auto loc = pmb->loc;
     auto gid = pmb->gid;
@@ -75,7 +75,8 @@ void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t 
                   pos_neighbor_location, gid_rank.second, pos_neighbor_location.level(),
                   gid_rank.first, gid_rank.first - nbs, ox1, ox2, ox3, nc, 0, 0, f[0],
                   f[1]);
-              pmb->gmg_same_neighbors.back().block_size = GetBlockSize(pos_neighbor_location);
+              pmb->gmg_same_neighbors.back().block_size =
+                  GetBlockSize(pos_neighbor_location);
             }
           }
         }
@@ -126,15 +127,16 @@ int number_of_trailing_zeros(std::uint64_t val) {
 void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in) {
   // Create GMG logical location lists, first just copy coarsest grid
   auto block_size_default = GetBlockSize();
-  
-  int gmg_level_offset = std::numeric_limits<int>::max(); 
+
+  int gmg_level_offset = std::numeric_limits<int>::max();
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
-    if (!mesh_size.symmetry(dir)) { 
-      int dir_allowed_levels = number_of_trailing_zeros(block_size_default.nx(dir) * nrbx[dir - 1]); 
+    if (!mesh_size.symmetry(dir)) {
+      int dir_allowed_levels =
+          number_of_trailing_zeros(block_size_default.nx(dir) * nrbx[dir - 1]);
       gmg_level_offset = std::min(dir_allowed_levels, gmg_level_offset);
     }
   }
-  //gmg_level_offset--;
+  // gmg_level_offset--;
 
   printf("Root grid nrb=(%i, %i) block_size=(%i, %i) level=%i\n", nrbx[0], nrbx[0],
          block_size_default.nx(X1DIR), block_size_default.nx(X2DIR), root_level);
@@ -223,7 +225,7 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
       } else {
         PARTHENON_FAIL("There is something wrong with GMG block list.");
       }
-      
+
       pmb->gmg_coarser_neighbors.emplace_back();
       pmb->gmg_coarser_neighbors.back().SetNeighbor(
           loc, rank, loc.level(), gid, gid - nbs, 0, 0, 0, NeighborConnect::none, 0, 0);

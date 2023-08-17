@@ -233,12 +233,12 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                       pack_h(1, b, idx).vector_component = X2DIR;
                       pack_h(2, b, idx).vector_component = X3DIR;
                     }
-                    
+
                     if (pv->IsSet(Metadata::Face)) {
                       pack_h(0, b, idx).topological_element = TopologicalElement::E1;
                       pack_h(1, b, idx).topological_element = TopologicalElement::E2;
                       pack_h(2, b, idx).topological_element = TopologicalElement::E3;
-                    } 
+                    }
 
                   } else { // This is a cell, node, or a variable that doesn't have
                            // topology information
@@ -256,7 +256,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc) {
                       pack_h(3, b, idx) = pv->flux[X3DIR].Get(0, t, u, v);
                     }
                   }
-                  for (auto el : GetTopologicalElements(pack_h(0, b, idx).topological_type)) { 
+                  for (auto el :
+                       GetTopologicalElements(pack_h(0, b, idx).topological_type)) {
                     pack_h(static_cast<int>(el) % 3, b, idx).topological_element = el;
                   }
                   PARTHENON_REQUIRE(

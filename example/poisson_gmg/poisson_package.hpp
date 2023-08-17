@@ -95,22 +95,20 @@ template <class var>
 TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
   auto desc = parthenon::MakePackDescriptor<var>(md.get());
   auto pack = desc.GetPack(md.get());
-  const size_t scratch_size_in_bytes = 0; 
+  const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "Print", DevExecSpace(),
-      scratch_size_in_bytes, scratch_level, 
-      0, pack.GetNBlocks() - 1, 
+      DEFAULT_OUTER_LOOP_PATTERN, "Print", DevExecSpace(), scratch_size_in_bytes,
+      scratch_level, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         auto cb = GetIndexShape(pack(b, te, 0));
         const auto &coords = pack.GetCoordinates(b);
         IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
         IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
-        parthenon::par_for_inner(parthenon::inner_loop_pattern_simdfor_tag, member, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-                                 [&](int k, int j, int i) {
-          pack(b, te, var(), k, j, i) = 0.0; 
-        });
+        parthenon::par_for_inner(
+            parthenon::inner_loop_pattern_simdfor_tag, member, kb.s, kb.e, jb.s, jb.e,
+            ib.s, ib.e, [&](int k, int j, int i) { pack(b, te, var(), k, j, i) = 0.0; });
       });
   return TaskStatus::complete;
 }
@@ -164,48 +162,50 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
     col_num++;
   }
   printf("i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
-  const size_t scratch_size_in_bytes = 0; 
+  const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "Print", DevExecSpace(), 
-      0, pack.GetNBlocks() - 1, 0, 0, 0, 0,
+      DEFAULT_LOOP_PATTERN, "Print", DevExecSpace(), 0, pack.GetNBlocks() - 1, 0, 0, 0, 0,
       KOKKOS_LAMBDA(const int b, int, int) {
         auto cb = GetIndexShape(pack(b, te, 0));
         const auto &coords = pack.GetCoordinates(b);
         IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
         IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
-        printf("b=%i i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", b, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e); 
-        for (int k = kb.s; k <= kb.e; ++k) { 
-          for (int j = jb.s; j <= jb.e; ++j) { 
-            for (int i = ib.s; i <= ib.e; ++i) { 
+        printf("b=%i i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", b, ib.s, ib.e, jb.s, jb.e, kb.s,
+               kb.e);
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
+            for (int i = ib.s; i <= ib.e; ++i) {
               Real x = coords.template X<1, te>(i);
               Real y = coords.template X<2, te>(j);
               std::array<Real, sizeof...(vars)> vals{pack(b, te, vars(), k, j, i)...};
-              printf("b = %i i = %2i j = %2i x = %e y = %e x + 10*y = %e ", b, i, j, x, y, x + 10.0*y);
+              printf("b = %i i = %2i j = %2i x = %e y = %e x + 10*y = %e ", b, i, j, x, y,
+                     x + 10.0 * y);
               for (int v = 0; v < sizeof...(vars); ++v) {
                 printf("%e ", vals[v]);
               }
-              printf("\n"); 
+              printf("\n");
             }
           }
         }
       });
   /*
-  const size_t scratch_size_in_bytes = 0; 
+  const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, "Print", DevExecSpace(),
-      scratch_size_in_bytes, scratch_level, 
-      0, pack.GetNBlocks() - 1, 
+      scratch_size_in_bytes, scratch_level,
+      0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         auto cb = GetIndexShape(pack(b, te, 0));
         const auto &coords = pack.GetCoordinates(b);
         IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
         IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
-        printf("b=%i i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", b, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e); 
-        parthenon::par_for_inner(parthenon::inner_loop_pattern_simdfor_tag, member, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        printf("b=%i i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", b, ib.s, ib.e, jb.s, jb.e, kb.s,
+  kb.e); parthenon::par_for_inner(parthenon::inner_loop_pattern_simdfor_tag, member, kb.s,
+  kb.e, jb.s, jb.e, ib.s, ib.e,
                                  [&](int k, int j, int i) {
            // Work here
         });
@@ -220,9 +220,8 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
         Real x = coords.template X<1, te>(i);
         Real y = coords.template X<2, te>(j);
         std::array<Real, sizeof...(vars)> vals{pack(b, te, vars(), k, j, i)...};
-        printf("b = %i i = %2i j = %2i x = %e y = %e x + 10*y = %e ", b, i, j, x, y, x + 10.0*y);
-        for (int v = 0; v < sizeof...(vars); ++v) {
-          printf("%e ", vals[v]);
+        printf("b = %i i = %2i j = %2i x = %e y = %e x + 10*y = %e ", b, i, j, x, y, x
+  + 10.0*y); for (int v = 0; v < sizeof...(vars); ++v) { printf("%e ", vals[v]);
         }
         printf("\n");
       });

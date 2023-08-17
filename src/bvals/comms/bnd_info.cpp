@@ -85,14 +85,13 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
   // interior or exterior cells
   if (prores || nb.loc.level() < loc.level()) shape = pmb->c_cellbounds;
 
-  // Re-create the index space for the neighbor block (either the main block or 
-  // the coarse buffer as required) 
+  // Re-create the index space for the neighbor block (either the main block or
+  // the coarse buffer as required)
   int coarse_fac = 1;
   if (nb.loc.level() > loc.level()) coarse_fac = 2;
-  auto neighbor_shape = IndexShape(nb.block_size.nx(X3DIR) / coarse_fac, 
-                                   nb.block_size.nx(X2DIR) / coarse_fac, 
-                                   nb.block_size.nx(X1DIR) / coarse_fac, 
-                                   Globals::nghost); 
+  auto neighbor_shape = IndexShape(nb.block_size.nx(X3DIR) / coarse_fac,
+                                   nb.block_size.nx(X2DIR) / coarse_fac,
+                                   nb.block_size.nx(X1DIR) / coarse_fac, Globals::nghost);
 
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
@@ -114,7 +113,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
   int exterior_offset = ir_type == IndexRangeType::Exterior ? Globals::nghost : 0;
   if (prores) {
     // The coarse ghosts cover twice as much volume as the fine ghosts, so when working in
-    // the exterior (i.e. ghosts) we must only go over the coarse ghosts that have 
+    // the exterior (i.e. ghosts) we must only go over the coarse ghosts that have
     // corresponding fine ghosts
     exterior_offset /= 2;
   }
@@ -133,8 +132,8 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
         // for non-cell centered values the number of grid points may be odd, so we pick
         // up an extra zone that is communicated. I think this is ok, but something to
         // keep in mind if there are issues.
-        const int extra_zones = (bounds[dir].e - bounds[dir].s + 1) 
-                              - (neighbor_bounds[dir].e - neighbor_bounds[dir].s + 1);
+        const int extra_zones = (bounds[dir].e - bounds[dir].s + 1) -
+                                (neighbor_bounds[dir].e - neighbor_bounds[dir].s + 1);
         s[dir] += nb.loc.l(dir) % 2 == 1 ? extra_zones - interior_offset : 0;
         e[dir] -= nb.loc.l(dir) % 2 == 0 ? extra_zones - interior_offset : 0;
         if (ir_type == IndexRangeType::SharedSend) {
@@ -436,8 +435,6 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   }
   return out;
 }
-
-
 
 BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                   std::shared_ptr<Variable<Real>> v,
