@@ -211,7 +211,7 @@ class Mesh {
 
   // expose a mesh-level call to get lists of variables from resolved_packages
   template <typename... Args>
-  std::vector<std::string> GetVariablesNames(Args &&...args) {
+  std::vector<std::string> GetVariableNames(Args &&...args) {
     return resolved_packages->GetVariableNames(std::forward<Args>(args)...);
   }
 

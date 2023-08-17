@@ -230,7 +230,9 @@ class Metadata {
     FlagCollection(MetadataFlag first, Args... args)
         : FlagCollection({first, std::forward<Args>(args)...}, false) {}
     // Check if set empty
-    bool Empty() const { return (unions_.empty() && intersections_.empty()); }
+    bool Empty() const {
+      return (unions_.empty() && intersections_.empty() && exclusions_.empty());
+    }
     // Union
     template <template <class...> class Container_t, class... extra>
     void TakeUnion(const Container_t<MetadataFlag, extra...> &flags) {
