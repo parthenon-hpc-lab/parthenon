@@ -77,7 +77,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
                                      TopologicalElement el, IndexRangeType ir_type,
                                      bool prores, std::array<int, 3> tensor_shape) {
   const auto &ni = nb.ni;
-  auto loc = pmb->loc;
+  const auto &loc = pmb->loc;
   auto shape = pmb->cellbounds;
   // Both prolongation and restriction always operate in the coarse
   // index space. Also need to use the coarse index space if the
@@ -85,10 +85,22 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
   // interior or exterior cells
   if (prores || nb.loc.level() < loc.level()) shape = pmb->c_cellbounds;
 
+  // Re-create the index space for the neighbor block (either the main block or 
+  // the coarse buffer as required) 
+  int coarse_fac = 1;
+  if (nb.loc.level() > loc.level()) coarse_fac = 2;
+  auto neighbor_shape = IndexShape(nb.block_size.nx(X3DIR) / coarse_fac, 
+                                   nb.block_size.nx(X2DIR) / coarse_fac, 
+                                   nb.block_size.nx(X1DIR) / coarse_fac, 
+                                   Globals::nghost); 
+
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
                                    shape.GetBoundsJ(interior, el),
                                    shape.GetBoundsK(interior, el)};
+  std::array<IndexRange, 3> neighbor_bounds{neighbor_shape.GetBoundsI(interior, el),
+                                            neighbor_shape.GetBoundsJ(interior, el),
+                                            neighbor_shape.GetBoundsK(interior, el)};
 
   // Account for the fact that the neighbor block may duplicate
   // some active zones on the loading block for face, edge, and nodal
@@ -97,15 +109,13 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
   std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset = {ni.ox1, ni.ox2, ni.ox3};
-  std::array<std::int64_t, 3> logic_loc{loc.lx1(), loc.lx2(), loc.lx3()};
-  std::array<std::int64_t, 3> nb_logic_loc{nb.loc.lx1(), nb.loc.lx2(), nb.loc.lx3()};
 
   int interior_offset = ir_type == IndexRangeType::Interior ? Globals::nghost : 0;
   int exterior_offset = ir_type == IndexRangeType::Exterior ? Globals::nghost : 0;
   if (prores) {
     // The coarse ghosts cover twice as much volume as the fine ghosts, so when working in
-    // the exterior we must only go over the coarse ghosts that have corresponding fine
-    // ghosts
+    // the exterior (i.e. ghosts) we must only go over the coarse ghosts that have 
+    // corresponding fine ghosts
     exterior_offset /= 2;
   }
 
@@ -123,9 +133,10 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
         // for non-cell centered values the number of grid points may be odd, so we pick
         // up an extra zone that is communicated. I think this is ok, but something to
         // keep in mind if there are issues.
-        const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
-        s[dir] += nb_logic_loc[dir] % 2 == 1 ? half_grid - interior_offset : 0;
-        e[dir] -= nb_logic_loc[dir] % 2 == 0 ? half_grid - interior_offset : 0;
+        const int extra_zones = (bounds[dir].e - bounds[dir].s + 1) 
+                              - (neighbor_bounds[dir].e - neighbor_bounds[dir].s + 1);
+        s[dir] += nb.loc.l(dir) % 2 == 1 ? extra_zones - interior_offset : 0;
+        e[dir] -= nb.loc.l(dir) % 2 == 0 ? extra_zones - interior_offset : 0;
         if (ir_type == IndexRangeType::SharedSend) {
           // Include ghosts of finer block coarse array in message
           s[dir] -= Globals::nghost;
@@ -136,8 +147,8 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
         // If we are setting (i.e. have non-zero exterior_offset) from a neighbor block
         // that is coarser, we got extra ghost zones from the neighbor (see inclusion of
         // interior_offset in the above if block)
-        s[dir] -= logic_loc[dir] % 2 == 1 ? exterior_offset : 0;
-        e[dir] += logic_loc[dir] % 2 == 0 ? exterior_offset : 0;
+        s[dir] -= loc.l(dir) % 2 == 1 ? exterior_offset : 0;
+        e[dir] += loc.l(dir) % 2 == 0 ? exterior_offset : 0;
         if (ir_type == IndexRangeType::SharedReceive) {
           // Include ghosts of finer block coarse array in message
           s[dir] -= Globals::nghost;
@@ -165,9 +176,9 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
     if (nb.loc.level() < loc.level()) {
       // For coarse to fine interfaces, we are passing zones from only an
       // interior corner of the cell, never an entire face or edge
-      if (sox1 == 0) sox1 = logic_loc[0] % 2 == 1 ? 1 : -1;
-      if (sox2 == 0) sox2 = logic_loc[1] % 2 == 1 ? 1 : -1;
-      if (sox3 == 0) sox3 = logic_loc[2] % 2 == 1 ? 1 : -1;
+      if (sox1 == 0) sox1 = loc.l(0) % 2 == 1 ? 1 : -1;
+      if (sox2 == 0) sox2 = loc.l(1) % 2 == 1 ? 1 : -1;
+      if (sox3 == 0) sox3 = loc.l(2) % 2 == 1 ? 1 : -1;
     }
     owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, sox1, sox2, sox3);
   }
@@ -183,12 +194,13 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
   // will always be enough storage
   auto &cb = pmb->cellbounds;
   int topo_comp = (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) ? 3 : 1;
-  const IndexDomain in = IndexDomain::interior;
+  const IndexDomain in = IndexDomain::entire;
   // The plus 2 instead of 1 is to account for the possible size of face, edge, and nodal
   // fields
   const int isize = cb.ie(in) - cb.is(in) + 2;
   const int jsize = cb.je(in) - cb.js(in) + 2;
   const int ksize = cb.ke(in) - cb.ks(in) + 2;
+  return 8 * 8 * 16;
   return (nb.ni.ox1 == 0 ? isize : Globals::nghost + 1) *
          (nb.ni.ox2 == 0 ? jsize : Globals::nghost + 1) *
          (nb.ni.ox3 == 0 ? ksize : Globals::nghost + 1) * v->GetDim(6) * v->GetDim(5) *
@@ -225,6 +237,46 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   } else {
     out.var = v->data.Get();
   }
+  return out;
+}
+
+BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                               std::shared_ptr<Variable<Real>> v,
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+  BndInfo out;
+  out.buf = buf->buffer();
+  auto buf_state = buf->GetState();
+  if (buf_state == BufferState::received) {
+    out.buf_allocated = true;
+    PARTHENON_DEBUG_REQUIRE(v->IsAllocated(), "Variable must be allocated to receive");
+  } else if (buf_state == BufferState::received_null) {
+    out.buf_allocated = false;
+  } else {
+    PARTHENON_FAIL("Buffer should be in a received state.");
+  }
+  out.allocated = v->IsAllocated();
+
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
+
+  int mylevel = pmb->loc.level();
+
+  auto elements = v->GetTopologicalElements();
+  out.ntopological_elements = elements.size();
+  auto idx_range_type = IndexRangeType::Exterior;
+  if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
+    idx_range_type = IndexRangeType::SharedReceive;
+  for (auto el : elements) {
+    int idx = static_cast<int>(el) % 3;
+    out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
+  }
+  if (nb.snb.level < mylevel) {
+    out.var = v->coarse_s.Get();
+  } else {
+    out.var = v->data.Get();
+  }
+
   return out;
 }
 
@@ -385,45 +437,7 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   return out;
 }
 
-BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<Variable<Real>> v,
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
-  BndInfo out;
-  out.buf = buf->buffer();
-  auto buf_state = buf->GetState();
-  if (buf_state == BufferState::received) {
-    out.buf_allocated = true;
-    PARTHENON_DEBUG_REQUIRE(v->IsAllocated(), "Variable must be allocated to receive");
-  } else if (buf_state == BufferState::received_null) {
-    out.buf_allocated = false;
-  } else {
-    PARTHENON_FAIL("Buffer should be in a received state.");
-  }
-  out.allocated = v->IsAllocated();
 
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-
-  int mylevel = pmb->loc.level();
-
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
-  auto idx_range_type = IndexRangeType::Exterior;
-  if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
-    idx_range_type = IndexRangeType::SharedReceive;
-  for (auto el : elements) {
-    int idx = static_cast<int>(el) % 3;
-    out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
-  }
-  if (nb.snb.level < mylevel) {
-    out.var = v->coarse_s.Get();
-  } else {
-    out.var = v->data.Get();
-  }
-
-  return out;
-}
 
 BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                   std::shared_ptr<Variable<Real>> v,
