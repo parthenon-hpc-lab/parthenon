@@ -60,7 +60,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         if (x > 0.25 && x < 0.75) {
           val = 100.0;
         }
-        pack(b, te, poisson_package::res_err(), k, j, i) = x + y;
+        pack(b, te, poisson_package::res_err(), k, j, i) = x + 10.0 * y;
         pack(b, te, poisson_package::rhs_base(), k, j, i) = val;
       });
 }
