@@ -163,14 +163,14 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
     } else {
       deref_count_++;
       int ec = 0, js, je, ks, ke;
-      if (pmb->block_size.nx2 > 1) {
+      if (!pmb->block_size.symmetry(X2DIR)) {
         js = -1;
         je = 1;
       } else {
         js = 0;
         je = 0;
       }
-      if (pmb->block_size.nx3 > 1) {
+      if (!pmb->block_size.symmetry(X3DIR)) {
         ks = -1;
         ke = 1;
       } else {
