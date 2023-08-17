@@ -86,17 +86,7 @@ class SwarmDeviceContext {
   // TODO(BRR) This logic will change for non-uniform cartesian meshes
   KOKKOS_INLINE_FUNCTION
   void Xtoijk(const Real &x, const Real &y, const Real &z, int &i, int &j, int &k) const {
-    i = static_cast<int>(
-            std::floor((x - x_min_) / coords_.Dxc<CoordinateDirection::X1DIR>())) +
-        ib_s_;
-    j = (ndim_ > 1) ? static_cast<int>(std::floor(
-                          (y - y_min_) / coords_.Dxc<CoordinateDirection::X2DIR>())) +
-                          jb_s_
-                    : jb_s_;
-    k = (ndim_ > 2) ? static_cast<int>(std::floor(
-                          (z - z_min_) / coords_.Dxc<CoordinateDirection::X3DIR>())) +
-                          kb_s_
-                    : kb_s_;
+    coords_.Xtoijk(x,y,z,i,j,k);
   }
 
   KOKKOS_INLINE_FUNCTION

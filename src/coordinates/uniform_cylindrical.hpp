@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef COORDINATES_UNIFORM_CARTESIAN_HPP_
-#define COORDINATES_UNIFORM_CARTESIAN_HPP_
+#ifndef COORDINATES_UNIFORM_CYLINDRICAL_HPP_
+#define COORDINATES_UNIFORM_CYLINDRICAL_HPP_
 
 #include <array>
 #include <cassert>
@@ -25,40 +25,38 @@
 
 namespace parthenon {
 
-class UniformCartesian {
+class UniformCylindrical {
  public:
-  UniformCartesian() = default;
-  UniformCartesian(const RegionSize &rs, ParameterInput *pin) {
+  UniformCylindrical() = default;
+  UniformCylindrical(const RegionSize &rs, ParameterInput *pin) {
     dx_[0] = (rs.x1max - rs.x1min) / rs.nx1;
     dx_[1] = (rs.x2max - rs.x2min) / rs.nx2;
     dx_[2] = (rs.x3max - rs.x3min) / rs.nx3;
     area_[0] = dx_[1] * dx_[2];
     area_[1] = dx_[0] * dx_[2];
     area_[2] = dx_[0] * dx_[1];
-    cell_volume_ = dx_[0] * dx_[1] * dx_[2];
     istart_[0] = Globals::nghost;
     istart_[1] = (rs.nx2 > 1 ? Globals::nghost : 0);
     istart_[2] = (rs.nx3 > 1 ? Globals::nghost : 0);
     xmin_[0] = rs.x1min - istart_[0] * dx_[0];
     xmin_[1] = rs.x2min - istart_[1] * dx_[1];
     xmin_[2] = rs.x3min - istart_[2] * dx_[2];
-    ndim_  = (rs.nx1 != 1) + (rs.nx2 != 1) + (rs.nx3 != 1);
+    nx_[0] = rs.nx1;
+    nx_[1] = rs.nx2;
+    nx_[2] = rs.nx3;
 
-    std::string coord_type_str = pin->GetOrAddString("parthenon/mesh", "coord", "cartesian");
-    //REMOVE ME
-    //if (coord_type_str == "cartesian") {
-    //  coord_type = parthenon::uniformOrthMesh::cartesian;
-    //} else 
-    if (coord_type_str == "cylindrical") {
-      PARTHENON_THROW(" Please rebuild with -DCOORDINATE_TYPE=UniformCylindrical");
-    } else if (coord_type_str == "spherical_polar") {
-      PARTHENON_THROW(" Please rebuild with -DCOORDINATE_TYPE=UniformSpherical");
-    } else {
-      PARTHENON_THROW("Invalid coord input in <parthenon/mesh>.");
+    std::string coord_type_str = pin->GetOrAddString("parthenon/mesh", "coord", "cylindrical");
+    if( coord_type_str != "cylindrical" ){
+      if (coord_type_str == "cartesian") {
+        PARTHENON_THROW(" Please rebuild with -DCOORDINATE_TYPE=UniformCartesian");
+      } else if (coord_type_str == "spherical") {
+        PARTHENON_THROW(" Please rebuild with -DCOORDINATE_TYPE=UniformSpherical");
+      } else {
+        PARTHENON_THROW("Invalid coord input in <parthenon/mesh>.");
+      }
     }
-
   }
-  UniformCartesian(const UniformCartesian &src, int coarsen)
+  UniformCylindrical(const UniformCylindrical &src, int coarsen)
       : istart_(src.GetStartIndex()) {
     dx_ = src.Dx_();
     xmin_ = src.GetXmin();
@@ -71,27 +69,68 @@ class UniformCartesian {
     area_[0] = dx_[1] * dx_[2];
     area_[1] = dx_[0] * dx_[2];
     area_[2] = dx_[0] * dx_[1];
-    cell_volume_ = dx_[0] * dx_[1] * dx_[2];
-    ndim_ = src.ndim_;
+    nx_[0] = src.nx_[0] / ( coarsen ? 2 : 1 );
+    nx_[1] = src.nx_[1] / ( coarsen ? 2 : 1 );
+    nx_[2] = src.nx_[2] / ( coarsen ? 2 : 1 );
   }
 
   //----------------------------------------
   // Dxc: Distance between cell centers
+  // Dxc<1> returns distance between cell centroids in r
   //----------------------------------------
   template <int dir>
-  KOKKOS_FORCEINLINE_FUNCTION Real Dxc() const {
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int idx) const {
     assert(dir > 0 && dir < 4);
-    return dx_[dir - 1];
+    if( dir == X1DIR ){
+      return R_c_(idx+1) - R_c_(idx);
+    } else {
+      return dx_[dir-1];
+    }
   }
-  template <int dir, class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Dxc(Args... args) const {
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
-    return dx_[dir - 1];
+    switch (dir) {
+    case X1DIR:
+      return Dxc<X1DIR>(i);
+    case X2DIR:
+      return Dxc<X2DIR>(j);
+    case X3DIR:
+      return Dxc<X3DIR>(k);
+    default:
+      PARTHENON_FAIL("Unknown dir");
+      return 0; // To appease compiler
+    }
   }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real DxcFA(const int dir, Args... args) const {
+
+  KOKKOS_FORCEINLINE_FUNCTION Real DxcFA(const int dir, const int idx) const {
     assert(dir > 0 && dir < 4);
-    return dx_[dir - 1];
+    switch (dir) {
+    case X1DIR:
+      return Dxc<X1DIR>(idx);
+    case X2DIR:
+      return Dxc<X2DIR>(idx);
+    case X3DIR:
+      return Dxc<X3DIR>(idx);
+    default:
+      PARTHENON_FAIL("Unknown dir");
+      return 0; // To appease compiler
+    }
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION Real DxcFA(const int dir, const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    switch (dir) {
+    case X1DIR:
+      return Dxc<X1DIR>(i);
+    case X2DIR:
+      return Dxc<X2DIR>(j);
+    case X3DIR:
+      return Dxc<X3DIR>(k);
+    default:
+      PARTHENON_FAIL("Unknown dir");
+      return 0; // To appease compiler
+    }
   }
 
   //----------------------------------------
@@ -109,12 +148,17 @@ class UniformCartesian {
   }
 
   //----------------------------------------
-  // Xf: Positions at cell centers
+  // Xc: Positions at cell centers
+  // Xc<1> returns r of cell centroid
   //----------------------------------------
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int idx) const {
     assert(dir > 0 && dir < 4);
-    return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1];
+    if( dir == X1DIR ){
+      return R_c_(idx);
+    } else {
+      return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1];
+    }
   }
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int k, const int j, const int i) const {
@@ -131,6 +175,7 @@ class UniformCartesian {
       return 0; // To appease compiler
     }
   }
+
 
   //----------------------------------------
   // Xf: Positions on Faces
@@ -182,7 +227,7 @@ class UniformCartesian {
       return 0; // To appease compiler
     }
   }
-  
+
   //----------------------------------------
   // Xs: Area averaged positions
   //----------------------------------------
@@ -196,7 +241,6 @@ class UniformCartesian {
     assert(dir > 0 && dir < 4 && side > 0 && side < 4);
     return Xc<dir>(k,j,i);
   }
-
 
   template <int dir, TopologicalElement el>
   KOKKOS_FORCEINLINE_FUNCTION Real X(const int idx) const {
@@ -233,74 +277,104 @@ class UniformCartesian {
   }
 
   //----------------------------------------
-  // CellWidth: Width of cells at cell centers
+  // CellWidth: Physical width of cells at cell centers
   //----------------------------------------
-  template <int dir, class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(Args... args) const {
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
-    return dx_[dir - 1];
+    if( dir == X2DIR ){
+      return Xf<1>(k, j, i)*dx_[1]; //r*dphi
+    } else {
+      return dx_[dir-1];
+    }
   }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real CellWidthFA(const int dir, Args... args) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real CellWidthFA(const int dir,const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
-    return dx_[dir - 1];
-  }
-
-  //----------------------------------------
-  // EdgeLength: Length of cell edges
-  //----------------------------------------
-  template <int dir, class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(Args... args) const {
-    assert(dir > 0 && dir < 4);
-    return CellWidth<dir>();
-  }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLengthFA(const int dir, Args... args) const {
-    return CellWidthFA(dir);
+    if( dir == X2DIR ){
+      return Xf<1>(k, j, i)*dx_[1]; //r*dphi
+    } else {
+      return dx_[dir-1];
+    }
   }
 
   //----------------------------------------
-  // FaceArea: Area of cell areas
+  // EdgeLength: Physical length of cell edges
+  //----------------------------------------
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    if( dir == X2DIR ){
+      return Xf<1>(k, j, i)*dx_[1]; //r*dphi
+    } else {
+      return dx_[dir-1];
+    }
+  }
+  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLengthFA(const int dir, const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    if( dir == X2DIR ){
+      return Xf<1>(k, j, i)*dx_[1]; //r*dphi
+    } else {
+      return dx_[dir-1];
+    }
+  }
+
+  //----------------------------------------
+  // FaceArea: Physical area of cell areas
   //----------------------------------------
   template <int dir, class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real FaceArea(Args... args) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real FaceArea(const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
-    return area_[dir - 1];
+    switch(dir) {
+      case X1DIR:
+        return X<dir, TE::F1>(i)*area_[0]; //r*dphi*dz
+      case X2DIR:
+        return area_[1]; //dr*dz
+      case X3DIR:
+        return Coord_vol_i_(i)*dx_[1]; //d(r^2/2)*dphi
+    }
+
   }
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real FaceAreaFA(const int dir, Args... args) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real FaceAreaFA(const int dir, const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
-    return area_[dir - 1];
+    switch(dir) {
+      case X1DIR:
+        return X<1, TE::F1>(i)*area_[0]; //r*dphi*dz
+      case X2DIR:
+        return area_[1]; //dr*dz
+      case X3DIR:
+        return Coord_vol_i_(i)*dx_[1]; //d(r^2/2)*dphi
+    }
   }
 
   //----------------------------------------
   // CellVolume
   //----------------------------------------
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(Args... args) const {
-    return cell_volume_;
+  KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(const int k, const int j, const int i) const {
+    return Coord_vol_i_(i)*area_[0];
   }
 
   //----------------------------------------
-  // Generalized volume
+  // Generalized physical volume
   //----------------------------------------
   template <TopologicalElement el, class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Volume(Args... args) const {
     using TE = TopologicalElement;
     if constexpr (el == TE::CC) {
-      return cell_volume_;
+      return CellVolume(args...);
     } else if constexpr (el == TE::F1) {
-      return area_[X1DIR - 1];
+      return FaceArea<X1DIR>(args...);
     } else if constexpr (el == TE::F2) {
-      return area_[X2DIR - 1];
+      return FaceArea<X2DIR>(args...);
     } else if constexpr (el == TE::F3) {
-      return area_[X3DIR - 1];
+      return FaceArea<X3DIR>(args...);
     } else if constexpr (el == TE::E1) {
-      return dx_[X1DIR - 1];
+      return EdgeLength<X1DIR>(args...);
     } else if constexpr (el == TE::E2) {
-      return dx_[X2DIR - 1];
+      return EdgeLength<X2DIR>(args...);
     } else if constexpr (el == TE::E3) {
-      return dx_[X3DIR - 1];
+      return EdgeLength<X3DIR>(args...);
     } else if constexpr (el == TE::NN) {
       return 1.0;
     }
@@ -315,27 +389,74 @@ class UniformCartesian {
   // TODO
 
   //----------------------------------------
-  // h*v, h*f, dh*vd*, etc.
-  // These might only be needed for viscocity and conduction and so might exist downstream
+  // Geometric Terms (Find better names for these!)
   //----------------------------------------
-  // TODO
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real h2v(const int i) const { return R_c_(i); };
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real h2f(const int i) const { return Xf<1>(i); };
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real h31v(const int i) const { return 1.0; };
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real h31f(const int i) const { return 1.0; };
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real dh2vd1(const int i) const { return 1.0; };
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real dh2fd1(const int i) const { return 1.0; };
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real dh31vd1(const int i) const { return 0.0; };
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real dh31fd1(const int i) const { return 0.0; };
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real h32v(const int j) const { return 1.0; }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real h32f(const int j) const { return 1.0; }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real dh32vd2(const int j) const { return 0.0; }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real dh32fd2(const int j) const { return 0.0; }
+
+  //What is this?
+  KOKKOS_FORCEINLINE_FUNCTION
+  void GetAcc(const int k, const int j, const int i, const Real &rp,
+	      const Real &cosphip, const Real &sinphip, const Real &zp,
+	      Real &acc1, Real &acc2, Real &acc3) const
+  {
+    const Real cosdphi = Cos_phi_c_(j)*cosphip - Sin_phi_c_(j)*sinphip; //cos(x3v(k)-phip)
+    const Real sindphi = Sin_phi_c_(j)*cosphip - Cos_phi_c_(j)*sinphip; //sin(x3v(k)-phip)
+    //Psi = - 1.0/sqrt(r0^2 + rp^2 - 2r0*rp*cos(phi-phip) + (z-zp)^2)
+    acc1 = (R_c_(i) - rp*cosdphi); //acc1 = dPsi/dr, Psi=-1/dist2
+    acc2 = rp*sindphi;        //acc2 = dPsi/(r*dphi) 
+    acc3 = Xc<3>(k)-zp;   
+  }
 
   //----------------------------------------
   // Position to Cell index
   //----------------------------------------
   KOKKOS_INLINE_FUNCTION
-  void Xtoijk(const Real &x, const Real &y, const Real &z, int &i, int &j, int &k) const {
-    i = static_cast<int>(
-            std::floor((x - xmin_[0]) / dx_[0])) +
-        istart_[0];
-    j = (ndim_ > 1) ? static_cast<int>(std::floor(
-                          (y - xmin_[1]) / dx_[1])) +
-                          istart_[1]
-                    : istart_[1];
-    k = (ndim_ > 2) ? static_cast<int>(std::floor(
-                          (z - xmin_[2]) / dx_[2])) +
-                          istart_[2]
-                    : istart_[2];
+  void Xtoijk(const Real &r, const Real &theta, const Real &z, int &i, int &j, int &k) const {
+    i = (nx_[0] != 1) ? static_cast<int>(
+        std::floor((r - xmin_[0]) / dx_[0])) +
+      istart_[0] : istart_[0] ;
+    j = (nx_[1] != 1) ? static_cast<int>(std::floor(
+          (theta - xmin_[1]) / dx_[1])) +
+      istart_[1]
+      : istart_[1];
+    k = (nx_[2] != 1)? static_cast<int>(std::floor(
+          (z - xmin_[2]) / dx_[2])) +
+      istart_[2]
+      : istart_[2];
   }
 
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
@@ -344,14 +465,35 @@ class UniformCartesian {
 
  private:
   std::array<int, 3> istart_;
-  std::array<Real, 3> xmin_, dx_, area_;
-  int ndim_;
-  Real cell_volume_;
-  constexpr static const char *name_ = "UniformCartesian";
+  std::array<Real, 3> xmin_, dx_, area_, nx_;
+  constexpr static const char *name_ = "UniformCylindrical";
 
   const std::array<Real, 3> &Dx_() const { return dx_; }
+
+  //ParArrayND<Real> r_c_, coord_vol_i_, cos_phi_c_, sin_phi_c_;
+
+  KOKKOS_INLINE_FUNCTION Real R_c_(const int i) const {
+      const Real rm = xmin_[0] + i * dx_[0];
+      const Real rp = xmin_[0] + (i+1) * dx_[0];
+      return TWO_3RD*(rp*rp*rp - rm*rm*rm)/(SQR(rp) - SQR(rm));
+  }
+  KOKKOS_INLINE_FUNCTION Real Coord_vol_i_(const int i) const {
+      const Real rm = xmin_[0] + i * dx_[0];
+      const Real rp = xmin_[0] + (i+1) * dx_[0];
+      return 0.5*(rp*rp - rm*rm);
+  }
+  KOKKOS_INLINE_FUNCTION Real Cos_phi_c_(const int j) const {
+      const Real Phi = xmin_[1] + (j + 0.5) * dx_[1];
+      return std::cos(Phi);
+  }
+  KOKKOS_INLINE_FUNCTION Real Sin_phi_c_(const int j) const {
+      const Real Phi = xmin_[1] + (j + 0.5) * dx_[1];
+      return std::sin(Phi);
+  }
+
 };
+
 
 } // namespace parthenon
 
-#endif // COORDINATES_UNIFORM_CARTESIAN_HPP_
+#endif // COORDINATES_UNIFORM_CYLINDRICAL_HPP_
