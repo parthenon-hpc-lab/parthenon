@@ -136,7 +136,7 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
       gmg_level_offset = std::min(dir_allowed_levels, gmg_level_offset);
     }
   }
-  // gmg_level_offset--;
+  gmg_level_offset = 0;
 
   printf("Root grid nrb=(%i, %i) block_size=(%i, %i) level=%i\n", nrbx[0], nrbx[0],
          block_size_default.nx(X1DIR), block_size_default.nx(X2DIR), root_level);

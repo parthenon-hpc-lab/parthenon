@@ -97,11 +97,12 @@ TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
   auto pack = desc.GetPack(md.get());
   const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
+  const int ng = parthenon::Globals::nghost;
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, "Print", DevExecSpace(), scratch_size_in_bytes,
       scratch_level, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
-        auto cb = GetIndexShape(pack(b, te, 0));
+        auto cb = GetIndexShape(pack(b, te, 0), ng);
         const auto &coords = pack.GetCoordinates(b);
         IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
@@ -164,10 +165,11 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
   printf("i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
   const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
+  const int ng = parthenon::Globals::nghost;
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "Print", DevExecSpace(), 0, pack.GetNBlocks() - 1, 0, 0, 0, 0,
       KOKKOS_LAMBDA(const int b, int, int) {
-        auto cb = GetIndexShape(pack(b, te, 0));
+        auto cb = GetIndexShape(pack(b, te, 0), ng);
         const auto &coords = pack.GetCoordinates(b);
         IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
@@ -198,7 +200,7 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
       scratch_size_in_bytes, scratch_level,
       0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
-        auto cb = GetIndexShape(pack(b, te, 0));
+        auto cb = GetIndexShape(pack(b, te, 0), ng);
         const auto &coords = pack.GetCoordinates(b);
         IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);

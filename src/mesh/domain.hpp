@@ -98,6 +98,7 @@ class IndexShape {
   }
 
  public:
+  KOKKOS_FUNCTION
   IndexShape() {}
 
   IndexShape(const int &nx3, const int &nx2, const int &nx1, const int &ng)
