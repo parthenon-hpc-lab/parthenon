@@ -183,11 +183,12 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
         BoundaryFlag block_bcs[6];
         auto block_size = block_size_default;
         SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
-        printf("gid = %i gmg_level = %i loc.level() = %i nx = (%i, %i) l=(%i, %i) x1=(%e, %e) x2=(%e, "
-               "%e)\n", gid_rank.first,
-               gmg_level, loc.level(), block_size.nx(X1DIR), block_size.nx(X2DIR),
-               loc.lx1(), loc.lx2(), block_size.xmin(X1DIR), block_size.xmax(X1DIR),
-               block_size.xmin(X2DIR), block_size.xmax(X2DIR));
+        printf("gid = %i gmg_level = %i loc.level() = %i nx = (%i, %i) l=(%i, %i) "
+               "x1=(%e, %e) x2=(%e, "
+               "%e)\n",
+               gid_rank.first, gmg_level, loc.level(), block_size.nx(X1DIR),
+               block_size.nx(X2DIR), loc.lx1(), loc.lx2(), block_size.xmin(X1DIR),
+               block_size.xmax(X1DIR), block_size.xmin(X2DIR), block_size.xmax(X2DIR));
         gmg_block_lists[gmg_level].push_back(
             MeshBlock::Make(gid_rank.first, -1, loc, block_size, block_bcs, this, pin,
                             app_in, packages, resolved_packages, gflag));

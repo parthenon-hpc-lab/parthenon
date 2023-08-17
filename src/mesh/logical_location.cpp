@@ -220,9 +220,12 @@ std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleNeighborsImpl(
     const int extra1 = (rg_info.n[0] % down_shift > 0);
     const int extra2 = (rg_info.n[1] % down_shift > 0);
     const int extra3 = (rg_info.n[2] % down_shift > 0);
-    int n1_cells_level = std::max(n_per_root_block * (rg_info.n[0] / down_shift + extra1), 1);
-    int n2_cells_level = std::max(n_per_root_block * (rg_info.n[1] / down_shift + extra2), 1);
-    int n3_cells_level = std::max(n_per_root_block * (rg_info.n[2] / down_shift + extra3), 1);
+    int n1_cells_level =
+        std::max(n_per_root_block * (rg_info.n[0] / down_shift + extra1), 1);
+    int n2_cells_level =
+        std::max(n_per_root_block * (rg_info.n[1] / down_shift + extra2), 1);
+    int n3_cells_level =
+        std::max(n_per_root_block * (rg_info.n[2] / down_shift + extra3), 1);
     for (int i : irange) {
       for (int j : jrange) {
         for (int k : krange) {
