@@ -80,15 +80,18 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(solution::name(), mrhs);
   pkg->AddField(temp::name(), mrhs);
 
+  auto mAs =
+      Metadata({te_type, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{3});
   auto mA = Metadata({te_type, Metadata::Derived, Metadata::OneCopy});
-  pkg->AddField(Am::name(), mA);
+  pkg->AddField(Am::name(), mAs);
   pkg->AddField(Ac::name(), mA);
-  pkg->AddField(Ap::name(), mA);
+  pkg->AddField(Ap::name(), mAs);
 
   return pkg;
 }
 
 TaskStatus BuildMatrix(std::shared_ptr<MeshData<Real>> &md) {
+  const int ndim = md->GetMeshPointer()->ndim;
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
@@ -100,16 +103,28 @@ TaskStatus BuildMatrix(std::shared_ptr<MeshData<Real>> &md) {
       kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto &coords = pack.GetCoordinates(b);
-        Real dx = coords.Dxc<1>(k, j, i);
-        if (b > 0 || i > ib.s) pack(b, te, Am(), k, j, i) = -1.0 / (dx * dx);
-        pack(b, te, Ac(), k, j, i) = 2.0 / (dx * dx);
-        if (b < pack.GetNBlocks() - 1 || i < ib.e)
-          pack(b, te, Ap(), k, j, i) = -1.0 / (dx * dx);
+        Real dx1 = coords.Dxc<1>(k, j, i);
+        Real dx2 = coords.Dxc<2>(k, j, i);
+        Real dx3 = coords.Dxc<3>(k, j, i);
+        pack(b, te, Am(), k, j, i) = -1.0 / (dx1 * dx1);
+        pack(b, te, Ac(), k, j, i) = 2.0 / (dx1 * dx1);
+        pack(b, te, Ap(), k, j, i) = -1.0 / (dx1 * dx1);
+        if (ndim > 1) {
+          pack(b, te, Am(1), k, j, i) = -1.0 / (dx2 * dx2);
+          pack(b, te, Ac(), k, j, i) += 2.0 / (dx2 * dx2);
+          pack(b, te, Ap(1), k, j, i) = -1.0 / (dx2 * dx2);
+        }
+        if (ndim > 2) {
+          pack(b, te, Am(2), k, j, i) = -1.0 / (dx3 * dx3);
+          pack(b, te, Ac(), k, j, i) += 2.0 / (dx3 * dx3);
+          pack(b, te, Ap(2), k, j, i) = -1.0 / (dx3 * dx3);
+        }
       });
   return TaskStatus::complete;
 }
 
 TaskStatus CalculateResidual(std::shared_ptr<MeshData<Real>> &md) {
+  const int ndim = md->GetMeshPointer()->ndim;
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
@@ -123,16 +138,32 @@ TaskStatus CalculateResidual(std::shared_ptr<MeshData<Real>> &md) {
         pack(b, te, res_err(), k, j, i) =
             pack(b, te, rhs(), k, j, i) -
             pack(b, te, Ac(), k, j, i) * pack(b, te, u(), k, j, i);
+
         pack(b, te, res_err(), k, j, i) -=
-            pack(b, te, Am(), k, j, i) * pack(b, te, u(), k, j, i - 1);
+            pack(b, te, Am(0), k, j, i) * pack(b, te, u(), k, j, i - 1);
         pack(b, te, res_err(), k, j, i) -=
-            pack(b, te, Ap(), k, j, i) * pack(b, te, u(), k, j, i + 1);
+            pack(b, te, Ap(0), k, j, i) * pack(b, te, u(), k, j, i + 1);
+
+        if (ndim > 1) {
+          pack(b, te, res_err(), k, j, i) -=
+              pack(b, te, Am(1), k, j, i) * pack(b, te, u(), k, j - 1, i);
+          pack(b, te, res_err(), k, j, i) -=
+              pack(b, te, Ap(1), k, j, i) * pack(b, te, u(), k, j + 1, i);
+        }
+
+        if (ndim > 2) {
+          pack(b, te, res_err(), k, j, i) -=
+              pack(b, te, Am(1), k, j, i) * pack(b, te, u(), k - 1, j, i);
+          pack(b, te, res_err(), k, j, i) -=
+              pack(b, te, Ap(1), k, j, i) * pack(b, te, u(), k + 1, j, i);
+        }
+
         // printf("b = %i i = %i Am = %e Ac = %e Ap = %e rhs = %e res = %e u =%e\n", b, i,
         // pack(b, te, Am(), k, j, i), pack(b, te, Ac(), k, j, i), pack(b, te, Ap(), k, j,
         // i), pack(b, te, rhs(), k, j, i), pack(b, te, res_err(), k, j, i), pack(b, te,
         // u(), k, j, i));
       });
-  printf("\n");
+  // printf("\n");
   return TaskStatus::complete;
 }
 

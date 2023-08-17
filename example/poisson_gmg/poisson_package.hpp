@@ -117,6 +117,7 @@ TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
 template <class in_t, class out_t>
 TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight,
                            int level) {
+  const int ndim = md->GetMeshPointer()->ndim;
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
@@ -132,14 +133,29 @@ TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight,
         pack(b, te, out_t(), k, j, i) =
             weight *
                 (pack(b, te, rhs(), k, j, i) -
-                 pack(b, te, Am(), k, j, i) * pack(b, te, in_t(), k, j, i - 1) -
-                 pack(b, te, Ap(), k, j, i) * pack(b, te, in_t(), k, j, i + 1)) /
+                 pack(b, te, Am(0), k, j, i) * pack(b, te, in_t(), k, j, i - 1) -
+                 pack(b, te, Ap(0), k, j, i) * pack(b, te, in_t(), k, j, i + 1)) /
                 pack(b, te, Ac(), k, j, i) +
             (1.0 - weight) * pack(b, te, in_t(), k, j, i);
-        printf("Jacobi: b = %i i = %2i in[i+-1] = (%e, %e, %e) out[i] = %e rhs[i] = %e\n",
-               b, i, pack(b, te, in_t(), k, j, i - 1), pack(b, te, in_t(), k, j, i),
-               pack(b, te, in_t(), k, j, i + 1), pack(b, te, out_t(), k, j, i),
-               pack(b, te, rhs(), k, j, i));
+        if (ndim > 1) {
+          pack(b, te, out_t(), k, j, i) -=
+              weight *
+              (pack(b, te, Am(1), k, j, i) * pack(b, te, in_t(), k, j - 1, i) +
+               pack(b, te, Ap(1), k, j, i) * pack(b, te, in_t(), k, j + 1, i)) /
+              pack(b, te, Ac(), k, j, i);
+        }
+        if (ndim > 2) {
+          pack(b, te, out_t(), k, j, i) -=
+              weight *
+              (pack(b, te, Am(2), k, j, i) * pack(b, te, in_t(), k - 1, j, i) +
+               pack(b, te, Ap(2), k, j, i) * pack(b, te, in_t(), k + 1, j, i)) /
+              pack(b, te, Ac(), k, j, i);
+        }
+        // printf("Jacobi: b = %i i = %2i in[i+-1] = (%e, %e, %e) out[i] = %e rhs[i] =
+        // %e\n",
+        //        b, i, pack(b, te, in_t(), k, j, i - 1), pack(b, te, in_t(), k, j, i),
+        //        pack(b, te, in_t(), k, j, i + 1), pack(b, te, out_t(), k, j, i),
+        //        pack(b, te, rhs(), k, j, i));
       });
   printf("\n");
   return TaskStatus::complete;
@@ -182,8 +198,7 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
               Real x = coords.template X<1, te>(i);
               Real y = coords.template X<2, te>(j);
               std::array<Real, sizeof...(vars)> vals{pack(b, te, vars(), k, j, i)...};
-              printf("b = %i i = %2i j = %2i x = %e y = %e x + 10*y = %e ", b, i, j, x, y,
-                     x + 10.0 * y);
+              printf("b = %i i = %2i j = %2i x = %e y = %e ", b, i, j, x, y);
               for (int v = 0; v < sizeof...(vars); ++v) {
                 printf("%e ", vals[v]);
               }

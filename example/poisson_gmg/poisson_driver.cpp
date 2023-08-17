@@ -251,8 +251,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   for (int ivcycle = 0; ivcycle < max_iterations; ++ivcycle) {
     TaskRegion &region = tc.AddRegion(num_partitions * (max_level + 1));
     for (int level = max_level; level >= 0; --level) {
-      // AddMultiGridTasksLevel(region, level, max_level);
-      AddRestrictionProlongationLevel(region, level, max_level);
+      AddMultiGridTasksLevel(region, level, max_level);
+      // AddRestrictionProlongationLevel(region, level, max_level);
     }
   }
 

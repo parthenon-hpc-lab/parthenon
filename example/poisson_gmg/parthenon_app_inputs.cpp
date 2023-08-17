@@ -36,7 +36,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   Real x0 = pin->GetOrAddReal("poisson", "x0", 0.0);
   Real y0 = pin->GetOrAddReal("poisson", "y0", 0.0);
   Real z0 = pin->GetOrAddReal("poisson", "z0", 0.0);
-  Real radius = pin->GetOrAddReal("poisson", "radius", 0.1);
+  Real radius0 = pin->GetOrAddReal("poisson", "radius", 0.1);
 
   auto desc =
       parthenon::MakePackDescriptor<poisson_package::res_err, poisson_package::rhs_base>(
@@ -53,14 +53,17 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
       "Poisson::ProblemGenerator", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
       ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto &coords = pack.GetCoordinates(b);
-        Real x = coords.X<1, te>(i);
-        Real y = coords.X<2, te>(j);
-
+        Real x1 = coords.X<1, te>(i);
+        Real x2 = coords.X<2, te>(j);
+        Real x3 = coords.X<2, te>(j);
+        Real rad = std::sqrt((x1 - x0) * (x1 - x0) +
+                             (x2 - y0) * (x2 - y0)); // + (x3 - z0)*(x3 - z0));
         Real val = 0.0;
-        if (x > 0.25 && x < 0.75) {
+        if (rad < radius0) {
           val = 100.0;
         }
-        pack(b, te, poisson_package::res_err(), k, j, i) = x + 10.0 * y;
+        printf("(%i, %i, %i) rad = %e x1=%e x2=%e val = %e\n", i, j, k, rad, x1, x2, val);
+        pack(b, te, poisson_package::res_err(), k, j, i) = val; // x1 + 10.0 * x2;
         pack(b, te, poisson_package::rhs_base(), k, j, i) = val;
       });
 }
