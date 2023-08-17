@@ -137,7 +137,7 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
     }
   }
 
-  printf("Root grid nrb=(%i, %i) block_size=(%i, %i) level=%i\n", nrbx[0], nrbx[0],
+  printf("Root grid nrb=(%i, %i) block_size=(%i, %i) level=%i\n", nrbx[0], nrbx[1],
          block_size_default.nx(X1DIR), block_size_default.nx(X2DIR), root_level);
   const int gmg_min_level = root_level - gmg_level_offset;
 
@@ -153,8 +153,6 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   // Build most refined GMG grid from already known grid
   int gmg_gid = 0;
   for (auto loc : loclist) {
-    std::cout << gmg_gid << " " << loc.level() << " "
-              << gmg_grid_locs[gmg_levels - 1].size() << std::endl;
     gmg_grid_locs[gmg_levels - 1].insert(
         {loc, std::pair<int, int>(gmg_gid, ranklist[gmg_gid])});
     gmg_gid++;
@@ -166,12 +164,9 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   printf("gmg_levels = %i gmg_min_level = %i\n", gmg_levels, gmg_min_level);
   // Build meshes and blocklists for increasingly coarsened grids
   for (int gmg_level = gmg_levels - 2; gmg_level >= 0; --gmg_level) {
-    printf("gmg level = %i\n", gmg_level);
     // Determine mesh structure for this level on all ranks
     for (auto &[loc, gid_rank] : gmg_grid_locs[gmg_level + 1]) {
       auto &rank = gid_rank.second;
-      printf("loc.level()=%i gmg_level + gmg_min_level + 1 = %i\n", loc.level(),
-             gmg_level + gmg_min_level + 1);
       if (loc.level() == gmg_level + gmg_min_level + 1) {
         auto parent = loc.GetParent();
         if (parent.morton() == loc.morton()) {
@@ -188,9 +183,9 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
         BoundaryFlag block_bcs[6];
         auto block_size = block_size_default;
         SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
-        printf("level = %i root_level = %i nx = (%i, %i) l=(%i, %i) x1=(%e, %e) x2=(%e, "
-               "%e)\n",
-               loc.level(), root_level, block_size.nx(X1DIR), block_size.nx(X2DIR),
+        printf("gid = %i gmg_level = %i loc.level() = %i nx = (%i, %i) l=(%i, %i) x1=(%e, %e) x2=(%e, "
+               "%e)\n", gid_rank.first,
+               gmg_level, loc.level(), block_size.nx(X1DIR), block_size.nx(X2DIR),
                loc.lx1(), loc.lx2(), block_size.xmin(X1DIR), block_size.xmax(X1DIR),
                block_size.xmin(X2DIR), block_size.xmax(X2DIR));
         gmg_block_lists[gmg_level].push_back(
