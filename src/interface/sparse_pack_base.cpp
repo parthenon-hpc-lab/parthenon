@@ -31,40 +31,6 @@
 #include "utils/utils.hpp"
 namespace parthenon {
 namespace impl {
-PackDescriptor::PackDescriptor(StateDescriptor *psd,
-                               const std::vector<std::string> &var_group_names,
-                               const SelectorFunction_t &selector,
-                               const std::set<PDOpt> &options)
-    : nvar_groups(var_group_names.size()), var_group_names(var_group_names),
-      var_groups(BuildUids(var_group_names.size(), psd, selector)),
-      with_fluxes(options.count(PDOpt::WithFluxes)), coarse(options.count(PDOpt::Coarse)),
-      flat(options.count(PDOpt::Flatten)) {
-  PARTHENON_REQUIRE(!(with_fluxes && coarse),
-                    "Probably shouldn't be making a coarse pack with fine fluxes.");
-}
-
-std::vector<PackDescriptor::VariableGroup_t>
-PackDescriptor::BuildUids(int nvgs, const StateDescriptor *const psd,
-                          const SelectorFunction_t &selector) {
-  auto fields = psd->AllFields();
-  std::vector<VariableGroup_t> vgs(nvgs);
-  for (auto [id, md] : fields) {
-    for (int i = 0; i < nvgs; ++i) {
-      if (selector(i, id, md)) {
-        vgs[i].push_back({id, Variable<Real>::GetUniqueID(id.label())});
-      }
-    }
-  }
-  // Ensure ordering in terms of value of sparse indices
-  for (auto &vg : vgs) {
-    std::sort(vg.begin(), vg.end(), [](const auto &a, const auto &b) {
-      if (a.first.base_name == b.first.base_name)
-        return a.first.sparse_id < b.first.sparse_id;
-      return a.first.base_name < b.first.base_name;
-    });
-  }
-  return vgs;
-}
 
 void PackDescriptor::Print() const {
   printf("--------------------\n");
@@ -99,6 +65,16 @@ inline auto ForEachBlock(T *pmbd, F func) -> decltype(T().GetBlockPointer(), voi
 namespace parthenon {
 
 using namespace impl;
+
+SparsePackIdxMap SparsePackBase::GetIdxMap(const impl::PackDescriptor &desc) {
+  SparsePackIdxMap map;
+  std::size_t idx = 0;
+  for (const auto &var : desc.var_group_names) {
+    map[var] = idx;
+    ++idx;
+  }
+  return map;
+}
 
 template <class T>
 SparsePackBase::alloc_t SparsePackBase::GetAllocStatus(T *pmd,

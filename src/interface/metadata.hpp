@@ -333,6 +333,7 @@ class Metadata {
   static MetadataFlag AddUserFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
   static MetadataFlag GetUserFlag(const std::string &flagname);
+  static int num_flags;
 
   // Sparse threshold routines
   void SetSparseThresholds(parthenon::Real alloc, parthenon::Real dealloc,
@@ -492,8 +493,9 @@ class Metadata {
   /**
    * @brief Returns true if any flag is set
    */
-  template <template <class...> class Container_t, class... extra>
-  bool AnyFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
+  template <class Container_t,
+            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  bool AnyFlagsSet(const Container_t &flags) const {
     return std::any_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
@@ -502,14 +504,25 @@ class Metadata {
     return AnyFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
 
-  template <template <class...> class Container_t, class... extra>
-  bool AllFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
+  template <class Container_t,
+            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  bool AllFlagsSet(const Container_t &flags) const {
     return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
   template <typename... Args>
   bool AllFlagsSet(const MetadataFlag &flag, Args... args) const {
     return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
+  }
+  template <class Container_t,
+            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  bool NoFlagsSet(const Container_t &flags) const {
+    return std::none_of(flags.begin(), flags.end(),
+                        [this](MetadataFlag const &f) { return IsSet(f); });
+  }
+  template <typename... Args>
+  bool NoFlagsSet(const MetadataFlag &flag, Args... args) const {
+    return NoFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
 
   template <template <class...> class Container_t, class... extra>
@@ -619,6 +632,7 @@ inline TopologicalType GetTopologicalType(const Metadata &md) {
 }
 
 namespace MetadataUtils {
+bool MatchFlags(const Metadata::FlagCollection &flags, Metadata m);
 // From a given container, extract all variables whose Metadata matchs the all of the
 // given flags (if the list of flags is empty, extract all variables), optionally only
 // extracting sparse fields with an index from the given list of sparse indices

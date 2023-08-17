@@ -31,6 +31,7 @@
 #include "utils/communication_buffer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
+#include "utils/unique_id.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -239,14 +240,16 @@ class MeshData {
   }
 
   template <typename... Args>
-  void Copy(const std::shared_ptr<MeshData<T>> src, Args &&...args) {
-    if (src.get() == nullptr) {
+  void Initialize(const MeshData<T> *src, Args &&...args) {
+    if (src == nullptr) {
       PARTHENON_THROW("src points at null");
     }
+    pmy_mesh_ = src->GetParentPointer();
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
     for (int i = 0; i < nblocks; i++) {
-      block_data_[i]->Copy(src->GetBlockData(i), std::forward<Args>(args)...);
+      block_data_[i] = std::make_shared<MeshBlockData<T>>();
+      block_data_[i]->Initialize(src->GetBlockData(i).get(), std::forward<Args>(args)...);
     }
   }
 
@@ -437,6 +440,12 @@ class MeshData {
   // caches for boundary information
   BvarsCache_t bvars_cache_;
 };
+
+template <typename T, typename... Args>
+std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&...args) {
+  return UidIntersection(md1->GetBlockData(0).get(), md2->GetBlockData(0).get(),
+                         std::forward<Args>(args)...);
+}
 
 } // namespace parthenon
 
