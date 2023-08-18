@@ -38,21 +38,22 @@ class DataCollection {
 
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
 
-  std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<T> &src,
-                          const std::vector<std::string> &flags, const bool shallow);
-  std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<T> &src,
-                          const std::vector<std::string> &flags = {});
-  std::shared_ptr<T> &AddShallow(const std::string &label, const std::shared_ptr<T> &src,
-                                 const std::vector<std::string> &flags = {});
-  std::shared_ptr<T> &Add(const std::string &label) {
-    // error check for duplicate names
-    auto it = containers_.find(label);
-    if (it != containers_.end()) {
-      return it->second;
-    }
-    containers_[label] = std::make_shared<T>();
-    return containers_[label];
-  }
+  // Full versions: add a MeshData w/given name, fields from 'src' selected by field_names
+  std::shared_ptr<T> &Add(const std::string &name, const std::shared_ptr<T> &src,
+                          const std::vector<std::string> &field_names = {},
+                          const bool shallow = false);
+  std::shared_ptr<T> &AddShallow(const std::string &name, const std::shared_ptr<T> &src,
+                                 const std::vector<std::string> &field_names = {});
+  // Allow naming src rather than passing pointer
+  std::shared_ptr<T> &Add(const std::string &name, const std::string src_name,
+                          const std::vector<std::string> &field_names = {});
+  std::shared_ptr<T> &AddShallow(const std::string &name, const std::string src_name,
+                                 const std::vector<std::string> &field_names = {});
+  // Allow omitting the source name entirely, defaulting to "base"
+  std::shared_ptr<T> &Add(const std::string &name,
+                          const std::vector<std::string> &field_names = {});
+  std::shared_ptr<T> &AddShallow(const std::string &name,
+                                 const std::vector<std::string> &field_names = {});
 
   auto &Stages() { return containers_; }
   const auto &Stages() const { return containers_; }

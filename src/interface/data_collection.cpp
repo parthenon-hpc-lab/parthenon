@@ -49,24 +49,6 @@ DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
   return containers_[name];
 }
 template <typename T>
-std::shared_ptr<T> &DataCollection<T>::Add(const std::string &label,
-                                           const std::shared_ptr<T> &src,
-                                           const std::vector<std::string> &flags) {
-  return Add(label, src, flags, false);
-}
-template <typename T>
-std::shared_ptr<T> &DataCollection<T>::AddShallow(const std::string &label,
-                                                  const std::shared_ptr<T> &src,
-                                                  const std::vector<std::string> &flags) {
-  return Add(label, src, flags, true);
-}
-template <typename T>
-std::shared_ptr<T> &
-DataCollection<T>::Add(const std::string &name, const std::string src_name,
-                       const std::vector<std::string> &field_names, const bool shallow) {
-  return Add(name, containers_[src_name], field_names, false);
-}
-template <typename T>
 std::shared_ptr<T> &DataCollection<T>::Add(const std::string &name,
                                            const std::string src_name,
                                            const std::vector<std::string> &field_names) {
@@ -77,22 +59,6 @@ std::shared_ptr<T> &
 DataCollection<T>::AddShallow(const std::string &name, const std::string src_name,
                               const std::vector<std::string> &field_names) {
   return Add(name, containers_[src_name], field_names, true);
-}
-template <typename T>
-std::shared_ptr<T> &DataCollection<T>::Add(const std::string &name,
-                                           const std::string src_name) {
-  return Add(name, containers_[src_name], {}, false);
-}
-template <typename T>
-std::shared_ptr<T> &DataCollection<T>::AddShallow(const std::string &name,
-                                                  const std::string src_name) {
-  return Add(name, containers_[src_name], {}, true);
-}
-template <typename T>
-std::shared_ptr<T> &
-DataCollection<T>::Add(const std::string &name,
-                       const std::vector<std::string> &field_names, const bool shallow) {
-  return Add(name, containers_["base"], field_names, false);
 }
 template <typename T>
 std::shared_ptr<T> &DataCollection<T>::Add(const std::string &name,
@@ -108,7 +74,7 @@ DataCollection<T>::AddShallow(const std::string &name,
 
 template <>
 std::shared_ptr<MeshData<Real>> &
-DataCollection<MeshData<Real>>::GetOrAddByPartition(const std::string &mbd_label,
+DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
                                          const int &partition_id) {
   const std::string label = mbd_label + "_part-" + std::to_string(partition_id);
   auto it = containers_.find(label);
