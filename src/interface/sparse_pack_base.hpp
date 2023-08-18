@@ -193,6 +193,8 @@ struct PackDescriptor {
         var_group_names.push_back(std::to_string(vg));
       return var_group_names;
     }
+    // silence compiler warnings about no return statement
+    return std::vector<std::string>();
   }
 };
 } // namespace impl

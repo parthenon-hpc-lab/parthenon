@@ -204,8 +204,9 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   if (Globals::my_rank == 0) {
     // normalize errors by number of cells
     auto mesh_size = mesh->mesh_size;
-    Real vol = (mesh_size.x1max - mesh_size.x1min) * (mesh_size.x2max - mesh_size.x2min) *
-               (mesh_size.x3max - mesh_size.x3min);
+    Real vol = (mesh_size.xmax(X1DIR) - mesh_size.xmin(X1DIR)) *
+               (mesh_size.xmax(X2DIR) - mesh_size.xmin(X2DIR)) *
+               (mesh_size.xmax(X3DIR) - mesh_size.xmin(X3DIR));
     l1_err /= vol;
     // compute rms error
     max_max_over_l1 = std::max(max_max_over_l1, (max_err / l1_err));
@@ -237,8 +238,8 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
     }
 
     // write errors
-    std::fprintf(pfile, "%d  %d", mesh_size.nx1, mesh_size.nx2);
-    std::fprintf(pfile, "  %d  %d", mesh_size.nx3, tm.ncycle);
+    std::fprintf(pfile, "%d  %d", mesh_size.nx(X1DIR), mesh_size.nx(X2DIR));
+    std::fprintf(pfile, "  %d  %d", mesh_size.nx(X3DIR), tm.ncycle);
     std::fprintf(pfile, "  %e ", l1_err);
     std::fprintf(pfile, "  %e  %e  ", max_max_over_l1, max_err);
     std::fprintf(pfile, "\n");
