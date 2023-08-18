@@ -61,10 +61,10 @@ KOKKOS_FORCEINLINE_FUNCTION bool DoRefinementOp(const Info_t &info,
 
 template <int DIM, class Stencil, TopologicalElement FEL, TopologicalElement CEL>
 KOKKOS_INLINE_FUNCTION void InnerProlongationRestrictionLoop(
-    team_mbr_t &team_member, std::size_t buf, const BufferCache_t &info,
+    team_mbr_t &team_member, std::size_t buf, const ProResInfoArr_t &info,
     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib) {
-  const auto &idxer = info(buf).prores_idxer[static_cast<int>(CEL)];
+  const auto &idxer = info(buf).idxer[static_cast<int>(CEL)];
   par_for_inner(
       inner_loop_pattern_tvr_tag, team_member, 0, idxer.size() - 1, [&](const int ii) {
         const auto [t, u, v, k, j, i] = idxer(ii);
@@ -110,7 +110,7 @@ KOKKOS_INLINE_FUNCTION void IterateInnerProlongationRestrictionLoop(Args &&...ar
 
 template <int DIM, class Stencil>
 inline void
-ProlongationRestrictionLoop(const BufferCache_t &info, const Idx_t &buffer_idxs,
+ProlongationRestrictionLoop(const ProResInfoArr_t &info, const Idx_t &buffer_idxs,
                             const IndexShape &cellbounds, const IndexShape &c_cellbounds,
                             const RefinementOp_t op, const std::size_t nbuffers) {
   const IndexDomain interior = IndexDomain::interior;
@@ -147,11 +147,11 @@ ProlongationRestrictionLoop(const BufferCache_t &info, const Idx_t &buffer_idxs,
 
 template <int DIM, class Stencil, TopologicalElement FEL, TopologicalElement CEL>
 inline void
-InnerHostProlongationRestrictionLoop(std::size_t buf, const BufferCacheHost_t &info,
+InnerHostProlongationRestrictionLoop(std::size_t buf, const ProResInfoArrHost_t &info,
                                      const IndexRange &ckb, const IndexRange &cjb,
                                      const IndexRange &cib, const IndexRange &kb,
                                      const IndexRange &jb, const IndexRange &ib) {
-  const auto &idxer = info(buf).prores_idxer[static_cast<int>(CEL)];
+  const auto &idxer = info(buf).idxer[static_cast<int>(CEL)];
   auto coords = info(buf).coords;
   auto coarse_coords = info(buf).coarse_coords;
   auto coarse = info(buf).coarse;
@@ -201,7 +201,7 @@ inline void IterateInnerHostProlongationRestrictionLoop(Args &&...args) {
 
 template <int DIM, class Stencil>
 inline void
-ProlongationRestrictionLoop(const BufferCacheHost_t &info_h,
+ProlongationRestrictionLoop(const ProResInfoArrHost_t &info_h,
                             const IdxHost_t &buffer_idxs_h, const IndexShape &cellbounds,
                             const IndexShape &c_cellbounds, const RefinementOp_t op,
                             const std::size_t nbuffers) {
@@ -235,10 +235,11 @@ ProlongationRestrictionLoop(const BufferCacheHost_t &info_h,
 }
 template <int DIM, class Stencil>
 inline void
-ProlongationRestrictionLoop(const BufferCache_t &info, const BufferCacheHost_t &info_h,
-                            const Idx_t &buffer_idxs, const IdxHost_t &buffer_idxs_h,
-                            const IndexShape &cellbounds, const IndexShape &c_cellbounds,
-                            const RefinementOp_t op, const std::size_t nbuffers) {
+ProlongationRestrictionLoop(const ProResInfoArr_t &info,
+                            const ProResInfoArrHost_t &info_h, const Idx_t &buffer_idxs,
+                            const IdxHost_t &buffer_idxs_h, const IndexShape &cellbounds,
+                            const IndexShape &c_cellbounds, const RefinementOp_t op,
+                            const std::size_t nbuffers) {
   if (nbuffers > Globals::refinement::min_num_bufs) {
     ProlongationRestrictionLoop<DIM, Stencil>(info, buffer_idxs, cellbounds, c_cellbounds,
                                               op, nbuffers);
