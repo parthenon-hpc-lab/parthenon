@@ -541,13 +541,15 @@ class Metadata {
     PARTHENON_REQUIRE_THROWS(IsRefined(), "Variable must be registered for refinement");
     return refinement_funcs_;
   }
-  template <class ProlongationOp, class RestrictionOp>
+  template <class ProlongationOp, class RestrictionOp,
+            class InternalProlongationOp = refinement_ops::ProlongateInternalAverage>
   void RegisterRefinementOps() {
     PARTHENON_REQUIRE_THROWS(
         IsRefined(),
         "Variable must be registered for refinement to accept custom refinement ops");
     refinement_funcs_ =
-        refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp>();
+        refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
+                                                       InternalProlongationOp>();
   }
 
   // Operators
