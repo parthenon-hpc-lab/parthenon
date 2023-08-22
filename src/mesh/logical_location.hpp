@@ -259,8 +259,8 @@ DetermineOwnership(const LogicalLocation &main_block,
     // Newly-refined blocks are treated as higher-level than blocks at their
     // parent level, but lower-level than previously-refined blocks at their
     // current level.
-    if (newly_refined.count(a)) return 2*a.level() - 1;
-    return 2*a.level();
+    if (newly_refined.count(a)) return 2 * a.level() - 1;
+    return 2 * a.level();
   };
 
   auto ownership_less_than = [ownership_level](const LogicalLocation &a,
