@@ -256,10 +256,11 @@ DetermineOwnership(const LogicalLocation &main_block,
   block_ownership_t main_owns;
 
   auto ownership_level = [&](const LogicalLocation &a) {
-    // Newly-refined blocks must be treated as their parent level in the first sync
-    // during refinement.
-    if (newly_refined.count(a)) return a.level() - 1;
-    return a.level();
+    // Newly-refined blocks are treated as higher-level than blocks at their
+    // parent level, but lower-level than previously-refined blocks at their
+    // current level.
+    if (newly_refined.count(a)) return 2*a.level() - 1;
+    return 2*a.level();
   };
 
   auto ownership_less_than = [ownership_level](const LogicalLocation &a,
