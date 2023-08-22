@@ -300,8 +300,8 @@ int BoundaryBase::CreateBvalsMPITag(int lid, int bufid) {
 
 // TODO(felker): break-up this long function
 
-void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
-                                         int *nslist) {
+void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist,
+                                         const std::set<LogicalLocation> &newly_refined) {
   Kokkos::Profiling::pushRegion("SearchAndSetNeighbors");
   MeshBlockTree *neibt;
   int myox1, myox2 = 0, myox3 = 0, myfx1, myfx2, myfx3;
@@ -368,7 +368,7 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
     }
   }
   if (block_size_.nx(X2DIR) == 1) {
-    SetNeighborOwnership();
+    SetNeighborOwnership(newly_refined);
     Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
     return;
   }
@@ -503,7 +503,7 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
   }
 
   if (block_size_.nx(X3DIR) == 1) {
-    SetNeighborOwnership();
+    SetNeighborOwnership(newly_refined);
     Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
     return;
   }
@@ -626,11 +626,11 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
     }
   }
 
-  SetNeighborOwnership();
+  SetNeighborOwnership(newly_refined);
   Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
 }
 
-void BoundaryBase::SetNeighborOwnership() {
+void BoundaryBase::SetNeighborOwnership(const std::set<LogicalLocation> &newly_refined) {
   // Set neighbor block ownership
   std::set<LogicalLocation> allowed_neighbors;
   allowed_neighbors.insert(loc); // Insert the location of this block
@@ -642,7 +642,7 @@ void BoundaryBase::SetNeighborOwnership() {
   RootGridInfo rg_info = pmy_mesh_->GetRootGridInfo();
   for (int n = 0; n < nneighbor; ++n) {
     neighbor[n].ownership =
-        DetermineOwnership(neighbor[n].loc, allowed_neighbors, rg_info);
+        DetermineOwnership(neighbor[n].loc, allowed_neighbors, rg_info, newly_refined);
     neighbor[n].ownership.initialized = true;
   }
 }

@@ -73,8 +73,8 @@ struct RegionSize {
   RegionSize() = default;
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,
              std::array<int, 3> nx)
-      : xmin_(xmin), xmax_(xmax), xrat_(xrat),
-        nx_(nx), symmetry_{nx[0] == 1, nx[1] == 1, nx[2] == 1} {}
+      : xmin_(xmin), xmax_(xmax), xrat_(xrat), nx_(nx),
+        symmetry_{nx[0] == 1, nx[1] == 1, nx[2] == 1} {}
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,
              std::array<int, 3> nx, std::array<bool, 3> symmetry)
       : xmin_(xmin), xmax_(xmax), xrat_(xrat), nx_(nx), symmetry_(symmetry) {}
