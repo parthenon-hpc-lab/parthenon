@@ -444,11 +444,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       local_count[vinfo.tensor_rank + 3] = global_count[vinfo.tensor_rank + 3] = nx1;
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
-      if (output_params.hdf5_compression_level > 0) {
+      // if (output_params.hdf5_compression_level > 0) {
         for (int i = ndim - 3; i < ndim; i++) {
           chunk_size[i] = local_count[i];
         }
-      }
+      // }
 #endif
     } else if (vinfo.where == MetadataFlag(Metadata::None)) {
       ndim = vinfo.tensor_rank + 1;
@@ -457,12 +457,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       }
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
-      if (output_params.hdf5_compression_level > 0) {
+      // if (output_params.hdf5_compression_level > 0) {
         int nchunk_indices = std::min<int>(vinfo.tensor_rank, 3);
         for (int i = ndim - nchunk_indices; i < ndim; i++) {
           chunk_size[i] = alldims[6 - nchunk_indices + i];
         }
-      }
+      // }
 #endif
     } else {
       PARTHENON_THROW("Only Cell and None locations supported!");
