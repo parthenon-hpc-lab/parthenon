@@ -85,12 +85,13 @@ else()
   set(PAR_LOOP_INNER_LAYOUT_TAG loop_pattern_undefined_tag)
 endif()
 
+set(COORDINATE_TYPE "UniformCartesian" CACHE STRING "UniformCartesian/UniformSpherical/UniformCylindrical")
+message(STATUS "COORDINATE_TYPE='${COORDINATE_TYPE}' Parthenon Coordinates_t class")
+
 set(EXCEPTION_HANDLING_OPTION ENABLE_EXCEPTIONS) # TODO: Add option to disable exceptions
 set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
-
-set(COORDINATE_TYPE "UniformCartesian" CACHE STRING "UniformCartesian/UniformSpherical/UniformCylindrical")
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
