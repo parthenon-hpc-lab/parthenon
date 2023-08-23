@@ -273,6 +273,14 @@ class MeshData {
     return all_initialized;
   }
 
+  std::vector<bool> AllocationStatus(const std::string &label) {
+    std::vector<bool> status(NumBlocks());
+    std::transform(
+        block_data_.begin(), block_data_.end(), status.begin(),
+        [&](std::shared_ptr<MeshBlockData<T>> mbd) { return mbd->IsAllocated(label); });
+    return status;
+  }
+
  private:
   template <typename... Args>
   const auto &PackVariablesAndFluxesImpl(PackIndexMap *map_out, Args &&...args) {
