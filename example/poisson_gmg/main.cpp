@@ -20,7 +20,7 @@ using namespace parthenon;
 using namespace parthenon::BoundaryFunction;
 template <CoordinateDirection DIR, BCSide SIDE>
 auto GetBoundaryCondition() {
-  return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {
     using namespace parthenon;
     using namespace parthenon::BoundaryFunction;
     GenericBC<DIR, SIDE, BCType::Fixed, variable_names::any>(rc, coarse, 0.0);
@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
   pman.app_input->MeshProblemGenerator = poisson_example::ProblemGenerator;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
-  auto manager_status = pman.ParthenonInit(argc, argv);
+  auto manager_status = pman.ParthenonInitEnv(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
     pman.ParthenonFinalize();
     return 0;
