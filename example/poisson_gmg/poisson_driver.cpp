@@ -103,7 +103,8 @@ void PoissonDriver::AddRestrictionProlongationLevel(TaskRegion &region, int leve
   }
 }
 
-void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level, int max_level, bool final) {
+void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level,
+                                           int max_level, bool final) {
   using namespace parthenon;
   using namespace poisson_package;
   TaskID none(0);
@@ -112,8 +113,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
   auto pkg = pmesh->packages.Get("poisson_package");
   auto jacobi_iterations = pkg->Param<int>("jacobi_iterations");
   auto damping = pkg->Param<Real>("jacobi_damping");
-  
-  //if (level == 0) jacobi_iterations = 200; 
+
+  // if (level == 0) jacobi_iterations = 200;
 
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = region[i + (max_level - level) * num_partitions];
@@ -139,7 +140,7 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
 
     // 2. Do pre-smooth and fill solution on this level
     auto zero_u = tl.AddTask(none, AddFieldsAndStore<u, u, u>, md, 0.0, 0.0);
-    
+
     // 2. Do pre-smooth and fill solution on this level
     auto pre_previous_iter = copy_rhs | build_matrix | zero_u;
     for (int jacobi_iter = 0; jacobi_iter < jacobi_iterations / 2; ++jacobi_iter) {
@@ -151,7 +152,7 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
           tl.AddTask(comm2, JacobiIteration<temp, u>, md, 1.0 - damping, level);
     }
     auto pre_smooth = pre_previous_iter;
-    
+
     // If we are finer than the coarsest level:
     auto post_smooth = none;
     if (level > min_level) {
@@ -210,9 +211,10 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
       auto set_u = tl.AddTask(update_solution, CopyData<solution, u>, md);
       auto set_rhs = tl.AddTask(update_solution, CopyData<rhs_base, rhs>, md);
       auto res = tl.AddTask(set_u | set_rhs, CalculateResidual, md);
-      if (final) { 
+      if (final) {
         std::string label = "Solution, rhs, residual";
-        auto printout = tl.AddTask(res, PrintChosenValues<u, rhs_base, res_err>, md, label);
+        auto printout =
+            tl.AddTask(res, PrintChosenValues<u, rhs_base, res_err>, md, label);
       }
       auto res_comm = AddBoundaryExchangeTasks(res, tl, md, true);
     }
@@ -228,12 +230,13 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   auto max_iterations = pkg->Param<int>("max_iterations");
 
   const int num_partitions = pmesh->DefaultNumPartitions();
-  int min_level = 0;//pmesh->GetGMGMaxLevel();
+  int min_level = 0; // pmesh->GetGMGMaxLevel();
   int max_level = pmesh->GetGMGMaxLevel();
   for (int ivcycle = 0; ivcycle < max_iterations; ++ivcycle) {
     TaskRegion &region = tc.AddRegion(num_partitions * (max_level + 1));
     for (int level = max_level; level >= min_level; --level) {
-      AddMultiGridTasksLevel(region, level, min_level, max_level, ivcycle == max_iterations - 1);
+      AddMultiGridTasksLevel(region, level, min_level, max_level,
+                             ivcycle == max_iterations - 1);
       // AddRestrictionProlongationLevel(region, level, max_level);
     }
   }
