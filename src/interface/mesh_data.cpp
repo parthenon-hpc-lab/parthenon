@@ -25,8 +25,8 @@ void MeshData<T>::Initialize(const MeshData<T> *src,
   const int nblocks = src->NumBlocks();
   block_data_.resize(nblocks);
   for (int i = 0; i < nblocks; i++) {
-    pmy_mesh_->block_list[i]->meshblock_data.Add(stage_name_, src->GetBlockData(i), names,
-                                                 shallow);
+    block_data_[i] = pmy_mesh_->block_list[i]->meshblock_data.Add(
+        stage_name_, src->GetBlockData(i), names, shallow);
   }
 }
 
