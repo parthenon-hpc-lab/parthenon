@@ -156,6 +156,7 @@ class MeshBlockData {
   inline bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
     return IsAllocated(MakeVarLabel(base_name, sparse_id));
   }
+
 #else
   constexpr inline bool IsAllocated(std::string const & /*label*/) const noexcept {
     return true;
@@ -166,6 +167,10 @@ class MeshBlockData {
     return true;
   }
 #endif
+
+  std::vector<bool> AllocationStatus(const std::string &label) const noexcept {
+    return std::vector<bool>({IsAllocated(label)});
+  }
 
   using VarList = VarListWithKeys<T>;
 
