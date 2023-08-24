@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
       sparse_advection_example::PostStepDiagnosticsInLoop;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
-  auto manager_status = pman.ParthenonInit(argc, argv);
+  auto manager_status = pman.ParthenonInitEnv(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
     pman.ParthenonFinalize();
     return 0;
@@ -43,6 +43,7 @@ int main(int argc, char *argv[]) {
 
   DriverStatus driver_status;
   // This needs to be scoped so that the driver object is destructed before Finalize
+  pman.ParthenonInitPackagesAndMesh();
   {
     // Initialize the driver
     sparse_advection_example::SparseAdvectionDriver driver(

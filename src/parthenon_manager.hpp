@@ -37,7 +37,6 @@ enum class ParthenonStatus { ok, complete, error };
 class ParthenonManager {
  public:
   ParthenonManager() { app_input.reset(new ApplicationInput()); }
-  ParthenonStatus ParthenonInit(int argc, char *argv[]);
   ParthenonStatus ParthenonInitEnv(int argc, char *argv[]);
   void ParthenonInitPackagesAndMesh();
   ParthenonStatus ParthenonFinalize();
@@ -57,6 +56,8 @@ class ParthenonManager {
 
  private:
   ArgParse arg;
+  bool called_init_env_ = false;
+  bool called_init_packages_and_mesh_ = false;
 
   template <typename T>
   void ReadSwarmVars_(const SP_Swarm &pswarm, const BlockList_t &block_list,

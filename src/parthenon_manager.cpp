@@ -40,16 +40,12 @@
 
 namespace parthenon {
 
-ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
-  auto manager_status = ParthenonInitEnv(argc, argv);
-  if (manager_status != ParthenonStatus::ok) {
-    return manager_status;
-  }
-  ParthenonInitPackagesAndMesh();
-  return ParthenonStatus::ok;
-}
-
 ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
+  if (called_init_env_) {
+    PARTHENON_THROW("ParthenonInitEnv called twice!");
+  }
+  called_init_env_ = true;
+
   // initialize MPI
 #ifdef MPI_PARALLEL
   if (MPI_SUCCESS != MPI_Init(&argc, &argv)) {
@@ -146,6 +142,11 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 }
 
 void ParthenonManager::ParthenonInitPackagesAndMesh() {
+  if (called_init_packages_and_mesh_) {
+    PARTHENON_THROW("Called ParthenonInitPackagesAndMesh twice!");
+  }
+  called_init_packages_and_mesh_ = true;
+
   // Allow for user overrides to default Parthenon functions
   if (app_input->ProcessPackages != nullptr) {
     ProcessPackages = app_input->ProcessPackages;

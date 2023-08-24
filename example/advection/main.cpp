@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
   pman.app_input->UserWorkAfterLoop = advection_example::UserWorkAfterLoop;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
-  auto manager_status = pman.ParthenonInit(argc, argv);
+  auto manager_status = pman.ParthenonInitEnv(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
     pman.ParthenonFinalize();
     return 0;
@@ -35,9 +35,11 @@ int main(int argc, char *argv[]) {
     pman.ParthenonFinalize();
     return 1;
   }
+
   // Now that ParthenonInit has been called and setup succeeded, the code can now
   // make use of MPI and Kokkos.
   // This needs to be scoped so that the driver object is destructed before Finalize
+  pman.ParthenonInitPackagesAndMesh();
   {
     // Initialize the driver
     advection_example::AdvectionDriver driver(pman.pinput.get(), pman.app_input.get(),
