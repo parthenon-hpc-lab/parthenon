@@ -41,7 +41,7 @@ VARIABLE(poisson, Am);
 VARIABLE(poisson, Ac);
 VARIABLE(poisson, Ap);
 
-constexpr parthenon::TopologicalElement te = parthenon::TopologicalElement::NN;
+constexpr parthenon::TopologicalElement te = parthenon::TopologicalElement::CC;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 TaskStatus PrintValues(std::shared_ptr<MeshData<Real>> &md);
@@ -130,34 +130,28 @@ TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight,
       DEFAULT_LOOP_PATTERN, "JacobiIteration", DevExecSpace(), 0, pack.GetNBlocks() - 1,
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        pack(b, te, out_t(), k, j, i) =
-            weight *
-                (pack(b, te, rhs(), k, j, i) -
-                 pack(b, te, Am(0), k, j, i) * pack(b, te, in_t(), k, j, i - 1) -
-                 pack(b, te, Ap(0), k, j, i) * pack(b, te, in_t(), k, j, i + 1)) /
-                pack(b, te, Ac(), k, j, i) +
-            (1.0 - weight) * pack(b, te, in_t(), k, j, i);
+        Real val = pack(b, te, rhs(), k, j, i);
+        Real val1 = pack(b, te, Am(0), k, j, i) * pack(b, te, in_t(), k, j, i - 1) +
+               pack(b, te, Ap(0), k, j, i) * pack(b, te, in_t(), k, j, i + 1);
+        Real val2{0.0}, val3{0.0};
         if (ndim > 1) {
-          pack(b, te, out_t(), k, j, i) -=
-              weight *
-              (pack(b, te, Am(1), k, j, i) * pack(b, te, in_t(), k, j - 1, i) +
-               pack(b, te, Ap(1), k, j, i) * pack(b, te, in_t(), k, j + 1, i)) /
-              pack(b, te, Ac(), k, j, i);
+          val2 = pack(b, te, Am(1), k, j, i) * pack(b, te, in_t(), k, j - 1, i) +
+                 pack(b, te, Ap(1), k, j, i) * pack(b, te, in_t(), k, j + 1, i);
         }
         if (ndim > 2) {
-          pack(b, te, out_t(), k, j, i) -=
-              weight *
-              (pack(b, te, Am(2), k, j, i) * pack(b, te, in_t(), k - 1, j, i) +
-               pack(b, te, Ap(2), k, j, i) * pack(b, te, in_t(), k + 1, j, i)) /
-              pack(b, te, Ac(), k, j, i);
+          val3 = pack(b, te, Am(2), k, j, i) * pack(b, te, in_t(), k - 1, j, i) +
+                 pack(b, te, Ap(2), k, j, i) * pack(b, te, in_t(), k + 1, j, i);
         }
+        pack(b, te, out_t(), k, j, i) = weight * (val - val1 - val2 - val3) / pack(b, te, Ac(), k, j, i) 
+          + (1.0 - weight) * pack(b, te, in_t(), k, j, i);
+
         // printf("Jacobi: b = %i i = %2i in[i+-1] = (%e, %e, %e) out[i] = %e rhs[i] =
         // %e\n",
         //        b, i, pack(b, te, in_t(), k, j, i - 1), pack(b, te, in_t(), k, j, i),
         //        pack(b, te, in_t(), k, j, i + 1), pack(b, te, out_t(), k, j, i),
         //        pack(b, te, rhs(), k, j, i));
       });
-  printf("\n");
+  //printf("\n");
   return TaskStatus::complete;
 }
 
@@ -168,7 +162,7 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
-
+  
   auto desc = parthenon::MakePackDescriptor<vars...>(md.get());
   auto pack = desc.GetPack(md.get());
   std::array<std::string, sizeof...(vars)> names{vars::name()...};
@@ -197,8 +191,10 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
             for (int i = ib.s; i <= ib.e; ++i) {
               Real x = coords.template X<1, te>(i);
               Real y = coords.template X<2, te>(j);
+              Real dx1 = coords.template Dxc<1>(k, j, i);
+              Real dx2 = coords.template Dxc<2>(k, j, i);
               std::array<Real, sizeof...(vars)> vals{pack(b, te, vars(), k, j, i)...};
-              printf("b = %i i = %2i j = %2i x = %e y = %e ", b, i, j, x, y);
+              printf("b = %i i = %2i j = %2i x = %e y = %e dx1 = %e dx2 = %e ", b, i, j, x, y, dx1, dx2);
               for (int v = 0; v < sizeof...(vars); ++v) {
                 printf("%e ", vals[v]);
               }

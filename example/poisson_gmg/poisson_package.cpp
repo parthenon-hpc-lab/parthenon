@@ -106,9 +106,9 @@ TaskStatus BuildMatrix(std::shared_ptr<MeshData<Real>> &md) {
         Real dx1 = coords.Dxc<1>(k, j, i);
         Real dx2 = coords.Dxc<2>(k, j, i);
         Real dx3 = coords.Dxc<3>(k, j, i);
-        pack(b, te, Am(), k, j, i) = -1.0 / (dx1 * dx1);
+        pack(b, te, Am(0), k, j, i) = -1.0 / (dx1 * dx1);
         pack(b, te, Ac(), k, j, i) = 2.0 / (dx1 * dx1);
-        pack(b, te, Ap(), k, j, i) = -1.0 / (dx1 * dx1);
+        pack(b, te, Ap(0), k, j, i) = -1.0 / (dx1 * dx1);
         if (ndim > 1) {
           pack(b, te, Am(1), k, j, i) = -1.0 / (dx2 * dx2);
           pack(b, te, Ac(), k, j, i) += 2.0 / (dx2 * dx2);

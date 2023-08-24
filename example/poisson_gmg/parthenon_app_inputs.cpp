@@ -62,7 +62,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         if (rad < radius0) {
           val = 100.0;
         }
-        printf("(%i, %i, %i) rad = %e x1=%e x2=%e val = %e\n", i, j, k, rad, x1, x2, val);
+        val = 1.0*exp(-rad * 10.0 * rad * 10.0);
         pack(b, te, poisson_package::res_err(), k, j, i) = val; // x1 + 10.0 * x2;
         pack(b, te, poisson_package::rhs_base(), k, j, i) = val;
       });

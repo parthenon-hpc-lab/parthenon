@@ -103,7 +103,7 @@ void PoissonDriver::AddRestrictionProlongationLevel(TaskRegion &region, int leve
   }
 }
 
-void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int max_level) {
+void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level, int max_level, bool final) {
   using namespace parthenon;
   using namespace poisson_package;
   TaskID none(0);
@@ -112,6 +112,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int ma
   auto pkg = pmesh->packages.Get("poisson_package");
   auto jacobi_iterations = pkg->Param<int>("jacobi_iterations");
   auto damping = pkg->Param<Real>("jacobi_damping");
+  
+  //if (level == 0) jacobi_iterations = 200; 
 
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = region[i + (max_level - level) * num_partitions];
@@ -133,32 +135,26 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int ma
 
     // 1. Copy residual from dual purpose communication field to the rhs, copy actual RHS
     // for finest level
-    std::string label = "Receiving residual on level " + std::to_string(level);
-    auto print_residual_recv =
-        tl.AddTask(set_from_finer, PrintChosenValues<res_err>, md, label);
     auto copy_rhs = tl.AddTask(set_from_finer, CopyData<res_err, rhs>, md);
-    auto comm_rhs = AddBoundaryExchangeTasks(copy_rhs, tl, md, true);
 
     // 2. Do pre-smooth and fill solution on this level
     auto zero_u = tl.AddTask(none, AddFieldsAndStore<u, u, u>, md, 0.0, 0.0);
-
+    
+    // 2. Do pre-smooth and fill solution on this level
+    auto pre_previous_iter = copy_rhs | build_matrix | zero_u;
+    for (int jacobi_iter = 0; jacobi_iter < jacobi_iterations / 2; ++jacobi_iter) {
+      auto comm1 = AddBoundaryExchangeTasks(pre_previous_iter, tl, md, true);
+      auto jacobi1 =
+          tl.AddTask(comm1, JacobiIteration<u, temp>, md, 1.0 - damping, level);
+      auto comm2 = AddBoundaryExchangeTasks(jacobi1, tl, md, true);
+      pre_previous_iter =
+          tl.AddTask(comm2, JacobiIteration<temp, u>, md, 1.0 - damping, level);
+    }
+    auto pre_smooth = pre_previous_iter;
+    
     // If we are finer than the coarsest level:
-    auto post_smooth = zero_u;
-    if (level > 0) {
-      // 2. Do pre-smooth and fill solution on this level
-      // auto pre_smooth = tl.AddTask(comm_rhs | build_matrix | zero_u,
-      // BlockLocalTriDiagX<u>, md);
-      auto pre_previous_iter = comm_rhs | build_matrix | zero_u;
-      for (int jacobi_iter = 0; jacobi_iter < jacobi_iterations / 2; ++jacobi_iter) {
-        auto comm1 = AddBoundaryExchangeTasks(pre_previous_iter, tl, md, true);
-        auto jacobi1 =
-            tl.AddTask(comm1, JacobiIteration<u, res_err>, md, 1.0 - damping, level);
-        auto comm2 = AddBoundaryExchangeTasks(jacobi1, tl, md, true);
-        pre_previous_iter =
-            tl.AddTask(comm2, JacobiIteration<res_err, u>, md, 1.0 - damping, level);
-      }
-      auto pre_smooth = pre_previous_iter;
-
+    auto post_smooth = none;
+    if (level > min_level) {
       // 3. Communicate same level boundaries so that u is up to date everywhere
       auto comm_u = AddBoundaryExchangeTasks(pre_smooth, tl, md, true);
 
@@ -166,10 +162,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int ma
       auto residual = tl.AddTask(comm_u, CalculateResidual, md);
 
       // 5. Restrict communication field and send to next level
-      std::string label = "Residual on level " + std::to_string(level);
-      auto print_residual = tl.AddTask(residual, PrintChosenValues<res_err>, md, label);
       auto communicate_to_coarse =
-          tl.AddTask(print_residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
+          tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
 
       // 6. Receive error field into communication field and prolongate
       auto recv_from_coarser = tl.AddTask(
@@ -183,14 +177,9 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int ma
 
       // 7. Correct solution on this level with res_err field and store in
       //    communication field
-      std::string label2 = "Receiving error on level " + std::to_string(level);
-      auto printout = tl.AddTask(prolongate, PrintChosenValues<u, res_err>, md, label2);
       auto update_err =
-          tl.AddTask(printout, AddFieldsAndStore<u, res_err, u>, md, 1.0, 1.0);
+          tl.AddTask(prolongate, AddFieldsAndStore<u, res_err, u>, md, 1.0, 1.0);
       auto comm_err = AddBoundaryExchangeTasks(update_err, tl, md, true);
-      // std::string label3 = "Old solution vs. corrected solution" +
-      // std::to_string(level); auto printout3 = tl.AddTask(comm_err, PrintChosenValues<u,
-      // res_err>, md, label3);
 
       // 8. Post smooth using communication field and stored RHS
       auto previous_iter = comm_err;
@@ -202,17 +191,10 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int ma
         previous_iter =
             tl.AddTask(comm2, JacobiIteration<temp, u>, md, 1.0 - damping, level);
       }
-      auto copy_over =
-          tl.AddTask(previous_iter, AddFieldsAndStore<u, u, res_err>, md, 1.0, 0.0);
-      post_smooth = copy_over;
-
-      // auto comm_err = AddBoundaryExchangeTasks(update_err, tl, md, true);
-      // auto correct_rhs = tl.AddTask(comm_err, CorrectRHS, md);
-      // post_smooth = tl.AddTask(correct_rhs, BlockLocalTriDiagX<res_err>, md);
-
+      auto copy_over = tl.AddTask(previous_iter, CopyData<u, res_err>, md);
+      auto boundary = AddBoundaryExchangeTasks(copy_over, tl, md, true);
+      post_smooth = boundary;
     } else {
-      auto pre_smooth =
-          tl.AddTask(comm_rhs | build_matrix | zero_u, BlockLocalTriDiagX<u>, md);
       post_smooth = tl.AddTask(pre_smooth, CopyData<u, res_err>, md);
     }
 
@@ -220,9 +202,7 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int ma
     // level)
     //    or update the solution on the finest level
     if (level < max_level) {
-      std::string label = "Sending error from level " + std::to_string(level);
-      auto print_error = tl.AddTask(post_smooth, PrintChosenValues<res_err>, md, label);
-      tl.AddTask(print_error, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
+      tl.AddTask(post_smooth, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
     } else {
       auto comm = AddBoundaryExchangeTasks(post_smooth, tl, md, true);
       auto update_solution =
@@ -230,10 +210,11 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int ma
       auto set_u = tl.AddTask(update_solution, CopyData<solution, u>, md);
       auto set_rhs = tl.AddTask(update_solution, CopyData<rhs_base, rhs>, md);
       auto res = tl.AddTask(set_u | set_rhs, CalculateResidual, md);
-      std::string label = "Solution, residual, and rhs after iteration";
-      auto printout = tl.AddTask(res, PrintChosenValues<u, res_err, rhs>, md, label);
+      if (final) { 
+        std::string label = "Solution, rhs, residual";
+        auto printout = tl.AddTask(res, PrintChosenValues<u, rhs_base, res_err>, md, label);
+      }
       auto res_comm = AddBoundaryExchangeTasks(res, tl, md, true);
-      // auto print = tl.AddTask(res_comm, PrintValues, md);
     }
   }
 }
@@ -247,11 +228,12 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   auto max_iterations = pkg->Param<int>("max_iterations");
 
   const int num_partitions = pmesh->DefaultNumPartitions();
+  int min_level = 0;//pmesh->GetGMGMaxLevel();
   int max_level = pmesh->GetGMGMaxLevel();
   for (int ivcycle = 0; ivcycle < max_iterations; ++ivcycle) {
     TaskRegion &region = tc.AddRegion(num_partitions * (max_level + 1));
-    for (int level = max_level; level >= 0; --level) {
-      AddMultiGridTasksLevel(region, level, max_level);
+    for (int level = max_level; level >= min_level; --level) {
+      AddMultiGridTasksLevel(region, level, min_level, max_level, ivcycle == max_iterations - 1);
       // AddRestrictionProlongationLevel(region, level, max_level);
     }
   }
