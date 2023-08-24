@@ -96,8 +96,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
     pkg->AddField(v5::name(), m);
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
-    MeshData<Real> mesh_data;
-    mesh_data.Set(block_list, "base");
+    MeshData<Real> mesh_data("base");
+    mesh_data.Set(block_list);
 
     WHEN("We initialize the independent variables by hand and deallocate one") {
       auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);

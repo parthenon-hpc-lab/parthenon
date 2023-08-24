@@ -190,6 +190,7 @@ template <typename T>
 class MeshData {
  public:
   MeshData() = default;
+  explicit MeshData(const std::string &name) : stage_name_(name) {}
 
   const auto &StageName() const { return stage_name_; }
 
@@ -226,29 +227,17 @@ class MeshData {
     }
   }
 
-  void Set(BlockList_t blocks, const std::string &name) {
-    stage_name_ = name;
+  void Set(BlockList_t blocks) {
     const int nblocks = blocks.size();
     block_data_.resize(nblocks);
     SetMeshPointer(blocks[0]->pmy_mesh);
     for (int i = 0; i < nblocks; i++) {
-      block_data_[i] = blocks[i]->meshblock_data.Get(name);
+      block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
     }
   }
 
-  template <typename... Args>
-  void Initialize(const MeshData<T> *src, Args &&...args) {
-    if (src == nullptr) {
-      PARTHENON_THROW("src points at null");
-    }
-    pmy_mesh_ = src->GetParentPointer();
-    const int nblocks = src->NumBlocks();
-    block_data_.resize(nblocks);
-    for (int i = 0; i < nblocks; i++) {
-      block_data_[i] = std::make_shared<MeshBlockData<T>>();
-      block_data_[i]->Initialize(src->GetBlockData(i).get(), std::forward<Args>(args)...);
-    }
-  }
+  void Initialize(const MeshData<T> *src, const std::vector<std::string> &names,
+                  const bool shallow);
 
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
     assert(n >= 0 && n < block_data_.size());

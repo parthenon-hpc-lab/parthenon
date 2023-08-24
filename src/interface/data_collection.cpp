@@ -34,17 +34,10 @@ DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
     return it->second;
   }
 
-  auto c = std::make_shared<T>();
+  auto c = std::make_shared<T>(name);
   c->Initialize(src.get(), field_names, shallow);
 
   Set(name, c);
-
-  if constexpr (std::is_same<T, MeshData<Real>>::value) {
-    for (int b = 0; b < pmy_mesh_->block_list.size(); b++) {
-      auto &mbd = pmy_mesh_->block_list[b]->meshblock_data;
-      mbd.Set(name, c->GetBlockData(b));
-    }
-  }
 
   return containers_[name];
 }
@@ -73,8 +66,8 @@ DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
     auto partitions = partition::ToSizeN(pmy_mesh_->block_list, pack_size);
     for (auto i = 0; i < partitions.size(); i++) {
       const std::string md_label = mbd_label + "_part-" + std::to_string(i);
-      containers_[md_label] = std::make_shared<MeshData<Real>>();
-      containers_[md_label]->Set(partitions[i], mbd_label);
+      containers_[md_label] = std::make_shared<MeshData<Real>>(mbd_label);
+      containers_[md_label]->Set(partitions[i]);
     }
   }
   return containers_[label];
