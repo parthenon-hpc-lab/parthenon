@@ -296,11 +296,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
 
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
-  NeighborBlock nb;
-  // Make the neighbor block coincide with this block
-  nb.SetNeighbor(pmb->loc, Globals::my_rank, mylevel, 0, 0, 0, 0, 0,
-                 NeighborConnect::none, 0, 0);
-  nb.ownership = block_ownership_t(true);
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, 0, {0, 0, 0}, NeighborConnect::none, 0, 0, 0, 0);
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
@@ -330,11 +326,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
 
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
-  NeighborBlock nb;
-  // Make the neighbor block coincide with this block
-  nb.SetNeighbor(pmb->loc, Globals::my_rank, mylevel, 0, 0, 0, 0, 0,
-                 NeighborConnect::none, 0, 0);
-  nb.ownership = block_ownership_t(true);
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, 0, {0, 0, 0}, NeighborConnect::none, 0, 0, 0, 0);
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();

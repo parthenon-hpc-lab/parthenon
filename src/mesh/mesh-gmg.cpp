@@ -70,13 +70,9 @@ void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t 
               }
               auto f = loc.GetAthenaXXFaceOffsets(pos_neighbor_location, ox1, ox2, ox3,
                                                   root_grid);
-              pmb->gmg_same_neighbors.emplace_back();
-              pmb->gmg_same_neighbors.back().SetNeighbor(
-                  pos_neighbor_location, gid_rank.second, pos_neighbor_location.level(),
-                  gid_rank.first, gid_rank.first - nbs, ox1, ox2, ox3, nc, 0, 0, f[0],
-                  f[1]);
-              pmb->gmg_same_neighbors.back().block_size =
-                  GetBlockSize(pos_neighbor_location);
+              pmb->gmg_same_neighbors.emplace_back(pmb->pmy_mesh, pos_neighbor_location, 
+                  gid_rank.second, gid_rank.first, gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, 
+                  nc, 0, 0, f[0], f[1]);
             }
           }
         }
@@ -220,11 +216,9 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
       } else {
         PARTHENON_FAIL("There is something wrong with GMG block list.");
       }
-
-      pmb->gmg_coarser_neighbors.emplace_back();
-      pmb->gmg_coarser_neighbors.back().SetNeighbor(
-          loc, rank, loc.level(), gid, gid - nbs, 0, 0, 0, NeighborConnect::none, 0, 0);
-      pmb->gmg_coarser_neighbors.back().block_size = GetBlockSize(loc);
+      pmb->gmg_coarser_neighbors.emplace_back(pmb->pmy_mesh, loc, 
+                  rank, gid, gid - nbs, std::array<int, 3>{0, 0, 0}, 
+                  NeighborConnect::none, 0, 0, 0, 0);
     }
   }
 
@@ -237,11 +231,9 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
       for (auto &daughter_loc : daughter_locs) {
         if (gmg_grid_locs[gmg_level + 1].count(daughter_loc) > 0) {
           auto &gid_rank = gmg_grid_locs[gmg_level + 1][daughter_loc];
-          pmb->gmg_finer_neighbors.emplace_back();
-          pmb->gmg_finer_neighbors.back().SetNeighbor(
-              daughter_loc, gid_rank.second, daughter_loc.level(), gid_rank.first,
-              gid_rank.first - nbs, 0, 0, 0, NeighborConnect::none, 0, 0);
-          pmb->gmg_finer_neighbors.back().block_size = GetBlockSize(daughter_loc);
+          pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, daughter_loc, 
+                  gid_rank.second, gid_rank.first, gid_rank.first - nbs, std::array<int, 3>{0, 0, 0}, 
+                  NeighborConnect::none, 0, 0, 0, 0);
         }
       }
     }

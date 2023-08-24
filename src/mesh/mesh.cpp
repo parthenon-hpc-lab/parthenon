@@ -420,7 +420,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag);
-    block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    block_list[i - nbs]->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
   }
   // CheckNeighborFinding(block_list, "Mesh initialization");
   BuildGMGHierarchy(nbs, pin, app_in);
@@ -681,7 +681,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
-    block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    block_list[i - nbs]->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
   }
   BuildGMGHierarchy(nbs, pin, app_in);
   // CheckNeighborFinding(block_list, "Restart");
