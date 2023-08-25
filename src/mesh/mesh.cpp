@@ -1183,7 +1183,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   } while (!init_done);
 
   // Initialize the "base" MeshData object
-  mesh_data.Get()->Set(block_list); //, "base");
+  mesh_data.Get()->Set(block_list);
 
   Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }
