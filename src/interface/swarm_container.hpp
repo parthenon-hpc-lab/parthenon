@@ -43,7 +43,8 @@ class SwarmContainer {
   // Public Methods
   //-----------------
   // Constructor does nothing
-  SwarmContainer() {}
+  SwarmContainer() = default;
+  explicit SwarmContainer(const std::string &name) : swarm_name_(name) {}
 
   /// Returns a shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {
@@ -186,6 +187,7 @@ class SwarmContainer {
     }
   }
 
+  std::string swarm_name_;
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
 

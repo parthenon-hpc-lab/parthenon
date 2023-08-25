@@ -64,16 +64,10 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
 
   // sample number of iterations task
   {
-    const int pack_size = pmesh->DefaultPackSize();
-    auto partitions = partition::ToSizeN(blocks, pack_size);
-    for (int i = 0; i < partitions.size(); i++) {
-      auto md = pmesh->mesh_data.Add("num_iter_partition_" + std::to_string(i));
-      md->Set(partitions[i], "base");
-    }
-
-    TaskRegion &async_region = tc.AddRegion(partitions.size());
-    for (int i = 0; i < partitions.size(); i++) {
-      auto &md = pmesh->mesh_data.Get("num_iter_partition_" + std::to_string(i));
+    const int num_partitions = pmesh->DefaultNumPartitions();
+    TaskRegion &async_region = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = pmesh->mesh_data.GetOrAdd("base", i);
       async_region[i].AddTask(none, ComputeNumIter, md, pmesh->packages);
     }
   }
