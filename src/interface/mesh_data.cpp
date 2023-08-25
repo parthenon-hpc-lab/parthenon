@@ -10,8 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "mesh/mesh.hpp"
 #include "mesh_data.hpp"
+
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
 
