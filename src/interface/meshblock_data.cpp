@@ -54,7 +54,7 @@ void MeshBlockData<T>::Initialize(
     AddField(q.first.base_name, q.second, q.first.sparse_id);
   }
 
-  Metadata::FlagCollection flags({Metadata::Sparse, Metadata::AllocOnNewBlocks});
+  Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
   auto vars = GetVariablesByFlag(flags);
   for (auto &v : vars.vars()) {
     AllocateSparse(v->label());

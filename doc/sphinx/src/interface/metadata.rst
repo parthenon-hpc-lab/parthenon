@@ -68,7 +68,7 @@ variable in relation to the problem.
    scale with volume.
 -  ``Metadata::Sparse`` implies that the variable is sparse and hence it
    may not be allocated on all blocks.
--  ``Metadata::AllocOnNewBlocks`` forces allocation of a sparse variable
+-  ``Metadata::ForceAllocOnNewBlocks`` forces allocation of a sparse variable
    on any new ``MeshBlock`` that may be created through AMR or load
    balancing.
 
