@@ -109,7 +109,9 @@
   /** does variable have fluxes */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)                                                \
   /** the variable needs to be communicated across ranks during remeshing */             \
-  PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)
+  PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)                                           \
+  /** the variable must always be allocated for new blocks **/                           \
+  PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)
 namespace parthenon {
 
 namespace internal {

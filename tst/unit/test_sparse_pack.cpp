@@ -96,8 +96,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
     pkg->AddField(v5::name(), m);
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
-    MeshData<Real> mesh_data;
-    mesh_data.Set(block_list, "base");
+    MeshData<Real> mesh_data("base");
+    mesh_data.Set(block_list);
 
     WHEN("We initialize the independent variables by hand and deallocate one") {
       auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -267,6 +267,16 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             },
             nwrong);
         REQUIRE(nwrong == 0);
+      }
+
+      THEN("A sparse pack built with a subset of blocks is the right size") {
+        auto desc =
+            parthenon::MakePackDescriptor<parthenon::variable_names::any>(pkg.get());
+        std::vector<bool> include_blocks(NBLOCKS);
+        for (int i = 0; i < NBLOCKS; i++)
+          include_blocks[i] = (i % 2 == 0);
+        auto sparse_pack = desc.GetPack(&mesh_data, include_blocks);
+        REQUIRE(sparse_pack.GetNBlocks() == NBLOCKS / 2 + 1);
       }
     }
   }
