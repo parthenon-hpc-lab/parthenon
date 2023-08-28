@@ -10,7 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-
+#include <math.h>
 #include <sstream>
 #include <string>
 
@@ -32,6 +32,7 @@ namespace poisson_example {
 
 void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
+  const int ndim = md->GetMeshPointer()->ndim;
 
   Real x0 = pin->GetOrAddReal("poisson", "x0", 0.0);
   Real y0 = pin->GetOrAddReal("poisson", "y0", 0.0);
@@ -39,7 +40,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   Real radius0 = pin->GetOrAddReal("poisson", "radius", 0.1);
 
   auto desc =
-      parthenon::MakePackDescriptor<poisson_package::res_err, poisson_package::rhs_base>(
+      parthenon::MakePackDescriptor<poisson_package::rhs>(
           md);
   auto pack = desc.GetPack(md);
 
@@ -56,15 +57,20 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         Real x1 = coords.X<1, te>(i);
         Real x2 = coords.X<2, te>(j);
         Real x3 = coords.X<2, te>(j);
-        Real rad = std::sqrt((x1 - x0) * (x1 - x0) +
-                             (x2 - y0) * (x2 - y0)); // + (x3 - z0)*(x3 - z0));
+        Real dx1 = coords.Dxc<1>(k, j, i);
+        Real dx2 = coords.Dxc<2>(k, j, i);
+        Real dx3 = coords.Dxc<3>(k, j, i);
+        Real rad = (x1 - x0) * (x1 - x0);
+        if (ndim > 1) rad += (x2 - y0) * (x2 - y0);
+        if (ndim > 2) rad += (x3 - z0) * (x3 - z0);
+        rad = std::sqrt(rad); 
         Real val = 0.0;
         if (rad < radius0) {
           val = 100.0;
         }
         val = 1.0 * exp(-rad * 10.0 * rad * 10.0);
-        pack(b, te, poisson_package::res_err(), k, j, i) = val; // x1 + 10.0 * x2;
-        pack(b, te, poisson_package::rhs_base(), k, j, i) = val;
+        val = std::sin(2.0 * M_PI * x1); 
+        pack(b, te, poisson_package::rhs(), k, j, i) = val;
       });
 }
 
