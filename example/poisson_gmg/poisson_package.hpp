@@ -50,6 +50,7 @@ template <class x_t>
 TaskStatus BlockLocalTriDiagX(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus CorrectRHS(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus BuildMatrix(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus RMSResidual(std::shared_ptr<MeshData<Real>> &md, std::string label);
 
 template <class in, class out>
 TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
@@ -131,38 +132,33 @@ TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight,
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         Real val = pack(b, te, rhs(), k, j, i);
-        Real val1 = pack(b, te, Am(0), k, j, i) * pack(b, te, in_t(), k, j, i - 1) +
-                    pack(b, te, Ap(0), k, j, i) * pack(b, te, in_t(), k, j, i + 1);
-        Real val2{0.0}, val3{0.0};
+        val -= pack(b, te, Am(0), k, j, i) * pack(b, te, in_t(), k, j, i - 1) +
+               pack(b, te, Ap(0), k, j, i) * pack(b, te, in_t(), k, j, i + 1);
         if (ndim > 1) {
-          val2 = pack(b, te, Am(1), k, j, i) * pack(b, te, in_t(), k, j - 1, i) +
+          val -= pack(b, te, Am(1), k, j, i) * pack(b, te, in_t(), k, j - 1, i) +
                  pack(b, te, Ap(1), k, j, i) * pack(b, te, in_t(), k, j + 1, i);
         }
         if (ndim > 2) {
-          val3 = pack(b, te, Am(2), k, j, i) * pack(b, te, in_t(), k - 1, j, i) +
+          val -= pack(b, te, Am(2), k, j, i) * pack(b, te, in_t(), k - 1, j, i) +
                  pack(b, te, Ap(2), k, j, i) * pack(b, te, in_t(), k + 1, j, i);
         }
-        pack(b, te, out_t(), k, j, i) =
-            weight * (val - val1 - val2 - val3) / pack(b, te, Ac(), k, j, i) +
+        pack(b, te, out_t(), k, j, i) = weight * val / pack(b, te, Ac(), k, j, i) +
             (1.0 - weight) * pack(b, te, in_t(), k, j, i);
-
-        // printf("Jacobi: b = %i i = %2i in[i+-1] = (%e, %e, %e) out[i] = %e rhs[i] =
-        // %e\n",
-        //        b, i, pack(b, te, in_t(), k, j, i - 1), pack(b, te, in_t(), k, j, i),
-        //        pack(b, te, in_t(), k, j, i + 1), pack(b, te, out_t(), k, j, i),
-        //        pack(b, te, rhs(), k, j, i));
+        printf("b =  %i i = %i stencil = (%e, %e, %e) rhs = %e A = (%e, %e, %e)\n", b, i, 
+              pack(b, te, in_t(), k, j, i - 1), pack(b, te, in_t(), k, j, i), pack(b, te, in_t(), k, j, i + 1),
+              pack(b, te, rhs(), k, j, i), pack(b, te, Am(), k, j, i), pack(b, te, Ac(), k, j, i), pack(b, te, Ap(), k, j, i));
       });
-  // printf("\n");
+  printf("\n");
   return TaskStatus::complete;
 }
 
 template <class... vars>
-TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &label) {
+TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, const std::string &label) {
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire, te);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire, te);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire, te);
 
   auto desc = parthenon::MakePackDescriptor<vars...>(md.get());
   auto pack = desc.GetPack(md.get());
@@ -173,7 +169,7 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
     printf("var %i: %s\n", col_num, name.c_str());
     col_num++;
   }
-  printf("i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
+  //printf("i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
   const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
   const int ng = parthenon::Globals::nghost;
@@ -185,8 +181,8 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, std::string &l
         IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
         IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
-        printf("b=%i i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", b, ib.s, ib.e, jb.s, jb.e, kb.s,
-               kb.e);
+        //printf("b=%i i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", b, ib.s, ib.e, jb.s, jb.e, kb.s,
+        //       kb.e);
         for (int k = kb.s; k <= kb.e; ++k) {
           for (int j = jb.s; j <= jb.e; ++j) {
             for (int i = ib.s; i <= ib.e; ++i) {

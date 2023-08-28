@@ -49,8 +49,12 @@ void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t 
     auto gid = pmb->gid;
     pmb->gmg_same_neighbors = {};
     auto possible_neighbors = loc.GetPossibleNeighbors(root_grid);
+    printf("\nNeighbors for gid = %i %s\n--------\nperiodic=(%i, %i, %i)\nPossible:\n", gid, loc.label().c_str(), root_grid.periodic[0], root_grid.periodic[1], root_grid.periodic[2]); 
+    for (auto &n : possible_neighbors) printf("%s\n", n.label().c_str());
+    printf("Actual:\n");
     for (auto &pos_neighbor_location : possible_neighbors) {
       if (loc_map.count(pos_neighbor_location) > 0) {
+        printf("Trying %s\n", pos_neighbor_location.label().c_str());
         const auto &gid_rank = loc_map.at(pos_neighbor_location);
         auto offsets = loc.GetSameLevelOffsets(pos_neighbor_location, root_grid);
         // This inner loop is necessary in case a block pair has multiple neighbor
@@ -70,6 +74,7 @@ void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t 
               }
               auto f = loc.GetAthenaXXFaceOffsets(pos_neighbor_location, ox1, ox2, ox3,
                                                   root_grid);
+              printf("(%i, %i, %i) loc = %s gid = %i\n", ox1, ox2, ox3, pos_neighbor_location.label().c_str(), gid_rank.first);
               pmb->gmg_same_neighbors.emplace_back(
                   pmb->pmy_mesh, pos_neighbor_location, gid_rank.second, gid_rank.first,
                   gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, nc, 0, 0, f[0],

@@ -106,18 +106,18 @@ TaskStatus BuildMatrix(std::shared_ptr<MeshData<Real>> &md) {
         Real dx1 = coords.Dxc<1>(k, j, i);
         Real dx2 = coords.Dxc<2>(k, j, i);
         Real dx3 = coords.Dxc<3>(k, j, i);
-        pack(b, te, Am(0), k, j, i) = -1.0 / (dx1 * dx1);
-        pack(b, te, Ac(), k, j, i) = 2.0 / (dx1 * dx1);
-        pack(b, te, Ap(0), k, j, i) = -1.0 / (dx1 * dx1);
+        pack(b, te, Am(0), k, j, i) = 1.0 / (dx1 * dx1);
+        pack(b, te, Ac(), k, j, i)  =-2.0 / (dx1 * dx1);
+        pack(b, te, Ap(0), k, j, i) = 1.0 / (dx1 * dx1);
         if (ndim > 1) {
-          pack(b, te, Am(1), k, j, i) = -1.0 / (dx2 * dx2);
-          pack(b, te, Ac(), k, j, i) += 2.0 / (dx2 * dx2);
-          pack(b, te, Ap(1), k, j, i) = -1.0 / (dx2 * dx2);
+          pack(b, te, Am(1), k, j, i) = 1.0 / (dx2 * dx2);
+          pack(b, te, Ac(), k, j, i) -= 2.0 / (dx2 * dx2);
+          pack(b, te, Ap(1), k, j, i) = 1.0 / (dx2 * dx2);
         }
         if (ndim > 2) {
-          pack(b, te, Am(2), k, j, i) = -1.0 / (dx3 * dx3);
-          pack(b, te, Ac(), k, j, i) += 2.0 / (dx3 * dx3);
-          pack(b, te, Ap(2), k, j, i) = -1.0 / (dx3 * dx3);
+          pack(b, te, Am(2), k, j, i) = 1.0 / (dx3 * dx3);
+          pack(b, te, Ac(), k, j, i) -= 2.0 / (dx3 * dx3);
+          pack(b, te, Ap(2), k, j, i) = 1.0 / (dx3 * dx3);
         }
       });
   return TaskStatus::complete;
@@ -129,43 +129,74 @@ TaskStatus CalculateResidual(std::shared_ptr<MeshData<Real>> &md) {
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
 
-  auto desc = parthenon::MakePackDescriptor<Ap, Ac, Am, u, rhs, res_err>(md.get());
+  auto desc = parthenon::MakePackDescriptor<Am, Ac, Ap, u, rhs, res_err>(md.get());
   auto pack = desc.GetPack(md.get());
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "CalculateResidual", DevExecSpace(), 0, pack.GetNBlocks() - 1,
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        pack(b, te, res_err(), k, j, i) =
-            pack(b, te, rhs(), k, j, i) -
-            pack(b, te, Ac(), k, j, i) * pack(b, te, u(), k, j, i);
+        auto &res = pack(b, te, res_err(), k, j, i);
+        Real am = pack(b, te, Am(), k, j, i); 
+        Real ac = pack(b, te, Ac(), k, j, i); 
+        Real ap = pack(b, te, Ap(0), k, j, i); 
+        Real um = pack(b, te, u(), k, j, i - 1);
+        Real uc = pack(b, te, u(), k, j, i);
+        Real up = pack(b, te, u(), k, j, i + 1);
+        Real rhs_ = pack(b, te, rhs(), k, j, i); 
 
-        pack(b, te, res_err(), k, j, i) -=
-            pack(b, te, Am(0), k, j, i) * pack(b, te, u(), k, j, i - 1);
-        pack(b, te, res_err(), k, j, i) -=
-            pack(b, te, Ap(0), k, j, i) * pack(b, te, u(), k, j, i + 1);
+        res = rhs_ - ac * uc - (am * um + ap * up);
+        printf("b =  %i i = %i A = (%e, %e, %e) u = (%e, %e, %e) rhs = %e err = %e (%e - %e - %e)\n", 
+            b, i, am, ac, ap, um, uc, up, rhs_, res, rhs_, ac * uc, (am * um + ap * up));
+        /*
+        res = pack(b, te, rhs(), k, j, i) - pack(b, te, Ac(), k, j, i) * pack(b, te, u(), k, j, i);
+        res -= pack(b, te, Am(0), k, j, i) * pack(b, te, u(), k, j, i - 1);
+        res -= pack(b, te, Ap(0), k, j, i) * pack(b, te, u(), k, j, i + 1);
 
         if (ndim > 1) {
-          pack(b, te, res_err(), k, j, i) -=
-              pack(b, te, Am(1), k, j, i) * pack(b, te, u(), k, j - 1, i);
-          pack(b, te, res_err(), k, j, i) -=
-              pack(b, te, Ap(1), k, j, i) * pack(b, te, u(), k, j + 1, i);
+          res -= pack(b, te, Am(1), k, j, i) * pack(b, te, u(), k, j - 1, i);
+          res -= pack(b, te, Ap(1), k, j, i) * pack(b, te, u(), k, j + 1, i);
         }
 
         if (ndim > 2) {
-          pack(b, te, res_err(), k, j, i) -=
-              pack(b, te, Am(1), k, j, i) * pack(b, te, u(), k - 1, j, i);
-          pack(b, te, res_err(), k, j, i) -=
-              pack(b, te, Ap(1), k, j, i) * pack(b, te, u(), k + 1, j, i);
+          res -= pack(b, te, Am(2), k, j, i) * pack(b, te, u(), k - 1, j, i);
+          res -= pack(b, te, Ap(2), k, j, i) * pack(b, te, u(), k + 1, j, i);
         }
-
-        // printf("b = %i i = %i Am = %e Ac = %e Ap = %e rhs = %e res = %e u =%e\n", b, i,
-        // pack(b, te, Am(), k, j, i), pack(b, te, Ac(), k, j, i), pack(b, te, Ap(), k, j,
-        // i), pack(b, te, rhs(), k, j, i), pack(b, te, res_err(), k, j, i), pack(b, te,
-        // u(), k, j, i));
+        printf("b =  %i i = %i stencil = (%e, %e, %e) rhs = %e A = (%e, %e, %e) err = %e\n", b, i, 
+             pack(b, te, u(), k, j, i - 1), pack(b, te, u(), k, j, i), pack(b, te, u(), k, j, i + 1),
+             pack(b, te, rhs(), k, j, i), pack(b, te, Am(0), k, j, i), pack(b, te, Ac(), k, j, i), 
+             pack(b, te, Ap(0), k, j, i), res); */
       });
-  // printf("\n");
   return TaskStatus::complete;
 }
+
+TaskStatus RMSResidual(std::shared_ptr<MeshData<Real>> &md, std::string label) {
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+
+  auto desc = parthenon::MakePackDescriptor<res_err>(md.get());
+  auto pack = desc.GetPack(md.get());
+
+  Real squared_error;
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "CheckConvergence", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &sq_err) {
+        sq_err += std::pow(pack(b, te, res_err(), k, j, i), 2);
+      },
+      Kokkos::Sum<Real>(squared_error));
+  
+  squared_error /= pack.GetNBlocks(); 
+  squared_error /= ib.e - ib.s + 1;
+  squared_error /= jb.e - jb.s + 1;
+  squared_error /= kb.e - kb.s + 1;
+  
+  Real rms_error = std::sqrt(squared_error); 
+  printf("%s rms error: %e\n", label.c_str(), rms_error);
+
+  return TaskStatus::complete;
+}
+
 
 template <class x_t>
 TaskStatus BlockLocalTriDiagX(std::shared_ptr<MeshData<Real>> &md) {
