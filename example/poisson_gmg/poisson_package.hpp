@@ -142,7 +142,7 @@ TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight) {
                  pack(b, te, Ap(2), k, j, i) * pack(b, te, in_t(), k + 1, j, i);
         }
         pack(b, te, out_t(), k, j, i) = weight * val / pack(b, te, Ac(), k, j, i) +
-            (1.0 - weight) * pack(b, te, in_t(), k, j, i);
+                                        (1.0 - weight) * pack(b, te, in_t(), k, j, i);
       });
   return TaskStatus::complete;
 }
@@ -162,7 +162,7 @@ TaskStatus RBGSIteration(std::shared_ptr<MeshData<Real>> &md, bool odd) {
       DEFAULT_LOOP_PATTERN, "JacobiIteration", DevExecSpace(), 0, pack.GetNBlocks() - 1,
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        if ((i + j + k) % 2 == odd) return; 
+        if ((i + j + k) % 2 == odd) return;
         Real val = pack(b, te, rhs(), k, j, i);
         val -= pack(b, te, Am(0), k, j, i) * pack(b, te, in_t(), k, j, i - 1) +
                pack(b, te, Ap(0), k, j, i) * pack(b, te, in_t(), k, j, i + 1);
@@ -180,7 +180,8 @@ TaskStatus RBGSIteration(std::shared_ptr<MeshData<Real>> &md, bool odd) {
 }
 
 template <class... vars>
-TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, const std::string &label) {
+TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md,
+                             const std::string &label) {
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire, te);
@@ -196,7 +197,7 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, const std::str
     printf("var %i: %s\n", col_num, name.c_str());
     col_num++;
   }
-  //printf("i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
+  // printf("i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
   const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
   const int ng = parthenon::Globals::nghost;
@@ -208,8 +209,9 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, const std::str
         IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
         IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
-        //printf("b=%i i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", b, ib.s, ib.e, jb.s, jb.e, kb.s,
-        //       kb.e);
+        // printf("b=%i i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", b, ib.s, ib.e, jb.s, jb.e,
+        // kb.s,
+        //        kb.e);
         for (int k = kb.s; k <= kb.e; ++k) {
           for (int j = jb.s; j <= jb.e; ++j) {
             for (int i = ib.s; i <= ib.e; ++i) {

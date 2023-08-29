@@ -39,19 +39,19 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   int pre_smooth_iterations = pin->GetOrAddInteger("poisson", "pre_smooth_iterations", 2);
   pkg->AddParam<>("pre_smooth_iterations", pre_smooth_iterations);
-  
-  int post_smooth_iterations = pin->GetOrAddInteger("poisson", "post_smooth_iterations", 2);
+
+  int post_smooth_iterations =
+      pin->GetOrAddInteger("poisson", "post_smooth_iterations", 2);
   pkg->AddParam<>("post_smooth_iterations", post_smooth_iterations);
-  
+
   Real diagonal_alpha = pin->GetOrAddReal("poisson", "diagonal_alpha", 0.0);
   pkg->AddParam<>("diagonal_alpha", diagonal_alpha);
-  
+
   Real jacobi_damping = pin->GetOrAddReal("poisson", "jacobi_damping", 0.5);
   pkg->AddParam<>("jacobi_damping", jacobi_damping);
 
-  std::string smoother_method =
-      pin->GetOrAddString("poisson", "smoother", "SRJ2");
-  pkg->AddParam<>("smoother", smoother_method); 
+  std::string smoother_method = pin->GetOrAddString("poisson", "smoother", "SRJ2");
+  pkg->AddParam<>("smoother", smoother_method);
 
   int check_interval = pin->GetOrAddInteger("poisson", "check_interval", 100);
   pkg->AddParam<>("check_interval", check_interval);
@@ -105,7 +105,7 @@ TaskStatus BuildMatrix(std::shared_ptr<MeshData<Real>> &md) {
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
-  
+
   auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
   const auto alpha = pkg->Param<Real>("diagonal_alpha");
 
@@ -120,7 +120,7 @@ TaskStatus BuildMatrix(std::shared_ptr<MeshData<Real>> &md) {
         Real dx2 = coords.Dxc<2>(k, j, i);
         Real dx3 = coords.Dxc<3>(k, j, i);
         pack(b, te, Am(0), k, j, i) = 1.0 / (dx1 * dx1);
-        pack(b, te, Ac(), k, j, i)  =-2.0 / (dx1 * dx1);
+        pack(b, te, Ac(), k, j, i) = -2.0 / (dx1 * dx1);
         pack(b, te, Ap(0), k, j, i) = 1.0 / (dx1 * dx1);
         if (ndim > 1) {
           pack(b, te, Am(1), k, j, i) = 1.0 / (dx2 * dx2);
@@ -150,7 +150,8 @@ TaskStatus CalculateResidual(std::shared_ptr<MeshData<Real>> &md) {
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         auto &res = pack(b, te, res_err(), k, j, i);
-        res = pack(b, te, rhs(), k, j, i) - pack(b, te, Ac(), k, j, i) * pack(b, te, u(), k, j, i);
+        res = pack(b, te, rhs(), k, j, i) -
+              pack(b, te, Ac(), k, j, i) * pack(b, te, u(), k, j, i);
         res -= pack(b, te, Am(0), k, j, i) * pack(b, te, u(), k, j, i - 1);
         res -= pack(b, te, Ap(0), k, j, i) * pack(b, te, u(), k, j, i + 1);
         if (ndim > 1) {
@@ -181,18 +182,17 @@ TaskStatus RMSResidual(std::shared_ptr<MeshData<Real>> &md, std::string label) {
         sq_err += std::pow(pack(b, te, res_err(), k, j, i), 2);
       },
       Kokkos::Sum<Real>(squared_error));
-  
-  squared_error /= pack.GetNBlocks(); 
+
+  squared_error /= pack.GetNBlocks();
   squared_error /= ib.e - ib.s + 1;
   squared_error /= jb.e - jb.s + 1;
   squared_error /= kb.e - kb.s + 1;
-  
-  Real rms_error = std::sqrt(squared_error); 
+
+  Real rms_error = std::sqrt(squared_error);
   printf("%s rms error: %e\n", label.c_str(), rms_error);
 
   return TaskStatus::complete;
 }
-
 
 template <class x_t>
 TaskStatus BlockLocalTriDiagX(std::shared_ptr<MeshData<Real>> &md) {

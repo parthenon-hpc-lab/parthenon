@@ -38,10 +38,8 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   Real y0 = pin->GetOrAddReal("poisson", "y0", 0.0);
   Real z0 = pin->GetOrAddReal("poisson", "z0", 0.0);
   Real radius0 = pin->GetOrAddReal("poisson", "radius", 0.1);
-  
-  auto desc =
-      parthenon::MakePackDescriptor<poisson_package::rhs>(
-          md);
+
+  auto desc = parthenon::MakePackDescriptor<poisson_package::rhs>(md);
   auto pack = desc.GetPack(md);
 
   constexpr auto te = poisson_package::te;
@@ -63,16 +61,17 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         Real rad = (x1 - x0) * (x1 - x0);
         if (ndim > 1) rad += (x2 - y0) * (x2 - y0);
         if (ndim > 2) rad += (x3 - z0) * (x3 - z0);
-        rad = std::sqrt(rad); 
+        rad = std::sqrt(rad);
         Real val = 0.0;
         if (rad < radius0) {
           val = 1.0 / (4.0 / 3.0 * M_PI * std::pow(rad, 3));
         }
-        //val = 1.0 * exp(-rad * 10.0 * rad * 10.0);
-        //val = std::sin(2.0 * M_PI * x1);
-        //if (ndim > 1) val *= std::sin(2.0 * M_PI * x2); 
-        //if (ndim > 2) val *= std::sin(2.0 * M_PI * x3);
-        //val = 2.0 * (1.0 - 6.0 * x1 * x1) * x2 * x2 * (1.0 - x2 * x2) + 2.0 * (1.0 - 6.0 * x2 * x2) * x1 * x1 * (1.0 - x1 * x1); 
+        // val = 1.0 * exp(-rad * 10.0 * rad * 10.0);
+        // val = std::sin(2.0 * M_PI * x1);
+        // if (ndim > 1) val *= std::sin(2.0 * M_PI * x2);
+        // if (ndim > 2) val *= std::sin(2.0 * M_PI * x3);
+        // val = 2.0 * (1.0 - 6.0 * x1 * x1) * x2 * x2 * (1.0 - x2 * x2) + 2.0 * (1.0
+        // - 6.0 * x2 * x2) * x1 * x1 * (1.0 - x1 * x1);
         pack(b, te, poisson_package::rhs(), k, j, i) = val;
       });
 }

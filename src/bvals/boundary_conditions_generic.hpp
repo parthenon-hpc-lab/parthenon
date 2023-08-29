@@ -96,7 +96,8 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
               (reflect ? -1.0 : 1.0) *
               q(b, el, l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
         } else if (TYPE == BCType::FixedFace) {
-          q(b, el, l, k, j, i) = 2.0 * val - q(b, el, l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
+          q(b, el, l, k, j, i) = 2.0 * val - q(b, el, l, X3 ? offset - k : k,
+                                               X2 ? offset - j : j, X1 ? offset - i : i);
         } else if (TYPE == BCType::ConstantDeriv) {
           Real dq = q(b, el, l, X3 ? ref + offsetin : k, X2 ? ref + offsetin : j,
                       X1 ? ref + offsetin : i) -

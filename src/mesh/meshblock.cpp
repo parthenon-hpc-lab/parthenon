@@ -218,10 +218,10 @@ void MeshBlock::InitializeIndexShapesImpl(const int nx1, const int nx2, const in
 
   if (init_coarse) {
     if (multilevel) {
-      // Prevent the coarse bounds from going to zero 
-      int cnx1 = pmy_mesh->mesh_size.symmetry(X1DIR) ? 0 : std::max(1, nx1 / 2); 
-      int cnx2 = pmy_mesh->mesh_size.symmetry(X2DIR) ? 0 : std::max(1, nx2 / 2); 
-      int cnx3 = pmy_mesh->mesh_size.symmetry(X3DIR) ? 0 : std::max(1, nx3 / 2); 
+      // Prevent the coarse bounds from going to zero
+      int cnx1 = pmy_mesh->mesh_size.symmetry(X1DIR) ? 0 : std::max(1, nx1 / 2);
+      int cnx2 = pmy_mesh->mesh_size.symmetry(X2DIR) ? 0 : std::max(1, nx2 / 2);
+      int cnx3 = pmy_mesh->mesh_size.symmetry(X3DIR) ? 0 : std::max(1, nx3 / 2);
       cnghost = (Globals::nghost + 1) / 2 + 1;
       c_cellbounds = IndexShape(cnx3, cnx2, cnx1, Globals::nghost);
     } else {
