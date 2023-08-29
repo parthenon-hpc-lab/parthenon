@@ -335,6 +335,9 @@ class Metadata {
   static MetadataFlag AddUserFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
   static MetadataFlag GetUserFlag(const std::string &flagname);
+  static MetadataFlag GetOrAddFlag(const std::string &name) {
+    return FlagNameExists(name) ? GetUserFlag(name) : AddUserFlag(name);
+  }
   static int num_flags;
 
   // Sparse threshold routines
