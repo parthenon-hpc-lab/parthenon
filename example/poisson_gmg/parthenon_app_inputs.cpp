@@ -66,10 +66,12 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         rad = std::sqrt(rad); 
         Real val = 0.0;
         if (rad < radius0) {
-          val = 100.0;
+          val = 10.0;
         }
         val = 1.0 * exp(-rad * 10.0 * rad * 10.0);
-        val = std::sin(2.0 * M_PI * x1); 
+        val = std::sin(2.0 * M_PI * x1);
+        if (ndim > 1) val *= std::sin(2.0 * M_PI * x2); 
+        if (ndim > 2) val *= std::sin(2.0 * M_PI * x3); 
         pack(b, te, poisson_package::rhs(), k, j, i) = val;
       });
 }
