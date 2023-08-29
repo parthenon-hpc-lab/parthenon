@@ -32,7 +32,7 @@ namespace parthenon {
 namespace BoundaryFunction {
 
 enum class BCSide { Inner, Outer };
-enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed };
+enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed, FixedFace };
 
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
@@ -95,6 +95,8 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
           q(b, el, l, k, j, i) =
               (reflect ? -1.0 : 1.0) *
               q(b, el, l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
+        } else if (TYPE == BCType::FixedFace) {
+          q(b, el, l, k, j, i) = 2.0 * val - q(b, el, l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
         } else if (TYPE == BCType::ConstantDeriv) {
           Real dq = q(b, el, l, X3 ? ref + offsetin : k, X2 ? ref + offsetin : j,
                       X1 ? ref + offsetin : i) -
