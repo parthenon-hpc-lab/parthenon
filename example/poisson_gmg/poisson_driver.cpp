@@ -46,7 +46,6 @@ void PoissonDriver::AddRestrictionProlongationLevel(TaskRegion &region, int leve
   const int num_partitions = pmesh->DefaultNumPartitions();
 
   auto pkg = pmesh->packages.Get("poisson_package");
-  auto jacobi_iterations = pkg->Param<int>("jacobi_iterations");
   auto damping = pkg->Param<Real>("jacobi_damping");
 
   for (int i = 0; i < num_partitions; ++i) {
@@ -103,17 +102,79 @@ void PoissonDriver::AddRestrictionProlongationLevel(TaskRegion &region, int leve
   }
 }
 
-TaskID AddRMSResidualPrintout(int level, TaskList &tl, TaskID depends_on, 
+TaskID AddRMSResidualPrintout(int level, TaskList &tl, TaskID depends_on,
+                              bool multilevel, 
                               std::shared_ptr<MeshData<Real>> &md) {   
   using namespace parthenon;
   using namespace poisson_package;
-  auto comm = AddBoundaryExchangeTasks(depends_on, tl, md, true); 
+  auto comm = AddBoundaryExchangeTasks(depends_on, tl, md, multilevel); 
   auto copy_res = tl.AddTask(comm, CopyData<res_err, temp>, md);  
   auto res = tl.AddTask(copy_res, CalculateResidual, md);
   std::string ident = "level " + std::to_string(level); 
   auto printout = tl.AddTask(res, RMSResidual, md, ident); 
   auto copy_back = tl.AddTask(printout, CopyData<temp, res_err>, md);
   return copy_back;  
+}
+
+TaskID AddSRJIteration(TaskList &tl, TaskID depends_on, int stages,
+                      bool multilevel,
+                      std::shared_ptr<MeshData<Real>> &md) {
+  using namespace parthenon;
+  using namespace poisson_package; 
+  int ndim = md->GetParentPointer()->ndim;
+
+  // Damping factors from Yang & Mittal (2017) 
+  std::array<std::array<Real, 3>, 3> omega_M2{{{0.8723, 0.5395, 0.0000}, 
+                                               {1.3895, 0.5617, 0.0000}, 
+                                               {1.7319, 0.5695, 0.0000}}};
+  std::array<std::array<Real, 3>, 3> omega_M3{{{0.9372, 0.6667, 0.5173}, 
+                                               {1.6653, 0.8000, 0.5264}, 
+                                               {2.2473, 0.8571, 0.5296}}};
+  auto omega = omega_M2; 
+  if (stages == 3) omega = omega_M3;
+
+  auto comm1 = AddBoundaryExchangeTasks(depends_on, tl, md, multilevel);
+  auto jacobi1 =
+      tl.AddTask(comm1, JacobiIteration<u, temp>, md, omega[ndim - 1][0]);
+  auto comm2 = AddBoundaryExchangeTasks(jacobi1, tl, md, multilevel);
+  auto jacobi2 =
+      tl.AddTask(comm2, JacobiIteration<temp, u>, md, omega[ndim - 1][1]);
+  if (stages < 3) return jacobi2; 
+  auto comm3 = AddBoundaryExchangeTasks(jacobi2, tl, md, multilevel);
+  auto jacobi3 =
+      tl.AddTask(comm3, JacobiIteration<u, temp>, md, omega[ndim - 1][2]);
+  return tl.AddTask(jacobi3, CopyData<temp, u>, md);
+}
+
+TaskID AddGSIteration(TaskList &tl, TaskID depends_on, int iters,
+                      bool multilevel,
+                      std::shared_ptr<MeshData<Real>> &md) {
+  using namespace parthenon;
+  using namespace poisson_package; 
+  auto previous_iter = depends_on;
+  for (int i = 0; i < iters; ++i) {
+    auto comm = AddBoundaryExchangeTasks(previous_iter, tl, md, multilevel);
+    previous_iter =
+        tl.AddTask(comm, JacobiIteration<u, u>, md, 1.0);
+  }
+  return previous_iter; 
+}
+
+TaskID AddRBGSIteration(TaskList &tl, TaskID depends_on, int iters,
+                      bool multilevel,
+                      std::shared_ptr<MeshData<Real>> &md) {
+  using namespace parthenon;
+  using namespace poisson_package; 
+  auto previous_iter = depends_on;
+  for (int i = 0; i < iters; ++i) {
+    auto comm1 = AddBoundaryExchangeTasks(previous_iter, tl, md, multilevel);
+    auto update_even =
+        tl.AddTask(comm1, RBGSIteration<u, temp>, md, false);
+    auto comm2 = AddBoundaryExchangeTasks(update_even, tl, md, multilevel);
+    auto update_odd = tl.AddTask(comm2, RBGSIteration<temp, temp>, md, true);
+    previous_iter = tl.AddTask(update_odd, CopyData<temp, u>, md);
+  }
+  return previous_iter; 
 }
 
 void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level,
@@ -124,16 +185,20 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
   const int num_partitions = pmesh->DefaultNumPartitions();
   
   auto pkg = pmesh->packages.Get("poisson_package");
-  auto jacobi_iterations = pkg->Param<int>("jacobi_iterations");
   auto damping = pkg->Param<Real>("jacobi_damping");
+  auto smoother = pkg->Param<std::string>("smoother");
+  int pre_stages = pkg->Param<int>("pre_smooth_iterations");
+  int post_stages = pkg->Param<int>("post_smooth_iterations");
+  if (smoother == "SRJ2") {
+    pre_stages = 2; 
+    post_stages = 2; 
+  } else if (smoother == "SRJ3") { 
+    pre_stages = 3; 
+    post_stages = 3; 
+  }
 
   int ndim = pmesh->ndim;
-  // Damping factors from Yang & Mittal (2017) 
-  std::array<std::array<Real, 3>, 3> omega_M2{{{0.8723, 0.5395, 0.0}, {1.3895, 0.5617, 0.0}, {1.7319, 0.5695, 0.0}}};
-  std::array<std::array<Real, 3>, 3> omega_M3{{{0.9372, 0.6667, 0.5173}, {1.6653, 0.8000, 0.5264}, {2.2473, 0.8571, 0.5296}}};
-  Real omega1 = omega_M3[ndim - 1][0];
-  Real omega2 = omega_M3[ndim - 1][1];
-  Real omega3 = omega_M3[ndim - 1][2];
+  bool multilevel = (level != min_level);
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = region[i + (max_level - level) * num_partitions];
 
@@ -151,34 +216,27 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
       // 1. Copy residual from dual purpose communication field to the rhs, should be actual RHS
       // for finest level
       auto copy_rhs = tl.AddTask(set_from_finer, CopyData<res_err, rhs>, md); 
-      auto print_coarse = tl.AddTask(copy_rhs, PrintChosenValues<res_err>, md, "Receiving residual level = " + std::to_string(level));
-      set_from_finer = zero_u | print_coarse;
+      set_from_finer = zero_u | copy_rhs;
     } 
 
     // 0.1 Build the matrix on this level
     auto build_matrix = tl.AddTask(none, BuildMatrix, md);
 
     // 2. Do pre-smooth and fill solution on this level
-    auto pre_previous_iter = set_from_finer | build_matrix;
-    for (int jacobi_iter = 0; jacobi_iter < jacobi_iterations / 2; ++jacobi_iter) {
-      auto comm1 = AddBoundaryExchangeTasks(pre_previous_iter, tl, md, true);
-      auto jacobi1 =
-          tl.AddTask(comm1, JacobiIteration<u, temp>, md, omega1);
-      auto comm2 = AddBoundaryExchangeTasks(jacobi1, tl, md, true);
-      auto jacobi2 =
-          tl.AddTask(comm2, JacobiIteration<temp, u>, md, omega2);
-      auto comm3 = AddBoundaryExchangeTasks(jacobi2, tl, md, true);
-      auto jacobi3 =
-          tl.AddTask(comm3, JacobiIteration<u, temp>, md, omega3);
-      pre_previous_iter = tl.AddTask(jacobi3, CopyData<temp, u>, md);
+    auto pre_smooth = set_from_finer | build_matrix; 
+    if (smoother == "GS") { 
+      pre_smooth = AddGSIteration(tl, set_from_finer | build_matrix, pre_stages, multilevel, md);
+    } else if (smoother == "RBGS") { 
+      pre_smooth = AddRBGSIteration(tl, set_from_finer | build_matrix, pre_stages, multilevel, md);
+    } else if (smoother == "SRJ2" || smoother == "SRJ3") { 
+      pre_smooth = AddSRJIteration(tl, set_from_finer | build_matrix, pre_stages, multilevel, md);
     }
-    auto pre_smooth = pre_previous_iter;
 
     // If we are finer than the coarsest level:
     auto post_smooth = none;
     if (level > min_level) {
       // 3. Communicate same level boundaries so that u is up to date everywhere
-      auto comm_u = AddBoundaryExchangeTasks(pre_smooth, tl, md, true);
+      auto comm_u = AddBoundaryExchangeTasks(pre_smooth, tl, md, multilevel);
 
       // 4. Caclulate residual and store in communication field
       auto residual = tl.AddTask(comm_u, CalculateResidual, md);
@@ -202,20 +260,13 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
           tl.AddTask(prolongate, AddFieldsAndStore<u, res_err, u>, md, 1.0, 1.0);
 
       // 8. Post smooth using communication field and stored RHS
-      auto previous_iter = update_sol;
-      for (int jacobi_iter = 0; jacobi_iter < jacobi_iterations / 2; ++jacobi_iter) {
-        auto comm1 = AddBoundaryExchangeTasks(previous_iter, tl, md, true);
-        auto jacobi1 =
-            tl.AddTask(comm1, JacobiIteration<u, temp>, md, omega1);
-        auto comm2 = AddBoundaryExchangeTasks(jacobi1, tl, md, true);
-        auto jacobi2 =
-            tl.AddTask(comm2, JacobiIteration<temp, u>, md, omega2);
-        auto comm3 = AddBoundaryExchangeTasks(jacobi2, tl, md, true);
-        auto jacobi3 =
-            tl.AddTask(comm3, JacobiIteration<u, temp>, md, omega3);
-        previous_iter = tl.AddTask(jacobi3, CopyData<temp, u>, md);
+      if (smoother == "GS") { 
+        post_smooth = AddGSIteration(tl, update_sol, post_stages, multilevel, md);
+      } else if (smoother == "RBGS") { 
+        post_smooth = AddRBGSIteration(tl, update_sol, post_stages, multilevel, md);
+      } else if (smoother == "SRJ2" || smoother == "SRJ3") { 
+        post_smooth = AddSRJIteration(tl, update_sol, post_stages, multilevel, md);
       }
-      post_smooth = previous_iter;
     } else {
       post_smooth = tl.AddTask(pre_smooth, CopyData<u, res_err>, md);
     }
@@ -224,11 +275,10 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
     // level)
     if (level < max_level) {
       auto copy_over = tl.AddTask(post_smooth, CopyData<u, res_err>, md);
-      auto print_err = tl.AddTask(copy_over, PrintChosenValues<res_err>, md, "Sending error level = " + std::to_string(level));
-      auto boundary = AddBoundaryExchangeTasks(print_err, tl, md, true); 
+      auto boundary = AddBoundaryExchangeTasks(copy_over, tl, md, multilevel); 
       tl.AddTask(boundary, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
     } else {
-      AddRMSResidualPrintout(level, tl, post_smooth, md);
+      auto res = AddRMSResidualPrintout(level, tl, post_smooth, multilevel, md);
     }
   }
 }

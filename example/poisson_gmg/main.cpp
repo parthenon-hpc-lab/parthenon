@@ -23,7 +23,7 @@ auto GetBoundaryCondition() {
   return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {
     using namespace parthenon;
     using namespace parthenon::BoundaryFunction;
-    GenericBC<DIR, SIDE, BCType::Fixed, variable_names::any>(rc, coarse, 0.0);
+    GenericBC<DIR, SIDE, BCType::FixedFace, variable_names::any>(rc, coarse, 0.0);
   };
 }
 

@@ -147,6 +147,38 @@ TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight) {
   return TaskStatus::complete;
 }
 
+template <class in_t, class out_t>
+TaskStatus RBGSIteration(std::shared_ptr<MeshData<Real>> &md, bool odd) {
+  const int ndim = md->GetMeshPointer()->ndim;
+  using TE = parthenon::TopologicalElement;
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
+
+  auto desc = parthenon::MakePackDescriptor<Am, Ac, Ap, rhs, in_t, out_t>(md.get());
+  auto pack = desc.GetPack(md.get());
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "JacobiIteration", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        if ((i + j + k) % 2 == odd) return; 
+        Real val = pack(b, te, rhs(), k, j, i);
+        val -= pack(b, te, Am(0), k, j, i) * pack(b, te, in_t(), k, j, i - 1) +
+               pack(b, te, Ap(0), k, j, i) * pack(b, te, in_t(), k, j, i + 1);
+        if (ndim > 1) {
+          val -= pack(b, te, Am(1), k, j, i) * pack(b, te, in_t(), k, j - 1, i) +
+                 pack(b, te, Ap(1), k, j, i) * pack(b, te, in_t(), k, j + 1, i);
+        }
+        if (ndim > 2) {
+          val -= pack(b, te, Am(2), k, j, i) * pack(b, te, in_t(), k - 1, j, i) +
+                 pack(b, te, Ap(2), k, j, i) * pack(b, te, in_t(), k + 1, j, i);
+        }
+        pack(b, te, out_t(), k, j, i) = val / pack(b, te, Ac(), k, j, i);
+      });
+  return TaskStatus::complete;
+}
+
 template <class... vars>
 TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md, const std::string &label) {
   using TE = parthenon::TopologicalElement;

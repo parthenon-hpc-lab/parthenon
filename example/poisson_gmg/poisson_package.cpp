@@ -37,14 +37,21 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   int max_poisson_iterations = pin->GetOrAddInteger("poisson", "max_iterations", 10000);
   pkg->AddParam<>("max_iterations", max_poisson_iterations);
 
-  int jacobi_iterations = pin->GetOrAddInteger("poisson", "jacobi_iterations", 4);
-  pkg->AddParam<>("jacobi_iterations", jacobi_iterations);
-
+  int pre_smooth_iterations = pin->GetOrAddInteger("poisson", "pre_smooth_iterations", 2);
+  pkg->AddParam<>("pre_smooth_iterations", pre_smooth_iterations);
+  
+  int post_smooth_iterations = pin->GetOrAddInteger("poisson", "post_smooth_iterations", 2);
+  pkg->AddParam<>("post_smooth_iterations", post_smooth_iterations);
+  
   Real diagonal_alpha = pin->GetOrAddReal("poisson", "diagonal_alpha", 0.0);
   pkg->AddParam<>("diagonal_alpha", diagonal_alpha);
   
   Real jacobi_damping = pin->GetOrAddReal("poisson", "jacobi_damping", 0.5);
   pkg->AddParam<>("jacobi_damping", jacobi_damping);
+
+  std::string smoother_method =
+      pin->GetOrAddString("poisson", "smoother", "SRJ2");
+  pkg->AddParam<>("smoother", smoother_method); 
 
   int check_interval = pin->GetOrAddInteger("poisson", "check_interval", 100);
   pkg->AddParam<>("check_interval", check_interval);
