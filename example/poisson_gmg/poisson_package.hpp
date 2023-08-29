@@ -116,8 +116,7 @@ TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 template <class in_t, class out_t>
-TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight,
-                           int level) {
+TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight) {
   const int ndim = md->GetMeshPointer()->ndim;
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
@@ -144,11 +143,7 @@ TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight,
         }
         pack(b, te, out_t(), k, j, i) = weight * val / pack(b, te, Ac(), k, j, i) +
             (1.0 - weight) * pack(b, te, in_t(), k, j, i);
-        printf("b =  %i i = %i stencil = (%e, %e, %e) rhs = %e A = (%e, %e, %e)\n", b, i, 
-              pack(b, te, in_t(), k, j, i - 1), pack(b, te, in_t(), k, j, i), pack(b, te, in_t(), k, j, i + 1),
-              pack(b, te, rhs(), k, j, i), pack(b, te, Am(), k, j, i), pack(b, te, Ac(), k, j, i), pack(b, te, Ap(), k, j, i));
       });
-  printf("\n");
   return TaskStatus::complete;
 }
 

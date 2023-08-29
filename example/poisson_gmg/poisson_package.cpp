@@ -40,6 +40,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   int jacobi_iterations = pin->GetOrAddInteger("poisson", "jacobi_iterations", 4);
   pkg->AddParam<>("jacobi_iterations", jacobi_iterations);
 
+  Real diagonal_alpha = pin->GetOrAddReal("poisson", "diagonal_alpha", 0.0);
+  pkg->AddParam<>("diagonal_alpha", diagonal_alpha);
+  
   Real jacobi_damping = pin->GetOrAddReal("poisson", "jacobi_damping", 0.5);
   pkg->AddParam<>("jacobi_damping", jacobi_damping);
 
@@ -95,6 +98,9 @@ TaskStatus BuildMatrix(std::shared_ptr<MeshData<Real>> &md) {
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+  
+  auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
+  const auto alpha = pkg->Param<Real>("diagonal_alpha");
 
   auto desc = parthenon::MakePackDescriptor<Am, Ac, Ap>(md.get());
   auto pack = desc.GetPack(md.get());
@@ -119,6 +125,7 @@ TaskStatus BuildMatrix(std::shared_ptr<MeshData<Real>> &md) {
           pack(b, te, Ac(), k, j, i) -= 2.0 / (dx3 * dx3);
           pack(b, te, Ap(2), k, j, i) = 1.0 / (dx3 * dx3);
         }
+        pack(b, te, Ac(), k, j, i) -= alpha;
       });
   return TaskStatus::complete;
 }
@@ -136,35 +143,17 @@ TaskStatus CalculateResidual(std::shared_ptr<MeshData<Real>> &md) {
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         auto &res = pack(b, te, res_err(), k, j, i);
-        Real am = pack(b, te, Am(), k, j, i); 
-        Real ac = pack(b, te, Ac(), k, j, i); 
-        Real ap = pack(b, te, Ap(0), k, j, i); 
-        Real um = pack(b, te, u(), k, j, i - 1);
-        Real uc = pack(b, te, u(), k, j, i);
-        Real up = pack(b, te, u(), k, j, i + 1);
-        Real rhs_ = pack(b, te, rhs(), k, j, i); 
-
-        res = rhs_ - ac * uc - (am * um + ap * up);
-        printf("b =  %i i = %i A = (%e, %e, %e) u = (%e, %e, %e) rhs = %e err = %e (%e - %e - %e)\n", 
-            b, i, am, ac, ap, um, uc, up, rhs_, res, rhs_, ac * uc, (am * um + ap * up));
-        /*
         res = pack(b, te, rhs(), k, j, i) - pack(b, te, Ac(), k, j, i) * pack(b, te, u(), k, j, i);
         res -= pack(b, te, Am(0), k, j, i) * pack(b, te, u(), k, j, i - 1);
         res -= pack(b, te, Ap(0), k, j, i) * pack(b, te, u(), k, j, i + 1);
-
         if (ndim > 1) {
           res -= pack(b, te, Am(1), k, j, i) * pack(b, te, u(), k, j - 1, i);
           res -= pack(b, te, Ap(1), k, j, i) * pack(b, te, u(), k, j + 1, i);
         }
-
         if (ndim > 2) {
           res -= pack(b, te, Am(2), k, j, i) * pack(b, te, u(), k - 1, j, i);
           res -= pack(b, te, Ap(2), k, j, i) * pack(b, te, u(), k + 1, j, i);
         }
-        printf("b =  %i i = %i stencil = (%e, %e, %e) rhs = %e A = (%e, %e, %e) err = %e\n", b, i, 
-             pack(b, te, u(), k, j, i - 1), pack(b, te, u(), k, j, i), pack(b, te, u(), k, j, i + 1),
-             pack(b, te, rhs(), k, j, i), pack(b, te, Am(0), k, j, i), pack(b, te, Ac(), k, j, i), 
-             pack(b, te, Ap(0), k, j, i), res); */
       });
   return TaskStatus::complete;
 }
