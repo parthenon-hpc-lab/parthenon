@@ -19,30 +19,30 @@
 
 #include <limits>
 
+#include <Kokkos_Core.hpp>
 #include <impl/Kokkos_ClockTic.hpp>
 
 namespace parthenon {
 
-using cost_t = AtomicParArray1D<double>;
 class BlockTimer {
  public:
   BlockTimer() = delete;
   KOKKOS_INLINE_FUNCTION
-  BlockTimer(const int lid, const cost_t &cost) : lid_(lid), cost_(cost) {
+  BlockTimer(Real *cost) : cost_(cost) {
     start_ = Kokkos::Impl::clock_tic();
   }
   KOKKOS_INLINE_FUNCTION
   ~BlockTimer() {
     stop_ = Kokkos::Impl::clock_tic();
     // deal with overflow of clock
-    cost_(lid_) += (stop_ < start_ ?
+    auto diff = (stop_ < start_ ?
                   static_cast<double>(std::numeric_limits<uint64_t>::max() - start_)
                     + static_cast<double>(stop_) :
                   static_cast<double>(stop_ - start_));
+    Kokkos::atomic_add(cost_, diff);
   }
  private:
-  const int lid_;
-  const cost_t &cost_;
+  Real *cost_;
   uint64_t start_, stop_;
   ;
 };
