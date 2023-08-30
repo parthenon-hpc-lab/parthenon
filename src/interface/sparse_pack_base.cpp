@@ -177,6 +177,9 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   pack.coords_ = coords_t("coords", desc.flat ? max_size : nblocks);
   auto coords_h = Kokkos::create_mirror_view(pack.coords_);
 
+  pack.lid_ = lid_t("lid", nblocks);
+  auto lid_h = Kokkos::create_mirror_view(pack.lid_);
+
   // Fill the views
   int idx = 0;
   int blidx = 0;
@@ -191,6 +194,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
       // packs.
       coords_h(b) = pmbd->GetBlockPointer()->coords_device;
     }
+    lid_h(blidx) = pmbd->GetBlockPointer()->lid;
 
     for (int i = 0; i < nvar; ++i) {
       pack.bounds_h_(0, blidx, i) = idx;
@@ -261,6 +265,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   Kokkos::deep_copy(pack.pack_, pack_h);
   Kokkos::deep_copy(pack.bounds_, pack.bounds_h_);
   Kokkos::deep_copy(pack.coords_, coords_h);
+  Kokkos::deep_copy(pack.lid_, lid_h);
 
   return pack;
 }

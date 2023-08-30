@@ -158,7 +158,7 @@ class SparsePack : public SparsePackBase {
 
   KOKKOS_INLINE_FUNCTION
   const int GetLid(const int b) const {
-    return pack_(0,b,0).lid;
+    return lid_(b);
   }
 
   // Bound overloads

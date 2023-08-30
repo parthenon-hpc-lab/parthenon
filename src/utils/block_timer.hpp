@@ -33,17 +33,17 @@ class BlockTimer {
   }
   KOKKOS_INLINE_FUNCTION
   ~BlockTimer() {
-    stop_ = Kokkos::Impl::clock_tic();
+    auto stop = Kokkos::Impl::clock_tic();
     // deal with overflow of clock
-    auto diff = (stop_ < start_ ?
+    auto diff = (stop < start_ ?
                   static_cast<double>(std::numeric_limits<uint64_t>::max() - start_)
-                    + static_cast<double>(stop_) :
-                  static_cast<double>(stop_ - start_));
+                    + static_cast<double>(stop) :
+                  static_cast<double>(stop - start_));
     Kokkos::atomic_add(cost_, diff);
   }
  private:
   Real *cost_;
-  uint64_t start_, stop_;
+  uint64_t start_;
   ;
 };
 
