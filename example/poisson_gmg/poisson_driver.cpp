@@ -130,12 +130,23 @@ TaskID AddSRJIteration(TaskList &tl, TaskID depends_on, int stages, bool multile
   if (stages == 3) omega = omega_M3;
 
   auto comm1 = AddBoundaryExchangeTasks(depends_on, tl, md, multilevel);
-  auto jacobi1 = tl.AddTask(comm1, JacobiIteration<u, temp>, md, omega[ndim - 1][0]);
+  auto flux1 = tl.AddTask(comm1, CalculateFluxes<u>, md);
+  // TODO(LFR): Add flux correction here
+  auto mat_mult1 = tl.AddTask(flux1, FluxMultiplyMatrix<u, temp>, md); 
+  auto jacobi1 = tl.AddTask(mat_mult1, FluxJacobi<temp, u, temp>, md, omega[ndim - 1][0]);
+  
   auto comm2 = AddBoundaryExchangeTasks(jacobi1, tl, md, multilevel);
-  auto jacobi2 = tl.AddTask(comm2, JacobiIteration<temp, u>, md, omega[ndim - 1][1]);
+  auto flux2 = tl.AddTask(comm2, CalculateFluxes<temp>, md);
+  // TODO(LFR): Add flux correction here
+  auto mat_mult2 = tl.AddTask(flux2, FluxMultiplyMatrix<temp, u>, md); 
+  auto jacobi2 = tl.AddTask(mat_mult2, FluxJacobi<u, temp, u>, md, omega[ndim - 1][1]);
+
   if (stages < 3) return jacobi2;
   auto comm3 = AddBoundaryExchangeTasks(jacobi2, tl, md, multilevel);
-  auto jacobi3 = tl.AddTask(comm3, JacobiIteration<u, temp>, md, omega[ndim - 1][2]);
+  auto flux3 = tl.AddTask(comm3, CalculateFluxes<u>, md);
+  // TODO(LFR): Add flux correction here
+  auto mat_mult3 = tl.AddTask(flux3, FluxMultiplyMatrix<u, temp>, md); 
+  auto jacobi3 = tl.AddTask(mat_mult3, FluxJacobi<temp, u, temp>, md, omega[ndim - 1][2]);
   return tl.AddTask(jacobi3, CopyData<temp, u>, md);
 }
 
@@ -231,7 +242,10 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
       auto comm_u = AddBoundaryExchangeTasks(pre_smooth, tl, md, multilevel);
 
       // 4. Caclulate residual and store in communication field
-      auto residual = tl.AddTask(comm_u, CalculateResidual, md);
+      auto flux_res = tl.AddTask(comm_u, CalculateFluxes<u>, md);
+      // TODO(LFR): Add flux correction here 
+      auto Ax_res = tl.AddTask(flux_res, FluxMultiplyMatrix<u, temp>, md); 
+      auto residual = tl.AddTask(Ax_res, AddFieldsAndStore<rhs, temp, res_err>, md, 1.0, -1.0);
 
       // 5. Restrict communication field and send to next level
       auto communicate_to_coarse =

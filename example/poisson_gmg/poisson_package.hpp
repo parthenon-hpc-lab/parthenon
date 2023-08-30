@@ -235,6 +235,126 @@ TaskStatus DotProductLocal(std::shared_ptr<MeshData<Real>> &md, Real *reduce_sum
   return TaskStatus::complete;
 }
 
+template <class var_t> 
+TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
+  using namespace parthenon;
+  const int ndim = md->GetMeshPointer()->ndim;
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+
+  auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
+  auto pack = desc.GetPack(md.get());
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1, kb.s,
+      kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto &coords = pack.GetCoordinates(b);
+        Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
+        pack.flux(b, X1DIR, var_t(), k, j, i) = (pack(b, te, var_t(), k, j, i - 1) 
+                                               - pack(b, te, var_t(), k, j, i)) / dx1;
+        if (i == ib.e)
+          pack.flux(b, X1DIR, var_t(), k, j, i + 1) = (pack(b, te, var_t(), k, j, i) 
+                                                     - pack(b, te, var_t(), k, j, i + 1)) / dx1;
+        
+        if (ndim > 1) {
+          Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
+          pack.flux(b, X2DIR, var_t(), k, j, i) = (pack(b, te, var_t(), k, j - 1, i) 
+                                                 - pack(b, te, var_t(), k, j, i)) / dx2;
+          if (j == jb.e)
+            pack.flux(b, X2DIR, var_t(), k, j + 1, i) = (pack(b, te, var_t(), k, j, i) 
+                                                       - pack(b, te, var_t(), k, j + 1, i)) / dx2;
+        }
+
+        if (ndim > 2) {
+          Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
+          pack.flux(b, X3DIR, var_t(), k, j, i) = (pack(b, te, var_t(), k - 1, j, i) 
+                                                 - pack(b, te, var_t(), k, j, i)) / dx3;
+          if (k == kb.e)
+            pack.flux(b, X2DIR, var_t(), k + 1, j, i) = (pack(b, te, var_t(), k, j, i) 
+                                                       - pack(b, te, var_t(), k + 1, j, i)) / dx3;
+        }
+      });
+  return TaskStatus::complete;
+}
+
+template <class in_t, class out_t> 
+TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md) {
+  using namespace parthenon;
+  const int ndim = md->GetMeshPointer()->ndim;
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+
+  auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
+  const auto alpha = pkg->Param<Real>("diagonal_alpha");
+
+  auto desc = parthenon::MakePackDescriptor<in_t, out_t>(md.get(), {}, {PDOpt::WithFluxes});
+  auto pack = desc.GetPack(md.get());
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1, kb.s,
+      kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto &coords = pack.GetCoordinates(b);
+        Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
+        pack(b, te, out_t(), k, j, i) = -alpha * pack(b, te, in_t(), k, j, i);  
+        pack(b, te, out_t(), k, j, i) += (pack.flux(b, X1DIR, in_t(), k, j, i) 
+                                         - pack.flux(b, X1DIR, in_t(), k, j, i + 1)) / dx1; 
+        if (ndim > 1) {
+          Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
+          pack(b, te, out_t(), k, j, i) += (pack.flux(b, X2DIR, in_t(), k, j, i) 
+                                           - pack.flux(b, X2DIR, in_t(), k, j + 1, i)) / dx2;
+        }
+        if (ndim > 2) {
+          Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
+          pack(b, te, out_t(), k, j, i) += (pack.flux(b, X3DIR, in_t(), k, j, i) 
+                                           - pack.flux(b, X3DIR, in_t(), k + 1, j, i)) / dx3;
+        }
+      });
+  return TaskStatus::complete;
+}
+
+template <class div_t, class in_t, class out_t> 
+TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight) {
+  using namespace parthenon;
+  const int ndim = md->GetMeshPointer()->ndim;
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+  
+  auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
+  const auto alpha = pkg->Param<Real>("diagonal_alpha");
+
+  auto desc = parthenon::MakePackDescriptor<in_t, out_t, div_t, rhs>(md.get());
+  auto pack = desc.GetPack(md.get());
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1, kb.s,
+      kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto &coords = pack.GetCoordinates(b);
+        
+        // Build the unigrid diagonal of the matrix 
+        Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
+        Real diag_elem = -2.0 / (dx1 * dx1) - alpha;
+        if (ndim > 1) { 
+          Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
+          diag_elem -= 2.0 / (dx2 * dx2);
+        }
+        if (ndim > 2) { 
+          Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
+          diag_elem -= 2.0 / (dx3 * dx3);
+        } 
+
+        // Get the off-diagonal contribution to (A - D + D)x = y
+        Real off_diag = pack(b, te, div_t(), k, j, i) - diag_elem * pack(b, te, in_t(), k, j, i); 
+        
+        Real val = pack(b, te, rhs(), k, j, i) - off_diag;
+        pack(b, te, out_t(), k, j, i) = weight * val / diag_elem 
+                                       + (1.0 - weight) * pack(b, te, in_t(), k, j, i);
+      });
+  return TaskStatus::complete;
+}
+
 template <class... vars>
 TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md,
                              const std::string &label) {

@@ -86,13 +86,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   mrhs.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(rhs::name(), mrhs);
   pkg->AddField(rhs_base::name(), mrhs);
-  pkg->AddField(u::name(), mrhs);
   pkg->AddField(solution::name(), mrhs);
-  pkg->AddField(temp::name(), mrhs);
   pkg->AddField(r::name(), mrhs);
   pkg->AddField(p::name(), mrhs);
   pkg->AddField(x::name(), mrhs);
   pkg->AddField(Adotp::name(), mrhs);
+  
+  auto mflux = Metadata({te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
+  mflux.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  pkg->AddField(u::name(), mflux);
+  pkg->AddField(temp::name(), mflux);
 
   auto mAs =
       Metadata({te_type, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{3});
