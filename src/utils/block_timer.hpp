@@ -35,7 +35,7 @@ class BlockTimer {
   ~BlockTimer() {
     stop_ = Kokkos::Impl::clock_tic();
     // deal with overflow of clock
-    cost_(lid) += (stop_ < start_ ?
+    cost_(lid_) += (stop_ < start_ ?
                   static_cast<double>(std::numeric_limits<uint64_t>::max() - start_)
                     + static_cast<double>(stop_) :
                   static_cast<double>(stop_ - start_));
