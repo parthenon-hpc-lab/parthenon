@@ -121,7 +121,7 @@ void Variable<T>::AllocateData(MeshBlock *pmb, bool flag_uninitialized) {
       !is_allocated_,
       "Tried to allocate data for variable that's already allocated: " + label());
   data = std::make_from_tuple<ParArrayND<T, VariableState>>(std::tuple_cat(
-      std::make_tuple(label(), MakeVariableState()), ArrayToReverseTuple(dims_)));
+      std::make_tuple(label(), MakeVariableState(pmb->lid)), ArrayToReverseTuple(dims_)));
 
   ++num_alloc_;
 
@@ -160,7 +160,7 @@ void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
     // A nodal field is the appropriate flux field for an edge variable
     dims_flux[MAX_VARIABLE_DIMENSION - 1] = n_outer;
     flux_data_ = std::make_from_tuple<ParArrayND<T, VariableState>>(
-        std::tuple_cat(std::make_tuple(label() + ".flux_data", MakeVariableState()),
+        std::tuple_cat(std::make_tuple(label() + ".flux_data", MakeVariableState(wpmb.lock()->lid)),
                        ArrayToReverseTuple(dims_flux)));
     // set up fluxes
     for (int d = X1DIR; d <= n_outer; ++d) {
@@ -178,7 +178,7 @@ void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
 
     if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
       coarse_s = std::make_from_tuple<ParArrayND<T, VariableState>>(
-          std::tuple_cat(std::make_tuple(label() + ".coarse", MakeVariableState()),
+          std::tuple_cat(std::make_tuple(label() + ".coarse", MakeVariableState(wpmb.lock()->lid)),
                          ArrayToReverseTuple(coarse_dims_)));
       pmb->LogMemUsage(coarse_s.size() * sizeof(T));
     }

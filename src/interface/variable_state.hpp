@@ -29,7 +29,7 @@ static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
 
 struct VariableState : public empty_state_t {
   explicit VariableState(
-      const Metadata &md, int sparse_id = InvalidSparseID,
+      const Metadata &md, int lid, int sparse_id = InvalidSparseID,
       const std::array<int, MAX_VARIABLE_DIMENSION> &dims = [] {
         std::array<int, MAX_VARIABLE_DIMENSION> d;
         for (int i = 0; i < MAX_VARIABLE_DIMENSION; ++i)
@@ -41,7 +41,8 @@ struct VariableState : public empty_state_t {
   VariableState(Real alloc, Real dealloc, Real sparse_default_val = 0.0,
                 int sparse_id = InvalidSparseID)
       : allocation_threshold(alloc), deallocation_threshold(dealloc),
-        sparse_default_val(sparse_default_val), sparse_id(sparse_id) {}
+        sparse_default_val(sparse_default_val), sparse_id(sparse_id),
+        lid(lid) {}
 
   KOKKOS_INLINE_FUNCTION
   VariableState(Real alloc, Real dealloc, int sparse_id)
@@ -58,7 +59,7 @@ struct VariableState : public empty_state_t {
   Real allocation_threshold;
   Real deallocation_threshold;
   Real sparse_default_val;
-  int sparse_id;
+  int sparse_id, lid;
   int vector_component = NODIR;
   bool initialized = true;
 

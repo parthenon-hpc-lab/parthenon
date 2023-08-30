@@ -465,6 +465,10 @@ void Mesh::ResetLoadBalanceVariables() {
       costlist[pmb->gid] = TINY_NUMBER;
       pmb->ResetTimeMeasurement();
     }
+    parthenon::par_for(loop_pattern_flatrange_tag, "reset cost_d", DevExecSpace(), 0, block_list.size()-1,
+        KOKKOS_LAMBDA(const int b) {
+          cost_d[b] = TINY_NUMBER;
+        });
   }
   lb_flag_ = false;
   step_since_lb = 0;

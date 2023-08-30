@@ -47,6 +47,7 @@ using ScratchMemSpace = DevExecSpace::scratch_memory_space;
 using HostExecSpace = Kokkos::DefaultHostExecutionSpace;
 using LayoutWrapper = Kokkos::LayoutRight;
 using MemUnmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
+using Atomic = Kokkos::MemoryTraits<Kokkos::Atomic>;
 
 #if defined(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
 #if defined(KOKKOS_ENABLE_CUDA)
@@ -110,6 +111,10 @@ template <typename T>
 using HostArray6D = typename ParArray6D<T>::HostMirror;
 template <typename T>
 using HostArray7D = typename ParArray7D<T>::HostMirror;
+
+// Atomic arrays
+template <typename T>
+using AtomicParArray1D = Kokkos::View<T *, LayoutWrapper, DevMemSpace, Atomic>;
 
 using team_policy = Kokkos::TeamPolicy<>;
 using team_mbr_t = Kokkos::TeamPolicy<>::member_type;

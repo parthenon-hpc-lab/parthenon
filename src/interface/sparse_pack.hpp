@@ -156,6 +156,11 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION
   const Coordinates_t &GetCoordinates(const int b = 0) const { return coords_(b)(); }
 
+  KOKKOS_INLINE_FUNCTION
+  const int GetLid(const int b) const {
+    return pack_(0,b,0).lid;
+  }
+
   // Bound overloads
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const {
     return (flat_ && (b > 0)) ? (bounds_(1, b - 1, nvar_) + 1) : 0;

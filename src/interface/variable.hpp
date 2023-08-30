@@ -170,7 +170,7 @@ class Variable {
   /// (Metadata::FillGhost is set)
   void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
 
-  VariableState MakeVariableState() const { return VariableState(m_, sparse_id_, dims_); }
+  VariableState MakeVariableState(int lid) const { return VariableState(m_, lid, sparse_id_, dims_); }
 
   Metadata m_;
   const std::string base_name_;
