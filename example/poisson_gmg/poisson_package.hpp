@@ -36,6 +36,10 @@ VARIABLE(poisson, rhs_base);
 VARIABLE(poisson, u);
 VARIABLE(poisson, solution);
 VARIABLE(poisson, temp);
+VARIABLE(poisson, r);  
+VARIABLE(poisson, p);  
+VARIABLE(poisson, x);  
+VARIABLE(poisson, Adotp);  
 
 VARIABLE(poisson, Am);
 VARIABLE(poisson, Ac);
@@ -116,6 +120,37 @@ TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 template <class in_t, class out_t>
+TaskStatus MultiplyMatrix(std::shared_ptr<MeshData<Real>> &md) {
+  const int ndim = md->GetMeshPointer()->ndim;
+  using TE = parthenon::TopologicalElement;
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
+
+  auto desc = parthenon::MakePackDescriptor<Am, Ac, Ap, rhs, in_t, out_t>(md.get());
+  auto pack = desc.GetPack(md.get());
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "JacobiIteration", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        Real val = pack(b, te, Ac(), k, j, i) * pack(b, te, in_t(), k, j, i);
+        val += pack(b, te, Am(0), k, j, i) * pack(b, te, in_t(), k, j, i - 1) +
+               pack(b, te, Ap(0), k, j, i) * pack(b, te, in_t(), k, j, i + 1);
+        if (ndim > 1) {
+          val += pack(b, te, Am(1), k, j, i) * pack(b, te, in_t(), k, j - 1, i) +
+                 pack(b, te, Ap(1), k, j, i) * pack(b, te, in_t(), k, j + 1, i);
+        }
+        if (ndim > 2) {
+          val += pack(b, te, Am(2), k, j, i) * pack(b, te, in_t(), k - 1, j, i) +
+                 pack(b, te, Ap(2), k, j, i) * pack(b, te, in_t(), k + 1, j, i);
+        }
+        pack(b, te, out_t(), k, j, i) = val;
+      });
+  return TaskStatus::complete;
+}
+
+template <class in_t, class out_t>
 TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight) {
   const int ndim = md->GetMeshPointer()->ndim;
   using TE = parthenon::TopologicalElement;
@@ -176,6 +211,27 @@ TaskStatus RBGSIteration(std::shared_ptr<MeshData<Real>> &md, bool odd) {
         }
         pack(b, te, out_t(), k, j, i) = val / pack(b, te, Ac(), k, j, i);
       });
+  return TaskStatus::complete;
+}
+
+template <class a_t, class b_t>
+TaskStatus DotProductLocal(std::shared_ptr<MeshData<Real>> &md, Real *reduce_sum) {
+  using TE = parthenon::TopologicalElement;
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
+
+  auto desc = parthenon::MakePackDescriptor<a_t, b_t>(md.get());
+  auto pack = desc.GetPack(md.get());
+  Real gsum(0);
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
+        lsum += pack(b, te, a_t(), k, j, i) * pack(b, te, b_t(), k, j, i);   
+      }, Kokkos::Sum<Real>(gsum));
+  *reduce_sum += gsum;
   return TaskStatus::complete;
 }
 

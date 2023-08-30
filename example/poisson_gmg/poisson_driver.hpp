@@ -47,7 +47,8 @@ class PoissonDriver : public Driver {
   // accross task lists. A natural place is here in the driver. But
   // the data they point to might need to live in the params of a
   // package, as we've done here.
-  AllReduce<Real> total_mass;
+  AllReduce<Real> rtr, pAp, residual;
+  Real rtr_old;
   AllReduce<Real> update_norm;
   // and a reduction onto one rank of a scalar
   Reduce<int> max_rank;

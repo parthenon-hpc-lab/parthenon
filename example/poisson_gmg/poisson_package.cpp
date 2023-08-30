@@ -89,6 +89,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(u::name(), mrhs);
   pkg->AddField(solution::name(), mrhs);
   pkg->AddField(temp::name(), mrhs);
+  pkg->AddField(r::name(), mrhs);
+  pkg->AddField(p::name(), mrhs);
+  pkg->AddField(x::name(), mrhs);
+  pkg->AddField(Adotp::name(), mrhs);
 
   auto mAs =
       Metadata({te_type, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{3});
