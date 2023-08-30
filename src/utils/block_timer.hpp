@@ -28,7 +28,7 @@ class BlockTimer {
  public:
   BlockTimer() = delete;
   KOKKOS_INLINE_FUNCTION
-  BlockTimer(const int lid, cost_t &cost) : lid_(lid), cost_(cost) {
+  BlockTimer(const int lid, const cost_t &cost) : lid_(lid), cost_(cost) {
     start_ = Kokkos::Impl::clock_tic();
   }
   KOKKOS_INLINE_FUNCTION
