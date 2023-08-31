@@ -275,7 +275,7 @@ class Mesh {
   // Mesh::LoadBalancingAndAdaptiveMeshRefinement() helper functions:
   void UpdateMeshBlockTree(int &nnew, int &ndel);
   void GatherCostList();
-  void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
+  bool RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot, bool modified);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/

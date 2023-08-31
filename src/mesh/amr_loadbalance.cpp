@@ -326,10 +326,11 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
     nbdel += ndel;
   }
 
+  modified = false;
   if (nnew != 0 || ndel != 0) { // at least one (de)refinement happened
-    RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal + nnew - ndel, true);
+    modified = RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal + nnew - ndel, true);
   } else if (step_since_lb >= lb_interval_) {
-    RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal, false);
+    modified = RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal, false);
   }
   Kokkos::Profiling::popRegion(); // LoadBalancingAndAdaptiveMeshRefinement
 }
@@ -367,8 +368,6 @@ Real DistributeTrial(std::vector<Real> const &cost, std::vector<int> &start,
 
 double CalculateNewBalance(std::vector<double> const &cost, std::vector<int> &start, std::vector<int> &nb,
                            const double avg_cost, const double max_block_cost) {
-  start.resize(Globals::nranks);
-  nb.resize(Globals::nranks);
   const int nblocks = cost.size();
   const int max_rank = std::min(nblocks, Globals::nranks);
 
@@ -431,8 +430,7 @@ std::tuple<double, double> BlockCostInfo(std::vector<double> const &cost) {
   return std::make_tuple(avg_cost, max_block_cost);
 }
 
-void SetSimpleBalance(const std::vector<double> &cost, std::vector<int> &start, std::vector<int> &nb) {
-  const int nblocks = cost.size();
+void SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vector<int> &nb) {
   const int max_rank = std::min(nblocks, Globals::nranks);
   int nassign = nblocks/max_rank;
   start[0] = 0;
@@ -456,7 +454,7 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &cost,
 
   } else {
     // just try to distribute blocks evenly
-    SetSimpleBalance(cost, start, nb);
+    SetSimpleBalance(cost.size(), start, nb);
   }
   AssignBlocks(start, nb, rank);
   // now assign blocks to ranks
@@ -654,33 +652,37 @@ void Mesh::GatherCostList() {
 // \!fn void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot)
 // \brief redistribute MeshBlocks according to the new load balance
 
-void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
+bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                            int ntot, bool modified) {
   Kokkos::Profiling::pushRegion("RedistributeAndRefineMeshBlocks");
 
   GatherCostList();
-  // store old nbstart and nbend before load balancing.
-  int onbs = nslist[Globals::my_rank];
-  int onbe = onbs + nblist[Globals::my_rank] - 1;
+  // store old things
+  const int onbs = nslist[Globals::my_rank];
+  const int onbe = onbs + nblist[Globals::my_rank] - 1;
+  const int nbtold = nbtotal;
 
+  std::vector<int> newrank;
   if (!modified) {
     // The mesh hasn't actually changed.  Let's just check the load balancing
     // and only move things around if needed
     if (lb_automatic_ || lb_manual_) {
       Kokkos::Profiling::pushRegion("Reloadbalance");
       auto [avg_cost, max_block_cost] = BlockCostInfo(costlist);
-      std::vector<int> start_trial, nb_trial;
+      std::vector<int> start_trial(Globals::nranks);
+      std::vector<int> nb_trial(Globals::nranks);
       double new_max = CalculateNewBalance(costlist, start_trial, nb_trial, avg_cost, max_block_cost);
       Kokkos::Profiling::popRegion();
       // if the improvement isn't large enough, just return because we're done
-      if ((max_block_cost - new_max)/max_block_cost < lb_tolerance_) return;
-      AssignBlocks(start_trial, nb_trial, ranklist);
+      if ((max_block_cost - new_max)/max_block_cost < lb_tolerance_) return false;
+      newrank.resize(ntot);
+      AssignBlocks(start_trial, nb_trial, newrank);
       nslist = std::move(start_trial);
       nblist = std::move(nb_trial);
     } else {
       // default balancing on number of meshblocks should be good to go since
       // the mesh hasn't changed
-      return;
+      return false;
     }
   }
 
@@ -698,12 +700,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // construct new lists
   Kokkos::Profiling::pushRegion("Construct new list");
   std::vector<LogicalLocation> newloc(ntot);
-  std::vector<int> newrank(ntot);
+  if (newrank.size() == 0) newrank.resize(ntot);
   std::vector<double> newcost(ntot);
   std::vector<int> newtoold(ntot);
-  std::vector<int> oldtonew(nbtotal);
+  std::vector<int> oldtonew(nbtold);
 
-  int nbtold = nbtotal;
   tree.GetMeshBlockList(newloc.data(), newtoold.data(), nbtotal);
 
   // create a list mapping the previous gid to the current one
@@ -966,5 +967,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   ResetLoadBalanceVariables();
 
   Kokkos::Profiling::popRegion(); // RedistributeAndRefineMeshBlocks
+  return true;
 }
 } // namespace parthenon

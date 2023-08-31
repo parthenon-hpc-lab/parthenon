@@ -26,7 +26,7 @@
 
 namespace parthenon {
 
-template <typename T>
+template <typename T = void>
 class BlockTimer {
 #ifdef ENABLE_LB_TIMERS
  public:
