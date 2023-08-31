@@ -115,6 +115,23 @@ TaskID AddRMSResidualPrintout(int level, TaskList &tl, TaskID depends_on, bool m
   return copy_back;
 }
 
+template<class in_t, class out_t> 
+TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, bool multilevel, Real omega,
+                          std::shared_ptr<MeshData<Real>> &md) {
+  using namespace parthenon;
+  using namespace poisson_package;
+  TaskID none(0);
+
+  auto comm = AddBoundaryExchangeTasks(depends_on, tl, md, multilevel);
+  auto flux = tl.AddTask(comm, CalculateFluxes<in_t>, md);
+  auto start_flxcor = tl.AddTask(flux, StartReceiveFluxCorrections, md);
+  auto send_flxcor = tl.AddTask(flux, LoadAndSendFluxCorrections, md);
+  auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
+  auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md);
+  auto mat_mult = tl.AddTask(set_flxcor, FluxMultiplyMatrix<in_t, out_t>, md); 
+  return tl.AddTask(mat_mult, FluxJacobi<out_t, in_t, out_t>, md, omega);
+}
+
 TaskID AddSRJIteration(TaskList &tl, TaskID depends_on, int stages, bool multilevel,
                        std::shared_ptr<MeshData<Real>> &md) {
   using namespace parthenon;
@@ -128,26 +145,12 @@ TaskID AddSRJIteration(TaskList &tl, TaskID depends_on, int stages, bool multile
       {{0.9372, 0.6667, 0.5173}, {1.6653, 0.8000, 0.5264}, {2.2473, 0.8571, 0.5296}}};
   auto omega = omega_M2;
   if (stages == 3) omega = omega_M3;
-
-  auto comm1 = AddBoundaryExchangeTasks(depends_on, tl, md, multilevel);
-  auto flux1 = tl.AddTask(comm1, CalculateFluxes<u>, md);
-  // TODO(LFR): Add flux correction here
-  auto mat_mult1 = tl.AddTask(flux1, FluxMultiplyMatrix<u, temp>, md); 
-  auto jacobi1 = tl.AddTask(mat_mult1, FluxJacobi<temp, u, temp>, md, omega[ndim - 1][0]);
   
-  auto comm2 = AddBoundaryExchangeTasks(jacobi1, tl, md, multilevel);
-  auto flux2 = tl.AddTask(comm2, CalculateFluxes<temp>, md);
-  // TODO(LFR): Add flux correction here
-  auto mat_mult2 = tl.AddTask(flux2, FluxMultiplyMatrix<temp, u>, md); 
-  auto jacobi2 = tl.AddTask(mat_mult2, FluxJacobi<u, temp, u>, md, omega[ndim - 1][1]);
-
-  if (stages < 3) return jacobi2;
-  auto comm3 = AddBoundaryExchangeTasks(jacobi2, tl, md, multilevel);
-  auto flux3 = tl.AddTask(comm3, CalculateFluxes<u>, md);
-  // TODO(LFR): Add flux correction here
-  auto mat_mult3 = tl.AddTask(flux3, FluxMultiplyMatrix<u, temp>, md); 
-  auto jacobi3 = tl.AddTask(mat_mult3, FluxJacobi<temp, u, temp>, md, omega[ndim - 1][2]);
-  return tl.AddTask(jacobi3, CopyData<temp, u>, md);
+  auto jacobi1 = AddJacobiIteration<u, temp>(tl, depends_on, multilevel, omega[ndim - 1][0], md); 
+  auto jacobi2 = AddJacobiIteration<temp, u>(tl, jacobi1, multilevel, omega[ndim - 1][1], md); 
+  if (stages < 3) return jacobi2; 
+  auto jacobi3 = AddJacobiIteration<u, temp>(tl, jacobi2, multilevel, omega[ndim - 1][2], md); 
+  return tl.AddTask(jacobi3, CopyData<temp, u>, md); 
 }
 
 TaskID AddGSIteration(TaskList &tl, TaskID depends_on, int iters, bool multilevel,
@@ -243,8 +246,11 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
 
       // 4. Caclulate residual and store in communication field
       auto flux_res = tl.AddTask(comm_u, CalculateFluxes<u>, md);
-      // TODO(LFR): Add flux correction here 
-      auto Ax_res = tl.AddTask(flux_res, FluxMultiplyMatrix<u, temp>, md); 
+      auto start_flxcor = tl.AddTask(flux_res, StartReceiveFluxCorrections, md);
+      auto send_flxcor = tl.AddTask(flux_res, LoadAndSendFluxCorrections, md);
+      auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
+      auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md); 
+      auto Ax_res = tl.AddTask(set_flxcor, FluxMultiplyMatrix<u, temp>, md); 
       auto residual = tl.AddTask(Ax_res, AddFieldsAndStore<rhs, temp, res_err>, md, 1.0, -1.0);
 
       // 5. Restrict communication field and send to next level
