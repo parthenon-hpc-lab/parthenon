@@ -100,7 +100,10 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
   std::array<IndexRange, 3> neighbor_bounds{neighbor_shape.GetBoundsI(interior, el),
                                             neighbor_shape.GetBoundsJ(interior, el),
                                             neighbor_shape.GetBoundsK(interior, el)};
-
+  
+  std::array<bool, 3> not_symmetry{!pmb->block_size.symmetry(X1DIR), 
+                                   !pmb->block_size.symmetry(X2DIR),
+                                   !pmb->block_size.symmetry(X3DIR)};
   // Account for the fact that the neighbor block may duplicate
   // some active zones on the loading block for face, edge, and nodal
   // fields, so the boundary of the neighbor block is one deeper into
@@ -123,8 +126,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
     if (block_offset[dir] == 0) {
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
-      if ((loc.level() < nb.loc.level()) &&
-          bounds[dir].e > bounds[dir].s) { // Check that this dimension has ghost zones
+      if ((loc.level() < nb.loc.level()) && not_symmetry[dir]) { // Check that this dimension has ghost zones
         // The requested neighbor block is at a finer level, so it only abuts
         // approximately half of the zones in any given direction with offset zero. If we
         // are asking for an interior index range, we also send nghost "extra" zones in
@@ -142,7 +144,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
           e[dir] += Globals::nghost;
         }
       }
-      if (loc.level() > nb.loc.level() && bounds[dir].e > bounds[dir].s) {
+      if (loc.level() > nb.loc.level() && not_symmetry[dir]) {
         // If we are setting (i.e. have non-zero exterior_offset) from a neighbor block
         // that is coarser, we got extra ghost zones from the neighbor (see inclusion of
         // interior_offset in the above if block)
