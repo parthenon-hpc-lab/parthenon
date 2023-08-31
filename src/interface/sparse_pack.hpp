@@ -156,9 +156,15 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION
   const Coordinates_t &GetCoordinates(const int b = 0) const { return coords_(b)(); }
 
+  // Methods used for timing blocks
   KOKKOS_INLINE_FUNCTION
   const int GetLid(const int b) const {
     return lid_(b);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  double &GetCost(const int b) const {
+    return cost_(GetLid(b));
   }
 
   // Bound overloads

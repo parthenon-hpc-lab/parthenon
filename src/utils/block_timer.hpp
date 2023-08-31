@@ -24,13 +24,19 @@
 
 namespace parthenon {
 
+template <typename T>
 class BlockTimer {
  public:
   BlockTimer() = delete;
+  // constructor for team policies
   KOKKOS_INLINE_FUNCTION
-  BlockTimer(Real *cost) : cost_(cost) {
-    start_ = Kokkos::Impl::clock_tic();
-  }
+  BlockTimer(team_mbr_t &member, const T &pack, const int b = 0)
+    : member_(&member), pack_(pack), b_(b), start_(Kokkos::Impl::clock_tic()) {}
+  // constructor for non-team policies
+  KOKKOS_INLINE_FUNCTION
+  BlockTimer(const T &pack, const int b = 0)
+    : member_(nullptr), pack_(pack), b_(b), start_(Kokkos::Impl::clock_tic()) {}
+  // constructor for team policies without a block index
   KOKKOS_INLINE_FUNCTION
   ~BlockTimer() {
     auto stop = Kokkos::Impl::clock_tic();
@@ -39,11 +45,19 @@ class BlockTimer {
                   static_cast<double>(std::numeric_limits<uint64_t>::max() - start_)
                     + static_cast<double>(stop) :
                   static_cast<double>(stop - start_));
-    Kokkos::atomic_add(cost_, diff);
+    if (member_ == nullptr) {
+      Kokkos::atomic_add(&(pack.GetCost(b)), diff);
+    } else {
+      Kokkos::single(Kokkos::PerTeam(*member), [&] () {
+        Kokkos::atomic_add(&(pack.GetCost(b)), diff);
+      });
+    }
   }
  private:
-  Real *cost_;
-  uint64_t start_;
+  const team_mbr_t *member_;
+  const T &pack_;
+  const int b_;
+  const uint64_t start_;
   ;
 };
 

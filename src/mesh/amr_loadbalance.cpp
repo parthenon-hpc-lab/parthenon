@@ -937,7 +937,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   loclist = std::move(newloc);
   ranklist = std::move(newrank);
   costlist = std::move(newcost);
-  Kokkos::realloc(cost_d, nbe - nbs + 1);
+  cost_d.Realloc(nbe - nbs + 1);
 
   // re-initialize the MeshBlocks
   for (auto &pmb : block_list) {

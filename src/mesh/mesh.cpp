@@ -473,7 +473,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                         packages, resolved_packages, gflag);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-  Kokkos::realloc(cost_d, block_list.size());
+  cost_d.Realloc(block_list.size());
 
   ResetLoadBalanceVariables();
 
@@ -738,7 +738,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
-  Kokkos::realloc(cost_d, block_list.size());
+  cost_d.Realloc(block_list.size());
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run

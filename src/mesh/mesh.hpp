@@ -107,7 +107,7 @@ class Mesh {
   BlockList_t block_list;
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;
-  Kokkos::View<Real *> cost_d;
+  ParArray1D<double> cost_d;
 
   DataCollection<MeshData<Real>> mesh_data;
 

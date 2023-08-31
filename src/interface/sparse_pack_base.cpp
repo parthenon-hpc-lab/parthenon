@@ -28,6 +28,7 @@
 #include "interface/sparse_pack_base.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
+#include "mesh/mesh.hpp"
 #include "utils/utils.hpp"
 namespace parthenon {
 namespace impl {
@@ -262,6 +263,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
     pack.bounds_h_(1, blidx, nvar) = idx - 1;
     blidx++;
   });
+  pack.cost_ = pmd->GetMeshPointer()->cost_d;
   Kokkos::deep_copy(pack.pack_, pack_h);
   Kokkos::deep_copy(pack.bounds_, pack.bounds_h_);
   Kokkos::deep_copy(pack.coords_, coords_h);
