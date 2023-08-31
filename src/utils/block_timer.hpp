@@ -46,10 +46,10 @@ class BlockTimer {
                     + static_cast<double>(stop) :
                   static_cast<double>(stop - start_));
     if (member_ == nullptr) {
-      Kokkos::atomic_add(&(pack.GetCost(b)), diff);
+      Kokkos::atomic_add(&(pack_.GetCost(b_)), diff);
     } else {
-      Kokkos::single(Kokkos::PerTeam(*member), [&] () {
-        Kokkos::atomic_add(&(pack.GetCost(b)), diff);
+      Kokkos::single(Kokkos::PerTeam(*member_), [&] () {
+        Kokkos::atomic_add(&(pack_.GetCost(b_)), diff);
       });
     }
   }
