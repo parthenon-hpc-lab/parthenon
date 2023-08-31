@@ -107,7 +107,11 @@ class Mesh {
   BlockList_t block_list;
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;
-  ParArray1D<double> cost_d;
+#ifdef ENABLE_LB_TIMERS
+  ParArray1D<double> block_cost;
+#else
+  std::vector<double> block_cost;
+#endif
 
   DataCollection<MeshData<Real>> mesh_data;
 
@@ -263,17 +267,16 @@ class Mesh {
   // functions
   MeshGenFunc MeshGenerator_[4];
 
-  void CalculateLoadBalance(std::vector<double> const &costlist,
-                            std::vector<int> &ranklist, std::vector<int> &nslist,
-                            std::vector<int> &nblist);
   void ResetLoadBalanceVariables();
 
+  void CalculateLoadBalance(std::vector<double> const &cost,
+                            std::vector<int> &rank, std::vector<int> &start,
+                            std::vector<int> &nb);
   // Mesh::LoadBalancingAndAdaptiveMeshRefinement() helper functions:
-  void UpdateCostList();
   void UpdateMeshBlockTree(int &nnew, int &ndel);
-  bool GatherCostListAndCheckBalance();
+  void GatherCostList();
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
-                                       int ntot);
+                                       int ntot, bool modified);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);

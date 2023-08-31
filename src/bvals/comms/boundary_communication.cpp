@@ -36,6 +36,7 @@
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "tasks/task_id.hpp"
 #include "tasks/task_list.hpp"
+#include "utils/block_timer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
 
@@ -49,6 +50,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundBufs");
 
   Mesh *pmesh = md->GetMeshPointer();
+  auto &block_cost = pmesh->block_cost;
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
   if (cache.buf_vec.size() == 0)
@@ -87,6 +89,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
+#ifdef ENABLE_LB_TIMERS
+        BlockTimer timer(team_member, &block_cost(bnd_info(b).block_lid));
+#endif
 
         if (!bnd_info(b).allocated) {
           Kokkos::single(Kokkos::PerTeam(team_member),
@@ -212,6 +217,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetInternalBoundaries");
 
   Mesh *pmesh = md->GetMeshPointer();
+  auto &block_cost = pmesh->block_cost;
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
@@ -226,6 +232,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
+#ifdef ENABLE_LB_TIMERS
+        BlockTimer timer(team_member, &block_cost(bnd_info(b).block_lid));
+#endif
         int idx_offset = 0;
         for (int iel = 0; iel < bnd_info(b).ntopological_elements; ++iel) {
           auto &idxer = bnd_info(b).idxer[iel];

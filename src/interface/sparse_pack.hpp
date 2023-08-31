@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/sparse_pack_base.hpp"
 #include "interface/variable.hpp"
@@ -156,6 +157,7 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION
   const Coordinates_t &GetCoordinates(const int b = 0) const { return coords_(b)(); }
 
+#ifdef ENABLE_LB_TIMERS
   // Methods used for timing blocks
   KOKKOS_INLINE_FUNCTION
   const int GetLid(const int b) const {
@@ -166,6 +168,7 @@ class SparsePack : public SparsePackBase {
   double &GetCost(const int b) const {
     return cost_(GetLid(b));
   }
+#endif
 
   // Bound overloads
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const {

@@ -326,132 +326,140 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
     nbdel += ndel;
   }
 
-  lb_flag_ |= lb_automatic_;
-
-  UpdateCostList();
-
-  modified = false;
   if (nnew != 0 || ndel != 0) { // at least one (de)refinement happened
-    GatherCostListAndCheckBalance();
-    RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal + nnew - ndel);
-    modified = true;
-  } else if (lb_flag_ && step_since_lb >= lb_interval_) {
-    if (!GatherCostListAndCheckBalance()) { // load imbalance detected
-      RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal);
-      modified = true;
-    }
-    lb_flag_ = false;
+    RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal + nnew - ndel, true);
+  } else if (step_since_lb >= lb_interval_) {
+    RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal, false);
   }
   Kokkos::Profiling::popRegion(); // LoadBalancingAndAdaptiveMeshRefinement
 }
 
 // Private routines
 namespace {
-/**
- * @brief This routine assigns blocks to ranks by attempting to place index-contiguous
- * blocks of equal total cost on each rank.
- *
- * @param costlist (Input) A map of global block ID to a relative weight.
- * @param ranklist (Output) A map of global block ID to ranks.
- */
-void AssignBlocks(std::vector<double> const &costlist, std::vector<int> &ranklist) {
-  ranklist.resize(costlist.size());
-
-  double const total_cost = std::accumulate(costlist.begin(), costlist.end(), 0.0);
-
-  int rank = (Globals::nranks)-1;
-  double target_cost = total_cost / Globals::nranks;
-  double my_cost = 0.0;
-  double remaining_cost = total_cost;
-  // create rank list from the end: the master MPI rank should have less load
-  for (int block_id = costlist.size() - 1; block_id >= 0; block_id--) {
-    if (target_cost == 0.0) {
-      std::stringstream msg;
-      msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
-          << "There is at least one process which has no MeshBlock" << std::endl
-          << "Decrease the number of processes or use smaller MeshBlocks." << std::endl;
-      PARTHENON_FAIL(msg);
+Real DistributeTrial(std::vector<Real> const &cost, std::vector<int> &start,
+                     std::vector<int> &nb, const int nranks, Real target_max) {
+  Real trial_max = 0.0;
+  const int nblocks = cost.size();
+  int nleft = nblocks;
+  int last = 0;
+  for (int rank = 0; rank < nranks; rank++) {
+    const int ranks_left = nranks - rank;
+    start[rank] = last;
+    Real rank_cost = cost[last];
+    nleft--;
+    while (nleft > ranks_left && rank_cost + cost[last+1] < target_max) {
+      last += 1;
+      rank_cost += cost[last];
+      nleft--;
     }
-    my_cost += costlist[block_id];
-    ranklist[block_id] = rank;
-    if (my_cost >= target_cost && rank > 0) {
-      rank--;
-      remaining_cost -= my_cost;
-      my_cost = 0.0;
-      target_cost = remaining_cost / (rank + 1);
+    last++;
+    if (rank == nranks-1) {
+      for (int n = last; n < nblocks; n++) {
+        rank_cost += cost[n];
+      }
+      last = nblocks;
+    }
+    nb[rank] = last - start[rank];
+    trial_max = std::max(trial_max, rank_cost);
+  }
+  return trial_max;
+}
+
+double CalculateNewBalance(std::vector<double> const &cost, std::vector<int> &start, std::vector<int> &nb,
+                           const double avg_cost, const double max_block_cost) {
+  start.resize(Globals::nranks);
+  nb.resize(Globals::nranks);
+  const int nblocks = cost.size();
+  const int max_rank = std::min(nblocks, Globals::nranks);
+
+  for (int i = max_rank; i < Globals::nranks; i++) {
+    start[i] = -1;
+    nb[i] = 0;
+  }
+
+  // set the bounds for the search
+  double a = avg_cost;
+  double b = std::max(2.0*avg_cost, 1.01*max_block_cost);
+  Real h = b - a;
+  constexpr Real invphi = 0.618033988749894848204586834366;
+  constexpr Real invphi2 = 0.38196601125010515179541316563436188228;
+  Real c = a + invphi2 * h;
+  Real d = a + invphi * h;
+  Real yc = DistributeTrial(cost, start, nb, max_rank, c);
+  Real yd = DistributeTrial(cost, start, nb, max_rank, d);
+
+  while (yc != yd) {
+    if (yc < yd) {
+      b = d;
+      d = c;
+      yd = yc;
+      h = invphi * h;
+      c = a + invphi2 * h;
+      yc = DistributeTrial(cost, start, nb, max_rank, c);
+    } else {
+      a = c;
+      c = d;
+      yc = yd;
+      h = invphi * h;
+      d = a + invphi * h;
+      yd = DistributeTrial(cost, start, nb, max_rank, d);
+    }
+  }
+
+  return yc;
+}
+
+void AssignBlocks(const std::vector<int> &start, const std::vector<int> &nb, std::vector<int> &rank) {
+  const int nblocks = rank.size();
+  for (int i = 0; i < std::min(nblocks, Globals::nranks); i++) {
+    for (int n = start[i]; n < start[i] + nb[i]; n++) {
+      rank[n] = i;
     }
   }
 }
 
-void UpdateBlockList(std::vector<int> const &ranklist, std::vector<int> &nslist,
-                     std::vector<int> &nblist) {
-  nslist.resize(Globals::nranks);
-  nblist.resize(Globals::nranks);
-
-  nslist[0] = 0;
-  int rank = 0;
-  for (int block_id = 1; block_id < ranklist.size(); block_id++) {
-    if (ranklist[block_id] != ranklist[block_id - 1]) {
-      nblist[rank] = block_id - nslist[rank];
-      nslist[++rank] = block_id;
-    }
+std::tuple<double, double> BlockCostInfo(std::vector<double> const &cost) {
+  const int nblocks = cost.size();
+  const int max_rank = std::min(Globals::nranks, nblocks);
+  double avg_cost = 0.0;
+  double max_block_cost = 0.0;
+  for (int b = 0; b < nblocks; b++) {
+    avg_cost += cost[b];
+    max_block_cost = std::max(max_block_cost, cost[b]);
   }
-  nblist[rank] = ranklist.size() - nslist[rank];
+  avg_cost /= max_rank;
+  return std::make_tuple(avg_cost, max_block_cost);
 }
+
+void SetSimpleBalance(const std::vector<double> &cost, std::vector<int> &start, std::vector<int> &nb) {
+  const int nblocks = cost.size();
+  const int max_rank = std::min(nblocks, Globals::nranks);
+  int nassign = nblocks/max_rank;
+  start[0] = 0;
+  nb[0] = nassign;
+  for (int i = 1; i < max_rank; i++) {
+    nassign = (nblocks - i*nassign)/(max_rank - i);
+    start[i] = start[i-1] + nb[i-1];
+    nb[i] = nassign;
+  }
+}
+
 } // namespace
 
-//----------------------------------------------------------------------------------------
-// \brief Calculate distribution of MeshBlocks based on the cost list
-void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
-                                std::vector<int> &ranklist, std::vector<int> &nslist,
-                                std::vector<int> &nblist) {
+void Mesh::CalculateLoadBalance(std::vector<double> const &cost,
+                                std::vector<int> &rank, std::vector<int> &start,
+                                std::vector<int> &nb) {
   Kokkos::Profiling::pushRegion("CalculateLoadBalance");
-  auto const total_blocks = costlist.size();
+  if ((lb_automatic_ || lb_manual_)) {
+    auto [avg_cost, max_block_cost] = BlockCostInfo(cost);
+    double new_max = CalculateNewBalance(cost, start, nb, avg_cost, max_block_cost);
 
-  using it = std::vector<double>::const_iterator;
-  std::pair<it, it> const min_max = std::minmax_element(costlist.begin(), costlist.end());
-
-  double const mincost = min_max.first == costlist.begin() ? 0.0 : *min_max.first;
-  double const maxcost = min_max.second == costlist.begin() ? 0.0 : *min_max.second;
-
-  // Assigns blocks to ranks on a rougly cost-equal basis.
-  AssignBlocks(costlist, ranklist);
-
-  // Updates nslist with the ID of the starting block on each rank and the count of blocks
-  // on each rank.
-  UpdateBlockList(ranklist, nslist, nblist);
-
-#ifdef MPI_PARALLEL
-  if (total_blocks % (Globals::nranks) != 0 && !adaptive && !lb_flag_ &&
-      maxcost == mincost && Globals::my_rank == 0) {
-    std::cout << "### Warning in CalculateLoadBalance" << std::endl
-              << "The number of MeshBlocks cannot be divided evenly. "
-              << "This will result in poor load balancing." << std::endl;
+  } else {
+    // just try to distribute blocks evenly
+    SetSimpleBalance(cost, start, nb);
   }
-#endif
-  if (Globals::nranks > total_blocks) {
-    if (!adaptive) {
-      // mesh is refined statically, treat this an as error (all ranks need to
-      // participate)
-      std::stringstream msg;
-      msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
-          << "There are fewer MeshBlocks than OpenMP threads on each MPI rank"
-          << std::endl
-          << "Decrease the number of threads or use more MeshBlocks." << std::endl;
-      PARTHENON_FAIL(msg);
-    } else if (Globals::my_rank == 0) {
-      // we have AMR, print warning only on Rank 0
-      std::cout << "### WARNING in CalculateLoadBalance" << std::endl
-                << "There are fewer MeshBlocks than OpenMP threads on each MPI rank"
-                << std::endl
-                << "This is likely fine if the number of meshblocks is expected to grow "
-                   "during the "
-                   "simulations. Otherwise, it might be worthwhile to decrease the "
-                   "number of threads or "
-                   "use more meshblocks."
-                << std::endl;
-    }
-  }
+  AssignBlocks(start, nb, rank);
+  // now assign blocks to ranks
   Kokkos::Profiling::popRegion(); // CalculateLoadBalance
 }
 
@@ -461,34 +469,18 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
 
 void Mesh::ResetLoadBalanceVariables() {
   if (lb_automatic_) {
-    for (auto &pmb : block_list) {
-      costlist[pmb->gid] = TINY_NUMBER;
-      pmb->ResetTimeMeasurement();
-    }
+#ifdef ENABLE_LB_TIMERS
     parthenon::par_for(loop_pattern_flatrange_tag, "reset cost_d", DevExecSpace(), 0, block_list.size()-1,
         KOKKOS_LAMBDA(const int b) {
-          cost_d[b] = TINY_NUMBER;
+          block_cost(b) = TINY_NUMBER;
         });
+#endif
+  } else if (lb_manual_) {
+    for (int b = 0; b < block_list.size(); b++) {
+      block_cost[b] = TINY_NUMBER;
+    }
   }
-  lb_flag_ = false;
   step_since_lb = 0;
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn void Mesh::UpdateCostList()
-// \brief update the cost list
-
-void Mesh::UpdateCostList() {
-  if (lb_automatic_) {
-    double w = static_cast<double>(lb_interval_ - 1) / static_cast<double>(lb_interval_);
-    for (auto &pmb : block_list) {
-      costlist[pmb->gid] = costlist[pmb->gid] * w + pmb->cost_;
-    }
-  } else if (lb_flag_) {
-    for (auto &pmb : block_list) {
-      costlist[pmb->gid] = pmb->cost_;
-    }
-  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -634,41 +626,66 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
 // \!fn bool Mesh::GatherCostListAndCheckBalance()
 // \brief collect the cost from MeshBlocks and check the load balance
 
-bool Mesh::GatherCostListAndCheckBalance() {
-  if (lb_manual_ || lb_automatic_) {
+void Mesh::GatherCostList() {
+  Kokkos::Profiling::pushRegion("GatherCostList");
+  if (lb_automatic_) {
+#ifdef ENABLE_LB_TIMERS
+    auto cost_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), block_cost);
 #ifdef MPI_PARALLEL
-    PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, nblist[Globals::my_rank], MPI_DOUBLE,
+    PARTHENON_MPI_CHECK(MPI_Allgatherv(cost_h.data(), nblist[Globals::my_rank], MPI_DOUBLE,
                                        costlist.data(), nblist.data(), nslist.data(),
                                        MPI_DOUBLE, MPI_COMM_WORLD));
 #endif
-    double maxcost = 0.0, avecost = 0.0;
-    for (int rank = 0; rank < Globals::nranks; rank++) {
-      double rcost = 0.0;
-      int ns = nslist[rank];
-      int ne = ns + nblist[rank];
-      for (int n = ns; n < ne; ++n)
-        rcost += costlist[n];
-      maxcost = std::max(maxcost, rcost);
-      avecost += rcost;
-    }
-    avecost /= Globals::nranks;
-
-    if (adaptive)
-      lb_tolerance_ =
-          2.0 * static_cast<double>(Globals::nranks) / static_cast<double>(nbtotal);
-
-    if (maxcost > (1.0 + lb_tolerance_) * avecost) return false;
+#endif
   }
-  return true;
+  if (lb_manual_) {
+#ifdef MPI_PARALLEL
+    PARTHENON_MPI_CHECK(MPI_Allgatherv(block_cost.data(), nblist[Globals::my_rank], MPI_DOUBLE,
+                                       costlist.data(), nblist.data(), nslist.data(),
+                                       MPI_DOUBLE, MPI_COMM_WORLD));
+#endif
+  }
+  Kokkos::Profiling::popRegion();
+  return;
 }
+
 
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot)
 // \brief redistribute MeshBlocks according to the new load balance
 
 void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
-                                           int ntot) {
+                                           int ntot, bool modified) {
   Kokkos::Profiling::pushRegion("RedistributeAndRefineMeshBlocks");
+
+  GatherCostList();
+  // store old nbstart and nbend before load balancing.
+  int onbs = nslist[Globals::my_rank];
+  int onbe = onbs + nblist[Globals::my_rank] - 1;
+
+  if (!modified) {
+    // The mesh hasn't actually changed.  Let's just check the load balancing
+    // and only move things around if needed
+    if (lb_automatic_ || lb_manual_) {
+      Kokkos::Profiling::pushRegion("Reloadbalance");
+      auto [avg_cost, max_block_cost] = BlockCostInfo(costlist);
+      std::vector<int> start_trial, nb_trial;
+      double new_max = CalculateNewBalance(costlist, start_trial, nb_trial, avg_cost, max_block_cost);
+      Kokkos::Profiling::popRegion();
+      // if the improvement isn't large enough, just return because we're done
+      if ((max_block_cost - new_max)/max_block_cost < lb_tolerance_) return;
+      AssignBlocks(start_trial, nb_trial, ranklist);
+      nslist = std::move(start_trial);
+      nblist = std::move(nb_trial);
+    } else {
+      // default balancing on number of meshblocks should be good to go since
+      // the mesh hasn't changed
+      return;
+    }
+  }
+
+  // if we got here, we're going to be changing or moving the mesh around
+
   // kill any cached packs
   mesh_data.PurgeNonBase();
   mesh_data.Get()->ClearCaches();
@@ -721,14 +738,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
   }
 
-  // store old nbstart and nbend before load balancing.
-  int onbs = nslist[Globals::my_rank];
-  int onbe = onbs + nblist[Globals::my_rank] - 1;
-
   Kokkos::Profiling::popRegion(); // Construct new list
 
   // Calculate new load balance
-  CalculateLoadBalance(newcost, newrank, nslist, nblist);
+  if (modified) CalculateLoadBalance(newcost, newrank, nslist, nblist);
 
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
@@ -937,7 +950,12 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   loclist = std::move(newloc);
   ranklist = std::move(newrank);
   costlist = std::move(newcost);
-  cost_d.Realloc(nbe - nbs + 1);
+
+#ifdef ENABLE_LB_TIMERS
+  block_cost.Realloc(nbe - nbs + 1);
+#else
+  block_cost.resize(nbe - nbs + 1);
+#endif
 
   // re-initialize the MeshBlocks
   for (auto &pmb : block_list) {

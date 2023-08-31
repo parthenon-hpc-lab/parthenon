@@ -190,6 +190,8 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
 
+  out.block_lid = pmb->lid;
+
   out.allocated = v->IsAllocated();
   if (!out.allocated) return out;
 
@@ -287,6 +289,8 @@ ProResInfo ProResInfo::GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
                                std::shared_ptr<Variable<Real>> v) {
   ProResInfo out;
 
+  out.block_lid = pmb->lid;
+
   out.allocated = v->IsAllocated();
   if (!out.allocated) return out;
 
@@ -323,6 +327,7 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   int Nu = v->GetDim(5);
   int Nt = v->GetDim(6);
 
+  out.block_lid = pmb->lid;
   int mylevel = pmb->loc.level();
   out.coords = pmb->coords;
   if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
@@ -394,6 +399,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   int Nu = v->GetDim(5);
   int Nt = v->GetDim(6);
 
+  out.block_lid = pmb->lid;
   int mylevel = pmb->loc.level();
 
   auto elements = v->GetTopologicalElements();
@@ -416,6 +422,7 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
                                   std::shared_ptr<Variable<Real>> v,
                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
+  out.block_lid = pmb->lid;
   out.allocated = v->IsAllocated();
   if (!v->IsAllocated()) {
     // Not going to actually do anything with this buffer
@@ -473,7 +480,7 @@ BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborB
                                  std::shared_ptr<Variable<Real>> v,
                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
-
+  out.block_lid = pmb->lid;
   if (!v->IsAllocated() || buf->GetState() != BufferState::received) {
     out.allocated = false;
     return out;

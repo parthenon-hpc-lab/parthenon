@@ -37,6 +37,7 @@ option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
+option(PARTHENON_ENABLE_LB_TIMERS "Timer-based load balancing is disabled by default, set this to True to enable timers" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
 this to True to enable linting in the default target" OFF)
@@ -130,6 +131,11 @@ endif()
 set(ENABLE_SPARSE ON)
 if (PARTHENON_DISABLE_SPARSE)
   set(ENABLE_SPARSE OFF)
+endif()
+
+set(ENABLE_LB_TIMERS OFF)
+if (PARTHENON_ENABLE_LB_TIMERS)
+  set(ENABLE_LB_TIMERS ON)
 endif()
 
 set(ENABLE_HDF5 OFF)

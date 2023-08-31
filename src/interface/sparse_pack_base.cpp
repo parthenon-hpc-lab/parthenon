@@ -178,8 +178,10 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   pack.coords_ = coords_t("coords", desc.flat ? max_size : nblocks);
   auto coords_h = Kokkos::create_mirror_view(pack.coords_);
 
+#ifdef ENABLE_LB_TIMERS
   pack.lid_ = lid_t("lid", nblocks);
   auto lid_h = Kokkos::create_mirror_view(pack.lid_);
+#endif
 
   // Fill the views
   int idx = 0;
@@ -195,7 +197,9 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
       // packs.
       coords_h(b) = pmbd->GetBlockPointer()->coords_device;
     }
+  #ifdef ENABLE_LB_TIMERS
     lid_h(blidx) = pmbd->GetBlockPointer()->lid;
+  #endif
 
     for (int i = 0; i < nvar; ++i) {
       pack.bounds_h_(0, blidx, i) = idx;
@@ -263,11 +267,13 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
     pack.bounds_h_(1, blidx, nvar) = idx - 1;
     blidx++;
   });
-  pack.cost_ = pmd->GetMeshPointer()->cost_d;
+#ifdef ENABLE_LB_TIMERS
+  pack.cost_ = pmd->GetMeshPointer()->block_cost;
+  Kokkos::deep_copy(pack.lid_, lid_h);
+#endif
   Kokkos::deep_copy(pack.pack_, pack_h);
   Kokkos::deep_copy(pack.bounds_, pack.bounds_h_);
   Kokkos::deep_copy(pack.coords_, coords_h);
-  Kokkos::deep_copy(pack.lid_, lid_h);
 
   return pack;
 }

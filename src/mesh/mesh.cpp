@@ -473,7 +473,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                         packages, resolved_packages, gflag);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-  cost_d.Realloc(block_list.size());
+#ifdef ENABLE_LB_TIMERS
+  block_cost.Realloc(block_list.size());
+#else
+  block_cost.resize(block_list.size());
+#endif
 
   ResetLoadBalanceVariables();
 
@@ -738,7 +742,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
-  cost_d.Realloc(block_list.size());
+#ifdef ENABLE_LB_TIMERS
+  block_cost.Realloc(block_list.size());
+#else
+  block_cost.resize(block_list.size());
+#endif
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run
@@ -1259,12 +1267,13 @@ void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
   const std::string balancer =
       pin->GetOrAddString("parthenon/loadbalancing", "balancer", "default",
                           std::vector<std::string>{"default", "automatic", "manual"});
+#ifndef ENABLE_LB_TIMERS
   if (balancer == "automatic") {
-    // JMM: I am disabling timing based load balancing, as it's not
-    // threaded through the infrastructure. I think some thought needs
-    // to go into doing this right with loops over meshdata rather
-    // than loops over data on a single meshblock.
-    PARTHENON_FAIL("Timing based load balancing is currently unavailable.");
+    PARTHENON_FAIL("Cannot use automatic load balancing without enabling timers. "
+                   "Rebuild with -DPARTHENON_ENABLE_LB_TIMERS=ON or change balancer");
+  }
+#endif
+  if (balancer == "automatic") {
     lb_automatic_ = true;
   } else if (balancer == "manual") {
     lb_manual_ = true;
