@@ -435,10 +435,12 @@ void SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vector<in
   int nassign = nblocks/max_rank;
   start[0] = 0;
   nb[0] = nassign;
+  int nassigned = nassign;
   for (int i = 1; i < max_rank; i++) {
-    nassign = (nblocks - i*nassign)/(max_rank - i);
+    nassign = (nblocks - nassigned)/(max_rank - i);
     start[i] = start[i-1] + nb[i-1];
     nb[i] = nassign;
+    nassigned += nassign;
   }
 }
 
