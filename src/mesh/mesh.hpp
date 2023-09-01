@@ -270,8 +270,8 @@ class Mesh {
 
   std::pair<IndexShape, IndexShape> GetCellBounds() const {
     auto cb = [&](const int rfact) {
-      return IndexShape(block_size.nx(X3DIR)/rfact,
-                        block_size.nx(X2DIR)/rfact,
+      return IndexShape((ndim > 2) * block_size.nx(X3DIR)/rfact,
+                        (ndim > 1) * block_size.nx(X2DIR)/rfact,
                         block_size.nx(X1DIR)/rfact, multilevel*Globals::nghost);
     };
     return std::make_pair(cb(1), cb(2));
