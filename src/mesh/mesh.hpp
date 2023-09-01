@@ -124,7 +124,7 @@ class Mesh {
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
-    return default_pack_size_ < 1 ? block_list.size() : default_pack_size_;
+    return default_pack_size_ < 1 ? std::max(block_list.size(), 1) : default_pack_size_;
   }
   int DefaultNumPartitions() {
     return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
