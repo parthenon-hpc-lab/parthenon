@@ -19,10 +19,10 @@
 
 #include <limits>
 
-#include <Kokkos_Core.hpp>
 #include <impl/Kokkos_ClockTic.hpp>
 
 #include "config.hpp"
+#include "kokkos_abstraction.hpp"
 
 namespace parthenon {
 
