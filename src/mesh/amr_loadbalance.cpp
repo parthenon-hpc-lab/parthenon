@@ -771,8 +771,9 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
   }
   restriction_cache.CopyToDevice();
+  auto [cellbounds, c_cellbounds] = GetCellBounds();
   refinement::Restrict(resolved_packages.get(), restriction_cache,
-                       block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+                       cellbounds, c_cellbounds);
 
   Kokkos::fence();
 
@@ -938,9 +939,9 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   }
   prolongation_cache.CopyToDevice();
   refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
-                               block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+                               cellbounds, c_cellbounds);
   refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                                 block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+                                 cellbounds, c_cellbounds);
 
 #ifdef MPI_PARALLEL
   if (send_reqs.size() != 0)

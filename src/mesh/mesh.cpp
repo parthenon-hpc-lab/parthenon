@@ -103,7 +103,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                                                     UniformMeshGenerator<X3DIR>},
       MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
-  RegionSize block_size;
   BoundaryFlag block_bcs[6];
   std::int64_t nbmax;
 
@@ -408,22 +407,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   loclist.resize(nbtotal);
   tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
 
-#ifdef MPI_PARALLEL
-  // check if there are sufficient blocks
-  if (nbtotal < Globals::nranks) {
-    if (mesh_test == 0) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-          << Globals::nranks << ")" << std::endl;
-      PARTHENON_FAIL(msg);
-    } else { // test
-      std::cout << "### Warning in Mesh constructor" << std::endl
-                << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-                << Globals::nranks << ")" << std::endl;
-    }
-  }
-#endif
-
   ranklist = std::vector<int>(nbtotal);
 
   nslist = std::vector<int>(Globals::nranks);
@@ -534,7 +517,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                                                     UniformMeshGenerator<X3DIR>},
       MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
-  RegionSize block_size;
   BoundaryFlag block_bcs[6];
 
   // mesh test
@@ -774,7 +756,6 @@ Mesh::~Mesh() {
 
 void Mesh::OutputMeshStructure(const int ndim,
                                const bool dump_mesh_structure /*= true*/) {
-  RegionSize block_size;
   BoundaryFlag block_bcs[6];
 
   // Write overall Mesh structure to stdout and file
@@ -1024,7 +1005,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // problem generator
     if (init_problem) {
       PARTHENON_REQUIRE_THROWS(
-          !(ProblemGenerator != nullptr && block_list[0]->ProblemGenerator != nullptr),
+          !(ProblemGenerator != nullptr && app_in->ProblemGenerator != nullptr),
           "Mesh and MeshBlock ProblemGenerators are defined. Please use only one.");
 
       // Call Mesh ProblemGenerator
@@ -1192,6 +1173,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
   } while (!init_done);
 
+  PARTHENON_REQUIRE_THROWS(nbtotal >= Globals::nranks,
+    "After initialization, there are fewer meshblocks than ranks. Parthenon requires at "
+    "least as many blocks as ranks. Change your settings and try again.");
+
   // Initialize the "base" MeshData object
   mesh_data.Get()->Set(block_list);
 
@@ -1251,15 +1236,13 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 }
 
 std::int64_t Mesh::GetTotalCells() {
-  auto &pmb = block_list.front();
-  return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx(X1DIR) *
-         pmb->block_size.nx(X2DIR) * pmb->block_size.nx(X3DIR);
+  return static_cast<std::int64_t>(nbtotal) * GetNumberOfMeshBlockCells();
 }
 // TODO(JMM): Move block_size into mesh.
 int Mesh::GetNumberOfMeshBlockCells() const {
-  return block_list.front()->GetNumberOfMeshBlockCells();
+  return block_size.nx(X1DIR) * block_size.nx(X2DIR) * block_size.nx(X3DIR);
 }
-const RegionSize &Mesh::GetBlockSize() const { return block_list.front()->block_size; }
+const RegionSize &Mesh::GetBlockSize() const { return block_size; }
 
 // Functionality re-used in mesh constructor
 void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {

@@ -95,6 +95,7 @@ class Mesh {
   // data
   bool modified;
   RegionSize mesh_size;
+  RegionSize block_size;
   BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
   const int ndim; // number of dimensions
   const bool adaptive, multilevel;
@@ -266,6 +267,15 @@ class Mesh {
 
   // functions
   MeshGenFunc MeshGenerator_[4];
+
+  std::pair<IndexShape, IndexShape> GetCellBounds() const {
+    auto cb = [&](const int rfact) {
+      return IndexShape(block_size.nx(X3DIR)/rfact,
+                        block_size.nx(X2DIR)/rfact,
+                        block_size.nx(X1DIR)/rfact, multilevel*Globals::nghost);
+    };
+    return std::make_pair(cb(1), cb(2));
+  }
 
   void ResetLoadBalanceVariables();
 
