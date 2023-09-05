@@ -318,7 +318,7 @@ TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TaskList &tl, int pa
 }
 
 TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
-  return MakeTaskCollectionProRes(blocks);
+  return MakeTaskCollectionMG(blocks);
 }
 
 TaskCollection PoissonDriver::MakeTaskCollectionProRes(BlockList_t &blocks) {
