@@ -383,7 +383,6 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   auto buf_state = buf->GetState();
   if (buf_state == BufferState::received) {
     out.buf_allocated = true;
-    PARTHENON_DEBUG_REQUIRE(v->IsAllocated(), "Variable must be allocated to receive");
   } else if (buf_state == BufferState::received_null) {
     out.buf_allocated = false;
   } else {
