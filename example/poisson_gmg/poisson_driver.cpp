@@ -39,7 +39,7 @@ parthenon::DriverStatus PoissonDriver::Execute() {
 }
 
 void PoissonDriver::AddRestrictionProlongationLevel(TaskRegion &region, int level,
-                                                    int max_level) {
+                                                    int min_level, int max_level) {
   using namespace parthenon;
   using namespace poisson_package;
   TaskID none(0);
@@ -64,7 +64,7 @@ void PoissonDriver::AddRestrictionProlongationLevel(TaskRegion &region, int leve
     }
 
     auto print_post_prolongate = none;
-    if (level > 0) {
+    if (level > min_level) {
       std::string label = "Pre-restrict field on level " + std::to_string(level);
       auto pre_print = tl.AddTask(set_from_finer, PrintChosenValues<res_err>, md, label);
       // Restrict and send data to next coarser level
@@ -96,7 +96,10 @@ void PoissonDriver::AddRestrictionProlongationLevel(TaskRegion &region, int leve
       // next finer level
       auto same_gmg_level_boundary_comm =
           AddBoundaryExchangeTasks(print_post_prolongate, tl, md, true);
-      tl.AddTask(same_gmg_level_boundary_comm,
+      std::string label = "Pre-prolongate field on level " + std::to_string(level);
+      auto print =
+          tl.AddTask(same_gmg_level_boundary_comm, PrintChosenValues<res_err>, md, label);
+      tl.AddTask(print,
                  SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
     }
   }
@@ -180,6 +183,18 @@ TaskID AddRBGSIteration(TaskList &tl, TaskID depends_on, int iters, bool multile
   return previous_iter;
 }
 
+TaskID AddResidualCalc(TaskList &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md) {
+  using namespace parthenon;
+  using namespace poisson_package;
+  auto flux_res = tl.AddTask(depends_on, CalculateFluxes<u>, md);
+  auto start_flxcor = tl.AddTask(flux_res, StartReceiveFluxCorrections, md);
+  auto send_flxcor = tl.AddTask(flux_res, LoadAndSendFluxCorrections, md);
+  auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
+  auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md); 
+  auto Ax_res = tl.AddTask(set_flxcor, FluxMultiplyMatrix<u, temp>, md); 
+  return tl.AddTask(Ax_res, AddFieldsAndStore<rhs, temp, res_err>, md, 1.0, -1.0);
+}
+
 void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level,
                                            int max_level, bool final) {
   using namespace parthenon;
@@ -245,14 +260,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
       auto comm_u = AddBoundaryExchangeTasks(pre_smooth, tl, md, multilevel);
 
       // 4. Caclulate residual and store in communication field
-      auto flux_res = tl.AddTask(comm_u, CalculateFluxes<u>, md);
-      auto start_flxcor = tl.AddTask(flux_res, StartReceiveFluxCorrections, md);
-      auto send_flxcor = tl.AddTask(flux_res, LoadAndSendFluxCorrections, md);
-      auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
-      auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md); 
-      auto Ax_res = tl.AddTask(set_flxcor, FluxMultiplyMatrix<u, temp>, md); 
-      auto residual = tl.AddTask(Ax_res, AddFieldsAndStore<rhs, temp, res_err>, md, 1.0, -1.0);
-
+      auto residual = AddResidualCalc(tl, comm_u, md);
+      
       // 5. Restrict communication field and send to next level
       auto communicate_to_coarse =
           tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
@@ -309,6 +318,80 @@ TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TaskList &tl, int pa
 }
 
 TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
+  return MakeTaskCollectionProRes(blocks);
+}
+
+TaskCollection PoissonDriver::MakeTaskCollectionProRes(BlockList_t &blocks) {
+  using namespace parthenon;
+  using namespace poisson_package;
+  TaskCollection tc;
+  TaskID none(0);
+
+  auto pkg = pmesh->packages.Get("poisson_package");
+  auto max_iterations = pkg->Param<int>("max_iterations");
+
+  const int num_partitions = pmesh->DefaultNumPartitions();
+  int min_level = 0; // pmesh->GetGMGMaxLevel();
+  int max_level = pmesh->GetGMGMaxLevel();
+
+  TaskRegion &region = tc.AddRegion(num_partitions * (max_level + 1));
+  for (int level = max_level; level >= min_level; --level) {
+    AddRestrictionProlongationLevel(region, level, min_level, max_level);
+  }
+
+  return tc;
+}
+
+TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
+  using namespace parthenon;
+  using namespace poisson_package;
+  TaskCollection tc;
+  TaskID none(0);
+
+  auto pkg = pmesh->packages.Get("poisson_package");
+  auto max_iterations = pkg->Param<int>("max_iterations");
+
+  const int num_partitions = pmesh->DefaultNumPartitions();
+  int min_level = 0; // pmesh->GetGMGMaxLevel();
+  int max_level = pmesh->GetGMGMaxLevel();
+
+  {
+    TaskRegion &region = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; ++i) {
+      TaskList &tl = region[i];
+      auto &md = pmesh->gmg_mesh_data[max_level].GetOrAdd(max_level, "base", i);
+      auto zero_u = tl.AddTask(none, SetToZero<u>, md);
+    }
+  }
+  
+  for (int ivcycle = 0; ivcycle < max_iterations; ++ivcycle) {
+    TaskRegion &region = tc.AddRegion(num_partitions * (max_level + 1));
+    for (int level = max_level; level >= min_level; --level) {
+      AddMultiGridTasksLevel(region, level, min_level, max_level,
+                               level == min_level);
+    }
+
+    int reg_dep_id = 0; 
+    TaskRegion &region_res = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; ++i) {
+      TaskList &tl = region_res[i];
+      auto &md = pmesh->gmg_mesh_data[max_level].GetOrAdd(max_level, "base", i);
+      auto calc_pointwise_res = AddResidualCalc(tl, none, md); 
+      auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region_res, tl, i, reg_dep_id, &residual, md);
+      if (i == 0) {
+        tl.AddTask(get_res, [&](PoissonDriver *driver){
+          Real rms_err = std::sqrt(driver->residual.val / pmesh->GetTotalCells()); 
+          printf("RMS residual: %e\n", rms_err); 
+          return TaskStatus::complete;
+        }, this);
+      }
+    }
+  }
+
+  return tc;
+}
+
+TaskCollection PoissonDriver::MakeTaskCollectionMGCG(BlockList_t &blocks) {
   using namespace parthenon;
   using namespace poisson_package;
   TaskCollection tc;

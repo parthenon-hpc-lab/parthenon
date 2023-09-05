@@ -39,7 +39,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   Real z0 = pin->GetOrAddReal("poisson", "z0", 0.0);
   Real radius0 = pin->GetOrAddReal("poisson", "radius", 0.1);
 
-  auto desc = parthenon::MakePackDescriptor<poisson_package::rhs>(md);
+  auto desc = parthenon::MakePackDescriptor<poisson_package::rhs, poisson_package::res_err>(md);
   auto pack = desc.GetPack(md);
 
   constexpr auto te = poisson_package::te;
@@ -73,6 +73,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         val = 2.0 * (1.0 - 6.0 * x1 * x1) * x2 * x2 * (1.0 - x2 * x2) + 2.0 * (1.0
         - 6.0 * x2 * x2) * x1 * x1 * (1.0 - x1 * x1);
         pack(b, te, poisson_package::rhs(), k, j, i) = val;
+        pack(b, te, poisson_package::res_err(), k, j, i) = x1;// + x2;
       });
 }
 
