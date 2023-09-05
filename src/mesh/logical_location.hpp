@@ -23,11 +23,24 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
+#include "logical_location.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/morton_number.hpp"
+
+namespace parthenon {
+class LogicalLocation;
+}
+
+// This must be declared before an unordered_set of LogicalLocation is used
+// below, but must be *implemented* after the class definition
+template <>
+struct std::hash<parthenon::LogicalLocation> {
+  std::size_t operator()(const parthenon::LogicalLocation &key) const noexcept;
+};
 
 namespace parthenon {
 
@@ -252,15 +265,15 @@ inline block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::set<LogicalLocation> &allowed_neighbors,
                    const RootGridInfo &rg_info = RootGridInfo(),
-                   const std::set<LogicalLocation> &newly_refined = {}) {
+                   const std::unordered_set<LogicalLocation> &newly_refined = {}) {
   block_ownership_t main_owns;
 
   auto ownership_level = [&](const LogicalLocation &a) {
     // Newly-refined blocks are treated as higher-level than blocks at their
     // parent level, but lower-level than previously-refined blocks at their
     // current level.
-    if (newly_refined.count(a)) return 2*a.level() - 1;
-    return 2*a.level();
+    if (newly_refined.count(a)) return 2 * a.level() - 1;
+    return 2 * a.level();
   };
 
   auto ownership_less_than = [ownership_level](const LogicalLocation &a,
@@ -356,14 +369,12 @@ inline auto GetIndexRangeMaskFromOwnership(TopologicalElement el,
 
 } // namespace parthenon
 
-template <>
-struct std::hash<parthenon::LogicalLocation> {
-  std::size_t operator()(const parthenon::LogicalLocation &key) const noexcept {
-    // TODO(LFR): Think more carefully about what the best choice for this key is,
-    // probably the least significant sizeof(size_t) * 8 bits of the morton number
-    // with 3 * (level - 21) trailing bits removed.
-    return key.morton().bits[0];
-  }
-};
+inline std::size_t std::hash<parthenon::LogicalLocation>::operator()(
+    const parthenon::LogicalLocation &key) const noexcept {
+  // TODO(LFR): Think more carefully about what the best choice for this key is,
+  // probably the least significant sizeof(size_t) * 8 bits of the morton number
+  // with 3 * (level - 21) trailing bits removed.
+  return key.morton().bits[0];
+}
 
 #endif // MESH_LOGICAL_LOCATION_HPP_

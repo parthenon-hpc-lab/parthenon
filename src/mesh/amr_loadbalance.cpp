@@ -698,6 +698,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     oldtonew[mb_idx] = ntot - 1;
 
   current_level = 0;
+  std::unordered_set<LogicalLocation> newly_refined;
   for (int n = 0; n < ntot; n++) {
     // "on" = "old n" = "old gid" = "old global MeshBlock ID"
     int on = newtoold[n];
@@ -705,6 +706,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       current_level = newloc[n].level();
     if (newloc[n].level() >= loclist[on].level()) { // same or refined
       newcost[n] = costlist[on];
+      // Keep a list of all blocks refined for below
+      if (newloc[n].level() > loclist[on].level()) {
+        newly_refined.insert(newloc[n]);
+      }
     } else {
       double acost = 0.0;
       for (int l = 0; l < nleaf; l++)
@@ -789,7 +794,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   RegionSize block_size = GetBlockSize();
 
   BlockList_t new_block_list(nbe - nbs + 1);
-  std::set<LogicalLocation> newly_refined;
   for (int n = nbs; n <= nbe; n++) {
     int on = newtoold[n];
     if ((ranklist[on] == Globals::my_rank) &&
@@ -811,7 +815,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       new_block_list[n - nbs] =
           MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin, app_in,
                           packages, resolved_packages, gflag);
-      if (newloc[n].level() > loclist[on].level()) newly_refined.insert(newloc[n]);
     }
   }
 
@@ -936,6 +939,14 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data(),
                                       newly_refined);
   }
+  // Make sure all old sends/receives are done before we reconfigure the mesh
+#ifdef MPI_PARALLEL
+  if (send_reqs.size() != 0)
+    PARTHENON_MPI_CHECK(
+        MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
+#endif
+  // Re-initialize the mesh with our temporary ownership/neighbor configurations.
+  // No buffers are different when we switch to the final precedence order.
   Initialize(false, pin, app_in);
 
   // Internal refinement relies on the fine shared values, which are only consistent after
@@ -943,17 +954,12 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
                                  block_list[0]->cellbounds, block_list[0]->c_cellbounds);
 
-  // Rebuild the ownership model, this time weighting the "new" fine blocks just like
+  // Rebuild just the ownership model, this time weighting the "new" fine blocks just like
   // any other blocks at their level.
   for (auto &pmb : block_list) {
     pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
-#ifdef MPI_PARALLEL
-  if (send_reqs.size() != 0)
-    PARTHENON_MPI_CHECK(
-        MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
-#endif
   Kokkos::Profiling::popRegion(); // AMR: Recv data and unpack
 
   ResetLoadBalanceVariables();

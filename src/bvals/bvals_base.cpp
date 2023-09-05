@@ -29,6 +29,7 @@
 #include <string>    // c_str()
 
 #include "globals.hpp"
+#include "mesh/logical_location.hpp"
 #include "mesh/mesh.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
@@ -300,8 +301,9 @@ int BoundaryBase::CreateBvalsMPITag(int lid, int bufid) {
 
 // TODO(felker): break-up this long function
 
-void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist,
-                                         const std::set<LogicalLocation> &newly_refined) {
+void BoundaryBase::SearchAndSetNeighbors(
+    MeshBlockTree &tree, int *ranklist, int *nslist,
+    const std::unordered_set<LogicalLocation> &newly_refined) {
   Kokkos::Profiling::pushRegion("SearchAndSetNeighbors");
   MeshBlockTree *neibt;
   int myox1, myox2 = 0, myox3 = 0, myfx1, myfx2, myfx3;
@@ -630,7 +632,8 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int
   Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
 }
 
-void BoundaryBase::SetNeighborOwnership(const std::set<LogicalLocation> &newly_refined) {
+void BoundaryBase::SetNeighborOwnership(
+    const std::unordered_set<LogicalLocation> &newly_refined) {
   // Set neighbor block ownership
   std::set<LogicalLocation> allowed_neighbors;
   allowed_neighbors.insert(loc); // Insert the location of this block
