@@ -32,12 +32,15 @@ class PoissonDriver : public Driver {
   }
   // This next function essentially defines the driver.
   TaskCollection MakeTaskCollection(BlockList_t &blocks);
+  TaskCollection MakeTaskCollectionProRes(BlockList_t &blocks);
+  TaskCollection MakeTaskCollectionMG(BlockList_t &blocks);
+  TaskCollection MakeTaskCollectionMGCG(BlockList_t &blocks);
 
   DriverStatus Execute() override;
 
   void AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level, int max_level,
                               bool final);
-  void AddRestrictionProlongationLevel(TaskRegion &region, int level, int max_level);
+  void AddRestrictionProlongationLevel(TaskRegion &region, int level, int min_level, int max_level);
 
  private:
   // we'll demonstrate doing a global all reduce of a scalar There
