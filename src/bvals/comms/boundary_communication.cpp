@@ -67,12 +67,15 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     return TaskStatus::incomplete;
   }
 
-  if (rebuild) RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo);
+  if (rebuild)
+    RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
+                                         ProResInfo::GetSend);
 
   // Restrict
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   StateDescriptor *resolved_packages = pmb->resolved_packages.get();
-  refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
+  refinement::Restrict(resolved_packages, cache.prores_cache, pmb->cellbounds,
+                       pmb->c_cellbounds);
 
   // Load buffer data
   auto &bnd_info = cache.bnd_info;
@@ -212,7 +215,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
-  if (rebuild) RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo);
+  if (rebuild)
+    RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                          ProResInfo::GetSet);
 
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
@@ -252,7 +257,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
     // Restrict
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
-    refinement::Restrict(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
+    refinement::Restrict(resolved_packages, cache.prores_cache, pmb->cellbounds,
+                         pmb->c_cellbounds);
   }
   Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
   return TaskStatus::complete;
@@ -270,14 +276,17 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
-  if (rebuild) RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo);
+  if (rebuild)
+    RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                          ProResInfo::GetSet);
   if (nbound > 0 && pmesh->multilevel) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
 
     // Prolongate from coarse buffer
-    refinement::Prolongate(resolved_packages, cache, pmb->cellbounds, pmb->c_cellbounds);
-    refinement::ProlongateInternal(resolved_packages, cache, pmb->cellbounds,
+    refinement::ProlongateShared(resolved_packages, cache.prores_cache, pmb->cellbounds,
+                                 pmb->c_cellbounds);
+    refinement::ProlongateInternal(resolved_packages, cache.prores_cache, pmb->cellbounds,
                                    pmb->c_cellbounds);
   }
   Kokkos::Profiling::popRegion(); // Task_ProlongateBoundaries

@@ -91,6 +91,17 @@ class LogicalLocation { // aggregate and POD type
     return (shifted_lx1 == lx1_) && (shifted_lx2 == lx2_) && (shifted_lx3 == lx3_);
   }
 
+  std::array<int, 3> GetOffset(const LogicalLocation &neighbor) const {
+    std::array<int, 3> offset;
+    offset[0] = (neighbor.lx1() >> std::max(neighbor.level() - level_, 0)) -
+                (lx1() >> std::max(level_ - neighbor.level(), 0));
+    offset[1] = (neighbor.lx2() >> std::max(neighbor.level() - level_, 0)) -
+                (lx2() >> std::max(level_ - neighbor.level(), 0));
+    offset[2] = (neighbor.lx3() >> std::max(neighbor.level() - level_, 0)) -
+                (lx3() >> std::max(level_ - neighbor.level(), 0));
+    return offset;
+  }
+
   // Being a neighbor implies that you share a face, edge, or node and don't share a
   // volume
   bool IsNeighbor(const LogicalLocation &in) const {

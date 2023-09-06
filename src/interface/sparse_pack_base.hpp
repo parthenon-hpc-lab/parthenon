@@ -27,12 +27,16 @@
 #include <vector>
 
 #include "coordinates/coordinates.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_state.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
 class SparsePackCache;
+namespace impl {
+class PackDescriptor;
+}
 
 // Map for going from variable names to sparse pack variable indices
 using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
@@ -40,29 +44,6 @@ using SparsePackIdxMap = std::unordered_map<std::string, std::size_t>;
 class StateDescriptor;
 
 enum class PDOpt { WithFluxes, Coarse, Flatten };
-
-namespace impl {
-struct PackDescriptor {
-  using VariableGroup_t = std::vector<std::pair<VarID, Uid_t>>;
-  using SelectorFunction_t = std::function<bool(int, const VarID &, const Metadata &)>;
-
-  PackDescriptor(StateDescriptor *psd, const std::vector<std::string> &var_group_names,
-                 const SelectorFunction_t &selector, const std::set<PDOpt> &options);
-
-  void Print() const;
-
-  const int nvar_groups;
-  const std::vector<std::string> var_group_names;
-  const std::vector<VariableGroup_t> var_groups;
-  const bool with_fluxes;
-  const bool coarse;
-  const bool flat;
-
- private:
-  std::vector<VariableGroup_t> BuildUids(int nvgs, const StateDescriptor *const psd,
-                                         const SelectorFunction_t &selector);
-};
-} // namespace impl
 
 class SparsePackBase {
  public:
@@ -81,32 +62,27 @@ class SparsePackBase {
   // Returns a SparsePackBase object that is either newly created or taken
   // from the cache in pmd. The cache itself handles the all of this logic
   template <class T>
-  static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc) {
+  static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc,
+                                const std::vector<bool> &include_block) {
     auto &cache = pmd->GetSparsePackCache();
-    return cache.Get(pmd, desc);
+    return cache.Get(pmd, desc, include_block);
   }
 
   // Return a map from variable names to pack variable indices
-  static SparsePackIdxMap GetIdxMap(const impl::PackDescriptor &desc) {
-    SparsePackIdxMap map;
-    std::size_t idx = 0;
-    for (const auto &var : desc.var_group_names) {
-      map[var] = idx;
-      ++idx;
-    }
-    return map;
-  }
+  static SparsePackIdxMap GetIdxMap(const impl::PackDescriptor &desc);
 
   // Get a list of booleans of the allocation status of every variable in pmd matching the
   // PackDescriptor desc
   template <class T>
-  static alloc_t GetAllocStatus(T *pmd, const impl::PackDescriptor &desc);
+  static alloc_t GetAllocStatus(T *pmd, const impl::PackDescriptor &desc,
+                                const std::vector<bool> &include_block);
 
   // Actually build a `SparsePackBase` (i.e. create a view of views, fill on host, and
   // deep copy the view of views to device) from the variables specified in desc contained
   // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
   template <class T>
-  static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc);
+  static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc,
+                              const std::vector<bool> &include_block);
 
   pack_t pack_;
   bounds_t bounds_;
@@ -133,18 +109,101 @@ class SparsePackCache {
 
  protected:
   template <class T>
-  SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
+  SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc,
+                      const std::vector<bool> &include_block);
 
   template <class T>
   SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc,
-                              const std::string &ident);
+                              const std::string &ident,
+                              const std::vector<bool> &include_block);
 
-  std::string GetIdentifier(const impl::PackDescriptor &desc) const;
+  std::string GetIdentifier(const impl::PackDescriptor &desc,
+                            const std::vector<bool> &include_block) const;
   std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
       pack_map;
 
   friend class SparsePackBase;
 };
+
+namespace impl {
+struct PackDescriptor {
+  using VariableGroup_t = std::vector<std::pair<VarID, Uid_t>>;
+  using SelectorFunction_t = std::function<bool(int, const VarID &, const Metadata &)>;
+  using SelectorFunctionUid_t = std::function<bool(int, const Uid_t &, const Metadata &)>;
+
+  void Print() const;
+
+  // default constructor needed for certain use cases
+  PackDescriptor()
+      : nvar_groups(0), var_group_names({}), var_groups({}), with_fluxes(false),
+        coarse(false), flat(false) {}
+
+  template <class GROUP_t, class SELECTOR_t>
+  PackDescriptor(StateDescriptor *psd, const std::vector<GROUP_t> &var_groups_in,
+                 const SELECTOR_t &selector, const std::set<PDOpt> &options)
+      : nvar_groups(var_groups_in.size()), var_group_names(MakeGroupNames(var_groups_in)),
+        var_groups(BuildUids(var_groups_in.size(), psd, selector)),
+        with_fluxes(options.count(PDOpt::WithFluxes)),
+        coarse(options.count(PDOpt::Coarse)), flat(options.count(PDOpt::Flatten)) {
+    PARTHENON_REQUIRE(!(with_fluxes && coarse),
+                      "Probably shouldn't be making a coarse pack with fine fluxes.");
+  }
+
+  const int nvar_groups;
+  const std::vector<std::string> var_group_names;
+  const std::vector<VariableGroup_t> var_groups;
+  const bool with_fluxes;
+  const bool coarse;
+  const bool flat;
+
+ private:
+  template <class FUNC_t>
+  std::vector<PackDescriptor::VariableGroup_t>
+  BuildUids(int nvgs, const StateDescriptor *const psd, const FUNC_t &selector) {
+    auto fields = psd->AllFields();
+    std::vector<VariableGroup_t> vgs(nvgs);
+    for (auto [id, md] : fields) {
+      for (int i = 0; i < nvgs; ++i) {
+        auto uid = Variable<Real>::GetUniqueID(id.label());
+        if constexpr (std::is_invocable<FUNC_t, int, VarID, Metadata>::value) {
+          if (selector(i, id, md)) {
+            vgs[i].push_back({id, uid});
+          }
+        } else if constexpr (std::is_invocable<FUNC_t, int, Uid_t, Metadata>::value) {
+          if (selector(i, uid, md)) {
+            vgs[i].push_back({id, uid});
+          }
+        } else {
+          PARTHENON_FAIL("Passing the wrong sort of selector.");
+        }
+      }
+    }
+    // Ensure ordering in terms of value of sparse indices
+    for (auto &vg : vgs) {
+      std::sort(vg.begin(), vg.end(), [](const auto &a, const auto &b) {
+        if (a.first.base_name == b.first.base_name)
+          return a.first.sparse_id < b.first.sparse_id;
+        return a.first.base_name < b.first.base_name;
+      });
+    }
+    return vgs;
+  }
+
+  template <class base_t>
+  std::vector<std::string> MakeGroupNames(const std::vector<base_t> &var_groups) {
+    if constexpr (std::is_same<base_t, std::string>::value) {
+      return var_groups;
+    } else if constexpr (std::is_same<base_t, Uid_t>::value) {
+      std::vector<std::string> var_group_names;
+      for (auto &vg : var_groups)
+        var_group_names.push_back(std::to_string(vg));
+      return var_group_names;
+    }
+    // silence compiler warnings about no return statement
+    return std::vector<std::string>();
+  }
+};
+} // namespace impl
 
 } // namespace parthenon
 

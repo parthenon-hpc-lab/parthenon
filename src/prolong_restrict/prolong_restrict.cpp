@@ -34,7 +34,7 @@ namespace refinement {
 
 // TODO(JMM): Add a prolongate when prolongation is called in-one
 // TODO(JMM): Is this actually the API we want?
-void Restrict(const StateDescriptor *resolved_packages, const BvarsSubCache_t &cache,
+void Restrict(const StateDescriptor *resolved_packages, const ProResCache_t &cache,
               const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
   const auto &ref_func_map = resolved_packages->RefinementFncsToIDs();
   for (const auto &[func, idx] : ref_func_map) {
@@ -43,13 +43,14 @@ void Restrict(const StateDescriptor *resolved_packages, const BvarsSubCache_t &c
     loops::Idx_t subset = Kokkos::subview(cache.buffer_subsets, idx, Kokkos::ALL());
     loops::IdxHost_t subset_h =
         Kokkos::subview(cache.buffer_subsets_h, idx, Kokkos::ALL());
-    restrictor(cache.bnd_info, cache.bnd_info_h, subset, subset_h, cellbnds, c_cellbnds,
-               cache.buffer_subset_sizes[idx]);
+    restrictor(cache.prores_info, cache.prores_info_h, subset, subset_h, cellbnds,
+               c_cellbnds, cache.buffer_subset_sizes[idx]);
   }
 }
 
-void Prolongate(const StateDescriptor *resolved_packages, const BvarsSubCache_t &cache,
-                const IndexShape &cellbnds, const IndexShape &c_cellbnds) {
+void ProlongateShared(const StateDescriptor *resolved_packages,
+                      const ProResCache_t &cache, const IndexShape &cellbnds,
+                      const IndexShape &c_cellbnds) {
   const auto &ref_func_map = resolved_packages->RefinementFncsToIDs();
   for (const auto &[func, idx] : ref_func_map) {
     auto prolongator = func.prolongator;
@@ -57,13 +58,13 @@ void Prolongate(const StateDescriptor *resolved_packages, const BvarsSubCache_t 
     loops::Idx_t subset = Kokkos::subview(cache.buffer_subsets, idx, Kokkos::ALL());
     loops::IdxHost_t subset_h =
         Kokkos::subview(cache.buffer_subsets_h, idx, Kokkos::ALL());
-    prolongator(cache.bnd_info, cache.bnd_info_h, subset, subset_h, cellbnds, c_cellbnds,
-                cache.buffer_subset_sizes[idx]);
+    prolongator(cache.prores_info, cache.prores_info_h, subset, subset_h, cellbnds,
+                c_cellbnds, cache.buffer_subset_sizes[idx]);
   }
 }
 
 void ProlongateInternal(const StateDescriptor *resolved_packages,
-                        const BvarsSubCache_t &cache, const IndexShape &cellbnds,
+                        const ProResCache_t &cache, const IndexShape &cellbnds,
                         const IndexShape &c_cellbnds) {
   const auto &ref_func_map = resolved_packages->RefinementFncsToIDs();
   for (const auto &[func, idx] : ref_func_map) {
@@ -73,8 +74,8 @@ void ProlongateInternal(const StateDescriptor *resolved_packages,
     loops::Idx_t subset = Kokkos::subview(cache.buffer_subsets, idx, Kokkos::ALL());
     loops::IdxHost_t subset_h =
         Kokkos::subview(cache.buffer_subsets_h, idx, Kokkos::ALL());
-    internal_prolongator(cache.bnd_info, cache.bnd_info_h, subset, subset_h, cellbnds,
-                         c_cellbnds, cache.buffer_subset_sizes[idx]);
+    internal_prolongator(cache.prores_info, cache.prores_info_h, subset, subset_h,
+                         cellbnds, c_cellbnds, cache.buffer_subset_sizes[idx]);
   }
 }
 
