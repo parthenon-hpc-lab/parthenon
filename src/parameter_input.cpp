@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -188,6 +188,9 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       param_name = multiline_name;
       param_value = multiline_value;
       param_comment = multiline_comment;
+      multiline_name = "";
+      multiline_value = "";
+      multiline_comment = "";
     }
 
     if (!continuing) {
