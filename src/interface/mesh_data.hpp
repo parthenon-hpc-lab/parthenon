@@ -230,7 +230,7 @@ class MeshData {
   void Set(BlockList_t blocks, Mesh *pm) {
     const int nblocks = blocks.size();
     block_data_.resize(nblocks);
-    SetMeshPointer(pmy);
+    SetMeshPointer(pm);
     for (int i = 0; i < nblocks; i++) {
       block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
     }
