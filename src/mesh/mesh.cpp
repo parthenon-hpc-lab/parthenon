@@ -1173,9 +1173,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
   } while (!init_done);
 
-  PARTHENON_REQUIRE_THROWS(nbtotal >= Globals::nranks,
-    "After initialization, there are fewer meshblocks than ranks. Parthenon requires at "
-    "least as many blocks as ranks. Change your settings and try again.");
+  PARTHENON_WARN(nbtotal >= Globals::nranks,
+    "Fewer meshblocks than ranks.  Some ranks will be idle.");
 
   // Initialize the "base" MeshData object
   mesh_data.Get()->Set(block_list);
