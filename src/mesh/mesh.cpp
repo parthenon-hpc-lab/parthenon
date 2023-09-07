@@ -1173,8 +1173,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
   } while (!init_done);
 
-  PARTHENON_WARN(nbtotal >= Globals::nranks,
-    "Fewer meshblocks than ranks.  Some ranks will be idle.");
+  if (nbtotal < Globals::nranks) {
+    PARTHENON_WARN("Fewer meshblocks than ranks.  Some ranks will be idle.");
+  }
 
   // Initialize the "base" MeshData object
   mesh_data.Get()->Set(block_list);
