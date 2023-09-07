@@ -356,7 +356,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // get list of all vars, just use the first block since the list is the same for all
   // blocks
   std::vector<VarInfo> all_vars_info;
-  const auto vars = get_vars(pm->block_list.front());
+  const auto vars = (pm->block_list.size() > 0) 
+                    ? get_vars(pm->block_list.front())
+                    : VariableVector<Real>();
   for (auto &v : vars) {
     all_vars_info.emplace_back(v);
   }
