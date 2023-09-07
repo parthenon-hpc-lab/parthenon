@@ -1173,12 +1173,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
   } while (!init_done);
 
-  if (nbtotal < Globals::nranks) {
+  if (Globals::my_rank == 0 && nbtotal < Globals::nranks) {
     PARTHENON_WARN("Fewer meshblocks than ranks.  Some ranks will be idle.");
   }
 
   // Initialize the "base" MeshData object
-  mesh_data.Get()->Set(block_list);
+  mesh_data.Get()->Set(block_list, this);
 
   Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }
