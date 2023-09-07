@@ -80,8 +80,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   const IndexDomain theDomain =
       (output_params.include_ghost_zones ? IndexDomain::entire : IndexDomain::interior);
 
-  auto const &first_block = *(pm->block_list.front());
-
   auto [cellbounds, c_cellbounds] = pm->GetCellBounds();
   const IndexRange out_ib = cellbounds.GetBoundsI(theDomain);
   const IndexRange out_jb = cellbounds.GetBoundsJ(theDomain);
