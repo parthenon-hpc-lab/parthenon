@@ -248,7 +248,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
                 [&](const int idx) {
-                  const auto [t, u, v, k, j, i] = idxer(idx);
+                  const auto [t, u, v, k, j, i] = idxer(idx * Ni);
                   Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
                   Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
                   // Have to do this because of some weird issue about structure bindings
@@ -267,7 +267,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
                 [&](const int idx) {
-                  const auto [t, u, v, k, j, i] = idxer(idx);
+                  const auto [t, u, v, k, j, i] = idxer(idx * Ni);
                   Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
                   const int kk = k;
                   const int jj = j;
