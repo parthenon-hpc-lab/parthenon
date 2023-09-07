@@ -274,7 +274,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
             pack.flux(b, X2DIR, var_t(), k + 1, j, i) = (pack(b, te, var_t(), k, j, i) 
                                                        - pack(b, te, var_t(), k + 1, j, i)) / dx3;
         }
+        printf("b = %i i = %i flux = %e (%e - %e)\n", b, i, pack.flux(b, X1DIR, var_t(), k, j, i), pack(b, te, var_t(), k, j, i - 1), pack(b, te, var_t(), k, j, i));
+        if (i==ib.e)
+          printf("b = %i i = %i flux = %e (%e - %e)\n", b, i + 1, pack.flux(b, X1DIR, var_t(), k, j, i + 1), pack(b, te, var_t(), k, j, i), pack(b, te, var_t(), k, j, i + 1));
       });
+      printf("\n");
   return TaskStatus::complete;
 }
 
@@ -345,7 +349,7 @@ TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight) {
           diag_elem -= 2.0 / (dx3 * dx3);
         } 
 
-        // Get the off-diagonal contribution to (A - D + D)x = y
+        // Get the off-diagonal contribution to Ax = (D + L + U)x = y
         Real off_diag = pack(b, te, div_t(), k, j, i) - diag_elem * pack(b, te, in_t(), k, j, i); 
         
         Real val = pack(b, te, rhs(), k, j, i) - off_diag;
@@ -360,9 +364,6 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md,
                              const std::string &label) {
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire, te);
 
   auto desc = parthenon::MakePackDescriptor<vars...>(md.get());
   auto pack = desc.GetPack(md.get());

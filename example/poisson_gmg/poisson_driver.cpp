@@ -192,7 +192,9 @@ TaskID AddResidualCalc(TaskList &tl, TaskID depends_on, std::shared_ptr<MeshData
   auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
   auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md); 
   auto Ax_res = tl.AddTask(set_flxcor, FluxMultiplyMatrix<u, temp>, md); 
-  return tl.AddTask(Ax_res, AddFieldsAndStore<rhs, temp, res_err>, md, 1.0, -1.0);
+  auto get_res =  tl.AddTask(Ax_res, AddFieldsAndStore<rhs, temp, res_err>, md, 1.0, -1.0);
+  get_res = tl.AddTask(get_res, PrintChosenValues<u, temp, rhs, res_err>, md, "x, Ax, rhs, res_err");
+  return get_res;
 }
 
 void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level,
