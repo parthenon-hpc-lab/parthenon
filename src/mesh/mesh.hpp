@@ -222,6 +222,15 @@ class Mesh {
     return resolved_packages->GetVariableNames(std::forward<Args>(args)...);
   }
 
+  std::pair<IndexShape, IndexShape> GetCellBounds() const {
+    auto cb = [&](const int rfact) {
+      return IndexShape((ndim > 2) * block_size.nx(X3DIR)/rfact,
+                        (ndim > 1) * block_size.nx(X2DIR)/rfact,
+                        block_size.nx(X1DIR)/rfact, multilevel*Globals::nghost);
+    };
+    return std::make_pair(cb(1), cb(2));
+  }
+
  private:
   // data
   int root_level, max_level, current_level;
@@ -268,15 +277,6 @@ class Mesh {
 
   // functions
   MeshGenFunc MeshGenerator_[4];
-
-  std::pair<IndexShape, IndexShape> GetCellBounds() const {
-    auto cb = [&](const int rfact) {
-      return IndexShape((ndim > 2) * block_size.nx(X3DIR)/rfact,
-                        (ndim > 1) * block_size.nx(X2DIR)/rfact,
-                        block_size.nx(X1DIR)/rfact, multilevel*Globals::nghost);
-    };
-    return std::make_pair(cb(1), cb(2));
-  }
 
   void ResetLoadBalanceVariables();
 
