@@ -160,7 +160,7 @@ class SparsePack : public SparsePackBase {
 #ifdef ENABLE_LB_TIMERS
   // Methods used for timing blocks
   KOKKOS_INLINE_FUNCTION
-  const int GetLid(const int b) const {
+  int GetLid(const int b) const {
     return lid_(b);
   }
 
