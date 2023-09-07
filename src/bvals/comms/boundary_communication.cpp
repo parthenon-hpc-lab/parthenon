@@ -82,8 +82,6 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
-  for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf)   
-    sending_nonzero_flags_h(ibuf) = true; 
   
   Kokkos::parallel_for(
       "SendBoundBufs",
