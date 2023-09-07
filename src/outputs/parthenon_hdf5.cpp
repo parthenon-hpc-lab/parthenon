@@ -82,9 +82,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   auto const &first_block = *(pm->block_list.front());
 
-  const IndexRange out_ib = first_block.cellbounds.GetBoundsI(theDomain);
-  const IndexRange out_jb = first_block.cellbounds.GetBoundsJ(theDomain);
-  const IndexRange out_kb = first_block.cellbounds.GetBoundsK(theDomain);
+  auto [cellbounds, c_cellbounds] = pm->GetCellBounds();
+  const IndexRange out_ib = cellbounds.GetBoundsI(theDomain);
+  const IndexRange out_jb = cellbounds.GetBoundsJ(theDomain);
+  const IndexRange out_kb = cellbounds.GetBoundsK(theDomain);
 
   auto const nx1 = out_ib.e - out_ib.s + 1;
   auto const nx2 = out_jb.e - out_jb.s + 1;
@@ -152,7 +153,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                        info_group);
     // write number of ghost cells in simulation
     HDF5WriteAttribute("NGhost", Globals::nghost, info_group);
-    HDF5WriteAttribute("Coordinates", std::string(first_block.coords.Name()).c_str(),
+    auto coords = Coordinates_t();
+    HDF5WriteAttribute("Coordinates", std::string(coords.Name()).c_str(),
                        info_group);
 
     // restart info, write always
