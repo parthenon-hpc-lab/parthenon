@@ -379,13 +379,13 @@ double CalculateNewBalance(std::vector<double> const &cost, std::vector<int> &st
   // set the bounds for the search
   double a = avg_cost;
   double b = std::max(2.0*avg_cost, 1.01*max_block_cost);
-  Real h = b - a;
-  constexpr Real invphi = 0.618033988749894848204586834366;
-  constexpr Real invphi2 = 0.38196601125010515179541316563436188228;
-  Real c = a + invphi2 * h;
-  Real d = a + invphi * h;
-  Real yc = DistributeTrial(cost, start, nb, max_rank, c);
-  Real yd = DistributeTrial(cost, start, nb, max_rank, d);
+  double h = b - a;
+  constexpr double invphi = 0.618033988749894848204586834366;
+  constexpr double invphi2 = 0.38196601125010515179541316563436188228;
+  double c = a + invphi2 * h;
+  double d = a + invphi * h;
+  double yc = DistributeTrial(cost, start, nb, max_rank, c);
+  double yd = DistributeTrial(cost, start, nb, max_rank, d);
 
   while (yc != yd) {
     if (yc < yd) {
@@ -463,6 +463,7 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &cost,
                                 std::vector<int> &nb) {
   Kokkos::Profiling::pushRegion("CalculateLoadBalance");
   if ((lb_automatic_ || lb_manual_)) {
+    SetSimpleBalance(cost.size(), start, nb);
     auto [avg_cost, max_block_cost, max_rank_cost] = BlockCostInfo(cost, start, nb);
     double new_max = CalculateNewBalance(cost, start, nb, avg_cost, max_block_cost);
 
@@ -688,7 +689,7 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       double new_max = CalculateNewBalance(costlist, start_trial, nb_trial, avg_cost, max_block_cost);
       Kokkos::Profiling::popRegion();
       // if the improvement isn't large enough, just return because we're done
-      if ((max_rank_cost - new_max)/max_block_cost < lb_tolerance_) return false;
+      if ((max_rank_cost - new_max)/max_rank_cost < lb_tolerance_) return false;
       newrank.resize(ntot);
       AssignBlocks(start_trial, nb_trial, newrank);
       nslist = std::move(start_trial);

@@ -411,7 +411,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   nslist = std::vector<int>(Globals::nranks);
   nblist = std::vector<int>(Globals::nranks);
-  SetSimpleBalance(nbtotal, nslist, nblist);
   if (adaptive) { // allocate arrays for AMR
     nref = std::vector<int>(Globals::nranks);
     nderef = std::vector<int>(Globals::nranks);
