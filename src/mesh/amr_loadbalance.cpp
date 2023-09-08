@@ -417,17 +417,25 @@ void AssignBlocks(const std::vector<int> &start, const std::vector<int> &nb, std
   }
 }
 
-std::tuple<double, double> BlockCostInfo(std::vector<double> const &cost) {
+std::tuple<double, double, double> BlockCostInfo(std::vector<double> const &cost,
+                                                 std::vector<int> const &start,
+                                                 std::vector<int> const &nb) {
   const int nblocks = cost.size();
   const int max_rank = std::min(Globals::nranks, nblocks);
   double avg_cost = 0.0;
   double max_block_cost = 0.0;
-  for (int b = 0; b < nblocks; b++) {
-    avg_cost += cost[b];
-    max_block_cost = std::max(max_block_cost, cost[b]);
+  double max_rank_cost = 0.0;
+  for (int i = 0; i < max_rank; i++) {
+    double rank_cost = 0.0;
+    for (int b = start[i]; b < start[i] + nb[i]; b++) {
+      rank_cost += cost[b];
+      avg_cost += cost[b];
+      max_block_cost = std::max(max_block_cost, cost[b]);
+    }
+    max_rank_cost = std::max(max_rank_cost, rank_cost);
   }
   avg_cost /= max_rank;
-  return std::make_tuple(avg_cost, max_block_cost);
+  return std::make_tuple(avg_cost, max_block_cost, max_rank_cost);
 }
 
 void SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vector<int> &nb) {
@@ -451,7 +459,7 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &cost,
                                 std::vector<int> &nb) {
   Kokkos::Profiling::pushRegion("CalculateLoadBalance");
   if ((lb_automatic_ || lb_manual_)) {
-    auto [avg_cost, max_block_cost] = BlockCostInfo(cost);
+    auto [avg_cost, max_block_cost, max_rank_cost] = BlockCostInfo(cost, start, nb);
     double new_max = CalculateNewBalance(cost, start, nb, avg_cost, max_block_cost);
 
   } else {
@@ -670,13 +678,13 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // and only move things around if needed
     if (lb_automatic_ || lb_manual_) {
       Kokkos::Profiling::pushRegion("Reloadbalance");
-      auto [avg_cost, max_block_cost] = BlockCostInfo(costlist);
+      auto [avg_cost, max_block_cost, max_rank_cost] = BlockCostInfo(costlist, nslist, nblist);
       std::vector<int> start_trial(Globals::nranks);
       std::vector<int> nb_trial(Globals::nranks);
       double new_max = CalculateNewBalance(costlist, start_trial, nb_trial, avg_cost, max_block_cost);
       Kokkos::Profiling::popRegion();
       // if the improvement isn't large enough, just return because we're done
-      if ((max_block_cost - new_max)/max_block_cost < lb_tolerance_) return false;
+      if ((max_rank_cost - new_max)/max_block_cost < lb_tolerance_) return false;
       newrank.resize(ntot);
       AssignBlocks(start_trial, nb_trial, newrank);
       nslist = std::move(start_trial);
