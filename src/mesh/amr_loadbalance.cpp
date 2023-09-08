@@ -438,7 +438,9 @@ std::tuple<double, double, double> BlockCostInfo(std::vector<double> const &cost
   return std::make_tuple(avg_cost, max_block_cost, max_rank_cost);
 }
 
-void SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vector<int> &nb) {
+} // namespace
+
+void Mesh::SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vector<int> &nb) {
   const int max_rank = std::min(nblocks, Globals::nranks);
   int nassign = nblocks/max_rank;
   start[0] = 0;
@@ -450,9 +452,11 @@ void SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vector<in
     nb[i] = nassign;
     nassigned += nassign;
   }
+  for (int i = max_rank; i < Globals::nranks; i++) {
+    start[i] = 0;
+    nb[i] = 0;
+  }
 }
-
-} // namespace
 
 void Mesh::CalculateLoadBalance(std::vector<double> const &cost,
                                 std::vector<int> &rank, std::vector<int> &start,

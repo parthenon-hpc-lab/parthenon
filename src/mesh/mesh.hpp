@@ -280,6 +280,7 @@ class Mesh {
 
   void ResetLoadBalanceVariables();
 
+  void SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vector<int> &nb);
   void CalculateLoadBalance(std::vector<double> const &cost,
                             std::vector<int> &rank, std::vector<int> &start,
                             std::vector<int> &nb);
