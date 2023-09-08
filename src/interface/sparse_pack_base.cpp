@@ -289,21 +289,21 @@ template SparsePackBase SparsePackBase::Build<MeshData<Real>>(MeshData<Real> *,
 template <class T>
 SparsePackBase &SparsePackCache::Get(T *pmd, const PackDescriptor &desc,
                                      const std::vector<bool> &include_block) {
-  std::string ident = GetIdentifier(desc, include_block);
-  if (pack_map.count(ident) > 0) {
-    auto &pack = pack_map[ident].first;
+  //std::string ident = GetIdentifier(desc, include_block);
+  if (auto pack_pair = pack_map.find(desc.identifier); pack_pair != pack_map.end()) {
+    auto &pack = pack_pair->second;
     auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc, include_block);
-    auto &alloc_status = pack_map[ident].second;
+    auto &alloc_status = pack.second;
     if (alloc_status.size() != alloc_status_in.size())
-      return BuildAndAdd(pmd, desc, ident, include_block);
+      return BuildAndAdd(pmd, desc, include_block);
     for (int i = 0; i < alloc_status_in.size(); ++i) {
       if (alloc_status[i] != alloc_status_in[i])
-        return BuildAndAdd(pmd, desc, ident, include_block);
+        return BuildAndAdd(pmd, desc, include_block);
     }
     // Cached version is not stale, so just return a reference to it
-    return pack_map[ident].first;
+    return pack.first;
   }
-  return BuildAndAdd(pmd, desc, ident, include_block);
+  return BuildAndAdd(pmd, desc, include_block);
 }
 template SparsePackBase &SparsePackCache::Get<MeshData<Real>>(MeshData<Real> *,
                                                               const PackDescriptor &,
@@ -314,20 +314,17 @@ SparsePackCache::Get<MeshBlockData<Real>>(MeshBlockData<Real> *, const PackDescr
 
 template <class T>
 SparsePackBase &SparsePackCache::BuildAndAdd(T *pmd, const PackDescriptor &desc,
-                                             const std::string &ident,
                                              const std::vector<bool> &include_block) {
-  if (pack_map.count(ident) > 0) pack_map.erase(ident);
-  pack_map[ident] = {SparsePackBase::Build(pmd, desc, include_block),
-                     SparsePackBase::GetAllocStatus(pmd, desc, include_block)};
-  return pack_map[ident].first;
+  if (pack_map.count(desc.identifier) > 0) pack_map.erase(desc.identifier);
+  pack_map[desc.identifier] = {SparsePackBase::Build(pmd, desc, include_block),
+                               SparsePackBase::GetAllocStatus(pmd, desc, include_block)};
+  return pack_map[desc.identifier].first;
 }
 template SparsePackBase &
 SparsePackCache::BuildAndAdd<MeshData<Real>>(MeshData<Real> *, const PackDescriptor &,
-                                             const std::string &,
                                              const std::vector<bool> &);
 template SparsePackBase &SparsePackCache::BuildAndAdd<MeshBlockData<Real>>(
-    MeshBlockData<Real> *, const PackDescriptor &, const std::string &,
-    const std::vector<bool> &);
+    MeshBlockData<Real> *, const PackDescriptor &, const std::vector<bool> &);
 
 std::string SparsePackCache::GetIdentifier(const PackDescriptor &desc,
                                            const std::vector<bool> &include_block) const {
