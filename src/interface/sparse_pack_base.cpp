@@ -289,17 +289,17 @@ template SparsePackBase SparsePackBase::Build<MeshData<Real>>(MeshData<Real> *,
 template <class T>
 SparsePackBase &SparsePackCache::Get(T *pmd, const PackDescriptor &desc,
                                      const std::vector<bool> &include_block) {
-  std::string ident = GetIdentifier(pmd, desc, include_block);
+  std::string ident = GetIdentifier(desc, include_block);
   if (pack_map.count(ident) > 0) {
-    //auto &pack = pack_map[ident].first;
-    //auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc, include_block);
-    //auto &alloc_status = pack_map[ident].second;
-    //if (alloc_status.size() != alloc_status_in.size())
-      //return BuildAndAdd(pmd, desc, ident, include_block);
-    //for (int i = 0; i < alloc_status_in.size(); ++i) {
-      //if (alloc_status[i] != alloc_status_in[i])
-        //return BuildAndAdd(pmd, desc, ident, include_block);
-    //}
+    auto &pack = pack_map[ident].first;
+    auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc, include_block);
+    auto &alloc_status = pack_map[ident].second;
+    if (alloc_status.size() != alloc_status_in.size())
+      return BuildAndAdd(pmd, desc, ident, include_block);
+    for (int i = 0; i < alloc_status_in.size(); ++i) {
+      if (alloc_status[i] != alloc_status_in[i])
+        return BuildAndAdd(pmd, desc, ident, include_block);
+    }
     // Cached version is not stale, so just return a reference to it
     return pack_map[ident].first;
   }
@@ -329,8 +329,7 @@ template SparsePackBase &SparsePackCache::BuildAndAdd<MeshBlockData<Real>>(
     MeshBlockData<Real> *, const PackDescriptor &, const std::string &,
     const std::vector<bool> &);
 
-template <class T>
-std::string SparsePackCache::GetIdentifier(T *pmd, const PackDescriptor &desc,
+std::string SparsePackCache::GetIdentifier(const PackDescriptor &desc,
                                            const std::vector<bool> &include_block) const {
   std::string identifier("");
   for (const auto &vgroup : desc.var_groups) {
@@ -345,11 +344,6 @@ std::string SparsePackCache::GetIdentifier(T *pmd, const PackDescriptor &desc,
   identifier += "|";
   for (const auto b : include_block) {
     identifier += std::to_string(b);
-  }
-  identifier += "|";
-  auto alloc_status = SparsePackBase::GetAllocStatus(pmd, desc, include_block);
-  for (const auto a : alloc_status) {
-    identifier += std::to_string(a);
   }
   return identifier;
 }
