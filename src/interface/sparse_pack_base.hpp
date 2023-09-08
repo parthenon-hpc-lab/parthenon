@@ -124,7 +124,8 @@ class SparsePackCache {
                               const std::string &ident,
                               const std::vector<bool> &include_block);
 
-  std::string GetIdentifier(const impl::PackDescriptor &desc,
+  template <class T>
+  std::string GetIdentifier(T *pmd, const impl::PackDescriptor &desc,
                             const std::vector<bool> &include_block) const;
   std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
       pack_map;
