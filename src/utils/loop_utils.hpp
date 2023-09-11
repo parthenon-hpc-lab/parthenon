@@ -69,14 +69,6 @@ inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
   return LoopControl::cont;
 }
 
-constexpr bool IsGMGCoarseToFine(BoundaryType bound) {
-  return bound == BoundaryType::gmg_prolongate_send ||
-         bound == BoundaryType::gmg_restrict_recv;
-}
-constexpr bool IsGMGFineToCoarse(BoundaryType bound) {
-  return bound == BoundaryType::gmg_prolongate_recv ||
-         bound == BoundaryType::gmg_restrict_send;
-}
 // Loop over boundaries (or shared geometric elements) for blocks contained
 // in MeshData, calling the passed function func for every boundary. Unifies
 // boundary looping that occurs in many places in the boundary communication
@@ -90,15 +82,31 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
     auto pmb = rc->GetBlockPointer();
     // CheckNeighborFinding(pmb, "Boundary Loop");
     for (auto &v : rc->GetVariableVector()) {
-      if constexpr (IsGMGFineToCoarse(bound)) {
-        if (v->IsSet(Metadata::GMG)) {
+      if constexpr (bound == BoundaryType::gmg_restrict_send) {
+        if (v->IsSet(Metadata::GMGRestrict)) {
           for (auto &nb : pmb->gmg_coarser_neighbors) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }
-      } else if constexpr (IsGMGCoarseToFine(bound)) {
-        if (v->IsSet(Metadata::GMG)) {
+      } else if constexpr (bound == BoundaryType::gmg_restrict_recv) {
+        if (v->IsSet(Metadata::GMGRestrict)) {
           for (auto &nb : pmb->gmg_finer_neighbors) {
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
+              return;
+            }
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_prolongate_send) {
+        if (v->IsSet(Metadata::GMGProlongate)) {
+          for (auto &nb : pmb->gmg_finer_neighbors) {
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
+              return;
+            }
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_prolongate_recv) {
+        if (v->IsSet(Metadata::GMGProlongate)) {
+          for (auto &nb : pmb->gmg_coarser_neighbors) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
               return;
             }

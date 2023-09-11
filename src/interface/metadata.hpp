@@ -111,7 +111,9 @@
   /** the variable needs to be communicated across ranks during remeshing */             \
   PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)                                           \
   /** the variable participate in GMG calculations */                                    \
-  PARTHENON_INTERNAL_FOR_FLAG(GMG)
+  PARTHENON_INTERNAL_FOR_FLAG(GMGProlongate)                                             \
+  /** the variable participate in GMG calculations */                                    \
+  PARTHENON_INTERNAL_FOR_FLAG(GMGRestrict)
 namespace parthenon {
 
 namespace internal {
