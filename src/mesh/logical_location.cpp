@@ -119,8 +119,8 @@ bool LogicalLocation::NeighborFindingImpl(const LogicalLocation &in,
   const auto block_size_2 = 1 << level_shift_2;
 
   // TODO(LFR): Think about what this should do when we are above the root level
-  const int n_per_root_block = 1 << (max_level - rg_info.level);
-  const int root_block_per_n = 1 << (rg_info.level - max_level);
+  const int n_per_root_block = 1 << std::max(max_level - rg_info.level, 0);
+  const int root_block_per_n = 1 << std::max(rg_info.level - max_level, 0);
   std::array<bool, 3> b;
 
   for (int i = 0; i < 3; ++i) {
