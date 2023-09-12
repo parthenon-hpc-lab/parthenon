@@ -52,6 +52,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::string smoother_method = pin->GetOrAddString("poisson", "smoother", "SRJ2");
   pkg->AddParam<>("smoother", smoother_method);
+  
+  bool do_FAS = pin->GetOrAddBoolean("poisson", "do_FAS", false);
+  pkg->AddParam<>("do_FAS", do_FAS);
 
   int check_interval = pin->GetOrAddInteger("poisson", "check_interval", 100);
   pkg->AddParam<>("check_interval", check_interval);
@@ -78,7 +81,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
   using namespace parthenon::refinement_ops;
   auto mres_err =
-      Metadata({te_type, Metadata::Independent, Metadata::FillGhost, Metadata::GMG});
+      Metadata({te_type, Metadata::Independent, Metadata::FillGhost, Metadata::GMGRestrict, Metadata::GMGProlongate});
   mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(res_err::name(), mres_err);
 
@@ -90,13 +93,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(r::name(), mrhs);
   pkg->AddField(p::name(), mrhs);
   pkg->AddField(x::name(), mrhs);
+  pkg->AddField(u0::name(), mrhs);
   pkg->AddField(Adotp::name(), mrhs);
   
+  auto mflux_comm = Metadata({te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes, Metadata::GMGRestrict});
+  mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  pkg->AddField(u::name(), mflux_comm);
+
   auto mflux = Metadata({te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
   mflux.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
-  pkg->AddField(u::name(), mflux);
   pkg->AddField(temp::name(), mflux);
-
+  
   auto mAs =
       Metadata({te_type, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{3});
   auto mA = Metadata({te_type, Metadata::Derived, Metadata::OneCopy});

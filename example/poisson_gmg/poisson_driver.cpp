@@ -141,15 +141,23 @@ TaskID AddSRJIteration(TaskList &tl, TaskID depends_on, int stages, bool multile
   using namespace poisson_package;
   int ndim = md->GetParentPointer()->ndim;
 
+  std::array<std::array<Real, 3>, 3> omega_M1{
+      {{1.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {1.0, 0.0, 0.0}}};
   // Damping factors from Yang & Mittal (2017)
   std::array<std::array<Real, 3>, 3> omega_M2{
       {{0.8723, 0.5395, 0.0000}, {1.3895, 0.5617, 0.0000}, {1.7319, 0.5695, 0.0000}}};
   std::array<std::array<Real, 3>, 3> omega_M3{
       {{0.9372, 0.6667, 0.5173}, {1.6653, 0.8000, 0.5264}, {2.2473, 0.8571, 0.5296}}};
-  auto omega = omega_M2;
+  
+  auto omega = omega_M1;
+  if (stages == 2) omega = omega_M2;
   if (stages == 3) omega = omega_M3;
   
   auto jacobi1 = AddJacobiIteration<u, temp>(tl, depends_on, multilevel, omega[ndim - 1][0], md); 
+  if (stages < 2) {
+    jacobi1 = AddBoundaryExchangeTasks(jacobi1, tl, md, multilevel);
+    return tl.AddTask(jacobi1, CopyData<temp, u>, md);
+  }
   auto jacobi2 = AddJacobiIteration<temp, u>(tl, jacobi1, multilevel, omega[ndim - 1][1], md); 
   if (stages < 3) return jacobi2; 
   auto jacobi3 = AddJacobiIteration<u, temp>(tl, jacobi2, multilevel, omega[ndim - 1][2], md); 
@@ -183,19 +191,19 @@ TaskID AddRBGSIteration(TaskList &tl, TaskID depends_on, int iters, bool multile
   return previous_iter;
 }
 
-TaskID AddResidualCalc(TaskList &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md) {
+template <class x_t, class y_t, class out_t>
+TaskID Axpy(TaskList &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md, Real weight_Ax, Real weight_y) {
   using namespace parthenon;
   using namespace poisson_package;
-  auto flux_res = tl.AddTask(depends_on, CalculateFluxes<u>, md);
+  auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t>, md);
   auto start_flxcor = tl.AddTask(flux_res, StartReceiveFluxCorrections, md);
   auto send_flxcor = tl.AddTask(flux_res, LoadAndSendFluxCorrections, md);
   auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
   auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md); 
-  auto Ax_res = tl.AddTask(set_flxcor, FluxMultiplyMatrix<u, temp>, md); 
-  auto get_res =  tl.AddTask(Ax_res, AddFieldsAndStore<rhs, temp, res_err>, md, 1.0, -1.0);
-  get_res = tl.AddTask(get_res, PrintChosenValues<u, temp, rhs, res_err>, md, "x, Ax, rhs, res_err");
-  return get_res;
+  auto Ax_res = tl.AddTask(set_flxcor, FluxMultiplyMatrix<x_t, temp>, md); 
+  return tl.AddTask(Ax_res, AddFieldsAndStore<temp, y_t, out_t>, md, weight_Ax, weight_y);
 }
+
 
 void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level,
                                            int max_level, bool final) {
@@ -209,7 +217,11 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
   auto smoother = pkg->Param<std::string>("smoother");
   int pre_stages = pkg->Param<int>("pre_smooth_iterations");
   int post_stages = pkg->Param<int>("post_smooth_iterations");
-  if (smoother == "SRJ2") {
+  bool do_FAS = pkg->Param<bool>("do_FAS");
+  if (smoother == "SRJ1") {
+    pre_stages = 1;
+    post_stages = 1;
+  } else if (smoother == "SRJ2") {
     pre_stages = 2;
     post_stages = 2;
   } else if (smoother == "SRJ3") {
@@ -223,6 +235,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
     TaskList &tl = region[i + (max_level - level) * num_partitions];
 
     auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", i);
+    // 0.1 Build the matrix on this level
+    auto build_matrix = tl.AddTask(none, BuildMatrix, md);
 
     // 0. Receive residual from coarser level if there is one
     auto set_from_finer = none;
@@ -232,15 +246,21 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
           tl.AddTask(none, ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>, md);
       set_from_finer =
           tl.AddTask(recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md);
-      auto zero_u = tl.AddTask(none, SetToZero<u>, md);
       // 1. Copy residual from dual purpose communication field to the rhs, should be
       // actual RHS for finest level
-      auto copy_rhs = tl.AddTask(set_from_finer, CopyData<res_err, rhs>, md);
-      set_from_finer = zero_u | copy_rhs;
+      auto copy_u = tl.AddTask(set_from_finer, CopyData<u, u0>, md);
+      if (!do_FAS) {
+        auto zero_u = tl.AddTask(copy_u, SetToZero<u>, md);
+        auto copy_rhs = tl.AddTask(set_from_finer, CopyData<res_err, rhs>, md);
+        set_from_finer = zero_u | copy_u | copy_rhs;
+      } else {
+        set_from_finer = AddBoundaryExchangeTasks(set_from_finer, tl, md, multilevel);
+        set_from_finer = Axpy<u, res_err, rhs>(tl, set_from_finer, md, 1.0, 1.0); 
+        set_from_finer = set_from_finer | copy_u;
+      }
     }
 
-    // 0.1 Build the matrix on this level
-    auto build_matrix = tl.AddTask(none, BuildMatrix, md);
+    
 
     // 2. Do pre-smooth and fill solution on this level
     auto pre_smooth = set_from_finer | build_matrix;
@@ -250,10 +270,14 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
     } else if (smoother == "RBGS") {
       pre_smooth =
           AddRBGSIteration(tl, set_from_finer | build_matrix, pre_stages, multilevel, md);
-    } else if (smoother == "SRJ2" || smoother == "SRJ3") {
+    } else if (smoother == "SRJ1" || smoother == "SRJ2" || smoother == "SRJ3") {
       pre_smooth =
           AddSRJIteration(tl, set_from_finer | build_matrix, pre_stages, multilevel, md);
     }
+    Real u0_weight = do_FAS ? -1.0 : 0.0; 
+    pre_smooth = tl.AddTask(pre_smooth, AddFieldsAndStore<u, u0, temp>, md, 1.0, u0_weight);
+    pre_smooth = tl.AddTask(pre_smooth, PrintChosenValues<res_err, u0, temp>, md, "Pre error");
+    
 
     // If we are finer than the coarsest level:
     auto post_smooth = none;
@@ -262,7 +286,7 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
       auto comm_u = AddBoundaryExchangeTasks(pre_smooth, tl, md, multilevel);
 
       // 4. Caclulate residual and store in communication field
-      auto residual = AddResidualCalc(tl, comm_u, md);
+      auto residual = Axpy<u, rhs, res_err>(tl, comm_u, md, -1.0, 1.0);
       
       // 5. Restrict communication field and send to next level
       auto communicate_to_coarse =
@@ -286,7 +310,7 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
         post_smooth = AddGSIteration(tl, update_sol, post_stages, multilevel, md);
       } else if (smoother == "RBGS") {
         post_smooth = AddRBGSIteration(tl, update_sol, post_stages, multilevel, md);
-      } else if (smoother == "SRJ2" || smoother == "SRJ3") {
+      } else if (smoother == "SRJ1" || smoother == "SRJ2" || smoother == "SRJ3") {
         post_smooth = AddSRJIteration(tl, update_sol, post_stages, multilevel, md);
       }
     } else {
@@ -296,8 +320,14 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
     // 9. Send communication field to next finer level (should be error field for that
     // level)
     if (level < max_level) {
-      auto copy_over = tl.AddTask(post_smooth, CopyData<u, res_err>, md);
+      auto copy_over = post_smooth;
+      if (!do_FAS) {
+        auto copy_over = tl.AddTask(post_smooth, CopyData<u, res_err>, md);
+      } else {
+        auto copy_over = tl.AddTask(post_smooth, AddFieldsAndStore<u, u0, res_err>, md, 1.0, -1.0);
+      }
       auto boundary = AddBoundaryExchangeTasks(copy_over, tl, md, multilevel);
+      boundary = tl.AddTask(boundary, PrintChosenValues<res_err>, md, "Post error");
       tl.AddTask(boundary, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
     } else {
       AddBoundaryExchangeTasks(post_smooth, tl, md, multilevel);
@@ -378,7 +408,7 @@ TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
     for (int i = 0; i < num_partitions; ++i) {
       TaskList &tl = region_res[i];
       auto &md = pmesh->gmg_mesh_data[max_level].GetOrAdd(max_level, "base", i);
-      auto calc_pointwise_res = AddResidualCalc(tl, none, md); 
+      auto calc_pointwise_res = Axpy<u, rhs, res_err>(tl, none, md, -1.0, 1.0); 
       auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region_res, tl, i, reg_dep_id, &residual, md);
       if (i == 0) {
         tl.AddTask(get_res, [&](PoissonDriver *driver){

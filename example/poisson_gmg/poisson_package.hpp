@@ -34,6 +34,7 @@ VARIABLE(poisson, res_err);
 VARIABLE(poisson, rhs);
 VARIABLE(poisson, rhs_base);
 VARIABLE(poisson, u);
+VARIABLE(poisson, u0);
 VARIABLE(poisson, solution);
 VARIABLE(poisson, temp);
 VARIABLE(poisson, r);  
@@ -178,6 +179,8 @@ TaskStatus JacobiIteration(std::shared_ptr<MeshData<Real>> &md, double weight) {
         }
         pack(b, te, out_t(), k, j, i) = weight * val / pack(b, te, Ac(), k, j, i) +
                                         (1.0 - weight) * pack(b, te, in_t(), k, j, i);
+        Real rhs_v = pack(b, te, rhs(), k, j, i); 
+        printf("Jacobi: i=%i rhs=%e val-rhs=%e weight=%e out=%e\n", i, rhs_v, val - rhs_v, weight, pack(b, te, out_t(), k, j, i));
       });
   return TaskStatus::complete;
 }
@@ -274,11 +277,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
             pack.flux(b, X2DIR, var_t(), k + 1, j, i) = (pack(b, te, var_t(), k, j, i) 
                                                        - pack(b, te, var_t(), k + 1, j, i)) / dx3;
         }
-        printf("b = %i i = %i flux = %e (%e - %e)\n", b, i, pack.flux(b, X1DIR, var_t(), k, j, i), pack(b, te, var_t(), k, j, i - 1), pack(b, te, var_t(), k, j, i));
-        if (i==ib.e)
-          printf("b = %i i = %i flux = %e (%e - %e)\n", b, i + 1, pack.flux(b, X1DIR, var_t(), k, j, i + 1), pack(b, te, var_t(), k, j, i), pack(b, te, var_t(), k, j, i + 1));
+        //printf("b = %i i = %i flux = %e (%e - %e)\n", b, i, pack.flux(b, X1DIR, var_t(), k, j, i), pack(b, te, var_t(), k, j, i - 1), pack(b, te, var_t(), k, j, i));
+        //if (i==ib.e)
+        //  printf("b = %i i = %i flux = %e (%e - %e)\n", b, i + 1, pack.flux(b, X1DIR, var_t(), k, j, i + 1), pack(b, te, var_t(), k, j, i), pack(b, te, var_t(), k, j, i + 1));
       });
-      printf("\n");
+      //printf("\n");
   return TaskStatus::complete;
 }
 
@@ -397,8 +400,7 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md,
               Real dx1 = coords.template Dxc<1>(k, j, i);
               Real dx2 = coords.template Dxc<2>(k, j, i);
               std::array<Real, sizeof...(vars)> vals{pack(b, te, vars(), k, j, i)...};
-              printf("b = %i i = %2i j = %2i x = %e y = %e dx1 = %e dx2 = %e ", b, i, j,
-                     x, y, dx1, dx2);
+              printf("b = %i i = %2i x = %e dx1 = %e ", b, i, x, dx1);
               for (int v = 0; v < sizeof...(vars); ++v) {
                 printf("%e ", vals[v]);
               }
