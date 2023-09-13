@@ -103,16 +103,23 @@ TaskStatus CopyBoundaries(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 template <class a_t, class b_t, class out>
-TaskStatus AddFieldsAndStore(std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
-                             Real wb = 1.0) {
+TaskStatus AddFieldsAndStoreInteriorSelect(std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
+                             Real wb = 1.0, bool only_interior = false) {
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire, te);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire, te);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire, te);
+  
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true);
+  if (only_interior) {
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
+  }
 
   auto desc = parthenon::MakePackDescriptor<a_t, b_t, out>(md.get());
-  auto pack = desc.GetPack(md.get());
+  auto pack = desc.GetPack(md.get(), include_block);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -121,6 +128,12 @@ TaskStatus AddFieldsAndStore(std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
             wa * pack(b, te, a_t(), k, j, i) + wb * pack(b, te, b_t(), k, j, i);
       });
   return TaskStatus::complete;
+}
+
+template <class a_t, class b_t, class out>
+TaskStatus AddFieldsAndStore(std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
+                             Real wb = 1.0) {
+  return AddFieldsAndStoreInteriorSelect<a_t, b_t, out>(md, wa, wb, false);
 }
 
 template <class var>
@@ -312,7 +325,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 template <class in_t, class out_t> 
-TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md, bool only_interior) {
   using namespace parthenon;
   const int ndim = md->GetMeshPointer()->ndim;
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
@@ -321,9 +334,16 @@ TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md) {
 
   auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
   const auto alpha = pkg->Param<Real>("diagonal_alpha");
+  
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true);
+  if (only_interior) {
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
+  }
 
   auto desc = parthenon::MakePackDescriptor<in_t, out_t>(md.get(), {}, {PDOpt::WithFluxes});
-  auto pack = desc.GetPack(md.get());
+  auto pack = desc.GetPack(md.get(), include_block);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1, kb.s,
       kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -393,7 +413,8 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md,
                              const std::string &label) {
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
-
+  
+  return TaskStatus::complete;
   auto desc = parthenon::MakePackDescriptor<vars...>(md.get());
   auto pack = desc.GetPack(md.get());
   std::array<std::string, sizeof...(vars)> names{vars::name()...};
@@ -412,9 +433,9 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md,
       KOKKOS_LAMBDA(const int b, int, int) {
         auto cb = GetIndexShape(pack(b, te, 0), ng);
         const auto &coords = pack.GetCoordinates(b);
-        IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
-        IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
-        IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
+        IndexRange ib = cb.GetBoundsI(IndexDomain::entire, te);
+        IndexRange jb = cb.GetBoundsJ(IndexDomain::entire, te);
+        IndexRange kb = cb.GetBoundsK(IndexDomain::entire, te);
         // printf("b=%i i=[%i, %i] j=[%i, %i] k=[%i, %i]\n", b, ib.s, ib.e, jb.s, jb.e,
         // kb.s,
         //        kb.e);

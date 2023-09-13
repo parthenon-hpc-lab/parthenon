@@ -131,7 +131,7 @@ TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, bool multilevel, Real
   //auto send_flxcor = tl.AddTask(flux, LoadAndSendFluxCorrections, md);
   //auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
   //auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md);
-  auto mat_mult = tl.AddTask(flux, FluxMultiplyMatrix<in_t, out_t>, md); 
+  auto mat_mult = tl.AddTask(flux, FluxMultiplyMatrix<in_t, out_t>, md, false); 
   return tl.AddTask(mat_mult, FluxJacobi<out_t, in_t, out_t>, md, omega);
 }
 
@@ -152,7 +152,9 @@ TaskID AddSRJIteration(TaskList &tl, TaskID depends_on, int stages, bool multile
   auto omega = omega_M1;
   if (stages == 2) omega = omega_M2;
   if (stages == 3) omega = omega_M3;
-  
+  // This copy is to set the boundaries of temp that will not be updated by boundary communication 
+  // to the values in u
+  depends_on = tl.AddTask(depends_on, CopyData<u, temp>, md); 
   auto jacobi1 = AddJacobiIteration<u, temp>(tl, depends_on, multilevel, omega[ndim - 1][0], md); 
   if (stages < 2) {
     jacobi1 = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(jacobi1, tl, md, multilevel);
@@ -192,7 +194,7 @@ TaskID AddRBGSIteration(TaskList &tl, TaskID depends_on, int iters, bool multile
 }
 
 template <class x_t, class y_t, class out_t>
-TaskID Axpy(TaskList &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md, Real weight_Ax, Real weight_y) {
+TaskID Axpy(TaskList &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md, Real weight_Ax, Real weight_y, bool only_interior) {
   using namespace parthenon;
   using namespace poisson_package;
   auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t>, md);
@@ -200,8 +202,8 @@ TaskID Axpy(TaskList &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md
   //auto send_flxcor = tl.AddTask(flux_res, LoadAndSendFluxCorrections, md);
   //auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
   //auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md); 
-  auto Ax_res = tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, temp>, md); 
-  return tl.AddTask(Ax_res, AddFieldsAndStore<temp, y_t, out_t>, md, weight_Ax, weight_y);
+  auto Ax_res = tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, temp>, md, only_interior); 
+  return tl.AddTask(Ax_res, AddFieldsAndStoreInteriorSelect<temp, y_t, out_t>, md, weight_Ax, weight_y, only_interior);
 }
 
 
@@ -257,9 +259,11 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
         // TODO(LFR): This is wrong for AMR, need to make sure that rhs is correctly set 
         // for blocks that don't have corresponding finer blocks 
         set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(set_from_finer, tl, md, multilevel);
-        set_from_finer = Axpy<u, res_err, rhs>(tl, set_from_finer, md, 1.0, 1.0); 
+        set_from_finer = Axpy<u, res_err, rhs>(tl, set_from_finer, md, 1.0, 1.0, true); 
         set_from_finer = set_from_finer | copy_u;
       }
+    } else { 
+      set_from_finer = tl.AddTask(set_from_finer, CopyData<u, u0>, md);
     }
 
     
@@ -276,9 +280,7 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
       pre_smooth =
           AddSRJIteration(tl, set_from_finer | build_matrix, pre_stages, multilevel, md);
     }
-    Real u0_weight = do_FAS ? -1.0 : 0.0; 
-    pre_smooth = tl.AddTask(pre_smooth, AddFieldsAndStore<u, u0, temp>, md, 1.0, u0_weight);
-    pre_smooth = tl.AddTask(pre_smooth, PrintChosenValues<rhs, res_err, u0, u, temp>, md, "Pre error");
+    pre_smooth = tl.AddTask(pre_smooth, PrintChosenValues<rhs, res_err, u, u0>, md, "Post Initial Smooth");
     
 
     // If we are finer than the coarsest level:
@@ -288,8 +290,9 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
       auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md, multilevel);
 
       // 4. Caclulate residual and store in communication field
-      auto residual = Axpy<u, rhs, res_err>(tl, comm_u, md, -1.0, 1.0);
-      
+      auto residual = Axpy<u, rhs, res_err>(tl, comm_u, md, -1.0, 1.0, false);
+      pre_smooth = tl.AddTask(pre_smooth, PrintChosenValues<res_err>, md, "Pre-Restriction Residual"); 
+
       // 5. Restrict communication field and send to next level
       auto communicate_to_coarse =
           tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
@@ -310,7 +313,9 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
         // Update boundaries of solution with prolongated, new coarser solution 
         // interior boundaries on this level will be overwritten by communication 
         // on the next step
+        update_sol = tl.AddTask(update_sol, PrintChosenValues<uctof, u>, md, "Pre boundary copy");
         update_sol = tl.AddTask(update_sol, CopyBoundaries<uctof, u>, md);
+        update_sol = tl.AddTask(update_sol, PrintChosenValues<uctof, u>, md, "Post boundary copy");
       }
 
       // 8. Post smooth using communication field and stored RHS
@@ -337,9 +342,11 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
         copy_over = set_uctof | calc_err;
       }
       auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md, multilevel);
-      boundary = tl.AddTask(boundary, PrintChosenValues<res_err>, md, "Post error");
+      boundary = tl.AddTask(boundary, PrintChosenValues<rhs, uctof, u, u0, res_err>, md, "Post error");
       tl.AddTask(boundary, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
     } else {
+      post_smooth = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(post_smooth, tl, md, multilevel);
+      post_smooth = tl.AddTask(post_smooth, PrintChosenValues<rhs, uctof, u, u0>, md, "Post error (finest)");
       AddBoundaryExchangeTasks<BoundaryType::gmg_same>(post_smooth, tl, md, multilevel);
     }
   }
@@ -418,7 +425,7 @@ TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
     for (int i = 0; i < num_partitions; ++i) {
       TaskList &tl = region_res[i];
       auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-      auto calc_pointwise_res = Axpy<u, rhs, res_err>(tl, none, md, -1.0, 1.0); 
+      auto calc_pointwise_res = Axpy<u, rhs, res_err>(tl, none, md, -1.0, 1.0, false); 
       auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region_res, tl, i, reg_dep_id, &residual, md);
       if (i == 0) {
         tl.AddTask(get_res, [&](PoissonDriver *driver){
