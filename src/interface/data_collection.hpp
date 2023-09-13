@@ -36,7 +36,7 @@ template <typename T>
 class DataCollection {
  public:
   DataCollection() {
-    containers_["base"] = std::make_shared<T>(); // always add "base" container
+    containers_["base"] = std::make_shared<T>("base"); // always add "base" container
     pmy_mesh_ = nullptr;
   }
 

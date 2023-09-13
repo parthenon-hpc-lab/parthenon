@@ -62,9 +62,10 @@ class SparsePackBase {
   // Returns a SparsePackBase object that is either newly created or taken
   // from the cache in pmd. The cache itself handles the all of this logic
   template <class T>
-  static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc) {
+  static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc,
+                                const std::vector<bool> &include_block) {
     auto &cache = pmd->GetSparsePackCache();
-    return cache.Get(pmd, desc);
+    return cache.Get(pmd, desc, include_block);
   }
 
   // Return a map from variable names to pack variable indices
@@ -73,13 +74,15 @@ class SparsePackBase {
   // Get a list of booleans of the allocation status of every variable in pmd matching the
   // PackDescriptor desc
   template <class T>
-  static alloc_t GetAllocStatus(T *pmd, const impl::PackDescriptor &desc);
+  static alloc_t GetAllocStatus(T *pmd, const impl::PackDescriptor &desc,
+                                const std::vector<bool> &include_block);
 
   // Actually build a `SparsePackBase` (i.e. create a view of views, fill on host, and
   // deep copy the view of views to device) from the variables specified in desc contained
   // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
   template <class T>
-  static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc);
+  static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc,
+                              const std::vector<bool> &include_block);
 
   pack_t pack_;
   bounds_t bounds_;
@@ -106,13 +109,16 @@ class SparsePackCache {
 
  protected:
   template <class T>
-  SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
+  SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc,
+                      const std::vector<bool> &include_block);
 
   template <class T>
   SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc,
-                              const std::string &ident);
+                              const std::string &ident,
+                              const std::vector<bool> &include_block);
 
-  std::string GetIdentifier(const impl::PackDescriptor &desc) const;
+  std::string GetIdentifier(const impl::PackDescriptor &desc,
+                            const std::vector<bool> &include_block) const;
   std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
       pack_map;
 
@@ -193,6 +199,8 @@ struct PackDescriptor {
         var_group_names.push_back(std::to_string(vg));
       return var_group_names;
     }
+    // silence compiler warnings about no return statement
+    return std::vector<std::string>();
   }
 };
 } // namespace impl

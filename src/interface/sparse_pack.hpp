@@ -142,8 +142,8 @@ class SparsePack : public SparsePackBase {
     // accessed on device via instance of types in the type list Ts...
     // The pack will be created and accessible on the device
     template <class T>
-    SparsePack GetPack(T *pmd) const {
-      return SparsePack(SparsePackBase::GetPack(pmd, *this));
+    SparsePack GetPack(T *pmd, const std::vector<bool> &include_block = {}) const {
+      return SparsePack(SparsePackBase::GetPack(pmd, *this, include_block));
     }
 
     SparsePackIdxMap GetMap() const {

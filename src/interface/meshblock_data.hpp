@@ -58,6 +58,7 @@ class MeshBlockData {
   //-----------------
   /// Constructor
   MeshBlockData<T>() = default;
+  explicit MeshBlockData<T>(const std::string &name) : stage_name_(name) {}
 
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
@@ -159,6 +160,7 @@ class MeshBlockData {
   inline bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
     return IsAllocated(MakeVarLabel(base_name, sparse_id));
   }
+
 #else
   constexpr inline bool IsAllocated(std::string const & /*label*/) const noexcept {
     return true;
@@ -169,6 +171,10 @@ class MeshBlockData {
     return true;
   }
 #endif
+
+  std::vector<bool> AllocationStatus(const std::string &label) const noexcept {
+    return std::vector<bool>({IsAllocated(label)});
+  }
 
   using VarList = VarListWithKeys<T>;
 
@@ -461,6 +467,7 @@ class MeshBlockData {
   std::weak_ptr<MeshBlock> pmy_block;
   std::shared_ptr<StateDescriptor> resolved_packages_;
   bool is_shallow_ = false;
+  const std::string stage_name_;
 
   VariableVector<T> varVector_; ///< the saved variable array
   std::map<Uid_t, std::shared_ptr<Variable<T>>> varUidMap_;
