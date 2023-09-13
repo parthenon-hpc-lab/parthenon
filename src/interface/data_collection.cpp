@@ -67,7 +67,7 @@ GetOrAdd_impl(Mesh *pmy_mesh_,
     const int pack_size = pmy_mesh_->DefaultPackSize();
     auto partitions = partition::ToSizeN(block_list, pack_size);
     for (auto i = 0; i < partitions.size(); i++) {
-      const std::string md_label = mbd_label + "_part-" + std::to_string(i);
+      std::string md_label = mbd_label + "_part-" + std::to_string(i);
       if (gmg_level >= 0) md_label = md_label + "_gmg-" + std::to_string(gmg_level);
       containers_[md_label] = std::make_shared<MeshData<Real>>(mbd_label);
       containers_[md_label]->Set(partitions[i]);
