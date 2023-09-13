@@ -35,6 +35,7 @@ VARIABLE(poisson, rhs);
 VARIABLE(poisson, rhs_base);
 VARIABLE(poisson, u);
 VARIABLE(poisson, u0);
+VARIABLE(poisson, uctof);
 VARIABLE(poisson, solution);
 VARIABLE(poisson, temp);
 VARIABLE(poisson, r);  
@@ -72,6 +73,31 @@ TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         pack(b, te, out(), k, j, i) = pack(b, te, in(), k, j, i);
+      });
+  return TaskStatus::complete;
+}
+
+template <class in, class out>
+TaskStatus CopyBoundaries(std::shared_ptr<MeshData<Real>> &md) {
+  using TE = parthenon::TopologicalElement;
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire, te);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire, te);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire, te);
+  IndexRange ibi = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
+  IndexRange jbi = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kbi = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
+
+  auto desc = parthenon::MakePackDescriptor<in, out>(md.get());
+  auto pack = desc.GetPack(md.get());
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        if (i < ibi.s || i > ibi.e || 
+            j < jbi.s || j > jbi.e || 
+            k < kbi.s || k > kbi.e)
+          pack(b, te, out(), k, j, i) = pack(b, te, in(), k, j, i);
       });
   return TaskStatus::complete;
 }

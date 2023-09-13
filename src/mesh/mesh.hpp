@@ -119,7 +119,8 @@ class Mesh {
   std::shared_ptr<StateDescriptor> resolved_packages;
 
   DataCollection<MeshData<Real>> mesh_data;
-
+  
+  LogicalLocMap_t leaf_grid_locs;
   std::vector<LogicalLocMap_t> gmg_grid_locs;
   std::vector<BlockList_t> gmg_block_lists;
   std::vector<DataCollection<MeshData<Real>>> gmg_mesh_data;
@@ -289,7 +290,7 @@ class Mesh {
                                        int ntot);
   void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
   void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
-                             RootGridInfo root_grid, int nbs);
+                             RootGridInfo root_grid, int nbs, bool gmg_neighbors);
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
@@ -301,6 +302,7 @@ class Mesh {
   void RegisterLoadBalancing_(ParameterInput *pin);
 
   void SetupMPIComms();
+  void PopulateLeafLocationMap(); 
 
   // Transform from logical location coordinates to uniform mesh coordinates accounting
   // for root grid

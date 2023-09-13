@@ -140,7 +140,7 @@ TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   // Clear the fast access vectors for this block since they are no longer valid
   // after all MeshData call BuildBoundaryBuffers
   all_caches.clear();
-
+  BuildBoundaryBufferSubset<BoundaryType::gmg_same>(md, pmesh->boundary_comm_map);
   BuildBoundaryBufferSubset<BoundaryType::gmg_prolongate_send>(md,
                                                                pmesh->boundary_comm_map);
   BuildBoundaryBufferSubset<BoundaryType::gmg_prolongate_recv>(md,

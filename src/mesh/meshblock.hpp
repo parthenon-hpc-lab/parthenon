@@ -162,6 +162,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::unique_ptr<MeshRefinement> pmr;
 
   // Block connectivity information
+  std::vector<NeighborBlock> neighbors;
   std::vector<NeighborBlock> gmg_coarser_neighbors;
   std::vector<NeighborBlock> gmg_same_neighbors;
   std::vector<NeighborBlock> gmg_finer_neighbors;

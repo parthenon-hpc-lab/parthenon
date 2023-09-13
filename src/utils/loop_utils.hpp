@@ -112,9 +112,17 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
             }
           }
         }
+      } else if constexpr (bound == BoundaryType::gmg_same) {
+        if (v->IsSet(Metadata::FillGhost)) {
+          for (auto &nb : pmb->gmg_same_neighbors) {
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
+              return;
+            }
+          }
+        }
       } else {
         if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
-          for (auto &nb : pmb->gmg_same_neighbors) {
+          for (auto &nb : pmb->neighbors) {
             if constexpr (bound == BoundaryType::local) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
               if (nb.snb.rank != Globals::my_rank) continue;

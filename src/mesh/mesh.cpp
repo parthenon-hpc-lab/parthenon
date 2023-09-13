@@ -392,6 +392,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   costlist = std::vector<double>(nbtotal, 1.0);
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
+  PopulateLeafLocationMap();
 
   // Output some diagnostic information to terminal
 
@@ -423,6 +424,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     block_list[i - nbs]->SearchAndSetNeighbors(this, tree, ranklist.data(),
                                                nslist.data());
   }
+  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   // CheckNeighborFinding(block_list, "Mesh initialization");
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
@@ -650,6 +652,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
+  PopulateLeafLocationMap();
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
@@ -685,6 +688,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs]->SearchAndSetNeighbors(this, tree, ranklist.data(),
                                                nslist.data());
   }
+  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   BuildGMGHierarchy(nbs, pin, app_in);
   // CheckNeighborFinding(block_list, "Restart");
   ResetLoadBalanceVariables();
@@ -969,7 +973,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       tag_map.AddMeshDataToMap<BoundaryType::any>(md);
       for (int gmg_level = 0; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
         auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
-        tag_map.AddMeshDataToMap<BoundaryType::any>(mdg);
+        //tag_map.AddMeshDataToMap<BoundaryType::any>(mdg);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(mdg);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(mdg);

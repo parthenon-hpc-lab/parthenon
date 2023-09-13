@@ -930,12 +930,13 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   loclist = std::move(newloc);
   ranklist = std::move(newrank);
   costlist = std::move(newcost);
+  PopulateLeafLocationMap();
 
   // re-initialize the MeshBlocks
   for (auto &pmb : block_list) {
     pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
   }
-
+  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   BuildGMGHierarchy(nbs, pin, app_in);
 
   Initialize(false, pin, app_in);

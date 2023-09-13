@@ -46,13 +46,14 @@ enum class RefinementOp_t { Prolongation, Restriction, None };
 
 // JMM: Not clear this is the best place for this but it minimizes
 // circular dependency nonsense.
-constexpr int NUM_BNDRY_TYPES = 9;
+constexpr int NUM_BNDRY_TYPES = 10;
 enum class BoundaryType : int {
   local,
   nonlocal,
   any,
   flxcor_send,
   flxcor_recv,
+  gmg_same,
   gmg_restrict_send,
   gmg_restrict_recv,
   gmg_prolongate_send,

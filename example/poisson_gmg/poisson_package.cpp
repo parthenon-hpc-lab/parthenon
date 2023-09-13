@@ -84,6 +84,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       Metadata({te_type, Metadata::Independent, Metadata::FillGhost, Metadata::GMGRestrict, Metadata::GMGProlongate});
   mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(res_err::name(), mres_err);
+  
+  auto m_uctof =
+      Metadata({te_type, Metadata::Independent, Metadata::FillGhost, Metadata::GMGProlongate});
+  m_uctof.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  pkg->AddField(uctof::name(), m_uctof);
 
   auto mrhs = Metadata({te_type, Metadata::Independent, Metadata::FillGhost});
   mrhs.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
