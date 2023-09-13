@@ -135,7 +135,9 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
             });
       }
     } else {
-      if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label());
+      if (pmb->IsAllocated(var->label()) &&
+          !var->metadata().IsSet(Metadata::ForceAllocOnNewBlocks))
+        pmb->DeallocateSparse(var->label());
 #ifdef MPI_PARALLEL
       PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), 0, MPI_PARTHENON_REAL, send_rank,
                                    tag, comm, MPI_STATUS_IGNORE));
@@ -297,7 +299,9 @@ bool TryRecvSameToSame(int lid_recv, int send_rank, Variable<Real> *var, MeshBlo
       pmb->pmr->DereferenceCount() = counter_subview_h(0);
       var->dealloc_count = counter_subview_h(1);
     } else {
-      if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label());
+      if (pmb->IsAllocated(var->label()) &&
+          !var->metadata().IsSet(Metadata::ForceAllocOnNewBlocks))
+        pmb->DeallocateSparse(var->label());
       PARTHENON_MPI_CHECK(
           MPI_Recv(var->com_state, 2, MPI_INT, send_rank, tag, comm, MPI_STATUS_IGNORE));
       pmb->pmr->DereferenceCount() = var->com_state[0];

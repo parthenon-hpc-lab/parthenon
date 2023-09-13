@@ -34,17 +34,10 @@ DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
     return it->second;
   }
 
-  auto c = std::make_shared<T>();
+  auto c = std::make_shared<T>(name);
   c->Initialize(src.get(), field_names, shallow);
 
   Set(name, c);
-
-  if constexpr (std::is_same<T, MeshData<Real>>::value) {
-    for (int b = 0; b < pmy_mesh_->block_list.size(); b++) {
-      auto &mbd = pmy_mesh_->block_list[b]->meshblock_data;
-      mbd.Set(name, c->GetBlockData(b));
-    }
-  }
 
   return containers_[name];
 }
@@ -74,10 +67,10 @@ GetOrAdd_impl(Mesh *pmy_mesh_,
     const int pack_size = pmy_mesh_->DefaultPackSize();
     auto partitions = partition::ToSizeN(block_list, pack_size);
     for (auto i = 0; i < partitions.size(); i++) {
-      std::string md_label = mbd_label + "_part-" + std::to_string(i);
+      const std::string md_label = mbd_label + "_part-" + std::to_string(i);
       if (gmg_level >= 0) md_label = md_label + "_gmg-" + std::to_string(gmg_level);
-      containers_[md_label] = std::make_shared<MeshData<Real>>();
-      containers_[md_label]->Set(partitions[i], mbd_label);
+      containers_[md_label] = std::make_shared<MeshData<Real>>(mbd_label);
+      containers_[md_label]->Set(partitions[i]);
     }
   }
   return containers_[label];

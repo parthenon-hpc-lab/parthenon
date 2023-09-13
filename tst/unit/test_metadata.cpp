@@ -96,6 +96,11 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
 
     // It should throw an error if you try to allocate a new flag with the same name.
     REQUIRE_THROWS_AS(Metadata::AddUserFlag(name), std::runtime_error);
+
+    // We can get or add a flag
+    auto const f3 = Metadata::GetOrAddFlag("ImFlexible");
+    auto const f4 = Metadata::GetOrAddFlag("ImFlexible");
+    REQUIRE(f3 == f4);
   }
 }
 
