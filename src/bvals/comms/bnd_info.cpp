@@ -38,7 +38,7 @@
 
 namespace {
 enum class InterfaceType { SameToSame, CoarseToFine, FineToCoarse };
-enum class IndexRangeType { Interior, Exterior, SharedSend, SharedReceive };
+enum class IndexRangeType { BoundaryInteriorSend, BoundaryExteriorRecv, InteriorSend, InteriorRecv };
 
 using namespace parthenon;
 
@@ -112,8 +112,8 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset = {ni.ox1, ni.ox2, ni.ox3};
 
-  int interior_offset = ir_type == IndexRangeType::Interior ? Globals::nghost : 0;
-  int exterior_offset = ir_type == IndexRangeType::Exterior ? Globals::nghost : 0;
+  int interior_offset = ir_type == IndexRangeType::BoundaryInteriorSend ? Globals::nghost : 0;
+  int exterior_offset = ir_type == IndexRangeType::BoundaryExteriorRecv ? Globals::nghost : 0;
   if (prores) {
     // The coarse ghosts cover twice as much volume as the fine ghosts, so when working in
     // the exterior (i.e. ghosts) we must only go over the coarse ghosts that have
@@ -138,7 +138,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
                                 (neighbor_bounds[dir].e - neighbor_bounds[dir].s + 1);
         s[dir] += nb.loc.l(dir) % 2 == 1 ? extra_zones - interior_offset : 0;
         e[dir] -= nb.loc.l(dir) % 2 == 0 ? extra_zones - interior_offset : 0;
-        if (ir_type == IndexRangeType::SharedSend) {
+        if (ir_type == IndexRangeType::InteriorSend) {
           // Include ghosts of finer block coarse array in message
           s[dir] -= Globals::nghost;
           e[dir] += Globals::nghost;
@@ -150,11 +150,17 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
         // interior_offset in the above if block)
         s[dir] -= loc.l(dir) % 2 == 1 ? exterior_offset : 0;
         e[dir] += loc.l(dir) % 2 == 0 ? exterior_offset : 0;
-        if (ir_type == IndexRangeType::SharedReceive) {
+        if (ir_type == IndexRangeType::InteriorRecv) {
           // Include ghosts of finer block coarse array in message
           s[dir] -= Globals::nghost;
           e[dir] += Globals::nghost;
         }
+      }
+      // Prolongate into ghosts of interior receiver since we have the data available, 
+      // having this is important for AMR MG  
+      if (prores && not_symmetry[dir] && IndexRangeType::InteriorRecv == ir_type) {
+        s[dir] -= Globals::nghost / 2; 
+        e[dir] += Globals::nghost / 2; 
       }
     } else if (block_offset[dir] > 0) {
       s[dir] = bounds[dir].e - interior_offset + 1 - top_offset[dir];
@@ -170,7 +176,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
   // index range, it is unecessary. This is probably not immediately obvious,
   // but it is possible to convince oneself that dealing with ownership in
   // only exterior index ranges works correctly
-  if (ir_type == IndexRangeType::Exterior) {
+  if (ir_type == IndexRangeType::BoundaryExteriorRecv) {
     int sox1 = -ni.ox1;
     int sox2 = -ni.ox2;
     int sox3 = -ni.ox3;
@@ -225,9 +231,9 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
-  auto idx_range_type = IndexRangeType::Interior;
+  auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
   if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
-    idx_range_type = IndexRangeType::SharedSend;
+    idx_range_type = IndexRangeType::InteriorSend;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
@@ -264,9 +270,9 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
-  auto idx_range_type = IndexRangeType::Exterior;
+  auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
   if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
-    idx_range_type = IndexRangeType::SharedReceive;
+    idx_range_type = IndexRangeType::InteriorRecv;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
@@ -305,7 +311,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
     out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, el, IndexRangeType::Interior, true, {Nt, Nu, Nv});
+        CalcIndices(nb, pmb, el, IndexRangeType::InteriorSend, true, {Nt, Nu, Nv});
   }
   out.refinement_op = RefinementOp_t::Restriction;
   return out;
@@ -336,7 +342,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
   out.ntopological_elements = elements.size();
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
     out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, el, IndexRangeType::Exterior, true, {Nt, Nu, Nv});
+        CalcIndices(nb, pmb, el, IndexRangeType::InteriorRecv, true, {Nt, Nu, Nv});
   out.refinement_op = RefinementOp_t::Prolongation;
   return out;
 }
@@ -365,7 +371,7 @@ ProResInfo ProResInfo::GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   if (nb.snb.level < mylevel) {
     for (auto el : elements) {
       out.idxer[static_cast<int>(el)] =
-          CalcIndices(nb, pmb, el, IndexRangeType::Interior, true, {Nt, Nu, Nv});
+          CalcIndices(nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true, {Nt, Nu, Nv});
       out.refinement_op = RefinementOp_t::Restriction;
     }
   }
@@ -409,7 +415,7 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
         out.idxer[static_cast<int>(el)] =
-            CalcIndices(nb, pmb, el, IndexRangeType::Exterior, true, {Nt, Nu, Nv});
+            CalcIndices(nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
       }
     }
   }
@@ -426,7 +432,7 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   if (nb.snb.level < mylevel) {
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
       out.idxer[static_cast<int>(el)] =
-          CalcIndices(nb, pmb, el, IndexRangeType::Exterior, true, {Nt, Nu, Nv});
+          CalcIndices(nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
   }
   return out;
 }
