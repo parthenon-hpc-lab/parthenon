@@ -242,24 +242,24 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   // CheckNeighborFinding(block_list, "AMR LoadBalance");
 
   // Write out GMG levels and connectivity
-  for (int gmg_level = 0; gmg_level < gmg_levels; ++gmg_level) {
-    printf("GMG Level: %i\n-------------\n", gmg_level);
+  // for (int gmg_level = 0; gmg_level < gmg_levels; ++gmg_level) {
+  //  printf("GMG Level: %i\n-------------\n", gmg_level);
 
-    for (auto &pmb : gmg_block_lists[gmg_level]) {
-      printf("[%i]%s\n", pmb->gid, pmb->loc.label().c_str());
-      for (auto &n : pmb->gmg_coarser_neighbors)
-        printf(" -^ [%i]%s\n", n.snb.gid, n.loc.label().c_str());
-      for (auto &n : pmb->gmg_same_neighbors)
-        printf(" -> [%i]%s\n", n.snb.gid, n.loc.label().c_str());
-      for (auto &n : pmb->gmg_finer_neighbors)
-        printf(" -v [%i]%s\n", n.snb.gid, n.loc.label().c_str());
+  //  for (auto &pmb : gmg_block_lists[gmg_level]) {
+  //    printf("[%i]%s\n", pmb->gid, pmb->loc.label().c_str());
+  //    for (auto &n : pmb->gmg_coarser_neighbors)
+  //      printf(" -^ [%i]%s\n", n.snb.gid, n.loc.label().c_str());
+  //    for (auto &n : pmb->gmg_same_neighbors)
+  //      printf(" -> [%i]%s\n", n.snb.gid, n.loc.label().c_str());
+  //    for (auto &n : pmb->gmg_finer_neighbors)
+  //      printf(" -v [%i]%s\n", n.snb.gid, n.loc.label().c_str());
 
-      // for (auto &n : pmb->neighbors) printf(" => [%i]%s\n", n.snb.gid,
-      // n.loc.label().c_str());
-    }
+  //    // for (auto &n : pmb->neighbors) printf(" => [%i]%s\n", n.snb.gid,
+  //    // n.loc.label().c_str());
+  //  }
 
-    printf("\n");
-  }
+  //  printf("\n");
+  //}
 }
 
 void CheckNeighborFinding(BlockList_t &block_list, std::string call_site) {
