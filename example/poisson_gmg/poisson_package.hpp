@@ -44,6 +44,12 @@ VARIABLE(poisson, p);
 VARIABLE(poisson, x);
 VARIABLE(poisson, Adotp);
 
+VARIABLE(poisson, rhat0);
+VARIABLE(poisson, v);
+VARIABLE(poisson, s);
+VARIABLE(poisson, t);
+VARIABLE(poisson, h);
+
 VARIABLE(poisson, Am);
 VARIABLE(poisson, Ac);
 VARIABLE(poisson, Ap);
@@ -114,6 +120,7 @@ TaskStatus AddFieldsAndStoreInteriorSelect(std::shared_ptr<MeshData<Real>> &md,
   int nblocks = md->NumBlocks();
   std::vector<bool> include_block(nblocks, true);
   if (only_interior) {
+    // The neighbors array will only be set for a block if its a leaf block
     for (int b = 0; b < nblocks; ++b)
       include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
   }

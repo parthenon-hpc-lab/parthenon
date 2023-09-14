@@ -56,6 +56,18 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bool do_FAS = pin->GetOrAddBoolean("poisson", "do_FAS", false);
   pkg->AddParam<>("do_FAS", do_FAS);
 
+  std::string solver = pin->GetOrAddString("poisson", "solver", "MG");
+  pkg->AddParam<>("solver", solver);
+
+  bool precondition = pin->GetOrAddBoolean("poisson", "precondition", true);
+  pkg->AddParam<>("precondition", precondition);
+
+  bool flux_correct = pin->GetOrAddBoolean("poisson", "flux_correct", false);
+  pkg->AddParam<>("flux_correct", flux_correct);
+
+  Real restart_threshold = pin->GetOrAddBoolean("poisson", "restart_threshold", 0.0);
+  pkg->AddParam<>("restart_threshold", restart_threshold);
+
   int check_interval = pin->GetOrAddInteger("poisson", "check_interval", 100);
   pkg->AddParam<>("check_interval", check_interval);
 
@@ -96,10 +108,14 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(rhs_base::name(), mrhs);
   pkg->AddField(solution::name(), mrhs);
   pkg->AddField(r::name(), mrhs);
-  pkg->AddField(p::name(), mrhs);
   pkg->AddField(x::name(), mrhs);
   pkg->AddField(u0::name(), mrhs);
   pkg->AddField(Adotp::name(), mrhs);
+
+  auto mp = Metadata(
+      {te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
+  mp.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  pkg->AddField(p::name(), mp);
 
   auto mflux_comm = Metadata({te_type, Metadata::Independent, Metadata::FillGhost,
                               Metadata::WithFluxes, Metadata::GMGRestrict});
@@ -117,6 +133,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(Am::name(), mAs);
   pkg->AddField(Ac::name(), mA);
   pkg->AddField(Ap::name(), mAs);
+
+  // BiCGSTAB intermediate fields
+  pkg->AddField(rhat0::name(), mA);
+  pkg->AddField(v::name(), mA);
+  pkg->AddField(s::name(), mA);
+  pkg->AddField(t::name(), mA);
+  pkg->AddField(h::name(), mA);
 
   return pkg;
 }

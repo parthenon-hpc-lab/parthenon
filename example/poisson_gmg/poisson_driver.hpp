@@ -35,6 +35,7 @@ class PoissonDriver : public Driver {
   TaskCollection MakeTaskCollectionProRes(BlockList_t &blocks);
   TaskCollection MakeTaskCollectionMG(BlockList_t &blocks);
   TaskCollection MakeTaskCollectionMGCG(BlockList_t &blocks);
+  TaskCollection MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks);
 
   DriverStatus Execute() override;
 
@@ -51,8 +52,8 @@ class PoissonDriver : public Driver {
   // accross task lists. A natural place is here in the driver. But
   // the data they point to might need to live in the params of a
   // package, as we've done here.
-  AllReduce<Real> rtr, pAp, residual;
-  Real rtr_old;
+  AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual;
+  Real rtr_old, rhat0r_old;
   AllReduce<Real> update_norm;
   // and a reduction onto one rank of a scalar
   Reduce<int> max_rank;
