@@ -119,7 +119,7 @@ class Mesh {
   std::shared_ptr<StateDescriptor> resolved_packages;
 
   DataCollection<MeshData<Real>> mesh_data;
-  
+
   LogicalLocMap_t leaf_grid_locs;
   std::vector<LogicalLocMap_t> gmg_grid_locs;
   std::vector<BlockList_t> gmg_block_lists;
@@ -302,7 +302,7 @@ class Mesh {
   void RegisterLoadBalancing_(ParameterInput *pin);
 
   void SetupMPIComms();
-  void PopulateLeafLocationMap(); 
+  void PopulateLeafLocationMap();
 
   // Transform from logical location coordinates to uniform mesh coordinates accounting
   // for root grid

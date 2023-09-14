@@ -38,7 +38,12 @@
 
 namespace {
 enum class InterfaceType { SameToSame, CoarseToFine, FineToCoarse };
-enum class IndexRangeType { BoundaryInteriorSend, BoundaryExteriorRecv, InteriorSend, InteriorRecv };
+enum class IndexRangeType {
+  BoundaryInteriorSend,
+  BoundaryExteriorRecv,
+  InteriorSend,
+  InteriorRecv
+};
 
 using namespace parthenon;
 
@@ -100,8 +105,8 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
   std::array<IndexRange, 3> neighbor_bounds{neighbor_shape.GetBoundsI(interior, el),
                                             neighbor_shape.GetBoundsJ(interior, el),
                                             neighbor_shape.GetBoundsK(interior, el)};
-  
-  std::array<bool, 3> not_symmetry{!pmb->block_size.symmetry(X1DIR), 
+
+  std::array<bool, 3> not_symmetry{!pmb->block_size.symmetry(X1DIR),
                                    !pmb->block_size.symmetry(X2DIR),
                                    !pmb->block_size.symmetry(X3DIR)};
   // Account for the fact that the neighbor block may duplicate
@@ -112,8 +117,10 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset = {ni.ox1, ni.ox2, ni.ox3};
 
-  int interior_offset = ir_type == IndexRangeType::BoundaryInteriorSend ? Globals::nghost : 0;
-  int exterior_offset = ir_type == IndexRangeType::BoundaryExteriorRecv ? Globals::nghost : 0;
+  int interior_offset =
+      ir_type == IndexRangeType::BoundaryInteriorSend ? Globals::nghost : 0;
+  int exterior_offset =
+      ir_type == IndexRangeType::BoundaryExteriorRecv ? Globals::nghost : 0;
   if (prores) {
     // The coarse ghosts cover twice as much volume as the fine ghosts, so when working in
     // the exterior (i.e. ghosts) we must only go over the coarse ghosts that have
@@ -126,7 +133,8 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
     if (block_offset[dir] == 0) {
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
-      if ((loc.level() < nb.loc.level()) && not_symmetry[dir]) { // Check that this dimension has ghost zones
+      if ((loc.level() < nb.loc.level()) &&
+          not_symmetry[dir]) { // Check that this dimension has ghost zones
         // The requested neighbor block is at a finer level, so it only abuts
         // approximately half of the zones in any given direction with offset zero. If we
         // are asking for an interior index range, we also send nghost "extra" zones in
@@ -156,11 +164,11 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
           e[dir] += Globals::nghost;
         }
       }
-      // Prolongate into ghosts of interior receiver since we have the data available, 
-      // having this is important for AMR MG  
+      // Prolongate into ghosts of interior receiver since we have the data available,
+      // having this is important for AMR MG
       if (prores && not_symmetry[dir] && IndexRangeType::InteriorRecv == ir_type) {
-        s[dir] -= Globals::nghost / 2; 
-        e[dir] += Globals::nghost / 2; 
+        s[dir] -= Globals::nghost / 2;
+        e[dir] += Globals::nghost / 2;
       }
     } else if (block_offset[dir] > 0) {
       s[dir] = bounds[dir].e - interior_offset + 1 - top_offset[dir];
@@ -370,8 +378,8 @@ ProResInfo ProResInfo::GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   out.ntopological_elements = elements.size();
   if (nb.snb.level < mylevel) {
     for (auto el : elements) {
-      out.idxer[static_cast<int>(el)] =
-          CalcIndices(nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true, {Nt, Nu, Nv});
+      out.idxer[static_cast<int>(el)] = CalcIndices(
+          nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true, {Nt, Nu, Nv});
       out.refinement_op = RefinementOp_t::Restriction;
     }
   }
@@ -414,8 +422,8 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
     } else {
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
-        out.idxer[static_cast<int>(el)] =
-            CalcIndices(nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
+        out.idxer[static_cast<int>(el)] = CalcIndices(
+            nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
       }
     }
   }
@@ -431,8 +439,8 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   //      10 indexers per bound info even if the field isn't allocated
   if (nb.snb.level < mylevel) {
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-      out.idxer[static_cast<int>(el)] =
-          CalcIndices(nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
+      out.idxer[static_cast<int>(el)] = CalcIndices(
+          nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
   }
   return out;
 }

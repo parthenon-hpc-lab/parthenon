@@ -40,7 +40,8 @@ class PoissonDriver : public Driver {
 
   void AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level, int max_level,
                               bool final);
-  void AddRestrictionProlongationLevel(TaskRegion &region, int level, int min_level, int max_level);
+  void AddRestrictionProlongationLevel(TaskRegion &region, int level, int min_level,
+                                       int max_level);
 
  private:
   // we'll demonstrate doing a global all reduce of a scalar There

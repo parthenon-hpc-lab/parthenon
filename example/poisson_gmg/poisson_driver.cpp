@@ -95,12 +95,12 @@ void PoissonDriver::AddRestrictionProlongationLevel(TaskRegion &region, int leve
       // If we aren't the finest level, communicate boundaries and then send data to
       // next finer level
       auto same_gmg_level_boundary_comm =
-          AddBoundaryExchangeTasks<BoundaryType::gmg_same>(print_post_prolongate, tl, md, true);
+          AddBoundaryExchangeTasks<BoundaryType::gmg_same>(print_post_prolongate, tl, md,
+                                                           true);
       std::string label = "Pre-prolongate field on level " + std::to_string(level);
       auto print =
           tl.AddTask(same_gmg_level_boundary_comm, PrintChosenValues<res_err>, md, label);
-      tl.AddTask(print,
-                 SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
+      tl.AddTask(print, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
     }
   }
 }
@@ -109,7 +109,8 @@ TaskID AddRMSResidualPrintout(int level, TaskList &tl, TaskID depends_on, bool m
                               std::shared_ptr<MeshData<Real>> &md) {
   using namespace parthenon;
   using namespace poisson_package;
-  auto comm = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(depends_on, tl, md, multilevel);
+  auto comm =
+      AddBoundaryExchangeTasks<BoundaryType::gmg_same>(depends_on, tl, md, multilevel);
   auto copy_res = tl.AddTask(comm, CopyData<res_err, temp>, md);
   auto res = tl.AddTask(copy_res, CalculateResidual, md);
   std::string ident = "level " + std::to_string(level);
@@ -118,20 +119,21 @@ TaskID AddRMSResidualPrintout(int level, TaskList &tl, TaskID depends_on, bool m
   return copy_back;
 }
 
-template<class in_t, class out_t> 
+template <class in_t, class out_t>
 TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, bool multilevel, Real omega,
                           std::shared_ptr<MeshData<Real>> &md) {
   using namespace parthenon;
   using namespace poisson_package;
   TaskID none(0);
 
-  auto comm = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(depends_on, tl, md, multilevel);
+  auto comm =
+      AddBoundaryExchangeTasks<BoundaryType::gmg_same>(depends_on, tl, md, multilevel);
   auto flux = tl.AddTask(comm, CalculateFluxes<in_t>, md);
-  //auto start_flxcor = tl.AddTask(flux, StartReceiveFluxCorrections, md);
-  //auto send_flxcor = tl.AddTask(flux, LoadAndSendFluxCorrections, md);
-  //auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
-  //auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md);
-  auto mat_mult = tl.AddTask(flux, FluxMultiplyMatrix<in_t, out_t>, md, false); 
+  // auto start_flxcor = tl.AddTask(flux, StartReceiveFluxCorrections, md);
+  // auto send_flxcor = tl.AddTask(flux, LoadAndSendFluxCorrections, md);
+  // auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
+  // auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md);
+  auto mat_mult = tl.AddTask(flux, FluxMultiplyMatrix<in_t, out_t>, md, false);
   return tl.AddTask(mat_mult, FluxJacobi<out_t, in_t, out_t>, md, omega);
 }
 
@@ -148,22 +150,26 @@ TaskID AddSRJIteration(TaskList &tl, TaskID depends_on, int stages, bool multile
       {{0.8723, 0.5395, 0.0000}, {1.3895, 0.5617, 0.0000}, {1.7319, 0.5695, 0.0000}}};
   std::array<std::array<Real, 3>, 3> omega_M3{
       {{0.9372, 0.6667, 0.5173}, {1.6653, 0.8000, 0.5264}, {2.2473, 0.8571, 0.5296}}};
-  
+
   auto omega = omega_M1;
   if (stages == 2) omega = omega_M2;
   if (stages == 3) omega = omega_M3;
-  // This copy is to set the boundaries of temp that will not be updated by boundary communication 
-  // to the values in u
-  depends_on = tl.AddTask(depends_on, CopyData<u, temp>, md); 
-  auto jacobi1 = AddJacobiIteration<u, temp>(tl, depends_on, multilevel, omega[ndim - 1][0], md); 
+  // This copy is to set the boundaries of temp that will not be updated by boundary
+  // communication to the values in u
+  depends_on = tl.AddTask(depends_on, CopyData<u, temp>, md);
+  auto jacobi1 =
+      AddJacobiIteration<u, temp>(tl, depends_on, multilevel, omega[ndim - 1][0], md);
   if (stages < 2) {
-    jacobi1 = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(jacobi1, tl, md, multilevel);
+    jacobi1 =
+        AddBoundaryExchangeTasks<BoundaryType::gmg_same>(jacobi1, tl, md, multilevel);
     return tl.AddTask(jacobi1, CopyData<temp, u>, md);
   }
-  auto jacobi2 = AddJacobiIteration<temp, u>(tl, jacobi1, multilevel, omega[ndim - 1][1], md); 
-  if (stages < 3) return jacobi2; 
-  auto jacobi3 = AddJacobiIteration<u, temp>(tl, jacobi2, multilevel, omega[ndim - 1][2], md); 
-  return tl.AddTask(jacobi3, CopyData<temp, u>, md); 
+  auto jacobi2 =
+      AddJacobiIteration<temp, u>(tl, jacobi1, multilevel, omega[ndim - 1][1], md);
+  if (stages < 3) return jacobi2;
+  auto jacobi3 =
+      AddJacobiIteration<u, temp>(tl, jacobi2, multilevel, omega[ndim - 1][2], md);
+  return tl.AddTask(jacobi3, CopyData<temp, u>, md);
 }
 
 TaskID AddGSIteration(TaskList &tl, TaskID depends_on, int iters, bool multilevel,
@@ -172,7 +178,8 @@ TaskID AddGSIteration(TaskList &tl, TaskID depends_on, int iters, bool multileve
   using namespace poisson_package;
   auto previous_iter = depends_on;
   for (int i = 0; i < iters; ++i) {
-    auto comm = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(previous_iter, tl, md, multilevel);
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(previous_iter, tl, md,
+                                                                 multilevel);
     previous_iter = tl.AddTask(comm, JacobiIteration<u, u>, md, 1.0);
   }
   return previous_iter;
@@ -184,9 +191,11 @@ TaskID AddRBGSIteration(TaskList &tl, TaskID depends_on, int iters, bool multile
   using namespace poisson_package;
   auto previous_iter = depends_on;
   for (int i = 0; i < iters; ++i) {
-    auto comm1 = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(previous_iter, tl, md, multilevel);
+    auto comm1 = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(previous_iter, tl, md,
+                                                                  multilevel);
     auto update_even = tl.AddTask(comm1, RBGSIteration<u, temp>, md, false);
-    auto comm2 = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(update_even, tl, md, multilevel);
+    auto comm2 =
+        AddBoundaryExchangeTasks<BoundaryType::gmg_same>(update_even, tl, md, multilevel);
     auto update_odd = tl.AddTask(comm2, RBGSIteration<temp, temp>, md, true);
     previous_iter = tl.AddTask(update_odd, CopyData<temp, u>, md);
   }
@@ -194,18 +203,19 @@ TaskID AddRBGSIteration(TaskList &tl, TaskID depends_on, int iters, bool multile
 }
 
 template <class x_t, class y_t, class out_t>
-TaskID Axpy(TaskList &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md, Real weight_Ax, Real weight_y, bool only_interior) {
+TaskID Axpy(TaskList &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md,
+            Real weight_Ax, Real weight_y, bool only_interior) {
   using namespace parthenon;
   using namespace poisson_package;
   auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t>, md);
-  //auto start_flxcor = tl.AddTask(flux_res, StartReceiveFluxCorrections, md);
-  //auto send_flxcor = tl.AddTask(flux_res, LoadAndSendFluxCorrections, md);
-  //auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
-  //auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md); 
-  auto Ax_res = tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, temp>, md, only_interior); 
-  return tl.AddTask(Ax_res, AddFieldsAndStoreInteriorSelect<temp, y_t, out_t>, md, weight_Ax, weight_y, only_interior);
+  // auto start_flxcor = tl.AddTask(flux_res, StartReceiveFluxCorrections, md);
+  // auto send_flxcor = tl.AddTask(flux_res, LoadAndSendFluxCorrections, md);
+  // auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
+  // auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md);
+  auto Ax_res = tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, temp>, md, only_interior);
+  return tl.AddTask(Ax_res, AddFieldsAndStoreInteriorSelect<temp, y_t, out_t>, md,
+                    weight_Ax, weight_y, only_interior);
 }
-
 
 void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level,
                                            int max_level, bool final) {
@@ -256,17 +266,16 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
         auto copy_rhs = tl.AddTask(set_from_finer, CopyData<res_err, rhs>, md);
         set_from_finer = zero_u | copy_u | copy_rhs;
       } else {
-        // TODO(LFR): This is wrong for AMR, need to make sure that rhs is correctly set 
-        // for blocks that don't have corresponding finer blocks 
-        set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(set_from_finer, tl, md, multilevel);
-        set_from_finer = Axpy<u, res_err, rhs>(tl, set_from_finer, md, 1.0, 1.0, true); 
+        // TODO(LFR): This is wrong for AMR, need to make sure that rhs is correctly set
+        // for blocks that don't have corresponding finer blocks
+        set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
+            set_from_finer, tl, md, multilevel);
+        set_from_finer = Axpy<u, res_err, rhs>(tl, set_from_finer, md, 1.0, 1.0, true);
         set_from_finer = set_from_finer | copy_u;
       }
-    } else { 
+    } else {
       set_from_finer = tl.AddTask(set_from_finer, CopyData<u, u0>, md);
     }
-
-    
 
     // 2. Do pre-smooth and fill solution on this level
     auto pre_smooth = set_from_finer | build_matrix;
@@ -280,13 +289,13 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
       pre_smooth =
           AddSRJIteration(tl, set_from_finer | build_matrix, pre_stages, multilevel, md);
     }
-    
 
     // If we are finer than the coarsest level:
     auto post_smooth = none;
     if (level > min_level) {
       // 3. Communicate same level boundaries so that u is up to date everywhere
-      auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md, multilevel);
+      auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md,
+                                                                     multilevel);
 
       // 4. Caclulate residual and store in communication field
       auto residual = Axpy<u, rhs, res_err>(tl, comm_u, md, -1.0, 1.0, false);
@@ -307,9 +316,9 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
       //    communication field
       auto update_sol =
           tl.AddTask(prolongate, AddFieldsAndStore<u, res_err, u>, md, 1.0, 1.0);
-      if (do_FAS) { 
-        // Update boundaries of solution with prolongated, new coarser solution 
-        // interior boundaries on this level will be overwritten by communication 
+      if (do_FAS) {
+        // Update boundaries of solution with prolongated, new coarser solution
+        // interior boundaries on this level will be overwritten by communication
         // on the next step
         update_sol = tl.AddTask(update_sol, CopyBoundaries<uctof, u>, md);
       }
@@ -334,10 +343,12 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
         copy_over = tl.AddTask(post_smooth, CopyData<u, res_err>, md);
       } else {
         auto set_uctof = tl.AddTask(post_smooth, CopyData<u, uctof>, md);
-        auto calc_err = tl.AddTask(post_smooth, AddFieldsAndStore<u, u0, res_err>, md, 1.0, -1.0);
+        auto calc_err =
+            tl.AddTask(post_smooth, AddFieldsAndStore<u, u0, res_err>, md, 1.0, -1.0);
         copy_over = set_uctof | calc_err;
       }
-      auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md, multilevel);
+      auto boundary =
+          AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md, multilevel);
       tl.AddTask(boundary, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
     } else {
       AddBoundaryExchangeTasks<BoundaryType::gmg_same>(post_smooth, tl, md, multilevel);
@@ -345,17 +356,29 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
   }
 }
 
-template <class a_t, class b_t> 
-TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TaskList &tl, int partition, int &reg_dep_id, AllReduce<Real> *adotb, std::shared_ptr<MeshData<Real>> &md) {
+template <class a_t, class b_t>
+TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TaskList &tl, int partition,
+                  int &reg_dep_id, AllReduce<Real> *adotb,
+                  std::shared_ptr<MeshData<Real>> &md) {
   using namespace parthenon;
   using namespace poisson_package;
-  auto zero_adotb = (partition == 0 ? tl.AddTask(dependency_in, [](AllReduce<Real> *r){r->val = 0.0; return TaskStatus::complete;}, adotb) : dependency_in);
+  auto zero_adotb = (partition == 0 ? tl.AddTask(
+                                          dependency_in,
+                                          [](AllReduce<Real> *r) {
+                                            r->val = 0.0;
+                                            return TaskStatus::complete;
+                                          },
+                                          adotb)
+                                    : dependency_in);
   region.AddRegionalDependencies(reg_dep_id, partition, zero_adotb);
   reg_dep_id++;
   auto get_adotb = tl.AddTask(zero_adotb, DotProductLocal<a_t, b_t>, md, &(adotb->val));
   region.AddRegionalDependencies(reg_dep_id, partition, get_adotb);
   reg_dep_id++;
-  auto start_global_adotb = (partition == 0 ? tl.AddTask(get_adotb, &AllReduce<Real>::StartReduce, adotb, MPI_SUM) : get_adotb);
+  auto start_global_adotb =
+      (partition == 0
+           ? tl.AddTask(get_adotb, &AllReduce<Real>::StartReduce, adotb, MPI_SUM)
+           : get_adotb);
   return tl.AddTask(start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
 }
 
@@ -405,27 +428,30 @@ TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
       auto zero_u = tl.AddTask(none, SetToZero<u>, md);
     }
   }
-  
+
   for (int ivcycle = 0; ivcycle < max_iterations; ++ivcycle) {
     TaskRegion &region = tc.AddRegion(num_partitions * (max_level + 1));
     for (int level = max_level; level >= min_level; --level) {
-      AddMultiGridTasksLevel(region, level, min_level, max_level,
-                               level == min_level);
+      AddMultiGridTasksLevel(region, level, min_level, max_level, level == min_level);
     }
 
-    int reg_dep_id = 0; 
+    int reg_dep_id = 0;
     TaskRegion &region_res = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; ++i) {
       TaskList &tl = region_res[i];
       auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-      auto calc_pointwise_res = Axpy<u, rhs, res_err>(tl, none, md, -1.0, 1.0, false); 
-      auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region_res, tl, i, reg_dep_id, &residual, md);
+      auto calc_pointwise_res = Axpy<u, rhs, res_err>(tl, none, md, -1.0, 1.0, false);
+      auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region_res, tl, i,
+                                                  reg_dep_id, &residual, md);
       if (i == 0) {
-        tl.AddTask(get_res, [&](PoissonDriver *driver){
-          Real rms_err = std::sqrt(driver->residual.val / pmesh->GetTotalCells()); 
-          printf("RMS residual: %e\n", rms_err); 
-          return TaskStatus::complete;
-        }, this);
+        tl.AddTask(
+            get_res,
+            [&](PoissonDriver *driver) {
+              Real rms_err = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
+              printf("RMS residual: %e\n", rms_err);
+              return TaskStatus::complete;
+            },
+            this);
       }
       AddBoundaryExchangeTasks<BoundaryType::any>(get_res, tl, md, true);
     }
@@ -447,14 +473,13 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGCG(BlockList_t &blocks) {
   int min_level = 0; // pmesh->GetGMGMaxLevel();
   int max_level = pmesh->GetGMGMaxLevel();
 
-  auto AddGMGRegion = [&](){
+  auto AddGMGRegion = [&]() {
     TaskRegion &region = tc.AddRegion(num_partitions * (max_level + 1));
     for (int level = max_level; level >= min_level; --level) {
-      AddMultiGridTasksLevel(region, level, min_level, max_level,
-                             level == min_level);
+      AddMultiGridTasksLevel(region, level, min_level, max_level, level == min_level);
     }
   };
-  
+
   {
     TaskRegion &region = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; ++i) {
@@ -466,7 +491,7 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGCG(BlockList_t &blocks) {
     }
   }
 
-  AddGMGRegion(); 
+  AddGMGRegion();
 
   {
     int reg_dep_id = 0;
@@ -476,74 +501,95 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGCG(BlockList_t &blocks) {
       auto &md = pmesh->gmg_mesh_data[max_level].GetOrAdd(max_level, "base", i);
       auto copy_u = tl.AddTask(none, CopyData<u, p>, md);
       auto get_rtr = DotProduct<u, r>(none, region, tl, i, reg_dep_id, &rtr, md);
-      if (i == 0) { 
-        tl.AddTask(get_rtr, [this](PoissonDriver *driver){
-          driver->rtr_old = driver->rtr.val; 
-          driver->rtr.val = 0.0;  
-          driver->pAp.val = 0.0;  
-          driver->residual.val = 0.0;
-          return TaskStatus::complete;}, this);
-      }  
+      if (i == 0) {
+        tl.AddTask(
+            get_rtr,
+            [this](PoissonDriver *driver) {
+              driver->rtr_old = driver->rtr.val;
+              driver->rtr.val = 0.0;
+              driver->pAp.val = 0.0;
+              driver->residual.val = 0.0;
+              return TaskStatus::complete;
+            },
+            this);
+      }
     }
   }
 
-
   for (int ivcycle = 0; ivcycle < max_iterations; ++ivcycle) {
     {
-      TaskRegion &region = tc.AddRegion(num_partitions); 
+      TaskRegion &region = tc.AddRegion(num_partitions);
       int reg_dep_id = 0;
       for (int i = 0; i < num_partitions; ++i) {
         TaskList &tl = region[i];
         auto &md = pmesh->gmg_mesh_data[max_level].GetOrAdd(max_level, "base", i);
         auto get_Adotp = tl.AddTask(none, MultiplyMatrix<p, Adotp>, md);
-        auto get_pap = DotProduct<p, Adotp>(get_Adotp, region, tl, i, reg_dep_id, &pAp, md);
+        auto get_pap =
+            DotProduct<p, Adotp>(get_Adotp, region, tl, i, reg_dep_id, &pAp, md);
 
-        auto correct_x = tl.AddTask(get_pap, [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md){
-          Real alpha = driver->rtr_old / driver->pAp.val; 
-          return AddFieldsAndStore<x, p, x>(md, 1.0, alpha); 
-        }, this, md); 
+        auto correct_x = tl.AddTask(
+            get_pap,
+            [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md) {
+              Real alpha = driver->rtr_old / driver->pAp.val;
+              return AddFieldsAndStore<x, p, x>(md, 1.0, alpha);
+            },
+            this, md);
 
-        auto correct_r = tl.AddTask(get_pap, [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md){
-          Real alpha = driver->rtr_old / driver->pAp.val; 
-          return AddFieldsAndStore<r, Adotp, r>(md, 1.0, -alpha); 
-        }, this, md);
+        auto correct_r = tl.AddTask(
+            get_pap,
+            [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md) {
+              Real alpha = driver->rtr_old / driver->pAp.val;
+              return AddFieldsAndStore<r, Adotp, r>(md, 1.0, -alpha);
+            },
+            this, md);
 
-        auto get_res = DotProduct<r, r>(correct_r, region, tl, i, reg_dep_id, &residual, md);
-        
+        auto get_res =
+            DotProduct<r, r>(correct_r, region, tl, i, reg_dep_id, &residual, md);
+
         if (i == 0) {
-          tl.AddTask(get_res, [&](PoissonDriver *driver){
-            Real rms_err = std::sqrt(driver->residual.val / pmesh->GetTotalCells()); 
-            printf("RMS residual: %e\n", rms_err); 
-            return TaskStatus::complete;
-          }, this);
+          tl.AddTask(
+              get_res,
+              [&](PoissonDriver *driver) {
+                Real rms_err = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
+                printf("RMS residual: %e\n", rms_err);
+                return TaskStatus::complete;
+              },
+              this);
         }
-        tl.AddTask(correct_r, CopyData<r, rhs>, md); 
+        tl.AddTask(correct_r, CopyData<r, rhs>, md);
         tl.AddTask(none, SetToZero<u>, md);
       }
     }
     AddGMGRegion();
     {
-      TaskRegion &region = tc.AddRegion(num_partitions); 
+      TaskRegion &region = tc.AddRegion(num_partitions);
       int reg_dep_id = 0;
       for (int i = 0; i < num_partitions; ++i) {
         TaskList &tl = region[i];
         auto &md = pmesh->gmg_mesh_data[max_level].GetOrAdd(max_level, "base", i);
         auto get_rtr = DotProduct<u, r>(none, region, tl, i, reg_dep_id, &rtr, md);
-        
-        auto correct_p = tl.AddTask(get_rtr, [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md){
-          Real beta = driver->rtr.val / driver->rtr_old; 
-          return AddFieldsAndStore<u, p, p>(md, 1.0, beta); 
-        }, this, md); 
+
+        auto correct_p = tl.AddTask(
+            get_rtr,
+            [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md) {
+              Real beta = driver->rtr.val / driver->rtr_old;
+              return AddFieldsAndStore<u, p, p>(md, 1.0, beta);
+            },
+            this, md);
         region.AddRegionalDependencies(reg_dep_id, i, correct_p);
         reg_dep_id++;
-        if (i == 0) { 
-          tl.AddTask(correct_p, [](PoissonDriver *driver){
-            driver->rtr_old = driver->rtr.val; 
-            driver->rtr.val = 0.0;  
-            driver->pAp.val = 0.0;  
-            driver->residual.val = 0.0;
-            return TaskStatus::complete;}, this);
-        } 
+        if (i == 0) {
+          tl.AddTask(
+              correct_p,
+              [](PoissonDriver *driver) {
+                driver->rtr_old = driver->rtr.val;
+                driver->rtr.val = 0.0;
+                driver->pAp.val = 0.0;
+                driver->residual.val = 0.0;
+                return TaskStatus::complete;
+              },
+              this);
+        }
       }
     }
   }

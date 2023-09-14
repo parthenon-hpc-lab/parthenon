@@ -42,10 +42,10 @@
 
 namespace parthenon {
 
-void Mesh::PopulateLeafLocationMap() { 
+void Mesh::PopulateLeafLocationMap() {
   const int nbtot = ranklist.size();
-  leaf_grid_locs.clear(); 
-  for (int ib = 0; ib < nbtot; ++ib) { 
+  leaf_grid_locs.clear();
+  for (int ib = 0; ib < nbtot; ++ib) {
     leaf_grid_locs[loclist[ib]] = std::make_pair(ib, ranklist[ib]);
   }
 }
@@ -165,33 +165,34 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   // Add leaf grid locations to GMG grid levels
   int gmg_gid = 0;
   for (auto loc : loclist) {
-    const int gmg_level = gmg_levels - 1 + loc.level() - current_level; 
+    const int gmg_level = gmg_levels - 1 + loc.level() - current_level;
     gmg_grid_locs[gmg_level].insert(
         {loc, std::pair<int, int>(gmg_gid, ranklist[gmg_gid])});
     if (ranklist[gmg_gid] == Globals::my_rank) {
-      const int lid =  gmg_gid - nslist[Globals::my_rank];
+      const int lid = gmg_gid - nslist[Globals::my_rank];
       gmg_block_lists[gmg_level].push_back(block_list[lid]);
     }
     gmg_gid++;
   }
 
-  // Fill in internal nodes for GMG grid levels from levels on finer GMG grid 
-  for (int gmg_level = gmg_levels - 2; gmg_level >= 0; --gmg_level) { 
+  // Fill in internal nodes for GMG grid levels from levels on finer GMG grid
+  for (int gmg_level = gmg_levels - 2; gmg_level >= 0; --gmg_level) {
     for (auto &[loc, gid_rank] : gmg_grid_locs[gmg_level + 1]) {
-      auto parent = loc.GetParent(); 
-      if (parent.morton() == loc.morton()) { 
-        gmg_grid_locs[gmg_level].insert({parent, std::make_pair(gmg_gid, gid_rank.second)});
+      auto parent = loc.GetParent();
+      if (parent.morton() == loc.morton()) {
+        gmg_grid_locs[gmg_level].insert(
+            {parent, std::make_pair(gmg_gid, gid_rank.second)});
         if (gid_rank.second == Globals::my_rank) {
           BoundaryFlag block_bcs[6];
           auto block_size = block_size_default;
-          SetBlockSizeAndBoundaries(parent, block_size, block_bcs); 
+          SetBlockSizeAndBoundaries(parent, block_size, block_bcs);
           gmg_block_lists[gmg_level].push_back(
               MeshBlock::Make(gmg_gid, -1, parent, block_size, block_bcs, this, pin,
-                              app_in, packages, resolved_packages, gflag)); 
+                              app_in, packages, resolved_packages, gflag));
         }
         gmg_gid++;
       }
-    } 
+    }
   }
 
   // Find same level neighbors on all GMG levels
@@ -240,22 +241,25 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   }
   // CheckNeighborFinding(block_list, "AMR LoadBalance");
 
-  // Write out GMG levels and connectivity 
-  for (int gmg_level = 0; gmg_level < gmg_levels; ++gmg_level) { 
+  // Write out GMG levels and connectivity
+  for (int gmg_level = 0; gmg_level < gmg_levels; ++gmg_level) {
     printf("GMG Level: %i\n-------------\n", gmg_level);
 
-    for (auto &pmb : gmg_block_lists[gmg_level]) { 
+    for (auto &pmb : gmg_block_lists[gmg_level]) {
       printf("[%i]%s\n", pmb->gid, pmb->loc.label().c_str());
-      for (auto &n : pmb->gmg_coarser_neighbors) printf(" -^ [%i]%s\n", n.snb.gid, n.loc.label().c_str());      
-      for (auto &n : pmb->gmg_same_neighbors) printf(" -> [%i]%s\n", n.snb.gid, n.loc.label().c_str());
-      for (auto &n : pmb->gmg_finer_neighbors) printf(" -v [%i]%s\n", n.snb.gid, n.loc.label().c_str());
+      for (auto &n : pmb->gmg_coarser_neighbors)
+        printf(" -^ [%i]%s\n", n.snb.gid, n.loc.label().c_str());
+      for (auto &n : pmb->gmg_same_neighbors)
+        printf(" -> [%i]%s\n", n.snb.gid, n.loc.label().c_str());
+      for (auto &n : pmb->gmg_finer_neighbors)
+        printf(" -v [%i]%s\n", n.snb.gid, n.loc.label().c_str());
 
-      //for (auto &n : pmb->neighbors) printf(" => [%i]%s\n", n.snb.gid, n.loc.label().c_str());
+      // for (auto &n : pmb->neighbors) printf(" => [%i]%s\n", n.snb.gid,
+      // n.loc.label().c_str());
     }
 
     printf("\n");
   }
-
 }
 
 void CheckNeighborFinding(BlockList_t &block_list, std::string call_site) {

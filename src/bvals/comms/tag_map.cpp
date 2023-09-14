@@ -45,8 +45,8 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
 }
 template void
 TagMap::AddMeshDataToMap<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &md);
-template void TagMap::AddMeshDataToMap<BoundaryType::gmg_same>(
-    std::shared_ptr<MeshData<Real>> &md);
+template void
+TagMap::AddMeshDataToMap<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &md);
 template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(
     std::shared_ptr<MeshData<Real>> &md);
 template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict_send>(
