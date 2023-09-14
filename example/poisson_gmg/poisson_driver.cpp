@@ -280,7 +280,6 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
       pre_smooth =
           AddSRJIteration(tl, set_from_finer | build_matrix, pre_stages, multilevel, md);
     }
-    pre_smooth = tl.AddTask(pre_smooth, PrintChosenValues<rhs, res_err, u, u0>, md, "Post Initial Smooth");
     
 
     // If we are finer than the coarsest level:
@@ -291,7 +290,6 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
 
       // 4. Caclulate residual and store in communication field
       auto residual = Axpy<u, rhs, res_err>(tl, comm_u, md, -1.0, 1.0, false);
-      pre_smooth = tl.AddTask(pre_smooth, PrintChosenValues<res_err>, md, "Pre-Restriction Residual"); 
 
       // 5. Restrict communication field and send to next level
       auto communicate_to_coarse =
@@ -313,9 +311,7 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
         // Update boundaries of solution with prolongated, new coarser solution 
         // interior boundaries on this level will be overwritten by communication 
         // on the next step
-        update_sol = tl.AddTask(update_sol, PrintChosenValues<uctof, u>, md, "Pre boundary copy");
         update_sol = tl.AddTask(update_sol, CopyBoundaries<uctof, u>, md);
-        update_sol = tl.AddTask(update_sol, PrintChosenValues<uctof, u>, md, "Post boundary copy");
       }
 
       // 8. Post smooth using communication field and stored RHS
@@ -342,11 +338,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
         copy_over = set_uctof | calc_err;
       }
       auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md, multilevel);
-      boundary = tl.AddTask(boundary, PrintChosenValues<rhs, uctof, u, u0, res_err>, md, "Post error");
       tl.AddTask(boundary, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
     } else {
-      post_smooth = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(post_smooth, tl, md, multilevel);
-      post_smooth = tl.AddTask(post_smooth, PrintChosenValues<rhs, uctof, u, u0>, md, "Post error (finest)");
       AddBoundaryExchangeTasks<BoundaryType::gmg_same>(post_smooth, tl, md, multilevel);
     }
   }

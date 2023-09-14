@@ -414,7 +414,6 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md,
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   
-  return TaskStatus::complete;
   auto desc = parthenon::MakePackDescriptor<vars...>(md.get());
   auto pack = desc.GetPack(md.get());
   std::array<std::string, sizeof...(vars)> names{vars::name()...};
