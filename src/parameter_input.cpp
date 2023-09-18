@@ -188,6 +188,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       param_name = multiline_name;
       param_value = multiline_value;
       param_comment = multiline_comment;
+      // Clear the multiline_x buffers to hold the next multi-line value
       multiline_name = "";
       multiline_value = "";
       multiline_comment = "";
