@@ -65,7 +65,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bool flux_correct = pin->GetOrAddBoolean("poisson", "flux_correct", false);
   pkg->AddParam<>("flux_correct", flux_correct);
 
-  Real restart_threshold = pin->GetOrAddBoolean("poisson", "restart_threshold", 0.0);
+  Real restart_threshold = pin->GetOrAddReal("poisson", "restart_threshold", 0.0);
   pkg->AddParam<>("restart_threshold", restart_threshold);
 
   int check_interval = pin->GetOrAddInteger("poisson", "check_interval", 100);
