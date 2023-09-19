@@ -117,7 +117,9 @@ void ParameterInput::LoadFromStream(std::istream &is) {
   InputBlock *pib{};
   int line_num{-1}, blocks_found{0};
 
+  // Buffer multiple lines if a continuation character is present
   std::string multiline_name, multiline_value, multiline_comment;
+  // Status in/out of continuation
   bool continuing = false;
 
   while (is.good()) {
@@ -175,23 +177,26 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       PARTHENON_FAIL(msg);
     }
     // parse line and add name/value/comment strings (if found) to current block name
-    bool continuation = ParseLine(pib, line, param_name, param_value, param_comment);
-    if (continuing || continuation) {
+    bool has_cont_char = ParseLine(pib, line, param_name, param_value, param_comment);
+    if (continuing || has_cont_char) {
+      // Append line data
       multiline_name += param_name;
       multiline_value += param_value;
       multiline_comment += param_comment;
+      // Set new state
       continuing = true;
     }
 
-    if (continuing && !continuation) {
-      continuing = false;
+    if (continuing && !has_cont_char) {
+      // Flush line data
       param_name = multiline_name;
       param_value = multiline_value;
       param_comment = multiline_comment;
-      // Clear the multiline_x buffers to hold the next multi-line value
       multiline_name = "";
       multiline_value = "";
       multiline_comment = "";
+      // Set new state
+      continuing = false;
     }
 
     if (!continuing) {
