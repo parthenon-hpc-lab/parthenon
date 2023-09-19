@@ -381,7 +381,10 @@ TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TaskList &tl, int pa
       (partition == 0
            ? tl.AddTask(get_adotb, &AllReduce<Real>::StartReduce, adotb, MPI_SUM)
            : get_adotb);
-  return tl.AddTask(start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
+  auto finish_global_adotb = tl.AddTask(start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
+  region.AddRegionalDependencies(reg_dep_id, partition, finish_global_adotb);
+  reg_dep_id++;
+  return finish_global_adotb;
 }
 
 TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
@@ -727,7 +730,8 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
         // Check and print out residual
         auto get_res =
             DotProduct<s, s>(correct_s, region, tl, i, reg_dep_id, &residual, md);
-
+        
+        region.AddRegionalDependencies(reg_dep_id, i, get_res);
         if (i == 0) {
           tl.AddTask(
               get_res,
@@ -779,17 +783,20 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
             this, md);
 
         // 10.5. Restart if (rhat0, r) is below threshold
+        region.AddRegionalDependencies(reg_dep_id, i, correct_r | correct_x);
+        reg_dep_id++;
         auto restart = tl.AddTask(
             correct_r,
-            [restart_threshold](PoissonDriver *driver,
+            [restart_threshold](PoissonDriver *driver, int i,
                                 std::shared_ptr<MeshData<Real>> &md) {
+              if (i == 0 && std::abs(driver->rhat0r_old) < restart_threshold) printf("Restart rhat0r_old = %e (%e)\n", driver->rhat0r_old, restart_threshold);
               if (std::abs(driver->rhat0r_old) < restart_threshold) {
                 CopyData<r, rhat0>(md);
                 CopyData<r, p>(md);
               }
               return TaskStatus::complete;
             },
-            this, md);
+            this, i, md);
 
         // 11. rhat0r <- (rhat0, r)
         auto get_rhat0r =
@@ -817,9 +824,10 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
         tl.AddTask(update_p, SetToZero<u>, md);
 
         // 14. rhat0r_old <- rhat0r, zero all reductions
+        region.AddRegionalDependencies(reg_dep_id, i, update_p | correct_x);
         if (i == 0) {
           tl.AddTask(
-              update_p,
+              update_p | correct_x,
               [](PoissonDriver *driver) {
                 driver->rhat0r_old = driver->rhat0r.val;
                 driver->rhat0r.val = 0.0;
