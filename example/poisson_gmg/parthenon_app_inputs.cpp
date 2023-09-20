@@ -41,11 +41,11 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
 
   auto desc =
       parthenon::MakePackDescriptor<poisson_package::rhs, poisson_package::res_err,
-                                    poisson_package::u>(md);
+                                    poisson_package::u, poisson_package::D>(md);
   auto pack = desc.GetPack(md);
 
   constexpr auto te = poisson_package::te;
-
+  using TE = parthenon::TopologicalElement;
   auto &cellbounds = pmb->cellbounds;
   auto ib = cellbounds.GetBoundsI(IndexDomain::entire, te);
   auto jb = cellbounds.GetBoundsJ(IndexDomain::entire, te);
@@ -56,7 +56,10 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         const auto &coords = pack.GetCoordinates(b);
         Real x1 = coords.X<1, te>(i);
         Real x2 = coords.X<2, te>(j);
-        Real x3 = coords.X<2, te>(j);
+        Real x3 = coords.X<2, te>(k);
+        Real x1f = coords.X<1, TE::F1>(i);
+        Real x2f = coords.X<2, TE::F2>(j);
+        Real x3f = coords.X<2, TE::F3>(k);
         Real dx1 = coords.Dxc<1>(k, j, i);
         Real dx2 = coords.Dxc<2>(k, j, i);
         Real dx3 = coords.Dxc<3>(k, j, i);
@@ -78,7 +81,24 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         pack(b, te, poisson_package::rhs(), k, j, i) = val;
         pack(b, te, poisson_package::res_err(), k, j, i) = 0.0; // + x2;
         pack(b, te, poisson_package::u(), k, j, i) = 0.0;       // + x2;
+        
+        auto inside_region = [ndim](Real x, Real y, Real z) { 
+          bool inside1 = (x < -0.25) && (x > -0.75); 
+          if (ndim > 1) inside1 = inside1 && (y < 0.5) && (y > -0.5); 
+          if (ndim > 2) inside1 = inside1 && (z < 0.25) && (z > -0.25);
+
+          bool inside2 = (x < 0.25) && (x > -0.75); 
+          if (ndim > 1) inside2 = inside2 && (y < -0.25) && (y > -0.75); 
+          if (ndim > 2) inside2 = inside2 && (z < 0.25) && (z > -0.25); 
+
+          return inside1 || inside2;
+        };
+        pack(b, TE::F1, poisson_package::D(), k, j, i) = inside_region(x1f, x2, x3) ? 100.0 : 1.0; 
+        pack(b, TE::F2, poisson_package::D(), k, j, i) = inside_region(x1, x2f, x3) ? 100.0 : 1.0; 
+        pack(b, TE::F3, poisson_package::D(), k, j, i) = inside_region(x1, x2, x3f) ? 100.0 : 1.0; 
       });
+
+
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {

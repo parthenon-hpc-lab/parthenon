@@ -119,6 +119,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       {te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
   mp.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(p::name(), mp);
+  
+  auto mD = Metadata(
+      {Metadata::Independent, Metadata::OneCopy, Metadata::Face, Metadata::GMGRestrict});
+  mD.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  pkg->AddField(D::name(), mD);
 
   auto mflux_comm = Metadata({te_type, Metadata::Independent, Metadata::FillGhost,
                               Metadata::WithFluxes, Metadata::GMGRestrict});
@@ -145,72 +150,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(t::name(), mA);
 
   return pkg;
-}
-
-TaskStatus BuildMatrix(std::shared_ptr<MeshData<Real>> &md) {
-  const int ndim = md->GetMeshPointer()->ndim;
-  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
-
-  auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
-  const auto alpha = pkg->Param<Real>("diagonal_alpha");
-
-  auto desc = parthenon::MakePackDescriptor<Am, Ac, Ap>(md.get());
-  auto pack = desc.GetPack(md.get());
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "BuildMatrix", DevExecSpace(), 0, pack.GetNBlocks() - 1, kb.s,
-      kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const auto &coords = pack.GetCoordinates(b);
-        Real dx1 = coords.Dxc<1>(k, j, i);
-        Real dx2 = coords.Dxc<2>(k, j, i);
-        Real dx3 = coords.Dxc<3>(k, j, i);
-        pack(b, te, Am(0), k, j, i) = 1.0 / (dx1 * dx1);
-        pack(b, te, Ac(), k, j, i) = -2.0 / (dx1 * dx1);
-        pack(b, te, Ap(0), k, j, i) = 1.0 / (dx1 * dx1);
-        if (ndim > 1) {
-          pack(b, te, Am(1), k, j, i) = 1.0 / (dx2 * dx2);
-          pack(b, te, Ac(), k, j, i) -= 2.0 / (dx2 * dx2);
-          pack(b, te, Ap(1), k, j, i) = 1.0 / (dx2 * dx2);
-        }
-        if (ndim > 2) {
-          pack(b, te, Am(2), k, j, i) = 1.0 / (dx3 * dx3);
-          pack(b, te, Ac(), k, j, i) -= 2.0 / (dx3 * dx3);
-          pack(b, te, Ap(2), k, j, i) = 1.0 / (dx3 * dx3);
-        }
-        pack(b, te, Ac(), k, j, i) -= alpha;
-      });
-  return TaskStatus::complete;
-}
-
-TaskStatus CalculateResidual(std::shared_ptr<MeshData<Real>> &md) {
-  const int ndim = md->GetMeshPointer()->ndim;
-  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
-
-  auto desc = parthenon::MakePackDescriptor<Am, Ac, Ap, u, rhs, res_err>(md.get());
-  auto pack = desc.GetPack(md.get());
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "CalculateResidual", DevExecSpace(), 0, pack.GetNBlocks() - 1,
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        auto &res = pack(b, te, res_err(), k, j, i);
-        res = pack(b, te, rhs(), k, j, i) -
-              pack(b, te, Ac(), k, j, i) * pack(b, te, u(), k, j, i);
-        res -= pack(b, te, Am(0), k, j, i) * pack(b, te, u(), k, j, i - 1);
-        res -= pack(b, te, Ap(0), k, j, i) * pack(b, te, u(), k, j, i + 1);
-        if (ndim > 1) {
-          res -= pack(b, te, Am(1), k, j, i) * pack(b, te, u(), k, j - 1, i);
-          res -= pack(b, te, Ap(1), k, j, i) * pack(b, te, u(), k, j + 1, i);
-        }
-        if (ndim > 2) {
-          res -= pack(b, te, Am(2), k, j, i) * pack(b, te, u(), k - 1, j, i);
-          res -= pack(b, te, Ap(2), k, j, i) * pack(b, te, u(), k + 1, j, i);
-        }
-      });
-  return TaskStatus::complete;
 }
 
 TaskStatus RMSResidual(std::shared_ptr<MeshData<Real>> &md, std::string label) {
