@@ -61,6 +61,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   bool precondition = pin->GetOrAddBoolean("poisson", "precondition", true);
   pkg->AddParam<>("precondition", precondition);
+  
+  int precondition_vcycles = pin->GetOrAddInteger("poisson", "precondition_vcycles", 1);
+  pkg->AddParam<>("precondition_vcycles", precondition_vcycles);
 
   bool flux_correct = pin->GetOrAddBoolean("poisson", "flux_correct", false);
   pkg->AddParam<>("flux_correct", flux_correct);
@@ -102,7 +105,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   m_uctof.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(uctof::name(), m_uctof);
 
-  auto mrhs = Metadata({te_type, Metadata::Independent, Metadata::FillGhost});
+  auto mrhs = Metadata({te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
   mrhs.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(rhs::name(), mrhs);
   pkg->AddField(rhs_base::name(), mrhs);
@@ -121,6 +124,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                               Metadata::WithFluxes, Metadata::GMGRestrict});
   mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(u::name(), mflux_comm);
+  pkg->AddField(h::name(), mflux_comm);
 
   auto mflux = Metadata(
       {te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
@@ -139,7 +143,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(v::name(), mA);
   pkg->AddField(s::name(), mA);
   pkg->AddField(t::name(), mA);
-  pkg->AddField(h::name(), mA);
 
   return pkg;
 }

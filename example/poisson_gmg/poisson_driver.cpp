@@ -636,6 +636,7 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
   auto precondition = pkg->Param<bool>("precondition");
   bool flux_correct = pkg->Param<bool>("flux_correct");
   const int num_partitions = pmesh->DefaultNumPartitions();
+  int n_vcycles = pkg->Param<int>("precondition_vcycles"); 
 
   Real restart_threshold = pkg->Param<Real>("restart_threshold");
 
@@ -671,6 +672,7 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
       auto zero_u = tl.AddTask(none, SetToZero<u>, md);
       auto copy_r = tl.AddTask(none, CopyData<rhs, r>, md);
       auto copy_p = tl.AddTask(none, CopyData<rhs, p>, md);
+      auto copy_rhsbase = tl.AddTask(none, CopyData<rhs, rhs_base>, md);
       auto copy_rhat0 = tl.AddTask(none, CopyData<rhs, rhat0>, md);
       auto get_rhat0r =
           DotProduct<rhat0, r>(none, region, tl, i, reg_dep_id, &rhat0r, md);
@@ -693,7 +695,7 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
 
   for (int ivcycle = 0; ivcycle < max_iterations; ++ivcycle) {
     // 1. u <- M p (rhs = p is set in previous cycle or initialization)
-    AddGMGRegion();
+    for (int v = 0; v < n_vcycles; ++v) AddGMGRegion();
     {
       TaskRegion &region = tc.AddRegion(num_partitions);
       int reg_dep_id = 0;
@@ -726,10 +728,14 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
               return AddFieldsAndStore<r, v, s>(md, 1.0, -alpha);
             },
             this, md);
-
+        
+        // 4.1 res_err <- A h - rhs 
+        auto comm_h = AddBoundaryExchangeTasks<BoundaryType::any>(correct_h, tl, md, true);
+        auto get_res = Axpy<h, rhs_base, res_err>(tl, comm_h, md, -1.0, 1.0, false, flux_correct);
+        
         // Check and print out residual
-        auto get_res =
-            DotProduct<s, s>(correct_s, region, tl, i, reg_dep_id, &residual, md);
+        get_res =
+            DotProduct<res_err, res_err>(get_res, region, tl, i, reg_dep_id, &residual, md);
         
         region.AddRegionalDependencies(reg_dep_id, i, get_res);
         if (i == 0) {
@@ -748,7 +754,7 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
       }
     }
     // 6. u <- M s (rhs = s)
-    AddGMGRegion();
+    for (int v = 0; v < n_vcycles; ++v) AddGMGRegion();
     {
       TaskRegion &region = tc.AddRegion(num_partitions);
       int reg_dep_id = 0;
