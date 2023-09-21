@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
   // This is called on each mesh block whenever the mesh changes.
   pman.app_input->InitMeshBlockUserData = &calculate_pi::SetInOrOutBlock;
 
-  auto manager_status = pman.ParthenonInit(argc, argv);
+  auto manager_status = pman.ParthenonInitEnv(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
     pman.ParthenonFinalize();
     return 0;
@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) {
   }
 
   // This needs to be scoped so that the driver object is destructed before Finalize
+  pman.ParthenonInitPackagesAndMesh();
   {
     PiDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 

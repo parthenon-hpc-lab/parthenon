@@ -36,7 +36,7 @@
 - [[PR 901]](https://github.com/parthenon-hpc-lab/parthenon/pull/901) Implement shared element ownership model
 
 ### Removed (removing behavior/API/varaibles/...)
-
+- [[PR 930](https://github.com/parthenon-hpc-lab/parthenon/pull/930) Remove ParthenonManager::ParthenonInit as it is error-prone and the split functions are the recommended usage.
 
 ## Release 0.8.0
 Date: 2023-05-26
