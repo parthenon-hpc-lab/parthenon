@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -117,7 +117,9 @@ void ParameterInput::LoadFromStream(std::istream &is) {
   InputBlock *pib{};
   int line_num{-1}, blocks_found{0};
 
+  // Buffer multiple lines if a continuation character is present
   std::string multiline_name, multiline_value, multiline_comment;
+  // Status in/out of continuation
   bool continuing = false;
 
   while (is.good()) {
@@ -175,19 +177,26 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       PARTHENON_FAIL(msg);
     }
     // parse line and add name/value/comment strings (if found) to current block name
-    bool continuation = ParseLine(pib, line, param_name, param_value, param_comment);
-    if (continuing || continuation) {
+    bool has_cont_char = ParseLine(pib, line, param_name, param_value, param_comment);
+    if (continuing || has_cont_char) {
+      // Append line data
       multiline_name += param_name;
       multiline_value += param_value;
       multiline_comment += param_comment;
+      // Set new state
       continuing = true;
     }
 
-    if (continuing && !continuation) {
-      continuing = false;
+    if (continuing && !has_cont_char) {
+      // Flush line data
       param_name = multiline_name;
       param_value = multiline_value;
       param_comment = multiline_comment;
+      multiline_name = "";
+      multiline_value = "";
+      multiline_comment = "";
+      // Set new state
+      continuing = false;
     }
 
     if (!continuing) {
