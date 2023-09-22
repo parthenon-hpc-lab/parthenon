@@ -212,7 +212,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
                 nblocks_and_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
                 KOKKOS_LAMBDA(int v, int k, int j, int i, int &ltot) {
                   int n = i + 1e1 * j + 1e2 * k;
-                  if (n != ((int)pack(v, k, j, i) % 1000)) {
+                  if (n != (static_cast<int>(pack(v, k, j, i)) % 1000)) {
                     ltot += 1;
                   }
                 },
