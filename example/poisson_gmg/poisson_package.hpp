@@ -42,6 +42,7 @@ VARIABLE(poisson, temp);
 VARIABLE(poisson, r);
 VARIABLE(poisson, p);
 VARIABLE(poisson, x);
+VARIABLE(poisson, exact);
 VARIABLE(poisson, Adotp);
 VARIABLE(poisson, D);
 VARIABLE(poisson, rhat0);
@@ -270,12 +271,24 @@ TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md, bool only_int
         pack(b, te, out_t(), k, j, i) += (pack.flux(b, X1DIR, in_t(), k, j, i) -
                                           pack.flux(b, X1DIR, in_t(), k, j, i + 1)) /
                                          dx1;
+
         if (ndim > 1) {
           Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
           pack(b, te, out_t(), k, j, i) += (pack.flux(b, X2DIR, in_t(), k, j, i) -
                                             pack.flux(b, X2DIR, in_t(), k, j + 1, i)) /
                                            dx2;
         }
+        //if ((b == 2 && (i > ib.e - 5) && (j == jb.s + 64)) || 
+        //    (b == 3 && (i < ib.s + 5) && (j == jb.e))) { 
+        //  printf("b = %i i=%i j=%i FxL * dx = %e FxR * dx = %e in = (%e, %e, %e) out = %e\n", b, i, j,
+        //                                                        dx1 * pack.flux(b, X1DIR, in_t(), k, j, i),
+        //                                                        dx1 * pack.flux(b, X1DIR, in_t(), k, j, i + 1),
+        //                                                        pack(b, te, in_t(), k, j, i - 1), 
+        //                                                        pack(b, te, in_t(), k, j, i),
+        //                                                        pack(b, te, in_t(), k, j, i + 1),
+        //                                                        pack(b, te, out_t(), k, j, i)); 
+        //}
+
         if (ndim > 2) {
           Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
           pack(b, te, out_t(), k, j, i) += (pack.flux(b, X3DIR, in_t(), k, j, i) -
