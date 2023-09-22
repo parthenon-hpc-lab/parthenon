@@ -425,7 +425,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                                                nslist.data());
   }
   SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
-  // CheckNeighborFinding(block_list, "Mesh initialization");
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
 
@@ -690,7 +689,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
   SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   BuildGMGHierarchy(nbs, pin, app_in);
-  // CheckNeighborFinding(block_list, "Restart");
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run

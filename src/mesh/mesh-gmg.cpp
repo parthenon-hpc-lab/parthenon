@@ -59,13 +59,8 @@ void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t 
     auto *neighbor_list = gmg_neighbors ? &(pmb->gmg_same_neighbors) : &(pmb->neighbors);
     *neighbor_list = {};
     auto possible_neighbors = loc.GetPossibleNeighbors(root_grid);
-    // printf("\nNeighbors for gid = %i %s\n--------\nperiodic=(%i, %i, %i)\nPossible:\n",
-    // gid, loc.label().c_str(), root_grid.periodic[0], root_grid.periodic[1],
-    // root_grid.periodic[2]); for (auto &n : possible_neighbors) printf("%s\n",
-    // n.label().c_str()); printf("Actual:\n");
     for (auto &pos_neighbor_location : possible_neighbors) {
       if (loc_map.count(pos_neighbor_location) > 0) {
-        // printf("Trying %s\n", pos_neighbor_location.label().c_str());
         const auto &gid_rank = loc_map.at(pos_neighbor_location);
         auto offsets = loc.GetSameLevelOffsets(pos_neighbor_location, root_grid);
         // This inner loop is necessary in case a block pair has multiple neighbor
@@ -85,8 +80,6 @@ void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t 
               }
               auto f = loc.GetAthenaXXFaceOffsets(pos_neighbor_location, ox1, ox2, ox3,
                                                   root_grid);
-              // printf("(%i, %i, %i) loc = %s gid = %i\n", ox1, ox2, ox3,
-              // pos_neighbor_location.label().c_str(), gid_rank.first);
               neighbor_list->emplace_back(
                   pmb->pmy_mesh, pos_neighbor_location, gid_rank.second, gid_rank.first,
                   gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, nc, 0, 0, f[0],
@@ -210,94 +203,5 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
       }
     }
   }
-  // CheckNeighborFinding(block_list, "AMR LoadBalance");
-
-  // Write out GMG levels and connectivity
-  // for (int gmg_level = 0; gmg_level < gmg_levels; ++gmg_level) {
-  //  printf("GMG Level: %i\n-------------\n", gmg_level);
-
-  //  for (auto &pmb : gmg_block_lists[gmg_level]) {
-  //    printf("[%i]%s\n", pmb->gid, pmb->loc.label().c_str());
-  //    for (auto &n : pmb->gmg_coarser_neighbors)
-  //      printf(" -^ [%i]%s\n", n.snb.gid, n.loc.label().c_str());
-  //    for (auto &n : pmb->gmg_same_neighbors)
-  //      printf(" -> [%i]%s\n", n.snb.gid, n.loc.label().c_str());
-  //    for (auto &n : pmb->gmg_finer_neighbors)
-  //      printf(" -v [%i]%s\n", n.snb.gid, n.loc.label().c_str());
-
-  //    // for (auto &n : pmb->neighbors) printf(" => [%i]%s\n", n.snb.gid,
-  //    // n.loc.label().c_str());
-  //  }
-
-  //  printf("\n");
-  //}
 }
-
-void CheckNeighborFinding(BlockList_t &block_list, std::string call_site) {
-  for (auto &pmb : block_list) {
-    CheckNeighborFinding(pmb, call_site);
-  }
-}
-
-void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb, std::string call_site) {
-  // Check each block one by one
-  std::unordered_map<LogicalLocation, NeighborBlock> neighbs;
-  printf("Checking neighbors at callsite %s.\n", call_site.c_str());
-  bool fail = false;
-  for (auto &nb : pmb->gmg_same_neighbors)
-    neighbs[nb.loc] = nb;
-  if (pmb->pbval->nneighbor != pmb->gmg_same_neighbors.size()) {
-    printf("New algorithm found different number of neighbor blocks on %i (%i vs %li).\n",
-           pmb->gid, pmb->pbval->nneighbor, pmb->gmg_same_neighbors.size());
-    fail = true;
-  }
-  for (int nn = 0; nn < pmb->pbval->nneighbor; ++nn) {
-    auto &nb = pmb->pbval->neighbor[nn];
-    if (neighbs.count(nb.loc) > 0) {
-      auto &nb2 = neighbs[nb.loc];
-      if (nb.ni.ox1 == nb2.ni.ox1 && nb.ni.ox2 == nb2.ni.ox2 && nb.ni.ox3 == nb2.ni.ox3) {
-      } else {
-        printf("Bad offsets for block %i %s: %s ox1=%i ox2=%i %s ox1=%i ox2=%i\n",
-               pmb->gid, pmb->loc.label().c_str(), nb.loc.label().c_str(), nb.ni.ox1,
-               nb.ni.ox2, nb2.loc.label().c_str(), nb2.ni.ox1, nb2.ni.ox2);
-        fail = true;
-      }
-      if (nb.ni.fi1 == nb2.ni.fi1 && nb.ni.fi2 == nb2.ni.fi2) {
-      } else {
-        printf("Bad face offsets for block %i %s: %s f1=%i f2=%i %s f1=%i f2=%i\n",
-               pmb->gid, pmb->loc.label().c_str(), nb.loc.label().c_str(), nb.ni.fi1,
-               nb.ni.fi2, nb2.loc.label().c_str(), nb2.ni.fi1, nb2.ni.fi2);
-        fail = true;
-      }
-
-      if (nb.snb.gid == nb2.snb.gid && nb.snb.lid == nb2.snb.lid &&
-          nb.snb.level == nb2.snb.level) {
-      } else {
-        printf("Bad compressed indexing for block %i %s: %s gid=%i lid=%i level=%i %s "
-               "gid=%i lid=%i level=%i\n",
-               pmb->gid, pmb->loc.label().c_str(), nb.loc.label().c_str(), nb.snb.gid,
-               nb.snb.lid, nb.snb.level, nb2.loc.label().c_str(), nb2.snb.gid,
-               nb2.snb.lid, nb.snb.level);
-        fail = true;
-      }
-
-      if (nb.ni.type == nb2.ni.type) {
-      } else {
-        printf("Bad face id for block %i %s: %s fid=%i ox=(%i, %i, %i) %s fid=%i\n",
-               pmb->gid, pmb->loc.label().c_str(), nb.loc.label().c_str(),
-               static_cast<int>(nb.ni.type), nb.ni.ox1, nb.ni.ox2, nb.ni.ox3,
-               nb2.loc.label().c_str(), static_cast<int>(nb2.ni.type));
-        fail = true;
-      }
-
-    } else {
-      printf("Block %i %s new neighbor list missing %s.\n", pmb->gid,
-             pmb->loc.label().c_str(), nb.loc.label().c_str());
-      fail = true;
-    }
-  }
-  // if (fail) PARTHENON_FAIL("Bad neighbor list");
-  //  printf("Finished checking neighbors for %i.\n", pmb->gid);
-}
-
 } // namespace parthenon

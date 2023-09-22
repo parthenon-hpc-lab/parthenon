@@ -476,7 +476,8 @@ class Metadata {
   // Returns true if this variable should do prolongation/restriction
   // and false otherwise.
   bool IsRefined() const {
-    return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) || IsSet(GMGProlongate) || IsSet(GMGRestrict));
+    return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
+            IsSet(GMGProlongate) || IsSet(GMGRestrict));
   }
 
   const std::vector<int> &Shape() const { return shape_; }

@@ -61,7 +61,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   bool precondition = pin->GetOrAddBoolean("poisson", "precondition", true);
   pkg->AddParam<>("precondition", precondition);
-  
+
   int precondition_vcycles = pin->GetOrAddInteger("poisson", "precondition_vcycles", 1);
   pkg->AddParam<>("precondition_vcycles", precondition_vcycles);
 
@@ -105,7 +105,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   m_uctof.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(uctof::name(), m_uctof);
 
-  auto mrhs = Metadata({te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
+  auto mrhs = Metadata(
+      {te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
   mrhs.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(rhs::name(), mrhs);
   pkg->AddField(rhs_base::name(), mrhs);
@@ -120,7 +121,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       {te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
   mp.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(p::name(), mp);
-  
+
   auto mD = Metadata(
       {Metadata::Independent, Metadata::OneCopy, Metadata::Face, Metadata::GMGRestrict});
   mD.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
@@ -139,7 +140,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto mAs =
       Metadata({te_type, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{3});
-  auto mA = Metadata({te_type, Metadata::Derived, Metadata::OneCopy, Metadata::FillGhost});
+  auto mA =
+      Metadata({te_type, Metadata::Derived, Metadata::OneCopy, Metadata::FillGhost});
   pkg->AddField(Am::name(), mAs);
   pkg->AddField(Ac::name(), mA);
   pkg->AddField(Ap::name(), mAs);

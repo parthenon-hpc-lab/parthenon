@@ -60,10 +60,10 @@ constexpr parthenon::TopologicalElement te = parthenon::TopologicalElement::CC;
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 TaskStatus PrintValues(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus CalculateResidual(std::shared_ptr<MeshData<Real>> &md);
-//template <class x_t>
-//TaskStatus BlockLocalTriDiagX(std::shared_ptr<MeshData<Real>> &md);
-//TaskStatus CorrectRHS(std::shared_ptr<MeshData<Real>> &md);
-//TaskStatus RMSResidual(std::shared_ptr<MeshData<Real>> &md, std::string label);
+// template <class x_t>
+// TaskStatus BlockLocalTriDiagX(std::shared_ptr<MeshData<Real>> &md);
+// TaskStatus CorrectRHS(std::shared_ptr<MeshData<Real>> &md);
+// TaskStatus RMSResidual(std::shared_ptr<MeshData<Real>> &md, std::string label);
 
 template <class in, class out>
 TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
@@ -195,7 +195,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
-  
+
   using TE = parthenon::TopologicalElement;
 
   auto desc = parthenon::MakePackDescriptor<var_t, D>(md.get(), {}, {PDOpt::WithFluxes});
@@ -206,28 +206,34 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto &coords = pack.GetCoordinates(b);
         Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-        pack.flux(b, X1DIR, var_t(), k, j, i) = pack(b, TE::F1, D(), k, j, i) / dx1
-            * (pack(b, te, var_t(), k, j, i - 1) - pack(b, te, var_t(), k, j, i));
+        pack.flux(b, X1DIR, var_t(), k, j, i) =
+            pack(b, TE::F1, D(), k, j, i) / dx1 *
+            (pack(b, te, var_t(), k, j, i - 1) - pack(b, te, var_t(), k, j, i));
         if (i == ib.e)
-          pack.flux(b, X1DIR, var_t(), k, j, i + 1) = pack(b, TE::F1, D(), k, j, i + 1) / dx1
-              * (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j, i + 1));
+          pack.flux(b, X1DIR, var_t(), k, j, i + 1) =
+              pack(b, TE::F1, D(), k, j, i + 1) / dx1 *
+              (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j, i + 1));
 
         if (ndim > 1) {
           Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-          pack.flux(b, X2DIR, var_t(), k, j, i) = pack(b, TE::F2, D(), k, j, i)
-              * (pack(b, te, var_t(), k, j - 1, i) - pack(b, te, var_t(), k, j, i)) / dx2;
+          pack.flux(b, X2DIR, var_t(), k, j, i) =
+              pack(b, TE::F2, D(), k, j, i) *
+              (pack(b, te, var_t(), k, j - 1, i) - pack(b, te, var_t(), k, j, i)) / dx2;
           if (j == jb.e)
-            pack.flux(b, X2DIR, var_t(), k, j + 1, i) = pack(b, TE::F2, D(), k, j + 1, i)
-                * (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j + 1, i)) / dx2;
+            pack.flux(b, X2DIR, var_t(), k, j + 1, i) =
+                pack(b, TE::F2, D(), k, j + 1, i) *
+                (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j + 1, i)) / dx2;
         }
 
         if (ndim > 2) {
           Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-          pack.flux(b, X3DIR, var_t(), k, j, i) = pack(b, TE::F3, D(), k, j, i)
-              * (pack(b, te, var_t(), k - 1, j, i) - pack(b, te, var_t(), k, j, i)) / dx3;
+          pack.flux(b, X3DIR, var_t(), k, j, i) =
+              pack(b, TE::F3, D(), k, j, i) *
+              (pack(b, te, var_t(), k - 1, j, i) - pack(b, te, var_t(), k, j, i)) / dx3;
           if (k == kb.e)
-            pack.flux(b, X2DIR, var_t(), k + 1, j, i) = pack(b, TE::F3, D(), k + 1, j, i)
-              * (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k + 1, j, i)) / dx3;
+            pack.flux(b, X2DIR, var_t(), k + 1, j, i) =
+                pack(b, TE::F3, D(), k + 1, j, i) *
+                (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k + 1, j, i)) / dx3;
         }
         // printf("b = %i i = %i flux = %e (%e - %e)\n", b, i, pack.flux(b, X1DIR,
         // var_t(), k, j, i), pack(b, te, var_t(), k, j, i - 1), pack(b, te, var_t(), k,
@@ -262,8 +268,8 @@ TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md, bool only_int
       parthenon::MakePackDescriptor<in_t, out_t>(md.get(), {}, {PDOpt::WithFluxes});
   auto pack = desc.GetPack(md.get(), include_block);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "FluxMultiplyMatrix", DevExecSpace(), 0, pack.GetNBlocks() - 1,
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      DEFAULT_LOOP_PATTERN, "FluxMultiplyMatrix", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto &coords = pack.GetCoordinates(b);
         Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
@@ -278,16 +284,22 @@ TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md, bool only_int
                                             pack.flux(b, X2DIR, in_t(), k, j + 1, i)) /
                                            dx2;
         }
-        //if ((b == 2 && (i > ib.e - 5) && (j == jb.s + 64)) || 
-        //    (b == 3 && (i < ib.s + 5) && (j == jb.e))) { 
-        //  printf("b = %i i=%i j=%i FxL * dx = %e FxR * dx = %e in = (%e, %e, %e) out = %e\n", b, i, j,
-        //                                                        dx1 * pack.flux(b, X1DIR, in_t(), k, j, i),
-        //                                                        dx1 * pack.flux(b, X1DIR, in_t(), k, j, i + 1),
-        //                                                        pack(b, te, in_t(), k, j, i - 1), 
-        //                                                        pack(b, te, in_t(), k, j, i),
-        //                                                        pack(b, te, in_t(), k, j, i + 1),
-        //                                                        pack(b, te, out_t(), k, j, i)); 
-        //}
+        // if ((b == 2 && (i > ib.e - 5) && (j == jb.s + 64)) ||
+        //     (b == 3 && (i < ib.s + 5) && (j == jb.e))) {
+        //   printf("b = %i i=%i j=%i FxL * dx = %e FxR * dx = %e in = (%e, %e, %e) out =
+        //   %e\n", b, i, j,
+        //                                                         dx1 * pack.flux(b,
+        //                                                         X1DIR, in_t(), k, j,
+        //                                                         i), dx1 * pack.flux(b,
+        //                                                         X1DIR, in_t(), k, j, i
+        //                                                         + 1), pack(b, te,
+        //                                                         in_t(), k, j, i - 1),
+        //                                                         pack(b, te, in_t(), k,
+        //                                                         j, i), pack(b, te,
+        //                                                         in_t(), k, j, i + 1),
+        //                                                         pack(b, te, out_t(), k,
+        //                                                         j, i));
+        // }
 
         if (ndim > 2) {
           Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
@@ -299,9 +311,10 @@ TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md, bool only_int
   return TaskStatus::complete;
 }
 
-enum class GSType {all, red, black};
+enum class GSType { all, red, black };
 template <class div_t, class in_t, class out_t>
-TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight, GSType gs_type = GSType::all) {
+TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
+                      GSType gs_type = GSType::all) {
   using namespace parthenon;
   const int ndim = md->GetMeshPointer()->ndim;
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
@@ -322,14 +335,21 @@ TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight, GSType
         if ((i + j + k) % 2 == 0 && gs_type == GSType::black) return;
         // Build the unigrid diagonal of the matrix
         Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-        Real diag_elem = -(pack(b, TE::F1, D(), k, j, i) + pack(b, TE::F1, D(), k, j, i + 1)) / (dx1 * dx1) - alpha;
+        Real diag_elem =
+            -(pack(b, TE::F1, D(), k, j, i) + pack(b, TE::F1, D(), k, j, i + 1)) /
+                (dx1 * dx1) -
+            alpha;
         if (ndim > 1) {
           Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-          diag_elem -= (pack(b, TE::F2, D(), k, j, i) + pack(b, TE::F2, D(), k, j + 1, i)) / (dx2 * dx2);
+          diag_elem -=
+              (pack(b, TE::F2, D(), k, j, i) + pack(b, TE::F2, D(), k, j + 1, i)) /
+              (dx2 * dx2);
         }
         if (ndim > 2) {
           Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-          diag_elem -= (pack(b, TE::F3, D(), k, j, i) + pack(b, TE::F3, D(), k + 1, j, i)) / (dx3 * dx3);
+          diag_elem -=
+              (pack(b, TE::F3, D(), k, j, i) + pack(b, TE::F3, D(), k + 1, j, i)) /
+              (dx3 * dx3);
         }
 
         // Get the off-diagonal contribution to Ax = (D + L + U)x = y

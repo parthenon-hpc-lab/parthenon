@@ -14,7 +14,6 @@
 #ifndef UTILS_BIT_HACKS_HPP_
 #define UTILS_BIT_HACKS_HPP_
 
-
 namespace parthenon {
 namespace impl {
 template <int NDIM = 3>

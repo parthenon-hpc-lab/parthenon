@@ -66,9 +66,6 @@ class RestartReader;
 // Map from LogicalLocation to (gid, rank) pair of location
 using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
 
-void CheckNeighborFinding(std::shared_ptr<MeshBlock> &pmb, std::string call_site);
-void CheckNeighborFinding(BlockList_t &block_list, std::string call_site);
-
 //----------------------------------------------------------------------------------------
 //! \class Mesh
 //  \brief data/functions associated with the overall mesh

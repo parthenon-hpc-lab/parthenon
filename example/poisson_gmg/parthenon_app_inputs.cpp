@@ -43,7 +43,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
 
   auto desc =
       parthenon::MakePackDescriptor<poisson_package::rhs, poisson_package::res_err,
-                                    poisson_package::u, poisson_package::D, 
+                                    poisson_package::u, poisson_package::D,
                                     poisson_package::exact>(md);
   auto pack = desc.GetPack(md);
 
@@ -85,24 +85,25 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         pack(b, te, poisson_package::res_err(), k, j, i) = 0.0; // + x2;
         pack(b, te, poisson_package::u(), k, j, i) = 0.0;       // + x2;
 
-        pack(b, te, poisson_package::exact(), k, j, i) = -exp(-10.0 * rad * rad); 
-        auto inside_region = [ndim](Real x, Real y, Real z) { 
-          bool inside1 = (x < -0.25) && (x > -0.75); 
-          if (ndim > 1) inside1 = inside1 && (y < 0.5) && (y > -0.5); 
+        pack(b, te, poisson_package::exact(), k, j, i) = -exp(-10.0 * rad * rad);
+        auto inside_region = [ndim](Real x, Real y, Real z) {
+          bool inside1 = (x < -0.25) && (x > -0.75);
+          if (ndim > 1) inside1 = inside1 && (y < 0.5) && (y > -0.5);
           if (ndim > 2) inside1 = inside1 && (z < 0.25) && (z > -0.25);
 
-          bool inside2 = (x < 0.25) && (x > -0.75); 
-          if (ndim > 1) inside2 = inside2 && (y < -0.25) && (y > -0.75); 
-          if (ndim > 2) inside2 = inside2 && (z < 0.25) && (z > -0.25); 
+          bool inside2 = (x < 0.25) && (x > -0.75);
+          if (ndim > 1) inside2 = inside2 && (y < -0.25) && (y > -0.75);
+          if (ndim > 2) inside2 = inside2 && (z < 0.25) && (z > -0.25);
 
           return inside1 || inside2;
         };
-        pack(b, TE::F1, poisson_package::D(), k, j, i) = inside_region(x1f, x2, x3) ? interior_D : exterior_D; 
-        pack(b, TE::F2, poisson_package::D(), k, j, i) = inside_region(x1, x2f, x3) ? interior_D : exterior_D; 
-        pack(b, TE::F3, poisson_package::D(), k, j, i) = inside_region(x1, x2, x3f) ? interior_D : exterior_D; 
+        pack(b, TE::F1, poisson_package::D(), k, j, i) =
+            inside_region(x1f, x2, x3) ? interior_D : exterior_D;
+        pack(b, TE::F2, poisson_package::D(), k, j, i) =
+            inside_region(x1, x2f, x3) ? interior_D : exterior_D;
+        pack(b, TE::F3, poisson_package::D(), k, j, i) =
+            inside_region(x1, x2, x3f) ? interior_D : exterior_D;
       });
-
-
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
