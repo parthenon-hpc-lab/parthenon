@@ -37,6 +37,7 @@
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/bit_hacks.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 
@@ -107,36 +108,6 @@ void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t 
   }
 }
 
-int number_of_trailing_zeros(std::uint64_t val) {
-  int n = 0;
-  if (val == 0) return sizeof(val) * 8;
-  if ((val & 0xFFFFFFFF) == 0) {
-    n += 32;
-    val = val >> 32;
-  }
-  if ((val & 0x0000FFFF) == 0) {
-    n += 16;
-    val = val >> 16;
-  }
-  if ((val & 0x000000FF) == 0) {
-    n += 8;
-    val = val >> 8;
-  }
-  if ((val & 0x0000000F) == 0) {
-    n += 4;
-    val = val >> 4;
-  }
-  if ((val & 0x00000003) == 0) {
-    n += 2;
-    val = val >> 2;
-  }
-  if ((val & 0x00000001) == 0) {
-    n += 1;
-    val = val >> 1;
-  }
-  return n;
-}
-
 void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in) {
   if (!multigrid) return;
   // Create GMG logical location lists, first just copy coarsest grid
@@ -146,7 +117,7 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (!mesh_size.symmetry(dir)) {
       int dir_allowed_levels =
-          number_of_trailing_zeros(block_size_default.nx(dir) * nrbx[dir - 1]);
+          NumberOfBinaryTrailingZeros(block_size_default.nx(dir) * nrbx[dir - 1]);
       gmg_level_offset = std::min(dir_allowed_levels, gmg_level_offset);
     }
   }

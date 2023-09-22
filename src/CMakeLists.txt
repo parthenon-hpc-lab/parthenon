@@ -223,6 +223,7 @@ add_library(parthenon
   utils/alias_method.cpp
   utils/alias_method.hpp
   utils/array_to_tuple.hpp
+  utils/bit_hacks.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
