@@ -475,11 +475,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   ResetLoadBalanceVariables();
-
-  // Output variables in use in this run
-  if (Globals::my_rank == 0) {
-    std::cout << "#Variables in use:\n" << *(resolved_packages) << std::endl;
-  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -738,11 +733,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   ResetLoadBalanceVariables();
-
-  // Output variables in use in this run
-  if (Globals::my_rank == 0) {
-    std::cout << "#Variables in use:\n" << *(resolved_packages) << std::endl;
-  }
 }
 
 //----------------------------------------------------------------------------------------
