@@ -39,7 +39,9 @@ Kokkos::Timer Driver::timer_LBandAMR;
 
 void Driver::PreExecute() {
   if (Globals::my_rank == 0) {
-    std::cout << std::endl << "Setup complete, executing driver...\n" << std::endl;
+    std::cout << "# Variables in use:\n" << *(pmesh->resolved_packages) << std::endl;
+    std::cout << std::endl;
+    std::cout << "Setup complete, executing driver...\n" << std::endl;
   }
 
   timer_main.reset();
