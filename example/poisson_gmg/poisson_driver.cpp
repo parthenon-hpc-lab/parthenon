@@ -170,7 +170,7 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
   } else if (smoother == "SRJ3") {
     pre_stages = 3;
     post_stages = 3;
-  } else { 
+  } else {
     PARTHENON_FAIL("Unknown solver type.");
   }
 
@@ -210,8 +210,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
     }
 
     // 2. Do pre-smooth and fill solution on this level
-    auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, set_from_finer, pre_stages,
-                                                              multilevel, md);
+    auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, set_from_finer,
+                                                              pre_stages, multilevel, md);
     // If we are finer than the coarsest level:
     auto post_smooth = none;
     if (level > min_level) {

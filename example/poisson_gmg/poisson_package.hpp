@@ -41,7 +41,7 @@ VARIABLE(poisson, temp);
 VARIABLE(poisson, exact);
 VARIABLE(poisson, rhs_base);
 
-// BiCGStab fields 
+// BiCGStab fields
 VARIABLE(poisson, rhat0);
 VARIABLE(poisson, v);
 VARIABLE(poisson, h);

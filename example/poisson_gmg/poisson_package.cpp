@@ -116,7 +116,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(temp::name(), mflux);
 
   auto m_no_ghost = Metadata({te_type, Metadata::Derived, Metadata::OneCopy});
-  // BiCGSTAB fields 
+  // BiCGSTAB fields
   pkg->AddField(rhat0::name(), m_no_ghost);
   pkg->AddField(v::name(), m_no_ghost);
   pkg->AddField(h::name(), mflux);
@@ -125,8 +125,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(x::name(), m_no_ghost);
   pkg->AddField(r::name(), m_no_ghost);
   pkg->AddField(p::name(), m_no_ghost);
-  
-  // Other storage fields 
+
+  // Other storage fields
   pkg->AddField(exact::name(), m_no_ghost);
   pkg->AddField(u0::name(), m_no_ghost);
   pkg->AddField(rhs::name(), m_no_ghost);
