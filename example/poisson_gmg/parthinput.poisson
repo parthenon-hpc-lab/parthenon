@@ -22,13 +22,13 @@ problem_id = poisson
 refinement = static
 multigrid = true 
 
-nx1 = 128
+nx1 = 64
 x1min = -1.0
 x1max = 1.0
 ix1_bc = user
 ox1_bc = user
 
-nx2 = 128
+nx2 = 64
 x2min = -1.0
 x2max = 1.0
 ix2_bc = user
@@ -41,8 +41,8 @@ ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 128
-nx2 = 128
+nx1 = 32
+nx2 = 32
 nx3 = 1
 
 <parthenon/time>
@@ -54,26 +54,26 @@ nx3 = 1
 <parthenon/output0>
 file_type = hdf5
 dt = 0.05
-variables = poisson.res_err, poisson.u, poisson.x, poisson.r, poisson.rhs, poisson.p, poisson.s, poisson.t, poisson.v
+variables = poisson.res_err, poisson.u, poisson.x, poisson.r, poisson.rhs, poisson.p, poisson.s, poisson.t, poisson.v, poisson.exact
 ghost_zones = true 
 
 <parthenon/static_refinement0> 
-x1min = -0.5
-x1max = 0.5
-x2min = -0.5
-x2max = 0.5
+x1min = -1.0
+x1max = -0.75
+x2min = -1.0
+x2max = -0.75
 level = 3
 
 <poisson>
 solver = BiCGSTAB
 precondition = true
 precondition_vcycles = 1
-restart_threshold = 0.e1
+restart_threshold = 0.0
 flux_correct = true
 smoother = SRJ2
 do_FAS = true
 diagonal_alpha = 0.0
-max_iterations = 5
+max_iterations = 15
 pre_smooth_iterations = 2
 post_smooth_iterations = 2
 jacobi_damping = 0.0
@@ -81,6 +81,6 @@ jacobi_damping = 0.0
 x0 = 0.0
 y0 = 0.0
 z0 = 0.0
-radius = 0.3
-interior_D = 1.0
+radius = 0.5
+interior_D = 100.0
 exterior_D = 1.0
