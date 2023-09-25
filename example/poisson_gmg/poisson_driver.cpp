@@ -38,6 +38,19 @@ parthenon::DriverStatus PoissonDriver::Execute() {
   return DriverStatus::complete;
 }
 
+TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
+  auto pkg = pmesh->packages.Get("poisson_package");
+  auto solver = pkg->Param<std::string>("solver");
+  if (solver == "BiCGSTAB") {
+    return MakeTaskCollectionMGBiCGSTAB(blocks);
+  } else if (solver == "MG") {
+    return MakeTaskCollectionMG(blocks);
+  } else {
+    PARTHENON_FAIL("Unknown solver type.");
+  }
+  return TaskCollection();
+}
+
 template <parthenon::BoundaryType comm_boundary, class in_t, class out_t>
 TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, bool multilevel, Real omega,
                           std::shared_ptr<MeshData<Real>> &md) {
@@ -76,7 +89,6 @@ TaskID AddSRJIteration(TaskList &tl, TaskID depends_on, int stages, bool multile
   auto jacobi1 = AddJacobiIteration<comm_boundary, u, temp>(tl, depends_on, multilevel,
                                                             omega[ndim - 1][0], md);
   if (stages < 2) {
-    jacobi1 = AddBoundaryExchangeTasks<comm_boundary>(jacobi1, tl, md, multilevel);
     return tl.AddTask(jacobi1, CopyData<temp, u>, md);
   }
   auto jacobi2 = AddJacobiIteration<comm_boundary, temp, u>(tl, jacobi1, multilevel,
@@ -252,19 +264,6 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
       AddBoundaryExchangeTasks<BoundaryType::gmg_same>(post_smooth, tl, md, multilevel);
     }
   }
-}
-
-TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
-  auto pkg = pmesh->packages.Get("poisson_package");
-  auto solver = pkg->Param<std::string>("solver");
-  if (solver == "BiCGSTAB") {
-    return MakeTaskCollectionMGBiCGSTAB(blocks);
-  } else if (solver == "MG") {
-    return MakeTaskCollectionMG(blocks);
-  } else {
-    PARTHENON_FAIL("Unknown solver type.");
-  }
-  return TaskCollection();
 }
 
 TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
