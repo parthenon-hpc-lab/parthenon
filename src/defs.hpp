@@ -61,14 +61,6 @@ static_assert(NDIM >= 3,
 // named, weakly typed / unscoped enums:
 //------------------
 
-// needed for arrays dimensioned over grid directions
-// enumerator type only used in Mesh::EnrollUserMeshGenerator()
-// X0DIR time-like direction
-// X1DIR x, r, etc...
-// X2DIR y, theta, etc...
-// X3DIR z, phi, etc...
-enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
-
 struct RegionSize {
   RegionSize() = default;
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,

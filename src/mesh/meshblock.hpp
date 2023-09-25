@@ -162,7 +162,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::unique_ptr<MeshRefinement> pmr;
 
   // Block connectivity information
+  std::vector<NeighborBlock> neighbors;
   std::vector<NeighborBlock> gmg_coarser_neighbors;
+  std::vector<NeighborBlock> gmg_composite_finer_neighbors;
   std::vector<NeighborBlock> gmg_same_neighbors;
   std::vector<NeighborBlock> gmg_finer_neighbors;
 
@@ -278,8 +280,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   int GetNumberOfMeshBlockCells() const {
     return block_size.nx(X1DIR) * block_size.nx(X2DIR) * block_size.nx(X3DIR);
   }
-  void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist) {
-    pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
+  void SearchAndSetNeighbors(Mesh *mesh, MeshBlockTree &tree, int *ranklist,
+                             int *nslist) {
+    pbval->SearchAndSetNeighbors(mesh, tree, ranklist, nslist);
   }
 
   // inform MeshBlock which arrays contained in member Field, Particles,

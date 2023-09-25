@@ -78,7 +78,7 @@ class BoundaryBase {
   static int BufferID(int dim, bool multilevel);
   static int FindBufferID(int ox1, int ox2, int ox3, int fi1, int fi2);
 
-  void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist);
+  void SearchAndSetNeighbors(Mesh *mesh, MeshBlockTree &tree, int *ranklist, int *nslist);
 
  protected:
   // 1D refined or unrefined=2

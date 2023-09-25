@@ -69,14 +69,6 @@ inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
   return LoopControl::cont;
 }
 
-constexpr bool IsGMGCoarseToFine(BoundaryType bound) {
-  return bound == BoundaryType::gmg_prolongate_send ||
-         bound == BoundaryType::gmg_restrict_recv;
-}
-constexpr bool IsGMGFineToCoarse(BoundaryType bound) {
-  return bound == BoundaryType::gmg_prolongate_recv ||
-         bound == BoundaryType::gmg_restrict_send;
-}
 // Loop over boundaries (or shared geometric elements) for blocks contained
 // in MeshData, calling the passed function func for every boundary. Unifies
 // boundary looping that occurs in many places in the boundary communication
@@ -88,17 +80,47 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
-    // CheckNeighborFinding(pmb, "Boundary Loop");
+    auto *gmg_same = pmb->loc.level() == md->grid.logical_level
+                         ? &(pmb->gmg_same_neighbors)
+                         : &(pmb->gmg_composite_finer_neighbors);
     for (auto &v : rc->GetVariableVector()) {
-      if constexpr (IsGMGFineToCoarse(bound)) {
-        if (v->IsSet(Metadata::GMG)) {
+      if constexpr (bound == BoundaryType::gmg_restrict_send) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGRestrict)) {
           for (auto &nb : pmb->gmg_coarser_neighbors) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }
-      } else if constexpr (IsGMGCoarseToFine(bound)) {
-        if (v->IsSet(Metadata::GMG)) {
+      } else if constexpr (bound == BoundaryType::gmg_restrict_recv) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGRestrict)) {
           for (auto &nb : pmb->gmg_finer_neighbors) {
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
+              return;
+            }
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_prolongate_send) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGProlongate)) {
+          for (auto &nb : pmb->gmg_finer_neighbors) {
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
+              return;
+            }
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_prolongate_recv) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGProlongate)) {
+          for (auto &nb : pmb->gmg_coarser_neighbors) {
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
+              return;
+            }
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_same) {
+        if (v->IsSet(Metadata::FillGhost)) {
+          for (auto &nb : *gmg_same) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
               return;
             }
@@ -106,7 +128,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
         }
       } else {
         if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
-          for (auto &nb : pmb->gmg_same_neighbors) {
+          for (auto &nb : pmb->neighbors) {
             if constexpr (bound == BoundaryType::local) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
               if (nb.snb.rank != Globals::my_rank) continue;

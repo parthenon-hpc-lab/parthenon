@@ -347,13 +347,15 @@ template TaskStatus
 ProlongateBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
 // Adds all relevant boundary communication to a single task list
+template <BoundaryType bounds>
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
   // TODO(LFR): Splitting up the boundary tasks while doing prolongation can cause some
   //            possible issues for sparse fields. In particular, the order in which
   //            fields are allocated and then set could potentially result in different
   //            results if the default sparse value is non-zero.
-  const auto any = BoundaryType::any;
+  // const auto any = BoundaryType::any;
+  static_assert(bounds == BoundaryType::any || bounds == BoundaryType::gmg_same);
   // const auto local = BoundaryType::local;
   // const auto nonlocal = BoundaryType::nonlocal;
 
@@ -373,17 +375,23 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
 
   // auto out = (pro_local | pro);
 
-  auto send = tl.AddTask(dependency, SendBoundBufs<any>, md);
-  auto recv = tl.AddTask(dependency, ReceiveBoundBufs<any>, md);
-  auto set = tl.AddTask(recv, SetBounds<any>, md);
+  auto send = tl.AddTask(dependency, SendBoundBufs<bounds>, md);
+  auto recv = tl.AddTask(dependency, ReceiveBoundBufs<bounds>, md);
+  auto set = tl.AddTask(recv, SetBounds<bounds>, md);
 
   auto pro = set;
   if (md->GetMeshPointer()->multilevel) {
     auto cbound = tl.AddTask(set, ApplyBoundaryConditionsOnCoarseOrFineMD, md, true);
-    pro = tl.AddTask(cbound, ProlongateBounds<any>, md);
+    pro = tl.AddTask(cbound, ProlongateBounds<bounds>, md);
   }
   auto fbound = tl.AddTask(pro, ApplyBoundaryConditionsOnCoarseOrFineMD, md, false);
 
   return fbound;
 }
+template TaskID
+AddBoundaryExchangeTasks<BoundaryType::any>(TaskID, TaskList &,
+                                            std::shared_ptr<MeshData<Real>> &, bool);
+template TaskID
+AddBoundaryExchangeTasks<BoundaryType::gmg_same>(TaskID, TaskList &,
+                                                 std::shared_ptr<MeshData<Real>> &, bool);
 } // namespace parthenon

@@ -32,10 +32,17 @@ class PoissonDriver : public Driver {
   }
   // This next function essentially defines the driver.
   TaskCollection MakeTaskCollection(BlockList_t &blocks);
+  TaskCollection MakeTaskCollectionProRes(BlockList_t &blocks);
+  TaskCollection MakeTaskCollectionMG(BlockList_t &blocks);
+  TaskCollection MakeTaskCollectionMGCG(BlockList_t &blocks);
+  TaskCollection MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks);
 
   DriverStatus Execute() override;
 
-  void AddMultiGridTasksLevel(TaskRegion &region, int level, int max_level);
+  void AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level, int max_level,
+                              bool final);
+  void AddRestrictionProlongationLevel(TaskRegion &region, int level, int min_level,
+                                       int max_level);
 
  private:
   // we'll demonstrate doing a global all reduce of a scalar There
@@ -45,7 +52,8 @@ class PoissonDriver : public Driver {
   // accross task lists. A natural place is here in the driver. But
   // the data they point to might need to live in the params of a
   // package, as we've done here.
-  AllReduce<Real> total_mass;
+  AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual;
+  Real rtr_old, rhat0r_old;
   AllReduce<Real> update_norm;
   // and a reduction onto one rank of a scalar
   Reduce<int> max_rank;

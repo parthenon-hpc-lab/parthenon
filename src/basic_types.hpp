@@ -16,6 +16,7 @@
 #include <limits>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <Kokkos_Core.hpp>
 
@@ -36,19 +37,23 @@ using Real = double;
 #endif
 #endif
 
+enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
+enum class BlockLocation { Left = 0, Center = 1, Right = 2 };
 enum class TaskStatus { fail, complete, incomplete, iterate, skip, waiting };
+
 enum class AmrTag : int { derefine = -1, same = 0, refine = 1 };
 enum class RefinementOp_t { Prolongation, Restriction, None };
 
 // JMM: Not clear this is the best place for this but it minimizes
 // circular dependency nonsense.
-constexpr int NUM_BNDRY_TYPES = 9;
+constexpr int NUM_BNDRY_TYPES = 10;
 enum class BoundaryType : int {
   local,
   nonlocal,
   any,
   flxcor_send,
   flxcor_recv,
+  gmg_same,
   gmg_restrict_send,
   gmg_restrict_recv,
   gmg_prolongate_send,
@@ -133,6 +138,14 @@ TopologicalType GetTopologicalType(TopologicalElement el) {
   }
 }
 
+inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt) {
+  using TE = TopologicalElement;
+  using TT = TopologicalType;
+  if (tt == TT::Node) return {TE::NN};
+  if (tt == TT::Edge) return {TE::E1, TE::E2, TE::E3};
+  if (tt == TT::Face) return {TE::F1, TE::F2, TE::F3};
+  return {TE::CC};
+}
 using TE = TopologicalElement;
 // Returns one if the I coordinate of el is offset from the zone center coordinates,
 // and zero otherwise

@@ -103,10 +103,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
-      lb_automatic_(), lb_manual_(), MeshGenerator_{nullptr, UniformMeshGenerator<X1DIR>,
-                                                    UniformMeshGenerator<X2DIR>,
-                                                    UniformMeshGenerator<X3DIR>},
-      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
+      lb_automatic_(),
+      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -209,6 +207,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
   }
   nbmax = *std::max_element(std::begin(nrbx), std::end(nrbx));
+  base_block_size = block_size;
 
   // check consistency of the block and mesh
   if (mesh_size.nx(X1DIR) % block_size.nx(X1DIR) != 0 ||
@@ -226,18 +225,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // initialize user-enrollable functions
-  if (mesh_size.xrat(X1DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X1DIR] = false;
-    MeshGenerator_[X1DIR] = DefaultMeshGenerator<X1DIR>;
-  }
-  if (mesh_size.xrat(X2DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X2DIR] = false;
-    MeshGenerator_[X2DIR] = DefaultMeshGenerator<X2DIR>;
-  }
-  if (mesh_size.xrat(X3DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X3DIR] = false;
-    MeshGenerator_[X3DIR] = DefaultMeshGenerator<X3DIR>;
-  }
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
   // calculate the logical root level and maximum level
@@ -328,78 +315,35 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
               << "Refinement region must be smaller than the whole mesh." << std::endl;
           PARTHENON_FAIL(msg);
         }
-        // find the logical range in the ref_level
-        // note: if this is too slow, this should be replaced with bi-section search.
-        std::int64_t lx1min = 0, lx1max = 0, lx2min = 0, lx2max = 0, lx3min = 0,
-                     lx3max = 0;
-        std::int64_t lxmax = nrbx[X1DIR - 1] * (1LL << ref_lev);
-        for (lx1min = 0; lx1min < lxmax; lx1min++) {
-          Real rx =
-              ComputeMeshGeneratorX(lx1min + 1, lxmax, use_uniform_meshgen_fn_[X1DIR]);
-          if (MeshGenerator_[X1DIR](rx, mesh_size) > ref_size.xmin(X1DIR)) break;
-        }
-        for (lx1max = lx1min; lx1max < lxmax; lx1max++) {
-          Real rx =
-              ComputeMeshGeneratorX(lx1max + 1, lxmax, use_uniform_meshgen_fn_[X1DIR]);
-          if (MeshGenerator_[X1DIR](rx, mesh_size) >= ref_size.xmax(X1DIR)) break;
-        }
-        if (lx1min % 2 == 1) lx1min--;
-        if (lx1max % 2 == 0) lx1max++;
-        if (ndim >= 2) { // 2D or 3D
-          lxmax = nrbx[X2DIR - 1] * (1LL << ref_lev);
-          for (lx2min = 0; lx2min < lxmax; lx2min++) {
-            Real rx =
-                ComputeMeshGeneratorX(lx2min + 1, lxmax, use_uniform_meshgen_fn_[X2DIR]);
-            if (MeshGenerator_[X2DIR](rx, mesh_size) > ref_size.xmin(X2DIR)) break;
-          }
-          for (lx2max = lx2min; lx2max < lxmax; lx2max++) {
-            Real rx =
-                ComputeMeshGeneratorX(lx2max + 1, lxmax, use_uniform_meshgen_fn_[X2DIR]);
-            if (MeshGenerator_[X2DIR](rx, mesh_size) >= ref_size.xmax(X2DIR)) break;
-          }
-          if (lx2min % 2 == 1) lx2min--;
-          if (lx2max % 2 == 0) lx2max++;
-        }
-        if (ndim == 3) { // 3D
-          lxmax = nrbx[X3DIR - 1] * (1LL << ref_lev);
-          for (lx3min = 0; lx3min < lxmax; lx3min++) {
-            Real rx =
-                ComputeMeshGeneratorX(lx3min + 1, lxmax, use_uniform_meshgen_fn_[X3DIR]);
-            if (MeshGenerator_[X3DIR](rx, mesh_size) > ref_size.xmin(X3DIR)) break;
-          }
-          for (lx3max = lx3min; lx3max < lxmax; lx3max++) {
-            Real rx =
-                ComputeMeshGeneratorX(lx3max + 1, lxmax, use_uniform_meshgen_fn_[X3DIR]);
-            if (MeshGenerator_[X3DIR](rx, mesh_size) >= ref_size.xmax(X3DIR)) break;
-          }
-          if (lx3min % 2 == 1) lx3min--;
-          if (lx3max % 2 == 0) lx3max++;
-        }
-        // create the finest level
-        if (ndim == 1) {
-          for (std::int64_t i = lx1min; i < lx1max; i += 2) {
-            LogicalLocation nloc(lrlev, i, 0, 0);
-            int nnew;
-            tree.AddMeshBlock(nloc, nnew);
+        std::int64_t l_region_min[3]{0, 0, 0};
+        std::int64_t l_region_max[3]{1, 1, 1};
+        for (auto dir : {X1DIR, X2DIR, X3DIR}) {
+          if (!mesh_size.symmetry(dir)) {
+            l_region_min[dir - 1] =
+                GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
+            l_region_max[dir - 1] =
+                GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
+            l_region_min[dir - 1] =
+                std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
+            l_region_max[dir - 1] =
+                std::min(l_region_max[dir - 1],
+                         static_cast<std::int64_t>(nrbx[dir - 1] * (1LL << ref_lev) - 1));
+            auto current_loc =
+                LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
+            // Remove last block if it just it's boundary overlaps with the region
+            if (GetMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
+                ref_size.xmax(dir))
+              l_region_max[dir - 1]--;
+            if (l_region_min[dir - 1] % 2 == 1) l_region_min[dir - 1]--;
+            if (l_region_max[dir - 1] % 2 == 0) l_region_max[dir - 1]++;
           }
         }
-        if (ndim == 2) {
-          for (std::int64_t j = lx2min; j < lx2max; j += 2) {
-            for (std::int64_t i = lx1min; i < lx1max; i += 2) {
-              LogicalLocation nloc(lrlev, i, j, 0);
+        for (std::int64_t k = l_region_min[2]; k < l_region_max[2]; k += 2) {
+          for (std::int64_t j = l_region_min[1]; j < l_region_max[1]; j += 2) {
+            for (std::int64_t i = l_region_min[0]; i < l_region_max[0]; i += 2) {
+              LogicalLocation nloc(lrlev, i, j, k);
               int nnew;
               tree.AddMeshBlock(nloc, nnew);
-            }
-          }
-        }
-        if (ndim == 3) {
-          for (std::int64_t k = lx3min; k < lx3max; k += 2) {
-            for (std::int64_t j = lx2min; j < lx2max; j += 2) {
-              for (std::int64_t i = lx1min; i < lx1max; i += 2) {
-                LogicalLocation nloc(lrlev, i, j, k);
-                int nnew;
-                tree.AddMeshBlock(nloc, nnew);
-              }
             }
           }
         }
@@ -448,6 +392,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   costlist = std::vector<double>(nbtotal, 1.0);
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
+  PopulateLeafLocationMap();
 
   // Output some diagnostic information to terminal
 
@@ -476,9 +421,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag);
-    block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    block_list[i - nbs]->SearchAndSetNeighbors(this, tree, ranklist.data(),
+                                               nslist.data());
   }
-  // CheckNeighborFinding(block_list, "Mesh initialization");
+  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
 
@@ -535,10 +481,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
-      lb_automatic_(), lb_manual_(), MeshGenerator_{nullptr, UniformMeshGenerator<X1DIR>,
-                                                    UniformMeshGenerator<X2DIR>,
-                                                    UniformMeshGenerator<X3DIR>},
-      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
+      lb_automatic_(),
+      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -610,26 +554,20 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   const auto nGhost = rr.GetAttr<int>("Info", "NGhost");
 
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
+    block_size.xrat(dir) = mesh_size.xrat(dir);
     block_size.nx(dir) =
         blockSize[dir - 1] - (blockSize[dir - 1] > 1) * includesGhost * 2 * nGhost;
+    if (block_size.nx(dir) == 1) {
+      block_size.symmetry(dir) = true;
+      mesh_size.symmetry(dir) = true;
+    } else {
+      block_size.symmetry(dir) = false;
+      mesh_size.symmetry(dir) = false;
+    }
     // calculate the number of the blocks
     nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
   }
-
-  // initialize user-enrollable functions
-  if (mesh_size.xrat(X1DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X1DIR] = false;
-    MeshGenerator_[X1DIR] = DefaultMeshGenerator<X1DIR>;
-  }
-  if (mesh_size.xrat(X2DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X2DIR] = false;
-    MeshGenerator_[X2DIR] = DefaultMeshGenerator<X2DIR>;
-  }
-  if (mesh_size.xrat(X3DIR) != 1.0) {
-    use_uniform_meshgen_fn_[X3DIR] = false;
-    MeshGenerator_[X3DIR] = DefaultMeshGenerator<X3DIR>;
-  }
-  default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
+  base_block_size = block_size;
 
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
@@ -713,6 +651,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
+  PopulateLeafLocationMap();
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
@@ -745,10 +684,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
-    block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    block_list[i - nbs]->SearchAndSetNeighbors(this, tree, ranklist.data(),
+                                               nslist.data());
   }
+  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   BuildGMGHierarchy(nbs, pin, app_in);
-  // CheckNeighborFinding(block_list, "Restart");
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run
@@ -961,40 +901,6 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserMeshGenerator(CoordinateDirection,MeshGenFunc my_mg)
-//  \brief Enroll a user-defined function for Mesh generation
-
-void Mesh::EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg) {
-  std::stringstream msg;
-  if (dir < 0 || dir >= 3) {
-    msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
-        << "dirName = " << dir << " not valid" << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  if (dir == X1DIR && mesh_size.xrat(X1DIR) > 0.0) {
-    msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
-        << "x1rat = " << mesh_size.xrat(X1DIR)
-        << " must be negative for user-defined mesh generator in X1DIR " << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  if (dir == X2DIR && mesh_size.xrat(X2DIR) > 0.0) {
-    msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
-        << "x2rat = " << mesh_size.xrat(X2DIR)
-        << " must be negative for user-defined mesh generator in X2DIR " << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  if (dir == X3DIR && mesh_size.xrat(X3DIR) > 0.0) {
-    msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
-        << "x3rat = " << mesh_size.xrat(X3DIR)
-        << " must be negative for user-defined mesh generator in X3DIR " << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  use_uniform_meshgen_fn_[dir] = false;
-  MeshGenerator_[dir] = my_mg;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
 // \!fn void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin)
 // \brief Apply MeshBlock::UserWorkBeforeOutput
 
@@ -1065,7 +971,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       tag_map.AddMeshDataToMap<BoundaryType::any>(md);
       for (int gmg_level = 0; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
         auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
-        tag_map.AddMeshDataToMap<BoundaryType::any>(mdg);
+        // tag_map.AddMeshDataToMap<BoundaryType::any>(mdg);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(mdg);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(mdg);
@@ -1229,40 +1136,62 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
 //                 RegionSize &block_size, BundaryFlag *block_bcs)
 // \brief Set the physical part of a block_size structure and block boundary conditions
 
-void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
+bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                      BoundaryFlag *block_bcs) {
-  const int &ll = loc.level();
-  const std::array<std::int64_t, 4> lx{-1, loc.lx1(), loc.lx2(), loc.lx3()};
+  bool valid_region = true;
+  block_size = GetBlockSize(loc);
+  for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
+    if (!block_size.symmetry(dir)) {
+      std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
+      if (loc.level() < root_level) {
+        std::int64_t fac = 1 << (root_level - loc.level());
+        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0);
+      }
+      block_bcs[GetInnerBoundaryFace(dir)] =
+          loc.l(dir - 1) == 0 ? mesh_bcs[GetInnerBoundaryFace(dir)] : BoundaryFlag::block;
+      block_bcs[GetOuterBoundaryFace(dir)] = loc.l(dir - 1) == nrbx_ll - 1
+                                                 ? mesh_bcs[GetOuterBoundaryFace(dir)]
+                                                 : BoundaryFlag::block;
+    } else {
+      block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
+      block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
+    }
+  }
+  return valid_region;
+}
+
+RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
+  RegionSize block_size = GetBlockSize();
+  bool valid_region = true;
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     block_size.xrat(dir) = mesh_size.xrat(dir);
     block_size.symmetry(dir) = mesh_size.symmetry(dir);
-    if (mesh_size.nx(dir) == 1) {
+    if (!block_size.symmetry(dir)) {
+      std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
+      if (loc.level() < root_level) {
+        std::int64_t fac = 1 << (root_level - loc.level());
+        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0);
+      }
+      block_size.xmin(dir) = GetMeshCoordinate(dir, BlockLocation::Left, loc);
+      block_size.xmax(dir) = GetMeshCoordinate(dir, BlockLocation::Right, loc);
+      // Correct for possible overshooting
+      if (block_size.xmax(dir) > mesh_size.xmax(dir) || loc.level() < 0) {
+        // Need integer reduction factor, so transform location back to root level
+        PARTHENON_REQUIRE(loc.level() < root_level, "Something is fucked up.");
+        std::int64_t loc_low = loc.l(dir - 1) << (root_level - loc.level());
+        std::int64_t loc_hi = (loc.l(dir - 1) + 1) << (root_level - loc.level());
+        if (block_size.nx(dir) * (nrbx[dir - 1] - loc_low) % (loc_hi - loc_low) != 0)
+          valid_region = false;
+        block_size.nx(dir) =
+            block_size.nx(dir) * (nrbx[dir - 1] - loc_low) / (loc_hi - loc_low);
+        block_size.xmax(dir) = mesh_size.xmax(dir);
+      }
+    } else {
       block_size.xmin(dir) = mesh_size.xmin(dir);
       block_size.xmax(dir) = mesh_size.xmax(dir);
-      block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
-      block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
-    } else {
-      std::int64_t nrbx_ll = nrbx[dir - 1] << (ll - root_level);
-      if (lx[dir] == 0) {
-        block_size.xmin(dir) = mesh_size.xmin(dir);
-        block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
-      } else {
-        Real rx = ComputeMeshGeneratorX(lx[dir], nrbx_ll, use_uniform_meshgen_fn_[dir]);
-        block_size.xmin(dir) = MeshGenerator_[dir](rx, mesh_size);
-        block_bcs[GetInnerBoundaryFace(dir)] = BoundaryFlag::block;
-      }
-
-      if (lx[dir] == nrbx_ll - 1) {
-        block_size.xmax(dir) = mesh_size.xmax(dir);
-        block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
-      } else {
-        Real rx =
-            ComputeMeshGeneratorX(lx[dir] + 1, nrbx_ll, use_uniform_meshgen_fn_[dir]);
-        block_size.xmax(dir) = MeshGenerator_[dir](rx, mesh_size);
-        block_bcs[GetOuterBoundaryFace(dir)] = BoundaryFlag::block;
-      }
     }
   }
+  return block_size;
 }
 
 std::int64_t Mesh::GetTotalCells() {
@@ -1274,7 +1203,7 @@ std::int64_t Mesh::GetTotalCells() {
 int Mesh::GetNumberOfMeshBlockCells() const {
   return block_list.front()->GetNumberOfMeshBlockCells();
 }
-const RegionSize &Mesh::GetBlockSize() const { return block_list.front()->block_size; }
+const RegionSize &Mesh::GetBlockSize() const { return base_block_size; }
 
 // Functionality re-used in mesh constructor
 void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {

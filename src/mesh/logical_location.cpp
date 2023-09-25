@@ -55,10 +55,15 @@ std::array<int, 3> LogicalLocation::GetOffset(const LogicalLocation &neighbor,
   const int level_diff_1 = std::max(neighbor.level() - level(), 0);
   const int level_diff_2 = std::max(level() - neighbor.level(), 0);
   const int n_per_root_block = 1 << (std::min(level(), neighbor.level()) - rg_info.level);
+  const int root_block_per_n =
+      1 << std::max(rg_info.level - std::min(level(), neighbor.level()), 0);
   for (int i = 0; i < 3; ++i) {
     offset[i] = (neighbor.l(i) >> level_diff_1) - (l(i) >> level_diff_2);
     if (rg_info.periodic[i]) {
-      const int n_cells_level = std::max(n_per_root_block * rg_info.n[i], 1);
+      int n_cells_level = std::max(n_per_root_block * rg_info.n[i], 1);
+      if (root_block_per_n > 1)
+        n_cells_level =
+            rg_info.n[i] / root_block_per_n + (rg_info.n[i] % root_block_per_n != 0);
       if (std::abs(offset[i]) > (n_cells_level / 2)) {
         offset[i] %= n_cells_level;
         offset[i] += offset[i] > 0 ? -n_cells_level : n_cells_level;
@@ -77,12 +82,17 @@ LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor,
   const int level_diff_2 = std::max(level() - neighbor.level(), 0);
   const int n_per_root_block =
       1 << std::max((std::min(level(), neighbor.level()) - rg_info.level), 0);
+  const int root_block_per_n =
+      1 << std::max(rg_info.level - std::min(level(), neighbor.level()), 0);
   for (int i = 0; i < 3; ++i) {
     const auto idxt = l(i) >> level_diff_2;
     const auto idxn = neighbor.l(i) >> level_diff_1;
     if (std::abs(idxn - idxt) <= 1) offsets[i].push_back(idxn - idxt);
 
-    const int n_blocks_level = std::max(n_per_root_block * rg_info.n[i], 1);
+    int n_blocks_level = std::max(n_per_root_block * rg_info.n[i], 1);
+    if (root_block_per_n > 1)
+      n_blocks_level =
+          rg_info.n[i] / root_block_per_n + (rg_info.n[i] % root_block_per_n != 0);
     if (rg_info.periodic[i]) {
       if (std::abs(idxn - n_blocks_level - idxt) <= 1)
         offsets[i].push_back(idxn - n_blocks_level - idxt);
@@ -109,7 +119,8 @@ bool LogicalLocation::NeighborFindingImpl(const LogicalLocation &in,
   const auto block_size_2 = 1 << level_shift_2;
 
   // TODO(LFR): Think about what this should do when we are above the root level
-  const int n_per_root_block = 1 << (max_level - rg_info.level);
+  const int n_per_root_block = 1 << std::max(max_level - rg_info.level, 0);
+  const int root_block_per_n = 1 << std::max(rg_info.level - max_level, 0);
   std::array<bool, 3> b;
 
   for (int i = 0; i < 3; ++i) {
@@ -139,7 +150,10 @@ bool LogicalLocation::NeighborFindingImpl(const LogicalLocation &in,
     // Check if these two ranges overlap at all
     b[i] = in_hi >= low && in_low <= hi;
     if (rg_info.periodic[i]) {
-      const int n_cells_level = std::max(n_per_root_block * rg_info.n[i], 1);
+      int n_cells_level = std::max(n_per_root_block * rg_info.n[i], 1);
+      if (root_block_per_n > 1)
+        n_cells_level =
+            rg_info.n[i] / root_block_per_n + (rg_info.n[i] % root_block_per_n != 0);
       b[i] = b[i] || (in_hi + n_cells_level >= low && in_low + n_cells_level <= hi);
       b[i] = b[i] || (in_hi - n_cells_level >= low && in_low - n_cells_level <= hi);
     }
@@ -158,6 +172,10 @@ LogicalLocation::NeighborFindingImpl<false>(const LogicalLocation &in,
 
 std::vector<LogicalLocation> LogicalLocation::GetDaughters() const {
   std::vector<LogicalLocation> daughters;
+  if (level() < 0) {
+    daughters.push_back(GetDaughter(0, 0, 0));
+    return daughters;
+  }
   daughters.reserve(8);
   for (int i : {0, 1}) {
     for (int j : {0, 1}) {
@@ -211,10 +229,17 @@ std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleNeighborsImpl(
 
   auto AddNeighbors = [&](const LogicalLocation &loc, bool include_parents) {
     const int n_per_root_block = 1 << std::max(loc.level() - rg_info.level, 0);
-    const int down_shift = std::max(rg_info.level - loc.level(), 0);
-    int n1_cells_level = std::max(n_per_root_block * (rg_info.n[0] >> down_shift), 1);
-    int n2_cells_level = std::max(n_per_root_block * (rg_info.n[1] >> down_shift), 1);
-    int n3_cells_level = std::max(n_per_root_block * (rg_info.n[2] >> down_shift), 1);
+    const int down_shift = 1 << std::max(rg_info.level - loc.level(), 0);
+    // Account for the fact that the root grid may be overhanging into a partial block
+    const int extra1 = (rg_info.n[0] % down_shift > 0);
+    const int extra2 = (rg_info.n[1] % down_shift > 0);
+    const int extra3 = (rg_info.n[2] % down_shift > 0);
+    int n1_cells_level =
+        std::max(n_per_root_block * (rg_info.n[0] / down_shift + extra1), 1);
+    int n2_cells_level =
+        std::max(n_per_root_block * (rg_info.n[1] / down_shift + extra2), 1);
+    int n3_cells_level =
+        std::max(n_per_root_block * (rg_info.n[2] / down_shift + extra3), 1);
     for (int i : irange) {
       for (int j : jrange) {
         for (int k : krange) {
