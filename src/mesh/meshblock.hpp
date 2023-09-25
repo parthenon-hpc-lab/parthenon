@@ -164,6 +164,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // Block connectivity information
   std::vector<NeighborBlock> neighbors;
   std::vector<NeighborBlock> gmg_coarser_neighbors;
+  std::vector<NeighborBlock> gmg_composite_finer_neighbors;
   std::vector<NeighborBlock> gmg_same_neighbors;
   std::vector<NeighborBlock> gmg_finer_neighbors;
 
