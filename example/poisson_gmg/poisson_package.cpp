@@ -100,28 +100,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(res_err::name(), mres_err);
 
-  auto m_uctof = Metadata(
-      {te_type, Metadata::Independent, Metadata::FillGhost, Metadata::GMGProlongate});
-  m_uctof.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
-  pkg->AddField(uctof::name(), m_uctof);
-
-  auto mrhs = Metadata(
-      {te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
-  mrhs.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
-  pkg->AddField(rhs::name(), mrhs);
-  pkg->AddField(rhs_base::name(), mrhs);
-  pkg->AddField(solution::name(), mrhs);
-  pkg->AddField(r::name(), mrhs);
-  pkg->AddField(x::name(), mrhs);
-  pkg->AddField(exact::name(), mrhs);
-  pkg->AddField(u0::name(), mrhs);
-  pkg->AddField(Adotp::name(), mrhs);
-
-  auto mp = Metadata(
-      {te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
-  mp.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
-  pkg->AddField(p::name(), mp);
-
   auto mD = Metadata(
       {Metadata::Independent, Metadata::OneCopy, Metadata::Face, Metadata::GMGRestrict});
   mD.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
@@ -131,161 +109,29 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                               Metadata::WithFluxes, Metadata::GMGRestrict});
   mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(u::name(), mflux_comm);
-  pkg->AddField(h::name(), mflux_comm);
 
   auto mflux = Metadata(
       {te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
   mflux.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(temp::name(), mflux);
 
-  auto mAs =
-      Metadata({te_type, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{3});
-  auto mA =
-      Metadata({te_type, Metadata::Derived, Metadata::OneCopy, Metadata::FillGhost});
-  pkg->AddField(Am::name(), mAs);
-  pkg->AddField(Ac::name(), mA);
-  pkg->AddField(Ap::name(), mAs);
-
-  // BiCGSTAB intermediate fields
-  pkg->AddField(rhat0::name(), mA);
-  pkg->AddField(v::name(), mA);
-  pkg->AddField(s::name(), mA);
-  pkg->AddField(t::name(), mA);
+  auto m_no_ghost = Metadata({te_type, Metadata::Derived, Metadata::OneCopy});
+  // BiCGSTAB fields 
+  pkg->AddField(rhat0::name(), m_no_ghost);
+  pkg->AddField(v::name(), m_no_ghost);
+  pkg->AddField(h::name(), mflux);
+  pkg->AddField(s::name(), m_no_ghost);
+  pkg->AddField(t::name(), m_no_ghost);
+  pkg->AddField(x::name(), m_no_ghost);
+  pkg->AddField(r::name(), m_no_ghost);
+  pkg->AddField(p::name(), m_no_ghost);
+  
+  // Other storage fields 
+  pkg->AddField(exact::name(), m_no_ghost);
+  pkg->AddField(u0::name(), m_no_ghost);
+  pkg->AddField(rhs::name(), m_no_ghost);
+  pkg->AddField(rhs_base::name(), m_no_ghost);
 
   return pkg;
 }
-
-TaskStatus RMSResidual(std::shared_ptr<MeshData<Real>> &md, std::string label) {
-  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
-
-  auto desc = parthenon::MakePackDescriptor<res_err>(md.get());
-  auto pack = desc.GetPack(md.get());
-
-  Real squared_error;
-  parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, "CheckConvergence", DevExecSpace(), 0,
-      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &sq_err) {
-        sq_err += std::pow(pack(b, te, res_err(), k, j, i), 2);
-      },
-      Kokkos::Sum<Real>(squared_error));
-
-  squared_error /= pack.GetNBlocks();
-  squared_error /= ib.e - ib.s + 1;
-  squared_error /= jb.e - jb.s + 1;
-  squared_error /= kb.e - kb.s + 1;
-
-  Real rms_error = std::sqrt(squared_error);
-  printf("%s rms error: %e\n", label.c_str(), rms_error);
-
-  return TaskStatus::complete;
-}
-
-template <class x_t>
-TaskStatus BlockLocalTriDiagX(std::shared_ptr<MeshData<Real>> &md) {
-  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
-
-  auto desc = parthenon::MakePackDescriptor<Am, Ac, Ap, x_t, rhs>(md.get());
-  auto pack = desc.GetPack(md.get());
-
-  int nx1 = ib.e - ib.s + 1;
-  int nx2 = jb.e - jb.s + 1;
-  size_t scratch_size = parthenon::ScratchPad2D<Real>::shmem_size(nx2, nx1);
-  constexpr int scratch_level = 1;
-  int upper_boundary_block = pack.GetNBlocks() - 1;
-  parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "tridiagonal solve x", DevExecSpace(), scratch_size,
-      scratch_level, 0, pack.GetNBlocks() - 1, kb.s, kb.e,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
-        // Solve T_x x = y for x
-        const auto &A_im = pack(b, Am());
-        const auto &A_diag = pack(b, Ac());
-        const auto &A_ip = pack(b, Ap());
-        const auto &x = pack(b, x_t());
-        const auto &y = pack(b, rhs());
-        int ie_block = ib.e;
-        if (b != upper_boundary_block) ie_block--;
-        parthenon::ScratchPad2D<Real> c(member.team_scratch(scratch_level), nx2, nx1);
-
-        parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, jb.s, jb.e,
-                                 [&](const int j) {
-                                   const Real b = A_diag(k, j, ib.s);
-                                   c(j, ib.s) = A_ip(k, j, ib.s) / b;
-                                   x(k, j, ib.s) = y(k, j, ib.s) / b;
-                                 });
-
-        for (int i = ib.s + 1; i <= ie_block; ++i) {
-          parthenon::par_for_inner(
-              DEFAULT_INNER_LOOP_PATTERN, member, jb.s, jb.e, [&](const int j) {
-                const Real idenom = 1.0 / (A_diag(k, j, i) - A_im(k, j, i) * c(j, i - 1));
-                c(j, i) = A_ip(k, j, i) * idenom;
-                x(k, j, i) = (y(k, j, i) - A_im(k, j, i) * x(k, j, i - 1)) * idenom;
-              });
-        }
-
-        member.team_barrier();
-        for (int i = ie_block - 1; i >= ib.s; --i) {
-          parthenon::par_for_inner(
-              DEFAULT_INNER_LOOP_PATTERN, member, jb.s, jb.e,
-              [&](const int j) { x(k, j, i) = x(k, j, i) - c(j, i) * x(k, j, i + 1); });
-        }
-      });
-  return TaskStatus::complete;
-}
-
-template TaskStatus BlockLocalTriDiagX<u>(std::shared_ptr<MeshData<Real>> &md);
-template TaskStatus BlockLocalTriDiagX<res_err>(std::shared_ptr<MeshData<Real>> &md);
-
-TaskStatus CorrectRHS(std::shared_ptr<MeshData<Real>> &md) {
-  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
-
-  auto desc = parthenon::MakePackDescriptor<Am, Ac, Ap, res_err, rhs>(md.get());
-  auto pack = desc.GetPack(md.get());
-  int upper_boundary_block = pack.GetNBlocks() - 1;
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "update rhs", DevExecSpace(), 0, pack.GetNBlocks() - 1, kb.s,
-      kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        if (i == ib.s) {
-          Real correction =
-              pack(b, te, Am(), k, j, i) * pack(b, te, res_err(), k, j, i - 1);
-          printf("Correction b=%i i=%i: %e\n", b, i, correction);
-          pack(b, te, rhs(), k, j, i) -= correction;
-        } else if (i == ib.e - (upper_boundary_block != b)) {
-          Real correction =
-              pack(b, te, Ap(), k, j, i) * pack(b, te, res_err(), k, j, i + 1);
-          printf("Correction b=%i i=%i: %e\n", b, i, correction);
-          pack(b, te, rhs(), k, j, i) -= correction;
-        }
-      });
-  return TaskStatus::complete;
-}
-
-TaskStatus PrintValues(std::shared_ptr<MeshData<Real>> &md) {
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
-
-  auto desc = parthenon::MakePackDescriptor<res_err, u>(md.get());
-  auto pack = desc.GetPack(md.get());
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
-      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const auto &coords = pack.GetCoordinates(b);
-        double x = coords.X<1, te>(i);
-        printf("block = %i %i: %e (%e)\n", b, i, pack(b, te, u(), k, j, i),
-               pack(b, te, res_err(), k, j, i));
-      });
-  printf("Done with MeshData\n\n");
-  return TaskStatus::complete;
-}
-
 } // namespace poisson_package

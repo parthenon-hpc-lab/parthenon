@@ -31,39 +31,29 @@
 
 namespace poisson_package {
 using namespace parthenon::package::prelude;
+// GMG fields
 VARIABLE(poisson, res_err);
-VARIABLE(poisson, rhs);
-VARIABLE(poisson, rhs_base);
-VARIABLE(poisson, u);
-VARIABLE(poisson, u0);
-VARIABLE(poisson, uctof);
-VARIABLE(poisson, solution);
-VARIABLE(poisson, temp);
-VARIABLE(poisson, r);
-VARIABLE(poisson, p);
-VARIABLE(poisson, x);
-VARIABLE(poisson, exact);
-VARIABLE(poisson, Adotp);
 VARIABLE(poisson, D);
+VARIABLE(poisson, u);
+VARIABLE(poisson, rhs);
+VARIABLE(poisson, u0);
+VARIABLE(poisson, temp);
+VARIABLE(poisson, exact);
+VARIABLE(poisson, rhs_base);
+
+// BiCGStab fields 
 VARIABLE(poisson, rhat0);
 VARIABLE(poisson, v);
+VARIABLE(poisson, h);
 VARIABLE(poisson, s);
 VARIABLE(poisson, t);
-VARIABLE(poisson, h);
-
-VARIABLE(poisson, Am);
-VARIABLE(poisson, Ac);
-VARIABLE(poisson, Ap);
+VARIABLE(poisson, x);
+VARIABLE(poisson, r);
+VARIABLE(poisson, p);
 
 constexpr parthenon::TopologicalElement te = parthenon::TopologicalElement::CC;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-TaskStatus PrintValues(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus CalculateResidual(std::shared_ptr<MeshData<Real>> &md);
-// template <class x_t>
-// TaskStatus BlockLocalTriDiagX(std::shared_ptr<MeshData<Real>> &md);
-// TaskStatus CorrectRHS(std::shared_ptr<MeshData<Real>> &md);
-// TaskStatus RMSResidual(std::shared_ptr<MeshData<Real>> &md, std::string label);
 
 template <class in, class out, bool only_md_level = false>
 TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
@@ -274,14 +264,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
                 pack(b, TE::F3, D(), k + 1, j, i) *
                 (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k + 1, j, i)) / dx3;
         }
-        // printf("b = %i i = %i flux = %e (%e - %e)\n", b, i, pack.flux(b, X1DIR,
-        // var_t(), k, j, i), pack(b, te, var_t(), k, j, i - 1), pack(b, te, var_t(), k,
-        // j, i)); if (i==ib.e)
-        //   printf("b = %i i = %i flux = %e (%e - %e)\n", b, i + 1, pack.flux(b, X1DIR,
-        //   var_t(), k, j, i + 1), pack(b, te, var_t(), k, j, i), pack(b, te, var_t(), k,
-        //   j, i + 1));
       });
-  // printf("\n");
   return TaskStatus::complete;
 }
 
@@ -330,22 +313,6 @@ TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md, bool only_int
                                             pack.flux(b, X2DIR, in_t(), k, j + 1, i)) /
                                            dx2;
         }
-        // if ((b == 2 && (i > ib.e - 5) && (j == jb.s + 64)) ||
-        //     (b == 3 && (i < ib.s + 5) && (j == jb.e))) {
-        //   printf("b = %i i=%i j=%i FxL * dx = %e FxR * dx = %e in = (%e, %e, %e) out =
-        //   %e\n", b, i, j,
-        //                                                         dx1 * pack.flux(b,
-        //                                                         X1DIR, in_t(), k, j,
-        //                                                         i), dx1 * pack.flux(b,
-        //                                                         X1DIR, in_t(), k, j, i
-        //                                                         + 1), pack(b, te,
-        //                                                         in_t(), k, j, i - 1),
-        //                                                         pack(b, te, in_t(), k,
-        //                                                         j, i), pack(b, te,
-        //                                                         in_t(), k, j, i + 1),
-        //                                                         pack(b, te, out_t(), k,
-        //                                                         j, i));
-        // }
 
         if (ndim > 2) {
           Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
