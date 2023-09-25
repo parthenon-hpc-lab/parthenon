@@ -119,7 +119,8 @@ TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, bool multilevel, Real
   // auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
   // auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md);
   auto mat_mult = tl.AddTask(flux, FluxMultiplyMatrix<in_t, out_t, true>, md, false);
-  return tl.AddTask(mat_mult, FluxJacobi<out_t, in_t, out_t, true>, md, omega, GSType::all);
+  return tl.AddTask(mat_mult, FluxJacobi<out_t, in_t, out_t, true>, md, omega,
+                    GSType::all);
 }
 
 TaskID AddRBGSIteration(TaskList &tl, TaskID depends_on, bool multilevel, Real omega,
@@ -186,8 +187,10 @@ TaskID Axpy(TaskList &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md
     auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
     flux_res = tl.AddTask(recv_flxcor, SetFluxCorrections, md);
   }
-  auto Ax_res = tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, temp, only_md_level>, md, only_interior);
-  return tl.AddTask(Ax_res, AddFieldsAndStoreInteriorSelect<temp, y_t, out_t, only_md_level>, md,
+  auto Ax_res = tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, temp, only_md_level>, md,
+                           only_interior);
+  return tl.AddTask(Ax_res,
+                    AddFieldsAndStoreInteriorSelect<temp, y_t, out_t, only_md_level>, md,
                     weight_Ax, weight_y, only_interior);
 }
 
@@ -272,7 +275,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
         // This should set the rhs only in blocks that correspond to interior nodes, the
         // RHS of leaf blocks that are on this GMG level should have already been set on
         // entry into multigrid
-        set_from_finer = Axpy<u, res_err, rhs, true>(tl, set_from_finer, md, 1.0, 1.0, true);
+        set_from_finer =
+            Axpy<u, res_err, rhs, true>(tl, set_from_finer, md, 1.0, 1.0, true);
         set_from_finer = set_from_finer | copy_u;
       }
     } else {
@@ -339,8 +343,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
         copy_over = tl.AddTask(post_smooth, CopyData<u, res_err, true>, md);
       } else {
         auto set_uctof = tl.AddTask(post_smooth, CopyData<u, uctof, true>, md);
-        auto calc_err =
-            tl.AddTask(post_smooth, AddFieldsAndStore<u, u0, res_err, true>, md, 1.0, -1.0);
+        auto calc_err = tl.AddTask(post_smooth, AddFieldsAndStore<u, u0, res_err, true>,
+                                   md, 1.0, -1.0);
         copy_over = set_uctof | calc_err;
       }
       auto boundary =

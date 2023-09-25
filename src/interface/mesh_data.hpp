@@ -181,10 +181,10 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
 
 } // namespace pack_on_mesh_impl
 
-enum class GridType {none, leaf, two_level_composite, single_level_with_internal};
-struct GridIdentifier { 
+enum class GridType { none, leaf, two_level_composite, single_level_with_internal };
+struct GridIdentifier {
   GridType type = GridType::none;
-  int logical_level = 0; 
+  int logical_level = 0;
 };
 
 /// The MeshData class is a container for cached MeshBlockPacks, i.e., it
@@ -197,7 +197,7 @@ class MeshData {
  public:
   MeshData() = default;
   explicit MeshData(const std::string &name) : stage_name_(name) {}
-  
+
   GridIdentifier grid;
 
   const auto &StageName() const { return stage_name_; }

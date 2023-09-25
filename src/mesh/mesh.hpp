@@ -268,7 +268,7 @@ class Mesh {
 
   // size of default MeshBlockPacks
   int default_pack_size_;
-  
+
   int gmg_min_logical_level_ = 0;
 
 #ifdef MPI_PARALLEL
@@ -290,7 +290,7 @@ class Mesh {
                                        int ntot);
   void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
   void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
-                             RootGridInfo root_grid, int nbs, bool gmg_neighbors, 
+                             RootGridInfo root_grid, int nbs, bool gmg_neighbors,
                              int composite_logical_level = 0);
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);

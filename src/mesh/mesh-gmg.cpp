@@ -52,25 +52,27 @@ void Mesh::PopulateLeafLocationMap() {
 }
 
 void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
-                                 RootGridInfo root_grid, int nbs, bool gmg_neighbors, 
+                                 RootGridInfo root_grid, int nbs, bool gmg_neighbors,
                                  int composite_logical_level) {
   for (auto &pmb : block_list) {
     auto loc = pmb->loc;
     auto gid = pmb->gid;
     auto *neighbor_list = gmg_neighbors ? &(pmb->gmg_same_neighbors) : &(pmb->neighbors);
-    if (gmg_neighbors && loc.level() == composite_logical_level - 1) { 
-      neighbor_list = &(pmb->gmg_composite_finer_neighbors); 
-    } else if (gmg_neighbors && loc.level() == composite_logical_level) { 
-      neighbor_list = &(pmb->gmg_same_neighbors); 
-    } else if (gmg_neighbors) { 
+    if (gmg_neighbors && loc.level() == composite_logical_level - 1) {
+      neighbor_list = &(pmb->gmg_composite_finer_neighbors);
+    } else if (gmg_neighbors && loc.level() == composite_logical_level) {
+      neighbor_list = &(pmb->gmg_same_neighbors);
+    } else if (gmg_neighbors) {
       PARTHENON_FAIL("GMG grid was build incorrectly.");
     }
 
     *neighbor_list = {};
-    
+
     auto possible_neighbors = loc.GetPossibleNeighbors(root_grid);
     for (auto &pos_neighbor_location : possible_neighbors) {
-      if (gmg_neighbors && loc.level() == composite_logical_level - 1 && loc.level() == pos_neighbor_location.level()) continue;
+      if (gmg_neighbors && loc.level() == composite_logical_level - 1 &&
+          loc.level() == pos_neighbor_location.level())
+        continue;
       if (loc_map.count(pos_neighbor_location) > 0) {
         const auto &gid_rank = loc_map.at(pos_neighbor_location);
         auto offsets = loc.GetSameLevelOffsets(pos_neighbor_location, root_grid);
@@ -127,7 +129,7 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   }
 
   const int gmg_min_level = root_level - gmg_level_offset;
-  gmg_min_logical_level_ = gmg_min_level; 
+  gmg_min_logical_level_ = gmg_min_level;
 
   const int gmg_levels = current_level - gmg_min_level + 1;
   gmg_grid_locs = std::vector<LogicalLocMap_t>(gmg_levels);
@@ -228,12 +230,12 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
     }
   }
 
-  //for (auto &block : block_list) {
-  //  printf("Leaf block gid = %i loc:%s\n", block->gid, block->loc.label().c_str());  
-  //  for (auto &nb : block->gmg_coarser_neighbors)  
-  //    printf(" coarser: gid = %i %s\n", nb.snb.gid, nb.loc.label().c_str());
-  //  for (auto &nb : block->gmg_finer_neighbors)  
-  //    printf(" finer: gid = %i %s\n", nb.snb.gid, nb.loc.label().c_str());
-  //} 
+  // for (auto &block : block_list) {
+  //   printf("Leaf block gid = %i loc:%s\n", block->gid, block->loc.label().c_str());
+  //   for (auto &nb : block->gmg_coarser_neighbors)
+  //     printf(" coarser: gid = %i %s\n", nb.snb.gid, nb.loc.label().c_str());
+  //   for (auto &nb : block->gmg_finer_neighbors)
+  //     printf(" finer: gid = %i %s\n", nb.snb.gid, nb.loc.label().c_str());
+  // }
 }
 } // namespace parthenon

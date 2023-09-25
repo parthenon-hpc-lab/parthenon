@@ -80,7 +80,9 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
-    auto *gmg_same = pmb->loc.level() == md->grid.logical_level ? &(pmb->gmg_same_neighbors) : &(pmb->gmg_composite_finer_neighbors); 
+    auto *gmg_same = pmb->loc.level() == md->grid.logical_level
+                         ? &(pmb->gmg_same_neighbors)
+                         : &(pmb->gmg_composite_finer_neighbors);
     for (auto &v : rc->GetVariableVector()) {
       if constexpr (bound == BoundaryType::gmg_restrict_send) {
         if (pmb->loc.level() != md->grid.logical_level) continue;
