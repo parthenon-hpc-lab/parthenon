@@ -65,7 +65,7 @@ TaskStatus CalculateResidual(std::shared_ptr<MeshData<Real>> &md);
 // TaskStatus CorrectRHS(std::shared_ptr<MeshData<Real>> &md);
 // TaskStatus RMSResidual(std::shared_ptr<MeshData<Real>> &md, std::string label);
 
-template <class in, class out>
+template <class in, class out, bool only_md_level = false>
 TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
@@ -73,8 +73,15 @@ TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire, te);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire, te);
 
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true); 
+  if (only_md_level) { 
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] = (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level()); 
+  }
+
   auto desc = parthenon::MakePackDescriptor<in, out>(md.get());
-  auto pack = desc.GetPack(md.get());
+  auto pack = desc.GetPack(md.get(), include_block);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -84,7 +91,7 @@ TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-template <class in, class out>
+template <class in, class out, bool only_md_level = false>
 TaskStatus CopyBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
@@ -95,8 +102,15 @@ TaskStatus CopyBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   IndexRange jbi = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
   IndexRange kbi = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
 
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true); 
+  if (only_md_level) { 
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] = (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level()); 
+  }
+
   auto desc = parthenon::MakePackDescriptor<in, out>(md.get());
-  auto pack = desc.GetPack(md.get());
+  auto pack = desc.GetPack(md.get(), include_block);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -107,7 +121,7 @@ TaskStatus CopyBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-template <class a_t, class b_t, class out>
+template <class a_t, class b_t, class out, bool only_md_level = false>
 TaskStatus AddFieldsAndStoreInteriorSelect(std::shared_ptr<MeshData<Real>> &md,
                                            Real wa = 1.0, Real wb = 1.0,
                                            bool only_interior = false) {
@@ -125,6 +139,11 @@ TaskStatus AddFieldsAndStoreInteriorSelect(std::shared_ptr<MeshData<Real>> &md,
       include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
   }
 
+  if (only_md_level) { 
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] = include_block[b] && (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level()); 
+  }
+
   auto desc = parthenon::MakePackDescriptor<a_t, b_t, out>(md.get());
   auto pack = desc.GetPack(md.get(), include_block);
   parthenon::par_for(
@@ -137,16 +156,22 @@ TaskStatus AddFieldsAndStoreInteriorSelect(std::shared_ptr<MeshData<Real>> &md,
   return TaskStatus::complete;
 }
 
-template <class a_t, class b_t, class out>
+template <class a_t, class b_t, class out, bool only_md_level = false>
 TaskStatus AddFieldsAndStore(std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
                              Real wb = 1.0) {
-  return AddFieldsAndStoreInteriorSelect<a_t, b_t, out>(md, wa, wb, false);
+  return AddFieldsAndStoreInteriorSelect<a_t, b_t, out, only_md_level>(md, wa, wb, false);
 }
 
-template <class var>
+template <class var, bool only_md_level = false>
 TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true); 
+  if (only_md_level) { 
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] = (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level()); 
+  }
   auto desc = parthenon::MakePackDescriptor<var>(md.get());
-  auto pack = desc.GetPack(md.get());
+  auto pack = desc.GetPack(md.get(), include_block);
   const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
   const int ng = parthenon::Globals::nghost;
@@ -188,7 +213,7 @@ TaskStatus DotProductLocal(std::shared_ptr<MeshData<Real>> &md, Real *reduce_sum
   return TaskStatus::complete;
 }
 
-template <class var_t>
+template <class var_t, bool only_md_level = false>
 TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
   using namespace parthenon;
   const int ndim = md->GetMeshPointer()->ndim;
@@ -197,9 +222,18 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
   IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
 
   using TE = parthenon::TopologicalElement;
+  
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true);
+
+  if (only_md_level) { 
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] = (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level()); 
+  }
+
 
   auto desc = parthenon::MakePackDescriptor<var_t, D>(md.get(), {}, {PDOpt::WithFluxes});
-  auto pack = desc.GetPack(md.get());
+  auto pack = desc.GetPack(md.get(), include_block);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -246,7 +280,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-template <class in_t, class out_t>
+template <class in_t, class out_t, bool only_md_level = false>
 TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md, bool only_interior) {
   using namespace parthenon;
   const int ndim = md->GetMeshPointer()->ndim;
@@ -262,6 +296,11 @@ TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md, bool only_int
   if (only_interior) {
     for (int b = 0; b < nblocks; ++b)
       include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
+  }
+  
+  if (only_md_level) { 
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] = include_block[b] && (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level()); 
   }
 
   auto desc =
@@ -312,7 +351,7 @@ TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md, bool only_int
 }
 
 enum class GSType { all, red, black };
-template <class div_t, class in_t, class out_t>
+template <class div_t, class in_t, class out_t, bool only_md_level = false>
 TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
                       GSType gs_type = GSType::all) {
   using namespace parthenon;
@@ -324,8 +363,16 @@ TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
   auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
   const auto alpha = pkg->Param<Real>("diagonal_alpha");
 
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true);
+
+  if (only_md_level) { 
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] = (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level()); 
+  }
+
   auto desc = parthenon::MakePackDescriptor<in_t, out_t, div_t, rhs, D>(md.get());
-  auto pack = desc.GetPack(md.get());
+  auto pack = desc.GetPack(md.get(), include_block);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
