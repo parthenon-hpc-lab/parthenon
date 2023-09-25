@@ -82,37 +82,6 @@ TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-template <class in, class out, bool only_md_level = false>
-TaskStatus CopyBoundaries(std::shared_ptr<MeshData<Real>> &md) {
-  using TE = parthenon::TopologicalElement;
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire, te);
-  IndexRange ibi = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
-  IndexRange jbi = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kbi = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
-
-  int nblocks = md->NumBlocks();
-  std::vector<bool> include_block(nblocks, true);
-  if (only_md_level) {
-    for (int b = 0; b < nblocks; ++b)
-      include_block[b] =
-          (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level());
-  }
-
-  auto desc = parthenon::MakePackDescriptor<in, out>(md.get());
-  auto pack = desc.GetPack(md.get(), include_block);
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
-      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        if (i < ibi.s || i > ibi.e || j < jbi.s || j > jbi.e || k < kbi.s || k > kbi.e)
-          pack(b, te, out(), k, j, i) = pack(b, te, in(), k, j, i);
-      });
-  return TaskStatus::complete;
-}
-
 template <class a_t, class b_t, class out, bool only_md_level = false>
 TaskStatus AddFieldsAndStoreInteriorSelect(std::shared_ptr<MeshData<Real>> &md,
                                            Real wa = 1.0, Real wb = 1.0,

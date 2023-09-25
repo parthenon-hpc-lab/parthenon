@@ -38,73 +38,6 @@ parthenon::DriverStatus PoissonDriver::Execute() {
   return DriverStatus::complete;
 }
 
-void PoissonDriver::AddRestrictionProlongationLevel(TaskRegion &region, int level,
-                                                    int min_level, int max_level) {
-  using namespace parthenon;
-  using namespace poisson_package;
-  TaskID none(0);
-  const int num_partitions = pmesh->DefaultNumPartitions();
-
-  auto pkg = pmesh->packages.Get("poisson_package");
-  auto damping = pkg->Param<Real>("jacobi_damping");
-
-  for (int i = 0; i < num_partitions; ++i) {
-    TaskList &tl = region[i + (max_level - level) * num_partitions];
-
-    auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", i);
-
-    // 0. Receive residual from coarser level if there is one
-    auto set_from_finer = none;
-    if (level < max_level) {
-      // Fill fields with restricted values
-      auto recv_from_finer =
-          tl.AddTask(none, ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>, md);
-      set_from_finer =
-          tl.AddTask(recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md);
-    }
-
-    auto print_post_prolongate = none;
-    if (level > min_level) {
-      std::string label = "Pre-restrict field on level " + std::to_string(level);
-      auto pre_print = tl.AddTask(set_from_finer, PrintChosenValues<res_err>, md, label);
-      // Restrict and send data to next coarser level
-      auto communicate_to_coarse =
-          tl.AddTask(pre_print, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
-
-      // Try to receive data from next finer level and prolongate
-      auto zero_res = tl.AddTask(communicate_to_coarse, SetToZero<res_err>, md);
-      auto recv_from_coarser =
-          tl.AddTask(communicate_to_coarse | zero_res,
-                     ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>, md);
-      auto set_from_coarser =
-          tl.AddTask(recv_from_coarser, SetBounds<BoundaryType::gmg_prolongate_recv>, md);
-      auto prolongate = tl.AddTask(
-          set_from_coarser, ProlongateBounds<BoundaryType::gmg_prolongate_recv>, md);
-
-      // Print out the post-prolongation solution
-      std::string label2 = "Post-prolongate field on level " + std::to_string(level);
-      print_post_prolongate =
-          tl.AddTask(prolongate, PrintChosenValues<res_err>, md, label2);
-    } else {
-      std::string label2 = "Field on last level " + std::to_string(level);
-      print_post_prolongate =
-          tl.AddTask(set_from_finer, PrintChosenValues<res_err>, md, label2);
-    }
-
-    if (level < max_level) {
-      // If we aren't the finest level, communicate boundaries and then send data to
-      // next finer level
-      auto same_gmg_level_boundary_comm =
-          AddBoundaryExchangeTasks<BoundaryType::gmg_same>(print_post_prolongate, tl, md,
-                                                           true);
-      std::string label = "Pre-prolongate field on level " + std::to_string(level);
-      auto print =
-          tl.AddTask(same_gmg_level_boundary_comm, PrintChosenValues<res_err>, md, label);
-      tl.AddTask(print, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
-    }
-  }
-}
-
 template <parthenon::BoundaryType comm_boundary, class in_t, class out_t>
 TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, bool multilevel, Real omega,
                           std::shared_ptr<MeshData<Real>> &md) {
@@ -114,30 +47,9 @@ TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, bool multilevel, Real
 
   auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
   auto flux = tl.AddTask(comm, CalculateFluxes<in_t, true>, md);
-  // auto start_flxcor = tl.AddTask(flux, StartReceiveFluxCorrections, md);
-  // auto send_flxcor = tl.AddTask(flux, LoadAndSendFluxCorrections, md);
-  // auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
-  // auto set_flxcor = tl.AddTask(recv_flxcor, SetFluxCorrections, md);
   auto mat_mult = tl.AddTask(flux, FluxMultiplyMatrix<in_t, out_t, true>, md, false);
   return tl.AddTask(mat_mult, FluxJacobi<out_t, in_t, out_t, true>, md, omega,
                     GSType::all);
-}
-
-TaskID AddRBGSIteration(TaskList &tl, TaskID depends_on, bool multilevel, Real omega,
-                        std::shared_ptr<MeshData<Real>> &md) {
-  using namespace parthenon;
-  using namespace poisson_package;
-  TaskID none(0);
-
-  auto comm =
-      AddBoundaryExchangeTasks<BoundaryType::gmg_same>(depends_on, tl, md, multilevel);
-  auto flux = tl.AddTask(comm, CalculateFluxes<u>, md);
-  auto mat_mult = tl.AddTask(flux, FluxMultiplyMatrix<u, temp>, md, false);
-  auto red = tl.AddTask(mat_mult, FluxJacobi<temp, u, u>, md, omega, GSType::red);
-  auto comm2 = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(red, tl, md, multilevel);
-  auto flux2 = tl.AddTask(comm2, CalculateFluxes<u>, md);
-  auto mat_mult2 = tl.AddTask(flux2, FluxMultiplyMatrix<u, temp>, md, false);
-  return tl.AddTask(mat_mult2, FluxJacobi<temp, u, u>, md, omega, GSType::black);
 }
 
 template <parthenon::BoundaryType comm_boundary>
@@ -246,6 +158,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
   } else if (smoother == "SRJ3") {
     pre_stages = 3;
     post_stages = 3;
+  } else { 
+    PARTHENON_FAIL("Unknown solver type.");
   }
 
   int ndim = pmesh->ndim;
@@ -284,15 +198,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
     }
 
     // 2. Do pre-smooth and fill solution on this level
-    auto pre_smooth = set_from_finer;
-    if (smoother == "GS") {
-      pre_smooth = set_from_finer;
-      for (int st = 0; st < pre_stages; ++st)
-        pre_smooth = AddRBGSIteration(tl, pre_smooth, multilevel, 1.99, md);
-    } else {
-      pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, set_from_finer, pre_stages,
-                                                           multilevel, md);
-    }
+    auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, set_from_finer, pre_stages,
+                                                              multilevel, md);
     // If we are finer than the coarsest level:
     auto post_smooth = none;
     if (level > min_level) {
@@ -321,16 +228,8 @@ void PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, int level, int mi
           tl.AddTask(prolongate, AddFieldsAndStore<u, res_err, u, true>, md, 1.0, 1.0);
 
       // 8. Post smooth using communication field and stored RHS
-      if (smoother == "GS") {
-        post_smooth = update_sol;
-        for (int st = 0; st < post_stages; ++st)
-          post_smooth = AddRBGSIteration(tl, post_smooth, multilevel, 1.99, md);
-      } else {
-        post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
-                                                              multilevel, md);
-        post_smooth = AddSRJIteration<BoundaryType::gmg_same>(
-            tl, post_smooth, post_stages, multilevel, md);
-      }
+      post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
+                                                            multilevel, md);
     } else {
       post_smooth = tl.AddTask(pre_smooth, CopyData<u, res_err, true>, md);
     }
@@ -366,27 +265,6 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     PARTHENON_FAIL("Unknown solver type.");
   }
   return TaskCollection();
-}
-
-TaskCollection PoissonDriver::MakeTaskCollectionProRes(BlockList_t &blocks) {
-  using namespace parthenon;
-  using namespace poisson_package;
-  TaskCollection tc;
-  TaskID none(0);
-
-  auto pkg = pmesh->packages.Get("poisson_package");
-  auto max_iterations = pkg->Param<int>("max_iterations");
-
-  const int num_partitions = pmesh->DefaultNumPartitions();
-  int min_level = 0; // pmesh->GetGMGMaxLevel();
-  int max_level = pmesh->GetGMGMaxLevel();
-
-  TaskRegion &region = tc.AddRegion(num_partitions * (max_level + 1));
-  for (int level = max_level; level >= min_level; --level) {
-    AddRestrictionProlongationLevel(region, level, min_level, max_level);
-  }
-
-  return tc;
 }
 
 TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
