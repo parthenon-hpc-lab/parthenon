@@ -47,21 +47,10 @@ class PoissonDriver : public Driver {
   Real final_rms_error, final_rms_residual;
 
  private:
-  // we'll demonstrate doing a global all reduce of a scalar There
-  // must be one (All)Reduce object per var per rank, and they must be
-  // in appropriate scope so that they don't get
-  // garbage-collected... e.g., the objects persist between and
-  // accross task lists. A natural place is here in the driver. But
-  // the data they point to might need to live in the params of a
-  // package, as we've done here.
+  // Necessary reductions for BiCGStab dot products and residual calculations
   AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual;
   Real rtr_old, rhat0r_old;
   AllReduce<Real> update_norm;
-  // and a reduction onto one rank of a scalar
-  Reduce<int> max_rank;
-  // and we'll do an all reduce of a vector just for fun
-  AllReduce<std::vector<int>> vec_reduce;
-  // We reduce a view too, but it's stored as a param.
 };
 
 void ProblemGenerator(Mesh *pm, parthenon::ParameterInput *pin, MeshData<Real> *md);
