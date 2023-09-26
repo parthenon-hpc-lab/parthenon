@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
   pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x3] =
       GetBoundaryCondition<X3DIR, BCSide::Outer>();
   pman.ParthenonInitPackagesAndMesh();
-  
+
   // This needs to be scoped so that the driver object is destructed before Finalize
   bool success = true;
   {
@@ -73,9 +73,9 @@ int main(int argc, char *argv[]) {
 
     // This line actually runs the simulation
     auto driver_status = driver.Execute();
-    if (driver_status != parthenon::DriverStatus::complete || 
-        driver.final_rms_residual > 1.e-10 || 
-        driver.final_rms_error > 1.e-12) success = false;
+    if (driver_status != parthenon::DriverStatus::complete ||
+        driver.final_rms_residual > 1.e-10 || driver.final_rms_error > 1.e-12)
+      success = false;
   }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
