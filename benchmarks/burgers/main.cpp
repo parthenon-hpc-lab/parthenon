@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
   pman.app_input->ProblemGenerator = burgers_benchmark::ProblemGenerator;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
-  auto manager_status = pman.ParthenonInit(argc, argv);
+  auto manager_status = pman.ParthenonInitEnv(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
     pman.ParthenonFinalize();
     return 0;
@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
   // make use of MPI and Kokkos
 
   // This needs to be scoped so that the driver object is destructed before Finalize
+  pman.ParthenonInitPackagesAndMesh();
   {
     // Initialize the driver
     burgers_benchmark::BurgersDriver driver(pman.pinput.get(), pman.app_input.get(),

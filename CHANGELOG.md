@@ -25,6 +25,7 @@
 - [[PR 885]](https://github.com/parthenon-hpc-lab/parthenon/pull/885) Expose PackDescriptor and use uids in SparsePacks
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 937]](https://github.com/parthenon-hpc-lab/parthenon/pull/937) Fix multiple line continuations
 - [[PR 933]](https://github.com/parthenon-hpc-lab/parthenon/pull/933) Remove extraneous debug check
 - [[PR 917]](https://github.com/parthenon-hpc-lab/parthenon/pull/917) Update Iterative Tasking Infrastructure
 - [[PR 890]](https://github.com/parthenon-hpc-lab/parthenon/pull/890) Fix bugs in sparse communication and prolongation
@@ -36,7 +37,7 @@
 - [[PR 901]](https://github.com/parthenon-hpc-lab/parthenon/pull/901) Implement shared element ownership model
 
 ### Removed (removing behavior/API/varaibles/...)
-
+- [[PR 930](https://github.com/parthenon-hpc-lab/parthenon/pull/930) Remove ParthenonManager::ParthenonInit as it is error-prone and the split functions are the recommended usage.
 
 ## Release 0.8.0
 Date: 2023-05-26
