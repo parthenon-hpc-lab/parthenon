@@ -91,7 +91,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
           if (ndim > 1) inside1 = inside1 && (y < 0.5) && (y > -0.5);
           if (ndim > 2) inside1 = inside1 && (z < 0.25) && (z > -0.25);
 
-          bool inside2 = (x < 0.25) && (x > -0.75);
+          bool inside2 = (x < 0.5) && (x > -0.75);
           if (ndim > 1) inside2 = inside2 && (y < -0.25) && (y > -0.75);
           if (ndim > 2) inside2 = inside2 && (z < 0.25) && (z > -0.25);
 

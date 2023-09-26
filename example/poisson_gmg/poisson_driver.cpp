@@ -315,6 +315,8 @@ TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
             [&](PoissonDriver *driver) {
               Real rms_res = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
               Real rms_err = std::sqrt(driver->rhat0r.val / pmesh->GetTotalCells());
+              this->final_rms_error = rms_err;
+              this->final_rms_residual = rms_res;
               printf("RMS residual: %e RMS error: %e\n", rms_res, rms_err);
               return TaskStatus::complete;
             },

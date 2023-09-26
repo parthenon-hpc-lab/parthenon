@@ -44,6 +44,8 @@ class PoissonDriver : public Driver {
   void AddRestrictionProlongationLevel(TaskRegion &region, int level, int min_level,
                                        int max_level);
 
+  Real final_rms_error, final_rms_residual;
+ 
  private:
   // we'll demonstrate doing a global all reduce of a scalar There
   // must be one (All)Reduce object per var per rank, and they must be
