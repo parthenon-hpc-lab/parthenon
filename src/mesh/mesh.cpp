@@ -427,11 +427,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
-
-  // Output variables in use in this run
-  if (Globals::my_rank == 0) {
-    std::cout << "#Variables in use:\n" << *(resolved_packages) << std::endl;
-  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -690,11 +685,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
-
-  // Output variables in use in this run
-  if (Globals::my_rank == 0) {
-    std::cout << "#Variables in use:\n" << *(resolved_packages) << std::endl;
-  }
 }
 
 //----------------------------------------------------------------------------------------
