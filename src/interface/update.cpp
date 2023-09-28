@@ -167,6 +167,7 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), pack.GetNBlocks(), Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
+        BlockTimer(team_member, pack, b);
 
         const int lo = pack.GetLowerBound(b);
         const int hi = pack.GetUpperBound(b);
