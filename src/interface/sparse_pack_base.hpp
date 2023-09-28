@@ -117,7 +117,8 @@ class SparsePackCache {
   SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc,
                               const std::vector<bool> &include_block);
 
-  std::unordered_map<std::string, std::tuple<SparsePackBase, SparsePackBase::alloc_t, SparsePackBase::include_t>>
+  std::unordered_map<std::string, std::tuple<SparsePackBase, SparsePackBase::alloc_t,
+                                             SparsePackBase::include_t>>
       pack_map;
 
   friend class SparsePackBase;

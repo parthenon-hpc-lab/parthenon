@@ -311,8 +311,8 @@ SparsePackBase &SparsePackCache::BuildAndAdd(T *pmd, const PackDescriptor &desc,
                                              const std::vector<bool> &include_block) {
   if (pack_map.count(desc.identifier) > 0) pack_map.erase(desc.identifier);
   pack_map[desc.identifier] = {SparsePackBase::Build(pmd, desc, include_block),
-                     SparsePackBase::GetAllocStatus(pmd, desc, include_block),
-                     include_block};
+                               SparsePackBase::GetAllocStatus(pmd, desc, include_block),
+                               include_block};
   return std::get<0>(pack_map[desc.identifier]);
 }
 template SparsePackBase &
