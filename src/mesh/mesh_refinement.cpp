@@ -69,70 +69,6 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
 }
 
 //----------------------------------------------------------------------------------------
-//  \brief restrict cell centered values
-
-void MeshRefinement::RestrictCellCenteredValues(Variable<Real> *var, int csi, int cei,
-                                                int csj, int cej, int csk, int cek) {
-  const auto &metadata = var->metadata();
-  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
-                                                    " must be registered for refinement");
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  const auto &refinement_funcs = metadata.GetRefinementFunctions();
-  const auto &restrictor = refinement_funcs.restrictor_host;
-  int b = 0;
-  int nbuffers = 1;
-  // TODO(JMM): We're allocating on the heap here... we could move to
-  // the stack by giving these functions pointers to underlying data?
-  // Probably not worth it, as these functions will be completely removed soon.
-  BufferCacheHost_t info_h("refinement info", nbuffers);
-  refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
-  idxs_h(b) = b;
-  // buff and var unused.
-  block_ownership_t owns(true);
-  info_h(b).prores_idxer[0] = SpatiallyMaskedIndexer6D(
-      owns, {0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1}, {0, var->GetDim(4) - 1},
-      {csk, cek}, {csj, cej}, {csi, cei});
-  info_h(b).refinement_op = RefinementOp_t::Restriction;
-  info_h(b).coords = pmb->coords;
-  info_h(b).coarse_coords = this->coarse_coords;
-  info_h(b).fine = (var->data).Get();
-  info_h(b).coarse = (var->coarse_s).Get();
-  restrictor(info_h, idxs_h, pmb->cellbounds, pmb->c_cellbounds, nbuffers);
-}
-
-//----------------------------------------------------------------------------------------
-//  \brief Prolongate cell centered values
-
-void MeshRefinement::ProlongateCellCenteredValues(Variable<Real> *var, int si, int ei,
-                                                  int sj, int ej, int sk, int ek) {
-  const auto &metadata = var->metadata();
-  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
-                                                    " must be registered for refinement");
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  const auto &refinement_funcs = metadata.GetRefinementFunctions();
-  const auto &prolongator = refinement_funcs.prolongator_host;
-  int b = 0;
-  int nbuffers = 1;
-  // TODO(JMM): We're allocating on the heap here... we could move to
-  // the stack by giving these functions pointers to underlying data?
-  // Probably not worth it, as these functions will be completely removed soon.
-  BufferCacheHost_t info_h("refinement info", nbuffers);
-  refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
-  idxs_h(b) = b;
-  // buff and var unused
-  block_ownership_t owns(true);
-  info_h(b).prores_idxer[0] =
-      SpatiallyMaskedIndexer6D(owns, {0, var->GetDim(6) - 1}, {0, var->GetDim(5) - 1},
-                               {0, var->GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
-  info_h(b).refinement_op = RefinementOp_t::Prolongation;
-  info_h(b).coords = pmb->coords;
-  info_h(b).coarse_coords = this->coarse_coords;
-  info_h(b).fine = (var->data).Get();
-  info_h(b).coarse = (var->coarse_s).Get();
-  prolongator(info_h, idxs_h, pmb->cellbounds, pmb->c_cellbounds, nbuffers);
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn void MeshRefinement::CheckRefinementCondition()
 //  \brief Check refinement criteria
 
@@ -163,14 +99,14 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
     } else {
       deref_count_++;
       int ec = 0, js, je, ks, ke;
-      if (pmb->block_size.nx2 > 1) {
+      if (!pmb->block_size.symmetry(X2DIR)) {
         js = -1;
         je = 1;
       } else {
         js = 0;
         je = 0;
       }
-      if (pmb->block_size.nx3 > 1) {
+      if (!pmb->block_size.symmetry(X3DIR)) {
         ks = -1;
         ke = 1;
       } else {

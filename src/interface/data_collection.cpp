@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -22,42 +22,36 @@
 namespace parthenon {
 
 template <typename T>
-std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
-                                          const std::shared_ptr<T> &src,
-                                          const std::vector<std::string> &flags) {
+std::shared_ptr<T> &
+DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
+                       const std::vector<std::string> &field_names, const bool shallow) {
   auto it = containers_.find(name);
   if (it != containers_.end()) {
-    if (!(it->second)->Contains(flags)) {
-      PARTHENON_THROW(name + "already exists in collection but does not contain flags");
+    if (!(it->second)->Contains(field_names)) {
+      PARTHENON_THROW(name +
+                      "already exists in collection but does not contain field names");
     }
     return it->second;
   }
 
-  auto c = std::make_shared<T>();
-  c->Copy(src, flags);
+  auto c = std::make_shared<T>(name);
+  c->Initialize(src.get(), field_names, shallow);
 
-  containers_[name] = c;
+  Set(name, c);
+
   return containers_[name];
 }
-
 template <typename T>
-std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
-                                          const std::shared_ptr<T> &src) {
-  // error check for duplicate names
-  auto it = containers_.find(name);
-  if (it != containers_.end()) {
-    // check to make sure they are the same
-    if (!(*src == *(it->second))) {
-      PARTHENON_THROW("Error attempting to add a Container to a Collection");
-    }
-    return it->second;
-  }
-
-  auto c = std::make_shared<T>();
-  c->Copy(src);
-
-  containers_[name] = c;
-  return containers_[name];
+std::shared_ptr<T> &DataCollection<T>::Add(const std::string &label,
+                                           const std::shared_ptr<T> &src,
+                                           const std::vector<std::string> &flags) {
+  return Add(label, src, flags, false);
+}
+template <typename T>
+std::shared_ptr<T> &DataCollection<T>::AddShallow(const std::string &label,
+                                                  const std::shared_ptr<T> &src,
+                                                  const std::vector<std::string> &flags) {
+  return Add(label, src, flags, true);
 }
 
 template <>
@@ -72,8 +66,8 @@ DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
     auto partitions = partition::ToSizeN(pmy_mesh_->block_list, pack_size);
     for (auto i = 0; i < partitions.size(); i++) {
       const std::string md_label = mbd_label + "_part-" + std::to_string(i);
-      containers_[md_label] = std::make_shared<MeshData<Real>>();
-      containers_[md_label]->Set(partitions[i], mbd_label);
+      containers_[md_label] = std::make_shared<MeshData<Real>>(mbd_label);
+      containers_[md_label]->Set(partitions[i]);
     }
   }
   return containers_[label];
