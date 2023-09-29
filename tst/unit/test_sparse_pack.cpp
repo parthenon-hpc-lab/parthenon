@@ -197,12 +197,28 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
           auto desc = parthenon::MakePackDescriptor<v3, v5>(
               pkg.get(), {}, {PDOpt::WithFluxes, PDOpt::Flatten});
           auto pack = desc.GetPack(&mesh_data);
+
           int lo = pack.GetLowerBoundHost(2);
           int hi = pack.GetUpperBoundHost(2);
           REQUIRE(lo == 4 - 1 + 4 + 1); // lo = index in flat pack where block 2 starts.
                                         // v3 and v5 = 4 total var components
           REQUIRE(hi == lo); // hi = index in flat pack where block 2 ends. Only v3
                              // present, so only 1 var
+          AND_THEN("The flattened sparse pack can access vars correctly") {
+            const int nblocks_and_vars = pack.GetMaxNumberOfVars();
+            int nwrong = 0;
+            par_reduce(
+                loop_pattern_mdrange_tag, "test flat", DevExecSpace(), 0,
+                nblocks_and_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+                KOKKOS_LAMBDA(int v, int k, int j, int i, int &ltot) {
+                  int n = i + 1e1 * j + 1e2 * k;
+                  if (n != (static_cast<int>(pack(v, k, j, i)) % 1000)) {
+                    ltot += 1;
+                  }
+                },
+                nwrong);
+            REQUIRE(nwrong == 0);
+          }
         }
       }
 
