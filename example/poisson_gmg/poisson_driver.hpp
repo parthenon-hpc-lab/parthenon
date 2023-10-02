@@ -40,7 +40,7 @@ class PoissonDriver : public Driver {
   DriverStatus Execute() override;
   
   template <class TL_t>
-  std::vector<TaskID> AddMultiGridTasksLevel(TL_t &region, int level, int min_level, int max_level,
+  TaskID AddMultiGridTasksPartitionLevel(TL_t &region, TaskID dependence, int partition, int level, int min_level, int max_level,
                               bool final);
   void AddRestrictionProlongationLevel(TaskRegion &region, int level, int min_level,
                                        int max_level);
@@ -52,6 +52,7 @@ class PoissonDriver : public Driver {
   AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual;
   Real rtr_old, rhat0r_old;
   AllReduce<Real> update_norm;
+  int mg_iter_cntr;
 };
 
 void ProblemGenerator(Mesh *pm, parthenon::ParameterInput *pin, MeshData<Real> *md);

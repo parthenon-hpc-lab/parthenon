@@ -76,6 +76,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   Real err_tol = pin->GetOrAddReal("poisson", "error_tolerance", 1.e-8);
   pkg->AddParam<>("error_tolerance", err_tol);
+  
+  Real res_tol = pin->GetOrAddReal("poisson", "residual_tolerance", 1.e-8);
+  pkg->AddParam<>("residual_tolerance", res_tol);
 
   bool fail_flag = pin->GetOrAddBoolean("poisson", "fail_without_convergence", false);
   pkg->AddParam<>("fail_without_convergence", fail_flag);

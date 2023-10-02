@@ -149,7 +149,7 @@ TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TL_t &tl, int partit
 }
 
 template <class TL_t>
-std::vector<TaskID> PoissonDriver::AddMultiGridTasksLevel(TL_t &tl_vec, int level, int min_level,
+TaskID PoissonDriver::AddMultiGridTasksPartitionLevel(TL_t &tl, TaskID dependence, int partition, int level, int min_level,
                                            int max_level, bool final) {
   using namespace parthenon;
   using namespace poisson_package;
@@ -177,95 +177,91 @@ std::vector<TaskID> PoissonDriver::AddMultiGridTasksLevel(TL_t &tl_vec, int leve
 
   int ndim = pmesh->ndim;
   bool multilevel = (level != min_level);
-  std::vector<TaskID> last_task(num_partitions);
-  //PARTHENON_REQUIRE(num_partitions == tl_vec.size(), "Task List size and number of partititions are not the same.");
-  for (int i = 0; i < num_partitions; ++i) {
-    auto &tl = tl_vec[i];
-
-    auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", i);
-    // 0. Receive residual from coarser level if there is one
-    auto set_from_finer = none;
-    if (level < max_level) {
-      // Fill fields with restricted values
-      auto recv_from_finer =
-          tl.AddTask(none, ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>, md);
+  TaskID last_task;
+  
+  auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition);
+  // 0. Receive residual from coarser level if there is one
+  auto set_from_finer = dependence;
+  if (level < max_level) {
+    // Fill fields with restricted values
+    auto recv_from_finer =
+        tl.AddTask(dependence, ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>, md);
+    set_from_finer =
+        tl.AddTask(recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md);
+    // 1. Copy residual from dual purpose communication field to the rhs, should be
+    // actual RHS for finest level
+    auto copy_u = tl.AddTask(set_from_finer, CopyData<u, u0, true>, md);
+    if (!do_FAS) {
+      auto zero_u = tl.AddTask(copy_u, SetToZero<u, true>, md);
+      auto copy_rhs = tl.AddTask(set_from_finer, CopyData<res_err, rhs, true>, md);
+      set_from_finer = zero_u | copy_u | copy_rhs;
+    } else {
+      set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
+          set_from_finer, tl, md, multilevel);
+      // This should set the rhs only in blocks that correspond to interior nodes, the
+      // RHS of leaf blocks that are on this GMG level should have already been set on
+      // entry into multigrid
       set_from_finer =
-          tl.AddTask(recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md);
-      // 1. Copy residual from dual purpose communication field to the rhs, should be
-      // actual RHS for finest level
-      auto copy_u = tl.AddTask(set_from_finer, CopyData<u, u0, true>, md);
-      if (!do_FAS) {
-        auto zero_u = tl.AddTask(copy_u, SetToZero<u, true>, md);
-        auto copy_rhs = tl.AddTask(set_from_finer, CopyData<res_err, rhs, true>, md);
-        set_from_finer = zero_u | copy_u | copy_rhs;
-      } else {
-        set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
-            set_from_finer, tl, md, multilevel);
-        // This should set the rhs only in blocks that correspond to interior nodes, the
-        // RHS of leaf blocks that are on this GMG level should have already been set on
-        // entry into multigrid
-        set_from_finer =
-            Axpy<u, res_err, rhs, true>(tl, set_from_finer, md, 1.0, 1.0, true);
-        set_from_finer = set_from_finer | copy_u;
-      }
-    } else {
-      set_from_finer = tl.AddTask(set_from_finer, CopyData<u, u0, true>, md);
+          Axpy<u, res_err, rhs, true>(tl, set_from_finer, md, 1.0, 1.0, true);
+      set_from_finer = set_from_finer | copy_u;
     }
+  } else {
+    set_from_finer = tl.AddTask(set_from_finer, CopyData<u, u0, true>, md);
+  }
 
-    // 2. Do pre-smooth and fill solution on this level
-    auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, set_from_finer,
-                                                              pre_stages, multilevel, md);
-    // If we are finer than the coarsest level:
-    auto post_smooth = none;
-    if (level > min_level) {
-      // 3. Communicate same level boundaries so that u is up to date everywhere
-      auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md,
-                                                                     multilevel);
+  // 2. Do pre-smooth and fill solution on this level
+  auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, set_from_finer,
+                                                            pre_stages, multilevel, md);
+  // If we are finer than the coarsest level:
+  auto post_smooth = none;
+  if (level > min_level) {
+    // 3. Communicate same level boundaries so that u is up to date everywhere
+    auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md,
+                                                                   multilevel);
 
-      // 4. Caclulate residual and store in communication field
-      auto residual = Axpy<u, rhs, res_err, true>(tl, comm_u, md, -1.0, 1.0, false);
+    // 4. Caclulate residual and store in communication field
+    auto residual = Axpy<u, rhs, res_err, true>(tl, comm_u, md, -1.0, 1.0, false);
 
-      // 5. Restrict communication field and send to next level
-      auto communicate_to_coarse =
-          tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
+    // 5. Restrict communication field and send to next level
+    auto communicate_to_coarse =
+        tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
 
-      // 6. Receive error field into communication field and prolongate
-      auto recv_from_coarser = tl.AddTask(
-          communicate_to_coarse, ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>, md);
-      auto set_from_coarser =
-          tl.AddTask(recv_from_coarser, SetBounds<BoundaryType::gmg_prolongate_recv>, md);
-      auto prolongate = tl.AddTask(
-          set_from_coarser, ProlongateBounds<BoundaryType::gmg_prolongate_recv>, md);
+    // 6. Receive error field into communication field and prolongate
+    auto recv_from_coarser = tl.AddTask(
+        communicate_to_coarse, ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>, md);
+    auto set_from_coarser =
+        tl.AddTask(recv_from_coarser, SetBounds<BoundaryType::gmg_prolongate_recv>, md);
+    auto prolongate = tl.AddTask(
+        set_from_coarser, ProlongateBounds<BoundaryType::gmg_prolongate_recv>, md);
 
-      // 7. Correct solution on this level with res_err field and store in
-      //    communication field
-      auto update_sol =
-          tl.AddTask(prolongate, AddFieldsAndStore<u, res_err, u, true>, md, 1.0, 1.0);
+    // 7. Correct solution on this level with res_err field and store in
+    //    communication field
+    auto update_sol =
+        tl.AddTask(prolongate, AddFieldsAndStore<u, res_err, u, true>, md, 1.0, 1.0);
 
-      // 8. Post smooth using communication field and stored RHS
-      post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
-                                                            multilevel, md);
+    // 8. Post smooth using communication field and stored RHS
+    post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
+                                                          multilevel, md);
+  } else {
+    post_smooth = tl.AddTask(pre_smooth, CopyData<u, res_err, true>, md);
+  }
+
+  // 9. Send communication field to next finer level (should be error field for that
+  // level)
+  if (level < max_level) {
+    auto copy_over = post_smooth;
+    if (!do_FAS) {
+      copy_over = tl.AddTask(post_smooth, CopyData<u, res_err, true>, md);
     } else {
-      post_smooth = tl.AddTask(pre_smooth, CopyData<u, res_err, true>, md);
+      auto calc_err = tl.AddTask(post_smooth, AddFieldsAndStore<u, u0, res_err, true>,
+                                 md, 1.0, -1.0);
+      copy_over = calc_err;
     }
-
-    // 9. Send communication field to next finer level (should be error field for that
-    // level)
-    if (level < max_level) {
-      auto copy_over = post_smooth;
-      if (!do_FAS) {
-        copy_over = tl.AddTask(post_smooth, CopyData<u, res_err, true>, md);
-      } else {
-        auto calc_err = tl.AddTask(post_smooth, AddFieldsAndStore<u, u0, res_err, true>,
-                                   md, 1.0, -1.0);
-        copy_over = calc_err;
-      }
-      auto boundary =
-          AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md, multilevel);
-      last_task[i] = tl.AddTask(boundary, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
-    } else {
-      last_task[i] = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(post_smooth, tl, md, multilevel);
-    }
+    auto boundary =
+        AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md, multilevel);
+    last_task = tl.AddTask(boundary, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
+  } else {
+    last_task = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(post_smooth, tl, md, multilevel);
   }
   return last_task;
 }
@@ -278,32 +274,13 @@ TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
 
   auto pkg = pmesh->packages.Get("poisson_package");
   auto max_iterations = pkg->Param<int>("max_iterations");
+  auto residual_tolerance = pkg->Param<Real>("residual_tolerance");
+  this->mg_iter_cntr = 0; 
 
   const int num_partitions = pmesh->DefaultNumPartitions();
   int min_level = 0;
   int max_level = pmesh->GetGMGMaxLevel();
 
-  {
-    TaskRegion &region = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; ++i) {
-      TaskList &tl = region[i];
-      auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-      auto copy_exact = tl.AddTask(none, CopyData<exact, u>, md);
-      auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
-      auto get_rhs = Axpy<u, u, rhs>(tl, comm, md, 1.0, 0.0, false, false);
-      auto zero_u = tl.AddTask(none, SetToZero<u>, md);
-      if (i == 0) {
-        tl.AddTask(
-            zero_u,
-            [&]() {
-              printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
-              return TaskStatus::complete;
-            });
-      }
-    }
-  }
-
-  for (int ivcycle = 0; ivcycle < max_iterations; ++ivcycle) {
   TaskRegion &region = tc.AddRegion(num_partitions);
   
   std::vector<IterativeTasks> iter_tls(num_partitions); 
@@ -311,46 +288,48 @@ TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
     iter_tls[i] = region[i].AddIteration("MG");
   }
 
-
-  for (int level = max_level - 1; level >= min_level; --level) {
-    AddMultiGridTasksLevel(iter_tls, level, min_level, max_level, level == min_level);
-  }
-  auto task_dependencies = AddMultiGridTasksLevel(iter_tls, max_level, min_level, max_level, false);
-
   int reg_dep_id = 0;
   for (int i = 0; i < num_partitions; ++i) {
-    auto &iter_tl = iter_tls[i]; 
+    auto &iter_tl = iter_tls[i];
+    TaskList &tl = region[i];
 
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
+    auto copy_exact = tl.AddTask(none, CopyData<exact, u>, md);
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
+    auto get_rhs = Axpy<u, u, rhs>(tl, comm, md, 1.0, 0.0, false, false);
+    auto zero_u = tl.AddTask(none, SetToZero<u>, md);
+    if (i == 0) {
+      tl.AddTask(
+          zero_u,
+          [&]() {
+            printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
+            return TaskStatus::complete;
+          });
+    } 
+
+    for (int level = max_level - 1; level >= min_level; --level)
+      AddMultiGridTasksPartitionLevel(iter_tl, none, i, level, min_level, max_level, level == min_level); 
+    auto mg_finest = AddMultiGridTasksPartitionLevel(iter_tl, none, i, max_level, min_level, max_level, false);
     
-    auto calc_pointwise_res = Axpy<u, rhs, res_err>(iter_tl, task_dependencies[i], md, -1.0, 1.0, false);
+    auto calc_pointwise_res = Axpy<u, rhs, res_err>(iter_tl, mg_finest, md, -1.0, 1.0, false);
     auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, iter_tl, i,
                                                 reg_dep_id, &residual, md);
     auto calc_err =
         iter_tl.AddTask(get_res, AddFieldsAndStore<u, exact, res_err>, md, 1.0, -1.0);
     auto get_err = DotProduct<res_err, res_err>(calc_err, region, iter_tl, i, reg_dep_id,
                                                 &rhat0r, md);
-    if (i == 0) {
-      iter_tl.AddTask(
-          get_err,
-          [&](PoissonDriver *driver, int cycle) {
-            Real rms_res = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
-            Real rms_err = std::sqrt(driver->rhat0r.val / pmesh->GetTotalCells());
-            this->final_rms_error = rms_err;
-            this->final_rms_residual = rms_res;
-            printf("%i %e %e\n", cycle, rms_res, rms_err);
-            return TaskStatus::complete;
-          },
-          this, ivcycle + 1);
-    }
+
     auto bound_exch = AddBoundaryExchangeTasks<BoundaryType::any>(get_res, iter_tl, md, true);
-    auto check = iter_tl.SetCompletionTask(bound_exch | get_err, [&](PoissonDriver *driver){
+    auto check = iter_tl.SetCompletionTask(bound_exch | get_err, [&](PoissonDriver *driver, int partition, int max_iter, Real res_tol){
+      if (partition != 0) TaskStatus::complete; 
+      this->mg_iter_cntr++;
       Real rms_res = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
-      if (rms_res > 1.e-12) return TaskStatus::iterate;
+      Real rms_err = std::sqrt(driver->rhat0r.val / pmesh->GetTotalCells());
+      printf("%i %e %e\n", mg_iter_cntr, rms_res, rms_err); 
+      if (rms_res > res_tol && this->mg_iter_cntr < max_iter) return TaskStatus::iterate;
       return TaskStatus::complete;
-      }, this);
+      }, this, i, max_iterations, residual_tolerance);
     region.AddGlobalDependencies(reg_dep_id, i, check);
-  }
   }
 
   return tc;
@@ -376,10 +355,11 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
 
   auto AddGMGRegion = [&]() {
     if (precondition) {
-      TaskRegion &region = tc.AddRegion(num_partitions * (max_level + 1));
+      TaskRegion &region = tc.AddRegion(num_partitions);
       std::vector<TaskList*> tl_vec;
       for (int level = max_level; level >= min_level; --level) {
-        AddMultiGridTasksLevel(region, level, min_level, max_level, level == min_level);
+        for (int i = 0; i < num_partitions; ++i)
+        AddMultiGridTasksPartitionLevel(region[i], none, i, level, min_level, max_level, level == min_level);
       }
     } else {
       TaskRegion &region = tc.AddRegion(num_partitions);
