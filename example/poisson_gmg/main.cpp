@@ -79,7 +79,6 @@ int main(int argc, char *argv[]) {
   }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
-  printf("success: %i\n", success);
 
   // MPI and Kokkos can no longer be used
   return static_cast<int>(!success);

@@ -38,8 +38,9 @@ class PoissonDriver : public Driver {
   TaskCollection MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks);
 
   DriverStatus Execute() override;
-
-  void AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level, int max_level,
+  
+  template <class TL_t>
+  std::vector<TaskID> AddMultiGridTasksLevel(TL_t &region, int level, int min_level, int max_level,
                               bool final);
   void AddRestrictionProlongationLevel(TaskRegion &region, int level, int min_level,
                                        int max_level);
