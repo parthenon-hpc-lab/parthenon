@@ -46,9 +46,10 @@ struct MGParams {
 
 template <class u, class rhs> 
 class MGSolver {
-  MGVARIABLE(u, res_err);
-  MGVARIABLE(u, temp);
-  MGVARIABLE(u, u0);
+  MGVARIABLE(u, res_err); // residual on the way up and error on the way down
+  MGVARIABLE(u, temp); // Temporary storage 
+  MGVARIABLE(u, u0); // Storage for initial solution during FAS
+  MGVARIABLE(u, D); // Storage for (approximate) diagonal
  public:
   MGSolver(StateDescriptor *pkg, MGParams params_in) : params_(params_in), iter_counter(0) { 
     using namespace parthenon::refinement_ops;
@@ -64,6 +65,7 @@ class MGSolver {
 
     auto mu0 = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
     pkg->AddField(u0::name(), mu0);
+    pkg->AddField(D::name(), mu0);
   }
 
   TaskID AddTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh, TaskRegion& region, int reg_dep_id) { 
@@ -71,7 +73,7 @@ class MGSolver {
     auto iter_tl = tl.AddIteration("MG." + u::name());
     using namespace impl;
     iter_counter = 0;
-    
+
     int min_level = 0;
     int max_level = pmesh->GetGMGMaxLevel();
     
@@ -120,7 +122,8 @@ class MGSolver {
     auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
     auto flux = tl.AddTask(comm, CalculateFluxes<in_t, true>, md);
     auto mat_mult = tl.AddTask(flux, FluxMultiplyMatrix<in_t, out_t, true>, md, false);
-    return tl.AddTask(mat_mult, FluxJacobi<rhs, out_t, in_t, out_t, true>, md, omega,
+    auto diag = tl.AddTask(flux, SetDiagonal<D>, md);
+    return tl.AddTask(mat_mult | diag, Jacobi<rhs, out_t, D, in_t, out_t, true>, md, omega,
                       GSType::all);
   }
   

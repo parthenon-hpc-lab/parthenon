@@ -384,8 +384,8 @@ TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md, bool only_int
 }
 
 enum class GSType { all, red, black };
-template <class rhs_t, class div_t, class in_t, class out_t, bool only_md_level = false>
-TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
+template <class rhs_t, class div_t, class D_t, class in_t, class out_t, bool only_md_level = false>
+TaskStatus Jacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
                       GSType gs_type = GSType::all) {
   using namespace parthenon;
   const int ndim = md->GetMeshPointer()->ndim;
@@ -407,7 +407,7 @@ TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
           (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level());
   }
 
-  auto desc = parthenon::MakePackDescriptor<in_t, out_t, div_t, rhs_t>(md.get());
+  auto desc = parthenon::MakePackDescriptor<in_t, out_t, div_t, rhs_t, D_t>(md.get());
   auto pack = desc.GetPack(md.get(), include_block);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
@@ -416,24 +416,8 @@ TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
         const auto &coords = pack.GetCoordinates(b);
         if ((i + j + k) % 2 == 1 && gs_type == GSType::red) return;
         if ((i + j + k) % 2 == 0 && gs_type == GSType::black) return;
-        // Build the unigrid diagonal of the matrix
-        Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-        Real diag_elem =
-            -2.0 /
-                (dx1 * dx1) -
-            alpha;
-        if (ndim > 1) {
-          Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-          diag_elem -=
-              2.0 /
-              (dx2 * dx2);
-        }
-        if (ndim > 2) {
-          Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-          diag_elem -=
-              2.0 /
-              (dx3 * dx3);
-        }
+        
+        Real diag_elem = pack(b, te, D_t(), k, j, i);
 
         // Get the off-diagonal contribution to Ax = (D + L + U)x = y
         Real off_diag =
@@ -442,6 +426,51 @@ TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
         Real val = pack(b, te, rhs_t(), k, j, i) - off_diag;
         pack(b, te, out_t(), k, j, i) =
             weight * val / diag_elem + (1.0 - weight) * pack(b, te, in_t(), k, j, i);
+      });
+  return TaskStatus::complete;
+}
+
+template <class diag_t, bool only_md_level = false>
+TaskStatus SetDiagonal(std::shared_ptr<MeshData<Real>> &md) {
+  using namespace parthenon;
+  const int ndim = md->GetMeshPointer()->ndim;
+  using TE = parthenon::TopologicalElement;
+  TE te = TE::CC;
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+
+  auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
+  const auto alpha = pkg->Param<Real>("diagonal_alpha");
+
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true);
+
+  if (only_md_level) {
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] =
+          (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level());
+  }
+
+  auto desc = parthenon::MakePackDescriptor<diag_t>(md.get());
+  auto pack = desc.GetPack(md.get(), include_block);
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "StoreDiagonal", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto &coords = pack.GetCoordinates(b);
+        // Build the unigrid diagonal of the matrix
+        Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
+        Real diag_elem = -2.0 / (dx1 * dx1) - alpha;
+        if (ndim > 1) {
+          Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
+          diag_elem -= 2.0 / (dx2 * dx2);
+        }
+        if (ndim > 2) {
+          Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
+          diag_elem -= 2.0 / (dx3 * dx3);
+        }
+        pack(b, te, diag_t(), k, j, i) = diag_elem;
       });
   return TaskStatus::complete;
 }
