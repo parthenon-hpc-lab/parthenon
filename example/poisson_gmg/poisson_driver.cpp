@@ -277,60 +277,60 @@ TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
   auto max_iterations = pkg->Param<int>("max_iterations");
   auto residual_tolerance = pkg->Param<Real>("residual_tolerance");
   this->mg_iter_cntr = 0; 
+  
+  auto *solver = pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs>>("MGsolver");
 
   const int num_partitions = pmesh->DefaultNumPartitions();
   int min_level = 0;
   int max_level = pmesh->GetGMGMaxLevel();
 
+  
+  int reg_dep_id = 0;
   TaskRegion &region = tc.AddRegion(num_partitions);
   
-  std::vector<IterativeTasks> iter_tls(num_partitions); 
-  for (int i = 0; i < num_partitions; ++i) { 
-    iter_tls[i] = region[i].AddIteration("MG");
-  }
-
-  int reg_dep_id = 0;
   for (int i = 0; i < num_partitions; ++i) {
-    auto &iter_tl = iter_tls[i];
     TaskList &tl = region[i];
+    //auto &iter_tl = tl.AddIteration("MG");
 
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-    auto copy_exact = tl.AddTask(none, CopyData<exact, u>, md);
-    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
-    auto get_rhs = Axpy<u, u, rhs>(tl, comm, md, 1.0, 0.0, false, false);
+    //auto copy_exact = tl.AddTask(none, CopyData<exact, u>, md);
+    //auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
+    //auto get_rhs = Axpy<u, u, rhs>(tl, comm, md, 1.0, 0.0, false, false);
     auto zero_u = tl.AddTask(none, SetToZero<u>, md);
-    if (i == 0) {
-      tl.AddTask(
-          zero_u,
-          [&]() {
-            printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
-            return TaskStatus::complete;
-          });
-    } 
-
-    for (int level = max_level - 1; level >= min_level; --level)
-      AddMultiGridTasksPartitionLevel(iter_tl, none, i, level, min_level, max_level, level == min_level); 
-    auto mg_finest = AddMultiGridTasksPartitionLevel(iter_tl, none, i, max_level, min_level, max_level, false);
+    solver->AddTasks(tl, zero_u, i, pmesh, region, reg_dep_id);
     
-    auto calc_pointwise_res = Axpy<u, rhs, res_err>(iter_tl, mg_finest, md, -1.0, 1.0, false);
-    auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, iter_tl, i,
-                                                reg_dep_id, &residual, md);
-    auto calc_err =
-        iter_tl.AddTask(get_res, AddFieldsAndStore<u, exact, res_err>, md, 1.0, -1.0);
-    auto get_err = DotProduct<res_err, res_err>(calc_err, region, iter_tl, i, reg_dep_id,
-                                                &rhat0r, md);
+    //if (i == 0) {
+    //  tl.AddTask(
+    //      zero_u,
+    //      [&]() {
+    //        printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
+    //        return TaskStatus::complete;
+    //      });
+    //} 
 
-    auto bound_exch = AddBoundaryExchangeTasks<BoundaryType::any>(get_res, iter_tl, md, true);
-    auto check = iter_tl.SetCompletionTask(bound_exch | get_err, [&](PoissonDriver *driver, int partition, int max_iter, Real res_tol){
-      if (partition != 0) TaskStatus::complete; 
-      this->mg_iter_cntr++;
-      Real rms_res = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
-      Real rms_err = std::sqrt(driver->rhat0r.val / pmesh->GetTotalCells());
-      printf("%i %e %e\n", mg_iter_cntr, rms_res, rms_err); 
-      if (rms_res > res_tol && this->mg_iter_cntr < max_iter) return TaskStatus::iterate;
-      return TaskStatus::complete;
-      }, this, i, max_iterations, residual_tolerance);
-    region.AddGlobalDependencies(reg_dep_id, i, check);
+    //for (int level = max_level - 1; level >= min_level; --level)
+    //  AddMultiGridTasksPartitionLevel(iter_tl, none, i, level, min_level, max_level, level == min_level); 
+    //auto mg_finest = AddMultiGridTasksPartitionLevel(iter_tl, none, i, max_level, min_level, max_level, false);
+    
+    //auto calc_pointwise_res = Axpy<u, rhs, res_err>(iter_tl, mg_finest, md, -1.0, 1.0, false);
+    //auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, iter_tl, i,
+    //                                            reg_dep_id, &residual, md);
+    //auto calc_err =
+    //    iter_tl.AddTask(get_res, AddFieldsAndStore<u, exact, res_err>, md, 1.0, -1.0);
+    //auto get_err = DotProduct<res_err, res_err>(calc_err, region, iter_tl, i, reg_dep_id,
+    //                                            &rhat0r, md);
+
+    //auto bound_exch = AddBoundaryExchangeTasks<BoundaryType::any>(get_res, iter_tl, md, true);
+    //auto check = iter_tl.SetCompletionTask(bound_exch | get_err, [&](PoissonDriver *driver, int partition, int max_iter, Real res_tol){
+    //  if (partition != 0) TaskStatus::complete; 
+    //  this->mg_iter_cntr++;
+    //  Real rms_res = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
+    //  Real rms_err = std::sqrt(driver->rhat0r.val / pmesh->GetTotalCells());
+    //  printf("%i %e %e\n", mg_iter_cntr, rms_res, rms_err); 
+    //  if (rms_res > res_tol && this->mg_iter_cntr < max_iter) return TaskStatus::iterate;
+    //  return TaskStatus::complete;
+    //  }, this, i, max_iterations, residual_tolerance);
+    //region.AddGlobalDependencies(reg_dep_id, i, check);
   }
 
   return tc;

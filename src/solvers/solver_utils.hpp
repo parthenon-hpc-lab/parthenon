@@ -202,6 +202,12 @@ TaskStatus AddFieldsAndStoreInteriorSelect(std::shared_ptr<MeshData<Real>> &md,
   return TaskStatus::complete;
 }
 
+template <class a_t, class b_t, class out, bool only_md_level = false>
+TaskStatus AddFieldsAndStore(std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
+                             Real wb = 1.0) {
+  return AddFieldsAndStoreInteriorSelect<a_t, b_t, out, only_md_level>(md, wa, wb, false);
+}
+
 template <class var, bool only_md_level = false>
 TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
   int nblocks = md->NumBlocks();
@@ -256,6 +262,190 @@ TaskStatus DotProductLocal(std::shared_ptr<MeshData<Real>> &md, Real *reduce_sum
   *reduce_sum += gsum;
   return TaskStatus::complete;
 }
+
+template <class var_t, bool only_md_level = false>
+TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
+  using namespace parthenon;
+  const int ndim = md->GetMeshPointer()->ndim;
+  using TE = parthenon::TopologicalElement;
+  TE te = TE::CC;
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+
+  using TE = parthenon::TopologicalElement;
+
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true);
+
+  if (only_md_level) {
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] =
+          (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level());
+  }
+
+  auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
+  auto pack = desc.GetPack(md.get(), include_block);
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto &coords = pack.GetCoordinates(b);
+        Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
+        pack.flux(b, X1DIR, var_t(), k, j, i) =
+            1.0 / dx1 *
+            (pack(b, te, var_t(), k, j, i - 1) - pack(b, te, var_t(), k, j, i));
+        if (i == ib.e)
+          pack.flux(b, X1DIR, var_t(), k, j, i + 1) =
+              1.0 / dx1 *
+              (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j, i + 1));
+
+        if (ndim > 1) {
+          Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
+          pack.flux(b, X2DIR, var_t(), k, j, i) =
+              1.0 *
+              (pack(b, te, var_t(), k, j - 1, i) - pack(b, te, var_t(), k, j, i)) / dx2;
+          if (j == jb.e)
+            pack.flux(b, X2DIR, var_t(), k, j + 1, i) =
+                1.0 *
+                (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j + 1, i)) / dx2;
+        }
+
+        if (ndim > 2) {
+          Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
+          pack.flux(b, X3DIR, var_t(), k, j, i) =
+              1.0 *
+              (pack(b, te, var_t(), k - 1, j, i) - pack(b, te, var_t(), k, j, i)) / dx3;
+          if (k == kb.e)
+            pack.flux(b, X2DIR, var_t(), k + 1, j, i) =
+                1.0 *
+                (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k + 1, j, i)) / dx3;
+        }
+      });
+  return TaskStatus::complete;
+}
+
+template <class in_t, class out_t, bool only_md_level = false>
+TaskStatus FluxMultiplyMatrix(std::shared_ptr<MeshData<Real>> &md, bool only_interior) {
+  using namespace parthenon;
+  const int ndim = md->GetMeshPointer()->ndim;
+  using TE = parthenon::TopologicalElement;
+  TE te = TE::CC;
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+
+  auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
+  const auto alpha = pkg->Param<Real>("diagonal_alpha");
+
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true);
+  if (only_interior) {
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
+  }
+
+  if (only_md_level) {
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] =
+          include_block[b] &&
+          (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level());
+  }
+
+  auto desc =
+      parthenon::MakePackDescriptor<in_t, out_t>(md.get(), {}, {PDOpt::WithFluxes});
+  auto pack = desc.GetPack(md.get(), include_block);
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "FluxMultiplyMatrix", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto &coords = pack.GetCoordinates(b);
+        Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
+        pack(b, te, out_t(), k, j, i) = -alpha * pack(b, te, in_t(), k, j, i);
+        pack(b, te, out_t(), k, j, i) += (pack.flux(b, X1DIR, in_t(), k, j, i) -
+                                          pack.flux(b, X1DIR, in_t(), k, j, i + 1)) /
+                                         dx1;
+
+        if (ndim > 1) {
+          Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
+          pack(b, te, out_t(), k, j, i) += (pack.flux(b, X2DIR, in_t(), k, j, i) -
+                                            pack.flux(b, X2DIR, in_t(), k, j + 1, i)) /
+                                           dx2;
+        }
+
+        if (ndim > 2) {
+          Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
+          pack(b, te, out_t(), k, j, i) += (pack.flux(b, X3DIR, in_t(), k, j, i) -
+                                            pack.flux(b, X3DIR, in_t(), k + 1, j, i)) /
+                                           dx3;
+        }
+      });
+  return TaskStatus::complete;
+}
+
+enum class GSType { all, red, black };
+template <class rhs_t, class div_t, class in_t, class out_t, bool only_md_level = false>
+TaskStatus FluxJacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
+                      GSType gs_type = GSType::all) {
+  using namespace parthenon;
+  const int ndim = md->GetMeshPointer()->ndim;
+  using TE = parthenon::TopologicalElement;
+  TE te = TE::CC;
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+
+  auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
+  const auto alpha = pkg->Param<Real>("diagonal_alpha");
+
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true);
+
+  if (only_md_level) {
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] =
+          (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level());
+  }
+
+  auto desc = parthenon::MakePackDescriptor<in_t, out_t, div_t, rhs_t>(md.get());
+  auto pack = desc.GetPack(md.get(), include_block);
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto &coords = pack.GetCoordinates(b);
+        if ((i + j + k) % 2 == 1 && gs_type == GSType::red) return;
+        if ((i + j + k) % 2 == 0 && gs_type == GSType::black) return;
+        // Build the unigrid diagonal of the matrix
+        Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
+        Real diag_elem =
+            -2.0 /
+                (dx1 * dx1) -
+            alpha;
+        if (ndim > 1) {
+          Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
+          diag_elem -=
+              2.0 /
+              (dx2 * dx2);
+        }
+        if (ndim > 2) {
+          Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
+          diag_elem -=
+              2.0 /
+              (dx3 * dx3);
+        }
+
+        // Get the off-diagonal contribution to Ax = (D + L + U)x = y
+        Real off_diag =
+            pack(b, te, div_t(), k, j, i) - diag_elem * pack(b, te, in_t(), k, j, i);
+
+        Real val = pack(b, te, rhs_t(), k, j, i) - off_diag;
+        pack(b, te, out_t(), k, j, i) =
+            weight * val / diag_elem + (1.0 - weight) * pack(b, te, in_t(), k, j, i);
+      });
+  return TaskStatus::complete;
+}
+
 } // namespace impl
 
 } // namespace solvers
