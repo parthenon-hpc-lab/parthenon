@@ -343,6 +343,7 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
 
   auto pkg = pmesh->packages.Get("poisson_package");
   auto max_iterations = pkg->Param<int>("max_iterations");
+  auto residual_tolerance = pkg->Param<Real>("residual_tolerance");
   auto precondition = pkg->Param<bool>("precondition");
   bool flux_correct = pkg->Param<bool>("flux_correct");
   const int num_partitions = pmesh->DefaultNumPartitions();
@@ -365,220 +366,211 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
     }
   };
 
-  // Solving A x = rhs with BiCGSTAB possibly with pre-conditioner M^{-1} such that A M ~
-  // I Initialization: x <- 0, r <- rhs, rhat0 <- rhs, rhat0r_old <- (rhat0, r), p <- r, u
-  // <- 0
-  {
-    int reg_dep_id = 0;
-    TaskRegion &region = tc.AddRegion(num_partitions);
-    std::vector<IterativeTasks> iter_tls(num_partitions); 
-
-    for (int i = 0; i < num_partitions; ++i) {
-      TaskList &tl = region[i];
-      auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-      auto zero_x = tl.AddTask(none, SetToZero<x>, md);
-      auto zero_u = tl.AddTask(none, SetToZero<u>, md);
-      auto copy_r = tl.AddTask(none, CopyData<rhs, r>, md);
-      auto copy_p = tl.AddTask(none, CopyData<rhs, p>, md);
-      auto copy_rhsbase = tl.AddTask(none, CopyData<rhs, rhs_base>, md);
-      auto copy_rhat0 = tl.AddTask(none, CopyData<rhs, rhat0>, md);
-      auto get_rhat0r =
-          DotProduct<rhat0, r>(none, region, tl, i, reg_dep_id, &rhat0r, md);
-      if (i == 0) {
-        tl.AddTask(
-            get_rhat0r,
-            [this](PoissonDriver *driver) {
-              driver->rhat0r_old = driver->rhat0r.val;
-              driver->rhat0r.val = 0.0;
-              driver->rhat0v.val = 0.0;
-              driver->ts.val = 0.0;
-              driver->tt.val = 0.0;
-              driver->residual.val = 0.0;
-              return TaskStatus::complete;
-            },
-            this);
-      }
-      if (i == 0) {
-        tl.AddTask(
-            none,
-            [&]() {
-              printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
-              return TaskStatus::complete;
-            });
-      }
-    }
+  // Solving A x = rhs with BiCGSTAB possibly with pre-conditioner M^{-1} such that A M ~ I 
+  int ivcycle = 0;
+  TaskRegion &region = tc.AddRegion(num_partitions);
+  std::vector<IterativeTasks> iter_tls(num_partitions); 
+  for (int i = 0; i < num_partitions; ++i) { 
+    iter_tls[i] = region[i].AddIteration("MG");
   }
-  {
-    int ivcycle = 0;
-    TaskRegion &region = tc.AddRegion(num_partitions);
-    std::vector<IterativeTasks> iter_tls(num_partitions); 
-    for (int i = 0; i < num_partitions; ++i) { 
-      iter_tls[i] = region[i].AddIteration("MG");
+  int reg_dep_id = 0;
+  for (int i = 0; i < num_partitions; ++i) {
+    TaskList &tl = region[i];
+    auto &itl = iter_tls[i];
+    auto &md = pmesh->mesh_data.GetOrAdd("base", i);
+
+    // Initialization: x <- 0, r <- rhs, rhat0 <- rhs, 
+    // rhat0r_old <- (rhat0, r), p <- r, u <- 0
+    auto zero_x = tl.AddTask(none, SetToZero<x>, md);
+    auto zero_u_init = tl.AddTask(none, SetToZero<u>, md);
+    auto copy_r = tl.AddTask(none, CopyData<rhs, r>, md);
+    auto copy_p = tl.AddTask(none, CopyData<rhs, p>, md);
+    auto copy_rhsbase = tl.AddTask(none, CopyData<rhs, rhs_base>, md);
+    auto copy_rhat0 = tl.AddTask(none, CopyData<rhs, rhat0>, md);
+    auto get_rhat0r_init =
+        DotProduct<rhat0, r>(none, region, tl, i, reg_dep_id, &rhat0r, md);
+    auto initialize = tl.AddTask(
+        zero_x | zero_u_init | copy_r | copy_p | copy_rhsbase | copy_rhat0 | get_rhat0r_init,
+        [this](PoissonDriver *driver, int partition) {
+          if (partition != 0) return TaskStatus::complete;
+          driver->rhat0r_old = driver->rhat0r.val;
+          driver->rhat0r.val = 0.0;
+          driver->rhat0v.val = 0.0;
+          driver->ts.val = 0.0;
+          driver->tt.val = 0.0;
+          driver->residual.val = 0.0;
+          return TaskStatus::complete;
+        },
+        this, i);
+    region.AddRegionalDependencies(reg_dep_id, i, initialize);
+    reg_dep_id++;
+    if (i == 0) {
+      tl.AddTask(
+          none,
+          [&]() {
+            printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
+            return TaskStatus::complete;
+          });
     }
-    int reg_dep_id = 0;
-    for (int i = 0; i < num_partitions; ++i) {
-      //TaskList &tl = region[i];
-      auto &itl = iter_tls[i];
-      auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-      
-      // 1. u <- M p (rhs = p is set in previous cycle or initialization)
-      auto precon1 = AddGMGRegion(itl, none, i);
 
-      // 2. v <- A u
-      auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md, true);
-      auto get_v = Axpy<u, u, v>(itl, comm, md, 1.0, 0.0, false, flux_correct);
+    // BEGIN ITERATIVE TASKS
 
-      // 3. rhat0v <- (rhat0, v)
-      auto get_rhat0v =
-          DotProduct<rhat0, v>(get_v, region, itl, i, reg_dep_id, &rhat0v, md);
+    // 1. u <- M p (rhs = p is set in previous cycle or initialization)
+    auto precon1 = AddGMGRegion(itl, initialize, i);
 
-      // 4. h <- x + alpha u (alpha = rhat0r_old / rhat0v)
-      auto correct_h = itl.AddTask(
-          get_rhat0v,
-          [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md) {
-            Real alpha = driver->rhat0r_old / driver->rhat0v.val;
-            return AddFieldsAndStore<x, u, h>(md, 1.0, alpha);
-          },
-          this, md);
+    // 2. v <- A u
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md, true);
+    auto get_v = Axpy<u, u, v>(itl, comm, md, 1.0, 0.0, false, flux_correct);
 
-      // 5. s <- r - alpha v (alpha = rhat0r_old / rhat0v)
-      auto correct_s = itl.AddTask(
-          get_rhat0v,
-          [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md) {
-            Real alpha = driver->rhat0r_old / driver->rhat0v.val;
-            return AddFieldsAndStore<r, v, s>(md, 1.0, -alpha);
-          },
-          this, md);
+    // 3. rhat0v <- (rhat0, v)
+    auto get_rhat0v =
+        DotProduct<rhat0, v>(get_v, region, itl, i, reg_dep_id, &rhat0v, md);
 
-      // Check and print out residual
-      auto get_res = DotProduct<s, s>(correct_s, region, itl, i, reg_dep_id,
-                                      &residual, md);
+    // 4. h <- x + alpha u (alpha = rhat0r_old / rhat0v)
+    auto correct_h = itl.AddTask(
+        get_rhat0v,
+        [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md) {
+          Real alpha = driver->rhat0r_old / driver->rhat0v.val;
+          return AddFieldsAndStore<x, u, h>(md, 1.0, alpha);
+        },
+        this, md);
 
-      region.AddRegionalDependencies(reg_dep_id, i, get_res);
-      if (i == 0) {
-        itl.AddTask(
-            get_res,
-            [&](PoissonDriver *driver, int iter) {
-              Real rms_err = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
-              printf("%i %e\n", iter, rms_err);
-              return TaskStatus::complete;
-            },
-            this, ivcycle * 2 + 1);
-      }
-      // Setup for MG Precondition
-      auto set_rhs = itl.AddTask(correct_s, CopyData<s, rhs>, md);
-      auto zero_u = itl.AddTask(correct_s, SetToZero<u>, md);
+    // 5. s <- r - alpha v (alpha = rhat0r_old / rhat0v)
+    auto correct_s = itl.AddTask(
+        get_rhat0v,
+        [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md) {
+          Real alpha = driver->rhat0r_old / driver->rhat0v.val;
+          return AddFieldsAndStore<r, v, s>(md, 1.0, -alpha);
+        },
+        this, md);
 
-      // 6. u <- M s (rhs = s)
-      auto precon2 = AddGMGRegion(itl, set_rhs | zero_u, i);
+    // Check and print out residual
+    auto get_res = DotProduct<s, s>(correct_s, region, itl, i, reg_dep_id,
+                                    &residual, md);
 
-      // 7. t <- A u
-      auto pre_t_comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md, true);
-      auto get_t = Axpy<u, u, t>(itl, pre_t_comm, md, 1.0, 0.0, false, flux_correct);
-
-      // 8. omega <- (t,s) / (t,t)
-      auto get_ts = DotProduct<t, s>(get_t, region, itl, i, reg_dep_id, &ts, md);
-      auto get_tt = DotProduct<t, t>(get_t, region, itl, i, reg_dep_id, &tt, md);
-
-      // 9. x <- h + omega u
-      auto correct_x = itl.AddTask(
-          get_tt | get_ts,
-          [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md) {
-            Real omega = driver->ts.val / driver->tt.val;
-            return AddFieldsAndStore<h, u, x>(md, 1.0, omega);
-          },
-          this, md);
-
-      // 10. r <- s - omega t
-      auto correct_r = itl.AddTask(
-          get_tt | get_ts,
-          [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md) {
-            Real omega = driver->ts.val / driver->tt.val;
-            return AddFieldsAndStore<s, t, r>(md, 1.0, -omega);
-          },
-          this, md);
-      
-      // Check and print out residual
-      auto get_res2 = DotProduct<r, r>(correct_r, region, itl, i, reg_dep_id,
-                                      &residual, md);
-
-      region.AddRegionalDependencies(reg_dep_id, i, get_res2);
-      if (i == 0) {
-        get_res2 = itl.AddTask(
-            get_res2,
-            [&](PoissonDriver *driver, int iter) {
-              Real rms_err = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
-              printf("%i %e\n", iter, rms_err);
-              return TaskStatus::complete;
-            },
-            this, ivcycle * 2 + 2);
-      }
-
-      // 10.5. Restart if (rhat0, r) is below threshold
-      region.AddRegionalDependencies(reg_dep_id, i, correct_r | correct_x | get_res2);
-      reg_dep_id++;
-      auto restart = itl.AddTask(
-          correct_r,
-          [restart_threshold](PoissonDriver *driver, int i,
-                              std::shared_ptr<MeshData<Real>> &md) {
-            if (i == 0 && std::abs(driver->rhat0r_old) < restart_threshold)
-              printf("Restart rhat0r_old = %e (%e)\n", driver->rhat0r_old,
-                     restart_threshold);
-            if (std::abs(driver->rhat0r_old) < restart_threshold) {
-              CopyData<r, rhat0>(md);
-              CopyData<r, p>(md);
-            }
+    region.AddRegionalDependencies(reg_dep_id, i, get_res);
+    if (i == 0) {
+      itl.AddTask(
+          get_res,
+          [&](PoissonDriver *driver, int iter) {
+            Real rms_err = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
+            printf("%i %e\n", driver->mg_iter_cntr * 2 + 1, rms_err);
             return TaskStatus::complete;
           },
-          this, i, md);
+          this, ivcycle * 2 + 1);
+    }
+    // Setup for MG Precondition
+    auto set_rhs = itl.AddTask(correct_s, CopyData<s, rhs>, md);
+    auto zero_u = itl.AddTask(correct_s, SetToZero<u>, md);
 
-      // 11. rhat0r <- (rhat0, r)
-      auto get_rhat0r =
-          DotProduct<rhat0, r>(correct_r, region, itl, i, reg_dep_id, &rhat0r, md);
+    // 6. u <- M s (rhs = s)
+    auto precon2 = AddGMGRegion(itl, set_rhs | zero_u, i);
 
-      // 12. beta <- rhat0r / rhat0r_old * alpha / omega
-      // 13. p <- r + beta * (p - omega * v)
-      auto update_p = itl.AddTask(
-          get_rhat0r,
-          [restart_threshold](PoissonDriver *driver,
-                              std::shared_ptr<MeshData<Real>> &md) {
-            if (std::abs(driver->rhat0r_old) >= restart_threshold) {
-              Real alpha = driver->rhat0r_old / driver->rhat0v.val;
-              Real omega = driver->ts.val / driver->tt.val;
-              Real beta = driver->rhat0r.val / driver->rhat0r_old * alpha / omega;
-              AddFieldsAndStore<p, v, p>(md, 1.0, -omega);
-              return AddFieldsAndStore<r, p, p>(md, 1.0, beta);
-            }
+    // 7. t <- A u
+    auto pre_t_comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md, true);
+    auto get_t = Axpy<u, u, t>(itl, pre_t_comm, md, 1.0, 0.0, false, flux_correct);
+
+    // 8. omega <- (t,s) / (t,t)
+    auto get_ts = DotProduct<t, s>(get_t, region, itl, i, reg_dep_id, &ts, md);
+    auto get_tt = DotProduct<t, t>(get_t, region, itl, i, reg_dep_id, &tt, md);
+
+    // 9. x <- h + omega u
+    auto correct_x = itl.AddTask(
+        get_tt | get_ts,
+        [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md) {
+          Real omega = driver->ts.val / driver->tt.val;
+          return AddFieldsAndStore<h, u, x>(md, 1.0, omega);
+        },
+        this, md);
+
+    // 10. r <- s - omega t
+    auto correct_r = itl.AddTask(
+        get_tt | get_ts,
+        [](PoissonDriver *driver, std::shared_ptr<MeshData<Real>> &md) {
+          Real omega = driver->ts.val / driver->tt.val;
+          return AddFieldsAndStore<s, t, r>(md, 1.0, -omega);
+        },
+        this, md);
+    
+    // Check and print out residual
+    auto get_res2 = DotProduct<r, r>(correct_r, region, itl, i, reg_dep_id,
+                                    &residual, md);
+
+    region.AddRegionalDependencies(reg_dep_id, i, get_res2);
+    if (i == 0) {
+      get_res2 = itl.AddTask(
+          get_res2,
+          [&](PoissonDriver *driver) {
+            Real rms_err = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
+            printf("%i %e\n", driver->mg_iter_cntr * 2 + 2, rms_err);
             return TaskStatus::complete;
           },
-          this, md);
-
-      // Set up for MG in next cycle
-      itl.AddTask(update_p, CopyData<p, rhs>, md);
-      itl.AddTask(update_p, SetToZero<u>, md);
-      
-      // 14. rhat0r_old <- rhat0r, zero all reductions
-      region.AddRegionalDependencies(reg_dep_id, i, update_p | correct_x);
-      auto check = itl.SetCompletionTask(
-          update_p | correct_x,
-          [](PoissonDriver *driver, int partition) {
-            if (partition != 0) return TaskStatus::complete;
-            
-            if (driver->residual.val < 1.e-12 || driver->mg_iter_cntr > 10) return TaskStatus::complete;
-            driver->mg_iter_cntr++;
-            driver->rhat0r_old = driver->rhat0r.val;
-            driver->rhat0r.val = 0.0;
-            driver->rhat0v.val = 0.0;
-            driver->ts.val = 0.0;
-            driver->tt.val = 0.0;
-            driver->residual.val = 0.0;
-            return TaskStatus::iterate;
-          },
-          this, i);
-      region.AddGlobalDependencies(reg_dep_id, i, check);
+          this);
     }
+
+    // 10.5. Restart if (rhat0, r) is below threshold
+    region.AddRegionalDependencies(reg_dep_id, i, correct_r | correct_x | get_res2);
+    reg_dep_id++;
+    auto restart = itl.AddTask(
+        correct_r | correct_x | get_res2,
+        [restart_threshold](PoissonDriver *driver, int i,
+                            std::shared_ptr<MeshData<Real>> &md) {
+          if (i == 0 && std::abs(driver->rhat0r_old) < restart_threshold)
+            printf("Restart rhat0r_old = %e (%e)\n", driver->rhat0r_old,
+                   restart_threshold);
+          if (std::abs(driver->rhat0r_old) < restart_threshold) {
+            CopyData<r, rhat0>(md);
+            CopyData<r, p>(md);
+          }
+          return TaskStatus::complete;
+        },
+        this, i, md);
+
+    // 11. rhat0r <- (rhat0, r)
+    auto get_rhat0r =
+        DotProduct<rhat0, r>(correct_r, region, itl, i, reg_dep_id, &rhat0r, md);
+
+    // 12. beta <- rhat0r / rhat0r_old * alpha / omega
+    // 13. p <- r + beta * (p - omega * v)
+    auto update_p = itl.AddTask(
+        get_rhat0r,
+        [restart_threshold](PoissonDriver *driver,
+                            std::shared_ptr<MeshData<Real>> &md) {
+          if (std::abs(driver->rhat0r_old) >= restart_threshold) {
+            Real alpha = driver->rhat0r_old / driver->rhat0v.val;
+            Real omega = driver->ts.val / driver->tt.val;
+            Real beta = driver->rhat0r.val / driver->rhat0r_old * alpha / omega;
+            AddFieldsAndStore<p, v, p>(md, 1.0, -omega);
+            return AddFieldsAndStore<r, p, p>(md, 1.0, beta);
+          }
+          return TaskStatus::complete;
+        },
+        this, md);
+
+    // Set up for MG in next cycle
+    itl.AddTask(update_p, CopyData<p, rhs>, md);
+    itl.AddTask(update_p, SetToZero<u>, md);
+    
+    // 14. rhat0r_old <- rhat0r, zero all reductions
+    region.AddRegionalDependencies(reg_dep_id, i, update_p | correct_x);
+    auto check = itl.SetCompletionTask(
+        update_p | correct_x,
+        [](PoissonDriver *driver, int partition, int max_iter, Real res_tol) {
+          if (partition != 0) return TaskStatus::complete;
+          driver->mg_iter_cntr++;
+          Real rms_res = std::sqrt(driver->residual.val / driver->pmesh->GetTotalCells());
+          if (rms_res < res_tol || driver->mg_iter_cntr >= max_iter) return TaskStatus::complete;
+          driver->rhat0r_old = driver->rhat0r.val;
+          driver->rhat0r.val = 0.0;
+          driver->rhat0v.val = 0.0;
+          driver->ts.val = 0.0;
+          driver->tt.val = 0.0;
+          driver->residual.val = 0.0;
+          return TaskStatus::iterate;
+        },
+        this, i, max_iterations, residual_tolerance);
+    region.AddGlobalDependencies(reg_dep_id, i, check);
   }
-  
 
   return tc;
 }
