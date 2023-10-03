@@ -25,7 +25,7 @@
 - [[PR 885]](https://github.com/parthenon-hpc-lab/parthenon/pull/885) Expose PackDescriptor and use uids in SparsePacks
 
 ### Fixed (not changing behavior/API/variables/...)
-- [[PR 946]](https://github.com/parthenon-hpc-lab/parthenon/pull/928) Add missing ForceRemeshComm dependencies
+- [[PR 947]](https://github.com/parthenon-hpc-lab/parthenon/pull/947) Add missing ForceRemeshComm dependencies
 - [[PR 928]](https://github.com/parthenon-hpc-lab/parthenon/pull/928) Fix boundary comms during refinement next to refined blocks
 - [[PR 937]](https://github.com/parthenon-hpc-lab/parthenon/pull/937) Fix multiple line continuations
 - [[PR 933]](https://github.com/parthenon-hpc-lab/parthenon/pull/933) Remove extraneous debug check
