@@ -26,6 +26,7 @@
 #include "poisson_driver.hpp"
 #include "poisson_package.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+#include "solvers/mg_solver.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -370,9 +371,8 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
   int ivcycle = 0;
   TaskRegion &region = tc.AddRegion(num_partitions);
   std::vector<IterativeTasks> iter_tls(num_partitions); 
-  for (int i = 0; i < num_partitions; ++i) { 
+  for (int i = 0; i < num_partitions; ++i)
     iter_tls[i] = region[i].AddIteration("MG");
-  }
   int reg_dep_id = 0;
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = region[i];

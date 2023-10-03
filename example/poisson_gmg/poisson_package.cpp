@@ -22,6 +22,7 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 #include <solvers/solver_utils.hpp>
+#include <solvers/mg_solver.hpp>
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
@@ -85,6 +86,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   bool warn_flag = pin->GetOrAddBoolean("poisson", "warn_without_convergence", true);
   pkg->AddParam<>("warn_without_convergence", warn_flag);
+  
+  parthenon::solvers::MGSolver<u, rhs> temp(pkg.get(), parthenon::solvers::MGParams());
 
   // res_err enters a multigrid level as the residual from the previous level, which
   // is the rhs, and leaves as the solution for that level, which is the error for the
