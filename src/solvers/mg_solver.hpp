@@ -44,7 +44,7 @@ struct MGParams {
     static std::string name() { return base::name() + "." #varname; }                    \
   }
 
-template <class u, class rhs, class equations = impl::flux_poisson> 
+template <class u, class rhs, class equations> 
 class MGSolver {
   MGVARIABLE(u, res_err); // residual on the way up and error on the way down
   MGVARIABLE(u, temp); // Temporary storage 

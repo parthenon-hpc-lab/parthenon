@@ -278,7 +278,7 @@ TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
   auto residual_tolerance = pkg->Param<Real>("residual_tolerance");
   this->mg_iter_cntr = 0; 
   
-  auto *solver = pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs>>("MGsolver");
+  auto *solver = pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, flux_poisson>>("MGsolver");
 
   const int num_partitions = pmesh->DefaultNumPartitions();
   int min_level = 0;

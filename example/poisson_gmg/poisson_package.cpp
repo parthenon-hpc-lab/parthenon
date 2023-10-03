@@ -87,7 +87,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bool warn_flag = pin->GetOrAddBoolean("poisson", "warn_without_convergence", true);
   pkg->AddParam<>("warn_without_convergence", warn_flag);
   
-  parthenon::solvers::MGSolver<u, rhs> mg_solver(pkg.get(), parthenon::solvers::MGParams());
+  parthenon::solvers::MGSolver<u, rhs, flux_poisson> mg_solver(pkg.get(), parthenon::solvers::MGParams());
   pkg->AddParam<>("MGsolver", mg_solver, parthenon::Params::Mutability::Mutable);
   
   // res_err enters a multigrid level as the residual from the previous level, which
