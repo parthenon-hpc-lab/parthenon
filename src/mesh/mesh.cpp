@@ -1273,7 +1273,7 @@ void Mesh::SetupMPIComms() {
     // Create both boundary and flux communicators for everything with either FillGhost
     // or WithFluxes just to be safe
     if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes) ||
-        IsSet(Metadata::ForceRemeshComm)) {
+        metadata.IsSet(Metadata::ForceRemeshComm)) {
       MPI_Comm mpi_comm;
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});
