@@ -44,12 +44,13 @@ struct MGParams {
     static std::string name() { return base::name() + "." #varname; }                    \
   }
 
-template <class u, class rhs> 
+template <class u, class rhs, class equations = impl::flux_poisson> 
 class MGSolver {
   MGVARIABLE(u, res_err); // residual on the way up and error on the way down
   MGVARIABLE(u, temp); // Temporary storage 
   MGVARIABLE(u, u0); // Storage for initial solution during FAS
   MGVARIABLE(u, D); // Storage for (approximate) diagonal
+
  public:
   MGSolver(StateDescriptor *pkg, MGParams params_in) : params_(params_in), iter_counter(0) { 
     using namespace parthenon::refinement_ops;
@@ -91,7 +92,9 @@ class MGSolver {
       AddMultiGridTasksPartitionLevel(iter_tl, none, partition, level, min_level, max_level, level == min_level, pmesh); 
     auto mg_finest = AddMultiGridTasksPartitionLevel(iter_tl, dependence, partition, max_level, min_level, max_level, false, pmesh);
     
-    auto calc_pointwise_res = Axpy<u, rhs, res_err>(iter_tl, mg_finest, md, -1.0, 1.0, false);
+    auto calc_pointwise_res = equations::template Ax<u, res_err>(iter_tl, mg_finest, md, false);
+    calc_pointwise_res = iter_tl.AddTask(calc_pointwise_res,
+                      AddFieldsAndStoreInteriorSelect<rhs, res_err, res_err>, md, 1.0, -1.0, false);
     auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, iter_tl, partition,
                                                 reg_dep_id, &residual, md);
 
@@ -120,9 +123,8 @@ class MGSolver {
     TaskID none(0);
   
     auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
-    auto flux = tl.AddTask(comm, CalculateFluxes<in_t, true>, md);
-    auto mat_mult = tl.AddTask(flux, FluxMultiplyMatrix<in_t, out_t, true>, md, false);
-    auto diag = tl.AddTask(flux, SetDiagonal<D>, md);
+    auto mat_mult = equations::template Ax<in_t, out_t, true>(tl, comm, md, false);
+    auto diag = tl.AddTask(depends_on, equations::template SetDiagonal<D>, md);
     return tl.AddTask(mat_mult | diag, Jacobi<rhs, out_t, D, in_t, out_t, true>, md, omega,
                       GSType::all);
   }
@@ -159,54 +161,7 @@ class MGSolver {
                                                               omega[ndim - 1][2], md);
     return tl.AddTask(jacobi3, CopyData<temp, u>, md);
   }
-  
-  template <class x_t, class y_t, class out_t, bool only_md_level = false, class TL_t>
-  TaskID Axpy(TL_t &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md,
-              Real weight_Ax, Real weight_y, bool only_interior, bool do_flux_cor = false) {
-    using namespace impl;
-    auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t, only_md_level>, md);
-    if (do_flux_cor && !only_md_level) {
-      auto start_flxcor = tl.AddTask(flux_res, StartReceiveFluxCorrections, md);
-      auto send_flxcor = tl.AddTask(flux_res, LoadAndSendFluxCorrections, md);
-      auto recv_flxcor = tl.AddTask(send_flxcor, ReceiveFluxCorrections, md);
-      flux_res = tl.AddTask(recv_flxcor, SetFluxCorrections, md);
-    }
-    auto Ax_res = tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, temp, only_md_level>, md,
-                             only_interior);
-    return tl.AddTask(Ax_res,
-                      AddFieldsAndStoreInteriorSelect<temp, y_t, out_t, only_md_level>, md,
-                      weight_Ax, weight_y, only_interior);
-  }
-  
-  template <class a_t, class b_t, class TL_t>
-  TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TL_t &tl, int partition,
-                    int &reg_dep_id, AllReduce<Real> *adotb,
-                    std::shared_ptr<MeshData<Real>> &md) {
-    using namespace impl;
-    auto zero_adotb = (partition == 0 ? tl.AddTask(
-                                            dependency_in,
-                                            [](AllReduce<Real> *r) {
-                                              r->val = 0.0;
-                                              return TaskStatus::complete;
-                                            },
-                                            adotb)
-                                      : dependency_in);
-    region.AddRegionalDependencies(reg_dep_id, partition, zero_adotb);
-    reg_dep_id++;
-    auto get_adotb = tl.AddTask(zero_adotb, DotProductLocal<a_t, b_t>, md, &(adotb->val));
-    region.AddRegionalDependencies(reg_dep_id, partition, get_adotb);
-    reg_dep_id++;
-    auto start_global_adotb =
-        (partition == 0
-             ? tl.AddTask(get_adotb, &AllReduce<Real>::StartReduce, adotb, MPI_SUM)
-             : get_adotb);
-    auto finish_global_adotb =
-        tl.AddTask(start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
-    region.AddRegionalDependencies(reg_dep_id, partition, finish_global_adotb);
-    reg_dep_id++;
-    return finish_global_adotb;
-  }
-  
+
   template <class TL_t>
   TaskID AddMultiGridTasksPartitionLevel(TL_t &tl, TaskID dependence, int partition, int level, int min_level,
                                              int max_level, bool final, Mesh *pmesh) {
@@ -254,7 +209,9 @@ class MGSolver {
         // RHS of leaf blocks that are on this GMG level should have already been set on
         // entry into multigrid
         set_from_finer =
-            Axpy<u, res_err, rhs, true>(tl, set_from_finer, md, 1.0, 1.0, true);
+            equations::template Ax<u, temp, true>(tl, set_from_finer, md, true);
+        set_from_finer = tl.AddTask(set_from_finer,
+                      AddFieldsAndStoreInteriorSelect<temp, res_err, rhs, true>, md, 1.0, 1.0, true);
         set_from_finer = set_from_finer | copy_u;
       }
     } else {
@@ -272,8 +229,10 @@ class MGSolver {
                                                                      multilevel);
   
       // 4. Caclulate residual and store in communication field
-      auto residual = Axpy<u, rhs, res_err, true>(tl, comm_u, md, -1.0, 1.0, false);
-  
+      auto residual = equations::template Ax<u, temp, true>(tl, comm_u, md, false);
+      residual = tl.AddTask(residual,
+                      AddFieldsAndStoreInteriorSelect<rhs, temp, res_err, true>, md, 1.0, -1.0, false); 
+      
       // 5. Restrict communication field and send to next level
       auto communicate_to_coarse =
           tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
