@@ -119,7 +119,7 @@ class MGSolver {
   enum class GSType { all, red, black };
   
   template <class rhs_t, class Axold_t, class D_t, class xold_t, class xnew_t, bool only_md_level = false>
-  TaskStatus Jacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
+  static TaskStatus Jacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
                         GSType gs_type = GSType::all) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
@@ -172,8 +172,7 @@ class MGSolver {
   
     auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
     auto mat_mult = equations::template Ax<in_t, out_t, true>(tl, comm, md, false);
-    auto diag = tl.AddTask(depends_on, equations::template SetDiagonal<D>, md);
-    return tl.AddTask(mat_mult | diag, Jacobi<rhs, out_t, D, in_t, out_t, true>, md, omega,
+    return tl.AddTask(mat_mult, Jacobi<rhs, out_t, D, in_t, out_t, true>, md, omega,
                       GSType::all);
   }
   
@@ -235,6 +234,7 @@ class MGSolver {
     TaskID last_task;
     
     auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition);
+
     // 0. Receive residual from coarser level if there is one
     auto set_from_finer = dependence;
     if (level < max_level) {
@@ -267,6 +267,7 @@ class MGSolver {
     }
   
     // 2. Do pre-smooth and fill solution on this level
+    set_from_finer = tl.AddTask(set_from_finer, equations::template SetDiagonal<D>, md);
     auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, set_from_finer,
                                                               pre_stages, multilevel, md);
     // If we are finer than the coarsest level:
