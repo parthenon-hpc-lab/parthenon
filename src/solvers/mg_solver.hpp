@@ -52,7 +52,7 @@ class MGSolver {
   MGVARIABLE(u, D); // Storage for (approximate) diagonal
 
  public:
-  MGSolver(StateDescriptor *pkg, MGParams params_in) : params_(params_in), iter_counter(0) { 
+  MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations()) : params_(params_in), iter_counter(0), eqs_() { 
     using namespace parthenon::refinement_ops;
     auto mres_err = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
                               Metadata::GMGRestrict, Metadata::GMGProlongate, Metadata::OneCopy});
