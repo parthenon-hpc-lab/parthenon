@@ -404,9 +404,9 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md,
 class flux_poisson {
  public:
   template <class x_t, class out_t, bool only_md_level = false, class TL_t>
-  static parthenon::TaskID Ax(TL_t &tl, parthenon::TaskID depends_on, std::shared_ptr<parthenon::MeshData<Real>> &md, bool only_interior, 
+  parthenon::TaskID Ax(TL_t &tl, parthenon::TaskID depends_on, std::shared_ptr<parthenon::MeshData<Real>> &md, bool only_interior, 
             bool do_flux_cor = false) {
-    auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t, only_md_level>, md);
+    auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t, only_md_level>,  md);
     if (do_flux_cor && !only_md_level) {
       auto start_flxcor = tl.AddTask(flux_res, parthenon::StartReceiveFluxCorrections, md);
       auto send_flxcor = tl.AddTask(flux_res, parthenon::LoadAndSendFluxCorrections, md);
@@ -418,7 +418,7 @@ class flux_poisson {
   }
   
   template <class diag_t, bool only_md_level = false>
-  static parthenon::TaskStatus SetDiagonal(std::shared_ptr<parthenon::MeshData<Real>> &md) {
+  parthenon::TaskStatus SetDiagonal(std::shared_ptr<parthenon::MeshData<Real>> &md) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
     using TE = parthenon::TopologicalElement;

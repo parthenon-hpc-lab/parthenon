@@ -92,7 +92,7 @@ class MGSolver {
       AddMultiGridTasksPartitionLevel(iter_tl, none, partition, level, min_level, max_level, level == min_level, pmesh); 
     auto mg_finest = AddMultiGridTasksPartitionLevel(iter_tl, dependence, partition, max_level, min_level, max_level, false, pmesh);
     
-    auto calc_pointwise_res = equations::template Ax<u, res_err>(iter_tl, mg_finest, md, false);
+    auto calc_pointwise_res = eqs_.template Ax<u, res_err>(iter_tl, mg_finest, md, false);
     calc_pointwise_res = iter_tl.AddTask(calc_pointwise_res,
                       AddFieldsAndStoreInteriorSelect<rhs, res_err, res_err>, md, 1.0, -1.0, false);
     auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, iter_tl, partition,
@@ -115,6 +115,7 @@ class MGSolver {
   MGParams params_;
   int iter_counter;
   AllReduce<Real> residual;
+  equations eqs_;
   
   enum class GSType { all, red, black };
   
@@ -171,7 +172,7 @@ class MGSolver {
     TaskID none(0);
   
     auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
-    auto mat_mult = equations::template Ax<in_t, out_t, true>(tl, comm, md, false);
+    auto mat_mult = eqs_.template Ax<in_t, out_t, true>(tl, comm, md, false);
     return tl.AddTask(mat_mult, Jacobi<rhs, out_t, D, in_t, out_t, true>, md, omega,
                       GSType::all);
   }
@@ -257,7 +258,7 @@ class MGSolver {
         // RHS of leaf blocks that are on this GMG level should have already been set on
         // entry into multigrid
         set_from_finer =
-            equations::template Ax<u, temp, true>(tl, set_from_finer, md, true);
+            eqs_.template Ax<u, temp, true>(tl, set_from_finer, md, true);
         set_from_finer = tl.AddTask(set_from_finer,
                       AddFieldsAndStoreInteriorSelect<temp, res_err, rhs, true>, md, 1.0, 1.0, true);
         set_from_finer = set_from_finer | copy_u;
@@ -267,7 +268,7 @@ class MGSolver {
     }
   
     // 2. Do pre-smooth and fill solution on this level
-    set_from_finer = tl.AddTask(set_from_finer, equations::template SetDiagonal<D>, md);
+    set_from_finer = tl.AddTask(set_from_finer, &equations::template SetDiagonal<D>, &eqs_, md);
     auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, set_from_finer,
                                                               pre_stages, multilevel, md);
     // If we are finer than the coarsest level:
@@ -278,7 +279,7 @@ class MGSolver {
                                                                      multilevel);
   
       // 4. Caclulate residual and store in communication field
-      auto residual = equations::template Ax<u, temp, true>(tl, comm_u, md, false);
+      auto residual = eqs_.template Ax<u, temp, true>(tl, comm_u, md, false);
       residual = tl.AddTask(residual,
                       AddFieldsAndStoreInteriorSelect<rhs, temp, res_err, true>, md, 1.0, -1.0, false); 
       
