@@ -39,14 +39,14 @@ struct MGParams {
 
 template <class u, class rhs, class equations>
 class MGSolver {
+ public:
   INTERNALSOLVERVARIABLE(u, res_err); // residual on the way up and error on the way down
   INTERNALSOLVERVARIABLE(u, temp);    // Temporary storage
   INTERNALSOLVERVARIABLE(u, u0);      // Storage for initial solution during FAS
   INTERNALSOLVERVARIABLE(u, D);       // Storage for (approximate) diagonal
 
- public:
   MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations())
-      : params_(params_in), iter_counter(0), eqs_() {
+      : params_(params_in), iter_counter(0), eqs_(eq_in) {
     using namespace parthenon::refinement_ops;
     auto mres_err =
         Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
@@ -71,12 +71,12 @@ class MGSolver {
     iter_counter = 0;
     tl.AddTask(
         dependence,
-        [](int partition) {
-          if (partition != 0) return TaskStatus::complete;
+        [](int partition, int *iter_counter) {
+          if (partition != 0 || *iter_counter > 0) return TaskStatus::complete;
           printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
           return TaskStatus::complete;
         },
-        partition);
+        partition, &iter_counter);
     auto mg_finest = AddLinearOperatorTasks(tl, dependence, partition, pmesh);
     auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
     auto calc_pointwise_res = eqs_.template Ax<u, res_err>(tl, mg_finest, md, false);
@@ -92,7 +92,7 @@ class MGSolver {
           if (part != 0) TaskStatus::complete;
           solver->iter_counter++;
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-          printf("%i %e (%i)\n", solver->iter_counter, rms_res, pmesh->GetTotalCells());
+          printf("%i %e\n", solver->iter_counter, rms_res);
           if (rms_res > solver->params_.residual_tolerance &&
               solver->iter_counter < solver->params_.max_iters)
             return TaskStatus::iterate;

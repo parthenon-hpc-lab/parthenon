@@ -40,6 +40,7 @@ struct BiCGSTABParams {
 
 template <class x, class rhs, class equations>
 class BiCGSTABSolver {
+ public:
   INTERNALSOLVERVARIABLE(x, rhat0);
   INTERNALSOLVERVARIABLE(x, v);
   INTERNALSOLVERVARIABLE(x, h);
@@ -49,7 +50,6 @@ class BiCGSTABSolver {
   INTERNALSOLVERVARIABLE(x, p);
   INTERNALSOLVERVARIABLE(x, u);
 
- public:
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
                  equations eq_in = equations())
       : preconditioner(pkg, MGParams(), eq_in), params_(params_in), iter_counter(0),
@@ -153,8 +153,8 @@ class BiCGSTABSolver {
         get_res,
         [&](BiCGSTABSolver *solver, Mesh *pmesh, int partition) {
           if (partition != 0) return TaskStatus::complete;
-          Real rms_err = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-          printf("%i %e\n", solver->iter_counter * 2 + 1, rms_err);
+          Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
+          printf("%i %e\n", solver->iter_counter * 2 + 1, rms_res);
           return TaskStatus::complete;
         },
         this, pmesh, i);
