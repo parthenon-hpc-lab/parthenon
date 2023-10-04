@@ -31,10 +31,12 @@ namespace poisson_package {
 // to consistently deal with coarse fine boundaries on the grid.
 class PoissonEquation {
  public:
+  bool do_flux_cor = false;
+
   template <class x_t, class out_t, bool only_md_level = false, class TL_t>
   parthenon::TaskID Ax(TL_t &tl, parthenon::TaskID depends_on,
-                       std::shared_ptr<parthenon::MeshData<Real>> &md, bool only_interior,
-                       bool do_flux_cor = false) {
+                       std::shared_ptr<parthenon::MeshData<Real>> &md,
+                       bool only_interior) {
     auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t, only_md_level>, md);
     if (do_flux_cor && !only_md_level) {
       auto start_flxcor =

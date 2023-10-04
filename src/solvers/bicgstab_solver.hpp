@@ -36,7 +36,6 @@ struct BiCGSTABParams {
   Real residual_tolerance = 1.e-12;
   Real restart_threshold = -1.0;
   bool precondition = true;
-  bool flux_correct = true;
 };
 
 template <class x, class rhs, class equations>
@@ -54,7 +53,7 @@ class BiCGSTABSolver {
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
                  equations eq_in = equations())
       : preconditioner(pkg, MGParams(), eq_in), params_(params_in), iter_counter(0),
-        eqs_() {
+        eqs_(eq_in) {
     using namespace refinement_ops;
     auto mu = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
                         Metadata::WithFluxes, Metadata::GMGRestrict});
@@ -123,7 +122,7 @@ class BiCGSTABSolver {
 
     // 2. v <- A u
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md, true);
-    auto get_v = eqs_.template Ax<u, v>(itl, comm, md, false, params_.flux_correct);
+    auto get_v = eqs_.template Ax<u, v>(itl, comm, md, false);
 
     // 3. rhat0v <- (rhat0, v)
     auto get_rhat0v =
@@ -172,7 +171,7 @@ class BiCGSTABSolver {
 
     // 7. t <- A u
     auto pre_t_comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md, true);
-    auto get_t = eqs_.template Ax<u, t>(itl, pre_t_comm, md, false, params_.flux_correct);
+    auto get_t = eqs_.template Ax<u, t>(itl, pre_t_comm, md, false);
 
     // 8. omega <- (t,s) / (t,t)
     auto get_ts = DotProduct<t, s>(get_t, region, itl, i, reg_dep_id, &ts, md);
@@ -262,7 +261,7 @@ class BiCGSTABSolver {
   int GetCurrentIterations() const { return iter_counter; }
 
   Real GetFinalResidual() const { return final_residual; }
-  Real GetFinalIterations() const { return final_iteration; }
+  int GetFinalIterations() const { return final_iteration; }
 
  protected:
   MGSolver<u, rhs, equations> preconditioner;

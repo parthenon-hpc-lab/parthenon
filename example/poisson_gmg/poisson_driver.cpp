@@ -35,8 +35,24 @@ using namespace parthenon::driver::prelude;
 namespace poisson_example {
 
 parthenon::DriverStatus PoissonDriver::Execute() {
+  using namespace parthenon;
+  using namespace poisson_package;
+  auto pkg = pmesh->packages.Get("poisson_package");
+  auto solver = pkg->Param<std::string>("solver");
+  auto *mg_solver =
+      pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
+          "MGsolver");
+  auto *bicgstab_solver =
+      pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
+          "MGBiCGSTABsolver");
+
   pouts->MakeOutputs(pmesh, pinput);
   ConstructAndExecuteTaskLists<>(this);
+  if (solver == "BiCGSTAB") {
+    final_rms_residual = bicgstab_solver->GetFinalResidual();
+  } else if (solver == "MG") {
+    final_rms_residual = mg_solver->GetFinalResidual();
+  }
   pouts->MakeOutputs(pmesh, pinput);
   return DriverStatus::complete;
 }

@@ -99,13 +99,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bicgstab_params.max_iters = max_poisson_iterations;
   bicgstab_params.residual_tolerance = res_tol;
   bicgstab_params.precondition = precondition;
-  bicgstab_params.flux_correct = flux_correct;
 
-  parthenon::solvers::MGSolver<u, rhs, PoissonEquation> mg_solver(pkg.get(), mg_params);
+  PoissonEquation eq;
+  eq.do_flux_cor = flux_correct;
+
+  parthenon::solvers::MGSolver<u, rhs, PoissonEquation> mg_solver(pkg.get(), mg_params,
+                                                                  eq);
   pkg->AddParam<>("MGsolver", mg_solver, parthenon::Params::Mutability::Mutable);
 
   parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation> bicg_solver(
-      pkg.get(), bicgstab_params);
+      pkg.get(), bicgstab_params, eq);
   pkg->AddParam<>("MGBiCGSTABsolver", bicg_solver,
                   parthenon::Params::Mutability::Mutable);
 
