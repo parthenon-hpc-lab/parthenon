@@ -58,7 +58,10 @@ level = 3
 solver = MG
 smoother = SRJ2
 do_FAS = true
+residual_tolerance = 1.e-12
 max_iterations = 15
+flux_correct = false
+use_exact_rhs = true
 
 x0 = 0.0
 y0 = 0.0

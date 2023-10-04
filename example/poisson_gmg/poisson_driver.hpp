@@ -49,11 +49,8 @@ class PoissonDriver : public Driver {
   Real final_rms_error, final_rms_residual;
 
  private:
-  // Necessary reductions for BiCGStab dot products and residual calculations
-  AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual;
-  Real rtr_old, rhat0r_old;
-  AllReduce<Real> update_norm;
-  int mg_iter_cntr;
+  // Necessary reductions for checking error from exact solution 
+  AllReduce<Real> err;
 };
 
 void ProblemGenerator(Mesh *pm, parthenon::ParameterInput *pin, MeshData<Real> *md);

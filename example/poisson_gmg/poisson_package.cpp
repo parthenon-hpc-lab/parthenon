@@ -89,6 +89,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bool warn_flag = pin->GetOrAddBoolean("poisson", "warn_without_convergence", true);
   pkg->AddParam<>("warn_without_convergence", warn_flag);
 
+  bool use_exact_rhs = pin->GetOrAddBoolean("poisson", "use_exact_rhs", false);
+  pkg->AddParam<>("use_exact_rhs", use_exact_rhs);
+
   parthenon::solvers::MGParams mg_params;
   mg_params.max_iters = max_poisson_iterations;
   mg_params.residual_tolerance = res_tol;

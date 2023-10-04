@@ -65,6 +65,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
   auto pkg = pmesh->packages.Get("poisson_package");
   auto solver = pkg->Param<std::string>("solver");
+  auto flux_correct = pkg->Param<bool>("flux_correct");
+  auto use_exact_rhs = pkg->Param<bool>("use_exact_rhs");
   auto *mg_solver =
       pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
           "MGsolver");
@@ -79,16 +81,38 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     TaskList &tl = region[i];
     auto &itl = tl.AddIteration("Solver");
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-    // auto copy_exact = tl.AddTask(none, CopyData<exact, u>, md);
-    // auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
-    // auto get_rhs = Axpy<u, u, rhs>(tl, comm, md, 1.0, 0.0, false, false);
-    auto zero_u = tl.AddTask(none, solvers::utils::SetToZero<u>, md);
+    auto get_rhs = none;
+    if (use_exact_rhs) {
+      auto copy_exact = tl.AddTask(none, solvers::utils::CopyData<exact, u>, md);
+      auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
+      PoissonEquation eqs;
+      eqs.do_flux_cor = flux_correct;
+      auto get_rhs = eqs.Ax<u, rhs>(tl, comm, md, false);
+    }
+    auto zero_u = tl.AddTask(get_rhs, solvers::utils::SetToZero<u>, md);
+    auto solve = zero_u;
     if (solver == "BiCGSTAB") {
-      bicgstab_solver->AddTasks(tl, itl, zero_u, i, pmesh, region, reg_dep_id);
+      solve = bicgstab_solver->AddTasks(tl, itl, zero_u, i, pmesh, region, reg_dep_id);
     } else if (solver == "MG") {
-      mg_solver->AddTasks(itl, zero_u, i, pmesh, region, reg_dep_id);
+      solve = mg_solver->AddTasks(itl, zero_u, i, pmesh, region, reg_dep_id);
     } else {
       PARTHENON_FAIL("Unknown solver type.");
+    }
+    if (use_exact_rhs) {
+      auto diff = tl.AddTask(solve, solvers::utils::AddFieldsAndStore<exact, u, u>, md,
+                             1.0, -1.0);
+      auto get_err =
+          solvers::utils::DotProduct<u, u>(diff, region, tl, i, reg_dep_id, &err, md);
+      tl.AddTask(
+          get_err,
+          [](PoissonDriver *driver, int partition) {
+            if (partition != 0) return TaskStatus::complete;
+            driver->final_rms_error =
+                std::sqrt(driver->err.val / driver->pmesh->GetTotalCells());
+            printf("Final rms error: %e\n", driver->final_rms_error);
+            return TaskStatus::complete;
+          },
+          this, i);
     }
   }
 
