@@ -66,7 +66,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // auto copy_exact = tl.AddTask(none, CopyData<exact, u>, md);
     // auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
     // auto get_rhs = Axpy<u, u, rhs>(tl, comm, md, 1.0, 0.0, false, false);
-    auto zero_u = tl.AddTask(none, solvers::impl::SetToZero<u>, md);
+    auto zero_u = tl.AddTask(none, solvers::utils::SetToZero<u>, md);
     if (solver == "BiCGSTAB") {
       bicgstab_solver->AddTasks(tl, itl, zero_u, i, pmesh, region, reg_dep_id);
     } else if (solver == "MG") {

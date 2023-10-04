@@ -39,24 +39,16 @@ struct BiCGSTABParams {
   bool flux_correct = true;
 };
 
-#define BICGVARIABLE(base, varname)                                                      \
-  struct varname : public parthenon::variable_names::base_t<false> {                     \
-    template <class... Ts>                                                               \
-    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
-        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
-    static std::string name() { return base::name() + "." #varname; }                    \
-  }
-
 template <class x, class rhs, class equations>
 class BiCGSTABSolver {
-  BICGVARIABLE(x, rhat0);
-  BICGVARIABLE(x, v);
-  BICGVARIABLE(x, h);
-  BICGVARIABLE(x, s);
-  BICGVARIABLE(x, t);
-  BICGVARIABLE(x, r);
-  BICGVARIABLE(x, p);
-  BICGVARIABLE(x, u);
+  INTERNALSOLVERVARIABLE(x, rhat0);
+  INTERNALSOLVERVARIABLE(x, v);
+  INTERNALSOLVERVARIABLE(x, h);
+  INTERNALSOLVERVARIABLE(x, s);
+  INTERNALSOLVERVARIABLE(x, t);
+  INTERNALSOLVERVARIABLE(x, r);
+  INTERNALSOLVERVARIABLE(x, p);
+  INTERNALSOLVERVARIABLE(x, u);
 
  public:
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
@@ -81,7 +73,7 @@ class BiCGSTABSolver {
   TaskID AddTasks(TaskList &tl, IterativeTasks &itl, TaskID dependence, int i,
                   Mesh *pmesh, TaskRegion &region, int &reg_dep_id) {
     TaskID none(0);
-    using namespace impl;
+    using namespace utils;
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
     iter_counter = 0;
 
@@ -124,7 +116,7 @@ class BiCGSTABSolver {
     if (params_.precondition) {
       auto set_rhs = itl.AddTask(precon1, CopyData<p, rhs>, md);
       auto zero_u = itl.AddTask(precon1, SetToZero<u>, md);
-      precon1 = preconditioner.AddOnlyVcycleTasks(itl, set_rhs | zero_u, i, pmesh);
+      precon1 = preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, i, pmesh);
     } else {
       precon1 = itl.AddTask(initialize, CopyData<p, u>, md);
     }
@@ -173,7 +165,7 @@ class BiCGSTABSolver {
     if (params_.precondition) {
       auto set_rhs = itl.AddTask(precon2, CopyData<s, rhs>, md);
       auto zero_u = itl.AddTask(precon2, SetToZero<u>, md);
-      precon2 = preconditioner.AddOnlyVcycleTasks(itl, set_rhs | zero_u, i, pmesh);
+      precon2 = preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, i, pmesh);
     } else {
       precon2 = itl.AddTask(precon2, CopyData<s, u>, md);
     }

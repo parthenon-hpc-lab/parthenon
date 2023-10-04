@@ -37,20 +37,12 @@ struct MGParams {
   std::string smoother = "SRJ2";
 };
 
-#define MGVARIABLE(base, varname)                                                        \
-  struct varname : public parthenon::variable_names::base_t<false> {                     \
-    template <class... Ts>                                                               \
-    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
-        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
-    static std::string name() { return base::name() + "." #varname; }                    \
-  }
-
 template <class u, class rhs, class equations>
 class MGSolver {
-  MGVARIABLE(u, res_err); // residual on the way up and error on the way down
-  MGVARIABLE(u, temp);    // Temporary storage
-  MGVARIABLE(u, u0);      // Storage for initial solution during FAS
-  MGVARIABLE(u, D);       // Storage for (approximate) diagonal
+  INTERNALSOLVERVARIABLE(u, res_err); // residual on the way up and error on the way down
+  INTERNALSOLVERVARIABLE(u, temp);    // Temporary storage
+  INTERNALSOLVERVARIABLE(u, u0);      // Storage for initial solution during FAS
+  INTERNALSOLVERVARIABLE(u, D);       // Storage for (approximate) diagonal
 
  public:
   MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations())
@@ -75,7 +67,7 @@ class MGSolver {
   TaskID AddTasks(IterativeTasks &tl, TaskID dependence, int partition, Mesh *pmesh,
                   TaskRegion &region, int &reg_dep_id) {
     TaskID none(0);
-    using namespace impl;
+    using namespace utils;
     iter_counter = 0;
     tl.AddTask(
         dependence,
@@ -85,7 +77,7 @@ class MGSolver {
           return TaskStatus::complete;
         },
         partition);
-    auto mg_finest = AddOnlyVcycleTasks(tl, dependence, partition, pmesh);
+    auto mg_finest = AddLinearOperatorTasks(tl, dependence, partition, pmesh);
     auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
     auto calc_pointwise_res = eqs_.template Ax<u, res_err>(tl, mg_finest, md, false);
     calc_pointwise_res = tl.AddTask(
@@ -114,9 +106,9 @@ class MGSolver {
   }
 
   template <class TL_t>
-  TaskID AddOnlyVcycleTasks(TL_t &tl, TaskID dependence, int partition, Mesh *pmesh) {
+  TaskID AddLinearOperatorTasks(TL_t &tl, TaskID dependence, int partition, Mesh *pmesh) {
     TaskID none(0);
-    using namespace impl;
+    using namespace utils;
     iter_counter = 0;
 
     int min_level = 0;
@@ -192,7 +184,7 @@ class MGSolver {
   template <parthenon::BoundaryType comm_boundary, class in_t, class out_t, class TL_t>
   TaskID AddJacobiIteration(TL_t &tl, TaskID depends_on, bool multilevel, Real omega,
                             std::shared_ptr<MeshData<Real>> &md) {
-    using namespace impl;
+    using namespace utils;
     TaskID none(0);
 
     auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
@@ -204,7 +196,7 @@ class MGSolver {
   template <parthenon::BoundaryType comm_boundary, class TL_t>
   TaskID AddSRJIteration(TL_t &tl, TaskID depends_on, int stages, bool multilevel,
                          std::shared_ptr<MeshData<Real>> &md) {
-    using namespace impl;
+    using namespace utils;
     int ndim = md->GetParentPointer()->ndim;
 
     std::array<std::array<Real, 3>, 3> omega_M1{
@@ -238,7 +230,7 @@ class MGSolver {
   TaskID AddMultiGridTasksPartitionLevel(TL_t &tl, TaskID dependence, int partition,
                                          int level, int min_level, int max_level,
                                          bool final, Mesh *pmesh) {
-    using namespace impl;
+    using namespace utils;
     auto smoother = params_.smoother;
     bool do_FAS = params_.do_FAS;
     int pre_stages, post_stages;

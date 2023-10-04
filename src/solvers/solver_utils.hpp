@@ -15,9 +15,18 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "kokkos_abstraction.hpp"
+
+#define INTERNALSOLVERVARIABLE(base, varname)                                            \
+  struct varname : public parthenon::variable_names::base_t<false> {                     \
+    template <class... Ts>                                                               \
+    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
+        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
+    static std::string name() { return base::name() + "." #varname; }                    \
+  }
 
 namespace parthenon {
 
@@ -136,7 +145,7 @@ struct Stencil {
   }
 };
 
-namespace impl {
+namespace utils {
 template <class in, class out, bool only_md_level = false>
 TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
@@ -294,7 +303,7 @@ TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TL_t &tl, int partit
   return finish_global_adotb;
 }
 
-} // namespace impl
+} // namespace utils
 
 } // namespace solvers
 
