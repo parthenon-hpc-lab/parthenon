@@ -388,17 +388,13 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TL_t &tl,
 
   return fbound;
 }
-template TaskID
-AddBoundaryExchangeTasks<BoundaryType::any, TaskList>(TaskID, TaskList &,
-                                            std::shared_ptr<MeshData<Real>> &, bool);
-template TaskID
-AddBoundaryExchangeTasks<BoundaryType::any, IterativeTasks>(TaskID, IterativeTasks &,
-                                            std::shared_ptr<MeshData<Real>> &, bool);
+template TaskID AddBoundaryExchangeTasks<BoundaryType::any, TaskList>(
+    TaskID, TaskList &, std::shared_ptr<MeshData<Real>> &, bool);
+template TaskID AddBoundaryExchangeTasks<BoundaryType::any, IterativeTasks>(
+    TaskID, IterativeTasks &, std::shared_ptr<MeshData<Real>> &, bool);
 
-template TaskID
-AddBoundaryExchangeTasks<BoundaryType::gmg_same, TaskList>(TaskID, TaskList &,
-                                                 std::shared_ptr<MeshData<Real>> &, bool);
-template TaskID
-AddBoundaryExchangeTasks<BoundaryType::gmg_same, IterativeTasks>(TaskID, IterativeTasks &,
-                                                 std::shared_ptr<MeshData<Real>> &, bool);
+template TaskID AddBoundaryExchangeTasks<BoundaryType::gmg_same, TaskList>(
+    TaskID, TaskList &, std::shared_ptr<MeshData<Real>> &, bool);
+template TaskID AddBoundaryExchangeTasks<BoundaryType::gmg_same, IterativeTasks>(
+    TaskID, IterativeTasks &, std::shared_ptr<MeshData<Real>> &, bool);
 } // namespace parthenon

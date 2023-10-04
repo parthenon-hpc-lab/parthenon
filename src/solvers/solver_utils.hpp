@@ -13,6 +13,7 @@
 #ifndef SOLVERS_SOLVER_UTILS_HPP_
 #define SOLVERS_SOLVER_UTILS_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -135,9 +136,9 @@ struct Stencil {
   }
 };
 
-namespace impl { 
+namespace impl {
 template <class in, class out, bool only_md_level = false>
-TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
@@ -165,7 +166,7 @@ TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 template <class a_t, class b_t, class out, bool only_md_level = false>
-TaskStatus AddFieldsAndStoreInteriorSelect(std::shared_ptr<MeshData<Real>> &md,
+TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>> &md,
                                            Real wa = 1.0, Real wb = 1.0,
                                            bool only_interior = false) {
   using TE = parthenon::TopologicalElement;
@@ -203,13 +204,13 @@ TaskStatus AddFieldsAndStoreInteriorSelect(std::shared_ptr<MeshData<Real>> &md,
 }
 
 template <class a_t, class b_t, class out, bool only_md_level = false>
-TaskStatus AddFieldsAndStore(std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
+TaskStatus AddFieldsAndStore(const std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
                              Real wb = 1.0) {
   return AddFieldsAndStoreInteriorSelect<a_t, b_t, out, only_md_level>(md, wa, wb, false);
 }
 
 template <class var, bool only_md_level = false>
-TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
   int nblocks = md->NumBlocks();
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
@@ -241,7 +242,8 @@ TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 template <class a_t, class b_t>
-TaskStatus DotProductLocal(std::shared_ptr<MeshData<Real>> &md, AllReduce<Real> *adotb) {
+TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md,
+                           AllReduce<Real> *adotb) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
@@ -266,7 +268,7 @@ TaskStatus DotProductLocal(std::shared_ptr<MeshData<Real>> &md, AllReduce<Real> 
 template <class a_t, class b_t, class TL_t>
 TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TL_t &tl, int partition,
                   int &reg_dep_id, AllReduce<Real> *adotb,
-                  std::shared_ptr<MeshData<Real>> &md) {
+                  const std::shared_ptr<MeshData<Real>> &md) {
   using namespace impl;
   auto zero_adotb = (partition == 0 ? tl.AddTask(
                                           dependency_in,

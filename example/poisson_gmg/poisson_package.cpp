@@ -21,14 +21,14 @@
 #include <coordinates/coordinates.hpp>
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
-#include <solvers/solver_utils.hpp>
 #include <solvers/bicgstab_solver.hpp>
 #include <solvers/mg_solver.hpp>
+#include <solvers/solver_utils.hpp>
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
-#include "poisson_package.hpp"
 #include "poisson_equation.hpp"
+#include "poisson_package.hpp"
 
 using namespace parthenon::package::prelude;
 using parthenon::HostArray1D;
@@ -79,7 +79,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   Real err_tol = pin->GetOrAddReal("poisson", "error_tolerance", 1.e-8);
   pkg->AddParam<>("error_tolerance", err_tol);
-  
+
   Real res_tol = pin->GetOrAddReal("poisson", "residual_tolerance", 1.e-8);
   pkg->AddParam<>("residual_tolerance", res_tol);
 
@@ -88,24 +88,26 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   bool warn_flag = pin->GetOrAddBoolean("poisson", "warn_without_convergence", true);
   pkg->AddParam<>("warn_without_convergence", warn_flag);
-  
-  parthenon::solvers::MGParams mg_params; 
-  mg_params.max_iters = max_poisson_iterations; 
+
+  parthenon::solvers::MGParams mg_params;
+  mg_params.max_iters = max_poisson_iterations;
   mg_params.residual_tolerance = res_tol;
   mg_params.do_FAS = do_FAS;
-  mg_params.smoother = smoother_method; 
+  mg_params.smoother = smoother_method;
 
-  parthenon::solvers::BiCGSTABParams bicgstab_params; 
-  bicgstab_params.max_iters = max_poisson_iterations; 
+  parthenon::solvers::BiCGSTABParams bicgstab_params;
+  bicgstab_params.max_iters = max_poisson_iterations;
   bicgstab_params.residual_tolerance = res_tol;
   bicgstab_params.precondition = precondition;
-  bicgstab_params.flux_correct = flux_correct;  
-  
+  bicgstab_params.flux_correct = flux_correct;
+
   parthenon::solvers::MGSolver<u, rhs, PoissonEquation> mg_solver(pkg.get(), mg_params);
   pkg->AddParam<>("MGsolver", mg_solver, parthenon::Params::Mutability::Mutable);
 
-  parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation> bicg_solver(pkg.get(), bicgstab_params);
-  pkg->AddParam<>("MGBiCGSTABsolver", bicg_solver, parthenon::Params::Mutability::Mutable);
+  parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation> bicg_solver(
+      pkg.get(), bicgstab_params);
+  pkg->AddParam<>("MGBiCGSTABsolver", bicg_solver,
+                  parthenon::Params::Mutability::Mutable);
 
   // res_err enters a multigrid level as the residual from the previous level, which
   // is the rhs, and leaves as the solution for that level, which is the error for the

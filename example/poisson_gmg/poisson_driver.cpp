@@ -49,9 +49,13 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
   auto pkg = pmesh->packages.Get("poisson_package");
   auto solver = pkg->Param<std::string>("solver");
-  auto *mg_solver = pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>("MGsolver");
-  auto *bicgstab_solver = pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>("MGBiCGSTABsolver");
-  
+  auto *mg_solver =
+      pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
+          "MGsolver");
+  auto *bicgstab_solver =
+      pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
+          "MGBiCGSTABsolver");
+
   const int num_partitions = pmesh->DefaultNumPartitions();
   TaskRegion &region = tc.AddRegion(num_partitions);
   int reg_dep_id = 0;
@@ -59,18 +63,18 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     TaskList &tl = region[i];
     auto &itl = tl.AddIteration("Solver");
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-    //auto copy_exact = tl.AddTask(none, CopyData<exact, u>, md);
-    //auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
-    //auto get_rhs = Axpy<u, u, rhs>(tl, comm, md, 1.0, 0.0, false, false);
+    // auto copy_exact = tl.AddTask(none, CopyData<exact, u>, md);
+    // auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
+    // auto get_rhs = Axpy<u, u, rhs>(tl, comm, md, 1.0, 0.0, false, false);
     auto zero_u = tl.AddTask(none, solvers::impl::SetToZero<u>, md);
     if (solver == "BiCGSTAB") {
       bicgstab_solver->AddTasks(tl, itl, zero_u, i, pmesh, region, reg_dep_id);
     } else if (solver == "MG") {
       mg_solver->AddTasks(itl, zero_u, i, pmesh, region, reg_dep_id);
-    } else { 
-      PARTHENON_FAIL("Unknown solver type."); 
+    } else {
+      PARTHENON_FAIL("Unknown solver type.");
     }
-   }
+  }
 
   return tc;
 }
