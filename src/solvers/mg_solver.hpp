@@ -52,7 +52,8 @@ class MGSolver {
   MGVARIABLE(u, D); // Storage for (approximate) diagonal
 
  public:
-  MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations()) : params_(params_in), iter_counter(0), eqs_() { 
+  MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations()) 
+      : params_(params_in), iter_counter(0), eqs_() { 
     using namespace parthenon::refinement_ops;
     auto mres_err = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
                               Metadata::GMGRestrict, Metadata::GMGProlongate, Metadata::OneCopy});
@@ -68,37 +69,20 @@ class MGSolver {
     pkg->AddField(u0::name(), mu0);
     pkg->AddField(D::name(), mu0);
   }
-
-  TaskID AddTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh, TaskRegion& region, int reg_dep_id) { 
+  
+  TaskID AddTasks(IterativeTasks &tl, TaskID dependence, int partition, Mesh *pmesh, TaskRegion &region, int &reg_dep_id) { 
     TaskID none(0);
-    auto iter_tl = tl.AddIteration("MG." + u::name());
     using namespace impl;
     iter_counter = 0;
-
-    int min_level = 0;
-    int max_level = pmesh->GetGMGMaxLevel();
-    
+    auto mg_finest = AddOnlyVcycleTasks(tl, dependence, partition, pmesh);
     auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
-    if (partition == 0) {
-      tl.AddTask(
-          dependence,
-          [&]() {
-            printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
-            return TaskStatus::complete;
-          });
-    } 
-
-    for (int level = max_level - 1; level >= min_level; --level)
-      AddMultiGridTasksPartitionLevel(iter_tl, none, partition, level, min_level, max_level, level == min_level, pmesh); 
-    auto mg_finest = AddMultiGridTasksPartitionLevel(iter_tl, dependence, partition, max_level, min_level, max_level, false, pmesh);
-    
-    auto calc_pointwise_res = eqs_.template Ax<u, res_err>(iter_tl, mg_finest, md, false);
-    calc_pointwise_res = iter_tl.AddTask(calc_pointwise_res,
+    auto calc_pointwise_res = eqs_.template Ax<u, res_err>(tl, mg_finest, md, false);
+    calc_pointwise_res = tl.AddTask(calc_pointwise_res,
                       AddFieldsAndStoreInteriorSelect<rhs, res_err, res_err>, md, 1.0, -1.0, false);
-    auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, iter_tl, partition,
+    auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, tl, partition,
                                                 reg_dep_id, &residual, md);
 
-    auto check = iter_tl.SetCompletionTask(get_res, [](MGSolver *solver, int part, Mesh *pmesh){
+    auto check = tl.SetCompletionTask(get_res, [](MGSolver *solver, int part, Mesh *pmesh){
       if (part != 0) TaskStatus::complete; 
       solver->iter_counter++;
       Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
@@ -107,10 +91,28 @@ class MGSolver {
       return TaskStatus::complete;
       }, this, partition, pmesh);
     region.AddGlobalDependencies(reg_dep_id, partition, check);
+    reg_dep_id++;
 
     return check;
   }
+   
+  template <class TL_t>
+  TaskID AddOnlyVcycleTasks(TL_t &tl, TaskID dependence, int partition, Mesh *pmesh) { 
+    TaskID none(0);
+    using namespace impl;
+    iter_counter = 0;
 
+    int min_level = 0;
+    int max_level = pmesh->GetGMGMaxLevel();
+    auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
+
+    for (int level = max_level - 1; level >= min_level; --level)
+      AddMultiGridTasksPartitionLevel(tl, none, partition, level, min_level, max_level, level == min_level, pmesh); 
+    return AddMultiGridTasksPartitionLevel(tl, dependence, partition, max_level, min_level, max_level, false, pmesh);
+  }
+
+  Real GetSquaredResidualSum() const {return residual.val;}
+  int GetCurrentIterations() const {return iter_counter; }
  protected: 
   MGParams params_;
   int iter_counter;

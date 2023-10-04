@@ -26,6 +26,7 @@
 #include "poisson_driver.hpp"
 #include "poisson_package.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+#include "solvers/bicgstab_solver.hpp"
 #include "solvers/mg_solver.hpp"
 
 using namespace parthenon::driver::prelude;
@@ -290,47 +291,32 @@ TaskCollection PoissonDriver::MakeTaskCollectionMG(BlockList_t &blocks) {
   
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = region[i];
-    //auto &iter_tl = tl.AddIteration("MG");
+    auto &iter_tl = tl.AddIteration("MG");
 
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
     //auto copy_exact = tl.AddTask(none, CopyData<exact, u>, md);
     //auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
     //auto get_rhs = Axpy<u, u, rhs>(tl, comm, md, 1.0, 0.0, false, false);
     auto zero_u = tl.AddTask(none, SetToZero<u>, md);
-    solver->AddTasks(tl, zero_u, i, pmesh, region, reg_dep_id);
     
-    //if (i == 0) {
-    //  tl.AddTask(
-    //      zero_u,
-    //      [&]() {
-    //        printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
-    //        return TaskStatus::complete;
-    //      });
-    //} 
+    if (i == 0) {
+      tl.AddTask(
+          zero_u,
+          [&]() {
+            printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
+            return TaskStatus::complete;
+          });
+    } 
 
-    //for (int level = max_level - 1; level >= min_level; --level)
-    //  AddMultiGridTasksPartitionLevel(iter_tl, none, i, level, min_level, max_level, level == min_level); 
-    //auto mg_finest = AddMultiGridTasksPartitionLevel(iter_tl, none, i, max_level, min_level, max_level, false);
-    
-    //auto calc_pointwise_res = Axpy<u, rhs, res_err>(iter_tl, mg_finest, md, -1.0, 1.0, false);
-    //auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, iter_tl, i,
-    //                                            reg_dep_id, &residual, md);
-    //auto calc_err =
-    //    iter_tl.AddTask(get_res, AddFieldsAndStore<u, exact, res_err>, md, 1.0, -1.0);
-    //auto get_err = DotProduct<res_err, res_err>(calc_err, region, iter_tl, i, reg_dep_id,
-    //                                            &rhat0r, md);
+    auto vcycle = solver->AddTasks(iter_tl, zero_u, i, pmesh, region, reg_dep_id);
 
-    //auto bound_exch = AddBoundaryExchangeTasks<BoundaryType::any>(get_res, iter_tl, md, true);
-    //auto check = iter_tl.SetCompletionTask(bound_exch | get_err, [&](PoissonDriver *driver, int partition, int max_iter, Real res_tol){
-    //  if (partition != 0) TaskStatus::complete; 
-    //  this->mg_iter_cntr++;
-    //  Real rms_res = std::sqrt(driver->residual.val / pmesh->GetTotalCells());
-    //  Real rms_err = std::sqrt(driver->rhat0r.val / pmesh->GetTotalCells());
-    //  printf("%i %e %e\n", mg_iter_cntr, rms_res, rms_err); 
-    //  if (rms_res > res_tol && this->mg_iter_cntr < max_iter) return TaskStatus::iterate;
-    //  return TaskStatus::complete;
-    //  }, this, i, max_iterations, residual_tolerance);
-    //region.AddGlobalDependencies(reg_dep_id, i, check);
+    iter_tl.AddTask(vcycle, [](parthenon::solvers::MGSolver<u, rhs, flux_poisson> *solver, Mesh *pmesh, int part){
+      if (part != 0) return TaskStatus::complete; 
+      Real rms_res = std::sqrt(solver->GetSquaredResidualSum() / pmesh->GetTotalCells());
+      printf("%i %e (%i)\n", solver->GetCurrentIterations(), rms_res, pmesh->GetTotalCells()); 
+      return TaskStatus::complete;
+    }, solver, pmesh, i);  
+
   }
 
   return tc;
@@ -351,7 +337,9 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
   int n_vcycles = pkg->Param<int>("precondition_vcycles");
 
   Real restart_threshold = pkg->Param<Real>("restart_threshold");
-
+  
+  auto *solver = pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<x, rhs, flux_poisson>>("MGBiCGSTABsolver");
+  /*
   int min_level = 0;
   int max_level = pmesh->GetGMGMaxLevel();
   this->mg_iter_cntr = 0;
@@ -366,7 +354,7 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
       return itl.AddTask(dependency, CopyData<rhs, u>, md);
     }
   };
-
+  */
   // Solving A x = rhs with BiCGSTAB possibly with pre-conditioner M^{-1} such that A M ~ I 
   int ivcycle = 0;
   TaskRegion &region = tc.AddRegion(num_partitions);
@@ -378,6 +366,9 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
     TaskList &tl = region[i];
     auto &itl = iter_tls[i];
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
+    solver->AddTasks(tl, itl, none, i, pmesh, region, reg_dep_id);
+    /*
+    
 
     // Initialization: x <- 0, r <- rhs, rhat0 <- rhs, 
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
@@ -570,6 +561,7 @@ TaskCollection PoissonDriver::MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks) 
         },
         this, i, max_iterations, residual_tolerance);
     region.AddGlobalDependencies(reg_dep_id, i, check);
+    */
   }
 
   return tc;

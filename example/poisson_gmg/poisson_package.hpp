@@ -403,6 +403,9 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md,
 
 class flux_poisson {
  public:
+
+  //std::vector<parthenon::Metadata> RequiredMetadata
+
   template <class x_t, class out_t, bool only_md_level = false, class TL_t>
   parthenon::TaskID Ax(TL_t &tl, parthenon::TaskID depends_on, std::shared_ptr<parthenon::MeshData<Real>> &md, bool only_interior, 
             bool do_flux_cor = false) {
@@ -439,7 +442,7 @@ class flux_poisson {
             (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level());
     }
   
-    auto desc = parthenon::MakePackDescriptor<diag_t>(md.get());
+    auto desc = parthenon::MakePackDescriptor<diag_t, D>(md.get());
     auto pack = desc.GetPack(md.get(), include_block);
     parthenon::par_for(
         DEFAULT_LOOP_PATTERN, "StoreDiagonal", DevExecSpace(), 0, pack.GetNBlocks() - 1,
@@ -448,14 +451,14 @@ class flux_poisson {
           const auto &coords = pack.GetCoordinates(b);
           // Build the unigrid diagonal of the matrix
           Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-          Real diag_elem = -2.0 / (dx1 * dx1) - alpha;
+          Real diag_elem = -(pack(b, TE::F1, D(), k, j, i) + pack(b, TE::F1, D(), k, j, i + 1)) / (dx1 * dx1) - alpha;
           if (ndim > 1) {
             Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-            diag_elem -= 2.0 / (dx2 * dx2);
+            diag_elem -= (pack(b, TE::F2, D(), k, j, i) + pack(b, TE::F2, D(), k, j + 1, i)) / (dx2 * dx2);
           }
           if (ndim > 2) {
             Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-            diag_elem -= 2.0 / (dx3 * dx3);
+            diag_elem -= (pack(b, TE::F3, D(), k, j, i) + pack(b, TE::F3, D(), k + 1, j, i)) / (dx3 * dx3);
           }
           pack(b, te, diag_t(), k, j, i) = diag_elem;
         });
@@ -484,7 +487,7 @@ class flux_poisson {
             (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level());
     }
   
-    auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
+    auto desc = parthenon::MakePackDescriptor<var_t, D>(md.get(), {}, {PDOpt::WithFluxes});
     auto pack = desc.GetPack(md.get(), include_block);
     parthenon::par_for(
         DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
@@ -493,32 +496,32 @@ class flux_poisson {
           const auto &coords = pack.GetCoordinates(b);
           Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
           pack.flux(b, X1DIR, var_t(), k, j, i) =
-              1.0 / dx1 *
+              pack(b, TE::F1, D(), k, j, i) / dx1 *
               (pack(b, te, var_t(), k, j, i - 1) - pack(b, te, var_t(), k, j, i));
           if (i == ib.e)
             pack.flux(b, X1DIR, var_t(), k, j, i + 1) =
-                1.0 / dx1 *
+                pack(b, TE::F1, D(), k, j, i + 1) / dx1 *
                 (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j, i + 1));
   
           if (ndim > 1) {
             Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
             pack.flux(b, X2DIR, var_t(), k, j, i) =
-                1.0 *
+                pack(b, TE::F2, D(), k, j, i) *
                 (pack(b, te, var_t(), k, j - 1, i) - pack(b, te, var_t(), k, j, i)) / dx2;
             if (j == jb.e)
               pack.flux(b, X2DIR, var_t(), k, j + 1, i) =
-                  1.0 *
+                  pack(b, TE::F2, D(), k, j + 1, i) *
                   (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j + 1, i)) / dx2;
           }
   
           if (ndim > 2) {
             Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
             pack.flux(b, X3DIR, var_t(), k, j, i) =
-                1.0 *
+                pack(b, TE::F3, D(), k, j, i) *
                 (pack(b, te, var_t(), k - 1, j, i) - pack(b, te, var_t(), k, j, i)) / dx3;
             if (k == kb.e)
               pack.flux(b, X2DIR, var_t(), k + 1, j, i) =
-                  1.0 *
+                  pack(b, TE::F3, D(), k + 1, j, i) *
                   (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k + 1, j, i)) / dx3;
           }
         });

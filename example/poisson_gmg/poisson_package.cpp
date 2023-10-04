@@ -22,6 +22,7 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 #include <solvers/solver_utils.hpp>
+#include <solvers/bicgstab_solver.hpp>
 #include <solvers/mg_solver.hpp>
 
 #include "defs.hpp"
@@ -89,7 +90,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   
   parthenon::solvers::MGSolver<u, rhs, flux_poisson> mg_solver(pkg.get(), parthenon::solvers::MGParams());
   pkg->AddParam<>("MGsolver", mg_solver, parthenon::Params::Mutability::Mutable);
-  
+
+  parthenon::solvers::BiCGSTABSolver<x, rhs, flux_poisson> bicg_solver(pkg.get(), parthenon::solvers::BiCGSTABParams());
+  pkg->AddParam<>("MGBiCGSTABsolver", bicg_solver, parthenon::Params::Mutability::Mutable);
+
   // res_err enters a multigrid level as the residual from the previous level, which
   // is the rhs, and leaves as the solution for that level, which is the error for the
   // next finer level
@@ -126,7 +130,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // BiCGSTAB fields
   pkg->AddField(rhat0::name(), m_no_ghost);
   pkg->AddField(v::name(), m_no_ghost);
-  pkg->AddField(h::name(), mflux);
+  pkg->AddField(h::name(), m_no_ghost);
   pkg->AddField(s::name(), m_no_ghost);
   pkg->AddField(t::name(), m_no_ghost);
   pkg->AddField(x::name(), m_no_ghost);
