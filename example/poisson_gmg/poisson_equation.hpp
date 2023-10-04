@@ -18,9 +18,10 @@
 #include <utility>
 #include <vector>
 
-#include "poisson_package.hpp"
 #include <kokkos_abstraction.hpp>
 #include <parthenon/package.hpp>
+
+#include "poisson_package.hpp"
 
 namespace poisson_package {
 

@@ -17,6 +17,7 @@ if( "poisson-gmg-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
       poisson-gmg-example
           poisson_driver.cpp
           poisson_driver.hpp
+          poisson_equation.hpp
           poisson_package.cpp
           poisson_package.hpp
           main.cpp

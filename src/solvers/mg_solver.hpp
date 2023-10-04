@@ -96,6 +96,8 @@ class MGSolver {
           if (rms_res > solver->params_.residual_tolerance &&
               solver->iter_counter < solver->params_.max_iters)
             return TaskStatus::iterate;
+          solver->final_residual = rms_res;
+          solver->final_iteration = solver->iter_counter;
           return TaskStatus::complete;
         },
         this, partition, pmesh);
@@ -130,6 +132,8 @@ class MGSolver {
   int iter_counter;
   AllReduce<Real> residual;
   equations eqs_;
+  Real final_residual;
+  int final_iteration;
 
   enum class GSType { all, red, black };
 

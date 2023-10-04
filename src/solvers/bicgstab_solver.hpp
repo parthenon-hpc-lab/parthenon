@@ -238,8 +238,11 @@ class BiCGSTABSolver {
           if (partition != 0) return TaskStatus::complete;
           solver->iter_counter++;
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-          if (rms_res < res_tol || solver->iter_counter >= max_iter)
+          if (rms_res < res_tol || solver->iter_counter >= max_iter) {
+            solver->final_residual = rms_res;
+            solver->final_iteration = solver->iter_counter;
             return TaskStatus::complete;
+          }
           solver->rhat0r_old = solver->rhat0r.val;
           solver->rhat0r.val = 0.0;
           solver->rhat0v.val = 0.0;
@@ -258,6 +261,9 @@ class BiCGSTABSolver {
   Real GetSquaredResidualSum() const { return residual.val; }
   int GetCurrentIterations() const { return iter_counter; }
 
+  Real GetFinalResidual() const { return final_residual; }
+  Real GetFinalIterations() const { return final_iteration; }
+
  protected:
   MGSolver<u, rhs, equations> preconditioner;
   BiCGSTABParams params_;
@@ -265,6 +271,8 @@ class BiCGSTABSolver {
   AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual;
   Real rhat0r_old;
   equations eqs_;
+  Real final_residual;
+  int final_iteration;
 };
 
 } // namespace solvers
