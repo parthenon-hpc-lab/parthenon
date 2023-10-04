@@ -74,6 +74,13 @@ class MGSolver {
     TaskID none(0);
     using namespace impl;
     iter_counter = 0;
+    tl.AddTask(
+        dependence,
+        [](int partition) {
+          if (partition != 0) return TaskStatus::complete;
+          printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
+          return TaskStatus::complete;
+        }, partition);
     auto mg_finest = AddOnlyVcycleTasks(tl, dependence, partition, pmesh);
     auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
     auto calc_pointwise_res = eqs_.template Ax<u, res_err>(tl, mg_finest, md, false);

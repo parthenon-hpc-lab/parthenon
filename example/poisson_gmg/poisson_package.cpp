@@ -28,6 +28,7 @@
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
 #include "poisson_package.hpp"
+#include "poisson_equation.hpp"
 
 using namespace parthenon::package::prelude;
 using parthenon::HostArray1D;
@@ -100,60 +101,29 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bicgstab_params.precondition = precondition;
   bicgstab_params.flux_correct = flux_correct;  
   
-  parthenon::solvers::MGSolver<u, rhs, flux_poisson> mg_solver(pkg.get(), mg_params);
+  parthenon::solvers::MGSolver<u, rhs, PoissonEquation> mg_solver(pkg.get(), mg_params);
   pkg->AddParam<>("MGsolver", mg_solver, parthenon::Params::Mutability::Mutable);
 
-  parthenon::solvers::BiCGSTABSolver<x, rhs, flux_poisson> bicg_solver(pkg.get(), bicgstab_params);
+  parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation> bicg_solver(pkg.get(), bicgstab_params);
   pkg->AddParam<>("MGBiCGSTABsolver", bicg_solver, parthenon::Params::Mutability::Mutable);
 
   // res_err enters a multigrid level as the residual from the previous level, which
   // is the rhs, and leaves as the solution for that level, which is the error for the
   // next finer level
-  auto te_type = Metadata::Cell;
-  if (GetTopologicalType(te) == parthenon::TopologicalType::Node) {
-    te_type = Metadata::Node;
-  } else if (GetTopologicalType(te) == parthenon::TopologicalType::Edge) {
-    te_type = Metadata::Edge;
-  } else if (GetTopologicalType(te) == parthenon::TopologicalType::Face) {
-    te_type = Metadata::Face;
-  }
   using namespace parthenon::refinement_ops;
-  auto mres_err = Metadata({te_type, Metadata::Independent, Metadata::FillGhost,
-                            Metadata::GMGRestrict, Metadata::GMGProlongate});
-  mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
-  pkg->AddField(res_err::name(), mres_err);
-
   auto mD = Metadata(
       {Metadata::Independent, Metadata::OneCopy, Metadata::Face, Metadata::GMGRestrict});
   mD.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(D::name(), mD);
 
-  auto mflux_comm = Metadata({te_type, Metadata::Independent, Metadata::FillGhost,
+  auto mflux_comm = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
                               Metadata::WithFluxes, Metadata::GMGRestrict});
   mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   pkg->AddField(u::name(), mflux_comm);
 
-  auto mflux = Metadata(
-      {te_type, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
-  mflux.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
-  pkg->AddField(temp::name(), mflux);
-
-  auto m_no_ghost = Metadata({te_type, Metadata::Derived, Metadata::OneCopy});
-  // BiCGSTAB fields
-  pkg->AddField(rhat0::name(), m_no_ghost);
-  pkg->AddField(v::name(), m_no_ghost);
-  pkg->AddField(h::name(), m_no_ghost);
-  pkg->AddField(s::name(), m_no_ghost);
-  pkg->AddField(t::name(), m_no_ghost);
-  pkg->AddField(x::name(), m_no_ghost);
-  pkg->AddField(r::name(), m_no_ghost);
-  pkg->AddField(p::name(), m_no_ghost);
-
-  // Other storage fields
-  pkg->AddField(exact::name(), m_no_ghost);
-  pkg->AddField(u0::name(), m_no_ghost);
+  auto m_no_ghost = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField(rhs::name(), m_no_ghost);
-  pkg->AddField(rhs_base::name(), m_no_ghost);
+  pkg->AddField(exact::name(), m_no_ghost);
 
   return pkg;
 }
