@@ -88,10 +88,22 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bool warn_flag = pin->GetOrAddBoolean("poisson", "warn_without_convergence", true);
   pkg->AddParam<>("warn_without_convergence", warn_flag);
   
-  parthenon::solvers::MGSolver<u, rhs, flux_poisson> mg_solver(pkg.get(), parthenon::solvers::MGParams());
+  parthenon::solvers::MGParams mg_params; 
+  mg_params.max_iters = max_poisson_iterations; 
+  mg_params.residual_tolerance = res_tol;
+  mg_params.do_FAS = do_FAS;
+  mg_params.smoother = smoother_method; 
+
+  parthenon::solvers::BiCGSTABParams bicgstab_params; 
+  bicgstab_params.max_iters = max_poisson_iterations; 
+  bicgstab_params.residual_tolerance = res_tol;
+  bicgstab_params.precondition = precondition;
+  bicgstab_params.flux_correct = flux_correct;  
+  
+  parthenon::solvers::MGSolver<u, rhs, flux_poisson> mg_solver(pkg.get(), mg_params);
   pkg->AddParam<>("MGsolver", mg_solver, parthenon::Params::Mutability::Mutable);
 
-  parthenon::solvers::BiCGSTABSolver<x, rhs, flux_poisson> bicg_solver(pkg.get(), parthenon::solvers::BiCGSTABParams());
+  parthenon::solvers::BiCGSTABSolver<x, rhs, flux_poisson> bicg_solver(pkg.get(), bicgstab_params);
   pkg->AddParam<>("MGBiCGSTABsolver", bicg_solver, parthenon::Params::Mutability::Mutable);
 
   // res_err enters a multigrid level as the residual from the previous level, which

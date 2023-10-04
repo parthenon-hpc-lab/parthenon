@@ -241,7 +241,7 @@ TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 template <class a_t, class b_t>
-TaskStatus DotProductLocal(std::shared_ptr<MeshData<Real>> &md, Real *reduce_sum) {
+TaskStatus DotProductLocal(std::shared_ptr<MeshData<Real>> &md, AllReduce<Real> *adotb) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
@@ -259,7 +259,7 @@ TaskStatus DotProductLocal(std::shared_ptr<MeshData<Real>> &md, Real *reduce_sum
         lsum += pack(b, te, a_t(), k, j, i) * pack(b, te, b_t(), k, j, i);
       },
       Kokkos::Sum<Real>(gsum));
-  *reduce_sum += gsum;
+  adotb->val += gsum;
   return TaskStatus::complete;
 }
 
@@ -278,7 +278,7 @@ TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TL_t &tl, int partit
                                     : dependency_in);
   region.AddRegionalDependencies(reg_dep_id, partition, zero_adotb);
   reg_dep_id++;
-  auto get_adotb = tl.AddTask(zero_adotb, DotProductLocal<a_t, b_t>, md, &(adotb->val));
+  auto get_adotb = tl.AddTask(zero_adotb, DotProductLocal<a_t, b_t>, md, adotb);
   region.AddRegionalDependencies(reg_dep_id, partition, get_adotb);
   reg_dep_id++;
   auto start_global_adotb =

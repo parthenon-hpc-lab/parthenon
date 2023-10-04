@@ -65,6 +65,7 @@ class BiCGSTABSolver {
     using namespace refinement_ops;
     auto mu = Metadata(
       {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes, Metadata::GMGRestrict});
+    mu.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     auto m_no_ghost = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
     pkg->AddField(u::name(), mu);
     pkg->AddField(rhat0::name(), m_no_ghost);
@@ -80,6 +81,7 @@ class BiCGSTABSolver {
     TaskID none(0);
     using namespace impl;
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
+    iter_counter = 0;
 
     // Initialization: x <- 0, r <- rhs, rhat0 <- rhs, 
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
@@ -117,8 +119,15 @@ class BiCGSTABSolver {
 
     // BEGIN ITERATIVE TASKS
 
-    // 1. u <- M p (rhs = p is set in previous cycle or initialization)
-    auto precon1 = preconditioner.AddOnlyVcycleTasks(itl, initialize, i, pmesh); 
+    // 1. u <- M p
+    auto precon1 = initialize; 
+    if (params_.precondition) {
+      auto set_rhs = itl.AddTask(precon1, CopyData<p, rhs>, md);
+      auto zero_u = itl.AddTask(precon1, SetToZero<u>, md);
+      precon1 = preconditioner.AddOnlyVcycleTasks(itl, set_rhs | zero_u, i, pmesh); 
+    } else { 
+      precon1 = itl.AddTask(initialize, CopyData<p, u>, md);
+    }
 
     // 2. v <- A u
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md, true);
@@ -149,23 +158,26 @@ class BiCGSTABSolver {
     // Check and print out residual
     auto get_res = DotProduct<s, s>(correct_s, region, itl, i, reg_dep_id,
                                     &residual, md);
-    if (i == 0) {
-      itl.AddTask(
+
+    auto print = itl.AddTask(
           get_res,
-          [&](BiCGSTABSolver *solver, Mesh *pmesh) {
+          [&](BiCGSTABSolver *solver, Mesh *pmesh, int partition) {
+            if (partition != 0) return TaskStatus::complete;
             Real rms_err = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
             printf("%i %e\n", solver->iter_counter * 2 + 1, rms_err);
             return TaskStatus::complete;
           },
-          this, pmesh);
-    }
+          this, pmesh, i);
 
-    // Setup for MG Precondition
-    auto set_rhs = itl.AddTask(correct_s, CopyData<s, rhs>, md);
-    auto zero_u = itl.AddTask(correct_s, SetToZero<u>, md);
-
-    // 6. u <- M s (rhs = s)
-    auto precon2 = preconditioner.AddOnlyVcycleTasks(itl, set_rhs | zero_u, i, pmesh);
+    // 6. u <- M s
+    auto precon2 = correct_s;
+    if (params_.precondition) {
+      auto set_rhs = itl.AddTask(precon2, CopyData<s, rhs>, md);
+      auto zero_u = itl.AddTask(precon2, SetToZero<u>, md);
+      precon2 = preconditioner.AddOnlyVcycleTasks(itl, set_rhs | zero_u, i, pmesh);
+    } else { 
+      precon2 = itl.AddTask(precon2, CopyData<s, u>, md);
+    } 
 
     // 7. t <- A u
     auto pre_t_comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md, true);
@@ -227,10 +239,6 @@ class BiCGSTABSolver {
         },
         this, md);
 
-    // Set up for MG in next cycle
-    itl.AddTask(update_p, CopyData<p, rhs>, md);
-    itl.AddTask(update_p, SetToZero<u>, md);
-    
     // 14. rhat0r_old <- rhat0r, zero all reductions
     region.AddRegionalDependencies(reg_dep_id, i, update_p | correct_x);
     auto check = itl.SetCompletionTask(
@@ -263,8 +271,7 @@ class BiCGSTABSolver {
   BiCGSTABParams params_;
   int iter_counter;
   AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual;
-  Real rtr_old, rhat0r_old;
-  AllReduce<Real> update_norm;
+  Real rhat0r_old;
   equations eqs_;
   
 };

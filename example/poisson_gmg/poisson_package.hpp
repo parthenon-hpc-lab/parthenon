@@ -451,14 +451,21 @@ class flux_poisson {
           const auto &coords = pack.GetCoordinates(b);
           // Build the unigrid diagonal of the matrix
           Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-          Real diag_elem = -(pack(b, TE::F1, D(), k, j, i) + pack(b, TE::F1, D(), k, j, i + 1)) / (dx1 * dx1) - alpha;
+          Real diag_elem =
+              -(pack(b, TE::F1, D(), k, j, i) + pack(b, TE::F1, D(), k, j, i + 1)) /
+                  (dx1 * dx1) -
+              alpha;
           if (ndim > 1) {
             Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-            diag_elem -= (pack(b, TE::F2, D(), k, j, i) + pack(b, TE::F2, D(), k, j + 1, i)) / (dx2 * dx2);
+            diag_elem -=
+                (pack(b, TE::F2, D(), k, j, i) + pack(b, TE::F2, D(), k, j + 1, i)) /
+                (dx2 * dx2);
           }
           if (ndim > 2) {
             Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-            diag_elem -= (pack(b, TE::F3, D(), k, j, i) + pack(b, TE::F3, D(), k + 1, j, i)) / (dx3 * dx3);
+            diag_elem -=
+                (pack(b, TE::F3, D(), k, j, i) + pack(b, TE::F3, D(), k + 1, j, i)) /
+                (dx3 * dx3);
           }
           pack(b, te, diag_t(), k, j, i) = diag_elem;
         });
@@ -502,7 +509,7 @@ class flux_poisson {
             pack.flux(b, X1DIR, var_t(), k, j, i + 1) =
                 pack(b, TE::F1, D(), k, j, i + 1) / dx1 *
                 (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j, i + 1));
-  
+
           if (ndim > 1) {
             Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
             pack.flux(b, X2DIR, var_t(), k, j, i) =
@@ -513,7 +520,7 @@ class flux_poisson {
                   pack(b, TE::F2, D(), k, j + 1, i) *
                   (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j + 1, i)) / dx2;
           }
-  
+
           if (ndim > 2) {
             Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
             pack.flux(b, X3DIR, var_t(), k, j, i) =
