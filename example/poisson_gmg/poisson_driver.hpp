@@ -49,7 +49,7 @@ class PoissonDriver : public Driver {
   Real final_rms_error, final_rms_residual;
 
  private:
-  // Necessary reductions for checking error from exact solution 
+  // Necessary reductions for checking error from exact solution
   AllReduce<Real> err;
 };
 
