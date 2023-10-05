@@ -85,7 +85,7 @@ To work with these GMG levels, ``MeshData`` objects containing these blocks can
 be recovered from a ``Mesh`` pointer using 
 
 .. code:: c++
-  auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", i);
+  auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition_idx);
 
 This ``MeshData`` will include blocks at the current level and possibly some 
 blocks at the next coarser level. Often, one will only want to operate on blocks
