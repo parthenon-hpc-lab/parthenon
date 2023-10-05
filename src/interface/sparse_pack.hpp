@@ -42,7 +42,7 @@ IndexShape GetIndexShape(const ParArray3D<Real, VariableState> &arr, int ng) {
   int nx1 = arr.GetDim(1) > 1 ? arr.GetDim(1) - extra_zone - 2 * ng : 0;
   int nx2 = arr.GetDim(2) > 1 ? arr.GetDim(2) - extra_zone - 2 * ng : 0;
   int nx3 = arr.GetDim(3) > 1 ? arr.GetDim(3) - extra_zone - 2 * ng : 0;
-  return IndexShape::GetOnDevice(nx3, nx2, nx1, ng);
+  return IndexShape::GetFromSeparateInts(nx3, nx2, nx1, ng);
 }
 
 // Sparse pack index type which allows for relatively simple indexing
