@@ -452,6 +452,24 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         }
       }
 #endif
+    } else if (vinfo.where == MetadataFlag(Metadata::Node)) {
+      ndim = 3 + vinfo.tensor_rank + 1;
+      for (int i = 0; i < vinfo.tensor_rank; i++) {
+        local_count[1 + i] = global_count[1 + i] = alldims[3 - vinfo.tensor_rank + i];
+      }
+      // Not sure this is 100% write in parallel
+      // Might not own all nodes, but probably does want to write them?
+      local_count[vinfo.tensor_rank + 1] = global_count[vinfo.tensor_rank + 1] = nx3 + 1;
+      local_count[vinfo.tensor_rank + 2] = global_count[vinfo.tensor_rank + 2] = nx2 + 1;
+      local_count[vinfo.tensor_rank + 3] = global_count[vinfo.tensor_rank + 3] = nx1 + 1;
+
+#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
+      if (output_params.hdf5_compression_level > 0) {
+        for (int i = ndim - 3; i < ndim; i++) {
+          chunk_size[i] = local_count[i];
+        }
+      }
+#endif
     } else if (vinfo.where == MetadataFlag(Metadata::None)) {
       ndim = vinfo.tensor_rank + 1;
       for (int i = 0; i < vinfo.tensor_rank; i++) {
@@ -467,7 +485,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       }
 #endif
     } else {
-      PARTHENON_THROW("Only Cell and None locations supported!");
+      PARTHENON_THROW("Only Cell, Node, and None locations supported!");
     }
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
@@ -507,6 +525,14 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                       }
                     }
                   }
+                } else if (vinfo.where == MetadataFlag(Metadata::Node)) {
+                  for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
+                    for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
+                      for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
+                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                      }
+                    }
+                  }
                 } else {
                   for (int k = 0; k < vinfo.nx3; ++k) {
                     for (int j = 0; j < vinfo.nx2; ++j) {
@@ -536,6 +562,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
           if (vinfo.where == MetadataFlag(Metadata::Cell)) {
             varSize = vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 1) *
                       (out_jb.e - out_jb.s + 1) * (out_ib.e - out_ib.s + 1);
+          } else if (vinfo.where == MetadataFlag(Metadata::Node)) {
+            varSize = vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 2) *
+                      (out_jb.e - out_jb.s + 2) * (out_ib.e - out_ib.s + 2);
           } else {
             varSize =
                 vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
@@ -590,8 +619,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   HDF5WriteAttribute("ComponentNames", component_names, info_group);
   HDF5WriteAttribute("OutputDatasetNames", var_names, info_group);
 
-  // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
-  // this if we have sparse fields)
+  // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only
+  // write this if we have sparse fields)
   if (num_sparse > 0) {
     Kokkos::Profiling::pushRegion("write sparse info");
     local_count[1] = global_count[1] = num_sparse;
@@ -838,7 +867,8 @@ std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string 
   // get strings as char pointers, HDF5 will allocate the memory and we need to free it
   auto char_ptrs = HDF5ReadAttributeVec<char *>(location, name);
 
-  // make strings out of char pointers, which copies the memory and then free the memeory
+  // make strings out of char pointers, which copies the memory and then free the
+  // memeory
   std::vector<std::string> res(char_ptrs.size());
   for (size_t i = 0; i < res.size(); ++i) {
     res[i] = std::string(char_ptrs[i]);
@@ -957,7 +987,8 @@ hid_t GenerateFileAccessProps() {
     ~MPI_InfoDeleter() { MPI_Info_free(&info); }
   } delete_info{FILE_INFO_TEMPLATE};
 
-  // Hint specifies the manner in which the file will be accessed until the file is closed
+  // Hint specifies the manner in which the file will be accessed until the file is
+  // closed
   const auto access_style =
       Env::get<std::string>("MPI_access_style", "write_once", exists);
   PARTHENON_MPI_CHECK(
@@ -973,8 +1004,8 @@ hid_t GenerateFileAccessProps() {
         Env::get<std::string>("MPI_cb_block_size", "1048576", exists);
     PARTHENON_MPI_CHECK(
         MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", cb_block_size.c_str()));
-    // Specifies the total buffer space that can be used for collective buffering on each
-    // target node, usually a multiple of cb_block_size
+    // Specifies the total buffer space that can be used for collective buffering on
+    // each target node, usually a multiple of cb_block_size
     const auto cb_buffer_size =
         Env::get<std::string>("MPI_cb_buffer_size", "4194304", exists);
     PARTHENON_MPI_CHECK(

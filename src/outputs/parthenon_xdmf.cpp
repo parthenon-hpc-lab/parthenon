@@ -59,7 +59,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      const std::vector<std::string> &component_labels,
                                      std::string &hdfFile, int iblock,
                                      const int &num_components, int &ndims, hsize_t *dims,
-                                     const std::string &dims321, bool isVector);
+                                     const std::string &dims321, bool isVector,
+                                     const std::string &centering);
 static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &swmname,
                                       const std::string &varname,
@@ -114,8 +115,6 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
 
   // Now write Grid for each block
   dims[0] = pm->nbtotal;
-  std::string dims321 =
-      std::to_string(nx3) + " " + std::to_string(nx2) + " " + std::to_string(nx1);
 
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
@@ -155,6 +154,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
            static_cast<hsize_t>(vinfo.nx4), static_cast<hsize_t>(vinfo.nx3),
            static_cast<hsize_t>(vinfo.nx2), static_cast<hsize_t>(vinfo.nx1)});
       // Only cell-based data currently supported for visualization
+      std::string centering;
       if (vinfo.where == MetadataFlag(Metadata::Cell)) {
         ndim = 3 + vinfo.tensor_rank + 1;
         for (int i = 0; i < vinfo.tensor_rank; i++) {
@@ -163,13 +163,28 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
         dims[vinfo.tensor_rank + 1] = nx3;
         dims[vinfo.tensor_rank + 2] = nx2;
         dims[vinfo.tensor_rank + 3] = nx1;
+        centering = "Cell";
+      } else if (vinfo.where == MetadataFlag(Metadata::Node)) {
+        ndim = 3 + vinfo.tensor_rank + 1;
+        for (int i = 0; i < vinfo.tensor_rank; i++) {
+          dims[1 + i] = alldims[3 - vinfo.tensor_rank + i];
+        }
+        dims[vinfo.tensor_rank + 1] = nx3 + 1;
+        dims[vinfo.tensor_rank + 2] = nx2 + 1;
+        dims[vinfo.tensor_rank + 3] = nx1 + 1;
+        centering = "Node";
       } else {
         continue;
       }
 
+      const std::string dims321 = std::to_string(dims[vinfo.tensor_rank + 1]) + " " +
+                                  std::to_string(dims[vinfo.tensor_rank + 2]) + " " +
+                                  std::to_string(dims[vinfo.tensor_rank + 3]);
+
       const int num_components = vinfo.num_components;
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
-                               num_components, ndim, dims, dims321, vinfo.is_vector);
+                               num_components, ndim, dims, dims321, vinfo.is_vector,
+                               centering);
     }
     xdmf << "    </Grid>" << std::endl;
   }
@@ -241,7 +256,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      const std::vector<std::string> &component_labels,
                                      std::string &hdfFile, int iblock,
                                      const int &num_components, int &ndims, hsize_t *dims,
-                                     const std::string &dims321, bool isVector) {
+                                     const std::string &dims321, bool isVector,
+                                     const std::string &centering) {
   // writes a slab reference to file
   std::vector<std::string> names;
   int nentries = 1;
@@ -259,7 +275,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
 
   if (tensor_dims == 0) {
     const std::string prefix = "      ";
-    fid << prefix << R"(<Attribute Name=")" << names[0] << R"(" Center="Cell")";
+    fid << prefix << R"(<Attribute Name=")" << names[0]
+        << "\" Center=\"" + centering + "\"";
     fid << ">" << std::endl;
     fid << prefix << "  "
         << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
@@ -282,7 +299,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   } else if (tensor_dims == 1) {
     const std::string prefix = "      ";
     for (int i = 0; i < nentries; i++) {
-      fid << prefix << R"(<Attribute Name=")" << names[i] << R"(" Center="Cell")";
+      fid << prefix << R"(<Attribute Name=")" << names[i]
+          << "\" Center=\"" + centering + "\"";
       if (isVector) {
         fid << R"( AttributeType="Vector")"
             << R"( Dimensions=")" << dims[1] << " " << dims321 << R"(")";
