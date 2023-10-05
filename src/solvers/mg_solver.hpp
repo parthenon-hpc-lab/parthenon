@@ -128,7 +128,6 @@ class MGSolver {
   int GetCurrentIterations() const { return iter_counter; }
   Real GetFinalResidual() const { return final_residual; }
   int GetFinalIterations() const { return final_iteration; }
-
  protected:
   MGParams params_;
   int iter_counter;
@@ -136,7 +135,9 @@ class MGSolver {
   equations eqs_;
   Real final_residual;
   int final_iteration;
-
+ // These functions apparently have to be public to compile with cuda since 
+ // they contain device side lambdas
+ public:
   enum class GSType { all, red, black };
 
   template <class rhs_t, class Axold_t, class D_t, class xold_t, class xnew_t,
@@ -253,7 +254,6 @@ class MGSolver {
       PARTHENON_FAIL("Unknown solver type.");
     }
 
-    int ndim = pmesh->ndim;
     bool multilevel = (level != min_level);
     TaskID last_task;
 

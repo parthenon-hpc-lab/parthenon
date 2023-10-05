@@ -101,7 +101,6 @@ class PoissonEquation {
     return TaskStatus::complete;
   }
 
- private:
   template <class var_t, bool only_md_level = false>
   static parthenon::TaskStatus
   CalculateFluxes(std::shared_ptr<parthenon::MeshData<Real>> &md) {
