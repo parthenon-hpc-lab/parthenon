@@ -51,9 +51,10 @@ void Mesh::PopulateLeafLocationMap() {
   }
 }
 
-void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
-                                 RootGridInfo root_grid, int nbs, bool gmg_neighbors,
-                                 int composite_logical_level) {
+void Mesh::SetSameLevelNeighbors(
+    BlockList_t &block_list, const LogicalLocMap_t &loc_map, RootGridInfo root_grid,
+    int nbs, bool gmg_neighbors, int composite_logical_level,
+    const std::unordered_set<LogicalLocation> &newly_refined) {
   for (auto &pmb : block_list) {
     auto loc = pmb->loc;
     auto gid = pmb->gid;
@@ -108,7 +109,8 @@ void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t 
     for (auto &nb : *neighbor_list)
       allowed_neighbors.insert(nb.loc);
     for (auto &nb : *neighbor_list) {
-      nb.ownership = DetermineOwnership(nb.loc, allowed_neighbors, root_grid);
+      nb.ownership =
+          DetermineOwnership(nb.loc, allowed_neighbors, root_grid, newly_refined);
       nb.ownership.initialized = true;
     }
   }
@@ -229,13 +231,5 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
       }
     }
   }
-
-  // for (auto &block : block_list) {
-  //   printf("Leaf block gid = %i loc:%s\n", block->gid, block->loc.label().c_str());
-  //   for (auto &nb : block->gmg_coarser_neighbors)
-  //     printf(" coarser: gid = %i %s\n", nb.snb.gid, nb.loc.label().c_str());
-  //   for (auto &nb : block->gmg_finer_neighbors)
-  //     printf(" finer: gid = %i %s\n", nb.snb.gid, nb.loc.label().c_str());
-  // }
 }
 } // namespace parthenon

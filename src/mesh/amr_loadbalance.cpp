@@ -703,6 +703,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     oldtonew[mb_idx] = ntot - 1;
 
   current_level = 0;
+  std::unordered_set<LogicalLocation> newly_refined;
   for (int n = 0; n < ntot; n++) {
     // "on" = "old n" = "old gid" = "old global MeshBlock ID"
     int on = newtoold[n];
@@ -710,6 +711,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       current_level = newloc[n].level();
     if (newloc[n].level() >= loclist[on].level()) { // same or refined
       newcost[n] = costlist[on];
+      // Keep a list of all blocks refined for below
+      if (newloc[n].level() > loclist[on].level()) {
+        newly_refined.insert(newloc[n]);
+      }
     } else {
       double acost = 0.0;
       for (int l = 0; l < nleaf; l++)
@@ -918,17 +923,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
   }
   prolongation_cache.CopyToDevice();
+
   refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
                                block_list[0]->cellbounds, block_list[0]->c_cellbounds);
-  refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                                 block_list[0]->cellbounds, block_list[0]->c_cellbounds);
-
-#ifdef MPI_PARALLEL
-  if (send_reqs.size() != 0)
-    PARTHENON_MPI_CHECK(
-        MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
-#endif
-  Kokkos::Profiling::popRegion(); // AMR: Recv data and unpack
 
   // update the lists
   loclist = std::move(newloc);
@@ -936,14 +933,44 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   costlist = std::move(newcost);
   PopulateLeafLocationMap();
 
-  // re-initialize the MeshBlocks
+  // A block newly refined and prolongated may have neighbors which were
+  // already refined to the new level.
+  // If so, the prolongated versions of shared elements will not reflect
+  // the true, finer versions present in the neighbor block.
+  // We must create any new fine buffers and fill them from these neighbors
+  // in order to maintain a consistent global state.
+  // Thus we rebuild and synchronize the mesh now, but using a unique
+  // neighbor precedence favoring the "old" fine blocks over "new" ones
+  for (auto &pmb : block_list) {
+    pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data(),
+                                      newly_refined);
+  }
+  // Make sure all old sends/receives are done before we reconfigure the mesh
+#ifdef MPI_PARALLEL
+  if (send_reqs.size() != 0)
+    PARTHENON_MPI_CHECK(
+        MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
+#endif
+  // Re-initialize the mesh with our temporary ownership/neighbor configurations.
+  // No buffers are different when we switch to the final precedence order.
+  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
+                        0, newly_refined);
+  BuildGMGHierarchy(nbs, pin, app_in);
+  Initialize(false, pin, app_in);
+
+  // Internal refinement relies on the fine shared values, which are only consistent after
+  // being updated with any previously fine versions
+  refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
+                                 block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+
+  // Rebuild just the ownership model, this time weighting the "new" fine blocks just like
+  // any other blocks at their level.
+  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   for (auto &pmb : block_list) {
     pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
   }
-  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
-  BuildGMGHierarchy(nbs, pin, app_in);
 
-  Initialize(false, pin, app_in);
+  Kokkos::Profiling::popRegion(); // AMR: Recv data and unpack
 
   ResetLoadBalanceVariables();
   Kokkos::Profiling::popRegion(); // RedistributeAndRefineMeshBlocks

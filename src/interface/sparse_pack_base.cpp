@@ -287,21 +287,28 @@ template SparsePackBase SparsePackBase::Build<MeshData<Real>>(MeshData<Real> *,
 template <class T>
 SparsePackBase &SparsePackCache::Get(T *pmd, const PackDescriptor &desc,
                                      const std::vector<bool> &include_block) {
-  std::string ident = GetIdentifier(desc, include_block);
-  if (pack_map.count(ident) > 0) {
-    auto &pack = pack_map[ident].first;
+  if (pack_map.count(desc.identifier) > 0) {
+    auto &cache_tuple = pack_map[desc.identifier];
+    auto &pack = std::get<0>(cache_tuple);
     auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc, include_block);
-    auto &alloc_status = pack_map[ident].second;
+    auto &alloc_status = std::get<1>(cache_tuple);
     if (alloc_status.size() != alloc_status_in.size())
-      return BuildAndAdd(pmd, desc, ident, include_block);
+      return BuildAndAdd(pmd, desc, include_block);
     for (int i = 0; i < alloc_status_in.size(); ++i) {
       if (alloc_status[i] != alloc_status_in[i])
-        return BuildAndAdd(pmd, desc, ident, include_block);
+        return BuildAndAdd(pmd, desc, include_block);
+    }
+    auto &include_status = std::get<2>(cache_tuple);
+    if (include_status.size() != include_block.size())
+      return BuildAndAdd(pmd, desc, include_block);
+    for (int i = 0; i < include_block.size(); ++i) {
+      if (include_status[i] != include_block[i])
+        return BuildAndAdd(pmd, desc, include_block);
     }
     // Cached version is not stale, so just return a reference to it
-    return pack_map[ident].first;
+    return std::get<0>(cache_tuple);
   }
-  return BuildAndAdd(pmd, desc, ident, include_block);
+  return BuildAndAdd(pmd, desc, include_block);
 }
 template SparsePackBase &SparsePackCache::Get<MeshData<Real>>(MeshData<Real> *,
                                                               const PackDescriptor &,
@@ -312,37 +319,17 @@ SparsePackCache::Get<MeshBlockData<Real>>(MeshBlockData<Real> *, const PackDescr
 
 template <class T>
 SparsePackBase &SparsePackCache::BuildAndAdd(T *pmd, const PackDescriptor &desc,
-                                             const std::string &ident,
                                              const std::vector<bool> &include_block) {
-  if (pack_map.count(ident) > 0) pack_map.erase(ident);
-  pack_map[ident] = {SparsePackBase::Build(pmd, desc, include_block),
-                     SparsePackBase::GetAllocStatus(pmd, desc, include_block)};
-  return pack_map[ident].first;
+  if (pack_map.count(desc.identifier) > 0) pack_map.erase(desc.identifier);
+  pack_map[desc.identifier] = {SparsePackBase::Build(pmd, desc, include_block),
+                               SparsePackBase::GetAllocStatus(pmd, desc, include_block),
+                               include_block};
+  return std::get<0>(pack_map[desc.identifier]);
 }
 template SparsePackBase &
 SparsePackCache::BuildAndAdd<MeshData<Real>>(MeshData<Real> *, const PackDescriptor &,
-                                             const std::string &,
                                              const std::vector<bool> &);
 template SparsePackBase &SparsePackCache::BuildAndAdd<MeshBlockData<Real>>(
-    MeshBlockData<Real> *, const PackDescriptor &, const std::string &,
-    const std::vector<bool> &);
-
-std::string SparsePackCache::GetIdentifier(const PackDescriptor &desc,
-                                           const std::vector<bool> &include_block) const {
-  std::string identifier("");
-  for (const auto &vgroup : desc.var_groups) {
-    for (const auto &[vid, uid] : vgroup) {
-      identifier += std::to_string(uid) + "_";
-    }
-    identifier += "|";
-  }
-  identifier += std::to_string(desc.with_fluxes);
-  identifier += std::to_string(desc.coarse);
-  identifier += std::to_string(desc.flat);
-  for (const auto b : include_block) {
-    identifier += std::to_string(b);
-  }
-  return identifier;
-}
+    MeshBlockData<Real> *, const PackDescriptor &, const std::vector<bool> &);
 
 } // namespace parthenon

@@ -292,15 +292,25 @@ std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleNeighborsImpl(
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::unordered_set<LogicalLocation> &allowed_neighbors,
-                   const RootGridInfo &rg_info) {
+                   const RootGridInfo &rg_info,
+                   const std::unordered_set<LogicalLocation> &newly_refined) {
   block_ownership_t main_owns;
 
-  auto ownership_less_than = [](const LogicalLocation &a, const LogicalLocation &b) {
+  auto ownership_level = [&](const LogicalLocation &a) {
+    // Newly-refined blocks are treated as higher-level than blocks at their
+    // parent level, but lower-level than previously-refined blocks at their
+    // current level.
+    if (newly_refined.count(a)) return 2 * a.level() - 1;
+    return 2 * a.level();
+  };
+
+  auto ownership_less_than = [ownership_level](const LogicalLocation &a,
+                                               const LogicalLocation &b) {
     // Ownership is first determined by block with the highest level, then by maximum
     // Morton number this is reversed in precedence from the normal comparators where
     // Morton number takes precedence
-    if (a.level() == b.level()) return a.morton() < b.morton();
-    return a.level() < b.level();
+    if (ownership_level(a) == ownership_level(b)) return a.morton() < b.morton();
+    return ownership_level(a) < ownership_level(b);
   };
 
   for (int ox1 : {-1, 0, 1}) {

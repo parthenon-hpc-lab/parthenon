@@ -33,6 +33,17 @@
 #include "utils/morton_number.hpp"
 
 namespace parthenon {
+class LogicalLocation;
+}
+
+// This must be declared before an unordered_set of LogicalLocation is used
+// below, but must be *implemented* after the class definition
+template <>
+struct std::hash<parthenon::LogicalLocation> {
+  std::size_t operator()(const parthenon::LogicalLocation &key) const noexcept;
+};
+
+namespace parthenon {
 
 struct RootGridInfo {
   int level;
@@ -204,7 +215,8 @@ struct block_ownership_t {
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::unordered_set<LogicalLocation> &allowed_neighbors,
-                   const RootGridInfo &rg_info = RootGridInfo());
+                   const RootGridInfo &rg_info = RootGridInfo(),
+                   const std::unordered_set<LogicalLocation> &newly_refined = {});
 
 // Given a topological element, ownership array of the sending block, and offset indices
 // defining the location of an index region within the block (i.e. the ghost zones passed
@@ -218,14 +230,12 @@ GetIndexRangeMaskFromOwnership(TopologicalElement el,
 
 } // namespace parthenon
 
-template <>
-struct std::hash<parthenon::LogicalLocation> {
-  std::size_t operator()(const parthenon::LogicalLocation &key) const noexcept {
-    // TODO(LFR): Think more carefully about what the best choice for this key is,
-    // probably the least significant sizeof(size_t) * 8 bits of the morton number
-    // with 3 * (level - 21) trailing bits removed.
-    return key.morton().bits[0];
-  }
-};
+inline std::size_t std::hash<parthenon::LogicalLocation>::operator()(
+    const parthenon::LogicalLocation &key) const noexcept {
+  // TODO(LFR): Think more carefully about what the best choice for this key is,
+  // probably the least significant sizeof(size_t) * 8 bits of the morton number
+  // with 3 * (level - 21) trailing bits removed.
+  return key.morton().bits[0];
+}
 
 #endif // MESH_LOGICAL_LOCATION_HPP_
