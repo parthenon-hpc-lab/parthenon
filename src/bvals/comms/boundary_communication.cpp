@@ -155,7 +155,7 @@ template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_StartReceiveBoundBufs");
   Mesh *pmesh = md->GetMeshPointer();
-  auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_send, false);
+  auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
