@@ -1150,6 +1150,11 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
   return valid_region;
 }
 
+//----------------------------------------------------------------------------------------
+// \!fn void Mesh::GetBlockSize(const LogicalLocation &loc) const
+// \brief Find the (hyper-)rectangular region of the grid covered by the block at
+//        logical location loc
+
 RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
   RegionSize block_size = GetBlockSize();
   bool valid_region = true;
@@ -1164,10 +1169,11 @@ RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
       }
       block_size.xmin(dir) = GetMeshCoordinate(dir, BlockLocation::Left, loc);
       block_size.xmax(dir) = GetMeshCoordinate(dir, BlockLocation::Right, loc);
-      // Correct for possible overshooting
+      // Correct for possible overshooting, since the root grid may not cover the
+      // entire logical level zero block of the mesh
       if (block_size.xmax(dir) > mesh_size.xmax(dir) || loc.level() < 0) {
         // Need integer reduction factor, so transform location back to root level
-        PARTHENON_REQUIRE(loc.level() < root_level, "Something is fucked up.");
+        PARTHENON_REQUIRE(loc.level() < root_level, "Something is messed up.");
         std::int64_t loc_low = loc.l(dir - 1) << (root_level - loc.level());
         std::int64_t loc_hi = (loc.l(dir - 1) + 1) << (root_level - loc.level());
         if (block_size.nx(dir) * (nrbx[dir - 1] - loc_low) % (loc_hi - loc_low) != 0)

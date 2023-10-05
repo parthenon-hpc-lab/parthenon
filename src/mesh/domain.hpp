@@ -143,7 +143,7 @@ class IndexShape {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static IndexShape GetOnDevice(int nx3, int nx2, int nx1, int ng) {
+  static IndexShape GetFromSeparateInts(int nx3, int nx2, int nx1, int ng) {
     IndexShape out;
     int idx = 0;
     for (auto nx : {nx1, nx2, nx3}) {

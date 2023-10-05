@@ -51,8 +51,8 @@ VARIABLE(poisson, x);
 VARIABLE(poisson, r);
 VARIABLE(poisson, p);
 
-// This just provides a convenient short hand for TE::CC and will make it 
-// easier for testing solves with different topological elements in the 
+// This just provides a convenient short hand for TE::CC and will make it
+// easier for testing solves with different topological elements in the
 // future (although other types of fields require significantly different
 // condition boundary implementations)
 constexpr parthenon::TopologicalElement te = parthenon::TopologicalElement::CC;

@@ -86,15 +86,15 @@ struct RegionSize {
 
   int &nx(CoordinateDirection dir) { return nx_[dir - 1]; }
   const int &nx(CoordinateDirection dir) const { return nx_[dir - 1]; }
-  
+
   // A "symmetry" direction is a a direction that posesses a translational symmetry
-  // (or rotational symmetry, etc. for non-cartesian coordinate systems) in the given 
-  // problem. In practice, this mean that the Parthenon mesh was setup to have only 
-  // size one in a symmetry direction, the block size is one in those directions, 
-  // and there are no ghost zones in that direction. Since we support multi-grid 
-  // mesh hierarchies where blocks are not all the same size above the root grid 
-  // and can end up having size one even in a non-symmetry direction, we need a different 
-  // identifier for checking if a direction is a symmetry direction beyond just 
+  // (or rotational symmetry, etc. for non-cartesian coordinate systems) in the given
+  // problem. In practice, this mean that the Parthenon mesh was setup to have only
+  // size one in a symmetry direction, the block size is one in those directions,
+  // and there are no ghost zones in that direction. Since we support multi-grid
+  // mesh hierarchies where blocks are not all the same size above the root grid
+  // and can end up having size one even in a non-symmetry direction, we need a different
+  // identifier for checking if a direction is a symmetry direction beyond just
   // checking if the size is one in that direction.
   bool &symmetry(CoordinateDirection dir) { return symmetry_[dir - 1]; }
   const bool &symmetry(CoordinateDirection dir) const { return symmetry_[dir - 1]; }
