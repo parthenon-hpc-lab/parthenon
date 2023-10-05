@@ -953,7 +953,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 #endif
   // Re-initialize the mesh with our temporary ownership/neighbor configurations.
   // No buffers are different when we switch to the final precedence order.
-  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false, 0, newly_refined);
+  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
+                        0, newly_refined);
   BuildGMGHierarchy(nbs, pin, app_in);
   Initialize(false, pin, app_in);
 

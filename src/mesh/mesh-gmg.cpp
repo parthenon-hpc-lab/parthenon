@@ -51,10 +51,10 @@ void Mesh::PopulateLeafLocationMap() {
   }
 }
 
-void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
-                                 RootGridInfo root_grid, int nbs, bool gmg_neighbors,
-                                 int composite_logical_level, 
-                                 const std::unordered_set<LogicalLocation> &newly_refined) {
+void Mesh::SetSameLevelNeighbors(
+    BlockList_t &block_list, const LogicalLocMap_t &loc_map, RootGridInfo root_grid,
+    int nbs, bool gmg_neighbors, int composite_logical_level,
+    const std::unordered_set<LogicalLocation> &newly_refined) {
   for (auto &pmb : block_list) {
     auto loc = pmb->loc;
     auto gid = pmb->gid;
@@ -109,7 +109,8 @@ void Mesh::SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t 
     for (auto &nb : *neighbor_list)
       allowed_neighbors.insert(nb.loc);
     for (auto &nb : *neighbor_list) {
-      nb.ownership = DetermineOwnership(nb.loc, allowed_neighbors, root_grid, newly_refined);
+      nb.ownership =
+          DetermineOwnership(nb.loc, allowed_neighbors, root_grid, newly_refined);
       nb.ownership.initialized = true;
     }
   }

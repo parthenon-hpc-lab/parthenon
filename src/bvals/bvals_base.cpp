@@ -334,8 +334,8 @@ int BoundaryBase::CreateBvalsMPITag(int lid, int bufid) {
 
 // TODO(felker): break-up this long function
 
-void BoundaryBase::SearchAndSetNeighbors(Mesh *mesh,
-    MeshBlockTree &tree, int *ranklist, int *nslist,
+void BoundaryBase::SearchAndSetNeighbors(
+    Mesh *mesh, MeshBlockTree &tree, int *ranklist, int *nslist,
     const std::unordered_set<LogicalLocation> &newly_refined) {
   Kokkos::Profiling::pushRegion("SearchAndSetNeighbors");
   MeshBlockTree *neibt;

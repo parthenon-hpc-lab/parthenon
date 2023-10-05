@@ -289,10 +289,11 @@ class Mesh {
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
   void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
-  void SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
-                             RootGridInfo root_grid, int nbs, bool gmg_neighbors,
-                             int composite_logical_level = 0, 
-                             const std::unordered_set<LogicalLocation> &newly_refined = {});
+  void
+  SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
+                        RootGridInfo root_grid, int nbs, bool gmg_neighbors,
+                        int composite_logical_level = 0,
+                        const std::unordered_set<LogicalLocation> &newly_refined = {});
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
