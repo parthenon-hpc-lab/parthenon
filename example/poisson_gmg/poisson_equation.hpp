@@ -35,8 +35,7 @@ class PoissonEquation {
 
   template <class x_t, class out_t, bool only_md_level = false, class TL_t>
   parthenon::TaskID Ax(TL_t &tl, parthenon::TaskID depends_on,
-                       std::shared_ptr<parthenon::MeshData<Real>> &md,
-                       bool only_interior) {
+                       std::shared_ptr<parthenon::MeshData<Real>> &md) {
     auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t, only_md_level>, md);
     if (do_flux_cor && !only_md_level) {
       auto start_flxcor =
@@ -45,8 +44,7 @@ class PoissonEquation {
       auto recv_flxcor = tl.AddTask(send_flxcor, parthenon::ReceiveFluxCorrections, md);
       flux_res = tl.AddTask(recv_flxcor, parthenon::SetFluxCorrections, md);
     }
-    return tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, out_t, only_md_level>, md,
-                      only_interior);
+    return tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, out_t, only_md_level>, md);
   }
 
   template <class diag_t, bool only_md_level = false>
@@ -169,7 +167,7 @@ class PoissonEquation {
 
   template <class in_t, class out_t, bool only_md_level = false>
   static parthenon::TaskStatus
-  FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md, bool only_interior) {
+  FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
     using TE = parthenon::TopologicalElement;
@@ -183,10 +181,6 @@ class PoissonEquation {
 
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
-    if (only_interior) {
-      for (int b = 0; b < nblocks; ++b)
-        include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
-    }
 
     if (only_md_level) {
       for (int b = 0; b < nblocks; ++b)

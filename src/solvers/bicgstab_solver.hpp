@@ -122,7 +122,7 @@ class BiCGSTABSolver {
 
     // 2. v <- A u
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md, true);
-    auto get_v = eqs_.template Ax<u, v>(itl, comm, md, false);
+    auto get_v = eqs_.template Ax<u, v>(itl, comm, md);
 
     // 3. rhat0v <- (rhat0, v)
     auto get_rhat0v =
@@ -171,7 +171,7 @@ class BiCGSTABSolver {
 
     // 7. t <- A u
     auto pre_t_comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md, true);
-    auto get_t = eqs_.template Ax<u, t>(itl, pre_t_comm, md, false);
+    auto get_t = eqs_.template Ax<u, t>(itl, pre_t_comm, md);
 
     // 8. omega <- (t,s) / (t,t)
     auto get_ts = DotProduct<t, s>(get_t, region, itl, i, reg_dep_id, &ts, md);

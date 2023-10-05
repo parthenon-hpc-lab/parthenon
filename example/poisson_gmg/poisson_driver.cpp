@@ -87,7 +87,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
       auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
       PoissonEquation eqs;
       eqs.do_flux_cor = flux_correct;
-      auto get_rhs = eqs.Ax<u, rhs>(tl, comm, md, false);
+      auto get_rhs = eqs.Ax<u, rhs>(tl, comm, md);
     }
     auto zero_u = tl.AddTask(get_rhs, solvers::utils::SetToZero<u>, md);
     auto solve = zero_u;

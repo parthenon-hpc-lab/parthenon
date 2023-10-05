@@ -79,7 +79,7 @@ class MGSolver {
         partition, &iter_counter);
     auto mg_finest = AddLinearOperatorTasks(tl, dependence, partition, pmesh);
     auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
-    auto calc_pointwise_res = eqs_.template Ax<u, res_err>(tl, mg_finest, md, false);
+    auto calc_pointwise_res = eqs_.template Ax<u, res_err>(tl, mg_finest, md);
     calc_pointwise_res = tl.AddTask(
         calc_pointwise_res, AddFieldsAndStoreInteriorSelect<rhs, res_err, res_err>, md,
         1.0, -1.0, false);
@@ -196,7 +196,7 @@ class MGSolver {
     TaskID none(0);
 
     auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
-    auto mat_mult = eqs_.template Ax<in_t, out_t, true>(tl, comm, md, false);
+    auto mat_mult = eqs_.template Ax<in_t, out_t, true>(tl, comm, md);
     return tl.AddTask(mat_mult, Jacobi<rhs, out_t, D, in_t, out_t, true>, md, omega,
                       GSType::all);
   }
@@ -281,7 +281,7 @@ class MGSolver {
         // This should set the rhs only in blocks that correspond to interior nodes, the
         // RHS of leaf blocks that are on this GMG level should have already been set on
         // entry into multigrid
-        set_from_finer = eqs_.template Ax<u, temp, true>(tl, set_from_finer, md, true);
+        set_from_finer = eqs_.template Ax<u, temp, true>(tl, set_from_finer, md);
         set_from_finer = tl.AddTask(
             set_from_finer, AddFieldsAndStoreInteriorSelect<temp, res_err, rhs, true>, md,
             1.0, 1.0, true);
@@ -304,7 +304,7 @@ class MGSolver {
                                                                      multilevel);
 
       // 4. Caclulate residual and store in communication field
-      auto residual = eqs_.template Ax<u, temp, true>(tl, comm_u, md, false);
+      auto residual = eqs_.template Ax<u, temp, true>(tl, comm_u, md);
       residual =
           tl.AddTask(residual, AddFieldsAndStoreInteriorSelect<rhs, temp, res_err, true>,
                      md, 1.0, -1.0, false);
