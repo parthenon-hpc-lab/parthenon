@@ -97,34 +97,51 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         Real threshold = bnd_info(b).var.allocation_threshold;
         bool non_zero[3]{false, false, false};
         int idx_offset = 0;
+        
         for (int iel = 0; iel < bnd_info(b).ntopological_elements; ++iel) {
           auto &idxer = bnd_info(b).idxer[iel];
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
-          Kokkos::parallel_reduce(
-              Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
-              [&](const int idx, bool &lnon_zero) {
-                const auto [t, u, v, k, j, i] = idxer(idx * Ni);
-                Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
-                Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
+          if (threshold <= 0.0) {
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
+                [&](const int idx) {
+                  const auto [t, u, v, k, j, i] = idxer(idx * Ni);
+                  Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
+                  Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
 
-                Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, Ni),
-                                     [&](int m) { buf[m] = var[m]; });
+                  Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, Ni),
+                                       [&](int m) { buf[m] = var[m]; });
+                });
+          } else {
+            Kokkos::parallel_reduce(
+                Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
+                [&](const int idx, bool &lnon_zero) {
+                  const auto [t, u, v, k, j, i] = idxer(idx * Ni);
+                  Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
+                  Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
 
-                bool mnon_zero = false;
-                Kokkos::parallel_reduce(
-                    Kokkos::ThreadVectorRange<>(team_member, Ni),
-                    [&](int m, bool &llnon_zero) {
-                      llnon_zero = llnon_zero || (std::abs(buf[m]) >= threshold);
-                    },
-                    Kokkos::LOr<bool, parthenon::DevMemSpace>(mnon_zero));
-
-                lnon_zero = lnon_zero || mnon_zero;
-              },
-              Kokkos::LOr<bool, parthenon::DevMemSpace>(non_zero[iel]));
-          idx_offset += idxer.size();
+                  bool mnon_zero = false;
+                  Kokkos::parallel_reduce(
+                      Kokkos::ThreadVectorRange<>(team_member, Ni),
+                      [&](int m, bool &llnon_zero) {
+                        buf[m] = var[m];
+                        llnon_zero = llnon_zero || (std::abs(buf[m]) >= threshold);
+                      },
+                      Kokkos::LOr<bool, parthenon::DevMemSpace>(mnon_zero));
+                  // TODO(LFR): Does there need to be a barrier here?
+                  //team_member.team_barrier();
+                  lnon_zero = lnon_zero || mnon_zero;
+                },
+                Kokkos::LOr<bool, parthenon::DevMemSpace>(non_zero[iel]));
+            // TODO(LFR): Does there need to be a barrier here?
+            //team_member.team_barrier();
+            idx_offset += idxer.size();
+          }
         }
+        // TODO(LFR): Does there need to be a barrier here?
+        //team_member.team_barrier();
         Kokkos::single(Kokkos::PerTeam(team_member), [&]() {
-          sending_nonzero_flags(b) = non_zero[0] || non_zero[1] || non_zero[2];
+          sending_nonzero_flags(b) = non_zero[0] || non_zero[1] || non_zero[2] || threshold <= 0.0;
         });
       });
 
