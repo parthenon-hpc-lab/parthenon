@@ -18,6 +18,7 @@
 
 #include "basic_types.hpp"
 #include "interface/data_collection.hpp"
+#include "interface/make_pack_descriptor.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
@@ -95,8 +96,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
     pkg->AddField(v5::name(), m);
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
-    MeshData<Real> mesh_data;
-    mesh_data.Set(block_list, "base");
+    MeshData<Real> mesh_data("base");
+    mesh_data.Set(block_list);
 
     WHEN("We initialize the independent variables by hand and deallocate one") {
       auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -196,12 +197,28 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
           auto desc = parthenon::MakePackDescriptor<v3, v5>(
               pkg.get(), {}, {PDOpt::WithFluxes, PDOpt::Flatten});
           auto pack = desc.GetPack(&mesh_data);
+
           int lo = pack.GetLowerBoundHost(2);
           int hi = pack.GetUpperBoundHost(2);
           REQUIRE(lo == 4 - 1 + 4 + 1); // lo = index in flat pack where block 2 starts.
                                         // v3 and v5 = 4 total var components
           REQUIRE(hi == lo); // hi = index in flat pack where block 2 ends. Only v3
                              // present, so only 1 var
+          AND_THEN("The flattened sparse pack can access vars correctly") {
+            const int nblocks_and_vars = pack.GetMaxNumberOfVars();
+            int nwrong = 0;
+            par_reduce(
+                loop_pattern_mdrange_tag, "test flat", DevExecSpace(), 0,
+                nblocks_and_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+                KOKKOS_LAMBDA(int v, int k, int j, int i, int &ltot) {
+                  int n = i + 1e1 * j + 1e2 * k;
+                  if (n != (static_cast<int>(pack(v, k, j, i)) % 1000)) {
+                    ltot += 1;
+                  }
+                },
+                nwrong);
+            REQUIRE(nwrong == 0);
+          }
         }
       }
 
@@ -266,6 +283,16 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             },
             nwrong);
         REQUIRE(nwrong == 0);
+      }
+
+      THEN("A sparse pack built with a subset of blocks is the right size") {
+        auto desc =
+            parthenon::MakePackDescriptor<parthenon::variable_names::any>(pkg.get());
+        std::vector<bool> include_blocks(NBLOCKS);
+        for (int i = 0; i < NBLOCKS; i++)
+          include_blocks[i] = (i % 2 == 0);
+        auto sparse_pack = desc.GetPack(&mesh_data, include_blocks);
+        REQUIRE(sparse_pack.GetNBlocks() == NBLOCKS / 2 + 1);
       }
     }
   }

@@ -53,12 +53,6 @@ class MeshRefinement {
  public:
   MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin);
 
-  // JMM: fine and coarse may be on different meshblocks and thus
-  // different variable objects.
-  void RestrictCellCenteredValues(Variable<Real> *var, int csi, int cei, int csj, int cej,
-                                  int csk, int cek);
-  void ProlongateCellCenteredValues(Variable<Real> *var, int si, int ei, int sj, int ej,
-                                    int sk, int ek);
   void CheckRefinementCondition();
   void SetRefinement(AmrTag flag);
 
@@ -68,6 +62,8 @@ class MeshRefinement {
   // TODO(JMM): coarse-coords maybe should move out of this code, or
   // be made public
   Coordinates_t GetCoarseCoords() const { return coarse_coords; }
+
+  int &DereferenceCount() { return deref_count_; }
 
  private:
   // data

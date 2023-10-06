@@ -139,9 +139,19 @@ class Variable {
 
   int dealloc_count = 0;
 
+  int com_state[2];
+
   int GetAllocationStatus() {
     if (!is_allocated_) return 0;
     return num_alloc_;
+  }
+
+  std::vector<TopologicalElement> GetTopologicalElements() const {
+    using TE = TopologicalElement;
+    if (IsSet(Metadata::Face)) return {TE::F1, TE::F2, TE::F3};
+    if (IsSet(Metadata::Edge)) return {TE::E1, TE::E2, TE::E3};
+    if (IsSet(Metadata::Node)) return {TE::NN};
+    return {TE::CC};
   }
 
  private:

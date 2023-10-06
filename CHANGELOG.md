@@ -4,6 +4,11 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 852]](https://github.com/parthenon-hpc-lab/parthenon/pull/852) Add Mesh version of UserWorkBeforeOutput
+- [[PR 932]](https://github.com/parthenon-hpc-lab/parthenon/pull/932) Add GetOrAddFlag to metadata
+- [[PR 931]](https://github.com/parthenon-hpc-lab/parthenon/pull/931) Allow SparsePacks with subsets of blocks
+- [[PR 921]](https://github.com/parthenon-hpc-lab/parthenon/pull/921) Add more flexible ways of adding and using MeshData/MeshBlockData objects to DataCollections
+- [[PR 900]](https://github.com/parthenon-hpc-lab/parthenon/pull/900) Add Morton numbers and expand functionality of LogicalLocation
+- [[PR 902]](https://github.com/parthenon-hpc-lab/parthenon/pull/902) Add ability to output NaNs for de-allocated sparse fields
 - [[PR 887]](https://github.com/parthenon-hpc-lab/parthenon/pull/887) Add ability to dump more types of params and read them from restarts
 - [[PR 884]](https://github.com/parthenon-hpc-lab/parthenon/pull/884) Add constant derivative BC and expose GenericBC
 - [[PR 892]](https://github.com/parthenon-hpc-lab/parthenon/pull/892) Cost-based load balancing and memory diagnostics
@@ -13,6 +18,7 @@
 - [[PR 868]](https://github.com/parthenon-hpc-lab/parthenon/pull/868) Add block-local face, edge, and nodal fields and allow for packing
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 926]](https://github.com/parthenon-hpc-lab/parthenon/pull/926) Internal refinement op registration
 - [[PR 897]](https://github.com/parthenon-hpc-lab/parthenon/pull/897) Deflate compression filter is not called any more if compression is soft disabled
 - [[PR 896]](https://github.com/parthenon-hpc-lab/parthenon/pull/896) Update Kokkos integration to support installed version. Use `serial` (flat MPI) host parallelization by default (instead of OpenMP)
 - [[PR 894]](https://github.com/parthenon-hpc-lab/parthenon/pull/894) Demand that sparse pool order sparse ids
@@ -20,11 +26,22 @@
 - [[PR 885]](https://github.com/parthenon-hpc-lab/parthenon/pull/885) Expose PackDescriptor and use uids in SparsePacks
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 947]](https://github.com/parthenon-hpc-lab/parthenon/pull/947) Add missing ForceRemeshComm dependencies
+- [[PR 928]](https://github.com/parthenon-hpc-lab/parthenon/pull/928) Fix boundary comms during refinement next to refined blocks
+- [[PR 937]](https://github.com/parthenon-hpc-lab/parthenon/pull/937) Fix multiple line continuations
+- [[PR 933]](https://github.com/parthenon-hpc-lab/parthenon/pull/933) Remove extraneous debug check
+- [[PR 917]](https://github.com/parthenon-hpc-lab/parthenon/pull/917) Update Iterative Tasking Infrastructure
+- [[PR 890]](https://github.com/parthenon-hpc-lab/parthenon/pull/890) Fix bugs in sparse communication and prolongation
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 938]](https://github.com/parthenon-hpc-lab/parthenon/pull/938) Restructure buffer packing/unpacking kernel hierarchical parallelism
+- [[PR 944]](https://github.com/parthenon-hpc-lab/parthenon/pull/944) Move sparse pack identifier creation to descriptor
+- [[PR 904]](https://github.com/parthenon-hpc-lab/parthenon/pull/904) Move to prolongation/restriction in one for AMR and communicate non-cell centered fields
+- [[PR 918]](https://github.com/parthenon-hpc-lab/parthenon/pull/918) Refactor RegionSize
+- [[PR 901]](https://github.com/parthenon-hpc-lab/parthenon/pull/901) Implement shared element ownership model
 
 ### Removed (removing behavior/API/varaibles/...)
-
+- [[PR 930](https://github.com/parthenon-hpc-lab/parthenon/pull/930) Remove ParthenonManager::ParthenonInit as it is error-prone and the split functions are the recommended usage.
 
 ## Release 0.8.0
 Date: 2023-05-26
@@ -90,6 +107,7 @@ Date: 2023-05-26
 - [[PR 716]](https://github.com/parthenon-hpc-lab/parthenon/pull/716) Remove unneeded assert from ParArrayND
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 879]](https://github.com/parthenon-hpc-lab/parthenon/pull/879) Zero buffer allocation AMR
 - [[PR 838]](https://github.com/parthenon-hpc-lab/parthenon/pull/838) Move packing logic to from strings to unique IDs
 - [[PR 848]](https://github.com/parthenon-hpc-lab/parthenon/pull/848) Implement recursive mkdir using [`std::filesystem`](https://en.cppreference.com/w/cpp/filesystem) in **src/utils/change_rundir.cpp**
 - [[PR 837]](https://github.com/parthenon-hpc-lab/parthenon/pull/837) Migrate docs to Sphinx

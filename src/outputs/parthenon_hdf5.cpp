@@ -170,16 +170,18 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // RootGridDomain - float[9] array with xyz mins, maxs, rats (dx(i)/dx(i-1))
     HDF5WriteAttribute(
         "RootGridDomain",
-        std::vector<Real>{pm->mesh_size.x1min, pm->mesh_size.x1max, pm->mesh_size.x1rat,
-                          pm->mesh_size.x2min, pm->mesh_size.x2max, pm->mesh_size.x2rat,
-                          pm->mesh_size.x3min, pm->mesh_size.x3max, pm->mesh_size.x3rat},
+        std::vector<Real>{pm->mesh_size.xmin(X1DIR), pm->mesh_size.xmax(X1DIR),
+                          pm->mesh_size.xrat(X1DIR), pm->mesh_size.xmin(X2DIR),
+                          pm->mesh_size.xmax(X2DIR), pm->mesh_size.xrat(X2DIR),
+                          pm->mesh_size.xmin(X3DIR), pm->mesh_size.xmax(X3DIR),
+                          pm->mesh_size.xrat(X3DIR)},
         info_group);
 
     // Root grid size (number of cells at root level)
-    HDF5WriteAttribute(
-        "RootGridSize",
-        std::vector<int>{pm->mesh_size.nx1, pm->mesh_size.nx2, pm->mesh_size.nx3},
-        info_group);
+    HDF5WriteAttribute("RootGridSize",
+                       std::vector<int>{pm->mesh_size.nx(X1DIR), pm->mesh_size.nx(X2DIR),
+                                        pm->mesh_size.nx(X3DIR)},
+                       info_group);
 
     // Boundary conditions
     std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
@@ -312,10 +314,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     logicalLocations.reserve(pm->nbtotal * 3);
 
     for (const auto &loc : loclist) {
-      levels.push_back(loc.level - pm->GetRootLevel());
-      logicalLocations.push_back(loc.lx1);
-      logicalLocations.push_back(loc.lx2);
-      logicalLocations.push_back(loc.lx3);
+      levels.push_back(loc.level() - pm->GetRootLevel());
+      logicalLocations.push_back(loc.lx1());
+      logicalLocations.push_back(loc.lx2());
+      logicalLocations.push_back(loc.lx3());
     }
 
     // Only write levels on rank 0 since it has data for all ranks
@@ -538,7 +540,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
             varSize =
                 vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
           }
-          memset(tmpData.data() + index, 0, varSize * sizeof(OutT));
+          auto fill_val =
+              output_params.sparse_seed_nans ? std::numeric_limits<OutT>::quiet_NaN() : 0;
+          std::fill(tmpData.data() + index, tmpData.data() + index + varSize, fill_val);
           index += varSize;
         } else {
           std::stringstream msg;
@@ -732,16 +736,16 @@ void PHDF5Output::ComputeXminBlocks_(Mesh *pm, std::vector<Real> &data) {
 void PHDF5Output::ComputeLocs_(Mesh *pm, std::vector<int64_t> &locs) {
   int i = 0;
   for (auto &pmb : pm->block_list) {
-    locs[i++] = pmb->loc.lx1;
-    locs[i++] = pmb->loc.lx2;
-    locs[i++] = pmb->loc.lx3;
+    locs[i++] = pmb->loc.lx1();
+    locs[i++] = pmb->loc.lx2();
+    locs[i++] = pmb->loc.lx3();
   }
 }
 // TODO(JMM): Should this live in the base class or output_utils?
 void PHDF5Output::ComputeIDsAndFlags_(Mesh *pm, std::vector<int> &data) {
   int i = 0;
   for (auto &pmb : pm->block_list) {
-    data[i++] = pmb->loc.level;
+    data[i++] = pmb->loc.level();
     data[i++] = pmb->gid;
     data[i++] = pmb->lid;
     data[i++] = pmb->cnghost;

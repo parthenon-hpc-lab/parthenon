@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -131,7 +131,6 @@ class Mesh {
   void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
                                    LogicalLocation &newloc);
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
-  int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
 
   std::shared_ptr<MeshBlock> FindMeshBlock(int tgid) const;
 
@@ -170,6 +169,12 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
+  RootGridInfo GetRootGridInfo() const noexcept {
+    return RootGridInfo(root_level, nrbx[0], nrbx[1], nrbx[2],
+                        mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
+                        mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic,
+                        mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic);
+  }
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
@@ -208,6 +213,12 @@ class Mesh {
     return buffer_memory;
   }
 
+  // expose a mesh-level call to get lists of variables from resolved_packages
+  template <typename... Args>
+  std::vector<std::string> GetVariableNames(Args &&...args) {
+    return resolved_packages->GetVariableNames(std::forward<Args>(args)...);
+  }
+
  private:
   // data
   int root_level, max_level, current_level;
@@ -234,9 +245,7 @@ class Mesh {
   MeshBlockTree tree;
   // number of MeshBlocks in the x1, x2, x3 directions of the root grid:
   // (unlike LogicalLocation.lxi, nrbxi don't grow w/ AMR # of levels, so keep 32-bit int)
-  int nrbx1, nrbx2, nrbx3;
-  // TODO(felker) find unnecessary static_cast<> ops. from old std::int64_t type in 2018:
-  // std::int64_t nrbx1, nrbx2, nrbx3;
+  std::array<int, 3> nrbx;
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
@@ -268,20 +277,6 @@ class Mesh {
   bool GatherCostListAndCheckBalance();
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
-
-  // Mesh::RedistributeAndRefineMeshBlocks() helper functions:
-  // step 6: send
-  void PrepareSendSameLevel(MeshBlock *pb, BufArray1D<Real> &sendbuf);
-  void PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
-                                  LogicalLocation &lloc);
-  void PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf);
-  // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
-  // moved public to be called from device
-  // step 8: receive
-  void FinishRecvSameLevel(MeshBlock *pb, BufArray1D<Real> &recvbuf);
-  void FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
-                                 LogicalLocation &lloc);
-  void FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
@@ -322,80 +317,33 @@ inline Real ComputeMeshGeneratorX(std::int64_t index, std::int64_t nrange,
 }
 
 //----------------------------------------------------------------------------------------
-// \!fn Real DefaultMeshGeneratorX1(Real x, RegionSize rs)
-// \brief x1 mesh generator function, x is the logical location; x=i/nx1, real in [0., 1.]
-
-inline Real DefaultMeshGeneratorX1(Real x, RegionSize rs) {
+// \!fn Real DefaultMeshGenerator(Real x, RegionSize rs)
+// \brief generic default mesh generator function, x is the logical location; x=i/nx, real
+// in [0., 1.]
+template <CoordinateDirection dir>
+inline Real DefaultMeshGenerator(Real x, RegionSize rs) {
   Real lw, rw;
-  if (rs.x1rat == 1.0) {
+  if (rs.xrat(dir) == 1.0) {
     rw = x, lw = 1.0 - x;
   } else {
-    Real ratn = std::pow(rs.x1rat, rs.nx1);
-    Real rnx = std::pow(rs.x1rat, x * rs.nx1);
+    Real ratn = std::pow(rs.xrat(dir), rs.nx(dir));
+    Real rnx = std::pow(rs.xrat(dir), x * rs.nx(dir));
     lw = (rnx - ratn) / (1.0 - ratn);
     rw = 1.0 - lw;
   }
   // linear interp, equally weighted from left (x(xmin)=0.0) and right (x(xmax)=1.0)
-  return rs.x1min * lw + rs.x1max * rw;
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real DefaultMeshGeneratorX2(Real x, RegionSize rs)
-// \brief x2 mesh generator function, x is the logical location; x=j/nx2, real in [0., 1.]
-
-inline Real DefaultMeshGeneratorX2(Real x, RegionSize rs) {
-  Real lw, rw;
-  if (rs.x2rat == 1.0) {
-    rw = x, lw = 1.0 - x;
-  } else {
-    Real ratn = std::pow(rs.x2rat, rs.nx2);
-    Real rnx = std::pow(rs.x2rat, x * rs.nx2);
-    lw = (rnx - ratn) / (1.0 - ratn);
-    rw = 1.0 - lw;
-  }
-  return rs.x2min * lw + rs.x2max * rw;
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real DefaultMeshGeneratorX3(Real x, RegionSize rs)
-// \brief x3 mesh generator function, x is the logical location; x=k/nx3, real in [0., 1.]
-
-inline Real DefaultMeshGeneratorX3(Real x, RegionSize rs) {
-  Real lw, rw;
-  if (rs.x3rat == 1.0) {
-    rw = x, lw = 1.0 - x;
-  } else {
-    Real ratn = std::pow(rs.x3rat, rs.nx3);
-    Real rnx = std::pow(rs.x3rat, x * rs.nx3);
-    lw = (rnx - ratn) / (1.0 - ratn);
-    rw = 1.0 - lw;
-  }
-  return rs.x3min * lw + rs.x3max * rw;
+  return rs.xmin(dir) * lw + rs.xmax(dir) * rw;
 }
 
 //----------------------------------------------------------------------------------------
 // \!fn Real UniformMeshGeneratorX1(Real x, RegionSize rs)
-// \brief x1 mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
-
-inline Real UniformMeshGeneratorX1(Real x, RegionSize rs) {
+// \brief generic mesh generator function, x is the logical location; real cells in [-0.5,
+// 0.5]
+template <CoordinateDirection dir>
+inline Real UniformMeshGenerator(Real x, RegionSize rs) {
   // linear interp, equally weighted from left (x(xmin)=-0.5) and right (x(xmax)=0.5)
-  return static_cast<Real>(0.5) * (rs.x1min + rs.x1max) + (x * rs.x1max - x * rs.x1min);
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real UniformMeshGeneratorX2(Real x, RegionSize rs)
-// \brief x2 mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
-
-inline Real UniformMeshGeneratorX2(Real x, RegionSize rs) {
-  return static_cast<Real>(0.5) * (rs.x2min + rs.x2max) + (x * rs.x2max - x * rs.x2min);
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real UniformMeshGeneratorX3(Real x, RegionSize rs)
-// \brief x3 mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
-
-inline Real UniformMeshGeneratorX3(Real x, RegionSize rs) {
-  return static_cast<Real>(0.5) * (rs.x3min + rs.x3max) + (x * rs.x3max - x * rs.x3min);
+  return static_cast<Real>(0.5) * (rs.xmin(dir) + rs.xmax(dir)) +
+         (x * rs.xmax(dir) - x * rs.xmin(dir));
 }
 
 } // namespace parthenon

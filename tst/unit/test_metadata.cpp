@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -81,10 +81,8 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
     // Note: `parthenon::internal` is subject to change, and so this test may
     // rightfully break later - this test needn't be maintained if so.
     //
-    // Checks that the first allocated flag is equal to `Max` - the final built-in
-    // flag + 1.
-    REQUIRE(f.InternalFlagValue() ==
-            static_cast<int>(parthenon::internal::MetadataInternal::Max));
+    // Checks that an allocated flag was ended to the end of existing flags
+    REQUIRE(f.InternalFlagValue() == static_cast<int>(Metadata::num_flags) - 1);
     REQUIRE(name == f.Name());
 
     // Metadata should be able to report that this flag exists and
@@ -98,6 +96,11 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
 
     // It should throw an error if you try to allocate a new flag with the same name.
     REQUIRE_THROWS_AS(Metadata::AddUserFlag(name), std::runtime_error);
+
+    // We can get or add a flag
+    auto const f3 = Metadata::GetOrAddFlag("ImFlexible");
+    auto const f4 = Metadata::GetOrAddFlag("ImFlexible");
+    REQUIRE(f3 == f4);
   }
 }
 

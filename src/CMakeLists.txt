@@ -127,6 +127,7 @@ add_library(parthenon
 
   interface/data_collection.cpp
   interface/data_collection.hpp
+  interface/mesh_data.cpp
   interface/mesh_data.hpp
   interface/meshblock_data.cpp
   interface/meshblock_data.hpp
@@ -135,6 +136,7 @@ add_library(parthenon
   interface/swarm.hpp
   interface/swarm_boundaries.hpp
   interface/swarm_device_context.hpp
+  interface/make_pack_descriptor.hpp
   interface/metadata.cpp
   interface/metadata.hpp
   interface/packages.hpp
@@ -158,6 +160,7 @@ add_library(parthenon
 
   mesh/amr_loadbalance.cpp
   mesh/domain.hpp
+  mesh/logical_location.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
   mesh/mesh.cpp
@@ -229,6 +232,7 @@ add_library(parthenon
   utils/hash.hpp
   utils/indexer.hpp
   utils/loop_utils.hpp
+  utils/morton_number.hpp
   utils/mpi_types.hpp
   utils/multi_pointer.hpp
   utils/nan_payload_tag.hpp

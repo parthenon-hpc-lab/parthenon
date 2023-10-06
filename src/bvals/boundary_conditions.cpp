@@ -51,21 +51,20 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
   return TaskStatus::complete;
 }
 
-namespace BoundaryFunction {
-
 TaskStatus ApplyBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd) {
   for (int b = 0; b < pmd->NumBlocks(); ++b)
     ApplyBoundaryConditions(pmd->GetBlockData(b));
   return TaskStatus::complete;
 }
 
-inline TaskStatus
-ApplyBoundaryConditionsOnCoarseOrFineMD(std::shared_ptr<MeshData<Real>> &pmd,
-                                        bool coarse) {
+TaskStatus ApplyBoundaryConditionsOnCoarseOrFineMD(std::shared_ptr<MeshData<Real>> &pmd,
+                                                   bool coarse) {
   for (int b = 0; b < pmd->NumBlocks(); ++b)
     ApplyBoundaryConditionsOnCoarseOrFine(pmd->GetBlockData(b), coarse);
   return TaskStatus::complete;
 }
+
+namespace BoundaryFunction {
 
 void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   GenericBC<X1DIR, BCSide::Inner, BCType::Outflow, variable_names::any>(rc, coarse);
@@ -132,56 +131,6 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
   } // ndim always at least 1
 
   return true; // reflect, outflow, user, dims correct
-}
-
-void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc,
-                           const NeighborBlock &nb, int si, int ei, int sj, int ej,
-                           int sk, int ek) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto &pmr = pmb->pmr;
-
-  for (auto var : rc->GetVariableVector()) {
-    if (!var->IsAllocated()) continue;
-    if (!(var->IsSet(Metadata::Independent) || var->IsSet(Metadata::FillGhost))) continue;
-
-    if (var->IsSet(Metadata::Cell)) {
-      pmr->ProlongateCellCenteredValues(var.get(), si, ei, sj, ej, sk, ek);
-    } else {
-      PARTHENON_FAIL("Prolongation not implemented for non-cell centered variables.");
-    }
-  }
-
-  // TODO(LFR): Deal with prolongation of non-cell centered values
-}
-
-void ComputeProlongationBounds_(const std::shared_ptr<MeshBlock> &pmb,
-                                const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
-                                IndexRange &bk) {
-  const IndexDomain interior = IndexDomain::interior;
-  int cn = pmb->cnghost - 1;
-
-  auto getbounds = [=](const int nbx, const std::int64_t &lx, const IndexRange bblock,
-                       IndexRange &bprol) {
-    if (nbx == 0) {
-      bprol.s = bblock.s;
-      bprol.e = bblock.e;
-      if ((lx & 1LL) == 0LL) {
-        bprol.e += cn;
-      } else {
-        bprol.s -= cn;
-      }
-    } else if (nbx > 0) {
-      bprol.s = bblock.e + 1;
-      bprol.e = bblock.e + cn;
-    } else {
-      bprol.s = bblock.s - cn;
-      bprol.e = bblock.s - 1;
-    }
-  };
-
-  getbounds(nb.ni.ox1, pmb->loc.lx1, pmb->c_cellbounds.GetBoundsI(interior), bi);
-  getbounds(nb.ni.ox2, pmb->loc.lx2, pmb->c_cellbounds.GetBoundsJ(interior), bj);
-  getbounds(nb.ni.ox3, pmb->loc.lx3, pmb->c_cellbounds.GetBoundsK(interior), bk);
 }
 
 } // namespace boundary_cond_impl

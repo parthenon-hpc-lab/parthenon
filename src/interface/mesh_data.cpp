@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,23 +10,27 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#include "mesh_data.hpp"
 
-#include <algorithm>
-#include <string>
-#include <vector>
-
-#include "unique_id.hpp"
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
-template class UniqueIDGenerator<std::string>;
 
-std::vector<Uid_t> UidIntersection(std::vector<Uid_t> v1, std::vector<Uid_t> v2) {
-  std::vector<Uid_t> vout;
-  std::sort(v1.begin(), v1.end());
-  std::sort(v2.begin(), v2.end());
-  std::set_intersection(v1.begin(), v1.end(), v2.begin(), v2.end(),
-                        std::back_inserter(vout));
-  return vout;
+template <typename T>
+void MeshData<T>::Initialize(const MeshData<T> *src,
+                             const std::vector<std::string> &names, const bool shallow) {
+  if (src == nullptr) {
+    PARTHENON_THROW("src points at null");
+  }
+  pmy_mesh_ = src->GetParentPointer();
+  const int nblocks = src->NumBlocks();
+  block_data_.resize(nblocks);
+  for (int i = 0; i < nblocks; i++) {
+    block_data_[i] = pmy_mesh_->block_list[i]->meshblock_data.Add(
+        stage_name_, src->GetBlockData(i), names, shallow);
+  }
 }
+
+template class MeshData<Real>;
 
 } // namespace parthenon

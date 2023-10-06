@@ -42,20 +42,15 @@ class Variable;
 
 struct BndInfo {
   int ntopological_elements = 1;
-  Indexer6D idxer[3];
-  Indexer6D prores_idxer[10]; // Has to be large enough to allow for maximum integer
-                              // conversion of TopologicalElements
+  SpatiallyMaskedIndexer6D idxer[3];
 
   CoordinateDirection dir;
   bool allocated = true;
-  RefinementOp_t refinement_op = RefinementOp_t::None;
-  Coordinates_t coords, coarse_coords; // coords
+  bool buf_allocated = true;
 
-  buf_pool_t<Real>::weak_t buf;         // comm buffer from pool
-  ParArrayND<Real, VariableState> var;  // data variable used for comms
-  ParArrayND<Real, VariableState> fine; // fine data variable for prolongation/restriction
-  ParArrayND<Real, VariableState>
-      coarse; // coarse data variable for prolongation/restriction
+  buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
+  ParArrayND<Real, VariableState> var; // data variable used for comms
+  Coordinates_t coords;
 
   BndInfo() = default;
   BndInfo(const BndInfo &) = default;
@@ -76,11 +71,68 @@ struct BndInfo {
                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf);
 };
 
+struct ProResInfo {
+  int ntopological_elements = 1;
+  // Has to be large enough to allow for maximum integer
+  // conversion of TopologicalElements
+  SpatiallyMaskedIndexer6D idxer[10];
+
+  CoordinateDirection dir;
+  bool allocated = true;
+  RefinementOp_t refinement_op = RefinementOp_t::None;
+  Coordinates_t coords, coarse_coords; // coords
+
+  ParArrayND<Real, VariableState> fine, coarse;
+
+  ProResInfo() = default;
+  ProResInfo(const ProResInfo &) = default;
+
+  // These are are used to generate the BndInfo struct for various
+  // kinds of boundary types and operations.
+  static ProResInfo GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                            std::shared_ptr<Variable<Real>> v);
+  static ProResInfo GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                           std::shared_ptr<Variable<Real>> v);
+  static ProResInfo GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
+                                          std::shared_ptr<Variable<Real>> v);
+  static ProResInfo GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
+                                        std::shared_ptr<Variable<Real>> v);
+};
+
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v);
 
-using BufferCache_t = ParArray1D<BndInfo>;
-using BufferCacheHost_t = typename BufferCache_t::HostMirror;
+using BndInfoArr_t = ParArray1D<BndInfo>;
+using BndInfoArrHost_t = typename BndInfoArr_t::HostMirror;
+
+using ProResInfoArr_t = ParArray1D<ProResInfo>;
+using ProResInfoArrHost_t = typename ParArray1D<ProResInfo>::HostMirror;
+class StateDescriptor;
+struct ProResCache_t {
+  ProResInfoArr_t prores_info{};
+  ProResInfoArr_t::host_mirror_type prores_info_h{};
+  std::vector<std::size_t> buffer_subset_sizes;
+  ParArray2D<std::size_t> buffer_subsets{};
+  ParArray2D<std::size_t>::host_mirror_type buffer_subsets_h{};
+
+  void clear() {
+    prores_info = ProResInfoArr_t{};
+    prores_info_h = ProResInfoArr_t::host_mirror_type{};
+    buffer_subset_sizes.clear();
+    buffer_subsets = ParArray2D<std::size_t>{};
+    buffer_subsets_h = ParArray2D<std::size_t>::host_mirror_type{};
+  }
+
+  void Initialize(int n_regions, StateDescriptor *pkg);
+
+  void RegisterRegionHost(int region, ProResInfo pri, Variable<Real> *v,
+                          StateDescriptor *pkg);
+
+  void CopyToDevice() {
+    Kokkos::deep_copy(prores_info, prores_info_h);
+    Kokkos::deep_copy(buffer_subsets, buffer_subsets_h);
+  }
+};
 
 // This is just a struct to cleanly hold all of the information it is useful to cache
 // for the block boundary communication routines. A copy of it is contained in MeshData.
@@ -92,12 +144,12 @@ struct BvarsSubCache_t {
       sending_non_zero_flags = ParArray1D<bool>{};
     if (sending_non_zero_flags_h.KokkosView().is_allocated())
       sending_non_zero_flags_h = ParArray1D<bool>::host_mirror_type{};
-    bnd_info = BufferCache_t{};
-    bnd_info_h = BufferCache_t::host_mirror_type{};
-    buffer_subset_sizes.clear();
-    buffer_subsets = ParArray2D<std::size_t>{};
-    buffer_subsets_h = ParArray2D<std::size_t>::host_mirror_type{};
+    bnd_info = BndInfoArr_t{};
+    bnd_info_h = BndInfoArr_t::host_mirror_type{};
+    prores_cache.clear();
   }
+  // Stores prolongation and restriction information for boundary regions
+  ProResCache_t prores_cache;
 
   std::vector<std::size_t> idx_vec;
   std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *> buf_vec;
@@ -106,14 +158,8 @@ struct BvarsSubCache_t {
   // also means the bounds values are available on host if needed.
   ParArray1D<bool>::host_mirror_type sending_non_zero_flags_h;
 
-  BufferCache_t bnd_info{};
-  BufferCache_t::host_mirror_type bnd_info_h{};
-
-  // Can be used to inform the infrastructure to loop over only a
-  // subset of the bvars cache. Used for prolongation/restriction.
-  std::vector<std::size_t> buffer_subset_sizes;
-  ParArray2D<std::size_t> buffer_subsets{};
-  ParArray2D<std::size_t>::host_mirror_type buffer_subsets_h{};
+  BndInfoArr_t bnd_info{};
+  BndInfoArr_t::host_mirror_type bnd_info_h{};
 };
 
 struct BvarsCache_t {

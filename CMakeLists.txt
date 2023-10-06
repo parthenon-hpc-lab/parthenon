@@ -62,9 +62,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 18 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 19 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=193f205b5ebd8dc193dabc7f8e2d3f12bf4f9c34f84312aaaa201f8e19a07342d61f7f07d0119e6de1f2af00f067c20cb4d71edad076b583c102bf4dddb2ade2"
+  "SHA512=e1d1a06b9cf9b761d42d0b6b241056ac75658db90138b6b867b1ca7ead4308af4f980285af092b40aee1dbbfb68b4e8cb15efcc9b83d7930c18bf992ae95c729"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -247,8 +247,6 @@ if (NOT TARGET Kokkos::kokkos)
     endif()
   endif()
 endif()
-
-message(STATUS "CUDA: ${Kokkos_ENABLE_CUDA}")
 
 # After we have imported Kokkos we can now report/check our config as Kokkos_ENABLE_XXX
 # is also availalbe when imported.
