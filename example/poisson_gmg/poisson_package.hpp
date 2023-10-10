@@ -144,7 +144,7 @@ TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
   const int scratch_level = 1;
   const int ng = parthenon::Globals::nghost;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "Print", DevExecSpace(), scratch_size_in_bytes,
+      DEFAULT_OUTER_LOOP_PATTERN, "Poisson::SetToZero", DevExecSpace(), scratch_size_in_bytes,
       scratch_level, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         auto cb = GetIndexShape(pack(b, te, 0), ng);
