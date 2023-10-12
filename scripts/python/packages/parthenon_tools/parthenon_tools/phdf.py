@@ -185,7 +185,7 @@ class phdf:
         for key in self.Params.keys():
             val = self.Params[key]
             if type(val) is type(np.zeros(0)):
-                val_str = ''.join([chr(c) for c in val])
+                val_str = "".join([chr(c) for c in val])
                 self.Params[key] = val_str
 
         # Read in coordinates
