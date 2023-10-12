@@ -69,3 +69,8 @@ variables = advected, one_minus_advected, & # comments are ok
 <parthenon/output1>
 file_type = hst
 dt = 0.25
+
+<parthenon/output2>
+file_type = histogram
+dt = 0.25
+

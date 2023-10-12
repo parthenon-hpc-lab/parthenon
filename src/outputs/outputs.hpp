@@ -214,6 +214,17 @@ class PHDF5Output : public OutputType {
                       const IndexRange &kb, std::vector<Real> &x, std::vector<Real> &y,
                       std::vector<Real> &z);
 };
+
+//----------------------------------------------------------------------------------------
+//! \class HistogramOutput
+//  \brief derived OutputType class for histograms
+
+class HistogramOutput : public OutputType {
+ public:
+  explicit HistogramOutput(const OutputParameters &oparams) : OutputType(oparams) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+};
 #endif // ifdef ENABLE_HDF5
 
 //----------------------------------------------------------------------------------------
