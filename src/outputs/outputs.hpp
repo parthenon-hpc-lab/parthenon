@@ -221,9 +221,12 @@ class PHDF5Output : public OutputType {
 
 class HistogramOutput : public OutputType {
  public:
-  explicit HistogramOutput(const OutputParameters &oparams) : OutputType(oparams) {}
+  HistogramOutput(const OutputParameters &oparams, ParameterInput *pin);
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
+
+ private:
+  int num_histograms_; // number of different histograms to compute
 };
 #endif // ifdef ENABLE_HDF5
 

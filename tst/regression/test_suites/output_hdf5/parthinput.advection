@@ -74,3 +74,7 @@ dt = 0.25
 file_type = histogram
 dt = 0.25
 
+num_histograms = 1
+
+
+

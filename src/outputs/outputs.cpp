@@ -248,7 +248,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         pnew_type = new AscentOutput(op);
       } else if (op.file_type == "histogram") {
 #ifdef ENABLE_HDF5
-        pnew_type = new HistogramOutput(op);
+        pnew_type = new HistogramOutput(op, pin);
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Executable not configured for HDF5 outputs, but HDF5 file format "
