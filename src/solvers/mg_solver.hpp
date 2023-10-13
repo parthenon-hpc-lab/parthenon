@@ -141,8 +141,7 @@ class MGSolver {
  public:
   enum class GSType { all, red, black };
 
-  template <class rhs_t, class Axold_t, class D_t, class xold_t, class xnew_t,
-            bool only_md_level = false>
+  template <class rhs_t, class Axold_t, class D_t, class xold_t, class xnew_t>
   static TaskStatus Jacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
                            GSType gs_type = GSType::all) {
     using namespace parthenon;
@@ -158,12 +157,6 @@ class MGSolver {
 
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
-
-    if (only_md_level) {
-      for (int b = 0; b < nblocks; ++b)
-        include_block[b] = (md->grid.logical_level ==
-                            md->GetBlockData(b)->GetBlockPointer()->loc.level());
-    }
 
     auto desc =
         parthenon::MakePackDescriptor<xold_t, xnew_t, Axold_t, rhs_t, D_t>(md.get());
@@ -196,8 +189,8 @@ class MGSolver {
     TaskID none(0);
 
     auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
-    auto mat_mult = eqs_.template Ax<in_t, out_t, true>(tl, comm, md);
-    return tl.AddTask(mat_mult, Jacobi<rhs, out_t, D, in_t, out_t, true>, md, omega,
+    auto mat_mult = eqs_.template Ax<in_t, out_t>(tl, comm, md);
+    return tl.AddTask(mat_mult, Jacobi<rhs, out_t, D, in_t, out_t>, md, omega,
                       GSType::all);
   }
 
@@ -281,7 +274,7 @@ class MGSolver {
         // This should set the rhs only in blocks that correspond to interior nodes, the
         // RHS of leaf blocks that are on this GMG level should have already been set on
         // entry into multigrid
-        set_from_finer = eqs_.template Ax<u, temp, true>(tl, set_from_finer, md);
+        set_from_finer = eqs_.template Ax<u, temp>(tl, set_from_finer, md);
         set_from_finer = tl.AddTask(
             set_from_finer, AddFieldsAndStoreInteriorSelect<temp, res_err, rhs, true>, md,
             1.0, 1.0, true);
@@ -304,7 +297,7 @@ class MGSolver {
                                                                      multilevel);
 
       // 4. Caclulate residual and store in communication field
-      auto residual = eqs_.template Ax<u, temp, true>(tl, comm_u, md);
+      auto residual = eqs_.template Ax<u, temp>(tl, comm_u, md);
       residual =
           tl.AddTask(residual, AddFieldsAndStoreInteriorSelect<rhs, temp, res_err, true>,
                      md, 1.0, -1.0, false);

@@ -36,25 +36,25 @@ class PoissonEquation {
  public:
   bool do_flux_cor = false;
 
-  template <class x_t, class out_t, bool only_md_level = false, class TL_t>
+  template <class x_t, class out_t, class TL_t>
   parthenon::TaskID Ax(TL_t &tl, parthenon::TaskID depends_on,
                        std::shared_ptr<parthenon::MeshData<Real>> &md) {
-    auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t, only_md_level>, md);
-    if (do_flux_cor && !only_md_level) {
+    auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t>, md);
+    if (do_flux_cor && !(md->grid.type == parthenon::GridType::two_level_composite)) {
       auto start_flxcor =
           tl.AddTask(flux_res, parthenon::StartReceiveFluxCorrections, md);
       auto send_flxcor = tl.AddTask(flux_res, parthenon::LoadAndSendFluxCorrections, md);
       auto recv_flxcor = tl.AddTask(send_flxcor, parthenon::ReceiveFluxCorrections, md);
       flux_res = tl.AddTask(recv_flxcor, parthenon::SetFluxCorrections, md);
     }
-    return tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, out_t, only_md_level>, md);
+    return tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, out_t>, md);
   }
   
   // Calculate an approximation to the diagonal of the matrix A and store it in diag_t.
   // For a uniform grid or when flux correction is ignored, this diagonal calculation 
   // is exact. Exactness is (probably) not required since it is just used in Jacobi
   // iterations.
-  template <class diag_t, bool only_md_level = false>
+  template <class diag_t>
   parthenon::TaskStatus SetDiagonal(std::shared_ptr<parthenon::MeshData<Real>> &md) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
@@ -69,12 +69,6 @@ class PoissonEquation {
 
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
-
-    if (only_md_level) {
-      for (int b = 0; b < nblocks; ++b)
-        include_block[b] = (md->grid.logical_level ==
-                            md->GetBlockData(b)->GetBlockPointer()->loc.level());
-    }
 
     auto desc = parthenon::MakePackDescriptor<diag_t, D>(md.get());
     auto pack = desc.GetPack(md.get(), include_block);
@@ -106,7 +100,7 @@ class PoissonEquation {
     return TaskStatus::complete;
   }
 
-  template <class var_t, bool only_md_level = false>
+  template <class var_t>
   static parthenon::TaskStatus
   CalculateFluxes(std::shared_ptr<parthenon::MeshData<Real>> &md) {
     using namespace parthenon;
@@ -121,12 +115,6 @@ class PoissonEquation {
 
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
-
-    if (only_md_level) {
-      for (int b = 0; b < nblocks; ++b)
-        include_block[b] = (md->grid.logical_level ==
-                            md->GetBlockData(b)->GetBlockPointer()->loc.level());
-    }
 
     auto desc =
         parthenon::MakePackDescriptor<var_t, D>(md.get(), {}, {PDOpt::WithFluxes});
@@ -174,7 +162,7 @@ class PoissonEquation {
   
   // Calculate A in_t = out_t (in the region covered by md) for a given set of fluxes 
   // calculated with in_t (which have possibly been corrected at coarse fine boundaries)
-  template <class in_t, class out_t, bool only_md_level = false>
+  template <class in_t, class out_t>
   static parthenon::TaskStatus
   FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md) {
     using namespace parthenon;
@@ -190,13 +178,6 @@ class PoissonEquation {
 
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
-
-    if (only_md_level) {
-      for (int b = 0; b < nblocks; ++b)
-        include_block[b] =
-            include_block[b] && (md->grid.logical_level ==
-                                 md->GetBlockData(b)->GetBlockPointer()->loc.level());
-    }
 
     auto desc =
         parthenon::MakePackDescriptor<in_t, out_t>(md.get(), {}, {PDOpt::WithFluxes});
