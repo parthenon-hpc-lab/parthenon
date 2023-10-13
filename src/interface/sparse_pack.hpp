@@ -142,7 +142,22 @@ class SparsePack : public SparsePackBase {
     // accessed on device via instance of types in the type list Ts...
     // The pack will be created and accessible on the device
     template <class T>
-    SparsePack GetPack(T *pmd, const std::vector<bool> &include_block = {}) const {
+    SparsePack GetPack(T *pmd, std::vector<bool> include_block = {}, 
+                       bool only_fine_two_level_composite_blocks = true) const {
+      // If this is a composite grid MeshData object, only include blocks on 
+      // the finer level
+      if constexpr (std::is_same<T, MeshData<Real>>::value) { 
+        if (pmd->grid.type == GridType::two_level_composite 
+            && only_fine_two_level_composite_blocks) {
+          if (include_block.size() != pmd->NumBlocks()) {
+            include_block = std::vector<bool>(pmd->NumBlocks(), true);
+          }
+          int fine_level = pmd->grid.logical_level;
+          for (int b = 0; b < pmd->NumBlocks(); ++b)
+            include_block[b] = include_block[b] && (fine_level ==
+                            pmd->GetBlockData(b)->GetBlockPointer()->loc.level());
+        }
+      }
       return SparsePack(SparsePackBase::GetPack(pmd, *this, include_block));
     }
 
