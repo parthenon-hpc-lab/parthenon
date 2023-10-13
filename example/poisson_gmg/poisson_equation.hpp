@@ -35,8 +35,8 @@ namespace poisson_package {
 class PoissonEquation {
  public:
   bool do_flux_cor = false;
-  
-  // Add tasks to calculate the result of the matrix A (which is implicitly defined by 
+
+  // Add tasks to calculate the result of the matrix A (which is implicitly defined by
   // this class) being applied to x_t and store it in field out_t
   template <class x_t, class out_t, class TL_t>
   parthenon::TaskID Ax(TL_t &tl, parthenon::TaskID depends_on,
