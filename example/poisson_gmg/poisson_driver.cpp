@@ -37,23 +37,23 @@ namespace poisson_example {
 parthenon::DriverStatus PoissonDriver::Execute() {
   using namespace parthenon;
   using namespace poisson_package;
-  
+
   pouts->MakeOutputs(pmesh, pinput);
   ConstructAndExecuteTaskLists<>(this);
   pouts->MakeOutputs(pmesh, pinput);
-  
+
   // After running, retrieve the final residual for checking in tests
   auto pkg = pmesh->packages.Get("poisson_package");
   auto solver = pkg->Param<std::string>("solver");
   if (solver == "BiCGSTAB") {
     auto *bicgstab_solver =
-      pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
-          "MGBiCGSTABsolver");
+        pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
+            "MGBiCGSTABsolver");
     final_rms_residual = bicgstab_solver->GetFinalResidual();
   } else if (solver == "MG") {
     auto *mg_solver =
-      pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
-          "MGsolver");
+        pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
+            "MGsolver");
     final_rms_residual = mg_solver->GetFinalResidual();
   }
 
@@ -85,7 +85,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto &itl = tl.AddIteration("Solver");
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
 
-    // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is 
+    // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
     // known when we solve A.u = rhs
     auto get_rhs = none;
     if (use_exact_rhs) {
@@ -98,7 +98,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     // Set initial solution guess to zero
     auto zero_u = tl.AddTask(get_rhs, solvers::utils::SetToZero<u>, md);
-    
+
     // Add actual tasks for solving our matrix equation, depending on the solver
     // type requested. Note that the added tasks are iterative.
     auto solve = zero_u;

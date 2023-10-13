@@ -28,9 +28,9 @@ namespace poisson_package {
 // This class implement methods for calculating A.x = y and returning the diagonal of A,
 // where A is the the matrix representing the discretized Poisson equation on the grid.
 // Here we implement the Laplace operator in terms of a flux divergence to (potentially)
-// consistently deal with coarse fine boundaries on the grid. Only the routines Ax and 
-// SetDiagonal need to be defined for interfacing this with solvers. The other methods 
-// are internal, but can't be marked private or protected because they launch kernels 
+// consistently deal with coarse fine boundaries on the grid. Only the routines Ax and
+// SetDiagonal need to be defined for interfacing this with solvers. The other methods
+// are internal, but can't be marked private or protected because they launch kernels
 // on device.
 class PoissonEquation {
  public:
@@ -49,9 +49,9 @@ class PoissonEquation {
     }
     return tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, out_t>, md);
   }
-  
+
   // Calculate an approximation to the diagonal of the matrix A and store it in diag_t.
-  // For a uniform grid or when flux correction is ignored, this diagonal calculation 
+  // For a uniform grid or when flux correction is ignored, this diagonal calculation
   // is exact. Exactness is (probably) not required since it is just used in Jacobi
   // iterations.
   template <class diag_t>
@@ -159,8 +159,8 @@ class PoissonEquation {
         });
     return TaskStatus::complete;
   }
-  
-  // Calculate A in_t = out_t (in the region covered by md) for a given set of fluxes 
+
+  // Calculate A in_t = out_t (in the region covered by md) for a given set of fluxes
   // calculated with in_t (which have possibly been corrected at coarse fine boundaries)
   template <class in_t, class out_t>
   static parthenon::TaskStatus

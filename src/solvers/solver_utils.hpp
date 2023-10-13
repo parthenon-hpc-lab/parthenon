@@ -146,7 +146,7 @@ struct Stencil {
 };
 
 namespace utils {
-template <class in, class out, bool only_md_level = false>
+template <class in, class out, bool only_fine_on_composite = true>
 TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
@@ -155,16 +155,8 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire, te);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire, te);
 
-  int nblocks = md->NumBlocks();
-  std::vector<bool> include_block(nblocks, true);
-  if (only_md_level) {
-    for (int b = 0; b < nblocks; ++b)
-      include_block[b] =
-          (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level());
-  }
-
   auto desc = parthenon::MakePackDescriptor<in, out>(md.get());
-  auto pack = desc.GetPack(md.get(), include_block);
+  auto pack = desc.GetPack(md.get(), {}, only_fine_on_composite);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -174,7 +166,7 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-template <class a_t, class b_t, class out, bool only_md_level = false>
+template <class a_t, class b_t, class out, bool only_fine_on_composite = true>
 TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>> &md,
                                            Real wa = 1.0, Real wb = 1.0,
                                            bool only_interior = false) {
@@ -193,15 +185,8 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
       include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
   }
 
-  if (only_md_level) {
-    for (int b = 0; b < nblocks; ++b)
-      include_block[b] =
-          include_block[b] &&
-          (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level());
-  }
-
   auto desc = parthenon::MakePackDescriptor<a_t, b_t, out>(md.get());
-  auto pack = desc.GetPack(md.get(), include_block);
+  auto pack = desc.GetPack(md.get(), include_block, only_fine_on_composite);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -212,25 +197,21 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
   return TaskStatus::complete;
 }
 
-template <class a_t, class b_t, class out, bool only_md_level = false>
+template <class a_t, class b_t, class out, bool only_fine_on_composite = true>
 TaskStatus AddFieldsAndStore(const std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
                              Real wb = 1.0) {
-  return AddFieldsAndStoreInteriorSelect<a_t, b_t, out, only_md_level>(md, wa, wb, false);
+  return AddFieldsAndStoreInteriorSelect<a_t, b_t, out, only_fine_on_composite>(
+      md, wa, wb, false);
 }
 
-template <class var, bool only_md_level = false>
+template <class var, bool only_fine_on_composite = true>
 TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
   int nblocks = md->NumBlocks();
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
   std::vector<bool> include_block(nblocks, true);
-  if (only_md_level) {
-    for (int b = 0; b < nblocks; ++b)
-      include_block[b] =
-          (md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level());
-  }
   auto desc = parthenon::MakePackDescriptor<var>(md.get());
-  auto pack = desc.GetPack(md.get(), include_block);
+  auto pack = desc.GetPack(md.get(), include_block, only_fine_on_composite);
   const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
   const int ng = parthenon::Globals::nghost;

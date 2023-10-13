@@ -64,8 +64,8 @@ class MGSolver {
     pkg->AddField(D::name(), mu0);
   }
 
-  TaskID AddTasks(TaskList &/*tl*/, IterativeTasks &itl, TaskID dependence, int partition, Mesh *pmesh,
-                  TaskRegion &region, int &reg_dep_id) {
+  TaskID AddTasks(TaskList & /*tl*/, IterativeTasks &itl, TaskID dependence,
+                  int partition, Mesh *pmesh, TaskRegion &region, int &reg_dep_id) {
     TaskID none(0);
     using namespace utils;
     iter_counter = 0;
@@ -83,8 +83,8 @@ class MGSolver {
     calc_pointwise_res = itl.AddTask(
         calc_pointwise_res, AddFieldsAndStoreInteriorSelect<rhs, res_err, res_err>, md,
         1.0, -1.0, false);
-    auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, itl, partition,
-                                                reg_dep_id, &residual, md);
+    auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, itl,
+                                                partition, reg_dep_id, &residual, md);
 
     auto check = itl.SetCompletionTask(
         get_res,
@@ -213,18 +213,18 @@ class MGSolver {
     if (stages == 3) omega = omega_M3;
     // This copy is to set the boundaries of temp that will not be updated by boundary
     // communication to the values in u
-    depends_on = tl.AddTask(depends_on, CopyData<u, temp>, md);
+    depends_on = tl.AddTask(depends_on, CopyData<u, temp, true>, md);
     auto jacobi1 = AddJacobiIteration<comm_boundary, u, temp>(tl, depends_on, multilevel,
                                                               omega[ndim - 1][0], md);
     if (stages < 2) {
-      return tl.AddTask(jacobi1, CopyData<temp, u>, md);
+      return tl.AddTask(jacobi1, CopyData<temp, u, true>, md);
     }
     auto jacobi2 = AddJacobiIteration<comm_boundary, temp, u>(tl, jacobi1, multilevel,
                                                               omega[ndim - 1][1], md);
     if (stages < 3) return jacobi2;
     auto jacobi3 = AddJacobiIteration<comm_boundary, u, temp>(tl, jacobi2, multilevel,
                                                               omega[ndim - 1][2], md);
-    return tl.AddTask(jacobi3, CopyData<temp, u>, md);
+    return tl.AddTask(jacobi3, CopyData<temp, u, true>, md);
   }
 
   template <class TL_t>
