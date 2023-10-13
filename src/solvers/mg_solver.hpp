@@ -211,9 +211,9 @@ class MGSolver {
     auto omega = omega_M1;
     if (stages == 2) omega = omega_M2;
     if (stages == 3) omega = omega_M3;
-    // This copy is to set the boundaries of temp that will not be updated by boundary
-    // communication to the values in u
-    depends_on = tl.AddTask(depends_on, CopyData<u, temp, true>, md);
+    // This copy is to set the coarse blocks in temp to the values in u so that
+    // fine-coarse boundaries of temp are correctly updated during communication
+    depends_on = tl.AddTask(depends_on, CopyData<u, temp, false>, md);
     auto jacobi1 = AddJacobiIteration<comm_boundary, u, temp>(tl, depends_on, multilevel,
                                                               omega[ndim - 1][0], md);
     if (stages < 2) {
