@@ -70,7 +70,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (rebuild) {
     if constexpr (bound_type == BoundaryType::gmg_restrict_send) {
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
-                                           ProResInfo::GetInteriorRestrict2);
+                                           ProResInfo::GetInteriorRestrict);
     } else if constexpr (bound_type == BoundaryType::gmg_prolongate_send) {
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                            ProResInfo::GetNull);
@@ -253,7 +253,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   if (rebuild) {
     if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                            ProResInfo::GetInteriorProlongate2);
+                                            ProResInfo::GetInteriorProlongate);
     } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetNull);
@@ -347,7 +347,7 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
   if (rebuild) {
     if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                            ProResInfo::GetInteriorProlongate2);
+                                            ProResInfo::GetInteriorProlongate);
     } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetNull);
