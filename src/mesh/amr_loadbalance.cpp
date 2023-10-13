@@ -750,9 +750,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     if (newloc[nn].level() < loclist[on].level()) {
       auto pmb = FindMeshBlock(on);
       for (auto &var : pmb->vars_cc_) {
-        restriction_cache.RegisterRegionHost(irestrict++,
-                                             ProResInfo::GetInteriorRestrict(pmb, var),
-                                             var.get(), resolved_packages.get());
+        restriction_cache.RegisterRegionHost(
+            irestrict++, ProResInfo::GetInteriorRestrict(pmb, NeighborBlock(), var),
+            var.get(), resolved_packages.get());
       }
     }
   }
@@ -916,9 +916,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     if (newloc[nn].level() > loclist[on].level()) {
       auto pmb = FindMeshBlock(nn);
       for (auto &var : pmb->vars_cc_) {
-        prolongation_cache.RegisterRegionHost(iprolong++,
-                                              ProResInfo::GetInteriorProlongate(pmb, var),
-                                              var.get(), resolved_packages.get());
+        prolongation_cache.RegisterRegionHost(
+            iprolong++, ProResInfo::GetInteriorProlongate(pmb, NeighborBlock(), var),
+            var.get(), resolved_packages.get());
       }
     }
   }

@@ -295,6 +295,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
 }
 
 ProResInfo ProResInfo::GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
+                                           const NeighborBlock & /*nb*/,
                                            std::shared_ptr<Variable<Real>> v) {
   ProResInfo out;
 
@@ -326,6 +327,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
 }
 
 ProResInfo ProResInfo::GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
+                                             const NeighborBlock & /*nb*/,
                                              std::shared_ptr<Variable<Real>> v) {
   ProResInfo out;
 

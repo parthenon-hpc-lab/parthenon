@@ -98,19 +98,11 @@ struct ProResInfo {
   static ProResInfo GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                            std::shared_ptr<Variable<Real>> v);
   static ProResInfo GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
+                                          const NeighborBlock &nb,
                                           std::shared_ptr<Variable<Real>> v);
   static ProResInfo GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
+                                        const NeighborBlock &nb,
                                         std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetInteriorProlongate2(std::shared_ptr<MeshBlock> pmb,
-                                           const NeighborBlock &nb,
-                                           std::shared_ptr<Variable<Real>> v) {
-    return GetInteriorProlongate(pmb, v);
-  }
-  static ProResInfo GetInteriorRestrict2(std::shared_ptr<MeshBlock> pmb,
-                                         const NeighborBlock &nb,
-                                         std::shared_ptr<Variable<Real>> v) {
-    return GetInteriorRestrict(pmb, v);
-  }
 };
 
 int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,

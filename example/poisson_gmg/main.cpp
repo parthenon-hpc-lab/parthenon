@@ -18,6 +18,13 @@
 
 using namespace parthenon;
 using namespace parthenon::BoundaryFunction;
+// We need to register FixedFace boundary conditions by hand since they can't
+// be chosen in the parameter input file. FixedFace boundary conditions assume
+// Dirichlet booundary conditions on the face of the domain and linearly extrapolate
+// into the ghosts to ensure the linear reconstruction on the block face obeys the
+// chosen boundary condition. Just setting the ghost zones of CC variables to a fixed
+// value results in poor MG convergence because the effective BC at the face
+// changes with MG level.
 template <CoordinateDirection DIR, BCSide SIDE>
 auto GetBoundaryCondition() {
   return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {

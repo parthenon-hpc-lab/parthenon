@@ -3,6 +3,10 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2023 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -134,6 +138,10 @@ class LogicalLocation { // aggregate and POD type
                            (lx3() << 1) + ox3);
   }
 
+  // LFR: This returns the face offsets of fine-coarse neighbor blocks as defined in
+  // Athena++, which are stored in the NeighborBlock struct. I believe that these are
+  // currently only required for flux correction and can eventually be removed when flux
+  // correction is combined with boundary communication.
   auto GetAthenaXXFaceOffsets(const LogicalLocation &neighbor, int ox1, int ox2, int ox3,
                               const RootGridInfo &rg_info = RootGridInfo()) const {
     // The neighbor block struct should only use the first two, but we have three to allow
