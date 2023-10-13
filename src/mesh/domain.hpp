@@ -147,6 +147,7 @@ class IndexShape {
     IndexShape out;
     int idx = 0;
     for (auto nx : {nx1, nx2, nx3}) {
+      // For symmetry directions, nx should be passed in as zero (rather than the actual value of one)
       if (nx == 0) {
         out.x_[idx] = IndexRange{0, 0};
         out.entire_ncells_[idx] = 1;
