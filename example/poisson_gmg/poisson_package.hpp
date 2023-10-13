@@ -373,8 +373,6 @@ TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md,
     printf("var %i: %s\n", col_num, name.c_str());
     col_num++;
   }
-  const size_t scratch_size_in_bytes = 0;
-  const int scratch_level = 1;
   const int ng = parthenon::Globals::nghost;
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "Print", DevExecSpace(), 0, pack.GetNBlocks() - 1, 0, 0, 0, 0,
