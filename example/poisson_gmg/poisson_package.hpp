@@ -153,8 +153,8 @@ TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
         IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
         IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
         parthenon::par_for_inner(
-            DEFAULT_INNER_LOOP_PATTERN, member, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-            [&](int k, int j, int i) { pack(b, te, var(), k, j, i) = 0.0; });
+            parthenon::inner_loop_pattern_simdfor_tag, member, kb.s, kb.e, jb.s, jb.e,
+            ib.s, ib.e, [&](int k, int j, int i) { pack(b, te, var(), k, j, i) = 0.0; });
       });
   return TaskStatus::complete;
 }
