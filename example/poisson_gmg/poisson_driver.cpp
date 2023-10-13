@@ -37,23 +37,26 @@ namespace poisson_example {
 parthenon::DriverStatus PoissonDriver::Execute() {
   using namespace parthenon;
   using namespace poisson_package;
-  auto pkg = pmesh->packages.Get("poisson_package");
-  auto solver = pkg->Param<std::string>("solver");
-  auto *mg_solver =
-      pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
-          "MGsolver");
-  auto *bicgstab_solver =
-      pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
-          "MGBiCGSTABsolver");
-
+  
   pouts->MakeOutputs(pmesh, pinput);
   ConstructAndExecuteTaskLists<>(this);
+  pouts->MakeOutputs(pmesh, pinput);
+  
+  // After running, retrieve the final residual for checking in tests
+  auto pkg = pmesh->packages.Get("poisson_package");
+  auto solver = pkg->Param<std::string>("solver");
   if (solver == "BiCGSTAB") {
+    auto *bicgstab_solver =
+      pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
+          "MGBiCGSTABsolver");
     final_rms_residual = bicgstab_solver->GetFinalResidual();
   } else if (solver == "MG") {
+    auto *mg_solver =
+      pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
+          "MGsolver");
     final_rms_residual = mg_solver->GetFinalResidual();
   }
-  pouts->MakeOutputs(pmesh, pinput);
+
   return DriverStatus::complete;
 }
 
@@ -81,6 +84,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     TaskList &tl = region[i];
     auto &itl = tl.AddIteration("Solver");
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
+
+    // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is 
+    // known when we solve A.u = rhs
     auto get_rhs = none;
     if (use_exact_rhs) {
       auto copy_exact = tl.AddTask(none, solvers::utils::CopyData<exact, u>, md);
@@ -89,15 +95,23 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
       eqs.do_flux_cor = flux_correct;
       auto get_rhs = eqs.Ax<u, rhs>(tl, comm, md);
     }
+
+    // Set initial solution guess to zero
     auto zero_u = tl.AddTask(get_rhs, solvers::utils::SetToZero<u>, md);
+    
+    // Add actual tasks for solving our matrix equation, depending on the solver
+    // type requested. Note that the added tasks are iterative.
     auto solve = zero_u;
     if (solver == "BiCGSTAB") {
       solve = bicgstab_solver->AddTasks(tl, itl, zero_u, i, pmesh, region, reg_dep_id);
     } else if (solver == "MG") {
-      solve = mg_solver->AddTasks(itl, zero_u, i, pmesh, region, reg_dep_id);
+      solve = mg_solver->AddTasks(tl, itl, zero_u, i, pmesh, region, reg_dep_id);
     } else {
       PARTHENON_FAIL("Unknown solver type.");
     }
+
+    // If we are using a rhs to which we know the exact solution, compare our computed
+    // solution to the exact solution
     if (use_exact_rhs) {
       auto diff = tl.AddTask(solve, solvers::utils::AddFieldsAndStore<exact, u, u>, md,
                              1.0, -1.0);

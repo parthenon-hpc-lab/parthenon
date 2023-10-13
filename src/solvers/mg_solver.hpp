@@ -64,12 +64,12 @@ class MGSolver {
     pkg->AddField(D::name(), mu0);
   }
 
-  TaskID AddTasks(IterativeTasks &tl, TaskID dependence, int partition, Mesh *pmesh,
+  TaskID AddTasks(TaskList &/*tl*/, IterativeTasks &itl, TaskID dependence, int partition, Mesh *pmesh,
                   TaskRegion &region, int &reg_dep_id) {
     TaskID none(0);
     using namespace utils;
     iter_counter = 0;
-    tl.AddTask(
+    itl.AddTask(
         dependence,
         [](int partition, int *iter_counter) {
           if (partition != 0 || *iter_counter > 0) return TaskStatus::complete;
@@ -77,16 +77,16 @@ class MGSolver {
           return TaskStatus::complete;
         },
         partition, &iter_counter);
-    auto mg_finest = AddLinearOperatorTasks(tl, dependence, partition, pmesh);
+    auto mg_finest = AddLinearOperatorTasks(itl, dependence, partition, pmesh);
     auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
-    auto calc_pointwise_res = eqs_.template Ax<u, res_err>(tl, mg_finest, md);
-    calc_pointwise_res = tl.AddTask(
+    auto calc_pointwise_res = eqs_.template Ax<u, res_err>(itl, mg_finest, md);
+    calc_pointwise_res = itl.AddTask(
         calc_pointwise_res, AddFieldsAndStoreInteriorSelect<rhs, res_err, res_err>, md,
         1.0, -1.0, false);
-    auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, tl, partition,
+    auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, itl, partition,
                                                 reg_dep_id, &residual, md);
 
-    auto check = tl.SetCompletionTask(
+    auto check = itl.SetCompletionTask(
         get_res,
         [](MGSolver *solver, int part, Mesh *pmesh) {
           if (part != 0) TaskStatus::complete;

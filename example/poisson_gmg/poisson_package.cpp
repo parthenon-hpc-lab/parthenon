@@ -91,46 +91,48 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   bool use_exact_rhs = pin->GetOrAddBoolean("poisson", "use_exact_rhs", false);
   pkg->AddParam<>("use_exact_rhs", use_exact_rhs);
-
+ 
+  PoissonEquation eq;
+  eq.do_flux_cor = flux_correct;
+  
   parthenon::solvers::MGParams mg_params;
   mg_params.max_iters = max_poisson_iterations;
   mg_params.residual_tolerance = res_tol;
   mg_params.do_FAS = do_FAS;
   mg_params.smoother = smoother_method;
-
-  parthenon::solvers::BiCGSTABParams bicgstab_params;
-  bicgstab_params.max_iters = max_poisson_iterations;
-  bicgstab_params.residual_tolerance = res_tol;
-  bicgstab_params.precondition = precondition;
-
-  PoissonEquation eq;
-  eq.do_flux_cor = flux_correct;
-
   parthenon::solvers::MGSolver<u, rhs, PoissonEquation> mg_solver(pkg.get(), mg_params,
                                                                   eq);
   pkg->AddParam<>("MGsolver", mg_solver, parthenon::Params::Mutability::Mutable);
 
+  parthenon::solvers::BiCGSTABParams bicgstab_params;
+  bicgstab_params.max_iters = max_poisson_iterations;
+  bicgstab_params.residual_tolerance = res_tol;
+  bicgstab_params.precondition = precondition; 
   parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation> bicg_solver(
       pkg.get(), bicgstab_params, eq);
   pkg->AddParam<>("MGBiCGSTABsolver", bicg_solver,
                   parthenon::Params::Mutability::Mutable);
 
-  // res_err enters a multigrid level as the residual from the previous level, which
-  // is the rhs, and leaves as the solution for that level, which is the error for the
-  // next finer level
   using namespace parthenon::refinement_ops;
   auto mD = Metadata(
       {Metadata::Independent, Metadata::OneCopy, Metadata::Face, Metadata::GMGRestrict});
   mD.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  // Holds the discretized version of D in \nabla \cdot D(\vec{x}) \nabla u = rhs. D = 1 
+  // for the standard Poisson equation.
   pkg->AddField(D::name(), mD);
 
   auto mflux_comm = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
                               Metadata::WithFluxes, Metadata::GMGRestrict});
   mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  // u is the solution vector that starts with an initial guess and then gets updated 
+  // by the solver
   pkg->AddField(u::name(), mflux_comm);
 
   auto m_no_ghost = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+  // rhs is the field that contains the desired rhs side 
   pkg->AddField(rhs::name(), m_no_ghost);
+
+  // Auxillary field for storing the exact solution when it is known
   pkg->AddField(exact::name(), m_no_ghost);
 
   return pkg;

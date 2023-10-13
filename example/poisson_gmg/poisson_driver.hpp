@@ -32,10 +32,6 @@ class PoissonDriver : public Driver {
   }
   // This next function essentially defines the driver.
   TaskCollection MakeTaskCollection(BlockList_t &blocks);
-  TaskCollection MakeTaskCollectionProRes(BlockList_t &blocks);
-  TaskCollection MakeTaskCollectionMG(BlockList_t &blocks);
-  TaskCollection MakeTaskCollectionMGCG(BlockList_t &blocks);
-  TaskCollection MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks);
 
   DriverStatus Execute() override;
 

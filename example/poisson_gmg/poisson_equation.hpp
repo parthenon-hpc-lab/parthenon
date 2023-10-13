@@ -28,7 +28,10 @@ namespace poisson_package {
 // This class implement methods for calculating A.x = y and returning the diagonal of A,
 // where A is the the matrix representing the discretized Poisson equation on the grid.
 // Here we implement the Laplace operator in terms of a flux divergence to (potentially)
-// to consistently deal with coarse fine boundaries on the grid.
+// consistently deal with coarse fine boundaries on the grid. Only the routines Ax and 
+// SetDiagonal need to be defined for interfacing this with solvers. The other methods 
+// are internal, but can't be marked private or protected because they launch kernels 
+// on device.
 class PoissonEquation {
  public:
   bool do_flux_cor = false;
@@ -46,7 +49,11 @@ class PoissonEquation {
     }
     return tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, out_t, only_md_level>, md);
   }
-
+  
+  // Calculate an approximation to the diagonal of the matrix A and store it in diag_t.
+  // For a uniform grid or when flux correction is ignored, this diagonal calculation 
+  // is exact. Exactness is (probably) not required since it is just used in Jacobi
+  // iterations.
   template <class diag_t, bool only_md_level = false>
   parthenon::TaskStatus SetDiagonal(std::shared_ptr<parthenon::MeshData<Real>> &md) {
     using namespace parthenon;
@@ -164,7 +171,9 @@ class PoissonEquation {
         });
     return TaskStatus::complete;
   }
-
+  
+  // Calculate A in_t = out_t (in the region covered by md) for a given set of fluxes 
+  // calculated with in_t (which have possibly been corrected at coarse fine boundaries)
   template <class in_t, class out_t, bool only_md_level = false>
   static parthenon::TaskStatus
   FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md) {
