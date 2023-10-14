@@ -19,6 +19,7 @@
 
 // options for building
 #include "Kokkos_ScatterView.hpp"
+#include "basic_types.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "kokkos_abstraction.hpp"
@@ -64,107 +65,96 @@ using namespace OutputUtils;
 
 namespace HistUtil {
 
-struct Histogram {
-  int ndim;                             // 1D or 2D histogram
-  std::string x_var_name, y_var_name;   // variable(s) for bins
-  int x_var_component, y_var_component; // components of bin variables (vector)
-  ParArray1D<Real> x_edges, y_edges;
-  std::string binned_var_name; // variable name of variable to be binned
-  int binned_var_component;    // component of variable to be binned
-  ParArray2D<Real> result;     // resulting histogram
+Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
+                     const std::string &prefix) {
+  ndim = pin->GetInteger(block_name, prefix + "ndim");
+  PARTHENON_REQUIRE_THROWS(ndim == 1 || ndim == 2, "Histogram dim must be '1' or '2'");
 
-  // temp view for histogram reduction for better performance (switches
-  // between atomics and data duplication depending on the platform)
-  Kokkos::Experimental::ScatterView<Real **> scatter_result;
+  x_var_name = pin->GetString(block_name, prefix + "x_variable");
 
-  Histogram(ParameterInput *pin, const std::string &block_name,
-            const std::string &prefix) {
-    ndim = pin->GetInteger(block_name, prefix + "ndim");
-    PARTHENON_REQUIRE_THROWS(ndim == 1 || ndim == 2, "Histogram dim must be '1' or '2'");
+  x_var_component = pin->GetInteger(block_name, prefix + "x_variable_component");
+  // would add additional logic to pick it from a pack...
+  PARTHENON_REQUIRE_THROWS(x_var_component >= 0,
+                           "Negative component indices are not supported");
 
-    x_var_name = pin->GetString(block_name, prefix + "x_variable");
-
-    x_var_component = pin->GetInteger(block_name, prefix + "x_variable_component");
-    // would add additional logic to pick it from a pack...
-    PARTHENON_REQUIRE_THROWS(x_var_component >= 0,
-                             "Negative component indices are not supported");
-
-    const auto x_edges_in = pin->GetVector<Real>(block_name, prefix + "x_edges");
-    //  required by binning index function
-    PARTHENON_REQUIRE_THROWS(std::is_sorted(x_edges_in.begin(), x_edges_in.end()),
-                             "Bin edges must be in order.");
-    PARTHENON_REQUIRE_THROWS(x_edges_in.size() >= 2,
-                             "Need at least one bin, i.e., two edges.");
-    x_edges = ParArray1D<Real>(prefix + "x_edges", x_edges_in.size());
-    auto x_edges_h = x_edges.GetHostMirror();
-    for (int i = 0; i < x_edges_in.size(); i++) {
-      x_edges_h(i) = x_edges_in[i];
-    }
-    Kokkos::deep_copy(x_edges, x_edges_h);
-
-    // For 1D profile default initalize y variables
-    std::string y_var_name = "";
-    int y_var_component = -1;
-    // and for 2D profile check if they're explicitly set (not default value)
-    if (ndim == 2) {
-      y_var_name = pin->GetString(block_name, prefix + "y_variable");
-
-      y_var_component = pin->GetInteger(block_name, prefix + "y_variable_component");
-      // would add additional logic to pick it from a pack...
-      PARTHENON_REQUIRE_THROWS(y_var_component >= 0,
-                               "Negative component indices are not supported");
-
-      const auto y_edges_in = pin->GetVector<Real>(block_name, prefix + "y_edges");
-      //  required by binning index function
-      PARTHENON_REQUIRE_THROWS(std::is_sorted(y_edges_in.begin(), y_edges_in.end()),
-                               "Bin edges must be in order.");
-      PARTHENON_REQUIRE_THROWS(y_edges_in.size() >= 2,
-                               "Need at least one bin, i.e., two edges.");
-      y_edges = ParArray1D<Real>(prefix + "y_edges", y_edges_in.size());
-      auto y_edges_h = y_edges.GetHostMirror();
-      for (int i = 0; i < y_edges_in.size(); i++) {
-        y_edges_h(i) = y_edges_in[i];
-      }
-      Kokkos::deep_copy(y_edges, y_edges_h);
-    } else {
-      y_edges = ParArray1D<Real>(prefix + "y_edges_unused", 0);
-    }
-
-    binned_var_name = pin->GetString(block_name, prefix + "binned_variable");
-    binned_var_component =
-        pin->GetInteger(block_name, prefix + "binned_variable_component");
-    // would add additional logic to pick it from a pack...
-    PARTHENON_REQUIRE_THROWS(binned_var_component >= 0,
-                             "Negative component indices are not supported");
-
-    const auto nxbins = x_edges.extent_int(0) - 1;
-    const auto nybins = ndim == 2 ? y_edges.extent_int(0) - 1 : 1;
-
-    result = ParArray2D<Real>(prefix + "result", nybins, nxbins);
-    scatter_result = Kokkos::Experimental::ScatterView<Real **>(result.KokkosView());
+  const auto x_edges_in = pin->GetVector<Real>(block_name, prefix + "x_edges");
+  //  required by binning index function
+  PARTHENON_REQUIRE_THROWS(std::is_sorted(x_edges_in.begin(), x_edges_in.end()),
+                           "Bin edges must be in order.");
+  PARTHENON_REQUIRE_THROWS(x_edges_in.size() >= 2,
+                           "Need at least one bin, i.e., two edges.");
+  x_edges = ParArray1D<Real>(prefix + "x_edges", x_edges_in.size());
+  auto x_edges_h = x_edges.GetHostMirror();
+  for (int i = 0; i < x_edges_in.size(); i++) {
+    x_edges_h(i) = x_edges_in[i];
   }
-};
+  Kokkos::deep_copy(x_edges, x_edges_h);
 
-// Returns the lower bound (or the array size if value has not been found)
+  // For 1D profile default initalize y variables
+  y_var_name = "";
+  y_var_component = -1;
+  // and for 2D profile check if they're explicitly set (not default value)
+  if (ndim == 2) {
+    y_var_name = pin->GetString(block_name, prefix + "y_variable");
+
+    y_var_component = pin->GetInteger(block_name, prefix + "y_variable_component");
+    // would add additional logic to pick it from a pack...
+    PARTHENON_REQUIRE_THROWS(y_var_component >= 0,
+                             "Negative component indices are not supported");
+
+    const auto y_edges_in = pin->GetVector<Real>(block_name, prefix + "y_edges");
+    //  required by binning index function
+    PARTHENON_REQUIRE_THROWS(std::is_sorted(y_edges_in.begin(), y_edges_in.end()),
+                             "Bin edges must be in order.");
+    PARTHENON_REQUIRE_THROWS(y_edges_in.size() >= 2,
+                             "Need at least one bin, i.e., two edges.");
+    y_edges = ParArray1D<Real>(prefix + "y_edges", y_edges_in.size());
+    auto y_edges_h = y_edges.GetHostMirror();
+    for (int i = 0; i < y_edges_in.size(); i++) {
+      y_edges_h(i) = y_edges_in[i];
+    }
+    Kokkos::deep_copy(y_edges, y_edges_h);
+  } else {
+    y_edges = ParArray1D<Real>(prefix + "y_edges_unused", 0);
+  }
+
+  binned_var_name = pin->GetString(block_name, prefix + "binned_variable");
+  binned_var_component =
+      pin->GetInteger(block_name, prefix + "binned_variable_component");
+  // would add additional logic to pick it from a pack...
+  PARTHENON_REQUIRE_THROWS(binned_var_component >= 0,
+                           "Negative component indices are not supported");
+
+  const auto nxbins = x_edges.extent_int(0) - 1;
+  const auto nybins = ndim == 2 ? y_edges.extent_int(0) - 1 : 1;
+
+  result = ParArray2D<Real>(prefix + "result", nybins, nxbins);
+  scatter_result = Kokkos::Experimental::ScatterView<Real **>(result.KokkosView());
+}
+
+// Returns the upper bound (or the array size if value has not been found)
 // Could/Should be replaced with a Kokkos std version once available (currently schedule
 // for 4.2 release).
 // TODO add unit test
-KOKKOS_INLINE_FUNCTION int lower_bound(const ParArray1D<Real> &arr, Real val) {
+KOKKOS_INLINE_FUNCTION int upper_bound(const ParArray1D<Real> &arr, Real val) {
   int l = 0;
-  int r = arr.GetDim(0);
+  int r = arr.extent_int(0);
   int m;
   while (l < r) {
     m = l + (r - l) / 2;
-    if (val <= arr(m)) {
-      r = m;
-    } else {
+    if (val >= arr(m)) {
       l = m + 1;
+    } else {
+      r = m;
     }
+  }
+  if (l < arr.extent_int(0) && val >= arr(l)) {
+    l++;
   }
   return l;
 }
 
-// Computes a 1D or 2D histogram with inclusive lower edges (and exclusive right ones).
+// Computes a 1D or 2D histogram with inclusive lower edges and inclusive rightmost edges.
 // Function could in principle be templated on dimension, but it's currently not expected
 // to be a performance concern (because it won't be called that often).
 void CalcHist(Mesh *pm, const Histogram &hist) {
@@ -182,7 +172,7 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
   // Also reset the histogram from previous call.
   // Currently still required for consistent results between host and device backends, see
   // https://github.com/kokkos/kokkos/issues/6363
-  result.Reset();
+  Kokkos::deep_copy(result, 0);
 
   const int num_partitions = pm->DefaultNumPartitions();
 
@@ -202,22 +192,22 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
         kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           const auto &x_val = x_var(b, x_var_component, k, j, i);
-          if (x_val < x_edges(0) || x_val >= x_edges(x_edges.extent_int(0))) {
+          if (x_val < x_edges(0) || x_val > x_edges(x_edges.extent_int(0) - 1)) {
             return;
           }
           // No further check for x_bin required as the preceeding if-statement guarantees
           // x_val to fall in one bin.
-          const auto x_bin = lower_bound(x_edges, x_val);
+          const auto x_bin = upper_bound(x_edges, x_val) - 1;
 
           int y_bin = 0;
           if (hist_ndim == 2) {
             const auto &y_val = y_var(b, y_var_component, k, j, i);
-            if (y_val < y_edges(0) || y_val >= y_edges(y_edges.extent_int(0))) {
+            if (y_val < y_edges(0) || y_val > y_edges(y_edges.extent_int(0) - 1)) {
               return;
             }
             // No further check for y_bin required as the preceeding if-statement
             // guarantees y_val to fall in one bin.
-            y_bin = lower_bound(y_edges, y_val);
+            y_bin = upper_bound(y_edges, y_val) - 1;
           }
           auto res = scatter.access();
           res(y_bin, x_bin) += binned_var(b, binned_var_component, k, j, i);
@@ -228,6 +218,17 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
   }
   // Ensure all (implicit) reductions from contribute are done
   Kokkos::fence(); // May not be required
+
+  // Now reduce over ranks
+#ifdef MPI_PARALLEL
+  if (Globals::my_rank == 0) {
+    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, result.data(), result.size(),
+                                   MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD));
+  } else {
+    PARTHENON_MPI_CHECK(MPI_Reduce(result.data(), result.data(), result.size(),
+                                   MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD));
+  }
+#endif
 }
 
 } // namespace HistUtil
@@ -240,8 +241,6 @@ HistogramOutput::HistogramOutput(const OutputParameters &op, ParameterInput *pin
 
   num_histograms_ = pin->GetOrAddInteger(op.block_name, "num_histograms", 0);
 
-  std::vector<HistUtil::Histogram> histograms_; // TODO make private class member
-
   for (int i = 0; i < num_histograms_; i++) {
     const auto prefix = "hist" + std::to_string(i) + "_";
     histograms_.emplace_back(pin, op.block_name, prefix);
@@ -253,7 +252,18 @@ HistogramOutput::HistogramOutput(const OutputParameters &op, ParameterInput *pin
 //  \brief  Calculate histograms
 void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                       const SignalHandler::OutputSignal signal) {
+  for (auto &hist : histograms_) {
+    CalcHist(pm, hist);
 
+    if (Globals::my_rank == 0) {
+      const auto hist_h = hist.result.GetHostMirrorAndCopy();
+      std::cout << "Hist result: ";
+      for (int i = 0; i < hist_h.extent_int(1); i++) {
+        std::cout << hist_h(0, i) << " ";
+      }
+      std::cout << "\n";
+    }
+  }
   // advance output parameters
   output_params.file_number++;
   output_params.next_time += output_params.dt;

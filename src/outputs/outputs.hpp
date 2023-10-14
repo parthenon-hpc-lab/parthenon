@@ -25,6 +25,8 @@
 #include <string>
 #include <vector>
 
+#include "Kokkos_ScatterView.hpp"
+
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
@@ -219,6 +221,25 @@ class PHDF5Output : public OutputType {
 //! \class HistogramOutput
 //  \brief derived OutputType class for histograms
 
+namespace HistUtil {
+struct Histogram {
+  int ndim;                             // 1D or 2D histogram
+  std::string x_var_name, y_var_name;   // variable(s) for bins
+  int x_var_component, y_var_component; // components of bin variables (vector)
+  ParArray1D<Real> x_edges, y_edges;
+  std::string binned_var_name; // variable name of variable to be binned
+  int binned_var_component;    // component of variable to be binned
+  ParArray2D<Real> result;     // resulting histogram
+
+  // temp view for histogram reduction for better performance (switches
+  // between atomics and data duplication depending on the platform)
+  Kokkos::Experimental::ScatterView<Real **> scatter_result;
+  Histogram(ParameterInput *pin, const std::string &block_name,
+            const std::string &prefix);
+};
+
+} // namespace HistUtil
+
 class HistogramOutput : public OutputType {
  public:
   HistogramOutput(const OutputParameters &oparams, ParameterInput *pin);
@@ -227,6 +248,7 @@ class HistogramOutput : public OutputType {
 
  private:
   int num_histograms_; // number of different histograms to compute
+  std::vector<HistUtil::Histogram> histograms_;
 };
 #endif // ifdef ENABLE_HDF5
 
