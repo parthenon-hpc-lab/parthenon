@@ -18,7 +18,6 @@
 //  \brief 1D and 2D histograms
 
 // options for building
-#include "Kokkos_ScatterView.hpp"
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "globals.hpp"
@@ -26,13 +25,12 @@
 #include "parameter_input.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
-#include <algorithm>
-#include <array>
-#include <vector>
 
 // Only proceed if HDF5 output enabled
 #ifdef ENABLE_HDF5
 
+#include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <iomanip>
@@ -40,6 +38,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 // Parthenon headers
 #include "coordinates/coordinates.hpp"
@@ -49,15 +48,14 @@
 #include "mesh/mesh.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
+#include "outputs/parthenon_hdf5.hpp"
 #include "utils/error_checking.hpp"
 
-// Ascent headers
-#ifdef PARTHENON_ENABLE_ASCENT
-#include "ascent.hpp"
-#include "conduit_blueprint.hpp"
-#include "conduit_relay_io.hpp"
-#include "conduit_relay_io_blueprint.hpp"
-#endif // ifdef PARTHENON_ENABLE_ASCENT
+// ScatterView is not part of Kokkos core interface
+#include "Kokkos_ScatterView.hpp"
+
+#include FS_HEADER
+namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
 
@@ -158,6 +156,7 @@ KOKKOS_INLINE_FUNCTION int upper_bound(const ParArray1D<Real> &arr, Real val) {
 // Function could in principle be templated on dimension, but it's currently not expected
 // to be a performance concern (because it won't be called that often).
 void CalcHist(Mesh *pm, const Histogram &hist) {
+  Kokkos::Profiling::pushRegion("Calculate single histogram");
   const auto x_var_component = hist.x_var_component;
   const auto y_var_component = hist.y_var_component;
   const auto binned_var_component = hist.binned_var_component;
@@ -229,6 +228,7 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
                                    MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD));
   }
 #endif
+  Kokkos::Profiling::popRegion(); // Calculate single histogram
 }
 
 } // namespace HistUtil
@@ -252,10 +252,66 @@ HistogramOutput::HistogramOutput(const OutputParameters &op, ParameterInput *pin
 //  \brief  Calculate histograms
 void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                       const SignalHandler::OutputSignal signal) {
+
+  Kokkos::Profiling::pushRegion("Calculate all histograms");
   for (auto &hist : histograms_) {
     CalcHist(pm, hist);
+  }
+  Kokkos::Profiling::popRegion(); // Calculate all histograms
 
-    if (Globals::my_rank == 0) {
+  Kokkos::Profiling::pushRegion("Dump histograms");
+  if (Globals::my_rank == 0) {
+    using namespace HDF5;
+    // create/open HDF5 file
+    const std::string filename = "histogram.hdf";
+    H5F file;
+    try {
+      if (fs::exists(filename)) {
+        file = H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT));
+      } else {
+        file = H5F::FromHIDCheck(
+            H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
+      }
+    } catch (std::exception &ex) {
+      std::stringstream err;
+      err << "### ERROR: Failed to open/create HDF5 output file '" << filename
+          << "' with the following error:" << std::endl
+          << ex.what() << std::endl;
+      PARTHENON_THROW(err)
+    }
+
+    std::string out_label;
+    if (signal == SignalHandler::OutputSignal::now) {
+      out_label = "now";
+    } else if (signal == SignalHandler::OutputSignal::final &&
+               output_params.file_label_final) {
+      out_label = "final";
+      // default time based data dump
+    } else {
+      std::stringstream file_number;
+      file_number << std::setw(output_params.file_number_width) << std::setfill('0')
+                  << output_params.file_number;
+      out_label = file_number.str();
+    }
+
+    const H5G all_hist_group = MakeGroup(file, "/" + out_label);
+    if (tm != nullptr) {
+      HDF5WriteAttribute("NCycle", tm->ncycle, all_hist_group);
+      HDF5WriteAttribute("Time", tm->time, all_hist_group);
+      HDF5WriteAttribute("dt", tm->dt, all_hist_group);
+    }
+    HDF5WriteAttribute("num_histograms", num_histograms_, all_hist_group);
+
+    for (int i = 0; i < num_histograms_; i++) {
+      auto &hist = histograms_[i];
+      const H5G hist_group = MakeGroup(all_hist_group, "/" + std::to_string(i));
+      HDF5WriteAttribute("x_var_name", hist.x_var_name, hist_group);
+      HDF5WriteAttribute("x_var_component", hist.x_var_component, hist_group);
+      HDF5WriteAttribute("y_var_name", hist.y_var_name, hist_group);
+      HDF5WriteAttribute("y_var_component", hist.y_var_component, hist_group);
+      HDF5WriteAttribute("binned_var_name", hist.binned_var_name, hist_group);
+      HDF5WriteAttribute("binned_var_component", hist.binned_var_component, hist_group);
+
       const auto hist_h = hist.result.GetHostMirrorAndCopy();
       std::cout << "Hist result: ";
       for (int i = 0; i < hist_h.extent_int(1); i++) {
@@ -264,11 +320,19 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
       std::cout << "\n";
     }
   }
+  Kokkos::Profiling::popRegion(); // Dump histograms
+
   // advance output parameters
-  output_params.file_number++;
-  output_params.next_time += output_params.dt;
-  pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  if (signal == SignalHandler::OutputSignal::none) {
+    // After file has been opened with the current number, already advance output
+    // parameters so that for restarts the file is not immediatly overwritten again.
+    // Only applies to default time-based data dumps, so that writing "now" and "final"
+    // outputs does not change the desired output numbering.
+    output_params.file_number++;
+    output_params.next_time += output_params.dt;
+    pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
+    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  }
 }
 
 } // namespace parthenon
