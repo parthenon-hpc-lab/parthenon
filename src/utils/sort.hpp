@@ -31,6 +31,28 @@
 
 namespace parthenon {
 
+// Returns the upper bound (or the array size if value has not been found)
+// Could/Should be replaced with a Kokkos std version once available (currently schedule
+// for 4.2 release).
+template<class T>
+KOKKOS_INLINE_FUNCTION int upper_bound(const T &arr, Real val) {
+  int l = 0;
+  int r = arr.extent_int(0);
+  int m;
+  while (l < r) {
+    m = l + (r - l) / 2;
+    if (val >= arr(m)) {
+      l = m + 1;
+    } else {
+      r = m;
+    }
+  }
+  if (l < arr.extent_int(0) && val >= arr(l)) {
+    l++;
+  }
+  return l;
+}
+
 template <class Key, class KeyComparator>
 void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx,
           size_t max_idx) {

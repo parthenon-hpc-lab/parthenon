@@ -50,6 +50,7 @@
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/sort.hpp" // for upper_bound
 
 // ScatterView is not part of Kokkos core interface
 #include "Kokkos_ScatterView.hpp"
@@ -125,28 +126,6 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
 
   result = ParArray2D<Real>(prefix + "result", nybins, nxbins);
   scatter_result = Kokkos::Experimental::ScatterView<Real **>(result.KokkosView());
-}
-
-// Returns the upper bound (or the array size if value has not been found)
-// Could/Should be replaced with a Kokkos std version once available (currently schedule
-// for 4.2 release).
-// TODO add unit test
-KOKKOS_INLINE_FUNCTION int upper_bound(const ParArray1D<Real> &arr, Real val) {
-  int l = 0;
-  int r = arr.extent_int(0);
-  int m;
-  while (l < r) {
-    m = l + (r - l) / 2;
-    if (val >= arr(m)) {
-      l = m + 1;
-    } else {
-      r = m;
-    }
-  }
-  if (l < arr.extent_int(0) && val >= arr(l)) {
-    l++;
-  }
-  return l;
 }
 
 // Computes a 1D or 2D histogram with inclusive lower edges and inclusive rightmost edges.

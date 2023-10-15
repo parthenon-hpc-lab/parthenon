@@ -74,7 +74,7 @@ dt = 0.25
 file_type = histogram
 dt = 0.25
 
-num_histograms = 1
+num_histograms = 2
 
 hist0_ndim = 1
 hist0_x_variable = advected
@@ -82,4 +82,14 @@ hist0_x_variable_component = 0
 hist0_x_edges = 1e-9, 1e-4,1e-1, 2e-1, 5e-1 ,1.00001
 hist0_binned_variable = advected
 hist0_binned_variable_component = 0
+
+hist1_ndim = 2
+hist1_x_variable = advected
+hist1_x_variable_component = 0
+hist1_x_edges = 1e-9, 1e-4,1e-1, 2e-1, 5e-1 ,1.0000001
+hist1_y_variable = one_minus_advected_sq
+hist1_y_variable_component = 0
+hist1_y_edges = 0, 0.5, 1.00001
+hist1_binned_variable = advected
+hist1_binned_variable_component = 0
 
