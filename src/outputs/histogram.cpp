@@ -285,6 +285,15 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
   // Given the expect size of histograms, we'll use serial HDF
   if (Globals::my_rank == 0) {
     using namespace HDF5;
+    H5P const pl_xfer = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
+
+    // As we're reusing the interface from the existing hdf5 output, we have to define
+    // everything as 7D arrays.
+    // Counts will be set for each histogram individually below.
+    const std::array<hsize_t, H5_NDIM> local_offset({0, 0, 0, 0, 0, 0, 0});
+    std::array<hsize_t, H5_NDIM> local_count({0, 0, 0, 0, 0, 0, 0});
+    std::array<hsize_t, H5_NDIM> global_count({0, 0, 0, 0, 0, 0, 0});
+
     // create/open HDF5 file
     const std::string filename = GenerateFilename_(pin, tm, signal);
 
@@ -308,17 +317,55 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
     HDF5WriteAttribute("num_histograms", num_histograms_, info_group);
 
-    for (int i = 0; i < num_histograms_; i++) {
-      auto &hist = histograms_[i];
-      const H5G hist_group = MakeGroup(file, "/" + std::to_string(i));
+    for (int h = 0; h < num_histograms_; h++) {
+      auto &hist = histograms_[h];
+      const H5G hist_group = MakeGroup(file, "/" + std::to_string(h));
+      HDF5WriteAttribute("ndim", hist.ndim, hist_group);
       HDF5WriteAttribute("x_var_name", hist.x_var_name, hist_group);
       HDF5WriteAttribute("x_var_component", hist.x_var_component, hist_group);
-      HDF5WriteAttribute("y_var_name", hist.y_var_name, hist_group);
-      HDF5WriteAttribute("y_var_component", hist.y_var_component, hist_group);
       HDF5WriteAttribute("binned_var_name", hist.binned_var_name, hist_group);
       HDF5WriteAttribute("binned_var_component", hist.binned_var_component, hist_group);
 
+      const auto x_edges_h = hist.x_edges.GetHostMirrorAndCopy();
+      local_count[0] = global_count[0] = x_edges_h.extent_int(0);
+      HDF5Write1D(hist_group, "x_edges", x_edges_h.data(), local_offset.data(),
+                  local_count.data(), global_count.data(), pl_xfer);
+
+      if (hist.ndim == 2) {
+        HDF5WriteAttribute("y_var_name", hist.y_var_name, hist_group);
+        HDF5WriteAttribute("y_var_component", hist.y_var_component, hist_group);
+
+        const auto y_edges_h = hist.y_edges.GetHostMirrorAndCopy();
+        local_count[0] = global_count[0] = y_edges_h.extent_int(0);
+        HDF5Write1D(hist_group, "y_edges", y_edges_h.data(), local_offset.data(),
+                    local_count.data(), global_count.data(), pl_xfer);
+      }
+
       const auto hist_h = hist.result.GetHostMirrorAndCopy();
+      // Ensure correct output format (as the data in Parthenon may, in theory, vary by
+      // changing the default view layout) so that it matches the numpy output  (row
+      // major, x first)
+      std::vector<Real> tmp_data(hist_h.size());
+      int idx = 0;
+      for (int i = 0; i < hist_h.extent_int(1); ++i) {
+        for (int j = 0; j < hist_h.extent_int(0); ++j) {
+          tmp_data[idx++] = hist_h(j, i);
+        }
+      }
+
+      local_count[0] = global_count[0] = hist_h.extent_int(1);
+      if (hist.ndim == 2) {
+        local_count[1] = global_count[1] = hist_h.extent_int(0);
+
+        HDF5Write2D(hist_group, "data", tmp_data.data(), local_offset.data(),
+                    local_count.data(), global_count.data(), pl_xfer);
+      } else {
+        // No y-dim for 1D histogram
+        local_count[1] = global_count[1] = 0;
+        HDF5Write2D(hist_group, "data", tmp_data.data(), local_offset.data(),
+                    local_count.data(), global_count.data(), pl_xfer);
+      }
+
       std::cout << "Hist result: ";
       for (int i = 0; i < hist_h.extent_int(1); i++) {
         std::cout << hist_h(0, i) << " ";
