@@ -54,9 +54,6 @@
 // ScatterView is not part of Kokkos core interface
 #include "Kokkos_ScatterView.hpp"
 
-#include FS_HEADER
-namespace fs = FS_NAMESPACE;
-
 namespace parthenon {
 
 using namespace OutputUtils;
@@ -247,6 +244,31 @@ HistogramOutput::HistogramOutput(const OutputParameters &op, ParameterInput *pin
   }
 }
 
+std::string HistogramOutput::GenerateFilename_(ParameterInput *pin, SimTime *tm,
+                                               const SignalHandler::OutputSignal signal) {
+  using namespace HDF5;
+
+  auto filename = std::string(output_params.file_basename);
+  filename.append(".");
+  filename.append(output_params.file_id);
+  filename.append(".histograms.");
+  if (signal == SignalHandler::OutputSignal::now) {
+    filename.append("now");
+  } else if (signal == SignalHandler::OutputSignal::final &&
+             output_params.file_label_final) {
+    filename.append("final");
+    // default time based data dump
+  } else {
+    std::stringstream file_number;
+    file_number << std::setw(output_params.file_number_width) << std::setfill('0')
+                << output_params.file_number;
+    filename.append(file_number.str());
+  }
+  filename.append(".hdf");
+
+  return filename;
+}
+
 //----------------------------------------------------------------------------------------
 //! \fn void HistogramOutput:::WriteOutputFile(Mesh *pm)
 //  \brief  Calculate histograms
@@ -260,51 +282,35 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
   Kokkos::Profiling::popRegion(); // Calculate all histograms
 
   Kokkos::Profiling::pushRegion("Dump histograms");
+  // Given the expect size of histograms, we'll use serial HDF
   if (Globals::my_rank == 0) {
     using namespace HDF5;
     // create/open HDF5 file
-    const std::string filename = "histogram.hdf";
+    const std::string filename = GenerateFilename_(pin, tm, signal);
+
     H5F file;
     try {
-      if (fs::exists(filename)) {
-        file = H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT));
-      } else {
-        file = H5F::FromHIDCheck(
-            H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
-      }
+      file = H5F::FromHIDCheck(
+          H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
     } catch (std::exception &ex) {
       std::stringstream err;
-      err << "### ERROR: Failed to open/create HDF5 output file '" << filename
+      err << "### ERROR: Failed to create HDF5 output file '" << filename
           << "' with the following error:" << std::endl
           << ex.what() << std::endl;
       PARTHENON_THROW(err)
     }
 
-    std::string out_label;
-    if (signal == SignalHandler::OutputSignal::now) {
-      out_label = "now";
-    } else if (signal == SignalHandler::OutputSignal::final &&
-               output_params.file_label_final) {
-      out_label = "final";
-      // default time based data dump
-    } else {
-      std::stringstream file_number;
-      file_number << std::setw(output_params.file_number_width) << std::setfill('0')
-                  << output_params.file_number;
-      out_label = file_number.str();
-    }
-
-    const H5G all_hist_group = MakeGroup(file, "/" + out_label);
+    const H5G info_group = MakeGroup(file, "/Info");
     if (tm != nullptr) {
-      HDF5WriteAttribute("NCycle", tm->ncycle, all_hist_group);
-      HDF5WriteAttribute("Time", tm->time, all_hist_group);
-      HDF5WriteAttribute("dt", tm->dt, all_hist_group);
+      HDF5WriteAttribute("NCycle", tm->ncycle, info_group);
+      HDF5WriteAttribute("Time", tm->time, info_group);
+      HDF5WriteAttribute("dt", tm->dt, info_group);
     }
-    HDF5WriteAttribute("num_histograms", num_histograms_, all_hist_group);
+    HDF5WriteAttribute("num_histograms", num_histograms_, info_group);
 
     for (int i = 0; i < num_histograms_; i++) {
       auto &hist = histograms_[i];
-      const H5G hist_group = MakeGroup(all_hist_group, "/" + std::to_string(i));
+      const H5G hist_group = MakeGroup(file, "/" + std::to_string(i));
       HDF5WriteAttribute("x_var_name", hist.x_var_name, hist_group);
       HDF5WriteAttribute("x_var_component", hist.x_var_component, hist_group);
       HDF5WriteAttribute("y_var_name", hist.y_var_name, hist_group);
@@ -322,7 +328,7 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
   }
   Kokkos::Profiling::popRegion(); // Dump histograms
 
-  // advance output parameters
+  // advance file ids
   if (signal == SignalHandler::OutputSignal::none) {
     // After file has been opened with the current number, already advance output
     // parameters so that for restarts the file is not immediatly overwritten again.

@@ -247,6 +247,8 @@ class HistogramOutput : public OutputType {
                        const SignalHandler::OutputSignal signal) override;
 
  private:
+  std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
+                                const SignalHandler::OutputSignal signal);
   int num_histograms_; // number of different histograms to compute
   std::vector<HistUtil::Histogram> histograms_;
 };
