@@ -170,9 +170,11 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
           if (x_val < x_edges(0) || x_val > x_edges(x_edges.extent_int(0) - 1)) {
             return;
           }
-          // No further check for x_bin required as the preceeding if-statement guarantees
-          // x_val to fall in one bin.
-          const auto x_bin = upper_bound(x_edges, x_val) - 1;
+
+          // if we're on the rightmost edge, directly set last bin, otherwise search
+          const auto x_bin = x_val == x_edges(x_edges.extent_int(0) - 1)
+                                 ? x_edges.extent_int(0) - 2
+                                 : upper_bound(x_edges, x_val) - 1;
 
           int y_bin = 0;
           if (hist_ndim == 2) {
@@ -180,9 +182,10 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
             if (y_val < y_edges(0) || y_val > y_edges(y_edges.extent_int(0) - 1)) {
               return;
             }
-            // No further check for y_bin required as the preceeding if-statement
-            // guarantees y_val to fall in one bin.
-            y_bin = upper_bound(y_edges, y_val) - 1;
+            // if we're on the rightmost edge, directly set last bin, otherwise search
+            const auto y_bin = y_val == y_edges(y_edges.extent_int(0) - 1)
+                                   ? y_edges.extent_int(0) - 2
+                                   : upper_bound(y_edges, y_val) - 1;
           }
           auto res = scatter.access();
           res(y_bin, x_bin) += binned_var(b, binned_var_component, k, j, i);
@@ -339,17 +342,11 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
         HDF5Write2D(hist_group, "data", tmp_data.data(), local_offset.data(),
                     local_count.data(), global_count.data(), pl_xfer);
       } else {
-        // No y-dim for 1D histogram
+        // No y-dim for 1D histogram -- though unnecessary as it's not read anyway
         local_count[1] = global_count[1] = 0;
-        HDF5Write2D(hist_group, "data", tmp_data.data(), local_offset.data(),
+        HDF5Write1D(hist_group, "data", tmp_data.data(), local_offset.data(),
                     local_count.data(), global_count.data(), pl_xfer);
       }
-
-      std::cout << "Hist result: ";
-      for (int i = 0; i < hist_h.extent_int(1); i++) {
-        std::cout << hist_h(0, i) << " ";
-      }
-      std::cout << "\n";
     }
   }
   Kokkos::Profiling::popRegion(); // Dump histograms
