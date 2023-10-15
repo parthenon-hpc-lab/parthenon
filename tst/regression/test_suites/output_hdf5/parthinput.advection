@@ -79,7 +79,7 @@ num_histograms = 2
 hist0_ndim = 1
 hist0_x_variable = advected
 hist0_x_variable_component = 0
-hist0_x_edges = 1e-9, 1e-4,1e-1, 2e-1, 5e-1 ,1.00001
+hist0_x_edges = 1e-9, 1e-4,1e-1, 2e-1, 5e-1 ,1.0
 hist0_binned_variable = advected
 hist0_binned_variable_component = 0
 
