@@ -69,13 +69,13 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
 
   x_var_name = pin->GetString(block_name, prefix + "x_variable");
   x_var_component = -1;
-  if (x_var_name == "COORD_X1") {
+  if (x_var_name == "HIST_COORD_X1") {
     x_var_type = VarType::X1;
-  } else if (x_var_name == "COORD_X2") {
+  } else if (x_var_name == "HIST_COORD_X2") {
     x_var_type = VarType::X2;
-  } else if (x_var_name == "COORD_X3") {
+  } else if (x_var_name == "HIST_COORD_X3") {
     x_var_type = VarType::X3;
-  } else if (x_var_name == "COORD_R") {
+  } else if (x_var_name == "HIST_COORD_R") {
     PARTHENON_REQUIRE_THROWS(
         typeid(Coordinates_t) == typeid(UniformCartesian),
         "Radial coordinate currently only works for uniform Cartesian coordinates.");
@@ -108,13 +108,13 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
   // and for 2D profile check if they're explicitly set (not default value)
   if (ndim == 2) {
     y_var_name = pin->GetString(block_name, prefix + "y_variable");
-    if (y_var_name == "COORD_X1") {
+    if (y_var_name == "HIST_COORD_X1") {
       y_var_type = VarType::X1;
-    } else if (y_var_name == "COORD_X2") {
+    } else if (y_var_name == "HIST_COORD_X2") {
       y_var_type = VarType::X2;
-    } else if (y_var_name == "COORD_X3") {
+    } else if (y_var_name == "HIST_COORD_X3") {
       y_var_type = VarType::X3;
-    } else if (y_var_name == "COORD_R") {
+    } else if (y_var_name == "HIST_COORD_R") {
       PARTHENON_REQUIRE_THROWS(
           typeid(Coordinates_t) == typeid(UniformCartesian),
           "Radial coordinate currently only works for uniform Cartesian coordinates.");
@@ -143,12 +143,16 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
     y_edges = ParArray1D<Real>(prefix + "y_edges_unused", 0);
   }
 
-  binned_var_name = pin->GetString(block_name, prefix + "binned_variable");
-  binned_var_component =
-      pin->GetInteger(block_name, prefix + "binned_variable_component");
-  // would add additional logic to pick it from a pack...
-  PARTHENON_REQUIRE_THROWS(binned_var_component >= 0,
-                           "Negative component indices are not supported");
+  binned_var_name =
+      pin->GetOrAddString(block_name, prefix + "binned_variable", "HIST_ONES");
+  binned_var_component = -1; // implies that we're not binning a variable but count
+  if (binned_var_name != "HIST_ONES") {
+    binned_var_component =
+        pin->GetInteger(block_name, prefix + "binned_variable_component");
+    // would add additional logic to pick it from a pack...
+    PARTHENON_REQUIRE_THROWS(binned_var_component >= 0,
+                             "Negative component indices are not supported");
+  }
 
   const auto nxbins = x_edges.extent_int(0) - 1;
   const auto nybins = ndim == 2 ? y_edges.extent_int(0) - 1 : 1;
@@ -189,12 +193,17 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
                                        ? std::vector<std::string>{hist.x_var_name}
                                        : std::vector<std::string>{};
     const auto x_var = md->PackVariables(x_var_pack_string);
+
     const auto y_var_pack_string = y_var_type == VarType::Var
                                        ? std::vector<std::string>{hist.y_var_name}
                                        : std::vector<std::string>{};
     const auto y_var = md->PackVariables(y_var_pack_string);
-    const auto binned_var =
-        md->PackVariables(std::vector<std::string>{hist.binned_var_name});
+
+    const auto binned_var_pack_string =
+        binned_var_component == -1 ? std::vector<std::string>{}
+                                   : std::vector<std::string>{hist.binned_var_name};
+    const auto binned_var = md->PackVariables(binned_var_pack_string);
+
     const auto ib = md->GetBoundsI(IndexDomain::interior);
     const auto jb = md->GetBoundsJ(IndexDomain::interior);
     const auto kb = md->GetBoundsK(IndexDomain::interior);
@@ -252,7 +261,10 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
                         : upper_bound(y_edges, y_val) - 1;
           }
           auto res = scatter.access();
-          res(y_bin, x_bin) += binned_var(b, binned_var_component, k, j, i);
+          const auto to_add = binned_var_component == -1
+                                  ? 1
+                                  : binned_var(b, binned_var_component, k, j, i);
+          res(y_bin, x_bin) += to_add;
         });
     // "reduce" results from scatter view to original view. May be a no-op depending on
     // backend.

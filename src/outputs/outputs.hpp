@@ -231,8 +231,9 @@ struct Histogram {
   int x_var_component, y_var_component; // components of bin variables (vector)
   ParArray1D<Real> x_edges, y_edges;
   std::string binned_var_name; // variable name of variable to be binned
-  int binned_var_component;    // component of variable to be binned
-  ParArray2D<Real> result;     // resulting histogram
+  int binned_var_component; // component of variable to be binned. If -1 means no variable
+                            // is binned but the histgram is a sample count.
+  ParArray2D<Real> result;  // resulting histogram
 
   // temp view for histogram reduction for better performance (switches
   // between atomics and data duplication depending on the platform)

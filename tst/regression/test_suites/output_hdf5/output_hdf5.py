@@ -182,7 +182,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 hist_parth = infile["0/data"][:]
                 all_close = np.allclose(hist_parth, hist_np1d[0])
                 if not all_close:
-                    print(f"1D hist for {dim}D setup don't match")
+                    print(f"1D variable-based hist for {dim}D setup don't match")
                     analyze_status = False
 
             # 2D histogram with binning of a variable with bins defined by one var and one coord
@@ -203,6 +203,17 @@ class TestCase(utils.test_case.TestCaseAbs):
                 all_close &= np.allclose(hist_parth[:, 1], hist_np2d[0][:, 1])
                 if not all_close:
                     print(f"2D hist for {dim}D setup don't match")
+                    analyze_status = False
+
+            # 1D histogram (simple sampling) with bins defined by a var
+            hist_np1d = np.histogram(advected, [1e-9, 1e-4, 1e-1, 2e-1, 5e-1, 1e0])
+            with h5py.File(
+                f"advection_{dim}d.out2.histograms.final.hdf", "r"
+            ) as infile:
+                hist_parth = infile["2/data"][:]
+                all_close = np.allclose(hist_parth, hist_np1d[0])
+                if not all_close:
+                    print(f"1D sampling-based hist for {dim}D setup don't match")
                     analyze_status = False
 
         return analyze_status
